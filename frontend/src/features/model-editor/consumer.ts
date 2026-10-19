@@ -502,12 +502,14 @@ export function matchOptions(
   if (reads.verb === "under" || reads.verb === "linkedTo") {
     if (fieldsOf(definition).some((field) => field.role === "code"))
       add("code", "Code (every code source)", "Built in");
+    // A rule weighs a field on every exposed type that binds it alike, so a field is listed once,
+    // as the sources are (it was listed under the first type binding it, as if the others had none).
     for (const key of reads.types) {
       const type = outline.objectTypes.find((item) => item.key === key);
       for (const attribute of type?.attributes ?? []) {
         const features = outline.attributeTypes.find((item) => item.key === attribute.attributeType)?.features ?? {};
         if (attribute.unique || features.searchable === true)
-          add(attribute.attributeType, attribute.name, type?.name ?? key);
+          add(attribute.attributeType, attribute.name, "Attributes of the exposed types");
       }
     }
   } else if (reads.verb === "onRelated" && reads.related) {

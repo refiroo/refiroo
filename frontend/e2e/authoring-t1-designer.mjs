@@ -78,7 +78,6 @@ function requiredValues(model, type) {
     });
 }
 
-
 /** The pieces every walk uses, over one page. */
 function editor(page, harness, who) {
   const dialog = () => page.getByRole("dialog").last();
@@ -115,7 +114,7 @@ function editor(page, harness, who) {
     },
     async newDraft(name, starting) {
       await page.goto(`${harness.uiUrl}/settings/model`);
-      await who.press(page.getByRole("button", { name: "New draft" }), "New draft");
+      await who.press(page.getByRole("button", { name: "New draft", exact: true }), "New draft");
       await who.fill(dialog().getByLabel("Draft name"), name, "Draft name");
       if (starting) await who.choose(dialog().getByLabel("Starting document"), starting, "Starting document");
       await who.press(dialog().getByRole("button", { name: "Create draft" }), "Create draft");
@@ -133,7 +132,8 @@ function editor(page, harness, who) {
       await who.fill(page.getByRole("dialog").getByLabel("Name", { exact: true }), name, "a record's name");
       const [created] = await Promise.all([
         page.waitForResponse(
-          (response) => response.request().method() === "POST" && /\/api\/v1\/objects$/.test(new URL(response.url()).pathname),
+          (response) =>
+            response.request().method() === "POST" && /\/api\/v1\/objects$/.test(new URL(response.url()).pathname),
         ),
         who.press(page.getByRole("dialog").getByRole("button", { name: "Create", exact: true }), "Create"),
       ]);
@@ -143,7 +143,6 @@ function editor(page, harness, who) {
     },
   };
 }
-
 
 async function boot(model) {
   return bootHarness({
@@ -162,7 +161,8 @@ async function fromEmpty(label, model, mode) {
   const who = person(page, mode);
   const ed = editor(page, harness, who);
   const noErrors = watchErrors(page);
-  const shot = (name) => page.screenshot({ path: resolve(harness.output, `t1-${label}-empty-${name}.png`), fullPage: true });
+  const shot = (name) =>
+    page.screenshot({ path: resolve(harness.output, `t1-${label}-empty-${name}.png`), fullPage: true });
   const tag = `${label}, walk 1 by ${mode}`;
   try {
     await ed.newDraft("T1 from empty", "Empty model");
@@ -188,7 +188,10 @@ async function fromEmpty(label, model, mode) {
         await ed.apply();
       }, `the type ${name}`);
     assert.equal(
-      await ed.pane.getByRole("treeitem", { name: /^Rack T1/ }).first().getAttribute("aria-level"),
+      await ed.pane
+        .getByRole("treeitem", { name: /^Rack T1/ })
+        .first()
+        .getAttribute("aria-level"),
       "3",
     );
     for (const [type, attribute] of [
@@ -202,7 +205,10 @@ async function fromEmpty(label, model, mode) {
         await who.fill(ed.dialog().getByLabel("Name", { exact: true }), attribute, "the attribute's name");
         await ed.apply();
       }, `the attribute ${attribute}`);
-      await page.getByRole("cell", { name: new RegExp(attribute) }).first().waitFor();
+      await page
+        .getByRole("cell", { name: new RegExp(attribute) })
+        .first()
+        .waitFor();
     }
     checks.push(`${tag}: an application, a type and a type under it, an attribute on each, one step each`);
 
@@ -233,7 +239,11 @@ async function fromEmpty(label, model, mode) {
     }, "a navigation group");
     await who.treeRow(ed.pane, "Room T1");
     await ed.oneStep(async () => {
-      await who.menu(page.getByRole("button", { name: "Operations for Room T1", exact: true }), "Move to group", "Room T1's operations");
+      await who.menu(
+        page.getByRole("button", { name: "Operations for Room T1", exact: true }),
+        "Move to group",
+        "Room T1's operations",
+      );
       await who.choose(ed.dialog().getByLabel("Group"), "Storage T1", "Group");
       await ed.apply();
     }, "the collection moved into the group");
@@ -258,17 +268,30 @@ async function fromEmpty(label, model, mode) {
     const hidden = titles.find((title) => title && !/Rack/.test(title));
     assert.ok(hidden, `the page has a panel other than the children's: ${titles.join(", ")}`);
     await ed.oneStep(
-      () => who.menu(layout.getByRole("button", { name: `Layout of panel ${hidden}`, exact: true }), "Hide", `the panel ${hidden}`),
+      () =>
+        who.menu(
+          layout.getByRole("button", { name: `Layout of panel ${hidden}`, exact: true }),
+          "Hide",
+          `the panel ${hidden}`,
+        ),
       "a panel hidden",
     );
-    await layout.getByRole("region", { name: `Panel ${hidden}`, exact: true }).getByText("hidden").waitFor();
+    await layout
+      .getByRole("region", { name: `Panel ${hidden}`, exact: true })
+      .getByText("hidden")
+      .waitFor();
     await who.tab(layout.getByRole("tablist").first(), "Table");
     const columns = layout.getByRole("list", { name: /^Columns of / });
     await columns.waitFor();
     const before = await columns.locator(".layout-frame-title").allTextContents();
     assert.ok(before.length >= 2, `the table has two columns: ${before.join(", ")}`);
     await ed.oneStep(
-      () => who.menu(layout.getByRole("button", { name: `Layout of column ${before[1]}`, exact: true }), "Move left", `the column ${before[1]}`),
+      () =>
+        who.menu(
+          layout.getByRole("button", { name: `Layout of column ${before[1]}`, exact: true }),
+          "Move left",
+          `the column ${before[1]}`,
+        ),
       "a column moved",
     );
     await page.waitForFunction(
@@ -281,7 +304,13 @@ async function fromEmpty(label, model, mode) {
     checks.push(`${tag}: in the layout editor a panel hidden and a column moved, one step each`);
 
     // A consumer API exposing both types, and its Schema read before installing.
-    await who.tab(page.getByRole("tablist").filter({ has: page.getByRole("tab", { name: "Consumer APIs" }) }).first(), "Consumer APIs");
+    await who.tab(
+      page
+        .getByRole("tablist")
+        .filter({ has: page.getByRole("tab", { name: "Consumer APIs" }) })
+        .first(),
+      "Consumer APIs",
+    );
     const consumerTree = page.getByRole("tree", { name: "Consumer APIs" });
     await ed.oneStep(async () => {
       await who.menu(page.getByRole("button", { name: "Add a consumer API" }), "Consumer API", "Add a consumer API");
@@ -312,7 +341,12 @@ async function fromEmpty(label, model, mode) {
     // Install and activate.
     await who.press(page.getByRole("button", { name: "Install and activate…" }), "Install and activate…");
     await ed.dialog().getByText("Valid", { exact: true }).waitFor();
-    await who.press(ed.dialog().getByRole("button", { name: /^Install .* and activate in / }), "Install and activate");
+    // A model of its own goes into a new workspace by default (0.11, a model per workspace).
+    await who.fill(ed.dialog().getByLabel("Workspace name"), "Depot T1 workspace", "Workspace name");
+    await who.press(
+      ed.dialog().getByRole("button", { name: /^Install .* and create Depot T1 workspace/ }),
+      "Install and create",
+    );
     const done = page.getByRole("status").filter({ hasText: "is installed and active" });
     await done.waitFor({ timeout: 30_000 });
     await who.press(done.getByRole("button", { name: "Open Depot T1" }), "Open Depot T1");
@@ -366,7 +400,9 @@ async function fromEmpty(label, model, mode) {
     await noErrors(tag);
     checks.push(`${tag}: no console error and no Error: text`);
   } catch (error) {
-    await page.screenshot({ path: resolve(harness.output, `t1-${label}-empty-failure.png`), fullPage: true }).catch(() => {});
+    await page
+      .screenshot({ path: resolve(harness.output, `t1-${label}-empty-failure.png`), fullPage: true })
+      .catch(() => {});
     console.error(harness.log().slice(-3000));
     throw error;
   } finally {
@@ -386,7 +422,9 @@ function extensionPoint(model) {
         ([name, value]) => typeof value === "string" && !["id", "name"].includes(name),
       );
       assert.ok(field, "the consumer API has a field with one source");
-      const other = model.objectTypes.find((item) => item.key !== type.key && application.objectTypeKeys.includes(item.key));
+      const other = model.objectTypes.find(
+        (item) => item.key !== type.key && application.objectTypeKeys.includes(item.key),
+      );
       return { definition, type, application, field: field[0], other };
     }
   }
@@ -401,7 +439,8 @@ async function extending(label, model, mode) {
   const who = person(page, mode);
   const ed = editor(page, harness, who);
   const noErrors = watchErrors(page);
-  const shot = (name) => page.screenshot({ path: resolve(harness.output, `t1-${label}-extend-${name}.png`), fullPage: true });
+  const shot = (name) =>
+    page.screenshot({ path: resolve(harness.output, `t1-${label}-extend-${name}.png`), fullPage: true });
   const tag = `${label}, walk 2 by ${mode}`;
   const version = definition.contractVersion;
   try {
@@ -415,7 +454,10 @@ async function extending(label, model, mode) {
     const kept = (await harness.api(`/objects/${top.key}/${existing.id}`)).attributes;
 
     await ed.newDraft("T1 extend");
-    await ed.pane.getByRole("treeitem", { name: new RegExp(`^${application.name}`) }).first().waitFor();
+    await ed.pane
+      .getByRole("treeitem", { name: new RegExp(`^${application.name}`) })
+      .first()
+      .waitFor();
     await ed.oneStep(async () => {
       await ed.add("Object type");
       await who.choose(ed.dialog().getByLabel("Application"), application.name, "Application");
@@ -426,17 +468,40 @@ async function extending(label, model, mode) {
       await ed.apply();
     }, "a type under a released type");
     await who.treeRow(ed.pane, top.name);
-    await page.getByRole("heading", { name: new RegExp(top.name), level: 2 }).first().waitFor();
+    await page
+      .getByRole("heading", { name: new RegExp(top.name), level: 2 })
+      .first()
+      .waitFor();
     await ed.oneStep(async () => {
       await who.press(page.getByRole("button", { name: "New attribute" }), "New attribute");
       await who.fill(ed.dialog().getByLabel("Name", { exact: true }), "Grade T1", "the attribute's name");
       await ed.apply();
     }, "an attribute on a released type");
-    assert.match(await ed.pane.getByRole("treeitem", { name: /^Crate T1/ }).first().textContent(), /New/);
-    assert.match(await ed.pane.getByRole("treeitem", { name: new RegExp(`^${top.name}`) }).first().textContent(), /Changed/);
+    assert.match(
+      await ed.pane
+        .getByRole("treeitem", { name: /^Crate T1/ })
+        .first()
+        .textContent(),
+      /New/,
+    );
+    assert.match(
+      await ed.pane
+        .getByRole("treeitem", { name: new RegExp(`^${top.name}`) })
+        .first()
+        .textContent(),
+      /Changed/,
+    );
     if (other)
-      assert.match(await ed.pane.getByRole("treeitem", { name: new RegExp(`^${other.name}`) }).first().textContent(), /Released|Changed/);
-    checks.push(`${tag}: a type under a released type and an attribute on it; the new one marked new, the released one changed`);
+      assert.match(
+        await ed.pane
+          .getByRole("treeitem", { name: new RegExp(`^${other.name}`) })
+          .first()
+          .textContent(),
+        /Released|Changed/,
+      );
+    checks.push(
+      `${tag}: a type under a released type and an attribute on it; the new one marked new, the released one changed`,
+    );
 
     // Undo and redo (J33.4): a scratch attribute undone, redone, undone; a new step leaves no redo.
     await who.treeRow(ed.pane, "Crate T1");
@@ -451,7 +516,10 @@ async function extending(label, model, mode) {
     await ed.oneStep(() => who.press(undo, "Undo"), "undo");
     await page.getByRole("cell", { name: /Scratch T1/ }).waitFor({ state: "detached" });
     await ed.oneStep(() => who.press(redo, "Redo"), "redo");
-    await page.getByRole("cell", { name: /Scratch T1/ }).first().waitFor();
+    await page
+      .getByRole("cell", { name: /Scratch T1/ })
+      .first()
+      .waitFor();
     await ed.oneStep(() => who.press(undo, "Undo"), "undo again");
     await page.getByRole("cell", { name: /Scratch T1/ }).waitFor({ state: "detached" });
     assert.equal(await redo.isDisabled(), false);
@@ -474,10 +542,18 @@ async function extending(label, model, mode) {
     }, "a relation from the matrix");
     await pair.getByText("Ships T1").waitFor();
     assert.equal(await redo.isDisabled(), true, "a new step leaves nothing to redo");
-    checks.push(`${tag}: undo and redo of a step, and a new step after an undo leaves nothing to redo; a relation from the released type to the new one`);
+    checks.push(
+      `${tag}: undo and redo of a step, and a new step after an undo leaves nothing to redo; a relation from the released type to the new one`,
+    );
 
     // The released consumer API: a field from the new attribute, then a released field renamed.
-    await who.tab(page.getByRole("tablist").filter({ has: page.getByRole("tab", { name: "Consumer APIs" }) }).first(), "Consumer APIs");
+    await who.tab(
+      page
+        .getByRole("tablist")
+        .filter({ has: page.getByRole("tab", { name: "Consumer APIs" }) })
+        .first(),
+      "Consumer APIs",
+    );
     const consumerTree = page.getByRole("tree", { name: "Consumer APIs" });
     await who.treeRow(consumerTree, definition.name);
     const centre = page.getByRole("region", { name: "Selected consumer API" });
@@ -496,17 +572,29 @@ async function extending(label, model, mode) {
       await ed.apply();
     }, "a field from the new attribute");
     await centre.getByRole("row", { name: /gradeT1/ }).waitFor();
-    assert.equal(await centre.getByText(`Needs contract version ${version + 1}`).count(), 0, "an added field is compatible");
+    assert.equal(
+      await centre.getByText(`Needs contract version ${version + 1}`).count(),
+      0,
+      "an added field is compatible",
+    );
     const renamedField = `${field}T1`;
     await ed.oneStep(async () => {
-      await who.press(centre.getByRole("button", { name: `Edit Output name: ${field}`, exact: true }), `the output name ${field}`);
+      await who.press(
+        centre.getByRole("button", { name: `Edit Output name: ${field}`, exact: true }),
+        `the output name ${field}`,
+      );
       const input = page.getByRole("form", { name: "Edit Output name" }).getByRole("textbox");
       await who.fill(input, renamedField, "the output name");
       await page.keyboard.press("Enter");
     }, "a released field renamed");
-    await centre.getByText(`Needs contract version ${version + 1}`).first().waitFor();
+    await centre
+      .getByText(`Needs contract version ${version + 1}`)
+      .first()
+      .waitFor();
     await shot("contract-1440");
-    checks.push(`${tag}: a field from the new attribute added compatibly; a released field renamed needs contract version ${version + 1}`);
+    checks.push(
+      `${tag}: a field from the new attribute added compatibly; a released field renamed needs contract version ${version + 1}`,
+    );
 
     // Install and activate: held until the version is raised in the dialog, in one step.
     await who.press(page.getByRole("button", { name: "Install and activate…" }), "Install and activate…");
@@ -514,7 +602,10 @@ async function extending(label, model, mode) {
     const activate = ed.dialog().getByRole("button", { name: /^Install .* and activate in / });
     assert.equal(await activate.isDisabled(), true, "Activate waits for the contract version");
     await shot("install-held-1440");
-    await ed.oneStep(() => who.press(ed.dialog().getByRole("button", { name: `Raise to v${version + 1}` }), "Raise"), "the version raised");
+    await ed.oneStep(
+      () => who.press(ed.dialog().getByRole("button", { name: `Raise to v${version + 1}` }), "Raise"),
+      "the version raised",
+    );
     await page.waitForFunction(() =>
       [...document.querySelectorAll('[role="dialog"] button')].some(
         (button) => /^Install .* and activate in /.test(button.textContent ?? "") && !button.disabled,
@@ -523,45 +614,73 @@ async function extending(label, model, mode) {
     await who.press(activate, "Install and activate");
     await page.getByRole("status").filter({ hasText: "is installed and active" }).waitFor({ timeout: 30_000 });
     // The draft continues on the installed release: what it added is released now, nothing changed.
-    await who.tab(page.getByRole("tablist").filter({ has: page.getByRole("tab", { name: "Consumer APIs" }) }).first(), "Model");
+    await who.tab(
+      page
+        .getByRole("tablist")
+        .filter({ has: page.getByRole("tab", { name: "Consumer APIs" }) })
+        .first(),
+      "Model",
+    );
     await page.waitForFunction(() =>
       [...document.querySelectorAll('[role="tree"][aria-label="Model"] [role="treeitem"]')].some(
-        (row) => row.querySelector(".model-pane-label")?.textContent === "Crate T1" && /Released/.test(row.textContent ?? ""),
+        (row) =>
+          row.querySelector(".model-pane-label")?.textContent === "Crate T1" && /Released/.test(row.textContent ?? ""),
       ),
     );
     for (const name of ["Crate T1", top.name])
       assert.match(
-        await ed.pane.getByRole("treeitem").filter({ has: page.locator(".model-pane-label", { hasText: new RegExp(`^${escape(name)}$`) }) }).first().textContent(),
+        await ed.pane
+          .getByRole("treeitem")
+          .filter({ has: page.locator(".model-pane-label", { hasText: new RegExp(`^${escape(name)}$`) }) })
+          .first()
+          .textContent(),
         /Released/,
         `${name} reads released after the installation`,
       );
-    checks.push(`${tag}: the install dialog holds Activate until the contract version is raised there in one step; installed and activated, and what the draft added then reads released`);
+    checks.push(
+      `${tag}: the install dialog holds Activate until the contract version is raised there in one step; installed and activated, and what the draft added then reads released`,
+    );
 
     // A record of the new type under the existing record; the existing values kept.
     await page.goto(`${harness.uiUrl}/apps/${application.key}/objects/${top.key}/${existing.id}`);
     await page.getByRole("heading", { name: "Existing T1", level: 1 }).waitFor();
-    const crate = await ed.createRecord(page.getByRole("button", { name: "Add Crate T1", exact: true }), "First crate", "Add Crate T1");
+    const crate = await ed.createRecord(
+      page.getByRole("button", { name: "Add Crate T1", exact: true }),
+      "First crate",
+      "Add Crate T1",
+    );
     // A child added from its parent's panel is listed there; the parent's page stays.
     await page.getByRole("cell", { name: "First crate" }).first().waitFor();
     assert.equal(crate.parentObjectId, existing.id, "the new record stands under the record it was added from");
     assert.deepEqual((await harness.api(`/objects/${top.key}/${existing.id}`)).attributes, kept);
     await shot("record-1440");
-    checks.push(`${tag}: a record of the new type created from an existing record's page, under it and listed in its children; the existing values kept`);
+    checks.push(
+      `${tag}: a record of the new type created from an existing record's page, under it and listed in its children; the existing values kept`,
+    );
 
     // The consumer tier: the new version serves the renamed field, the old one is gone.
-    const served = await fetch(`${harness.apiUrl}/api/consumer/${definition.key}/v${version + 1}/objects/${existing.id}`);
+    const served = await fetch(
+      `${harness.apiUrl}/api/consumer/${definition.key}/v${version + 1}/objects/${existing.id}`,
+    );
     assert.equal(served.status, 200, await served.clone().text());
     const message = await served.json();
-    assert.ok(renamedField in message && !(field in message), `v${version + 1} serves ${renamedField}: ${Object.keys(message)}`);
+    assert.ok(
+      renamedField in message && !(field in message),
+      `v${version + 1} serves ${renamedField}: ${Object.keys(message)}`,
+    );
     const old = await fetch(`${harness.apiUrl}/api/consumer/${definition.key}/v${version}/objects/${existing.id}`);
     assert.equal(old.status, 404);
-    checks.push(`${tag}: the consumer tier serves v${version + 1} with the renamed field and answers 404 at v${version}`);
+    checks.push(
+      `${tag}: the consumer tier serves v${version + 1} with the renamed field and answers 404 at v${version}`,
+    );
     await noErrors(tag);
     checks.push(`${tag}: no console error and no Error: text`);
 
     await phoneWalk(label, harness, application);
   } catch (error) {
-    await page.screenshot({ path: resolve(harness.output, `t1-${label}-extend-failure.png`), fullPage: true }).catch(() => {});
+    await page
+      .screenshot({ path: resolve(harness.output, `t1-${label}-extend-failure.png`), fullPage: true })
+      .catch(() => {});
     console.error(harness.log().slice(-3000));
     throw error;
   } finally {
@@ -579,7 +698,11 @@ async function phoneWalk(label, harness, application) {
   const noErrors = watchErrors(page);
   const tag = `${label}, 390px`;
   const fits = async (where) =>
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${where} scrolls sideways`);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      true,
+      `${where} scrolls sideways`,
+    );
   try {
     await ed.newDraft("T1 phone");
     await fits("the editor");
@@ -591,17 +714,28 @@ async function phoneWalk(label, harness, application) {
       await fits("the add dialog");
       await ed.apply();
     }, "a type at 390px");
-    await page.getByRole("tree", { name: "Model" }).getByRole("treeitem", { name: /^Tray T1/ }).first().tap();
+    await page
+      .getByRole("tree", { name: "Model" })
+      .getByRole("treeitem", { name: /^Tray T1/ })
+      .first()
+      .tap();
     await page.getByRole("tab", { name: "Tray T1", selected: true }).waitFor();
     await ed.oneStep(async () => {
       await who.press(page.getByRole("button", { name: "New attribute" }), "New attribute");
       await who.fill(ed.dialog().getByLabel("Name", { exact: true }), "Tray code", "the attribute's name");
       await ed.apply();
     }, "an attribute at 390px");
-    await page.getByRole("cell", { name: /Tray code/ }).first().waitFor();
+    await page
+      .getByRole("cell", { name: /Tray code/ })
+      .first()
+      .waitFor();
     await fits("the type's tab");
     // On a phone the bar's Open as JSON and Install and activate stand in its More menu.
-    await who.menu(page.getByRole("button", { name: /^More: .*Install and activate/ }), "Install and activate…", "More");
+    await who.menu(
+      page.getByRole("button", { name: /^More: .*Install and activate/ }),
+      "Install and activate…",
+      "More",
+    );
     await ed.dialog().getByText("Valid", { exact: true }).waitFor();
     await fits("the install dialog");
     await who.press(ed.dialog().getByRole("button", { name: /^Install .* and activate in / }), "Install and activate");
@@ -613,18 +747,28 @@ async function phoneWalk(label, harness, application) {
     const view = await harness.api("/model");
     const app = view.applications.find((item) => item.key === application.key);
     const tray = view.objectTypes.find((item) => item.name === "Tray T1");
-    const collection = app.views.find((item) => item.objectTypeKey === tray.key || item.objectTypeKeys?.includes?.(tray.key));
+    const collection = app.views.find(
+      (item) => item.objectTypeKey === tray.key || item.objectTypeKeys?.includes?.(tray.key),
+    );
     assert.ok(collection, "the new type has a collection");
     await page.goto(`${harness.uiUrl}/apps/${application.key}/views/${collection.key}`);
     await fits("the collection");
-    await ed.createRecord(page.getByRole("button", { name: "Add Tray T1", exact: true }).first(), "First tray", "Add Tray T1");
+    await ed.createRecord(
+      page.getByRole("button", { name: "Add Tray T1", exact: true }).first(),
+      "First tray",
+      "Add Tray T1",
+    );
     await page.getByRole("heading", { name: "First tray", level: 1 }).waitFor();
     await fits("the record page");
     await page.screenshot({ path: resolve(harness.output, `t1-${label}-390-record.png`), fullPage: true });
     await noErrors(tag);
-    checks.push(`${tag}: a type and an attribute added through the phone tabs, installed and activated, a record created; nothing scrolls sideways`);
+    checks.push(
+      `${tag}: a type and an attribute added through the phone tabs, installed and activated, a record created; nothing scrolls sideways`,
+    );
   } catch (error) {
-    await page.screenshot({ path: resolve(harness.output, `t1-${label}-390-failure.png`), fullPage: true }).catch(() => {});
+    await page
+      .screenshot({ path: resolve(harness.output, `t1-${label}-390-failure.png`), fullPage: true })
+      .catch(() => {});
     throw error;
   } finally {
     await narrow.close();

@@ -701,7 +701,7 @@ def _check_tree_view(
                     f"attribute attached to '{node.key}'",
                 )
     for position, action in enumerate(config.actions):
-        reason = _tree_action_refusal(action, config, nodes, containers)
+        reason = tree_action_refusal(action, config, nodes, containers)
         if reason:
             raise ModelReferenceError(
                 "INVALID_MODEL",
@@ -710,7 +710,7 @@ def _check_tree_view(
             )
 
 
-def _tree_action_refusal(
+def tree_action_refusal(
     action: str,
     config: TreeViewConfig,
     nodes: Sequence[ObjectTypeDefinition],

@@ -95,7 +95,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
   try {
     // Open a draft of the active release in the editor (D7).
     await page.goto(`${harness.uiUrl}/settings/model`);
-    await page.getByRole("button", { name: "New draft" }).click();
+    await page.getByRole("button", { name: "New draft", exact: true }).click();
     await dialog().getByLabel("Draft name").fill("A4a design");
     await measure();
     await dialog().getByRole("button", { name: "Create draft" }).click();
@@ -316,10 +316,12 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await row(application.name).hover();
     await page.mouse.up();
     await dialog()
-      .getByRole("option", { name: /The top level/, selected: true })
+      .getByRole("option", { name: new RegExp(`Top level of ${application.name}`), selected: true })
       .waitFor();
     await assertDialogLayout(page, `${label}: Move to… from a drop`);
-    await dialog().getByRole("button", { name: "Move to the top level" }).click();
+    await dialog()
+      .getByRole("button", { name: `Move to the top level of ${application.name}` })
+      .click();
     await dialog().waitFor({ state: "hidden" });
     await page.waitForFunction(
       () => document.querySelector('[data-row^="type:"][aria-level="2"]')?.closest("ul") !== null,
@@ -330,6 +332,56 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       .getAttribute("aria-level");
     assert.equal(shelfLevel, "2");
     checks.push(`${label}: dragging a type to its application opens Move to… with the top level chosen, and moves it`);
+
+    // Drag: Shelf onto another application (J33.15, found 2026-10-19), the pane scrolling while the
+    // pointer rests at its bottom edge; Shelf then stands in that application, and Undo puts it back.
+    const otherApp = model.applications.find((item) => item.key !== application.key);
+    if (otherApp) {
+      // A short window, so the pane's rows run past its foot and the drag has to scroll it.
+      const size = page.viewportSize();
+      await page.setViewportSize({ width: size.width, height: 420 });
+      const scroller = await page.evaluateHandle(() => {
+        for (let node = document.querySelector(".model-pane-tree"); node; node = node.parentElement) {
+          const overflow = getComputedStyle(node).overflowY;
+          if ((overflow === "auto" || overflow === "scroll") && node.scrollHeight > node.clientHeight) return node;
+        }
+        return document.scrollingElement;
+      });
+      await scroller.evaluate((node) => (node.scrollTop = 0));
+      await row("Shelf A4a").scrollIntoViewIfNeeded();
+      const from = await row("Shelf A4a").boundingBox();
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 - 12, { steps: 3 });
+      const box = await scroller.evaluate((node) => {
+        const rect =
+          node === document.scrollingElement
+            ? { top: 0, bottom: innerHeight, left: 0, right: innerWidth }
+            : node.getBoundingClientRect();
+        return { x: (rect.left + Math.min(rect.right, innerWidth)) / 2, y: Math.min(rect.bottom, innerHeight) - 10 };
+      });
+      const before = await scroller.evaluate((node) => node.scrollTop);
+      for (let step = 0; step < 12; step += 1) await page.mouse.move(box.x + (step % 2), box.y, { steps: 2 });
+      const after = await scroller.evaluate((node) => node.scrollTop);
+      assert.ok(after > before, `the pane scrolls while a drag rests at its edge (${before} → ${after})`);
+      await row(otherApp.name).hover();
+      await page.mouse.up();
+      await dialog()
+        .getByRole("option", { name: new RegExp(`Top level of ${otherApp.name}`), selected: true })
+        .waitFor();
+      await dialog()
+        .getByRole("button", { name: `Move to the top level of ${otherApp.name}` })
+        .click();
+      await dialog().waitFor({ state: "hidden" });
+      await page.locator(`[data-row^="type:${otherApp.key}:"]`, { hasText: "Shelf A4a" }).first().waitFor();
+      assert.equal(await page.locator(`[data-row^="type:${application.key}:"]`, { hasText: "Shelf A4a" }).count(), 0);
+      await page.getByRole("button", { name: "Undo", exact: true }).click();
+      await page.locator(`[data-row^="type:${application.key}:"]`, { hasText: "Shelf A4a" }).first().waitFor();
+      await page.setViewportSize(size);
+      checks.push(
+        `${label}: dragging a type onto another application moves it there, the pane scrolling at its edge during the drag, and Undo takes it back`,
+      );
+    }
 
     // A draft-only operation on a released type is refused with its impact; nothing applies.
     await row(top.name).click();
@@ -577,7 +629,7 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     if (emptyDraft) {
       // From an empty draft: an application with two types, installed.
       await page.goto(`${harness.uiUrl}/settings/model`);
-      await page.getByRole("button", { name: "New draft" }).click();
+      await page.getByRole("button", { name: "New draft", exact: true }).click();
       await dialog().getByLabel("Draft name").fill("From empty A4a");
       await dialog().getByLabel("Starting document").selectOption({ label: "Empty model" });
       await dialog().getByRole("button", { name: "Create draft" }).click();
@@ -631,9 +683,10 @@ async function journey(label, source, { emptyDraft = false } = {}) {
       await shot("empty-built-1440");
       await page.getByRole("button", { name: "Install and activate…" }).click();
       await dialog().getByText("Valid", { exact: true }).waitFor();
-      await dialog()
-        .getByRole("button", { name: /^Install .* and activate in / })
-        .click();
+      // A model of its own goes into a new workspace by default (0.11, a model per workspace).
+      await dialog().getByLabel("Workspace name").fill("From empty A4a");
+      await assertDialogLayout(page, `${label}: Install into a new workspace`);
+      await dialog().getByRole("button", { name: "Install 1.0.0 and create From empty A4a" }).click();
       await page
         .getByRole("status")
         .filter({ hasText: /installed/ })

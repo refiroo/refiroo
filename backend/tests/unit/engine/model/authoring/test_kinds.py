@@ -62,6 +62,9 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
         yield {"kind": "setKey", "element": {"objectType": type_key}, "key": "zz-type"}
         yield {"kind": "removeObjectType", "objectType": type_key}
         yield {"kind": "setContainment", "objectType": type_key, "parent": None}
+        for application in model["applications"]:
+            if type_key not in application["objectTypeKeys"]:
+                yield {"kind": "setContainment", "objectType": type_key, "application": application["key"]}
         yield {"kind": "allowRelation", "relationType": model["relationTypes"][0]["key"], "from": type_key, "to": types[0]}
         bindings = [b["attributeTypeKey"] for b in next(t for t in model["objectTypes"] if t["key"] == type_key).get("attributes", [])]
         for attribute in bindings:
@@ -226,3 +229,157 @@ def test_a_consumer_api_started_for_any_type_compiles(model_name: str):
         _apply(data, {"kind": "addConsumerApi", "name": f"Feed of {object_type['name']}", "exposes": [object_type["key"]]})
         compiled = compile_model(data)
         assert compiled.valid, (object_type["key"], compiled.diagnostics)
+
+
+def _moves(model: dict[str, Any]) -> Iterator[tuple[str, str, str]]:
+    """Every type with the one application listing it and each application that does not."""
+    for object_type in model["objectTypes"]:
+        listed = [a["key"] for a in model["applications"] if object_type["key"] in a["objectTypeKeys"]]
+        if len(listed) == 1:
+            for application in model["applications"]:
+                if application["key"] not in listed:
+                    yield object_type["key"], listed[0], application["key"]
+
+
+def _contained(model: dict[str, Any], parent: str) -> list[str]:
+    return [
+        t["key"]
+        for t in model["objectTypes"]
+        for b in model["objectTypeRelations"]
+        if b["fromObjectTypeKey"] == parent
+        and b["toObjectTypeKey"] == t["key"]
+        and b["relationTypeKey"] in ((t.get("behavior") or {}).get("parentRelationTypeKeys") or [])
+    ]
+
+
+@pytest.mark.parametrize("model_name", list(MODELS))
+def test_a_type_moved_to_another_application_takes_its_branch_and_keeps_the_draft_valid(model_name: str):
+    """Moving a type between applications was missing (found 2026-10-19): the type and every type
+    under it leave the application with their views and detail pages, and the draft stays valid. An
+    application left with no type has no default view, as a new empty one."""
+    original = MODELS[model_name]
+    for type_key, source, target in _moves(original):
+        data = copy.deepcopy(original)
+        _apply(data, {"kind": "setContainment", "objectType": type_key, "application": target})
+        apps = {a["key"]: a for a in data["applications"]}
+        branch, pending = [], [type_key]
+        while pending:
+            current = pending.pop()
+            if current not in branch and current in next(a for a in original["applications"] if a["key"] == source)["objectTypeKeys"]:
+                branch.append(current)
+                pending.extend(_contained(original, current))
+        assert set(branch) <= set(apps[target]["objectTypeKeys"]), (type_key, target)
+        assert not set(branch) & set(apps[source]["objectTypeKeys"]), (type_key, source)
+        # A type's lists go with it, relation columns naming another application's types and all
+        # (a list was lost so, found 2026-10-19).
+        before = next(a for a in original["applications"] if a["key"] == source)
+        arriving = set(branch) - set(next(a for a in original["applications"] if a["key"] == target)["objectTypeKeys"])
+        for view in before["views"]:
+            if view["type"] == "table" and view["objectTypeKey"] in arriving:
+                assert any(v == {**view, "key": v["key"]} for v in apps[target]["views"]), (type_key, view["key"])
+        # Nothing is lost that can stand somewhere (lists were, found 2026-10-19): a view is kept,
+        # perhaps re-keyed, unless it is a matrix whose three types no application lists together.
+        members = [set(a["objectTypeKeys"]) for a in data["applications"]]
+        kept_views = [json.dumps({**v, "key": ""}, sort_keys=True) for a in data["applications"] for v in a["views"]]
+        for view in before["views"]:
+            if json.dumps({**view, "key": ""}, sort_keys=True) in kept_views:
+                continue
+            if view["type"] == "tree":
+                # A tree staying behind loses the nodes that moved away, and keeps its top.
+                trimmed = next((v for v in apps[source]["views"] if v["key"] == view["key"]), None)
+                assert trimmed and set(trimmed["config"]["objectTypeKeys"]) == set(view["config"]["objectTypeKeys"]) - set(branch), (type_key, view["key"])
+                continue
+            assert view["type"] == "relationMatrix", (type_key, target, view["key"])
+            config = view["config"]
+            need = {config["rowObjectTypeKey"], config["columnObjectTypeKey"], config["cellObjectTypeKey"]}
+            assert not any(need <= m for m in members), (type_key, target, view["key"])
+        # What stays behind keeps its columns and fields (a panel lost two, found 2026-10-19).
+        for detail in before.get("details", []):
+            if detail["objectTypeKey"] in branch:
+                continue
+            kept = {p["key"]: p for p in next(d for d in apps[source]["details"] if d["objectTypeKey"] == detail["objectTypeKey"])["panels"]}
+            for panel in detail["panels"]:
+                for part in ("columns", "fields", "sortFields"):
+                    if panel["key"] in kept and part in (panel.get("config") or {}):
+                        assert kept[panel["key"]]["config"].get(part) == panel["config"][part], (type_key, detail["objectTypeKey"], panel["key"], part)
+        compiled = compile_model(data)
+        problems = [d for d in compiled.diagnostics if d.severity == "error"]
+        if apps[source]["objectTypeKeys"]:
+            assert not problems, (type_key, source, target, problems[:2])
+        else:
+            assert [d.path for d in problems] == [f"/applications/{source}/defaultView"], (type_key, target, problems[:2])
+
+
+@pytest.mark.parametrize("model_name", list(MODELS))
+def test_a_tree_s_top_given_a_parent_keeps_its_tree_valid(model_name: str):
+    """A tree's top type put under a parent left the tree naming a top that needs a parent; the draft
+    showed the error (found 2026-10-19). The tree grows up to the parent, keeping what it can show."""
+    original = MODELS[model_name]
+    for application in original["applications"]:
+        for view in application["views"]:
+            if view["type"] != "tree":
+                continue
+            root = view["config"]["rootObjectTypeKeys"][0]
+            parent = next((t for t in application["objectTypeKeys"] if t not in view["config"]["objectTypeKeys"]), None)
+            if parent is None:
+                continue
+            data = copy.deepcopy(original)
+            relation = {"name": "Holds", "reverseName": "Held by"}
+            _apply(data, {"kind": "setContainment", "objectType": root, "parent": {"objectTypes": [parent], "relationType": relation}})
+            tree = f"/applications/{application['key']}/views/{view['key']}"
+            compiled = compile_model(data)
+            assert not [d for d in compiled.diagnostics if d.path.startswith(tree)], (tree, compiled.diagnostics[:2])
+
+
+@pytest.mark.parametrize("model_name", list(MODELS))
+def test_a_type_merged_into_its_parent_does_not_contain_itself(model_name: str):
+    """A merge turned the containment between the two types into the survivor containing itself, and
+    left consumer APIs naming the merged-away type (found 2026-10-19)."""
+    original = MODELS[model_name]
+    own_hierarchies = {b["relationTypeKey"] for b in original["objectTypeRelations"] if b["fromObjectTypeKey"] == b["toObjectTypeKey"]}
+    for parent in [t["key"] for t in original["objectTypes"]]:
+        for child in [c for c in _contained(original, parent) if c != parent]:
+            data = copy.deepcopy(original)
+            _apply(data, {"kind": "mergeObjectTypes", "into": parent, "from": child})
+            relations = {r["key"]: r for r in data["relationTypes"]}
+            assert not [
+                b
+                for b in data["objectTypeRelations"]
+                if b["fromObjectTypeKey"] == b["toObjectTypeKey"] == parent
+                and (relations.get(b["relationTypeKey"], {}).get("features") or {}).get("parentOf")
+                # A type's own self-hierarchy is inherited, not made by the merge.
+                and b["relationTypeKey"] not in own_hierarchies
+            ], (parent, child)
+            assert references(data, "objectType", child) == [], (parent, child)
+
+
+
+CONFIGURATIONS = {"example": example(), "generated-b": generated("b")}
+
+
+@pytest.mark.parametrize("model_name", list(MODELS))
+def test_a_list_whose_column_reaches_another_application_moves_with_its_type(model_name: str):
+    """A list of a moving type was left behind, and dropped, when a column reached a type outside the
+    branch: a related record's ancestor in another application (found 2026-10-19 on a model's
+    timetable types, whose language column reached the translations' languages). It moves as
+    authored; the draft stays valid."""
+    configuration = CONFIGURATIONS[model_name]
+    data = copy.deepcopy(MODELS[model_name])
+    type_key, ancestor = configuration.key("R"), configuration.key("G")
+    listed = [a for a in data["applications"] if type_key in a["objectTypeKeys"]]
+    source = listed[0]
+    target = next(a["key"] for a in data["applications"] if type_key not in a["objectTypeKeys"])
+    view = next(v for v in source["views"] if v["type"] == "table" and v["objectTypeKey"] == type_key)
+    column = f"related:{configuration.key('Bown')}.ancestor:{ancestor}.name"
+    _apply(data, {"kind": "insertViewItem", "applicationKey": source["key"], "view": view["key"], "list": "columns", "item": column})
+    _apply(data, {"kind": "setViewProperty", "applicationKey": source["key"], "view": view["key"], "property": "pageSize", "value": 7})
+    assert compile_model(data).valid, compile_model(data).diagnostics[:2]
+    authored = copy.deepcopy(next(v for v in next(a for a in data["applications"] if a["key"] == source["key"])["views"] if v["key"] == view["key"]))
+    move = {"kind": "setContainment", "objectType": type_key, "application": target}
+    if len(listed) > 1:
+        move["fromApplication"] = source["key"]
+    _apply(data, move)
+    arrived = [v for v in next(a for a in data["applications"] if a["key"] == target)["views"] if v.get("objectTypeKey") == type_key]
+    assert any(v == {**authored, "key": v["key"]} for v in arrived), arrived
+    compiled = compile_model(data)
+    assert not [d for d in compiled.diagnostics if d.severity == "error" and not d.path.endswith("/defaultView")], compiled.diagnostics[:2]

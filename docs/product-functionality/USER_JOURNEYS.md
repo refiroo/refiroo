@@ -862,6 +862,11 @@ invalid between steps; installation refuses an invalid draft as J08 does.
 - **J33.14 A consumer contract change at activation** (A4c): a change the active release's consumers
   would notice shows as needing a higher contract version after each step and in the install dialog;
   activation is refused until the version is raised, which is one step.
+- **J33.15 Move a branch to another application**: a type, dragged onto another application or
+  chosen there in Move to…, moves with every type under it: they leave the first application with
+  their views and detail pages and stand in the other at its top or under a type there, their
+  containment as it was. A tree view follows its top up to a new parent. One step; one undo returns
+  it. A type in several applications names the one it leaves (2026-10-19).
 
 **Refusals:** `422 INVALID_OPERATION`, `409 OPERATION_REQUIRES_MIGRATION`,
 `409 OPERATION_HAS_DEPENDANTS`, `409 NOTHING_TO_UNDO`, `409 NOTHING_TO_REDO`, `409 VERSION_CONFLICT`,
@@ -871,7 +876,10 @@ activation; with administration disabled the routes are absent.
 **Evidence today:** J33.9: `test_j33_design` (the `navigation` contract on two configurations),
 `test:browser:authoring-n1` (sidebar groups and the group page), `Explorer.test`, `model.test`,
 `routes.test`. J33.1–J33.8, J33.12 and J08.9 through the API: `test_j33_operations` (on two
-configurations each); every kind and its inverse: `tests/unit/engine/model/authoring/`. The
+configurations each); J33.15 through the API: `test_j33_operations` (a three-level branch moved to
+the top of another application, then under a type there, and undone; the refusals); every kind and
+its inverse, every type moved to every other application keeping the draft valid, a tree's top given a
+parent and a type merged into its parent: `tests/unit/engine/model/authoring/`. The
 outline: `test_j33_outline` (two configurations each). In the browser: `test:browser:authoring-a4a`
 (the renamed example and generated-b: a type, an attribute, a relation from the matrix, a group,
 undo and redo, Move to… by keyboard, a drag, a released element refused, a stale version, install

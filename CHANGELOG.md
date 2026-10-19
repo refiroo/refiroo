@@ -6,6 +6,39 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (the model editor's moves)
+
+- A type could not be moved to another application: Move to… and a drop on an application only set
+  its parent, so the type stayed where it was, and a parent in the other application left the draft
+  invalid. `setContainment` takes `application` (and `fromApplication` for a type in several): the
+  type and every type under it move there with their views and detail pages, their containment and
+  relations kept, in one step. A drop on another application, or its top level chosen in Move to…,
+  sends it (J33.15). Nothing that can stand in the other application is left out: a list moves with
+  the type it lists even when a column reaches another application's type, mapping grids and
+  matrices that need a moving type follow it, a page the other application has already takes the
+  panels it lacks, and what stays keeps its columns. First delivered without these, it dropped a
+  list whose language column reached the translations, columns of a staying panel, and mapping
+  grids; a sweep of every type to every application over three real models found them. What can
+  stand in neither application still goes without being named (a matrix whose types no application
+  lists together, a staying page's children panel of a type that moved).
+- A tree view's top type given a parent left the draft invalid ("cannot exist without a parent");
+  a type moved to the top dropped out of the tree it was a node of. The tree now grows up to the new
+  parent, or takes the type as a top of its own, and drops what it can no longer show or offer.
+- Merging a type into its parent made the survivor contain itself, and left consumer APIs naming
+  the merged-away type. The containment between the two is dropped, and the consumer APIs name the
+  survivor.
+- Add XREF rule… listed a field several exposed types share under the first of them alone, so
+  the others (a model's timetable types) seemed to have no field to match on. A rule weighs a
+  field on every exposed type alike, so the list now shows each field once, under "Attributes of the
+  exposed types", as the field sources do.
+- A list inside a dialog (the relationship dialog's record list) carried the wheel at its first
+  or last row on to the page behind the dialog, so the table there moved. A list carries it no
+  further than its dialog, and the dialog holds the browser's own carry too.
+- The model pane did not scroll while a drag neared its top or bottom, so rows out of view could not
+  be reached; it scrolls as the record tree does, through one shared helper.
+- The Install and activate dialog's buttons fell below its frame when the differences ran long; they
+  stay at its foot as Map to…'s do.
+
 ### Changed (0.11 N2, the job worker on several nodes)
 
 - A running job keeps its lease by a heartbeat, renewed every third of `JOB_LEASE_SECONDS` whatever

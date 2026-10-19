@@ -140,8 +140,11 @@ def place_attribute(document: Document, type_key: str, attribute_key: str) -> No
 
 
 def place_child(document: Document, parent_key: str, child_key: str) -> None:
-    """Show a contained type in its parent's detail pages, and the hierarchy in the child's."""
+    """Show a contained type in its parent's detail pages, and the hierarchy in the child's; only in
+    an application listing the child, as a panel names only its application's types."""
     for path in detail_paths(document, parent_key):
+        if child_key not in (document.at(path[:2]).get("objectTypeKeys") or []):
+            continue
         panels = document.at(path).get("panels") or []
         panel = next((p for p in panels if p.get("type") == "children"), None)
         if panel is None:

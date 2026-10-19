@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { scrollAtEdge, scrollerOf } from "@/lib/edgeScroll";
 import { chooseGapBranch, gapBranches, type RowPlace } from "@/model/treeDrop";
 import type { ObjectItem } from "@/types";
 
@@ -69,9 +70,6 @@ export const SEVERAL_CHANGE_TYPE = "Move records that change type one at a time"
 const THRESHOLD = 5;
 /** How long a pointer rests over a collapsed branch before it opens. */
 const EXPAND_DELAY = 700;
-/** The band along a window's top and bottom edges that scrolls it, and the fastest step per frame. */
-const EDGE = 40;
-const MAX_STEP = 16;
 
 interface Session {
   item: ObjectItem;
@@ -244,22 +242,8 @@ export function useTreeDrag({
       // Flat scrolling (UA9, U-D21): no window of its own, so the tree's nearest scroller moves.
       if (!viewports.length) viewports.push(scrollerOf(root));
       for (const viewport of viewports) {
-        const rect =
-          viewport === document.scrollingElement
-            ? { top: 0, bottom: window.innerHeight }
-            : viewport.getBoundingClientRect();
-        const up = rect.top + EDGE - current.at.y;
-        const down = current.at.y - (rect.bottom - EDGE);
-        const step = (depth: number) => Math.min(MAX_STEP, Math.ceil((depth / EDGE) * MAX_STEP));
-        const delta =
-          up > 0 && viewport.scrollTop > 0
-            ? -step(up)
-            : down > 0 && viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 1
-              ? step(down)
-              : 0;
-        if (!delta) continue;
+        if (!scrollAtEdge(viewport, current.at.y)) continue;
         current.viewport = viewport;
-        viewport.scrollTop += delta;
         update();
         break;
       }
@@ -356,15 +340,6 @@ export function useTreeDrag({
   useEffect(() => () => session.current?.end(false), []);
 
   return { drag: state, startDrag: config ? start : undefined, preview };
-}
-
-/** The nearest ancestor of the tree that scrolls vertically, else the document's scroller. */
-function scrollerOf(root: HTMLElement): HTMLElement {
-  for (let element = root.parentElement; element; element = element.parentElement) {
-    const overflow = getComputedStyle(element).overflowY;
-    if ((overflow === "auto" || overflow === "scroll") && element.scrollHeight > element.clientHeight) return element;
-  }
-  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
 }
 
 function keyOf(item: HTMLElement) {

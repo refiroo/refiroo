@@ -78,7 +78,7 @@ import { canRedo, describeOperation, followKeyChange, historySteps, undoable } f
 import { InstallDialog } from "@/features/model-editor/InstallDialog";
 import { IssuesAndHistory } from "@/features/model-editor/IssuesAndHistory";
 import { droppedColumn, ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
-import { MoveToDialog, type MoveSubject } from "@/features/model-editor/MoveToDialog";
+import { MoveToDialog, topOf, typeIn, type MoveSubject } from "@/features/model-editor/MoveToDialog";
 import { OperationDialog, refusalText, type StepOutcome } from "@/features/model-editor/OperationDialog";
 import { type FieldValues, type OperationSpec, type OperationTarget } from "@/features/model-editor/operations";
 import {
@@ -376,7 +376,15 @@ export function ModelEditor({
             subject: { kind: "attribute", objectType: item.objectType, attributeType: item.attributeType },
             target: item.target,
           }
-        : { kind: "move", subject: { kind: "objectType", objectType: item.objectType }, target: item.target },
+        : {
+            kind: "move",
+            subject: { kind: "objectType", objectType: item.objectType, application: item.from || undefined },
+            target: item.application
+              ? item.target
+                ? typeIn(item.application, item.target)
+                : topOf(item.application)
+              : undefined,
+          },
     );
   }
 

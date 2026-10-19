@@ -508,6 +508,23 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     by migrating its workspace to that release, API and the change set bar. V3: a change set moved
     onto the release its workspace runs when its content does not fit, API and the change set bar.
     Still to come: V4.
+  - [ ] **Found 2026-10-19 (the editor's moves fixed), not scheduled: operations that leave the draft
+    invalid.** The generated operation test (`tests/unit/engine/model/authoring/test_kinds.py`)
+    checked only that undo restores the document, never that the draft is still valid. Measured once
+    over its 2,276 applied cases on both models: 351 leave the draft invalid, across 15 kinds. Part
+    is by design and shown as a draft issue (a consumer API naming what changed, D54; `navigation`
+    below schema 0.10). The rest are defects of the same kind as the tree one fixed today:
+    `ancestor:` references (a panel's sort field, a relation's candidate rule, a consumer API's
+    `under`/`within`) left naming an ancestor a type no longer has after `setContainment`,
+    `disallowRelation`, `moveAttribute` or `splitObjectType`; `addDetailPage` adding a children panel
+    naming a type outside its application; `setRelationRule` and `setAttributeBinding` leaving a
+    relation matrix offering an action it no longer can. Today's fix asserts validity for the
+    application moves, a tree's top given a parent and merges only. Recommendation: one package that
+    sorts the 351 into by-design and defect, fixes the defects in their kinds, and turns the check on
+    for every kind with the by-design cases named.
+  - [ ] **Found 2026-10-19:** an application emptied of every type by a move has no default view and
+    shows that as its one issue, as a new empty application does. Whether such an application
+    should offer its removal there is open.
   - [ ] **From V3 (D87), not scheduled:** moving a change set onto a release its workspace does not
     run (a candidate prepared before activation) when its content does not fit. It needs a converted
     private base and a content comparison in V2's merge, since V2's migration raises the version of

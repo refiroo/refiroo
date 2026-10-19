@@ -64,20 +64,34 @@ class Gone:
         return bool(self.types or self.attribute_types or self.bindings or self.relation_keys)
 
 
-def prune(document: Document, gone: Gone) -> None:
-    """Remove every reference to what is ``gone``; repeated until nothing more goes."""
+def prune(
+    document: Document,
+    gone: Gone,
+    within: Callable[[Path], bool] | None = None,
+    which: Callable[[Slot], bool] | None = None,
+) -> None:
+    """Remove every reference to what is ``gone``; repeated until nothing more goes. ``within``
+    limits it to the slots and anchors at the paths it accepts (a type leaving one application is
+    gone from that application only), and ``which`` to the slots it accepts."""
     for _ in range(10):
-        if not _prune_once(document, gone):
+        if not _prune_once(document, gone, within, which):
             break
     _fix_default_views(document)
 
 
-def _prune_once(document: Document, gone: Gone) -> bool:
+def _prune_once(
+    document: Document, gone: Gone, within: Callable[[Path], bool] | None, which: Callable[[Slot], bool] | None
+) -> bool:
     data = document.data
     known = known_keys(data)
     known = (known[0] | gone.types, known[1] | gone.relation_keys)
     changed = False
-    for slot in sorted(slots(data), key=_depth, reverse=True):
+    scoped = [
+        slot
+        for slot in slots(data)
+        if (within is None or within(slot.path)) and (which is None or which(slot))
+    ]
+    for slot in sorted(scoped, key=_depth, reverse=True):
         if _declares(slot) or slot.path[:1] == ["objectTypeRelations"] and slot.field in (
             "relationTypeKey",
             "fromObjectTypeKey",
@@ -93,6 +107,8 @@ def _prune_once(document: Document, gone: Gone) -> bool:
         changed = True
         _drop(document, slot)
     for path in _emptied_anchors(document):
+        if within is not None and not within(path):
+            continue
         _remove_owner(document, path)
         changed = True
     return changed

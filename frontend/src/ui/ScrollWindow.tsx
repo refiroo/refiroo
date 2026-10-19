@@ -52,8 +52,11 @@ function stuckHeader(viewport: HTMLElement) {
 }
 
 /** The nearest element that scrolls `element`'s box, or the page. */
-function outerScroller(element: HTMLElement): HTMLElement {
+export function outerScroller(element: HTMLElement): HTMLElement {
   for (let node = element.parentElement; node && node !== document.body; node = node.parentElement) {
+    // A dialog is as far as a list in it carries the wheel: the page behind it stays (found
+    // 2026-10-19, the table behind a relationship dialog scrolling with the dialog's list).
+    if (node.matches(".dialog")) return node;
     const { overflowY } = getComputedStyle(node);
     if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight + 1) return node;
   }

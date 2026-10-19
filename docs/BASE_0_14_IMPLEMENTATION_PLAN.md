@@ -18,6 +18,7 @@ after 0.12 documents authentication too.
 | Package | Needs | Scope in one line |
 | --- | --- | --- |
 | [V3–V9](#track-v--the-management-api-documented) | 0.9 V2 | The management API documented on `/docs`: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9 |
+| [V10](#v10-the-operation-kinds-in-the-document) | — | The 67 operation kinds of model drafts and model mappings declared in the OpenAPI document, each with its parameters |
 | [UP1](#up1-type-palettes-a-and-b-reworked) | 0.9 UA | The type palettes A and B reworked so a person tells them apart at a glance |
 | [UP2](#up2-an-application-opens-on-a-start-page-optional) (optional) | 0.10 | An application opens on an empty start page asking to choose a list in the sidebar, not on its default view |
 
@@ -94,6 +95,39 @@ approved). Also excluded: tutorials and how-to guides (DOCUMENTATION_PLAN 0.13) 
 
 **Composable domains (ADR-032):** no door is affected. The text describes contracts and does not change
 them. The examples use one configuration of generic capabilities and are presented as such.
+
+### V10: The operation kinds in the document
+
+_Asked by the user 2026-10-19, after searching Scalar for `setContainment` and not finding it._
+
+**Why.** Two routes take a list of operations, each naming its `kind`: `POST
+/model-drafts/{id}/operations` (55 kinds a client sends, `engine/model/authoring/kinds.py`) and `POST
+/model-mappings/{key}/operations` (12 kinds, `engine/moves/mapping_kinds.py`). Their request schemas
+declare `operations` as a list of free-form objects (`list[dict[str, Any]]`), so the OpenAPI document
+names none of the 67 kinds and none of their parameters. Every kind is described in API.md (§ Kinds,
+§ Model mappings), which `/docs` does not show. Measured on the running server 2026-10-19: no kind name
+appears anywhere in the document. An integrator reading `/docs` cannot learn what either route accepts.
+
+**Outcome.** Each kind is its own schema in the document: its `kind` value, its parameters with their
+types, which are required, and one line on what it does. The two routes' `operations` items are the
+union of their kinds, discriminated by `kind`. The 3 kinds only the server writes (the drafts' `replaceModel` and `restoreElements`, the mappings'
+`restoreElements`) appear in the history reads, not in the request.
+
+**What else the scan found (2026-10-19), for the record, not in scope:** 13 other request bodies have
+free-form parts, each open by design: record and relation `attributes` (keyed by the model), the
+`model` document of drafts and validations (the model schema is its own contract), and import
+profiles' `valueMaps`. V4–V8 may point those to their sections. 71 of 153 operations have no
+description, which V3–V9 cover.
+
+| # | Question | Decision |
+| --- | --- | --- |
+| V-D11 | Do the schemas also check the request? | **Open.** Recommendation: **they describe; the kinds keep checking.** Today a kind refuses a wrong parameter with its own code at its own path (`unknownParameter`, `missingParameter`, `invalidValue`, `unknownKind`), which the editor and the journey tests rely on. A Pydantic union at the request boundary would answer `422 REQUEST_VALIDATION_ERROR` instead, a contract change for every client. So the per-kind models are merged into the document only, and one unit test holds each kind's schema and the parameters its `Params` accepts in agreement, both registries in full, so a kind added or changed without its schema fails. The other choice (validate at the boundary) is cheaper to keep in step but changes the refusals |
+
+**Scope.** The per-kind schemas (generated from each kind's accepted parameters where that is
+enough, written where a parameter's shape needs words), their merge into the document, the agreement
+test, and the `contract` lock re-baselined. Independent of V3: it does not need the content directory
+or the recordings, and it can be taken first. A kind added later brings its schema in the same change
+(V-D8's rule).
 
 ## UP1: Type palettes A and B reworked
 

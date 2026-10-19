@@ -15,7 +15,11 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import ValidationError
+
+from ....models.schema import ObjectTypeDefinition, TreeViewConfig
 from ..compiler import SCHEMA_VERSIONS
+from ..validation.application_rules import tree_action_refusal
 from . import profile_side
 from .cascade import Gone, prune, rename
 from .document import (
@@ -31,6 +35,7 @@ from .document import (
 from .keys import key_from_label
 from .layout import (
     application_path,
+    contained_types,
     detail_page,
     keep_order,
     place_attribute,
@@ -39,7 +44,7 @@ from .layout import (
     table_view,
     type_path,
 )
-from .references import known_keys
+from .references import Slot, known_keys, names_in_slot, slots
 
 VALUE_TYPES = {"text", "longText", "integer", "decimal", "boolean", "date", "dateTime", "json"}
 CARDINALITIES = {"one-to-one", "one-to-many", "many-to-one", "many-to-many"}
@@ -735,9 +740,15 @@ def merge_object_types(context: Context, raw: dict[str, Any]) -> Applied:
         if into not in (document.at(application_path(app)).get("objectTypeKeys") or []):
             document.insert(application_path(app) + ["objectTypeKeys"], into)
         document.remove(application_path(app) + ["objectTypeKeys"], source)
+    dropped: set[str] = set()
     for binding in list(document.items("objectTypeRelations")):
         ends = (binding.get("fromObjectTypeKey"), binding.get("toObjectTypeKey"))
         if source not in ends:
+            continue
+        if set(ends) == {into, source} and _is_containment(context, binding.get("relationTypeKey")):
+            # The two types are one now: a containment between them would make it contain itself.
+            document.remove(["objectTypeRelations"], identity(binding))
+            dropped.add(binding["relationTypeKey"])
             continue
         moved = {
             **copy.deepcopy(binding),
@@ -753,10 +764,19 @@ def merge_object_types(context: Context, raw: dict[str, Any]) -> Applied:
     for relation_key in source_behavior.get("parentRelationTypeKeys") or []:
         if relation_key not in parents:
             parents.append(relation_key)
+    parents = [r for r in parents if r not in dropped or _binds_to(document, r, into)]
     if parents:
         document.set(type_path(into), "behavior", {**(target.get("behavior") or {}), "parentRelationTypeKeys": parents})
+    elif (target.get("behavior") or {}).get("parentRelationTypeKeys"):
+        # Its only parent was the type merged into it: it stands at the top now.
+        behavior = {k: v for k, v in (target.get("behavior") or {}).items() if k != "parentRelationTypeKeys"}
+        document.set(type_path(into), "behavior", behavior or None)
+        document.set(type_path(into), "features", {**(target.get("features") or {}), "rootCreatable": True})
+    _merge_consumer_references(document, into, source)
     document.remove(["objectTypes"], {"key": source})
     gone = Gone(types={source})
+    for relation_key in sorted(dropped):
+        _drop_unbound_relation(context, relation_key, gone)
     prune(document, gone)
     profile_side.rename(context.profile, "objectType", source, into)
     return restoring(
@@ -764,6 +784,31 @@ def merge_object_types(context: Context, raw: dict[str, Any]) -> Applied:
         {"kind": "mergeObjectTypes", **raw},
         Applied(raw, {}, named={atom("objectType", into), atom("objectType", source)}),
     )
+
+
+def _is_containment(context: Context, relation_key: Any) -> bool:
+    relation = context.document.find(["relationTypes", {"key": relation_key}])
+    return bool(relation and (relation.get("features") or {}).get("parentOf"))
+
+
+def _binds_to(document: Document, relation_key: str, type_key: str) -> bool:
+    return any(
+        b.get("relationTypeKey") == relation_key and b.get("toObjectTypeKey") == type_key
+        for b in document.items("objectTypeRelations")
+    )
+
+
+def _merge_consumer_references(document: Document, into: str, source: str) -> None:
+    """A consumer API naming the merged-away type names the one it was merged into (as ``setKey``
+    rewrites a key); one exposing both keeps the survivor's entry and public name."""
+    for definition in list(document.items("consumerApis")):
+        path = ["consumerApis", identity(definition)]
+        exposes = definition.get("exposes") or []
+        if into in exposes and source in exposes:
+            document.remove(path + ["exposes"], source)
+            if source in (definition.get("publicNames") or {}):
+                document.set(path + ["publicNames"], source, None)
+    rename(document, "objectType", source, into, within=lambda slot: slot.path[:1] == ["consumerApis"])
 
 
 @kind("convertAttributeToListType")
@@ -1004,12 +1049,31 @@ def set_attribute_binding(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("setContainment")
 def set_containment(context: Context, raw: dict[str, Any]) -> Applied:
-    params = Params(raw, ("objectType", "parent"))
+    """Where a type stands: its parent (``parent``, null for the top level) and, with
+    ``application``, the application it stands in. The type and every type under it in the
+    application it leaves (``fromApplication``, needed only when it is in several) move together
+    with their views and detail pages; relations are the model's and stay as they are."""
+    params = Params(raw, ("objectType", "parent", "application", "fromApplication"))
     key = params.text("objectType")
+    context.object_type(key)
+    target = params.optional("application")
+    if "parent" not in raw and target is None:
+        raise Refusal("parent", "missingParameter", "'parent' is required (null for the top level), or name the 'application'")
+    if "parent" in raw:
+        context.unreleased(atom("objectType", key))
+    named = {atom("objectType", key)}
+    if target is not None:
+        named |= _move_to_application(context, key, target, params.optional("fromApplication"))
+    stored, created = dict(raw), set()
+    if "parent" in raw:
+        stored_parent, created, parents = _set_parent(context, key, raw.get("parent"))
+        stored["parent"] = stored_parent
+        named |= {atom("objectType", p) for p in parents}
+    return restoring(context, {"kind": "setContainment", **stored}, Applied(stored, {}, created=created, named=named))
+
+
+def _set_parent(context: Context, key: str, raw_parent: Any) -> tuple[Any, set[str], list[str]]:
     object_type = context.object_type(key)
-    if "parent" not in raw:
-        raise Refusal("parent", "missingParameter", "'parent' is required (null for the top level)")
-    context.unreleased(atom("objectType", key))
     old_relations = list((object_type.get("behavior") or {}).get("parentRelationTypeKeys") or [])
     old_parents = []
     gone = Gone()
@@ -1028,14 +1092,323 @@ def set_containment(context: Context, raw: dict[str, Any]) -> Applied:
             if key in items:
                 context.document.remove(path + ["config", "objectTypeKeys"], key)
     prune(context.document, gone)
-    parent = _parent(context, raw.get("parent"), key)
-    stored_parent, created = _contain(context, key, parent, _optional(raw.get("parent")))
-    for parent_key in parent[0] if parent else []:
+    parent = _parent(context, raw_parent, key)
+    stored_parent, created = _contain(context, key, parent, _optional(raw_parent))
+    parents = list(parent[0]) if parent else []
+    for parent_key in parents:
         place_child(context.document, parent_key, key)
-    profile_side.follow_parent(context.profile, key, list(parent[0]) if parent else [])
-    named = {atom("objectType", key)} | {atom("objectType", p) for p in (parent[0] if parent else [])}
-    stored = {**raw, "parent": stored_parent}
-    return restoring(context, {"kind": "setContainment", **stored}, Applied(stored, {}, created=created, named=named))
+    _follow_trees(context.document, key, parents)
+    profile_side.follow_parent(context.profile, key, parents)
+    return stored_parent, created, parents
+
+
+def _follow_trees(document: Document, key: str, parents: list[str]) -> None:
+    """Every tree showing ``key`` stays whole once its place changed. As a top no longer allowed, it
+    makes way for its new parents where the tree's application lists them; a node no longer reached
+    from the top stands at the top when it may, and otherwise leaves the tree. A tree left with no
+    top goes."""
+    emptied: list[Path] = []
+    for application in document.items("applications"):
+        members = application.get("objectTypeKeys") or []
+        for view in application.get("views") or []:
+            config = view.get("config") or {}
+            if view.get("type") != "tree" or key not in (config.get("objectTypeKeys") or []):
+                continue
+            path = application_path(application["key"]) + ["views", {"key": view["key"]}, "config"]
+            roots = config.get("rootObjectTypeKeys") or []
+            if key in roots and not _root_creatable(document, key):
+                position = roots.index(key)
+                document.remove(path + ["rootObjectTypeKeys"], key)
+                tops = _tops_above(document, parents, members)
+                if tops:
+                    for offset, parent_key in enumerate(tops):
+                        if parent_key not in document.at(path).get("objectTypeKeys"):
+                            document.insert(path + ["objectTypeKeys"], parent_key, offset)
+                        if parent_key not in document.at(path).get("rootObjectTypeKeys"):
+                            document.insert(path + ["rootObjectTypeKeys"], parent_key, position + offset)
+                    _fields_every_node_has(document, path, tops)
+            if not _repair_tree(document, path):
+                emptied.append(path[:-1])
+    if emptied:
+        prune(document, Gone(), within=lambda path: path in emptied)
+
+
+def _repair_tree(document: Document, path: Path) -> bool:
+    """The tree whose config is at ``path`` made whole again after a change to its types: a node no
+    longer reached stands at the top when it may and otherwise leaves, and an action it can no longer
+    offer goes, as the validator words it. False when no top is left."""
+    for node in _unreached(document, path):
+        if _root_creatable(document, node):
+            document.insert(path + ["rootObjectTypeKeys"], node)
+    for node in _unreached(document, path):
+        document.remove(path + ["objectTypeKeys"], node)
+    config = document.at(path)
+    for node in list(config.get("childSort") or {}):
+        if node not in (config.get("objectTypeKeys") or []):
+            document.set(path + ["childSort"], node, None)
+    if not config.get("rootObjectTypeKeys"):
+        return False
+    try:
+        tree = TreeViewConfig.model_validate(config)
+        nodes = [ObjectTypeDefinition.model_validate(document.at(type_path(k))) for k in tree.objectTypeKeys]
+    except ValidationError:
+        return True  # A tree the draft holds invalid anyway: its issue says why.
+    containers = {
+        key: {other for other in tree.objectTypeKeys if key in contained_types(document, other)}
+        for key in tree.objectTypeKeys
+    }
+    for action in list(tree.actions):
+        if tree_action_refusal(action, tree, nodes, containers):
+            document.remove(path + ["actions"], action)
+    return True
+
+
+def _tops_above(document: Document, parents: list[str], members: list[str]) -> list[str]:
+    """The types a tree grows up to above ``parents``: each parent that may stand at the top, else
+    its own parents, as far as the application lists them; none when the way up leaves it."""
+    tops: list[str] = []
+    pending, seen = list(parents), set()
+    while pending:
+        current = pending.pop(0)
+        if current in seen:
+            continue
+        seen.add(current)
+        if current not in members:
+            return []
+        if _root_creatable(document, current):
+            tops.append(current)
+            continue
+        above = [t["key"] for t in document.items("objectTypes") if current in contained_types(document, t["key"])]
+        if not above:
+            return []
+        pending.extend(above)
+    return tops
+
+
+def _root_creatable(document: Document, key: str) -> bool:
+    return bool((document.at(type_path(key)).get("features") or {}).get("rootCreatable"))
+
+
+def _unreached(document: Document, path: Path) -> list[str]:
+    """A tree's node types not reached from its top through the containers it shows, in its order."""
+    config = document.at(path)
+    nodes = list(config.get("objectTypeKeys") or [])
+    reached = set(config.get("rootObjectTypeKeys") or [])
+    grown = True
+    while grown:
+        grown = False
+        for node in nodes:
+            if node not in reached and any(node in contained_types(document, r) for r in reached):
+                reached.add(node)
+                grown = True
+    return [node for node in nodes if node not in reached]
+
+
+def _fields_every_node_has(document: Document, path: Path, added: list[str]) -> None:
+    """A tree's label, secondary and availability fields name an attribute every node type binds:
+    one the added types lack falls back, the label to ``name`` and the others to none."""
+    attribute_keys = {a.get("key") for a in document.items("attributeTypes")}
+    config = document.at(path)
+    for name in ("labelField", "secondaryField", "availabilityField"):
+        value = config.get(name)
+        if value not in attribute_keys:
+            continue
+        if all(any(b.get("attributeTypeKey") == value for b in document.at(type_path(t)).get("attributes") or []) for t in added):
+            continue
+        document.set(path, name, "name" if name == "labelField" else None)
+        if name == "availabilityField" and "setAvailability" in (config.get("actions") or []):
+            document.remove(path + ["actions"], "setAvailability")
+
+
+def _move_to_application(context: Context, key: str, target: Any, source: Any) -> set[str]:
+    """``key`` and the types under it in ``source`` (the one application listing it, unless named)
+    move to ``target``: listed there and no longer in ``source``, with the views and detail pages
+    ``source`` keeps for them alone. A type ``target`` already lists keeps its own; one arriving with
+    no view gets a table view and a detail page, as a new type does."""
+    document = context.document
+    context.application(target, "application")
+    listed = context.applications_of(key)
+    if source is None:
+        others = [app for app in listed if app != target]
+        if len(others) > 1:
+            raise Refusal(
+                "fromApplication", "missingParameter", f"'{key}' is in {', '.join(others)}: name the one it leaves"
+            )
+        if not others and key in listed:
+            raise Refusal("application", "invalidValue", f"'{key}' is already in '{target}'")
+        source = others[0] if others else None
+    else:
+        context.application(source, "fromApplication")
+        if source == target:
+            raise Refusal("fromApplication", "invalidValue", "'fromApplication' and 'application' are the same")
+        if source not in listed:
+            raise Refusal("fromApplication", "invalidValue", f"'{key}' is not in '{source}'")
+    target_path = application_path(target)
+    members = list(document.at(application_path(source)).get("objectTypeKeys") or []) if source else [key]
+    branch = [key]
+    for type_key in branch:
+        branch.extend(c for c in contained_types(document, type_key) if c in members and c not in branch)
+    before = set(document.at(target_path).get("objectTypeKeys") or [])
+    arriving = [t for t in branch if t not in before]
+    for type_key in branch:
+        if source:
+            document.remove(application_path(source) + ["objectTypeKeys"], type_key)
+        if type_key in arriving:
+            document.insert(target_path + ["objectTypeKeys"], type_key)
+    if source:
+        _carry(context, source, target, set(branch), set(arriving))
+    for type_key in arriving:
+        _lay_out(document, target, type_key)
+    profile_side.follow_application(context.profile, branch, source, target)
+    return {atom("application", target)} | ({atom("application", source)} if source else set()) | {
+        atom("objectType", t) for t in branch
+    }
+
+
+def _carry(context: Context, source: str, target: str, branch: set[str], arriving: set[str]) -> None:
+    """``source``'s views of the branch's types (a view is of the type it lists, as the sidebar
+    groups it) and its detail pages of them go to ``target``, for a type ``target`` already lists
+    they go. There a carried view keeps what may name another application (a relation or ancestor
+    column) and loses the types its application must list but ``target`` does not: a tree its other
+    nodes, a matrix whose columns or cells stay behind goes. What else in ``source`` names the branch
+    leaves it, as a removal's references do."""
+    document = context.document
+    source_path, target_path = application_path(source), application_path(target)
+    carried: list[Path] = []
+    shown = _types_with_views(document, source)
+    after = set(document.at(target_path).get("objectTypeKeys") or [])
+    for view in list(document.at(source_path).get("views") or []):
+        needs = _members_needed(document, source_path + ["views", {"key": view["key"]}])
+        # A view of a moving type goes; so does one of another type that needs a moving one, when it
+        # can stand in the target. Nothing that can stand there is left out (a key taken is renamed).
+        if _listed_type(view) not in branch and not (needs & branch and needs <= after):
+            continue
+        moved = copy.deepcopy(document.remove(source_path + ["views"], {"key": view["key"]}))
+        if needs <= after:
+            taken = {v.get("key") for v in document.at(target_path).get("views") or []}
+            if moved["key"] in taken:
+                moved["key"] = key_from_label(moved["key"], taken)
+            document.insert(target_path + ["views"], moved)
+            carried.append(target_path + ["views", {"key": moved["key"]}])
+    for detail in list(document.at(source_path).get("details") or []):
+        type_key = detail.get("objectTypeKey")
+        if type_key not in branch:
+            continue
+        moved = copy.deepcopy(document.remove(source_path + ["details"], {"objectTypeKey": type_key}))
+        page = next((d for d in document.at(target_path).get("details") or [] if d.get("objectTypeKey") == type_key), None)
+        if page is None:
+            document.insert(target_path + ["details"], moved)
+        else:
+            # The target's page of a type it already lists takes the panels it lacks.
+            page_path = target_path + ["details", {"objectTypeKey": type_key}]
+            for panel in moved.get("panels") or []:
+                if not any(p.get("key") == panel.get("key") for p in page.get("panels") or []):
+                    document.insert(page_path + ["panels"], panel)
+                    carried.append(page_path + ["panels", {"key": panel["key"]}])
+            continue
+        carried.append(target_path + ["details", {"objectTypeKey": type_key}])
+    # What stays keeps its columns: a relation panel of a staying type may show the branch's fields.
+    prune(document, Gone(types=set(branch)), within=lambda path: path[:2] == source_path, which=_membership_slot)
+    staying = set(document.at(source_path).get("objectTypeKeys") or [])
+    for type_key in (shown & staying) - _types_with_views(document, source):
+        # A type staying behind keeps a list of its own when its last view went with the branch.
+        _lay_out(document, source, type_key)
+    emptied = [
+        source_path + ["views", {"key": view["key"]}]
+        for view in document.at(source_path).get("views") or []
+        if view.get("type") == "tree" and not _repair_tree(document, source_path + ["views", {"key": view["key"]}, "config"])
+    ]
+    if emptied:
+        prune(document, Gone(), within=lambda path: path in emptied)
+    outside = context.keys("objectTypes") - set(document.at(target_path).get("objectTypeKeys") or [])
+    if carried and outside:
+        prune(
+            document,
+            Gone(types=outside),
+            within=lambda path: any(path[: len(c)] == c for c in carried),
+            which=_membership_slot,
+        )
+    gone_trees = [
+        path
+        for path in carried
+        if document.find(path) is not None
+        and document.at(path).get("type") == "tree"
+        and not _repair_tree(document, path + ["config"])
+    ]
+    if gone_trees:
+        prune(document, Gone(), within=lambda path: path in gone_trees)
+    if not document.at(target_path).get("defaultView") and document.at(target_path).get("views"):
+        document.set(target_path, "defaultView", document.at(target_path)["views"][0]["key"])
+
+
+# The members naming a type its application must list, as the validator checks them
+# (application_rules, detail_view_rules: a table's type, a tree's, a matrix's, a page's and its
+# children and table panels', navigation entries). A mapping grid's ends, a relation or ancestor
+# column and a relation panel may name another application's types.
+_MEMBERSHIP_FIELDS = frozenset(
+    {"objectTypeKey", "rootObjectTypeKeys", "objectTypeKeys", "rowObjectTypeKey", "columnObjectTypeKey", "cellObjectTypeKey", "collections"}
+)
+
+
+def _members_needed(document: Document, prefix: Path) -> set[str]:
+    """The types the element at ``prefix`` needs its application to list."""
+    data = document.data
+    known = known_keys(data)
+    return {
+        key
+        for slot in slots(data)
+        if slot.path[: len(prefix)] == prefix and _membership_slot(slot)
+        for kind_name, key in names_in_slot(data, slot, known)
+        if kind_name == "objectType"
+    }
+
+
+def _membership_slot(slot: Slot) -> bool:
+    return slot.kind == "objectTypeMapKey" or (slot.kind == "objectType" and slot.field in _MEMBERSHIP_FIELDS)
+
+
+def _listed_type(view: dict[str, Any]) -> str | None:
+    """The type a view lists, as ``collection_keys`` reads it from a valid application."""
+    config = view.get("config") or {}
+    if view.get("type") == "table":
+        return view.get("objectTypeKey")
+    if view.get("type") == "relationMatrix":
+        return config.get("rowObjectTypeKey")
+    if view.get("type") == "tree":
+        return next(iter(config.get("rootObjectTypeKeys") or []), None)
+    return config.get("fromObjectTypeKey") if config.get("direction") == "outgoing" else config.get("toObjectTypeKey")
+
+
+def _types_with_views(document: Document, app: str) -> set[str]:
+    path = application_path(app)
+    return set().union(*(_types_named(document, path + ["views", {"key": v["key"]}]) for v in document.at(path).get("views") or []))
+
+
+def _types_named(document: Document, prefix: Path) -> set[str]:
+    data = document.data
+    known = known_keys(data)
+    return {
+        key
+        for slot in slots(data)
+        if slot.path[: len(prefix)] == prefix
+        for kind_name, key in names_in_slot(data, slot, known)
+        if kind_name == "objectType"
+    }
+
+
+def _lay_out(document: Document, app: str, type_key: str) -> None:
+    """A table view and detail page for a type arriving in ``app`` with none there, as
+    ``addObjectType`` lays one out."""
+    application = document.at(application_path(app))
+    views = application.get("views") or []
+    if not any(type_key in _types_named(document, application_path(app) + ["views", {"key": v["key"]}]) for v in views):
+        view = table_view(document, app, type_key)
+        document.insert(application_path(app) + ["views"], view)
+        if not document.at(application_path(app)).get("defaultView"):
+            document.set(application_path(app), "defaultView", view["key"])
+    details = document.at(application_path(app)).get("details")
+    if isinstance(details, list) and not any(d.get("objectTypeKey") == type_key for d in details):
+        document.insert(application_path(app) + ["details"], detail_page(document, type_key))
 
 
 def _children_panel_paths(document: Document, parent_key: str) -> list[Path]:

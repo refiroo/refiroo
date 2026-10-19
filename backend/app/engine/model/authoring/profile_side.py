@@ -265,6 +265,19 @@ def follow_parent(profile: Document, type_key: str, parents: list[str]) -> None:
                 profile.set([*column_path(source, binding, profile), "parent"], "objectTypeKey", parents[0])
 
 
+def follow_application(profile: Document, type_keys: list[str], source: str | None, target: str) -> None:
+    """A source loading one of ``type_keys`` into ``source``, and a related record of one named
+    there, name ``target`` once the types stand in it."""
+    for item in sources(profile):
+        path = source_path(item)
+        if item.get("objectTypeKey") in type_keys and item.get("applicationKey") == source:
+            profile.set(path, "applicationKey", target)
+        for binding in item.get("columns") or []:
+            related = binding.get("relatedRecord")
+            if isinstance(related, dict) and related.get("objectTypeKey") in type_keys and related.get("applicationKey") == source:
+                profile.set([*column_path(item, binding, profile), "relatedRecord"], "applicationKey", target)
+
+
 # --- what no longer resolves ---
 
 

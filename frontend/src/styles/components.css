@@ -1760,6 +1760,8 @@ tr:focus-within .icon-button.icon-button-quiet {
   width: min(580px, 100%);
   max-height: calc(100vh - 64px);
   overflow: auto;
+  /* A scroll reaching the dialog's end stops there, never moving the page behind it. */
+  overscroll-behavior: contain;
   background: var(--surface-raised);
   border-radius: 12px;
   box-shadow: var(--shadow-overlay);
@@ -3815,9 +3817,11 @@ body.tree-drag-refused * {
 .restructuring-dialog .notice {
   margin-bottom: 14px;
 }
-/* A long plan (or Map to…, 0.10 A5b) scrolls under the actions, which stay in reach at the dialog's foot. */
+/* A long plan (or Map to…, 0.10 A5b, or Install's differences) scrolls under the actions, which stay
+   in reach at the dialog's foot. */
 form.restructuring-plan-form .dialog-actions,
-form.map-column .dialog-actions {
+form.map-column .dialog-actions,
+form.install-dialog .dialog-actions {
   position: sticky;
   bottom: -20px;
   margin: 0 -22px -20px;
@@ -3825,8 +3829,9 @@ form.map-column .dialog-actions {
   border-top: 1px solid var(--border-faint);
   background: var(--surface-raised);
 }
-/* Map to… sticks its actions to the dialog's own foot, their padding inside the frame. */
-form.map-column .dialog-actions {
+/* Map to… and Install stick their actions to the dialog's own foot, their padding inside the frame. */
+form.map-column .dialog-actions,
+form.install-dialog .dialog-actions {
   bottom: 0;
 }
 .restructuring-updating {

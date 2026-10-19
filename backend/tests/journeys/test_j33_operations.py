@@ -520,3 +520,99 @@ def test_a_whole_model_edit_is_one_step_and_operations_continue_on_it(world):
         ("setLabel", "request"),
     ]
     assert [entry["step"] for entry in every] == sorted(entry["step"] for entry in every)
+
+
+def _outline(world, draft: dict[str, Any]) -> dict[str, Any]:
+    return ok(world.api.get(f"/model-drafts/{draft['id']}/outline"))
+
+
+def _tree_of(outline: dict[str, Any], application: str) -> list[Any]:
+    def shape(node: dict[str, Any]) -> Any:
+        return (node["objectType"], [shape(child) for child in node["children"]])
+
+    return [shape(node) for node in _by_key(outline["applications"], application)["tree"]]
+
+
+@pytest.mark.journey("J33.15")
+@pytest.mark.structures("A1")
+def test_a_branch_moved_to_another_application_keeps_its_hierarchy_and_undoes_in_one_step(world):
+    """Given a draft whose application holds a three-level branch with its tree view, beside a second
+    application. When the branch's top is moved to the top of the second application, then into a
+    type there, by `setContainment` with `application`. Then the branch leaves the first application
+    with its views and detail pages and stands in the second with its containment as it was, the tree
+    view growing up to the new parent; the draft stays valid; one undo returns it. Moving a type
+    between applications was missing (found 2026-10-19: the editor's move only set a parent)."""
+    draft = _draft_of_active(world)
+    parent = {"relationType": {"name": "Holds", "reverseName": "Held by"}}
+    steps = [
+        {"kind": "addApplication", "key": "j33-from", "name": "From"},
+        {"kind": "addApplication", "key": "j33-to", "name": "To"},
+        {"kind": "addObjectType", "applicationKey": "j33-from", "key": "j33-top", "name": "Top", "parent": None},
+        {"kind": "addObjectType", "applicationKey": "j33-from", "key": "j33-mid", "name": "Mid", "parent": {**parent, "objectTypes": ["j33-top"]}},
+        {"kind": "addObjectType", "applicationKey": "j33-from", "key": "j33-leaf", "name": "Leaf", "parent": {**parent, "objectTypes": ["j33-mid"]}},
+        {"kind": "addObjectType", "applicationKey": "j33-from", "key": "j33-stays", "name": "Stays", "parent": None},
+        {"kind": "addObjectType", "applicationKey": "j33-to", "key": "j33-holder", "name": "Holder", "parent": None},
+        {
+            "kind": "addView",
+            "applicationKey": "j33-from",
+            "view": {
+                "key": "j33-hierarchy",
+                "name": "Hierarchy",
+                "type": "tree",
+                "config": {"rootObjectTypeKeys": ["j33-top"], "objectTypeKeys": ["j33-top", "j33-mid", "j33-leaf"], "labelField": "name", "pageSize": 50, "actions": ["createChild", "move"]},
+            },
+        },
+    ]
+    built = ok(_apply(world, draft, draft["version"], *steps))
+    before = _model(world, draft)
+    assert _outline(world, draft)["valid"]
+
+    moved = ok(_apply(world, draft, built["version"], {"kind": "setContainment", "objectType": "j33-top", "parent": None, "application": "j33-to"}))
+    model, outline = _model(world, draft), _outline(world, draft)
+    assert outline["valid"], outline["diagnostics"]
+    source, target = _application(model, "j33-from"), _application(model, "j33-to")
+    assert source["objectTypeKeys"] == ["j33-stays"]
+    assert target["objectTypeKeys"] == ["j33-holder", "j33-top", "j33-mid", "j33-leaf"]
+    assert {d["objectTypeKey"] for d in target["details"]} == {"j33-holder", "j33-top", "j33-mid", "j33-leaf"}
+    assert "j33-hierarchy" in {v["key"] for v in target["views"]}
+    assert not {"j33-top", "j33-mid", "j33-leaf"} & {d["objectTypeKey"] for d in source["details"]}
+    assert _tree_of(outline, "j33-to") == [("j33-holder", []), ("j33-top", [("j33-mid", [("j33-leaf", [])])])]
+    assert _tree_of(outline, "j33-from") == [("j33-stays", [])]
+
+    under = ok(
+        _apply(
+            world,
+            draft,
+            moved["version"],
+            {"kind": "setContainment", "objectType": "j33-top", "parent": {**parent, "objectTypes": ["j33-holder"]}},
+        )
+    )
+    outline = _outline(world, draft)
+    assert outline["valid"], outline["diagnostics"]
+    assert _tree_of(outline, "j33-to") == [("j33-holder", [("j33-top", [("j33-mid", [("j33-leaf", [])])])])]
+    tree = _by_key(_application(_model(world, draft), "j33-to")["views"], "j33-hierarchy")["config"]
+    assert tree["rootObjectTypeKeys"] == ["j33-holder"]
+
+    undone = ok(_undo(world, draft, under["version"]))
+    ok(_undo(world, draft, undone["version"]))
+    assert _model(world, draft) == before
+
+
+@pytest.mark.journey("J33.15")
+@pytest.mark.structures("A1")
+def test_a_move_between_applications_that_cannot_apply_says_why(world):
+    """Given a draft. When a type is moved to an application it is already in, to an unknown one, or
+    from an application that does not list it. Then each is refused at its parameter and nothing
+    applies."""
+    draft = _draft_of_active(world)
+    app = world.app("R")
+    key = world.key("R")
+    start = _model(world, draft)
+    for operation, parameter in (
+        ({"kind": "setContainment", "objectType": key, "application": app, "fromApplication": app}, "fromApplication"),
+        ({"kind": "setContainment", "objectType": key, "application": "j33-nowhere"}, "application"),
+        ({"kind": "setContainment", "objectType": key, "application": "j33-nowhere-else", "fromApplication": app}, "application"),
+    ):
+        answer = refused(_apply(world, draft, draft["version"], operation), 422, "INVALID_OPERATION")
+        assert parameter in str(answer), answer
+    assert _model(world, draft) == start

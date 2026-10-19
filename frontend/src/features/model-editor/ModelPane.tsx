@@ -9,8 +9,9 @@
  * the row and opens its operations, which live with the selected element (`onMenu`).
  *
  * Drags (D40), with mouse or pen: a type dropped on another type or on an application (its top
- * level), and an attribute (dragged from the type's table) dropped on a type, each open Move to…
- * with the target chosen. A column of the source file dropped on a type opens Map to… (0.10 A5b);
+ * level; another application's moves it there with the types under it), and an attribute (dragged
+ * from the type's table) dropped on a type, each open Move to… with the target chosen. Near the
+ * pane's top or bottom edge a drag scrolls it, as the record tree does. A column of the source file dropped on a type opens Map to… (0.10 A5b);
  * the types the selected column feeds are marked `linked`.
  *
  * The tree itself is `EditorTree`, which the Consumer APIs tab lists its definitions in too (0.10 A4c).
@@ -23,6 +24,7 @@ import { Icon, type IconName } from "@/ui/Icon";
 import { MarkPill } from "@/features/model-editor/MarkPill";
 import { ProposedPill } from "@/features/model-editor/ProposedBecause";
 import { draftTypeHue, objectTypeOf, typeName } from "@/features/model-editor/outline";
+import { scrollAtEdge, scrollerOf } from "@/lib/edgeScroll";
 import { DRAG_COLUMN } from "@/features/model-editor/SourcePane";
 
 /** The data a drag carries: a type, or an attribute of a type. */
@@ -30,7 +32,8 @@ export const DRAG_TYPE = "application/x-rdm-object-type";
 export const DRAG_ATTRIBUTE = "application/x-rdm-attribute";
 
 export type PaneDrop =
-  | { kind: "objectType"; objectType: string; target: string }
+  /** `target`: a type, or "" for the top level; `application`: the one dropped in; `from`: dragged from. */
+  | { kind: "objectType"; objectType: string; target: string; application?: string; from?: string }
   | { kind: "attribute"; objectType: string; attributeType: string; target: string }
   /** A column of the source file (its sheet and header); no target when dropped beside the tree. */
   | { kind: "column"; sheet: string; header: string; target?: string };
@@ -56,6 +59,8 @@ export type TreeRow = {
   /** A section that folds. */
   section?: string;
   typeKey?: string;
+  /** The application the row stands in. */
+  applicationKey?: string;
   /** Dropping a type here puts it at the top level. */
   topLevel?: boolean;
   /** Still as the inference proposed it (0.10 A6b): marked Proposed in place of its mark. */
@@ -78,6 +83,7 @@ export function paneRows(
       label: application.name,
       mark: application.mark,
       selection: { show: "application", key: application.key },
+      applicationKey: application.key,
       topLevel: true,
     });
     const visit = (node: OutlineTypeNode, level: number, path: string) => {
@@ -89,6 +95,7 @@ export function paneRows(
         mark: type?.mark,
         selection: { show: "type", key: node.objectType },
         typeKey: node.objectType,
+        applicationKey: application.key,
         proposed: proposed.has(`objectType:${node.objectType}`),
       });
       for (const child of node.children) visit(child, level + 1, `${path}${node.objectType}/`);
@@ -111,6 +118,7 @@ export function paneRows(
           label: typeName(outline, collection),
           selection: { show: "type", key: collection },
           typeKey: collection,
+          applicationKey: application.key,
         });
     }
   }
@@ -293,10 +301,10 @@ export function EditorTree({
   function dropOf(event: DragEvent, row: Row): PaneDrop | undefined {
     const column = droppedColumn(event);
     if (column && row.typeKey) return { kind: "column", ...column, target: row.typeKey };
-    const type = event.dataTransfer.getData(DRAG_TYPE);
+    const [type, from] = event.dataTransfer.getData(DRAG_TYPE).split("\u0000");
     const attribute = event.dataTransfer.getData(DRAG_ATTRIBUTE);
     if (type && (row.typeKey || row.topLevel) && row.typeKey !== type)
-      return { kind: "objectType", objectType: type, target: row.typeKey ?? "" };
+      return { kind: "objectType", objectType: type, target: row.typeKey ?? "", application: row.applicationKey, from };
     if (attribute && row.typeKey) {
       const [objectType, attributeType] = attribute.split("\u0000");
       if (objectType !== row.typeKey) return { kind: "attribute", objectType, attributeType, target: row.typeKey };
@@ -309,7 +317,15 @@ export function EditorTree({
     (event.dataTransfer.types.includes(DRAG_COLUMN) && Boolean(row.typeKey));
 
   return (
-    <ul className="model-pane-tree" role="tree" aria-label={label} ref={tree}>
+    <ul
+      className="model-pane-tree"
+      role="tree"
+      aria-label={label}
+      ref={tree}
+      onDragOver={(event) => {
+        if (tree.current) scrollAtEdge(scrollerOf(tree.current), event.clientY);
+      }}
+    >
       {rows.map((row, index) => {
         const selected = index === selectedIndex;
         const type = row.typeKey ? objectTypeOf(outline, row.typeKey) : undefined;
@@ -335,7 +351,7 @@ export function EditorTree({
             draggable={canDrag && Boolean(row.typeKey)}
             onDragStart={(event) => {
               if (!row.typeKey) return;
-              event.dataTransfer.setData(DRAG_TYPE, row.typeKey);
+              event.dataTransfer.setData(DRAG_TYPE, `${row.typeKey}\u0000${row.applicationKey ?? ""}`);
               event.dataTransfer.effectAllowed = "move";
             }}
             onDragOver={(event) => {

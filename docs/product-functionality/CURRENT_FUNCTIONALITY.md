@@ -577,7 +577,10 @@ navigation groups, the relation types and the attribute types, each marked new, 
 Choosing an element shows it with its operations: a type's attributes and relations, an application's
 types and groups, where a relation type or an attribute type is used. The relationship matrix shows
 which relations each type may start to each other type, and a cell allows one. Attributes and types
-move with **Move to…**, or by dragging them in the model pane. The issues list links each problem to
+move with **Move to…**, or by dragging them in the model pane, which scrolls when a drag nears its
+top or bottom. A type moves to another application the same way, dropped on that application or
+chosen there in Move to…: it goes with every type under it, their lists and detail pages, and keeps
+its hierarchy and relations; a tree view follows its top to a new parent. The issues list links each problem to
 its element; the history lists every step in plain words, and any step can be undone from it, with
 the steps that depend on it when there are some. If another administrator changed the draft first,
 the editor names their steps and asks whether to apply the change again. **Install and activate**
