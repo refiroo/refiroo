@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from threading import Lock
 from typing import Any
 
 from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
+from ...db import lock_installation
 from ...models.database import (
     ApplicationMeta,
     ApplicationObjectTypeMeta,
@@ -30,9 +30,6 @@ from .compiler import SUPPORTED_SCHEMA_VERSIONS, ModelDiagnostic, canonical_mode
 from .consumer_contract import contract_diagnostics
 from .validation import require_valid_references
 from .workspace_models import load_assignment
-
-model_installation_lock = Lock()
-model_activation_lock = Lock()
 
 
 @dataclass(frozen=True)
@@ -291,8 +288,10 @@ def switch_workspace_release(
 
 
 def install_model_release(session: Session, model: EngineModel) -> tuple[ModelRelease, bool]:
-    """Install one immutable model and its metadata projection in the current transaction."""
+    """Install one immutable model and its metadata projection in the current transaction, under
+    the installation lock until it ends (0.11 N1)."""
     require_valid_references(model)
+    lock_installation(session)
     model_json, model_hash = canonical_model(model)
     identity_release = session.scalar(
         select(ModelRelease).where(

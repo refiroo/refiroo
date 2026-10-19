@@ -28,8 +28,18 @@ and the one line the API and the Deployment page show) and to the table of its g
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API |
 | `JOB_FILE_DIR` | `var/job-files` | Where export files wait for download and import files wait to be read, named after their job, and where model authoring's source files are kept (0.10 A3); created at start. With job creation on, a directory that cannot be written stops startup. An export's file is kept while its job is completed and removed when the job expires (`JOB_RETENTION_DAYS`), fails or is cancelled; an import's file until its job finishes. Several instances need it on shared storage. See [Exports](#exports), [Imports](#imports) and [Source files and dry runs](#source-files-and-dry-runs) |
 | `RDM_API_REFERENCE_SCRIPT` | `bundled` | `bundled` serves the pinned Scalar script from the engine, so `/docs` works offline; `cdn` loads the same version from jsDelivr under its integrity hash. Any other value stops startup |
-| `WEB_CONCURRENCY` | `1` | Uvicorn worker count. Must be `1` while model administration is enabled |
+| `WEB_CONCURRENCY` | `1` | Uvicorn worker count. Any count, with or without model administration (0.11 N1); see [Several processes](#several-processes) |
 | `VITE_API_URL` (frontend) | `http://localhost:8000` | API address the browser application calls |
+
+### Several processes
+
+Several processes may serve one database: Uvicorn workers (`WEB_CONCURRENCY` above 1) or instances on
+several nodes. Processes started together check, migrate and install the bootstrap model one at a
+time under a database lock; the others wait and then find the database ready. A model activated or a
+workspace migrated through any process is served by every process from its next request, with no
+restart. A read whose workspace switched to another release while it ran answers
+`409 MODEL_RELEASE_CHANGED`, and the client reads again. Instances share `RDM_CURSOR_SIGNING_KEY` and
+keep `JOB_FILE_DIR` on shared storage.
 
 ### Capability groups
 
@@ -38,7 +48,7 @@ not authorization ([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-dep
 
 | Setting | Default | What it registers |
 | --- | --- | --- |
-| `MODEL_ADMIN_MUTATIONS_ENABLED` | off | Model draft create/edit, compile, release install and activation. Requires one process (`WEB_CONCURRENCY=1`); startup refuses it with more workers |
+| `MODEL_ADMIN_MUTATIONS_ENABLED` | off | Model draft create/edit, compile, release install and activation. Works with any number of processes and instances on one database (0.11 N1) |
 | `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, reactivate, delete and default switching. Turn it off on an API exposed outside a trusted environment unless an access-control layer protects it |
 | `INTEGRATION_JOBS_ENABLED` | on | Job creation (`POST /api/v1/batches`) and cancellation. Job reads stay registered |
 | `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | The webhook subscriptions API (`/api/v1/consumer-subscriptions`), reads included, and from 0.9 C12 their delivery. Requires `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`; startup refuses without it. Turned off, stored subscriptions are kept and continue when it is turned on again |

@@ -918,12 +918,14 @@ def test_activation_rejects_a_historical_schema_release_without_mutation(monkeyp
             assert state.version == expected_version
 
 
-def test_model_admin_mutations_reject_multi_worker_configuration(monkeypatch):
+def test_model_admin_mutations_start_with_several_workers(monkeypatch):
+    """Model administration no longer needs one process (0.11 N1)."""
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     monkeypatch.setenv("WEB_CONCURRENCY", "2")
 
-    with pytest.raises(RuntimeError, match="requires WEB_CONCURRENCY=1"):
-        create_app()
+    with TestClient(create_app()) as client:
+        capabilities = client.get("/api/v1/capabilities").json()
+    assert capabilities["modelAdmin"]["install"] is True
 
 
 def test_release_activation_history_reads_recorded_predecessors_oldest_first(monkeypatch):

@@ -413,7 +413,7 @@ definition in place.
 Settings › **Model** lists installed releases and drafts beside the selected one (the active release
 when none is chosen), each at its own address, with summaries, technical details, comparisons
 between releases and JSON export. With model administration enabled (a
-deployment setting, one API process), an administrator edits a JSON draft with conflict protection,
+deployment setting), an administrator edits a JSON draft with conflict protection,
 validates and compiles it, installs an immutable release and activates a compatible one. Installing
 never activates. Activation is refused when existing data would not fit, and also when a consumer API
 contract changes incompatibly without a new contract version (F23). Releases on unsupported older
@@ -813,7 +813,13 @@ refuses unsafe states (wrong database, wrong collation, unknown revision, unsupp
 failed migration) with what to do. Backups and application rollback are separate from activating an
 older model release. Background jobs survive restarts.
 
-Limits: performance at production scale, several servers, metrics and rehearsed restore are 0.11.
+Several processes or servers can share one database: they start up one at a time, and a model
+activated or a workspace migrated through any of them is served by all of them from the next request.
+A page read while its workspace changed release is refused rather than shown half in each model, and
+offers Reload.
+
+Limits: performance at production scale, background jobs spread over several servers, metrics and
+rehearsed restore are 0.11.
 SQLite was a development database only; the engine offers no migration from it.
 
 Settings › **About** and **Deployment** show what the deployment runs and how it is configured, from

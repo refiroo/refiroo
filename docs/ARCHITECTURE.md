@@ -125,7 +125,9 @@ versions are served side by side. A release this process cannot serve (a schema 
 an invalid model, a failed load after activation) makes only the workspaces running it answer
 `503 MODEL_REGISTRY_UNAVAILABLE` (D29); the instance is unhealthy only when no workspace can be
 served. A workspace's data moves to a release it does not fit through a migration (below); spanning
-reads are the cross-type lookup's; multi-node propagation follows in 0.11's later packages.
+reads are the cross-type lookup's. Every request reads its workspace's assignment, so a release
+switched by any process on the database is served by every other from its next request; a process
+parses a release on its first use (D165).
 
 ### Model lifecycle
 
@@ -207,10 +209,13 @@ assignments. Activation also resynchronises that workspace's matrix states and s
 workspace's subscriptions the new release cannot serve, and answers the workspace's change sets left
 on the release it no longer runs (D26), which cannot publish.
 
-Within one process, release installations are serialised across drafts, and database uniqueness
-constraints are the final identity guard, so concurrent identical installs keep their idempotent
-response. Model mutations are therefore supported in one API process only (see
-[Deployment topology](#deployment-topology)).
+Release installations are serialised by a transaction-level advisory lock taken in
+`install_model_release`, across drafts and processes, so a second install of the same model finds the
+first's release and answers it idempotently; database uniqueness constraints stay the final identity
+guard. Activation needs no lock of its own: its row locks and expected version serialise it (D167).
+Startup checks, migrates and installs the bootstrap model under a session-level advisory lock, so
+processes starting together on one database take turns (D168). Model administration works with any
+number of processes (0.11 N1; see [Deployment topology](#deployment-topology)).
 
 ### Change sets on a chosen release
 
@@ -394,7 +399,17 @@ bulk job.
   activation locks that row for update before its compatibility check, so the two cannot interleave
   in one process or across instances. A write that flushed first is seen by the compatibility check;
   a write after activation sees the new release and is refused `409 MODEL_RELEASE_CHANGED` naming the
-  workspace, nothing saved. A write in another workspace locks another row.
+  workspace, nothing saved. A write in another workspace locks another row. The guard and
+  activation lock the assignment row alone and read its release after: under READ COMMITTED, a lock
+  that waited for a switch rechecks a joined condition against the release read before the wait,
+  and the switched row would drop out of the join (found and fixed in 0.11 N1).
+- **A read never answers one release's model over another's data.** A migration and a change set
+  moved to another release switch data and release in one transaction. A request that resolved a
+  release and did not commit checks, as its session dependency ends and before the answer is sent,
+  that each workspace it resolved still runs that release and each change set it read in still pins
+  it (`registry.require_unchanged_releases`); otherwise `409 MODEL_RELEASE_CHANGED`, and the client
+  reads again. A read that still sees the old release read only the old data, in this process or
+  another (D166). A request that committed is not checked: the commit guard checked its write.
 - **A write never commits into a workspace deleted or retired after it resolved it.** The same
   commit point rereads the workspace (`404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`). Workspace
   deletion checks for records, change sets and publications and locks the workspace and the
@@ -694,27 +709,23 @@ are deployment limits; 0.12 authorization will work within them. The settings ar
 [OPERATIONS.md](OPERATIONS.md#capability-groups).
 
 Because capabilities are per process, several instances can share one database with different exposure,
-for example an internal administration instance with one process and a public instance with both
-administration groups off and any worker count. What holds today:
+for example an internal administration instance and a public instance with both administration
+groups off, each with any worker count (0.11 N1):
 
-- **Activation reaches other instances without a restart.** Every request reads its workspace's
-  release from `workspace_models` and caches parsed models by release identity, so another instance
-  serves a newly activated release from its next request.
-- **Writes are safe across instances:** the commit-time release and workspace rechecks and the
-  workspace lock (see [Writes and concurrency](#writes-and-concurrency)) hold across processes.
+- **A switch reaches every process without a restart.** Every request reads its workspace's release
+  from `workspace_models` and caches parsed models by release identity, so another process serves a
+  newly activated or migrated release from its next request (D165).
+- **Writes and reads are safe across processes:** the commit-time release and workspace rechecks and
+  the workspace lock (see [Writes and concurrency](#writes-and-concurrency)) hold across processes, and
+  the read guard refuses a read whose release switched while it ran (D166).
+- **Installation and startup take database locks** (D167, D168), so processes install, migrate and
+  bootstrap one at a time.
 - **Instances must share `RDM_CURSOR_SIGNING_KEY`** when one client's requests can reach different
-  instances.
+  instances, and `JOB_FILE_DIR` on shared storage.
 
-Open caveats before this is a supported topology:
-
-- **The publication guard is per process.** It keeps local requests from resolving the release between
-  activation's commit and this process's registry refresh. A read already in flight on another instance
-  answers from the release it resolved; writes are protected by the commit-time recheck.
-- **The single-process rule for model administration is checked per instance.** Startup refuses model
-  administration with several workers, but cannot detect a second instance with it enabled on the same
-  database.
-- **Split deployment has no composed test.** The 0.11 multi-node work makes it supported, including
-  workers on several nodes through the job lease.
+Still per process: the startup readiness and a release withdrawn after a failed load (readiness per
+workspace is 0.11 O1's), and each process runs a job worker (several workers on several nodes are
+0.11 N2's).
 
 ## Directions
 

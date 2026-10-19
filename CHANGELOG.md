@@ -6,6 +6,30 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 N1, several processes)
+
+- Model administration works with several processes on one database: Uvicorn workers
+  (`WEB_CONCURRENCY` above 1) or instances on several nodes. Startup no longer refuses
+  `MODEL_ADMIN_MUTATIONS_ENABLED` with more than one worker. A release activated or a workspace
+  migrated through any process is served by every other from its next request, with no restart.
+- Processes starting together on one database check, migrate and install the bootstrap model one at
+  a time under a database lock; before, the second could fail its migration and stay in maintenance
+  mode. Release installations take a database lock in place of the in-process one, so two processes
+  installing the same model at once answer `201` and `200` with one release instead of a `500`.
+- A read whose workspace was migrated, or whose change set was moved, to another release while it
+  ran answers `409 MODEL_RELEASE_CHANGED` instead of one release's model over the other's data, in
+  one process or several; the shell's notice offers Reload. The in-process guard it replaces covered
+  only the moment a request resolved its release.
+
+### Fixed (0.11 N1)
+
+- A write whose commit check waited for an activation of its workspace could commit under the
+  release it no longer ran, and an activation waiting for another one answered `503` ("runs no
+  installed release") instead of `409 ACTIVATION_CONFLICT`. Both locked the workspace's assignment
+  joined to its release; after the wait, PostgreSQL rechecked the join against the release read
+  before it, and the switched assignment dropped out. They now lock the assignment alone.
+- The Settings navigation test still listed the pages before "Copy and move" (X4).
+
 ### Fixed (0.11 X6, list reads)
 
 - A table with relation columns opened in seconds: a column showing a value of each related

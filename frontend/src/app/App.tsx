@@ -75,7 +75,7 @@ export default function App() {
  * The toast for a data write refused because its workspace or change set now runs another release
  * than the page was built on (0.11 M6a, D66); the form shows the refusal itself.
  */
-export async function releaseChangedText(refusal: ApiError): Promise<string> {
+export async function releaseChangedText(refusal: ApiError, read = false): Promise<string> {
   const details = (refusal.details ?? {}) as { workspaceKey?: string; changeSetId?: string; currentReleaseId?: string };
   const [workspace, release] = await Promise.all([
     details.workspaceKey ? api.workspace(details.workspaceKey).catch(() => undefined) : undefined,
@@ -85,7 +85,7 @@ export async function releaseChangedText(refusal: ApiError): Promise<string> {
   const subject = details.changeSetId
     ? "This change set now uses"
     : `${workspace?.label ?? details.workspaceKey ?? "This workspace"} now runs`;
-  return `${subject} ${runs}. Nothing was saved.`;
+  return `${subject} ${runs}. ${read ? "Reload to see it." : "Nothing was saved."}`;
 }
 
 export function modelChangeText(previous: Workspace, next: Workspace): string | undefined {
@@ -108,11 +108,12 @@ function AppContent({
   const { model: currentModel, error, navigate, replaceRoute, lastCollection, rememberWorkspace, problem } = router;
   const data = useWorkspaceData();
   const toast = useToast();
-  // A write built on a release the workspace no longer runs: say so once, with Reload (M6a, D66).
+  // A write built on a release the workspace no longer runs, or a read the release changed under
+  // (0.11 N1): say so once, with Reload (M6a, D66).
   useEffect(
     () =>
-      onModelReleaseChanged((refusal) => {
-        releaseChangedText(refusal).then((text) =>
+      onModelReleaseChanged((refusal, read) => {
+        releaseChangedText(refusal, read).then((text) =>
           toast(text, { tone: "info", actions: [{ label: "Reload", href: window.location.href }] }),
         );
       }),

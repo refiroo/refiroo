@@ -63,15 +63,20 @@ describe("API client", () => {
     expect(named()).toBeNull();
 
     const refusals: string[] = [];
-    const stop = onModelReleaseChanged((refusal) => refusals.push(refusal.code));
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({ error: { code: "MODEL_RELEASE_CHANGED", message: "Reload", details: {} } }, 409),
-    );
+    const stop = onModelReleaseChanged((refusal, read) => refusals.push(`${refusal.code} ${read}`));
+    const changed = () =>
+      jsonResponse({ error: { code: "MODEL_RELEASE_CHANGED", message: "Reload", details: {} } }, 409);
+    fetchMock.mockResolvedValueOnce(changed());
     await expect(api.updateObject("domain", "id", { expectedVersion: 1, name: "Stale" })).rejects.toMatchObject({
       code: "MODEL_RELEASE_CHANGED",
     });
+    // A read the release changed under while it was read (0.11 N1) is told too.
+    fetchMock.mockResolvedValueOnce(changed());
+    await expect(api.objects("domain", { workspaceKey: "west" })).rejects.toMatchObject({
+      code: "MODEL_RELEASE_CHANGED",
+    });
     stop();
-    expect(refusals).toEqual(["MODEL_RELEASE_CHANGED"]);
+    expect(refusals).toEqual(["MODEL_RELEASE_CHANGED false", "MODEL_RELEASE_CHANGED true"]);
   });
 
   it("reads move targets live or in a change set, with search, a type and paging", async () => {

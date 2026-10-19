@@ -21,14 +21,27 @@ Assignment = tuple[WorkspaceModel, ModelRelease]
 def load_assignment(session: Session, workspace_key: str, *, for_update: bool = False) -> Assignment:
     """The workspace's assignment and release; ``for_update`` holds the assignment row, which the
     commit guard of every write in the workspace shares."""
-    statement = (
-        select(WorkspaceModel, ModelRelease)
-        .join(ModelRelease, ModelRelease.id == WorkspaceModel.model_release_id)
-        .where(WorkspaceModel.workspace_key == workspace_key)
-    )
     if for_update:
-        statement = statement.with_for_update(of=WorkspaceModel)
-    row = session.execute(statement).one_or_none()
+        # The row is locked alone, then its release read: a lock that waited for another
+        # transaction's switch rechecks only the row's own condition, where a join's condition
+        # would be checked against the release read before the wait and drop the row (0.11 N1).
+        assignment = session.scalar(
+            select(WorkspaceModel)
+            .where(WorkspaceModel.workspace_key == workspace_key)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        row = (
+            None
+            if assignment is None
+            else (assignment, session.get(ModelRelease, assignment.model_release_id))
+        )
+    else:
+        row = session.execute(
+            select(WorkspaceModel, ModelRelease)
+            .join(ModelRelease, ModelRelease.id == WorkspaceModel.model_release_id)
+            .where(WorkspaceModel.workspace_key == workspace_key)
+        ).one_or_none()
     if row is None:
         if session.get(Workspace, workspace_key) is None:
             raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")

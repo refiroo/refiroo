@@ -223,7 +223,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | `CONSUMER_RESOLVE_MAX_ITEMS` (reported by `GET /capabilities` as `consumerApi.resolveMaxItems`) | J29.10 |
 | `CONSUMER_SUBSCRIPTIONS_ENABLED` (the subscriptions API and their delivery, reported by `GET /capabilities` as `consumerSubscriptions` with the delivery limits, `maxEventsPerBatch` among them), `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (required with the capability on) | J30.6–J30.9 |
 | `python -m app.cli.generate_key` | J30.6 (the encryption key) |
-| `WEB_CONCURRENCY` | J12.7 (refused above 1 with model administration) |
+| `WEB_CONCURRENCY` | J12.7 (served above 1 with model administration on), J12.10 (several workers or processes on one database, 0.11 N1) |
 | `CORS_ORIGINS` | J12.7 (a browser client on another origin) |
 | `RDM_CURSOR_SIGNING_KEY` | J21 (cursors that survive a restart), J12.7 |
 | `RDM_API_REFERENCE_SCRIPT` | J20, J12.7 |

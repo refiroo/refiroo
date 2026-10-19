@@ -1658,6 +1658,9 @@ multi-tenancy: hosting stays one instance per organisation.
   every item. A route that names no workspace reads the default workspace.
 - **The commit guard is per workspace:** a write checks under a share lock on its workspace's row that
   the workspace still runs the release it was validated under; activation locks that row.
+- **A read is held to its release too** (0.11 N1, D166): a request that did not commit checks before
+  it answers that its workspace still runs the release it resolved, and is refused otherwise, so no
+  request answers one release's model over another's data in any process.
 - **Activation targets one workspace.** Its compatibility check, contract check, unique values,
   matrix states and subscription suspension cover that workspace only. A change set pinned to a
   release its workspace no longer runs cannot publish until it is moved or discarded.

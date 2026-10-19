@@ -94,13 +94,13 @@ def database_reachable() -> bool:
 async def lifespan(application: FastAPI):
     loaded_model = load_bootstrap_model()
     try:
-        create_database()
+        # The bootstrap install runs under the startup lock too (0.11 N1, D168).
+        create_database(then=lambda: bootstrap_model(loaded_model))
     except DatabaseStartupError as exc:
         model_registry.mark_unhealthy()
         logger.error("%s", exc)
         yield
         return
-    bootstrap_model(loaded_model)
     with SessionLocal() as session:
         # A release this version cannot serve makes only its workspaces unavailable (0.11 D29).
         unavailable_releases = model_registry.start(session)
@@ -194,7 +194,6 @@ async def lifespan(application: FastAPI):
 
 def create_app() -> FastAPI:
     settings = reload_settings()
-    settings.validate_model_admin_topology()
     settings.validate_consumer_subscriptions()
     settings.prepare_job_file_dir()
     mutations_enabled = settings.model_admin_mutations_enabled

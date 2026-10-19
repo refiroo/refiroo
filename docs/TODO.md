@@ -660,6 +660,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     W1 profiled once as a seed was not built.
   - [x] 0.11.0-alpha.1 when the M6 checkpoint passes (plan D12, accepted 2026-10-15): released
     2026-10-17, tag `v0.11.0-alpha.1`.
+  - [x] N1, several processes on one database, delivered 2026-10-19 (D165–D169): model
+    administration with any worker count, installations and startup under database locks, the read
+    guard. The job worker under several processes is N2's; readiness per workspace is O1's.
+  - [ ] **Found in N1 (2026-10-19):** the package's groups (`model_admin`, `workspace_models`,
+    `migration`, `startup`: 609 cases) took 3 min 39 s with `-n 4`, over the 3-minute package
+    ceiling (D127); run with four workers because the laptop was shared (load 2.8–4.9).
 
 ## Later — production and self-service authoring
 

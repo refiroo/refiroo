@@ -200,8 +200,9 @@ async function send(
       // Non-JSON response evidence belongs in controlled server diagnostics, not the rendered UI.
     }
     const failure = new ApiError(response.status, code, message, details);
-    if (code === "MODEL_RELEASE_CHANGED" && expectedReleaseHeader(path, init.method))
-      reportModelReleaseChanged(failure);
+    const read = !init.method || init.method.toUpperCase() === "GET";
+    if (code === "MODEL_RELEASE_CHANGED" && (read || expectedReleaseHeader(path, init.method)))
+      reportModelReleaseChanged(failure, read);
     throw failure;
   }
   if (response.status === 204) return { response, body: undefined };

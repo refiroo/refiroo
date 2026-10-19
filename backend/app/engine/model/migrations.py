@@ -1566,14 +1566,13 @@ def execute(
             "report the correlation ID",
             {"workspaceKey": job.workspace_key, "correlationId": correlation_id},
         ) from exc
-    with model_registry.publication_guard():
-        session.commit()
-        try:
-            model_registry.warm(target.id)
-        except Exception:
-            model_registry.withdraw(target)
-            logger.exception(
-                "Migration %s committed, but this process could not load release %s",
-                job.id,
-                target.public_id,
-            )
+    session.commit()
+    try:
+        model_registry.warm(target.id)
+    except Exception:
+        model_registry.withdraw(target)
+        logger.exception(
+            "Migration %s committed, but this process could not load release %s",
+            job.id,
+            target.public_id,
+        )

@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6 and N1 (2026-10-19).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -403,7 +403,7 @@ change) and `volume` (every budget).
 | 16a | [X6](#x6-list-reads-within-the-agreed-budget) | X5 | **Delivered 2026-10-19.** A table's first screen with relation columns within the 0.8 budgets; expansions read in PostgreSQL; the case in the volume baseline; one scrolling design for every long list (budget pages, drawn only near the view) |
 | | **Part 2 — production hardening** | | |
 | 17 | [S1](#s1-the-backend-suites-time) | — | **Delivered 2026-10-18.** Journey cases spread over the workers; the full suite with `-n 6` under a revised 11-minute ceiling (D126) |
-| 18 | [N1](#n1-snapshots-across-processes) | M2 | Assignment changes propagated across processes; model administration with `WEB_CONCURRENCY` above 1 |
+| 18 | [N1](#n1-snapshots-across-processes) | M2 | **Delivered 2026-10-19.** Assignment changes propagated across processes; model administration with `WEB_CONCURRENCY` above 1; installation and startup under database locks; the read guard |
 | 19 | [N2](#n2-the-job-worker-on-several-nodes) | N1 | Every job kind's leases, cancels and supersession under real concurrency |
 | 20 | [N3](#n3-concurrency-invariants-at-full-volume) | N2, Q1 | Several processes and nodes on one database at full volume; constraints as a second line, on evidence |
 | 21 | [Q1](#q1-full-volume-fixture-pool-and-bulk-paths) | — | The fixture at full scale; pool sizing; the bulk-path statistics pattern; `NOT IN` subqueries |
@@ -3793,6 +3793,170 @@ plan); the in-process installation lock replaced by a database lock; `MODEL_ADMI
 no longer requires `WEB_CONCURRENCY=1`.
 
 **Groups:** `workspace_models`, `model`, `startup`.
+
+##### N1 plan (2026-10-19)
+
+**Planned 2026-10-19. D165–D169 and the test cases accepted by the user on 2026-10-19.** Checked
+against the code at `1e1d3a5`.
+
+**What was found:**
+
+- **Resolution already reads the database.** Since M1, every request reads its workspace's
+  assignment (`ModelRegistry._load_workspace`: workspace, `workspace_models`, release) and parses a
+  release only once per process, cached by release ID and hash. Releases are immutable, so neither
+  that cache nor the metadata identifier cache (keyed by release) can go stale. A switch committed
+  in one process is seen by every other from its next request. Parsing the example model takes
+  14 ms (measured three times), so the first request after a switch in another process pays that once.
+- **Writes are already guarded across processes.** The commit guard (`require_resolved_release`)
+  rechecks each resolved workspace's release under a share lock on its `workspace_models` row at
+  every commit; activation holds that row `FOR UPDATE`, and the V1 migration switches data and
+  release in one transaction.
+- **Reads are not.** The registry's `publication_guard` keeps a resolution out of the
+  commit-to-warm window, in this process only, and covers only the moment of resolution. A read
+  that resolved release A and is still reading when a migration to B commits reads B's data under
+  A's model: in one process today, and in any other process. Activation changes no data, so a read
+  across it sees the old model with the old data, which is coherent; a migration (V1) and a change set
+  moved to another release (V2, V3) change data and the release together. This is the roadmap's
+  "without mixed-model requests".
+- **The locks are thread locks.** `model_installation_lock` and `model_activation_lock`
+  (`engine/model/releases.py`) hold only within one process. Two processes installing the same
+  draft at once both insert the release; the second fails on the `(release_key, release_version)`
+  unique constraint with a `500`. Activation needs no lock of its own: it locks the workspace's
+  active subscriptions, the unique-value table when the unique attributes differ, then the
+  assignment row `FOR UPDATE` with the expected version, so a second activation of one workspace
+  waits and is refused as `ACTIVATION_CONFLICT`.
+- **Startup is not serialized.** Every process runs `create_database` (the Alembic upgrade) and
+  `bootstrap_model` at start. Two processes starting together on a new or older database both
+  migrate; the second fails and stays in maintenance mode. This already applies to
+  `WEB_CONCURRENCY` above 1 without model administration.
+- **The gate:** `Settings.validate_model_admin_topology` refuses `MODEL_ADMIN_MUTATIONS_ENABLED`
+  with `WEB_CONCURRENCY` other than 1 (J12.7's `concurrency` case); OPERATIONS and API.md say so.
+- **Per process and left so:** the job listener, the event deriver and the dispatcher are already
+  built for several processes (`LISTEN`, `SKIP LOCKED`); the job worker under several processes is
+  N2's. `ModelRegistry._servable` (the startup readiness) and a release withdrawn after a failed
+  load are per process; readiness per workspace is O1's.
+
+**What is built:**
+
+1. **The read guard (D166).** A request that resolved a model and did not commit checks, before it
+   answers, that each workspace it resolved still runs that release and each change set it read
+   still pins it; otherwise it answers `409 MODEL_RELEASE_CHANGED`, as a write does, and the client
+   reads again. It replaces the in-process `publication_guard`. A plain read is enough: a switch
+   commits its data and the release together, so a read that still sees the old release read only
+   the old data.
+2. **Installation under a database lock (D167).** `install_model_release` takes a transaction-level
+   advisory lock first, so the API, bootstrap and the schema-upgrade command install one at a time
+   across processes, and the second finds the first's release. The two thread locks are removed.
+3. **Startup under a database lock (D168).** The migration and the bootstrap install run under a
+   session-level advisory lock; a process starting meanwhile waits, then finds the head and the
+   release.
+4. **The gate lifted.** `validate_model_admin_topology` goes; J12.7's `concurrency` case becomes a
+   start that serves with `WEB_CONCURRENCY=2` and model administration on.
+5. **Documents:** OPERATIONS (the two settings, a section on several processes), API.md's
+   capabilities paragraph and `MODEL_RELEASE_CHANGED` on reads, ARCHITECTURE's resolution section,
+   J12.10 in USER_JOURNEYS and API_JOURNEYS, CHANGELOG, PROJECT_STATUS, TODO.
+
+**Composable domains (ADR-032):** no door affected; N1 touches none of identity, attribute storage,
+audit, the bulk APIs, `match` or coverage.
+
+**Decisions:**
+
+| # | Question | Recommendation | Blocks |
+| --- | --- | --- | --- |
+| D165 | How another process learns of a switch | **Recommended:** by the read at resolution it already does, with no `LISTEN/NOTIFY`. Why: every request reads the assignment since M1, releases are immutable, and a process parses a new release on first use in about 14 ms. A notification would only pre-parse. Cost: one parse per process after a switch | N1 |
+| D166 | A read whose workspace switched while it ran | **Recommended:** the read guard: refused with `409 MODEL_RELEASE_CHANGED`, retried by the client, never answered with one release's model over another's data. Why: it is the commit guard's rule for reads, holds in one process and in several, blocks nothing and cannot deadlock. Rejected: readers holding a shared lock that the switch waits for (a long read holds up the switch, and a read that writes can deadlock with it); `REPEATABLE READ` for every request (serialization failures on writes). Cost: one primary-key read per read request; a read racing a migration is refused and sent again | N1, R |
+| D167 | The installation and activation locks | **Recommended:** installation under a transaction-level advisory lock inside `install_model_release`; activation's thread lock removed, since its row locks and expected version already serialize it across processes (tested). Why: the lock then holds for every caller and every process. Cost: two installs at once wait for each other, as within one process today | N1 |
+| D168 | Several processes starting on one database | **Recommended:** the migration and the bootstrap install under a session-level advisory lock; the others wait, then find the head. Why: an operator's first `WEB_CONCURRENCY=2` start on a new or older database would otherwise leave a process in maintenance mode. Cost: the other processes start after the first one's migration | N1 |
+| D169 | What stays per process | **Recommended:** startup readiness and a release withdrawn after a failed load stay per process until O1 (readiness per workspace); the job worker under several processes is N2's. Why: their scopes. Cost: none in N1 | O1, N2 |
+
+**Journey test cases** (written first and seen failing where the behaviour is new; real processes
+started with `python -m uvicorn` on one cloned database, two separate processes standing for two
+nodes, and one start with `--workers 2`):
+
+1. **J12.10 Several processes start together** (`startup`): an older database, two workers
+   (`WEB_CONCURRENCY=2`, model administration on). Both serve, `/health` is ready, the database is at
+   the head and runs one bootstrap release. Fails today (the gate refuses the setting).
+2. **J36.2 across processes** (`workspace_models`): processes A and B. A release activated into
+   W1 through A; B's next read of W1 serves it (`GET /model` names it, a type only it holds is
+   listed) and W2 is unchanged on B. A write sent to B built on the old release
+   (`X-Expected-Model-Release-Id`) is refused `409 MODEL_RELEASE_CHANGED`, nothing saved.
+3. **Install and activate from two processes at once** (`model`): the same draft installed through A
+   and B together: one `201`, one `200`, the same release, no `500`. W1 activated through A and B
+   with one expected version: one `200`, one `409 ACTIVATION_CONFLICT`.
+4. **J37 across processes** (`workspace_models`): a migration of W1 confirmed through A; B's next
+   read of W1 serves the target release and the migrated records.
+5. **The read guard** (`workspace_models`, at the engine boundary, two sessions): a read resolves
+   W1, another session commits W1's switch, and the read is refused `409 MODEL_RELEASE_CHANGED`
+   naming the workspace and both releases; a read in W2 meanwhile answers. Fails today.
+
+Unit tests: the advisory locks (a second holder waits), the settings no longer refusing the pair.
+
+##### N1 record (2026-10-19)
+
+**Delivered 2026-10-19.** Built as planned:
+
+- **The read guard** (`registry.require_unchanged_releases`), run by the management and consumer
+  session dependencies as they end (`Depends(..., scope="function")`: after the answer is built,
+  before it is sent). It checks the workspaces a request resolved and the change sets it read in; a
+  request that committed is not checked. The registry's `publication_guard` and its reader count
+  are gone; `warm` stays, so the switching process still parses the new release at once.
+- **Database locks** (`app/db.py`): `lock_installation` (a transaction-level advisory lock, taken
+  first in `install_model_release`, so bootstrap and the schema-upgrade command take it too) and
+  the startup lock (session-level, held by `create_database` over its checks, the migration and
+  the caller's `then`, the bootstrap install). The thread locks `model_installation_lock` and
+  `model_activation_lock` are removed.
+- **The gate lifted:** `Settings.validate_model_admin_topology` removed.
+
+**Found and fixed on the way:**
+
+- **The commit guard let a write through after waiting for an activation.** The guard locked the
+  workspace's assignment joined to its release (`FOR SHARE OF workspace_models`); a lock that waits
+  for a concurrent update rechecks the query's condition on the new row version under READ
+  COMMITTED, and the join's condition was checked against the release read before the wait, so the
+  switched row dropped out and the guard took it for "no assignment" and passed: the write
+  committed under the release its workspace no longer ran. Activation's own lock
+  (`load_assignment(for_update=True)`) had the same shape: a second activation that waited answered
+  `503 "runs no installed release"` instead of `409 ACTIVATION_CONFLICT` (found by test case 3).
+  Both now lock the assignment row alone and read its release after. Regression test:
+  `test_a_write_whose_check_waits_for_the_switch` (seen failing on `1e1d3a5`: the write was not
+  refused).
+- **The shell's notice for `MODEL_RELEASE_CHANGED`** listened to writes only and said "Nothing was
+  saved." A read refused by the guard now reaches it too, saying "Reload to see it."
+  (`api/client.ts`, `api/expectedRelease.ts`, `App.tsx`).
+- **Settings' navigation test** still listed the pages before X4's "Copy and move"; it failed on
+  `1e1d3a5` and is updated. `App.test.tsx` was not formatted (one line, since before N1); formatted.
+
+**Where it differs from the plan:** test case 1 starts the two workers on an empty database rather
+than an older one: the migration from nothing is the longest and holds the most statements, and
+J12's upgrade cases already cover an older database in one process. The startup lock also covers
+the extensions' creation, which two processes could race on.
+
+**Checks:**
+
+- The new journey tests, written first: `test_j12_j36_several_processes.py` (cases 1–4, real
+  `uvicorn` processes: 8 runs over generated A and B) and `test_j36_read_guard.py` (case 5 and the
+  regression: 6 runs). On `1e1d3a5` in a separate worktree: all 8 process runs failed (the start
+  refused by the gate), the commit-guard regression failed (no refusal), and the read-guard cases
+  failed at import (no guard). With N1: all pass.
+- `-m "model_admin or workspace_models or migration or startup"`: 609 passed in 3 min 39 s with
+  `-n 4` (over the 3-minute ceiling, D127; in TODO).
+- `test_pg3_concurrency`, `test_w5_activation_write_race`, `test_boundaries`,
+  `test_openapi_contract` (the OpenAPI lock unchanged), `test_j28_consumer_read` and the new tests:
+  82 passed.
+- `tests/unit/test_db.py` (the two locks), the lifecycle case starting with two workers, and J12
+  (with J12.7's new case): 49 passed.
+- Frontend: `vitest related` for the three changed files, 542 passed in 55 files; ESLint; the
+  production build.
+- Smoke start on an isolated copy of the development database (4,527 records, revision
+  `20261022_01`): two workers started, `/health` ready, model administration offered, no error in
+  the log; the copy dropped afterwards.
+- **Not run:** the full suite and the browser runners (R's); `consumer` and `model` as whole groups
+  (4,503 cases with the others, most of the suite; the consumer read journey and the model groups the
+  guide names for the registry ran).
+
+**What the user still cannot do:** run the job worker on several nodes with every job kind checked
+under real concurrency (N2); see readiness per workspace (O1); the concurrency invariants at full
+volume with several processes (N3).
 
 #### N2: The job worker on several nodes
 

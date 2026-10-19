@@ -254,8 +254,9 @@ an operator what to change without knowing the server's configuration names.
 
 `readReleases` remains true when mutations are disabled. `manageDrafts` and `install` are true only
 when `MODEL_ADMIN_MUTATIONS_ENABLED=true`; `activate` follows the same gate. The flag is a deployment
-guard, not an authorization mechanism. Mutation enablement requires a single process; startup rejects
-`WEB_CONCURRENCY` values greater than one until cross-process release propagation exists.
+guard, not an authorization mechanism. It works with any number of processes on one database (0.11
+N1): installation takes a database lock, and a switch is served by every process from its next
+request.
 `workspaceAdmin.manageWorkspaces` follows `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, which defaults to true
 until authentication exists. It is a deployment capability and not evidence of caller authorization.
 
@@ -4639,6 +4640,12 @@ validated under; activation holds that row for update. Otherwise `409 MODEL_RELE
 another workspace takes another row and is never held up by the guard; an activation that changes
 which attributes are unique holds the unique values' table until it commits, as in 0.9 R-F2, the one
 moment it holds up writes elsewhere.
+
+**The read guard** (0.11 N1, D166). A read whose workspace was moved to another release while it
+ran (a migration committed, in any process), or whose change set was moved to another release,
+answers `409 MODEL_RELEASE_CHANGED` instead of its answer, with the same `details` and, for a change
+set, `changeSetId`; nothing was changed, and the client reads again. A request that committed a write
+is not refused afterwards: the commit guard checked it.
 
 **A workspace whose release cannot be loaded** (D29, D34) answers `503 MODEL_REGISTRY_UNAVAILABLE`
 with `details.workspaceKey`, `releaseId` and, for an unsupported schema, `schemaVersion` and

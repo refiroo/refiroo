@@ -1874,6 +1874,10 @@ controlled diagnostics.
   `/health` reports not ready, and all recover when it returns, without a restart (J24.6).
 - J12.9 (carry a SQLite database over) was dropped with PG4 on 2026-10-03: the developer's data was
   moved by hand, and no engine command copies SQLite data.
+- **J12.10 Several processes on one database** (0.11 N1): processes started together, as workers
+  (`WEB_CONCURRENCY` above 1) or as nodes, migrate and install the configured model one at a time
+  and all serve; model administration works in any of them, and a workspace's new release is served
+  by every process from its next request.
 
 **Evidence today:** the J12 journey tests; `test_startup`, `test_model_schema_upgrade`,
 `test_schema_drift`, `test_api_reference`; unit tests of `config.py` and `main.py`.

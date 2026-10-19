@@ -423,12 +423,8 @@ def test_the_api_reference_loads_its_pinned_script(configuration, databases, scr
     [
         ({"RDM_API_REFERENCE_SCRIPT": "elsewhere"}, ("RDM_API_REFERENCE_SCRIPT",)),
         ({"BATCH_MAX_ITEMS": "zero"}, ("BATCH_MAX_ITEMS",)),
-        (
-            {"WEB_CONCURRENCY": "2", "MODEL_ADMIN_MUTATIONS_ENABLED": "true"},
-            ("MODEL_ADMIN_MUTATIONS_ENABLED", "WEB_CONCURRENCY"),
-        ),
     ],
-    ids=["reference-script", "limit", "concurrency"],
+    ids=["reference-script", "limit"],
 )
 def test_an_invalid_setting_refuses_to_start(configuration, databases, settings, named):
     """When the service starts with an invalid setting. Then it refuses to start with a message
@@ -440,6 +436,18 @@ def test_an_invalid_setting_refuses_to_start(configuration, databases, settings,
         pass
     for name in named:
         assert name in str(refusal.value)
+
+
+@pytest.mark.journey("J12.7", "J12.10")
+def test_model_administration_with_several_workers(configuration, databases):
+    """When the service starts with model administration on and ``WEB_CONCURRENCY=2``. Then it
+    serves and offers installation and activation (refused before 0.11 N1; several real processes:
+    ``test_j12_j36_several_processes.py``)."""
+    settings = {"WEB_CONCURRENCY": "2", "MODEL_ADMIN_MUTATIONS_ENABLED": "true"}
+    with serve(configuration, _clone(databases), **settings) as service:
+        _serves(service)
+        admin = service.client.get("/api/v1/capabilities").json()["modelAdmin"]
+        assert admin["install"] is True and admin["activate"] is True
 
 
 @pytest.mark.journey("J12.8")

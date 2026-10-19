@@ -46,8 +46,6 @@ from ...engine.model.releases import (
     WorkspaceRetired,
     activate_model_release,
     install_model_release,
-    model_activation_lock,
-    model_installation_lock,
 )
 from ...engine.model.workspace_models import workspaces_running
 from ...engine.sources import draft_profile
@@ -117,109 +115,107 @@ def activate_workspace_model(
 ) -> WorkspaceModelActivationResponse:
     """Activate an installed release into one workspace (0.11 M1, ADR-042): its compatibility check
     counts that workspace's data alone, and the other workspaces keep their releases."""
-    with model_activation_lock:
-        try:
-            activated = activate_model_release(
-                session,
-                workspace_key,
-                str(payload.releaseId),
-                expected_version=payload.expectedVersion,
-                expected_release_id=str(payload.expectedReleaseId),
-            )
-        except WorkspaceNotFound as exc:
-            raise api_error(
-                404, "WORKSPACE_NOT_FOUND", f"Workspace '{exc.workspace_key}' not found"
-            ) from exc
-        except ModelReleaseNotFound as exc:
-            raise api_error(
-                404,
-                "MODEL_RELEASE_NOT_FOUND",
-                f"Model release '{exc.release_id}' not found",
-            ) from exc
-        except ActivationConflict as exc:
-            raise api_error(
-                409,
-                "ACTIVATION_CONFLICT",
-                f"The model of workspace '{exc.workspace_key}' changed before activation",
-                {
-                    "workspaceKey": exc.workspace_key,
-                    "currentReleaseId": exc.current_release_id,
-                    "currentVersion": exc.current_version,
-                },
-            ) from exc
-        except WorkspaceRetired as exc:
-            raise api_error(
-                409,
-                "WORKSPACE_RETIRED",
-                f"Workspace '{exc.workspace_key}' is retired; its model is not changed",
-                {"workspaceKey": exc.workspace_key},
-            ) from exc
-        except UnsupportedModelSchema as exc:
-            raise api_error(
-                422,
-                "UNSUPPORTED_SCHEMA_VERSION",
-                f"Schema version '{exc.schema_version}' cannot be activated",
-                {
-                    "releaseId": exc.release_id,
-                    "schemaVersion": exc.schema_version,
-                    "supportedSchemaVersions": list(SCHEMA_VERSIONS),
-                    "operation": "activation",
-                },
-            ) from exc
-        except ModelMigrationRequired as exc:
-            raise api_error(
-                409,
-                "MODEL_MIGRATION_REQUIRED",
-                f"Data of workspace '{workspace_key}' is incompatible with the candidate model",
-                diagnostic_details(exc.compatibility.diagnostics),
-            ) from exc
-        except ConsumerContractVersionRequired as exc:
-            raise api_error(
-                409,
-                "CONSUMER_CONTRACT_VERSION_REQUIRED",
-                "A consumer API definition changes what its consumers read; raise its"
-                " contractVersion in a new release",
-                diagnostic_details(exc.diagnostics),
-            ) from exc
-        except InvalidInstalledModel as exc:
-            raise api_error(
-                500,
-                "INVALID_INSTALLED_MODEL",
-                "An installed model release failed validation",
-                diagnostic_details(exc.diagnostics),
-            ) from exc
-
-        response = WorkspaceModelActivationResponse(
-            workspaceKey=workspace_key,
-            releaseId=activated.release.public_id,
-            releaseKey=activated.release.release_key,
-            releaseName=activated.release.release_name,
-            releaseVersion=activated.release.release_version,
-            schemaVersion=activated.release.schema_version,
-            modelHash=activated.release.model_hash,
-            version=activated.version,
-            updatedAt=activated.updated_at,
-            changeSetsLeftBehind=[
-                ChangeSetLeftBehind(id=item.id, name=item.name, version=item.version)
-                for item in activated.change_sets_left_behind
-            ],
+    try:
+        activated = activate_model_release(
+            session,
+            workspace_key,
+            str(payload.releaseId),
+            expected_version=payload.expectedVersion,
+            expected_release_id=str(payload.expectedReleaseId),
         )
-        with model_registry.publication_guard():
-            session.commit()
-            try:
-                model_registry.warm(activated.release.id)
-            except Exception as exc:
-                model_registry.withdraw(activated.release)
-                raise api_error(
-                    503,
-                    "MODEL_REGISTRY_REFRESH_FAILED",
-                    "The model was activated, but this process could not load the new release",
-                    {
-                        "workspaceKey": workspace_key,
-                        "releaseId": response.releaseId,
-                        "version": response.version,
-                    },
-                ) from exc
+    except WorkspaceNotFound as exc:
+        raise api_error(
+            404, "WORKSPACE_NOT_FOUND", f"Workspace '{exc.workspace_key}' not found"
+        ) from exc
+    except ModelReleaseNotFound as exc:
+        raise api_error(
+            404,
+            "MODEL_RELEASE_NOT_FOUND",
+            f"Model release '{exc.release_id}' not found",
+        ) from exc
+    except ActivationConflict as exc:
+        raise api_error(
+            409,
+            "ACTIVATION_CONFLICT",
+            f"The model of workspace '{exc.workspace_key}' changed before activation",
+            {
+                "workspaceKey": exc.workspace_key,
+                "currentReleaseId": exc.current_release_id,
+                "currentVersion": exc.current_version,
+            },
+        ) from exc
+    except WorkspaceRetired as exc:
+        raise api_error(
+            409,
+            "WORKSPACE_RETIRED",
+            f"Workspace '{exc.workspace_key}' is retired; its model is not changed",
+            {"workspaceKey": exc.workspace_key},
+        ) from exc
+    except UnsupportedModelSchema as exc:
+        raise api_error(
+            422,
+            "UNSUPPORTED_SCHEMA_VERSION",
+            f"Schema version '{exc.schema_version}' cannot be activated",
+            {
+                "releaseId": exc.release_id,
+                "schemaVersion": exc.schema_version,
+                "supportedSchemaVersions": list(SCHEMA_VERSIONS),
+                "operation": "activation",
+            },
+        ) from exc
+    except ModelMigrationRequired as exc:
+        raise api_error(
+            409,
+            "MODEL_MIGRATION_REQUIRED",
+            f"Data of workspace '{workspace_key}' is incompatible with the candidate model",
+            diagnostic_details(exc.compatibility.diagnostics),
+        ) from exc
+    except ConsumerContractVersionRequired as exc:
+        raise api_error(
+            409,
+            "CONSUMER_CONTRACT_VERSION_REQUIRED",
+            "A consumer API definition changes what its consumers read; raise its"
+            " contractVersion in a new release",
+            diagnostic_details(exc.diagnostics),
+        ) from exc
+    except InvalidInstalledModel as exc:
+        raise api_error(
+            500,
+            "INVALID_INSTALLED_MODEL",
+            "An installed model release failed validation",
+            diagnostic_details(exc.diagnostics),
+        ) from exc
+
+    response = WorkspaceModelActivationResponse(
+        workspaceKey=workspace_key,
+        releaseId=activated.release.public_id,
+        releaseKey=activated.release.release_key,
+        releaseName=activated.release.release_name,
+        releaseVersion=activated.release.release_version,
+        schemaVersion=activated.release.schema_version,
+        modelHash=activated.release.model_hash,
+        version=activated.version,
+        updatedAt=activated.updated_at,
+        changeSetsLeftBehind=[
+            ChangeSetLeftBehind(id=item.id, name=item.name, version=item.version)
+            for item in activated.change_sets_left_behind
+        ],
+    )
+    session.commit()
+    try:
+        model_registry.warm(activated.release.id)
+    except Exception as exc:
+        model_registry.withdraw(activated.release)
+        raise api_error(
+            503,
+            "MODEL_REGISTRY_REFRESH_FAILED",
+            "The model was activated, but this process could not load the new release",
+            {
+                "workspaceKey": workspace_key,
+                "releaseId": response.releaseId,
+                "version": response.version,
+            },
+        ) from exc
     return response
 
 
@@ -599,77 +595,74 @@ def install_model_draft(
     session: DbSession,
     response: Response,
 ) -> ModelInstallationResponse:
-    with model_installation_lock:
-        draft = load_draft_for_update(session, draft_id)
-        require_draft_version(draft, payload.expectedVersion)
-        compiled = compile_authored_model(draft.model_json)
-        if compiled.unsupported_schema_version is not None:
-            # A version outside the window is refused as activation refuses one (0.11 V4, D98).
-            raise api_error(
-                422,
-                "UNSUPPORTED_SCHEMA_VERSION",
-                f"Model draft uses schema version '{compiled.unsupported_schema_version}', which this"
-                f" deployment does not support; supported versions: {', '.join(SCHEMA_VERSIONS)}",
-                {
+    draft = load_draft_for_update(session, draft_id)
+    require_draft_version(draft, payload.expectedVersion)
+    compiled = compile_authored_model(draft.model_json)
+    if compiled.unsupported_schema_version is not None:
+        # A version outside the window is refused as activation refuses one (0.11 V4, D98).
+        raise api_error(
+            422,
+            "UNSUPPORTED_SCHEMA_VERSION",
+            f"Model draft uses schema version '{compiled.unsupported_schema_version}', which this"
+            f" deployment does not support; supported versions: {', '.join(SCHEMA_VERSIONS)}",
+            {
+                "draftId": draft.public_id,
+                "schemaVersion": compiled.unsupported_schema_version,
+                "supportedSchemaVersions": list(SCHEMA_VERSIONS),
+                "operation": "install",
+            },
+        )
+    if not compiled.valid or compiled.model is None:
+        raise api_error(
+            422,
+            "INVALID_MODEL",
+            "Model draft is invalid and cannot be installed",
+            diagnostic_details(compiled.diagnostics),
+        )
+    # Installing is instance-wide and checks no workspace's data; activation does (ADR-042).
+    draft_profile.require_installable(session, draft, compiled.model)
+    try:
+        release, created = install_model_release(session, compiled.model)
+    except ReleaseIdentityConflict as exc:
+        raise api_error(
+            409,
+            "RELEASE_IDENTITY_CONFLICT",
+            f"Release '{exc.release_key}@{exc.release_version}' is already installed with different content",
+        ) from exc
+    # D17: what the draft held is now released; its version is unchanged (D34).
+    draft.base_model_release_id = release.id
+    # D80: the draft's import profile becomes the instance profile of its key.
+    saved = draft_profile.save_at_installation(session, draft, release, compiled.model)
+    if created:
+        session.add(
+            AuditEvent(
+                aggregate_type="model_release",
+                aggregate_id=release.public_id,
+                action="installed",
+                version=1,
+                changes={
                     "draftId": draft.public_id,
-                    "schemaVersion": compiled.unsupported_schema_version,
-                    "supportedSchemaVersions": list(SCHEMA_VERSIONS),
-                    "operation": "install",
+                    "releaseKey": release.release_key,
+                    "releaseVersion": release.release_version,
+                    "modelHash": release.model_hash,
                 },
             )
-        if not compiled.valid or compiled.model is None:
-            raise api_error(
-                422,
-                "INVALID_MODEL",
-                "Model draft is invalid and cannot be installed",
-                diagnostic_details(compiled.diagnostics),
-            )
-        # Installing is instance-wide and checks no workspace's data; activation does (ADR-042).
-        draft_profile.require_installable(session, draft, compiled.model)
-        try:
-            release, created = install_model_release(session, compiled.model)
-        except ReleaseIdentityConflict as exc:
-            raise api_error(
-                409,
-                "RELEASE_IDENTITY_CONFLICT",
-                f"Release '{exc.release_key}@{exc.release_version}' is already installed with different content",
-            ) from exc
-        # D17: what the draft held is now released; its version is unchanged (D34).
-        draft.base_model_release_id = release.id
-        # D80: the draft's import profile becomes the instance profile of its key.
-        saved = draft_profile.save_at_installation(session, draft, release, compiled.model)
-        if created:
-            session.add(
-                AuditEvent(
-                    aggregate_type="model_release",
-                    aggregate_id=release.public_id,
-                    action="installed",
-                    version=1,
-                    changes={
-                        "draftId": draft.public_id,
-                        "releaseKey": release.release_key,
-                        "releaseVersion": release.release_version,
-                        "modelHash": release.model_hash,
-                    },
-                )
-            )
-        session.commit()
-        if not created:
-            response.status_code = status.HTTP_200_OK
-        return ModelInstallationResponse(
-            id=release.public_id,
-            key=release.release_key,
-            name=release.release_name,
-            version=release.release_version,
-            schemaVersion=release.schema_version,
-            modelHash=release.model_hash,
-            installedAt=as_utc(release.installed_at),
-            assigned=bool(running := workspaces_running(session, release.id)),
-            workspaces=running,
-            importProfile={"key": saved.key, "version": saved.version}
-            if saved is not None
-            else None,
         )
+    session.commit()
+    if not created:
+        response.status_code = status.HTTP_200_OK
+    return ModelInstallationResponse(
+        id=release.public_id,
+        key=release.release_key,
+        name=release.release_name,
+        version=release.release_version,
+        schemaVersion=release.schema_version,
+        modelHash=release.model_hash,
+        installedAt=as_utc(release.installed_at),
+        assigned=bool(running := workspaces_running(session, release.id)),
+        workspaces=running,
+        importProfile={"key": saved.key, "version": saved.version} if saved is not None else None,
+    )
 
 
 def draft_response(session: Session, draft: ModelDraft) -> ModelDraftResponse:

@@ -10,7 +10,7 @@ database at its previous revision.
 """
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import cache
 from pathlib import Path
 
@@ -29,6 +29,12 @@ from .config import database_url
 logger = logging.getLogger(__name__)
 
 DRIVER = "postgresql+psycopg"
+# Advisory locks, as (namespace, key) pairs in the engine's own namespace ("RDM"): the startup's
+# check, migration and bootstrap install, held by a session; a release's installation, held by its
+# transaction (0.11 N1).
+_LOCK_NAMESPACE = 0x52444D
+STARTUP_LOCK = {"namespace": _LOCK_NAMESPACE, "key": 1}
+INSTALLATION_LOCK = {"namespace": _LOCK_NAMESPACE, "key": 2}
 # PG-D11: the language-independent Unicode root order, the same on every platform.
 COLLATION_PROVIDER, COLLATION_LOCALES = "i", frozenset({"und", "root"})
 # The trigram search indexes (PG-D7) and, for the key columns beside the trigrams, btree_gin (0.9 C14).
@@ -201,9 +207,7 @@ def _check_collation(connection: Connection, label: str) -> None:
     )
 
 
-def _check_revision(
-    connection: Connection, script: ScriptDirectory, label: str
-) -> str | None:
+def _check_revision(connection: Connection, script: ScriptDirectory, label: str) -> str | None:
     current = MigrationContext.configure(connection).get_current_revision()
     if current is None:
         return None
@@ -268,29 +272,67 @@ def _ensure_extensions(connection: Connection, label: str) -> None:
     )
 
 
-def create_database() -> None:
-    """Check the configured database and migrate it to the Alembic head (see the module docstring)."""
+def create_database(then: Callable[[], None] | None = None) -> None:
+    """Check the configured database and migrate it to the Alembic head (see the module docstring).
+
+    Every step runs under the startup lock, and so does ``then``, the caller's own startup writes
+    (the bootstrap install): processes starting together on one database check, migrate and
+    install one at a time, and each after the first finds the head (0.11 N1, D168).
+    """
     url = configured_url()
     label = _database_label(url)
     config = migration_config(url)
     script = ScriptDirectory.from_config(config)
     target_revision = script.get_current_head() or "unknown"
     try:
-        with get_engine().connect() as connection:
+        connection = get_engine().connect()
+    except DBAPIError as exc:
+        raise _unreachable(label, exc) from None
+    with connection:
+        try:
+            connection.execute(text("SELECT pg_advisory_lock(:namespace, :key)"), STARTUP_LOCK)
+            connection.commit()
             _check_collation(connection, label)
             current_revision = _check_revision(connection, script, label) or "unversioned"
             _ensure_extensions(connection, label)
-    except DatabaseStartupError:
-        raise
-    except DBAPIError as exc:
-        logger.debug("Database connection diagnostic traceback", exc_info=exc)
-        raise DatabaseStartupError(
-            f"RDM Engine cannot connect to the {label}. Reason: {_failure_reason(exc)}. "
-            + _MAINTENANCE
-            + " Check that the PostgreSQL server is running (for development: "
-            "'scripts/postgres.sh start' from the repository root), that the database exists and "
-            "that DATABASE_URL names it with a role allowed to connect, then restart RDM Engine."
-        ) from None
+        except DatabaseStartupError:
+            raise
+        except DBAPIError as exc:
+            raise _unreachable(label, exc) from None
+        try:
+            _upgrade(config, label, current_revision, target_revision)
+            if then is not None:
+                then()
+        finally:
+            try:
+                connection.rollback()
+                connection.execute(
+                    text("SELECT pg_advisory_unlock(:namespace, :key)"), STARTUP_LOCK
+                )
+                connection.commit()
+            except DBAPIError:
+                # Closing the connection releases the lock on the server.
+                connection.invalidate()
+
+
+def lock_installation(session: Session) -> None:
+    """Install releases one at a time across processes until this transaction ends (0.11 N1,
+    D167), so a second install of the same model finds the first's release."""
+    session.execute(text("SELECT pg_advisory_xact_lock(:namespace, :key)"), INSTALLATION_LOCK)
+
+
+def _unreachable(label: str, exc: DBAPIError) -> DatabaseStartupError:
+    logger.debug("Database connection diagnostic traceback", exc_info=exc)
+    return DatabaseStartupError(
+        f"RDM Engine cannot connect to the {label}. Reason: {_failure_reason(exc)}. "
+        + _MAINTENANCE
+        + " Check that the PostgreSQL server is running (for development: "
+        "'scripts/postgres.sh start' from the repository root), that the database exists and "
+        "that DATABASE_URL names it with a role allowed to connect, then restart RDM Engine."
+    )
+
+
+def _upgrade(config: Config, label: str, current_revision: str, target_revision: str) -> None:
     try:
         command.upgrade(config, "head")
     except Exception as exc:

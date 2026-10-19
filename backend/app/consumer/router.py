@@ -29,7 +29,12 @@ from ..db import SessionLocal
 from ..engine.model.consumer_definitions import consumer_api as declared_api
 from ..engine.model.consumer_definitions import consumer_apis
 from ..engine.model.consumer_openapi import consumer_openapi, consumer_openapi_path
-from ..engine.model.registry import ModelSnapshot, resolve_model_snapshot, resolve_pinned_release
+from ..engine.model.registry import (
+    ModelSnapshot,
+    require_unchanged_releases,
+    resolve_model_snapshot,
+    resolve_pinned_release,
+)
 from ..engine.reads.consumer_events import (
     AFTER_POSITION,
     PAGE_SIZES,
@@ -86,15 +91,18 @@ _PAGING_CODES = frozenset({"INVALID_CURSOR", "CONFLICTING_PAGE_PARAMETERS", "INV
 
 
 def _session() -> Iterator[Session]:
+    """One session per request; a read whose model changed meanwhile is refused before it answers
+    (the read guard, 0.11 N1)."""
     with SessionLocal() as session:
         yield session
+        require_unchanged_releases(session)
 
 
 async def _body(request: Request) -> bytes:
     return await request.body()
 
 
-DbSession = Annotated[Session, Depends(_session)]
+DbSession = Annotated[Session, Depends(_session, scope="function")]
 Body = Annotated[bytes, Depends(_body)]
 
 router = APIRouter(prefix=PREFIX, tags=["consumer"], include_in_schema=False)

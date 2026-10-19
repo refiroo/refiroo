@@ -8,16 +8,24 @@ from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
 from ..engine.model import expected_release
-from ..engine.model.registry import ModelSnapshot, resolve_model_snapshot, resolve_request_model
+from ..engine.model.registry import (
+    ModelSnapshot,
+    require_unchanged_releases,
+    resolve_model_snapshot,
+    resolve_request_model,
+)
 
 
 def get_session() -> Iterator[Session]:
-    """Yield one session per request so a request reads from a single connection."""
+    """Yield one session per request so a request reads from a single connection. Once the handler
+    has built its answer, and before it is sent, a read whose model changed meanwhile is refused
+    (the read guard, 0.11 N1); the session closes then."""
     with SessionLocal() as session:
         yield session
+        require_unchanged_releases(session)
 
 
-DbSession = Annotated[Session, Depends(get_session)]
+DbSession = Annotated[Session, Depends(get_session, scope="function")]
 
 
 def default_model_snapshot(session: DbSession) -> ModelSnapshot:

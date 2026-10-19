@@ -524,7 +524,9 @@ describe("App", () => {
 
     const selector = await screen.findByRole("combobox", { name: "Workspace" });
     fireEvent.change(selector, { target: { value: "west" } });
-    await waitFor(() => expect(api.workspaces).toHaveBeenCalledWith({ search: "west", status: "active", pageSize: 50 }));
+    await waitFor(() =>
+      expect(api.workspaces).toHaveBeenCalledWith({ search: "west", status: "active", pageSize: 50 }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /Show workspace options/ }));
     fireEvent.click(await screen.findByRole("option", { name: /West/ }));
 
@@ -606,7 +608,7 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Domains", level: 1 })).toBeInTheDocument();
   });
 
-  it("says which release a refused write's workspace or change set now runs (0.11 M6a, D66)", async () => {
+  it("says which release a refused write's or read's workspace or change set now runs (0.11 M6a, N1)", async () => {
     vi.mocked(api.modelRelease).mockResolvedValue({ name: "Journey model A", version: "1.1.0" } as never);
     const refusal = (details: object) => new ApiError(409, "MODEL_RELEASE_CHANGED", "Reload", details);
 
@@ -616,6 +618,10 @@ describe("App", () => {
     expect(
       await releaseChangedText(refusal({ workspaceKey: "site-a", changeSetId: "cs", currentReleaseId: "r2" })),
     ).toBe("This change set now uses Journey model A 1.1.0. Nothing was saved.");
+    // A read refused because the release changed while it was read (0.11 N1).
+    expect(await releaseChangedText(refusal({ workspaceKey: "site-a", currentReleaseId: "r2" }), true)).toBe(
+      "site-a now runs Journey model A 1.1.0. Reload to see it.",
+    );
   });
 
   it("keeps the instance's name in the top bar whatever model the workspace runs (0.11 M6)", async () => {

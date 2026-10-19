@@ -117,6 +117,7 @@ describe("SettingsShell", () => {
       "Model",
       "Deployment",
       "Import profiles",
+      "Copy and move",
       "Jobs",
       "Consumer APIs",
       "Webhooks",

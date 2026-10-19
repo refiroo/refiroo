@@ -181,16 +181,6 @@ class Settings(BaseModel):
                 "`python -m app.cli.generate_key` and keep it outside the database"
             )
 
-    def validate_model_admin_topology(self) -> None:
-        """Reject model mutations when Uvicorn is configured with multiple workers."""
-        if not self.model_admin_mutations_enabled:
-            return
-        if self.web_concurrency != 1:
-            raise RuntimeError(
-                "MODEL_ADMIN_MUTATIONS_ENABLED requires WEB_CONCURRENCY=1 until "
-                "cross-process model release propagation is implemented"
-            )
-
 
 def _worker_count(raw: str) -> int:
     try:
