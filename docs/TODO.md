@@ -308,7 +308,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   Seen again in 0.10 A4a (2026-10-11): `test:browser` and `test:browser:a4` each timed out once in a
   run of the guide's runners after the package's changes and passed on their rerun, unchanged; the
   first runs' logs were not kept.
-- [ ] **`NOT IN` subqueries that may outgrow `work_mem` (0.9 R, after R-F23 and R-F25):**
+- [x] **`NOT IN` subqueries that may outgrow `work_mem` (0.9 R, after R-F23 and R-F25):** done in
+  0.11 Q1 (D177) without measuring, with three more found (the move binding, a negated relationship
+  criterion, the matrix state filter in a change set):
   `jobs/people.py` `_walk_ids` (`wanted NOT IN the workbook's records`, which can reach a whole
   type at full volume) and `management/projections/mapping.py` exclusive targets (`id NOT IN` the
   mapping's edges). PostgreSQL hashes such a subplan only while it fits; past that it scans it per
@@ -683,6 +685,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] **Found in N1 (2026-10-19):** the package's groups (`model_admin`, `workspace_models`,
     `migration`, `startup`: 609 cases) took 3 min 39 s with `-n 4`, over the 3-minute package
     ceiling (D127); run with four workers because the laptop was shared (load 2.8–4.9).
+  - [x] Q1 delivered 2026-10-20, amended with the user (D176): no full-volume run in Q1 or N3, a
+    full-volume run only on the user's explicit approval; N3 no longer needs Q1. Pool settings and
+    `503 DATABASE_UNAVAILABLE` (D179–D181), `NOT EXISTS` (D177), working tables analyzed (D178).
+  - [ ] **Found in Q1 (2026-10-20), not measured (D176):** whether D177 and D178 change X5's move
+    dry run (12.4× for 9.8× the records) or the people export at full volume. A full-volume run
+    only on the user's approval.
   - [x] N2, the job worker on several nodes, delivered 2026-10-19 (D170–D175): a heartbeat per
     running job, submissions of one subject one at a time, a profile checking its newest file, the
     workers woken by the job listener, a partial export file per lease, a move's long steps before
@@ -797,8 +805,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] Unique-value checks over non-text values (integer, decimal, date, dateTime, boolean) still read
   every value of the attribute, live and in a change set: the value indexes cover `text_value` only
   (0.9 B2 added the live one). Add them with 0.11's model-derived indexes.
-- [ ] PostgreSQL at production scale and across nodes (0.11): the volume fixture at full scale, pool
-  sizing, several processes and nodes. The trigram search index and the relation matrix's PostgreSQL
+- [x] PostgreSQL at production scale and across nodes (0.11): the volume fixture at full scale (exists
+  since 0.8, scale 1), pool sizing (0.11 Q1: settings, OPERATIONS' arithmetic, D179–D181), several
+  processes and nodes (N1, N2; N3). The trigram search index and the relation matrix's PostgreSQL
   forms (0.8 A2, A3b) were delivered by 0.9.0-alpha.1 PG2 (2026-10-01); single-node multi-writer
   uniqueness moves to [PG3](POSTGRESQL_RUNTIME_PLAN.md) (delivered 2026-10-02: the workspace lock).
 - [x] Found in PG3 (2026-10-02), done in
@@ -811,7 +820,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   every-criterion cases (17 s each). PG3b's four groups (`records`, `change_sets`, `jobs`,
   `matrix`, 578 parallel cases) took 2 min 31 s on `-n auto`, 28 s of it rebuilding two volume
   seeds whose fingerprint covers the write code; `test_change_set_position_reads` took 52 s.
-- [ ] Assess the cost of matrix state maintenance per commit (found by the test harness assessment,
+- [ ] Assess the cost of matrix state maintenance per commit (kept open by 0.11 Q1, D176: not measured,
+  nobody has seen it slow; a full-volume run only on the user's approval) (found by the test harness assessment,
   2026-10-01): a commit recomputes the touched matrix cells, about 7 ms in the parity and
   type-change test models, and a single create cost 19 ms through the API. Measure it on the volume
   fixture against the 0.8 A2 write budget before changing anything.

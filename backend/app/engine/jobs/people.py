@@ -38,6 +38,7 @@ from sqlalchemy import (
     MetaData,
     String,
     Text,
+    exists,
     insert,
     literal,
     select,
@@ -532,7 +533,11 @@ def write_people(
         _fill_links(session, model, part, sheet.related, workspace_key, context)
     lists = _list_specs(model, plan)
     _fill_choices(session, model, plan, lists, workspace_key, context)
+    # The walk below and every sheet join these; autovacuum never analyzes a temporary table, so
+    # each is analyzed once filled (0.11 Q1, D178).
+    session.execute(text("ANALYZE people_links, people_choices"))
     _fill_far_records(session, workspace_key, context)
+    session.execute(text("ANALYZE people_records, people_ancestors"))
     for part, column in enumerate(related):
         _fill_cells(session, model, part, column)
     checkpoint()
@@ -571,7 +576,6 @@ def write_people(
         else (sheet, part)
         for sheet, part in sheets
     ]
-    session.execute(text("ANALYZE people_links"))
 
     connection = session.connection().connection.driver_connection
     book = xlsx.Workbook(path, on_row)
@@ -723,7 +727,8 @@ def _walk_ids(tree: Any) -> Any:
     ).subquery("people_wanted")
     start = (
         select(wanted.c.object_id)
-        .where(wanted.c.object_id.not_in(select(_RECORDS.c.object_id)))
+        # NOT EXISTS, an anti-join, not NOT IN, a subplan hashed only while it fits (0.11 Q1, D177).
+        .where(~exists().where(_RECORDS.c.object_id == wanted.c.object_id))
         .cte("people_walk", recursive=True)
     )
     step = tree.alias("people_step")

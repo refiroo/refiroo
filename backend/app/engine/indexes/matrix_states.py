@@ -1034,20 +1034,24 @@ def _column_rows(owner: Owner, shape_key: str, column_id: str, *terms: Any) -> S
     )
 
 
-def _replaced_rows(overlay: Owner, shape_key: str) -> Select[Any]:
-    return _column_rows(overlay, shape_key, REPLACED)
-
-
 def _present(owners: Sequence[Owner], shape_key: str, column_id: str, *terms: Any) -> list[Select[Any]]:
     """The context's rows whose cell in the column is stored and meets ``terms``: one owner's, or a
     change set's and its base's rows the change set does not replace."""
     if len(owners) == 1:
         return [_column_rows(owners[0], shape_key, column_id, *terms)]
     overlay, base = owners
-    replaced = _replaced_rows(overlay, shape_key)
+
+    def not_replaced(table: Any) -> Any:
+        # Correlated, so PostgreSQL anti-joins on the overlay's key; `NOT IN` was a subplan hashed
+        # only while it fit in `work_mem` (0.9 R, R-F25; 0.11 Q1, D177).
+        replaced = _column_rows(
+            overlay, shape_key, REPLACED, lambda row: row.c.row_id == table.c.row_id
+        )
+        return ~replaced.exists()
+
     return [
         _column_rows(overlay, shape_key, column_id, *terms),
-        _column_rows(base, shape_key, column_id, *terms, lambda table: table.c.row_id.not_in(replaced)),
+        _column_rows(base, shape_key, column_id, *terms, not_replaced),
     ]
 
 

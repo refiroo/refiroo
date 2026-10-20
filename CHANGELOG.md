@@ -6,6 +6,32 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 Q1, database connections)
+
+- Each process's database connections can be set: `DATABASE_POOL_SIZE` (5), `DATABASE_POOL_MAX_OVERFLOW`
+  (10) and `DATABASE_POOL_TIMEOUT` (30 s), reported by `GET /system`; OPERATIONS gives the arithmetic
+  per process and per instance. A start whose processes could need more connections than the server
+  allows logs a warning naming both figures (J12.11).
+- A request that gets no database connection answers `503 DATABASE_UNAVAILABLE` with `Retry-After`
+  and `details.reason` `poolExhausted`, `tooManyConnections` or `unreachable`, logged in one line
+  naming the cause and the settings. It answered `500 INTERNAL_ERROR` with no cause in the log
+  (J12.8, J12.11). The job worker, the event deriver and the webhook dispatcher report an exhausted
+  pool or a full server in one plain line, as an unreachable database, not as a failure with a
+  traceback.
+
+### Fixed (0.11 Q1)
+
+- A process with a pool of one connection could not start: the startup lock held one pooled
+  connection while the bootstrap install waited for another. The lock's connection is outside the
+  pool.
+- Five `NOT IN` subqueries, which PostgreSQL scans once per row once they outgrow `work_mem`, are
+  `NOT EXISTS`: the people export's walk, the mapping list's exclusive targets, the move binding's
+  related records, a query's negated relationship criterion and the relation matrix's state filter
+  in a change set. Not measured at full volume.
+- The move binding's and the people export's working tables are analyzed once filled; PostgreSQL
+  never analyzes a temporary table by itself, so their joins were planned on guesses. Not measured
+  at full volume.
+
 ### Fixed (the model editor's moves)
 
 - A type could not be moved to another application: Move to… and a drop on an application only set

@@ -10,7 +10,9 @@ database at its previous revision.
 """
 
 import logging
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
@@ -23,8 +25,9 @@ from psycopg.pq import TransactionStatus
 from sqlalchemy import URL, Connection, Engine, create_engine, make_url, text
 from sqlalchemy.exc import ArgumentError, DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
-from .config import database_url
+from .config import database_url, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -93,14 +96,39 @@ def configured_url() -> URL:
     return url
 
 
+@dataclass(frozen=True)
+class _Pool:
+    """Each process's connections (0.11 Q1, D179): ``DATABASE_POOL_SIZE``,
+    ``DATABASE_POOL_MAX_OVERFLOW`` and ``DATABASE_POOL_TIMEOUT``."""
+
+    size: int
+    max_overflow: int
+    timeout: int
+
+
+def _configured_pool() -> _Pool:
+    settings = get_settings()
+    return _Pool(
+        settings.database_pool_size,
+        settings.database_pool_max_overflow,
+        settings.database_pool_timeout,
+    )
+
+
 @cache
-def _engine_for_url(url: str) -> Engine:
-    return create_engine(url, pool_pre_ping=True)
+def _engine_for(url: str, pool: _Pool) -> Engine:
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=pool.size,
+        max_overflow=pool.max_overflow,
+        pool_timeout=pool.timeout,
+    )
 
 
 def get_engine() -> Engine:
-    """Return the pooled engine for the configured database URL."""
-    return _engine_for_url(configured_url().render_as_string(hide_password=False))
+    """Return the pooled engine for the configured database URL and pool."""
+    return _engine_for(configured_url().render_as_string(hide_password=False), _configured_pool())
 
 
 def libpq_url() -> str:
@@ -110,12 +138,14 @@ def libpq_url() -> str:
 
 
 @cache
-def _sessionmaker_for_url(url: str) -> sessionmaker[Session]:
-    return sessionmaker(bind=_engine_for_url(url), expire_on_commit=False)
+def _sessionmaker_for(url: str, pool: _Pool) -> sessionmaker[Session]:
+    return sessionmaker(bind=_engine_for(url, pool), expire_on_commit=False)
 
 
 def get_sessionmaker() -> sessionmaker[Session]:
-    return _sessionmaker_for_url(configured_url().render_as_string(hide_password=False))
+    return _sessionmaker_for(
+        configured_url().render_as_string(hide_password=False), _configured_pool()
+    )
 
 
 class _SessionFactory:
@@ -286,17 +316,22 @@ def create_database(then: Callable[[], None] | None = None) -> None:
     config = migration_config(url)
     script = ScriptDirectory.from_config(config)
     target_revision = script.get_current_head() or "unknown"
+    # The startup lock's connection is outside the pool: the bootstrap install (``then``) takes a
+    # pooled one while the lock is held, so a pool of one connection would wait for itself (0.11 Q1).
+    lock_engine = create_engine(url.render_as_string(hide_password=False), poolclass=NullPool)
     try:
-        connection = get_engine().connect()
+        connection = lock_engine.connect()
     except DBAPIError as exc:
+        lock_engine.dispose()
         raise _unreachable(label, exc) from None
-    with connection:
+    with connection, _disposed(lock_engine):
         try:
             connection.execute(text("SELECT pg_advisory_lock(:namespace, :key)"), STARTUP_LOCK)
             connection.commit()
             _check_collation(connection, label)
             current_revision = _check_revision(connection, script, label) or "unversioned"
             _ensure_extensions(connection, label)
+            _warn_of_connection_limit(connection)
         except DatabaseStartupError:
             raise
         except DBAPIError as exc:
@@ -315,6 +350,43 @@ def create_database(then: Callable[[], None] | None = None) -> None:
             except DBAPIError:
                 # Closing the connection releases the lock on the server.
                 connection.invalidate()
+
+
+def _warn_of_connection_limit(connection: Connection) -> None:
+    """Warn when this instance's processes could open more connections than the server accepts
+    from ordinary roles (0.11 Q1, D181): each process's pool and overflow and the job listener's own
+    connection. A warning, not a refusal: other instances on the server are not visible here, and
+    the processes may never all be busy at once."""
+    settings = get_settings()
+    per_process = settings.database_pool_size + settings.database_pool_max_overflow + 1
+    wanted = settings.web_concurrency * per_process
+    limit = int(connection.scalar(text("SHOW max_connections")))
+    reserved = int(connection.scalar(text("SHOW superuser_reserved_connections")))
+    if wanted <= limit - reserved:
+        return
+    logger.warning(
+        "This instance's %s processes (WEB_CONCURRENCY) could open up to %s database connections "
+        "(%s each: DATABASE_POOL_SIZE %s, DATABASE_POOL_MAX_OVERFLOW %s and the job listener's "
+        "one), but the server accepts %s (max_connections %s, less %s reserved). When they are all "
+        "in use, requests answer 503 DATABASE_UNAVAILABLE. Lower WEB_CONCURRENCY, "
+        "DATABASE_POOL_SIZE or DATABASE_POOL_MAX_OVERFLOW, or raise the server's max_connections",
+        settings.web_concurrency,
+        wanted,
+        per_process,
+        settings.database_pool_size,
+        settings.database_pool_max_overflow,
+        limit - reserved,
+        limit,
+        reserved,
+    )
+
+
+@contextmanager
+def _disposed(engine: Engine) -> Iterator[None]:
+    try:
+        yield
+    finally:
+        engine.dispose()
 
 
 def lock_installation(session: Session) -> None:

@@ -542,6 +542,11 @@ def candidate_ids(
     )
 
 
+def _from_of(column: Any) -> Any:
+    """The table, alias or subquery an ID column is read from."""
+    return column.expression.table if hasattr(column, "expression") else column.table
+
+
 def _related_predicate(
     model: EngineModel,
     object_type: ObjectTypeDefinition,
@@ -585,8 +590,12 @@ def _related_predicate(
             )
         )
     else:
-        relations = relation_projection(context, relation_type_keys=[hop.relationTypeKey])
-        others = object_projection(context, object_type_keys=target_keys)
+        # Named apart from the list's own projections: the negated hop refers to the listed record
+        # from inside, where a second `snapshot_objects` would take its place.
+        relations = relation_projection(context, relation_type_keys=[hop.relationTypeKey]).alias(
+            "hop_relations"
+        )
+        others = object_projection(context, object_type_keys=target_keys).alias("hop_objects")
         anchor, far = _ends(relations.c.from_object_id, relations.c.to_object_id, hop.direction)
         columns = snapshot_object_columns(others, context, search_index=False)
         columns = replace(
@@ -600,7 +609,14 @@ def _related_predicate(
             .where(*predicates)
         )
     if criterion.not_:
-        return SetFilter("id", lambda column: column.not_in(matched))
+        # NOT EXISTS, an anti-join, not NOT IN, a subplan hashed only while it fits in `work_mem`;
+        # the anchor is never null, so the records are the same (0.11 Q1, D177). Correlated to the
+        # listed record's table alone: the hop's own tables stay inside even where the list reads
+        # them too.
+        return SetFilter(
+            "id",
+            lambda column: ~matched.where(anchor == column).correlate(_from_of(column)).exists(),
+        )
     return SetFilter("id", lambda column: column.in_(matched))
 
 

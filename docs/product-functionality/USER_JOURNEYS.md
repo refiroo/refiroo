@@ -1888,14 +1888,21 @@ controlled diagnostics.
   which installs and selects a supported release atomically.
 - **J12.7 Settings**: model administration, workspace administration, integration jobs and their
   limits, the API reference script; an invalid setting refuses to start.
-- **J12.8 The database goes away while running**: requests and the job worker report it concisely,
-  `/health` reports not ready, and all recover when it returns, without a restart (J24.6).
+- **J12.8 The database goes away while running**: requests answer `503 DATABASE_UNAVAILABLE`
+  (reason `unreachable`, since 0.11 Q1) and the job worker reports it concisely, `/health` reports
+  not ready, and all recover when it returns, without a restart (J24.6).
 - J12.9 (carry a SQLite database over) was dropped with PG4 on 2026-10-03: the developer's data was
   moved by hand, and no engine command copies SQLite data.
 - **J12.10 Several processes on one database** (0.11 N1): processes started together, as workers
   (`WEB_CONCURRENCY` above 1) or as nodes, migrate and install the configured model one at a time
   and all serve; model administration works in any of them, and a workspace's new release is served
   by every process from its next request.
+- **J12.11 Out of database connections** (0.11 Q1): a request that gets no connection, because its
+  process's pool is exhausted (`DATABASE_POOL_SIZE`, `DATABASE_POOL_MAX_OVERFLOW`,
+  `DATABASE_POOL_TIMEOUT`) or the server takes no more clients, answers `503 DATABASE_UNAVAILABLE`
+  naming the reason and the setting, logged in one line without a traceback, and is served again
+  once a connection is free. A start whose processes could need more connections than the server
+  allows logs a warning naming both figures.
 
 **Evidence today:** the J12 journey tests; `test_startup`, `test_model_schema_upgrade`,
 `test_schema_drift`, `test_api_reference`; unit tests of `config.py` and `main.py`.

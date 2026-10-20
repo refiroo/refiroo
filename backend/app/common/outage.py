@@ -10,15 +10,25 @@ WARNING a minute; when a round succeeds again, one INFO line. An outage of hours
 
 import logging
 import time
+from typing import Literal
 
 import psycopg
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import TimeoutError as PoolTimeout
 
 REMINDER_SECONDS = 60.0
 # SQLSTATEs of a server that went away or refuses connections: connection exceptions (class 08) and
 # an administrator's or a crash's shutdown (57P01–57P03).
 _UNREACHABLE_CLASS = "08"
 _UNREACHABLE_STATES = frozenset({"57P01", "57P02", "57P03"})
+# The server refuses a new connection because it has as many as it takes. A refusal while connecting
+# carries no SQLSTATE in psycopg (checked 2026-10-20), only the server's FATAL message: "too many
+# clients already", "too many connections for role/database", "remaining connection slots are
+# reserved".
+_TOO_MANY_CONNECTIONS = "53300"
+_TOO_MANY_PHRASES = ("too many clients", "too many connections", "connection slots are reserved")
+
+Unavailable = Literal["poolExhausted", "tooManyConnections", "unreachable"]
 
 
 def database_unreachable(exc: BaseException) -> bool:
@@ -33,6 +43,41 @@ def database_unreachable(exc: BaseException) -> bool:
     if exc.connection_invalidated:
         return True
     return _unreachable_state(getattr(exc.orig, "sqlstate", None))
+
+
+def database_unavailable(exc: BaseException) -> Unavailable | None:
+    """Why ``exc`` left its caller without a database connection (0.11 Q1, D180): this process's
+    pool had none free within ``DATABASE_POOL_TIMEOUT``, the server takes no more clients, or it
+    cannot be reached. ``None`` when a statement failed or the code has a defect."""
+    if isinstance(exc, PoolTimeout):
+        return "poolExhausted"
+    state = (
+        exc.sqlstate
+        if isinstance(exc, psycopg.Error)
+        else getattr(getattr(exc, "orig", None), "sqlstate", None)
+    )
+    if isinstance(exc, (psycopg.Error, DBAPIError)) and (
+        state == _TOO_MANY_CONNECTIONS
+        or any(phrase in str(exc).lower() for phrase in _TOO_MANY_PHRASES)
+    ):
+        return "tooManyConnections"
+    return "unreachable" if database_unreachable(exc) else None
+
+
+# What an operator reads about each, in a log line or a 503's message.
+UNAVAILABLE_CAUSES: dict[Unavailable, str] = {
+    "poolExhausted": (
+        "every connection of this process's pool was in use for DATABASE_POOL_TIMEOUT; if this "
+        "persists under normal load, raise DATABASE_POOL_SIZE or DATABASE_POOL_MAX_OVERFLOW within "
+        "the server's max_connections"
+    ),
+    "tooManyConnections": (
+        "the database server takes no more connections (max_connections); lower WEB_CONCURRENCY, "
+        "DATABASE_POOL_SIZE or DATABASE_POOL_MAX_OVERFLOW across the instances, or raise the "
+        "server's max_connections"
+    ),
+    "unreachable": "the database cannot be reached; check that the server is up and DATABASE_URL",
+}
 
 
 def _unreachable_state(state: str | None) -> bool:
@@ -55,19 +100,30 @@ class OutageLog:
         self.retry_seconds = retry_seconds
         self.failing = False
         self._unreachable = False
+        self._reason: Unavailable | None = None
         self._next_reminder = 0.0
 
     def failed(self, exc: BaseException) -> None:
         now = time.monotonic()
         if not self.failing:
             self.failing, self._next_reminder = True, now + REMINDER_SECONDS
-            self._unreachable = database_unreachable(exc)
-            if self._unreachable:
+            reason = self._reason = database_unavailable(exc)
+            self._unreachable = reason is not None
+            if reason == "unreachable":
                 self.logger.error(
                     "%s cannot reach the database (%s); it retries every %s s and continues where it "
                     "stopped once the database answers",
                     self.thread,
                     _summary(exc),
+                    self.retry_seconds,
+                )
+                self.logger.debug("%s: the database error", self.thread, exc_info=exc)
+            elif reason is not None:
+                self.logger.error(
+                    "%s has no database connection: %s. It retries every %s s and continues where "
+                    "it stopped",
+                    self.thread,
+                    UNAVAILABLE_CAUSES[reason],
                     self.retry_seconds,
                 )
                 self.logger.debug("%s: the database error", self.thread, exc_info=exc)
@@ -78,7 +134,11 @@ class OutageLog:
         elif now >= self._next_reminder:
             self._next_reminder = now + REMINDER_SECONDS
             self.logger.warning(
-                "%s still cannot reach the database (%s); it retries every %s s"
+                (
+                    "%s still cannot reach the database (%s); it retries every %s s"
+                    if self._reason == "unreachable"
+                    else "%s still has no database connection (%s); it retries every %s s"
+                )
                 if self._unreachable
                 else "%s still fails (%s); it retries every %s s",
                 self.thread,
@@ -89,6 +149,13 @@ class OutageLog:
     def succeeded(self) -> None:
         if self.failing:
             self.logger.info(
-                "%s reaches the database again" if self._unreachable else "%s works again", self.thread
+                (
+                    "%s reaches the database again"
+                    if self._reason == "unreachable"
+                    else "%s has a database connection again"
+                )
+                if self._unreachable
+                else "%s works again",
+                self.thread,
             )
             self.failing = False

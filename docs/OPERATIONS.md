@@ -29,6 +29,9 @@ and the one line the API and the Deployment page show) and to the table of its g
 | `JOB_FILE_DIR` | `var/job-files` | Where export files wait for download and import files wait to be read, named after their job, and where model authoring's source files are kept (0.10 A3); created at start. With job creation on, a directory that cannot be written stops startup. An export's file is kept while its job is completed and removed when the job expires (`JOB_RETENTION_DAYS`), fails or is cancelled; an import's file until its job finishes. Several instances need it on shared storage. See [Exports](#exports), [Imports](#imports) and [Source files and dry runs](#source-files-and-dry-runs) |
 | `RDM_API_REFERENCE_SCRIPT` | `bundled` | `bundled` serves the pinned Scalar script from the engine, so `/docs` works offline; `cdn` loads the same version from jsDelivr under its integrity hash. Any other value stops startup |
 | `WEB_CONCURRENCY` | `1` | Uvicorn worker count. Any count, with or without model administration (0.11 N1); see [Several processes](#several-processes) |
+| `DATABASE_POOL_SIZE` | `5` | Database connections each process keeps open (0.11 Q1). See [Database connections](#database-connections) |
+| `DATABASE_POOL_MAX_OVERFLOW` | `10` | Connections each process opens beyond `DATABASE_POOL_SIZE` when busy, closed again when returned; `0` for none |
+| `DATABASE_POOL_TIMEOUT` | `30` | Seconds a caller waits for a free connection; a request that waits it out answers `503 DATABASE_UNAVAILABLE` |
 | `VITE_API_URL` (frontend) | `http://localhost:8000` | API address the browser application calls |
 
 ### Several processes
@@ -48,6 +51,31 @@ only once its process stops renewing (`JOB_LEASE_SECONDS`, 120 s by default): st
 frozen or cut off from the database. A frozen process that holds a database lock in an open
 transaction holds up the writes waiting for that lock until it resumes or its connection ends; the
 lease does not end that.
+
+### Database connections
+
+Each process has one pool of connections (`DATABASE_POOL_SIZE`, plus up to
+`DATABASE_POOL_MAX_OVERFLOW` more while busy), shared by everything it runs: requests, each one
+holding a connection while it is served; the job worker and the export worker, each holding one
+while it runs a step of a job; their heartbeats, briefly every third of `JOB_LEASE_SECONDS`; the
+event deriver and the webhook dispatcher, briefly each round. The job listener holds one more
+connection of its own, outside the pool, and startup one more while it checks and migrates.
+
+So a process opens at most `DATABASE_POOL_SIZE + DATABASE_POOL_MAX_OVERFLOW + 1` connections (16
+with the defaults), and an instance `WEB_CONCURRENCY` times that. Across every instance on one
+server, the sum stays under the server's `max_connections` less `superuser_reserved_connections`
+and whatever else connects to it (backups, an administrator's session). At startup each process
+compares its own instance's figure with the server's and logs a WARNING when it is over; other
+instances are not visible to it.
+
+When every connection of a process's pool is in use for `DATABASE_POOL_TIMEOUT`, its next request
+answers `503 DATABASE_UNAVAILABLE` with `details.reason` `poolExhausted` and `Retry-After: 5`, and
+the log has one WARNING line naming the settings; nothing is saved. When the server refuses a new
+connection because it has as many as it takes, the reason is `tooManyConnections`. Seen now and then
+under a peak, it needs nothing; seen under normal load, raise `DATABASE_POOL_SIZE` or
+`DATABASE_POOL_MAX_OVERFLOW` within the server's limit, or lower `WEB_CONCURRENCY`. A background
+thread without a connection logs one ERROR line saying so, without a traceback, and retries as
+for an unreachable database (below).
 
 ### Capability groups
 
@@ -132,13 +160,12 @@ Startup refuses to serve, logs what to do and answers `GET /health` with `503` w
 - `RDM_MODEL_PATH` names a model of a schema outside the window: the process does not start, and the
   message names the setting, the file, its schema and the supported ones.
 
-The application does not start at all when model administration is enabled with more than one
-worker. `/health` also returns `503` when an activation committed but this process could not load the newly
+`/health` also returns `503` when an activation committed but this process could not load the newly
 selected release. Restart the process; it then loads the database selection.
 
 While the service runs, `/health` asks the database each time: while the database is unreachable it
-answers `503`, and requests answer `500 INTERNAL_ERROR` with a correlation ID (logged in one line, no
-traceback). Nothing needs restarting: once the database is back, `/health` answers `200`, requests
+answers `503`, and requests answer `503 DATABASE_UNAVAILABLE` with `details.reason` `unreachable`
+and `Retry-After` (logged in one ERROR line, no traceback; before 0.11 Q1 `500 INTERNAL_ERROR`). Nothing needs restarting: once the database is back, `/health` answers `200`, requests
 are served and the job worker, the event deriver and the webhook dispatcher resume. Each retries
 every 2 s and logs the outage in one ERROR line saying it cannot reach the database, then a WARNING
 a minute, then an INFO line when the database answers again, with no traceback: an unreachable

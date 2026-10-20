@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19); Q1 (2026-10-20).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -163,7 +163,7 @@ Checked against the code at `e2cce78`:
 | — | The backend suite's time (D152, 0.10 R) | S1 |
 | 7 | Snapshot propagation across processes; the job worker on several nodes | N1, N2 |
 | 8 | Database constraints as a second line, decided on evidence; the concurrency exit gate | N3 |
-| 9 | Production-scale PostgreSQL: full-volume fixture, pool sizing, bulk-path statistics | Q1 |
+| 9 | Production-scale PostgreSQL: pool sizing, bulk-path statistics (no full-volume run, D176) | Q1 |
 | 10 | Model-derived indexes, unique checks on non-text values | Q2 |
 | 11 | Precomputed sort keys (0.8 D26) | Q3 |
 | 12 | Metrics, structured logging, health and readiness | O1 |
@@ -405,8 +405,8 @@ change) and `volume` (every budget).
 | 17 | [S1](#s1-the-backend-suites-time) | — | **Delivered 2026-10-18.** Journey cases spread over the workers; the full suite with `-n 6` under a revised 11-minute ceiling (D126) |
 | 18 | [N1](#n1-snapshots-across-processes) | M2 | **Delivered 2026-10-19.** Assignment changes propagated across processes; model administration with `WEB_CONCURRENCY` above 1; installation and startup under database locks; the read guard |
 | 19 | [N2](#n2-the-job-worker-on-several-nodes) | N1 | **Delivered 2026-10-19.** Every job kind's leases, cancels and supersession under real concurrency: a heartbeat per running job, submissions of one subject one at a time, workers woken across processes, a partial export file per lease |
-| 20 | [N3](#n3-concurrency-invariants-at-full-volume) | N2, Q1 | Several processes and nodes on one database at full volume; constraints as a second line, on evidence |
-| 21 | [Q1](#q1-full-volume-fixture-pool-and-bulk-paths) | — | The fixture at full scale; pool sizing; the bulk-path statistics pattern; `NOT IN` subqueries |
+| 20 | [Q1](#q1-pool-and-bulk-paths) | — | **Delivered 2026-10-20** (amended, D176: no full-volume run). Pool settings and `503 DATABASE_UNAVAILABLE`; statistics on the move binding's and people export's working tables; five `NOT IN` subqueries as `NOT EXISTS` |
+| 21 | [N3](#n3-concurrency-invariants-with-several-processes) | N2 | Amended 2026-10-20 (D176): several processes and nodes on one database, not at full volume; a frozen process's locks; constraints as a second line, on evidence |
 | 22 | [Q2](#q2-model-derived-indexes) | M2, Q1 | Indexes derived from each workspace's model; unique checks on non-text values |
 | — | _cut line (D13)_ | | _If R is out of reach, 0.11.0 releases here and Q3 and U1 move to 0.11.x_ |
 | 23 | [Q3](#q3-precomputed-sort-keys) | Q2 | Attribute and ancestor sorts over very large parents within the list budget |
@@ -430,7 +430,7 @@ Part 1
  Moves:                       M4 ─ X1 ─ X2 ─ X3 ─ X4 ─ X5 ─ X6 (X4 also needs M5; X6 is order only)
 Part 2
  Suite:         S1                                (filler in Part 1; before X2, D2)
- Nodes:                  M2 ─ N1 ─ N2 ─ N3        (N3 also needs Q1)
+ Nodes:                  M2 ─ N1 ─ N2 ─ N3
  Volume:        Q1 ─ Q2 (needs M2) ── cut line (D13) ── Q3
  Operations:    N1 ─ O1 ─ O2 (needs M6)
  Touch:         U1 (independent; filler)
@@ -4156,22 +4156,193 @@ advisory lock (a second holder waits).
 **What the user still cannot do:** see readiness per workspace and per node (O1); the concurrency
 invariants at full volume with several processes, and a frozen process's held locks (N3).
 
-#### N3: Concurrency invariants at full volume
+#### N3: Concurrency invariants with several processes
 
-**Needs:** N2, Q1.
+**Needs:** N2. **Amended 2026-10-20 (the user, D176):** no longer at full volume and no longer after
+Q1. Concurrency breaks on interleaving, not on table size, and N1 and N2 already test interleaving
+with real processes on small databases; a full-volume run happens only on the user's explicit
+approval.
 
 **Scope:** the roadmap's first exit item: concurrency and uniqueness invariants with several
-processes and nodes on one database, in production-like tests at full volume. Database constraints
-as a second line behind the per-workspace write lock, only where the evidence shows a write path
-that bypasses the write unit.
+processes and nodes on one database. A frozen process's held locks (found in N2, TODO): a
+connection setting, tested with two processes. Database constraints as a second line behind the
+per-workspace write lock, only where reading the code shows a write path that bypasses the write
+unit.
 
-#### Q1: Full-volume fixture, pool and bulk paths
+#### Q1: Pool and bulk paths
 
-**Scope:** the volume fixture at full scale; connection pool sizing; every bulk path (imports at full
-volume, change-set captures, exports, migrations, moves) checked for the R-F19 pattern (fresh rows
-joined before PostgreSQL's statistics see them); the two `NOT IN` subqueries in TODO since 0.9 R
-measured at full volume; matrix-state cost per commit (TODO) measured once. Each measurement once,
-announced, with cause and options reported before any fix.
+**Amended 2026-10-20 (the user, D176):** no full-volume run. The fixture at full scale already
+exists (scale 1, 257,758 records, measured in X5), and none of the items below needs a measurement
+to be decided. A full-volume run happens only on the user's explicit approval.
+
+**Scope:** connection pool sizing, as settings and the arithmetic in OPERATIONS; every bulk path
+checked by reading for the R-F19 pattern (fresh rows joined before PostgreSQL's statistics see
+them); the `NOT IN` subqueries rewritten as `NOT EXISTS`. The matrix-state cost per commit stays in
+TODO, unmeasured: nobody has seen it slow.
+
+**Groups:** `startup` (J12), and the groups of the rewritten reads: `move`, `jobs` (J27's people
+export), `matrix`, `mapping`, `query`.
+
+##### Q1 plan (2026-10-20)
+
+**Planned 2026-10-20.** D176 is the user's; the user approved the shape (no full-volume run, the
+code check, the rewrite, the pool by arithmetic) and the delivery on 2026-10-20, so D177–D181 and
+the test cases are decided as recommended and reported with the record. Checked against the code at
+`2f1fbca` by reading it; nothing was run.
+
+**What was found:**
+
+- **Five `NOT IN` subqueries**, each a subplan PostgreSQL hashes only while it fits in `work_mem`
+  and otherwise scans once per outer row (0.9 R, R-F25): the two in TODO, `jobs/people.py`
+  `_walk_ids` and the mapping read's exclusive targets (`management/projections/mapping.py`), and
+  three more: the move binding's records named by the selection's relationships
+  (`moves/move_binding.py`, up to every record of a workspace), the negated relationship criterion
+  of a query (`reads/model_query.py`, `not`, over every record of a type), and a change set's base
+  rows its overlay does not replace in the matrix state filter (`indexes/matrix_states.py`, the
+  pattern R-F25 fixed in `snapshot_reads` and left here). Every compared column is a primary key or
+  `NOT NULL`, so `NOT EXISTS` returns the same rows. `model_releases.py`'s `NOT IN` over the
+  workspace assignments stays: a handful of rows.
+- **Bulk paths and statistics.** PostgreSQL's autovacuum never analyzes a temporary table, so a
+  working table filled and then joined in the same job is planned without column statistics unless
+  the code runs `ANALYZE`. Already done: the import binding, the dry run and the move's job rows,
+  profiling, both migrations, the export's records, the move's selection. **Missing:** the move
+  binding's `mv_records`, `mv_relations` and `mv_values` (joined to themselves and each other in
+  about forty statements; X5's dry run grew 12.4× for 9.8× the records, not traced), and the people
+  export's `people_links` (analyzed only after the joins that read it), `people_choices`,
+  `people_records` and `people_ancestors`. Fine without: the export's relations and initial values
+  (read in order or by index), deletion's tables (joined on their own primary keys), the copies into
+  a publication or a change set's base (X5 changed their shape instead).
+- **The pool.** One engine per process with SQLAlchemy's defaults (`db.py`): 5 connections and 10
+  more on demand, a 30-second wait for one. It is shared by the request threads, the job worker and
+  the export worker (a session each while they run a chunk, a nested one in some steps), their
+  heartbeats (a short session every third of the lease), the event deriver and the webhook
+  dispatcher; the job listener has a connection of its own. Nothing can be configured. A request
+  that waits out the 30 seconds, or that PostgreSQL refuses because it has too many clients
+  (`53300`), or that cannot reach the database at all, answers `500 INTERNAL_ERROR` "failed
+  unexpectedly", and the log's line names no cause (it is at DEBUG). AGENTS.md calls these expected
+  operational failures that say what failed and what to do.
+- Two stale lines: OPERATIONS says the application does not start with model administration and
+  more than one worker, and `WEB_CONCURRENCY`'s description says it must be 1 while model
+  administration is on; both untrue since N1.
+
+**What is built:**
+
+1. **`NOT EXISTS` for the five subqueries (D177).**
+2. **`ANALYZE` after the move binding's and the people export's working tables are filled (D178).**
+3. **Pool settings (D179):** `DATABASE_POOL_SIZE` (5), `DATABASE_POOL_MAX_OVERFLOW` (10),
+   `DATABASE_POOL_TIMEOUT` (30 s), validated like every number setting and reported by
+   `GET /system`.
+4. **`503 DATABASE_UNAVAILABLE` (D180)** for a request that gets no database connection: the pool
+   exhausted, the server refusing more clients, the server unreachable. The message says which and
+   what to do; `Retry-After`; one log line naming the cause, no traceback.
+5. **A startup warning (D181)** when this instance's processes could need more connections than the
+   server allows: `WEB_CONCURRENCY × (pool size + overflow + 1)` against `max_connections` less
+   `superuser_reserved_connections`.
+6. **Documents:** OPERATIONS (the three settings, the arithmetic per process and per instance, the
+   `503`, the two stale lines), API (the code), USER_JOURNEYS and API_JOURNEYS (J12.8 revised,
+   J12.11), CHANGELOG, PROJECT_STATUS, TODO.
+
+**Composable domains (ADR-032):** no door affected; Q1 touches none of identity, attribute storage,
+audit, the bulk APIs, `match` or coverage.
+
+**Decisions:**
+
+| # | Question | Recommendation | Blocks |
+| --- | --- | --- | --- |
+| D176 | Full-volume runs in Q1 and N3 | **The user's (2026-10-20):** none; a full-volume run only on the user's explicit approval. N3 no longer needs Q1. Why: the fixture exists, and earlier full-volume runs did not find what manual use found; each Q1 item is decided by reading the code | Q1, N3 |
+| D177 | The `NOT IN` subqueries | **Recommended:** `NOT EXISTS`, correlated, without measuring first. Why: PostgreSQL plans it as an anti-join, never slower than the hashed subplan and not degrading past `work_mem`; the columns are never null, so the rows are the same. Cost: none | Q1 |
+| D178 | Working tables joined without statistics | **Recommended:** `ANALYZE` once each is filled, as the import binding does. Why: a temporary table is never analyzed otherwise, and the same gap cost R-F19 and the import binding tens of seconds. Cost: a sampled read of each table (up to 30,000 rows); the effect on X5's dry run is not measured (D176) | Q1 |
+| D179 | Pool size | **Recommended:** configurable, defaults unchanged (5 + 10, 30 s). Why: no evidence the defaults are short; an operator with more request threads or a server with fewer connections needs the knob, and OPERATIONS gives the arithmetic. Cost: three settings | Q1 |
+| D180 | A request with no database connection | **Recommended:** `503 DATABASE_UNAVAILABLE`, `details.reason` `poolExhausted`, `tooManyConnections` or `unreachable`, with `Retry-After: 5`; one WARNING line (pool, server limit) or ERROR line (unreachable) naming the cause and the setting. Why: these are load and outage conditions an operator acts on, not defects; a client retries a `503`. Cost: J12.8's answer changes from `500 INTERNAL_ERROR` to `503` | Q1 |
+| D181 | Too many processes for the server | **Recommended:** a startup WARNING, not a refusal. Why: other instances on the same server are invisible to this one, and a deployment may run under the limit in practice; the warning names both figures. Cost: one `SHOW` per start | Q1 |
+
+**Journey test cases** (J12; the service as the operator runs it):
+
+1. **J12.11 The pool runs out** (`startup`): with `DATABASE_POOL_SIZE=1`,
+   `DATABASE_POOL_MAX_OVERFLOW=0`, `DATABASE_POOL_TIMEOUT=1` and the pool's only connection held
+   (as a long request holds it), a read answers `503 DATABASE_UNAVAILABLE` with `reason`
+   `poolExhausted`, `Retry-After` and a message naming `DATABASE_POOL_SIZE`; the log has one
+   WARNING and no traceback; once the connection is released the same read answers `200`. Fails
+   today (`500 INTERNAL_ERROR`; the settings do not exist).
+2. **J12.8 revised** (`startup`): the database unreachable, a read answers `503
+   DATABASE_UNAVAILABLE` with `reason` `unreachable`. Fails today (`500`).
+3. **J12.7 the pool settings** (`startup`): `DATABASE_POOL_SIZE=0` refuses to start naming the
+   setting; set values are reported by `GET /system`. Fails today.
+4. **J12.11 too many processes** (`startup`): `WEB_CONCURRENCY` high enough that the instance could
+   need more than the server's connections: the service starts, and the log has one WARNING naming
+   both figures and the settings. Fails today.
+
+Unit test: `tooManyConnections` is recognised from SQLSTATE `53300` (the server's limit cannot be
+reached from a test without changing the harness's server). No new tests for D177 and D178: the
+rows read are unchanged, and the groups above hold them.
+
+##### Q1 record (2026-10-20)
+
+**Delivered 2026-10-20.** Built as planned (D177–D181), no full-volume run (D176):
+
+- **`NOT EXISTS` for five subqueries (D177):** the people export's walk, the mapping read's
+  exclusive targets, the move binding's records named by relationships, a query's negated
+  relationship criterion, and the matrix state filter's base rows in a change set.
+- **Statistics (D178):** `ANALYZE` of `mv_records` and `mv_relations` once read, and of `mv_values`
+  once filled, in the move binding; of `people_links`, `people_choices`, `people_records` and
+  `people_ancestors` once filled, in the people export (its late `ANALYZE people_links`, after the
+  joins, removed).
+- **Pool settings (D179):** `DATABASE_POOL_SIZE`, `DATABASE_POOL_MAX_OVERFLOW`,
+  `DATABASE_POOL_TIMEOUT` (`config.py`, the catalogue, `GET /system`); the engine is cached per URL
+  and pool.
+- **`503 DATABASE_UNAVAILABLE` (D180):** `common/outage.database_unavailable` tells the three
+  reasons apart; `management/errors.py` answers them with `Retry-After: 5` and one log line; the
+  background threads' `OutageLog` reports an exhausted pool or a full server in one plain line, as
+  an unreachable database.
+- **The startup warning (D181)** in `db.create_database`.
+- **Documents:** OPERATIONS (the settings, "Database connections", the outage paragraph, the stale
+  line on model administration with several workers), API (the code), USER_JOURNEYS (J12.8,
+  J12.11), API_JOURNEYS (the code, the settings), the `WEB_CONCURRENCY` description.
+
+**Where it differs from the plan:**
+
+- **Startup needed two connections at once.** The startup lock was held on a pooled connection
+  while the bootstrap install took another, so a pool of one connection (and no overflow) could not
+  start: case 1 found it. The lock's connection is now outside the pool, which also keeps startup
+  from competing with the pool. Requests need one connection each (case 1 passes with a pool of
+  one).
+- **A refused connection carries no SQLSTATE.** Checked on the development server with a role
+  limited to no connections (then dropped): psycopg's `OperationalError` on connect has `sqlstate`
+  `None` and the server's text "too many connections for role". Classified by `53300` alone it would
+  have read as `unreachable`; the server's wording ("too many clients", "too many connections",
+  "connection slots are reserved") is recognised too.
+- **The negated hop needed its own names (found by `test_model_query`).** In a change set, the list
+  and the hop's records are both projections named `snapshot_objects`; inside `NOT EXISTS`, the
+  outer record's ID bound to the inner one, and every record passed. `NOT IN` never referred to the
+  outer record from inside. The hop's projections are now `hop_objects` and `hop_relations`, and the
+  subquery correlates to the listed record's table only.
+- **The checks are the files on each changed path, not the guide's groups**: `startup`, `jobs`,
+  `feed`, `move`, `matrix`, `mapping` and `queries` together run well past the 3-minute ceiling.
+
+**Checks:**
+
+- The new and revised cases, written first: on `2f1fbca` 10 failed (the two pool settings refused
+  nothing, J12.8 answered `500`, the pool case answered `200` with the default pool, no warning) and
+  the unit module failed at import. With Q1: all pass.
+- One run, `-n 4` (load 4.2): `test_outage`, `test_config`, `test_db`, J12 (run the service, several
+  processes), J31, J24 (background job), J27 (people workbook and columns), J38.2, J38.3,
+  `test_relation_matrix`, `test_relation_matrix_writes`, `test_mapping_coverage`,
+  `test_mapping_replacement`, `test_model_query`, J22, `test_api_journeys`, `test_boundaries`,
+  `test_startup`, `test_schema_drift`: 2 min 53 s, all passed but the two negated-hop cases above;
+  after the fix `test_model_query` and J22, 22 passed; after the last edits (formatting, the
+  classification's import) the outage and config units, J12 and the two matrix files, 143 passed in
+  38 s. No `serial` case in these files.
+- Over 10 s outside `budget`: J38.3's copy confirmed, reviewed and published (16–18 s), unchanged.
+- `ruff check app/ tests/`: passed. `ruff format` left as it was on lines Q1 did not write.
+- Smoke start: the development server (`uvicorn --reload` on `rdm`) reloaded with Q1: `/health`
+  `ok`, `GET /system` reports the pool settings, a read answers `200`.
+- **Not run:** any full-volume run (D176), so the effect of D177 and D178 on time is not measured;
+  the full suite and browser runners (R's); the frontend (no change: errors are shown by their
+  message, as any code).
+
+**What the user still cannot do:** see per process how many connections are in use (O1's metrics);
+the browser does not retry a `503` by itself, it shows the message. The matrix-state cost per
+commit stays in TODO, unmeasured.
 
 #### Q2: Model-derived indexes
 

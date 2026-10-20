@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from ..common.outage import UNAVAILABLE_CAUSES, database_unavailable
 from ..errors import ApiError
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,46 @@ async def http_error_handler(_request: Request, exc: StarletteHTTPException) -> 
     )
 
 
+# How long a client waits before sending a request again that found no database connection.
+RETRY_AFTER_SECONDS = 5
+
+
+def _database_unavailable(request: Request, exc: Exception) -> JSONResponse | None:
+    """``503 DATABASE_UNAVAILABLE`` for a request that got no database connection (0.11 Q1, D180):
+    an operating condition the operator acts on, logged in one line naming the cause and the
+    settings, its traceback at DEBUG."""
+    reason = database_unavailable(exc)
+    if reason is None:
+        return None
+    cause = UNAVAILABLE_CAUSES[reason]
+    logger.log(
+        logging.ERROR if reason == "unreachable" else logging.WARNING,
+        "%s %s answered 503: %s",
+        request.method,
+        request.url.path,
+        cause,
+    )
+    logger.debug("The database error of %s %s", request.method, request.url.path, exc_info=exc)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": {
+                "code": "DATABASE_UNAVAILABLE",
+                "message": (
+                    f"The {request.method} {request.url.path} operation got no database "
+                    f"connection: {cause}. Nothing was saved; send it again in a few seconds."
+                ),
+                "details": {"reason": reason},
+            }
+        },
+        headers={"Retry-After": str(RETRY_AFTER_SECONDS)},
+    )
+
+
 async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    unavailable = _database_unavailable(request, exc)
+    if unavailable is not None:
+        return unavailable
     correlation_id = uuid.uuid4().hex[:12]
     logger.error(
         "Unhandled API error [%s] for %s %s",

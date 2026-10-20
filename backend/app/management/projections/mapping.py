@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import Select, String, cast, func, literal, or_, select, union_all
+from sqlalchemy import Select, String, cast, exists, func, literal, or_, select, union_all
 from sqlalchemy.orm import Bundle, Session
 from sqlalchemy.sql.selectable import Subquery
 
@@ -465,7 +465,8 @@ def object_page(
         other = (
             edges.c.to_object_id if read.config.direction == "outgoing" else edges.c.from_object_id
         )
-        statement = statement.where(~read.objects.c.id.in_(select(other)))
+        # An anti-join, not NOT IN's subplan over every edge (0.11 Q1, D177).
+        statement = statement.where(~exists().where(other == read.objects.c.id))
     criteria = allowed.candidates_at("to" if read.config.direction == "outgoing" else "from")
     if candidates and criteria:
         # The binding's candidate criteria (0.9 K7, D171): only records the model lets be chosen.

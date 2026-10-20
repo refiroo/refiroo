@@ -19,6 +19,7 @@ from alembic.script import ScriptDirectory
 from model_support import starter_at_schema
 from scenario import W1, W2, W3, model_path, ok, scenario_seed
 from service import command, execute, scalar, serve
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeout
 from test_j24_background_job import _unreachable
 
 from app.db import migration_config
@@ -423,8 +424,10 @@ def test_the_api_reference_loads_its_pinned_script(configuration, databases, scr
     [
         ({"RDM_API_REFERENCE_SCRIPT": "elsewhere"}, ("RDM_API_REFERENCE_SCRIPT",)),
         ({"BATCH_MAX_ITEMS": "zero"}, ("BATCH_MAX_ITEMS",)),
+        ({"DATABASE_POOL_SIZE": "0"}, ("DATABASE_POOL_SIZE",)),
+        ({"DATABASE_POOL_MAX_OVERFLOW": "-1"}, ("DATABASE_POOL_MAX_OVERFLOW",)),
     ],
-    ids=["reference-script", "limit"],
+    ids=["reference-script", "limit", "pool-size", "pool-overflow"],
 )
 def test_an_invalid_setting_refuses_to_start(configuration, databases, settings, named):
     """When the service starts with an invalid setting. Then it refuses to start with a message
@@ -463,9 +466,11 @@ def test_the_database_goes_away_while_running(configuration, databases):
         ok(api.get("/objects", workspaceKey=W1, pageSize=5))
         with _unreachable(url.database):
             failing = api.get("/objects", workspaceKey=W1, pageSize=5)
-            assert failing.status_code >= 500
+            assert failing.status_code == 503 and failing.headers["Retry-After"]
             error = failing.json()["error"]
-            assert error["code"] and "Traceback" not in failing.text
+            assert error["code"] == "DATABASE_UNAVAILABLE", error
+            assert error["details"]["reason"] == "unreachable"
+            assert "Traceback" not in failing.text
             assert all(r.exc_info is None for r in service.errors())
             down = service.health()
         ok(api.get("/objects", workspaceKey=W1, pageSize=5))
@@ -515,3 +520,65 @@ def test_a_model_file_with_schema_0_8_consumer_apis_refuses_to_start(configurati
     path.write_text(json.dumps(legacy))
     with serve(configuration, _clone(databases), RDM_MODEL_PATH=str(path)) as service:
         assert service.health() == 200
+
+
+@pytest.mark.journey("J12.11", "J12.7")
+def test_the_pool_runs_out(configuration, databases):
+    """Given the service with a pool of one connection and a one-second wait, and that connection
+    held, as a long request holds it. When a read is sent. Then it answers 503 DATABASE_UNAVAILABLE,
+    reason poolExhausted, with Retry-After and a message naming DATABASE_POOL_SIZE; the log has a
+    WARNING and no traceback. Once the connection is released, the same read answers 200, and
+    GET /system reports the pool settings as set (0.11 Q1, D179, D180)."""
+    from app.db import get_engine
+
+    pool = {"DATABASE_POOL_SIZE": "1", "DATABASE_POOL_MAX_OVERFLOW": "0", "DATABASE_POOL_TIMEOUT": "1"}
+    with serve(configuration, _clone(databases, scenario_seed(configuration)), **pool) as service:
+        api = service.world.api
+        ok(api.get("/objects", workspaceKey=W1, pageSize=5))
+        held = _hold_the_pool(get_engine())
+        try:
+            failing = api.get("/objects", workspaceKey=W1, pageSize=5)
+        finally:
+            held.close()
+        assert failing.status_code == 503 and failing.headers["Retry-After"]
+        error = failing.json()["error"]
+        assert error["code"] == "DATABASE_UNAVAILABLE", error
+        assert error["details"]["reason"] == "poolExhausted"
+        assert "DATABASE_POOL_SIZE" in error["message"] and "Traceback" not in failing.text
+        warnings = [r for r in service.output.records if r.levelname == "WARNING"]
+        assert any("DATABASE_POOL_SIZE" in r.getMessage() for r in warnings)
+        assert all(r.exc_info is None for r in service.output.records)
+        ok(api.get("/objects", workspaceKey=W1, pageSize=5))
+        reported = {s["name"]: s for s in ok(api.get("/system"))["settings"]}
+        for name, value in pool.items():
+            assert reported[name]["value"] == int(value) and reported[name]["source"] == "environment"
+
+
+def _hold_the_pool(engine):
+    """The pool's only connection, taken as soon as no background thread holds it."""
+    deadline = time.monotonic() + 10
+    while True:
+        try:
+            return engine.connect()
+        except SQLAlchemyTimeout:
+            assert time.monotonic() < deadline
+            time.sleep(0.05)
+
+
+@pytest.mark.journey("J12.11")
+def test_more_processes_than_the_server_takes(configuration, databases):
+    """When the service starts with WEB_CONCURRENCY so high that its processes' pools could need more
+    connections than the PostgreSQL server allows. Then it starts and serves, and logs one WARNING
+    naming both figures and the settings to change (0.11 Q1, D181)."""
+    url = _clone(databases)
+    limit = int(scalar(url, "SHOW max_connections"))
+    with serve(configuration, url, WEB_CONCURRENCY=str(limit)) as service:
+        _serves(service)
+        [warning] = [
+            r.getMessage()
+            for r in service.output.records
+            if r.levelname == "WARNING" and "max_connections" in r.getMessage()
+        ]
+    assert str(limit) in warning and str(limit * 16) in warning
+    for name in ("WEB_CONCURRENCY", "DATABASE_POOL_SIZE", "DATABASE_POOL_MAX_OVERFLOW"):
+        assert name in warning

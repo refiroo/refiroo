@@ -37,7 +37,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import cast, column, insert, literal, select, table, text
+from sqlalchemy import cast, column, exists, insert, literal, select, table, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
@@ -169,6 +169,8 @@ _STEPS_RECORDS = (
     LEFT JOIN mv_attrs a ON a.source_type = r.source_type AND a.source_attr = e.key
     LEFT JOIN mv_value_maps m ON m.name = a.value_map AND m.source = (e.value #>> '{}')
     WHERE r.target_type IS NOT NULL AND jsonb_typeof(e.value) <> 'null'""",
+    # Grouped and joined from here on; a temporary table has statistics only when asked (D178).
+    "ANALYZE mv_values",
     """UPDATE mv_values SET status = 'lost'
     WHERE status = 'carry' AND (after IS NULL OR jsonb_typeof(after) = 'null')""",
     f"""UPDATE mv_records r SET target_values = v.carried, left_behind = v.left_behind FROM (
@@ -725,6 +727,9 @@ def bind_move(
     _fill(session, "mv_rel_map", plan.relations, jsonb=("attrs",))
     _fill(session, "mv_required", plan.required)
     _read(session, source, selection, source_workspace, context)
+    # About forty statements join these to themselves and to each other. Autovacuum never analyzes
+    # a temporary table, so without this PostgreSQL plans them on guesses (0.11 Q1, D178).
+    session.execute(text("ANALYZE mv_records, mv_relations"))
 
     target = {"target": job.workspace_key}
     for statement in _STEPS_RECORDS + _STEPS_PARENTS + _STEPS_RELATIONS:
@@ -857,7 +862,8 @@ def _read(
                 others.c.version,
             ).where(
                 others.c.object_id.in_(named.subquery().select()),
-                others.c.object_id.not_in(held),
+                # An anti-join, not NOT IN's subplan over every record read (0.11 Q1, D177).
+                ~exists().where(_RECORDS.c.object_id == others.c.object_id),
             ),
         )
     )

@@ -54,6 +54,11 @@ class Settings(BaseModel):
     model_admin_mutations_enabled: bool = False
     workspace_admin_mutations_enabled: bool = True
     web_concurrency: int = Field(default=1, ge=1)
+    # Each process's database connections (0.11 Q1, D179): kept open, opened beyond them on demand,
+    # and how long a caller waits for one before the request answers 503 DATABASE_UNAVAILABLE.
+    database_pool_size: int = Field(default=5, ge=1)
+    database_pool_max_overflow: int = Field(default=10, ge=0)
+    database_pool_timeout: int = Field(default=30, ge=1)
     cursor_signing_key: bytes = _EPHEMERAL_CURSOR_SIGNING_KEY
     api_reference_script: ApiReferenceScript = "bundled"
     # Job creation (bulk writes, imports, exports) as a deployment capability group (ADR-036, D10).
@@ -113,6 +118,9 @@ class Settings(BaseModel):
                 env.get("WORKSPACE_ADMIN_MUTATIONS_ENABLED", "true").strip().lower() in TRUTHY
             ),
             web_concurrency=_worker_count(env.get("WEB_CONCURRENCY", "1")),
+            database_pool_size=_positive(env, "DATABASE_POOL_SIZE", 5),
+            database_pool_max_overflow=_non_negative(env, "DATABASE_POOL_MAX_OVERFLOW", 10),
+            database_pool_timeout=_positive(env, "DATABASE_POOL_TIMEOUT", 30),
             cursor_signing_key=(
                 configured_signing_key.encode()
                 if configured_signing_key
@@ -205,6 +213,19 @@ def _positive(env: Mapping[str, str], name: str, default: int) -> int:
     return value
 
 
+def _non_negative(env: Mapping[str, str], name: str, default: int) -> int:
+    raw = env.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw.strip())
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be zero or a positive integer, not {raw!r}") from exc
+    if value < 0:
+        raise RuntimeError(f"{name} must be zero or a positive integer, not {raw!r}")
+    return value
+
+
 def _encryption_key(raw: str) -> bytes | None:
     """The 32-byte key written in URL-safe base64, or none when unset."""
     value = raw.strip()
@@ -288,7 +309,25 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "WEB_CONCURRENCY",
         "web_concurrency",
         "runtime",
-        "Server worker processes; must be 1 while model administration is on",
+        "Server worker processes on this instance",
+    ),
+    CatalogueEntry(
+        "DATABASE_POOL_SIZE",
+        "database_pool_size",
+        "runtime",
+        "Database connections each process keeps open",
+    ),
+    CatalogueEntry(
+        "DATABASE_POOL_MAX_OVERFLOW",
+        "database_pool_max_overflow",
+        "runtime",
+        "Database connections each process opens beyond the pool size when busy",
+    ),
+    CatalogueEntry(
+        "DATABASE_POOL_TIMEOUT",
+        "database_pool_timeout",
+        "runtime",
+        "Seconds a request waits for a database connection before it answers 503",
     ),
     CatalogueEntry(
         "MODEL_ADMIN_MUTATIONS_ENABLED",
