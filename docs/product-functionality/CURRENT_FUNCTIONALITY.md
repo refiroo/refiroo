@@ -172,7 +172,11 @@ those and says so: the relation form, a new record's required relationship, Chan
 the relationship filter, the relationship view and the matrix. A record that does not meet its own
 end of the relationship is not offered it, and its panel says why. A new relationship outside the
 criteria is refused through the API, alone, in a batch or in an import; one made before stays when
-the data changes so it no longer meets them, and can be removed as any other.
+the data changes so it no longer meets them, and can be removed as any other. The same holds when
+the model administrator changes the criteria: relationships already held are not checked again, and
+nothing lists the ones the new criteria would refuse. To find them, run a copy of the workspace as a
+dry run without confirming it: it checks every relationship against the current criteria and lists
+each one it would refuse, with its reason (`RELATION_CANDIDATE_REFUSED`).
 
 Limits: one sort at a time in the browser; queries across relationships are API-only (F20). Pages are
 always bounded.
