@@ -9,7 +9,10 @@ WARNING a minute; when a round succeeds again, one INFO line. An outage of hours
 """
 
 import logging
+import threading
 import time
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Literal
 
 import psycopg
@@ -103,9 +106,49 @@ def _summary(exc: BaseException) -> str:
     return " ".join(str(cause).split())[:200] or type(cause).__name__
 
 
+@dataclass(frozen=True)
+class ThreadState:
+    """Whether a background thread's rounds work (0.11 O1, D192): ``reason`` is why the current
+    failure began (a database reason, or ``error`` for a defect), ``since`` when."""
+
+    failing: bool
+    reason: Unavailable | Literal["error"] | None = None
+    since: datetime | None = None
+
+
+# Each background thread's state by thread name, kept by its ``OutageLog``; what a process reports.
+_states: dict[str, ThreadState] = {}
+_states_lock = threading.Lock()
+# How many times each reason left a caller without a database connection (0.11 O1, D194): a
+# request's 503 or the start of a thread's outage.
+_unavailable_counts: dict[str, int] = {}
+
+
+def thread_states() -> dict[str, ThreadState]:
+    """The state of every background thread that has run in this process, by thread name."""
+    with _states_lock:
+        return dict(_states)
+
+
+def note_unavailable(reason: Unavailable) -> None:
+    """Count one caller left without a database connection for ``reason``."""
+    with _states_lock:
+        _unavailable_counts[reason] = _unavailable_counts.get(reason, 0) + 1
+
+
+def unavailable_counts() -> dict[str, int]:
+    with _states_lock:
+        return dict(_unavailable_counts)
+
+
+def _set_state(thread: str, state: ThreadState) -> None:
+    with _states_lock:
+        _states[thread] = state
+
+
 class OutageLog:
     """What one thread logs about its failing rounds: ``failed`` after each, ``succeeded`` after
-    each round that works."""
+    each round that works. Built on the thread it reports, whose name keys its state."""
 
     def __init__(self, logger: logging.Logger, thread: str, retry_seconds: float) -> None:
         self.logger = logger
@@ -115,6 +158,8 @@ class OutageLog:
         self._unreachable = False
         self._reason: Unavailable | None = None
         self._next_reminder = 0.0
+        self._name = threading.current_thread().name
+        _set_state(self._name, ThreadState(failing=False))
 
     def failed(self, exc: BaseException) -> None:
         now = time.monotonic()
@@ -122,6 +167,9 @@ class OutageLog:
             self.failing, self._next_reminder = True, now + REMINDER_SECONDS
             reason = self._reason = database_unavailable(exc)
             self._unreachable = reason is not None
+            if reason is not None:
+                note_unavailable(reason)
+            _set_state(self._name, ThreadState(True, reason or "error", datetime.now(UTC)))
             if reason == "unreachable":
                 self.logger.error(
                     "%s cannot reach the database (%s); it retries every %s s and continues where it "
@@ -173,3 +221,4 @@ class OutageLog:
                 self.thread,
             )
             self.failing = False
+            _set_state(self._name, ThreadState(failing=False))

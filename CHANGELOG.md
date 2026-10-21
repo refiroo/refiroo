@@ -6,6 +6,32 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 O1, metrics, logs, health and readiness)
+
+- `GET /health/live`, the liveness probe: `200` whenever the process answers, never asking the
+  database, so a database outage restarts no process. `/health` stays the readiness probe (D191).
+- Each process reports itself through the database every `PROCESS_HEARTBEAT_SECONDS` (15; table
+  `engine_processes`, migration `20261024_01`). `GET /api/v1/system/readiness` names each active
+  workspace served or unavailable, with the live processes that cannot serve its release and why
+  (`unsupportedSchema`, `invalid`, `notLoaded`); `GET /api/v1/system/processes` lists every process
+  live or silent, ready or not, with its threads, pool and counters (J12.13, D192).
+- `GET /metrics` in the Prometheus text format, the whole instance in one scrape: requests by route
+  template and status, durations, connections in use and missing by reason, failing threads,
+  readiness, each labelled by process; jobs, webhook subscriptions, processes and unavailable
+  workspaces counted when scraped (J12.14, D193, D194).
+- `LOG_FORMAT` (`text`, or `json` lines) and `LOG_LEVEL`; one access line per request from the
+  engine instead of uvicorn's; every request carries `X-Request-Id`, the client's when well formed,
+  which `INTERNAL_ERROR`'s `correlationId` now is (J12.15, D195, D196).
+
+### Fixed (0.11 O1)
+
+- Processes starting together could collide building the relation matrix states (a unique
+  violation logged at ERROR; the API served and derived the cells from records). The build now runs
+  under the startup lock, after the bootstrap install. The JSON and text log formats showed it: the
+  previous log printed the line without its level.
+- The engine's INFO lines (startup builds, recoveries) were not written under uvicorn: nothing
+  configured the engine's loggers, so only warnings and errors reached the console.
+
 ### Changed (0.11 Q2, value indexes)
 
 - A change set's unique checks and key references on a number, decimal, date or instant seek the

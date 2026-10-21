@@ -33,6 +33,9 @@ and the one line the API and the Deployment page show) and to the table of its g
 | `DATABASE_POOL_MAX_OVERFLOW` | `10` | Connections each process opens beyond `DATABASE_POOL_SIZE` when busy, closed again when returned; `0` for none |
 | `DATABASE_POOL_TIMEOUT` | `30` | Seconds a caller waits for a free connection; a request that waits it out answers `503 DATABASE_UNAVAILABLE` |
 | `DATABASE_IDLE_TRANSACTION_TIMEOUT` | `300` | Seconds a connection may sit idle inside a transaction before the database ends it, releasing a stalled process's locks (0.11 N3); `0` turns it off. See [Several processes](#several-processes) |
+| `LOG_FORMAT` | `text` | `text` writes one plain line per record; `json` one JSON object per line, for a log collector (0.11 O1). Any other value stops startup. See [Logs](#logs) |
+| `LOG_LEVEL` | `INFO` | The lowest level the engine logs: `DEBUG`, `INFO`, `WARNING` or `ERROR`. `DEBUG` adds the tracebacks of expected failures and the access lines of probes and scrapes |
+| `PROCESS_HEARTBEAT_SECONDS` | `15` | Seconds between each process's reports of its state to the others through the database; a process silent for three is listed `silent`. See [Monitoring](#monitoring) |
 | `VITE_API_URL` (frontend) | `http://localhost:8000` | API address the browser application calls |
 
 ### Several processes
@@ -194,6 +197,79 @@ every 2 s and logs the outage in one ERROR line saying it cannot reach the datab
 a minute, then an INFO line when the database answers again, with no traceback: an unreachable
 database is an expected failure. The traceback is logged at DEBUG, for escalation. Any other
 failure of these threads is logged at ERROR with its traceback, since it points at a defect.
+
+## Monitoring
+
+Every process reports itself to the others through the database (table `engine_processes`, 0.11
+O1): every `PROCESS_HEARTBEAT_SECONDS` it writes whether it is ready, its background threads, its
+pool, the releases it cannot serve and its counters. A request reaches one process, so this is how
+any process answers for all of them. A process that stops cleanly deletes its row; one that dies
+leaves it, listed `silent` after three heartbeats and deleted after a day. Another process's
+figures are up to one heartbeat old; the asking process's are current.
+
+**Probes.** Point the orchestrator's liveness probe at `GET /health/live`: it answers `200`
+whenever the process answers and asks nothing else, so a database outage restarts nothing. Point
+the readiness probe (and a load balancer's health check) at `GET /health`, as before: `503` while
+the database is unreachable or no workspace can be served. A workspace one process cannot serve
+does not fail `/health`; read it from readiness.
+
+**Readiness.** `GET /api/v1/system/readiness` lists each active workspace, its release, `served` or
+`unavailable`, and the live processes that cannot serve it, each with why: `unsupportedSchema` (the
+release's schema is outside this version's window; see [Startup checks](#startup-checks-and-health)),
+`invalid` (the model does not validate) or `notLoaded` (activated, but this process could not load it;
+restart it). A workspace that runs no release is `unavailable` with no process named.
+`GET /api/v1/system/processes` lists every process: its ID (`host:pid:random`, as a job's
+`leaseOwner` begins), version, start, last heartbeat, `live` or `silent`, `ready`, its threads
+(`jobWorker`, `exportWorker`, `jobListener`, `eventDeriver`, `webhookDispatcher`, `heartbeat`,
+each `running`, `failing` with the reason and since when, or `off` when not started), its pool and
+its counters. Both page like every collection.
+
+**Metrics.** `GET /metrics` answers the whole instance in the Prometheus text format (0.0.4): scrape
+any one process, or the load balancer, once; scraping every process returns the same series. Per
+live process, labelled `process`:
+
+| Series | Kind | What |
+| --- | --- | --- |
+| `rdm_process_ready` (`version`) | gauge | `1` when the process serves requests |
+| `rdm_process_start_time_seconds` | gauge | When it started |
+| `rdm_http_requests_total` (`method`, `route`, `status`) | counter | Requests answered; `route` is the route's template, `unmatched` for none |
+| `rdm_http_request_duration_seconds` (`route`) | histogram | Time to answer, buckets 5 ms to 10 s |
+| `rdm_database_unavailable_total` (`reason`) | counter | Requests answered `503 DATABASE_UNAVAILABLE` and background thread outages begun, by reason: `poolExhausted`, `tooManyConnections`, `transactionEnded`, `unreachable` |
+| `rdm_database_pool_size`, `rdm_database_pool_max_overflow` | gauge | The pool settings |
+| `rdm_database_pool_connections_in_use` | gauge | Connections checked out at its last heartbeat |
+| `rdm_background_thread_failing` (`thread`) | gauge | `1` while a started thread's rounds fail |
+| `rdm_releases_unavailable` | gauge | Releases some workspace runs that it cannot serve |
+
+Counted when scraped: `rdm_processes` (`state`: `live`, `silent`), `rdm_jobs` (`kind`, `state`:
+`queued`, `running`, `awaiting_confirmation`), `rdm_webhook_subscriptions` (`state`: `active`,
+`failing` while a batch is being retried, `suspended`) and `rdm_workspaces_unavailable`. A counter
+restarts with its process, under a new `process` label. Nothing is labelled by workspace, record
+type or record.
+
+Worth alerting on: `rdm_workspaces_unavailable` above 0; `rdm_process_ready` 0; `rdm_processes`
+`silent` above 0; `rdm_database_unavailable_total` rising (the reason names the setting, see
+[Database connections](#database-connections)); `rdm_background_thread_failing` 1 for minutes;
+`rdm_jobs` `queued` growing; `rdm_webhook_subscriptions` `suspended` above 0.
+
+**Who can read them.** `/health`, `/health/live`, `/metrics` and `/api/v1/system/*` need no
+capability setting, as `GET /api/v1/system`; until roles exist (0.12) anyone who reaches the
+instance reads host names, process IDs and pool figures. Keep `/metrics` and the management API
+off a public network.
+
+### Logs
+
+The engine writes to standard error. With `LOG_FORMAT=json` each line is one JSON object: `time`
+(UTC), `level`, `logger`, `message`, `process` (the PID), `thread`, and within a request
+`requestId`, `method` and `route`; a traceback is in `exception`. The engine writes one access line
+per request (logger `app.access`: method, path, status, `durationMs`) in place of uvicorn's, at
+`INFO`, and at `DEBUG` for `/health`, `/health/live` and `/metrics`. The text format writes the same
+records as `time LEVEL logger: message [request ID]`.
+
+Each request has one ID: the `X-Request-Id` the client or a proxy sent, when it is 1–64 letters,
+digits, `.`, `_` or `-`, otherwise a generated one. It comes back in the `X-Request-Id` response
+header and is every log line's `requestId`, and `INTERNAL_ERROR`'s `correlationId` is it: search the
+log for the reference a user reports. An expected failure (an unreachable database, a refused start)
+logs one line without a traceback; its traceback is at `DEBUG`.
 
 ## Background jobs
 

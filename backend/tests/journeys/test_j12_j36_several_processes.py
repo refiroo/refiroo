@@ -82,8 +82,12 @@ def test_several_processes_start_together(configuration):
         with run(configuration, url, workers=2) as process:
             for _ in range(6):
                 assert process.world.api.get("/health").status_code == 200
-            output = process.output()
-            assert output.count("Application startup complete") == 2, output
+            # /health is ready once one worker serves; the other may still wait for the startup
+            # lock (0.11 O1: the matrix state build runs under it too).
+            deadline = time.monotonic() + 60
+            while (output := process.output()).count("Application startup complete") < 2:
+                assert time.monotonic() < deadline, output
+                time.sleep(0.2)
             assert "ERROR" not in output and "Traceback" not in output, output
         assert scalar(url, "SELECT version_num FROM alembic_version") == HEAD
         assert scalar(url, "SELECT count(*) FROM model_releases") == 1

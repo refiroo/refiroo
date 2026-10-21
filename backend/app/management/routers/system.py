@@ -2,23 +2,36 @@
 behind no capability, like ``/capabilities``; for administrators once roles exist (0.12)."""
 
 from dataclasses import asdict
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import PlainTextResponse
+from sqlalchemy import select
 
+from ...common.pagination import paginate_statement, text_key
+from ...common.prometheus import CONTENT_TYPE
 from ...common.time import as_utc
 from ...config import ENGINE_VERSION
 from ...engine.model.compiler import SCHEMA_VERSIONS
+from ...engine.processes.reads import live_processes, workspace_readiness
 from ...engine.reads.system import read_system_state
+from ...models.database import EngineProcess, Workspace
 from ..dependencies import DbSession
+from ..paging import PageQuery
+from ..projections.operations import metrics_text, process_response, readiness_response
 from ..schemas.system import (
     ActiveModelRelease,
     DatabaseInfo,
     EngineInfo,
+    ProcessPage,
     SystemResponse,
     SystemSetting,
+    WorkspaceReadinessPage,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["system"])
+# ``/metrics`` beside ``/health``, outside the management API's prefix (0.11 O1, D193, D197).
+metrics_router = APIRouter(tags=["system"])
 
 
 @router.get("/system", response_model=SystemResponse)
@@ -41,3 +54,78 @@ def get_system(request: Request, session: DbSession) -> SystemResponse:
             SystemSetting(**asdict(setting)) for setting in request.app.state.settings_report
         ],
     )
+
+
+def _report_this_process(request: Request, session: DbSession) -> None:
+    """Write this process's row first, so the asking process's own figures are current; the
+    others' are as of their last heartbeat (0.11 O1, D192)."""
+    heartbeat = getattr(request.app.state, "running_heartbeat", None)
+    if heartbeat is not None:
+        heartbeat.beat(session)
+        session.commit()
+
+
+@router.get("/system/processes", response_model=ProcessPage)
+def list_processes(
+    request: Request,
+    session: DbSession,
+    paging: PageQuery,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> ProcessPage:
+    """Every engine process on this database, as it last reported itself, in ID order (0.11 O1):
+    live or silent, ready or not, its background threads, its pool, the releases it cannot serve
+    and its counters."""
+    _report_this_process(request, session)
+    page = paginate_statement(
+        session,
+        select(EngineProcess),
+        keys=(text_key("id", EngineProcess.process_id, "process_id"),),
+        scope="system-processes",
+        filters={},
+        page=paging,
+        page_size=page_size,
+        message="Process cursor is invalid",
+    )
+    now = datetime.now(UTC)
+    return ProcessPage(items=[process_response(row, now) for row in page.items], **page.links())
+
+
+@router.get("/system/readiness", response_model=WorkspaceReadinessPage)
+def list_readiness(
+    request: Request,
+    session: DbSession,
+    paging: PageQuery,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> WorkspaceReadinessPage:
+    """Each active workspace, in key order, with its release and whether every live process
+    serves it; the processes that cannot are named with why (0.11 O1)."""
+    _report_this_process(request, session)
+    page = paginate_statement(
+        session,
+        select(Workspace).where(Workspace.status == "active"),
+        keys=(text_key("workspaceKey", Workspace.key, "key"),),
+        scope="system-readiness",
+        filters={},
+        page=paging,
+        page_size=page_size,
+        message="Readiness cursor is invalid",
+    )
+    readiness = workspace_readiness(
+        session, [item.key for item in page.items], live_processes(session)
+    )
+    return WorkspaceReadinessPage(
+        items=[readiness_response(item) for item in readiness], **page.links()
+    )
+
+
+@metrics_router.get(
+    "/metrics",
+    response_class=PlainTextResponse,
+    responses={200: {"content": {"text/plain": {}}, "description": "Prometheus text format 0.0.4"}},
+)
+def get_metrics(request: Request, session: DbSession) -> PlainTextResponse:
+    """The instance's metrics in the Prometheus text format: every live process's series labelled
+    ``process``, and the jobs, webhook subscriptions, processes and unavailable workspaces counted
+    now (0.11 O1). One scrape covers every worker and node."""
+    _report_this_process(request, session)
+    return PlainTextResponse(metrics_text(session), media_type=CONTENT_TYPE)

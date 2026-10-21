@@ -32,14 +32,18 @@ parameter or code missing here fails it.
 
 ## Routes
 
-Every operation, by method and path (under `/api/v1` except `/health`, `/docs` and `/openapi.json`).
+Every operation, by method and path (under `/api/v1` except `/health`, `/health/live`, `/metrics`, `/docs` and
+`/openapi.json`).
 
 | Operation | Journeys |
 | --- | --- |
-| `GET /health` | J12 |
+| `GET /health` | J12, J12.12 |
+| `GET /health/live` (0.11 O1) | J12.12 |
+| `GET /metrics` (the Prometheus text format, 0.11 O1) | J12.14 |
 | `GET /docs` (`api`, the source Scalar opens; `workspace`, whose consumer APIs it lists, 0.11 M3), `GET /openapi.json` | J20, J20.5 |
 | `GET /capabilities` | J20, J12.7, J26.6 (`changeFeed.retentionDays`) |
 | `GET /system` | J31, J31.1–J31.3 |
+| `GET /system/processes`, `GET /system/readiness` (paging; 0.11 O1) | J12.13 |
 | `GET /model`, `GET /model/placements` | J20, J20.1, J03, J14 |
 | `GET /model/consumer-apis/{consumerApi}` (the definition expanded, C18) | J20.6 |
 | `GET /workspaces/{key}/model` (0.11 M1; `releaseName`, M5) | J08 (fresh version for activation), J20.2, J36.1 |
@@ -166,7 +170,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 
 | Journeys | Codes |
 | --- | --- |
-| Every route | `REQUEST_VALIDATION_ERROR`, `UNKNOWN_PARAMETER` (J21.8), `INTERNAL_ERROR` (with a correlation ID), `DATABASE_UNAVAILABLE` (J12.8, J12.11; 0.11 Q1; `transactionEnded`, J24.3, 0.11 N3), `INVALID_CURSOR`, `INVALID_POSITION`, `CONFLICTING_PAGE_PARAMETERS`, `INVALID_SEEK`, `MUTUALLY_EXCLUSIVE_CONTEXT`, `WORKSPACE_NOT_FOUND`, `CHANGE_SET_NOT_FOUND`, `PUBLICATION_NOT_FOUND`, `WORKSPACE_CONTEXT_MISMATCH`, `MODEL_REGISTRY_UNAVAILABLE`, `MODEL_RUNTIME_STATE_UNAVAILABLE`, `WORKSPACE_RUNTIME_STATE_MISSING` |
+| Every route | `REQUEST_VALIDATION_ERROR`, `UNKNOWN_PARAMETER` (J21.8), `INTERNAL_ERROR` (with a correlation ID, the request's `X-Request-Id`, 0.11 O1), `DATABASE_UNAVAILABLE` (J12.8, J12.11; 0.11 Q1; `transactionEnded`, J24.3, 0.11 N3), `INVALID_CURSOR`, `INVALID_POSITION`, `CONFLICTING_PAGE_PARAMETERS`, `INVALID_SEEK`, `MUTUALLY_EXCLUSIVE_CONTEXT`, `WORKSPACE_NOT_FOUND`, `CHANGE_SET_NOT_FOUND`, `PUBLICATION_NOT_FOUND`, `WORKSPACE_CONTEXT_MISMATCH`, `MODEL_REGISTRY_UNAVAILABLE`, `MODEL_RUNTIME_STATE_UNAVAILABLE`, `WORKSPACE_RUNTIME_STATE_MISSING` |
 | J32.7 | `UNKNOWN_RELATION_TYPE`, `INVALID_RELATION_PAIR`, `TOO_MANY_RECORDS` |
 | J01, J21, J22 | `OBJECT_NOT_FOUND`, `UNKNOWN_OBJECT_TYPE`, `INVALID_FILTER`, `INVALID_SORT`, `INVALID_EXPAND` (J01.8), `INVALID_FILTER` for a relationship filter (J01.10), `INVALID_QUERY`, `MUTUALLY_EXCLUSIVE_SCOPE`, `WORKSPACE_KEY_REQUIRED`, `ATTRIBUTE_NOT_FOUND` |
 | J02, J03, J13, J14 (the write rules) | `VERSION_CONFLICT`, `VERSION_REQUIRED`, `INVALID_ATTRIBUTE_VALUE`, `ATTRIBUTE_BELOW_MINIMUM`, `ATTRIBUTE_ABOVE_MAXIMUM`, `UNKNOWN_ATTRIBUTES`, `UNKNOWN_ATTRIBUTE_TYPE`, `DUPLICATE_ATTRIBUTE`, `DUPLICATE_ATTRIBUTE_VALUE`, `MISSING_REQUIRED_ATTRIBUTES`, `OBJECT_ATTRIBUTE_RULE_VIOLATION`, `CANNOT_DELETE_REQUIRED_ATTRIBUTE`, `READ_ONLY_ATTRIBUTES`, `ATTRIBUTE_ALREADY_EXISTS`, `OBJECT_ALREADY_EXISTS`, `UNKNOWN_APPLICATION`, `INVALID_OBJECT_TYPE_FOR_APPLICATION`, `OBJECT_TYPE_NOT_IN_APPLICATION`, `PARENT_REQUIRED`, `INVALID_PARENT_TYPE`, `PARENT_WRONG_SCOPE`, `PARENT_CYCLE`, `MISSING_REQUIRED_RELATIONS`, `DUPLICATE_INITIAL_RELATION`, `DUPLICATE_RELATION`, `DUPLICATE_RELATION_SCOPE`, `UNKNOWN_RELATION_TYPE`, `INVALID_RELATION_PAIR`, `RELATION_ENDPOINT_MISSING`, `RELATION_WRONG_SCOPE`, `UNKNOWN_RELATION_ATTRIBUTES`, `IMMUTABLE_RELATION`, `REQUIRED_RELATION`, `CARDINALITY_VIOLATION`, `RELATION_NOT_FOUND`, `RELATION_SET_VERSION_CONFLICT`, `RELATION_SET_CLAIM_INCOMPLETE`, `RELATION_CANDIDATE_REFUSED` (J13.9, J03.9; 0.9 K7), `WORKSPACE_RETIRED` |
@@ -226,6 +230,8 @@ documented nowhere; API.md documents them since H4c (D-4).
 | `WEB_CONCURRENCY` | J12.7 (served above 1 with model administration on), J12.10 (several workers or processes on one database, 0.11 N1) |
 | `DATABASE_POOL_SIZE`, `DATABASE_POOL_MAX_OVERFLOW`, `DATABASE_POOL_TIMEOUT` (each process's connections, 0.11 Q1) | J12.7, J12.11 |
 | `DATABASE_IDLE_TRANSACTION_TIMEOUT` (a stalled process's transaction ended, 0.11 N3) | J12.7, J24.3 |
+| `LOG_FORMAT`, `LOG_LEVEL` (the log, 0.11 O1) and the `X-Request-Id` header | J12.15, J12.7 |
+| `PROCESS_HEARTBEAT_SECONDS` (each process's report to the others, 0.11 O1) | J12.13, J12.7 |
 | `CORS_ORIGINS` | J12.7 (a browser client on another origin) |
 | `RDM_CURSOR_SIGNING_KEY` | J21 (cursors that survive a restart), J12.7 |
 | `RDM_API_REFERENCE_SCRIPT` | J20, J12.7 |

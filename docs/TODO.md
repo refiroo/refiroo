@@ -698,6 +698,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] N3 delivered 2026-10-21 (D182–D185): the invariants raced across two processes,
     `DATABASE_IDLE_TRANSACTION_TIMEOUT`, `transactionEnded`, the boundary test reading SQL text, the
     roadmap's exit item worded as D176.
+  - [x] O1 delivered 2026-10-21 (D191–D197): `/health/live`, readiness per workspace and per process
+    through each process's heartbeat row, `/metrics` for the whole instance, JSON logs and one
+    request ID. Closes "readiness per workspace" (N1, N2) and "connections in use, a transaction
+    ended" (Q1, N3).
+  - [ ] **Found in O1 (2026-10-21), not changed:** `GET /api/v1/system/processes` reports a process's
+    pool `inUse` as its report is built, before the asking request's own statements, so the asking
+    process shows one connection fewer than it holds while answering. The others' figures are as of
+    their heartbeat.
   - [x] **Found in N2 (2026-10-19), done in N3 (D182):** a process frozen (or cut off) while its transaction
     holds a database lock keeps that lock until it resumes or its connection ends; the lease does not
     end it, and every write waiting for the lock waits too (J24.3's case shows it: B's chunk waits

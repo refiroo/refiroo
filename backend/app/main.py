@@ -12,13 +12,18 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .common.logs import configure_logging
+from .common.request_observation import REQUEST_ID_HEADER, RequestObservation
 from .config import ENGINE_VERSION, Settings, describe_settings, get_settings, reload_settings
 from .consumer import router as consumer_router
 from .db import DatabaseStartupError, SessionLocal, create_database, get_engine, libpq_url
+from .engine.events.dispatcher import THREAD_NAME as DISPATCHER_THREAD
 from .engine.events.dispatcher import EventDispatcher
 from .engine.events.subscriptions import SubscriptionSettings
+from .engine.events.worker import THREAD_NAME as DERIVER_THREAD
 from .engine.events.worker import EventDeriver
 from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
+from .engine.jobs.events import THREAD_NAME as LISTENER_THREAD
 from .engine.jobs.events import JobListener
 from .engine.jobs.files import JobFiles
 from .engine.jobs.inline import BatchLimits
@@ -28,6 +33,7 @@ from .engine.model.compiler import SCHEMA_VERSIONS, after_window
 from .engine.model.loader import load_bootstrap_model
 from .engine.model.registry import model_registry
 from .engine.model.workspace_models import workspaces_running
+from .engine.processes.heartbeat import ProcessHeartbeat
 from .errors import ApiError
 from .management.dependencies import MANAGEMENT_DEPENDENCIES
 from .management.errors import (
@@ -93,9 +99,17 @@ def database_reachable() -> bool:
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     loaded_model = load_bootstrap_model()
+
+    def startup_writes() -> None:
+        bootstrap_model(loaded_model)
+        # Processes starting together build the matrix states one at a time, each after the first
+        # finding them built (0.11 O1: they collided on the build's unique key before).
+        with SessionLocal() as session:
+            build_matrix_states(session)
+
     try:
         # The bootstrap install runs under the startup lock too (0.11 N1, D168).
-        create_database(then=lambda: bootstrap_model(loaded_model))
+        create_database(then=startup_writes)
     except DatabaseStartupError as exc:
         model_registry.mark_unhealthy()
         logger.error("%s", exc)
@@ -145,7 +159,6 @@ async def lifespan(application: FastAPI):
                     len(unavailable.diagnostics),
                     consequence,
                 )
-        build_matrix_states(session)
     # A process that can serve no workspace's model runs no jobs: each chunk would fail its job.
     worker = application.state.job_worker if application.state.run_job_worker else None
     exporter = application.state.export_worker if application.state.run_job_worker else None
@@ -177,9 +190,30 @@ async def lifespan(application: FastAPI):
         dispatcher = None
     if dispatcher is not None:
         dispatcher.start()
+    # Each process reports itself to the others, ready or not (0.11 O1, D192).
+    heartbeat = (
+        application.state.process_heartbeat if application.state.run_process_heartbeat else None
+    )
+    if heartbeat is not None:
+        heartbeat.started_threads = {
+            name
+            for name, thread in (
+                (worker.thread_name if worker else "", worker),
+                (exporter.thread_name if exporter else "", exporter),
+                (LISTENER_THREAD, listener),
+                (DERIVER_THREAD, deriver),
+                (DISPATCHER_THREAD, dispatcher),
+            )
+            if thread is not None
+        }
+        heartbeat.start()
+        application.state.running_heartbeat = heartbeat
     try:
         yield
     finally:
+        if heartbeat is not None:
+            application.state.running_heartbeat = None
+            heartbeat.stop()
         if dispatcher is not None:
             dispatcher.stop()
         if deriver is not None:
@@ -194,6 +228,7 @@ async def lifespan(application: FastAPI):
 
 def create_app() -> FastAPI:
     settings = reload_settings()
+    configure_logging(settings.log_format, settings.log_level)
     settings.validate_consumer_subscriptions()
     settings.prepare_job_file_dir()
     mutations_enabled = settings.model_admin_mutations_enabled
@@ -338,6 +373,13 @@ def create_app() -> FastAPI:
         else None
     )
     application.state.run_consumer_dispatcher = True
+    # The process heartbeat (0.11 O1): tests that report themselves set ``run_process_heartbeat``
+    # to False before the application starts.
+    application.state.process_heartbeat = ProcessHeartbeat(
+        SessionLocal, settings.process_heartbeat_seconds
+    )
+    application.state.run_process_heartbeat = True
+    application.state.running_heartbeat = None
     # What GET /system reports: the settings as this process read them, fixed until a restart (U-D2).
     application.state.settings_report = describe_settings(settings, os.environ)
     application.add_exception_handler(ApiError, api_error_handler)
@@ -352,8 +394,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
         # A browser on another origin reads the release a model came from, to name it on its
         # writes (0.11 M6a, D65).
-        expose_headers=["X-Model-Release-Id"],
+        expose_headers=["X-Model-Release-Id", REQUEST_ID_HEADER],
     )
+    # Outermost: every request named, counted, timed and logged once (0.11 O1, D194–D196).
+    application.add_middleware(RequestObservation)
 
     @application.get("/health")
     def health(response: Response) -> dict[str, str]:
@@ -362,9 +406,16 @@ def create_app() -> FastAPI:
             return {"status": "unhealthy"}
         return {"status": "ok"}
 
+    @application.get("/health/live")
+    def live() -> dict[str, str]:
+        """The process answers; asks nothing else, so a database outage restarts no process
+        (0.11 O1, D191). Readiness is ``/health``."""
+        return {"status": "ok"}
+
     application.include_router(api_reference_router(settings.api_reference_script))
     application.include_router(model.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(system.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(system.metrics_router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(model_releases.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(workspaces.read_router, dependencies=MANAGEMENT_DEPENDENCIES)
     if workspace_mutations_enabled:

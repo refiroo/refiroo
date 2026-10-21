@@ -1,7 +1,6 @@
 """Exception handlers that render engine and framework errors as the API's error body."""
 
 import logging
-import uuid
 
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
@@ -9,7 +8,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from ..common.outage import UNAVAILABLE_CAUSES, database_unavailable
+from ..common.logs import current_request, request_id_from
+from ..common.outage import UNAVAILABLE_CAUSES, database_unavailable, note_unavailable
+from ..common.request_observation import REQUEST_ID_HEADER
 from ..errors import ApiError
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ def _database_unavailable(request: Request, exc: Exception) -> JSONResponse | No
     if reason is None:
         return None
     cause = UNAVAILABLE_CAUSES[reason]
+    note_unavailable(reason)
     logger.log(
         logging.ERROR if reason == "unreachable" else logging.WARNING,
         "%s %s answered 503: %s",
@@ -88,7 +90,7 @@ def _database_unavailable(request: Request, exc: Exception) -> JSONResponse | No
                 "details": {"reason": reason},
             }
         },
-        headers={"Retry-After": str(RETRY_AFTER_SECONDS)},
+        headers={"Retry-After": str(RETRY_AFTER_SECONDS), **_request_id_header()},
     )
 
 
@@ -96,7 +98,9 @@ async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResp
     unavailable = _database_unavailable(request, exc)
     if unavailable is not None:
         return unavailable
-    correlation_id = uuid.uuid4().hex[:12]
+    # The request's ID (0.11 O1, D196): this handler runs outside the request's middleware, so it
+    # returns the header itself.
+    correlation_id = _request_id()
     logger.error(
         "Unhandled API error [%s] for %s %s",
         correlation_id,
@@ -121,4 +125,15 @@ async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResp
                 "details": {"correlationId": correlation_id},
             }
         },
+        headers={REQUEST_ID_HEADER: correlation_id},
     )
+
+
+def _request_id() -> str:
+    context = current_request()
+    return context.request_id if context is not None else request_id_from(None)
+
+
+def _request_id_header() -> dict[str, str]:
+    """The request's ID for a response sent outside the request's middleware (0.11 O1, D196)."""
+    return {REQUEST_ID_HEADER: _request_id()}

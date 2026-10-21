@@ -765,9 +765,24 @@ groups off, each with any worker count (0.11 N1):
 - **Instances must share `RDM_CURSOR_SIGNING_KEY`** when one client's requests can reach different
   instances, and `JOB_FILE_DIR` on shared storage.
 
-Still per process: the startup readiness and a release withdrawn after a failed load (readiness per
-workspace is 0.11 O1's), and each process runs a job worker (several workers on several nodes are
-0.11 N2's).
+- **Each process reports itself through the database** (0.11 O1, D192). A request reaches one
+  process, while what a process cannot serve (a release outside its schema window, one that does not
+  validate, one withdrawn after a failed load) and its threads, pool and counters are known only
+  inside it. Each process's heartbeat thread (`engine/processes/heartbeat.py`) upserts its
+  `engine_processes` row every `PROCESS_HEARTBEAT_SECONDS`, once before it serves and then on its
+  interval; a clean stop deletes it. The readiness and process reads and `/metrics` read every
+  process from those rows and refresh the asking process's own first, so one request or scrape
+  answers for every worker and node. A row three heartbeats old is `silent` and no longer counts
+  against a workspace. `/health` stays this process's readiness and `/health/live` its liveness
+  (D191).
+- **Every request is named, counted and timed once** by an ASGI middleware
+  (`common/request_observation.py`, D194–D196): its `X-Request-Id`, the matched route's template
+  (never the path), one access line, and the process's counters (`common/request_metrics.py`),
+  which the heartbeat reports. The log is configured once at startup (`common/logs.py`), as text or
+  JSON lines, for the engine's and uvicorn's loggers.
+
+Still per process: the startup readiness and a release withdrawn after a failed load, each now
+reported to the others (above).
 
 ## Directions
 

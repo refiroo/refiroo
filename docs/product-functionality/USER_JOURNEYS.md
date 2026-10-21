@@ -1913,6 +1913,24 @@ controlled diagnostics.
   naming the reason and the setting, logged in one line without a traceback, and is served again
   once a connection is free. A start whose processes could need more connections than the server
   allows logs a warning naming both figures.
+- **J12.12 Alive and ready** (0.11 O1): `/health/live` answers `200` whenever the process answers,
+  without asking the database, so a database outage restarts no process; `/health` stays the
+  readiness probe and answers `503` while the database is unreachable or no workspace can be served.
+- **J12.13 Readiness per workspace and per process** (0.11 O1): every process reports itself through
+  the database; `GET /api/v1/system/readiness` names each active workspace `served` or
+  `unavailable`, with the live processes that cannot serve its release and why (`unsupportedSchema`,
+  `invalid`, `notLoaded`); `GET /api/v1/system/processes` lists every process `live` or `silent`,
+  ready or not, with its background threads, its pool and its counters. A stopped process leaves
+  the list; one that died is listed silent for a day.
+- **J12.14 Metrics** (0.11 O1): `GET /metrics` answers the whole instance in the Prometheus text
+  format, from any process: every live process's requests by route template and status, request
+  durations, connections in use and missing, failing threads and readiness, labelled by process;
+  and the jobs waiting or running, the webhook subscriptions, the processes and the unavailable
+  workspaces counted when scraped.
+- **J12.15 Structured logs** (0.11 O1): `LOG_FORMAT=json` writes one JSON object per line and
+  `LOG_LEVEL` sets the lowest level; each request writes one access line and carries one ID, taken
+  from `X-Request-Id` when well formed or generated, returned in the response and named by
+  `INTERNAL_ERROR`'s `correlationId`. An invalid value refuses to start, naming the setting.
 
 **Evidence today:** the J12 journey tests; `test_startup`, `test_model_schema_upgrade`,
 `test_schema_drift`, `test_api_reference`; unit tests of `config.py` and `main.py`.

@@ -1338,6 +1338,7 @@ def volume_app(directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, Volum
             app.state.run_event_deriver = False
             # Likewise the webhook dispatcher's, when subscriptions are on: a test runs it (C13).
             app.state.run_consumer_dispatcher = False
+            app.state.run_process_heartbeat = False
             with TestClient(app) as client:
                 yield client, VolumeDataset.from_payload(payload["dataset"])
     finally:

@@ -201,10 +201,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (RecordOrigin) and source (MoveSourceOutcome), and the rows' outcome filter updateOriginal; a
     # history entry's cause gains origin; the confirmation's description names a move's. Diffed against the previous commit, nothing else
     # changed. Re-baselined for 0.11 X4: a move's relationship row gains fromName and toName.
-    # Diffed against the previous commit, nothing else changed.
+    # Diffed against the previous commit, nothing else changed. Re-baselined for 0.11 O1 (D191–D197):
+    # GET /health/live, GET /metrics, GET /api/v1/system/processes and GET /api/v1/system/readiness
+    # with their Process* and *Readiness* schemas. Diffed against the previous commit, nothing else
+    # changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "9a15463cebe9eb76998f556cac2fc5267a7d0e55d3055adffdc4240640b2c687"
+        "025d22b87cf0f1e3f283f903d06714d363e647c04be7abdfa52cc2e480cc3b3d"
     )
 
 
@@ -244,8 +247,9 @@ def test_paging_openapi_inventory():
     # 0.9 J2 added the import profiles; 0.9 J3 an import's rows; 0.9 K6a what records hold; 0.10 A3
     # the source files and a profile's sheets and columns; 0.10 A5c a profile check's new values,
     # drift, missing records and rows; 0.10 A8b a range of a sheet's cells; 0.11 M1 the workspaces'
-    # model assignments; 0.11 X1 the model mappings, a mapping's history and its proposals.
-    assert seekable <= paged and len(paged) == 41
+    # model assignments; 0.11 X1 the model mappings, a mapping's history and its proposals; 0.11 O1
+    # the processes and the readiness per workspace.
+    assert seekable <= paged and len(paged) == 43
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

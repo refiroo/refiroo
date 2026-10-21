@@ -192,6 +192,17 @@ class ModelRegistry:
             self._servable = not releases or len(found) < len(releases)
         return found
 
+    def unavailable_assigned(self, session: Session) -> list[UnavailableWorkspaceModel]:
+        """The releases some workspace runs that this process cannot serve, as its heartbeat
+        reports them (0.11 O1, D192). A release not parsed yet is parsed now, as its workspace's
+        next request would."""
+        releases = session.scalars(
+            select(ModelRelease)
+            .where(ModelRelease.id.in_(select(WorkspaceModel.model_release_id)))
+            .order_by(ModelRelease.id)
+        )
+        return [item for item in map(self._unavailable_release, releases) if item is not None]
+
     def warm(self, release_db_id: int) -> None:
         """Parse a newly assigned release into this process registry (after an activation). Other
         processes parse it on their first request in the workspace, which reads its assignment

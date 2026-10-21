@@ -8,7 +8,7 @@ test change the environment and construct a differently configured app in the sa
 import base64
 import os
 import secrets
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -34,6 +34,13 @@ TRUTHY = {"1", "true", "yes", "on"}
 # the page works without internet access, or the same pinned version from a CDN.
 ApiReferenceScript = Literal["bundled", "cdn"]
 API_REFERENCE_SCRIPTS: tuple[ApiReferenceScript, ...] = ("bundled", "cdn")
+
+# How the process writes its log (0.11 O1, D195): plain lines for a terminal, or one JSON object a
+# line for a log collector.
+LogFormat = Literal["text", "json"]
+LOG_FORMATS: tuple[LogFormat, ...] = ("text", "json")
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
+LOG_LEVELS: tuple[LogLevel, ...] = ("DEBUG", "INFO", "WARNING", "ERROR")
 
 # Regenerating this per process is deliberate: without RDM_CURSOR_SIGNING_KEY, cursors issued
 # before a restart stop verifying after it. It is generated once at import so reloading settings
@@ -62,6 +69,11 @@ class Settings(BaseModel):
     # Seconds a pooled connection may sit idle inside a transaction before PostgreSQL ends it, so a
     # frozen or cut-off process releases its locks (0.11 N3, D182); 0 turns it off.
     database_idle_transaction_timeout: int = Field(default=300, ge=0)
+    # The log's format and level (0.11 O1, D195), and how often each process reports itself to the
+    # others through the database (D192).
+    log_format: LogFormat = "text"
+    log_level: LogLevel = "INFO"
+    process_heartbeat_seconds: int = Field(default=15, ge=1)
     cursor_signing_key: bytes = _EPHEMERAL_CURSOR_SIGNING_KEY
     api_reference_script: ApiReferenceScript = "bundled"
     # Job creation (bulk writes, imports, exports) as a deployment capability group (ADR-036, D10).
@@ -127,6 +139,9 @@ class Settings(BaseModel):
             database_idle_transaction_timeout=_non_negative(
                 env, "DATABASE_IDLE_TRANSACTION_TIMEOUT", 300
             ),
+            log_format=_choice(env, "LOG_FORMAT", LOG_FORMATS, "text", str.lower),
+            log_level=_choice(env, "LOG_LEVEL", LOG_LEVELS, "INFO", str.upper),
+            process_heartbeat_seconds=_positive(env, "PROCESS_HEARTBEAT_SECONDS", 15),
             cursor_signing_key=(
                 configured_signing_key.encode()
                 if configured_signing_key
@@ -230,6 +245,23 @@ def _non_negative(env: Mapping[str, str], name: str, default: int) -> int:
     if value < 0:
         raise RuntimeError(f"{name} must be zero or a positive integer, not {raw!r}")
     return value
+
+
+def _choice[T: str](
+    env: Mapping[str, str],
+    name: str,
+    choices: tuple[T, ...],
+    default: T,
+    normal: Callable[[str], str],
+) -> T:
+    raw = env.get(name)
+    if raw is None or not raw.strip():
+        return default
+    value = normal(raw.strip())
+    for choice in choices:
+        if value == choice:
+            return choice
+    raise RuntimeError(f"{name} must be one of {', '.join(choices)}, not {raw!r}")
 
 
 def _encryption_key(raw: str) -> bytes | None:
@@ -341,6 +373,19 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "runtime",
         "Seconds a connection may sit idle inside a transaction before the database ends it, "
         "releasing a stalled process's locks; 0 turns it off",
+    ),
+    CatalogueEntry(
+        "LOG_FORMAT",
+        "log_format",
+        "runtime",
+        "How the log is written: text lines, or one JSON object a line",
+    ),
+    CatalogueEntry("LOG_LEVEL", "log_level", "runtime", "The lowest level the log writes"),
+    CatalogueEntry(
+        "PROCESS_HEARTBEAT_SECONDS",
+        "process_heartbeat_seconds",
+        "runtime",
+        "Seconds between each process's reports of its state to the others",
     ),
     CatalogueEntry(
         "MODEL_ADMIN_MUTATIONS_ENABLED",

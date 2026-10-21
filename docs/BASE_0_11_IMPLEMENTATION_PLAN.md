@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19); Q1 (2026-10-20); N3 and Q2 (2026-10-21).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19); Q1 (2026-10-20); N3, Q2 and O1 (2026-10-21).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -410,7 +410,7 @@ change) and `volume` (every budget).
 | 22 | [Q2](#q2-model-derived-indexes) | M2, Q1 | **Delivered 2026-10-21.** Value indexes the same for every model (D186); a change set's unique checks on numbers and dates seek their value; a move's match seeks the target's unique values; the inference counts unique values of every type; the derived-values door decided |
 | — | _cut line (D13)_ | | _If R is out of reach, 0.11.0 releases here and Q3 and U1 move to 0.11.x_ |
 | 23 | [Q3](#q3-precomputed-sort-keys) | Q2 | Attribute and ancestor sorts over very large parents within the list budget |
-| 24 | [O1](#o1-metrics-logs-health-and-readiness) | N1 | Metrics, structured logging, health and readiness |
+| 24 | [O1](#o1-metrics-logs-health-and-readiness) | N1 | **Delivered 2026-10-21.** `/health/live`; readiness per workspace and per process from each process's heartbeat row; `/metrics` for the whole instance in one scrape; JSON logs and one request ID |
 | 25 | [O2](#o2-backup-restore-and-the-operations-page) | O1, M6 | Backup and restore rehearsed with workspaces on different models; Settings › Operations (U7) |
 | 26 | [U1](#u1-touch-drag-in-the-tree-lens) | — | Long-press drag in the tree lens on phones (0.8 D35) |
 | | **Part 3 — first public release** | | |
@@ -4723,6 +4723,192 @@ volume (TODO, C-D67) or sort very large parents by an attribute or ancestor with
 
 **Scope:** metrics, structured logging, health and readiness endpoints, documented in OPERATIONS;
 readiness reports each workspace's model resolved.
+
+##### O1 plan (2026-10-21)
+
+**Planned 2026-10-21. D191–D197 and the test cases accepted by the user on 2026-10-21.** Checked
+against the code at `9796246` by reading it; nothing was run.
+
+**What was found:**
+
+- **One probe, and it is readiness.** `GET /health` (`main.py`) answers `503 {"status":
+  "unhealthy"}` when the registry is not ready (the database could not be prepared, or no assigned
+  release can be served, D34) or the database does not answer `SELECT 1`; otherwise `200 {"status":
+  "ok"}`. There is no liveness probe: an orchestrator that restarts on this one restarts every
+  process during a database outage, which J12.8 says recovers without a restart.
+- **What a process cannot serve is known only inside it.** `ModelRegistry._unavailable` holds the
+  releases this process could not parse or whose schema is outside the window, and `withdraw` adds a
+  release that failed to load after an activation; both are per process (D169). Nothing reports
+  them: the operator finds out from a workspace's `503 MODEL_REGISTRY_UNAVAILABLE` or the startup
+  log. N1, N2 and N3 each left "readiness per workspace and per node" to O1; Q1 and N3 left "how
+  many connections are in use" and "that a transaction was ended" to O1's metrics.
+- **No metrics.** No counter is kept. The pool (`db._engine_for`, a `QueuePool`) knows its size,
+  checked-out connections and overflow; `OutageLog` knows whether each background thread (the job
+  worker, the export worker, the job listener, the event deriver, the webhook dispatcher) is
+  failing and why; `_database_unavailable` (`management/errors.py`) knows each `503
+  DATABASE_UNAVAILABLE` and its reason. None of it leaves the process.
+- **Logs are plain text from Python's default and uvicorn's configuration.** Nothing configures
+  logging; the level and format are uvicorn's. `INTERNAL_ERROR` carries a `correlationId` of 12 hex
+  characters generated in the handler, and no other line names the request it belongs to.
+- **A browser or a scrape reaches one process.** Behind a load balancer, or with `WEB_CONCURRENCY`
+  above 1 (uvicorn's workers share one port), a request reaches whichever process takes it. Only
+  the database sees every process. The job worker already names itself `host:pid:random` in
+  `jobs.lease_owner` (N2).
+
+**What is built:**
+
+1. **Probes (D191):** `GET /health/live` answers `200` whenever the process answers, without the
+   database; `GET /health` keeps its meaning and body.
+2. **Each process reports itself (D192):** migration `20261024_01`, table `engine_processes` (the
+   process ID `host:pid:random`, host, pid, engine version, started, last heartbeat, and its report
+   as JSON). A heartbeat thread upserts the row every `PROCESS_HEARTBEAT_SECONDS` (default 15):
+   whether it is ready, its background threads (`running`, `failing` with the reason and since when,
+   `off`), its pool (size, maximum overflow, in use), the releases it cannot serve and why
+   (`unsupportedSchema`, `invalid`, `notLoaded` for a withdrawn one), and its counters (D194). A
+   clean shutdown deletes the row; a row silent for a day is deleted by any process's heartbeat. The
+   thread reports database outages through `OutageLog`, as the others do.
+3. **Two reads (D192, D197):** `GET /api/v1/system/processes`, paged: every process, `live`, or
+   `silent` after three heartbeats without one, with its report. `GET /api/v1/system/readiness`,
+   paged by workspace key: each active workspace, its release (ID, key, version, schema), `served`
+   or `unavailable`, and the live processes that cannot serve it, each with its reason (and the
+   schema for `unsupportedSchema`). A process computes its own unavailable releases from the
+   registry, so the asking process's figures are current and the others' as of their heartbeat.
+4. **Metrics (D193, D194):** `GET /metrics` in the Prometheus text format (0.0.4), written by a
+   small module of the engine's own, from the live processes' heartbeat rows and gauges read when
+   scraped (jobs by kind and state, webhook subscriptions by state and deliveries waiting,
+   workspaces unavailable, processes live and silent). The request counters come from an ASGI
+   middleware that records the matched route's template, never the path.
+5. **Logs (D195, D196):** `LOG_FORMAT` (`text`, default, or `json`) and `LOG_LEVEL` (default
+   `INFO`), configured once at startup for the engine's and uvicorn's loggers. A JSON line holds
+   `time`, `level`, `logger`, `message`, `process`, and within a request `requestId`, `method` and
+   `route`; a traceback goes in `exception`, at the level today's policy already logs it. The
+   engine writes one access line per request (method, route, path, status, `durationMs`,
+   `requestId`) and uvicorn's own access line is turned off. A request carries `X-Request-Id`
+   (taken from the request when well formed, otherwise generated), returned in the response and
+   exposed through CORS; `INTERNAL_ERROR`'s `correlationId` is that ID.
+6. **Documents:** OPERATIONS (probes, the two reads, metrics with every series, logs, the three
+   settings in the catalogue), API.md (the routes, `X-Request-Id`), ARCHITECTURE (the heartbeat),
+   USER_JOURNEYS (J12.12–J12.15) and API_JOURNEYS, the OpenAPI lock re-baselined and diffed,
+   CHANGELOG, PROJECT_STATUS, TODO. No frontend change; the Operations page over these reads is O2.
+
+**Composable domains (ADR-032):** none of the doors is affected (no identity, value storage,
+audit, bulk API, `match` or coverage change).
+
+**Decisions:**
+
+| # | Question | Recommendation | Blocks |
+| --- | --- | --- | --- |
+| D191 | Liveness and readiness | **Recommended:** `/health` stays the readiness probe, unchanged; `/health/live` is added and never asks the database. Why: an orchestrator restarts a process whose liveness fails; a database outage must not restart every process, since each recovers by itself (J12.8). Cost: one route; deployments that use `/health` for both keep working | O1 |
+| D192 | Where readiness per workspace and per process comes from | **Recommended:** each process writes a heartbeat row with its report; two reads list processes and per-workspace readiness from those rows. Why: a request reaches one process, and what a process cannot serve (a withdrawn release, D169) is known only inside it; only the database sees all of them. The alternative, each process reporting only itself, leaves the operator to reach every node directly and leaves O2's page showing whichever process answered. Cost: one table and migration, one small upsert per process every 15 s, one more background thread; another process's figures are up to one heartbeat old | O1, O2 |
+| D193 | How metrics are exposed | **Recommended:** `GET /metrics` in the Prometheus text format, the whole instance in one scrape (every live process's series labelled `process`, plus instance gauges read from the database), written without a new dependency. Why: under uvicorn's workers a scrape reaches one worker, which `prometheus_client` handles only with its multiprocess mode and a shared directory, and never across nodes; the heartbeat rows already hold every process's figures. Cost: figures up to one heartbeat old; each scrape reads a few counts from the database. The Prometheus format is chosen because it is what monitoring tools read (OpenTelemetry collectors scrape it too) | O1 |
+| D194 | Which figures | **Recommended:** per process: requests by method, route template and status; request duration as a histogram per route template; `DATABASE_UNAVAILABLE` by reason (`transactionEnded` among them, N3); the pool's size, overflow and connections in use (Q1); each background thread failing or not; whether it is ready; when it started. Per instance: jobs by kind and state, webhook subscriptions by state and deliveries waiting, workspaces unavailable, processes live and silent. Nothing per workspace, record type or record. Why: the open questions N3 and Q1 left, and what an operator alerts on; a label per workspace or record would grow without bound. Cost: per-workspace load is not visible in metrics | O1 |
+| D195 | Structured logs | **Recommended:** `LOG_FORMAT=text` (default) or `json`, and `LOG_LEVEL`; JSON as one object per line with the fields above; the engine's own access line in both formats instead of uvicorn's. Why: log collectors parse JSON lines; a developer's terminal stays readable; the engine's access line can carry the request ID and the route template. Cost: the access line in the terminal changes shape; two new settings | O1 |
+| D196 | One ID per request | **Recommended:** `X-Request-Id` taken from the request when it is 1–64 letters, digits, `.`, `_` or `-`, otherwise a generated 32-character hex ID; returned in the response; every log line of the request carries it; `INTERNAL_ERROR`'s `correlationId` is it. Why: a proxy's request ID then ties its log to the engine's, and the operator has one reference instead of two. Cost: a generated `correlationId` grows from 12 to 32 characters | O1 |
+| D197 | Who reads them | **Recommended:** no capability setting; `/health`, `/health/live` and `/metrics` outside `/api/v1`, and the two reads beside `GET /system`, for administrators once roles exist (0.12). Why: as `GET /system` (0.9 U3). Cost: until 0.12 anyone who reaches the instance reads host names, process IDs and pool figures; OPERATIONS says to keep `/metrics` and `/api/v1/system/*` off a public network, as a public instance already should keep the management API | O1 |
+
+**Journey test cases** (written first; each fails today):
+
+1. **J12.12 Alive and ready** (`startup`): a started process answers `/health/live` and `/health`
+   `200`; with the database unreachable (J12.8's way), `/health/live` `200` and `/health` `503`;
+   once it is back, both `200`.
+2. **J12.13 Readiness per workspace and per process** (`workspace_models`, two real processes):
+   two workspaces on two models, and a third whose release has a schema outside the window (written
+   into the database from outside the API, as J12.6 does); from either process `GET
+   /system/readiness` names the two `served` and the third `unavailable`, reason
+   `unsupportedSchema` with its schema, in both processes; `/health` `200`; `GET /system/processes`
+   lists both `live`, ready, with their threads and pools; a stopped process leaves the list; a
+   killed one is `silent` after three heartbeats (a short `PROCESS_HEARTBEAT_SECONDS`).
+3. **J12.14 Metrics** (two real processes): requests to each process, one of them a `404`, appear
+   in `/metrics` read from either process, labelled by process and route template (no record ID);
+   a queued background job shows in the jobs gauge; the body parses as Prometheus text.
+4. **J12.15 Structured logs** (one real process): with `LOG_FORMAT=json` every line the process
+   writes is one JSON object; a request sent with `X-Request-Id` answers with it and its access line
+   carries it; one sent without gets a generated one; `LOG_FORMAT=xml` refuses to start, naming the
+   setting (as J12.7).
+
+Unit tests: the Prometheus writer (label escaping, cumulative buckets, `+Inf`); the JSON formatter
+(a traceback, request fields, non-ASCII); the request ID check. **Checks planned:** the four
+journeys' files, `test_j12_run_the_service`, `test_j31_system`, `test_startup` and
+`test_schema_drift` (the migration: bootstrap, upgrade, drift), `contract` (the lock), the unit
+tests of `config.py`, a final smoke start on a copy of the development database; Ruff on the
+changed files. Not planned: the full suite and browser runners (R's), the frontend (no change).
+
+##### O1 record (2026-10-21)
+
+**Delivered 2026-10-21.** As planned, D191–D197 as accepted.
+
+**What was built:**
+
+- **Probes:** `GET /health/live` in `main.py`; `/health` unchanged.
+- **The heartbeat** (`engine/processes/`): `report.py` builds what a process knows (ready, threads,
+  pool, the assigned releases it cannot serve through `ModelRegistry.unavailable_assigned`, its
+  counters); `heartbeat.py` writes the `engine_processes` row (migration `20261024_01`) once before
+  the process serves, then every `PROCESS_HEARTBEAT_SECONDS`, deletes rows silent for a day and
+  deletes its own on a clean stop; `reads.py` reads live and silent processes, readiness per
+  workspace and the gauges counted when scraped. `OutageLog` keeps each thread's state by thread
+  name, and counts each reason a caller got no database connection.
+- **Reads:** `GET /api/v1/system/processes` and `GET /api/v1/system/readiness`, paged; `GET
+  /metrics` (`common/prometheus.py`, `management/projections/operations.py`). Each first writes the
+  asking process's own row.
+- **Requests and logs:** `common/request_observation.py` (an ASGI middleware: `X-Request-Id`, the
+  route template, one access line, the counters in `common/request_metrics.py`), `common/logs.py`
+  (`LOG_FORMAT`, `LOG_LEVEL`, the JSON and text formatters, configured in `create_app`).
+  `INTERNAL_ERROR`'s `correlationId` and both error handlers' `X-Request-Id` come from the request.
+
+**Where it differs from the plan:**
+
+- **Webhooks are counted by subscription** (`active`, `failing` while a batch is retried,
+  `suspended`), not by deliveries waiting: what waits is a position in the feed per subscription,
+  not a row to count.
+- **Probe and scrape access lines are DEBUG** (`/health`, `/health/live`, `/metrics`): asked every
+  few seconds, they would outnumber every other line.
+- **The harness's in-process applications run no heartbeat** (`scenario.application`,
+  `volume_fixture`), as they run no job worker, deriver or dispatcher: a background write would
+  land in tests that count statements. `serve` (J12) and the real processes run it.
+- **A defect found on the way, fixed:** processes starting together built the relation matrix
+  states at once and one hit the build's unique key, logged at ERROR (the API served, deriving the
+  cells from records). The log had hidden it: nothing configured the engine's loggers, so Python's
+  fallback printed the line without its level, and J12.10's "no ERROR" check could not see it. The
+  build now runs under the startup lock after the bootstrap install (`main.startup_writes`). With
+  the lock held longer, J12.10 read the log before the second worker had started; it now waits for
+  both startup lines.
+- **The engine's INFO lines are now written** under uvicorn (they were not, for the same reason).
+- **Found, not changed (TODO):** the asking process's pool `inUse` is read before its request's own
+  statements, so it shows one connection fewer than it holds while answering.
+
+**Composable domains:** no door affected, as planned.
+
+**Checks** (load 4–12 during the runs; another session's work was on the machine):
+
+- The four journeys (`test_j12_observe.py`, 16 cases on two configurations each): **confirmed
+  failing against `9796246`** (16 failed: the routes 404, `X-Request-Id` missing, the settings not
+  refused; run in a worktree on the harness's server), then 16 passed. Unit tests
+  (`tests/unit/common/test_logs.py`, `test_prometheus.py`, run with the rest of `tests/unit/common`): 38 passed.
+- `startup or contract` with `-n auto` after the last code change: 289 passed, 1 failed (J12.10's
+  startup-line count, above), then that test and the O1 file: 18 passed. The 5 `serial` cases the
+  run named are the `budget` volume tests no package runs. `tests/unit/test_config.py`: 55 passed.
+- The other real-process journeys, whose processes now log and report differently:
+  `test_j03_j26_several_processes`, `test_j24_several_processes`, `test_j24_several_nodes`: 42
+  passed. The job worker over the changed `OutageLog`: `tests/unit/engine/jobs/test_worker.py`,
+  `test_j24_background_job.py`: 19 passed.
+- OpenAPI lock re-baselined; the document diffed against `9796246`: four paths and ten schemas
+  added, nothing else changed. The paging inventory counts 43 paged collections.
+- Migration: clean bootstrap and upgrade through `20261024_01` in `test_startup` and
+  `test_schema_drift` (both in `startup`); creating a table is transactional, so an interrupted run
+  stays at `20261023_01`.
+- **Smoke start:** the development server (`uvicorn --reload` on `rdm`, already running) reloaded
+  onto this code and upgraded the development database to `20261024_01`; `/health` and
+  `/health/live` 200, readiness six workspaces served, one process live with every thread running,
+  `/metrics` 79 samples.
+- Ruff check on every changed file; Ruff format on the new files (`config.py`, `database.py` and
+  `outage.py` were unformatted before and are left so).
+- Over 10 s outside `budget`: none.
+- **Not run:** the full suite and the browser runners (R's); the `jobs`, `feed` and `records` groups
+  as wholes (the files on the changed paths ran instead); no frontend change.
+
+**What the user still cannot do:** see the processes, readiness and metrics in the browser, and
+rehearse a backup and restore with workspaces on different models (O2, Settings › Operations); sort
+by an attribute or an ancestor over very large parents within the list budget (Q3).
 
 #### O2: Backup, restore and the Operations page
 

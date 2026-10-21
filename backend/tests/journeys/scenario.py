@@ -67,7 +67,7 @@ class Api:
     def _call(self, method: str, path: str, **kwargs: Any) -> Response:
         url = (
             path
-            if path.startswith(("/api/", "/health", "/docs", "/openapi.json"))
+            if path.startswith(("/api/", "/health", "/metrics", "/docs", "/openapi.json"))
             else f"/api/v1{path}"
         )
         return self.client.request(method, url, **kwargs)
@@ -780,6 +780,7 @@ def application(
             app.state.run_job_worker = False
             app.state.run_event_deriver = False
             app.state.run_consumer_dispatcher = False
+            app.state.run_process_heartbeat = False
             with TestClient(app) as client:
                 yield World(configuration, Api(client), database)
     finally:

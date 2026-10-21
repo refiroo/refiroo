@@ -28,7 +28,7 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261023_01"
+HEAD = "20261024_01"
 MOVES = "20261021_01"
 MODEL_MAPPINGS = "20261020_01"
 WORKSPACE_MIGRATIONS = "20261019_01"

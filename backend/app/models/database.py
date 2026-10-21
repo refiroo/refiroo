@@ -1758,3 +1758,24 @@ class ModelMappingProposal(Base):
     kind: Mapped[str] = mapped_column(String(20), nullable=False)
     signature: Mapped[str] = mapped_column(Text, nullable=False)
     body: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+class EngineProcess(Base):
+    """A running engine process as it last reported itself (Product 0.11 O1, D192).
+
+    Each process upserts its row every ``PROCESS_HEARTBEAT_SECONDS`` and deletes it when it stops
+    cleanly; a row silent for a day is deleted by any process. ``report`` holds what only the
+    process knows: whether it is ready, its background threads, its pool, the releases it cannot
+    serve and its counters (``engine/processes/report.py``). Operational state, never a domain
+    record.
+    """
+
+    __tablename__ = "engine_processes"
+
+    process_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    host: Mapped[str] = mapped_column(String(255), nullable=False)
+    pid: Mapped[int] = mapped_column(Integer, nullable=False)
+    engine_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    heartbeat_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    report: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)

@@ -825,8 +825,17 @@ activated or a workspace migrated through any of them is served by all of them f
 A page read while its workspace changed release is refused rather than shown half in each model, and
 offers Reload.
 
-Limits: performance at production scale, background jobs spread over several servers, metrics and
-rehearsed restore are 0.11.
+An orchestrator asks two probes: whether a process is alive (it answers) and whether it is ready
+(its database answers and it serves a workspace). An operator reads, from any process, which
+workspaces every process serves and which a process cannot serve and why, and every process with
+its background work, its database connections and its request counts, including one that stopped
+reporting. Monitoring tools scrape the whole instance's metrics in the Prometheus format in one
+request. The log can be written as JSON lines, and each request carries one ID that its log lines
+and an internal error's reference share.
+
+Limits: attribute and ancestor sorts over very large parents at production scale (0.11 Q3);
+rehearsed backup and restore and the Operations page in Settings are not built yet (0.11 O2), so
+the API reads above are the way to see the instance's state until then.
 SQLite was a development database only; the engine offers no migration from it.
 
 Settings › **About** and **Deployment** show what the deployment runs and how it is configured, from

@@ -294,6 +294,36 @@ Read-only and behind no capability, like `/capabilities` (for administrators onc
   `default` as `null`; only `source` says whether they are set. `DATABASE_URL` is reported without its
   password (also a `password` query parameter), or `null` when it cannot be read as a URL.
 
+#### The instance's processes, readiness and metrics (0.11 O1)
+
+Every process reports itself through the database every `PROCESS_HEARTBEAT_SECONDS`, so any process
+answers for all of them; the asking process's own figures are current, another's as of its last
+report ([OPERATIONS § Monitoring](OPERATIONS.md#monitoring)). Behind no capability, like `GET /system`.
+
+- `GET /health` (readiness, unchanged) answers `200 {"status": "ok"}`, or `503 {"status":
+  "unhealthy"}` while the database is unreachable or no workspace can be served. `GET /health/live`
+  answers `200 {"status": "ok"}` whenever the process answers and asks nothing else.
+- `GET /api/v1/system/processes` pages every process in ID order: `id` (`host:pid:random`, as a job's
+  `leaseOwner` begins), `host`, `pid`, `engineVersion`, `startedAt`, `heartbeatAt`, `state` (`live`,
+  or `silent` after three heartbeats without one), `ready`, `threads` (each `{name, state, reason,
+  since}`: `jobWorker`, `exportWorker`, `jobListener`, `eventDeriver`, `webhookDispatcher`,
+  `heartbeat`; `running`, `failing` or `off`), `pool` (`size`, `maxOverflow`, `inUse`),
+  `unavailableReleases` (each `{releaseId, schemaVersion, reason}`) and `counters` (`requests`,
+  `serverErrors`, `databaseUnavailable` by reason). A stopped process leaves the list; one that died
+  stays `silent` for a day.
+- `GET /api/v1/system/readiness` pages the active workspaces in key order: `workspaceKey`, `release`
+  (`id`, `key`, `version`, `schemaVersion`; `null` for none), `state` (`served`, or `unavailable` when
+  it runs no release or a live process cannot serve it) and `unavailableIn` (each `{processId,
+  reason, schemaVersion}`, `reason` `unsupportedSchema`, `invalid` or `notLoaded`).
+- `GET /metrics` answers the whole instance in the Prometheus text format 0.0.4 (`text/plain;
+  version=0.0.4`): each live process's series labelled `process`, and counts read when scraped. The
+  series are listed in [OPERATIONS § Monitoring](OPERATIONS.md#monitoring).
+
+Every response carries `X-Request-Id`: the request's own when it sent one of 1–64 letters, digits,
+`.`, `_` or `-`, otherwise a generated 32-character hex ID. The log names the request by it, and an
+`INTERNAL_ERROR`'s `details.correlationId` is it. A browser on another origin reads it (CORS
+`Access-Control-Expose-Headers`).
+
 `GET /api/v1/model` returns the `EngineModel` of the workspace named by `workspaceKey` (the default
 workspace without it, an unknown one `404 WORKSPACE_NOT_FOUND`), or of the change set or publication
 named, and adds:
@@ -1687,7 +1717,8 @@ with a machine-readable `code` and a human-readable `message`. Every code is wri
 of batch and job item outcomes, and validation diagnostics (0.9 T1b). Status, action, kind and
 classification values are not codes and stay in lower case. Validation errors additionally include
 a `details` array. Unexpected internal errors use code `INTERNAL_ERROR` and include a
-`correlationId` in `details`; the same identifier appears in server logs for operator diagnosis.
+`correlationId` in `details`, the request's `X-Request-Id` (0.11 O1); the same identifier appears in
+server logs for operator diagnosis.
 A request that gets no database connection answers `503 DATABASE_UNAVAILABLE` with `Retry-After`
 and saves nothing; `details.reason` is `poolExhausted` (every connection of the serving process is
 in use), `tooManyConnections` (the database server takes no more), `transactionEnded` (the serving
@@ -1729,8 +1760,8 @@ Internal error example:
 {
   "error": {
     "code": "INTERNAL_ERROR",
-    "message": "The GET /api/v1/model-releases operation failed unexpectedly. Retry or contact support with reference a1b2c3d4e5f6.",
-    "details": { "correlationId": "a1b2c3d4e5f6" }
+    "message": "The GET /api/v1/model-releases operation failed unexpectedly. Retry or contact support with reference 3f2c9a0e7b1d4c6a8e5f0b2d9c7a1e4f.",
+    "details": { "correlationId": "3f2c9a0e7b1d4c6a8e5f0b2d9c7a1e4f" }
   }
 }
 ```
