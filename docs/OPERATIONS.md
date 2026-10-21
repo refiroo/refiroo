@@ -32,6 +32,7 @@ and the one line the API and the Deployment page show) and to the table of its g
 | `DATABASE_POOL_SIZE` | `5` | Database connections each process keeps open (0.11 Q1). See [Database connections](#database-connections) |
 | `DATABASE_POOL_MAX_OVERFLOW` | `10` | Connections each process opens beyond `DATABASE_POOL_SIZE` when busy, closed again when returned; `0` for none |
 | `DATABASE_POOL_TIMEOUT` | `30` | Seconds a caller waits for a free connection; a request that waits it out answers `503 DATABASE_UNAVAILABLE` |
+| `DATABASE_IDLE_TRANSACTION_TIMEOUT` | `300` | Seconds a connection may sit idle inside a transaction before the database ends it, releasing a stalled process's locks (0.11 N3); `0` turns it off. See [Several processes](#several-processes) |
 | `VITE_API_URL` (frontend) | `http://localhost:8000` | API address the browser application calls |
 
 ### Several processes
@@ -48,9 +49,30 @@ Every process runs a job worker (0.11 N2). A job queued through any process star
 worker is idle, at once: each process hears job changes through `LISTEN` and wakes its workers. A
 running job keeps its lease by a heartbeat however long a step takes, and moves to another worker
 only once its process stops renewing (`JOB_LEASE_SECONDS`, 120 s by default): stopped, crashed,
-frozen or cut off from the database. A frozen process that holds a database lock in an open
-transaction holds up the writes waiting for that lock until it resumes or its connection ends; the
-lease does not end that.
+frozen or cut off from the database.
+
+Writes take turns through database locks (the workspace's, a change set's), so the rules a write
+checks (unique values, versions, parent cycles, cardinality, feed positions) hold whichever process
+or node each write reaches. A process that stalls inside a transaction, frozen, starved of CPU or cut
+off from the database, holds that transaction's locks, and the writes of its workspace wait for
+them. The database ends such a transaction once it has been idle for
+`DATABASE_IDLE_TRANSACTION_TIMEOUT` (300 s by default), which releases the locks; the other
+processes go on, and a job moves to another worker through its lease as above (0.11 N3). When the
+stalled process resumes, nothing of that transaction is saved, a job it was running is left to its
+lease rather than failed, and it serves again. What it logs, in one line without a traceback,
+depends on what it reads first: the database's notice gives a WARNING naming the setting, and a
+request it was serving answers `503 DATABASE_UNAVAILABLE` with `details.reason` `transactionEnded`;
+when its next statement meets the closed connection first, the notice is lost and it logs that it
+cannot reach the database (`unreachable`), then finds it again at once. A working process is never idle inside a transaction for that long: its
+longest step between two statements, a publish's validation at full volume, is estimated at about
+70 s. Raise the setting if the warning appears while the processes run normally; `0` turns it off,
+and a stalled process then holds its locks until it resumes or its connection closes.
+
+A node cut off from the network in the middle of a statement, rather than between two, is not idle
+in its transaction; the server notices the lost connection through TCP keep-alives, which are the
+server's settings (`tcp_keepalives_idle`, `tcp_keepalives_interval`, `tcp_keepalives_count`,
+`tcp_user_timeout`), by default after about two hours on Linux and macOS. Lower them on the
+database server for deployments of several nodes.
 
 ### Database connections
 
@@ -71,7 +93,8 @@ instances are not visible to it.
 When every connection of a process's pool is in use for `DATABASE_POOL_TIMEOUT`, its next request
 answers `503 DATABASE_UNAVAILABLE` with `details.reason` `poolExhausted` and `Retry-After: 5`, and
 the log has one WARNING line naming the settings; nothing is saved. When the server refuses a new
-connection because it has as many as it takes, the reason is `tooManyConnections`. Seen now and then
+connection because it has as many as it takes, the reason is `tooManyConnections`; when it ended a
+stalled process's idle transaction, `transactionEnded` (see [Several processes](#several-processes)). Seen now and then
 under a peak, it needs nothing; seen under normal load, raise `DATABASE_POOL_SIZE` or
 `DATABASE_POOL_MAX_OVERFLOW` within the server's limit, or lower `WEB_CONCURRENCY`. A background
 thread without a connection logs one ERROR line saying so, without a traceback, and retries as

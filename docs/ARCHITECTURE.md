@@ -392,7 +392,19 @@ bulk job.
   (`load_change_set(for_update=True)`): retirement and deletion wait for it, and it waits for them and
   is then refused `409 WORKSPACE_RETIRED`; live writes, publishing and other change sets' writes run
   beside it, and writes to one change set serialise on its row. Tested by `test_pg3_concurrency`, each
-  invariant raced on two connections.
+  invariant raced on two connections, and across two server processes by J03.8, J02.2, J13.8, J14.8,
+  J26.5 and a job's item against a live write (0.11 N3).
+- **What the database backs, and what the lock holds** (0.11 N3, D184). Constraints back record and
+  relation IDs, one relation per type and ends, one value per record and attribute, relation-set
+  versions, feed positions, and live `unique` values (`unique_attribute_values`, kept by triggers
+  whatever writes the values, checked at commit). Parent cycles, cardinality, required relations, the
+  containment edge agreeing with the parent and unique values within a change set are rules checked
+  in code; they hold because every write that could break them runs under the workspace's lock, and
+  the publish checks the whole graph again. Three modules write record rows in SQL text outside the
+  write unit, each under the lock its writes need: deletion (after `LiveWrites` or under the change
+  set's lock), a workspace's migration (the workspace `FOR UPDATE`) and a change set's migration (the
+  workspace `FOR SHARE`, the change set `FOR UPDATE`). `tests/test_boundaries.py` lists them; a new one
+  fails it until it is reviewed for the lock and listed.
 - **A write never commits under a release its workspace no longer runs.** A request that resolves a
   workspace's release binds its session to it (each workspace it resolved). Before commit the session
   flushes its rows and rereads each workspace's release under a share lock on its assignment row;
@@ -733,6 +745,14 @@ groups off, each with any worker count (0.11 N1):
   the read guard refuses a read whose release switched while it ran (D166).
 - **Installation and startup take database locks** (D167, D168), so processes install, migrate and
   bootstrap one at a time.
+- **A stalled process releases its locks** (0.11 N3, D182). Every pooled connection carries
+  `idle_in_transaction_session_timeout` from `DATABASE_IDLE_TRANSACTION_TIMEOUT`, so the database
+  ends a transaction left idle by a frozen or cut-off process and the writes waiting for its locks go
+  on. The startup lock's connection, idle in its transaction while the migration runs, carries none.
+  The resumed process sees SQLSTATE `25P03` when it reads the server's notice first: a request
+  answers `503 DATABASE_UNAVAILABLE` (`transactionEnded`). When its next statement meets the closed
+  socket first, the reset discards the notice and the error is a lost connection (`unreachable`).
+  Either way a job's step is rolled back and left to its lease rather than failed.
 - **Instances must share `RDM_CURSOR_SIGNING_KEY`** when one client's requests can reach different
   instances, and `JOB_FILE_DIR` on shared storage.
 

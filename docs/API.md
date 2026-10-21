@@ -1690,8 +1690,9 @@ a `details` array. Unexpected internal errors use code `INTERNAL_ERROR` and incl
 `correlationId` in `details`; the same identifier appears in server logs for operator diagnosis.
 A request that gets no database connection answers `503 DATABASE_UNAVAILABLE` with `Retry-After`
 and saves nothing; `details.reason` is `poolExhausted` (every connection of the serving process is
-in use), `tooManyConnections` (the database server takes no more) or `unreachable` (0.11 Q1). The
-client sends the request again after the interval.
+in use), `tooManyConnections` (the database server takes no more), `transactionEnded` (the serving
+process stalled and the database ended its idle transaction, 0.11 N3) or `unreachable` (0.11 Q1).
+The client sends the request again after the interval.
 A write validated under a model release that was replaced before it committed returns
 `409 MODEL_RELEASE_CHANGED` and saves nothing (see model activation). A client names the release it
 built a request on in the optional request header `X-Expected-Model-Release-Id` (0.11 M6a), the

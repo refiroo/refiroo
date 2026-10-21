@@ -146,7 +146,7 @@ coherent edit is one save; the record keeps its identity, its place and its rela
 - **J02.1 Rename a record**: it keeps its identity, place and relationships, and the paths of its
   descendants show the new name.
 - **J02.2 Two writers save the same version**: the second is refused with the record's current
-  version, to read it again; nothing is overwritten.
+  version, to read it again; nothing is overwritten. The same holds when the writers reach different processes or nodes on one database (0.11 N3).
 - **J02.3 Zero and false** stay values, never blank.
 - **J02.4 One value through its own resource**: set, change or remove one attribute value against
   the record's version.
@@ -197,7 +197,8 @@ them do.
   same ancestor is refused, and allowed once the condition attribute no longer holds.
 - **J03.6 With a supplied ID**, which the integrator keeps.
 - **J03.7 In a change set**, invisible to live readers until published.
-- **J03.8 Two creates racing for one unique value**: one is refused.
+- **J03.8 Two creates racing for one unique value**: one is refused, also when they reach different
+  processes, or when one is a background job's item on another node (0.11 N3).
 - **J03.9 An initial relationship to a record the model does not let be chosen** (0.9 K7) is refused
   with `422 RELATION_CANDIDATE_REFUSED`, and the record is not created.
 
@@ -269,7 +270,8 @@ The containment relationship is not edited here: it follows the record's parent 
   one, or all removed); a matrix or mapping view and the workspace edge list show it too.
 - **J13.6 A required relationship** cannot be removed while its dependant needs it.
 - **J13.7 In a change set.**
-- **J13.8 Two relationships racing for one cardinality limit**: one is refused.
+- **J13.8 Two relationships racing for one cardinality limit**: one is refused, also through two
+  processes (0.11 N3).
 - **J13.9 Only the records a relationship may choose** (0.9 K7, D168–D177): the model limits a
   binding's ends by criteria over the records' fields and their ancestors' fields; the per-type list
   offers a record of the anchor's type only those (`candidateFor`, `anchorTypeKey`), live and in a
@@ -315,7 +317,7 @@ The containment relationship is not edited here: it follows the record's parent 
 - **J14.6 A move that changes which records relate across applications**: relationships of the
   moved records, from inside and outside the subtree, stay and are read in the new place.
 - **J14.7 In a change set**, with the moved subtree's paths, candidates and relationships following.
-- **J14.8 Two moves racing into a cycle**: one is refused.
+- **J14.8 Two moves racing into a cycle**: one is refused, also through two processes (0.11 N3).
 - **J14.9 Move several records at once** (UI, Base 0.9 UA9): in the sidebar's tree or a tree lens,
   records selected with Cmd/Ctrl and Shift (or Ctrl+Space and Shift+arrows) are dragged together
   onto a new parent, or moved with Move to…, live or in a change set; one confirmation and one
@@ -1399,6 +1401,10 @@ lists jobs and cancels a queued or running one, 0.9 U4). **Stories:** US-I03, US
 - **J24.3 Two workers**: a worker whose process stops renewing its lease (stopped, frozen, cut off
   from the database) loses the job once the lease expires; it commits nothing, and the other
   continues from the first item without an outcome (0.11 N2: a worker waiting on a lock keeps it).
+  A process frozen inside a transaction holds that transaction's locks until the database ends it
+  after `DATABASE_IDLE_TRANSACTION_TIMEOUT`; the other processes' writes and the job then go on
+  without it, and the process, resumed, logs the ended transaction in one line, fails no job and
+  serves again (0.11 N3).
 - **J24.4 The model, the change set or the workspace changes mid-job**: the job fails with the
   reason, keeping the chunks already applied.
 - **J24.5 Retention**: finished jobs expire and keep their summary; their item outcomes are removed,
@@ -1448,7 +1454,7 @@ a staged and two cancelled jobs read back through the feed and the queries, 0.9 
 - **J26.4 Filters**: by kind and by object type; a sparse filter answers short or empty pages with
   the position advanced by a bounded scan, never an unbounded one.
 - **J26.5 Concurrent writers**: writes to one workspace at once get gapless positions in commit
-  order; other workspaces have feeds of their own.
+  order; other workspaces have feeds of their own; the same through several processes (0.11 N3).
 - **J26.6 An expired position**: entries older than the retention period expire. A position below
   the earliest one still readable is refused, naming the active publication and its position; the
   reader re-reads that publication, follows the feed from its position and ends with live data. The

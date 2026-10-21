@@ -70,7 +70,7 @@ from pydantic import TypeAdapter
 from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.orm import Session
 
-from ...common.outage import OutageLog
+from ...common.outage import OutageLog, database_unavailable
 from ...common.time import as_utc
 from ...errors import ApiError
 from ...models.commands import BatchItem
@@ -381,8 +381,12 @@ class JobWorker:
                     else "JOB_FAILED"
                 )
                 self._stop(sequence_id, "failed", reason, _error_body(error))
-            except Exception:
+            except Exception as exc:
                 session.rollback()
+                if database_unavailable(exc) is not None:
+                    # Not the job's failure: the loop reports it in one line and retries, and the
+                    # lease decides who goes on with the job (0.11 N3, D183).
+                    raise
                 correlation_id = uuid4().hex
                 logger.exception(
                     "Job %s failed in a chunk (correlation ID %s); its applied chunks stay",
@@ -759,8 +763,10 @@ class JobWorker:
             )
             self._stop(job.sequence_id, "failed", reason, _error_body(error))
             return
-        except Exception:
+        except Exception as exc:
             partial.unlink(missing_ok=True)
+            if database_unavailable(exc) is not None:
+                raise  # As a chunk's (0.11 N3, D183).
             correlation_id = uuid4().hex
             logger.exception(
                 "Export %s failed (correlation ID %s); it left no file", job.id, correlation_id

@@ -59,6 +59,9 @@ class Settings(BaseModel):
     database_pool_size: int = Field(default=5, ge=1)
     database_pool_max_overflow: int = Field(default=10, ge=0)
     database_pool_timeout: int = Field(default=30, ge=1)
+    # Seconds a pooled connection may sit idle inside a transaction before PostgreSQL ends it, so a
+    # frozen or cut-off process releases its locks (0.11 N3, D182); 0 turns it off.
+    database_idle_transaction_timeout: int = Field(default=300, ge=0)
     cursor_signing_key: bytes = _EPHEMERAL_CURSOR_SIGNING_KEY
     api_reference_script: ApiReferenceScript = "bundled"
     # Job creation (bulk writes, imports, exports) as a deployment capability group (ADR-036, D10).
@@ -121,6 +124,9 @@ class Settings(BaseModel):
             database_pool_size=_positive(env, "DATABASE_POOL_SIZE", 5),
             database_pool_max_overflow=_non_negative(env, "DATABASE_POOL_MAX_OVERFLOW", 10),
             database_pool_timeout=_positive(env, "DATABASE_POOL_TIMEOUT", 30),
+            database_idle_transaction_timeout=_non_negative(
+                env, "DATABASE_IDLE_TRANSACTION_TIMEOUT", 300
+            ),
             cursor_signing_key=(
                 configured_signing_key.encode()
                 if configured_signing_key
@@ -328,6 +334,13 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "database_pool_timeout",
         "runtime",
         "Seconds a request waits for a database connection before it answers 503",
+    ),
+    CatalogueEntry(
+        "DATABASE_IDLE_TRANSACTION_TIMEOUT",
+        "database_idle_transaction_timeout",
+        "runtime",
+        "Seconds a connection may sit idle inside a transaction before the database ends it, "
+        "releasing a stalled process's locks; 0 turns it off",
     ),
     CatalogueEntry(
         "MODEL_ADMIN_MUTATIONS_ENABLED",

@@ -493,7 +493,9 @@ immutable model releases in controlled stages. Authentication and authorization 
 ### Exit gate
 
 - Concurrency and uniqueness invariants hold with several processes and nodes on one database, in
-  production-like tests at full volume (single-process multi-writer is 0.9.0-alpha.1's gate).
+  tests with real server processes (single-process multi-writer is 0.9.0-alpha.1's gate). Not at
+  full volume: concurrency breaks on interleaving, not on table size, and a full-volume run happens
+  only on the user's explicit approval (0.11 D176, D185).
 - A tree node can be moved by touch drag on a phone without breaking scrolling or opening a record,
   confirmed in the same move dialog as with a mouse (D35).
 - Two workspaces of one instance run two different models side by side, each installed, activated

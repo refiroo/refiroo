@@ -7,10 +7,12 @@ other, directly or around a longer cycle.
 
 Records, relations and attribute values, live and in a change set, are added and removed only by
 the write unit (``engine/records/writes.py``): no other module constructs one of those rows or
-names its table in a Core insert, update or delete.
+names its table in a Core insert, update or delete, or in SQL text writing it, unless the module is
+listed in ``SQL_ROW_WRITERS`` with the lock its statements run under (0.11 N3, D184).
 """
 
 import ast
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -59,6 +61,18 @@ ENGINE_RULES: tuple[tuple[str, str], ...] = (
 # The rows of the record graph, and the one module that writes them.
 ROW_CLASSES = {"RdmObject", "ObjectRelation", "AttributeValue", "ChangeSetObject", "ChangeSetRelation"}
 ROW_WRITER = "app.engine.records.writes"
+# SQL text writing those rows outside the write unit, each with the lock it holds (0.11 N3, D184):
+# the per-workspace lock is what keeps the rules checked in code true, so a fourth writer is
+# reviewed for it before it is listed.
+_ROW_TABLES = "objects|object_relations|attribute_values|change_set_objects|change_set_relations"
+SQL_ROW_WRITE = re.compile(rf"\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+({_ROW_TABLES})\b", re.IGNORECASE)
+SQL_ROW_WRITERS = {
+    "app.engine.records.deletion": "after LiveWrites took the workspace lock, or under the change "
+    "set's lock",
+    "app.engine.model.migrations": "the workspace row FOR UPDATE, then the assignment",
+    "app.engine.model.change_set_migrations": "the workspace FOR SHARE and the change set FOR "
+    "UPDATE",
+}
 # ``session.delete`` elsewhere, and what it deletes instead of a record-graph row.
 SESSION_DELETES = {
     "app.engine.change_sets.lifecycle": "discarding a change set deletes the change set row",
@@ -167,6 +181,10 @@ def _row_writes() -> set[str]:
         if module == ROW_WRITER or module.startswith("app.migrations"):
             continue
         for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                for table in SQL_ROW_WRITE.findall(node.value):
+                    if module not in SQL_ROW_WRITERS:
+                        found.add(f"rows: {module} writes {table.lower()} in SQL text")
             if not isinstance(node, ast.Call):
                 continue
             func = node.func
@@ -270,3 +288,18 @@ def _dialect_terms() -> set[str]:
 def test_no_dialect_branch_or_other_database_sql_remains():
     found = sorted(_dialect_terms())
     assert not found, "PostgreSQL is the only database:\n" + "\n".join(found)
+
+
+def test_sql_text_writing_record_rows_is_seen(tmp_path, monkeypatch):
+    """A module outside the write unit and ``SQL_ROW_WRITERS`` that writes record rows in SQL text
+    is a violation (0.11 N3, D184); reading them is not."""
+    planted = tmp_path / "planted.py"
+    planted.write_text(
+        'from sqlalchemy import text\n'
+        'READ = text("SELECT id FROM objects WHERE id = :id")\n'
+        'WRITE = text("""\n    UPDATE  objects SET name = :name WHERE id = :id\n""")\n'
+    )
+    monkeypatch.setitem(MODULES, "app.engine.planted", planted)
+    assert {f for f in _row_writes() if "planted" in f} == {
+        "rows: app.engine.planted writes objects in SQL text"
+    }

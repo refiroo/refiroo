@@ -22,7 +22,7 @@ from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from alembic.util.exc import CommandError
 from psycopg.pq import TransactionStatus
-from sqlalchemy import URL, Connection, Engine, create_engine, make_url, text
+from sqlalchemy import URL, Connection, Engine, create_engine, event, make_url, text
 from sqlalchemy.exc import ArgumentError, DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
@@ -99,11 +99,13 @@ def configured_url() -> URL:
 @dataclass(frozen=True)
 class _Pool:
     """Each process's connections (0.11 Q1, D179): ``DATABASE_POOL_SIZE``,
-    ``DATABASE_POOL_MAX_OVERFLOW`` and ``DATABASE_POOL_TIMEOUT``."""
+    ``DATABASE_POOL_MAX_OVERFLOW`` and ``DATABASE_POOL_TIMEOUT``; and
+    ``DATABASE_IDLE_TRANSACTION_TIMEOUT`` (0.11 N3, D182)."""
 
     size: int
     max_overflow: int
     timeout: int
+    idle_transaction_timeout: int
 
 
 def _configured_pool() -> _Pool:
@@ -112,18 +114,33 @@ def _configured_pool() -> _Pool:
         settings.database_pool_size,
         settings.database_pool_max_overflow,
         settings.database_pool_timeout,
+        settings.database_idle_transaction_timeout,
     )
 
 
 @cache
 def _engine_for(url: str, pool: _Pool) -> Engine:
-    return create_engine(
+    engine = create_engine(
         url,
         pool_pre_ping=True,
         pool_size=pool.size,
         max_overflow=pool.max_overflow,
         pool_timeout=pool.timeout,
     )
+    milliseconds = pool.idle_transaction_timeout * 1000
+
+    @event.listens_for(engine, "connect")
+    def _end_idle_transactions(dbapi_connection, _record) -> None:
+        """A process frozen or cut off inside a transaction keeps its locks, and every write of
+        its workspace waits for them, until PostgreSQL ends the idle session (0.11 N3, D182). Set
+        per connection, so a working process's statements are not affected; committed, so the
+        setting outlives this first transaction. Only the pooled engine's connections carry it:
+        the startup lock's connection is idle in its transaction while the migration runs."""
+        with dbapi_connection.cursor() as cursor:
+            cursor.execute(f"SET idle_in_transaction_session_timeout = {milliseconds}")
+        dbapi_connection.commit()
+
+    return engine
 
 
 def get_engine() -> Engine:

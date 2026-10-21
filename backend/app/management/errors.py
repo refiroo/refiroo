@@ -81,7 +81,8 @@ def _database_unavailable(request: Request, exc: Exception) -> JSONResponse | No
             "error": {
                 "code": "DATABASE_UNAVAILABLE",
                 "message": (
-                    f"The {request.method} {request.url.path} operation got no database "
+                    f"The {request.method} {request.url.path} operation "
+                    f"{'lost its' if reason == 'transactionEnded' else 'got no'} database "
                     f"connection: {cause}. Nothing was saved; send it again in a few seconds."
                 ),
                 "details": {"reason": reason},

@@ -1,6 +1,8 @@
 """The database locks that make several processes take turns (0.11 N1): the installation lock, held
 by an install's transaction, the startup lock, held by ``create_database`` while it checks,
-migrates and runs the caller's startup writes, and the lock of a job submission's subject (N2)."""
+migrates and runs the caller's startup writes, and the lock of a job submission's subject (N2).
+And the idle-transaction timeout the pooled connections carry, which the startup lock's does not
+(N3, D182)."""
 
 import threading
 import time
@@ -9,11 +11,13 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from sqlalchemy import text
 
+from app.config import reload_settings
 from app.db import (
     INSTALLATION_LOCK,
     STARTUP_LOCK,
     SessionLocal,
     create_database,
+    get_engine,
     lock_installation,
     lock_job_subject,
 )
@@ -85,3 +89,45 @@ def test_startup_holds_its_lock_while_the_callers_writes_run(seeded):
     assert observed == [True, "second"]
     assert not _held("SELECT pg_try_advisory_lock(:namespace, :key)", STARTUP_LOCK)
     assert not _held("SELECT pg_try_advisory_xact_lock(:namespace, :key)", INSTALLATION_LOCK)
+
+
+def _timeout(connection) -> str:
+    return connection.scalar(text("SHOW idle_in_transaction_session_timeout"))
+
+
+@pytest.fixture
+def idle_timeout(monkeypatch):
+    """Sets DATABASE_IDLE_TRANSACTION_TIMEOUT for one test, the settings re-read after it."""
+
+    def configure(seconds: str) -> None:
+        monkeypatch.setenv("DATABASE_IDLE_TRANSACTION_TIMEOUT", seconds)
+        reload_settings()
+
+    yield configure
+    monkeypatch.delenv("DATABASE_IDLE_TRANSACTION_TIMEOUT", raising=False)
+    reload_settings()
+
+
+def test_pooled_connections_carry_the_idle_transaction_timeout(seeded, idle_timeout):
+    """Given DATABASE_IDLE_TRANSACTION_TIMEOUT (0.11 N3, D182). Then every pooled connection
+    carries it past its first transaction's rollback, and 0 turns it off."""
+    for setting, shown in (("7", "7s"), ("0", "0")):
+        idle_timeout(setting)
+        with get_engine().connect() as connection:
+            connection.rollback()
+            assert _timeout(connection) == shown
+
+
+def test_the_startup_lock_outlasts_the_idle_transaction_timeout(seeded, idle_timeout):
+    """Given a timeout of 1 s. When the caller's startup writes take longer while the startup lock's
+    connection waits idle in its transaction. Then the lock is still held: the server did not end
+    that connection, so no second process could start migrating meanwhile."""
+    idle_timeout("1")
+    held = []
+
+    def startup_writes():
+        time.sleep(2.5)
+        held.append(_held("SELECT pg_try_advisory_lock(:namespace, :key)", STARTUP_LOCK))
+
+    create_database(startup_writes)
+    assert held == [True]

@@ -263,6 +263,42 @@ def test_an_unexpected_error_fails_the_job_with_a_correlation_id(seeded, monkeyp
     assert live(world, "J") == 2
 
 
+@pytest.mark.parametrize("sqlstate", ["25P03", None], ids=["transaction-ended", "connection-lost"])
+def test_a_chunk_that_loses_its_connection_leaves_the_job_to_its_lease(
+    seeded, monkeypatch, caplog, sqlstate
+):
+    """0.11 N3: a chunk whose connection the database ended (a stalled process's idle transaction,
+    D182) or that was lost is not the job's failure: it is rolled back, the outage passes to the
+    worker's loop, which reports it in one line, and the job stays running for whoever holds its
+    lease. It failed the job as an internal error, with a traceback."""
+    world = seeded
+    job_id = queue(world, items(world, 4, prefix="Lost"))
+    original, calls = worker_module.run_items, []
+
+    class Ended(Exception):
+        def __init__(self) -> None:
+            super().__init__("terminating connection due to idle-in-transaction timeout")
+            self.sqlstate = sqlstate
+
+    def lost(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 2:
+            raise OperationalError("SELECT 1", {}, Ended(), connection_invalidated=True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(worker_module, "run_items", lost)
+    running = worker()
+    running.run_once()
+    with caplog.at_level("INFO", logger=worker_module.logger.name), pytest.raises(OperationalError):
+        running.run_once()
+    assert not [r for r in caplog.records if r.exc_info is not None]
+    stalled = job(job_id)
+    assert (stalled.state, stalled.error) == ("running", None)
+    assert outcomes(job_id)[:2] == [("applied", "created")] * 2
+    running.run_until_idle()
+    assert job(job_id).state == "completed" and live(world, "Lost") == 4
+
+
 @pytest.mark.serial
 def test_without_its_database_the_worker_waits_between_retries_and_logs_no_traceback(
     monkeypatch, caplog

@@ -406,7 +406,7 @@ change) and `volume` (every budget).
 | 18 | [N1](#n1-snapshots-across-processes) | M2 | **Delivered 2026-10-19.** Assignment changes propagated across processes; model administration with `WEB_CONCURRENCY` above 1; installation and startup under database locks; the read guard |
 | 19 | [N2](#n2-the-job-worker-on-several-nodes) | N1 | **Delivered 2026-10-19.** Every job kind's leases, cancels and supersession under real concurrency: a heartbeat per running job, submissions of one subject one at a time, workers woken across processes, a partial export file per lease |
 | 20 | [Q1](#q1-pool-and-bulk-paths) | — | **Delivered 2026-10-20** (amended, D176: no full-volume run). Pool settings and `503 DATABASE_UNAVAILABLE`; statistics on the move binding's and people export's working tables; five `NOT IN` subqueries as `NOT EXISTS` |
-| 21 | [N3](#n3-concurrency-invariants-with-several-processes) | N2 | Amended 2026-10-20 (D176): several processes and nodes on one database, not at full volume; a frozen process's locks; constraints as a second line, on evidence |
+| 21 | [N3](#n3-concurrency-invariants-with-several-processes) | N2 | **Delivered 2026-10-21** (amended, D176: not at full volume). The invariants raced across two processes; a frozen process's locks released after `DATABASE_IDLE_TRANSACTION_TIMEOUT`; no constraint needed, the SQL writers outside the write unit listed with their locks |
 | 22 | [Q2](#q2-model-derived-indexes) | M2, Q1 | Indexes derived from each workspace's model; unique checks on non-text values |
 | — | _cut line (D13)_ | | _If R is out of reach, 0.11.0 releases here and Q3 and U1 move to 0.11.x_ |
 | 23 | [Q3](#q3-precomputed-sort-keys) | Q2 | Attribute and ancestor sorts over very large parents within the list budget |
@@ -4168,6 +4168,209 @@ processes and nodes on one database. A frozen process's held locks (found in N2,
 connection setting, tested with two processes. Database constraints as a second line behind the
 per-workspace write lock, only where reading the code shows a write path that bypasses the write
 unit.
+
+**Groups:** `records`, `jobs`, `startup`, `feed` (the journeys' own), and the changed boundary.
+
+##### N3 plan (2026-10-21)
+
+**Planned 2026-10-21. D182–D185 and the test cases accepted by the user on 2026-10-21.** Checked
+against the code at `7bb283d` by reading it; one fact was checked by running it (below).
+
+**What was found:**
+
+- **The invariants are held by PostgreSQL, so they already hold across processes.** Every live
+  write starts at `LiveWrites._begin`, which takes the workspace row `FOR NO KEY UPDATE` before it
+  reads what it changes; a change set write takes the workspace `KEY SHARE` and the change set
+  `FOR UPDATE`. These are database locks: a write from another process waits for them exactly as a
+  write from another thread does. What PG3 (0.9.0-alpha.1) races with two sessions in one process
+  (a unique value, a parent cycle, a cardinality limit, a required relation, a relation-set
+  version, a matrix cell, feed positions) is decided the same way with two processes. No test
+  shows it with two processes yet; that is the exit item's evidence N3 adds.
+- **No in-process lock stands in for a database guarantee.** N1 removed the installation and
+  activation thread locks. The four left (`metadata._identifier_lock`, the registry's cache lock,
+  the worker's one-chunk lock, the job events' lock) guard per-process caches and threads only.
+- **Three modules write records outside the write unit**, with SQL text, which
+  `tests/test_boundaries.py` does not see (it finds row constructors and Core statements only):
+  - `engine/records/deletion.py` (the removal of a deletion's closure, live and in a change set):
+    after `LiveWrites(session, workspace)`, or under the change set's lock.
+  - `engine/model/migrations.py` (V1, a workspace's data migrated): the workspace row
+    `FOR UPDATE`, which every live write's lock waits for, then the assignment.
+  - `engine/model/change_set_migrations.py` (V2, V3, a change set moved to another release): the
+    workspace `FOR SHARE` and the change set `FOR UPDATE`.
+
+  Each holds the lock its writes need. So no path found bypasses the per-workspace lock.
+- **What the database already backs on every path:** record IDs, relation IDs, one relation per
+  type and ends (`uq_object_relation`), one value per record and attribute, relation-set versions,
+  feed positions per workspace, and live `unique` values (`unique_attribute_values`, kept by
+  triggers whatever writes the values, under a deferred constraint; the migration's renaming
+  `UPDATE` re-derives its rows and the assignment switch follows the new release). What stays code
+  only: parent cycles, cardinality, required relations, the containment edge agreeing with the
+  parent, and unique values within a change set (checked again by the publish's whole-graph
+  validation). They are graph rules, not column constraints; each would be a trigger reading the
+  graph on every write.
+- **A frozen process keeps its locks** (TODO, found in N2): nothing on the engine's connections
+  ends a transaction whose client stopped. The heartbeat (D170) moves the job to another node, but
+  every write of that workspace waits for the frozen transaction until the process resumes or its
+  connection closes. PostgreSQL ends such a session with `idle_in_transaction_session_timeout`, a
+  setting each connection can carry.
+- **Checked by running it** (PostgreSQL 17.11, one connection on the development server's
+  maintenance database): with the setting at 500 ms, a connection idle in its transaction for
+  1.5 s is ended by the server; the next statement raises `InternalError` with SQLSTATE `25P03`
+  ("terminating connection due to idle-in-transaction timeout"), SQLAlchemy marks the connection
+  invalidated, and the pool's next checkout gets a working one. Q1's classification
+  (`common/outage.database_unavailable`) reads an invalidated connection as `unreachable`, so the
+  process would report "the database cannot be reached", which is not what happened.
+- **How long a transaction can be legitimately idle:** between statements the engine computes in
+  Python while it holds its transaction. The longest such step known is the publish's whole-graph
+  validation: 1.4 s at 2% volume (D46's budget test), linear, so about 70 s at full volume by
+  extrapolation (not measured, D176). A job's chunk decides 500 items in 0.25–0.46 s (PG3b).
+- **Connections that must not carry the setting:** the startup lock's connection (outside the
+  pool since Q1) sits idle in its transaction while the migration and the bootstrap install run on
+  others; ended, it would release the startup lock in mid-migration and let a second process
+  migrate. The Alembic connection and the job listener (autocommit) are not idle in a transaction.
+
+**What is built:**
+
+1. **`DATABASE_IDLE_TRANSACTION_TIMEOUT` (D182)**, seconds, default 300, `0` turns it off: set as
+   `idle_in_transaction_session_timeout` on every connection of the pooled engine (requests, job
+   and export workers, heartbeats, the deriver, the dispatcher); not on the startup lock's
+   connection. Validated like every number setting, reported by `GET /system`.
+2. **A transaction the server ended is named as such (D183):** `25P03` is recognised before the
+   invalidated-connection rule; a request answers `503 DATABASE_UNAVAILABLE` with `reason`
+   `transactionEnded`, `Retry-After: 5`, and a message naming the setting; the log has one WARNING
+   and no traceback; the background threads' `OutageLog` says the same in one line. A job's chunk
+   rolls back and the job goes on wherever its lease is held.
+3. **The boundary test sees SQL text (D184):** a string naming `objects`, `object_relations`,
+   `attribute_values`, `change_set_objects` or `change_set_relations` after `INSERT INTO`,
+   `UPDATE` or `DELETE FROM`, outside the write unit, is a violation unless its module is listed
+   with the lock it holds (the three above). No database constraint is added.
+4. **The exit item's wording follows D176 (D185):** ROADMAP's first 0.11 exit item reads "on one
+   database with several processes and nodes" without "at full volume", with a pointer to D176.
+5. **Documents:** OPERATIONS (the setting; "Several processes": what a frozen or cut-off node
+   holds and for how long, TCP keep-alives as the server's settings for a node cut off in the
+   middle of a statement), API (the reason), ARCHITECTURE (the locks section: which invariants the
+   database backs and which the lock holds, the three SQL writers), USER_JOURNEYS and API_JOURNEYS
+   (the cases below), ROADMAP, CHANGELOG, PROJECT_STATUS, TODO (the N2 item closed).
+
+**Composable domains (ADR-032):** no door affected; N3 adds no capability, no attribute storage
+and no constraint, and changes none of identity, audit, the bulk APIs, `match` or coverage.
+
+**Decisions:**
+
+| # | Question | Recommendation | Blocks |
+| --- | --- | --- | --- |
+| D182 | How a frozen process's locks are released | **Recommended:** `idle_in_transaction_session_timeout` on the pooled connections, as `DATABASE_IDLE_TRANSACTION_TIMEOUT`, default 300 s, `0` off; the startup lock's connection left without it. Why: PostgreSQL ends the session itself, without the frozen process's help, and only a session idle inside a transaction, which a working process never is for long. 300 s is four times the longest step extrapolated (about 70 s, the publish's validation at full volume). Rejected: TCP keep-alives as the engine's setting (a frozen process's kernel still answers them, so they do not help here; for a node cut off they are the server's settings, documented); `lock_timeout` (it refuses the waiting writes instead of freeing the lock). Cost: a frozen node holds its workspace's writes for up to 5 minutes instead of until it resumes; a transaction idle longer than that in a working process is ended and its request answers `503` | N3 |
+| D183 | What a process sees when its transaction was ended | **Recommended:** `503 DATABASE_UNAVAILABLE`, `reason` `transactionEnded`, `Retry-After: 5`, one WARNING naming the setting. Why: the client retries and the operator learns the process stalled, where today's rule would say the database cannot be reached. Cost: a new `reason` value in the API | N3 |
+| D184 | Database constraints as a second line | **Recommended:** none added on this evidence; the boundary test extended to SQL text so a fourth writer outside the write unit cannot appear unseen. Why: the scope asks for constraints only where a path bypasses the lock, and none does; uniqueness is already backed on every path, and the rules left (cycles, cardinality, required relations, containment) would each be a trigger reading the graph on every write. Cost: the three writers listed by name in the test | N3 |
+| D185 | The roadmap's exit item still says "at full volume" | **Recommended:** reword it to follow D176. Why: R checks the exit items as written; D176 is the user's. Cost: none | N3, R |
+
+**Journey test cases** (real `uvicorn` processes A and B on one cloned database, as N1's and N2's;
+each race sends one call to A and one to B while the test holds the workspace row, so both are in
+flight before either commits, as `World.race` does in one process):
+
+1. **J03.8 across processes** (`records`): an R record with one unique value created through A and
+   through B: one `201`, one `409 DUPLICATE_ATTRIBUTE_VALUE`; one record has the value.
+2. **J02.2 across processes** (`records`): one record renamed through A and B with the same expected
+   version: one `200`, one `409 VERSION_CONFLICT`; the name is the winner's.
+3. **J14.8 across processes** (`records`): X moved under Y through A, Y under X through B: one `200`,
+   one `422 PARENT_CYCLE`.
+4. **J13.8 across processes** (`records`): two relationships into a one-to-one end through A and B:
+   one `201`, one `409 CARDINALITY_VIOLATION`.
+5. **J26.5 across processes** (`feed`): renames and a create through both: feed positions 1…n with no
+   gap or repeat, read the same through A and B.
+6. **J24 a job and a live write** (`jobs`): a background import's item on B's worker and a live
+   create through A with one unique value: one record holds it; the loser is refused with its code.
+7. **J24.3 a frozen node's locks** (`jobs`, `DATABASE_IDLE_TRANSACTION_TIMEOUT=2`): A frozen while
+   its job's chunk holds W1's lock (as N2's case 1). A write to W1 through B answers within 10 s and
+   B completes the job while A stays frozen; A, resumed, serves again (`/health` `200`, a read
+   `200`); its log has one WARNING naming the setting, no traceback. **Fails today** (B's write
+   waits until A resumes).
+
+Cases 1–6 are expected to pass on `7bb283d`: they are the exit item's evidence, not new behaviour,
+and are reported as such. Unit tests: the setting (validated, `0` off, reported), a pooled
+connection carrying it and the startup lock's not (`SHOW`), `25P03` classified as
+`transactionEnded`, the boundary rule finding a planted SQL write.
+
+##### N3 record (2026-10-21)
+
+**Delivered 2026-10-21.** Built as planned (D182–D185):
+
+- **`DATABASE_IDLE_TRANSACTION_TIMEOUT` (D182)** (`config.py`, the catalogue, `GET /system`): set
+  on every connection of the pooled engine when it connects (`db._engine_for`, a `connect` listener
+  issuing `SET idle_in_transaction_session_timeout` and committing it); the startup lock's
+  connection, outside the pool, carries none.
+- **`transactionEnded` (D183)** (`common/outage.py`): SQLSTATE `25P03` recognised before the
+  invalidated-connection rule; the request's `503` says the operation lost its connection and names
+  the setting; `OutageLog` logs it at WARNING.
+- **The boundary test reads SQL text (D184):** `SQL_ROW_WRITE` over every string constant;
+  `SQL_ROW_WRITERS` lists deletion, the workspace migration and the change set migration with their
+  locks. With the list emptied, the rule finds exactly those three modules (ten statements). No
+  constraint added.
+- **ROADMAP's exit item (D185)** worded as D176.
+- **Documents:** OPERATIONS (the setting, "Several processes": the locks, a stalled process, TCP
+  keep-alives as the server's settings), API (the reason), ARCHITECTURE (what the database backs
+  and what the lock holds, the three SQL writers; a stalled process), USER_JOURNEYS (J02.2, J03.8,
+  J13.8, J14.8, J26.5, J24.3), API_JOURNEYS, ROADMAP, CHANGELOG, PROJECT_STATUS, TODO.
+
+**Found and fixed on the way:**
+
+- **A job step whose connection was lost or ended failed the job.** The worker's chunk and export
+  caught any exception as an internal error: it logged a traceback and stopped the job `failed`
+  when it still held the lease. A database outage now passes to the worker's loop, which reports
+  it in one line through `OutageLog` and retries; the step is rolled back and the lease decides who
+  goes on (`worker._run_chunk`, `_run_export`). Before N3 the same happened to a step whose database
+  went away. Found by reading the worker while building D183. Regression test:
+  `test_a_chunk_that_loses_its_connection_leaves_the_job_to_its_lease` (the connection ended with
+  `25P03` and lost without a SQLSTATE; both seen failing on `7bb283d`'s worker: the job failed in a
+  chunk, with a traceback).
+
+**Where it differs from the plan:**
+
+- **The resumed process does not always learn why its connection ended.** The server sends its
+  `25P03` notice and closes the socket while the process is frozen; when the resumed process sends
+  its next statement first, the server's reset discards the unread notice, and the error is
+  "server closed the connection unexpectedly" (case 7 saw this on both configurations). The
+  one-connection check before the plan read the notice before any reset. So D183's `transactionEnded`
+  is given only when the notice is read (unit-tested from SQLSTATE `25P03`); otherwise the process
+  reports `unreachable` and finds the database again at its next round. No timing guess is made:
+  measured from the client, a frozen process's statement looks long, not idle. Case 7 asserts one
+  line of either kind, no traceback, the job not failed, and the process serving; OPERATIONS and
+  ARCHITECTURE say both.
+- **Case 5** runs three renames and a create (J26.5's shape): `World.race` holds four calls in
+  flight at most.
+- **The races share one pair of processes per configuration** (a module fixture); cases 6 and 7
+  freeze processes and start their own.
+- **The startup lock's unit test** checks behaviour, not the setting: with a 1-second timeout, the
+  lock is still held after the caller's startup writes ran for 2.5 s. With the lock's connection
+  given the timeout (a temporary edit, reverted), it fails.
+
+**Checks:**
+
+- The new journey file `test_j03_j26_several_processes.py`, written first: 14 runs (cases 1–7 over
+  generated A and the example, the configurations holding the structures). On `7bb283d` in a
+  separate worktree, on the main checkout's test server: the 12 race runs passed, as the plan
+  expected (the exit item's evidence, not new behaviour); both frozen-node runs failed, B's write
+  timing out after 60 s behind frozen A's lock. With N3: 14 passed in 46 s.
+- One run, `-n 4` (load 2.3–4.3): the outage, config, db and main units, `tests/unit/engine/jobs/`,
+  J12 (run the service, several processes, with J12.7's new case), J31, J24 (background job, several
+  processes, several nodes), J26, the new file, `test_pg3_concurrency`, `test_startup`,
+  `test_schema_drift`, `test_boundaries`, `test_openapi_contract`, `test_api_journeys`: 398 passed
+  in 2 min 18 s; then their serial part, 3 passed. The worker's regression test, added after: 2
+  passed.
+- Over 10 s outside `budget`: the frozen-node case (14 s), from its process starts and its waits.
+- `ruff check` on the changed files: passed. `ruff format` on the new test file; the other files'
+  unformatted lines predate N3 and are left.
+- Smoke: the development server (`uvicorn --reload` on `rdm`) reloaded with N3: `/health` `200`,
+  `GET /system` reports the setting, a read answers `200`.
+- **Not run:** the `records`, `jobs`, `startup` and `feed` groups as wholes (the files on the
+  changed paths ran instead, as in Q1); the full suite and the browser runners (R's); no frontend
+  change (an error is shown by its message); no full-volume run (D176), so the 70-second estimate
+  behind the 300-second default is an extrapolation.
+
+**What the user still cannot do:** see per process or per node that a transaction was ended, or how
+many connections are in use (O1's metrics); have a resumed process always name the setting (it
+cannot when the notice is lost, above). A node cut off in the middle of a statement is noticed only
+through the database server's TCP keep-alives, which the operator sets on the server.
 
 #### Q1: Pool and bulk paths
 

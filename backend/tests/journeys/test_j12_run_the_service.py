@@ -426,8 +426,9 @@ def test_the_api_reference_loads_its_pinned_script(configuration, databases, scr
         ({"BATCH_MAX_ITEMS": "zero"}, ("BATCH_MAX_ITEMS",)),
         ({"DATABASE_POOL_SIZE": "0"}, ("DATABASE_POOL_SIZE",)),
         ({"DATABASE_POOL_MAX_OVERFLOW": "-1"}, ("DATABASE_POOL_MAX_OVERFLOW",)),
+        ({"DATABASE_IDLE_TRANSACTION_TIMEOUT": "-1"}, ("DATABASE_IDLE_TRANSACTION_TIMEOUT",)),
     ],
-    ids=["reference-script", "limit", "pool-size", "pool-overflow"],
+    ids=["reference-script", "limit", "pool-size", "pool-overflow", "idle-transaction"],
 )
 def test_an_invalid_setting_refuses_to_start(configuration, databases, settings, named):
     """When the service starts with an invalid setting. Then it refuses to start with a message

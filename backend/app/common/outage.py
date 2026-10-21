@@ -27,8 +27,12 @@ _UNREACHABLE_STATES = frozenset({"57P01", "57P02", "57P03"})
 # reserved".
 _TOO_MANY_CONNECTIONS = "53300"
 _TOO_MANY_PHRASES = ("too many clients", "too many connections", "connection slots are reserved")
+# The server ended a session left idle inside its transaction for longer than
+# ``DATABASE_IDLE_TRANSACTION_TIMEOUT`` (0.11 N3, D183): the process had stalled. The connection is
+# invalidated, so without this it would read as unreachable.
+_IDLE_TRANSACTION_ENDED = "25P03"
 
-Unavailable = Literal["poolExhausted", "tooManyConnections", "unreachable"]
+Unavailable = Literal["poolExhausted", "tooManyConnections", "transactionEnded", "unreachable"]
 
 
 def database_unreachable(exc: BaseException) -> bool:
@@ -47,8 +51,9 @@ def database_unreachable(exc: BaseException) -> bool:
 
 def database_unavailable(exc: BaseException) -> Unavailable | None:
     """Why ``exc`` left its caller without a database connection (0.11 Q1, D180): this process's
-    pool had none free within ``DATABASE_POOL_TIMEOUT``, the server takes no more clients, or it
-    cannot be reached. ``None`` when a statement failed or the code has a defect."""
+    pool had none free within ``DATABASE_POOL_TIMEOUT``, the server takes no more clients, the
+    server ended this caller's idle transaction (0.11 N3, D183), or it cannot be reached. ``None``
+    when a statement failed or the code has a defect."""
     if isinstance(exc, PoolTimeout):
         return "poolExhausted"
     state = (
@@ -61,6 +66,8 @@ def database_unavailable(exc: BaseException) -> Unavailable | None:
         or any(phrase in str(exc).lower() for phrase in _TOO_MANY_PHRASES)
     ):
         return "tooManyConnections"
+    if state == _IDLE_TRANSACTION_ENDED:
+        return "transactionEnded"
     return "unreachable" if database_unreachable(exc) else None
 
 
@@ -75,6 +82,12 @@ UNAVAILABLE_CAUSES: dict[Unavailable, str] = {
         "the database server takes no more connections (max_connections); lower WEB_CONCURRENCY, "
         "DATABASE_POOL_SIZE or DATABASE_POOL_MAX_OVERFLOW across the instances, or raise the "
         "server's max_connections"
+    ),
+    "transactionEnded": (
+        "the database ended this process's transaction after it sat idle for "
+        "DATABASE_IDLE_TRANSACTION_TIMEOUT, releasing its locks; the process had stalled (frozen, "
+        "starved of CPU or cut off from the database). If this happens while the process runs "
+        "normally, raise DATABASE_IDLE_TRANSACTION_TIMEOUT"
     ),
     "unreachable": "the database cannot be reached; check that the server is up and DATABASE_URL",
 }
@@ -119,7 +132,8 @@ class OutageLog:
                 )
                 self.logger.debug("%s: the database error", self.thread, exc_info=exc)
             elif reason is not None:
-                self.logger.error(
+                self.logger.log(
+                    logging.WARNING if reason == "transactionEnded" else logging.ERROR,
                     "%s has no database connection: %s. It retries every %s s and continues where "
                     "it stopped",
                     self.thread,

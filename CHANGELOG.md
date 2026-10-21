@@ -6,6 +6,25 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 N3, several processes)
+
+- `DATABASE_IDLE_TRANSACTION_TIMEOUT` (300 s, `0` off), reported by `GET /system`: the database ends
+  a transaction a stalled process (frozen, starved of CPU, cut off) left idle that long, so the
+  writes waiting for its locks go on. A frozen process held its workspace's writes until it resumed
+  (J24.3). The startup lock's connection does not carry it.
+- `503 DATABASE_UNAVAILABLE` takes `details.reason` `transactionEnded` when the database's notice
+  reaches the resumed process.
+- The concurrency and uniqueness invariants are tested across two server processes on one database:
+  a unique value, a record's version, a parent cycle, a cardinality limit, feed positions, and a
+  background job's item on one node against a live write on the other.
+- `tests/test_boundaries.py` finds SQL text that writes record rows outside the write unit; the three
+  modules that do are listed with the lock they hold. No database constraint was needed.
+
+### Fixed (0.11 N3)
+
+- A job step whose database connection was lost or ended failed the job with an internal error and
+  a traceback. It is rolled back and left to its lease, and the worker reports the outage in one line.
+
 ### Added (0.11 Q1, database connections)
 
 - Each process's database connections can be set: `DATABASE_POOL_SIZE` (5), `DATABASE_POOL_MAX_OVERFLOW`

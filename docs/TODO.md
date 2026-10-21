@@ -695,11 +695,15 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     running job, submissions of one subject one at a time, a profile checking its newest file, the
     workers woken by the job listener, a partial export file per lease, a move's long steps before
     the job row. Readiness per workspace is O1's; full volume with several processes N3's.
-  - [ ] **Found in N2 (2026-10-19), for N3:** a process frozen (or cut off) while its transaction
+  - [x] N3 delivered 2026-10-21 (D182–D185): the invariants raced across two processes,
+    `DATABASE_IDLE_TRANSACTION_TIMEOUT`, `transactionEnded`, the boundary test reading SQL text, the
+    roadmap's exit item worded as D176.
+  - [x] **Found in N2 (2026-10-19), done in N3 (D182):** a process frozen (or cut off) while its transaction
     holds a database lock keeps that lock until it resumes or its connection ends; the lease does not
     end it, and every write waiting for the lock waits too (J24.3's case shows it: B's chunk waits
     for frozen A's workspace lock). Candidates: `idle_in_transaction_session_timeout` and TCP
-    keep-alives on the engine's connections. Not measured.
+    keep-alives on the engine's connections. Not measured. **Done:** the first, on the pooled
+    connections; TCP keep-alives are the database server's settings (OPERATIONS).
   - [ ] **Found in N2 (2026-10-19), for the user:** once a draft's or mapping's latest inference is
     cancelled, its proposals read `409 INFERENCE_NOT_READY`, and the completed inference before it
     is no longer served, though its proposals are still stored. So a second inference that a user

@@ -56,6 +56,10 @@ def test_an_unreachable_database_is_told_apart_from_a_failing_statement(error, u
             psycopg.OperationalError('connection failed: FATAL:  too many connections for role "rdm"'),
             "tooManyConnections",
         ),
+        # The server ended a transaction left idle past DATABASE_IDLE_TRANSACTION_TIMEOUT (0.11 N3,
+        # D183): the connection is invalidated, but the database is reachable.
+        (_database("25P03", invalidated=True), "transactionEnded"),
+        (psycopg_errors.IdleInTransactionSessionTimeout("terminating connection"), "transactionEnded"),
         (_database(), "unreachable"),
         (_database("08006"), "unreachable"),
         (_database("40001"), None),
@@ -77,6 +81,19 @@ def test_an_exhausted_pool_is_logged_as_an_expected_failure(caplog):
     assert record.levelname == "ERROR" and record.exc_info is None
     assert "no database connection" in record.getMessage()
     assert "DATABASE_POOL_SIZE" in record.getMessage()
+
+
+def test_an_ended_transaction_is_one_plain_warning_naming_the_setting(caplog):
+    """0.11 N3, D183: a stalled process whose transaction the server ended is told so, without a
+    traceback, and not as an unreachable database."""
+    logger = logging.getLogger("tests.outage")
+    log = OutageLog(logger, "The worker", 2.0)
+    with caplog.at_level("INFO", logger=logger.name):
+        log.failed(_database("25P03", invalidated=True))
+    [record] = caplog.records
+    assert record.levelname == "WARNING" and record.exc_info is None
+    assert "DATABASE_IDLE_TRANSACTION_TIMEOUT" in record.getMessage()
+    assert "cannot reach" not in record.getMessage()
 
 
 def test_an_outage_is_one_plain_error_then_a_reminder_an_interval_then_the_recovery(monkeypatch, caplog):
