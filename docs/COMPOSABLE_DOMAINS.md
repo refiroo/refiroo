@@ -110,6 +110,12 @@ so. Do not assume every displayed or exported value is stored; leave room for re
 from related records and declared in the model. Consumer API projections already compute values from
 related objects and are the nearest pattern.
 
+Decided in 0.11 Q2 (D190): a derived value is indexed, sorted, filtered and checked for uniqueness
+when it is stored as a value row through that write path, marked by `attribute_values.value_source`;
+every value index and `unique_attribute_values` follow value rows, the same for every model (D186).
+A value computed only when read can be shown and exported, but not sorted, filtered or checked in the
+database: that would need an index per expression, generated from a model.
+
 ### History and erasure
 
 Publications stay immutable in meaning and shape. Do not make targeted redaction impossible by design:

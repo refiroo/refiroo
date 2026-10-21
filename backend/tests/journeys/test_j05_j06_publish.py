@@ -2,7 +2,9 @@
 open (USER_JOURNEYS.md)."""
 
 import pytest
-from scenario import W1, W2, W3, ok, refused
+from scenario import W1, W2, W3, numbered, ok, plan_reads, planned, refused
+from test_j11_bulk_change import _batch
+from test_j36_workspace_models import _on
 
 
 def _staged(world, change_set):
@@ -518,3 +520,87 @@ def test_publishing_an_exchange_of_unique_values(world):
     assert world.value(world.record("R", r2["id"]), "R.u") == "SWAP-X"
     for value in ("SWAP-X", "SWAP-Y"):
         refused(world.create("R", "Third", values={"R.u": value}), 409, "DUPLICATE_ATTRIBUTE_VALUE")
+
+
+def _typed_lookup(statement: str) -> bool:
+    """A change set's unique check or key reference reading a number or a date."""
+    return any(
+        f"snapshot_attribute_values.{column} IN" in statement
+        for column in ("integer_value", "date_value")
+    )
+
+
+@pytest.mark.journey("J06.5", "J11.2")
+@pytest.mark.structures("R", "R.n", "R.dt")
+def test_unique_numbers_and_dates_in_a_change_set(world):
+    """Given a workspace whose model makes R.n (a number) and R.dt (a date) unique, and two records
+    holding values. When a change set takes, frees and upserts by them. Then a create taking a held
+    number or date is refused naming its holder; a number its holder gives up is taken by another
+    record; a batch upsert keyed by the number finds the base record; live, a held number is still
+    refused. Each of the change set's checks seeks its value on its typed index (0.11 Q2, D187).
+    Live checks seek C3a's value-order indexes once the statistics hold the values (checked on the
+    volume seed); on these small, fresh tables the planner may take the attribute's index."""
+    site = _on(world, world.install(numbered(world.configuration), name="Numbered")["id"])
+    first = world.made("R", "First", workspace=site, values={"R.n": 7, "R.dt": "2026-01-07"})
+    second = world.made("R", "Second", workspace=site, values={"R.n": 8, "R.dt": "2026-01-08"})
+    cs = world.change_set(site)
+
+    def create_in(name, **values):
+        return world.create("R", name, change_set=world.current(cs), values=values)
+
+    with planned(_typed_lookup) as plans:
+        taken = refused(create_in("Copy", **{"R.n": 7}), 409, "DUPLICATE_ATTRIBUTE_VALUE")
+        assert taken["details"]["conflictingObjectId"] == first["id"]
+        taken = refused(
+            create_in("Copy", **{"R.dt": "2026-01-08"}), 409, "DUPLICATE_ATTRIBUTE_VALUE"
+        )
+        assert taken["details"]["conflictingObjectId"] == second["id"]
+
+        record = world.record("R", first["id"], changeSetId=cs["id"])
+        changed = {
+            "expectedVersion": record["version"],
+            "changeSetId": cs["id"],
+            "expectedChangeSetVersion": world.current(cs)["version"],
+            "attributes": [{"attributeTypeKey": world.key("R.n"), "value": 9}],
+        }
+        ok(world.api.patch(f"/objects/{world.key('R')}/{first['id']}", changed))
+        third = ok(create_in("Third", **{"R.n": 7}), 201)
+
+        upsert = {
+            "op": "upsert",
+            "applicationKey": world.app("R"),
+            "objectTypeKey": world.key("R"),
+            "key": {"attributeTypeKey": world.key("R.n")},
+            "name": "Second, upserted",
+            "attributes": [
+                {"attributeTypeKey": a["attributeTypeKey"], "value": a["value"]}
+                for a in second["attributes"]
+                if a["attributeTypeKey"] != world.key("R.ro")
+            ],
+        }
+        result = ok(
+            _batch(
+                world,
+                [upsert],
+                context={"changeSetId": cs["id"]},
+                expectedChangeSetVersion=world.current(cs)["version"],
+                onExisting="overwrite",
+            )
+        )
+        assert [item["action"] for item in result["items"]] == ["updated"], result
+        assert world.record("R", second["id"], changeSetId=cs["id"])["name"] == "Second, upserted"
+        assert world.record("R", third["id"], changeSetId=cs["id"])["name"] == "Third"
+
+    live = refused(
+        world.create("R", "Live copy", workspace=site, values={"R.n": 7}),
+        409,
+        "DUPLICATE_ATTRIBUTE_VALUE",
+    )
+    assert live["details"]["conflictingObjectId"] == first["id"]
+    typed = {
+        "ix_snapshot_attribute_values_change_set_key_integer",
+        "ix_snapshot_attribute_values_change_set_key_date",
+    }
+    assert plans
+    for plan in plans:
+        assert plan_reads(plan) & typed, plan

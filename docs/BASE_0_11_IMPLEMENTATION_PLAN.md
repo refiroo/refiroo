@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19); Q1 (2026-10-20).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19); Q1 (2026-10-20); N3 and Q2 (2026-10-21).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -407,7 +407,7 @@ change) and `volume` (every budget).
 | 19 | [N2](#n2-the-job-worker-on-several-nodes) | N1 | **Delivered 2026-10-19.** Every job kind's leases, cancels and supersession under real concurrency: a heartbeat per running job, submissions of one subject one at a time, workers woken across processes, a partial export file per lease |
 | 20 | [Q1](#q1-pool-and-bulk-paths) | — | **Delivered 2026-10-20** (amended, D176: no full-volume run). Pool settings and `503 DATABASE_UNAVAILABLE`; statistics on the move binding's and people export's working tables; five `NOT IN` subqueries as `NOT EXISTS` |
 | 21 | [N3](#n3-concurrency-invariants-with-several-processes) | N2 | **Delivered 2026-10-21** (amended, D176: not at full volume). The invariants raced across two processes; a frozen process's locks released after `DATABASE_IDLE_TRANSACTION_TIMEOUT`; no constraint needed, the SQL writers outside the write unit listed with their locks |
-| 22 | [Q2](#q2-model-derived-indexes) | M2, Q1 | Indexes derived from each workspace's model; unique checks on non-text values |
+| 22 | [Q2](#q2-model-derived-indexes) | M2, Q1 | **Delivered 2026-10-21.** Value indexes the same for every model (D186); a change set's unique checks on numbers and dates seek their value; a move's match seeks the target's unique values; the inference counts unique values of every type; the derived-values door decided |
 | — | _cut line (D13)_ | | _If R is out of reach, 0.11.0 releases here and Q3 and U1 move to 0.11.x_ |
 | 23 | [Q3](#q3-precomputed-sort-keys) | Q2 | Attribute and ancestor sorts over very large parents within the list budget |
 | 24 | [O1](#o1-metrics-logs-health-and-readiness) | N1 | Metrics, structured logging, health and readiness |
@@ -4554,6 +4554,162 @@ commit stays in TODO, unmeasured.
 **Scope:** indexes derived from each workspace's model, including unique checks on non-text values
 (the value indexes cover `text_value` only). Composable domains: whether a later derived value can
 be indexed and sorted is decided here (the derived-values door).
+
+##### Q2 plan (2026-10-21)
+
+**Planned 2026-10-21. D186–D190 and the test cases accepted by the user on 2026-10-21.** Checked
+against the code at `9145e4c` by reading it; nothing was run (the development server was not
+running).
+
+**What was found:**
+
+- **The live side is already covered, and TODO's line is stale for it.** Live unique checks and
+  key references (`LiveLookup.value_holders`) compare the value in its typed column, and C3a's
+  value-order indexes (`ix_attribute_values_key_{integer,decimal,boolean,date,datetime}`,
+  `20261004_04`, added for sorting) serve that comparison as they serve the sort. The database
+  backing (`unique_attribute_values`, J2a) digests every value type. So a live non-text unique
+  check is already a seek; no test shows it.
+- **The change-set side reads every value of the attribute.** `ChangeSetLookup.value_holders` (a
+  change set write's unique check, a batch's key reference and upsert by a unique key, J11.2)
+  compares typed columns too, but `snapshot_attribute_values` has a typed index for text only
+  (`ix_snapshot_attribute_values_owner_key_text`); the typed indexes for the other types are
+  partial to publications (C6a). For an integer, decimal, date or dateTime unique attribute, each
+  check reads every value of the attribute in the change set and its base, which holds the whole
+  workspace. A boolean unique attribute has at most two holders, so reading them costs nothing.
+- **A move's match by a unique attribute reads every value of the attribute, in every workspace.**
+  The move binding (`move_binding.py`, I12) joins `attribute_values` on the attribute alone and
+  compares `rdm_value_json(…)::jsonb` with the carried value, an expression no index serves, before
+  it narrows to the target workspace. The mapping check already requires the match attribute to be
+  unique in the target (`mapping_check.py`), so every value it can match is in
+  `unique_attribute_values` under the target workspace, keyed by the digest of the same canonical
+  JSON, under the unique constraint's index.
+- **The mapping inference ignores non-text unique values.** It proposes a match (`setMatch`) only
+  when the two workspaces' records share values, and it counts names and unique values whose
+  `text_value` is set (`mapping_inference.py`, `_SHARED`). Two workspaces whose records share only
+  a unique integer (or date) code get no match proposed for that pair; the user has to add it by
+  hand.
+- **"Derived from each workspace's model" cannot mean DDL per model.** D75 (accepted 2026-10-07)
+  turned down a partial unique index because its predicate would change with each activation; 0.11
+  makes that worse: workspaces on different models share the tables, an activation is one
+  workspace's transaction, and `CREATE INDEX CONCURRENTLY` cannot run inside one. What follows each
+  workspace's model is which rows the derived tables hold: `unique_attribute_values` holds a
+  workspace's values of the attributes its release declares unique (D28).
+
+**What is built:**
+
+1. **Typed indexes for change sets (D187):** migration `20261023_01`, four partial indexes on
+   `snapshot_attribute_values`, `(owner_id, attribute_type_key, <type>_value, object_id)` for
+   integer, decimal, date and dateTime, `WHERE owner_kind IN ('base', 'change_set') AND <type>_value
+   IS NOT NULL`, so a text value enters none of them and any other value one; the lookup names the
+   owner kinds, so the planner can use them. Declared in `models/database.py`.
+2. **The move's match through `unique_attribute_values` (D188):** the binding's match joins the
+   target workspace's unique rows on the digest of the carried value.
+3. **The inference counts every unique value (D189)**, in its text form (`rdm_value_json(…) #>>
+   '{}'`), as text values are compared today.
+4. **The derived-values door decided (D190)**, written in COMPOSABLE_DOMAINS and ARCHITECTURE.
+5. **Documents:** ARCHITECTURE (the indexes; what follows the model), COMPOSABLE_DOMAINS,
+   USER_JOURNEYS and API_JOURNEYS (J06.5, J38.1, J38.5), TODO (the non-text line closed, the live
+   half stale), CHANGELOG, PROJECT_STATUS. No route, contract or UI change.
+
+**Composable domains (ADR-032):** attribute storage: the derived-values door is decided (D190)
+and stays open; identity, audit, the bulk APIs, `match` and coverage are not affected.
+
+**Decisions:**
+
+| # | Question | Recommendation | Blocks |
+| --- | --- | --- | --- |
+| D186 | What "derived from each workspace's model" means | **Recommended:** fixed indexes per value type, never DDL generated from a model; what follows the model is which rows the derived tables hold (`unique_attribute_values`, per workspace release, D28) and which lookups run. Why: D75's reasons, and in 0.11 the tables are shared by workspaces on different models, an activation is one workspace's transaction and an index built for one model would lock every workspace's writers. Cost: values of non-unique attributes enter the typed indexes too (D187) | Q2 |
+| D187 | Non-text unique checks in a change set | **Recommended:** the four partial indexes above (boolean left out: at most two holders). Why: the conventional fix; each non-text value costs one index entry and a text value none. Cost: creating a change set writes one more index entry per integer, decimal, date or dateTime value of the workspace (the volume fixture has three per item); timed once at 2,000 records before and after, not at full volume (D176). If that figure is out of line: stop and report; the alternative is a table of unique change-set values kept by triggers, holding only unique attributes' values, with more machinery (three fill paths, removal with the owner) | Q2 |
+| D188 | A move's match by a unique attribute | **Recommended:** a seek in `unique_attribute_values` (target workspace, attribute, digest). Why: the rows exist by the mapping check's own rule, and the digest is of the canonical JSON compared today, so the same records match. Cost: an empty text, which uniqueness treats as no value, no longer matches records holding an empty text | Q2 |
+| D189 | The inference's shared values | **Recommended:** every unique value in its text form. Why: a pair matched by a non-text unique code gets its `setMatch` proposed; the text form lets a source number find a target text code that holds it, which the move would carry and match. Cost: those values are read in the same statement | Q2 |
+| D190 | The derived-values door | **Recommended:** a derived value is indexed, sorted, filtered and unique-checked when it is stored as a value row through the one write path (`apply_attribute_values`), marked by `value_source`, as stored values are; a value computed only when read can be shown and exported, not sorted, filtered or checked in the database. Nothing built. Why: every index and the unique table follow value rows; computing at read would need an index per expression (D186). Cost: none now | Q2 |
+
+**Journey test cases** (written first; the plan checks fail today, the behaviour passes):
+
+1. **J06.5 A unique number in a change set** (`change_sets`): a model with a unique integer and a
+   unique date attribute, a workspace holding records with values; in a change set: a create taking
+   a held number is refused naming its holder; a number freed in the change set is taken by
+   another record; a batch upsert by the integer key (J11.2) finds the base record; the date the
+   same. And the lookup's statement is planned on the new index (sequential scans off, as
+   `test_schema_drift` checks the job indexes). The plan check fails today.
+2. **J38.5 matched by a unique number** (`move`): the target holds a record with the number the
+   carried record holds; the move's dry run finds it as `match` and updates it; a number held by no
+   record creates one. The match statement reads `unique_attribute_values` by its index, not
+   `attribute_values`. The plan check fails today.
+3. **J38.1 a match proposed on a unique number** (`move`): two workspaces whose records share only
+   unique integer codes (names differ): the inference proposes `setMatch` on the mapped integer
+   pair. Fails today.
+
+Unit test: a live non-text unique check is planned on C3a's index (passes today; it pins what TODO
+said was missing). **Checks planned:** the three journeys' files, `test_change_set_write_lookups`,
+`test_unique_values`, `test_startup` and `test_schema_drift` (the migration: bootstrap, upgrade,
+drift), `test_move_binding`; the 2,000-record change-set creation timed once before and after
+(D187). Not planned: full volume (D176), the full suite and browser runners (R's), the frontend
+(no change).
+
+##### Q2 record (2026-10-21)
+
+**Delivered 2026-10-21.** Built as planned (D186–D190):
+
+- **Typed indexes for change sets (D187):** migration `20261023_01`, four partial indexes
+  `ix_snapshot_attribute_values_change_set_key_{integer,decimal,date,datetime}`, declared in
+  `models/database.py`. `ChangeSetLookup.value_holders` reads one arm per owner naming its
+  `owner_kind`, so each arm seeks the partial index of its kind.
+- **The move's match (D188):** `move_binding.py` joins `unique_attribute_values` of the target
+  workspace on the digest of the carried value; it no longer reads `attribute_values`.
+- **The inference (D189):** `mapping_inference._SHARED` counts unique values of every type in their
+  text form, and reports per pair of types the unique attribute pairs whose values the records
+  share; a proposal's `setMatch` takes such a pair, else the first unique pair as before.
+- **Documents:** ARCHITECTURE (value indexes the same for every model, the scale paragraph),
+  COMPOSABLE_DOMAINS (D190), USER_JOURNEYS (J06.5; J38.1 and J38.5 extended), API_JOURNEYS, TODO
+  (the non-text item closed), CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **The inference proposed the match on the wrong attribute.** Counting non-text values alone was
+  not enough: the proposal took the first attribute unique on both sides, `R.u` (text), when only
+  `R.n` was shared, so the case would still have proposed the wrong match. Fixed within D189: the
+  statement reports which unique pairs share values.
+- **A change set's base may be a publication.** The first form named the owner kinds `base` and
+  `change_set` for every owner; a change set started from a publication then missed its base's
+  values, and `test_change_set_write_lookups` (text, publication base) caught it. Hence one arm per
+  owner with its own kind; a publication base uses C6a's typed publication indexes.
+- **The live plan check was dropped from J06.5.** On the journey seed's small, fresh tables the
+  planner took the attribute's index for a live check in one configuration (generated-a), a choice
+  made by statistics, not a missing index. Checked once instead on the volume seed, with real
+  statistics (below). The change set's plan check stays in J06.5.
+- **No separate unit test for the live side:** the one-off check on the volume seed is the
+  evidence.
+
+**Checks:**
+
+- The new cases, written first, on `9145e4c`: J06.5 (both configurations) failed on its plan check
+  (the text index read with the number as a filter), J38.1's new case found no `setMatch`, J38.5's
+  new case read `attribute_values`; their behaviour already passed. With Q2: all pass.
+- One run, `-n 4` (load 8–10): J05/J06, J11, J38.1, J38.2, J38.3, `test_change_set_write_lookups`,
+  `test_unique_values`, `test_snapshot_values`, `test_mapping_inference`, `test_move_binding`,
+  `test_startup` (clean bootstrap, upgrade, head `20261023_01`), `test_schema_drift` (the model's
+  indexes and the migration's agree), `test_rule_parity`: 203 passed, 1 failed (the publication base
+  above). After the fix: the change-set lookup file, J05/J06, J11, rule parity, 85 passed; then J38.2,
+  J38.3, J05/J06 and `test_unique_values`, 74 passed. No `serial` case in these files.
+- Over 10 s outside `budget`: J38.3's copy confirmed, reviewed and published (22–23 s at load 10;
+  16–18 s in Q1 at load 4), unchanged by Q2.
+- **The 2,000-item volume seed, once, with `ANALYZE`** (a temporary probe, deleted): a change set's
+  integer lookup seeks the new index, 9 records read in 0.02 ms (at 1,000 items without the indexes
+  it read and filtered the attribute's 3,231 values, 0.5 ms); the live lookup seeks
+  `ix_attribute_values_key_integer`; change-set creation 0.66–0.81 s with the indexes and
+  0.65–0.76 s without (three each, means 0.74 s and 0.69 s), within the runs' spread, for 7,800
+  integer and date values.
+- `ruff check` on the changed files: passed; `ruff format` applied to Q2's lines only.
+- Smoke start: the development server (`uvicorn --reload` on `rdm`) upgraded `rdm` to
+  `20261023_01` with the four indexes when the migration was saved; `/health` `ok`, workspaces and a
+  change set read `200`.
+- **Not run:** full volume (D176), so the indexes' cost on change-set creation at 250,000 records
+  is extrapolated, not measured; the full suite and browser runners (R's); the frontend (no change).
+
+**What the user still cannot do:** sort a change set's list by an attribute in value order at
+volume (TODO, C-D67) or sort very large parents by an attribute or ancestor within the list budget
+(Q3); a derived value computed only when read cannot be sorted or filtered (D190, by design).
 
 #### Q3: Precomputed sort keys
 

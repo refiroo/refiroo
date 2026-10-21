@@ -538,6 +538,49 @@ class Held:
         self.engine.dispose()
 
 
+def numbered(configuration: Configuration) -> dict[str, Any]:
+    """The configuration's model as a release whose ``R.n`` (integer) and ``R.dt`` (date) are
+    unique as well (0.11 Q2): unique values compared outside text."""
+    model = copy.deepcopy(configuration.model)
+    model["release"]["version"] += "-numbered"
+    for item in model["attributeTypes"]:
+        if item["key"] in (configuration.key("R.n"), configuration.key("R.dt")):
+            item["features"] = {**item.get("features", {}), "unique": True}
+    return model
+
+
+@contextmanager
+def planned(chosen: Callable[[str], bool]) -> Iterator[list[dict[str, Any]]]:
+    """The plans of the statements ``chosen`` picks while the block runs, planned with sequential
+    scans off so a plan shows whether an index applies whatever the tables' size (as
+    ``test_schema_drift`` checks the job indexes). Only explained: each statement still runs once."""
+    from sqlalchemy import event
+
+    from app.db import get_engine
+
+    plans: list[dict[str, Any]] = []
+
+    def explain(connection, cursor, statement, parameters, context, executemany):
+        if chosen(statement):
+            cursor.execute("SET enable_seqscan = off")
+            cursor.execute("EXPLAIN (FORMAT JSON) " + statement, parameters)
+            plans.append(cursor.fetchone()[0][0]["Plan"])
+            cursor.execute("RESET enable_seqscan")
+
+    engine = get_engine()
+    event.listen(engine, "before_cursor_execute", explain)
+    try:
+        yield plans
+    finally:
+        event.remove(engine, "before_cursor_execute", explain)
+
+
+def plan_reads(plan: dict[str, Any]) -> set[str]:
+    """The tables and indexes a plan reads, its children's included."""
+    own = {plan[name] for name in ("Relation Name", "Index Name") if name in plan}
+    return own.union(*(plan_reads(child) for child in plan.get("Plans", [])))
+
+
 def _wait_for_lock_waiters(watcher: Any, count: int, futures: list[Any]) -> None:
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:

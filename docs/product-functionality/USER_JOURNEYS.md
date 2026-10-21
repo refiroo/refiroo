@@ -587,6 +587,9 @@ overwrites the live edit or deletes live-only records.
   writes of its workspace and leaves other change sets free.
 - **J06.4 Publishing an exchange of unique values**: a change set that hands unique values between
   records publishes; live holds each value once.
+- **J06.5 Unique numbers and dates in a change set**: a unique value of any type (a number, a date,
+  not only text) is refused naming its holder in the change set or its base, is free once its holder
+  gives it up, and keys an upsert; each check seeks the value instead of reading every value.
 
 **Refusals:** `409 VERSION_CONFLICT`, naming each record changed on both sides in `details.conflicts`.
 
@@ -1153,13 +1156,14 @@ browser (0.11 X4); the checkpoint at full volume planned (0.11 X5).
 **Variants:**
 
 - **J38.1 The mapping proposed and completed**: proposals with evidence placed as editable steps,
-  corrected by hand, undone and redone, saved and reused.
+  corrected by hand, undone and redone, saved and reused. Records are matched by the unique attribute
+  whose values the two workspaces share, of any value type.
 - **J38.2 Copy a whole workspace** into a workspace of another model.
 - **J38.3 Move a subtree**: the copy plus a reviewed deletion change set in the source.
 - **J38.4 A relationship whose other end stays behind**: carried when the other end is in the target,
   dropped and reported otherwise.
 - **J38.5 A unique value already held in the target**: refused with the holder, or matched to it when
-  the mapping says so.
+  the mapping says so, by a unique value of any type.
 - **J38.6 A second move found again**: records moved before are updated, not duplicated; a record
   moved back finds its original.
 - **J38.7 What could not move reported**: by type, reason and count, every item listed.

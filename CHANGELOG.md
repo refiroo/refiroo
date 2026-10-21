@@ -6,6 +6,22 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (0.11 Q2, value indexes)
+
+- A change set's unique checks and key references on a number, decimal, date or instant seek the
+  value instead of reading every value of the attribute in the change set and its base: four partial
+  indexes on `snapshot_attribute_values` (migration `20261023_01`). Live checks already sought their
+  value. The indexes are the same for every model; what follows a workspace's model is which values
+  are looked up (D186).
+- A move's match by a unique attribute seeks the target workspace's unique values by digest; it read
+  every value of the attribute in every workspace (J38.5).
+
+### Fixed (0.11 Q2)
+
+- The mapping inference counted only unique text values as values the two workspaces share, and
+  proposed the match on the first attribute unique on both sides. Unique values of every type count
+  now, and the match goes to the unique attribute whose values the records share (J38.1).
+
 ### Added (0.11 N3, several processes)
 
 - `DATABASE_IDLE_TRANSACTION_TIMEOUT` (300 s, `0` off), reported by `GET /system`: the database ends

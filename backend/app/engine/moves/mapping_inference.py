@@ -133,7 +133,8 @@ class Proposal:
 
 class Inference:
     """The proposals for one source and one target release, given what the stored records share:
-    ``stored[(source type, target type)]`` values found and ``totals[source type]`` values read."""
+    ``stored[(source type, target type)]`` values found, ``totals[source type]`` values read and
+    ``keys[(source type, target type)]`` the pairs of unique attributes whose values they share."""
 
     def __init__(
         self,
@@ -141,11 +142,13 @@ class Inference:
         target: Side,
         stored: dict[tuple[str, str], int] | None = None,
         totals: dict[str, int] | None = None,
+        keys: dict[tuple[str, str], set[tuple[str, str]]] | None = None,
     ) -> None:
         self.source, self.target = source, target
         self.same_model = source.model_key == target.model_key
         self.stored = stored or {}
         self.totals = totals or {}
+        self.keys = keys or {}
         self._attribute_likeness: dict[tuple[str, str], float] = {}
 
     def attribute_likeness(self, source_key: str, target_key: str) -> float:
@@ -246,8 +249,14 @@ class Inference:
         # the two workspaces' records share values (I12); never on names alone.
         match = None
         if self.stored.get((source_type, t)):
+            # The unique pair whose values the records share, else the first unique pair.
+            unique_pairs = [
+                (a, b) for a, b in pairs if self.source.unique(a) and self.target.unique(b)
+            ]
+            shared = self.keys.get((source_type, t), set())
             unique = next(
-                (b for a, b in pairs if self.source.unique(a) and self.target.unique(b)), None
+                (b for a, b in unique_pairs if (a, b) in shared),
+                unique_pairs[0][1] if unique_pairs else None,
             )
             if unique is not None:
                 match = {"attributeTypeKey": unique}
@@ -439,38 +448,47 @@ def _reversed(cardinality: str) -> str:
 
 # --- the stored records (one statement) -------------------------------------------------------------
 
-_SHARED = """
+# A unique value in its text form, as a name is compared: text as it is, a number, a date or a
+# boolean as its JSON form reads (0.11 Q2, D189).
+_UNIQUE_TEXT = """rdm_value_json(a.value_type, a.text_value, a.integer_value, a.decimal_value,
+        a.boolean_value, a.date_value, a.datetime_value, a.json_value) #>> '{}'"""
+
+_SHARED = f"""
 WITH source_values AS (
-    SELECT DISTINCT o.object_type_key AS type_key, o.name AS value FROM objects o
+    SELECT o.object_type_key AS type_key, NULL::text AS attr, o.name AS value FROM objects o
     WHERE o.workspace_key = :source
     UNION
-    SELECT o.object_type_key, a.text_value FROM attribute_values a
+    SELECT o.object_type_key, a.attribute_type_key, {_UNIQUE_TEXT} FROM attribute_values a
     JOIN objects o ON o.id = a.object_id AND o.workspace_key = :source
-    WHERE a.attribute_type_key = ANY(:source_unique) AND a.text_value IS NOT NULL
+    WHERE a.attribute_type_key = ANY(:source_unique)
 ),
 target_values AS (
-    SELECT DISTINCT o.object_type_key AS type_key, o.name AS value FROM objects o
+    SELECT o.object_type_key AS type_key, NULL::text AS attr, o.name AS value FROM objects o
     WHERE o.workspace_key = :target
     UNION
-    SELECT o.object_type_key, a.text_value FROM attribute_values a
+    SELECT o.object_type_key, a.attribute_type_key, {_UNIQUE_TEXT} FROM attribute_values a
     JOIN objects o ON o.id = a.object_id AND o.workspace_key = :target
-    WHERE a.attribute_type_key = ANY(:target_unique) AND a.text_value IS NOT NULL
+    WHERE a.attribute_type_key = ANY(:target_unique)
 )
-SELECT s.type_key, t.type_key, count(*) FROM source_values s
-JOIN target_values t ON t.value = s.value
+SELECT s.type_key, t.type_key, count(DISTINCT s.value),
+    coalesce(jsonb_agg(DISTINCT jsonb_build_array(s.attr, t.attr))
+        FILTER (WHERE s.attr IS NOT NULL AND t.attr IS NOT NULL), '[]')
+FROM source_values s JOIN target_values t ON t.value = s.value
 GROUP BY s.type_key, t.type_key
 UNION ALL
-SELECT s.type_key, NULL, count(*) FROM source_values s GROUP BY s.type_key
+SELECT s.type_key, NULL, count(DISTINCT s.value), '[]' FROM source_values s GROUP BY s.type_key
 """
 
 
 def shared_values(
     session: Session, source: Side, target: Side, source_workspace: str, target_workspace: str
-) -> tuple[dict[tuple[str, str], int], dict[str, int]]:
-    """Per pair of types, the names and unique text values the two workspaces' records share; and
-    per source type, the values it holds. One statement in PostgreSQL (principle 6)."""
+) -> tuple[dict[tuple[str, str], int], dict[str, int], dict[tuple[str, str], set[tuple[str, str]]]]:
+    """Per pair of types, the names and unique values the two workspaces' records share; per source
+    type, the values it holds; and per pair of types, the pairs of unique attributes whose values
+    they share. One statement in PostgreSQL (principle 6)."""
     stored: dict[tuple[str, str], int] = {}
     totals: dict[str, int] = {}
+    keys: dict[tuple[str, str], set[tuple[str, str]]] = {}
     rows = session.execute(
         text(_SHARED),
         {
@@ -480,12 +498,13 @@ def shared_values(
             "target_unique": [a.key for a in target.model.attributeTypes if target.unique(a.key)],
         },
     )
-    for source_type, target_type, count in rows:
+    for source_type, target_type, count, pairs in rows:
         if target_type is None:
             totals[source_type] = count
         else:
             stored[(source_type, target_type)] = count
-    return stored, totals
+            keys[(source_type, target_type)] = {(a, b) for a, b in pairs}
+    return stored, totals, keys
 
 
 # --- the job -------------------------------------------------------------------------------------
@@ -555,11 +574,11 @@ def run_inference(session: Session, job: Job, *, check: Callable[[], None] = lam
     source = releases.side(parameters["sourceReleaseId"])
     target = releases.side(parameters["targetReleaseId"])
     assert source is not None and target is not None
-    stored, totals = shared_values(
+    stored, totals, keys = shared_values(
         session, source, target, parameters["sourceWorkspaceKey"], parameters["targetWorkspaceKey"]
     )
     check()
-    proposals = Inference(source, target, stored, totals).proposals()
+    proposals = Inference(source, target, stored, totals, keys).proposals()
     check()
     ids = {p.anchor: proposal_id(mapping, p.anchor) for p in proposals}
     session.execute(

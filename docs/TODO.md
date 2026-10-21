@@ -806,9 +806,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   the value. A write, import or migration that cannot insert its row fails, and nothing is
   committed. This is ADR-010's planned hardening for PostgreSQL. Object IDs need nothing: their
   unique index already covers every workspace.
-- [ ] Unique-value checks over non-text values (integer, decimal, date, dateTime, boolean) still read
-  every value of the attribute, live and in a change set: the value indexes cover `text_value` only
-  (0.9 B2 added the live one). Add them with 0.11's model-derived indexes.
+- [x] Unique-value checks over non-text values (integer, decimal, date, dateTime, boolean) read every
+  value of the attribute: **done in 0.11 Q2 (2026-10-21).** Live checks already sought C3a's
+  value-order indexes (checked with real statistics on the 2,000-item volume seed); a change set's
+  now seek four partial indexes (`20261023_01`, D187; a unique boolean has at most two holders).
+  A move's match by a unique attribute seeks `unique_attribute_values` (D188), and the mapping
+  inference counts unique values of every type (D189).
 - [x] PostgreSQL at production scale and across nodes (0.11): the volume fixture at full scale (exists
   since 0.8, scale 1), pool sizing (0.11 Q1: settings, OPERATIONS' arithmetic, D179–D181), several
   processes and nodes (N1, N2; N3). The trigram search index and the relation matrix's PostgreSQL

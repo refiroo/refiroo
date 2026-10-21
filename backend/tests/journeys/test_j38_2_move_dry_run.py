@@ -14,8 +14,8 @@ import copy
 from uuid import UUID, uuid4, uuid5
 
 import pytest
-from scenario import W1, ok, refused
-from test_j36_workspace_models import BOTH, _on
+from scenario import W1, numbered, ok, plan_reads, planned, refused
+from test_j36_workspace_models import BOTH, _on, _other
 from test_j38_1_model_mapping import _apply, _beside, _create, _infer, _operate, _read, _run
 
 # The namespace of counterpart IDs, as API.md documents it, so a client computes where a record goes.
@@ -358,6 +358,40 @@ def test_a_unique_value_already_held_in_the_target(world):
     assert found[held["id"]]["targetId"] == holder["id"]
     assert found[held["id"]]["matchedBy"] == match
     assert found[twin["id"]]["outcome"] == "create"
+
+
+@pytest.mark.journey("J38.5")
+@pytest.mark.structures(*BOTH, "R.n")
+def test_a_record_matched_by_a_unique_number(world):
+    """Given two workspaces whose models make R.n (a number) unique, the mapping applied and
+    matching R by R.n, a source R whose number a target R holds and one whose number none holds.
+    When both are moved in a dry run. Then the first updates the holder, matched by the number, and
+    the second is created. The match seeks the target's unique values by their index and reads no
+    attribute value (0.11 Q2, D188)."""
+    other = _other(world)
+    source = _on(world, world.install(numbered(world.configuration), name="Numbered")["id"])
+    target = _on(world, world.install(numbered(other.configuration), name="Other numbered")["id"])
+    key = _create(world, source, target)["key"]
+    _infer(world, key, source, target)
+    _apply(world, key)
+    match = {"attributeTypeKey": other.key("R.n")}
+    ok(_operate(world, key, {"kind": "setMatch", "sourceType": world.key("R"), "match": match}))
+    held = world.made("R", "Held", workspace=source, values={"R.n": 7})
+    holder = other.made("R", "Holder", workspace=target, values={"R.n": 7})
+    fresh = world.made("R", "Fresh", workspace=source, values={"R.n": 8})
+
+    with planned(lambda statement: "WITH candidates AS" in statement) as plans:
+        _job, rows = _dry_run(
+            world, key, target, {"objectIds": [held["id"], fresh["id"]]}, source=source
+        )
+    found = _records(rows)
+    assert found[held["id"]]["outcome"] == "update", found[held["id"]]
+    assert found[held["id"]]["targetId"] == holder["id"]
+    assert found[held["id"]]["matchedBy"] == match
+    assert found[fresh["id"]]["outcome"] == "create"
+    [plan] = plans
+    assert "attribute_values" not in plan_reads(plan), plan
+    assert "uq_unique_attribute_values" in plan_reads(plan), plan
 
 
 @pytest.mark.journey("J38.2")

@@ -218,16 +218,18 @@ _STEPS_RECORDS = (
     FROM objects o
     WHERE r.target_type IS NOT NULL AND r.found IS NULL AND o.workspace_key = :target
         AND o.id = rdm_counterpart(:target, r.object_id)""",
-    # Else found by the mapping's match: a unique attribute's value, or the name (I12).
+    # Else found by the mapping's match: a unique attribute's value, or the name (I12). The match
+    # attribute is unique in the target (the mapping check), so its values are the target's
+    # unique rows, sought by the digest of the carried value's canonical JSON (0.11 Q2, D188).
     f"""WITH candidates AS (
         SELECT r.object_id, count(*) AS n, min(o.id) AS first,
             (array_agg(o.id ORDER BY o.id))[1:{NAMED_RECORDS}] AS ids
         FROM mv_records r JOIN mv_types t ON t.source_type = r.source_type
-        JOIN attribute_values a ON a.attribute_type_key = t.match_attr
-            AND rdm_value_json(a.value_type, a.text_value, a.integer_value, a.decimal_value,
-                a.boolean_value, a.date_value, a.datetime_value, a.json_value)::jsonb
-                = r.target_values -> t.match_attr
-        JOIN objects o ON o.id = a.object_id AND o.workspace_key = :target
+        JOIN unique_attribute_values u ON u.workspace_key = :target
+            AND u.attribute_type_key = t.match_attr
+            AND u.value_digest
+                = sha256(convert_to((r.target_values -> t.match_attr)::text, 'UTF8'))
+        JOIN objects o ON o.id = u.object_id AND o.workspace_key = :target
             AND o.object_type_key = r.target_type
         WHERE r.found IS NULL AND t.match_attr IS NOT NULL GROUP BY r.object_id
         UNION ALL

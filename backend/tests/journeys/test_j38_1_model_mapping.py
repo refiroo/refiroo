@@ -14,7 +14,7 @@ import copy
 from uuid import uuid4
 
 import pytest
-from scenario import W1, ok, refused
+from scenario import W1, numbered, ok, refused
 from test_j36_workspace_models import BOTH, _model, _on, _other
 
 # The relationships the configurations name as structures (configurations.py).
@@ -252,6 +252,26 @@ def test_a_mapping_proposed_with_evidence(world):
     stored = next(item for item in r["evidence"] if item["kind"] == "storedRecords")
     assert stored["matched"] >= 3
     assert r["alternatives"] and all(a["target"] != r["target"] for a in r["alternatives"])
+
+
+@pytest.mark.journey("J38.1")
+@pytest.mark.structures(*BOTH, "R.n")
+def test_a_match_proposed_on_a_unique_number(world):
+    """Given two workspaces whose models make R.n (a number) unique, and R records in both sharing
+    only their numbers (names and the unique text differ). When the mapping is inferred. Then R's
+    proposal matches records by the number, the unique pair whose values the two hold (0.11 Q2,
+    D189)."""
+    other = _other(world)
+    source = _on(world, world.install(numbered(world.configuration), name="Numbered")["id"])
+    target = _on(world, world.install(numbered(other.configuration), name="Other numbered")["id"])
+    for index in range(3):
+        world.made("R", f"Here {index}", workspace=source, values={"R.n": 40 + index})
+        other.made("R", f"There {index}", workspace=target, values={"R.n": 40 + index})
+    mapping = _create(world, source, target)
+    _infer(world, mapping["key"], source, target)
+    r = _type_proposal(_proposals(world, mapping["key"]), world.key("R"))
+    assert r["target"] == other.key("R")
+    assert _first(r["operations"], "setMatch")["match"] == {"attributeTypeKey": other.key("R.n")}
 
 
 @pytest.mark.journey("J38.1")

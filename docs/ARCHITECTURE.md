@@ -260,7 +260,16 @@ readable and refuse every runtime write. Workspace administration is a deploymen
   text has no row. PostgreSQL keeps it: statement triggers on `attribute_values` add the rows of
   written values under the record's workspace release, the `attribute_values` cascade removes them,
   and a trigger on `workspace_models` adds and removes a workspace's rows as its new release declares
-  `unique` on more or fewer attributes (0.11 D28). No code writes it.
+  `unique` on more or fewer attributes (0.11 D28). No code writes it. A move's match by a unique
+  attribute seeks it by the carried value's digest.
+- **Value indexes are the same for every model** (0.11 D186): one per typed column, never index DDL
+  generated from a model, since workspaces on different models share the tables. A unique check or
+  key reference compares the value in its typed column and seeks it: live through the value-order
+  indexes on (attribute, typed value, record), in a change set through `snapshot_attribute_values`'
+  text index and, for numbers, decimals, dates and instants, partial indexes over base and
+  change-set rows holding a value of that type. What follows a workspace's model is which rows
+  `unique_attribute_values` holds and which values a check looks up. A value is indexed, sorted,
+  filtered and checked only when it is stored as a value row (0.11 D190).
 - **`object_relations`** holds typed directed edges, checked against the allowed combinations and
   cardinality before they are written.
 - **`relation_set_versions`** versions each relation set exactly, per workspace, relation type and
@@ -765,11 +774,11 @@ workspace is 0.11 O1's), and each process runs a job worker (several workers on 
 ### Scale
 
 Delivered: bounded collections at any size with cursor and position paging, trigram search indexes,
-value indexes for unique and keyed lookups, bulk writes decided in memory and written in multi-row
-statements, set-based relation hops and expansions, and stored matrix states. Next, in 0.11: the volume
-fixture at full scale, connection pool sizing, model-derived indexes including non-text unique values,
-precomputed sort keys for attribute and ancestor sorts over very large parents, and recursive queries or
-a maintained path for very deep hierarchies.
+value indexes for unique and keyed lookups that seek a value of any type, live and in a change set
+(0.11 Q2), connection pool settings (0.11 Q1), bulk writes decided in memory and written in
+multi-row statements, set-based relation hops and expansions, and stored matrix states. Next, in
+0.11: precomputed sort keys for attribute and ancestor sorts over very large parents, and recursive
+queries or a maintained path for very deep hierarchies.
 
 ### Change feed and consumer API (0.9)
 

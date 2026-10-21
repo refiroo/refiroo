@@ -19,7 +19,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import Row, or_, select
+from sqlalchemy import Row, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
@@ -415,15 +415,20 @@ class ChangeSetLookup(Ancestors):
         candidates: list[tuple[str, str, Any]] = []
         for chunk in _chunks(typed):
             column = getattr(index, column_name)
+            # One arm per owner naming its kind, so a value other than text seeks the partial
+            # index of that kind: a change set's or base's (0.11 Q2, D187), a publication's (C6a).
+            arms = [
+                select(index.owner_id, index.object_id, column).where(
+                    index.owner_id == owner_id,
+                    index.owner_kind == owner_kind,
+                    index.attribute_type_key == attribute_type_key,
+                    column.in_(chunk),
+                )
+                for owner_id, owner_kind in self._owner_kinds()
+            ]
             candidates.extend(
                 (owner_id, object_id, stored_json_value(stored))
-                for owner_id, object_id, stored in self.session.execute(
-                    select(index.owner_id, index.object_id, column).where(
-                        index.owner_id.in_(self._owners()),
-                        index.attribute_type_key == attribute_type_key,
-                        column.in_(chunk),
-                    )
-                )
+                for owner_id, object_id, stored in self.session.execute(union_all(*arms))
             )
         if untyped:
             # JSON has no portable equality in SQL: read the key's rows and compare decoded values.
@@ -448,7 +453,13 @@ class ChangeSetLookup(Ancestors):
         )
 
     def _owners(self) -> list[str]:
-        owners = [self.context.id]
+        return [owner_id for owner_id, _kind in self._owner_kinds()]
+
+    def _owner_kinds(self) -> list[tuple[str, str]]:
+        """The change set and its base, each with the ``owner_kind`` of its value rows."""
+        owners = [(self.context.id, "change_set")]
         if self.context.base is not None:
-            owners.append(self.context.base.owner_id)
+            base = self.context.base
+            kind = "publication" if base.owner_column == "publication_id" else "base"
+            owners.append((base.owner_id, kind))
         return owners
