@@ -112,7 +112,8 @@ can complete the task in the application; "API" means another system can.
 ### Organise hierarchies — browser and API
 
 - In a tree, add a child, rename, set availability and move a record by menu, keyboard or drag and
-  drop, including to the top level. Invalid destinations are shown with the reason.
+  drop (by mouse, or by touch with a press and hold), including to the top level. Invalid
+  destinations are shown with the reason.
 - In a change set, reshape the hierarchy: move a record where another type belongs, change a record's
   type, insert or remove a level. A preview shows every affected record before anything changes;
   records keep their identity, and what a new type has no place for is kept in history and offered

@@ -324,6 +324,11 @@ The containment relationship is not edited here: it follows the record's parent 
   all-or-nothing batch, each record claiming its version. A target that cannot take one refuses
   them all and names it; several records whose type a target would change are refused (one at a
   time). Selecting opens nothing on the page.
+- **J14.10 Move by touch** (UI, Base 0.11 U1): on a phone or tablet, a record held still for half
+  a second lifts and is dragged as with a mouse, into the same confirmation; a finger that moves
+  first scrolls, a short tap opens the record, a lifted record never scrolls the page except at the
+  list's edge, and one let go where it was lifted opens the sidebar's menu (Move to…), not the
+  record.
 
 **Refusals:** `422 PARENT_CYCLE`, `422 INVALID_PARENT_TYPE`, `422 PARENT_WRONG_SCOPE`,
 `409 DUPLICATE_RELATION_SCOPE`, `409 VERSION_CONFLICT`.

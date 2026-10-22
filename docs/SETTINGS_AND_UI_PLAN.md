@@ -1859,7 +1859,7 @@ cases approved by the user the same day.** Checked against the code at `8b6d482`
      a plain click, a new search or another context; a record hidden by folding its branch leaves
      it.
 3. **Dragging** (U-D22, U-D24, U-D25, U-D27): in the sidebar as in the lens, with mouse or pen,
-   live and in a change set, never in a publication or from touch (D35). Dragging a selected
+   live and in a change set, never in a publication or from touch (D35; touch added in 0.11 U1). Dragging a selected
    record drags the whole selection, shown beside the pointer as "3 records"; dragging an
    unselected record drags that one alone, as today. A target accepts only if it takes **every**
    dragged record (D34's rule for each); otherwise it glows red and names the first record it

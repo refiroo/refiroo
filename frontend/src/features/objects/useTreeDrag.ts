@@ -1,6 +1,9 @@
 /**
- * Dragging a record to a new parent in a `RecordTree` (Base 0.8 B5, D34, D35), with mouse or pen.
- * A touch pointer never starts a drag, so a tap still opens and a swipe still scrolls.
+ * Dragging a record to a new parent in a `RecordTree` (Base 0.8 B5, D34), with mouse, pen or touch.
+ * A mouse or pen drags after a few pixels. A finger lifts the record by holding still for half a
+ * second (0.11 U1, D210): moving first is a scroll and a short tap opens, as without a drag. Once
+ * lifted, the finger no longer scrolls the page (D211), the preview sits above it (D212), and a
+ * record let go where it was lifted opens the tree's node menu where the tree has one (D213).
  *
  * The pointer names a target on each move: the middle of a record's row is that record; the middle
  * of a type heading is the heading's parent; the top or bottom quarter of a row is the gap beside it,
@@ -20,7 +23,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
-import { scrollAtEdge, scrollerOf } from "@/lib/edgeScroll";
+import { EDGE, TOUCH_EDGE, scrollAtEdge, scrollerOf } from "@/lib/edgeScroll";
 import { chooseGapBranch, gapBranches, type RowPlace } from "@/model/treeDrop";
 import type { ObjectItem } from "@/types";
 
@@ -68,6 +71,13 @@ export const SEVERAL_CHANGE_TYPE = "Move records that change type one at a time"
 
 /** Distance a pressed pointer travels before a drag starts, so a click still opens. */
 const THRESHOLD = 5;
+/** How long a finger holds still before the record lifts, and how far it may wander meanwhile (D210). */
+const HOLD = 500;
+const TOUCH_SLOP = 8;
+/** When a held row shows it is pressed, so a quick swipe does not flash it. */
+const PRESS_DELAY = 90;
+/** Where the preview sits from a finger, so the hand never covers it (D212). */
+const TOUCH_PREVIEW = { x: -40, y: -72 };
 /** How long a pointer rests over a collapsed branch before it opens. */
 const EXPAND_DELAY = 700;
 
@@ -75,9 +85,16 @@ interface Session {
   item: ObjectItem;
   items: ObjectItem[];
   pointerId: number;
+  touch: boolean;
+  /** The pressed row, which a held record's menu opens beside. */
+  row: HTMLElement;
   from: { x: number; y: number };
   at: { x: number; y: number };
   started: boolean;
+  /** Whether the pointer has left the press's neighbourhood since the press. */
+  moved: boolean;
+  holdTimer?: number;
+  pressTimer?: number;
   signature: string;
   target?: TreeDropTarget;
   expandId?: string;
@@ -98,6 +115,7 @@ export function useTreeDrag({
   expand,
   draggedWith,
   labelOf,
+  onHeld,
 }: {
   tree: RefObject<HTMLElement | null>;
   config?: TreeDragConfiguration;
@@ -112,13 +130,17 @@ export function useTreeDrag({
   draggedWith?: (item: ObjectItem) => ObjectItem[];
   /** A record's label, which a refusal of several names it by. */
   labelOf?: (item: ObjectItem) => string;
+  /** A record lifted by touch and let go where it was (D213), with its row. */
+  onHeld?: (item: ObjectItem, row: HTMLElement) => void;
 }) {
   const [state, setState] = useState<TreeDragState>();
+  /** The record a finger is holding before it lifts. */
+  const [pressed, setPressed] = useState<string>();
   const preview = useRef<HTMLDivElement>(null);
   const session = useRef<Session | undefined>(undefined);
-  const latest = useRef({ config, expand, indentOf, topLevelRows, draggedWith, labelOf });
+  const latest = useRef({ config, expand, indentOf, topLevelRows, draggedWith, labelOf, onHeld });
   useLayoutEffect(() => {
-    latest.current = { config, expand, indentOf, topLevelRows, draggedWith, labelOf };
+    latest.current = { config, expand, indentOf, topLevelRows, draggedWith, labelOf, onHeld };
   });
 
   /** The target at a point, or undefined outside the tree's rows or at a top level it cannot take. */
@@ -187,8 +209,13 @@ export function useTreeDrag({
 
   const place = useCallback(() => {
     const current = session.current;
-    if (current && preview.current)
-      preview.current.style.transform = `translate(${current.at.x + 14}px, ${current.at.y + 12}px)`;
+    if (!current || !preview.current) return;
+    // Above a finger and kept on the screen, its right edge included (D212).
+    const right = window.innerWidth - preview.current.offsetWidth - 8;
+    const [x, y] = current.touch
+      ? [Math.max(8, Math.min(right, current.at.x + TOUCH_PREVIEW.x)), Math.max(8, current.at.y + TOUCH_PREVIEW.y)]
+      : [current.at.x + 14, current.at.y + 12];
+    preview.current.style.transform = `translate(${x}px, ${y}px)`;
   }, []);
   useLayoutEffect(place, [state, place]);
 
@@ -230,30 +257,33 @@ export function useTreeDrag({
     const current = session.current;
     if (!current?.started) return;
     const root = tree.current;
+    if (!root) return;
     const under = document.elementFromPoint?.(current.at.x, current.at.y);
-    if (root && under && root.contains(under)) {
-      const viewports: HTMLElement[] = [];
-      let viewport = under.closest<HTMLElement>(".scroll-window-viewport");
-      while (viewport && root.contains(viewport)) {
-        viewports.push(viewport);
-        viewport = viewport.parentElement?.closest<HTMLElement>(".scroll-window-viewport") ?? null;
-      }
-      if (!viewports.length && current.viewport) viewports.push(current.viewport);
-      // Flat scrolling (UA9, U-D21): no window of its own, so the tree's nearest scroller moves.
-      if (!viewports.length) viewports.push(scrollerOf(root));
-      for (const viewport of viewports) {
-        if (!scrollAtEdge(viewport, current.at.y)) continue;
-        current.viewport = viewport;
-        update();
-        break;
-      }
+    const inside = Boolean(under && root.contains(under));
+    // Off the tree, only a point over the sticky bar that covers its scroller's top scrolls (U1).
+    if (!inside && !overCover(root, current.viewport ?? scrollerOf(root), current.at)) return;
+    const viewports: HTMLElement[] = [];
+    let viewport = inside ? (under?.closest<HTMLElement>(".scroll-window-viewport") ?? null) : null;
+    while (viewport && root.contains(viewport)) {
+      viewports.push(viewport);
+      viewport = viewport.parentElement?.closest<HTMLElement>(".scroll-window-viewport") ?? null;
+    }
+    if (!viewports.length && current.viewport) viewports.push(current.viewport);
+    // Flat scrolling (UA9, U-D21): no window of its own, so the tree's nearest scroller moves.
+    if (!viewports.length) viewports.push(scrollerOf(root));
+    for (const viewport of viewports) {
+      if (!scrollAtEdge(viewport, current.at.y, current.touch ? TOUCH_EDGE : EDGE)) continue;
+      current.viewport = viewport;
+      update();
+      break;
     }
   }, [tree, update]);
 
   const start = useCallback(
     (event: PointerEvent<HTMLElement>, item: ObjectItem) => {
       const drag = latest.current.config;
-      if (!drag || session.current || event.button !== 0 || event.pointerType === "touch") return;
+      if (!drag || session.current || event.button !== 0) return;
+      const touch = event.pointerType === "touch";
       if ((event.target as HTMLElement).closest("input, textarea, select, button, form, .tree-extras, .tree-toggle"))
         return;
       const items = latest.current.draggedWith?.(item) ?? [item];
@@ -264,17 +294,34 @@ export function useTreeDrag({
         scroll();
         current.frame = window.requestAnimationFrame(tick);
       };
+      const begin = () => {
+        const current = session.current;
+        if (!current || current.started) return;
+        current.started = true;
+        window.clearTimeout(current.pressTimer);
+        setPressed(undefined);
+        document.body.classList.add("tree-dragging");
+        window.getSelection?.()?.removeAllRanges();
+        if (current.touch) navigator.vibrate?.(12);
+        setState({ item: current.item, items: current.items });
+        current.frame = window.requestAnimationFrame(tick);
+        update();
+      };
       const onMove = (move: globalThis.PointerEvent) => {
         const current = session.current;
         if (!current || move.pointerId !== current.pointerId) return;
         current.at = { x: move.clientX, y: move.clientY };
-        if (!current.started) {
-          if (Math.hypot(current.at.x - current.from.x, current.at.y - current.from.y) < THRESHOLD) return;
-          current.started = true;
-          document.body.classList.add("tree-dragging");
-          window.getSelection?.()?.removeAllRanges();
-          setState({ item: current.item, items: current.items });
-          current.frame = window.requestAnimationFrame(tick);
+        const distance = Math.hypot(current.at.x - current.from.x, current.at.y - current.from.y);
+        if (current.touch) {
+          if (distance > TOUCH_SLOP) current.moved = true;
+          // A finger that moves before the record lifts is scrolling (D210).
+          if (!current.started) {
+            if (current.moved) current.end(false);
+            return;
+          }
+        } else if (!current.started) {
+          if (distance < THRESHOLD) return;
+          begin();
         }
         update();
         place();
@@ -283,10 +330,19 @@ export function useTreeDrag({
         const current = session.current;
         if (!current || up.pointerId !== current.pointerId) return;
         current.at = { x: up.clientX, y: up.clientY };
+        if (Math.hypot(current.at.x - current.from.x, current.at.y - current.from.y) > TOUCH_SLOP) current.moved = true;
+        // Lifted by a finger and let go where it was: the tree's node menu, never a move (D213).
+        if (current.touch && current.started && !current.moved) {
+          current.end(false);
+          latest.current.onHeld?.(current.item, current.row);
+          return;
+        }
         update();
         current.end(true);
       };
       const onCancel = () => session.current?.end(false);
+      // The browser's own long press (Android's menu, a text selection) never answers a held row.
+      const onContextMenu = (menu: MouseEvent) => menu.preventDefault();
       const onKey = (key: KeyboardEvent) => {
         if (key.key !== "Escape") return;
         if (session.current?.started) {
@@ -303,7 +359,12 @@ export function useTreeDrag({
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onCancel);
         window.removeEventListener("keydown", onKey, true);
+        window.removeEventListener("contextmenu", onContextMenu, true);
         window.clearTimeout(current.expandTimer);
+        window.clearTimeout(current.holdTimer);
+        window.clearTimeout(current.pressTimer);
+        document.body.classList.remove("tree-touch-press");
+        setPressed(undefined);
         if (current.frame !== undefined) window.cancelAnimationFrame(current.frame);
         if (!current.started) return;
         document.body.classList.remove("tree-dragging", "tree-drag-refused");
@@ -322,9 +383,12 @@ export function useTreeDrag({
         item,
         items,
         pointerId: event.pointerId,
+        touch,
+        row: event.currentTarget,
         from: { x: event.clientX, y: event.clientY },
         at: { x: event.clientX, y: event.clientY },
         started: false,
+        moved: false,
         signature: "",
         end,
       };
@@ -332,6 +396,13 @@ export function useTreeDrag({
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onCancel);
       window.addEventListener("keydown", onKey, true);
+      if (touch) {
+        const current = session.current;
+        document.body.classList.add("tree-touch-press");
+        window.addEventListener("contextmenu", onContextMenu, true);
+        current.pressTimer = window.setTimeout(() => setPressed(item.id), PRESS_DELAY);
+        current.holdTimer = window.setTimeout(begin, HOLD);
+      }
     },
     [place, scroll, update],
   );
@@ -339,7 +410,28 @@ export function useTreeDrag({
   // A tree that unmounts mid-drag ends it without a drop.
   useEffect(() => () => session.current?.end(false), []);
 
-  return { drag: state, startDrag: config ? start : undefined, preview };
+  // Once a finger has lifted a record, it drags instead of scrolling (D211). The listener is there
+  // while the tree can drag, not passive, and on the document: a browser decides whether a touch may
+  // be cancelled when it begins, before the press reaches the tree.
+  const dragging = Boolean(config);
+  useEffect(() => {
+    if (!dragging) return;
+    const onTouchMove = (move: TouchEvent) => {
+      if (session.current?.started && session.current.touch) move.preventDefault();
+    };
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => document.removeEventListener("touchmove", onTouchMove);
+  }, [dragging]);
+
+  return { drag: state, pressed, startDrag: config ? start : undefined, preview };
+}
+
+/** Whether `point` is above `root`'s rows, over what covers `scroller`'s top (`scroll-padding-top`). */
+function overCover(root: HTMLElement, scroller: HTMLElement, point: { x: number; y: number }) {
+  const box = root.getBoundingClientRect();
+  const top = scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top;
+  const covered = parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0;
+  return covered > 0 && point.x >= box.left && point.x <= box.right && point.y < top + covered;
 }
 
 function keyOf(item: HTMLElement) {

@@ -123,8 +123,11 @@ export interface TreeConfiguration {
   describe?: (item: ObjectItem) => string;
   /** Runs first for a key on a record's item; preventing the default skips the tree's handling. */
   onItemKeyDown?: (event: KeyboardEvent<HTMLElement>, item: ObjectItem) => void;
-  /** A right click on a record's row, such as the sidebar's Move to… menu (UA9). */
-  onItemContextMenu?: (event: React.MouseEvent<HTMLElement>, item: ObjectItem) => void;
+  /**
+   * A record's menu beside `anchor`, such as the sidebar's Move to… menu (UA9): opened by a right
+   * click, or by a record held by touch and let go where it was (0.11 U1, D213). True if it opened.
+   */
+  onItemContextMenu?: (item: ObjectItem, anchor: HTMLElement) => boolean;
   /** Moving records by dragging them onto a new parent; without it no row drags. */
   drag?: TreeDragConfiguration;
 }
@@ -163,6 +166,8 @@ interface TreeState {
   /** The drawn records by tree key, which a drag reads its targets from. */
   records: Map<string, ObjectItem>;
   drag?: TreeDragState;
+  /** The record a finger is holding before it lifts (U1). */
+  pressed?: string;
   startDrag?: (event: React.PointerEvent<HTMLElement>, item: ObjectItem) => void;
   /** Whether the record is in the selection (UA9). */
   isSelected: (objectId: string) => boolean;
@@ -486,7 +491,7 @@ export function RecordTree({
     },
     [selected, select, onOpen],
   );
-  const { drag, startDrag, preview } = useTreeDrag({
+  const { drag, pressed, startDrag, preview } = useTreeDrag({
     tree,
     config: config.drag,
     records,
@@ -497,6 +502,7 @@ export function RecordTree({
     // A drag from a selected record moves the whole selection (UA9).
     draggedWith: (item) => (selected.size > 1 && selected.has(item.id) ? selectedItems() : [item]),
     labelOf: config.labelOf,
+    onHeld: (item, row) => config.onItemContextMenu?.(item, row),
   });
 
   const treeItems = useCallback(
@@ -746,6 +752,7 @@ export function RecordTree({
       onOpenCollection,
       records,
       drag,
+      pressed,
       startDrag,
       isSelected: (objectId: string) => selected.has(objectId),
       choose,
@@ -775,6 +782,7 @@ export function RecordTree({
       onOpenCollection,
       records,
       drag,
+      pressed,
       startDrag,
       selected,
       choose,
@@ -1288,10 +1296,15 @@ function TreeNode({
       }}
     >
       <div
-        className={`tree-row${tree.drag?.items.some((dragged) => dragged.id === item.id) ? " dragging" : ""}${dropClass(tree.drag, key)}`}
+        className={`tree-row${tree.drag?.items.some((dragged) => dragged.id === item.id) ? " dragging" : ""}${tree.pressed === item.id ? " pressed" : ""}${dropClass(tree.drag, key)}`}
         style={recordIndent(level)}
         onPointerDown={startDrag && ((event) => startDrag(event, item))}
-        onContextMenu={config.onItemContextMenu && ((event) => config.onItemContextMenu?.(event, item))}
+        onContextMenu={
+          config.onItemContextMenu &&
+          ((event) => {
+            if (config.onItemContextMenu?.(item, event.currentTarget)) event.preventDefault();
+          })
+        }
       >
         {expandable ? (
           <span

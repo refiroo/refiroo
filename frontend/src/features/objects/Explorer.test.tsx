@@ -518,7 +518,7 @@ describe("Explorer", () => {
   });
 
   // UA9 (U-D22, U-D27): the sidebar drags, as the lens does.
-  it("drags a selection onto another parent and moves it in one atomic batch, never from touch", async () => {
+  it("drags a selection onto another parent and moves it in one atomic batch, by touch too (U1)", async () => {
     serve();
     vi.spyOn(api, "parentCandidates").mockResolvedValue({
       items: [
@@ -545,20 +545,23 @@ describe("Explorer", () => {
     target.querySelector(".tree-row")!.getBoundingClientRect = () => ({ ...rect, toJSON: () => rect });
     const pointer = (pointerType = "mouse") => ({ pointerId: 1, pointerType, button: 0 });
 
-    // From touch, nothing drags (D35).
-    fireEvent.pointerDown(first.querySelector(".tree-node")!, { ...pointer("touch"), clientX: 10, clientY: 10 });
-    hit = target.querySelector(".tree-node");
-    fireEvent.pointerMove(window, { ...pointer("touch"), clientX: 200, clientY: 60 });
-    expect(document.querySelector(".tree-drag-preview")).toBeNull();
-    fireEvent.pointerUp(window, { ...pointer("touch"), clientX: 200, clientY: 60 });
-
     fireEvent.click(first.querySelector(".tree-node")!, { metaKey: true });
     fireEvent.click(second.querySelector(".tree-node")!, { metaKey: true });
-    fireEvent.pointerDown(second.querySelector(".tree-node")!, { ...pointer(), clientX: 10, clientY: 10 });
-    fireEvent.pointerMove(window, { ...pointer(), clientX: 200, clientY: 60 });
-    expect(document.querySelector(".tree-drag-preview")).toHaveTextContent("2 records");
-    expect(target.querySelector(".tree-row")).toHaveClass("drop-accepted");
-    fireEvent.pointerUp(window, { ...pointer(), clientX: 200, clientY: 60 });
+    // A touch hold of 500 ms lifts the whole selection (D210, D214).
+    vi.useFakeTimers();
+    try {
+      fireEvent.pointerDown(second.querySelector(".tree-node")!, { ...pointer("touch"), clientX: 10, clientY: 10 });
+      act(() => vi.advanceTimersByTime(500));
+      hit = target.querySelector(".tree-node");
+      fireEvent.pointerMove(window, { ...pointer("touch"), clientX: 200, clientY: 60 });
+      expect(document.querySelector(".tree-drag-preview")).toHaveTextContent("2 records");
+      expect(target.querySelector(".tree-row")).toHaveClass("drop-accepted");
+      fireEvent.pointerUp(window, { ...pointer("touch"), clientX: 200, clientY: 60 });
+      // The click a release would make is swallowed until the next task.
+      act(() => vi.advanceTimersByTime(10));
+    } finally {
+      vi.useRealTimers();
+    }
     Reflect.deleteProperty(document, "elementFromPoint");
 
     const dialog = await screen.findByRole("dialog", { name: "Move 2 records" });
@@ -576,6 +579,28 @@ describe("Explorer", () => {
       }),
     );
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  // U1 (D213): a record held by touch and let go where it was opens the node menu, as a right click.
+  it("opens the node menu when a record held by touch is let go without moving", async () => {
+    serve();
+    const onOpen = vi.fn();
+    render(explorer({ onOpen }));
+    toggle(await item("Connections"));
+    const first = await item("Timetable types");
+    vi.useFakeTimers();
+    try {
+      const pointer = { pointerId: 1, pointerType: "touch", button: 0 };
+      fireEvent.pointerDown(first.querySelector(".tree-node")!, { ...pointer, clientX: 10, clientY: 10 });
+      act(() => vi.advanceTimersByTime(500));
+      fireEvent.pointerUp(window, { ...pointer, clientX: 13, clientY: 12 });
+      fireEvent.click(first.querySelector(".tree-node")!);
+    } finally {
+      vi.useRealTimers();
+    }
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: "Move to…" })).toBeInTheDocument();
+    expect(onOpen).not.toHaveBeenCalled();
   });
 
   it("starts no drag in a publication, and offers Move to… from the record's menu (U-D28)", async () => {

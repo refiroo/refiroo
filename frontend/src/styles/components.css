@@ -3534,6 +3534,18 @@ form .admin-hint {
 /* Dragging in the tree lens (Base 0.8 B5): the dragged row dims in place and the target glows,
    green where it accepts and red where it refuses, with the reason as text beside the pointer. */
 /* Dimmed by colour, not opacity, so its text keeps its contrast. */
+/* A row a finger holds before it lifts (0.11 U1, D210). */
+.tree-row.pressed {
+  border-radius: var(--radius-control);
+  background: var(--surface-hover);
+}
+/* While a finger holds a row, the browser's long press selects no text and shows no callout. */
+body.tree-touch-press,
+body.tree-touch-press * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 .tree-row.dragging {
   border-radius: var(--radius-control);
   background: var(--surface-sunken);

@@ -24,6 +24,12 @@
   box-shadow: var(--shadow-md);
 }
 
+/* The sticky top bar covers the page's top: scrolling into view and a drag's edge band start below
+   it (0.11 U1). */
+html {
+  scroll-padding-top: var(--topbar-height);
+}
+
 /* Top bar (ADR-039, one for every area: `app/TopBar`): the product mark, the applications as tabs,
    then Settings and the account at the right. White, separated from the content by a rule. */
 .global-header {

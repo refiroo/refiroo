@@ -6,6 +6,23 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 U1, touch drag in the record tree)
+
+- On a touch screen a record in a tree view or the sidebar is dragged by holding it still for half a
+  second (D210): moving first scrolls, a short tap opens the record. Once lifted, the finger drags
+  instead of scrolling, the list scrolls at its top and bottom edge (56 px for a finger, D211), and
+  the preview sits above the finger, inside the screen (D212). Let go where it was lifted, nothing
+  opens; in the sidebar the node menu (Move to…) opens, also on iPhones, which had no way to open it
+  (D213). Never in a publication or a read-only tree (D214).
+- `test:browser:touch-u1`: Chromium with Pixel 7 emulation and real touch input, WebKit with iPhone 15
+  emulation (D215).
+
+### Fixed (found in 0.11 U1)
+
+- The drag's edge scroll at desktop widths started its top band under the sticky top bar, so a drag
+  upwards could not scroll the page; the band now starts below the bar (`scroll-padding-top`).
+- `OperationsPage.tsx` failed lint (`preserve-manual-memoization`).
+
 ### Changed (0.11 Q3, attribute sorts over very large parents)
 
 - A change set's list sorted by an attribute reads in value order, as live and publication lists do:

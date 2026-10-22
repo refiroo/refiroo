@@ -93,10 +93,11 @@ function useOperations() {
       current.current += 1;
     };
   }, [refresh]);
+  const more = data?.moreRehearsals;
   const loadMore = useCallback(async () => {
-    if (!data?.moreRehearsals) return;
+    if (!more) return;
     try {
-      const page = await api.backupRehearsals(data.moreRehearsals);
+      const page = await api.backupRehearsals(more);
       setData((previous) =>
         previous && {
           ...previous,
@@ -107,7 +108,7 @@ function useOperations() {
     } catch (cause) {
       setError(errorMessage(cause));
     }
-  }, [data?.moreRehearsals]);
+  }, [more]);
   return { data, error, loading, refresh, loadMore };
 }
 

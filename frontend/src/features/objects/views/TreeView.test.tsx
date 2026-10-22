@@ -822,19 +822,114 @@ describe("TreeView dragging", () => {
     expect(candidates).not.toHaveBeenCalled();
   });
 
-  it("starts no drag from a touch pointer, in a read-only context or in a publication", async () => {
+  // Touch (0.11 U1, D210–D213): a hold of 500 ms lifts the record; moving first is a scroll.
+  const hold = (node: HTMLElement) => {
+    press(node, "touch");
+    act(() => vi.advanceTimersByTime(500));
+  };
+  const touchMoveCancelled = (node: HTMLElement) => {
+    const event = new Event("touchmove", { cancelable: true, bubbles: true });
+    node.querySelector(".tree-node")!.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+
+  it("lifts a record held by touch and drops it onto a node through the move dialog", async () => {
     serve();
-    const { unmount } = render(lens());
+    vi.spyOn(api, "parentCandidates").mockResolvedValue(candidatePage(finance));
+    const update = vi.spyOn(api, "updateObject").mockResolvedValue({ ...timetables, parentObjectId: finance.id });
+    vi.spyOn(api, "object").mockResolvedValue({ ...timetables, path: [...finance.path, timetables.path[1]] });
+    render(lens());
     toggle(await item(/^Connections/));
     const node = await item(/^Timetable types/);
-    const finances = screen.getByRole("treeitem", { name: /^Finance/ });
-    press(node, "touch");
-    moveOver(finances, "touch");
-    expect(preview()).toBeNull();
-    release("touch");
-    unmount();
+    const target = screen.getByRole("treeitem", { name: /^Finance/ });
 
+    vi.useFakeTimers();
+    try {
+      press(node, "touch");
+      act(() => vi.advanceTimersByTime(300));
+      expect(preview()).toBeNull();
+      act(() => vi.advanceTimersByTime(200));
+      // Lifted: the preview shows at once, and the finger no longer scrolls the page.
+      expect(preview()).not.toBeNull();
+      expect(row(node)).toHaveClass("dragging");
+      expect(touchMoveCancelled(node)).toBe(true);
+      moveOver(target, "touch");
+      expect(row(target)).toHaveClass("drop-accepted");
+      release("touch");
+      act(() => vi.advanceTimersByTime(10));
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(touchMoveCancelled(node)).toBe(false);
+    const dialog = await screen.findByRole("dialog", { name: "Move Timetable types" });
+    expect(await within(dialog).findByRole("radio", { name: /Finance/ })).toBeChecked();
+    await act(async () =>
+      fireEvent.submit(within(dialog).getByRole("button", { name: "Move to Finance" }).closest("form")!),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(update).toHaveBeenCalledWith("codelist", timetables.id, {
+      expectedVersion: 1,
+      parentObjectId: finance.id,
+    });
+  });
+
+  it("leaves a touch that moves before the hold, or that the browser cancels, to scroll", async () => {
+    serve();
+    const onOpen = vi.fn();
+    render(lens({ onOpen }));
+    toggle(await item(/^Connections/));
+    const node = await item(/^Timetable types/);
+    vi.useFakeTimers();
+    try {
+      press(node, "touch");
+      act(() => vi.advanceTimersByTime(100));
+      fireEvent.pointerMove(window, { ...pointer("touch"), clientX: 10, clientY: 30 });
+      expect(touchMoveCancelled(node)).toBe(false);
+      act(() => vi.advanceTimersByTime(600));
+      expect(preview()).toBeNull();
+      release("touch");
+
+      press(node, "touch");
+      fireEvent.pointerCancel(window, pointer("touch"));
+      act(() => vi.advanceTimersByTime(600));
+      expect(preview()).toBeNull();
+      expect(row(node)).not.toHaveClass("dragging");
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("opens a record on a short tap, and nothing when a held record is let go where it was", async () => {
+    serve();
+    const onOpen = vi.fn();
+    render(lens({ onOpen }));
+    toggle(await item(/^Connections/));
+    const node = await item(/^Timetable types/);
+    vi.useFakeTimers();
+    try {
+      hold(node);
+      expect(preview()).not.toBeNull();
+      fireEvent.pointerUp(window, { ...pointer("touch"), clientX: 12, clientY: 11 });
+      fireEvent.click(node.querySelector(".tree-node")!);
+      expect(preview()).toBeNull();
+      expect(onOpen).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(10));
+
+      press(node, "touch");
+      act(() => vi.advanceTimersByTime(200));
+      release("touch");
+      fireEvent.click(node.querySelector(".tree-node")!);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("starts no drag in a read-only context or in a publication, by mouse or by a touch hold", async () => {
     for (const context of ["readOnly", "publication"] as const) {
+      serve();
       if (context === "publication")
         vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
           api,
@@ -847,6 +942,15 @@ describe("TreeView dragging", () => {
       moveOver(screen.getByRole("treeitem", { name: /^Connections/ }));
       expect(preview(), context).toBeNull();
       release();
+      vi.useFakeTimers();
+      try {
+        hold(domain);
+        expect(preview(), context).toBeNull();
+        expect(touchMoveCancelled(domain)).toBe(false);
+        release("touch");
+      } finally {
+        vi.useRealTimers();
+      }
       view.unmount();
     }
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

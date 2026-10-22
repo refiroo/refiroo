@@ -412,7 +412,7 @@ change) and `volume` (every budget).
 | 23 | [Q3](#q3-precomputed-sort-keys) | Q2 | **Delivered 2026-10-22.** An attribute sort reads in value order in every context (a change set's base and own rows merged), ties by record ID, totals without values; at full volume a change set's first page 168 → 14 ms; a deep position in a change set still over budget (124 ms), stored keys in TODO; ancestor sorts within budget, nothing built |
 | 24 | [O1](#o1-metrics-logs-health-and-readiness) | N1 | **Delivered 2026-10-21.** `/health/live`; readiness per workspace and per process from each process's heartbeat row; `/metrics` for the whole instance in one scrape; JSON logs and one request ID |
 | 25 | [O2](#o2-backup-restore-and-the-operations-page) | O1, M6 | **Delivered 2026-10-22, screenshots approved.** A restored backup checked with `app.cli.restore_check` and recorded in the instance; rehearsed on the development database, six workspaces on three models; Settings › Operations (U7) |
-| 26 | [U1](#u1-touch-drag-in-the-tree-lens) | — | Long-press drag in the tree lens on phones (0.8 D35) |
+| 26 | [U1](#u1-touch-drag-in-the-tree-lens) | — | **Delivered 2026-10-22** (screenshots and the real-phone try wait for the user). A hold of half a second lifts a record in the lens and the sidebar; a swipe scrolls, a tap opens; checked on Chromium/Pixel 7 with real touch input and WebKit/iPhone 15 |
 | | **Part 3 — first public release** | | |
 | 27 | [L1](#l1-licensing-and-policies) | — | Licensing checklist, contribution and security policies |
 | 28 | [L2](#l2-the-compatibility-commitment) | V4 | The compatibility commitment, the supported schema versions and their dates, the doors kept open |
@@ -5287,6 +5287,188 @@ Below the cut line.
 **Scope:** long-press drag that does not conflict with scrolling or with opening a record, confirmed
 in the same move dialog as with a mouse (0.8 D35), tested on iOS Safari and Android Chrome
 emulation.
+
+##### U1 plan (2026-10-22)
+
+**Planned 2026-10-22. D210–D215 as recommended, the test cases and the mock-up accepted by the
+user the same day ("go ahead")** ([interactive mock-up](https://claude.ai/artifact/1ujNA98jBoMSGGDgTusajV), to be tried on
+a phone). Checked against the code at `7f6c7ec` by reading it.
+
+**What was found:**
+
+- **One gesture serves both trees.** `features/objects/useTreeDrag.ts` (0.8 B5, UA9) is the drag of
+  `RecordTree`, which the tree lens (`TreeView`) and the sidebar (`Explorer`) both configure with a
+  `drag`; it returns at once for `pointerType === "touch"` (D35). Targets, the rule
+  (`model/treeDrop.ts`), several records dragged together, the hover that opens a branch and the
+  edge scroll are pointer-type neutral and need no change.
+- **What a finger needs that a mouse does not:** a start that is not a scroll (a mouse starts after
+  5 px; a finger moving 5 px is a scroll); the browser's own scroll stopped once the record is
+  lifted (pointer events alone cannot: the browser takes the touch and sends `pointercancel`, so a
+  non-passive `touchmove` listener has to cancel it); the browser's long-press reactions kept off
+  the row (Android opens its menu with `contextmenu` and selects text; iOS shows its callout); and a
+  preview the finger does not cover (today it sits below and right of the pointer).
+- **The edge scroll misses a phone's top edge.** `scrollAtEdge` measures the document scroller from
+  the window's top, which at 390px is under the sticky top bar; `scroll()` then finds no tree under
+  the point and scrolls nothing, so a drag upwards cannot reach rows above the screen.
+- **The sidebar's node menu is mouse and keyboard only** (right click, Shift+F10). Android's long
+  press fires `contextmenu` and opens it today; iOS Safari fires nothing, so an iPhone cannot open
+  it. Once a hold lifts the record, Android's `contextmenu` must be cancelled too.
+- **Two Vitest cases assert "no drag from touch"** (`views/TreeView.test`, `Explorer.test`); this
+  package makes them wrong, so they are replaced.
+- **WebKit is not installed for Playwright** (only Chromium in `~/Library/Caches/ms-playwright`);
+  Playwright offers no touch drag in WebKit (only `touchscreen.tap`). Chromium has real touch input
+  through CDP (`Input.dispatchTouchEvent`), where the browser's own scrolling decides as on a phone.
+
+**What is built:**
+
+1. **The hold (D210)** in `useTreeDrag`: a touch press arms a 500 ms timer; moving more than 8 px
+   before it fires, or the browser's `pointercancel` (it started scrolling), ends it with nothing
+   started, so a swipe scrolls. Released earlier, it is the tap, which opens the record as today.
+   The row shows a pressed fill after 90 ms; at 500 ms the drag starts exactly as a mouse drag
+   does, with `navigator.vibrate(12)` where the browser has it. Mouse and pen keep the 5 px start.
+2. **Scrolling once lifted (D211):** while a touch drag runs, a non-passive `touchmove` listener on
+   `window` cancels the browser's scroll; the existing edge scroll moves the tree. For every
+   pointer, the edge band is measured from the visible part of the scroller (below a sticky top
+   bar, above the window's bottom), and for touch it is 56 px instead of 40. A point in the band
+   over the top bar still scrolls the tree.
+3. **The preview above the finger (D212):** for touch, the preview is drawn 72 px above the touch
+   point and starts 40 px left of it, kept on screen; mouse unchanged. Same classes, tokens, green,
+   red and reason text.
+4. **Letting go (D213):** an accepted target opens the dialog as today; a refused target, outside
+   the tree or the starting place writes nothing. Lifted and released within 8 px of the press: no
+   record opens (the click after it is swallowed, as after a mouse drag), and the tree's
+   `onItemContextMenu` is called where the tree has one, so the sidebar opens its node menu (Move
+   to… for the record or the selection). The row's own `contextmenu` from a touch is cancelled
+   while a press is held; tree rows get `-webkit-touch-callout: none` and `user-select: none`.
+5. **Where (D214):** both trees, through the one hook; never in a publication or a read-only
+   context (the tree has no `drag`), where a hold does nothing and the list scrolls.
+6. **Tests and runner (D215):** the Vitest cases below; `test:browser:touch-u1` (new, listed in the
+   execution guide) runs on Chromium with Pixel 7 emulation and real CDP touch input, and on
+   WebKit with iPhone 15 emulation, where the press, moves and release are dispatched as touch
+   pointer and `touchmove` events in the page (WebKit is installed once with `npx playwright
+   install webkit`). Screenshots at 390px light and dark: a hold lifted, an accepted target, a
+   refused target, the sidebar's menu after a hold.
+7. **Documents:** USER_JOURNEYS (the tree move journey's touch variant), CURRENT_FUNCTIONALITY and
+   PRODUCT (touch drag), UI_ACCEPTANCE's state row for the tree drag (touch states), SETTINGS_AND_UI
+   (UA9's "never from touch" amended), 0.8's D35 marked delivered here, CHANGELOG, PROJECT_STATUS,
+   TODO.
+
+**Composable domains (ADR-032):** no door affected (frontend gesture only, no API, identity,
+storage, audit, bulk, `match` or coverage change).
+
+**Decisions:**
+
+| # | Question | Recommendation | Blocks |
+| --- | --- | --- | --- |
+| D210 | How a finger starts a drag | **Recommended:** hold 500 ms within 8 px; moving further first is a scroll; a shorter tap opens the record; a pressed fill at 90 ms and a short vibration where the browser has one when it lifts. Why: 500 ms is about the phones' own long press, so it feels native and is long enough that a slow scroll never lifts; 8 px is the usual touch slop. Cost: a drag starts half a second later than with a mouse; iPhones get no buzz (Safari has no vibration API), the lift is shown by the preview alone | U1 |
+| D211 | Scrolling during a touch drag | **Recommended:** once lifted, the finger never scrolls the page; the edge band (56 px for a finger) scrolls the tree, measured from its visible part below the top bar, and that measurement fixed for the mouse too. Why: a list that moves under a dragging finger makes targets jump; the edge band is how the mouse drag already reaches far rows, and the top-bar fix is needed for a drag upwards to work at all at 390px. Cost: a far target means resting at the edge; Move to…'s search stays the quicker path there, as with a mouse | U1 |
+| D212 | Where the preview sits for a finger | **Recommended:** 72 px above the finger, starting 40 px to its left, kept on screen. Why: below the finger it is hidden by the hand, with the refusal reason that must not be shown by colour alone (WCAG 1.4.1). Cost: none; the mouse keeps today's place | U1 |
+| D213 | Releasing a lifted record without moving it | **Recommended:** nothing opens; where the tree has a node menu on right click (the sidebar), that menu opens. Why: opening the record after a deliberate hold would surprise, and the sidebar's menu is today unreachable on an iPhone, while Android already opens it by long press; this keeps Android's behaviour and gives it to iOS. The lens keeps its ⋯ button. Cost: the lens and sidebar differ only in whether a menu exists, which is already true for right click | U1 |
+| D214 | Which trees take touch drags | **Recommended:** the lens and the sidebar, as UA9 made them drag alike (U-D22); never a publication or a read-only tree. Why: one hook, one rule; a sidebar that drags by mouse but not by finger would be a difference by pointer, not by tree. Cost: the sidebar drawer at 390px gets a gesture it did not have, so it is exercised in the runner too | U1 |
+| D215 | How "iOS Safari and Android Chrome emulation" is tested | **Recommended:** Chromium with Pixel 7 emulation and real touch input over CDP, where the browser's own scrolling competes as on a phone; WebKit with iPhone 15 emulation and touch events dispatched in the page, which checks the engine's handling but not Safari's own decision between scroll and drag; WebKit installed for Playwright for this (a one-time download into the Playwright cache). Then you try the mock-up, and the built page through the dev server on your network (`npm run dev -- --host`), on your own phones before approving the screenshots. Why: no emulation reproduces iOS Safari's gesture arbitration, which is why 0.8 deferred D35; a real-device try is the only evidence of that. Cost: a WebKit download; the real-device try is yours, and I report it as unverified until you do it | U1 |
+
+**Test cases** (frontend only; no backend journey test, since no API changes. Written first, each
+fails today):
+
+- Vitest, `views/TreeView.test` (replacing "starts no drag from a touch pointer…"):
+  1. Given a writable lens, when a record is pressed by touch, held 500 ms and moved onto another
+     group and released, then the move dialog opens with that group chosen, and Move sends the
+     request a mouse drop sends.
+  2. When a touch press moves 20 px within 300 ms, then no drag starts, the move continues as a
+     scroll (no `touchmove` cancelled), and release opens nothing; a `pointercancel` during the hold
+     does the same.
+  3. When a touch press is released at 200 ms, then the record opens; when held 500 ms and released
+     without moving, then nothing opens and no dialog shows.
+  4. In a publication and in a read-only context, a 500 ms touch hold starts no drag.
+- Vitest, `Explorer.test` (replacing "…never from touch"): 5. a selection held by touch and dropped
+  onto another parent moves in one atomic batch; 6. a hold released without moving opens the node
+  menu with Move to….
+- Unit, `lib/edgeScroll`: 7. a point in the band over a sticky top bar scrolls the document
+  scroller up; the touch band is 56 px.
+- Browser, `test:browser:touch-u1`, real backend, two trees (the starter system hierarchy live and
+  the domain hierarchy in a change set), 390px, Chromium/Pixel 7 and WebKit/iPhone 15: a swipe
+  scrolls and lifts nothing; a tap opens; a hold onto a collapsed group opens it under the finger
+  and the drop is confirmed in the dialog, checked against the API; a hold into a gap in the change
+  set leaves live unchanged; a hold over the record's own descendant glows red with **Inside the
+  record** and writes nothing; dragging to the bottom edge scrolls the tree and reaches a row out of
+  view; in the sidebar drawer a hold released without moving opens the node menu; axe on the
+  refused drag.
+
+**Checks planned:** the Vitest files above (`src/features/objects`, `src/lib`, `src/model`), the
+new runner, `test:browser:b3` and `test:browser:ua9` (the mouse drag they share, regression only),
+`npm run format`, `lint`, `build`. Not planned: backend tests (no backend change), the full Vitest
+suite, `test:a11y` and `test:visual` (R's; the touch drag's states are mouse-drag classes already in
+the baselines).
+
+##### U1 record (2026-10-22)
+
+**Delivered 2026-10-22.** As planned, D210–D215 as accepted. **Screenshots wait for the user's
+approval, and the real-phone try (D215) for the user**: until then iOS Safari's and Android
+Chrome's own choice between scrolling and dragging is unverified on a device.
+
+**What was built:**
+
+- **The hold** (`features/objects/useTreeDrag.ts`): a touch press arms 500 ms; moving more than
+  8 px first, or the browser's `pointercancel`, ends it with nothing started. The row shows
+  `.pressed` after 90 ms; at 500 ms the drag starts as a mouse drag does, with
+  `navigator.vibrate(12)` where it exists. While a finger holds a row, `body.tree-touch-press`
+  turns off text selection and the iOS callout, and the row's `contextmenu` is cancelled.
+- **Once lifted**, a non-passive `touchmove` listener cancels the browser's scroll. It sits on the
+  document for as long as a tree can drag (D211's "from the start"), not on the tree: reading the
+  tree's ref in an effect made the React Compiler give up memoising the hook's callbacks (lint
+  `preserve-manual-memoization`). The edge band is 56 px for a finger.
+- **The preview** sits 72 px above the finger, 40 px to its left, and stays inside the screen on
+  every side (the right edge was missed at first; the screenshots showed it cut off).
+- **Letting go where it was lifted** opens nothing; `RecordTree` hands the record and its row to
+  the tree's `onItemContextMenu`, now `(item, anchor) => boolean` (the right click uses it too), so
+  the sidebar opens its node menu.
+- **The covered top edge** (`lib/edgeScroll.ts`): `scrollAtEdge` starts its band below the
+  scroller's `scroll-padding-top`, which `html` declares as the sticky top bar's height above
+  760px. A pointer off the tree scrolls only when it is over that cover above the tree; otherwise
+  off the tree nothing scrolls, as before.
+- **Runner** `test:browser:touch-u1` (EXECUTION_GUIDE): Chromium/Pixel 7 with CDP touch input and
+  WebKit/iPhone 15 with touches dispatched in the page, at 390px, each engine on records of its
+  own.
+
+**Where it differs from the plan:**
+
+- **The phone's top edge was never covered.** The plan found that the sticky top bar covers the
+  band at 390px; at 760px and below the bar is `position: static` and scrolls with the page. The
+  cover is real at desktop widths, where the lens scrolls with the page under a sticky bar, so the
+  fix is kept for the mouse there (declared through `scroll-padding-top`, set to 0 at ≤760px). A
+  drag upwards over the desktop top bar is checked by the unit test only.
+- **Found on the way and fixed:** the first version let the edge scroll run whenever the pointer was
+  off the tree. In `test:browser:b3` a full-page screenshot taken mid-drag then scrolled the page
+  one step and lost the gap target (twice in two runs); the fallback is now limited to the cover.
+- **WebKit for Playwright:** `npx playwright install webkit` hung twice while unpacking (Playwright
+  1.56 under Node 26, after the first file); the downloaded zip was checked and unpacked by hand into
+  `~/Library/Caches/ms-playwright/webkit-2215` with the installation markers. WebKit 26.0 launches.
+- **Outside the package:** `OperationsPage.tsx` (O2) failed lint with one
+  `preserve-manual-memoization` error; its `loadMore` now depends on the cursor value, so lint
+  reports 0 errors.
+
+**Checks:**
+
+- Vitest `src/features/objects`, `src/features/settings`, `src/lib`, `src/model`: 45 files, 374
+  tests; new or replaced: `views/TreeView.test` (4 touch cases replacing "no drag from touch"),
+  `Explorer.test` (the touch drag of a selection, the menu after a hold), `lib/edgeScroll.test` (3).
+  Confirmed failing before the change: 4 of the 6 component cases (the swipe and read-only cases
+  already held). `npm run format` on the changed files, `lint` (0 errors, the 8 recorded warnings),
+  `build`.
+- `test:browser:touch-u1`: 14 checks, 7 per engine, passing (41 s). On WebKit the swipe's
+  scroll is the runner's own `scrollBy` for a touch the page did not cancel; what is checked there is
+  that nothing lifted and the `touchmove` was left alone. Axe on the refused drag: 0 violations on
+  both. Screenshots at 390px: lifted, accepted, refused (light and dark), the sidebar's menu.
+- `test:browser:b3` (30 checks, passing after the fix above) and `test:browser:ua9` (8, passing):
+  the mouse drag they share.
+- **Inspected:** the ten screenshots; the preview above the finger, green, red with its reason in
+  both themes, the menu below the held row.
+- **Not run:** backend tests (no backend change), the full Vitest suite, `test:a11y` and
+  `test:visual` (R's).
+
+**What the user still cannot do:** nothing in U1's scope. Whether the hold feels right on a real
+iPhone and Android phone is for the user to try (D215), through the mock-up and through the dev
+server on the network (`npm run dev -- --host`).
 
 ## Part 3 — First public release
 

@@ -711,6 +711,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     and `GET /api/v1/system/summary`, Settings › Operations, `scripts/postgres.sh rehearse`, the
     rehearsal on the development database recorded in OPERATIONS. Screenshots approved by the user
     (2026-10-22).
+  - [x] U1 delivered 2026-10-22 (D210–D215): touch drag in the lens and the sidebar, a hold of half
+    a second; `test:browser:touch-u1` on Chromium/Pixel 7 and WebKit/iPhone 15. Screenshots and the
+    user's real-phone try wait for the user.
   - [x] **Found in N2 (2026-10-19), done in N3 (D182):** a process frozen (or cut off) while its transaction
     holds a database lock keeps that lock until it resumes or its connection ends; the lease does not
     end it, and every write waiting for the lock waits too (J24.3's case shows it: B's chunk waits

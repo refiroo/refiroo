@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { TreeMoveDialog } from "@/features/objects/TreeMoveDialog";
 import { useTreeMoves } from "@/features/objects/useTreeMoves";
@@ -92,9 +92,7 @@ export function Explorer({
       if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
       if (openMenu(item, event.currentTarget.querySelector<HTMLElement>(".tree-row"))) event.preventDefault();
     },
-    onItemContextMenu: (event: MouseEvent<HTMLElement>, item: ObjectItem) => {
-      if (openMenu(item, event.currentTarget)) event.preventDefault();
-    },
+    onItemContextMenu: openMenu,
     drag: writable
       ? {
           canDrag: (item: ObjectItem) => movable(item.objectTypeKey),

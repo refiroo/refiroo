@@ -51,6 +51,10 @@
   .column-resizers {
     display: none;
   }
+  /* The top bar scrolls with the page here, so it covers nothing. */
+  html {
+    scroll-padding-top: 0;
+  }
   /* Two rows: the mark, then Settings with the account; then the applications, scrolling. */
   .global-header {
     position: static;

@@ -274,7 +274,11 @@ where the model allows it. A preview shows every record's new type, values and o
 place (kept in history) and the values still needed. Records keep their IDs and history; live data
 changes type only when the change set is published.
 
-Limits: touch drag is 0.11.
+On a touch screen a record is dragged by holding it still for half a second until it lifts; moving
+the finger first scrolls, and a short tap opens the record. Once lifted, the finger drags instead of
+scrolling, the list scrolls when the finger rests near its top or bottom edge, and the preview sits
+above the finger. Let go where it was lifted, the record opens nothing; in the sidebar its menu
+(**Move to…**) opens. Touch drags work in the sidebar as in a tree view, never in a publication.
 
 Evidence: [tree lens](../../frontend/src/features/objects/TreeView.tsx),
 [record tree](../../frontend/src/features/objects/RecordTree.tsx),
