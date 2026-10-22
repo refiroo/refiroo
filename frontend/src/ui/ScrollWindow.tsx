@@ -235,9 +235,11 @@ export function ScrollWindow<T>({
   const firstRow = virtualRows[0];
   const lastRow = virtualRows.at(-1);
   // A viewport with no height (hidden, or not laid out) has no range to draw: it draws the rows
-  // held, as a list drawn whole would.
+  // held, as a list drawn whole would. So does one whose range came out empty while it holds rows: a
+  // list as tall as its rows (a dialog's) otherwise stays empty, no row giving it the height a row
+  // needs (0.11 R, c5: the type change dialog's records).
   const drawn: DrawnRange<T> =
-    screen > 0
+    screen > 0 && (virtualRows.length > 0 || count === 0)
       ? {
           rows: virtualRows.map((row) => ({ index: row.index, item: list.itemAt(row.index), size: row.size })),
           before: firstRow ? Math.max(0, firstRow.start - margin) : 0,

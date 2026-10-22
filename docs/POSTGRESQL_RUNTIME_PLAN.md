@@ -31,7 +31,7 @@ start it with `brew services` (PG-D8). Not installed on 2026-10-01.
   and a few code paths have a PostgreSQL branch (relation-set upsert, cascade deletion, release
   compatibility), but no test runs them and the migration history has never been applied to it.
 - **It is planned anyway.** PostgreSQL deployment is in
-  [0.11](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout). This
+  [0.11](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout-complete). This
   release brings forward the runtime only. Multi-node, metrics, backup rehearsal and
   production-scale performance stay in 0.11.
 
@@ -681,4 +681,4 @@ checks on non-text values. Precomputed sort keys (D26). Database constraints as 
 behind the workspace lock (a database lock, so it holds across nodes), for writes that bypass the
 write unit, decided on evidence. Metrics, structured logging, readiness, and backup/restore
 rehearsal with `pg_dump`. See
-[ROADMAP 0.11](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout).
+[ROADMAP 0.11](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout-complete).

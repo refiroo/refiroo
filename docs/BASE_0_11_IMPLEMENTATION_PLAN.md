@@ -11,9 +11,9 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19); Q1 (2026-10-20); N3, Q2 and O1 (2026-10-21); O2 and Q3 (2026-10-22).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19); Q1 (2026-10-20); N3, Q2 and O1 (2026-10-21); O2, Q3 and U1 (2026-10-22). L1 and L2 moved to 0.12 (2026-10-22). **R done (2026-10-22): 0.11.0 ready to release.**
 
-**Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
+**Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout-complete),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
 
 **Depends on:** Product 0.10.0, released 2026-10-15 (tag `v0.10.0`), in particular:
@@ -45,7 +45,7 @@ wherever the models are compatible, through a mapping the engine proposes and th
 completes. The engine then runs safely with several processes and nodes on one database, at full
 volume, observed and backed up. Authentication and authorization follow in 0.12.
 
-Exit gate: the [roadmap's 0.11 exit gate](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout) in full.
+Exit gate: the [roadmap's 0.11 exit gate](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout-complete) in full.
 
 ## The user's requirements (2026-10-15)
 
@@ -169,7 +169,7 @@ Checked against the code at `e2cce78`:
 | 12 | Metrics, structured logging, health and readiness | O1 |
 | 13 | Backup and restore rehearsal; the Operations page (U7) | O2 |
 | 14 | Touch drag in the tree lens (0.8 D35) | U1 |
-| 15 | Licensing, contribution and security policies; the compatibility commitment; supported schema versions published | L1, L2 |
+| 15 | Licensing, contribution and security policies; the compatibility commitment; supported schema versions published | Moved to 0.12 (2026-10-22) |
 
 ## Tracks overview
 
@@ -298,10 +298,11 @@ volume. **Track Q — PostgreSQL at full volume:** the fixture, pool sizing, bul
 model-derived indexes, sort keys. **Track O — operability:** metrics, logs, health and readiness,
 backup and restore, the Operations page. **U1 — touch drag.**
 
-### Part 3 — First public release
+### Part 3 — Release
 
-**Track L:** licensing, contribution and security policies (L1), the compatibility commitment with
-the supported schema versions and their dates (L2). **R:** build acceptance and release.
+**R:** build acceptance and release. Track L (licensing and policies, the compatibility commitment)
+moved to [0.12](BASE_0_12_IMPLEMENTATION_PLAN.md) on 2026-10-22, which becomes the first public
+release.
 
 ### Why the workspace models come first
 
@@ -413,9 +414,9 @@ change) and `volume` (every budget).
 | 24 | [O1](#o1-metrics-logs-health-and-readiness) | N1 | **Delivered 2026-10-21.** `/health/live`; readiness per workspace and per process from each process's heartbeat row; `/metrics` for the whole instance in one scrape; JSON logs and one request ID |
 | 25 | [O2](#o2-backup-restore-and-the-operations-page) | O1, M6 | **Delivered 2026-10-22, screenshots approved.** A restored backup checked with `app.cli.restore_check` and recorded in the instance; rehearsed on the development database, six workspaces on three models; Settings › Operations (U7) |
 | 26 | [U1](#u1-touch-drag-in-the-tree-lens) | — | **Delivered 2026-10-22** (screenshots and the real-phone try wait for the user). A hold of half a second lifts a record in the lens and the sidebar; a swipe scrolls, a tap opens; checked on Chromium/Pixel 7 with real touch input and WebKit/iPhone 15 |
-| | **Part 3 — first public release** | | |
-| 27 | [L1](#l1-licensing-and-policies) | — | Licensing checklist, contribution and security policies |
-| 28 | [L2](#l2-the-compatibility-commitment) | V4 | The compatibility commitment, the supported schema versions and their dates, the doors kept open |
+| | **Part 3 — release** | | |
+| 27 | L1 | — | **Moved to [0.12](BASE_0_12_IMPLEMENTATION_PLAN.md) (2026-10-22).** Licensing checklist, contribution and security policies |
+| 28 | L2 | V4 | **Moved to [0.12](BASE_0_12_IMPLEMENTATION_PLAN.md) (2026-10-22).** The compatibility commitment, the supported schema versions and their dates, the doors kept open |
 | 29 | [R](#r-build-acceptance-and-release) | all above the cut | Build acceptance and release |
 
 ## Sequence and dependencies
@@ -434,12 +435,11 @@ Part 2
  Volume:        Q1 ─ Q2 (needs M2) ── cut line (D13) ── Q3
  Operations:    N1 ─ O1 ─ O2 (needs M6)
  Touch:         U1 (independent; filler)
-Part 3:         L1 (independent; filler) · V4 ─ L2
 Release:        everything above the cut line → R
 ```
 
 Part 1 runs in the order shown. V1 may start after M2, but is queued after M6 so the workspace
-models are accepted together first. Q1, U1 and L1 need nothing from Part 1 and may be taken as
+models are accepted together first. Q1, U1 and L1 (since moved to 0.12) needed nothing from Part 1 and may be taken as
 fillers while a Part 1 package waits for screenshot approval, as A3 was in 0.10.
 
 ## P0: Design pass
@@ -5470,21 +5470,14 @@ Chrome's own choice between scrolling and dragging is unverified on a device.
 iPhone and Android phone is for the user to try (D215), through the mock-up and through the dev
 server on the network (`npm run dev -- --host`).
 
-## Part 3 — First public release
+## Part 3 — Moved to 0.12
 
-#### L1: Licensing and policies
-
-**Scope:** the release licensing checklist in [LICENSING_TODO.md](LICENSING_TODO.md); contribution
-and security policies.
-
-#### L2: The compatibility commitment
-
-**Needs:** V4.
-
-**Scope:** the compatibility commitment for the public contracts; the supported schema versions and
-their migration and removal dates published; the [composable domains doors](COMPOSABLE_DOMAINS.md#doors-to-keep-open)
-checked against it (a retired-ID redirect, a value source, derived read-only values and a new value
-type each addable without a breaking change).
+**L1 and L2 moved to [Base 0.12](BASE_0_12_IMPLEMENTATION_PLAN.md#track-l--first-public-release)
+on 2026-10-22, with the user.** The project's name is not chosen yet, and L1's copyright line,
+trademark page, reporting route and repository URL need it. 0.11.0 is released as an ordinary
+release; 0.12, the security release, becomes the first public release. L1's plan moved unchanged,
+its decisions keeping their numbers (D216–D223). References to L2 in this plan (D11, D100, the
+Composable domains check) now point to 0.12's L2.
 
 ## R: Build acceptance and release
 
@@ -5497,6 +5490,296 @@ type each addable without a breaking change).
 - Every heavy run as an announced block (above).
 
 **Exit:** all gates pass, or each failure is explained and tracked; Base 0.11.0 is ready to release.
+
+### R plan (2026-10-22)
+
+**Done 2026-10-22**, steps 0–10 (the commit and the tag `v0.11.0` on the user's instruction, D229). **Planned 2026-10-22; D224–D230 accepted by the user on 2026-10-22.** The scope above stands, without L1 and L2 (moved to 0.12): 0.11.0 is an
+ordinary release, not the first public one. This plan says in what order R runs, what it costs,
+which decisions it needs and what a failure means.
+
+**What was checked for this plan (2026-10-22, at `272a9c0`).**
+
+- **Size.** Since `v0.10.0`: 42 commits; 132 files in `backend/app` (15,333 lines added), 134 in
+  `frontend/src` (13,829); 124 test and runner files (14,201). Most in `engine/model`,
+  `engine/moves`, the management routers, `features/model-admin` and `features/moves`. Since
+  `v0.11.0-alpha.1`: 196 files, 23,980 lines added.
+- **Migrations.** Nine since `v0.10.0` (`20261018_01_workspace_models` … `20261026_01_change_set_boolean_value_index`);
+  eight since the alpha, so the alpha shipped one.
+- **Runners.** `package.json` has 55 browser runners; EXECUTION_GUIDE §3 lists all but
+  `operations` (O2's).
+- **Gates.** The accessibility and visual gates visit M5's workspace surfaces, V1's migration page and
+  X4's move surfaces (`workspace-surfaces.mjs`). Not in them: Settings › Operations (O2) and the
+  touch drag (U1, by nature not a still surface). X5's ten new baselines and its screenshots, and
+  U1's screenshots and the real-phone try, still wait for the user's approval.
+- **Composed journeys.** `workspace-m6` (J36), `workspace-v1` (J37) and `workspace-x5` (J38) walk
+  the journeys with the pointer; `workspace-v1` alone uses the keyboard, in part. None walks a whole
+  journey by keyboard alone, which the scope asks, as 0.10's `authoring-r` does.
+- **Versions.** `0.11.0-alpha.1` in `backend/app/config.py`, `backend/pyproject.toml`,
+  `frontend/package.json`. No new schema language in 0.11: the window is 0.5–0.10 (V4).
+- **Known open items in TODO from 0.11 packages:** matrix-state maintenance per commit (not
+  measured, D176); stored sort keys for deep positions under an attribute sort (Q3: 124 ms in a
+  change set at row 15,000, over budget).
+- **Not checked:** whether anything fails today; the browser runners' total time.
+
+**Steps.** Each step's failures are handled by D224 before the next starts. Steps 2, 3, 5, 6 and 9
+are heavy runs, each announced and run only on the user's go-ahead, one at a time.
+
+0. **Full review**, before any gate: every change since `v0.10.0` in `backend/app`, `frontend/src`
+   and the migrations, and the tests and runners for whether they check what they claim. Area by
+   area (resolution per workspace and the registry; installation, activation and the commit and read
+   guards; migrations of a workspace and of a change set, V4's window; the mapping, dry run and move;
+   N1–N3's cross-process paths and locks; Q2–Q3's indexes and sort reads; O1–O2's probes, metrics
+   and restore check; the shell, Settings › Model, the migration page, the move editor, Settings ›
+   Operations, touch drag) against each package's decisions, the invariants and the composable-domains
+   doors, and across packages where a later one changed what an earlier one built (M6a and N1 the
+   guards, X6 X4's lists, Q3 the change-set reads). Migrations, concurrency and the public contracts
+   get one independent reviewer of the final code (AGENTS.md). Every finding is listed with its
+   outcome.
+1. **Static and unit gates:** Ruff, frontend format check, lint, `tsc -b && vite build`, Vitest,
+   gate helpers. EXECUTION_GUIDE §3 gains `operations`.
+2. **Backend suite:** `pytest -n 6 -q`, then `pytest -m serial -q`, under S1's 11-minute ceiling
+   (D126).
+3. **Browser runners**, all 55, one at a time.
+4. **Composed acceptance runner** `test:browser:workspace-r` (D225): J36, J37 and J38 each walked
+   once by keyboard alone on two models, 1440px and 390px.
+5. **Accessibility and visual gates** by D226: Settings › Operations added first, then `test:a11y`
+   light and dark, then `test:visual`; every baseline that differs is opened, compared with the
+   approved package screenshot and re-recorded only when the difference is a delivered change.
+6. **Migration checks** by D227: clean bootstrap and lifespan by `test_startup` and
+   `test_migrations`; a database built by `v0.10.0` upgraded by this code (every workspace assigned
+   the active release); the smoke start on a copy of the development database.
+7. **Exit gate:** ROADMAP 0.11's walked item by item, each with its evidence from steps 0–6 and the
+   packages' records; the composable-domains check confirmed against the code.
+8. **Documents:** PROJECT_STATUS, ROADMAP (0.11 complete), TODO (R items ticked, residual gaps
+   added), CHANGELOG (`[Unreleased]` becomes `[0.11.0]`), API.md, the functionality catalogue; R's
+   record with every gate's figures.
+9. **Long run** by D228, one announced block after steps 1–8 pass: `pytest -m budget`, measured
+   once.
+10. **Version and tag** by D229: the version strings set, the R record written, and the commit, tag
+    and commands given when the user asks.
+
+**Decisions** (D224–D230 accepted by the user on 2026-10-22)
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D224 | What does a failure mean? | **As 0.10's D147.** A product defect is fixed in R as a named amendment with its regression test, and only its boundary's groups rerun. A runner that drifted from a later package's model or screen is fixed in the runner and recorded, not a defect. A budget over its target is a TODO exception with its figure and cause, unless it regressed against its own earlier figure, which is a defect. A run that fails once and passes on one rerun is a flake: recorded, a TODO item, no release block. Anything else stops R and comes to you |
+| D225 | How are J36–J38 composed? | **One new runner, `workspace-r`, walking each journey whole by keyboard alone,** as 0.10's `authoring-r`. Why: the scope asks for keyboard alone; the package runners use the pointer (M6, X5) or walk part of a journey (V1). They stay as each package's evidence and run in step 3. Cost: one runner, iterated on its smallest slice |
+| D226 | What joins the gates, and the waiting approvals | **Settings › Operations (O2) joins both gates,** light and dark at 1440px and 390px (about 4 scenarios, 2 baselines). Touch drag stays out (a gesture, not a surface; U1's runner holds it). **X5's ten baselines and its screenshots, and U1's screenshots, are approved by you before step 5**, so the visual gate compares against approved images. The real-phone try (D215) is yours and does not block R |
+| D227 | Upgrade from 0.10.0 | **A database built by `v0.10.0`'s code** (a temporary worktree at the tag, a scratch database with the starter and a second workspace with records), then upgraded by this code and started: every workspace assigned the active release, records and history intact. Why: the scope names the upgrade, and `20261018_01_workspace_models` rewrites the release assignment, the step most likely to lose data. 0.10's D150 dropped tag upgrades because no installation ran the tag; the development database is one shape of data, already upgraded package by package. Cost: one worktree and one scratch database, removed afterwards. **Your alternative:** as D150, the migration tests and the development copy only |
+| D228 | Which long runs? | **`pytest -m budget` only, once.** No full-volume run (D176): Q2, Q3 and X5 measured their paths at full volume within the build, and nothing has changed since. Cost: one announced block |
+| D229 | Version numbers | **Engine, backend and frontend `0.11.0`;** no schema language released (the window stays 0.5–0.10); the starter and the example model unchanged. Tag `v0.11.0` on your instruction |
+| D230 | The open TODO items from 0.11 packages | **Not R's scope:** matrix-state maintenance cost and stored sort keys stay in TODO with their figures (Q3's deep position is a known budget exception by D224, not a regression). The review lists them again, and by D224 any it finds to be a product defect is fixed in R |
+
+**Groups:** R runs everything (the full suites by AGENTS.md); "targeted tests only" does not apply to
+build acceptance. Test work added: the composed runner (D225) and the Operations gate scenarios
+(D226).
+
+#### R step 0: the review (2026-10-22)
+
+**Done 2026-10-22**, before any gate, at `272a9c0`; 12 findings, none high. Read only; nothing
+fixed (fixes by D224). R-F1–R-F4 are the primary review's; R-F5–R-F12 the independent reviewer's
+(migrations, concurrency, public contracts), each checked again in the code before it was recorded
+(R-F5: `run_execution` and `require_reviewed` never read `workspaces.status`; R-F6: the table lock
+is taken before `prepare` and no `lock_timeout` is set anywhere; R-F7: `run_preview` takes no
+workspace lock before the savepoint's `_APPLY`; R-F8: `require_reviewed` without `for_update` in
+V3's execution; R-F9: `load_step`'s first step returns to `worker._move`, which commits without
+`_hold_lease`). R-F10's version cut-off is the reviewer's recollection, not checked; the installed
+FastAPI is 0.141.1.
+
+| # | Severity | Where | Finding |
+| --- | --- | --- | --- |
+| R-F1 | medium | `model/migrations.py` `plan_migration` | An explicit attribute source in `typeMappings` (`b` from `a`) is dropped when the target type also binds `a` and lists it before `b`: the same-name rule claims `a` first, so `a` keeps its values and `b`'s own values become loss. Order-dependent; affects V1, V2 and V3 (`load_plan`). Only an API client sends it: the migration page offers only fields the target lacks. Confirmed by running the plan on `generated-a` (`owner-name` from `ledger-number` ignored, `owner-name` lost) |
+| R-F2 | low | `model/migrations.py` `_APPLY` | Explicit sources that swap or chain attributes (`a`→`b`, `b`→`a`) rename value rows in one `UPDATE`, and PostgreSQL checks `uq_object_attribute_value` row by row: the preview fails as an internal error instead of answering. V3 is unaffected (JSON rows). API only. Confirmed in PostgreSQL 17 on a temporary table |
+| R-F3 | medium | `model/authoring/kinds.py` `setContainment`; `MigrationPage.tsx` `missingElements`, `choicesOf` | `setContainment` with `application` alone moves a released type to another application as additive ("without a migration"), but activation refuses it while records of it exist (`APPLICATION_OBJECT_TYPE_IN_USE`), and a migration keeps them only with a self-mapping `T`→`T` (`plan_migration`: one holder and mapped). The migration page lists only types the target lacks and drops identity mappings, so its preview lists every such record, with what it contains, as loss. Confirmed by tracing |
+| R-F4 | low | `frontend/src/api/expectedRelease.ts` `DATA_WRITE` | `PUT /workspaces/{key}/mappings` (the relation matrix's cell and the relationship form's save, both relation writes under D65) does not carry `X-Expected-Model-Release-Id`, so a page built on a replaced release saves there under the new one. The server checks the header when sent. Confirmed by reading |
+| R-F5 | medium | `model/migrations.py` `run_execution`, `check_confirmation`; `change_set_migrations.py` `run_execution` | Retirement is checked only at submission: a migration (and a V3 move) confirmed or queued before the workspace is retired still migrates its data, writes audit and feed entries, switches its release and, in V2, publishes. Confirmed by tracing |
+| R-F6 | medium | `model/migrations.py` `run_execution` → `releases.lock_what_activation_changes` | When the two releases differ in `unique` attributes, the `SHARE ROW EXCLUSIVE` lock on `unique_attribute_values` is taken before `prepare` and held through the whole execution (66–111 s at 100,000 records); the value trigger writes that table on every value write, so value writes in every workspace wait, with no `lock_timeout`. API.md calls it a moment and names activation only. Lock confirmed; duration plausible |
+| R-F7 | medium | `model/migrations.py` `run_preview` | The preview applies the migration to live rows under a savepoint without the workspace lock, holding their row locks until the compatibility check and publication findings end: a live write touching a converted record waits for the rest of the preview, the workspace's other writes queue behind it, and a write that locked a record first can deadlock with it (the write's `500` or the preview's `JOB_FAILED`). V3's preview holds the change set's row the same way. Locks confirmed; deadlock plausible |
+| R-F8 | low | `change_set_migrations.py` `run_execution` | `require_reviewed` without `for_update`: an activation of the workspace committing during the move is not seen, so the change set is pinned to the release the workspace just left, and activation's `changeSetsLeftBehind` did not list it. Confirmed by tracing |
+| R-F9 | low | `moves/move_load.py` `load_step` (first step); `jobs/worker.py` `_move` | The load's first step (`_start`: the target's change set opened) commits without `_hold_lease`; a process frozen past its lease commits over the job another worker took, and one of two "Move from …" change sets is orphaned. Confirmed by tracing |
+| R-F10 | low | `backend/pyproject.toml` | `Depends(..., scope="function")` (the read guard) needs a newer FastAPI than the bound `>=0.115` allows; an older installed FastAPI fails at import. Version cut-off from the reviewer's recollection |
+| R-F11 | low | migration `20261018_01` | The backfill joins `model_runtime_state`; a 0.10 database migrated but never started has no row, so no workspace is assigned and bootstrap later assigns the configured model, not the legacy active release. Rare. Confirmed by tracing |
+| R-F12 | low | `model/releases.py` `activate_model_release` | The workspace's status is read without a lock: a retirement committing during the compatibility check is not seen. Same gap as R-F5. Confirmed by tracing |
+
+The independent reviewer found sound: the migration chain, `20261018_01` unchanged since the alpha,
+the DDL against the models (partial and expression indexes included), the backfill's trigger order
+and downgrades; bootstrap under the startup lock; the commit guard and read guard; the lock order
+(workspace, change set, subscriptions, unique table, assignment) without a cycle; job leases and
+per-lease export files; Q2's owner arms against the partial indexes; `X-Request-Id` validation; the
+removed routes and fields documented, route gating as API.md says. **Read by the primary review:**
+in full the workspace and change-set migrations, the move's binding, dry run and load, the mapping
+check and operations, the workspace assignment, the backup rehearsal; by their diffs Q3's sorted
+reads, X6's expansions, import profiles, the consumer API, publishing, process heartbeats and
+readiness, the API client, the router and the migration page. **Not read line by line:** the move
+editor, the Operations page, `ScrollWindow` and `DataTable`, the mapping inference; steps 3–5 run
+them.
+
+#### R amendment: the review's findings fixed (2026-10-22)
+
+**Done 2026-10-22** by D224, every finding with its outcome. R-F6 and R-F7 were decided by the user
+(2026-10-22) on the recommendations: R-F6 fixed as below, R-F7 kept and documented.
+
+| # | Outcome | Regression test |
+| --- | --- | --- |
+| R-F1 | Fixed: a named source is claimed before the same-name rule fills the rest (`plan_migration`) | Unit: `test_a_named_source_wins_over_the_same_attribute_whatever_the_order`; J37.2 `test_named_attribute_sources_trade_values` |
+| R-F2 | Fixed: a carried value steps aside under its row's ID, then takes its target key (`_APPLY`, `migration_value_changes.value_id`) | J37.2 `test_named_attribute_sources_trade_values` (a swap, executed) |
+| R-F3 | Fixed: a type kept under its key and listed by one other application of the target carries its records there without a mapping; API.md's `setContainment` and `typeMappings` say so | J37.2 `test_a_type_moved_to_another_application_keeps_its_records` |
+| R-F4 | Fixed: `PUT /workspaces/{key}/mappings` is a data write in `expectedRelease.ts` | Vitest `client.test.ts` |
+| R-F5 | Fixed: `require_reviewed` refuses a retired workspace with `409 WORKSPACE_RETIRED` (confirmation, V1 and V3 execution, which hold the row) | J37.4 `test_a_workspace_retired_after_the_preview_is_not_migrated` |
+| R-F6 | Fixed: `lock_unique_values` split from `lock_what_activation_changes`; a migration takes it just before the switch, its workspace row held from the start keeping its own writes out | J37.2 `test_writes_elsewhere_go_on_while_a_migration_runs` |
+| R-F7 | Kept, documented (user's decision): ARCHITECTURE and API.md say the preview holds the rows it converts; the preview over private copies in TODO | — |
+| R-F8 | Fixed: V3's execution holds the assignment (`for_update=True`), last in the lock order | None: the race needs an activation inside a running move, which a journey cannot time |
+| R-F9 | Fixed: the load's first step takes the lease (`hold()`) before its commit | J38.2 `test_a_load_whose_lease_was_taken_commits_nothing` |
+| R-F10 | Fixed: `fastapi>=0.141,<1`, the tested version | — |
+| R-F11 | Not fixed by decision: 0.10 wrote the runtime-state row in the startup transaction that installed its first release, so no 0.10 database with data lacks it; the fix would edit a migration the alpha shipped. In TODO | — |
+| R-F12 | Fixed: activation holds the workspace row for key share first; live writes (no-key update) are not held up | J36.5 (unchanged) |
+
+**Found on the way.** The journey device `World.holding` held the workspace row `FOR UPDATE`, a
+stronger lock than any write takes; with R-F12's key-share lock, J36.5's activation waited on it and
+the run hung (30 minutes before it was stopped). The device takes `as_write=True` for the cases
+that activate while it holds the row, holding it `FOR NO KEY UPDATE` as a live write does; held for
+update otherwise (first changed for every case, which step 2 showed lets change set writes through).
+
+**Checks:** the targeted groups for the changed boundaries, one run with `-n 6`: J36 (5 files),
+J37 (4), J38 (3), `model_admin` (9 modules, the activation races among them), the modules using
+`World.holding` (J08, J11, J24 ×3), `tests/unit/engine/moves` and the plan's unit tests: 435 passed
+(2 min 21 s; 3 cases first errored because the run disabled pytest's logging plugin, then passed on
+their own). Vitest `client.test.ts` 27 passed. Ruff on the changed application files; the two test
+modules keep their existing (unformatted) style.
+
+#### R step 1: static and unit gates (2026-10-22)
+
+**Passed 2026-10-22**, after two fixes in the step, both from O2 and neither a product defect (D224):
+EXECUTION_GUIDE §3 gains `operations-o2.mjs` (the gate helper `every browser runner … is classified`
+failed on it, as the plan expected), and Prettier formatted `OperationsPage.tsx`, its test and
+`operationsText.ts` (layout only; the settings tests, 41, pass). Ruff check: all passed (149
+application files are not ruff-formatted, as before; formatting is not a gate). Frontend format
+check passed; lint 0 errors, 8 warnings (hook dependencies and synchronous state in effects);
+`tsc -b && vite build` built (the chunk-size warning as before); Vitest 102 files, 939 passed; gate
+helpers 6 passed.
+
+#### R step 2: the backend suite (2026-10-22)
+
+**Passed 2026-10-22**, each part on the user's go-ahead. `pytest -n 6 -q`: 6,176 passed, 4 failed in
+10 min 51 s, under S1's 11-minute ceiling (the machine's load reached 13 meanwhile, from work outside
+R). The four (J05/J06 publishing beside other writes, J19 retirement beside a live and a change set
+write, each on two configurations) failed from R's own change to `World.holding`: held `FOR NO KEY
+UPDATE`, the row no longer made change set writes wait (they take it for key share). By D224 a test
+device, not a product defect: the device holds `FOR UPDATE` again by default, and `as_write=True`
+holds it as a live write does for the three cases that activate while it is held (J36.5, J08's
+write-race case, J11.4). Those five modules rerun in one process: 130 passed (3 min 8 s); by D224 only
+they ran again. `pytest -m serial -q`: 5 passed (12 s). Tests over 10 s outside `budget`: 14, the
+longest `test_change_set_position_reads` (26 s, known in TODO), then J38.3's published copy (19 s).
+
+#### R steps 3 and 4: the browser runners and J36–J38 by keyboard (2026-10-22)
+
+**Passed 2026-10-22**, all 56 runners one at a time (55 and step 4's `workspace-r`), from the user's
+go-ahead for step 3 on; after it the user asked for the rest of R without pauses, and D224 decided
+every failure. The development PostgreSQL server, down since the laptop restarted, was started for
+the runners (`scripts/postgres.sh start`) and is stopped at the end of R.
+
+**Product defects found and fixed** (each runner the regression check):
+
+- At 390px a notice with actions (V2's and V3's offers on a change set on another release) kept them
+  beside its text: the page scrolled sideways by 339 px (`wp13c`), and a long action still overflowed
+  (`sc15`). `.notice` wraps, its text keeps 18rem, its actions wrap below it and an action wraps its
+  label.
+- A list drawn by row number as tall as its rows (the type change dialog's records) could stay
+  empty: no row drawn, no height; no height, no virtual range (`c5`). `ScrollWindow` draws the rows it
+  holds whenever that range is empty and it holds rows.
+- After applying a restructuring, Done took focus a frame later and on a busy page was not drawn yet
+  (`c5`). It takes focus once drawn.
+
+**Runners brought up to date** (not defects, D224):
+
+- `publications`: activated the release in `default`, not its own workspace (M1).
+- `s6`: bounded the tree's window by five pages; X6's window keeps 600 rows and drops a page only while
+  600 remain, so the bound is 600 plus a page.
+- `settings` (U3): the single top bar of 2026-10-15 (Settings an icon marked by the tabs' underline,
+  no way back of its own), the release page beside its catalogue (M6's layout; an earlier round's
+  breadcrumb was expected), and Settings' two new pages in the keyboard order.
+- `k2`, `k6`: X6 reads a list of a few hundred records whole, so "Select all N matching" is not
+  offered (as K1 already says); `k6` also skips the spacer rows a table now starts with.
+- `v1`: the reference draws later sections as the reader scrolls; it now finds the first section's
+  `/api/v1/capabilities`, and keeps a screenshot when it fails.
+
+**Flake** (D224): `a4` once at 390px, Enter on a matrix cell after an unlink opened no dialog; passed
+on one rerun. In TODO, with what to find.
+
+**Step 4, `workspace-r` (D225):** J36, J37 and J38 each walked whole by keyboard alone, generated-a at
+1440px and generated-b at 390px, 6 checks in 25 s. Iterated on one model at a time; its own changes
+on the way: J37's target leaves out the child type and the type under it (a release without only the
+child is invalid), and at 390px the editor's More menu and the band's Data popover.
+
+#### R step 5: the accessibility and visual gates (2026-10-22)
+
+**Passed 2026-10-22.** Settings › Operations joined both gates first (D226: `workspace-surfaces.mjs`,
+wide light and dark and at 390px, masking the time read and the process list, visited before the
+other surfaces while the instance holds only the set-up's workspaces). `test:a11y`: 217 checks, no
+unexpected violation (Operations 4 scenarios, 0 violations). `test:visual`: 172 checks; 13
+baselines differed and 3 were new. Each difference opened against its baseline: every one a
+delivered change, so re-recorded — the tree drag's page 28 px lower under the sticky bar (U1;
+`tree-drag-accepted`, `-refused`, `tree-move-dialog`, light and dark), the move editor's notice at
+390px (R's notice fix), the install dialogs' buttons at their foot and their rows (0.11), and the
+settings pages' single top bar of 2026-10-15 with Operations and Copy and move in the navigation
+(`integration-jobs`, `webhook-deliveries`, `import-notification-dark`, `import-profile-check`). The
+update re-recorded 148 files, every baseline within its threshold too; all but the 16 reviewed were
+put back, so only they change. **For the user to approve** with X5's ten and U1's screenshots
+(D226): the 13 re-recorded and the 3 Operations baselines.
+
+#### R step 6: migrations (2026-10-22)
+
+**Passed 2026-10-22** (D227). A scratch database built by `v0.10.0`'s code from a temporary worktree
+(revision `20261017_01`): the starter, a workspace Second and a workspace Old retired, three records
+in each. Started by this code: upgraded to `20261026_01`; all three workspaces run 0.10.0's active
+release (`3cbc2406…`), the retired one too; all nine records read with their names at version 1;
+`/system` answers. Clean bootstrap, restart and the migration tests ran in step 2 (`startup`). Smoke
+start on a copy of the development database: readiness 200, six workspaces on their models all
+served. The scratch databases and the worktree removed.
+
+#### R step 7: the exit gate (2026-10-22)
+
+**Met 2026-10-22**, ROADMAP 0.11's items (the two moved to 0.12 with L2 aside), each with evidence
+from R's runs:
+
+| Item | Evidence |
+| --- | --- |
+| Concurrency and uniqueness with several processes, real server processes, not at full volume | N3 (D182–D185): `test_j12_j36_several_processes` (start together, a switch served by the other process, install and activate from two at once, a migration confirmed in one served by the other), `test_j03_j26_several_processes`, `test_j24_several_processes`, frozen locks released; all in step 2 |
+| A tree node moved by touch on a phone, scrolling and opening intact, the same move dialog | U1: `touch-u1` (Chromium/Pixel 7 with real touch input, WebKit/iPhone 15), step 3; the user's real-phone try open (D215), not blocking |
+| Two workspaces on two models, each installed, activated and migrated on its own, no request combining snapshots | J36 (5 modules) and J37 in step 2; `workspace-m6` (every model read answering its workspace's release) in step 3; `workspace-r` J36 and J37 by keyboard on both models, step 4; the read guard (`test_j36_read_guard`) and the commit guard |
+| Records moved into a partly compatible model: proposed and hand-completed mapping, dry run, reviewed change set, what could not move reported | J38.1–J38.3 in step 2; `workspace-x4`, `workspace-x5` in step 3; `workspace-r` J38 by keyboard on both models, step 4 |
+| Workspace migration, release switch and backup recovery rehearsed without mixed-model requests; historical change sets not direct restores | J37 (V1) and J37.6 (V2: a change set from an older publication published only through a migration) in step 2; `test_j12_rehearse_restore` (O2) in step 2 and `operations` with a real `pg_dump`/`pg_restore` rehearsal in step 3; the upgrade from 0.10.0 in step 6 |
+| Confirmed migration validates transformed data, keeps history, affects only the selected assignment; nothing changes on cancel, stale review or failure | J37.1–J37.5 and J37.6's stale and failed-publication cases in step 2; R's R-F5 (retired after the preview) and R-F1–R-F3 regression cases |
+| Moving a draft onto a release it does not fit cannot be forced: installed and supported target, previewed and confirmed against the reviewed versions or cancelled, a failed re-check changes nothing | J37.7 (refused at its start, stale or cancelled, a rule broken, a record changed live, a failed move) and J37.8 (the window) in step 2; `workspace-v1` V3 in step 3 |
+| Moving a draft changes only that draft | J37.7's preview and stale/cancelled/failed cases compare live data, history, other change sets and assignments, step 2; R-F8 holds the assignment during the move |
+
+**Composable domains (ADR-032), against the code:** identity kept by moves (`record_origins`, X3; a
+retired-ID redirect stays addable); attribute storage unchanged, value indexes the same for every
+model (Q2, D186), the derived-values door decided as stored value rows; a move's audit entries name
+its source and a migration's its job; migrations and moves are jobs with item outcomes; consumer
+API definitions resolve per workspace (M3); mapping coverage across models (M4). The compatibility
+commitment that covers the doors' contracts moved to 0.12 with L2.
+
+#### R steps 8–10: documents, the long run and versions (2026-10-22)
+
+**Step 8, documents:** PROJECT_STATUS (0.11 complete), ROADMAP (the 0.11 baseline, the release marked
+complete, its links), TODO (V1, V2, Track M and V3 ticked; R-F7, R-F11 and the `a4` flake added),
+CHANGELOG (`[Unreleased]` became `[0.11.0] - 2026-10-22`), API.md (R-F1, R-F3, R-F6, R-F7),
+ARCHITECTURE (R-F6, R-F7), EXECUTION_GUIDE (`operations` and `workspace-r`), the functionality
+catalogue's review line.
+
+**Step 9, the long run** (D228), once: `pytest -m budget`, 9 passed in 12 min 12 s, of which the
+full-volume fixture's rebuild took 4 min 29 s (it was out of date). No other measurement.
+
+**Step 10, versions** (D229): engine, backend and frontend `0.11.0` (`config.py`, `pyproject.toml`,
+`package.json` and its lock). The OpenAPI lock re-baselined: with 0.11.0-alpha.1 the document hashed
+to the previous lock exactly (checked before the change), so only `info.version` differs; the
+contract and J31 tests pass (21). No schema language released; the starter and the example model
+unchanged. The commit and the tag `v0.11.0` wait for the user.
+
+**What the user still has to do:** approve the visual baselines (13 re-recorded and 3 new, step 5)
+with X5's ten and U1's screenshots; try touch drag on a real phone (D215); give the commit and tag
+instruction. Nothing else in 0.11 is open; 0.12 is not planned yet.
 
 ## Composable domains check (ADR-032)
 

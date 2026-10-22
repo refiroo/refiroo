@@ -304,7 +304,7 @@ def test_activation_beside_a_live_write(world):
     m2 = world.install(model)["id"]
     record = world.made("R", "Before activation")
 
-    with world.holding(W1) as held:
+    with world.holding(W1, as_write=True) as held:
         write = held.start(lambda: world.update("R", record["id"], record["version"], name="Late"))
         held.waiting(1)
         ok(world.activate(m2))

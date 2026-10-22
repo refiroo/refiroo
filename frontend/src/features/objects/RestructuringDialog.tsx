@@ -126,6 +126,11 @@ export function RestructuringDialog({
   const [replanned, setReplanned] = useState("");
   const [applied, setApplied] = useState<RestructuringResult>();
   const doneRef = useRef<HTMLButtonElement>(null);
+  // Done takes focus once it is drawn: a frame after applying it may not be yet, on a page busy
+  // redrawing what the apply changed, and focus was then lost (0.11 R, c5).
+  useEffect(() => {
+    if (applied) doneRef.current?.focus();
+  }, [applied]);
 
   // Choices and inputs belong to the plan of one type and name; another one starts afresh.
   const chooseType = (key: string) => {
@@ -265,7 +270,6 @@ export function RestructuringDialog({
       });
       setApplied(result);
       onApplied(result);
-      requestAnimationFrame(() => doneRef.current?.focus());
     } catch (cause) {
       if (
         isApiError(cause, "CHANGE_SET_VERSION_CONFLICT") ||

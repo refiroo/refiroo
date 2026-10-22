@@ -853,7 +853,7 @@ is outside the window; a stored 0.4 release is historical JSON, upgraded offline
    one to run (D101).
 
 No version leaves the window in 0.11. How a version leaves it, with how much notice, and what then
-happens to publications pinned to it, are published with the compatibility commitment (0.11 L2).
+happens to publications pinned to it, are published with the compatibility commitment (0.12 L2).
 
 ### Upgrading a schema 0.4 database
 

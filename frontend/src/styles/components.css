@@ -2228,9 +2228,10 @@ tr:focus-within .icon-button.icon-button-quiet {
 /* Notices and states */
 .notice {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px 16px;
   margin: 12px 16px;
   padding: 12px 14px;
   border: 1px solid var(--border-subtle);
@@ -2268,10 +2269,26 @@ tr:focus-within .icon-button.icon-button-quiet {
   border-color: var(--status-success-line);
   background: var(--status-success-surface);
 }
+/* The text keeps a readable width; actions that do not fit beside it go below it and wrap
+   (0.11 R: two long actions at 390px left the text a word wide and the page scrolling sideways). */
+.notice > :first-child {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
 .notice-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  flex: none;
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+/* An action longer than the notice is wide wraps its label rather than the page. */
+.notice .notice-actions > * {
+  max-width: 100%;
+  height: auto;
+  padding-block: 6px;
+  white-space: normal;
+  text-align: start;
 }
 .workspace-main > .notice,
 .context-page > .notice,

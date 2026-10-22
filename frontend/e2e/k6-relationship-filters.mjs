@@ -83,7 +83,7 @@ try {
 
   const valuesPath = (extra = "") => `/apps/rdm-systems/views/system-values?workspaceKey=default&search=K6%20Value${extra}`;
   const rows = async () =>
-    (await page.locator("tbody tr").allInnerTexts())
+    (await page.locator("tbody tr:not([data-window-spacer]):not(.window-placeholder)").allInnerTexts())
       .map((row) => row.match(/K6 Value \d/)?.[0])
       .filter(Boolean)
       .sort();
@@ -98,7 +98,7 @@ try {
   const open = async (path, heading) => {
     await page.goto(`${uiUrl}${path}`);
     await page.getByRole("heading", { level: 1, name: heading }).waitFor();
-    await page.locator("tbody tr").first().waitFor();
+    await page.locator("tbody tr:not([data-window-spacer]):not(.window-placeholder)").first().waitFor();
   };
   const filterMenu = page.getByRole("dialog", { name: "Filter" });
 
@@ -155,14 +155,16 @@ try {
   expect(staged.join() === "K6 Value 5" && live.join() === "K6 Value 4,K6 Value 5", `has none: change set ${staged}, live ${live}`);
   checks.push("has none: K6 Value 5 in the change set, where 4 is mapped; 4 and 5 live");
 
-  // 9. All matching under the filter, then Change values….
+  // 9. Every record under the filter, then Change values…. Since 0.11 X6 a list of a few hundred
+  // records is read whole in the background, so the header checkbox selects all 42 and no "Select
+  // all 42 matching" is offered (as K1).
   await open(`/apps/rdm-systems/views/system-values?workspaceKey=default&search=K6&${filterParam("eq")}=${masters[0].id}`, "System values");
   const bar = page.getByRole("group", { name: "Selection" });
+  await page.waitForFunction(() => document.querySelector("[aria-rowcount]")?.getAttribute("aria-rowcount") === "43");
+  await page.waitForLoadState("networkidle");
   await page.getByRole("checkbox", { name: "Select the records shown" }).click();
-  const loaded = await page.locator("tbody tr").count();
-  expect(loaded < 42, `bulk: all ${loaded} rows were loaded, so all matching was not reached`);
-  await bar.getByRole("button", { name: "Select all 42 matching" }).click();
-  await bar.getByText("All 42 matching selected").waitFor({ timeout: 5000 });
+  const loaded = await page.locator("tbody tr:not([data-window-spacer]):not(.window-placeholder)").count();
+  await bar.getByText("42 selected").waitFor({ timeout: 5000 });
   await bar.getByRole("button", { name: "Change values", exact: true }).click();
   const change = page.getByRole("dialog", { name: "Change values" });
   await change.waitFor();
@@ -172,9 +174,9 @@ try {
   await change.getByRole("group", { name: "Value name", exact: true }).getByRole("textbox", { name: "Value name", exact: true }).fill("K6 checked");
   await change.getByRole("button", { name: "Preview", exact: true }).click();
   const preview = await text(await change.getByRole("region", { name: "The preview", exact: true }).waitFor({ timeout: 20000 }).then(() => change.getByRole("region", { name: "The preview", exact: true })));
-  expect(said.includes("All 42 matching") && preview.includes("Applying would change 42 system values."), `bulk: the dialog says "${said.slice(0, 80)}", the preview "${preview}"`);
+  expect(said.includes("42") && preview.includes("Applying would change 42 system values."), `bulk: the dialog says "${said.slice(0, 80)}", the preview "${preview}"`);
   await change.getByRole("button", { name: /Cancel|Close/ }).first().click();
-  checks.push(`under the filter (42 matching, ${loaded} rows loaded): Select all 42 matching; Change values and its preview count 42`);
+  checks.push(`under the filter (42 matching, ${loaded} rows drawn): all 42 selected; Change values and its preview count 42`);
 
   // 10. Export carries the filter.
   await open(valuesPath(`&${filterParam("eq")}=${masters[1].id}`), "System values");
@@ -213,7 +215,7 @@ try {
   await page.keyboard.press("Enter");
   let unmapped = [];
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    unmapped = (await page.locator("tbody tr").allInnerTexts()).map((row) => row.match(/K6 Master \w+/)?.[0]).filter(Boolean);
+    unmapped = (await page.locator("tbody tr:not([data-window-spacer]):not(.window-placeholder)").allInnerTexts()).map((row) => row.match(/K6 Master \w+/)?.[0]).filter(Boolean);
     if (unmapped.join() === "K6 Master Charlie") break;
     await page.waitForTimeout(100);
   }

@@ -18,6 +18,7 @@ const checks = [];
 const failures = [];
 let backend;
 let browser;
+let shown;
 let log = "";
 
 function expect(condition, message) {
@@ -95,13 +96,16 @@ try {
       return route.abort("internetdisconnected");
     });
     const page = await context.newPage();
+    shown = page;
     page.setDefaultTimeout(15000);
     watchPageErrors(page.context(), (error) => failures.push(`${label}: ${error}`));
 
     await page.goto(`${apiUrl}/docs`);
     await page.getByRole("heading", { name: openapi.info.title, level: 1 }).waitFor();
-    // An operation from the management document, found by its path, proves the source was read.
-    await page.getByText("/api/v1/workspace-models").first().waitFor();
+    // An operation from the management document, found by its path in the first section's list of
+    // operations (the model's), proves the source was read; later sections are drawn as the reader
+    // scrolls, so 0.11's added areas moved /api/v1/workspace-models out of reach.
+    await page.getByText("/api/v1/capabilities", { exact: true }).locator("visible=true").first().waitFor();
     await page.waitForLoadState("networkidle");
     expect(await page.title() === "RDM Engine API reference", `${label}: title ${await page.title()}`);
     expect(loaded.includes("/docs/scalar/standalone.js"), `${label}: bundled script not loaded: ${loaded}`);
@@ -168,6 +172,8 @@ try {
   checks.push("/redoc and /docs/oauth2-redirect answer 404");
 } catch (error) {
   failures.push(error.stack ?? String(error));
+  await shown?.screenshot({ path: resolve(output, "failure.png"), fullPage: true }).catch(() => {});
+  await shown?.screenshot({ path: resolve(output, "failure-screen.png") }).catch(() => {});
 } finally {
   await browser?.close();
   backend?.kill();

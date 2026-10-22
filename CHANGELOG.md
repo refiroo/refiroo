@@ -6,6 +6,71 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-22
+
+Base 0.11 is released: each workspace runs a model of its own and moves to another release on its
+own (Track M, Track V), data moves between workspaces whose models differ (Track X), and the engine
+is hardened for production (several processes and nodes, PostgreSQL at volume, operability, backup
+rehearsal, touch drag), accepted by R: a full review of every change since 0.10.0 with an independent
+reviewer (12 findings, 10 fixed, R-F7 and R-F11 kept by decision), the full backend suite, the 56
+browser runners, J36–J38 by keyboard alone on two models, the accessibility and visual gates with
+Settings › Operations, an upgrade from 0.10.0 and the budgets. No schema language is released; the
+window stays 0.5–0.10. Licensing, the contribution and security policies and the compatibility
+commitment moved to 0.12, the first public release.
+
+Nine migrations since 0.10.0 (`20261018_01` … `20261026_01`; eight since 0.11.0-alpha.1); a database
+of 0.10.0 or 0.11.0-alpha.1 upgrades on start.
+
+### Changed (0.11, the first public release moved to 0.12)
+
+- Licensing, contribution and security policies (L1) and the compatibility commitment with the
+  supported schema versions and their dates (L2) moved to 0.12, which becomes the first public
+  release; the project's name is not chosen yet. 0.11.0 is released as an ordinary release.
+
+### Fixed (found in 0.11 R's review)
+
+- A workspace migration's type mapping naming an attribute's source was ignored when the target type
+  also had an attribute of the source's name listed first: that attribute kept the values and the
+  named one lost its own (R-F1). Two attributes trading values (`a` from `b`, `b` from `a`) failed
+  the preview as an internal error (R-F2).
+- A released type moved to another application in the editor (`setContainment` with
+  `application`) lost every record of it in the migration its activation needs, unless an API
+  client mapped the type onto itself, which the migration page cannot: its records now go to the
+  one application listing it (R-F3).
+- The relation matrix's and the relationship form's save did not send
+  `X-Expected-Model-Release-Id` (R-F4).
+- A migration, or a change set's move, confirmed or queued before its workspace was retired still
+  ran: it is now refused `409 WORKSPACE_RETIRED` at confirmation and as it runs (R-F5). Activation
+  holds the workspace row for key share, so a retirement during its check is seen (R-F12).
+- A workspace migration held the unique values' table lock, which every value write of every
+  workspace waits for, from its first step to its commit (66–111 s at 100,000 records): it now takes
+  it just before the switch (R-F6).
+- A change set's move did not hold its workspace's assignment, so an activation committing meanwhile
+  left the change set pinned to the release the workspace had just left (R-F8).
+- A move's load committed its first step (the target's change set opened) without checking that the
+  job was still its worker's; a worker frozen past its lease could leave a second change set (R-F9).
+- The FastAPI lower bound is 0.141, the version the engine is tested on: the read guard uses
+  `Depends(scope=...)`, which older versions lack (R-F10).
+
+### Fixed (found in 0.11 R's browser runners)
+
+- At 390px a notice with actions (a change set on another release offering to move it or its
+  workspace) kept its actions beside its text: the text was a word wide and the page scrolled
+  sideways by up to 339 px. A notice's actions now go below its text when they do not fit, and a
+  long action wraps its label (`wp13c`, `sc15`).
+- A list drawn by row number as tall as its rows, such as the type change dialog's records, could
+  stay empty: with no row drawn it had no height, and with no height the virtual range drew no row.
+  It now draws the rows it holds whenever that range comes out empty (`c5`).
+- After applying a restructuring, focus was meant to move to Done a frame later; on a page busy
+  redrawing what the apply changed, Done was not there yet and focus was lost. It moves once Done is
+  drawn (`c5`).
+
+### Changed (0.11 R)
+
+- A migration preview holds the live rows it converts while it runs; a write to one of them waits
+  for it, which ARCHITECTURE and API.md now say (R-F7, decided by the user). A preview over private
+  copies is in TODO.
+
 ### Added (0.11 U1, touch drag in the record tree)
 
 - On a touch screen a record in a tree view or the sidebar is dragged by holding it still for half a

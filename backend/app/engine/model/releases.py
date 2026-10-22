@@ -95,7 +95,12 @@ class Activation:
 
 
 def lock_what_activation_changes(
-    session: Session, workspace_key: str, release_id: str, expected_release_id: str
+    session: Session,
+    workspace_key: str,
+    release_id: str,
+    expected_release_id: str,
+    *,
+    unique_values: bool = True,
 ) -> None:
     """Lock, before the workspace's assignment, the rows activation changes after its check (0.9
     R-F2, R-F3): the workspace's active subscriptions it may suspend, and the unique attribute
@@ -116,6 +121,15 @@ def lock_what_activation_changes(
         .order_by(ConsumerSubscription.sequence_id)
         .with_for_update()
     ).all()
+    if unique_values:
+        lock_unique_values(session, release_id, expected_release_id)
+
+
+def lock_unique_values(session: Session, release_id: str, expected_release_id: str) -> None:
+    """The unique attribute values, when the two releases declare different ``unique`` attributes:
+    the assignment's trigger then rewrites the workspace's rows. Writes of every workspace wait for
+    it until the commit. A migration, which holds its workspace's row from its start so that no
+    write of the workspace holds such a row, takes it only just before the switch (0.11 R, R-F6)."""
     sources = dict(
         session.execute(
             select(ModelRelease.public_id, ModelRelease.model_json).where(
@@ -155,7 +169,15 @@ def activate_model_release(
     its release is no longer the workspace's. Other workspaces keep their release, their data is not
     counted and their subscriptions are not touched (ADR-042).
     """
-    workspace = session.get(Workspace, workspace_key)
+    # Held for key share, first in the lock order: a retirement (which locks the row for update)
+    # waits for the activation, or the activation reads it retired; live writes, which lock it for
+    # no-key update, are not held up (0.11 R, R-F12).
+    workspace = session.scalar(
+        select(Workspace)
+        .where(Workspace.key == workspace_key)
+        .with_for_update(read=True, key_share=True)
+        .execution_options(populate_existing=True)
+    )
     if workspace is None:
         raise WorkspaceNotFound(workspace_key)
     lock_what_activation_changes(session, workspace_key, release_id, expected_release_id)

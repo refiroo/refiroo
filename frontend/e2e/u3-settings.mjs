@@ -50,14 +50,19 @@ try {
       const from = page.url();
       const tabs = page.getByRole("navigation", { name: "Applications" }).getByRole("button");
       const appTabs = await tabs.allInnerTexts();
-      const current = await page.locator('nav[aria-label="Applications"] [aria-current="page"]').evaluate((tab) => tab.textContent.trim());
+      const current = await page
+        .locator('nav[aria-label="Applications"] [aria-current="page"]')
+        .evaluate((tab) => tab.textContent.trim());
       const appBar = await page.getByRole("banner").boundingBox();
+      // The current page is marked by the tabs' ink underline (an icon has no text weight to compare).
       const mark = (element) => {
         const style = getComputedStyle(element);
-        return `${style.borderBottomColor} ${style.borderBottomWidth} ${style.fontWeight}`;
+        return `${style.borderBottomColor} ${style.borderBottomWidth}`;
       };
       const appCurrent = await page.locator('nav[aria-label="Applications"] [aria-current="page"]').evaluate(mark);
-      await page.getByRole("banner").getByRole("link", { name: "Settings", exact: true }).click();
+      const settingsIcon = page.getByRole("banner").getByRole("link", { name: "Settings", exact: true });
+      const iconBefore = await settingsIcon.boundingBox();
+      await settingsIcon.click();
       await page.getByRole("heading", { level: 1, name: "About" }).waitFor();
       expect(path() === "/settings/about", `${suffix}: gear opened ${page.url()}`);
       expect(
@@ -71,16 +76,21 @@ try {
         "Settings link not current",
       );
       const settingsBar = await page.getByRole("banner").boundingBox();
+      // One top bar on every page (2026-10-15): the Settings icon keeps its place and width.
       const settingsTab = page.getByRole("banner").getByRole("link", { name: "Settings", exact: true });
-      expect((await settingsTab.innerText()).trim() === "Settings", "the Settings tab does not read Settings");
+      const iconAfter = await settingsTab.boundingBox();
+      expect(
+        Math.abs(iconAfter.x - iconBefore.x) < 1 && Math.abs(iconAfter.width - iconBefore.width) < 1,
+        `${suffix}: the Settings icon moved or changed width (${JSON.stringify([iconBefore, iconAfter])})`,
+      );
       const settingsCurrent = await settingsTab.evaluate(mark);
       expect(
         settingsCurrent === appCurrent,
         `${suffix}: Settings is marked ${settingsCurrent}, a current tab ${appCurrent}`,
       );
       if (width === 1440) {
-        // The tabs keep 36px from what stands before them: the mark, or Settings' way back (UA4 revision).
-        const before = await page.locator(".global-header > .topbar-back, .global-header > .product-mark").last().boundingBox();
+        // The tabs keep 36px from the product mark (UA4 revision).
+        const before = await page.locator(".global-header > .product-mark").last().boundingBox();
         const tab = await tabs.first().boundingBox();
         const gap = Math.round(tab.x - (before.x + before.width));
         expect(gap === 36, `settings: the tabs start ${gap}px after the item before them, not 36px`);
@@ -92,16 +102,27 @@ try {
       expect((await page.getByRole("link", { name: "Back to applications" }).count()) === 0, "a second bar's Back");
       expect((await page.getByLabel("Current context").count()) === 0, "data-context band shown");
       expect((await page.getByRole("combobox", { name: "Workspace", exact: true }).count()) === 0, "switcher shown");
-      // Settings' way back names the application it was opened from and returns to that page.
-      const back = page.getByRole("banner").getByRole("link", { name: `Back to ${current}`, exact: true });
+      // Settings has no way back of its own: the application tabs and the product mark leave it
+      // (2026-10-15, one top bar on every page).
       expect(
-        (await back.count()) === 1 && new URL(await back.getAttribute("href"), page.url()).href === from,
-        `${suffix}: Back does not return to ${from}`,
+        (await page
+          .getByRole("banner")
+          .getByRole("link", { name: /^Back to / })
+          .count()) === 0,
+        "a way back shown",
       );
-      // On a phone the top bar has no tabs in any area (0.10 N1): Settings returns through Back.
-      await (width === 390 ? back : tabs.filter({ hasText: current })).click();
-      await page.getByRole("button", { name: record, exact: true }).waitFor();
-      expect(page.url() === from, `${suffix}: the way back returned to ${page.url()}, not ${from}`);
+      if (width === 390) {
+        // On a phone the top bar has no tabs (0.10 N1): the product mark leaves Settings.
+        await page.getByRole("banner").locator(".product-mark").first().click();
+        await page.waitForURL((url) => !url.pathname.startsWith("/settings"));
+      } else {
+        await tabs.filter({ hasText: current }).click();
+        await page.getByRole("button", { name: record, exact: true }).waitFor();
+        expect(
+          new URL(page.url()).pathname === new URL(from).pathname,
+          `${suffix}: the application's tab returned to ${page.url()}, not ${from}`,
+        );
+      }
     }
     checks.push(
       `${suffix}: the gear opens Settings in the same top bar (same tabs and height, tabs 36px after the product name at 1440px, none current, Settings a current tab marked as the application's is) from two applications; each application's tab returns to its view with its query`,
@@ -132,8 +153,13 @@ try {
     }
     await page.goto(`${uiUrl}/settings/model/releases/${activeRelease}`);
     await page.getByRole("button", { name: "Export JSON" }).waitFor();
-    // A release opens in the page, its trail leading back to Settings › Model (0.11 M6).
-    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Model" }).waitFor();
+    // A release opens in Settings › Model beside its catalogue, on a phone with the way back to it
+    // (0.11 M6, the layout left after the rework).
+    await (
+      width === 390
+        ? page.getByRole("button", { name: "All models" })
+        : page.getByRole("navigation", { name: "Model catalogue" })
+    ).waitFor();
     await page.goto(`${uiUrl}/settings/workspaces/default`);
     await page.getByRole("button", { name: "Open workspace" }).waitFor();
     await page
@@ -222,12 +248,9 @@ try {
   await page.evaluate(() => document.activeElement?.blur());
   const tabNames = await page.getByRole("navigation", { name: "Applications" }).getByRole("button").allInnerTexts();
   const productName = (await page.locator(".product-mark strong").innerText()).trim();
-  // Settings' way back to the page it was opened from sits after the mark (UA4 revision).
-  const backLabel = (await page.locator(".topbar-back").innerText()).trim();
   const expected = [
     "other:Skip to main content",
     `topbar:${productName} home`,
-    `topbar:${backLabel}`,
     ...tabNames.map((name) => `topbar:${name.trim()}`),
     "topbar:Settings",
     "topbar:Account",
@@ -236,7 +259,9 @@ try {
     "navigation:Workspaces",
     "navigation:Model",
     "navigation:Deployment",
+    "navigation:Operations",
     "navigation:Import profiles",
+    "navigation:Copy and move",
     "navigation:Jobs",
     "navigation:Consumer APIs",
     "navigation:Webhooks",
@@ -264,9 +289,9 @@ try {
     expected.every((item, index) => order[index] === item) && order[expected.length].startsWith("main:"),
     `keyboard order: ${order.join(" → ")}`,
   );
-  // Back past the resize handle, Integration's three pages, Data operations' two and Deployment to
-  // Model, and open it.
-  for (let index = 0; index < 8; index += 1) await page.keyboard.press("Shift+Tab");
+  // Back past the resize handle, Integration's three pages, Data operations' three, Operations and
+  // Deployment to Model, and open it.
+  for (let index = 0; index < 10; index += 1) await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Enter");
   await page.getByRole("heading", { level: 1, name: "Model" }).waitFor();
   checks.push(`keyboard order: ${order.join(" → ")}; Enter on a navigation link opens its page`);

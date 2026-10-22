@@ -285,7 +285,7 @@ def test_a_model_activated_meanwhile_refuses_the_inline_batch(world):
     model, _key = world.candidate("compatible")
     release = world.install(model)["id"]
     jobs, records = _jobs(world), _count(world, "R")
-    with world.holding(W1) as held:
+    with world.holding(W1, as_write=True) as held:
         batch = held.start(lambda: _batch(world, [_create(world, "R", "Too late", "LATE")]))
         held.waiting(1)
         activation = held.start(lambda: world.activate(release))

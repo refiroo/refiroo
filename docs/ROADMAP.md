@@ -10,7 +10,18 @@ model and the import mapping, ADR-035), 0.11 for production hardening and staged
 0.12 for security (authentication and authorization across the backend, frontend and APIs), and 1.0 for
 migration-class model changes, protected publishing and extensions.
 
-## Current development baseline — Base 0.10 complete
+## Current development baseline — Base 0.11 complete
+
+Base 0.11 is complete (2026-10-22; build acceptance R in
+[its plan](BASE_0_11_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)): production hardening and
+staged model rollout. Each workspace runs a model of its own, installed, activated and migrated on
+its own (Track M), its data moved to another release, a change set published with that migration,
+and a change set moved onto the release its workspace runs, each previewed and confirmed (Track V);
+records moved between workspaces whose models differ through a proposed, hand-completed mapping,
+dry run and reviewed change set (Track X); several processes and nodes on one database, PostgreSQL at
+volume, metrics, logs, health and readiness, a rehearsed backup and Settings › Operations, and touch
+drag in the tree. The schema-language window is 0.5–0.10, nothing released or dropped. Licensing and
+the compatibility commitment moved to 0.12, the first public release.
 
 Base 0.10 is complete (2026-10-15; build acceptance R in
 [its plan](BASE_0_10_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)): model authoring and
@@ -433,7 +444,7 @@ and blocked; they are enabled in 1.0 on the 0.11 migration boundary.
 - The editor passes the accessibility and visual gates at desktop and narrow widths.
 - No runtime or editor branch on an application, object-type, attribute or relation key.
 
-## Product release 0.11 — Production hardening and staged model rollout
+## Product release 0.11 — Production hardening and staged model rollout (complete)
 
 Plan: [Base 0.11 plan](BASE_0_11_IMPLEMENTATION_PLAN.md) (2026-10-15; the workspace-model part
 first, then production hardening; the P0 design pass comes first).
@@ -488,7 +499,8 @@ immutable model releases in controlled stages. Authentication and authorization 
   once the new release serves live data, a draft still on the replaced release is explicitly moved or
   thrown away and is never moved onto another release on its own
 - Explicit mixed-schema conversion rules and a bounded supported schema-version window
-- First-public-release licensing, contribution/security policies and compatibility commitment
+- _Moved to 0.12 on 2026-10-22 (the project's name is not chosen yet):_ first-public-release licensing,
+  contribution/security policies and the compatibility commitment
 
 ### Exit gate
 
@@ -507,10 +519,6 @@ immutable model releases in controlled stages. Authentication and authorization 
   requests. Historical change sets are not direct dataset restore operations.
 - Confirmed historical migration validates transformed data, preserves immutable history, affects only
   the selected workspace assignment, and changes nothing on cancel, stale review or execution failure.
-- Supported schema versions and their migration/removal dates are published.
-- The compatibility commitment leaves the [composable domains doors](COMPOSABLE_DOMAINS.md#doors-to-keep-open)
-  open: a retired-ID redirect, a value source, derived read-only values and a new value type can each
-  be added to the committed contracts without a breaking change.
 - Moving a draft onto a release its content does not fit cannot be forced through: the target must be
   installed and supported by the deployment, the conversion is previewed and confirmed against the
   exact reviewed versions or cancelled, and a failed re-check changes nothing.
@@ -527,7 +535,7 @@ matches the active release, which the existing guarded release-activation path e
 Composable domains (ADR-032): the 0.11 plan states how three items keep the doors open. Model-derived
 indexes decide whether a later derived value can be indexed and sorted (the derived values door, an
 open question in COMPOSABLE_DOMAINS). Mixed-schema conversion rules keep a new value type an additive
-registry entry. The compatibility commitment covers the contracts the doors extend.
+registry entry. The compatibility commitment (moved to 0.12) covers the contracts the doors extend.
 
 ## Product release 0.12 — Security, authentication and authorization
 
@@ -553,12 +561,19 @@ to a proven identity.
 - Protected model and workspace administration, replacing the default-enabled workspace mutation
   posture; deployment capability flags stay as defence in depth (ADR-031)
 - Authentication in the API reference "try it" console
+- _Moved from 0.11 on 2026-10-22:_ the first public release: licensing, contribution and security
+  policies, and the compatibility commitment with the supported schema versions and their dates
+  ([plan](BASE_0_12_IMPLEMENTATION_PLAN.md#track-l--first-public-release))
 
 ### Exit gate
 
 - Authorization cannot be bypassed through administrative, bulk, job, feed or consumer APIs.
 - Administrative, ordinary and bulk paths enforce the same authenticated scope (US-S01).
 - Webhook receivers can verify every delivery, and a rotated key stops verifying.
+- Supported schema versions and their migration/removal dates are published (moved from 0.11).
+- The compatibility commitment leaves the [composable domains doors](COMPOSABLE_DOMAINS.md#doors-to-keep-open)
+  open: a retired-ID redirect, a value source, derived read-only values and a new value type can each
+  be added to the committed contracts without a breaking change (moved from 0.11).
 
 Composable domains (ADR-032): audit identity touches the provenance door. The authenticated actor is
 recorded beside the existing `cause`, not in place of it, so a later value source stays additive; an

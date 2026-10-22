@@ -974,9 +974,16 @@ relation types it removed relationships of). A rule the workspace's release hold
 untouched data was checked when the data was written and is not checked again, which keeps the
 check proportional to the change. A scoped uniqueness rule's count climbs from the rule's targets to
 the first ancestor of the scope's type only (a check of every rule over 100,000 records: 5.8 s). The analysis lists the records behind each count (its `listing` hook). The savepoint is rolled back and the refusals, which pass
-through the process because nothing else crosses a rollback, are written as items. Confirmation binds
+through the process because nothing else crosses a rollback, are written as items. **While it runs the preview
+holds the live rows it changed** (0.11 R, R-F7, decided by the user 2026-10-22): it takes no
+workspace lock, so other writes go on, but a write to a record it converted waits until the preview
+ends, the workspace's later writes queue behind that one, and a write that locked a record first can
+deadlock with it; PostgreSQL then fails one side (the write's `500`, or the preview's `JOB_FAILED`),
+nothing is lost and either can be run again. A preview over private copies of the workspace's rows,
+which would hold nothing live, is in TODO. Confirmation binds
 the assignment version and the workspace's feed position the preview read. The execution holds the
-workspace row and its assignment (the lock order of activation), recomputes the items, writes an
+workspace row and its assignment (the lock order of activation; the unique values' table, when the
+two releases differ in `unique` attributes, only just before the switch, 0.11 R, R-F6), recomputes the items, writes an
 audit entry with a feed position for every changed record and relationship, applies the statements,
 checks the target's rules again and switches the assignment through activation's own tail
 (`releases.switch_workspace_release`: matrix states rebuilt for the workspace's live owner,
@@ -1025,7 +1032,8 @@ private base, rebuilds the change set's typed value index from its JSON
 (`snapshot_values.reindex_change_set`, two set statements) and its matrix states
 (`matrix_states.record_change_set`), and validates the moved change set with its own whole-graph
 check (`graph_diagnostics`, publishing's recorded exception). The preview does this under a savepoint
-and rolls it back. The execution holds the workspace row in share mode, which keeps live writes
+and rolls it back, holding the change set's row meanwhile, so writes to the change set wait for it
+(R-F7). The execution holds the workspace row in share mode, which keeps live writes
 (they take its feed positions) out until it commits, then the change set row, and writes nothing
 live.
 

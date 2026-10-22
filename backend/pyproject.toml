@@ -1,12 +1,12 @@
 [project]
 name = "rdm-engine-backend"
-version = "0.11.0-alpha.1"
+version = "0.11.0"
 description = "Model-driven reference data management engine"
 requires-python = ">=3.14"
 dependencies = [
   "alembic>=1.14,<2",
   "cryptography>=46,<48",
-  "fastapi>=0.115,<1",
+  "fastapi>=0.141,<1",
   "openpyxl>=3.1,<4",
   "pydantic>=2.10,<3",
   "python-multipart>=0.0.20,<1",

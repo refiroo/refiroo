@@ -155,12 +155,16 @@ try {
     expect(shown === expected, `${label}: the bar says "${shown}", expected "${expected}"`);
   }
 
-  // 6. All matching in a change set, an exception, a unique field set to one value.
+  // 6. Every system in a change set, an exception, a unique field set to one value. Since 0.11 X6 a
+  // list of a few hundred records is read whole in the background, so the header checkbox selects
+  // all 80 and no "Select all 80 matching" is offered (as K1).
   await open(systemsPath, "Systems", "K2 System 001");
+  await page.waitForFunction(() => document.querySelector("[aria-rowcount]")?.getAttribute("aria-rowcount") === "81");
+  await page.waitForLoadState("networkidle");
   await page.getByRole("checkbox", { name: "Select the records shown" }).click();
-  await bar.getByRole("button", { name: "Select all 80 matching" }).click();
+  await barSays("80 selected", "systems every row");
   await box("K2 System 001").click();
-  await barSays("All 80 matching except 1", "systems exception");
+  await barSays("79 selected", "systems exception");
   await startChange();
   await choose("System code", "Set to");
   await field("System code").getByRole("textbox", { name: "System code", exact: true }).fill("K2-SAME");
@@ -188,7 +192,7 @@ try {
   await dialog.getByRole("button", { name: named }).first().click();
   await page.getByRole("heading", { name: named }).first().waitFor();
   expect(!(await dialog.count()), "systems: opening a refused record left the dialog open");
-  checks.push(`systems in a change set: all 80 matching except 1, a unique code for all; a sample preview of 50 of 79; all or nothing wrote nothing; the default wrote 1 and refused 78; refused "${named}" opened`);
+  checks.push(`systems in a change set: all 80 selected except 1, a unique code for all; a sample preview of 50 of 79; all or nothing wrote nothing; the default wrote 1 and refused 78; refused "${named}" opened`);
 
   // 7. Every way out of a preview cancels it, except View job.
   await open(domainsPath("K2 Later"), "Domains", "K2 Later 001");

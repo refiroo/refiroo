@@ -135,7 +135,10 @@ describe("Operations", () => {
       rehearsals: [
         rehearsal({
           result: "failed",
-          failure: { code: "WORKSPACES_NOT_SERVED", message: "A recovery from this backup would leave workspace 'training' …" },
+          failure: {
+            code: "WORKSPACES_NOT_SERVED",
+            message: "A recovery from this backup would leave workspace 'training' …",
+          },
         }),
         rehearsal({ id: "b0", checkedAt: "2026-10-15T03:10:00Z", backup: "older.dump" }),
       ],

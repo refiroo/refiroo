@@ -73,6 +73,7 @@ from .consumer_contract import contract_diagnostics
 from .registry import model_registry, resolve_pinned_release
 from .releases import (
     ConsumerContractVersionRequired,
+    lock_unique_values,
     lock_what_activation_changes,
     switch_workspace_release,
 )
@@ -193,7 +194,10 @@ def plan_migration(
                 plan.types.append((application.key, type_key, application.key, new_type, None))
                 continue
             holders = [a.key for a in target.applications if new_type in a.objectTypeKeys]
-            if type_key in mapped and len(holders) == 1:
+            # One application of the target lists it: its records go there, whether the mapping
+            # names the type or it kept its key and moved (the editor's setContainment with an
+            # application, 0.11 R, R-F3).
+            if len(holders) == 1 and (type_key in mapped or new_type == type_key):
                 plan.types.append((application.key, type_key, holders[0], new_type, None))
             else:
                 code = "APPLICATION_IN_USE" if same is None else "APPLICATION_OBJECT_TYPE_IN_USE"
@@ -206,17 +210,15 @@ def plan_migration(
         if new_type is None:
             continue
         chosen = dict(mapped[object_type.key].attributes) if object_type.key in mapped else {}
-        claimed: dict[str, str] = {}
+        # A source the mapping names goes where it says, whatever the target's attribute order; the
+        # same-name rule fills only what the mapping leaves alone (0.11 R, R-F1).
+        claimed: dict[str, str] = {
+            source: key for key, source in chosen.items() if source is not None
+        }
         for binding in new_type.attributes:
             key = binding.attributeTypeKey
-            if key in chosen:
-                source = chosen[key]
-            elif key in old_bound and key not in claimed:
-                source = key
-            else:
-                source = None
-            if source is not None and source not in claimed:
-                claimed[source] = key
+            if key not in chosen and key in old_bound and key not in claimed:
+                claimed[key] = key
         # ADR-034's display rule for a type that changes: display attribute to display attribute,
         # when nothing else took either and the value types match or widen.
         display_from, display_to = (
@@ -462,7 +464,8 @@ CREATE TEMPORARY TABLE migration_relations (
 ) ON COMMIT DROP;
 CREATE TEMPORARY TABLE migration_value_changes (
     object_id varchar(36), attribute_type_key text, target_key text, to_type text, before json,
-    after json, outcome text, code text, PRIMARY KEY (object_id, attribute_type_key)
+    after json, outcome text, code text, value_id varchar(36),
+    PRIMARY KEY (object_id, attribute_type_key)
 ) ON COMMIT DROP;
 CREATE TEMPORARY TABLE migration_relation_changes (
     relation_id varchar(36), attribute_type_key text, before json, after json, outcome text,
@@ -530,9 +533,11 @@ _FILL = (
             WHEN after IS NULL THEN 'VALUE_NOT_CONVERTIBLE'
             WHEN from_type <> to_type THEN 'VALUE_CONVERTED'
             ELSE 'VALUE_CARRIED'
-        END
+        END,
+        value_id
     FROM (
         SELECT o.object_id, a.attribute_type_key, p.target_key, p.to_type, a.value_type AS from_type,
+            a.id AS value_id,
             {_VALUE} AS before,
             CASE WHEN p.target_key IS NOT NULL
                 THEN rdm_convert_value({_VALUE}, a.value_type, p.to_type) END AS after
@@ -810,6 +815,14 @@ _APPLY = (
     WHERE a.object_id = c.object_id AND a.attribute_type_key = c.attribute_type_key
         AND c.outcome = 'loss'
     """,
+    # A value carried to another attribute steps aside under its own ID first: PostgreSQL checks
+    # (record, attribute) row by row, so two attributes trading places in one UPDATE collide
+    # (0.11 R, R-F2).
+    """
+    UPDATE attribute_values a SET attribute_type_key = '~' || a.id
+    FROM migration_value_changes c
+    WHERE a.id = c.value_id AND c.outcome = 'conversion' AND c.target_key <> c.attribute_type_key
+    """,
     """
     UPDATE attribute_values a SET attribute_type_key = c.target_key, value_type = c.to_type,
         text_value = CASE WHEN c.to_type IN ('text', 'longText') THEN c.after #>> '{}' END,
@@ -822,8 +835,7 @@ _APPLY = (
         json_value = CASE WHEN c.to_type = 'json' THEN c.after END,
         version = a.version + 1
     FROM migration_value_changes c
-    WHERE a.object_id = c.object_id AND a.attribute_type_key = c.attribute_type_key
-        AND c.outcome = 'conversion'
+    WHERE a.id = c.value_id AND c.outcome = 'conversion'
     """,
     (
         "DELETE FROM attribute_values WHERE object_id IN "
@@ -1371,7 +1383,16 @@ def require_reviewed(
     for_update: bool = False,
 ) -> None:
     """The workspace, and a named change set, as the preview read them (D74, D83, D92);
-    otherwise ``409 MIGRATION_REVIEW_STALE``."""
+    otherwise ``409 MIGRATION_REVIEW_STALE``. A workspace retired since is ``409
+    WORKSPACE_RETIRED`` (0.11 R, R-F5): the execution holds its row, so a retirement waits."""
+    status = session.scalar(select(Workspace.status).where(Workspace.key == job.workspace_key))
+    if status != "active":
+        raise api_error(
+            409,
+            "WORKSPACE_RETIRED",
+            f"Workspace '{job.workspace_key}' was retired after the preview; nothing was migrated",
+            {"workspaceKey": job.workspace_key},
+        )
     assignment, current = load_assignment(session, job.workspace_key, for_update=for_update)
     feed_position = int(
         session.scalar(select(Workspace.feed_position).where(Workspace.key == job.workspace_key))
@@ -1468,8 +1489,14 @@ def run_execution(
         )
     migration = _Migration.open(session, job)
     current_release = session.get(ModelRelease, job.model_release_id)
+    # The unique values are locked only at the switch (R-F6): the workspace's row, held from the
+    # start, keeps the workspace's own writes out meanwhile, and other workspaces' writes go on.
     lock_what_activation_changes(
-        session, job.workspace_key, migration.target_release.public_id, current_release.public_id
+        session,
+        job.workspace_key,
+        migration.target_release.public_id,
+        current_release.public_id,
+        unique_values=False,
     )
     require_reviewed(
         session,
@@ -1495,6 +1522,7 @@ def run_execution(
             "migrated. Preview the migration again",
             {"workspaceKey": job.workspace_key, "reviewed": summary.get("counts"), "now": counts},
         )
+    lock_unique_values(session, migration.target_release.public_id, current_release.public_id)
     switch_assignment(session, migration, current_release, summary["expectedVersion"])
     published = {}
     if "changeSetId" in summary:

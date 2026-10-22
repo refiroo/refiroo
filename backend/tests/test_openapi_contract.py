@@ -206,10 +206,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # with their Process* and *Readiness* schemas. Diffed against the previous commit, nothing else
     # changed. Re-baselined for 0.11 O2 (D198–D204): GET /api/v1/system/summary and GET
     # /api/v1/system/backup-rehearsals with the Summary* and *Rehearsal* schemas. Diffed against the
-    # previous commit, nothing else changed.
+    # previous commit, nothing else changed. Re-baselined for 0.11.0 (R, D229): info.version 0.11.0;
+    # with 0.11.0-alpha.1 the document hashes to the previous lock exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "782fa2f67f5abd4c014448fc83818dd6b7b8a8e5a3601c7525d397f7e296d275"
+        "90c49eff1c0bb302e3eb0aedd81694033a140f4279661e31237ec642d9250e1e"
     )
 
 

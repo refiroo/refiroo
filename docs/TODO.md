@@ -856,6 +856,21 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   and move (`attribute_values`, `snapshot_attribute_values`), with an index per value type starting
   with them. Cost: a backfill of both tables, twelve indexes, write and publish cost (C-D68's margin).
   Ancestor sorts (relation lists only) measured within the budget, 58–77 ms (D208).
+- [ ] A migration preview that holds nothing live (0.11 R, R-F7, decided by the user 2026-10-22: kept
+  for 0.11, documented). V1's preview applies the migration to live rows under a savepoint, so for its
+  length (66–111 s at 100,000 records) a write to a record it converted waits, and a write that locked
+  a record first can deadlock with it; V3's holds the change set's row. The fix: the preview applies
+  the migration to private copies of the workspace's rows, and the compatibility analysis and the
+  publication findings read those copies. Cost: both checks learn to read another source.
+- [ ] `test:browser:a4` flake (0.11 R step 3, 2026-10-22; passed on one rerun): at 390px in a change
+  set, after an unlink the matrix cell showed its focus ring, but Enter did not open its dialog
+  (`a4-relation-matrix.mjs` line 383, "Link again"). Either focus is only drawn on the cell while
+  the document's focus is elsewhere after the dialog closes, or Enter came before the cell rendered
+  again. Find which before calling it a timing flake.
+- [ ] A 0.10 database with releases but no `model_runtime_state` row is upgraded without workspace
+  assignments (0.11 R, R-F11, not fixed by decision): `20261018_01` joins the row. 0.10 wrote it in the
+  same startup transaction that installed its first release, so no 0.10 database with data lacks it;
+  fixing it would edit a migration the alpha shipped.
 - [ ] 0.12 security: engine-provided OAuth 2.0 with JWT for backend, frontend and consumer APIs (no API
   keys, no credential in a URL), application/object/operation authorization, audit identity,
   webhook signing-key rotation (signing itself is 0.9, C-D12 revised), and UI administration of OAuth
@@ -867,19 +882,20 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] 1.0: migration-class operations in the 0.10 editor (key renames, splits, merges, cardinality) on
   the 0.11 migration boundary.
 - [ ] Read-only dependency graph visualization where it improves comprehension.
-- [ ] Product 0.11: executable runtime-data migration plans for currently blocked model changes.
-- [ ] Product 0.11: model replacement for a change set started from a publication, with a side-effect-free impact/loss preview,
+- [x] Product 0.11: executable runtime-data migration plans for currently blocked model changes.
+  Delivered in 0.11 V1 (a workspace's data migrated to another release, previewed and confirmed).
+- [x] Product 0.11 (delivered in V2): model replacement for a change set started from a publication, with a side-effect-free impact/loss preview,
   explicit confirmation tied to the reviewed versions or cancel, atomic workspace model/data switch,
   immutable history and unaffected-workspace isolation. Confirmation cannot waive target validity or
   parser support; nothing in Base 0.6 overrides them.
-- [ ] Product 0.11: each workspace runs a model of its own (ADR-042; 0.11 Track M), with staged
+- [x] Product 0.11 (delivered in Track M and V4): each workspace runs a model of its own (ADR-042; 0.11 Track M), with staged
   per-workspace rollout.
   Resolve the workspace before its immutable model snapshot, scope compatibility and migration to that
   workspace, bind cursors to the release identity and switch assignments atomically. Supporting mixed
   schema-language versions additionally requires a bounded parser window and explicit conversion;
   workspace pinning alone is not schema compatibility (the window, 0.5–0.10, and its conversion rules
   are V4's, delivered 2026-10-18, in APPLICATION_MODEL "Schema versions and the window").
-- [ ] Product 0.11 (ADR-028): move a change set onto a release its content does not already satisfy, by
+- [x] Product 0.11 (ADR-028, delivered in V3): move a change set onto a release its content does not already satisfy, by
   reusing the migration preview/confirm machinery against that change set's own candidate graph and
   current-live base. The review reports conversions and potential loss of change-set content and applies only on
   confirmation of the exact reviewed change set and release versions; nothing forces the move through or

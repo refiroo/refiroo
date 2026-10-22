@@ -61,6 +61,9 @@ describe("API client", () => {
     expect(named()).toBeNull();
     await api.createWorkspace({ key: "east", label: "East" });
     expect(named()).toBeNull();
+    // The relation matrix's and the relationship form's save (R-F4).
+    await api.replaceMapping("west", {} as Parameters<typeof api.replaceMapping>[1]);
+    expect(named()).toBe("release-1");
 
     const refusals: string[] = [];
     const stop = onModelReleaseChanged((refusal, read) => refusals.push(`${refusal.code} ${read}`));

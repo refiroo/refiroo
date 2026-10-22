@@ -138,7 +138,7 @@ def test_a_write_when_its_workspaces_release_changed_meanwhile(world):
     x2 = world.install(model)["id"]
     record = world.made("R", "Before activation")
 
-    with world.holding(W1) as held:
+    with world.holding(W1, as_write=True) as held:
         write = held.start(lambda: world.update("R", record["id"], record["version"], name="Late"))
         held.waiting(1)
         ok(world.activate(x2))

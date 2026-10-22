@@ -17,9 +17,10 @@ let expected: string | undefined;
 const listeners = new Set<(refusal: ApiError, read: boolean) => void>();
 
 // The writes D65 names: records, relations and their values, moves and deletes, live and in a
-// change set; batches, imports and type changes in a change set.
+// change set; batches, imports and type changes in a change set; and a relation's mapping, the
+// relation matrix's and the relationship form's save (0.11 R, R-F4).
 const DATA_WRITE =
-  /^\/api\/v1\/(objects|relations|batches|imports)(\/|\?|$)|^\/api\/v1\/change-sets\/[^/]+\/restructurings/;
+  /^\/api\/v1\/(objects|relations|batches|imports)(\/|\?|$)|^\/api\/v1\/change-sets\/[^/]+\/restructurings|^\/api\/v1\/workspaces\/[^/]+\/mappings(\?|$)/;
 
 /** Name `releaseId` on the shown page's data writes from now on; `undefined` names none. */
 export function setExpectedRelease(releaseId: string | undefined) {

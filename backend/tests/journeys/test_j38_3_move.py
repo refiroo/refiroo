@@ -312,6 +312,38 @@ def test_a_move_executed_without_waiting(world):
     }
 
 
+@pytest.mark.journey("J38.2")
+@pytest.mark.structures(*BOTH)
+def test_a_load_whose_lease_was_taken_commits_nothing(world, monkeypatch):
+    """Given a move sent with ``stage: execute`` (0.11 R, R-F9). When another process takes the
+    job's lease while this one opens the target's change set, then this one commits nothing; the
+    load, run again, completes with one "Move from" change set in the target, the job's own."""
+    from app.engine.moves import move_load
+
+    _other_world, target, key = _mapped(world)
+    _ledger(world, "Ledger")
+    opening = move_load._start
+
+    taken = []
+
+    def start(session, job):
+        opening(session, job)
+        if not taken:
+            # Another process holds the job now, as its lease's takeover writes it; the rollback
+            # gives it back, and the next run opens the change set again.
+            taken.append(job.change_set_id)
+            job.lease_owner = "another-process"
+            session.flush()
+
+    monkeypatch.setattr(move_load, "_start", start)
+    job = ok(_start(world, key, target, _ledgers(world), stage="execute"), 202)
+    _run(world)
+    done = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert taken and done["state"] == "completed", done
+    opened = [c["id"] for c in _change_sets(world, target) if c["name"].startswith("Move from")]
+    assert opened == [done["changeSetId"]] and taken[0] not in opened
+
+
 @pytest.mark.journey("J38")
 @pytest.mark.structures(*BOTH)
 def test_a_confirmation_refused(world):

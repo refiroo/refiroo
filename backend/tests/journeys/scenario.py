@@ -377,7 +377,7 @@ class World:
     # --- two actors at once ---
 
     @contextmanager
-    def holding(self, workspace: str) -> Iterator[Held]:
+    def holding(self, workspace: str, *, as_write: bool = False) -> Iterator[Held]:
         """Hold the workspace's row from the test's own connection while the block runs.
 
         Requests started with ``Held.start`` that write the workspace wait for it; ``Held.waiting``
@@ -391,8 +391,12 @@ class World:
         holder = engine.connect()
         held = Held(pool, engine)
         try:
+            # Held for update, every request touching the workspace waits, change set writes
+            # (key share) too. ``as_write`` holds it as a live write does (FOR NO KEY UPDATE), for
+            # an activation to run meanwhile, as it does beside a live write (0.11 R, R-F12).
+            lock = "FOR NO KEY UPDATE" if as_write else "FOR UPDATE"
             holder.execute(
-                text("SELECT 1 FROM workspaces WHERE key = :k FOR UPDATE"), {"k": workspace}
+                text(f"SELECT 1 FROM workspaces WHERE key = :k {lock}"), {"k": workspace}
             )
             yield held
         finally:

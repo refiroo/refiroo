@@ -1,4 +1,5 @@
-// Base 0.11 workspace-model surfaces in the accessibility and visual gates (0.11 M6, D57): each
+// Base 0.11 workspace-model surfaces in the accessibility and visual gates (0.11 M6, D57), with
+// Settings › Operations (0.11 R, D226): each
 // surface of M5 the user approved by screenshot, light and dark. They run on a harness of their own,
 // since they install releases and add workspaces the gates' other pages do not expect. Both gates
 // call `visitWorkspaceSurfaces` with what they do on each surface; `dark` on a surface marks the
@@ -77,7 +78,12 @@ print(json.dumps({'target': generated('a').model, 'leftOut': world.key('C'), 're
   // A dialog with a choice made asks before Escape discards it; the surfaces discard it.
   page.on("dialog", (confirm) => confirm.accept());
   const dialog = () => page.getByRole("dialog").last();
-  const varying = () => [page.getByText(/just now|minutes? ago|\d{1,2}:\d{2}|^[0-9a-f]{8}(-|…)/)];
+  // Settings › Operations: the time it read and each process's ID, times and counters (0.11 R, D226).
+  const varying = () => [
+    page.getByText(/just now|minutes? ago|\d{1,2}:\d{2}|^[0-9a-f]{8}(-|…)/),
+    page.locator(".operations-refresh .settings-note"),
+    page.locator(".operations-processes"),
+  ];
   const closeDialogs = async () => {
     for (let step = 0; step < 10; step += 1) {
       if (!(await page.getByRole("dialog").count())) return;
@@ -399,8 +405,35 @@ print(json.dumps({'target': generated('a').model, 'leftOut': world.key('C'), 're
       ],
     ];
 
+    // Settings › Operations (0.11 O2, R D226), first, while the instance holds only the set-up's
+    // workspaces and no job: wide light and dark, and at 390px.
+    const operationsSurfaces = [
+      [
+        "settings-operations",
+        async () => {
+          await page.setViewportSize({ width: 1440, height: 900 });
+          await page.goto(`${uiUrl}/settings/operations`);
+          await page.getByRole("region", { name: "Summary" }).waitFor();
+          await page.getByText("Engine processes").first().waitFor();
+          await page.waitForLoadState("networkidle");
+        },
+        { dark: true },
+      ],
+      [
+        "settings-operations-phone",
+        async () => {
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.goto(`${uiUrl}/settings/operations`);
+          await page.getByRole("region", { name: "Summary" }).waitFor();
+          await page.getByText("Engine processes").first().waitFor();
+          await page.waitForLoadState("networkidle");
+        },
+      ],
+    ];
+
     for (const [group, prepare] of [
-      [surfaces, async () => {}],
+      [operationsSurfaces, async () => {}],
+      [surfaces, () => page.setViewportSize({ width: 1440, height: 900 })],
       [migrationSurfaces, setUpProbe],
       [moveSurfaces, setUpMoves],
     ]) {

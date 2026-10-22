@@ -153,6 +153,8 @@ def load_step(
     report = job.report or {}
     if "sourceFeedPositionAtLoad" not in report:
         _start(session, job)
+        # Its change set is committed only while the job is still this worker's (0.11 R, R-F9).
+        hold()
         return
     if job.change_set_id is not None:
         context = open_job_context(session, job)

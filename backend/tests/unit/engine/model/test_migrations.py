@@ -201,6 +201,24 @@ def test_a_type_mapping_keeps_the_records_and_names_attribute_sources():
     assert {(kind, key): goes for kind, key, goes, _vt in mapped.values}[(KEYS["C2"], display)] is None
 
 
+def test_a_named_source_wins_over_the_same_attribute_whatever_the_order():
+    """An attribute the mapping names takes the source named, even when the same-named attribute
+    comes first in the target type; the attribute it names keeps none (0.11 R, R-F1)."""
+    current, target = _models(lambda document: None)
+    keys = [b.attributeTypeKey for b in target.object_type(KEYS["R"]).attributes]
+    first, later = next(
+        (a, b)
+        for a in keys
+        for b in keys
+        if keys.index(a) < keys.index(b)
+        and target.attribute_type(a).valueType == target.attribute_type(b).valueType
+    )
+    plan = plan_migration(current, target, (TypeMapping(KEYS["R"], KEYS["R"], ((later, first),)),))
+    goes = {(kind, key): to for kind, key, to, _vt in plan.values}
+    assert goes[(KEYS["R"], first)] == later
+    assert goes[(KEYS["R"], later)] is None
+
+
 @pytest.mark.parametrize(
     "mapping, pointer",
     [

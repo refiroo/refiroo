@@ -28,6 +28,8 @@ const KNOWN_ACCESSIBILITY_EXCEPTIONS = [
   },
 ];
 const TREE_PAGE_SIZE = 50;
+// What a list's window keeps (src/lib/hooks/useCursorWindow.ts, 0.11 X6).
+const WINDOW_ROWS = 600;
 const format = (value) => value.toLocaleString("en-US");
 
 async function assertAccessible(page, name) {
@@ -180,8 +182,8 @@ try {
     );
     assert.equal(rows.setSize, String(heavyItems.totalCount));
 
-    // The heavy group's items scroll end to end in the sidebar, the group holding at most five pages
-    // (UA9, U-D21: one list, no window of its own).
+    // The heavy group's items scroll end to end in the sidebar, the group holding no more than a
+    // window keeps (UA9, U-D21: one list, no window of its own; 0.11 X6: WINDOW_ROWS, 600).
     const box = await page.locator(".workspace-sidebar").boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     let most = 0;
@@ -195,7 +197,9 @@ try {
     }
     rows = await windowRows(itemsGroup);
     assert.equal(rows.last, heavyItems.totalCount - 1, `${context}: scrolled to the last item`);
-    assert.ok(Math.max(most, rows.count) <= 5 * TREE_PAGE_SIZE, `${context}: window held ${most} rows`);
+    // A page is dropped only while what stays still holds WINDOW_ROWS, so a window holds less than
+    // one page more (useCursorWindow's `evict`).
+    assert.ok(Math.max(most, rows.count) < WINDOW_ROWS + TREE_PAGE_SIZE, `${context}: window held ${most} rows`);
     const scrolledRequests = requests.seen.filter((url) => url.searchParams.get("parentObjectId") === heavy.id);
     assert.ok(
       scrolledRequests.some((url) => url.searchParams.has("cursor")),

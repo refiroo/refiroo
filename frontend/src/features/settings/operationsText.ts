@@ -98,7 +98,9 @@ export function summaryFigures(
     },
     {
       label: "Webhook subscriptions",
-      value: hooks.failing ? `${count(hooks.active)} active · ${count(hooks.failing)} failing` : `${count(hooks.active)} active`,
+      value: hooks.failing
+        ? `${count(hooks.active)} active · ${count(hooks.failing)} failing`
+        : `${count(hooks.active)} active`,
       note: `${count(hooks.failing)} failing · ${count(hooks.suspended)} suspended`,
       tone: hooks.failing || hooks.suspended ? "warning" : "success",
     },

@@ -140,7 +140,8 @@ try {
     "PATCH",
   );
 
-  const runtimeBefore = await api("/workspaces/default/model");
+  // The release changes in the runner's own workspace: since 0.11 each workspace runs its own (M1).
+  const runtimeBefore = await api(`/workspaces/${workspaceKey}/model`);
   const candidate = structuredClone(model);
   candidate.release.version = `${oldModelVersion}-history-new`;
   candidate.product.description = "Current definition after historical publication";
@@ -150,7 +151,7 @@ try {
     model: candidate,
   });
   const installed = await api(`/model-drafts/${modelDraft.id}/installation`, { expectedVersion: modelDraft.version });
-  await api("/workspaces/default/model/activation", {
+  await api(`/workspaces/${workspaceKey}/model/activation`, {
     releaseId: installed.id,
     expectedVersion: runtimeBefore.version,
     expectedReleaseId: runtimeBefore.releaseId,

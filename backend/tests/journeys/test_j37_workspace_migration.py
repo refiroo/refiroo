@@ -74,7 +74,8 @@ def _x2(world, *changes):
     """``X1`` with ``changes``: ``count-integer`` (the count attribute becomes an integer),
     ``drop-note`` (the note binding and attribute go), ``drop-probe`` (the probe type, its
     relationship and its label go), ``rename-probe`` (the probe type's key changes) and
-    ``require-note`` (``R`` requires the note)."""
+    ``require-note`` (``R`` requires the note), ``move-probe`` (the probe type stands in another
+    application), ``same`` (nothing but the version) and ``unique-note`` (the note is unique)."""
     model = _x1(world)
     k = _probe(world)
     r_type = next(t for t in model["objectTypes"] if t["key"] == world.key("R"))
@@ -103,6 +104,17 @@ def _x2(world, *changes):
                     pair["fromObjectTypeKey"] = k.renamed
         elif change == "require-note":
             next(b for b in r_type["attributes"] if b["attributeTypeKey"] == k.note)["required"] = True
+        elif change == "move-probe":
+            # The editor's setContainment with an application: the probe type keeps its key and
+            # stands in another application (0.11 R, R-F3).
+            application["objectTypeKeys"].remove(k.kind)
+            other = next(a for a in model["applications"] if a["key"] != world.app("R"))
+            other["objectTypeKeys"].append(k.kind)
+        elif change == "same":
+            pass
+        elif change == "unique-note":
+            note = next(a for a in model["attributeTypes"] if a["key"] == k.note)
+            note["features"] = {**(note.get("features") or {}), "unique": True}
     model["release"]["version"] = f"{model['release']['version']}-{'-'.join(changes)}"
     return model
 
@@ -355,6 +367,139 @@ def test_a_renamed_type_is_carried_by_a_type_mapping(world):
         made["first probe"]["id"],
         made["twelve"]["id"],
     )
+
+
+@pytest.mark.journey("J37.2")
+@pytest.mark.structures(*BOTH)
+def test_named_attribute_sources_trade_values(world):
+    """Given a release that changes nothing but its version (0.11 R, R-F1, R-F2). When the
+    migration maps R onto itself with the count taking the note's values and the note the count's,
+    then the preview lists each carried value with its target and loses nothing; after confirming,
+    the record that held both now holds them the other way round."""
+    key, made, _citation = _workspace(world)
+    k = _probe(world)
+    same = world.install(_x2(world, "same"), name="Probe")
+    mapping = [
+        {
+            "fromObjectTypeKey": world.key("R"),
+            "toObjectTypeKey": world.key("R"),
+            "attributes": [
+                {"attributeTypeKey": k.count, "from": k.note},
+                {"attributeTypeKey": k.note, "from": k.count},
+            ],
+        }
+    ]
+    job = _previewed(world, key, same["id"], typeMappings=mapping)
+    assert job["state"] == "awaiting_confirmation"
+    assert job["migration"]["counts"]["loss"] == 0
+    carried = {
+        (row["objectId"], row["attributeTypeKey"]): row.get("targetAttributeTypeKey")
+        for row in _rows(world, job["id"], status="conversion")
+    }
+    assert carried[(made["twelve"]["id"], k.count)] == k.note
+    assert carried[(made["twelve"]["id"], k.note)] == k.count
+
+    ok(_confirm(world, job), 202)
+    _run(world)
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+    twelve = _read(world, key, made["twelve"])
+    assert (_value(twelve, k.count), _value(twelve, k.note)) == ("kept note", "12")
+
+
+@pytest.mark.journey("J37.2")
+@pytest.mark.structures(*BOTH)
+def test_a_type_moved_to_another_application_keeps_its_records(world):
+    """Given a release in which the probe type keeps its key but stands in another application, as
+    the editor's move does (0.11 R, R-F3). When previewed without a mapping, then both probes change
+    application and nothing is lost; after confirming, each probe reads in that application."""
+    key, made, _citation = _workspace(world)
+    k = _probe(world)
+    moved = world.install(_x2(world, "move-probe"), name="Probe")
+
+    job = _previewed(world, key, moved["id"])
+    assert job["migration"]["counts"]["loss"] == 0
+    rows = _rows(world, job["id"], status="reclassified")
+    assert {row["objectId"] for row in rows} == {
+        made["first probe"]["id"],
+        made["second probe"]["id"],
+    }
+    target_application = rows[0]["targetApplicationKey"]
+    assert target_application != world.app("R")
+
+    ok(_confirm(world, job), 202)
+    _run(world)
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+    probe = _read(world, key, made["first probe"])
+    assert probe["applicationKey"] == target_application and probe["objectTypeKey"] == k.kind
+
+
+@pytest.mark.journey("J37.4")
+@pytest.mark.structures(*BOTH)
+def test_a_workspace_retired_after_the_preview_is_not_migrated(world):
+    """Given a migration previewed and confirmed (0.11 R, R-F5). When the workspace is retired
+    before the migration runs, then the job fails with WORKSPACE_RETIRED and the workspace keeps
+    its release, its feed and its records; a preview of another migration, confirmed after the
+    retirement in another workspace, is refused the same way."""
+    x2 = world.install(_x2(world, "drop-note"), name="Probe")
+
+    def retire(key):
+        workspace = ok(world.api.get(f"/workspaces/{key}"))
+        body = {"expectedVersion": workspace["version"], "status": "retired"}
+        ok(world.api.patch(f"/workspaces/{key}", body))
+
+    key, made, _citation = _workspace(world)
+    job = _previewed(world, key, x2["id"])
+    ok(_confirm(world, job, acceptLoss=True), 202)
+    before = _state(world, key, made)
+    retire(key)
+    _run(world)
+    failed = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert failed["state"] == "failed" and failed["error"]["code"] == "WORKSPACE_RETIRED", failed
+    assert _state(world, key, made) == before
+
+    other_key = _on(world, job["migration"]["currentReleaseId"])
+    waiting = _previewed(world, other_key, x2["id"])
+    retire(other_key)
+    refused(_confirm(world, waiting, acceptLoss=True), 409, "WORKSPACE_RETIRED")
+
+
+@pytest.mark.journey("J37.2")
+@pytest.mark.structures(*BOTH)
+def test_writes_elsewhere_go_on_while_a_migration_runs(world, monkeypatch):
+    """Given a migration to a release that makes the note unique, so the unique values follow the
+    switch (0.11 R, R-F6). When a record with a unique value is written in another workspace while
+    the migration runs its last check, then that write commits at once, and the migration then
+    completes."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.engine.model import migrations
+
+    key, _made, _citation = _workspace(world)
+    other, _y, other_key = _beside(world)
+    x2 = world.install(_x2(world, "unique-note"), name="Probe")
+    job = _previewed(world, key, x2["id"])
+    ok(_confirm(world, job), 202)
+
+    checking = migrations._Migration.refusals
+    written = []
+
+    def refusals(self, *, listing):
+        if not listing and not written:
+            pool = ThreadPoolExecutor(1)
+            meanwhile = pool.submit(
+                other.made, "R", "Meanwhile", workspace=other_key, values={"R.u": f"M-{uuid4().hex[:8]}"}
+            )
+            try:
+                # Waiting on the migration's locks, it times out and fails the test, not hangs it.
+                written.append(meanwhile.result(timeout=20))
+            finally:
+                pool.shutdown(wait=False)
+        return checking(self, listing=listing)
+
+    monkeypatch.setattr(migrations._Migration, "refusals", refusals)
+    _run(world)
+    assert written and written[0]["name"] == "Meanwhile"
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
 
 
 @pytest.mark.journey("J37.3")

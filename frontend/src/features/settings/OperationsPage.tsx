@@ -98,12 +98,13 @@ function useOperations() {
     if (!more) return;
     try {
       const page = await api.backupRehearsals(more);
-      setData((previous) =>
-        previous && {
-          ...previous,
-          rehearsals: [...previous.rehearsals, ...page.items],
-          moreRehearsals: page.nextCursor,
-        },
+      setData(
+        (previous) =>
+          previous && {
+            ...previous,
+            rehearsals: [...previous.rehearsals, ...page.items],
+            moreRehearsals: page.nextCursor,
+          },
       );
     } catch (cause) {
       setError(errorMessage(cause));
@@ -204,7 +205,10 @@ function Workspaces({ readiness }: { readiness: WorkspaceReadiness[] }) {
                 ? unavailableReason("noRelease")
                 : item.unavailableIn.length
                   ? item.unavailableIn
-                      .map((process) => `${shortProcess(process.processId)}: ${unavailableReason(process.reason, process.schemaVersion)}`)
+                      .map(
+                        (process) =>
+                          `${shortProcess(process.processId)}: ${unavailableReason(process.reason, process.schemaVersion)}`,
+                      )
                       .join("; ")
                   : "None"}
             </td>
@@ -215,7 +219,8 @@ function Workspaces({ readiness }: { readiness: WorkspaceReadiness[] }) {
   );
 }
 
-const wide = () => typeof window === "undefined" || !window.matchMedia || window.matchMedia("(min-width: 761px)").matches;
+const wide = () =>
+  typeof window === "undefined" || !window.matchMedia || window.matchMedia("(min-width: 761px)").matches;
 
 function Processes({ processes }: { processes: EngineProcess[] }) {
   const [open] = useState(wide);
@@ -292,8 +297,8 @@ function ProcessFacts({ process }: { process: EngineProcess }) {
       <div>
         <dt>Requests since start</dt>
         <dd>
-          {process.counters.requests.toLocaleString("en-GB")} answered, {process.counters.serverErrors.toLocaleString("en-GB")}{" "}
-          with a server error
+          {process.counters.requests.toLocaleString("en-GB")} answered,{" "}
+          {process.counters.serverErrors.toLocaleString("en-GB")} with a server error
         </dd>
       </div>
       <div>
@@ -310,7 +315,15 @@ function ProcessFacts({ process }: { process: EngineProcess }) {
   );
 }
 
-function Rehearsals({ rehearsals, more, onMore }: { rehearsals: BackupRehearsal[]; more: boolean; onMore: () => void }) {
+function Rehearsals({
+  rehearsals,
+  more,
+  onMore,
+}: {
+  rehearsals: BackupRehearsal[];
+  more: boolean;
+  onMore: () => void;
+}) {
   const [showEarlier, setShowEarlier] = useState(false);
   const [latest, ...earlier] = rehearsals;
   return (
@@ -429,7 +442,9 @@ function Rehearsals({ rehearsals, more, onMore }: { rehearsals: BackupRehearsal[
               aria-expanded={showEarlier}
               onClick={() => setShowEarlier((value) => !value)}
             >
-              {showEarlier ? "Hide earlier rehearsals" : `Show earlier rehearsals (${earlier.length}${more ? "+" : ""})`}
+              {showEarlier
+                ? "Hide earlier rehearsals"
+                : `Show earlier rehearsals (${earlier.length}${more ? "+" : ""})`}
             </button>
           )}
           {showEarlier && (
@@ -474,7 +489,9 @@ python -m app.cli.restore_check \\
     --backup <backup>.dump
 dropdb rdm_restore_check`}
         </pre>
-        <p className="settings-note">The operations guide (OPERATIONS.md, Backup and restore) describes recovery in place.</p>
+        <p className="settings-note">
+          The operations guide (OPERATIONS.md, Backup and restore) describes recovery in place.
+        </p>
       </details>
     </Section>
   );

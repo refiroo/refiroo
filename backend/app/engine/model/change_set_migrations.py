@@ -811,12 +811,16 @@ def run_execution(
         select(Workspace.key).where(Workspace.key == job.workspace_key).with_for_update(read=True)
     )
     session.execute(select(ChangeSet.id).where(ChangeSet.id == job.change_set_id).with_for_update())
+    # The assignment held too, last in the lock order: an activation of the workspace waits for the
+    # move, or the move sees it and is stale, never pinning the change set to a release the
+    # workspace just left (0.11 R, R-F8).
     require_reviewed(
         session,
         job,
         reviewed_version=summary["expectedVersion"],
         reviewed_feed_position=summary["feedPosition"],
         summary=summary,
+        for_update=True,
     )
     move = _Move.open(session, job)
     session.execute(text("DELETE FROM job_items WHERE job_id = :job"), {"job": job.sequence_id})

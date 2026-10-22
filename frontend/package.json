@@ -1,7 +1,7 @@
 {
   "name": "rdm-engine-ui",
   "private": true,
-  "version": "0.11.0-alpha.1",
+  "version": "0.11.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -48,6 +48,7 @@
     "test:browser:workspace-v1": "node e2e/workspace-v1.mjs",
     "test:browser:workspace-x4": "node e2e/workspace-x4.mjs",
     "test:browser:workspace-x5": "node e2e/workspace-x5-checkpoint.mjs",
+    "test:browser:workspace-r": "node e2e/workspace-r-acceptance.mjs",
     "test:browser:settings": "node e2e/u3-settings.mjs",
     "test:browser:operations": "node e2e/operations-o2.mjs",
     "test:browser:integration": "node e2e/u4-integration.mjs",
