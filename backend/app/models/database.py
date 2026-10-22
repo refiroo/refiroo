@@ -944,8 +944,9 @@ class SnapshotAttributeValue(Base):
             for name in ("integer", "decimal", "boolean", "date", "datetime")
         ),
         # A change set write's unique check and key reference seek a number, decimal, date or
-        # instant (0.11 Q2, D187, 20261023_01); a row enters only its own type's index, and a
-        # boolean none (a unique boolean has at most two holders).
+        # instant (0.11 Q2, D187, 20261023_01); a change set's attribute sort reads them, and
+        # booleans, in value order (0.11 Q3, D205, D207, 20261026_01). A row enters only its own
+        # type's index.
         *(
             Index(
                 f"ix_snapshot_attribute_values_change_set_key_{name}",
@@ -957,7 +958,7 @@ class SnapshotAttributeValue(Base):
                     f"owner_kind IN ('base', 'change_set') AND {name}_value IS NOT NULL"
                 ),
             )
-            for name in ("integer", "decimal", "date", "datetime")
+            for name in ("integer", "decimal", "boolean", "date", "datetime")
         ),
     )
 

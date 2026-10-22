@@ -11,7 +11,7 @@ packages are specified below at package level; each package's detailed plan, tes
 decisions are written and accepted when it starts, and it is delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** P0, M1 with M2 (2026-10-15), M3, M4, M5, M6 and M6a (2026-10-16), released as
-0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19); Q1 (2026-10-20); N3, Q2 and O1 (2026-10-21).
+0.11.0-alpha.1 (2026-10-17, tag `v0.11.0-alpha.1`); V1, V2, V3, V4, X1, X2, S1 and X3 (2026-10-18); X4, X5, X6, N1 and N2 (2026-10-19); Q1 (2026-10-20); N3, Q2 and O1 (2026-10-21); O2 and Q3 (2026-10-22).
 
 **Target:** Product 0.11.0, [production hardening and staged model rollout](ROADMAP.md#product-release-011--production-hardening-and-staged-model-rollout),
 with the two requirements the user added on 2026-10-15 (ROADMAP commit `a0859ae`).
@@ -409,7 +409,7 @@ change) and `volume` (every budget).
 | 21 | [N3](#n3-concurrency-invariants-with-several-processes) | N2 | **Delivered 2026-10-21** (amended, D176: not at full volume). The invariants raced across two processes; a frozen process's locks released after `DATABASE_IDLE_TRANSACTION_TIMEOUT`; no constraint needed, the SQL writers outside the write unit listed with their locks |
 | 22 | [Q2](#q2-model-derived-indexes) | M2, Q1 | **Delivered 2026-10-21.** Value indexes the same for every model (D186); a change set's unique checks on numbers and dates seek their value; a move's match seeks the target's unique values; the inference counts unique values of every type; the derived-values door decided |
 | — | _cut line (D13)_ | | _If R is out of reach, 0.11.0 releases here and Q3 and U1 move to 0.11.x_ |
-| 23 | [Q3](#q3-precomputed-sort-keys) | Q2 | Attribute and ancestor sorts over very large parents within the list budget |
+| 23 | [Q3](#q3-precomputed-sort-keys) | Q2 | **Delivered 2026-10-22.** An attribute sort reads in value order in every context (a change set's base and own rows merged), ties by record ID, totals without values; at full volume a change set's first page 168 → 14 ms; a deep position in a change set still over budget (124 ms), stored keys in TODO; ancestor sorts within budget, nothing built |
 | 24 | [O1](#o1-metrics-logs-health-and-readiness) | N1 | **Delivered 2026-10-21.** `/health/live`; readiness per workspace and per process from each process's heartbeat row; `/metrics` for the whole instance in one scrape; JSON logs and one request ID |
 | 25 | [O2](#o2-backup-restore-and-the-operations-page) | O1, M6 | **Delivered 2026-10-22** (screenshots wait for approval). A restored backup checked with `app.cli.restore_check` and recorded in the instance; rehearsed on the development database, six workspaces on three models; Settings › Operations (U7) |
 | 26 | [U1](#u1-touch-drag-in-the-tree-lens) | — | Long-press drag in the tree lens on phones (0.8 D35) |
@@ -4716,6 +4716,190 @@ volume (TODO, C-D67) or sort very large parents by an attribute or ancestor with
 **Needs:** Q2. Below the cut line.
 
 **Scope:** attribute and ancestor sorts over very large parents within the list budget (0.8 D26).
+
+##### Q3 plan (2026-10-22)
+
+**Planned 2026-10-22. D205–D209 and the test cases accepted by the user on 2026-10-22.** Checked against
+the code at `dee1f6a` by reading it, and by one probe on the 0.1 and 0.04 volume seeds (the heavy
+parent holding 2,000 and 800 items; `ANALYZE` run; five timed reads each, plans of the slowest
+statement; a temporary script, deleted). No full-volume run (D176).
+
+**What was found:**
+
+- **Two of D26's three contexts are closed; the change set is not.** Live (0.9 C3a) and
+  publications (C6a) read an attribute sort in two parts, the records with a value through the
+  value-order index, then those without. A change set reads every record under the parent and looks
+  its value up twice per record (two subplans on `uq_snapshot_attribute_value`), then sorts: 11 ms
+  for 2,000 children, 4.4 ms for 800, so about 110 ms for the fixture's 20,000 (PG5 measured
+  150 ms). The reason C-D67 gave (a base and an overlay cannot be walked in one index's order)
+  no longer holds as stated: Q2's partial indexes `(owner, attribute, value, object_id)` cover a
+  current-live base and the change set's own values for numbers and dates, the text index covers
+  text, and C6a's cover a publication base, so each half can be read in value order and the two
+  merged. Booleans have no index in a change set (Q2 left them out).
+- **Totals and deep positions under an attribute sort count every child, in every context.** With
+  `includeTotal`, the parts are counted separately, each joined to the values (live: two counts
+  reading all 26,370 `vol-rank` values of the workspace for 2,000 children, 8.6 ms). A position
+  three quarters deep: live 23 ms, publication 26 ms, change set 58 ms for 2,000 children (13, 16
+  and 32 ms for 800). The same reads sorted by name stay flat (7, 7 and 13 ms; 0.7–2 ms per
+  statement at both sizes), because the name indexes start with the parent. No value index holds
+  the parent.
+- **Ties.** In publications and change sets the list breaks ties by record ID, which is the value
+  indexes' last column, so ties come in index order. Live lists break ties by the record's sequence
+  number, which `attribute_values` does not hold: PostgreSQL reads every record sharing a value
+  before it can order them. With 1,000 ranks that is 20 records; an attribute with few values (a
+  status, a flag) over 20,000 children reads thousands.
+- **Ancestor sorts are a relation-list sort only.** An object list refuses `ancestor:<type>`
+  (`INVALID_SORT`, no ancestor join for object lists). The relation list under the heavy parent
+  reads all its relations and sorts them (12–14 ms for 2,000; 4–6 ms for 800). At full volume it was
+  measured within the budget: PG5 61 ms live, 75 ms change set, 65 ms history; 0.9 R (2026-10-11)
+  58.5 ms live. Under a parent all children share the ancestor, so the order is the tiebreak.
+- **What a stored sort key (D26 as worded) would add beyond that** is a value index that starts
+  with the record's type and parent, so a deep position or a total under a parent is a range of one
+  index, flat at any size, as the name order is. It needs the type and parent on every value row
+  (`attribute_values`, `snapshot_attribute_values`), kept on every value write and every move, and
+  an index per value type and table.
+
+**What is built (as recommended):**
+
+1. **A change set's attribute sort in value order (D205):** the records with a value are read as two
+   arms, merged by PostgreSQL in value order: the base's records the change set does not replace,
+   joined to the base's values through their index, and the change set's own records, joined to
+   theirs. The records without a value stay the second part. Position reads keep resolving through
+   the base (S4R6's overlay). Migration `20261026_01` adds the boolean partial index Q2 left out,
+   `ix_snapshot_attribute_values_change_set_key_boolean` (D207). Closes C-D67's TODO line.
+2. **Totals counted on the records:** a total under an attribute sort counts the list's records
+   (through the parent or type index, as a name sort's total does), not each part joined to its
+   values. Every context.
+3. **Live ties by record ID (D206):** a live attribute sort breaks ties by the record's ID, as change
+   sets and publications already do, so ties read in the value index's order.
+4. **Ancestor sorts (D208):** nothing built; the finding and the full-volume figures recorded.
+5. **Documents:** ARCHITECTURE (the value-order read in every context), USER_JOURNEYS (J21.9: every
+   context; ties by ID), API_JOURNEYS, API.md (the tiebreak), POSTGRESQL_BUDGETS (E3 closed or
+   restated by the run), TODO (C-D67's line closed; D26's line narrowed to what D205 leaves),
+   CHANGELOG, PROJECT_STATUS. No frontend change: a stale anchor on a live attribute-sorted list is
+   refused once (`INVALID_CURSOR`) and `useCursorWindow` restarts the list.
+
+**Composable domains (ADR-032):** attribute storage is not affected (indexes only; D205's option B
+would have been); identity, audit, the bulk APIs, `match` and coverage are not affected.
+
+**Decisions:**
+
+| # | Question | Recommendation | Blocks |
+| --- | --- | --- | --- |
+| D205 | What Q3 builds for attribute sorts | **Recommended: value-order reads over the indexes that exist** (items 1–2): a change set's first page, seek and cursor reads, and every context's totals, stop growing with the number of children. Why: the only full-volume exception left in D26's rows is the change set (150 ms), and it closes without new storage or write cost. Cost: a deep position under an attribute sort still walks the value index up to the position (or sorts the children, as the planner chooses), so it grows with the children; at the fixture's 20,000 it is expected inside 100 ms, which D209's run confirms or refutes. **The alternative, B: stored sort keys** (type and parent on every value row, an index per value type starting with them): deep positions and totals flat at any size. Its cost: the two largest tables gain columns, backfilled by the migration; twelve more indexes; every value write and move maintains them; capture and publish copy more index entries (C-D68 left publish 0.2 s inside its budget at 0.1 scale). B goes to TODO, for a parent larger than the fixture's that is measured over budget | Q3 |
+| D206 | Live ties in an attribute sort | **Recommended: by record ID**, as change sets and publications break them. Why: the value index is ordered by ID within a value, so a page reads only its rows even when thousands share a value; the three contexts then list ties alike. Cost: a live attribute-sorted cursor or anchor issued before Q3 is refused once (`INVALID_CURSOR`), and the browser restarts that list from its first page; ties in live no longer follow creation order | Q3 |
+| D207 | Booleans in a change set's value order | **Recommended: the boolean partial index** for base and change-set values. Why: a flag is the attribute with fewest values, where reading in index order matters most; without it a change set's boolean sort reads every child. Cost: one index entry per boolean value at capture (the volume fixture has none on items; checked in the 2,000-record timing) | Q3 |
+| D208 | Ancestor sorts | **Recommended: nothing built.** Why: they exist on relation lists only and were measured within the budget at full volume (58–75 ms); a stored key would have to follow every ancestor rename into each descendant's relations. Cost: they grow with the anchor's relations; recorded in POSTGRESQL_BUDGETS | Q3 |
+| D209 | Evidence at full volume | **Recommended: one announced run, with your go-ahead (D176):** the full-volume seed built once (about 6 minutes, last measured in 0.9 R), the heavy-parent sort rows (attribute and ancestor, first page, deep position with total, in three contexts) measured before and after Q3 on it, then dropped. Why: "within the list budget" is a full-volume statement, and D205's deep-position claim is extrapolated. Cost: about 10 minutes of the laptop under load, one block. Without it, the 2,000-child plans and timings are the evidence and the full-volume claim stays unmeasured | Q3 |
+
+**Journey test cases** (written first; the plan checks fail today):
+
+1. **J21.9 in a change set** (`test_j21_read_completely`): the existing attribute-sort reads (both
+   directions, cursors to the end and back, positions in each part, `from=end`, seek, totals) in a
+   change set whose records the change set has changed: values raised past others, a value given to
+   a record without one and taken from another, records created with and without a value, a record
+   deleted. Then the list is the effective records in value order, as live lists the same records.
+   And the first page's statement reads the base's and the change set's value indexes, not
+   `uq_snapshot_attribute_value` per record, and the total does not read the values (`planned`, as
+   Q2's J06.5). Behaviour passes today; the plan check fails.
+2. **J21.9 ties by ID** (live, change set, publication): 60 records under one parent share one value
+   of the sort attribute, a few hold another. Then pages, cursors and positions list them by value,
+   then by record ID, alike in the three contexts, and live's first page is planned without sorting
+   the records that share the value. Fails today (live ties by creation order).
+3. **J21.9 a flag in a change set**: the records under a parent sorted by a boolean attribute in a
+   change set, `false` before `true`, then those without a value; the first page reads D207's index.
+   Fails today on the plan check.
+
+No unit test: the code changed is the read builders, which the cases exercise through the API.
+**Checks planned:** `test_j21_read_completely`, `test_change_set_position_reads`,
+`test_context_read_parity`, `test_paging_contract`, `test_typed_table_queries`, `test_pagination`;
+the migration's `test_startup` and `test_schema_drift`; the 2,000-record change-set creation timed
+once before and after (D207); D209's run if approved; `ruff` on the changed files. Not planned: the
+full suite and browser runners (R's); the frontend (no change).
+
+##### Q3 record (2026-10-22)
+
+**Delivered 2026-10-22.** As planned, D205–D209 as accepted, with the differences below.
+
+**What was built:**
+
+- **A change set's attribute sort in value order (D205):** its records with a value are one part
+  merged from two arms, the base's records it keeps (`ChangeSetPart` `kept`) and its own, each joined
+  to its own values (`object_projection(sort_value=…)`) and read through its value index; the records
+  without one stay the second part. `pagination.merged` builds such a part and `paginate_statement`
+  reads it: a page, a cursor or a seek takes the first rows of each arm in its own order and keeps
+  the first of them all; a position reads the union in one statement. A change set's position under
+  an attribute sort resolves through these parts, not the overlay.
+- **Totals counted on the records:** `paginate_statement` counts the list's statement (or the
+  overlay) once, not each part joined to its values. Every context.
+- **Live ties by record ID (D206):** `ObjectColumns.value_tiebreak`; the live list sets it.
+- **The boolean index (D207):** migration `20261026_01`,
+  `ix_snapshot_attribute_values_change_set_key_boolean`, declared in `models/database.py`.
+- **Ancestor sorts (D208):** nothing built.
+- **Documents:** ARCHITECTURE (the value-order read in every context), API.md (ties by record ID),
+  USER_JOURNEYS (J21.9) and API_JOURNEYS, POSTGRESQL_BUDGETS (E3), TODO, CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **PostgreSQL does not merge the two arms by itself.** The first form left the merge to the planner
+  over one `UNION ALL`: at full volume it joined all 260,759 base values to the 20,000 children and
+  sorted them (79 ms, 168 ms before), with sorting turned off too. PostgreSQL merges a union in index
+  order only when each arm reads one table; an arm that joins its values is planned without the outer
+  order. Hence `pagination.merged`: each arm ordered and limited inside the union (14 ms).
+- **A deep position reads the union, not the arms:** with the arms, a position at row 15,000 read
+  15,000 rows of each arm through the index (176 ms); one statement, which PostgreSQL plans for the
+  offset, 124 ms.
+- **D205's expectation for deep positions is refuted for change sets:** at full volume a change
+  set's position ¾ deep with a total takes 124 ms (708 ms before), over the 100 ms budget; live 97 ms
+  and history 76 ms (156 and 186 before). Option B, stored sort keys holding the parent, is in TODO
+  as D205 recorded it; this is the measured case it is for.
+- **J21.9's live plan check plans with sorting off** (`planned(…, ordered=True)`): on the journey
+  seed's 65 records PostgreSQL rightly prefers reading the parent's children and sorting them, so the
+  check asks whether an index can give the order. Without D206 the case fails on its order first.
+- **Two older tests changed.** `test_change_set_position_reads` asserted that every change-set
+  position read went through the overlay; an attribute sort's now goes through its parts (its landing
+  checks are unchanged and pass). `test_build07_wp11` expected a 12-character correlation ID, which O1
+  (D196) made the request's `X-Request-Id`; found here, not caused by Q3 (O1 did not run
+  `model_admin`), and corrected to O1's contract.
+
+**Checks:**
+
+- The three new cases, written first, on `dee1f6a` (two configurations each): J21.9 in a change set
+  failed on its plan check (each record's value looked up, `uq_snapshot_attribute_value`), ties by ID
+  failed live on the order, the flag failed on its plan check. With Q3: all pass; with D206 taken out
+  again, the ties case fails.
+- Full volume, D209 (one seed, built once in 6 min, ANALYZE, five timed reads each, median ms; load
+  average 5–8 on this machine, Teams taking about three cores):
+
+  | Read under the 20,000-child parent | Live | Change set | History |
+  | --- | --- | --- | --- |
+  | By rank, first page | 9.6 → 8.5 | **167.9 → 14.5** | 8.2 → 9.2 |
+  | By rank, with total | **94.3 → 10.7** | **176.6 → 22.4** | **88.4 → 10.4** |
+  | By rank, position ¾ deep, with total | **155.5 → 97.0** | **707.7 → 124.0** | **185.5 → 76.4** |
+  | By name, position ¾ deep, with total (unchanged code) | 71.3 → 51.0 | 69.6 → 84.8 | 67.8 → 67.3 |
+  | Relations by rank | 205.7 → 62.0 | 100.0 → 103.7 | 66.5 → 73.0 |
+  | Relations by ancestor (`-ancestor:`) | 325.4 → 58.3 | 73.9 → 77.4 | 65.7 → 68.9 |
+
+  The live relation rows' "before" figures were load, not code: repeated alone they read 182 ms cold,
+  then 57–66 ms each time, with or without generic plans (PG5 58–61 ms). The change-set relation list
+  by rank stays at the budget line, as at PG5 (96.7 ms); not changed by Q3.
+- The 2,000-item change-set creation (D207), three each in one process: 0.75 s with the boolean
+  index, 0.76 s with it dropped (Q2: 0.74 s).
+- The guide's selection for `pagination.py` and `snapshot_reads.py`, `-n auto`: `queries`,
+  `change_sets`, `mapping`, `model_admin`, `workspaces`, `volume` without `budget`: 1,163 passed,
+  5 failed (the two older tests above), **4 min 20 s, over the 3-minute ceiling** (the selection is
+  wide: the pager serves every collection); after the changes those two modules, 22 passed; the
+  serial part, 2 passed. `test_startup` (45, head `20261026_01`) and `test_schema_drift` passed;
+  `test_api_journeys` and the harness layout test, 39 passed with J21.
+- `ruff check` on the changed files: passed; `ruff format` on Q3's lines only.
+- Smoke: the development server reloaded with Q3 and upgraded `rdm` to `20261026_01` with the
+  index; `/health` `ok`; an attribute-sorted list with a total `200` live (94 ms) and in a change set
+  (68 ms).
+- **Not run:** the full suite and the browser runners (R's); the frontend (no change).
+
+**What the user still cannot do:** jump deep into a change set's list sorted by an attribute
+under a very large parent within the budget (124 ms at row 15,000 of 20,000); stored sort keys
+(TODO) would. Live and history positions there are within it, live at the line.
 
 #### O1: Metrics, logs, health and readiness
 

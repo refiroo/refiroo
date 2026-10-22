@@ -97,7 +97,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/health/
 | `POST /publications/{id}/withdrawal` | J07 |
 | `POST /objects` | J03, J14, J16; in a change set, a unique number or date refused naming its holder J06.5 |
 | `GET /objects` (cross-type lookup, `objectTypeKey` repeatable) | J22.1, J01.4 |
-| `GET /objects/{type}` (`expand`, `expandLimit`, `sort=related:<key>`, `filter.related:<key>…`, `candidateFor` with `anchorTypeKey`, items with `expanded`) | J01, J01.8, J01.9, J01.10, J13.9, J13.10, J21, J22, J23 |
+| `GET /objects/{type}` (`expand`, `expandLimit`, `sort=related:<key>`, `filter.related:<key>…`, `candidateFor` with `anchorTypeKey`, items with `expanded`) | J01, J01.8, J01.9, J01.10, J13.9, J13.10, J21, J22, J23; `sort=<attribute>` in every context, ties by record ID, J21.9 |
 | `GET /objects/{type}/{id}` | J01 |
 | `PATCH /objects/{type}/{id}` | J02, J14 (move) |
 | `DELETE /objects/{type}/{id}` (`cascade`, `deletionPreviewToken`) | J04 |

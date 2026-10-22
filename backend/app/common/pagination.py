@@ -27,7 +27,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import and_, func, literal, or_, select
+from sqlalchemy import and_, func, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from ..errors import api_error
@@ -101,10 +101,40 @@ FIRST_PAGE = PageRequest()
 
 @dataclass(frozen=True)
 class Keyed:
-    """A statement and the keyset it is ordered by."""
+    """A statement and the keyset it is ordered by.
+
+    ``arms`` are the statements a :func:`merged` part reads its rows from; ``statement`` is then
+    their union and ``keys`` address its columns.
+    """
 
     statement: Any
     keys: Sequence[SortKey]
+    arms: Sequence[Keyed] = ()
+
+
+def merged(arms: Sequence[Keyed]) -> Keyed:
+    """One part whose rows are those of several statements, each ordered by keys of the same names
+    and selecting the same columns: a read takes the first rows of each arm in list order, through
+    the arm's own index, and keeps the first of them all, so it costs the rows it returns whatever
+    each arm holds (0.11 Q3, D205). PostgreSQL merges a union in index order by itself only when each
+    arm reads one table; an arm that joins its values is planned without the outer order.
+
+    Each arm selects its keys as ``merge_key_<n>``, which the union's keys read; a key's ``extract``,
+    ``parse`` and ``format`` are the first arm's.
+    """
+    labelled = tuple(
+        Keyed(
+            arm.statement.add_columns(
+                *(key.column.label(f"merge_key_{index}") for index, key in enumerate(arm.keys))
+            ),
+            arm.keys,
+        )
+        for arm in arms
+    )
+    union = union_all(*(arm.statement for arm in labelled)).subquery("merged")
+    keys = [replace(key, column=union.c[f"merge_key_{index}"]) for index, key in enumerate(arms[0].keys)]
+    rows = [column.key for column in arms[0].statement.selected_columns]
+    return Keyed(select(*(union.c[name] for name in rows)), keys, labelled)
 
 
 @dataclass(frozen=True)
@@ -222,9 +252,11 @@ def paginate_statement[Row](
 
     ``parts`` read the list in consecutive ranges of its order, each a statement with keys of the
     same names, parse and format as ``keys`` (a constant may stand for a key the part holds fixed).
-    A page continues from one part into the next, a position skips whole parts by their counts and a
-    total adds them, so a read still costs a fixed number of statements. With ``parts``, ``seek``
-    takes the part's keys as a second argument.
+    A page continues from one part into the next and a position skips whole parts by their counts,
+    so a read still costs a fixed number of statements; a position resolves through the parts, not
+    ``overlay``. A total counts ``statement`` (or ``overlay``), whose records the parts hold between
+    them, without what orders them (0.11 Q3). With ``parts``, ``seek`` takes the part's keys as a
+    second argument.
 
     Besides the page itself a read costs at most one probe for the opposite edge and, with totals,
     two counts: its statement count does not grow with the dataset. A first or position page
@@ -249,11 +281,7 @@ def paginate_statement[Row](
             if len(found) >= limit:
                 break
             condition = None if where is None else where(part.keys)
-            read = run(
-                _ordered(
-                    part.statement, part.keys, condition, limit - len(found), backward=backward, offset=offset
-                )
-            )
+            read = run(_read_part(part, where, limit - len(found), backward=backward, offset=offset))
             if read:
                 offset = 0
             elif offset and index < len(ordered) - 1:
@@ -324,7 +352,7 @@ def paginate_statement[Row](
         known_before = page.position
         located = (
             _locate(session, overlay, page.position, rows=rows, message=message)
-            if overlay is not None
+            if overlay is not None and not parts
             else None
         )
         if located is None:
@@ -388,7 +416,7 @@ def paginate_statement[Row](
         # The page runs from a known position to the end: its rows are all that remain.
         total = known_before + len(visible)
     else:
-        total = _total(session, statement, overlay) if overlay is not None else count(None)
+        total = _total(session, statement, overlay)
     if not visible:
         start = 0 if backward or known_before == 0 else total
     elif known_before is not None:
@@ -501,6 +529,36 @@ def _locate(
         select(before(overlay.replaced), before(overlay.added))
     ).one()
     return values, position - (start - replaced + preceding)
+
+
+def _read_part(
+    part: Keyed, where: Where | None, limit: int, *, backward: bool = False, offset: int = 0
+) -> Any:
+    """Up to ``limit`` rows of ``part`` after ``offset`` in list order (or reverse), under ``where``.
+
+    A :func:`merged` part without an offset reads ``limit`` rows of each arm, each in its own order,
+    and keeps the first ``limit`` of their union. With one, its union is read in one statement:
+    reading the offset's rows of every arm through its index costs more than PostgreSQL's own plan
+    for a deep position (0.11 Q3: 176 ms against that plan's, at row 15,000 of 20,000).
+    """
+    if not part.arms or offset:
+        condition = None if where is None else where(part.keys)
+        return _ordered(part.statement, part.keys, condition, limit, backward=backward, offset=offset)
+    firsts = union_all(
+        *(
+            _ordered(
+                arm.statement,
+                arm.keys,
+                None if where is None else where(arm.keys),
+                limit,
+                backward=backward,
+            )
+            for arm in part.arms
+        )
+    ).subquery("firsts")
+    keys = [replace(key, column=firsts.c[f"merge_key_{index}"]) for index, key in enumerate(part.keys)]
+    rows = select(*(firsts.c[column.key] for column in part.statement.selected_columns))
+    return _ordered(rows, keys, None, limit, backward=backward)
 
 
 def _ordered(

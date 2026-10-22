@@ -363,10 +363,15 @@ set (150 ms) and history (142 ms) contexts remained; 0.9 D47 made them a task of
 C6a (2026-10-05)** reads a publication's attribute sort in two parts through partial value-order
 indexes (`20261005_03`, C-D67); a consumer list pinned to the publication reads the first page by rank
 in 14.5 ms and the heavy parent's items in 15.0 ms. The management `children: heavy parent by rank`
-history row was not re-measured (the full table was not run). **The change-set context stays** (its
-base-and-overlay union cannot be walked in one index's order; TODO). What 0.8 D26's
-stored key would still add: attributes with few distinct values (a whole group of equal values sorted
-by name) and deep positions (113–123 ms at row 50,000 of a consumer list sorted by rank).
+history row was not re-measured (the full table was not run). **Change set: closed by 0.11 Q3
+(2026-10-22), 14.5 ms (167.9 before)**: the base's kept records and the change set's own are read
+each through its value index, and each arm's first rows merged (`pagination.merged`; PostgreSQL does
+not merge a union of joins in index order by itself). Ties come by record ID in every context, so
+attributes with few distinct values read in index order too (D206), and a total no longer reads
+values (live 94 → 11 ms). **Still over:** a position deep under an attribute sort, which walks the
+value index or sorts the children: row 15,000 of the heavy parent's 20,000 takes 124 ms in a change
+set (708 before), 97 ms live, 76 ms in a publication; and deep consumer positions (113–123 ms at row
+50,000 of a list sorted by rank). Stored sort keys holding the parent are the fix (TODO).
 
 ### E4. Live history-only matrix filter: 108 ms warm, 157–176 ms cold
 

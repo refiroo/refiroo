@@ -131,7 +131,9 @@ class ObjectColumns:
     each listed record, the name of its record at the other end of a relation type in a direction
     (among the given types), which a single-valued ``related:<key>`` column sorts by (0.9 K5, D145);
     it returns the statement, that name and how one row's name is read back for its cursor. Lists
-    without it cannot sort by one.
+    without it cannot sort by one. ``value_tiebreak`` closes an attribute sort instead of
+    ``tiebreak``: the record's ID, the value indexes' last column, so records sharing a value read
+    in index order (0.11 Q3, D206); without it ``tiebreak`` closes every sort.
     """
 
     source: Any
@@ -154,6 +156,7 @@ class ObjectColumns:
         Callable[[Select[Any], str, str, Sequence[str]], tuple[Select[Any], Any, Callable[[Any], Any]]]
         | None
     ) = None
+    value_tiebreak: Callable[[bool], SortKey] | None = None
 
 
 # A match read from a trigram index costs its matches; one made on each record costs the records
@@ -311,6 +314,7 @@ LIVE_OBJECT_COLUMNS = ObjectColumns(
     search_values=_live_value_candidates,
     search_names=_live_name_candidates,
     related=_live_related_name,
+    value_tiebreak=lambda descending: text_key("id", RdmObject.id, "id", descending=descending),
 )
 
 
@@ -667,6 +671,8 @@ def _object_sort_keys(
     column = columns.builtin.get(field_name)
     if column is None:
         definition = _sort_attribute(model, object_types, field_name)
+        if columns.value_tiebreak is not None:
+            tiebreak = columns.value_tiebreak(descending)
         if columns.select_sort_values:
             # One outer join on the unique (record, attribute) key reads the value once per row.
             values = aliased(columns.values)

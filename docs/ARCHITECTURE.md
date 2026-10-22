@@ -469,12 +469,21 @@ position read jumps to row N and may. Every page carries both cursors, an anchor
 on request, the total and its start index. There is no unbounded page: full extraction belongs to
 export jobs or the change feed.
 
-A live list sorted by an attribute is read in two parts (`object_query._value_order_parts`): the
-records with a value, joined to it and walked through an `(attribute, typed value, record)` index in
-value order, then the records without one. `paginate_statement` pages such parts in turn: a page
-continues from one into the next, a position skips a whole part by its count and a total adds them.
-Each part holds its null rank constant, so the keys, cursors and seek are those of the single
-statement. Change-set and publication lists keep one statement until C6 (0.9 D47). A consumer list
+A list sorted by an attribute is read in two parts (`object_query.value_order_parts`), in every
+context: the records with a value, joined to it and walked through an `(owner, attribute, typed
+value, record)` index in value order, then the records without one. Live reads the
+`ix_attribute_values_key_*` indexes, a publication its partial publication indexes; a change set's
+first part is two arms, its base's records it does not replace and its own records, each joined to
+its own values through the base and change-set indexes (`snapshot_reads.object_projection(sort_value=…)`).
+`pagination.merged` reads such a part: a page, cursor or seek takes each arm's first rows in its own
+order and keeps the first of them all, since PostgreSQL merges a union in index order only when each
+arm reads one table; a position reads the union in one statement (0.11 Q3). Ties come by record ID,
+the indexes' last column, in every context. `paginate_statement` pages such parts in turn: a page continues from
+one into the next and a position skips a whole part by its count; a total counts the list's records
+once, without their values. Each part holds its null rank constant, so the keys, cursors and seek
+are those of the single statement. A first page, seek or cursor read costs its own rows; a position
+deep in the order still walks the index up to it, so it grows with the records listed (0.11 Q3,
+D205; stored sort keys holding the parent are in TODO). A consumer list
 filtered below a parent or an ancestor reads the container records first and binds them as a list,
 as a search reads its candidates, so PostgreSQL plans with their real number.
 

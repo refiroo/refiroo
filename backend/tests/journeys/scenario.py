@@ -550,10 +550,14 @@ def numbered(configuration: Configuration) -> dict[str, Any]:
 
 
 @contextmanager
-def planned(chosen: Callable[[str], bool]) -> Iterator[list[dict[str, Any]]]:
+def planned(
+    chosen: Callable[[str], bool], *, ordered: bool = False
+) -> Iterator[list[dict[str, Any]]]:
     """The plans of the statements ``chosen`` picks while the block runs, planned with sequential
     scans off so a plan shows whether an index applies whatever the tables' size (as
-    ``test_schema_drift`` checks the job indexes). Only explained: each statement still runs once."""
+    ``test_schema_drift`` checks the job indexes). ``ordered`` also turns a full sort off, so the
+    plan shows whether an index can give the statement's order. Only explained: each statement
+    still runs once."""
     from sqlalchemy import event
 
     from app.db import get_engine
@@ -563,9 +567,12 @@ def planned(chosen: Callable[[str], bool]) -> Iterator[list[dict[str, Any]]]:
     def explain(connection, cursor, statement, parameters, context, executemany):
         if chosen(statement):
             cursor.execute("SET enable_seqscan = off")
+            if ordered:
+                cursor.execute("SET enable_sort = off")
             cursor.execute("EXPLAIN (FORMAT JSON) " + statement, parameters)
             plans.append(cursor.fetchone()[0][0]["Plan"])
             cursor.execute("RESET enable_seqscan")
+            cursor.execute("RESET enable_sort")
 
     engine = get_engine()
     event.listen(engine, "before_cursor_execute", explain)

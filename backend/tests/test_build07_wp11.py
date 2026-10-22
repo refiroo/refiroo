@@ -193,8 +193,8 @@ def test_unexpected_error_includes_correlation_id():
     body = response.json()["error"]
     assert body["code"] == "INTERNAL_ERROR"
     assert "reference" in body["message"]
-    assert body["details"]["correlationId"]
-    assert len(body["details"]["correlationId"]) == 12
+    # The request's ID since 0.11 O1 (D196), returned in X-Request-Id.
+    assert body["details"]["correlationId"] == response.headers["X-Request-Id"]
 
 
 def test_compile_model_draft_unsupported_baseline(monkeypatch):

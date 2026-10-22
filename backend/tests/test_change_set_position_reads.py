@@ -6,7 +6,8 @@ sorting before it (``pagination._locate``). The change sets here move rows acros
 the front, the back and the middle, new records at the front, and the fixture's tombstones. Every
 landing is compared with a cursor walk of the whole list, on a publication base and a current-live
 base, over a whole type and inside a parent, ascending, descending and by an attribute. The
-full-volume time is recorded in the Base 0.8 plan.
+full-volume time is recorded in the Base 0.8 plan. Since 0.11 Q3 an attribute sort's positions read
+through its value-order parts, not the overlay; they must land on the same rows.
 """
 
 from typing import Any
@@ -112,6 +113,11 @@ def test_change_set_position_reads_land_on_the_row_a_walk_reaches(change_sets, m
         if 0 < position <= size:
             before = _get(client, {**params, "pageSize": PAGE, "cursor": body["prevCursor"]})
             assert [item["id"] for item in before["items"]] == reference[max(0, position - PAGE) : position]
+    if sort == RANK:
+        # An attribute sort reads in value order through its parts, which a position skips by their
+        # counts; the overlay's base sorted every base row by its value (0.11 Q3, D205).
+        assert located == []
+        return
     # Every position read took the overlay path; beyond the change set's own rows, it resolved in the
     # base rather than falling back to an offset over the union.
     assert [position for position, _ in located] == positions

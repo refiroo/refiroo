@@ -381,9 +381,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   the 11 s budget but 1.7 s above T1a's 9.1 s, leaving 0.2 s margin. Which index costs what is not
   measured (the `btree_gin` trigram on `publication_objects` is the likeliest). Revisit if a later
   package moves publish over its budget.
-- [ ] Value-order attribute sort in the change-set context (C-D67): base and overlay in one union,
-  partial indexes do not cover it, and change-set base copies would maintain the indexes. Unmeasured;
-  a package of about C3a's size if a management list needs it.
+- [x] Value-order attribute sort in the change-set context (C-D67): delivered in 0.11 Q3 (D205,
+  2026-10-22): the base's kept records and the change set's own, each through its value index, merged
+  by `pagination.merged`; the heavy parent's first page 168 → 14 ms at full volume.
 - [ ] Consumer ETag: compare `If-None-Match` before the read to save the read itself (C-D65), for a
   measured need only.
 - [ ] Comma-separated values on the management API's repeated filters (`filter.<field>.eq=A,B`), as the
@@ -845,7 +845,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   2026-10-01): a commit recomputes the touched matrix cells, about 7 ms in the parity and
   type-change test models, and a single create cost 19 ms through the API. Measure it on the volume
   fixture against the 0.8 A2 write budget before changing anything.
-- [ ] Precomputed sort keys for attribute and ancestor sorts over very large parents (D26, after 0.9).
+- [ ] Stored sort keys for deep positions under an attribute sort (0.8 D26; narrowed by 0.11 Q3,
+  D205, 2026-10-22). Q3 made first pages, seeks, cursors and totals flat in every context; a position
+  deep under a very large parent still walks the value index or sorts the children: at full volume,
+  row 15,000 of 20,000 takes 124 ms in a change set (over the 100 ms budget), 97 ms live, 76 ms in a
+  publication. The fix: each value row holds its record's type and parent, kept on every value write
+  and move (`attribute_values`, `snapshot_attribute_values`), with an index per value type starting
+  with them. Cost: a backfill of both tables, twelve indexes, write and publish cost (C-D68's margin).
+  Ancestor sorts (relation lists only) measured within the budget, 58–77 ms (D208).
 - [ ] 0.12 security: engine-provided OAuth 2.0 with JWT for backend, frontend and consumer APIs (no API
   keys, no credential in a URL), application/object/operation authorization, audit identity,
   webhook signing-key rotation (signing itself is 0.9, C-D12 revised), and UI administration of OAuth

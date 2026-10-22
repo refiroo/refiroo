@@ -1253,7 +1253,10 @@ collection relies on an undocumented unlimited page.
 - **J21.8 An unknown query parameter** (a typo such as `pagesize`) is refused, naming it, on every
   route (decided D-3; delivered in H4c).
 - **J21.9 Sorted by an attribute**: records with a value in value order, those without one last
-  in both directions; every paging mode crosses between them.
+  in both directions; every paging mode crosses between them. Live, in a change set (its own values
+  over its base's) and in a publication alike; records sharing a value come by record ID in the
+  sort's direction (0.11 Q3). A first page reads in an index's order, whatever the number of records
+  under the parent.
 
 **Refusals:** `422 INVALID_CURSOR`, `422 CONFLICTING_PAGE_PARAMETERS`, `422 INVALID_SEEK`,
 `422 INVALID_SORT`, `422 UNKNOWN_PARAMETER` (J21.8).

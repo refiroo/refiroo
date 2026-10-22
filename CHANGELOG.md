@@ -6,6 +6,28 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (0.11 Q3, attribute sorts over very large parents)
+
+- A change set's list sorted by an attribute reads in value order, as live and publication lists do:
+  the base's records it keeps and its own, each through its value index, merged by their first rows
+  (`pagination.merged`, D205). At full volume the 20,000-child parent's first page takes 14.5 ms
+  (167.9 before).
+- A total under an attribute sort counts the records without reading their values, in every context
+  (live 94 → 11 ms at full volume).
+- Records sorted by an attribute that share a value come by record ID live too, as in change sets
+  and publications (D206). A live cursor or anchor of such a list issued before this release is
+  refused once as `INVALID_CURSOR`, and the browser restarts the list.
+- Migration `20261026_01`: `ix_snapshot_attribute_values_change_set_key_boolean`, so a change set's
+  sort by a boolean reads in value order (D207).
+- Not changed: a position deep under an attribute sort still grows with the records listed (124 ms
+  in a change set at row 15,000 of 20,000, over the budget; stored sort keys in TODO); ancestor sorts,
+  measured within the budget (D208).
+
+### Fixed (found in 0.11 Q3)
+
+- `test_build07_wp11` expected the 12-character correlation ID O1 replaced with the request's
+  `X-Request-Id`.
+
 ### Added (0.11 O2, backup rehearsal and the Operations page)
 
 - `python -m app.cli.restore_check --restored <URL> [--backup <name>]` checks a backup restored into

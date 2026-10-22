@@ -31,7 +31,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.selectable import Subquery
 
-from ...common.pagination import Keyed, Overlay, text_key
+from ...common.pagination import Keyed, Overlay, merged, text_key
 from ...errors import api_error
 from ...models.database import (
     ChangeSet,
@@ -48,6 +48,7 @@ from ...models.database import (
 from ...models.schema import EngineModel, ObjectTypeDefinition
 from ...models.search_index import MIN_INDEXED_LENGTH, SNAPSHOT_VALUES
 from ..records.rules import get_object_type, object_type_changed, validate_application_object_type
+from ..records.values import VALUE_COLUMNS
 from .object_query import (
     ObjectColumns,
     ObjectQuery,
@@ -69,10 +70,19 @@ from .object_query import (
 UNRECORDED_TIMESTAMPS = {"createdAt": "Created", "updatedAt": "Updated"}
 
 
+# The ``owner_kind`` of the typed values each record table's rows own, which names the partial
+# value indexes a read can use (0.9 C6a, 0.11 Q2).
+_VALUE_OWNER_KINDS = {
+    PublicationObject: "publication",
+    ChangeSetBaseObject: "base",
+    ChangeSetObject: "change_set",
+}
+
+
 # One part of a change set's union: every base row ("base"), the base rows its change set rows replace or
-# delete ("replaced"), its non-deleted change set rows ("added"), or the effective rows: base less
-# replaced, plus added.
-ChangeSetPart = Literal["effective", "base", "replaced", "added"]
+# delete ("replaced"), the base rows they do not ("kept"), its non-deleted change set rows ("added"),
+# or the effective rows: kept plus added.
+ChangeSetPart = Literal["effective", "base", "replaced", "kept", "added"]
 
 
 @dataclass(frozen=True)
@@ -153,11 +163,15 @@ def object_projection(
     object_ids: Iterable[str] | None = None,
     name_search: str | None = None,
     part: ChangeSetPart = "effective",
+    sort_value: tuple[str, str] | None = None,
 ) -> Subquery:
     """The context's effective object rows, narrowed inside each arm so indexes apply.
 
     ``object_type_keys`` narrows to several types, as ``object_type_key`` does to one.
-    ``name_search`` keeps rows whose name contains it.
+    ``name_search`` keeps rows whose name contains it. ``sort_value`` (an attribute key and its
+    typed value column) keeps the rows holding a value of the attribute, joined to it in each arm
+    as ``sort_value``: each arm can then read in its own values' (owner, attribute, value, record)
+    order; ``pagination.merged`` merges arms read one ``part`` at a time (0.11 Q3, D205).
 
     ``values_owner_id`` names the owner of each row's typed values in ``snapshot_attribute_values``;
     ``row_sequence_id`` is the row's key in its own table, which its type and parent indexes hold.
@@ -185,7 +199,7 @@ def object_projection(
         where = [*first, *conditions, *narrowing]
         if ids is not None:
             where.append(entity.object_id.in_(ids))
-        return select(
+        columns = [
             entity.object_id,
             entity.application_key,
             entity.object_type_key,
@@ -195,7 +209,27 @@ def object_projection(
             entity.version,
             literal(owner_id, String).label("values_owner_id"),
             entity.sequence_id.label("row_sequence_id"),
-        ).where(*where)
+        ]
+        if sort_value is None:
+            return select(*columns).where(*where)
+        attribute_key, value_column = sort_value
+        held = aliased(SnapshotAttributeValue)
+        value = getattr(held, value_column)
+        return (
+            select(*columns, value.label("sort_value"))
+            .join_from(
+                entity,
+                held,
+                and_(
+                    held.owner_id == owner_id,
+                    held.owner_kind == _VALUE_OWNER_KINDS[entity],
+                    held.object_id == entity.object_id,
+                    held.attribute_type_key == attribute_key,
+                    value.is_not(None),
+                ),
+            )
+            .where(*where)
+        )
 
     return _effective(
         context,
@@ -298,7 +332,7 @@ def _effective(
             entity = base_entity(base)
             overridden = select(getattr(overlay, identity)).where(overlay.change_set_id == context.id)
             conditions = [base_filter(base)]
-            if part == "effective":
+            if part in {"effective", "kept"}:
                 # NOT EXISTS, not NOT IN: an anti-join on the (change set, record) key, which NOT
                 # IN's null semantics would rule out.
                 conditions.append(
@@ -790,9 +824,12 @@ def snapshot_object_query(
             "sort",
         )
 
-    def refine(part: ChangeSetPart) -> tuple[Subquery, Any, Any, Any, Any]:
-        projection = object_projection(context, **narrowing, part=part)
-        statement = select(projection)
+    def refine(
+        part: ChangeSetPart, sort_value: tuple[str, str] | None = None
+    ) -> tuple[Subquery, Any, Any, Any, Any]:
+        projection = object_projection(context, **narrowing, part=part, sort_value=sort_value)
+        # The rows a part lists are the projection's records; its sort value only orders them.
+        statement = select(*(column for column in projection.c if column.key != "sort_value"))
         if id_filter is not None:
             statement = statement.where(id_filter(projection.c.object_id))
         if parent_filter is not None:
@@ -823,10 +860,10 @@ def snapshot_object_query(
     if context.kind == "change_set" and context.base is not None:
         overlay_parts = {part: Keyed(*refine(part)[1:3]) for part in ("base", "replaced", "added")}
         overlay = Overlay(overlay_parts["base"], overlay_parts["replaced"], overlay_parts["added"])
-    # A publication's attribute sort reads its own value index in value order, as live lists do
-    # (C3a); a change set's union of base and overlay cannot be walked in one index's order (C-D67).
-    parts = (
-        value_order_parts(
+    # An attribute sort reads in value order, as live lists do (C3a): a publication through its
+    # own value index (C6a); a change set through its base's and its own, merged (0.11 Q3, D205).
+    if context.kind == "publication":
+        parts = value_order_parts(
             model,
             statement,
             keys,
@@ -838,9 +875,34 @@ def snapshot_object_query(
                 values.object_id == projection.c.object_id,
             ),
         )
-        if context.kind == "publication"
-        else None
-    )
+    else:
+        parts = value_order_parts(
+            model,
+            statement,
+            keys,
+            sort,
+            SnapshotAttributeValue,
+            lambda values: (
+                values.owner_id == projection.c.values_owner_id,
+                values.object_id == projection.c.object_id,
+            ),
+        )
+        if parts is not None:
+            # The records with a value: the base's it keeps and its own, each read in its values'
+            # index order and merged (0.11 Q3, D205).
+            held, absent = parts
+            null_rank, value_key, _tiebreak = held.keys
+            sort_value = (sort_field, VALUE_COLUMNS[model.attribute_type(sort_field).valueType])
+            arms = []
+            for part in ("kept", "added") if context.base is not None else ("added",):
+                valued, valued_statement, valued_keys, *_ = refine(part, sort_value)
+                arms.append(
+                    Keyed(
+                        valued_statement,
+                        (null_rank, replace(value_key, column=valued.c.sort_value), valued_keys[-1]),
+                    )
+                )
+            parts = (merged(arms), absent)
     owner = "changeSetId" if context.kind == "change_set" else "publicationId"
     return ObjectQuery(
         statement=statement,

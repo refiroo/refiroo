@@ -1114,9 +1114,12 @@ Object collections accept the [collection paging](#collection-paging) parameters
 declares an [effective period](#effective-periods-and-asof-base-09-q4). `sort` takes `name`, `id`, `objectType` (ordered by the type's model name, then
 by name), live `createdAt`/`updatedAt`, or any attribute the type binds, flagged `sortable` or not
 (S4R3 revision). JSON attributes are excluded from both. Prefix a sort with
-`-` for descending order. Null and unset attribute values sort last in either direction, and every
-live ordering uses the internal sequence as a non-public final tie-breaker; change sets and publications record
-no creation sequence, so there the record ID is the final tie-breaker. Omitting `sort` orders by name
+`-` for descending order. Null and unset attribute values sort last in either direction. Records
+sorted by an attribute that share a value come by record ID in every context (0.11 Q3, D206; before,
+live listed them in creation order, and a live cursor or anchor of such a list issued before 0.11
+Q3 is refused as `INVALID_CURSOR`). Every other live ordering uses the internal sequence as a
+non-public final tie-breaker; change sets and publications record no creation sequence, so there
+the record ID is the final tie-breaker. Omitting `sort` orders by name
 in every context (S4R4); before 0.8 it listed live records in creation order and change-set and publication
 records by ID. Page size defaults to 100 and has a documented
 maximum of 500. `nextCursor` is null only when that traversal is complete.
