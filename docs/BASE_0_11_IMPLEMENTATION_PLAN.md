@@ -411,7 +411,7 @@ change) and `volume` (every budget).
 | — | _cut line (D13)_ | | _If R is out of reach, 0.11.0 releases here and Q3 and U1 move to 0.11.x_ |
 | 23 | [Q3](#q3-precomputed-sort-keys) | Q2 | Attribute and ancestor sorts over very large parents within the list budget |
 | 24 | [O1](#o1-metrics-logs-health-and-readiness) | N1 | **Delivered 2026-10-21.** `/health/live`; readiness per workspace and per process from each process's heartbeat row; `/metrics` for the whole instance in one scrape; JSON logs and one request ID |
-| 25 | [O2](#o2-backup-restore-and-the-operations-page) | O1, M6 | Backup and restore rehearsed with workspaces on different models; Settings › Operations (U7) |
+| 25 | [O2](#o2-backup-restore-and-the-operations-page) | O1, M6 | **Delivered 2026-10-22** (screenshots wait for approval). A restored backup checked with `app.cli.restore_check` and recorded in the instance; rehearsed on the development database, six workspaces on three models; Settings › Operations (U7) |
 | 26 | [U1](#u1-touch-drag-in-the-tree-lens) | — | Long-press drag in the tree lens on phones (0.8 D35) |
 | | **Part 3 — first public release** | | |
 | 27 | [L1](#l1-licensing-and-policies) | — | Licensing checklist, contribution and security policies |
