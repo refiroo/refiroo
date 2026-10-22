@@ -411,7 +411,7 @@ change) and `volume` (every budget).
 | — | _cut line (D13)_ | | _If R is out of reach, 0.11.0 releases here and Q3 and U1 move to 0.11.x_ |
 | 23 | [Q3](#q3-precomputed-sort-keys) | Q2 | **Delivered 2026-10-22.** An attribute sort reads in value order in every context (a change set's base and own rows merged), ties by record ID, totals without values; at full volume a change set's first page 168 → 14 ms; a deep position in a change set still over budget (124 ms), stored keys in TODO; ancestor sorts within budget, nothing built |
 | 24 | [O1](#o1-metrics-logs-health-and-readiness) | N1 | **Delivered 2026-10-21.** `/health/live`; readiness per workspace and per process from each process's heartbeat row; `/metrics` for the whole instance in one scrape; JSON logs and one request ID |
-| 25 | [O2](#o2-backup-restore-and-the-operations-page) | O1, M6 | **Delivered 2026-10-22** (screenshots wait for approval). A restored backup checked with `app.cli.restore_check` and recorded in the instance; rehearsed on the development database, six workspaces on three models; Settings › Operations (U7) |
+| 25 | [O2](#o2-backup-restore-and-the-operations-page) | O1, M6 | **Delivered 2026-10-22, screenshots approved.** A restored backup checked with `app.cli.restore_check` and recorded in the instance; rehearsed on the development database, six workspaces on three models; Settings › Operations (U7) |
 | 26 | [U1](#u1-touch-drag-in-the-tree-lens) | — | Long-press drag in the tree lens on phones (0.8 D35) |
 | | **Part 3 — first public release** | | |
 | 27 | [L1](#l1-licensing-and-policies) | — | Licensing checklist, contribution and security policies |
@@ -5217,8 +5217,8 @@ database. Not planned: the full suite and the other browser runners (R's).
 
 ##### O2 record (2026-10-22)
 
-**Delivered 2026-10-22.** As planned, D198–D204 as accepted. **Screenshots wait for the user's
-approval** (the exit's other half).
+**Delivered 2026-10-22.** As planned, D198–D204 as accepted. **Screenshots approved by the user
+on 2026-10-22** (1440px passed and failed, 390px, light and dark); the exit is met.
 
 **What was built:**
 

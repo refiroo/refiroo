@@ -709,8 +709,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] O2 delivered 2026-10-22 (D198–D204): `app.cli.restore_check` checks a restored copy and
     records the result in the instance (`backup_rehearsals`), `GET /api/v1/system/backup-rehearsals`
     and `GET /api/v1/system/summary`, Settings › Operations, `scripts/postgres.sh rehearse`, the
-    rehearsal on the development database recorded in OPERATIONS. Screenshots wait for the user's
-    approval.
+    rehearsal on the development database recorded in OPERATIONS. Screenshots approved by the user
+    (2026-10-22).
   - [x] **Found in N2 (2026-10-19), done in N3 (D182):** a process frozen (or cut off) while its transaction
     holds a database lock keeps that lock until it resumes or its connection ends; the lease does not
     end it, and every write waiting for the lock waits too (J24.3's case shows it: B's chunk waits
