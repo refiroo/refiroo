@@ -9,6 +9,7 @@ import { ApiReferencePage } from "@/features/settings/ApiReferencePage";
 import { AppearancePage } from "@/features/settings/AppearancePage";
 import { ConsumerApisPage } from "@/features/settings/ConsumerApisPage";
 import { DeploymentPage } from "@/features/settings/DeploymentPage";
+import { OperationsPage } from "@/features/settings/OperationsPage";
 import { ImportProfilesPage } from "@/features/settings/ImportProfilesPage";
 import { JobsPage } from "@/features/settings/JobsPage";
 import { MoveEditor } from "@/features/moves/MoveEditor";
@@ -100,6 +101,8 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         <AppearancePage />
       ) : route.page === "deployment" ? (
         <DeploymentPage />
+      ) : route.page === "operations" ? (
+        <OperationsPage />
       ) : route.page === "consumer-apis" ? (
         <ConsumerApisPage onNavigate={(next) => navigate(next)} />
       ) : route.page === "webhooks" ? (

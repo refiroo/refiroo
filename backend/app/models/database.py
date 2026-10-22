@@ -1779,3 +1779,34 @@ class EngineProcess(Base):
     started_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
     heartbeat_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
     report: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
+class BackupRehearsal(Base):
+    """A backup restored into a separate database and checked there (Product 0.11 O2, D198–D200).
+
+    Written by ``app.cli.restore_check`` into the instance that was backed up, passed or failed;
+    ``workspaces`` holds each active workspace of the copy: its release, whether it was served and
+    why not, and its counts beside the instance's records. Operational state, never a domain record.
+    """
+
+    __tablename__ = "backup_rehearsals"
+    __table_args__ = (
+        CheckConstraint("result IN ('passed', 'failed')", name="ck_backup_rehearsal_result"),
+        Index("ix_backup_rehearsals_checked", "checked_at", "public_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, default=lambda: str(uuid4())
+    )
+    checked_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    backup: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    data_as_of: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    revision_before: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    revision_after: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    engine_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    host: Mapped[str] = mapped_column(String(255), nullable=False)
+    result: Mapped[str] = mapped_column(String(10), nullable=False)
+    failure_code: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    failure_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    workspaces: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)

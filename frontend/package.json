@@ -49,6 +49,7 @@
     "test:browser:workspace-x4": "node e2e/workspace-x4.mjs",
     "test:browser:workspace-x5": "node e2e/workspace-x5-checkpoint.mjs",
     "test:browser:settings": "node e2e/u3-settings.mjs",
+    "test:browser:operations": "node e2e/operations-o2.mjs",
     "test:browser:integration": "node e2e/u4-integration.mjs",
     "test:browser:webhooks": "node e2e/u5-webhooks.mjs",
     "test:browser:j1u": "node e2e/j1u-export.mjs",

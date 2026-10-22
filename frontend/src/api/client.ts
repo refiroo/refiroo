@@ -34,6 +34,11 @@ import type {
   CollectionFilter,
   CapabilitiesResponse,
   SystemResponse,
+  SystemSummary,
+  EngineProcess,
+  WorkspaceReadiness,
+  BackupRehearsalPage,
+  PageNavigation,
   ConsumerApiDefinition,
   ConsumerApiDocument,
   ConsumerApiIndexPage,
@@ -398,6 +403,20 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}?${params}`;
 }
 
+/** Every item of a paged collection, page after page (for the short operational lists). */
+async function allPages<Item>(path: string): Promise<Item[]> {
+  const items: Item[] = [];
+  let cursor: string | null = null;
+  do {
+    const params = new URLSearchParams({ pageSize: "500" });
+    if (cursor) params.set("cursor", cursor);
+    const page: { items: Item[] } & PageNavigation = await request(`${path}?${params}`);
+    items.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return items;
+}
+
 export const api = {
   /** The context's model, with where it lets records stand attached (`placements`, C4). */
   model: async (
@@ -419,6 +438,18 @@ export const api = {
   },
   capabilities: () => request<CapabilitiesResponse>("/api/v1/capabilities"),
   system: () => request<SystemResponse>("/api/v1/system"),
+  /** The instance's figures counted now (0.11 O2). */
+  systemSummary: () => request<SystemSummary>("/api/v1/system/summary"),
+  /** Every engine process, every page (an instance has a handful). */
+  processes: () => allPages<EngineProcess>("/api/v1/system/processes"),
+  /** Whether each active workspace is served, every page. */
+  readiness: () => allPages<WorkspaceReadiness>("/api/v1/system/readiness"),
+  /** Backup rehearsals, newest first, one page. */
+  backupRehearsals: (cursor?: string) => {
+    const params = new URLSearchParams({ pageSize: "20" });
+    if (cursor) params.set("cursor", cursor);
+    return request<BackupRehearsalPage>(`/api/v1/system/backup-rehearsals?${params}`);
+  },
   /** A consumer API definition of the active model, expanded with every default (C18). */
   consumerApiDefinition: (consumerApi: string) =>
     request<ConsumerApiDefinition>(`/api/v1/model/consumer-apis/${encodeURIComponent(consumerApi)}`),

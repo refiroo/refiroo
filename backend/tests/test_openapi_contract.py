@@ -204,10 +204,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Diffed against the previous commit, nothing else changed. Re-baselined for 0.11 O1 (D191–D197):
     # GET /health/live, GET /metrics, GET /api/v1/system/processes and GET /api/v1/system/readiness
     # with their Process* and *Readiness* schemas. Diffed against the previous commit, nothing else
-    # changed.
+    # changed. Re-baselined for 0.11 O2 (D198–D204): GET /api/v1/system/summary and GET
+    # /api/v1/system/backup-rehearsals with the Summary* and *Rehearsal* schemas. Diffed against the
+    # previous commit, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "025d22b87cf0f1e3f283f903d06714d363e647c04be7abdfa52cc2e480cc3b3d"
+        "782fa2f67f5abd4c014448fc83818dd6b7b8a8e5a3601c7525d397f7e296d275"
     )
 
 
@@ -248,8 +250,8 @@ def test_paging_openapi_inventory():
     # the source files and a profile's sheets and columns; 0.10 A5c a profile check's new values,
     # drift, missing records and rows; 0.10 A8b a range of a sheet's cells; 0.11 M1 the workspaces'
     # model assignments; 0.11 X1 the model mappings, a mapping's history and its proposals; 0.11 O1
-    # the processes and the readiness per workspace.
-    assert seekable <= paged and len(paged) == 43
+    # the processes and the readiness per workspace; 0.11 O2 the backup rehearsals.
+    assert seekable <= paged and len(paged) == 44
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

@@ -831,11 +831,22 @@ workspaces every process serves and which a process cannot serve and why, and ev
 its background work, its database connections and its request counts, including one that stopped
 reporting. Monitoring tools scrape the whole instance's metrics in the Prometheus format in one
 request. The log can be written as JSON lines, and each request carries one ID that its log lines
-and an internal error's reference share.
+and an internal error's reference share. Settings › **Operations** shows the same in the browser:
+how many workspaces are served, the processes live and silent, the jobs waiting or running and the
+webhook subscriptions failing, then each workspace and each process in detail, refreshed every 15
+seconds while the page is open.
 
-Limits: attribute and ancestor sorts over very large parents at production scale (0.11 Q3);
-rehearsed backup and restore and the Operations page in Settings are not built yet (0.11 O2), so
-the API reads above are the way to see the instance's state until then.
+A backup is rehearsed by restoring it into a separate database and running one command against
+that copy. The command prepares the copy as a start would, checks that every workspace is served
+from it under its own model, counts each workspace's records, relationships, open change sets and
+publications beside the live figures, and records the result, passed or failed with what to do, in
+the instance. Settings › Operations shows the last rehearsal with each workspace of the copy, and
+the earlier ones. Restoring a backup is the only way to restore data: a change set from an earlier
+publication changes only what is edited in it.
+
+Limits: attribute and ancestor sorts over very large parents at production scale (0.11 Q3). The
+check of a restored copy runs from the command line only, not through the API (restoring needs the
+database's own tools and rights).
 SQLite was a development database only; the engine offers no migration from it.
 
 Settings › **About** and **Deployment** show what the deployment runs and how it is configured, from
@@ -848,7 +859,8 @@ was opened from (or the home page when Settings was opened first).
 
 Evidence: [operations guide](../OPERATIONS.md), [application startup](../../backend/app/main.py),
 [settings catalogue](../../backend/app/config.py), [J31 journey tests](../../backend/tests/journeys/test_j31_system.py),
-[settings runner](../../frontend/e2e/u3-settings.mjs).
+[settings runner](../../frontend/e2e/u3-settings.mjs), [J12.16–J12.17 journey tests](../../backend/tests/journeys/test_j12_rehearse_restore.py),
+[operations runner](../../frontend/e2e/operations-o2.mjs).
 
 ## F20 — Query and look up across the data
 

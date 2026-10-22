@@ -780,6 +780,14 @@ groups off, each with any worker count (0.11 N1):
   (never the path), one access line, and the process's counters (`common/request_metrics.py`),
   which the heartbeat reports. The log is configured once at startup (`common/logs.py`), as text or
   JSON lines, for the engine's and uvicorn's loggers.
+- **A restored backup is checked by the engine, outside a request** (0.11 O2, D198–D200).
+  `app.cli.restore_check` runs `engine/backups/rehearsal.py` against a copy the operator restored:
+  `db.prepare_database` prepares the copy as startup prepares the configured database (the same
+  checks and migrations, each refusal with a code), a `ModelRegistry` of its own resolves each
+  active workspace of the copy as the first process on it would, and grouped statements count each
+  workspace's rows. The result goes to the instance's `backup_rehearsals`, never to the copy. A copy
+  that is the instance's own database is recognised by the server listing the check's instance
+  session in it, whatever the URLs say.
 
 Still per process: the startup readiness and a release withdrawn after a failed load, each now
 reported to the others (above).

@@ -4,6 +4,7 @@ O1, D192–D194), from the processes' ``engine_processes`` rows and a few counts
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...common.prometheus import Family, render
@@ -14,14 +15,22 @@ from ...engine.processes.reads import (
     live_processes,
     process_state,
 )
-from ...models.database import EngineProcess
+from ...models.database import BackupRehearsal, EngineProcess, Workspace
 from ..schemas.system import (
+    BackupRehearsalResponse,
     ProcessCounters,
     ProcessPool,
     ProcessResponse,
     ProcessThread,
     ReadinessProcess,
     ReadinessRelease,
+    RehearsalFailure,
+    RehearsalWorkspace,
+    SummaryJobs,
+    SummaryProcesses,
+    SummarySubscriptions,
+    SummaryWorkspaces,
+    SystemSummary,
     UnavailableRelease,
     WorkspaceReadinessResponse,
 )
@@ -177,4 +186,43 @@ def metrics_text(session: Session) -> str:
             subscriptions,
             workspaces,
         )
+    )
+
+
+def summary_response(session: Session) -> SystemSummary:
+    """``/metrics``' instance gauges as JSON (0.11 O2, D201)."""
+    gauges = instance_gauges(session, live_processes(session))
+    active = session.scalar(
+        select(func.count()).select_from(Workspace).where(Workspace.status == "active")
+    )
+    return SystemSummary(
+        processes=SummaryProcesses(**gauges.processes),
+        workspaces=SummaryWorkspaces(
+            served=(active or 0) - gauges.unavailable_workspaces,
+            unavailable=gauges.unavailable_workspaces,
+        ),
+        jobs=[
+            SummaryJobs(kind=kind, state=state, count=count) for kind, state, count in gauges.jobs
+        ],
+        webhookSubscriptions=SummarySubscriptions(**gauges.subscriptions),
+    )
+
+
+def rehearsal_response(row: BackupRehearsal) -> BackupRehearsalResponse:
+    return BackupRehearsalResponse(
+        id=row.public_id,
+        checkedAt=row.checked_at,
+        backup=row.backup,
+        dataAsOf=row.data_as_of,
+        revisionBefore=row.revision_before,
+        revisionAfter=row.revision_after,
+        engineVersion=row.engine_version,
+        host=row.host,
+        result=row.result,
+        failure=(
+            RehearsalFailure(code=row.failure_code, message=row.failure_message or "")
+            if row.failure_code
+            else None
+        ),
+        workspaces=[RehearsalWorkspace(**item) for item in row.workspaces],
     )

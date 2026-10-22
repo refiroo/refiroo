@@ -1931,6 +1931,19 @@ controlled diagnostics.
   `LOG_LEVEL` sets the lowest level; each request writes one access line and carries one ID, taken
   from `X-Request-Id` when well formed or generated, returned in the response and named by
   `INTERNAL_ERROR`'s `correlationId`. An invalid value refuses to start, naming the setting.
+- **J12.16 Rehearse a restore** (0.11 O2): the operator restores a backup (`pg_dump`, `pg_restore`
+  or the platform's snapshot) into a separate database and runs `python -m app.cli.restore_check
+  --restored <URL>` with the instance's `DATABASE_URL`. The check prepares the copy as startup
+  would (collation, extensions, migrations), loads each workspace's release on its own and counts
+  each workspace's records, relationships, open change sets and publications beside the live
+  instance's records; it passes when every active workspace in the copy is served. The result is
+  recorded in the instance and read through `GET /api/v1/system/backup-rehearsals` and on Settings ›
+  Operations. A process started on the copy serves each workspace under its own model and lists no
+  process from the backup.
+- **J12.17 A rehearsal that fails is recorded** (0.11 O2): a copy the engine could not run (another
+  collation, a missing extension, an unknown revision, a failed migration) or one with a workspace
+  it could not serve fails with what to do, exit status 1, and is recorded `failed` with its code;
+  a check naming the instance's own database is refused before anything is changed or recorded.
 
 **Evidence today:** the J12 journey tests; `test_startup`, `test_model_schema_upgrade`,
 `test_schema_drift`, `test_api_reference`; unit tests of `config.py` and `main.py`.

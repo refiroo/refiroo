@@ -6,6 +6,31 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.11 O2, backup rehearsal and the Operations page)
+
+- `python -m app.cli.restore_check --restored <URL> [--backup <name>]` checks a backup restored into
+  a separate database: it prepares the copy as startup would, loads each workspace's release on its
+  own, counts each workspace's records, relationships, open change sets and publications beside the
+  live records, and records the result, passed or failed with its code, in the instance (table
+  `backup_rehearsals`, migration `20261025_01`; J12.16, J12.17, D198–D200). A copy that is the
+  instance's own database is refused before anything changes.
+- `GET /api/v1/system/backup-rehearsals`, paged newest first, and `GET /api/v1/system/summary`, the
+  instance figures of `/metrics` as JSON (D201).
+- Settings › Administration › **Operations**: the instance's figures, each workspace served or not
+  and by which process, every process with its threads, connections and requests, the last backup
+  rehearsal with each workspace of the copy, the earlier ones, how to rehearse and the probe
+  addresses; refreshed every 15 seconds while visible (U7, D202, D204).
+- `scripts/postgres.sh rehearse [<dump>]` restores a development dump into a scratch database,
+  checks it and drops it; `scripts/postgres.sh backup` leaves out the processes' rows (D203).
+- OPERATIONS § Backup and restore: taking a backup, rehearsing it, recovering, and what a restore
+  is; the rehearsal on the development database recorded.
+
+### Changed (0.11 O2)
+
+- A startup refusal carries a code (`DATABASE_COLLATION`, `DATABASE_EXTENSIONS`,
+  `DATABASE_REVISION_UNKNOWN`, `DATABASE_MIGRATION_FAILED`, `DATABASE_UNREACHABLE`), which a failed
+  rehearsal records; the messages are unchanged.
+
 ### Added (0.11 O1, metrics, logs, health and readiness)
 
 - `GET /health/live`, the liveness probe: `200` whenever the process answers, never asking the

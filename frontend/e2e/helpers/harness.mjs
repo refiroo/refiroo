@@ -187,5 +187,19 @@ export async function bootHarness(options = {}) {
     database.drop();
   }
 
-  return { page, browser, apiUrl, uiUrl, output, records, api, timings, pageErrors, log: () => log, cleanup };
+  return {
+    page,
+    browser,
+    apiUrl,
+    uiUrl,
+    output,
+    records,
+    api,
+    timings,
+    pageErrors,
+    // The run's own database, for a runner that works on it from outside the API (0.11 O2).
+    databaseUrl: database.databaseUrl,
+    log: () => log,
+    cleanup,
+  };
 }

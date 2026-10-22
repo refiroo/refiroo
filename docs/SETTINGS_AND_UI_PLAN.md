@@ -195,7 +195,7 @@ The user chose Direction B, "Open" (U-D6, ADR-039), which sets the values for po
 | U5 | 0.9 | U4, C12 | **Implemented 2026-10-07** ([plan](#u5-the-webhooks-page), [record](#u5-record-2026-10-07)), screenshots approved by the user 2026-10-07. Webhooks page over the subscriptions API (C12 delivered 2026-10-06: `delivery`, the four dispatcher reasons, `reset`) |
 | U5a | 0.9 | U5 | **Implemented 2026-10-07** ([plan](#u5a-webhook-names-the-delivery-log-and-the-webhooks-page-revised), [record](#u5a-record-2026-10-07)), screenshots approved by the user 2026-10-07. Webhook names, the delivery log and its routes, the dialog rebuilt, the Configuration and Deliveries tabs |
 | U6 | — | — | **Folded into UA (2026-10-06):** the remaining surfaces are redesigned in UA, in 0.9. 0.10's editor (A4) builds on UA |
-| U7 | 0.11 | U3 | Operations page over 0.11's health, readiness, metrics and backup routes |
+| U7 | 0.11 | U3 | Operations page over 0.11's health, readiness, metrics and backup routes. **Delivered in 0.11 O2 (2026-10-22)**, screenshots awaiting approval |
 | U8 | 0.12 | U5 | Security pages: sign-in and account; users and roles; OAuth clients and their access per consumer API; webhook signing-key rotation (keys are generated and shown once from 0.9, U5). Replaces 0.12's "UI administration" items with pages in this area |
 
 Order in the 0.9 queue (U-D4): CN1 right after C15; U1 any time as a filler; U2 and U3 after C13

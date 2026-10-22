@@ -8,24 +8,32 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 
-from ...common.pagination import paginate_statement, text_key
+from ...common.pagination import datetime_key, paginate_statement, text_key
 from ...common.prometheus import CONTENT_TYPE
 from ...common.time import as_utc
 from ...config import ENGINE_VERSION
 from ...engine.model.compiler import SCHEMA_VERSIONS
 from ...engine.processes.reads import live_processes, workspace_readiness
 from ...engine.reads.system import read_system_state
-from ...models.database import EngineProcess, Workspace
+from ...models.database import BackupRehearsal, EngineProcess, Workspace
 from ..dependencies import DbSession
 from ..paging import PageQuery
-from ..projections.operations import metrics_text, process_response, readiness_response
+from ..projections.operations import (
+    metrics_text,
+    process_response,
+    readiness_response,
+    rehearsal_response,
+    summary_response,
+)
 from ..schemas.system import (
     ActiveModelRelease,
+    BackupRehearsalPage,
     DatabaseInfo,
     EngineInfo,
     ProcessPage,
     SystemResponse,
     SystemSetting,
+    SystemSummary,
     WorkspaceReadinessPage,
 )
 
@@ -115,6 +123,42 @@ def list_readiness(
     )
     return WorkspaceReadinessPage(
         items=[readiness_response(item) for item in readiness], **page.links()
+    )
+
+
+@router.get("/system/summary", response_model=SystemSummary)
+def get_summary(request: Request, session: DbSession) -> SystemSummary:
+    """The instance's figures counted now: processes live and silent, workspaces served and
+    unavailable, jobs waiting or running by kind, webhook subscriptions by state (0.11 O2). The
+    same figures as ``/metrics``' instance gauges, as JSON."""
+    _report_this_process(request, session)
+    return summary_response(session)
+
+
+@router.get("/system/backup-rehearsals", response_model=BackupRehearsalPage)
+def list_backup_rehearsals(
+    session: DbSession,
+    paging: PageQuery,
+    page_size: int = Query(default=20, ge=1, le=200, alias="pageSize"),
+) -> BackupRehearsalPage:
+    """Backups restored into a separate database and checked there with ``python -m
+    app.cli.restore_check``, newest first, passed or failed, each with every workspace of the copy
+    (0.11 O2)."""
+    page = paginate_statement(
+        session,
+        select(BackupRehearsal),
+        keys=(
+            datetime_key("checkedAt", BackupRehearsal.checked_at, "checked_at", descending=True),
+            text_key("id", BackupRehearsal.public_id, "public_id", descending=True),
+        ),
+        scope="system-backup-rehearsals",
+        filters={},
+        page=paging,
+        page_size=page_size,
+        message="Backup rehearsal cursor is invalid",
+    )
+    return BackupRehearsalPage(
+        items=[rehearsal_response(row) for row in page.items], **page.links()
     )
 
 

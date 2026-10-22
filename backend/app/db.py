@@ -55,11 +55,20 @@ _ESCALATE = (
 
 
 class DatabaseStartupError(RuntimeError):
-    """An operator-actionable reason the database cannot be used, safe to show without a traceback."""
+    """An operator-actionable reason the database cannot be used, safe to show without a traceback.
+
+    ``code`` names the reason for a caller that records it (a backup rehearsal, 0.11 O2)."""
+
+    def __init__(self, message: str, code: str = "DATABASE_URL_INVALID") -> None:
+        super().__init__(message)
+        self.code = code
 
 
 class DatabaseMigrationError(DatabaseStartupError):
     """An operator-actionable database migration failure."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, "DATABASE_MIGRATION_FAILED")
 
 
 def configured_url() -> URL:
@@ -252,7 +261,8 @@ def _check_collation(connection: Connection, label: str) -> None:
         "matches names by (PG-D11). " + _MAINTENANCE + " Create the database with "
         "\"CREATE DATABASE <name> TEMPLATE template0 LOCALE_PROVIDER icu ICU_LOCALE 'und' "
         "LOCALE 'C'\" (or a server initialised with 'initdb --locale-provider=icu "
-        "--icu-locale=und'), carry the data over, and point DATABASE_URL at it."
+        "--icu-locale=und'), carry the data over, and point DATABASE_URL at it.",
+        "DATABASE_COLLATION",
     )
 
 
@@ -270,7 +280,8 @@ def _check_revision(connection: Connection, script: ScriptDirectory, label: str)
             f"does not know (its newest is '{script.get_current_head()}'). It was written by a "
             "newer version, or by a SQLite-era revision. " + _MAINTENANCE + " Run the RDM Engine "
             "version that wrote this database, or restore the backup taken before it was "
-            "upgraded. Do not edit or stamp the schema manually. " + _ESCALATE
+            "upgraded. Do not edit or stamp the schema manually. " + _ESCALATE,
+            "DATABASE_REVISION_UNKNOWN",
         )
     return current
 
@@ -317,7 +328,8 @@ def _ensure_extensions(connection: Connection, label: str) -> None:
         f"Engine could not create {'it' if len(missing) == 1 else 'them'}. Reason: {reason}. "
         + _MAINTENANCE
         + " "
-        + action
+        + action,
+        "DATABASE_EXTENSIONS",
     )
 
 
@@ -328,7 +340,16 @@ def create_database(then: Callable[[], None] | None = None) -> None:
     (the bootstrap install): processes starting together on one database check, migrate and
     install one at a time, and each after the first finds the head (0.11 N1, D168).
     """
-    url = configured_url()
+    prepare_database(configured_url(), then)
+
+
+def prepare_database(
+    url: URL, then: Callable[[], None] | None = None, *, warn: bool = True
+) -> tuple[str | None, str]:
+    """Check the database at ``url`` and migrate it to the Alembic head, as startup does; its
+    revision before (None when unversioned) and after. A backup rehearsal prepares a restored copy
+    with it (0.11 O2, D199); ``warn`` adds the connection-limit warning, which is about the
+    configured instance."""
     label = _database_label(url)
     config = migration_config(url)
     script = ScriptDirectory.from_config(config)
@@ -346,9 +367,11 @@ def create_database(then: Callable[[], None] | None = None) -> None:
             connection.execute(text("SELECT pg_advisory_lock(:namespace, :key)"), STARTUP_LOCK)
             connection.commit()
             _check_collation(connection, label)
-            current_revision = _check_revision(connection, script, label) or "unversioned"
+            before = _check_revision(connection, script, label)
+            current_revision = before or "unversioned"
             _ensure_extensions(connection, label)
-            _warn_of_connection_limit(connection)
+            if warn:
+                _warn_of_connection_limit(connection)
         except DatabaseStartupError:
             raise
         except DBAPIError as exc:
@@ -367,6 +390,7 @@ def create_database(then: Callable[[], None] | None = None) -> None:
             except DBAPIError:
                 # Closing the connection releases the lock on the server.
                 connection.invalidate()
+    return before, target_revision
 
 
 def _warn_of_connection_limit(connection: Connection) -> None:
@@ -430,7 +454,8 @@ def _unreachable(label: str, exc: DBAPIError) -> DatabaseStartupError:
         + _MAINTENANCE
         + " Check that the PostgreSQL server is running (for development: "
         "'scripts/postgres.sh start' from the repository root), that the database exists and "
-        "that DATABASE_URL names it with a role allowed to connect, then restart RDM Engine."
+        "that DATABASE_URL names it with a role allowed to connect, then restart RDM Engine.",
+        "DATABASE_UNREACHABLE",
     )
 
 

@@ -294,7 +294,7 @@ Read-only and behind no capability, like `/capabilities` (for administrators onc
   `default` as `null`; only `source` says whether they are set. `DATABASE_URL` is reported without its
   password (also a `password` query parameter), or `null` when it cannot be read as a URL.
 
-#### The instance's processes, readiness and metrics (0.11 O1)
+#### The instance's processes, readiness, metrics and backup rehearsals (0.11 O1, O2)
 
 Every process reports itself through the database every `PROCESS_HEARTBEAT_SECONDS`, so any process
 answers for all of them; the asking process's own figures are current, another's as of its last
@@ -318,6 +318,24 @@ report ([OPERATIONS § Monitoring](OPERATIONS.md#monitoring)). Behind no capabil
 - `GET /metrics` answers the whole instance in the Prometheus text format 0.0.4 (`text/plain;
   version=0.0.4`): each live process's series labelled `process`, and counts read when scraped. The
   series are listed in [OPERATIONS § Monitoring](OPERATIONS.md#monitoring).
+- `GET /api/v1/system/summary` (0.11 O2) answers the figures `/metrics` counts when scraped, as
+  JSON: `processes` (`live`, `silent`), `workspaces` (`served`, `unavailable`, active workspaces
+  only), `jobs` (each `{kind, state, count}` for `queued`, `running` and `awaiting_confirmation`; a
+  kind and state with none is left out) and `webhookSubscriptions` (`active`, `failing`,
+  `suspended`).
+- `GET /api/v1/system/backup-rehearsals` (0.11 O2) pages the backups restored into a separate
+  database and checked there with `python -m app.cli.restore_check`, newest first: `id`,
+  `checkedAt`, `backup` (the name given to the check, or `null`), `dataAsOf` (the copy's newest
+  audit entry), `revisionBefore` and `revisionAfter` (the copy's migration revision as restored and
+  once prepared; `revisionAfter` `null` when it could not be prepared), `engineVersion`, `host`,
+  `result` (`passed` or `failed`), `failure` (`{code, message}`, `code` one of
+  `DATABASE_COLLATION`, `DATABASE_EXTENSIONS`, `DATABASE_REVISION_UNKNOWN`,
+  `DATABASE_MIGRATION_FAILED`, `DATABASE_UNREACHABLE`, `DATABASE_URL_INVALID`,
+  `WORKSPACES_NOT_SERVED`) and `workspaces`: each active workspace of the copy with its `release`,
+  `state` (`served` or `unavailable`), `reason` (`unsupportedSchema`, `invalid`, `noRelease`),
+  `records`, `relations` (whose source record is in it), `openChangeSets`, `publications` and
+  `liveRecords` (the instance's records of it when checked). No route runs a check
+  ([OPERATIONS § Backup and restore](OPERATIONS.md#backup-and-restore)).
 
 Every response carries `X-Request-Id`: the request's own when it sent one of 1–64 letters, digits,
 `.`, `_` or `-`, otherwise a generated 32-character hex ID. The log names the request by it, and an

@@ -11,4 +11,5 @@ export type * from "@/types/modelAdmin";
 export type * from "@/types/integration";
 export type * from "@/types/sources";
 export type * from "@/types/moves";
+export type * from "@/types/operations";
 export type * from "@/types/ui";

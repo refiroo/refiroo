@@ -44,6 +44,8 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/health/
 | `GET /capabilities` | J20, J12.7, J26.6 (`changeFeed.retentionDays`) |
 | `GET /system` | J31, J31.1–J31.3 |
 | `GET /system/processes`, `GET /system/readiness` (paging; 0.11 O1) | J12.13 |
+| `GET /system/summary` (0.11 O2) | J12.13, J12.14 |
+| `GET /system/backup-rehearsals` (paging; 0.11 O2) and `python -m app.cli.restore_check` | J12.16, J12.17 |
 | `GET /model`, `GET /model/placements` | J20, J20.1, J03, J14 |
 | `GET /model/consumer-apis/{consumerApi}` (the definition expanded, C18) | J20.6 |
 | `GET /workspaces/{key}/model` (0.11 M1; `releaseName`, M5) | J08 (fresh version for activation), J20.2, J36.1 |

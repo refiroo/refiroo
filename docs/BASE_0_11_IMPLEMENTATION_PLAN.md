@@ -4920,6 +4920,182 @@ change sets are not direct dataset restore operations (exit gate).
 
 **Exit:** screenshots approved; the rehearsal recorded in OPERATIONS.
 
+##### O2 plan (2026-10-21)
+
+**Planned 2026-10-21. D198–D204 as recommended, the test cases and the mock-up accepted by the
+user on 2026-10-22 ("you can go ahead").** Checked against the code at `0c383c3` by reading it.
+
+**What was found:**
+
+- **The page's reads mostly exist (O1).** `GET /api/v1/system/readiness` and `GET
+  /api/v1/system/processes` give the workspaces and every process with its threads, pool, counters
+  and the releases it cannot serve. The instance figures (jobs by kind and state, webhook
+  subscriptions by state, processes live and silent, workspaces unavailable) are computed by
+  `engine/processes/reads.instance_gauges` but reach only `/metrics`, as Prometheus text.
+- **Nothing knows about backups.** `scripts/postgres.sh backup` writes a `pg_dump -Fc` file for
+  development; OPERATIONS § Upgrades says to take a backup and "verify that a restore includes
+  schema and data", and nothing helps to do it or records that it was done. "Last backup rehearsal"
+  (U7) has no source.
+- **What a restore can get wrong is what startup checks, plus the models.** A copy restored into a
+  database with another collation or without the extensions, or from an older revision, is what
+  `db.create_database` refuses or upgrades (`_check_collation`, `_ensure_extensions`,
+  `_check_revision`, `_upgrade`). A copy whose workspaces run releases this engine cannot read
+  (a schema outside the window, D34) serves those workspaces `503` (D29). Data the engine wrote is
+  restored as written: the derived tables (`unique_attribute_values`, `matrix_cell_states`,
+  `snapshot_attribute_values`) are data in the dump, and `pg_restore` creates triggers after the
+  data, so none fires on the way in.
+- **A dump holds the processes' rows.** `engine_processes` is restored with the rest: a copy
+  started as an instance would list the source's processes as silent for a day.
+- **Restoring data is restoring the database.** ARCHITECTURE already says that starting from an
+  earlier publication never restores the dataset; OPERATIONS says nothing about it.
+
+**What is built:**
+
+1. **The check of a restored copy (D198, D199):** `python -m app.cli.restore_check --restored
+   <URL> [--backup <label>]`, run with the instance's own `DATABASE_URL`. On the copy it does what
+   startup does (collation, extensions, migrations to this engine's revision: the copy is changed,
+   as a recovery would change it), clears the copy's `engine_processes`, loads every assigned
+   release in a registry of its own, and for every active workspace reports its release, whether
+   it is served, and its records, relationships, open change sets and publications, counted in
+   PostgreSQL, under that workspace only. Beside each it counts the live instance's records of the
+   same workspace. It passes when the copy was prepared and every active workspace in it is served.
+   The result is printed for the operator and written to the instance (3); a failure is printed with
+   what to do and recorded too. The exit status is 0 on a pass, 1 on a failure.
+2. **For development:** `scripts/postgres.sh rehearse [<dump>]` restores the newest (or the named)
+   dump into a scratch database with the ICU root collation, runs the check against it and drops
+   it, whatever the outcome. `backup` leaves out the `engine_processes` rows
+   (`--exclude-table-data`), and OPERATIONS' backup command does too (D203).
+3. **The record (D200):** migration `20261025_01`, table `backup_rehearsals` (public ID, checked at,
+   the backup's label, the copy's newest data time, revision before and after, engine version, the
+   host it ran on, `passed` or `failed`, the failure's code and message, and the per-workspace
+   report as JSON). `GET /api/v1/system/backup-rehearsals`, paged, newest first.
+4. **The instance figures as JSON (D201):** `GET /api/v1/system/summary`: processes live and
+   silent, workspaces served and unavailable, jobs by kind and state, webhook subscriptions by
+   state, the same figures `/metrics` gives, from `instance_gauges`.
+5. **Settings › Operations (U7, D202, D204):** under Administration after Deployment, as on the
+   mock-up: the four summary figures; the workspaces with their release and state and the processes
+   that do not serve them, with why; every process with its state, readiness, threads (a failing
+   one with its reason and since when), connections, requests and the releases it cannot serve; the
+   last backup rehearsal with each workspace of the copy and the earlier ones on demand; how to
+   rehearse; the three probe addresses with a copy button. Read on opening, on Refresh, and every
+   15 seconds while the page is visible. At 390px the sections stack and each process folds.
+6. **Documents:** OPERATIONS § Backup and restore (the backup, the rehearsal with both commands,
+   recovery in place, what is restored and what is not: a change set or an earlier publication is
+   never a restore of the dataset; the rehearsal recorded, 4), API.md (the two routes),
+   ARCHITECTURE (the check), USER_JOURNEYS (J12.16, J12.17) and API_JOURNEYS, the OpenAPI lock,
+   CURRENT_FUNCTIONALITY, CHANGELOG, PROJECT_STATUS, TODO.
+7. **The rehearsal on the development database (exit):** `scripts/postgres.sh backup` and
+   `rehearse` on `rdm`, whose workspaces run different models, recorded in OPERATIONS with its
+   figures; then the page's screenshots at 1440px light and dark and at 390px, for approval.
+
+**Composable domains (ADR-032):** none of the doors is affected (no identity, value storage,
+audit, bulk API, `match` or coverage change; the check reads what is there).
+
+**Decisions:**
+
+| # | Question | Recommendation | Blocks |
+| --- | --- | --- | --- |
+| D198 | Who restores, and how the check is run | **Recommended:** the operator restores (`pg_restore`, or the platform's snapshot restore) into a separate database; a command of the engine checks that copy and records the result. No API route runs it. Why: restoring needs the PostgreSQL client programs and the right to create databases, which the engine's role should not have, and platforms restore their own way; a route that connects to a database a caller names would, until 0.12 adds authorization, let anyone who reaches the instance point the engine at any server. Cost: checking a copy is the one operation, besides `database_upgrade`, that an integrator cannot start through the API; reading the results is in the API (D200) | O2 |
+| D199 | What the check proves | **Recommended:** what a recovery from that backup would meet: the copy prepared as startup prepares a database, every active workspace's release loaded and served in its own snapshot, and each workspace's records, relationships, open change sets and publications counted, every row in PostgreSQL, under that workspace only. The live counts beside them say how much the backup lacks. Why: these are the ways a restore fails (a wrong collation, a missing extension, an old revision, a release the engine cannot read), and the counts show the data arrived. Cost: it does not re-validate every record against its model: the dump holds what the engine wrote and validated, and a whole-graph validation of every workspace is the publish's, minutes at volume | O2 |
+| D200 | Where the record lives | **Recommended:** in the instance that was backed up (`backup_rehearsals`), written by the check, failures included, never in the copy; every rehearsal kept, read newest first through `GET /api/v1/system/backup-rehearsals`. Why: the copy is deleted afterwards, and the page that shows "last rehearsal" reads the instance; a failed rehearsal is the one the operator most needs to see. Cost: one table and migration; the check needs to reach both databases | O2 |
+| D201 | Where the page gets the instance figures | **Recommended:** `GET /api/v1/system/summary`, JSON, the same figures as `/metrics`' instance gauges. Why: the browser should not parse Prometheus text, and an integrator gets the figures without a Prometheus parser. Cost: one route | O2 |
+| D202 | How fresh the page is | **Recommended:** read on opening, on Refresh, and every 15 seconds while the page is visible (not in a background tab), with "As of" shown. Why: an operator leaves the page open during an incident; the other processes' figures change once a heartbeat anyway. Cost: four reads per open page every 15 s, each writing the answering process's heartbeat row | O2 |
+| D203 | The processes' rows in a backup | **Recommended:** the backup commands leave out `engine_processes`' data, and the check clears it in the copy. Why: a recovered instance would otherwise list the source's processes as silent for a day. Cost: an operator's own `pg_dump` command without the option still restores fine; the rows only show as silent until they age out | O2 |
+| D204 | Where the page sits | **Recommended:** Settings › Administration › Operations, after Deployment, as SETTINGS_AND_UI_PLAN planned. Why: it is the administrator's view of the running instance, beside how it is configured. Cost: none | O2 |
+
+**Journey test cases** (written first; each fails today):
+
+1. **J12.16 Rehearse a restore** (`workspace_models`, real `pg_dump` and `pg_restore` on the
+   harness's server): two workspaces on two models, one with an open change set, and a publication;
+   `pg_dump -Fc`; `pg_restore` into a new database with the ICU root collation; the check against
+   it passes, prints both workspaces served with their releases and counts equal to the source's,
+   exits 0; `GET /system/backup-rehearsals` from the instance lists it first with the same figures;
+   an engine process started on the restored copy serves each workspace's records under its own
+   model (`GET /model` differs per workspace, each workspace's records read), the change set is
+   still open on its release, and no process from the dump is listed.
+2. **J12.17 A rehearsal that fails is recorded** (`workspace_models`): a copy restored into a
+   database with the default collation: the check exits 1, prints the collation refusal and what to
+   do, and the instance lists the rehearsal `failed` with that code; a copy one of whose workspaces
+   runs a release with a schema outside the window (written from outside the API, as J12.6): failed,
+   that workspace not served with `unsupportedSchema`, the others served; `--restored` naming the
+   instance's own database is refused before anything is changed.
+3. **J12.13 extended:** `GET /system/summary` matches `/metrics`' instance gauges.
+4. **Browser (`test:browser:operations`, the real backend, generated-a and generated-b):**
+   Settings › Operations by keyboard alone at 1440px and 390px: the workspaces served, the
+   processes, the last rehearsal after a check was recorded, Refresh; axe on the page.
+
+Unit tests: the check's report and failure codes over a prepared copy; the page's figures from
+recorded reads (a silent process, a failing thread, a failed rehearsal) in Vitest. **Checks
+planned:** the two journeys' files and `test_j12_observe`, `test_startup` and `test_schema_drift`
+(the migration), `contract` (the lock), the new browser runner, Vitest for the settings pages, the
+frontend production build, Ruff on the changed files, a final smoke start on the development
+database. Not planned: the full suite and the other browser runners (R's).
+
+##### O2 record (2026-10-22)
+
+**Delivered 2026-10-22.** As planned, D198–D204 as accepted. **Screenshots wait for the user's
+approval** (the exit's other half).
+
+**What was built:**
+
+- **The check:** `app/cli/restore_check.py` over `engine/backups/rehearsal.py`. `db.create_database`
+  became `prepare_database(url)` for any database, returning the revision before and after; each
+  startup refusal carries a code (`DatabaseStartupError.code`), the messages unchanged. The copy's
+  workspaces are resolved by a `ModelRegistry` of their own; counts are four grouped statements on
+  the copy and one on the instance. The instance's own database is recognised by the copy's server
+  listing the check's instance session (`pg_stat_activity`), whatever the URLs say.
+- **The record and reads:** migration `20261025_01` (`backup_rehearsals`), `GET
+  /api/v1/system/backup-rehearsals` (paged by `checkedAt`, newest first) and `GET
+  /api/v1/system/summary` (`management/projections/operations.py`).
+- **Settings › Operations:** `features/settings/OperationsPage.tsx`, its words in
+  `operationsText.ts`, types in `types/operations.ts`, the reads in `api/client.ts`; the route
+  `/settings/operations`; styles in `settings.css`. At 390px each process folds (a `details` element
+  open at desktop width).
+- **Development:** `scripts/postgres.sh rehearse [<dump>]`; `backup` leaves out `engine_processes`.
+- **The rehearsal recorded** in OPERATIONS § Backup and restore, with taking a backup, recovering
+  and what a restore is (the exit gate: historical change sets are not dataset restores).
+
+**Where it differs from the plan:**
+
+- **A failure's message starts "A recovery from this backup would not start:"** and then quotes
+  the startup refusal, so the operator reads it as the rehearsal's finding, not as this instance's
+  state (seen on the first screenshots).
+- **The thread list names the thread and gives its state as the pill** (Running, Failing, Off), as
+  on the mock-up; the first build put each thread's name in a green pill.
+- **The harness returns its database URL** (`e2e/helpers/harness.mjs`), which the runner dumps.
+
+**Composable domains:** no door affected, as planned.
+
+**Checks** (load 4–6):
+
+- The journeys (`test_j12_rehearse_restore.py`, 2 cases on two configurations each, and J12.13's
+  summary in `test_j12_observe.py::test_a_queued_job_is_counted`, 2): **seen failing before the
+  code** (6 failed: no `app.cli.restore_check`, `/system/summary` 404), then 6 passed. With the rest
+  of `test_j12_observe.py` and `test_boundaries.py`: 24 passed.
+- `startup or contract` with `-n auto`: 294 passed (the first run failed only where `test_startup`
+  names the head revision; `HEAD` raised to `20261025_01`). Migration: clean bootstrap, upgrade and
+  drift through `20261025_01`; creating a table is transactional.
+- OpenAPI lock re-baselined; the document diffed against `0c383c3`: two paths and ten schemas added,
+  nothing else changed. The paging inventory counts 44 collections.
+- Vitest: `OperationsPage.test.tsx` 4 cases; settings, routing and app 152 passed; after the
+  screenshot changes settings and routing 96 passed. Frontend production build passed.
+- `test:browser:operations` (new, generated-a and generated-b installed, real `pg_dump`,
+  `pg_restore` and check): 4 cases passed, twice (before and after the screenshot changes); axe clean
+  at 1440px and 390px, no sideways scroll.
+- **The rehearsal on the development database:** `backup` 2.6 s (26 MB), `rehearse` 8.6 s, passed:
+  six workspaces on three models served from the copy, counts equal to live (OPERATIONS).
+- **Smoke start:** the development server (`uvicorn --reload`, already running) reloaded onto this
+  code and upgraded `rdm` to `20261025_01`; `/health`, `/health/live`, `/system/summary` and
+  `/system/backup-rehearsals` 200, the rehearsal listed.
+- Ruff check on every changed file; Ruff format on the new files and those formatted before
+  (`models/database.py`, `test_openapi_contract.py` and `test_startup.py` were unformatted before and
+  are left so).
+- **Not run:** the full suite and the other browser runners (R's).
+
+**What the user still cannot do:** start a rehearsal from the browser or the API (D198: the command
+line only); sort by an attribute or an ancestor over very large parents within the list budget
+(Q3).
+
 #### U1: Touch drag in the tree lens
 
 Below the cut line.

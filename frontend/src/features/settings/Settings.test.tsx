@@ -116,6 +116,7 @@ describe("SettingsShell", () => {
       "Workspaces",
       "Model",
       "Deployment",
+      "Operations",
       "Import profiles",
       "Copy and move",
       "Jobs",

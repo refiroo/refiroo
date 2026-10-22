@@ -25,6 +25,7 @@ from test_j36_workspace_models import BOTH, _model, _on, _other
 
 # Short heartbeats, so a killed process turns silent within the test.
 FAST = {"PROCESS_HEARTBEAT_SECONDS": "1"}
+_INSTANCE_GAUGES = ("rdm_processes", "rdm_webhook_subscriptions", "rdm_workspaces_unavailable")
 _SAMPLE = re.compile(r"^([a-zA-Z_:][a-zA-Z0-9_:]*)(\{.*\})? (\S+)$")
 
 
@@ -227,13 +228,33 @@ def test_metrics_of_every_process_in_one_scrape(configuration):
 @pytest.mark.structures("R", "R.u")
 def test_a_queued_job_is_counted(configuration):
     """Given a service whose job worker is not running. When a background batch is submitted. Then
-    /metrics counts it queued under its kind."""
+    /metrics counts it queued under its kind, and /system/summary gives the same instance figures
+    as JSON (O2, D201)."""
     url = seeds.clone(scenario_seed(configuration))
     try:
         with application(configuration, url) as world:
             _submit(world, _items(world, 2, prefix="Q"))
             samples = _samples(world.api.get("/metrics").text)
             assert ("rdm_jobs", {"kind": "batch", "state": "queued"}, 1.0) in samples
+            summary = ok(world.api.get("/system/summary"))
+            assert {"kind": "batch", "state": "queued", "count": 1} in summary["jobs"]
+            jobs = {(n, l["kind"], l["state"]): v for n, l, v in samples if n == "rdm_jobs"}
+            assert {(j["kind"], j["state"]): j["count"] for j in summary["jobs"]} == {
+                (kind, state): int(value) for (_n, kind, state), value in jobs.items()
+            }
+            gauges = {(n, l.get("state")): v for n, l, v in samples if n in _INSTANCE_GAUGES}
+            assert summary["processes"] == {
+                "live": gauges[("rdm_processes", "live")],
+                "silent": gauges[("rdm_processes", "silent")],
+            }
+            assert summary["webhookSubscriptions"] == {
+                state: gauges[("rdm_webhook_subscriptions", state)]
+                for state in ("active", "failing", "suspended")
+            }
+            assert (
+                summary["workspaces"]["unavailable"] == gauges[("rdm_workspaces_unavailable", None)]
+            )
+            assert summary["workspaces"]["served"] + summary["workspaces"]["unavailable"] >= 1
     finally:
         seeds.drop(url.database)
 

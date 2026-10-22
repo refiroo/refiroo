@@ -24,6 +24,7 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
       { page: "workspaces", label: "Workspaces" },
       { page: "model", label: "Model" },
       { page: "deployment", label: "Deployment" },
+      { page: "operations", label: "Operations" },
     ],
   },
   {

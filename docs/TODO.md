@@ -705,7 +705,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] **Found in O1 (2026-10-21), not changed:** `GET /api/v1/system/processes` reports a process's
     pool `inUse` as its report is built, before the asking request's own statements, so the asking
     process shows one connection fewer than it holds while answering. The others' figures are as of
-    their heartbeat.
+    their heartbeat. Visible on Settings › Operations since O2 (the answering process shows 1 in use).
+  - [x] O2 delivered 2026-10-22 (D198–D204): `app.cli.restore_check` checks a restored copy and
+    records the result in the instance (`backup_rehearsals`), `GET /api/v1/system/backup-rehearsals`
+    and `GET /api/v1/system/summary`, Settings › Operations, `scripts/postgres.sh rehearse`, the
+    rehearsal on the development database recorded in OPERATIONS. Screenshots wait for the user's
+    approval.
   - [x] **Found in N2 (2026-10-19), done in N3 (D182):** a process frozen (or cut off) while its transaction
     holds a database lock keeps that lock until it resumes or its connection ends; the lease does not
     end it, and every write waiting for the lock waits too (J24.3's case shows it: B's chunk waits

@@ -139,3 +139,95 @@ class WorkspaceReadinessResponse(BaseModel):
 
 class WorkspaceReadinessPage(CollectionPage[WorkspaceReadinessResponse]):
     pass
+
+
+class SummaryJobs(BaseModel):
+    kind: str
+    state: Literal["queued", "running", "awaiting_confirmation"]
+    count: int
+
+
+class SummaryProcesses(BaseModel):
+    live: int
+    silent: int
+
+
+class SummaryWorkspaces(BaseModel):
+    served: int = Field(description="Active workspaces every live process serves")
+    unavailable: int = Field(
+        description="Active workspaces some live process cannot serve, or that run no release"
+    )
+
+
+class SummarySubscriptions(BaseModel):
+    active: int = Field(description="Delivering, not failing")
+    failing: int = Field(description="Active while a batch is retried")
+    suspended: int
+
+
+class SystemSummary(BaseModel):
+    """The instance's figures counted now, as ``/metrics``' instance gauges (0.11 O2, D201)."""
+
+    processes: SummaryProcesses
+    workspaces: SummaryWorkspaces
+    jobs: list[SummaryJobs] = Field(
+        description="Jobs queued, running or awaiting confirmation, by kind and state; a kind and "
+        "state with none is left out"
+    )
+    webhookSubscriptions: SummarySubscriptions
+
+
+class RehearsalRelease(BaseModel):
+    id: str
+    key: str
+    version: str
+    schemaVersion: str
+
+
+class RehearsalWorkspace(BaseModel):
+    """One active workspace of the restored copy."""
+
+    workspaceKey: str
+    release: RehearsalRelease | None = Field(description="The release it runs in the copy")
+    state: Literal["served", "unavailable"]
+    reason: Literal["unsupportedSchema", "invalid", "noRelease"] | None = Field(
+        description="Why the engine could not serve it from the copy"
+    )
+    records: int
+    relations: int = Field(description="Relationships whose source record is in the workspace")
+    openChangeSets: int
+    publications: int
+    liveRecords: int = Field(description="The instance's records of the workspace when checked")
+
+
+class RehearsalFailure(BaseModel):
+    code: Literal[
+        "DATABASE_UNREACHABLE",
+        "DATABASE_URL_INVALID",
+        "DATABASE_COLLATION",
+        "DATABASE_EXTENSIONS",
+        "DATABASE_REVISION_UNKNOWN",
+        "DATABASE_MIGRATION_FAILED",
+        "WORKSPACES_NOT_SERVED",
+    ]
+    message: str = Field(description="What a recovery from the backup would meet, and what to do")
+
+
+class BackupRehearsalResponse(BaseModel):
+    """A backup restored into a separate database and checked there (0.11 O2, D198–D200)."""
+
+    id: str
+    checkedAt: datetime
+    backup: str | None = Field(description="The backup's name given to the check")
+    dataAsOf: datetime | None = Field(description="The copy's newest change in the audit trail")
+    revisionBefore: str | None = Field(description="The copy's migration revision as restored")
+    revisionAfter: str | None = Field(description="Its revision once prepared; null if it was not")
+    engineVersion: str
+    host: str = Field(description="Where the check ran")
+    result: Literal["passed", "failed"]
+    failure: RehearsalFailure | None
+    workspaces: list[RehearsalWorkspace]
+
+
+class BackupRehearsalPage(CollectionPage[BackupRehearsalResponse]):
+    pass

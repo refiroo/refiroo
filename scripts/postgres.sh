@@ -6,7 +6,12 @@
 #                                database "rdm", start it, and print the DATABASE_URL to use
 #   scripts/postgres.sh stop     stop it
 #   scripts/postgres.sh status   say whether it runs
-#   scripts/postgres.sh backup   write backend/.postgres/backups/rdm-<time>.dump (pg_dump -Fc)
+#   scripts/postgres.sh backup   write backend/.postgres/backups/rdm-<time>.dump (pg_dump -Fc),
+#                                without the engine processes' rows (0.11 O2, D203)
+#   scripts/postgres.sh rehearse [<dump>]
+#                                restore the newest (or the named) dump into a scratch database,
+#                                check it with app.cli.restore_check, record the result in "rdm"
+#                                and drop the scratch database (0.11 O2)
 #
 # The server listens on localhost:${RDM_POSTGRES_PORT:-54320} and on a socket in its directory, and
 # trusts local connections: it is for development only.
@@ -80,11 +85,35 @@ case "${1:-}" in
     running || { echo "Start the development server first: scripts/postgres.sh start" >&2; exit 1; }
     mkdir -p "$DIR/backups"
     target="$DIR/backups/$DATABASE-$(date +%Y%m%d-%H%M%S).dump"
-    "$BIN/pg_dump" -h "$DIR" -p "$PORT" -U postgres -Fc -f "$target" "$DATABASE"
+    "$BIN/pg_dump" -h "$DIR" -p "$PORT" -U postgres -Fc --exclude-table-data=engine_processes \
+      -f "$target" "$DATABASE"
     echo "Wrote $target"
     ;;
+  rehearse)
+    running || { echo "Start the development server first: scripts/postgres.sh start" >&2; exit 1; }
+    dump="${2:-$(ls -t "$DIR"/backups/*.dump 2>/dev/null | head -n 1)}"
+    [[ -n "$dump" && -f "$dump" ]] || {
+      echo "No dump to rehearse. Write one with 'scripts/postgres.sh backup', or name one." >&2
+      exit 1
+    }
+    scratch="rdm_restore_check"
+    "$BIN/dropdb" -h "$DIR" -p "$PORT" -U postgres --if-exists "$scratch"
+    "$BIN/createdb" -h "$DIR" -p "$PORT" -U postgres -T template0 --locale-provider=icu \
+      --icu-locale=und --locale=C "$scratch"
+    status=0
+    if "$BIN/pg_restore" -h "$DIR" -p "$PORT" -U postgres --no-owner -d "$scratch" "$dump"; then
+      (cd "$ROOT/backend" && DATABASE_URL="$URL" .venv/bin/python -m app.cli.restore_check \
+        --restored "postgresql+psycopg://postgres@localhost:$PORT/$scratch" \
+        --backup "$(basename "$dump")") || status=$?
+    else
+      echo "pg_restore could not restore $dump; nothing was checked or recorded." >&2
+      status=1
+    fi
+    "$BIN/dropdb" -h "$DIR" -p "$PORT" -U postgres --if-exists "$scratch"
+    exit "$status"
+    ;;
   *)
-    echo "usage: scripts/postgres.sh start|stop|status|backup" >&2
+    echo "usage: scripts/postgres.sh start|stop|status|backup|rehearse [<dump>]" >&2
     exit 2
     ;;
 esac

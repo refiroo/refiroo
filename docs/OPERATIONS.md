@@ -164,7 +164,8 @@ For local development, `scripts/postgres.sh` runs a private server from Homebrew
 | `scripts/postgres.sh start` | Creates `backend/.postgres/` on first use, starts the server and prints `DATABASE_URL` |
 | `scripts/postgres.sh stop` | Stops it |
 | `scripts/postgres.sh status` | Reports whether it runs |
-| `scripts/postgres.sh backup` | Writes a `pg_dump` file to `backend/.postgres/backups/` |
+| `scripts/postgres.sh backup` | Writes a `pg_dump` file to `backend/.postgres/backups/`, without the processes' rows |
+| `scripts/postgres.sh rehearse [<dump>]` | Restores the newest (or the named) dump into a scratch database, checks it with `app.cli.restore_check`, records the result in `rdm` and drops the scratch database ([Backup and restore](#backup-and-restore)) |
 
 Nothing starts at login. Docker Compose runs `postgres:17-alpine` with the same collation.
 
@@ -222,7 +223,14 @@ restart it). A workspace that runs no release is `unavailable` with no process n
 `leaseOwner` begins), version, start, last heartbeat, `live` or `silent`, `ready`, its threads
 (`jobWorker`, `exportWorker`, `jobListener`, `eventDeriver`, `webhookDispatcher`, `heartbeat`,
 each `running`, `failing` with the reason and since when, or `off` when not started), its pool and
-its counters. Both page like every collection.
+its counters. Both page like every collection. `GET /api/v1/system/summary` gives the instance
+figures that `/metrics` counts when scraped (below) as JSON: processes live and silent, workspaces
+served and unavailable, jobs by kind and state, webhook subscriptions by state.
+
+**In the browser.** Settings › Administration › **Operations** shows the four figures, each
+workspace and the processes that do not serve it, every process with its threads, connections and
+requests, the last [backup rehearsal](#backup-and-restore) and the probe addresses. It reads again
+every 15 seconds while it is open and visible.
 
 **Metrics.** `GET /metrics` answers the whole instance in the Prometheus text format (0.0.4): scrape
 any one process, or the load balancer, once; scraping every process returns the same series. Per
@@ -510,8 +518,8 @@ older file.
 Before upgrading the application:
 
 1. Stop or quiesce writers.
-2. Take a consistent backup (`pg_dump` or the platform's snapshot) and verify that a restore includes
-   schema and data.
+2. Take a consistent backup (`pg_dump` or the platform's snapshot) and
+   [rehearse its restore](#backup-and-restore).
 3. Keep the backup with the application version and its configuration, especially `DATABASE_URL`,
    `RDM_MODEL_PATH`, `RDM_CURSOR_SIGNING_KEY`, the capability settings and the worker count.
 4. Run the migrations with the new application before accepting traffic:
@@ -533,3 +541,77 @@ database at its previous revision.
 To roll back the application or database schema, stop the new deployment and restore the
 pre-upgrade backup together with the matching older application version. Alembic downgrades and
 manual edits to release rows are not a supported rollback path.
+
+## Backup and restore
+
+The database is the whole state of an instance: every workspace's records, change sets,
+publications and history, the installed model releases and which workspace runs which, jobs,
+webhook subscriptions and the feed. A backup of the database is a backup of the instance. Keep with
+it the application version and its configuration (see [Upgrades](#upgrades)); the cursor signing
+key and the webhook key encryption key are settings, not data, and a restore needs the same ones.
+
+**Taking a backup.** `pg_dump` in its custom format, or the platform's snapshot. The processes'
+heartbeat rows are of no use in a backup; leave them out:
+
+```bash
+pg_dump -Fc --exclude-table-data=engine_processes -f rdm-$(date +%Y%m%d-%H%M).dump postgresql://rdm@db/rdm
+```
+
+A backup taken without the option restores as well; the old processes are then listed `silent` until
+they age out after a day.
+
+**Rehearsing a restore.** A backup is known to work only once it has been restored. Restore it into
+a new, separate database with the ICU root collation, then check that copy from the backend
+directory with the instance's own `DATABASE_URL`:
+
+```bash
+createdb -T template0 --locale-provider=icu --icu-locale=und --locale=C rdm_restore_check
+pg_restore --no-owner -d rdm_restore_check rdm-20261022-0200.dump
+cd backend
+.venv/bin/python -m app.cli.restore_check \
+    --restored postgresql+psycopg://rdm@db/rdm_restore_check --backup rdm-20261022-0200.dump
+dropdb rdm_restore_check
+```
+
+The check meets what a recovery from that backup would meet. It prepares the copy as startup
+prepares a database (collation, extensions, migrations to this engine's revision, so the copy is
+changed), clears the processes' rows that came with it, loads each active workspace's release on its
+own and counts the workspace's records, relationships, open change sets and publications in
+PostgreSQL, beside the instance's records of that workspace now. It passes when the copy could be
+prepared and every active workspace in it is served. It does not validate every record again: the
+backup holds what the engine wrote and validated.
+
+The result, passed or failed, is recorded in the instance (`backup_rehearsals`) and shown on
+Settings › Operations and by `GET /api/v1/system/backup-rehearsals`; the copy gets nothing. The
+command prints the same and exits `0` when it passed, `1` when it failed and `2` when nothing was
+checked (the copy named is the instance's own database, the URL is not PostgreSQL, or the
+instance's database cannot be reached). A failure names its reason and what to do:
+`DATABASE_COLLATION`, `DATABASE_EXTENSIONS`, `DATABASE_REVISION_UNKNOWN` (the backup was written by
+a newer version), `DATABASE_MIGRATION_FAILED`, `DATABASE_UNREACHABLE`, or `WORKSPACES_NOT_SERVED`
+(a workspace runs a release this engine cannot read; activate a supported release in it, or keep
+the engine version that reads it with the backup). No route runs the check: restoring needs the
+PostgreSQL client programs and the right to create databases, which the engine's own role should
+not have (0.11 D198).
+
+For development, `scripts/postgres.sh backup` and `scripts/postgres.sh rehearse` do the same on
+the development server.
+
+**Recovering.** Stop every process; restore the backup into the database `DATABASE_URL` names (a
+new database with the ICU root collation, or the emptied one) with `pg_restore --no-owner`; start
+the application version kept with the backup, or a newer one, which migrates it at startup. Each
+workspace runs the release it ran when the backup was taken.
+
+**What a restore is.** Restoring a backup replaces the whole database. Nothing inside the engine
+restores data: a change set started from an earlier publication applies only what is edited in it
+and leaves newer live data as it is, and withdrawing a publication changes no data
+([ARCHITECTURE](ARCHITECTURE.md)). To bring back part of an earlier state, read it from a restored
+copy and write it through the API as a change set.
+
+**Rehearsed (0.11 O2, 2026-10-22).** On the development server: `scripts/postgres.sh backup` wrote
+a 26 MB dump of `rdm` in 2.6 s; `scripts/postgres.sh rehearse` restored, checked and dropped it in
+8.6 s. Six workspaces on three different models, all at schema 0.10: every workspace served from
+the copy, each under its own release, with 6,665 records, 14,303 relationships, 6 open change sets
+and 7 publications, the record counts equal to live. The copy was at revision `20261025_01` and needed no migration. The browser runner
+`test:browser:operations` and the journeys J12.16 and J12.17 repeat it on two generated models,
+including a copy with the wrong collation and a workspace on a release outside the schema window.
+

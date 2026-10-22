@@ -61,6 +61,7 @@ describe("routes", () => {
     ["/settings/about", { kind: "settings", page: "about" }],
     ["/settings/appearance", { kind: "settings", page: "appearance" }],
     ["/settings/deployment", { kind: "settings", page: "deployment" }],
+    ["/settings/operations", { kind: "settings", page: "operations" }],
     ["/settings/consumer-apis", { kind: "settings", page: "consumer-apis" }],
     ["/settings/jobs", { kind: "settings", page: "jobs" }],
     ["/settings/api-reference", { kind: "settings", page: "api-reference" }],
