@@ -4,8 +4,10 @@
 
 The password is read from the terminal twice, or from standard input with ``--password-stdin``, and
 must meet the password rules (D252, its least length ``PASSWORD_MIN_LENGTH`` as amended by D276). There is no other way to create a person without signing in,
-and no setting turns authentication off. Until Z1 every active person and client may do everything;
-from Z1 this person holds Security administration at the instance.
+and no setting turns authentication off. The person holds, at the instance, Security administration
+and every role needed to set the instance up: Data owner, Model, Workspace and Integration
+administrator, and Operator (D282). It is also the way back into an instance whose Security
+administrators are all locked out.
 """
 
 import argparse
@@ -16,6 +18,7 @@ from pydantic import ValidationError
 
 from ..config import get_settings
 from ..db import DatabaseStartupError, SessionLocal, create_database
+from ..engine.authorization.catalogue import FIRST_ADMINISTRATOR_ROLES
 from ..engine.identity.users import create_user
 from ..errors import ApiError
 from ..models.commands import UserCreate
@@ -59,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
                 payload,
                 password=password,
                 min_length=get_settings().password_min_length,
+                roles=FIRST_ADMINISTRATOR_ROLES,
             )
             user_id = user.public_id
     except DatabaseStartupError as exc:

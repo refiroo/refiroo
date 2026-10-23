@@ -7,13 +7,15 @@
   width: 28px;
   height: 28px;
 }
-.settings-all-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--link);
-  font-size: var(--text-sm);
-  font-weight: 550;
+/* The account menu's actions: Account, All settings and Sign out, each a full-width button (the
+   user, 2026-10-23: no bare links beside a button). */
+.settings-section > .account-menu-action {
+  justify-self: stretch;
+  justify-content: flex-start;
+  text-decoration: none;
+}
+.account-card .account-role-line {
+  margin-top: 2px;
 }
 
 /* Rail: grouped page links; the current page in the selection tint. */
@@ -1950,6 +1952,10 @@ tr.openable-row:hover > * {
   background: var(--status-success-surface);
   color: var(--status-success-text);
 }
+.account-pill.role {
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+}
 .account-dot {
   width: 7px;
   height: 7px;
@@ -2073,6 +2079,17 @@ tr.openable-row:hover > * {
   }
   .account-row {
     padding: 14px;
+  }
+  /* A role goes under the workspace's name, beside the tile. */
+  .account-row:has(> .account-pill.role) {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+  .account-row:has(> .account-pill.role) > .account-row-text {
+    flex-basis: calc(100% - 54px);
+  }
+  .account-row > .account-pill.role {
+    margin-left: 54px;
   }
   .account-password {
     padding-left: 14px;

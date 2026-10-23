@@ -29,6 +29,12 @@ from ...engine.sources.store import stored_upload
 from ...errors import api_error
 from ...models.database import Job
 from ...models.imports import ImportProfileCreate, ImportProfileUpdate, ImportRequest
+from ..access import (
+    ANYWHERE,
+    IMPORT_FORM,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import import_profile_page, import_profile_response, job_responses
@@ -44,11 +50,12 @@ from ..schemas.imports import (
 )
 from ..schemas.jobs import JobResponse, JobRowPage
 
-router = APIRouter(prefix="/api/v1", tags=["imports"])
-write_router = APIRouter(prefix="/api/v1", tags=["imports"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["imports"])
+write_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["imports"])
 
 
 @router.get("/import-profiles", response_model=ImportProfilePage)
+@requires("import-profiles.manage", at=ANYWHERE)
 def list_import_profiles(
     session: DbSession,
     paging: PageQuery,
@@ -64,6 +71,7 @@ def list_import_profiles(
 
 
 @router.get("/import-profiles/{profile_key}", response_model=ImportProfileResponse)
+@requires("import-profiles.manage", at=ANYWHERE)
 def get_import_profile(
     profile_key: str,
     session: DbSession,
@@ -77,6 +85,7 @@ def get_import_profile(
 
 
 @write_router.post("/import-profiles", response_model=ImportProfileResponse, status_code=201)
+@requires("import-profiles.manage", at=ANYWHERE)
 def create_import_profile(
     payload: ImportProfileCreate, session: DbSession
 ) -> ImportProfileResponse:
@@ -88,6 +97,7 @@ def create_import_profile(
 
 
 @write_router.put("/import-profiles/{profile_key}", response_model=ImportProfileResponse)
+@requires("import-profiles.manage", at=ANYWHERE)
 def update_import_profile(
     profile_key: str, payload: ImportProfileUpdate, session: DbSession
 ) -> ImportProfileResponse:
@@ -99,6 +109,7 @@ def update_import_profile(
 
 
 @write_router.delete("/import-profiles/{profile_key}", status_code=204)
+@requires("import-profiles.manage", at=ANYWHERE)
 def delete_import_profile(
     profile_key: str,
     session: DbSession,
@@ -125,6 +136,7 @@ def delete_import_profile(
         }
     },
 )
+@requires("bulk.write", at=IMPORT_FORM)
 def create_import(
     request: Request,
     session: DbSession,
@@ -204,6 +216,7 @@ def create_import(
 
 
 @router.get("/import-profiles/{profile_key}/check", response_model=ProfileCheckResponse)
+@requires("import-profiles.manage", at=ANYWHERE)
 def get_profile_check(profile_key: str, session: DbSession) -> ProfileCheckResponse:
     """The check of the profile's latest file (D83): ``checking``, then the columns new, missing
     and renamed, the profile against the active release, what the load would do and the counts of
@@ -215,6 +228,7 @@ def get_profile_check(profile_key: str, session: DbSession) -> ProfileCheckRespo
 @write_router.post(
     "/import-profiles/{profile_key}/check", response_model=ProfileCheckResponse, status_code=202
 )
+@requires("import-profiles.manage", at=ANYWHERE)
 def run_profile_check(profile_key: str, request: Request, session: DbSession) -> JSONResponse:
     """Check the profile's current file again, as after a change to the profile; a check still
     running is cancelled. Refused: ``404 SOURCE_FILE_NOT_FOUND`` when the profile holds no file,
@@ -228,6 +242,7 @@ def run_profile_check(profile_key: str, request: Request, session: DbSession) ->
 
 
 @router.get("/import-profiles/{profile_key}/check/new-values", response_model=CheckNewValuePage)
+@requires("import-profiles.manage", at=ANYWHERE)
 def list_check_new_values(
     profile_key: str,
     session: DbSession,
@@ -245,6 +260,7 @@ def list_check_new_values(
 
 
 @router.get("/import-profiles/{profile_key}/check/drift", response_model=CheckDriftPage)
+@requires("import-profiles.manage", at=ANYWHERE)
 def list_check_drift(
     profile_key: str,
     session: DbSession,
@@ -263,6 +279,7 @@ def list_check_drift(
 @router.get(
     "/import-profiles/{profile_key}/check/missing-records", response_model=CheckMissingRecordPage
 )
+@requires("import-profiles.manage", at=ANYWHERE)
 def list_check_missing_records(
     profile_key: str,
     session: DbSession,
@@ -280,6 +297,7 @@ def list_check_missing_records(
 
 
 @router.get("/import-profiles/{profile_key}/check/rows", response_model=JobRowPage)
+@requires("import-profiles.manage", at=ANYWHERE)
 def list_check_rows(
     profile_key: str,
     session: DbSession,

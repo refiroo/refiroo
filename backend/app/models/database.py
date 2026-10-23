@@ -23,7 +23,7 @@ from sqlalchemy import (
     literal_column,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
@@ -2011,3 +2011,141 @@ class SignInFailure(Base):
     key: Mapped[str] = mapped_column(String(320), nullable=False)
     count: Mapped[int] = mapped_column(Integer, nullable=False)
     last_failure_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+
+class Role(Base):
+    """A set of action groups that a grant gives (Product 0.12 Z1, ADR-044, D227).
+
+    The nine predefined roles are rows like the others, marked ``predefined`` and read-only; their
+    groups are in the code's catalogue (D279). A custom role's groups are its
+    ``role_action_groups``. A role still granted cannot be deleted.
+    """
+
+    __tablename__ = "roles"
+    __table_args__ = (Index("ux_roles_name", func.lower(literal_column("name")), unique=True),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    predefined: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class RoleActionGroup(Base):
+    """One action group of a custom role."""
+
+    __tablename__ = "role_action_groups"
+
+    role_id: Mapped[int] = mapped_column(
+        ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True
+    )
+    group_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+
+
+class UserGroup(Base):
+    """A local group of people; a grant to it applies to its members (Z1, D229)."""
+
+    __tablename__ = "user_groups"
+    __table_args__ = (
+        Index("ux_user_groups_name", func.lower(literal_column("name")), unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, default=lambda: str(uuid4())
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class UserGroupMember(Base):
+    __tablename__ = "user_group_members"
+    __table_args__ = (Index("ix_user_group_members_user", "user_id"),)
+
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("user_groups.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    added_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class Grant(Base):
+    """A role given to one person, client or group, at the instance (no workspace) or in one
+    workspace, optionally narrowing writes to applications and record types (Z1, D228, D243,
+    D281). Created and deleted, never changed; it goes with its workspace."""
+
+    __tablename__ = "grants"
+    __table_args__ = (
+        CheckConstraint(
+            "num_nonnulls(user_id, client_id, group_id) = 1", name="ck_grants_one_principal"
+        ),
+        CheckConstraint(
+            "workspace_key IS NOT NULL OR (cardinality(applications) = 0 "
+            "AND cardinality(record_types) = 0)",
+            name="ck_grants_instance_not_narrowed",
+        ),
+        Index("ix_grants_user", "user_id"),
+        Index("ix_grants_client", "client_id"),
+        Index("ix_grants_group", "group_id"),
+        Index("ix_grants_role", "role_id"),
+        Index("ix_grants_workspace", "workspace_key", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, default=lambda: str(uuid4())
+    )
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
+    client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="CASCADE"), nullable=True
+    )
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_groups.id", ondelete="CASCADE"), nullable=True
+    )
+    role_id: Mapped[int] = mapped_column(
+        ForeignKey("roles.id", ondelete="RESTRICT"), nullable=False
+    )
+    workspace_key: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="CASCADE"), nullable=True
+    )
+    applications: Mapped[list[str]] = mapped_column(
+        ARRAY(String(160)), nullable=False, default=list
+    )
+    record_types: Mapped[list[str]] = mapped_column(
+        ARRAY(String(160)), nullable=False, default=list
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class AuthorizationState(Base):
+    """One row: the generation PostgreSQL triggers raise whenever roles, groups, memberships,
+    grants or a principal's ``active`` change; a process reads a caller's permissions again when
+    it differs (Z1, D278). No code writes it."""
+
+    __tablename__ = "authorization_state"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_authorization_state_one_row"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    generation: Mapped[int] = mapped_column(BigInteger, nullable=False)

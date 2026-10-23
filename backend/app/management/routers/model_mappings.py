@@ -23,6 +23,11 @@ from ...models.mappings import (
     ModelMappingUndoRequest,
     ModelMappingVersionRequest,
 )
+from ..access import (
+    ANYWHERE,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..schemas.mappings import (
@@ -37,8 +42,8 @@ from ..schemas.mappings import (
     ModelMappingSummary,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["model mappings"])
-write_router = APIRouter(prefix="/api/v1", tags=["model mappings"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["model mappings"])
+write_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["model mappings"])
 
 _OPERATION_KEYS = (integer_key("sequence", ModelMappingOperation.sequence, "sequence"),)
 
@@ -88,6 +93,7 @@ def _entry(row: ModelMappingOperation) -> ModelMappingOperationEntry:
 
 
 @router.get("/model-mappings", response_model=ModelMappingPage)
+@requires("model-mappings.manage", at=ANYWHERE)
 def list_model_mappings(
     session: DbSession,
     paging: PageQuery,
@@ -109,6 +115,7 @@ def list_model_mappings(
 
 
 @router.get("/model-mappings/{key}", response_model=ModelMappingResponse)
+@requires("model-mappings.manage", at=ANYWHERE)
 def get_model_mapping(
     key: str,
     session: DbSession,
@@ -128,6 +135,7 @@ def get_model_mapping(
 
 
 @router.get("/model-mappings/{key}/operations", response_model=ModelMappingOperationPage)
+@requires("model-mappings.manage", at=ANYWHERE)
 def list_model_mapping_operations(
     key: str,
     session: DbSession,
@@ -150,6 +158,7 @@ def list_model_mapping_operations(
 
 
 @router.get("/model-mappings/{key}/inference", response_model=MappingInferenceResponse)
+@requires("model-mappings.manage", at=ANYWHERE)
 def get_mapping_inference(key: str, session: DbSession) -> MappingInferenceResponse:
     """The mapping's latest inference: its state, its proposals' counts by status and its warnings
     (``404 INFERENCE_NOT_FOUND`` before the first)."""
@@ -160,6 +169,7 @@ def get_mapping_inference(key: str, session: DbSession) -> MappingInferenceRespo
 
 
 @router.get("/model-mappings/{key}/inference/proposals", response_model=MappingProposalPage)
+@requires("model-mappings.manage", at=ANYWHERE)
 def list_mapping_proposals(
     key: str,
     session: DbSession,
@@ -200,6 +210,7 @@ def list_mapping_proposals(
 
 
 @write_router.post("/model-mappings", response_model=ModelMappingResponse, status_code=201)
+@requires("model-mappings.manage", at=ANYWHERE)
 def create_model_mapping(payload: ModelMappingCreate, session: DbSession) -> ModelMappingResponse:
     """A mapping between the releases two workspaces run, or two releases (D104), with no type
     mapped. Refused: ``409 MODEL_MAPPING_EXISTS``, ``404 WORKSPACE_NOT_FOUND``, ``409
@@ -218,6 +229,7 @@ def create_model_mapping(payload: ModelMappingCreate, session: DbSession) -> Mod
 
 
 @write_router.delete("/model-mappings/{key}", status_code=status.HTTP_204_NO_CONTENT)
+@requires("model-mappings.manage", at=ANYWHERE)
 def delete_model_mapping(
     key: str, session: DbSession, expected_version: int = Query(ge=1, alias="expectedVersion")
 ) -> Response:
@@ -227,6 +239,7 @@ def delete_model_mapping(
 
 
 @write_router.post("/model-mappings/{key}/operations", response_model=ModelMappingStepResponse)
+@requires("model-mappings.manage", at=ANYWHERE)
 def apply_model_mapping_operations(
     key: str, payload: ModelMappingOperationsRequest, session: DbSession, request: Request
 ) -> ModelMappingStepResponse:
@@ -246,6 +259,7 @@ def apply_model_mapping_operations(
 
 
 @write_router.post("/model-mappings/{key}/undo", response_model=ModelMappingStepResponse)
+@requires("model-mappings.manage", at=ANYWHERE)
 def undo_model_mapping_step(
     key: str, payload: ModelMappingUndoRequest, session: DbSession
 ) -> ModelMappingStepResponse:
@@ -257,6 +271,7 @@ def undo_model_mapping_step(
 
 
 @write_router.post("/model-mappings/{key}/redo", response_model=ModelMappingStepResponse)
+@requires("model-mappings.manage", at=ANYWHERE)
 def redo_model_mapping_step(
     key: str, payload: ModelMappingVersionRequest, session: DbSession
 ) -> ModelMappingStepResponse:
@@ -267,6 +282,7 @@ def redo_model_mapping_step(
 @write_router.post(
     "/model-mappings/{key}/inference", response_model=MappingInferenceResponse, status_code=202
 )
+@requires("model-mappings.manage", at=ANYWHERE)
 def run_mapping_inference(
     key: str, payload: MappingInferenceRequest, request: Request, session: DbSession
 ) -> JSONResponse:
@@ -292,6 +308,7 @@ def run_mapping_inference(
 @write_router.post(
     "/model-mappings/{key}/inference/application", response_model=ModelMappingStepResponse
 )
+@requires("model-mappings.manage", at=ANYWHERE)
 def apply_mapping_proposals(
     key: str, payload: MappingInferenceApplication, request: Request, session: DbSession
 ) -> ModelMappingStepResponse:

@@ -29,6 +29,19 @@ SECRETS_ENCRYPTION_KEY = base64.urlsafe_b64encode(b"rdm-engine-test-harness-key-
 os.environ.setdefault("SECRETS_ENCRYPTION_KEY", SECRETS_ENCRYPTION_KEY)
 # The person the browser runners sign in as, through the real sign-in page (0.12 I2, D274). Test
 # data only.
+# The harness client and person hold every predefined role at the instance (Z1), granted by the
+# engine's own function as a Security administrator would.
+EVERY_ROLE = (
+    "reader",
+    "contributor",
+    "steward",
+    "owner",
+    "model-admin",
+    "workspace-admin",
+    "integration-admin",
+    "operator",
+    "security-admin",
+)
 HARNESS_PERSON = {"username": "harness", "password": "harness person passphrase 0001"}
 # Long enough that a seed's signing key is never replaced while it is reused (D264).
 SIGNING_KEY_DAYS = "36500"
@@ -63,12 +76,13 @@ def create_harness_client() -> dict[str, object]:
         signing_key_days=settings.token_signing_key_days,
     )
     with SessionLocal() as session:
-        client, secret = create_client(session, ClientCreate(name="Test harness"))
+        client, secret = create_client(session, ClientCreate(name="Test harness"), roles=EVERY_ROLE)
         keys.signing_key(session, identity)
         create_user(
             session,
             UserCreate(username=HARNESS_PERSON["username"], name="Test harness person"),
             password=HARNESS_PERSON["password"],
+            roles=EVERY_ROLE,
         )
         return {"clientId": client.public_id, "clientSecret": secret, "person": HARNESS_PERSON}
 
@@ -138,7 +152,9 @@ def own_token(post: Callable[..., httpx.Response], scope: str = "management") ->
             if url not in _own_clients:
                 try:
                     with SessionLocal() as session:
-                        client, secret = create_client(session, ClientCreate(name="Test harness"))
+                        client, secret = create_client(
+                            session, ClientCreate(name="Test harness"), roles=EVERY_ROLE
+                        )
                         _own_clients[url] = (client.public_id, secret)
                 except SQLAlchemyError, DatabaseStartupError:
                     return None

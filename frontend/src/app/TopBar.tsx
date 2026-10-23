@@ -50,6 +50,7 @@ export function ApplicationButtons({
 export function TopBar({
   model,
   currentApplicationKey,
+  workspaceKey,
   inSettings = false,
   onHome,
   onSelectApplication,
@@ -58,6 +59,8 @@ export function TopBar({
   model: EngineModel;
   /** The application whose tab is current; none on a settings page. */
   currentApplicationKey?: string;
+  /** The workspace open now, for the account menu's roles; none on a settings page. */
+  workspaceKey?: string;
   inSettings?: boolean;
   onHome: () => void;
   onSelectApplication: (application: ApplicationDefinition) => void;
@@ -90,6 +93,7 @@ export function TopBar({
           <Icon name="gear" size={18} />
         </RouteLink>
         <AccountMenu
+          workspaceKey={workspaceKey}
           settingsHref={routePath(SETTINGS)}
           accountHref={routePath(ACCOUNT)}
           onOpenSettings={() => onNavigate(SETTINGS)}

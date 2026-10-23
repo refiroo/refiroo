@@ -11,6 +11,7 @@ vi.mock("@/api/client", () => ({
     me: vi.fn(),
     mySessions: vi.fn(),
     workspaces: vi.fn(),
+    myGrants: vi.fn(),
     endMySession: vi.fn(async () => undefined),
     endAllMySessions: vi.fn(async () => undefined),
     changePassword: vi.fn(),
@@ -31,6 +32,29 @@ const session = (id: string, current: boolean, userAgent: string) => ({
   lastUsedAt: "2026-10-23T09:00:00Z",
   endsAt: "2026-10-23T21:00:00Z",
 });
+
+function grant(
+  id: string,
+  key: string,
+  name: string,
+  scope: { instance?: boolean; workspaceKey?: string; recordTypes?: string[]; recordTypeNames?: string[] },
+  principal: { kind: "user" | "group"; id: string; name: string } = { kind: "user", id: "u1", name: "Ana Ferreira" },
+) {
+  return {
+    id,
+    principal,
+    role: { key, name },
+    scope: {
+      instance: scope.instance ?? false,
+      workspaceKey: scope.workspaceKey ?? null,
+      applications: [],
+      recordTypes: scope.recordTypes ?? [],
+      applicationNames: [],
+      recordTypeNames: scope.recordTypeNames ?? [],
+    },
+    createdAt: "2026-10-23T08:00:00Z",
+  };
+}
 
 function renderPage() {
   render(
@@ -54,6 +78,7 @@ describe("Settings › Account (0.12 I2)", () => {
       sessionId: "s1",
     });
     vi.mocked(api.mySessions).mockResolvedValue([session("s1", true, firefox), session("s2", false, iphone)]);
+    vi.mocked(api.myGrants).mockResolvedValue([]);
     vi.mocked(api.workspaces).mockResolvedValue({
       items: [
         { key: "default", label: "Default" },
@@ -89,12 +114,33 @@ describe("Settings › Account (0.12 I2)", () => {
     expect(api.endAllMySessions).toHaveBeenCalledTimes(1);
   });
 
-  it("says what the person can do in each workspace until roles arrive", async () => {
+  it("lists the person's roles: where, what they narrow and where they come from (Z1)", async () => {
+    vi.mocked(api.myGrants).mockResolvedValue([
+      grant("g1", "steward", "Data steward", {
+        workspaceKey: "default",
+        recordTypes: ["t1"],
+        recordTypeNames: ["Specimen"],
+      }),
+      grant("g2", "reader", "Reader", { workspaceKey: "field-stations" }, { kind: "group", id: "c", name: "Curators" }),
+      grant("g3", "security-admin", "Security administrator", { instance: true }),
+    ]);
     renderPage();
     const list = await screen.findByRole("list", { name: "What you can do" });
-    expect(within(list).getAllByText("Everything")).toHaveLength(2);
-    expect(within(list).getByText("Field stations")).toBeInTheDocument();
-    expect(screen.getByText(/Roles come in a later update/)).toBeInTheDocument();
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows.map((row) => row.textContent)).toEqual([
+      "DefaultChanges narrowed to Specimen · directlyData steward",
+      "Field stationsThrough the group CuratorsReader",
+      "Every workspaceThe whole instance · directlySecurity administrator",
+    ]);
+    expect(screen.getByText("3 roles")).toBeInTheDocument();
+    expect(screen.getByText(/Reading a workspace is never narrowed/)).toBeInTheDocument();
+  });
+
+  it("says when the person has no roles yet", async () => {
+    vi.mocked(api.myGrants).mockResolvedValue([]);
+    renderPage();
+    expect(await screen.findByText(/You have no roles yet/)).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "What you can do" })).not.toBeInTheDocument();
   });
 
   it("changes the password in place, telling which field was refused", async () => {

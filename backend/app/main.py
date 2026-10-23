@@ -36,7 +36,7 @@ from .engine.model.registry import model_registry
 from .engine.model.workspace_models import workspaces_running
 from .engine.processes.heartbeat import ProcessHeartbeat
 from .errors import ApiError
-from .management.dependencies import MANAGEMENT_DEPENDENCIES
+from .management.access import MANAGEMENT_DEPENDENCIES
 from .management.errors import (
     api_error_handler,
     http_error_handler,
@@ -47,6 +47,7 @@ from .management.query_parameters import refuse_unknown_parameters
 from .management.reference import api_reference_router
 from .management.routers import (
     attributes,
+    authorization,
     change_sets,
     consumer_subscriptions,
     identity,
@@ -435,6 +436,7 @@ def create_app() -> FastAPI:
     # The OAuth endpoints need no token (D245); every management router below needs one.
     application.include_router(oauth.router)
     application.include_router(identity.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(authorization.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(model.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(system.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(system.metrics_router, dependencies=MANAGEMENT_DEPENDENCIES)

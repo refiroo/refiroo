@@ -1,0 +1,398 @@
+"""The route check: every operation declares its action and where its workspace comes from, and each
+request is allowed or refused once, after authentication and before the handler (Product 0.12 Z1,
+ADR-044, D277).
+
+    @router.get("/workspaces/{workspace_key}/feed", ...)
+    @requires("feed.read", at=WORKSPACE_PATH)
+    def read_feed(...): ...
+
+``requires`` marks the endpoint; ``AuthorizedRoute`` publishes the declaration in the operation's
+OpenAPI entry (``x-action``, ``x-action-groups``, D256); ``authorized``, one of the management
+dependencies, resolves the workspace with the engine's own lookups (an unknown change set, record
+or job answers the handler's ``404``) and checks the caller's permissions. A refusal is
+``403 FORBIDDEN`` naming the action, the groups that would allow it and the workspace (D249).
+"""
+
+import json
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Annotated, Any
+
+from fastapi import Depends, Request
+from fastapi.routing import APIRoute
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ..engine.authorization.catalogue import ACTIONS, JOB_GROUPS, group_names
+from ..engine.authorization.permissions import Permissions, permissions_of
+from ..engine.events.subscriptions import load_subscription
+from ..engine.identity.authentication import Principal
+from ..engine.jobs.store import load_job
+from ..engine.model.workspace_models import default_workspace_key
+from ..engine.workspaces.catalogue import load_workspace
+from ..errors import api_error
+from ..models.database import ChangeSet, ObjectRelation, Publication, RdmObject
+from .dependencies import CurrentPrincipal, DbSession, expect_model_release, started
+
+
+@dataclass(frozen=True)
+class Check:
+    """What one request must hold: ``groups`` (any of them) in each of ``workspaces`` (None: at
+    the instance); ``anywhere`` at any scope; nothing at all for a signed-in action."""
+
+    groups: tuple[str, ...]
+    workspaces: tuple[str | None, ...] = (None,)
+    anywhere: bool = False
+
+
+@dataclass(frozen=True)
+class Context:
+    request: Request
+    session: Session
+    body: dict[str, Any] | None
+
+    def path(self, name: str) -> str:
+        return str(self.request.path_params[name])
+
+    def query(self, name: str) -> str | None:
+        return self.request.query_params.get(name)
+
+    def field(self, name: str) -> Any:
+        return (self.body or {}).get(name)
+
+    def default_workspace(self) -> str:
+        return default_workspace_key(self.session)
+
+
+# A resolver turns a request into the check it needs; ``groups`` are the action's.
+Resolver = Callable[[Context, tuple[str, ...]], Check]
+
+
+@dataclass(frozen=True)
+class Where:
+    """Where a route's workspace comes from, by name (for the OpenAPI entry) and resolver."""
+
+    name: str
+    resolve: Resolver
+    # Whether the resolver reads the request body (JSON, or an import form's ``request`` field).
+    reads_body: bool = False
+
+
+def _change_set_workspace(context: Context, change_set_id: str) -> str:
+    key = context.session.scalar(
+        select(ChangeSet.workspace_key).where(ChangeSet.id == change_set_id)
+    )
+    if key is None:
+        raise api_error(404, "CHANGE_SET_NOT_FOUND", f"Change set '{change_set_id}' not found")
+    return key
+
+
+def _publication_workspace(context: Context, publication_id: str) -> str:
+    key = context.session.scalar(
+        select(Publication.workspace_key).where(Publication.id == publication_id)
+    )
+    if key is None:
+        raise api_error(404, "PUBLICATION_NOT_FOUND", "Publication not found")
+    return key
+
+
+def _record_workspace(context: Context, object_id: str) -> str:
+    """A live record's workspace; the default workspace's for one that does not exist, so the
+    write answers its own not-found, as the handler resolves it."""
+    return (
+        context.session.scalar(select(RdmObject.workspace_key).where(RdmObject.id == object_id))
+        or context.default_workspace()
+    )
+
+
+def _relation_workspace(context: Context, relation_id: str) -> str:
+    return (
+        context.session.scalar(
+            select(RdmObject.workspace_key)
+            .join(ObjectRelation, ObjectRelation.from_object_id == RdmObject.id)
+            .where(ObjectRelation.id == relation_id)
+        )
+        or context.default_workspace()
+    )
+
+
+def _live_or_change_set(
+    context: Context, change_set_id: Any, live_workspace: Callable[[], str]
+) -> Check:
+    """The record writes (D244): Work in change sets in the change set's workspace, Edit live in
+    the record's otherwise."""
+    if change_set_id:
+        return Check(("change-sets",), (_change_set_workspace(context, str(change_set_id)),))
+    return Check(("edit-live",), (live_workspace(),))
+
+
+def _context(context: Context, groups: tuple[str, ...]) -> Check:
+    """A read in a change set, a publication, or one or more named workspaces (the default
+    workspace without one)."""
+    change_set_id = context.query("changeSetId")
+    if change_set_id:
+        return Check(groups, (_change_set_workspace(context, change_set_id),))
+    publication_id = context.query("publicationId")
+    if publication_id:
+        return Check(groups, (_publication_workspace(context, publication_id),))
+    keys = context.request.query_params.getlist("workspaceKey")
+    return Check(groups, tuple(keys) if keys else (context.default_workspace(),))
+
+
+def _body_context(context: Context, groups: tuple[str, ...]) -> Check:
+    """A write naming ``changeSetId`` or ``workspaceKey`` in its body (the default workspace
+    without either)."""
+    change_set_id = context.field("changeSetId")
+    if change_set_id:
+        return Check(groups, (_change_set_workspace(context, str(change_set_id)),))
+    return Check(groups, (context.field("workspaceKey") or context.default_workspace(),))
+
+
+def _import_form(context: Context, groups: tuple[str, ...]) -> Check:
+    """An import names its context inside the form's ``request`` JSON field."""
+    try:
+        request = json.loads(context.field("request") or "{}")
+    except ValueError:
+        request = {}
+    inner = Context(context.request, context.session, request if isinstance(request, dict) else {})
+    return _body_context(inner, groups)
+
+
+def _job(context: Context, groups: tuple[str, ...]) -> Check:
+    """A job by the group that starts its kind, in its workspace (D285); Work in change sets for a
+    change set's migration."""
+    job = load_job(context.session, context.path("job_id"))
+    group = JOB_GROUPS[job.kind]
+    if job.kind == "migration" and job.change_set_id:
+        group = "change-sets"
+    if group == "model-authoring":
+        return Check((group,))
+    return Check((group,), (job.workspace_key,))
+
+
+def _move(context: Context, groups: tuple[str, ...]) -> Check:
+    """Copy and move in the target; reading the source is checked by ``_move_source`` (D286)."""
+    return Check(groups, (context.field("targetWorkspaceKey") or context.default_workspace(),))
+
+
+SIGNED_IN = Where("signed-in", lambda context, groups: Check(()))
+INSTANCE = Where("instance", lambda context, groups: Check(groups))
+ANYWHERE = Where("any scope", lambda context, groups: Check(groups, anywhere=True))
+WORKSPACE_PATH = Where(
+    "the path's workspace", lambda context, groups: Check(groups, (context.path("workspace_key"),))
+)
+CONTEXT = Where("the query's change set, publication or workspace", _context)
+CHANGE_SET_PATH = Where(
+    "the change set's workspace",
+    lambda context, groups: Check(
+        groups, (_change_set_workspace(context, context.path("change_set_id")),)
+    ),
+)
+PUBLICATION_PATH = Where(
+    "the publication's workspace",
+    lambda context, groups: Check(
+        groups,
+        (_publication_workspace(context, context.path("publication_id")),),
+    ),
+)
+SUBSCRIPTION_PATH = Where(
+    "the subscription's workspace",
+    lambda context, groups: Check(
+        groups, (load_subscription(context.session, context.path("subscription_id")).workspace_key,)
+    ),
+)
+JOB_PATH = Where("the job's workspace and kind", _job)
+BODY = Where("the body's change set or workspace", _body_context, reads_body=True)
+IMPORT_FORM = Where("the import request's change set or workspace", _import_form, reads_body=True)
+MOVE = Where("the move's target and source workspaces", _move, reads_body=True)
+RECORD_WRITE = Where(
+    "the change set, or the record's workspace",
+    lambda context, groups: _live_or_change_set(
+        context,
+        context.field("changeSetId") or context.query("changeSetId"),
+        lambda: _record_workspace(context, context.path("object_id")),
+    ),
+    reads_body=True,
+)
+RELATION_WRITE = Where(
+    "the change set, or the relationship's workspace",
+    lambda context, groups: _live_or_change_set(
+        context,
+        context.field("changeSetId") or context.query("changeSetId"),
+        lambda: _relation_workspace(context, context.path("relation_id")),
+    ),
+    reads_body=True,
+)
+RECORD_CREATE = Where(
+    "the change set, or the body's workspace",
+    lambda context, groups: _live_or_change_set(
+        context,
+        context.field("changeSetId"),
+        lambda: context.field("workspaceKey") or context.default_workspace(),
+    ),
+    reads_body=True,
+)
+RELATION_CREATE = Where(
+    "the change set, or the from record's workspace",
+    lambda context, groups: _live_or_change_set(
+        context,
+        context.field("changeSetId"),
+        lambda: _record_workspace(context, str(context.field("fromObjectId") or "")),
+    ),
+    reads_body=True,
+)
+
+
+def _named_read(live_workspace: Callable[[Context], str]) -> Resolver:
+    """A read naming a record or relationship: in the change set, publication or workspace the
+    query names, or in the workspace holding it."""
+
+    def resolve(context: Context, groups: tuple[str, ...]) -> Check:
+        if any(context.query(name) for name in ("changeSetId", "publicationId", "workspaceKey")):
+            return _context(context, groups)
+        return Check(groups, (live_workspace(context),))
+
+    return resolve
+
+
+RECORD_READ = Where(
+    "the query's context, or the record's workspace",
+    _named_read(lambda context: _record_workspace(context, context.path("object_id"))),
+)
+RELATION_READ = Where(
+    "the query's context, or the relationship's workspace",
+    _named_read(lambda context: _relation_workspace(context, context.path("relation_id"))),
+)
+MAPPINGS_WRITE = Where(
+    "the change set, or the path's workspace",
+    lambda context, groups: _live_or_change_set(
+        context, context.field("changeSetId"), lambda: context.path("workspace_key")
+    ),
+    reads_body=True,
+)
+
+
+@dataclass(frozen=True)
+class Requirement:
+    action: str
+    at: Where
+
+
+def requires[F: Callable[..., Any]](action: str, *, at: Where) -> Callable[[F], F]:
+    """Declare the action an operation performs and where its workspace comes from."""
+    if action not in ACTIONS:
+        raise ValueError(f"unknown action {action!r}")
+
+    def mark(endpoint: F) -> F:
+        endpoint.requirement = Requirement(action, at)  # type: ignore[attr-defined]
+        return endpoint
+
+    return mark
+
+
+class AuthorizedRoute(APIRoute):
+    """A management route publishing its declaration in the OpenAPI document (D256)."""
+
+    def __init__(self, path: str, endpoint: Callable[..., Any], **kwargs: Any) -> None:
+        requirement: Requirement | None = getattr(endpoint, "requirement", None)
+        if requirement is not None:
+            extra = dict(kwargs.get("openapi_extra") or {})
+            extra["x-action"] = requirement.action
+            extra["x-action-groups"] = list(ACTIONS[requirement.action].groups)
+            extra["x-action-scope"] = requirement.at.name
+            kwargs["openapi_extra"] = extra
+        super().__init__(path, endpoint, **kwargs)
+
+
+def requirement_of(request: Request) -> Requirement | None:
+    route = request.scope.get("route")
+    return getattr(getattr(route, "endpoint", None), "requirement", None)
+
+
+async def request_body(request: Request) -> dict[str, Any] | None:
+    """The body a declaration reads: FastAPI has already read and kept it, so this parses nothing
+    twice and reads no more from the client."""
+    requirement = requirement_of(request)
+    if requirement is None or not requirement.at.reads_body:
+        return None
+    content_type = request.headers.get("content-type", "")
+    try:
+        if content_type.startswith("multipart/form-data"):
+            form = await request.form()
+            return {key: value for key, value in form.items() if isinstance(value, str)}
+        body = await request.json()
+    except ValueError:
+        return None
+    return body if isinstance(body, dict) else None
+
+
+# The record writes are refused by the group the request needed (D244).
+_WRITES = {"edit-live": "Changing records live", "change-sets": "Changing records in a change set"}
+
+
+def forbidden(action: str, groups: tuple[str, ...], workspace_key: str | None) -> Exception:
+    where = f" in workspace '{workspace_key}'" if workspace_key else " at the instance"
+    doing = ACTIONS[action].doing
+    if action == "records.write" and len(groups) == 1:
+        doing = _WRITES[groups[0]]
+    elif action == "moves.create" and groups == ("browse",):
+        doing = "Moving records out of a workspace"
+    return api_error(
+        403,
+        "FORBIDDEN",
+        f"{doing}{where} needs {group_names(groups)}",
+        {"action": action, "groups": list(groups), "workspaceKey": workspace_key},
+    )
+
+
+def caller_permissions(principal: Principal, session: Session) -> Permissions:
+    return permissions_of(session, principal.kind, principal.row_id, principal.generation)
+
+
+def authorized(
+    request: Request,
+    principal: CurrentPrincipal,
+    session: DbSession,
+    body: Annotated[dict[str, Any] | None, Depends(request_body)],
+) -> Permissions:
+    """Allow the request or refuse it with ``403 FORBIDDEN``; the caller's permissions stay on the
+    request for the handlers that filter lists (D249, D288)."""
+    permissions = caller_permissions(principal, session)
+    request.state.permissions = permissions
+    requirement = requirement_of(request)
+    if requirement is None:
+        # Fail closed: the contract test refuses an undeclared route before it ships.
+        raise api_error(500, "ROUTE_NOT_DECLARED", "This operation declares no action")
+    action = ACTIONS[requirement.action]
+    check = requirement.at.resolve(Context(request, session, body), action.groups)
+    if not check.groups:
+        return permissions
+    if check.anywhere:
+        if not any(permissions.allows_anywhere(group) for group in check.groups):
+            raise forbidden(action.key, check.groups, None)
+        return permissions
+    for workspace_key in check.workspaces:
+        if not any(permissions.allows(group, workspace_key) for group in check.groups):
+            if workspace_key is not None:
+                # A workspace that does not exist answers its own not-found.
+                load_workspace(session, workspace_key)
+            raise forbidden(action.key, check.groups, workspace_key)
+    if requirement.at is MOVE:
+        source = body.get("sourceWorkspaceKey") if body else None
+        source = source or default_workspace_key(session)
+        if not permissions.allows("browse", source):
+            load_workspace(session, source)
+            raise forbidden(action.key, ("browse",), source)
+    return permissions
+
+
+CurrentPermissions = Annotated[Permissions, Depends(authorized)]
+
+
+# Every route of the management API needs a token, is checked against the caller's permissions and
+# takes the header. In maintenance mode it answers 503 before a session is opened or a token read.
+MANAGEMENT_DEPENDENCIES = [
+    Depends(started),
+    Depends(authorized),
+    Depends(expect_model_release),
+]

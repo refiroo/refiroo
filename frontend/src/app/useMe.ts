@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
-import type { Me } from "@/types";
+import type { Me, MyPermissions } from "@/types";
 
 // Who is signed in, read once per page load: it changes only by signing in again (0.12 I2).
 let loading: Promise<Me> | undefined;
@@ -22,6 +22,36 @@ export function useMe(): Me | undefined {
     };
   }, []);
   return me;
+}
+
+/**
+ * The roles the caller holds in a workspace (the default one without a key), as the account menu
+ * names them: "Data steward in Herbarium", "Reader and Contributor in Herbarium", "No role in
+ * Herbarium" (Z1). `undefined` while it loads or when it cannot be read.
+ */
+export function useRoleLine(workspaceKey?: string): string | undefined {
+  const [permissions, setPermissions] = useState<MyPermissions>();
+  useEffect(() => {
+    let active = true;
+    Promise.resolve()
+      .then(() => api.myPermissions(workspaceKey))
+      .then(
+        (loaded) => active && setPermissions(loaded),
+        () => undefined,
+      );
+    return () => {
+      active = false;
+    };
+  }, [workspaceKey]);
+  return permissions && roleLine(permissions);
+}
+
+export function roleLine(permissions: MyPermissions): string {
+  const names = permissions.roles.map((role) => role.name);
+  const where = permissions.workspaceLabel;
+  if (!names.length) return `No role in ${where}`;
+  const listed = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${listed} in ${where}`;
 }
 
 /** A person's initials for the avatar: the first letters of their first and last names. */

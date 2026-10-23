@@ -84,6 +84,7 @@ export function AppShell({
         <TopBar
           model={model}
           currentApplicationKey={application.key}
+          workspaceKey={activeRoute.workspaceKey}
           onHome={onHome}
           onSelectApplication={onSelectApplication}
           onNavigate={onNavigate}

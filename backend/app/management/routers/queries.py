@@ -5,14 +5,20 @@ from fastapi import APIRouter
 from ...engine.model.registry import resolve_request_model
 from ...engine.workspaces.catalogue import resolve_workspace
 from ...models.queries import ModelQuery
+from ..access import (
+    WORKSPACE_PATH,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..projections.model_query import query_objects
 from ..schemas.queries import ObjectQueryPage
 
-router = APIRouter(prefix="/api/v1", tags=["objects", "queries"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["objects", "queries"])
 
 
 @router.post("/workspaces/{workspace_key}/queries/objects", response_model=ObjectQueryPage)
+@requires("records.read", at=WORKSPACE_PATH)
 def query_workspace_objects(
     workspace_key: str, payload: ModelQuery, session: DbSession
 ) -> ObjectQueryPage:

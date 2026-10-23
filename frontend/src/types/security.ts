@@ -28,3 +28,44 @@ export interface SignInSession {
 export interface SignInSessionPage extends PageNavigation {
   items: SignInSession[];
 }
+
+/** A role as a grant or a permission names it (0.12 Z1). */
+export interface RoleRef {
+  key: string;
+  name: string;
+}
+
+/** A role given to a person, client or group, at the instance or in one workspace (0.12 Z1). */
+export interface Grant {
+  id: string;
+  principal: { kind: "user" | "client" | "group"; id: string; name: string };
+  role: RoleRef;
+  scope: {
+    instance: boolean;
+    workspaceKey: string | null;
+    applications: string[];
+    recordTypes: string[];
+    applicationNames: string[];
+    recordTypeNames: string[];
+  };
+  createdAt: string;
+}
+
+/** What the caller holds in one workspace: the roles that apply there and their action groups. */
+export interface MyPermissions {
+  workspaceKey: string;
+  workspaceLabel: string;
+  roles: RoleRef[];
+  actionGroups: {
+    key: string;
+    name: string;
+    applications: string[];
+    recordTypes: string[];
+    sources: {
+      grantId: string;
+      role: RoleRef;
+      scope: "workspace" | "instance";
+      group: { id: string; name: string } | null;
+    }[];
+  }[];
+}

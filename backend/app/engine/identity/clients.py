@@ -18,6 +18,7 @@ from ...common.pagination import Page, PageRequest, integer_key, paginate_statem
 from ...errors import ApiError, api_error
 from ...models.commands import ClientCreate, ClientSecretCreate, ClientUpdate
 from ...models.database import OAuthClient, OAuthClientSecret
+from ..authorization.administration import grant_roles
 from .passwords import hash_secret, verify_secret
 
 _KEYS = (integer_key("sequenceId", OAuthClient.id, "id"),)
@@ -77,8 +78,11 @@ def secrets_of(session: Session, client: OAuthClient) -> list[OAuthClientSecret]
     )
 
 
-def create_client(session: Session, payload: ClientCreate) -> tuple[OAuthClient, str]:
-    """A client and its first secret, answered once."""
+def create_client(
+    session: Session, payload: ClientCreate, *, roles: tuple[str, ...] = ()
+) -> tuple[OAuthClient, str]:
+    """A client and its first secret, answered once; with ``roles`` (``create_client --role``),
+    holding them at the instance (Z1)."""
     secret = _new_secret()
 
     def change() -> OAuthClient:
@@ -86,6 +90,8 @@ def create_client(session: Session, payload: ClientCreate) -> tuple[OAuthClient,
         session.add(client)
         session.flush()
         session.add(OAuthClientSecret(client_id=client.id, secret_hash=hash_secret(secret)))
+        if roles:
+            grant_roles(session, "client", client.id, roles)
         session.flush()
         return client
 

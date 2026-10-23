@@ -1,6 +1,7 @@
 """The caller, people, OAuth clients and token signing keys (Product 0.12 I1, I2, API.md § Security).
 
-Until Z1 every active principal may use these routes; Z1 gives them to Security administration.
+The caller's own routes are for anyone signed in; the rest need Security administration at the
+instance (Z1).
 """
 
 from fastapi import APIRouter, Query, Request, Response
@@ -25,6 +26,12 @@ from ...models.commands import (
     UserCreate,
     UserUpdate,
 )
+from ..access import (
+    INSTANCE,
+    SIGNED_IN,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..projections import identity as present
@@ -41,10 +48,11 @@ from ..schemas.identity import (
     UserResponse,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["security"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["security"])
 
 
 @router.get("/me", response_model=MeResponse)
+@requires("signed-in", at=SIGNED_IN)
 def get_me(principal: CurrentPrincipal) -> MeResponse:
     """Who the request's token belongs to: a person or a client."""
     return present.me_response(principal)
@@ -58,6 +66,7 @@ def _person(principal: CurrentPrincipal) -> str:
 
 
 @router.get("/me/sessions", response_model=SessionPage)
+@requires("signed-in", at=SIGNED_IN)
 def list_my_sessions(
     principal: CurrentPrincipal,
     session: DbSession,
@@ -70,6 +79,7 @@ def list_my_sessions(
 
 
 @router.delete("/me/sessions/{session_id}", status_code=204)
+@requires("signed-in", at=SIGNED_IN)
 def delete_my_session(session_id: str, principal: CurrentPrincipal, session: DbSession) -> Response:
     """Sign out one of the caller's sessions; its tokens are refused from the next request and it
     renews no more."""
@@ -78,6 +88,7 @@ def delete_my_session(session_id: str, principal: CurrentPrincipal, session: DbS
 
 
 @router.delete("/me/sessions", status_code=204)
+@requires("signed-in", at=SIGNED_IN)
 def delete_my_sessions(principal: CurrentPrincipal, session: DbSession) -> Response:
     """Sign out everywhere, this session included (J39.3)."""
     sessions.end_sessions_of(session, _person(principal), "signedOutEverywhere")
@@ -85,6 +96,7 @@ def delete_my_sessions(principal: CurrentPrincipal, session: DbSession) -> Respo
 
 
 @router.post("/me/password", status_code=204)
+@requires("signed-in", at=SIGNED_IN)
 def post_my_password(
     payload: PasswordChange, principal: CurrentPrincipal, request: Request, session: DbSession
 ) -> Response:
@@ -102,6 +114,7 @@ def post_my_password(
 
 
 @router.get("/users", response_model=UserPage)
+@requires("security.manage", at=INSTANCE)
 def list_users(
     session: DbSession,
     paging: PageQuery,
@@ -116,6 +129,7 @@ def list_users(
 
 
 @router.post("/users", response_model=UserResponse, status_code=201)
+@requires("security.manage", at=INSTANCE)
 def post_user(payload: UserCreate, session: DbSession) -> UserResponse:
     """A person, without a password until they set one; the username is unique ignoring case
     (``409 USERNAME_TAKEN``)."""
@@ -123,11 +137,13 @@ def post_user(payload: UserCreate, session: DbSession) -> UserResponse:
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
+@requires("security.manage", at=INSTANCE)
 def get_user(user_id: str, session: DbSession) -> UserResponse:
     return present.user_response(load_user(session, user_id))
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
+@requires("security.manage", at=INSTANCE)
 def patch_user(user_id: str, payload: UserUpdate, session: DbSession) -> UserResponse:
     """Change a person's name or e-mail, or deactivate them with ``active: false``: their tokens are
     refused from the next request and their sessions end. A person is never deleted (D237)."""
@@ -137,6 +153,7 @@ def patch_user(user_id: str, payload: UserUpdate, session: DbSession) -> UserRes
 @router.post(
     "/users/{user_id}/password-reset", response_model=PasswordResetLinkResponse, status_code=201
 )
+@requires("security.manage", at=INSTANCE)
 def post_password_reset(
     user_id: str, request: Request, session: DbSession
 ) -> PasswordResetLinkResponse:
@@ -147,6 +164,7 @@ def post_password_reset(
 
 
 @router.delete("/users/{user_id}/sessions", status_code=204)
+@requires("security.manage", at=INSTANCE)
 def delete_user_sessions(user_id: str, session: DbSession) -> Response:
     """Sign the person out everywhere: every session's tokens are refused from the next request."""
     sessions.end_sessions_of(session, user_id, "administrator")
@@ -154,6 +172,7 @@ def delete_user_sessions(user_id: str, session: DbSession) -> Response:
 
 
 @router.get("/clients", response_model=ClientPage)
+@requires("security.manage", at=INSTANCE)
 def list_clients(
     session: DbSession,
     paging: PageQuery,
@@ -167,6 +186,7 @@ def list_clients(
 
 
 @router.post("/clients", response_model=ClientWithSecret, status_code=201)
+@requires("security.manage", at=INSTANCE)
 def post_client(payload: ClientCreate, session: DbSession) -> ClientWithSecret:
     """A client and its first secret. The answer holds ``secret``, the ``client_secret``: it is never
     answered again."""
@@ -176,11 +196,13 @@ def post_client(payload: ClientCreate, session: DbSession) -> ClientWithSecret:
 
 
 @router.get("/clients/{client_id}", response_model=ClientResponse)
+@requires("security.manage", at=INSTANCE)
 def get_client(client_id: str, session: DbSession) -> ClientResponse:
     return present.client_response(session, load_client(session, client_id))
 
 
 @router.patch("/clients/{client_id}", response_model=ClientResponse)
+@requires("security.manage", at=INSTANCE)
 def patch_client(client_id: str, payload: ClientUpdate, session: DbSession) -> ClientResponse:
     """Rename a client, or deactivate it with ``active: false``: it obtains no token and the tokens it
     holds are refused from the next request. A client is never deleted (D237)."""
@@ -188,6 +210,7 @@ def patch_client(client_id: str, payload: ClientUpdate, session: DbSession) -> C
 
 
 @router.post("/clients/{client_id}/secrets", response_model=ClientWithSecret, status_code=201)
+@requires("security.manage", at=INSTANCE)
 def post_client_secret(
     client_id: str, payload: ClientSecretCreate, session: DbSession
 ) -> ClientWithSecret:
@@ -198,12 +221,14 @@ def post_client_secret(
 
 
 @router.delete("/clients/{client_id}/secrets/{secret_id}", response_model=ClientResponse)
+@requires("security.manage", at=INSTANCE)
 def delete_client_secret(client_id: str, secret_id: str, session: DbSession) -> ClientResponse:
     """Stop a secret at once, before its overlap ends."""
     return present.client_response(session, remove_secret(session, client_id, secret_id))
 
 
 @router.get("/token-signing-keys", response_model=SigningKeyPage)
+@requires("security.manage", at=INSTANCE)
 def list_signing_keys(
     session: DbSession,
     paging: PageQuery,
@@ -214,6 +239,7 @@ def list_signing_keys(
 
 
 @router.post("/token-signing-keys/rotation", response_model=SigningKeyResponse, status_code=201)
+@requires("security.manage", at=INSTANCE)
 def rotate_signing_key(
     payload: SigningKeyRotation, request: Request, session: DbSession
 ) -> SigningKeyResponse:

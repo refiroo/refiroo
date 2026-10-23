@@ -25,6 +25,12 @@ from ...engine.sources.store import source_file_page as read_source_files
 from ...errors import api_error
 from ...models.database import Job
 from ...models.sources import DryRunRequest, SourceFileRequest
+from ..access import (
+    ANYWHERE,
+    INSTANCE,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import diagnostic_details
@@ -47,9 +53,11 @@ from ..schemas.sources import (
     SourceSheetPage,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["source files"])
-write_router = APIRouter(prefix="/api/v1", tags=["source files"])
-dry_run_router = APIRouter(prefix="/api/v1", tags=["model administration"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["source files"])
+write_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["source files"])
+dry_run_router = APIRouter(
+    route_class=AuthorizedRoute, prefix="/api/v1", tags=["model administration"]
+)
 
 
 def _wake_worker(request: Request) -> None:
@@ -59,6 +67,7 @@ def _wake_worker(request: Request) -> None:
 
 
 @write_router.post("/source-files", response_model=SourceFileResponse, status_code=201)
+@requires("source-files.manage", at=ANYWHERE)
 def create_source_file(
     request: Request,
     session: DbSession,
@@ -94,6 +103,7 @@ def create_source_file(
 
 
 @router.get("/source-files", response_model=SourceFilePage)
+@requires("source-files.manage", at=ANYWHERE)
 def list_source_files(
     session: DbSession,
     paging: PageQuery,
@@ -113,11 +123,13 @@ def list_source_files(
 
 
 @router.get("/source-files/{source_file_id}", response_model=SourceFileResponse)
+@requires("source-files.manage", at=ANYWHERE)
 def get_source_file(source_file_id: str, session: DbSession) -> SourceFileResponse:
     return source_file_response(session, load_source_file(session, source_file_id))
 
 
 @write_router.delete("/source-files/{source_file_id}", status_code=204)
+@requires("source-files.manage", at=ANYWHERE)
 def remove_source_file(
     source_file_id: str,
     request: Request,
@@ -133,6 +145,7 @@ def remove_source_file(
 
 
 @router.get("/source-files/{source_file_id}/profile/sheets", response_model=SourceSheetPage)
+@requires("source-files.manage", at=ANYWHERE)
 def list_source_sheets(
     source_file_id: str,
     session: DbSession,
@@ -148,6 +161,7 @@ def list_source_sheets(
     "/source-files/{source_file_id}/profile/sheets/{sheet}/columns",
     response_model=SourceColumnPage,
 )
+@requires("source-files.manage", at=ANYWHERE)
 def list_source_columns(
     source_file_id: str,
     sheet: str,
@@ -165,6 +179,7 @@ def list_source_columns(
     "/source-files/{source_file_id}/profile/sheets/{sheet}/cells",
     response_model=SourceCellPage,
 )
+@requires("source-files.manage", at=ANYWHERE)
 def list_source_cells(
     source_file_id: str,
     sheet: str,
@@ -183,6 +198,7 @@ def list_source_cells(
 @dry_run_router.post(
     "/model-drafts/{draft_id}/dry-run", response_model=DryRunResponse, status_code=202
 )
+@requires("model.author", at=INSTANCE)
 def run_dry_run(
     draft_id: str, payload: DryRunRequest, request: Request, session: DbSession
 ) -> JSONResponse:
@@ -211,6 +227,7 @@ def run_dry_run(
 
 
 @dry_run_router.get("/model-drafts/{draft_id}/dry-run", response_model=DryRunResponse)
+@requires("model.author", at=INSTANCE)
 def get_dry_run(draft_id: str, session: DbSession) -> DryRunResponse:
     """The draft's latest dry run: ``checking``, or finished with its summary (``404
     DRY_RUN_NOT_FOUND`` before the first)."""
@@ -218,6 +235,7 @@ def get_dry_run(draft_id: str, session: DbSession) -> DryRunResponse:
 
 
 @dry_run_router.get("/model-drafts/{draft_id}/dry-run/rows", response_model=JobRowPage)
+@requires("model.author", at=INSTANCE)
 def list_dry_run_rows(
     draft_id: str,
     session: DbSession,

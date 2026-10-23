@@ -10,6 +10,12 @@ from ...engine.records.objects import delete_live_attribute_value, set_live_attr
 from ...engine.records.rules import get_object_type
 from ...errors import api_error
 from ...models.commands import AttributeValueWrite
+from ..access import (
+    RECORD_READ,
+    RECORD_WRITE,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession, RequestModelSnapshot
 from ..presenters import (
     build_attribute_value_response,
@@ -18,11 +24,12 @@ from ..presenters import (
 )
 from ..schemas.records import AttributeValueResponse, ObjectResponse
 
-router = APIRouter(prefix="/api/v1", tags=["attributes"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["attributes"])
 PATH = "/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"
 
 
 @router.get(PATH, response_model=AttributeValueResponse)
+@requires("records.read", at=RECORD_READ)
 def get_attribute_value(object_type_key: str, object_id: str, attribute_type_key: str,
                         session: DbSession, snapshot: RequestModelSnapshot,
                         change_set_id: str | None = Query(default=None, alias="changeSetId"),
@@ -101,18 +108,21 @@ def _write(object_type_key: str, object_id: str, attribute_type_key: str, payloa
 
 
 @router.post(PATH, response_model=ObjectResponse, status_code=status.HTTP_201_CREATED)
+@requires("records.write", at=RECORD_WRITE)
 def create_attribute_value(object_type_key: str, object_id: str, attribute_type_key: str,
                            payload: AttributeValueWrite, session: DbSession):
     return _write(object_type_key, object_id, attribute_type_key, payload, session, None, require_absent=True)
 
 
 @router.patch(PATH, response_model=ObjectResponse)
+@requires("records.write", at=RECORD_WRITE)
 def update_attribute_value(object_type_key: str, object_id: str, attribute_type_key: str,
                            payload: AttributeValueWrite, session: DbSession):
     return _write(object_type_key, object_id, attribute_type_key, payload, session, None)
 
 
 @router.delete(PATH, status_code=204)
+@requires("records.write", at=RECORD_WRITE)
 def remove_attribute_value(object_type_key: str, object_id: str, attribute_type_key: str,
                            session: DbSession,
                            change_set_id: str | None = Query(default=None, alias="changeSetId"),

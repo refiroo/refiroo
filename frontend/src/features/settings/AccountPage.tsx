@@ -1,8 +1,8 @@
 /**
  * Settings › Account (0.12 I2, U8; reworked from the user's mock-up of 2026-10-23): who is signed
  * in, as a profile card; the password, changed in place; where they are signed in, with sign out per
- * browser and everywhere; and what they can do in each workspace. Until roles arrive (Z1) every
- * signed-in person may do everything, and the last section says so; with Z1 it lists their roles.
+ * browser and everywhere; and what they can do: their roles, where each applies, what it narrows and
+ * whether it comes through a group (Z1).
  */
 
 import { useState, type FormEvent } from "react";
@@ -11,7 +11,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { signOut } from "@/api/session";
 import { initials } from "@/app/useMe";
 import { formatServerAgo, formatServerDayTime } from "@/lib/dates";
-import type { Me, SignInSession, WorkspacePage } from "@/types";
+import type { Grant, Me, SignInSession, WorkspacePage } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
@@ -27,8 +27,6 @@ import { useSettingsRead } from "./useSystem";
 const SIGNED_IN_WITH: Record<string, string> = { password: "Signed in with your password" };
 // The production rule (D252); the engine's refusal is what counts where a deployment sets another.
 const LONG_ENOUGH = 15;
-
-const activeWorkspaces = () => api.workspaces();
 
 export function AccountPage() {
   const { data: me, error, retry } = useSettingsRead<Me>(api.me);
@@ -340,50 +338,71 @@ function Sessions() {
   );
 }
 
-/** What the person may do per workspace: until roles (Z1), everything in every active workspace. */
+/** The person's roles: per grant, where it applies, the role, what it narrows and where it comes from (Z1). */
 function Permissions() {
-  const { data: page, error, retry } = useSettingsRead<WorkspacePage>(activeWorkspaces);
+  const { data, error, retry } = useSettingsRead<[Grant[], WorkspacePage]>(grantsAndWorkspaces);
+  const labels = new Map(data?.[1].items.map((workspace) => [workspace.key, workspace.label]));
+  const grants = data?.[0];
   return (
     <Section
       title="What you can do"
       actions={
-        page && (
+        grants && (
           <span className="account-muted">
-            {page.items.length}
-            {page.nextCursor ? "+" : ""} workspace{page.items.length === 1 ? "" : "s"}
+            {grants.length} role{grants.length === 1 ? "" : "s"}
           </span>
         )
       }
     >
       {error ? (
         <InlineError message={error} onRetry={retry} />
-      ) : !page ? (
-        <Skeleton label="Loading your workspaces" lines={2} />
+      ) : !grants ? (
+        <Skeleton label="Loading your roles" lines={2} />
       ) : (
         <div className="account-panel">
-          <ul className="account-list" aria-label="What you can do">
-            {page.items.map((workspace) => (
-              <li key={workspace.key} className="account-row">
-                <span className="account-tile" aria-hidden="true">
-                  <Icon name="workspace" size={20} />
-                </span>
-                <div className="account-row-text">
-                  <strong>{workspace.label}</strong>
-                  <span className="account-muted">{workspace.key}</span>
-                </div>
-                <span className="account-pill success">Everything</span>
-              </li>
-            ))}
-          </ul>
+          {grants.length > 0 && (
+            <ul className="account-list" aria-label="What you can do">
+              {grants.map((grant) => (
+                <li key={grant.id} className="account-row">
+                  <span className="account-tile" aria-hidden="true">
+                    <Icon name={grant.scope.instance ? "globe" : "workspace"} size={20} />
+                  </span>
+                  <div className="account-row-text">
+                    <strong>
+                      {grant.scope.instance
+                        ? "Every workspace"
+                        : (labels.get(grant.scope.workspaceKey ?? "") ?? grant.scope.workspaceKey)}
+                    </strong>
+                    <span className="account-muted">{grantDetail(grant)}</span>
+                  </div>
+                  <span className="account-pill role">{grant.role.name}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="account-row account-footer">
             <span className="account-muted">
-              Everyone who signs in can do everything in every workspace for now. Roles come in a later update, and then
-              this shows yours, where they apply and what they narrow.
-              {page.nextCursor ? " Settings › Workspaces lists every workspace." : ""}
+              {grants.length === 0
+                ? "You have no roles yet. Ask a security administrator to give you one."
+                : "A security administrator gives and removes roles. Reading a workspace is never narrowed; a narrowing limits what you may change."}
             </span>
           </div>
         </div>
       )}
     </Section>
   );
+}
+
+const grantsAndWorkspaces = () => Promise.all([api.myGrants(), api.workspaces()]);
+
+/** "Changes narrowed to Specimen, Determination · directly", "Through the group Curators". */
+export function grantDetail(grant: Grant): string {
+  const narrowed = [...grant.scope.applicationNames, ...grant.scope.recordTypeNames];
+  const where = grant.scope.instance
+    ? "The whole instance"
+    : narrowed.length
+      ? `Changes narrowed to ${narrowed.join(", ")}`
+      : "";
+  const how = grant.principal.kind === "group" ? `through the group ${grant.principal.name}` : "directly";
+  return where ? `${where} · ${how}` : how[0].toUpperCase() + how.slice(1);
 }

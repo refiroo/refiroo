@@ -8,6 +8,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, Request
 
+from ...engine.authorization.visibility import in_workspaces
 from ...engine.events.delivery_log import delivery_detail, delivery_rows
 from ...engine.events.resend import resend_event
 from ...engine.events.subscriptions import (
@@ -27,6 +28,15 @@ from ...models.commands import (
     ConsumerSubscriptionVersion,
     DeliveryResend,
 )
+from ...models.database import ConsumerSubscription
+from ..access import (
+    ANYWHERE,
+    BODY,
+    SUBSCRIPTION_PATH,
+    AuthorizedRoute,
+    CurrentPermissions,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import delivery_detail_response, delivery_page, subscription_response
@@ -38,7 +48,7 @@ from ..schemas.consumer_subscriptions import (
     SubscriptionResponse,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["consumer subscriptions"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["consumer subscriptions"])
 
 
 def _settings(request: Request) -> SubscriptionSettings:
@@ -46,6 +56,7 @@ def _settings(request: Request) -> SubscriptionSettings:
 
 
 @router.post("/consumer-subscriptions", response_model=SubscriptionResponse, status_code=201)
+@requires("subscriptions.manage", at=BODY)
 def create(payload: ConsumerSubscriptionCreate, request: Request, session: DbSession) -> SubscriptionResponse:
     """Subscribe a URL to some of a consumer API's events in a workspace.
 
@@ -59,15 +70,18 @@ def create(payload: ConsumerSubscriptionCreate, request: Request, session: DbSes
 
 
 @router.get("/consumer-subscriptions", response_model=SubscriptionPage)
+@requires("subscriptions.manage", at=ANYWHERE)
 def list_subscriptions(
     session: DbSession,
+    permissions: CurrentPermissions,
     paging: PageQuery,
     consumer_api: str | None = Query(default=None, alias="consumerApi"),
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     status: Literal["active", "suspended"] | None = None,
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> SubscriptionPage:
-    """Subscriptions, newest first."""
+    """Subscriptions, newest first: those in workspaces where the caller holds Integration
+    administration."""
     return present_page(
         subscription_page(
             session,
@@ -76,16 +90,21 @@ def list_subscriptions(
             status=status,
             page=paging,
             page_size=page_size,
+            visible=in_workspaces(
+                ConsumerSubscription.workspace_key, permissions, frozenset({"integration-admin"})
+            ),
         )
     )
 
 
 @router.get("/consumer-subscriptions/{subscription_id}", response_model=SubscriptionResponse)
+@requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
 def get_subscription(subscription_id: str, session: DbSession) -> SubscriptionResponse:
     return subscription_response(load_subscription(session, subscription_id))
 
 
 @router.patch("/consumer-subscriptions/{subscription_id}", response_model=SubscriptionResponse)
+@requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
 def update(
     subscription_id: str, payload: ConsumerSubscriptionUpdate, request: Request, session: DbSession
 ) -> SubscriptionResponse:
@@ -96,12 +115,14 @@ def update(
 
 
 @router.post("/consumer-subscriptions/{subscription_id}/suspend", response_model=SubscriptionResponse)
+@requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
 def suspend(subscription_id: str, payload: ConsumerSubscriptionVersion, session: DbSession) -> SubscriptionResponse:
     """Stop delivery (``SUSPENDED_BY_USER``) until the subscription is resumed."""
     return subscription_response(suspend_subscription(session, subscription_id, payload.expectedVersion))
 
 
 @router.post("/consumer-subscriptions/{subscription_id}/resume", response_model=SubscriptionResponse)
+@requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
 def resume(
     subscription_id: str, payload: ConsumerSubscriptionResume, request: Request, session: DbSession
 ) -> SubscriptionResponse:
@@ -119,6 +140,7 @@ def resume(
 
 
 @router.delete("/consumer-subscriptions/{subscription_id}", status_code=204)
+@requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
 def delete(
     subscription_id: str,
     session: DbSession,
@@ -128,6 +150,7 @@ def delete(
 
 
 @router.get("/consumer-subscriptions/{subscription_id}/deliveries", response_model=DeliveryPage)
+@requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
 def list_deliveries(
     subscription_id: str,
     session: DbSession,
@@ -144,6 +167,7 @@ def list_deliveries(
 
 
 @router.get("/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}", response_model=DeliveryDetail)
+@requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
 def get_delivery(subscription_id: str, delivery_id: str, session: DbSession) -> DeliveryDetail:
     """A request by its delivery ID (``RDM-Delivery-Id``): its events or notice, the body of its
     latest attempt as the receiver got it, and every attempt with its start, duration and answer."""
@@ -156,6 +180,7 @@ def get_delivery(subscription_id: str, delivery_id: str, session: DbSession) -> 
     response_model=DeliveryDetail,
     status_code=201,
 )
+@requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
 def resend(
     subscription_id: str, delivery_id: str, payload: DeliveryResend, request: Request, session: DbSession
 ) -> DeliveryDetail:

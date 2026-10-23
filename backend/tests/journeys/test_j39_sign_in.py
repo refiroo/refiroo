@@ -132,13 +132,16 @@ def _person(world, username: str) -> dict:
 
 @pytest.mark.journey("J39")
 def test_a_person_signs_in_and_works(world):
-    """Given a person with a password. When the browser's authorization request opens the sign-in
+    """Given a person with a password and Data steward in the workspace (Z1). When the browser's
+    authorization request opens the sign-in
     page and the form is posted with the right credentials, then it redirects to the app with a
     code and the state; the code with its verifier answers a token for an hour and sets the
     `HttpOnly`, `SameSite=Strict` cookie; `/me` names the person, signed in with a password; they
     write and read a record. A code used twice, a wrong verifier, or an address not allowed are
     refused."""
     person = _person(world, "ana")
+    grant = {"principal": {"kind": "user", "id": person["id"]}, "role": "steward"}
+    ok(world.api.post("/grants", {**grant, "scope": {"workspaceKey": "default"}}), 201)
     browser = _browser(world)
     verifier, challenge = _pkce()
     code = _code(_post_form(browser, "ANA", PASSWORD, challenge))

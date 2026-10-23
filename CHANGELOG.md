@@ -6,6 +6,38 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 Z1, roles, groups and grants at the route)
+
+- Authorization (ADR-044): every management operation declares its action, published in the
+  OpenAPI document (`x-action`, `x-action-groups`, `x-action-scope`), and a request its caller's
+  roles do not allow answers `403 FORBIDDEN` naming the action, the action groups that would allow
+  it and the workspace. Record writes check Edit live, or Work in change sets with `changeSetId`.
+- Roles made of 13 action groups: nine predefined, read-only roles (Reader, Contributor, Data
+  steward, Data owner, Model, Workspace and Integration administrator, Operator, Security
+  administrator) and custom roles (`/api/v1/roles`, `GET /api/v1/action-groups`); local groups of
+  people (`/api/v1/groups`); grants of a role to a person, client or group at the instance or in a
+  workspace, optionally narrowing writes to applications and record types of its model
+  (`/api/v1/grants`); who can do what in a workspace (`GET /api/v1/workspaces/{key}/access`); the
+  caller's own (`GET /api/v1/me/permissions`, `GET /api/v1/me/grants`). Removing the last active
+  Security administrator is refused. Migration `20261029_01`.
+- Settings › Account lists the person's roles, where each applies, what it narrows and the group it
+  comes through; the account menu names the roles held in the workspace open, and its Account and
+  All settings are buttons like Sign out.
+- `create_client --role <key>` grants roles to a new client at the instance.
+
+### Changed (0.12 Z1)
+
+- **A principal may do only what its roles allow.** `create_admin` gives the first administrator
+  Security administrator, Data owner, Model, Workspace and Integration administrator and Operator at
+  the instance; the upgrade gives the same to every person and client that existed before it; new
+  people and clients hold nothing until granted. `/metrics` and `/api/v1/system/*` but `GET /system`
+  need the Operator role.
+- The workspace list, the workspace models, the jobs and the consumer subscriptions list only what
+  the caller holds a role for; a named workspace the caller holds nothing in answers `403`.
+- Permissions follow a generation number PostgreSQL raises on every change to roles, groups,
+  memberships, grants or a principal's `active`, so a change applies on the next request in every
+  process.
+
 ### Added (0.12 I2, signing in from the browser)
 
 - The engine's sign-in page (`/oauth/authorize`): the browser signs a person in with the

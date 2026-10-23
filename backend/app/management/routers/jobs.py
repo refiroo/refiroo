@@ -16,6 +16,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from ...common.pagination import FIRST_PAGE
+from ...engine.authorization.visibility import visible_jobs
 from ...engine.jobs.background import confirm_preview, request_cancel, submit_background_batch
 from ...engine.jobs.events import JobListener
 from ...engine.jobs.exports import FORMATS, submit_export
@@ -27,6 +28,14 @@ from ...engine.moves.move_load import confirm_move
 from ...errors import api_error
 from ...models.commands import BatchRequest
 from ...models.exports import ExportRequest
+from ..access import (
+    BODY,
+    JOB_PATH,
+    SIGNED_IN,
+    AuthorizedRoute,
+    CurrentPermissions,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import batch_response, job_responses
@@ -46,8 +55,8 @@ from ..schemas.jobs import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1", tags=["jobs"])
-write_router = APIRouter(prefix="/api/v1", tags=["jobs"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["jobs"])
+write_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["jobs"])
 
 # Every inline batch's outcomes fit the first page at the default limit (§B5).
 INLINE_PAGE_SIZE = 1000
@@ -83,6 +92,7 @@ async def _body_bytes(request: Request) -> int:
         },
     },
 )
+@requires("bulk.write", at=BODY)
 def create_batch(
     payload: BatchRequest,
     request: Request,
@@ -136,6 +146,7 @@ def create_batch(
 
 
 @write_router.post("/jobs/{job_id}/cancel", response_model=JobResponse, status_code=202)
+@requires("jobs.use", at=JOB_PATH)
 def cancel_job(job_id: str, request: Request, session: DbSession) -> JobResponse:
     """Ask for the job to be cancelled; ``cancelRequestedAt`` is set at once.
 
@@ -153,6 +164,7 @@ def cancel_job(job_id: str, request: Request, session: DbSession) -> JobResponse
 
 
 @write_router.post("/jobs/{job_id}/confirm", response_model=JobResponse, status_code=202)
+@requires("jobs.use", at=JOB_PATH)
 def confirm_job(
     job_id: str,
     request: Request,
@@ -203,6 +215,7 @@ def confirm_job(
 
 
 @write_router.post("/exports", response_model=JobResponse, status_code=202, tags=["exports"])
+@requires("exports.create", at=BODY)
 def create_export(payload: ExportRequest, request: Request, session: DbSession) -> JobResponse:
     """Export a stated scope of one workspace as a background job (0.9 J1).
 
@@ -230,8 +243,10 @@ def _wake_worker(request: Request) -> None:
 
 
 @router.get("/jobs", response_model=JobPage)
+@requires("signed-in", at=SIGNED_IN)
 def list_jobs(
     session: DbSession,
+    permissions: CurrentPermissions,
     paging: PageQuery,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     kind: Literal[
@@ -245,7 +260,7 @@ def list_jobs(
     | None = None,
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> JobPage:
-    """Jobs, newest first."""
+    """Jobs, newest first: those whose kind's group the caller holds in their workspace (D285)."""
     return present_jobs(
         session,
         job_page(
@@ -255,16 +270,19 @@ def list_jobs(
             state=state,
             page=paging,
             page_size=page_size,
+            visible=visible_jobs(permissions),
         ),
     )
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
+@requires("jobs.use", at=JOB_PATH)
 def get_job(job_id: str, session: DbSession) -> JobResponse:
     return job_responses(session, [load_job(session, job_id)])[0]
 
 
 @router.get("/jobs/{job_id}/items", response_model=JobItemPage)
+@requires("jobs.use", at=JOB_PATH)
 def list_job_items(
     job_id: str,
     session: DbSession,
@@ -283,6 +301,7 @@ def list_job_items(
 
 
 @router.get("/jobs/{job_id}/rows", response_model=JobRowPage | MigrationRowPage | MoveRowPage)
+@requires("jobs.use", at=JOB_PATH)
 def list_job_rows(
     job_id: str,
     session: DbSession,
@@ -342,6 +361,7 @@ def list_job_rows(
         }
     },
 )
+@requires("jobs.use", at=JOB_PATH)
 def get_job_output(job_id: str, request: Request, session: DbSession) -> FileResponse:
     """A completed export's file (0.9 J1). A job that is not completed has none (``409
     JOB_NOT_COMPLETED`` naming its state), so a partial file cannot be taken for a complete one; a
@@ -403,6 +423,7 @@ FINAL_STATES = frozenset({"completed", "failed", "cancelled", "expired"})
         }
     },
 )
+@requires("jobs.use", at=JOB_PATH)
 async def job_events(job_id: str, request: Request) -> StreamingResponse:
     """Follow a job as it changes (0.9 J1u): the job at once, then again after each committed change
     of its state, progress, cancel request or output; the stream ends once the job is completed,

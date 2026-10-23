@@ -49,6 +49,13 @@ from ...engine.workspaces.catalogue import load_workspace
 from ...engine.workspaces.workspace_audit import record_change_set_validated
 from ...errors import ApiError, api_error
 from ...models.database import ChangeSet, ModelRelease, Publication
+from ..access import (
+    CHANGE_SET_PATH,
+    PUBLICATION_PATH,
+    WORKSPACE_PATH,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import job_responses, snapshot_attributes
@@ -85,10 +92,10 @@ from ..schemas.restructuring import (
 # The change-set workflow is an ordinary steward operation like a live edit (ADR-031): always
 # registered, and refused in a retired workspace by the services it calls. Only workspace catalogue
 # administration sits behind WORKSPACE_ADMIN_MUTATIONS_ENABLED.
-router = APIRouter(prefix="/api/v1", tags=["change-sets"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["change-sets"])
 # A change set's move onto another release is a background job (0.11 V3, D93): registered where
 # INTEGRATION_JOBS_ENABLED runs them.
-migration_router = APIRouter(prefix="/api/v1", tags=["change-sets"])
+migration_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["change-sets"])
 
 
 def _change_set_response(session, item: ChangeSet) -> ChangeSetResponse:
@@ -135,6 +142,7 @@ def _publication_response(session, item: Publication) -> PublicationResponse:
 
 
 @router.get("/workspaces/{workspace_key}/change-sets", response_model=ChangeSetPage)
+@requires("change-sets.read", at=WORKSPACE_PATH)
 def list_change_sets(
     workspace_key: str,
     session: DbSession,
@@ -163,6 +171,7 @@ def list_change_sets(
     response_model=ChangeSetResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@requires("change-sets.write", at=WORKSPACE_PATH)
 def post_change_set(
     workspace_key: str,
     payload: ChangeSetCreate,
@@ -194,6 +203,7 @@ def post_change_set(
 
 
 @router.get("/change-sets/{change_set_id}", response_model=ChangeSetResponse)
+@requires("change-sets.read", at=CHANGE_SET_PATH)
 def get_change_set(change_set_id: str, session: DbSession) -> ChangeSetResponse:
     # ChangeSet's ORM primary key is the autoincrement sequence_id, so session.get by the
     # stable public id would always miss; resolve through the unique id column instead.
@@ -204,6 +214,7 @@ def get_change_set(change_set_id: str, session: DbSession) -> ChangeSetResponse:
 
 
 @router.patch("/change-sets/{change_set_id}", response_model=ChangeSetResponse)
+@requires("change-sets.write", at=CHANGE_SET_PATH)
 def patch_change_set(
     change_set_id: str, payload: ChangeSetUpdate, session: DbSession
 ) -> ChangeSetResponse:
@@ -213,6 +224,7 @@ def patch_change_set(
 
 
 @router.patch("/change-sets/{change_set_id}/model-release", response_model=ChangeSetResponse)
+@requires("change-sets.write", at=CHANGE_SET_PATH)
 def patch_change_set_model_release(
     change_set_id: str, payload: ChangeSetModelReleaseUpdate, session: DbSession
 ) -> ChangeSetResponse:
@@ -230,6 +242,7 @@ def patch_change_set_model_release(
 @migration_router.post(
     "/change-sets/{change_set_id}/model-migrations", response_model=JobResponse, status_code=202
 )
+@requires("change-sets.write", at=CHANGE_SET_PATH)
 def start_change_set_migration(
     change_set_id: str, payload: ChangeSetMigrationRequest, request: Request, session: DbSession
 ) -> JobResponse:
@@ -265,6 +278,7 @@ def start_change_set_migration(
 
 
 @router.delete("/change-sets/{change_set_id}", status_code=status.HTTP_204_NO_CONTENT)
+@requires("change-sets.write", at=CHANGE_SET_PATH)
 def delete_change_set(
     change_set_id: str,
     session: DbSession,
@@ -354,6 +368,7 @@ def _relation_change(entry: RelationChangeEntry) -> RelationChange:
 
 
 @router.get("/change-sets/{change_set_id}/object-changes", response_model=ObjectChangePage)
+@requires("change-sets.read", at=CHANGE_SET_PATH)
 def get_object_changes(
     change_set_id: str,
     session: DbSession,
@@ -383,6 +398,7 @@ def get_object_changes(
 
 
 @router.get("/change-sets/{change_set_id}/relation-changes", response_model=RelationChangePage)
+@requires("change-sets.read", at=CHANGE_SET_PATH)
 def get_relation_changes(
     change_set_id: str,
     session: DbSession,
@@ -481,6 +497,7 @@ def _restructuring(payload: RestructuringRequest) -> Restructuring:
 @router.post(
     "/change-sets/{change_set_id}/restructurings/preview", response_model=RestructuringPreview
 )
+@requires("change-sets.write", at=CHANGE_SET_PATH)
 def post_restructuring_preview(
     change_set_id: str, payload: RestructuringPreviewRequest, session: DbSession
 ) -> RestructuringPreview:
@@ -505,6 +522,7 @@ def post_restructuring_preview(
 
 
 @router.post("/change-sets/{change_set_id}/restructurings", response_model=RestructuringResult)
+@requires("change-sets.write", at=CHANGE_SET_PATH)
 def post_restructuring(
     change_set_id: str, payload: RestructuringApplyRequest, session: DbSession
 ) -> RestructuringResult:
@@ -527,6 +545,7 @@ def post_restructuring(
 
 
 @router.post("/change-sets/{change_set_id}/validation", response_model=ChangeSetValidation)
+@requires("change-sets.write", at=CHANGE_SET_PATH)
 def post_change_set_validation(change_set_id: str, session: DbSession) -> ChangeSetValidation:
     change_set, change_set_model = pinned_model(session, change_set_id)
     diagnostics = validate_change_set(session, change_set_id, change_set_model)
@@ -553,6 +572,7 @@ def post_change_set_validation(change_set_id: str, session: DbSession) -> Change
 
 
 @router.post("/change-sets/{change_set_id}/publication", response_model=PublicationResponse)
+@requires("change-sets.publish", at=CHANGE_SET_PATH)
 def post_change_set_publication(
     change_set_id: str,
     payload: ChangeSetPublishRequest,
@@ -572,6 +592,7 @@ def post_change_set_publication(
 
 
 @router.get("/workspaces/{workspace_key}/publications", response_model=PublicationPage)
+@requires("publications.read", at=WORKSPACE_PATH)
 def list_publications(
     workspace_key: str,
     session: DbSession,
@@ -603,6 +624,7 @@ def list_publications(
 
 
 @router.get("/publications/{publication_id}", response_model=PublicationResponse)
+@requires("publications.read", at=PUBLICATION_PATH)
 def get_publication(publication_id: str, session: DbSession) -> PublicationResponse:
     item = session.scalar(select(Publication).where(Publication.id == publication_id))
     if item is None:
@@ -611,5 +633,6 @@ def get_publication(publication_id: str, session: DbSession) -> PublicationRespo
 
 
 @router.post("/publications/{publication_id}/withdrawal", status_code=status.HTTP_204_NO_CONTENT)
+@requires("publications.withdraw", at=PUBLICATION_PATH)
 def post_publication_withdrawal(publication_id: str, session: DbSession) -> None:
     withdraw_publication(session, publication_id)

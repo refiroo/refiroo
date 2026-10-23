@@ -17,6 +17,12 @@ vi.mock("@/api/client", () => ({
       signedInWith: "password",
       sessionId: "s1",
     })),
+    myPermissions: vi.fn(async (workspaceKey?: string) => ({
+      workspaceKey: workspaceKey ?? "default",
+      workspaceLabel: workspaceKey === "field" ? "Field stations" : "Herbarium",
+      roles: workspaceKey === "field" ? [] : [{ key: "steward", name: "Data steward" }],
+      actionGroups: [],
+    })),
   },
 }));
 vi.mock("@/api/session", () => ({ signOut: vi.fn(async () => undefined) }));
@@ -35,9 +41,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function openMenu(onOpenSettings = vi.fn(), onOpenAccount = vi.fn()) {
+function openMenu(onOpenSettings = vi.fn(), onOpenAccount = vi.fn(), workspaceKey?: string) {
   render(
     <AccountMenu
+      workspaceKey={workspaceKey}
       settingsHref="/settings/about"
       accountHref="/settings/account"
       onOpenSettings={onOpenSettings}
@@ -132,5 +139,26 @@ describe("AccountMenu", () => {
     expect(dialog).toBeInTheDocument();
     fireEvent.wheel(screen.getByText("Page"));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
+  });
+});
+
+describe("the account menu's roles and actions (0.12 Z1)", () => {
+  it("names the roles held in the workspace open now", async () => {
+    openMenu();
+    expect(await screen.findByText("Data steward in Herbarium")).toBeInTheDocument();
+    expect(api.myPermissions).toHaveBeenCalledWith(undefined);
+    cleanup();
+    openMenu(vi.fn(), vi.fn(), "field");
+    expect(await screen.findByText("No role in Field stations")).toBeInTheDocument();
+  });
+
+  it("draws Account, All settings and Sign out alike, as buttons", async () => {
+    openMenu();
+    const actions = [
+      await screen.findByRole("link", { name: "Account" }),
+      screen.getByRole("link", { name: "All settings" }),
+      screen.getByRole("button", { name: "Sign out" }),
+    ];
+    for (const action of actions) expect(action).toHaveClass("secondary", "account-menu-action");
   });
 });

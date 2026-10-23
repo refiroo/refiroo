@@ -11,6 +11,11 @@ from ...common.pagination import Page, PageRequest, integer_key, paginate_statem
 from ...errors import ApiError, api_error
 from ...models.commands import UserCreate, UserUpdate
 from ...models.database import User
+from ..authorization.administration import (
+    grant_roles,
+    refuse_last_administrator,
+    security_administrators,
+)
 from . import sessions
 from .passwords import DEFAULT_MIN_LENGTH, check_password, hash_secret
 
@@ -48,8 +53,10 @@ def create_user(
     *,
     password: str | None = None,
     min_length: int = DEFAULT_MIN_LENGTH,
+    roles: tuple[str, ...] = (),
 ) -> User:
-    """A person; with ``password`` (``create_admin``), checked against the rules first."""
+    """A person; with ``password`` (``create_admin``), checked against the rules first; with
+    ``roles``, holding them at the instance (the first administrator's, D282)."""
     if password is not None:
         check_password(password, payload.username, min_length)
 
@@ -68,6 +75,8 @@ def create_user(
         )
         session.add(user)
         session.flush()
+        if roles:
+            grant_roles(session, "user", user.id, roles)
         return user
 
     return _changing(session, change)
@@ -91,7 +100,11 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
         now = datetime.now(UTC)
         if "active" in fields and payload.active is not None:
             if user.active and not payload.active:
+                before = security_administrators(session)
                 sessions.end_all(session, user.id, "deactivated", now)
+                user.active = False
+                session.flush()
+                refuse_last_administrator(session, before)
             user.active = payload.active
         user.version += 1
         user.updated_at = now

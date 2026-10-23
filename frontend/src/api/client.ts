@@ -41,6 +41,8 @@ import type {
   BackupRehearsalPage,
   Me,
   SignInSession,
+  Grant,
+  MyPermissions,
   PageNavigation,
   ConsumerApiDefinition,
   ConsumerApiDocument,
@@ -451,6 +453,13 @@ export const api = {
   readiness: () => allPages<WorkspaceReadiness>("/api/v1/system/readiness"),
   /** Who is signed in (0.12 I2). */
   me: () => request<Me>("/api/v1/me"),
+  /** What the caller may do in a workspace, the default one without a key (0.12 Z1). */
+  myPermissions: (workspaceKey?: string) =>
+    request<MyPermissions>(
+      `/api/v1/me/permissions${workspaceKey ? `?workspaceKey=${encodeURIComponent(workspaceKey)}` : ""}`,
+    ),
+  /** The caller's grants, direct and through their groups, every page (a caller has a handful). */
+  myGrants: () => allPages<Grant>("/api/v1/me/grants"),
   /** Where the person is signed in: every open session (a person has a handful). */
   mySessions: () => allPages<SignInSession>("/api/v1/me/sessions"),
   /** Sign out one session, its tokens refused from the next request. */

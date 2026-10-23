@@ -108,8 +108,8 @@ def authenticated(
     session: DbSession,
     authorization: Annotated[str | None, Depends(bearer)],
 ) -> Principal:
-    """The caller of a management route, from its ``management`` token (0.12 I1). Until Z1 every
-    active principal may use every route."""
+    """The caller of a management route, from its ``management`` token (0.12 I1); what they may
+    do is checked next (``access.authorized``, Z1)."""
     principal = authenticate(
         session, request.app.state.identity_settings, authorization, "management"
     )
@@ -118,12 +118,3 @@ def authenticated(
 
 
 CurrentPrincipal = Annotated[Principal, Depends(authenticated)]
-
-
-# Every route of the management API needs a token and takes the header. In maintenance mode it
-# answers 503 before a session is opened or a token read.
-MANAGEMENT_DEPENDENCIES = [
-    Depends(started),
-    Depends(authenticated),
-    Depends(expect_model_release),
-]

@@ -2586,7 +2586,10 @@ packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
 - **The account menu** replaces "Local session": the person, their e-mail and main role,
   "Account", "All settings", the theme, "Sign out", and the source link. **Account** is a General
   page. _Built by I2 (2026-10-23)_ without the role (Z1) and the source link (L1), D273; the sign-in
-  page without the provider's button (I3) and the source link.
+  page without the provider's button (I3) and the source link. _Z1 (2026-10-23):_ the role line
+  names the roles held in the workspace open ("Data steward in Herbarium"; the default workspace in
+  Settings), Account, All settings and Sign out are buttons alike (the user), and Account's **What
+  you can do** lists the person's grants from the approved "Account with roles" boards.
 - **Security pages** use the list-and-detail pattern (U-D10): the list beside the selected entry,
   inside the page; at 390px the list alone, a row opening the detail. No page names an application or
   record type; narrowing shows the model's names as data.

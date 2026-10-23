@@ -2029,7 +2029,10 @@ SESSION_NOT_FOUND`, `403 NOT_A_PERSON`; on the sign-in page `401` (wrong credent
 **Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, Z1, Z2, SP1. I1 (2026-10-23):
 people created, changed and deactivated through the API, and the first administrator from
 `create_admin`; roles and grants are Z1. I2 (2026-10-23): a person's one-time password link and
-signing a person out everywhere, through the API; the People page is SP1.
+signing a person out everywhere, through the API; the People page is SP1. Z1 (2026-10-23): roles,
+groups and grants through the API, every operation checked at its route (J40.1, J40.2, J40.4–J40.9);
+the person's roles on Settings › Account and in the account menu. J40.3's narrowing is stored and
+checked against the model but enforced at the write unit by Z2, as is J40.10.
 
 1. Create a person; they set a password through a one-time link.
 2. Grant them a role in a workspace, directly or through a group, optionally narrowing what they may
@@ -2065,7 +2068,9 @@ narrowed write), `409 ROLE_PREDEFINED`, `409 ROLE_IN_USE`, `409 LAST_SECURITY_AD
 **Actor:** integration team. **Channel:** API, UI (Settings › Security › Clients).
 **Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, Z1, Z3, SP2. I1 (2026-10-23):
 the main flow through the API (any active client may use every route until Z1), J41.3, J41.4, J41.5;
-the first client from `create_client`.
+the first client from `create_client`. Z1 (2026-10-23): a client does what its roles allow, granted
+like a person's (step 2 for the management API; `create_client --role`); consumer API grants are
+Z3.
 
 1. A security administrator creates a client and copies its secret, shown once.
 2. Grant it a role on the management API or a consumer API in a workspace.

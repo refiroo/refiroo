@@ -729,9 +729,12 @@ def job_page(
     state: str | None,
     page: PageRequest,
     page_size: int,
+    visible: Any = None,
 ) -> Page[Job]:
-    """Jobs, newest first."""
+    """Jobs, newest first; ``visible`` keeps those the caller may see (0.12 Z1, D285)."""
     statement = select(Job)
+    if visible is not None:
+        statement = statement.where(visible)
     if workspace_key is not None:
         statement = statement.where(Job.workspace_key == workspace_key)
     if kind is not None:

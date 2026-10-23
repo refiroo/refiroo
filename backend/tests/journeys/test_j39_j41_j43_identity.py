@@ -106,11 +106,18 @@ def test_a_token_not_issued_here_is_refused(world):
 
 @pytest.mark.journey("J41")
 def test_a_client_obtains_a_token_and_calls_the_api(world):
-    """Given an administrator creates a client, its secret answered once and never on a read. When
-    the client posts its credentials to `/oauth/token`, in the header and in the body, then it gets a
-    Bearer token for an hour; `GET /me` names it, and it creates and reads a record. A wrong secret
-    answers `invalid_client` and an unknown grant `unsupported_grant_type`, in the RFC's shape."""
+    """Given an administrator creates a client, its secret answered once and never on a read, and
+    grants it Data steward in the workspace (Z1). When the client posts its credentials to
+    `/oauth/token`, in the header and in the body, then it gets a Bearer token for an hour; `GET
+    /me` names it, and it creates and reads a record. A wrong secret answers `invalid_client` and an
+    unknown grant `unsupported_grant_type`, in the RFC's shape."""
     client = _client(world)
+    grant = {
+        "principal": {"kind": "client", "id": client["id"]},
+        "role": "steward",
+        "scope": {"workspaceKey": "default"},
+    }
+    ok(world.api.post("/grants", grant), 201)
     assert client["secret"] and client["secrets"][0]["id"] == client["secretId"]
     read = ok(world.api.get(f"/clients/{client['id']}"))
     assert "secret" not in read and client["secret"] not in json.dumps(read)
@@ -338,4 +345,15 @@ def test_the_first_administrator_from_the_command_line(world):
     created = create_admin("a long passphrase of mine")
     assert created.returncode == 0, created.stderr
     [admin] = ok(world.api.get("/users", q="ada"))["items"]
+    # The first administrator holds what setting the instance up needs, at the instance (D282).
+    grants = ok(world.api.get("/grants", principalId=admin["id"]))["items"]
+    assert sorted(item["role"]["key"] for item in grants) == [
+        "integration-admin",
+        "model-admin",
+        "operator",
+        "owner",
+        "security-admin",
+        "workspace-admin",
+    ]
+    assert all(item["scope"]["instance"] for item in grants)
     assert (admin["username"], admin["hasPassword"], admin["active"]) == ("ada", True, True)

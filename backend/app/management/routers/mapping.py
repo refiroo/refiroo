@@ -9,6 +9,12 @@ from ...engine.operations.mapping_replacement import MappingVersionConflict, rep
 from ...errors import api_error
 from ...models.commands import MappingReplacementRequest
 from ...models.schema import MappingGridViewConfig
+from ..access import (
+    MAPPINGS_WRITE,
+    WORKSPACE_PATH,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery, SeekablePageQuery
 from ..projections.mapping import (
@@ -29,7 +35,9 @@ from ..schemas.mapping import (
     MappingTargetPage,
 )
 
-router = APIRouter(prefix="/api/v1/workspaces/{workspace_key}", tags=["mapping"])
+router = APIRouter(
+    route_class=AuthorizedRoute, prefix="/api/v1/workspaces/{workspace_key}", tags=["mapping"]
+)
 
 
 def mapping_read(
@@ -74,6 +82,7 @@ BindingRead = Annotated[MappingRead, Depends(binding_read)]
 
 
 @router.get("/mapping-coverage", response_model=MappingCoveragePage)
+@requires("records.read", at=WORKSPACE_PATH)
 def mapping_coverage(
     read: BindingRead,
     paging: SeekablePageQuery,
@@ -159,6 +168,7 @@ def edge_list(
 
 
 @router.get("/relations", response_model=MappingListPage, tags=["relations"])
+@requires("records.read", at=WORKSPACE_PATH)
 def get_workspace_relations(
     session: DbSession, query: EdgeList, paging: PageQuery
 ) -> MappingListPage:
@@ -168,6 +178,7 @@ def get_workspace_relations(
 
 
 @router.get("/mapping-candidates", response_model=MappingCandidatePage)
+@requires("records.read", at=WORKSPACE_PATH)
 def mapping_candidates(
     read: Read,
     paging: PageQuery,
@@ -225,6 +236,7 @@ TargetRead = Annotated[MappingRead, Depends(target_binding_read)]
 
 
 @router.get("/mapping-targets", response_model=MappingTargetPage)
+@requires("records.read", at=WORKSPACE_PATH)
 def mapping_targets(
     read: TargetRead,
     paging: PageQuery,
@@ -236,6 +248,7 @@ def mapping_targets(
 
 
 @router.put("/mappings", response_model=MappingReplacementResponse)
+@requires("records.write", at=MAPPINGS_WRITE)
 def put_mapping(
     workspace_key: str,
     body: MappingReplacementRequest,

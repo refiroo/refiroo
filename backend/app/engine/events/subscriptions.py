@@ -379,9 +379,12 @@ def subscription_page(
     status: str | None,
     page: PageRequest,
     page_size: int,
+    visible: Any = None,
 ) -> Page[ConsumerSubscription]:
-    """Subscriptions, newest first."""
+    """Subscriptions, newest first; ``visible`` keeps those the caller may see (0.12 Z1)."""
     statement = select(ConsumerSubscription)
+    if visible is not None:
+        statement = statement.where(visible)
     if consumer_api is not None:
         statement = statement.where(ConsumerSubscription.consumer_api == consumer_api)
     if workspace_key is not None:

@@ -41,6 +41,14 @@ from ...models.commands import (
     RelationUpdate,
 )
 from ...models.database import RdmObject
+from ..access import (
+    CONTEXT,
+    RELATION_CREATE,
+    RELATION_READ,
+    RELATION_WRITE,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession, RequestModelSnapshot
 from ..paging import PageQuery, SeekablePageQuery
 from ..presenters import build_object_responses, build_relation_response, change_set_object_response
@@ -54,7 +62,7 @@ from ..schemas.records import (
     RelationSetVersionItem,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["relations"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["relations"])
 
 def _change_set_response(item) -> RelationResponse:
     # Change set and history relations record no timestamps (WP-10K); never substitute the current time.
@@ -77,6 +85,7 @@ def _ctx(change_set: str, expected: int | None) -> int:
     return expected
 
 @router.post("/relations", response_model=RelationResponse, status_code=status.HTTP_201_CREATED)
+@requires("records.write", at=RELATION_CREATE)
 def create_relation(payload: RelationCreate, session: DbSession) -> RelationResponse:
     claim = set_claim(payload.expectedRelationSetVersion, payload.relationSetDirection)
     if payload.changeSetId:
@@ -88,6 +97,7 @@ def create_relation(payload: RelationCreate, session: DbSession) -> RelationResp
     return build_relation_response(row).model_copy(update={"relationSetVersion": set_version})
 
 @router.get("/relations", response_model=RelationPage)
+@requires("records.read", at=CONTEXT)
 def list_relations(
     session: DbSession,
     snapshot: RequestModelSnapshot,
@@ -154,6 +164,7 @@ def list_relations(
     return RelationPage(items=[RelationExpansion(direction="outgoing" if row.ObjectRelation.from_object_id == object_id else "incoming", relation=build_relation_response(row.ObjectRelation), object=related[row.related_id]) for row in page.items], relationSets=relation_sets, **page.links())
 
 @router.get("/relations/held", response_model=HeldRecordPage)
+@requires("records.read", at=CONTEXT)
 def list_held_records(
     session: DbSession,
     snapshot: RequestModelSnapshot,
@@ -217,6 +228,7 @@ def list_held_records(
 
 
 @router.get("/relations/{relation_id}", response_model=RelationResponse)
+@requires("records.read", at=RELATION_READ)
 def get_relation(relation_id: str, session: DbSession, snapshot: RequestModelSnapshot, workspace_key: str | None = Query(default=None, alias="workspaceKey"), change_set_id: str | None = Query(default=None, alias="changeSetId"), publication_id: str | None = Query(default=None, alias="publicationId")) -> RelationResponse:
     if change_set_id and publication_id: raise api_error(422, "MUTUALLY_EXCLUSIVE_CONTEXT", "Workspace contexts cannot be combined")
     if change_set_id or publication_id:
@@ -237,6 +249,7 @@ def get_relation(relation_id: str, session: DbSession, snapshot: RequestModelSna
     return build_relation_response(row)
 
 @router.patch("/relations/{relation_id}", response_model=RelationResponse)
+@requires("records.write", at=RELATION_WRITE)
 def update_relation(relation_id: str, payload: RelationUpdate, session: DbSession) -> RelationResponse:
     if payload.changeSetId:
         change_set = str(payload.changeSetId)
@@ -247,6 +260,7 @@ def update_relation(relation_id: str, payload: RelationUpdate, session: DbSessio
     return build_relation_response(row)
 
 @router.delete("/relations/{relation_id}", status_code=204)
+@requires("records.write", at=RELATION_WRITE)
 def remove_relation(relation_id: str, session: DbSession,
                     change_set_id: str | None = Query(default=None, alias="changeSetId"),
                     expected_change_set_version: int | None = Query(default=None, alias="expectedChangeSetVersion", ge=1),

@@ -10,14 +10,20 @@ from fastapi import APIRouter, Request
 
 from ...engine.moves.move_job import submit_move
 from ...models.moves import MoveRequest
+from ..access import (
+    MOVE,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..presenters import job_responses
 from ..schemas.jobs import JobResponse
 
-router = APIRouter(prefix="/api/v1", tags=["moves"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["moves"])
 
 
 @router.post("/moves", response_model=JobResponse, status_code=202)
+@requires("moves.create", at=MOVE)
 def start_move(payload: MoveRequest, request: Request, session: DbSession) -> JobResponse:
     """The dry run of a move (0.11 X2): what each record the ``selection`` names (the whole
     workspace when empty; types with criteria, a subtree, records by ID, combined) becomes in the

@@ -11,6 +11,11 @@ from ...engine.model.registry import resolve_model_snapshot
 from ...engine.model.workspace_models import assigned_workspaces
 from ...errors import api_error
 from ...models.database import AuditEvent, ModelRelease, WorkspaceModel
+from ..access import (
+    ANYWHERE,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import (
@@ -27,7 +32,7 @@ from ..schemas.model import (
     ModelReleaseResponse,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["model"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["model"])
 
 _RELEASE_KEYS = (
     datetime_key("installedAt", ModelRelease.installed_at, "installed_at"),
@@ -43,6 +48,7 @@ _ACTIVATION_KINDS = {"activated": "activated", "schema_upgraded": "schemaUpgrade
 
 
 @router.get("/model-releases", response_model=ModelReleasePage)
+@requires("model-releases.read", at=ANYWHERE)
 def list_model_releases(
     session: DbSession,
     paging: PageQuery,
@@ -85,6 +91,7 @@ def list_model_releases(
     response_model=ModelReleaseResponse,
     response_model_exclude_none=True,
 )
+@requires("model-releases.read", at=ANYWHERE)
 def get_model_release(
     release_id: str,
     session: DbSession,
@@ -98,6 +105,7 @@ def get_model_release(
     "/model-releases/{release_id}/activations",
     response_model=ModelReleaseActivationPage,
 )
+@requires("model-releases.read", at=ANYWHERE)
 def list_model_release_activations(
     release_id: str,
     session: DbSession,
@@ -147,6 +155,7 @@ def list_model_release_activations(
     response_model=ModelReleaseDiffResponse,
     response_model_exclude_unset=True,
 )
+@requires("model-releases.read", at=ANYWHERE)
 def diff_model_release(
     release_id: str,
     session: DbSession,

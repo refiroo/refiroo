@@ -5,7 +5,9 @@
 // menu names the person and leads to Account, where the password is changed. A session ended by an
 // administrator sends the person to the sign-in page, which says so, and back to the same page.
 // Sign out from the menu returns to the sign-in page. Axe on the sign-in page (light and dark) and
-// Account; screenshots of each; no horizontal scroll at 390px.
+// Account; screenshots of each; no horizontal scroll at 390px. Z1: the menu names the roles held in
+// the workspace, its actions are buttons, and Account lists the roles, for the harness person (every
+// role at the instance) and for a person granted Reader and a narrowed Contributor in one workspace.
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -111,11 +113,29 @@ async function walk(configuration) {
     await page.keyboard.press("Enter");
     const menu = page.getByRole("dialog", { name: "Account" });
     await menu.getByText("Test harness person").waitFor();
+    await menu.getByText(/^Reader, Contributor, Data steward, .* and Security administrator in /).waitFor();
+    for (const action of [
+      menu.getByRole("link", { name: "Account" }),
+      menu.getByRole("link", { name: "All settings" }),
+      menu.getByRole("button", { name: "Sign out" }),
+    ])
+      expect(
+        (await action.getAttribute("class"))?.includes("account-menu-action"),
+        `${tag}: the menu's actions are buttons alike`,
+      );
+    await shot(page, "menu-roles");
     await menu.getByRole("link", { name: "Account" }).click();
     await page.waitForURL(`${uiUrl}/settings/account`);
     await page.getByRole("heading", { level: 1, name: "Account" }).waitFor();
     const sessions = page.getByRole("list", { name: "Where you’re signed in" });
     await sessions.getByText("This browser").waitFor();
+    const roles = page.getByRole("list", { name: "What you can do" });
+    await roles.getByText("Security administrator").waitFor();
+    expect((await roles.getByRole("listitem").count()) === 9, `${tag}: Account lists the nine roles`);
+    expect(
+      (await roles.getByText("Every workspace").count()) === 9,
+      `${tag}: the harness person's roles are at the instance`,
+    );
     await shot(page, "account-wide");
     await axe(page, `${tag}-account`);
     checks.push(`${tag}: the menu names the person; Account lists this browser`);
@@ -154,6 +174,61 @@ async function walk(configuration) {
     await onSignInPage(page);
     checks.push(`${tag}: signing out leads to the sign-in page, and the app stays signed out`);
     await context.close();
+
+    // 7b. A person granted Reader, and Contributor narrowed to one record type, in one workspace:
+    // the menu names both there, and Account lists them, the narrowing by the type's name.
+    const reader = { username: "rhea", password: "a passphrase for the reader" };
+    const created = await api("/users", { username: reader.username, name: "Rhea Reader" }, "POST");
+    const [recordType] = (await api("/object-types?workspaceKey=default")).items;
+    await api(
+      "/grants",
+      { principal: { kind: "user", id: created.id }, role: "reader", scope: { workspaceKey: "default" } },
+      "POST",
+    );
+    await api(
+      "/grants",
+      {
+        principal: { kind: "user", id: created.id },
+        role: "contributor",
+        scope: { workspaceKey: "default", recordTypes: [recordType.key] },
+      },
+      "POST",
+    );
+    const link = await api(`/users/${created.id}/password-reset`, {}, "POST");
+    const readers = await signedOutContext({ viewport: { width: 1440, height: 900 } });
+    const rhea = await readers.newPage();
+    rhea.setDefaultTimeout(15000);
+    rhea.on("pageerror", (error) => failures.push(`${tag} (reader): ${error.message}`));
+    await rhea.goto(link.url);
+    await rhea.getByLabel("New password", { exact: true }).fill(reader.password);
+    await rhea.getByLabel(/again|Repeat/i).fill(reader.password);
+    await rhea.getByRole("button", { name: /Set password/i }).click();
+    await rhea.goto(`${uiUrl}/settings/account`);
+    await onSignInPage(rhea);
+    await rhea.getByLabel("Username").fill(reader.username);
+    await rhea.getByLabel("Password").fill(reader.password);
+    await rhea.getByRole("button", { name: "Sign in" }).click();
+    await rhea.getByRole("heading", { level: 1, name: "Account" }).waitFor();
+    const rheaRoles = rhea.getByRole("list", { name: "What you can do" });
+    await rheaRoles.getByText("Contributor").waitFor();
+    const rows = await rheaRoles.getByRole("listitem").allInnerTexts();
+    expect(rows.length === 2, `${tag}: the reader's Account lists two roles: ${rows.join(" | ")}`);
+    expect(
+      rows.some((row) => row.includes(`Changes narrowed to ${recordType.name}`)),
+      `${tag}: the narrowing is named by the type's name: ${rows.join(" | ")}`,
+    );
+    await rhea.getByRole("button", { name: "Account" }).click();
+    await rhea.getByRole("dialog", { name: "Account" }).getByText(/^Reader and Contributor in /).waitFor();
+    await shot(rhea, "reader-menu");
+    await rhea.keyboard.press("Escape");
+    await shot(rhea, "reader-account");
+    await axe(rhea, `${tag}-reader-account`);
+    await rhea.setViewportSize({ width: 390, height: 844 });
+    await rheaRoles.getByText("Contributor").waitFor();
+    expect((await overflow(rhea)) <= 0, `${tag}: the reader's Account scrolls sideways at 390px`);
+    await shot(rhea, "reader-account-narrow");
+    await readers.close();
+    checks.push(`${tag}: a reader's menu and Account name their roles, the narrowing by name`);
 
     // 8. At 390px: one column, no horizontal scroll, on the sign-in page and on Account.
     const narrow = await signedOutContext({ viewport: { width: 390, height: 844 }, hasTouch: true });

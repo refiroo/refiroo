@@ -219,9 +219,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # /users/{id}/sessions with their schemas, MeResponse's signedInWith and sessionId, and a
     # person's deactivation ending their sessions in PATCH /users/{id}'s description. Diffed against
     # 3633627, nothing else changed (the sign-in and reset pages are HTML, outside the document).
+    # Re-baselined for 0.12 Z1 (ADR-044): /action-groups, /roles, /groups and their members,
+    # /grants, /workspaces/{key}/access, /me/permissions and /me/grants with their schemas;
+    # x-action, x-action-groups and x-action-scope on every operation but the open ones (D256);
+    # GET /jobs' description (filtered, D285). Diffed against ffe558b, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "08332c010239556e5e8b1730342952eef44a124081788facd33fa35b63f87f75"
+        "8a046f1aa5f8458480977c64a35ff15f5d83aab2d58d7bd5fb5277273ffe0188"
     )
 
 
@@ -263,8 +267,9 @@ def test_paging_openapi_inventory():
     # drift, missing records and rows; 0.10 A8b a range of a sheet's cells; 0.11 M1 the workspaces'
     # model assignments; 0.11 X1 the model mappings, a mapping's history and its proposals; 0.11 O1
     # the processes and the readiness per workspace; 0.11 O2 the backup rehearsals; 0.12 I1 the
-    # people, clients and token signing keys; 0.12 I2 a person's sessions.
-    assert seekable <= paged and len(paged) == 48
+    # people, clients and token signing keys; 0.12 I2 a person's sessions; 0.12 Z1 the roles, groups,
+    # a group's members, grants, a workspace's access and the caller's grants.
+    assert seekable <= paged and len(paged) == 54
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",
@@ -582,3 +587,46 @@ def test_0_12_i1_every_operation_but_the_open_ones_refuses_a_call_without_a_toke
             assert response.json()["error"]["code"] == "AUTHENTICATION_REQUIRED"
             checked += 1
     assert checked > 150
+
+
+# Where a declared workspace comes from, and the path parameter it needs (0.12 Z1, D277).
+_SCOPE_PARAMETERS = {
+    "the path's workspace": "{workspace_key}",
+    "the change set's workspace": "{change_set_id}",
+    "the publication's workspace": "{publication_id}",
+    "the subscription's workspace": "{subscription_id}",
+    "the job's workspace and kind": "{job_id}",
+    "the change set, or the record's workspace": "{object_id}",
+    "the query's context, or the record's workspace": "{object_id}",
+    "the change set, or the relationship's workspace": "{relation_id}",
+    "the query's context, or the relationship's workspace": "{relation_id}",
+    "the change set, or the path's workspace": "{workspace_key}",
+}
+
+
+def test_0_12_z1_every_operation_declares_its_action(monkeypatch):
+    """With every capability on, each operation but the open ones declares an action of the
+    catalogue, the groups allowing it and where its workspace comes from, and a declaration that
+    reads a path parameter is on a route that has it (ADR-044, D256, D277)."""
+    from app.engine.authorization.catalogue import ACTIONS
+
+    for flag in (
+        "MODEL_ADMIN_MUTATIONS_ENABLED",
+        "WORKSPACE_ADMIN_MUTATIONS_ENABLED",
+        "INTEGRATION_JOBS_ENABLED",
+        "CONSUMER_SUBSCRIPTIONS_ENABLED",
+    ):
+        monkeypatch.setenv(flag, "true")
+    schema = create_app().openapi()
+    declared = set()
+    for path, operations in schema["paths"].items():
+        for method, operation in operations.items():
+            if method == "parameters" or (method, path) in OPEN_OPERATIONS:
+                continue
+            action = operation.get("x-action")
+            assert action in ACTIONS, (method, path, action)
+            assert operation["x-action-groups"] == list(ACTIONS[action].groups), (method, path)
+            needed = _SCOPE_PARAMETERS.get(operation["x-action-scope"])
+            assert needed is None or needed in path, (method, path, operation["x-action-scope"])
+            declared.add(action)
+    assert declared == set(ACTIONS)

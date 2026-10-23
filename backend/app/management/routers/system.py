@@ -17,6 +17,12 @@ from ...engine.model.compiler import SCHEMA_VERSIONS
 from ...engine.processes.reads import live_processes, workspace_readiness
 from ...engine.reads.system import read_system_state
 from ...models.database import BackupRehearsal, EngineProcess, Workspace
+from ..access import (
+    INSTANCE,
+    SIGNED_IN,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..projections.operations import (
@@ -39,12 +45,13 @@ from ..schemas.system import (
     WorkspaceReadinessPage,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["system"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["system"])
 # ``/metrics`` beside ``/health``, outside the management API's prefix (0.11 O1, D193, D197).
-metrics_router = APIRouter(tags=["system"])
+metrics_router = APIRouter(route_class=AuthorizedRoute, tags=["system"])
 
 
 @router.get("/system", response_model=SystemResponse)
+@requires("signed-in", at=SIGNED_IN)
 def get_system(session: DbSession) -> SystemResponse:
     state = read_system_state(session)
     release = state.active_release
@@ -63,6 +70,7 @@ def get_system(session: DbSession) -> SystemResponse:
 
 
 @router.get("/system/configuration", response_model=SystemConfiguration)
+@requires("operations.read", at=INSTANCE)
 def get_configuration(request: Request, session: DbSession) -> SystemConfiguration:
     """The database's migration revision and every setting with its value, its default and where
     the value came from; a secret shows neither (D246)."""
@@ -84,6 +92,7 @@ def _report_this_process(request: Request, session: DbSession) -> None:
 
 
 @router.get("/system/processes", response_model=ProcessPage)
+@requires("operations.read", at=INSTANCE)
 def list_processes(
     request: Request,
     session: DbSession,
@@ -109,6 +118,7 @@ def list_processes(
 
 
 @router.get("/system/readiness", response_model=WorkspaceReadinessPage)
+@requires("operations.read", at=INSTANCE)
 def list_readiness(
     request: Request,
     session: DbSession,
@@ -137,6 +147,7 @@ def list_readiness(
 
 
 @router.get("/system/summary", response_model=SystemSummary)
+@requires("operations.read", at=INSTANCE)
 def get_summary(request: Request, session: DbSession) -> SystemSummary:
     """The instance's figures counted now: processes live and silent, workspaces served and
     unavailable, jobs waiting or running by kind, webhook subscriptions by state (0.11 O2). The
@@ -146,6 +157,7 @@ def get_summary(request: Request, session: DbSession) -> SystemSummary:
 
 
 @router.get("/system/backup-rehearsals", response_model=BackupRehearsalPage)
+@requires("operations.read", at=INSTANCE)
 def list_backup_rehearsals(
     session: DbSession,
     paging: PageQuery,
@@ -177,6 +189,7 @@ def list_backup_rehearsals(
     response_class=PlainTextResponse,
     responses={200: {"content": {"text/plain": {}}, "description": "Prometheus text format 0.0.4"}},
 )
+@requires("operations.read", at=INSTANCE)
 def get_metrics(request: Request, session: DbSession) -> PlainTextResponse:
     """The instance's metrics in the Prometheus text format: every live process's series labelled
     ``process``, and the jobs, webhook subscriptions, processes and unavailable workspaces counted

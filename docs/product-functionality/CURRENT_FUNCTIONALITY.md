@@ -36,7 +36,8 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
 | F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
-| F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account | Available | 0.12 I1, I2; roles come with Z1 |
+| F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account | Available | 0.12 I1, I2 |
+| F27 | Control who can do what | One's own roles on Settings › Account and in the account menu | Roles, groups and grants; every operation checked | 0.12 Z1; record-type narrowing enforced in Z2; Security pages SP1 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
 (`frontend/e2e/`). The acceptance runs are recorded in the release plans.
@@ -777,8 +778,8 @@ keys. Every list is paged with signed cursors bound to the query, or by position
 request. Errors are structured and distinguish not found, invalid input, conflict, retired scope and
 unavailable service. Integration-scale functions are F20–F23 and F25; the reference page is F24.
 
-Every call needs an access token the engine issues (F26). Limits: until roles arrive in 0.12, every
-signed-in person and every active client may use every route.
+Every call needs an access token the engine issues (F26), and its roles must allow the operation
+(F27).
 
 Evidence: [API contracts](../API.md),
 [ADR-018](../DECISIONS.md#adr-018--bind-opaque-cursors-to-query-semantics).
@@ -1228,11 +1229,39 @@ are signed in, signing out one browser or all of them. An administrator signs a 
 deactivates them (their access ends at once) or makes a one-time link that sets their password, for a
 new person or a forgotten password. Systems obtain tokens with a client's credentials (F16).
 
-Limits: no sign-in provider (single sign-on) until 0.12 I3, and no roles until 0.12 Z1, so every
-signed-in person may do everything. The administration pages for people and clients come with the
+Limits: no sign-in provider (single sign-on) until 0.12 I3. What a person may do is F27. The
+administration pages for people and clients come with the
 Security pages; until then they are API calls. Local accounts have a password only; multi-factor
 sign-in comes with a sign-in provider.
 
 Evidence: [authentication contract](../API.md#authentication), [OPERATIONS](../OPERATIONS.md#signing-in-from-the-browser),
 [sign-in](../../backend/app/engine/identity/sign_in.py), [sessions](../../backend/app/engine/identity/sessions.py),
 [browser session](../../frontend/src/api/session.ts).
+
+## F27 — Control who can do what
+
+**User outcome:** Each person and system can do exactly what their roles allow, in the workspaces
+where they hold them, through every channel; a security administrator decides who holds what.
+
+A role is a set of action groups named after the work they allow: browsing a workspace, editing
+live, working in change sets, publishing, bulk work and imports, copying and moving, model
+authoring and release, workspace, integration and security administration, the change feed and
+operations. Nine roles come predefined (Reader, Contributor, Data steward, Data owner, and the
+administrators and operator); a custom role is made from scratch or copied from another. A role is
+granted to a person, a system or a group of people, for the whole instance or one workspace, and a
+workspace grant may narrow what may be changed to some applications or record types. A Reader
+reads a workspace and changes nothing; a Contributor changes records only in change sets and
+cannot publish. Anything a caller's roles do not allow is refused, naming the action, the action
+groups that would allow it and the workspace; lists of workspaces, jobs and subscriptions show only
+what the caller holds a role for. A change to a role or grant applies on the caller's next request.
+The engine never lets the last security administrator be removed. Settings › Account lists the
+person's roles, where each applies, what it narrows and the group it comes through; the account
+menu names the roles held in the workspace open.
+
+Limits: a grant's narrowing to record types is recorded but not yet enforced on writes (0.12 Z2);
+a job does not yet keep its requester's rights (Z2); any system with a consumer token reads every
+consumer API (Z3); the interface still offers what a person may not do and shows the refusal (Z5);
+people, groups, roles and grants are managed through the API until the Security pages (SP1).
+
+Evidence: [authorization contract](../API.md#authorization), [OPERATIONS](../OPERATIONS.md#roles-and-grants),
+[catalogue](../../backend/app/engine/authorization/catalogue.py), [route check](../../backend/app/management/access.py).

@@ -316,6 +316,7 @@ def _migrations() -> list[str | Path]:
     return [
         *sorted((APP / "migrations").rglob("*.py")),
         *sorted((APP / "engine" / "identity").glob("*.py")),
+        *sorted((APP / "engine" / "authorization").glob("*.py")),
         TESTS / "harness_identity.py",
     ]
 

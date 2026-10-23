@@ -23,7 +23,17 @@ refresh token once), sign-out, failed sign-ins slowed, the account menu and Sett
 through the API, the job stream and downloads through `fetch`, and the browser runners signing in as
 a test person ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i2-record-2026-10-23)). Its journeys, unit
 tests, three browser runners and the touched Vitest files passed; the full suites and the other
-browser runners wait for R. No role narrows anything until Z1; no sign-in provider until I3. Next: Z1.
+browser runners wait for R. **Z1, roles, groups and grants at the route, is delivered
+(2026-10-23)**, D277–D288 accepted: every operation declares its action and refuses with
+`403 FORBIDDEN` what the caller's roles do not allow; nine predefined roles and custom ones, local
+groups, grants at the instance or in a workspace, who can do what in a workspace, the caller's own
+permissions and grants; lists filtered; permissions follow a generation PostgreSQL raises on every
+change; the first administrator and the principals from before hold the setting-up roles; Account
+and the account menu show the person's roles
+([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z1-record-2026-10-23)). Its journeys, unit tests, the
+neighbouring journey groups, the sign-in runner and the touched Vitest files passed; the full suite
+runs with Z2, which fixes what it finds from Z1 (the user, 2026-10-23). Record-type narrowing is enforced from Z2; no sign-in provider until I3. Next:
+Z2.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 

@@ -1,7 +1,8 @@
 /**
  * The account popover at the right of both top bars (ADR-039, Track U U3, 0.12 I2): who is signed
- * in, their Account page, all settings, the theme, and signing out. Theme is the same per-browser
- * preference Settings › Appearance writes. The person's role joins it with Z1 (D273).
+ * in and the roles they hold in the workspace open now (Z1), their Account page, all settings, the
+ * theme, and signing out, each action a button (the user, 2026-10-23). Theme is the same per-browser
+ * preference Settings › Appearance writes.
  */
 
 import { signOut } from "@/api/session";
@@ -9,7 +10,7 @@ import { ControlPopover } from "@/ui/ControlPopover";
 import { Icon, type IconName } from "@/ui/Icon";
 import { RouteLink } from "@/ui/RouteLink";
 import { useThemePreference, type ThemePreference } from "@/lib/theme";
-import { initials, useMe } from "./useMe";
+import { initials, useMe, useRoleLine } from "./useMe";
 
 export const THEMES: { value: ThemePreference; label: string; icon: IconName }[] = [
   { value: "system", label: "System", icon: "monitor" },
@@ -18,11 +19,14 @@ export const THEMES: { value: ThemePreference; label: string; icon: IconName }[]
 ];
 
 export function AccountMenu({
+  workspaceKey,
   settingsHref,
   accountHref,
   onOpenSettings,
   onOpenAccount,
 }: {
+  /** The workspace open now, whose roles the menu names; the default one in Settings. */
+  workspaceKey?: string;
   settingsHref: string;
   accountHref: string;
   onOpenSettings: () => void;
@@ -30,6 +34,7 @@ export function AccountMenu({
 }) {
   const { theme, setTheme } = useThemePreference();
   const me = useMe();
+  const roleLine = useRoleLine(workspaceKey);
   const avatar = me ? (
     <span className="account-avatar account-initials" aria-hidden="true">
       {initials(me.name)}
@@ -58,10 +63,11 @@ export function AccountMenu({
               <div>
                 <strong>{me?.name ?? "Signed in"}</strong>
                 {me?.email && <small>{me.email}</small>}
+                {roleLine && <small className="account-role-line">{roleLine}</small>}
               </div>
             </div>
             <RouteLink
-              className="settings-all-link"
+              className="secondary account-menu-action"
               href={accountHref}
               onNavigate={() => {
                 close();
@@ -71,7 +77,7 @@ export function AccountMenu({
               <Icon name="user" size={15} /> Account
             </RouteLink>
             <RouteLink
-              className="settings-all-link"
+              className="secondary account-menu-action"
               href={settingsHref}
               onNavigate={() => {
                 close();
@@ -87,7 +93,7 @@ export function AccountMenu({
             <p className="settings-note">System follows your device. The choice is saved in this browser.</p>
           </fieldset>
           <div className="settings-section">
-            <button type="button" className="secondary account-sign-out" onClick={() => void signOut()}>
+            <button type="button" className="secondary account-menu-action" onClick={() => void signOut()}>
               Sign out
             </button>
           </div>

@@ -1777,8 +1777,10 @@ must be served as well as stewards (the user's ideas, 2026-10-22).
   proposing it.
 - **Lists are filtered to what the caller may browse; a named resource the caller may not use is
   refused** with `403 FORBIDDEN` naming the action, its groups and the workspace.
-- **Permissions are looked up per request** from a cache invalidated across processes through
-  `pg_notify` when a grant, role, membership or principal changes.
+- **Permissions are looked up per request** from a per-process cache kept by a generation number
+  that PostgreSQL triggers raise when a grant, role, group, membership or principal changes, read
+  in the request's authentication statement (Z1, D278, which replaced `pg_notify`: no cross-process
+  signal existed to reuse).
 - **Deployment flags stay** as defence in depth: a flag decides whether the installation exposes an
   operation, a role whether this caller may use it. The workspace administration flag stays on by
   default, now protected by a role.

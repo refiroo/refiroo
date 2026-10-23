@@ -13,6 +13,13 @@ from ...engine.model.placements import model_placements
 from ...engine.records.rules import get_application, get_object_type
 from ...errors import api_error
 from ...models.schema import ConsumerApiDocument
+from ..access import (
+    CONTEXT,
+    INSTANCE,
+    SIGNED_IN,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession, RequestModelSnapshot
 from ..paging import PageQuery
 from ..presenters import diagnostic_response
@@ -44,10 +51,11 @@ from ..schemas.model import (
     WorkspaceAdminCapabilities,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["model"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["model"])
 
 
 @router.get("/capabilities", response_model=CapabilitiesResponse)
+@requires("signed-in", at=SIGNED_IN)
 def get_capabilities(request: Request) -> CapabilitiesResponse:
     mutations_enabled = bool(request.app.state.model_admin_mutations_enabled)
     jobs_enabled = bool(request.app.state.integration_jobs_enabled)
@@ -123,6 +131,7 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
         }
     },
 )
+@requires("model.read", at=CONTEXT)
 def get_model(response: Response, snapshot: RequestModelSnapshot) -> dict[str, Any]:
     """The model of the workspace named by ``workspaceKey`` (the default workspace without it), or
     of the change set or publication named (0.11 M1, D6)."""
@@ -133,6 +142,7 @@ def get_model(response: Response, snapshot: RequestModelSnapshot) -> dict[str, A
 
 
 @router.get("/model/placements", response_model=ModelPlacements)
+@requires("model.read", at=CONTEXT)
 def get_model_placements(response: Response, snapshot: RequestModelSnapshot) -> ModelPlacements:
     """Where the context's model lets records stand, per application (Base 0.8 C4): the types at the
     top level and, per type as a parent, the types it contains and the types a record can become
@@ -155,6 +165,7 @@ def get_model_placements(response: Response, snapshot: RequestModelSnapshot) -> 
         }
     },
 )
+@requires("model.read", at=CONTEXT)
 def get_consumer_api_definition(consumerApi: str, snapshot: RequestModelSnapshot) -> Response:
     """A consumer API definition of the context's model written out in schema 0.9 with every
     default (Base 0.9 C18, C-D137): its public names, operations, generated events, every
@@ -178,6 +189,7 @@ def get_consumer_api_definition(consumerApi: str, snapshot: RequestModelSnapshot
     response_model=ModelValidationResponse,
     response_model_exclude_none=True,
 )
+@requires("model.author", at=INSTANCE)
 def validate_model(payload: ModelDocumentRequest) -> ModelValidationResponse:
     compiled = compile_authored_model(payload.model)
     return ModelValidationResponse(
@@ -187,6 +199,7 @@ def validate_model(payload: ModelDocumentRequest) -> ModelValidationResponse:
 
 
 @router.get("/applications", response_model=MetadataPage[ApplicationResponse])
+@requires("model.read", at=CONTEXT)
 def get_applications(
     session: DbSession,
     snapshot: RequestModelSnapshot,
@@ -208,6 +221,7 @@ def get_applications(
 
 
 @router.get("/applications/{application_key}", response_model=ApplicationResponse)
+@requires("model.read", at=CONTEXT)
 def get_application_detail(
     application_key: str, session: DbSession, snapshot: RequestModelSnapshot
 ) -> ApplicationResponse:
@@ -216,6 +230,7 @@ def get_application_detail(
 
 
 @router.get("/attribute-types", response_model=MetadataPage[AttributeTypeResponse])
+@requires("model.read", at=CONTEXT)
 def list_attribute_types(
     session: DbSession,
     snapshot: RequestModelSnapshot,
@@ -237,6 +252,7 @@ def list_attribute_types(
 
 
 @router.get("/attribute-types/{attribute_type_key}", response_model=AttributeTypeResponse)
+@requires("model.read", at=CONTEXT)
 def get_attribute_type(
     attribute_type_key: str, session: DbSession, snapshot: RequestModelSnapshot
 ) -> AttributeTypeResponse:
@@ -249,6 +265,7 @@ def get_attribute_type(
 
 
 @router.get("/object-types", response_model=MetadataPage[ObjectTypeResponse])
+@requires("model.read", at=CONTEXT)
 def list_object_types(
     session: DbSession,
     snapshot: RequestModelSnapshot,
@@ -270,6 +287,7 @@ def list_object_types(
 
 
 @router.get("/object-types/{object_type_key}", response_model=ObjectTypeResponse)
+@requires("model.read", at=CONTEXT)
 def get_object_type_detail(
     object_type_key: str, session: DbSession, snapshot: RequestModelSnapshot
 ) -> ObjectTypeResponse:
@@ -278,6 +296,7 @@ def get_object_type_detail(
 
 
 @router.get("/relation-types", response_model=MetadataPage[RelationTypeResponse])
+@requires("model.read", at=CONTEXT)
 def list_relation_types(
     session: DbSession,
     snapshot: RequestModelSnapshot,
@@ -299,6 +318,7 @@ def list_relation_types(
 
 
 @router.get("/relation-types/{relation_type_key}", response_model=RelationTypeResponse)
+@requires("model.read", at=CONTEXT)
 def get_relation_type(
     relation_type_key: str, session: DbSession, snapshot: RequestModelSnapshot
 ) -> RelationTypeResponse:
@@ -311,6 +331,7 @@ def get_relation_type(
 
 
 @router.get("/object-type-relations", response_model=MetadataPage[ObjectTypeRelationResponse])
+@requires("model.read", at=CONTEXT)
 def get_object_type_relations(
     session: DbSession,
     snapshot: RequestModelSnapshot,

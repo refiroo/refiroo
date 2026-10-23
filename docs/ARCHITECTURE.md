@@ -967,14 +967,22 @@ A request's path through the checks:
    in one statement, then its ES256 signature, expiry, issuer and audience are checked and the
    principal must be active. A person's token carries its session (`sid`, I2), read in the same
    statement: an ended or lapsed session refuses it. Public keys are cached per process; whether a key
-   is retired is read on every request, so "rotate now" applies at once everywhere. Until Z1 an
-   authenticated principal passes every route.
-2. **The principal's permissions**, from a per-process cache keyed by principal and invalidated
-   through `pg_notify`: whether the principal is active and its session open, and the action groups
-   it holds per workspace with their write narrowing.
-3. **The route check**: the action the route declares (for record writes, the live or change-set
-   action the request's `changeSetId` picks) in the workspace the request resolves (path, query or
-   the resource's own workspace). Refused with `403 FORBIDDEN` before anything is read.
+   is retired is read on every request, so "rotate now" applies at once everywhere. The same
+   statement reads the authorization generation (Z1, D278).
+2. **The principal's permissions** (`engine/authorization/permissions.py`): its grants, direct and
+   through its groups, read in one statement and kept per process by database, principal and
+   generation. PostgreSQL triggers raise the generation whenever a grant, role, a role's groups, a
+   group, a membership or a principal's `active` changes, so every process reads them again on the
+   next request; no listener, and a change made by SQL counts too.
+3. **The route check** (`management/access.py`): every operation declares `requires(action,
+   at=…)`; the declaration names where the workspace comes from (the path, the query's context, a
+   change set, publication, record, relation, job or subscription the request names, the body, the
+   instance, any scope). One dependency of every management router resolves it with the engine's
+   lookups (an unknown resource answers its own `404`), checks the action's groups (for record
+   writes, the live or change-set group the request's `changeSetId` picks) and refuses with `403
+   FORBIDDEN` before the handler runs. The declaration is published per operation in the OpenAPI
+   document (`x-action`), and the contract test refuses an operation without one. Lists filter with
+   the same permissions as conditions on their own statement (`engine/authorization/visibility.py`).
 4. **The write-unit check**: the record types the work writes, gathered as one set over its distinct
    types, against the grant's narrowing. Batches, imports, moves, publications, type changes and job
    steps all pass here; a job checks its requester.

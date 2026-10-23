@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query, Request, status
 from sqlalchemy import select
 
 from ...common.pagination import paginate_statement, text_key
+from ...engine.authorization.visibility import in_workspaces
 from ...engine.model.workspace_models import assignments_of, load_assignment
 from ...engine.reads.feed import read_feed
 from ...engine.workspaces.catalogue import (
@@ -17,6 +18,14 @@ from ...engine.workspaces.catalogue import (
 )
 from ...models.commands import WorkspaceCreate, WorkspaceUpdate
 from ...models.database import ModelRelease, Workspace, WorkspaceModel
+from ..access import (
+    INSTANCE,
+    SIGNED_IN,
+    WORKSPACE_PATH,
+    AuthorizedRoute,
+    CurrentPermissions,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import (
@@ -36,20 +45,25 @@ from ..schemas.workspaces import (
     WorkspaceRuntimeStateUpdate,
 )
 
-read_router = APIRouter(prefix="/api/v1", tags=["workspaces"])
+read_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["workspaces"])
 # Workspace catalogue administration, registered only with WORKSPACE_ADMIN_MUTATIONS_ENABLED.
-admin_router = APIRouter(prefix="/api/v1", tags=["workspaces"])
+admin_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["workspaces"])
 
 
 @read_router.get("/workspaces", response_model=WorkspacePage)
+@requires("workspaces.list", at=SIGNED_IN)
 def list_workspaces(
     session: DbSession,
+    permissions: CurrentPermissions,
     paging: PageQuery,
     search: str | None = None,
     workspace_status: Literal["active", "retired", "all"] = Query(default="active", alias="status"),
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> WorkspacePage:
     statement, filters = build_workspace_query(search, workspace_status)
+    visible = in_workspaces(Workspace.key, permissions, None)
+    if visible is not None:
+        statement = statement.where(visible)
     page = paginate_statement(
         session,
         statement,
@@ -66,19 +80,23 @@ def list_workspaces(
 
 
 @read_router.get("/workspaces/{workspace_key}", response_model=WorkspaceDetailResponse)
+@requires("workspace.read", at=WORKSPACE_PATH)
 def get_workspace(workspace_key: str, session: DbSession) -> WorkspaceDetailResponse:
     return workspace_detail_response(session, load_workspace(session, workspace_key))
 
 
 @read_router.get("/workspaces/{workspace_key}/model", response_model=WorkspaceAssignmentResponse)
+@requires("model.read", at=WORKSPACE_PATH)
 def get_workspace_model(workspace_key: str, session: DbSession) -> WorkspaceAssignmentResponse:
     """The release the workspace runs and its assignment's version (0.11 M1, ADR-042)."""
     return workspace_assignment_response(load_assignment(session, workspace_key))
 
 
 @read_router.get("/workspace-models", response_model=WorkspaceAssignmentPage)
+@requires("workspaces.list", at=SIGNED_IN)
 def list_workspace_models(
     session: DbSession,
+    permissions: CurrentPermissions,
     paging: PageQuery,
     release_key: str | None = Query(default=None, alias="releaseKey"),
     release_id: str | None = Query(default=None, alias="releaseId"),
@@ -93,6 +111,9 @@ def list_workspace_models(
         statement = statement.where(ModelRelease.release_key == release_key)
     if release_id is not None:
         statement = statement.where(ModelRelease.public_id == release_id)
+    visible = in_workspaces(WorkspaceModel.workspace_key, permissions, None)
+    if visible is not None:
+        statement = statement.where(visible)
     page = paginate_statement(
         session,
         statement,
@@ -121,6 +142,7 @@ _FEED_OBJECT_TYPE_KEY = Query(
 
 
 @read_router.get("/workspaces/{workspace_key}/feed", response_model=FeedPage)
+@requires("feed.read", at=WORKSPACE_PATH)
 def get_feed(
     workspace_key: str,
     session: DbSession,
@@ -149,6 +171,7 @@ def get_feed(
 
 
 @read_router.get("/workspace-runtime-state", response_model=WorkspaceRuntimeStateResponse)
+@requires("signed-in", at=SIGNED_IN)
 def get_workspace_runtime_state(session: DbSession) -> WorkspaceRuntimeStateResponse:
     return runtime_state_response(load_workspace_runtime_state(session))
 
@@ -156,11 +179,13 @@ def get_workspace_runtime_state(session: DbSession) -> WorkspaceRuntimeStateResp
 @admin_router.post(
     "/workspaces", response_model=WorkspaceDetailResponse, status_code=status.HTTP_201_CREATED
 )
+@requires("workspaces.manage", at=INSTANCE)
 def post_workspace(payload: WorkspaceCreate, session: DbSession) -> WorkspaceDetailResponse:
     return workspace_detail_response(session, create_workspace(session, payload))
 
 
 @admin_router.patch("/workspaces/{workspace_key}", response_model=WorkspaceDetailResponse)
+@requires("workspaces.manage", at=INSTANCE)
 def patch_workspace(
     workspace_key: str, payload: WorkspaceUpdate, session: DbSession
 ) -> WorkspaceDetailResponse:
@@ -168,6 +193,7 @@ def patch_workspace(
 
 
 @admin_router.delete("/workspaces/{workspace_key}", status_code=status.HTTP_204_NO_CONTENT)
+@requires("workspaces.manage", at=INSTANCE)
 def delete_workspace_route(
     workspace_key: str,
     session: DbSession,
@@ -177,6 +203,7 @@ def delete_workspace_route(
 
 
 @admin_router.patch("/workspace-runtime-state", response_model=WorkspaceRuntimeStateResponse)
+@requires("workspaces.manage", at=INSTANCE)
 def patch_workspace_runtime_state(
     payload: WorkspaceRuntimeStateUpdate, session: DbSession
 ) -> WorkspaceRuntimeStateResponse:

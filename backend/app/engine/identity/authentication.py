@@ -15,7 +15,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
-from ...models.database import OAuthClient, TokenSigningKey, User, UserSession
+from ...models.database import (
+    AuthorizationState,
+    OAuthClient,
+    TokenSigningKey,
+    User,
+    UserSession,
+)
 from . import keys, tokens
 from .settings import IdentitySettings
 from .tokens import Audience, PrincipalKind, Reason, TokenRefused
@@ -43,6 +49,10 @@ class Principal:
     # A person's session and how they signed in to it (I2); ``None`` for a client.
     session_id: str | None = None
     signed_in_with: str | None = None
+    # The principal's row and the authorization generation read with it, for the permission
+    # lookup (Z1, D278); never shown.
+    row_id: int = 0
+    generation: int = 0
 
 
 def required() -> ApiError:
@@ -92,8 +102,9 @@ def authenticate(
     try:
         claimed = tokens.read_unverified(token)
         model = User if claimed.kind == "user" else OAuthClient
+        generation = select(AuthorizationState.generation).where(AuthorizationState.id == 1)
         statement = (
-            select(TokenSigningKey, model)
+            select(TokenSigningKey, model, generation.scalar_subquery())
             .select_from(TokenSigningKey)
             .outerjoin(model, model.public_id == claimed.subject)
             .where(TokenSigningKey.kid == claimed.kid)
@@ -110,7 +121,7 @@ def authenticate(
         tokens.verify(token, keys.public_key(key.kid, key.public_jwk), settings, audience)
         if principal is None or not principal.active:
             raise TokenRefused("revoked")
-        user_session = row[2] if claimed.kind == "user" and row is not None else None
+        user_session = row[3] if claimed.kind == "user" and row is not None else None
         if claimed.kind == "user" and (
             user_session is None or user_session.ended_at is not None or now >= user_session.ends_at
         ):
@@ -128,7 +139,16 @@ def authenticate(
             principal.last_sign_in_at,
             user_session.public_id,
             user_session.signed_in_with,
+            principal.id,
+            row[2],
         )
     return Principal(
-        "client", principal.public_id, principal.name, None, None, principal.last_used_at
+        "client",
+        principal.public_id,
+        principal.name,
+        None,
+        None,
+        principal.last_used_at,
+        row_id=principal.id,
+        generation=row[2],
     )

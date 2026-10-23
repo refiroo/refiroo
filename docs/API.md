@@ -5719,8 +5719,11 @@ rotation; `GET /system/configuration`; `SECRETS_ENCRYPTION_KEY`. **Delivered by 
 sign-in page and its form, the `authorization_code` and `refresh_token` grants, `/oauth/revoke`,
 sessions and the `sid` check, `/me/sessions`, `/me/password`, `signedInWith` and `sessionId` on `/me`,
 `/users/{id}/password-reset` and `/users/{id}/sessions`, the reset link's page, and failed sign-ins
-slowed. Until Z1 every active principal may use every route. The rest is designed; each part moves into "delivered" with its package (I2, I3, Z1–Z5, SP1, SP2, K1, C1,
-A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
+slowed. **Delivered by Z1 (2026-10-23):** every operation's declared action and the `403` refusal;
+roles, groups and members, grants, a workspace's access, `/action-groups`, `/me/permissions` and
+`/me/grants`; the lists filtered. A grant's narrowing is stored and checked against the workspace's
+model; it is enforced at the write unit by Z2. The rest is designed; each part moves into
+"delivered" with its package (I3, Z2–Z5, SP1, SP2, K1, C1, A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
 ### Authentication
@@ -5815,10 +5818,15 @@ sign-in page says how long to wait. Passwords and client secrets are hashed with
   `username` and `email` (a person; `null` for a client), `lastSignInAt` (a person's last sign-in, or
   when a client last obtained a token), `signedInWith` (`password`, or a provider's key with I3) and
   `sessionId` (a person's session; `null` for a client).
-- `GET /api/v1/me/permissions?workspaceKey=`: the action groups the caller holds in that workspace
-  (the default workspace when absent) and at the instance, each with its narrowing
-  (`applications`, `recordTypes` for writes) and where it comes from (`direct`, a group, the
-  instance). The browser follows it (Z5).
+- `GET /api/v1/me/permissions?workspaceKey=` (delivered, Z1): the workspace (`workspaceKey`,
+  `workspaceLabel`; the default workspace when absent), the `roles` that apply there, and the
+  `actionGroups` the caller holds there, from grants in it or at the instance: each with its
+  narrowing (`applications`, `recordTypes` for writes; empty when any grant holds it unnarrowed)
+  and its `sources` (`grantId`, `role`, `scope` `workspace` or `instance`, and the `group` it comes
+  through, or null). The account menu names the roles; the browser follows the groups in Z5.
+- `GET /api/v1/me/grants` (cursor-paged; delivered, Z1, D284): the caller's grants, direct and,
+  for a person, those of their groups (whose `principal` is then the group), shaped as
+  `GET /grants` answers them. Settings › Account lists them.
 - `GET /api/v1/me/sessions` (cursor-paged; delivered, I2): the person's open sessions, each with
   `id`, `current` (this request's), `signedInWith`, `userAgent`, `createdAt`, `lastUsedAt`, `endsAt`.
   `DELETE /api/v1/me/sessions/{sessionId}` (`204`; another person's or an ended one is
@@ -5837,8 +5845,10 @@ A **principal** is a user, a group or a client. A **grant** gives a principal a 
 **scope**; a role is a set of **action groups**; every route declares the **action** it performs and
 the groups that allow it (ADR-044). A request is checked once at the route, for the action and the
 workspace, and again at the write unit for the record types it writes (Z2). Permissions are looked
-up on the server per request, from a cache invalidated across processes through `pg_notify` when a
-grant, role, membership or principal changes (D226).
+up on the server per request, from a per-process cache kept by a generation number that PostgreSQL
+raises whenever a grant, role, group, membership or principal's `active` changes; the
+authentication statement reads it, so a change applies on the next request in every process (D226,
+D278).
 
 | Action group | Key | Allows | Granted at |
 | --- | --- | --- | --- |
@@ -5889,7 +5899,7 @@ Rules the catalogue applies:
 | Reader | `reader` | `browse` |
 | Contributor | `contributor` | `browse`, `change-sets` |
 | Data steward | `steward` | `browse`, `edit-live`, `change-sets`, `publish`, `bulk` |
-| Data owner | `owner` | the steward's, `approve` with `own`, `feed`, `copy-move` |
+| Data owner | `owner` | the steward's, `feed`, `copy-move` (`approve` with `own` joins with A1, D280) |
 | Model administrator | `model-admin` | `model-authoring`, `model-release` |
 | Workspace administrator | `workspace-admin` | `workspace-admin` |
 | Integration administrator | `integration-admin` | `integration-admin`, `feed` |
@@ -5933,11 +5943,23 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
 - **Groups:** `GET|POST /groups`, `GET|PATCH|DELETE /groups/{id}`, `GET|POST /groups/{id}/members`,
   `DELETE /groups/{id}/members/{userId}`. A provider group (`source: {provider, name}`) is created on
   first sight at a sign-in and its membership is the provider's; only its grants change here (D229).
-- **Action groups:** `GET /action-groups`: the catalogue, each group with its actions and the routes
-  declaring them.
+  _Delivered by Z1 (local groups):_ a group reads `id`, `name` (unique ignoring case,
+  `409 GROUP_NAME_TAKEN`), `description`, `members` (a count), `version`, `createdAt`, `updatedAt`;
+  `PATCH` takes `expectedVersion`; a member reads `id`, `username`, `name`, `active`; adding one
+  already in the group changes nothing; deleting a group removes its memberships and grants. Missing
+  ones are `404 GROUP_NOT_FOUND` and `404 GROUP_MEMBER_NOT_FOUND`.
+- **Action groups:** `GET /action-groups` (delivered, Z1): the catalogue, each group with `key`,
+  `name`, `description`, `grantableAt` (`workspace` or `instance`), `narrowable`, and its `actions`,
+  each with the `operations` (method and path) declaring it.
 - **Roles:** `GET /roles`, `POST /roles` `{name, actionGroups, copiedFrom?}`,
   `GET|PATCH|DELETE /roles/{key}`; a predefined role refuses changes with
   `409 ROLE_PREDEFINED`, a role still granted refuses deletion with `409 ROLE_IN_USE`.
+  _Delivered by Z1:_ a role reads `key`, `name`, `description`, `predefined`, `actionGroups` (in
+  the catalogue's order), `grants` (how many give it), `version`, `createdAt`, `updatedAt`. A custom
+  role's key comes from its name; names are unique ignoring case (`409 ROLE_NAME_TAKEN`);
+  `actionGroups` left out with `copiedFrom` copies that role's groups, both left out make an empty
+  role; an unknown group is `422 ACTION_GROUP_UNKNOWN`, an unknown role `404 ROLE_NOT_FOUND`.
+  Changing a role's groups applies to its holders on their next request.
 - **Grants:** `GET /grants` (`principalId`, `workspaceKey`, `roleKey`), `POST /grants`,
   `DELETE /grants/{id}`:
 
@@ -5953,8 +5975,20 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   `role` and a workspace (Z3). A grant naming an application or record type the workspace's model no
   longer has is listed with `stale: true`, never widened (Z2). Removing the last active holder of
   `security-admin` at the instance is refused with `409 LAST_SECURITY_ADMINISTRATOR`.
+  _Delivered by Z1:_ a grant reads `id`, `principal` (`kind`, `id`, `name`), `role` (`key`,
+  `name`), `scope` (`instance`, `workspaceKey`, `applications`, `recordTypes`, and
+  `applicationNames`, `recordTypeNames` from the workspace's model) and `createdAt`; grants are made
+  and removed, never changed. A scope that is both or neither the instance and a workspace, or an
+  instance grant that narrows, is `422 GRANT_SCOPE_INVALID`; a narrowing naming what the workspace's
+  model lacks is `422 GRANT_SCOPE_UNKNOWN` (D281); the narrowing is enforced at the write unit by
+  Z2. "The last Security administrator" counts active people holding `security-admin` at the
+  instance, directly or through a group; clients do not count, and the rule also refuses
+  deactivating that person, taking them out of the group, deleting the group or taking the group
+  out of a custom role (D283). A missing grant is `404 GRANT_NOT_FOUND`.
 - **Who can do what here:** `GET /workspaces/{workspaceKey}/access`: every grant that applies in the
-  workspace, direct, through a group or from the instance; readable with `security-admin`.
+  workspace, direct, through a group or from the instance; readable with `security-admin`
+  (delivered, Z1: the grants made in the workspace or at the instance, a group's named as the
+  group).
 - **Clients:** `GET|POST /clients` (`POST` answers the secret once), `GET|PATCH /clients/{id}`
   (`active: false` deactivates), `POST /clients/{id}/secrets` `{overlapHours}` (a new secret, shown
   once; the previous one valid for the overlap), `DELETE /clients/{id}/secrets/{secretId}`;
@@ -6013,174 +6047,29 @@ Change-set publication only (D232, ADR-045):
 
 ### The catalogue
 
-Every management operation with the group that allows it, from an app built with all four
-capability flags on at `5622b67` (157 operations under `/api/v1` and `/metrics`, plus the two health
-routes). `signed-in` needs any valid token; `(filtered)` lists only what the caller may browse;
-`edit-live / change-sets` is decided by `changeSetId` (D244). Z1 moves this table into the route
-declarations (D256).
+_Delivered by Z1 (D256)._ Each operation declares its action in the OpenAPI document, so the
+catalogue lives with the routes and `/docs` shows it: `x-action` (the action), `x-action-groups`
+(the groups that allow it) and `x-action-scope` (where its workspace comes from).
+`GET /api/v1/action-groups` lists every group with its actions and the operations declaring them.
+The contract test refuses an operation without a declaration, an action the catalogue lacks, and
+a declared workspace a route cannot name.
 
-| Method | Path | Group |
-| --- | --- | --- |
-| GET | `/health` | public |
-| GET | `/health/live` | public |
-| GET | `/api/v1/capabilities` | signed-in |
-| GET | `/api/v1/model` | browse |
-| GET | `/api/v1/model/placements` | browse |
-| GET | `/api/v1/model/consumer-apis/{consumerApi}` | browse |
-| POST | `/api/v1/model-validations` | model-authoring |
-| GET | `/api/v1/applications` | browse |
-| GET | `/api/v1/applications/{application_key}` | browse |
-| GET | `/api/v1/attribute-types` | browse |
-| GET | `/api/v1/attribute-types/{attribute_type_key}` | browse |
-| GET | `/api/v1/object-types` | browse |
-| GET | `/api/v1/object-types/{object_type_key}` | browse |
-| GET | `/api/v1/relation-types` | browse |
-| GET | `/api/v1/relation-types/{relation_type_key}` | browse |
-| GET | `/api/v1/object-type-relations` | browse |
-| GET | `/api/v1/system` | signed-in |
-| GET | `/api/v1/system/processes` | operations |
-| GET | `/api/v1/system/readiness` | operations |
-| GET | `/api/v1/system/summary` | operations |
-| GET | `/api/v1/system/backup-rehearsals` | operations |
-| GET | `/metrics` | operations |
-| GET | `/api/v1/model-releases` | model-authoring, model-release |
-| GET | `/api/v1/model-releases/{release_id}` | model-authoring, model-release |
-| GET | `/api/v1/model-releases/{release_id}/activations` | model-authoring, model-release |
-| GET | `/api/v1/model-releases/{release_id}/diff` | model-authoring, model-release |
-| GET | `/api/v1/workspaces` | signed-in (filtered) |
-| POST | `/api/v1/workspaces` | workspace-admin |
-| GET | `/api/v1/workspaces/{workspace_key}` | browse |
-| PATCH | `/api/v1/workspaces/{workspace_key}` | workspace-admin |
-| DELETE | `/api/v1/workspaces/{workspace_key}` | workspace-admin |
-| GET | `/api/v1/workspaces/{workspace_key}/model` | browse |
-| GET | `/api/v1/workspace-models` | signed-in (filtered) |
-| GET | `/api/v1/workspaces/{workspace_key}/feed` | feed |
-| GET | `/api/v1/workspace-runtime-state` | signed-in (filtered) |
-| PATCH | `/api/v1/workspace-runtime-state` | workspace-admin |
-| GET | `/api/v1/workspaces/{workspace_key}/change-sets` | browse |
-| POST | `/api/v1/workspaces/{workspace_key}/change-sets` | change-sets |
-| GET | `/api/v1/change-sets/{change_set_id}` | browse |
-| PATCH | `/api/v1/change-sets/{change_set_id}` | change-sets |
-| DELETE | `/api/v1/change-sets/{change_set_id}` | change-sets |
-| PATCH | `/api/v1/change-sets/{change_set_id}/model-release` | change-sets |
-| GET | `/api/v1/change-sets/{change_set_id}/object-changes` | browse |
-| GET | `/api/v1/change-sets/{change_set_id}/relation-changes` | browse |
-| POST | `/api/v1/change-sets/{change_set_id}/restructurings/preview` | change-sets |
-| POST | `/api/v1/change-sets/{change_set_id}/restructurings` | change-sets |
-| POST | `/api/v1/change-sets/{change_set_id}/validation` | change-sets |
-| POST | `/api/v1/change-sets/{change_set_id}/publication` | publish |
-| GET | `/api/v1/workspaces/{workspace_key}/publications` | browse |
-| GET | `/api/v1/publications/{publication_id}` | browse |
-| POST | `/api/v1/publications/{publication_id}/withdrawal` | publish |
-| POST | `/api/v1/workspaces/{workspace_key}/model/activation` | model-release |
-| GET | `/api/v1/model-drafts` | model-authoring |
-| POST | `/api/v1/model-drafts` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}` | model-authoring |
-| PATCH | `/api/v1/model-drafts/{draft_id}` | model-authoring |
-| DELETE | `/api/v1/model-drafts/{draft_id}` | model-authoring |
-| POST | `/api/v1/model-drafts/{draft_id}/operations` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/operations` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/outline` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/model` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json` | model-authoring |
-| POST | `/api/v1/model-drafts/{draft_id}/undo` | model-authoring |
-| POST | `/api/v1/model-drafts/{draft_id}/redo` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/profile` | model-authoring |
-| POST | `/api/v1/model-drafts/{draft_id}/compile` | model-authoring |
-| POST | `/api/v1/model-drafts/{draft_id}/installation` | model-release |
-| POST | `/api/v1/objects` | edit-live / change-sets |
-| GET | `/api/v1/objects` | browse |
-| PATCH | `/api/v1/objects/{object_type_key}/{object_id}` | edit-live / change-sets |
-| DELETE | `/api/v1/objects/{object_type_key}/{object_id}` | edit-live / change-sets |
-| GET | `/api/v1/objects/{object_type_key}/{object_id}` | browse |
-| GET | `/api/v1/objects/{object_type_key}` | browse |
-| GET | `/api/v1/objects/{object_type_key}/{object_id}/parent-candidates` | browse |
-| GET | `/api/v1/objects/{object_type_key}/{object_id}/history` | browse |
-| POST | `/api/v1/workspaces/{workspace_key}/queries/objects` | browse |
-| GET | `/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}` | browse |
-| POST | `/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}` | edit-live / change-sets |
-| PATCH | `/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}` | edit-live / change-sets |
-| DELETE | `/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}` | edit-live / change-sets |
-| POST | `/api/v1/relations` | edit-live / change-sets |
-| GET | `/api/v1/relations` | browse |
-| GET | `/api/v1/relations/held` | browse |
-| GET | `/api/v1/relations/{relation_id}` | browse |
-| PATCH | `/api/v1/relations/{relation_id}` | edit-live / change-sets |
-| DELETE | `/api/v1/relations/{relation_id}` | edit-live / change-sets |
-| GET | `/api/v1/workspaces/{workspace_key}/mapping-coverage` | browse |
-| GET | `/api/v1/workspaces/{workspace_key}/relations` | browse |
-| GET | `/api/v1/workspaces/{workspace_key}/mapping-candidates` | browse |
-| GET | `/api/v1/workspaces/{workspace_key}/mapping-targets` | browse |
-| PUT | `/api/v1/workspaces/{workspace_key}/mappings` | edit-live / change-sets |
-| GET | `/api/v1/workspaces/{workspace_key}/relation-matrix` | browse |
-| GET | `/api/v1/workspaces/{workspace_key}/relation-matrix/containers` | browse |
-| GET | `/api/v1/workspaces/{workspace_key}/relation-matrix/link-candidates` | browse |
-| GET | `/api/v1/jobs` | job (requester or kind's group) |
-| GET | `/api/v1/jobs/{job_id}` | job (requester or kind's group) |
-| GET | `/api/v1/jobs/{job_id}/items` | job (requester or kind's group) |
-| GET | `/api/v1/jobs/{job_id}/rows` | job (requester or kind's group) |
-| GET | `/api/v1/jobs/{job_id}/output` | job (requester or kind's group) |
-| GET | `/api/v1/jobs/{job_id}/events` | job (requester or kind's group) |
-| GET | `/api/v1/import-profiles` | bulk |
-| POST | `/api/v1/import-profiles` | bulk |
-| GET | `/api/v1/import-profiles/{profile_key}` | bulk |
-| PUT | `/api/v1/import-profiles/{profile_key}` | bulk |
-| DELETE | `/api/v1/import-profiles/{profile_key}` | bulk |
-| GET | `/api/v1/import-profiles/{profile_key}/check` | bulk |
-| POST | `/api/v1/import-profiles/{profile_key}/check` | bulk |
-| GET | `/api/v1/import-profiles/{profile_key}/check/new-values` | bulk |
-| GET | `/api/v1/import-profiles/{profile_key}/check/drift` | bulk |
-| GET | `/api/v1/import-profiles/{profile_key}/check/missing-records` | bulk |
-| GET | `/api/v1/import-profiles/{profile_key}/check/rows` | bulk |
-| GET | `/api/v1/source-files` | bulk |
-| POST | `/api/v1/source-files` | bulk |
-| GET | `/api/v1/source-files/{source_file_id}` | bulk |
-| DELETE | `/api/v1/source-files/{source_file_id}` | bulk |
-| GET | `/api/v1/source-files/{source_file_id}/profile/sheets` | bulk |
-| GET | `/api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/columns` | bulk |
-| GET | `/api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/cells` | bulk |
-| GET | `/api/v1/model-mappings` | copy-move |
-| POST | `/api/v1/model-mappings` | copy-move |
-| GET | `/api/v1/model-mappings/{key}` | copy-move |
-| DELETE | `/api/v1/model-mappings/{key}` | copy-move |
-| GET | `/api/v1/model-mappings/{key}/operations` | copy-move |
-| POST | `/api/v1/model-mappings/{key}/operations` | copy-move |
-| GET | `/api/v1/model-mappings/{key}/inference` | copy-move |
-| POST | `/api/v1/model-mappings/{key}/inference` | copy-move |
-| GET | `/api/v1/model-mappings/{key}/inference/proposals` | copy-move |
-| POST | `/api/v1/batches` | bulk |
-| POST | `/api/v1/jobs/{job_id}/cancel` | job (requester or kind's group) |
-| POST | `/api/v1/jobs/{job_id}/confirm` | job (requester or kind's group) |
-| POST | `/api/v1/exports` | browse |
-| POST | `/api/v1/imports` | bulk |
-| POST | `/api/v1/model-mappings/{key}/undo` | copy-move |
-| POST | `/api/v1/model-mappings/{key}/redo` | copy-move |
-| POST | `/api/v1/model-mappings/{key}/inference/application` | copy-move |
-| POST | `/api/v1/change-sets/{change_set_id}/model-migrations` | change-sets |
-| POST | `/api/v1/model-drafts/{draft_id}/dry-run` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/dry-run` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/dry-run/rows` | model-authoring |
-| POST | `/api/v1/model-drafts/{draft_id}/inference` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/inference` | model-authoring |
-| GET | `/api/v1/model-drafts/{draft_id}/inference/proposals` | model-authoring |
-| POST | `/api/v1/model-drafts/{draft_id}/inference/application` | model-authoring |
-| POST | `/api/v1/model-drafts/{draft_id}/inference/list` | model-authoring |
-| POST | `/api/v1/moves` | copy-move |
-| POST | `/api/v1/workspaces/{workspace_key}/model/migrations` | model-release |
-| POST | `/api/v1/consumer-subscriptions` | integration-admin |
-| GET | `/api/v1/consumer-subscriptions` | integration-admin |
-| GET | `/api/v1/consumer-subscriptions/{subscription_id}` | integration-admin |
-| PATCH | `/api/v1/consumer-subscriptions/{subscription_id}` | integration-admin |
-| DELETE | `/api/v1/consumer-subscriptions/{subscription_id}` | integration-admin |
-| POST | `/api/v1/consumer-subscriptions/{subscription_id}/suspend` | integration-admin |
-| POST | `/api/v1/consumer-subscriptions/{subscription_id}/resume` | integration-admin |
-| GET | `/api/v1/consumer-subscriptions/{subscription_id}/deliveries` | integration-admin |
-| GET | `/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}` | integration-admin |
-| POST | `/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}/resend` | integration-admin |
+Where an operation's workspace comes from (`x-action-scope`):
 
-The consumer routes (`/api/consumer`) need a token with audience `consumer` and a grant of that
-consumer API in the workspace; the index lists only granted APIs. `/docs`, its script and
-`/openapi.json` need none.
+| Scope | The workspace checked |
+| --- | --- |
+| `signed-in` | None: any valid token (the caller's own routes, capabilities, `GET /system`, the default workspace's key, the filtered lists) |
+| `instance` | The groups held at the instance (model authoring and installing, workspace and security administration, operations) |
+| `any scope` | The group held at the instance or in any workspace (import profiles, source files, model mappings, model releases' reads, the subscriptions list; D248, D287) |
+| `the path's workspace` | `{workspace_key}` |
+| `the query's change set, publication or workspace` | `changeSetId`'s or `publicationId`'s workspace, else each `workspaceKey`, else the default workspace |
+| `the change set's workspace`, `the publication's workspace`, `the subscription's workspace` | The one the path names; an unknown one answers its own `404` first |
+| `the job's workspace and kind` | The group that starts the job's kind in its workspace (D285) |
+| `the body's change set or workspace` | `changeSetId`'s workspace, else `workspaceKey`, else the default (batches, exports, a new subscription) |
+| `the import request's change set or workspace` | The same, read from the import form's `request` field |
+| `the change set, or the record's workspace` (and the relationship's, the body's, the from record's, the path's) | The ten shared record writes (D244): with `changeSetId`, `change-sets` in the change set's workspace; without, `edit-live` in the record's (the default workspace's for a record that does not exist, so the write answers its own not-found) |
+| `the query's context, or the record's workspace` (and the relationship's) | A read naming a record or relationship: the query's context when it names one, else the workspace holding it |
+| `the move's target and source workspaces` | `copy-move` in the target and `browse` in the source (D286) |
+
+The consumer routes (`/api/consumer`) need a token with audience `consumer`; until Z3 any such
+token reads every consumer API. `/docs`, its script and `/openapi.json` need none.

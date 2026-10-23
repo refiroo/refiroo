@@ -160,7 +160,9 @@ Every route needs an access token issued by the engine (0.12, ADR-043) except `/
 sign-in and password pages `/oauth/authorize` and `/oauth/password`). A request without one
 answers `401 AUTHENTICATION_REQUIRED`; a token that does not verify, has expired, is for the other API
 or belongs to a deactivated client or person answers `401 TOKEN_INVALID` with the reason. No setting
-turns this off (D235). Until roles arrive (Z1), every active client and person may use every route.
+turns this off (D235). What a caller may do is decided by its roles: a request its roles do not
+allow answers `403 FORBIDDEN`, naming the action, the action groups that would allow it and the
+workspace (see [Roles and grants](#roles-and-grants)).
 
 **The first administrator and the first client** are created on the server, in the configured
 environment:
@@ -168,15 +170,19 @@ environment:
 ```bash
 cd backend
 .venv/bin/python -m app.cli.create_admin --username ada --name "Ada Lovelace"
-.venv/bin/python -m app.cli.create_client --name "Deployment automation"
+.venv/bin/python -m app.cli.create_client --name "Deployment automation" --role workspace-admin --role model-admin
 ```
 
 `create_admin` reads the password from the terminal twice (`--password-stdin` reads one line from
 standard input): 15 to 128 characters, not the username, not one of the most common (D252). The
-administrator then signs in from the browser. `create_client` prints
-the client's `client_id` and `client_secret` once (`--json` for a script); keep the secret in the
-calling system's secret store. More clients and people are managed through `/api/v1/clients` and
-`/api/v1/users`.
+administrator then signs in from the browser. The first administrator holds, at the instance,
+Security administrator and every role needed to set the instance up: Data owner, Model
+administrator, Workspace administrator, Integration administrator and Operator (D282). Hand out
+narrower roles and remove these when others take over. `create_client` prints the client's
+`client_id` and `client_secret` once (`--json` for a script); keep the secret in the calling
+system's secret store. Each `--role` (a role's key) is granted to the client at the instance;
+without one it may do nothing until a Security administrator grants it a role. More clients and
+people are managed through `/api/v1/clients` and `/api/v1/users`.
 
 **A client obtains a token** with the client credentials grant and sends it as a bearer token:
 
@@ -204,6 +210,34 @@ keys and their state, never a private key.
 development, `PUBLIC_URL` and `CORS_ORIGINS`; then create the first client and administrator with the
 commands above. Local accounts have a password only; a sign-in provider (I3) brings the
 organisation's multi-factor sign-in (D225).
+
+### Roles and grants
+
+A **role** is a set of action groups (Browse, Edit live, Work in change sets, Publish, Bulk and
+import, Copy and move, Model authoring, Model release, Workspace administration, Integration
+administration, Feed, Operations, Security administration); `GET /api/v1/action-groups` lists them
+with the operations each allows. Nine roles are predefined and read-only (Reader, Contributor, Data
+steward, Data owner, Model administrator, Workspace administrator, Integration administrator,
+Operator, Security administrator); custom ones are made from scratch or copied
+(`/api/v1/roles`). A **grant** gives a role to a person, a client or a group of people
+(`/api/v1/groups`) at the instance, which covers every workspace, or in one workspace, optionally
+narrowing what may be changed to applications and record types (`/api/v1/grants`). Reading a
+workspace is never narrowed: data some readers must not see belongs in a workspace of its own.
+`GET /api/v1/workspaces/{key}/access` lists who can do what there. A change to a grant, role, group
+or membership applies on the next request on every process. Until the Security pages (SP1), these
+are API calls made with a Security administrator's token. The deployment flags still decide which
+operations exist at all; a role decides who may use them.
+
+**Upgrading to 0.12 Z1** grants every person and client that existed before it the first
+administrator's roles at the instance, so nothing that worked stops (D282); review them with
+`GET /api/v1/grants`.
+
+**Locked out:** the engine refuses to remove the last active person holding Security administration
+at the instance (`409 LAST_SECURITY_ADMINISTRATOR`). If every such person is lost anyway, run
+`python -m app.cli.create_admin` on the server: the new person holds Security administration again.
+
+**Monitoring** with `/metrics` needs a client holding the Operator role
+(`create_client --role operator`).
 
 ### Signing in from the browser
 
@@ -356,8 +390,9 @@ Worth alerting on: `rdm_workspaces_unavailable` above 0; `rdm_process_ready` 0; 
 **Who can read them.** `/health` and `/health/live` need no token, so probes work unchanged; they
 say only `ok` or `unhealthy`. `/metrics` and `/api/v1/system/*` need an access token (0.12 I1): a
 Prometheus scrape uses a client's token (`authorization` with `credentials_file`, or the
-`oauth2` client credentials block with `token_url` `/oauth/token`). Until roles (Z1) any active
-client or person reads them; from Z1 they need the Operator role.
+`oauth2` client credentials block with `token_url` `/oauth/token`), and the client needs the
+Operator role (0.12 Z1); `GET /api/v1/system` alone (the engine and its release) is open to anyone
+signed in.
 
 ### Logs
 

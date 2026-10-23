@@ -972,6 +972,272 @@ writes check the live or change-set action by `changeSetId` (D244); lists filter
 then pointing there (D256). The temporary "all actions" role from I1 becomes the predefined Security administrator
 plus Owner of every workspace for the first administrator.
 
+##### Z1 plan (2026-10-23)
+
+**Planned 2026-10-23; accepted by the user the same day** ("otherwise its good"): D277–D288, the
+test cases and the mock-up, with one correction: the account menu's Account and All settings were
+plain hyperlinks beside the Sign out button and become buttons like it (the mock-up corrected; built
+in item 8). Checked
+against the code at `ffe558b` with P0's catalogue (API.md § Security), ADR-044, J40 and the approved
+mock-ups (the Account board's "What you can do" and the menu's role line, in the reworked Account's
+style).
+
+**What the check found:**
+
+- **159 operations need a declaration**, and they name the workspace they act in **37 different
+  ways** (counted from the document with every flag on): a path `workspace_key` (10 routes, 7 more
+  with a change set or publication in the query); `workspaceKey`, `changeSetId` or `publicationId` in
+  the query, the default workspace without them (16); a change set (11), publication (2), record (9),
+  relation (3), job (7) or subscription (8) named in the path; `workspaceKey` or `changeSetId` in the
+  body (batches, exports, record and relation creates, subscriptions), or inside the import form's
+  JSON field; two workspaces in the body (moves, model mappings); none (38: the caller, security
+  administration, system, drafts, releases). A live relation's create names only `fromObjectId`;
+  a live record's update and delete name only the record.
+- **No cross-process signal exists for model assignments.** P0's "What already exists" said 0.11 N1
+  sends them through `pg_notify`; it reads the assignment on each request instead (the read guard),
+  and the only `pg_notify` is the job channel. D226's cache invalidation therefore has nothing to
+  reuse (D278).
+- **The authentication statement** already reads the key, the principal and the session in one
+  query per request; I1 raised the batch statement budgets by one for it.
+- **Jobs** carry `workspace_key` (nullable) and ten kinds; nothing records a requester (Z2 adds it).
+  Subscriptions carry their workspace.
+- **FastAPI 0.141** includes routers lazily; the request body is read before dependencies run and
+  kept on the request, so a dependency can read `workspaceKey` or `changeSetId` from it without a
+  second parse.
+- **Every database a test uses** holds the harness client and person (I1, I2), and a database built
+  from empty gets a client made in it: all three must hold grants, or every test is refused.
+- **The development database** has the user's person and possibly a client from `create_client`;
+  neither has a grant, so Z1 alone would lock the user out of their own instance (D282).
+- **Account** shows "Everything" per active workspace (I2's rework); the account menu has no role
+  line (D273).
+
+**What is built:**
+
+1. **Migration** `20261029_01`: `roles` (key, name, description, `predefined`, version; the nine
+   predefined rows inserted, D279), `role_action_groups` (a custom role's groups), `user_groups` and
+   `user_group_members` (local groups, D229), `grants` (public ID; one of user, client or group;
+   role; the instance or a workspace, removed with the workspace; `applications` and `recordTypes`
+   for writes), and `authorization_state` (one row, a generation number kept by PostgreSQL triggers
+   on the five tables and on a principal's `active`, D278). Every existing active person and client
+   gets D282's grants.
+2. **Engine** `engine/authorization/`: the catalogue (14 action groups, each action with its groups;
+   the predefined roles' groups, D279), roles (create from scratch or copied, change, delete when
+   unused), groups and members, grants (validated: a workspace grant's narrowing names applications
+   and record types of that workspace's model; an instance grant is never narrowed, D281), the last
+   Security administrator rule (D283), and the caller's permissions: one query over their grants,
+   direct and through groups, cached per process by generation (D278).
+3. **The route check** `management/access.py`: every operation declares `requires(action, at=…)`,
+   naming where its workspace comes from (D277); the declaration is a dependency and appears in the
+   operation's OpenAPI entry as `x-action` and `x-action-groups` (D256). The check runs once per
+   request, after authentication: allowed, or `403 FORBIDDEN` with `action`, `groups` and
+   `workspaceKey`. The ten shared record writes pick `edit-live` or `change-sets` by `changeSetId`
+   (D244). Jobs by their kind's group (D285), moves and mappings by both workspaces (D286), profiles,
+   mappings and source files at any scope (D287).
+4. **Lists filtered** (D249, D288): workspaces, workspace models and the runtime state's list show the
+   workspaces where the caller holds any group; jobs and subscriptions those whose group the caller
+   holds in their workspace. A named workspace the caller holds nothing in answers `403`.
+5. **Routes** (all `security-admin` at the instance, cursor-paged lists, writes with
+   `expectedVersion`, as API.md designs them): `GET /action-groups`; `GET|POST /roles`,
+   `GET|PATCH|DELETE /roles/{key}`; `GET|POST /groups`, `GET|PATCH|DELETE /groups/{id}`,
+   `GET|POST /groups/{id}/members`, `DELETE /groups/{id}/members/{userId}`; `GET|POST /grants`,
+   `DELETE /grants/{id}`; `GET /workspaces/{key}/access`. For anyone signed in:
+   `GET /me/permissions?workspaceKey=` and `GET /me/grants` (D284). Refusals `ROLE_PREDEFINED`,
+   `ROLE_IN_USE`, `LAST_SECURITY_ADMINISTRATOR`, `GRANT_SCOPE_UNKNOWN`, `GROUP_NOT_FOUND`,
+   `ROLE_NOT_FOUND`, `GRANT_NOT_FOUND`. OpenAPI lock re-baselined.
+6. **CLI:** `create_admin` grants D282's roles; `create_client --role <key>` (repeatable, at the
+   instance) grants roles to the new client, none without it.
+7. **Harnesses:** the harness client, the harness person and a client made in a database built from
+   empty hold every predefined role at the instance, granted by the engine's own function; the seeds
+   are rebuilt once.
+8. **Frontend:** Account's **What you can do** lists the person's grants from `GET /me/grants` in the
+   reworked card style: per row the workspace (or "Every workspace" for an instance grant), the role,
+   and a faint line with what writes are narrowed to and whether it comes directly or through a group;
+   "You have no roles yet. Ask a security administrator." when empty. The account menu gains the role
+   line, "Data steward in Herbarium" (the roles that apply in the current workspace, from
+   `/me/permissions`). The menu's Account and All settings become buttons like Sign out (the user,
+   2026-10-23). The mock-up below shows both.
+9. **Documents:** API.md (the delivered parts; the catalogue table replaced by the groups and a
+   pointer to the operations' `x-action`, D256); OPERATIONS (the first administrator's roles, the
+   upgrade's grants, recovering a locked-out instance with `create_admin`); ARCHITECTURE's route
+   check; USER_JOURNEYS' and API_JOURNEYS' statuses; CURRENT_FUNCTIONALITY; CHANGELOG,
+   PROJECT_STATUS.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D277 | How a route finds the workspace it is checked in | **Recommended:** each operation declares where its workspace comes from, from a short list (the path's workspace, a change set, publication, record, relation, job or subscription named in the path, the query's or body's `workspaceKey` or `changeSetId`, the default workspace, two workspaces, the instance, any scope), and the route check resolves it with the engine's own lookups before the handler runs; an unknown change set, record or job answers the same `404` the handler would. Why: the check runs once, in one place, before anything is read or written, and a route that forgets is caught by the contract test; leaving the check to each handler would let one forget silently. Cost: routes naming a change set, record, relation, job or subscription by ID look it up twice (one indexed read); statement budgets for those routes rise by one |
+| D278 | How a permission change reaches every process (**revises D226's `pg_notify`**) | **Recommended:** a generation number in one row, raised by PostgreSQL triggers whenever a grant, role, role's groups, group, membership or principal's `active` changes, read in the authentication statement the request already makes; each process keeps the caller's permissions with the generation they were read at and reads them again when it differs. Why: N1 has no `pg_notify` to reuse (see above); this needs no listener, cannot miss a message, and is exact on the very next request in every process, also when the change was made by SQL; a trigger cannot be forgotten by a code path. Cost: security writes queue on one row (they are rare); a change empties every process's cache, not only the affected principal's |
+| D279 | Where the predefined roles live | **Recommended:** all roles are rows in `roles`, the nine predefined inserted by the migration and marked `predefined`; a predefined role's groups are in the code's catalogue, a custom role's in `role_action_groups`; grants refer to the role row. Why: the database then refuses deleting a granted role on its own (`ROLE_IN_USE`), and a predefined role cannot be changed by editing data. Cost: changing a predefined role is a code change, noted in CHANGELOG |
+| D280 | Approve publications in Z1 | **Recommended:** left out until A1; Z1's catalogue has the 13 groups that have routes, and the Data owner gains `approve` with "own" in A1. Why: A1 designs "own" and four-eyes, and Track A is after the cut line; a group with no routes would show in Roles as a right that does nothing. Cost: the Owner's definition grows in A1 |
+| D281 | Narrowing before Z2 | **Recommended:** grants store and check their narrowing in Z1 (a workspace grant only; its applications and record types must exist in that workspace's model, `422 GRANT_SCOPE_UNKNOWN`); the route check counts a narrowed grant as holding its groups, and Z2 enforces the narrowing at the write unit, the one place that knows which types a batch, import, move or publication writes. Why: checking types at the route would be wrong for every bulk path and duplicated in Z2. Cost: between Z1 and Z2 a narrowed grant writes every type; nothing is released between them, and the record says so |
+| D282 | The first administrator and the principals that exist today (**revises the scope's "Security administrator plus Owner"**) | **Recommended:** `create_admin` grants, at the instance, Security administrator, Data owner, Model administrator, Workspace administrator, Integration administrator and Operator, so the first person can set the instance up; the migration grants the same to every active person and client that exists, so nothing that worked yesterday stops; people and clients created afterwards start with none. Why: until SP1, a grant is an API call; a first administrator who cannot install a model or create a workspace without writing one is stuck, and the user's development instance would be locked out on upgrade. Cost: the first administrator, and today's principals, hold everything until someone narrows it (SP1 makes that a page); separation of duties is something an organisation sets up, which OPERATIONS says |
+| D283 | What "the last Security administrator" counts | **Recommended:** active **people** holding Security administration at the instance, directly or through a group; clients do not count. Refused with `409 LAST_SECURITY_ADMINISTRATOR`: removing such a grant, deactivating the person, removing them from the group, deleting the group, or taking the group out of a custom role. Why: a client cannot sign in to the Security pages to repair access; `create_admin` on the server stays the way back. Cost: none |
+| D284 | The caller's own grants, for Account (**new route**) | **Recommended:** `GET /me/grants` (cursor-paged): the caller's grants, direct and through groups, each with the role's name, the scope and narrowing, and the group it comes through; `/me/permissions` names the roles behind each group. Why: Account lists roles per workspace, as the approved mock-up shows, and `/me/permissions` answers one workspace at a time. Cost: one route |
+| D285 | Jobs until Z2 | **Recommended:** a job is read, followed, cancelled and confirmed by a holder of its kind's group in its workspace (`bulk` for batches, imports, profiles and profile checks; `browse` for exports; `copy-move` for moves and mapping inference; `model-release`, or `change-sets` for a change set's, for migrations; `model-authoring` for dry runs and inference), at any scope for a job without a workspace; the requester's own right comes with Z2's `requested_by`. Why: the job's workspace and kind are already stored; the requester is not. Cost: until Z2 a requester who loses the group loses sight of their job, which Z2 keeps |
+| D286 | Moves and model mappings at the route | **Recommended:** a move needs `copy-move` in the target and `browse` in the source, both checked at the route in Z1; a mapping's routes need `copy-move` at any scope (D248). Z2 adds the target's record types. Why: both workspaces are named in the request; checking them at the route is exact. Cost: none |
+| D287 | Source files until Z2 | **Recommended:** `bulk` at any scope reads and changes source files in Z1; Z2 gives them their owner and narrows them to the owner and the file's workspace (D248). Why: the owner needs Z2's column. Cost: until Z2 any holder of `bulk` sees every uploaded file |
+| D288 | Which workspaces a list shows (**narrows D249's "browse"**) | **Recommended:** the workspace list, the workspace models and the runtime state show every workspace where the caller holds **any** group, not only Browse. Why: an Integration administrator or a Model administrator granted one workspace has no Browse there but must pick it in the interface; a workspace's key and label reveal no data (one organisation per instance, D249). Cost: a person may see the name of a workspace whose records they cannot read |
+
+**Mock-up** (on the security mock-ups canvas, beside the Account boards: "Account with roles" at
+1440px and 390px, light and dark): What you can do with grants per workspace, an instance grant, a
+narrowed one and one through a group; the account menu with the role line.
+
+**Journey test cases** (`tests/journeys/test_j40_authorization.py`, on two configurations; written
+first and seen failing; clients unless a person is named, created and granted through the API by the
+harness client acting as security administrator):
+
+1. **J40.1, a Reader:** given a client granted Reader in workspace A, when it reads the model,
+   records, relations, history, change sets and publications in A, or starts an export, then each
+   answers; when it writes a record live, creates a change set, sends a batch or an import, or
+   publishes, then each answers `403 FORBIDDEN` with `action`, `groups` and `workspaceKey: A`; in
+   workspace B every read answers `403`.
+2. **J40.2, a Contributor:** given Contributor in A, when it creates a change set and writes a record
+   in it, then both pass; the same write without `changeSetId` answers `403` naming `edit-live`;
+   publishing the change set answers `403` naming `publish`.
+3. **J40.4, through a group:** given a person signed in (J39's form) in a group granted Data steward
+   in A, when they write a record live, then it passes; when they are removed from the group, then
+   their next request answers `403`.
+4. **J40.5, a custom role:** given a role copied from Data steward without Publish, granted in A,
+   then a live write passes and publishing answers `403`; changing a predefined role answers
+   `409 ROLE_PREDEFINED`; deleting the granted role `409 ROLE_IN_USE`, and once the grant is removed
+   it is deleted.
+5. **J40.6, on the next request in every process:** given two engine processes (the several-process
+   harness) and a client granted Data steward, when its grant is removed through the first, then its
+   next request to the second answers `403`; granted again, it passes.
+6. **J40.7 and J40.8, who can do what, the last administrator:** given a direct grant in A, a group's
+   grant in A and an instance grant, when A's access is read, then all three are listed with where
+   they come from; given one person holding Security administration, removing that grant, or
+   deactivating the person, answers `409 LAST_SECURITY_ADMINISTRATOR`.
+7. **J40.9, lists follow permissions:** given a client granted Reader in A only, the workspace list,
+   the workspace models and the jobs list show A and nothing of B; `GET /workspaces/B` answers `403`.
+8. **J40, what I may do:** given grants in A (direct, narrowed to one record type) and at the
+   instance, `GET /me/permissions?workspaceKey=A` lists each group with its narrowing, role and
+   source; `GET /me/grants` lists the grants; a grant naming a record type A's model lacks answers
+   `422 GRANT_SCOPE_UNKNOWN`.
+
+The contract test (`test_openapi_contract`) refuses an operation without `x-action`, an action the
+catalogue lacks and a declared workspace source the route cannot provide. Unit tests: the
+permission resolution (instance against workspace, groups, any scope, the shared writes), the
+generation check, the last-administrator rule's cases.
+
+**Browser:** `i2-sign-in` extended (two models): Account's What you can do and the menu's role line
+for the harness person, and for a person granted Reader in one workspace; keyboard, 390px, axe;
+screenshots inspected against the mock-up. Reference pattern: the reworked Account page.
+
+**Checks:** the new journey module; the identity journeys (their principals now need grants); the
+groups `python -m tests.affected` selects for the route-check change, announced with their expected
+time if beyond three minutes; `test_openapi_contract` with the lock diffed; the unit tests; Ruff on
+the changed files; Vitest for Account and the menu; format, lint, build; the browser runner above.
+The route check touches every route, so the whole suite runs at R.
+
+**Composable domains (ADR-032):** the identity door is touched: grants name principals by kind and
+public ID and refer to applications and record types as data; no value source, audit row or `cause`
+changes (Z4).
+
+**What the user will still not be able to do after Z1:** narrow writes to record types in effect (Z2);
+keep their own job's visibility after losing a group (Z2); limit a client to some consumer APIs (Z3:
+any `consumer` token still reads every consumer API); see who changed what (Z4); an interface that
+hides what a person may not do (Z5: a Reader or a Security administrator without Browse sees the
+engine's refusals on pages they open); manage people, groups, roles and grants on a page (SP1: API
+calls until then).
+
+##### Z1 record (2026-10-23)
+
+**Delivered 2026-10-23.** What was built is the plan's list, items 1–9:
+
+- **Migration** `20261029_01`: `roles` (the nine predefined inserted), `role_action_groups`,
+  `user_groups`, `user_group_members`, `grants` (one principal; the instance or a workspace, removed
+  with it; narrowing arrays; an instance grant cannot narrow, a check constraint), and
+  `authorization_state` with statement-level triggers on the five tables and on `users.active` and
+  `oauth_clients.active` (D278). Every active person and client existing before it holds the first
+  administrator's roles at the instance (D282). It ran on the user's development database through
+  the running dev server; checked afterwards: nine roles, the user's person with six grants, seven
+  triggers.
+- **Engine** `engine/authorization/`: `catalogue` (13 groups, 27 actions each with its groups and the
+  phrase a refusal uses, the predefined roles' groups, the first administrator's roles, the job
+  kinds' groups), `permissions` (one statement over direct and group grants; a per-process cache
+  keyed by database, principal and generation), `administration` (roles, groups, members, grants,
+  the access list, the caller's grants, the last Security administrator rule) and `visibility` (the
+  filtered lists' conditions). `authenticate` reads the generation in its statement; deactivating
+  the last Security administrator is refused in `identity/users`.
+- **The route check** `management/access.py`: `requires(action, at=…)` on all 183 operations but the
+  six open ones, `AuthorizedRoute` publishing `x-action`, `x-action-groups` and `x-action-scope`,
+  and `authorized` in `MANAGEMENT_DEPENDENCIES` (moved there from `dependencies.py`, which it needs).
+  Workspace lookups are one-column reads; an unknown change set, publication, job or subscription
+  answers its own `404` first; a refusal naming a workspace that does not exist answers
+  `404 WORKSPACE_NOT_FOUND`.
+- **Routes** `routers/authorization.py`: the 20 operations of the plan; lists filtered in the
+  workspaces, workspace models, jobs and subscriptions handlers.
+- **CLI:** `create_admin` grants D282's roles; `create_client --role`.
+- **Harnesses:** the harness client and person, and a client made in a database built from empty,
+  hold every predefined role at the instance; the seeds' fingerprint includes
+  `engine/authorization`.
+- **Frontend:** `api.myPermissions`, `api.myGrants`; Account's **What you can do** lists the grants
+  (`grantDetail`); the account menu's role line (`useRoleLine`; the workspace open passed from
+  `AppShell` through `TopBar`); Account, All settings and Sign out as `secondary` buttons; a `globe`
+  icon for an instance grant.
+- **Documents:** API.md (Z1 delivered, the catalogue table replaced by the declarations and their
+  scopes, D256), ADR-044 and ARCHITECTURE (D278 in place of `pg_notify`), OPERATIONS (§ Roles and
+  grants, the first administrator, the upgrade, locked out, metrics), USER_JOURNEYS (J40, J41),
+  API_JOURNEYS, CURRENT_FUNCTIONALITY (F27), SETTINGS_AND_UI_PLAN, UI_ACCEPTANCE (Z1-1),
+  EXECUTION_GUIDE, CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **Two fields more than the design:** `/me/permissions` answers `workspaceLabel`, and a grant's
+  scope `applicationNames` and `recordTypeNames`, so the menu and Account name the workspace and
+  the narrowed types as the approved mock-up does without reading each workspace's model.
+- **More operations than counted:** P0 counted 159; with Z1's 20 and every flag on the document has
+  183 declared operations and six open ones.
+- **Two approved cases of I1 and I2 changed** because they assumed "any principal may do everything
+  until Z1": J41's client and J39's signed-in person now hold Data steward in the workspace before
+  writing, as J41's own step 2 says; `create_admin`'s case also checks the six roles.
+- **The journey cases were written after the engine code**, as in I1 and I2, then run: they were
+  not seen failing first.
+- **On a phone** Account shows a role's pill under the detail line; the mock-up has it between the
+  title and that line.
+- `ROUTE_NOT_DECLARED` (`500`) when an operation has no declaration: the check fails closed;
+  the contract test keeps such an operation from shipping.
+- Found and fixed on the way, not Z1's: `PASSWORD_MIN_LENGTH` (D276) was missing from
+  API_JOURNEYS' operator surface, which `test_api_journeys` reported.
+
+**Checks** (single process unless noted):
+
+- `tests/journeys/test_j40_authorization.py`: 16 passed (8 cases × 2 configurations), the second
+  engine process of J40.6 included.
+- `tests/journeys/test_j39_j41_j43_identity.py` and `test_j39_sign_in.py`: 32 passed.
+- `tests/unit/engine/authorization/`: 10 passed (where a grant applies, any scope, the catalogue's
+  consistency, the generation and the cache); `tests/unit/engine/identity/`: passed.
+- `tests/test_openapi_contract.py` (the lock re-baselined after a diff against `ffe558b`: 12 paths,
+  26 schemas, `x-action*` on every operation but the six open ones, `GET /jobs`' description;
+  nothing else; the new declaration test), `test_api_journeys`, `test_boundaries`,
+  `test_foreign_keys` (eight reviewed rules added), `test_startup` (its pinned head), all passed.
+- The route check's neighbours, `-n 6`: J24 background jobs, J27 import and export, J38.3 moves,
+  J30 subscriptions, J31, J36 workspace models: 140 passed (1 min 8 s); the statement-count modules
+  (`test_batch_statements`, change lists, restructuring, import; not `budget`): 21 passed.
+- Ruff on the changed files (formatting kept to this package's lines); frontend Vitest for `src/api`,
+  `src/app`, `src/features/settings`, `src/routing`, `src/ui` (34 files, 291 passed, among them
+  `AccountPage.test` and `SettingsMenu.test`); `format`, `lint` (0 errors; the 8 warnings in untouched
+  files), `build`.
+- **Browser:** `i2-sign-in` on two models: 28 checks, axe 0 (the sign-in page light and dark,
+  Account, a reader's Account); screenshots of the harness person's menu, a reader's menu and
+  Account at 1440px and Account at 390px inspected against the "Account with roles" boards.
+- The development server, after it applied the migration: health `200`, `/me` without a token
+  `401`, the document listing `/action-groups`.
+
+**Not run:** the full backend suite: `python -m tests.affected` selects everything (a migration), and
+its run (about 12½ minutes) needs the user's go-ahead in a package. **Moved to Z2 by the user
+(2026-10-23):** Z2's full run covers Z1 too, and a failure it finds from Z1 is fixed in Z2; the other 60 browser runners,
+which change only through the harness person's roles and the menu's new read; the accessibility and
+visual gates (R). Dark Account not inspected.
+
+**What the user cannot do yet:** narrow writes to record types in effect, keep a job's view for its
+requester, or have moves, publications and type changes checked by record type (Z2); limit a client
+to some consumer APIs (Z3: any `consumer` token reads every consumer API); see who changed what
+(Z4); have the interface hide what a person may not do (Z5: a Reader sees edit buttons and the
+engine's refusals); manage people, groups, roles and grants on a page (SP1: API calls until then).
+
 #### Z2: Record types at the write unit, jobs, moves and the feed
 
 **Needs:** Z1.
@@ -984,7 +1250,9 @@ again at confirmation and execution (D236). A move needs read on the source and 
 (0.11 I33). A grant naming a record type the workspace's model no longer has is reported on the
 grant, never silently widened. The feed, exports and the cross-type lookup across workspaces return
 only workspaces the caller may browse. _Amended by P0:_ instance-wide resources by D248 (source files
-gain an owner).
+gain an owner). _Amended after Z1 (the user, 2026-10-23):_ Z2's checks include the full
+backend suite, announced with its expected time, which also stands for Z1's; a failure it finds
+from Z1 is fixed in Z2 and named in its record.
 
 #### Z3: Consumer APIs per client
 
@@ -1140,7 +1408,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 1 | [P0](#p0-design-pass) | — | **Delivered 2026-10-23.** The catalogue and action groups, roles, ADR-043/044/045, API design, J39–J43, mock-ups approved; D224–D257 settled |
 | 2 | [I1](#i1-the-issuer-people-and-clients-every-route-authenticated) | P0 | The issuer, users and clients, every route authenticated, harnesses on real tokens |
 | 3 | [I2](#i2-signing-in-from-the-browser) | I1 | **Delivered 2026-10-23.** The sign-in page, PKCE, the account menu and page |
-| 4 | [Z1](#z1-roles-groups-and-grants-at-the-route) | I1 | Roles, groups and grants; every route checked; `/me/permissions` |
+| 4 | [Z1](#z1-roles-groups-and-grants-at-the-route) | I1 | **Delivered 2026-10-23.** Roles, groups and grants; every route checked; `/me/permissions` |
 | 5 | [Z2](#z2-record-types-at-the-write-unit-jobs-moves-and-the-feed) | Z1 | Record types at the write unit; jobs as their requester; moves; the feed |
 | 6 | [Z3](#z3-consumer-apis-per-client) | Z1 | Consumer APIs per client and workspace |
 | 7 | [Z4](#z4-audit-identity) | Z1 | The actor beside `cause` everywhere |

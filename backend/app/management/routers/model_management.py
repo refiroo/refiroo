@@ -52,6 +52,12 @@ from ...engine.sources import draft_profile
 from ...engine.sources.inference import run as inference
 from ...errors import api_error
 from ...models.database import AuditEvent, ModelDraft, ModelDraftOperation
+from ..access import (
+    INSTANCE,
+    WORKSPACE_PATH,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession, DefaultModelSnapshot
 from ..paging import PageQuery
 from ..presenters import (
@@ -90,10 +96,12 @@ from ..schemas.workspaces import (
 )
 from ..steps import step_response
 
-router = APIRouter(prefix="/api/v1", tags=["model administration"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["model administration"])
 # Migrations are model administration and background jobs both (D14): registered with
 # MODEL_ADMIN_MUTATIONS_ENABLED and INTEGRATION_JOBS_ENABLED.
-migration_router = APIRouter(prefix="/api/v1", tags=["model administration"])
+migration_router = APIRouter(
+    route_class=AuthorizedRoute, prefix="/api/v1", tags=["model administration"]
+)
 
 # Newest first, with an ascending public-id tie-breaker. The directions differ per key on
 # purpose; the paginator derives each key's comparison from its own direction, so the pair still
@@ -110,6 +118,7 @@ _OPERATION_KEYS = (integer_key("sequence", ModelDraftOperation.sequence, "sequen
     "/workspaces/{workspace_key}/model/activation",
     response_model=WorkspaceModelActivationResponse,
 )
+@requires("model.activate", at=WORKSPACE_PATH)
 def activate_workspace_model(
     workspace_key: str, payload: WorkspaceModelActivation, session: DbSession
 ) -> WorkspaceModelActivationResponse:
@@ -222,6 +231,7 @@ def activate_workspace_model(
 @migration_router.post(
     "/workspaces/{workspace_key}/model/migrations", response_model=JobResponse, status_code=202
 )
+@requires("model.activate", at=WORKSPACE_PATH)
 def start_workspace_migration(
     workspace_key: str, payload: WorkspaceMigrationRequest, request: Request, session: DbSession
 ) -> JobResponse:
@@ -272,6 +282,7 @@ def start_workspace_migration(
 
 
 @router.get("/model-drafts", response_model=ModelDraftPage)
+@requires("model.author", at=INSTANCE)
 def list_model_drafts(
     session: DbSession,
     paging: PageQuery,
@@ -294,6 +305,7 @@ def list_model_drafts(
 
 
 @router.get("/model-drafts/{draft_id}", response_model=ModelDraftResponse)
+@requires("model.author", at=INSTANCE)
 def get_model_draft(draft_id: str, session: DbSession) -> ModelDraftResponse:
     return draft_response(session, load_draft(session, draft_id))
 
@@ -303,6 +315,7 @@ def get_model_draft(draft_id: str, session: DbSession) -> ModelDraftResponse:
     response_model=ModelDraftResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@requires("model.author", at=INSTANCE)
 def save_model_draft(payload: ModelDraftCreate, session: DbSession) -> ModelDraftResponse:
     draft = create_draft(
         session,
@@ -315,6 +328,7 @@ def save_model_draft(payload: ModelDraftCreate, session: DbSession) -> ModelDraf
 
 
 @router.patch("/model-drafts/{draft_id}", response_model=ModelDraftResponse)
+@requires("model.author", at=INSTANCE)
 def patch_model_draft(
     draft_id: str, payload: ModelDraftUpdate, session: DbSession
 ) -> ModelDraftResponse:
@@ -339,6 +353,7 @@ def patch_model_draft(
     response_model=ModelDraftStepResponse,
     response_model_exclude_unset=True,
 )
+@requires("model.author", at=INSTANCE)
 def apply_model_draft_operations(
     draft_id: str, payload: ModelDraftOperationsRequest, session: DbSession, request: Request
 ) -> ModelDraftStepResponse:
@@ -353,6 +368,7 @@ def apply_model_draft_operations(
 
 
 @router.get("/model-drafts/{draft_id}/operations", response_model=ModelDraftOperationPage)
+@requires("model.author", at=INSTANCE)
 def list_model_draft_operations(
     draft_id: str,
     session: DbSession,
@@ -380,6 +396,7 @@ def list_model_draft_operations(
     response_model_by_alias=True,
     response_model_exclude_unset=True,
 )
+@requires("model.author", at=INSTANCE)
 def get_model_draft_outline(draft_id: str, session: DbSession) -> ModelDraftOutlineResponse:
     """The draft's structure as the editor shows it (0.10 A4a, D36), with each consumer API's
     contract against the release the draft is compared with (0.10 A4c, D55; 0.11 D37)."""
@@ -393,6 +410,7 @@ def get_model_draft_outline(draft_id: str, session: DbSession) -> ModelDraftOutl
     response_model=ModelDraftModelResponse,
     response_model_exclude_unset=True,
 )
+@requires("model.author", at=INSTANCE)
 def get_model_draft_model(draft_id: str, session: DbSession) -> ModelDraftModelResponse:
     """The draft compiled as ``GET /model`` serves the active model, with its placements, for a
     preview before installing (0.10 A4b, D43). It reads and writes nothing."""
@@ -404,6 +422,7 @@ def get_model_draft_model(draft_id: str, session: DbSession) -> ModelDraftModelR
     response_model=ModelDraftConsumerApiResponse,
     response_model_exclude_unset=True,
 )
+@requires("model.author", at=INSTANCE)
 def get_model_draft_consumer_api(
     draft_id: str, consumer_api: str, session: DbSession
 ) -> ModelDraftConsumerApiResponse:
@@ -419,6 +438,7 @@ def get_model_draft_consumer_api(
     "/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json",
     response_model=dict[str, Any],
 )
+@requires("model.author", at=INSTANCE)
 def get_model_draft_consumer_api_schema(
     draft_id: str, consumer_api: str, request: Request, session: DbSession
 ) -> dict[str, Any]:
@@ -434,6 +454,7 @@ def get_model_draft_consumer_api_schema(
     "/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json",
     response_model=dict[str, Any],
 )
+@requires("model.author", at=INSTANCE)
 def get_model_draft_consumer_api_example(
     draft_id: str, consumer_api: str, request: Request, session: DbSession
 ) -> dict[str, Any]:
@@ -449,6 +470,7 @@ def get_model_draft_consumer_api_example(
     "/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json",
     response_model=dict[str, Any],
 )
+@requires("model.author", at=INSTANCE)
 def get_model_draft_consumer_api_openapi(
     draft_id: str, consumer_api: str, request: Request, session: DbSession
 ) -> dict[str, Any]:
@@ -466,6 +488,7 @@ def get_model_draft_consumer_api_openapi(
     response_model=ModelDraftStepResponse,
     response_model_exclude_unset=True,
 )
+@requires("model.author", at=INSTANCE)
 def undo_model_draft_step(
     draft_id: str, payload: ModelDraftUndoRequest, session: DbSession, request: Request
 ) -> ModelDraftStepResponse:
@@ -478,6 +501,7 @@ def undo_model_draft_step(
     response_model=ModelDraftStepResponse,
     response_model_exclude_unset=True,
 )
+@requires("model.author", at=INSTANCE)
 def redo_model_draft_step(
     draft_id: str, payload: ModelDraftVersionRequest, session: DbSession, request: Request
 ) -> ModelDraftStepResponse:
@@ -486,6 +510,7 @@ def redo_model_draft_step(
 
 
 @router.get("/model-drafts/{draft_id}/profile", response_model=ModelDraftProfileResponse)
+@requires("model.author", at=INSTANCE)
 def get_model_draft_profile(draft_id: str, session: DbSession) -> ModelDraftProfileResponse:
     """The draft's import profile (0.10 A5, D75): as the draft holds it, the import profile it
     stands for, its warnings against the draft's model, and the source file it binds. It reads
@@ -503,6 +528,7 @@ def _entry(row: ModelDraftOperation) -> ModelDraftOperationEntry:
 
 
 @router.delete("/model-drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)
+@requires("model.author", at=INSTANCE)
 def remove_model_draft(
     draft_id: str,
     session: DbSession,
@@ -518,6 +544,7 @@ def remove_model_draft(
     response_model=ModelCompilationResponse,
     response_model_exclude_unset=True,
 )
+@requires("model.author", at=INSTANCE)
 def compile_model_draft(
     draft_id: str,
     payload: ModelDraftVersionRequest,
@@ -589,6 +616,7 @@ def compile_model_draft(
     response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
 )
+@requires("model.install", at=INSTANCE)
 def install_model_draft(
     draft_id: str,
     payload: ModelDraftVersionRequest,

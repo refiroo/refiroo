@@ -56,6 +56,14 @@ from ...models.commands import (
     ObjectUpdate,
 )
 from ...models.schema import EngineModel
+from ..access import (
+    CONTEXT,
+    RECORD_CREATE,
+    RECORD_READ,
+    RECORD_WRITE,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession, RequestModelSnapshot
 from ..paging import PageQuery, SeekablePageQuery
 from ..presenters import (
@@ -76,7 +84,7 @@ from ..schemas.records import (
     ParentCandidatePage,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["objects"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["objects"])
 
 
 def _change_set_write_response(session, change_set_id: str, row) -> ObjectResponse:
@@ -107,6 +115,7 @@ def _require_change_set_context(change_set_id: str, expected: int | None) -> int
 
 
 @router.post("/objects", response_model=ObjectResponse, status_code=status.HTTP_201_CREATED)
+@requires("records.write", at=RECORD_CREATE)
 def create_object(
     payload: ObjectCreate, session: DbSession
 ) -> ObjectResponse:
@@ -156,6 +165,7 @@ def create_object(
 
 
 @router.patch("/objects/{object_type_key}/{object_id}", response_model=ObjectResponse)
+@requires("records.write", at=RECORD_WRITE)
 def update_object(
     object_type_key: str,
     object_id: str,
@@ -186,6 +196,7 @@ def update_object(
 
 
 @router.delete("/objects/{object_type_key}/{object_id}", status_code=204)
+@requires("records.write", at=RECORD_WRITE)
 def delete_object(
     object_type_key: str,
     object_id: str,
@@ -270,6 +281,7 @@ _EXPAND = Query(
     },
 )
 @accepts_field_filters
+@requires("records.read", at=CONTEXT)
 def list_objects(
     object_type_key: str,
     request: Request,
@@ -512,6 +524,7 @@ _LOOKUP_WORKSPACE_KEYS = Query(
     },
 )
 @accepts_field_filters
+@requires("records.read", at=CONTEXT)
 def lookup_objects(
     request: Request,
     session: DbSession,
@@ -723,6 +736,7 @@ def _field_filters(request: Request) -> list[tuple[str, str, str]]:
 
 
 @router.get("/objects/{object_type_key}/{object_id}", response_model=ObjectResponse)
+@requires("records.read", at=RECORD_READ)
 def get_object(
     object_type_key: str,
     object_id: str,
@@ -773,6 +787,7 @@ _WITHIN_OBJECT_TYPE_KEY = Query(
 @router.get(
     "/objects/{object_type_key}/{object_id}/parent-candidates", response_model=ParentCandidatePage
 )
+@requires("records.read", at=RECORD_READ)
 def get_parent_candidates(
     object_type_key: str,
     object_id: str,
@@ -825,6 +840,7 @@ def get_parent_candidates(
 
 
 @router.get("/objects/{object_type_key}/{object_id}/history", response_model=AuditEventPage)
+@requires("records.read", at=RECORD_READ)
 def get_object_history(
     object_type_key: str,
     object_id: str,

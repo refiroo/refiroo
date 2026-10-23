@@ -77,6 +77,19 @@ RULES = {
     # A client is deactivated, never deleted (0.12 I1, D237); a secret is deleted alone
     # (``clients.remove_secret``), and the cascade only keeps a client's secrets with it.
     ("oauth_client_secrets", "client_id"): ("oauth_clients", "CASCADE"),
+    # Authorization (0.12 Z1, ADR-044). A grant names one principal: people and clients are never
+    # deleted (D237), so those cascades only keep a grant with its principal; deleting a group takes
+    # its grants and memberships with it (``administration.delete_group``, under D283's guard). A
+    # role still granted refuses deletion (ROLE_IN_USE, D279); a custom role's groups go with it. A
+    # workspace's grants go with the workspace.
+    ("grants", "user_id"): ("users", "CASCADE"),
+    ("grants", "client_id"): ("oauth_clients", "CASCADE"),
+    ("grants", "group_id"): ("user_groups", "CASCADE"),
+    ("grants", "role_id"): ("roles", "RESTRICT"),
+    ("grants", "workspace_key"): ("workspaces", "CASCADE"),
+    ("role_action_groups", "role_id"): ("roles", "CASCADE"),
+    ("user_group_members", "group_id"): ("user_groups", "CASCADE"),
+    ("user_group_members", "user_id"): ("users", "CASCADE"),
     # A person is deactivated, never deleted (D237); their sessions, codes and reset links would go
     # with them. A session ends, never deleted; its refresh tokens would go with it, and a code
     # forgets the session it started (0.12 I2).

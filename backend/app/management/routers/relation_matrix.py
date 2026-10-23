@@ -6,6 +6,11 @@ from typing import Literal
 from fastapi import APIRouter, Query
 
 from ...errors import api_error
+from ..access import (
+    WORKSPACE_PATH,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery, SeekablePageQuery
 from ..projections.relation_matrix import (
@@ -30,10 +35,15 @@ _COLUMN_IDS = Query(
     ),
 )
 
-router = APIRouter(prefix="/api/v1/workspaces/{workspace_key}", tags=["relation-matrix"])
+router = APIRouter(
+    route_class=AuthorizedRoute,
+    prefix="/api/v1/workspaces/{workspace_key}",
+    tags=["relation-matrix"],
+)
 
 
 @router.get("/relation-matrix", response_model=RelationMatrixPage)
+@requires("records.read", at=WORKSPACE_PATH)
 def get_relation_matrix(
     workspace_key: str,
     session: DbSession,
@@ -89,6 +99,7 @@ def get_relation_matrix(
 
 
 @router.get("/relation-matrix/containers", response_model=RelationMatrixContainerPage)
+@requires("records.read", at=WORKSPACE_PATH)
 def get_relation_matrix_containers(
     workspace_key: str,
     session: DbSession,
@@ -107,6 +118,7 @@ def get_relation_matrix_containers(
 
 
 @router.get("/relation-matrix/link-candidates", response_model=RelationMatrixLinkCandidatePage)
+@requires("records.read", at=WORKSPACE_PATH)
 def get_relation_matrix_link_candidates(
     workspace_key: str,
     session: DbSession,

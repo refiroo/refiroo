@@ -19,6 +19,11 @@ from ...engine.sources.inference.run import (
 )
 from ...errors import api_error
 from ...models.sources import InferenceApplicationRequest, InferenceRequest, ListProposalRequest
+from ..access import (
+    INSTANCE,
+    AuthorizedRoute,
+    requires,
+)
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import diagnostic_details
@@ -31,10 +36,11 @@ from ..schemas.sources import (
 )
 from ..steps import step_response
 
-router = APIRouter(prefix="/api/v1", tags=["model administration"])
+router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["model administration"])
 
 
 @router.post("/model-drafts/{draft_id}/inference", response_model=InferenceResponse, status_code=202)
+@requires("model.author", at=INSTANCE)
 def run_inference(draft_id: str, payload: InferenceRequest, request: Request, session: DbSession) -> JSONResponse:
     """Propose a model and its mapping from the draft's current source file (D87, D90, D91).
 
@@ -63,6 +69,7 @@ def run_inference(draft_id: str, payload: InferenceRequest, request: Request, se
 
 
 @router.get("/model-drafts/{draft_id}/inference", response_model=InferenceResponse)
+@requires("model.author", at=INSTANCE)
 def get_inference(draft_id: str, session: DbSession) -> InferenceResponse:
     """The draft's latest inference: its state, its proposals' counts by status, what the workbook
     disagrees with, its warnings and the elements still as proposed (``404 INFERENCE_NOT_FOUND``
@@ -71,6 +78,7 @@ def get_inference(draft_id: str, session: DbSession) -> InferenceResponse:
 
 
 @router.get("/model-drafts/{draft_id}/inference/proposals", response_model=ProposalPage)
+@requires("model.author", at=INSTANCE)
 def list_proposals(
     draft_id: str,
     session: DbSession,
@@ -109,6 +117,7 @@ def list_proposals(
     response_model=ModelDraftStepResponse,
     response_model_exclude_unset=True,
 )
+@requires("model.author", at=INSTANCE)
 def apply_proposals(
     draft_id: str, payload: InferenceApplicationRequest, request: Request, session: DbSession
 ) -> ModelDraftStepResponse:
@@ -125,6 +134,7 @@ def apply_proposals(
 
 
 @router.post("/model-drafts/{draft_id}/inference/list", response_model=ListProposalResponse)
+@requires("model.author", at=INSTANCE)
 def propose_one_list(draft_id: str, payload: ListProposalRequest, session: DbSession) -> ListProposalResponse:
     """Read a rectangle of the draft's file as a list (0.10 A8b, D128): the ``listBlock`` proposal
     A8a's rules make of it against the draft as it is now, answered and not stored. Its

@@ -592,3 +592,79 @@ class SigningKeyRotation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     immediate: bool = False
+
+
+# --- Authorization (Product 0.12 Z1, ADR-044) -----------------------------------------------------
+
+ActionGroupKey = Annotated[str, StringConstraints(min_length=1, max_length=64)]
+ModelKey = Annotated[str, StringConstraints(min_length=1, max_length=160)]
+Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
+
+
+class RoleCreate(BaseModel):
+    """A custom role: its action groups, or a predefined or custom role's groups to start from
+    (``copiedFrom``) with ``actionGroups`` left out."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: PrincipalName
+    description: Description | None = None
+    actionGroups: list[ActionGroupKey] | None = None
+    copiedFrom: str | None = Field(default=None, description="A role's key to copy the groups of")
+
+
+class RoleUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    name: PrincipalName | None = None
+    description: Description | None = None
+    actionGroups: list[ActionGroupKey] | None = None
+
+
+class GroupCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: PrincipalName
+    description: Description | None = None
+
+
+class GroupUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    name: PrincipalName | None = None
+    description: Description | None = None
+
+
+class GroupMemberAdd(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    userId: str
+
+
+class GrantPrincipal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["user", "client", "group"]
+    id: str
+
+
+class GrantScope(BaseModel):
+    """The instance (``instance: true``), or one workspace, optionally narrowing writes to
+    applications and record types of its model (D228, D243)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instance: bool = False
+    workspaceKey: str | None = None
+    applications: list[ModelKey] = Field(default_factory=list)
+    recordTypes: list[ModelKey] = Field(default_factory=list)
+
+
+class GrantCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    principal: GrantPrincipal
+    role: str = Field(description="The role's key")
+    scope: GrantScope
