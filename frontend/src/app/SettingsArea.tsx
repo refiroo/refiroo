@@ -16,6 +16,9 @@ import { JobsPage } from "@/features/settings/JobsPage";
 import { MoveEditor } from "@/features/moves/MoveEditor";
 import { MovesPage } from "@/features/moves/MovesPage";
 import { WebhooksPage } from "@/features/settings/WebhooksPage";
+import { GroupsPage } from "@/features/security/GroupsPage";
+import { PeoplePage } from "@/features/security/PeoplePage";
+import { RolesPage } from "@/features/security/RolesPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
 import { ModelEditor } from "@/features/model-editor/ModelEditor";
 import { workspaceModel } from "@/model/workspaceModels";
@@ -119,12 +122,19 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         />
       ) : route.page === "jobs" ? (
         <JobsPage model={model} route={route} onNavigate={(next) => navigate(next)} />
+      ) : route.page === "people" ? (
+        <PeoplePage route={route} onNavigate={(next) => navigate(next)} />
+      ) : route.page === "groups" ? (
+        <GroupsPage route={route} onNavigate={(next) => navigate(next)} />
+      ) : route.page === "roles" ? (
+        <RolesPage />
       ) : route.page === "api-reference" ? (
         <ApiReferencePage />
       ) : route.page === "workspaces" ? (
         <WorkspaceAdmin
           route={route}
           onRouteChange={(next) => navigate(next)}
+          onNavigate={(next) => navigate(next)}
           onDefaultChanged={router.defaultWorkspaceChanged}
           onWorkspaceDeleted={(workspaceKey) => {
             // Back to applications never returns to a deleted workspace.

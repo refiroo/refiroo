@@ -19,6 +19,7 @@ from ...errors import ApiError, api_error
 from ...models.commands import ClientCreate, ClientSecretCreate, ClientUpdate
 from ...models.database import OAuthClient, OAuthClientSecret
 from ..authorization.administration import grant_roles
+from ..reads.object_query import name_contains
 from .passwords import hash_secret, verify_secret
 
 _KEYS = (integer_key("sequenceId", OAuthClient.id, "id"),)
@@ -179,10 +180,17 @@ def authenticate_client(session: Session, client_id: str, secret: str) -> OAuthC
 
 
 def client_page(
-    session: Session, *, active: bool | None, page: PageRequest, page_size: int
+    session: Session,
+    *,
+    q: str | None = None,
+    active: bool | None,
+    page: PageRequest,
+    page_size: int,
 ) -> Page[OAuthClient]:
-    """Clients in the order they were created."""
+    """Clients in the order they were created; ``q`` matches the name (D300)."""
     statement = select(OAuthClient)
+    if q:
+        statement = statement.where(name_contains(OAuthClient.name, q))
     if active is not None:
         statement = statement.where(OAuthClient.active.is_(active))
     return paginate_statement(
@@ -190,7 +198,7 @@ def client_page(
         statement,
         keys=_KEYS,
         scope="clients",
-        filters={"active": active},
+        filters={"q": q, "active": active},
         page=page,
         page_size=page_size,
         message="Client list cursor is invalid",

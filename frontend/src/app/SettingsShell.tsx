@@ -15,6 +15,7 @@ import type { ApplicationDefinition, EngineModel, RouteState, SettingsPage } fro
 import { RouteLink } from "@/ui/RouteLink";
 import { ShellFrame } from "./ShellFrame";
 import { TopBar } from "./TopBar";
+import { useHoldsGroup } from "./useMe";
 
 export function SettingsShell({
   model,
@@ -33,6 +34,8 @@ export function SettingsShell({
   fullWidth?: boolean;
   children: ReactNode;
 }) {
+  const securityAdmin = useHoldsGroup("security-admin");
+  const navigation = SETTINGS_NAVIGATION.filter((group) => !group.requires || securityAdmin);
   const current = SETTINGS_NAVIGATION.flatMap((group) => group.pages).find((item) => item.page === page);
   return (
     <ShellFrame
@@ -57,7 +60,7 @@ export function SettingsShell({
               drawerTitle: "Settings navigation",
               resizeLabel: "Resize settings navigation",
               content: (close) =>
-                SETTINGS_NAVIGATION.map((group) => (
+                navigation.map((group) => (
                   <div key={group.label} className="settings-nav-group">
                     <h2 className="nav-label">{group.label}</h2>
                     <ul>

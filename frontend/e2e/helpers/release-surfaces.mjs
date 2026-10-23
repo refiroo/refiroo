@@ -2,7 +2,6 @@
 // approved by screenshot, light and dark at 1440px. They run on a harness of their own with webhook
 // subscriptions on, so the gates' other pages (Settings › Deployment names that capability) keep
 // their baselines. Both gates call `visitReleaseSurfaces` with what they do on each surface.
-import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -35,7 +34,6 @@ export async function visitReleaseSurfaces(visit) {
   const harness = await bootHarness({
     backendEnv: {
       CONSUMER_SUBSCRIPTIONS_ENABLED: "true",
-      CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY: randomBytes(32).toString("base64url"),
     },
   });
   try {

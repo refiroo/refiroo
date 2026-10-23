@@ -46,6 +46,29 @@ export function useRoleLine(workspaceKey?: string): string | undefined {
   return permissions && roleLine(permissions);
 }
 
+/**
+ * Whether the caller holds an instance action group, such as Security administration (0.12 SP1,
+ * D303), read from their permissions in the default workspace, where an instance group appears as
+ * in every workspace: `undefined` while it loads, `false` when it cannot be read. Only offers or
+ * hides what the engine would refuse anyway.
+ */
+export function useHoldsGroup(groupKey: string): boolean | undefined {
+  const [held, setHeld] = useState<boolean>();
+  useEffect(() => {
+    let active = true;
+    Promise.resolve()
+      .then(() => api.myPermissions())
+      .then(
+        (loaded) => active && setHeld(loaded.actionGroups.some((group) => group.key === groupKey)),
+        () => active && setHeld(false),
+      );
+    return () => {
+      active = false;
+    };
+  }, [groupKey]);
+  return held;
+}
+
 export function roleLine(permissions: MyPermissions): string {
   const names = permissions.roles.map((role) => role.name);
   const where = permissions.workspaceLabel;

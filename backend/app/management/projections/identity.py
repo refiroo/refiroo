@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page
+from ...engine.authorization.administration import HeldRole, held_roles
 from ...engine.identity import keys
 from ...engine.identity.authentication import Principal
 from ...engine.identity.clients import secrets_of
@@ -27,6 +28,8 @@ from ..schemas.identity import (
     SigningKeyResponse,
     UserPage,
     UserResponse,
+    UserRole,
+    UserRoleWorkspace,
 )
 
 
@@ -61,7 +64,11 @@ def session_page(page: Page[UserSession], current: str | None) -> SessionPage:
     )
 
 
-def user_response(user: User) -> UserResponse:
+def user_response(
+    session: Session, user: User, roles: list[HeldRole] | None = None
+) -> UserResponse:
+    if roles is None:
+        roles = held_roles(session, [user.id]).get(user.id, [])
     return UserResponse(
         id=user.public_id,
         username=user.username,
@@ -73,11 +80,26 @@ def user_response(user: User) -> UserResponse:
         createdAt=user.created_at,
         updatedAt=user.updated_at,
         lastSignInAt=user.last_sign_in_at,
+        roles=[
+            UserRole(
+                key=role.key,
+                name=role.name,
+                instance=role.instance,
+                workspaces=[
+                    UserRoleWorkspace(key=key, label=label) for key, label in role.workspaces
+                ],
+            )
+            for role in roles
+        ],
     )
 
 
-def user_page(page: Page[User]) -> UserPage:
-    return UserPage(items=[user_response(user) for user in page.items], **page.links())
+def user_page(session: Session, page: Page[User]) -> UserPage:
+    roles = held_roles(session, [user.id for user in page.items])
+    return UserPage(
+        items=[user_response(session, user, roles.get(user.id, [])) for user in page.items],
+        **page.links(),
+    )
 
 
 def _secret(secret: OAuthClientSecret) -> ClientSecretInfo:

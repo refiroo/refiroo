@@ -56,6 +56,7 @@ function renderAdmin(workspaceKey?: string, overrides: Partial<Parameters<typeof
   const props = {
     route: { ...LIST, ...(workspaceKey ? { workspaceKey } : {}) },
     onRouteChange: vi.fn(),
+    onNavigate: vi.fn(),
     onDefaultChanged: vi.fn(),
     onOpenWorkspace: vi.fn(),
     ...overrides,
@@ -74,6 +75,13 @@ const byKey = new Map<string, WorkspaceDetail>();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // A caller without Security administration: the workspace's Access is not shown (0.12 SP1).
+  vi.mocked(api.myPermissions).mockResolvedValue({
+    workspaceKey: "default",
+    workspaceLabel: "Default",
+    roles: [],
+    actionGroups: [],
+  });
   byKey.clear();
   for (const item of [primary, retail, archive]) byKey.set(item.key, item);
   vi.mocked(api.capabilities).mockResolvedValue(capabilities(true));

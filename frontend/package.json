@@ -51,6 +51,7 @@
     "test:browser:workspace-r": "node e2e/workspace-r-acceptance.mjs",
     "test:browser:settings": "node e2e/u3-settings.mjs",
     "test:browser:sign-in": "node e2e/i2-sign-in.mjs",
+    "test:browser:security": "node e2e/sp1-security.mjs",
     "test:browser:operations": "node e2e/operations-o2.mjs",
     "test:browser:integration": "node e2e/u4-integration.mjs",
     "test:browser:webhooks": "node e2e/u5-webhooks.mjs",

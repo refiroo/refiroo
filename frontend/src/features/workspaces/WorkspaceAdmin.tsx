@@ -12,6 +12,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
+import { security } from "@/api/securityClient";
+import { useHoldsGroup } from "@/app/useMe";
+import { GrantsSection } from "@/features/security/GrantsSection";
 import { errorMessage, isApiError } from "@/api/errors";
 import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
 import { formatServerTime } from "@/lib/dates";
@@ -19,6 +22,7 @@ import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type {
   CapabilitiesResponse,
   ModelReleaseSummary,
+  RouteState,
   SettingsRoute,
   Workspace,
   WorkspaceDetail,
@@ -53,6 +57,7 @@ const WORKSPACES: WorkspacesRoute = { kind: "settings", page: "workspaces" };
 export function WorkspaceAdmin({
   route,
   onRouteChange,
+  onNavigate,
   onDefaultChanged,
   onOpenWorkspace,
   onWorkspaceDeleted,
@@ -60,6 +65,8 @@ export function WorkspaceAdmin({
   route: WorkspacesRoute;
   /** Moves within Workspaces, or to a webhook that keeps a workspace from being deleted. */
   onRouteChange: (route: SettingsRoute) => void;
+  /** Opens a page the workspace's Access links to: a person or a group (0.12 SP1). */
+  onNavigate: (route: RouteState) => void;
   onDefaultChanged?: (workspaceKey: string) => void;
   onOpenWorkspace: (workspaceKey: string) => void;
   onWorkspaceDeleted?: (workspaceKey: string) => void;
@@ -199,6 +206,7 @@ export function WorkspaceAdmin({
             }}
             reloadRuntime={reloadRuntime}
             onOpen={onOpenWorkspace}
+            onNavigate={onNavigate}
             onOpenSubscription={(subscriptionId) =>
               onRouteChange({ kind: "settings", page: "webhooks", subscriptionId })
             }
@@ -242,6 +250,7 @@ function WorkspaceDetail({
   onRuntimeChanged,
   reloadRuntime,
   onOpen,
+  onNavigate,
   onOpenSubscription,
   onDeleted,
 }: {
@@ -256,9 +265,11 @@ function WorkspaceDetail({
   onRuntimeChanged: (state: WorkspaceRuntimeState) => void;
   reloadRuntime: () => Promise<WorkspaceRuntimeState>;
   onOpen: (workspaceKey: string) => void;
+  onNavigate: (route: RouteState) => void;
   onOpenSubscription: (subscriptionId: string) => void;
   onDeleted: (workspace: Workspace) => void;
 }) {
+  const securityAdmin = useHoldsGroup("security-admin");
   const [workspace, setWorkspace] = useState<WorkspaceDetail>();
   const [loadError, setLoadError] = useState("");
   const [loadToken, setLoadToken] = useState(0);
@@ -512,6 +523,18 @@ function WorkspaceDetail({
           ? "Change sets and publications belong to this workspace. Open it to work with them."
           : "A retired workspace keeps its live data, change sets and publications readable; changes are disabled."}
       </p>
+      {securityAdmin && (
+        <GrantsSection
+          subject={{ workspace: { key: workspace.key, label: workspace.label } }}
+          title="Access"
+          description="Who can do what in this workspace: granted here, or for the whole instance; directly or through a group."
+          load={(cursor) => security.access(workspace.key, cursor)}
+          deps={[workspace.key]}
+          onNavigate={onNavigate}
+          headingLevel={3}
+          className="workspace-access"
+        />
+      )}
       {moving && (
         <NewMoveDialog
           source={workspace.key}

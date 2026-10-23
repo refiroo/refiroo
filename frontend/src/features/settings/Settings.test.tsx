@@ -70,7 +70,18 @@ beforeEach(() => {
   vi.mocked(api.system).mockResolvedValue(system);
   vi.mocked(api.systemConfiguration).mockResolvedValue(configuration);
   vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
+  vi.mocked(api.myPermissions).mockResolvedValue(permissions([]));
 });
+
+/** The caller's permissions in the default workspace, holding `groups` (0.12 Z1). */
+function permissions(groups: string[]) {
+  return {
+    workspaceKey: "default",
+    workspaceLabel: "Default",
+    roles: [],
+    actionGroups: groups.map((key) => ({ key, name: key, applications: [], recordTypes: [], sources: [] })),
+  };
+}
 afterEach(() => {
   delete document.documentElement.dataset.theme;
   vi.unstubAllGlobals();
@@ -133,6 +144,16 @@ describe("SettingsShell", () => {
     expect(within(navigation).getByRole("link", { name: "About" })).not.toHaveAttribute("aria-current");
     fireEvent.click(within(navigation).getByRole("link", { name: "Model" }));
     expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "model" });
+  });
+
+  it("lists Security only to a person holding Security administration (0.12 SP1, D303)", async () => {
+    vi.mocked(api.myPermissions).mockResolvedValue(permissions(["security-admin"]));
+    renderShell();
+    const navigation = screen.getByRole("navigation", { name: "Settings" });
+    expect(await within(navigation).findByRole("heading", { name: "Security" })).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: "People" })).toHaveAttribute("href", "/settings/people");
+    expect(within(navigation).getByRole("link", { name: "Groups" })).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: "Roles" })).toBeInTheDocument();
   });
 
   it("shows the application pages' top bar: home, the applications with none current, Settings current", () => {

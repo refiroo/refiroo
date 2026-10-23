@@ -33,6 +33,7 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { ShownOnceDialog } from "@/ui/ShownOnceDialog";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
@@ -267,25 +268,23 @@ function Breakable({ text }: { text: string }) {
 /** The signing key, once: no read returns it again. */
 function SigningKeyDialog({ subscription, onClose }: { subscription: Subscription; onClose: () => void }) {
   return (
-    <Modal title="Keep the signing key" eyebrow="Webhook created" size="compact" onClose={onClose}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onClose();
-        }}
-      >
-        <p>
-          Every delivery to <code>{subscription.url}</code> is signed with this key (<code>RDM-Signature</code>). Store
-          it with the receiver now: it is not shown again.
-        </p>
-        <p className="webhook-secret">
-          <CopyValue label="Signing key" value={subscription.signingSecret ?? ""} />
-        </p>
-        <div className="dialog-actions">
-          <button className="primary">I have stored the key</button>
-        </div>
-      </form>
-    </Modal>
+    <ShownOnceDialog
+      title="Keep the signing key"
+      eyebrow="Webhook created"
+      label="Signing key"
+      value={subscription.signingSecret ?? ""}
+      confirmLabel="I have stored the key"
+      onClose={onClose}
+    >
+      {{
+        before: (
+          <p>
+            Every delivery to <code>{subscription.url}</code> is signed with this key (<code>RDM-Signature</code>).
+            Store it with the receiver now: it is not shown again.
+          </p>
+        ),
+      }}
+    </ShownOnceDialog>
   );
 }
 

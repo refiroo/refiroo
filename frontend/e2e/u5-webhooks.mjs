@@ -7,7 +7,7 @@
 // answer; suspend and resume by keyboard, after which the batch arrives signed with the key the
 // page showed; a workspace refused deletion naming its webhook, linked to its page; delete; axe
 // light and dark; screenshots.
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
@@ -77,7 +77,6 @@ try {
     },
     backendEnv: {
       CONSUMER_SUBSCRIPTIONS_ENABLED: "true",
-      CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY: randomBytes(32).toString("base64url"),
     },
   });
   const { page, uiUrl, api, output, browser } = harness;

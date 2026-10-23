@@ -67,6 +67,10 @@ describe("routes", () => {
     ["/settings/api-reference", { kind: "settings", page: "api-reference" }],
     ["/settings/workspaces", { kind: "settings", page: "workspaces" }],
     ["/settings/workspaces/central-europe", { kind: "settings", page: "workspaces", workspaceKey: "central-europe" }],
+    ["/settings/people", { kind: "settings", page: "people" }],
+    ["/settings/people/u-1", { kind: "settings", page: "people", userId: "u-1" }],
+    ["/settings/groups/g-1", { kind: "settings", page: "groups", groupId: "g-1" }],
+    ["/settings/roles", { kind: "settings", page: "roles" }],
     ["/settings/webhooks", { kind: "settings", page: "webhooks" }],
     ["/settings/webhooks/6f1c-2a", { kind: "settings", page: "webhooks", subscriptionId: "6f1c-2a" }],
     [

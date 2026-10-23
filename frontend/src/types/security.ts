@@ -47,8 +47,123 @@ export interface Grant {
     recordTypes: string[];
     applicationNames: string[];
     recordTypeNames: string[];
+    /** Narrowed-to keys the workspace's model no longer has (D296). */
+    missingApplications?: string[];
+    missingRecordTypes?: string[];
   };
+  /** The narrowing names something the model no longer has; that part allows nothing (D296). */
+  stale?: boolean;
   createdAt: string;
+}
+
+export interface GrantPage extends PageNavigation {
+  items: Grant[];
+}
+
+/** What a grant names: a principal, a role and where (0.12 Z1). */
+export interface GrantCreate {
+  principal: { kind: "user" | "client" | "group"; id: string };
+  role: string;
+  scope: { instance: true } | { workspaceKey: string; applications?: string[]; recordTypes?: string[] };
+}
+
+/** A role a person holds, directly or through a group, and where (0.12 SP1, D298). */
+export interface UserRole {
+  key: string;
+  name: string;
+  instance: boolean;
+  workspaces: { key: string; label: string }[];
+}
+
+/** A person, as Settings › Security › People shows them (0.12 I1, SP1). */
+export interface User {
+  id: string;
+  username: string;
+  name: string;
+  email: string | null;
+  active: boolean;
+  hasPassword: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  lastSignInAt: string | null;
+  roles: UserRole[];
+}
+
+export interface UserPage extends PageNavigation {
+  items: User[];
+}
+
+/** A one-time link that sets a person's password, answered once (D272). */
+export interface PasswordResetLink {
+  url: string;
+  expiresAt: string;
+}
+
+/** A local group of people (0.12 Z1). */
+export interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  members: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupPage extends PageNavigation {
+  items: Group[];
+}
+
+export interface GroupMember {
+  id: string;
+  username: string;
+  name: string;
+  active: boolean;
+}
+
+export interface GroupMemberPage extends PageNavigation {
+  items: GroupMember[];
+}
+
+/** A role: predefined (read-only) or custom, made of action groups (0.12 Z1). */
+export interface Role {
+  key: string;
+  name: string;
+  description: string | null;
+  predefined: boolean;
+  actionGroups: string[];
+  /** How many grants give it. */
+  grants: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RolePage extends PageNavigation {
+  items: Role[];
+}
+
+/** One of the catalogue's action groups, which roles are made of. */
+export interface ActionGroup {
+  key: string;
+  name: string;
+  description: string;
+  /** `instance`: held only for the whole instance (D302). */
+  grantableAt: "workspace" | "instance";
+  /** Whether a grant's applications and record types narrow it (writes only). */
+  narrowable: boolean;
+}
+
+/** An OAuth client as a grant's "Who" finds it (0.12 I1). */
+export interface ClientSummary {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface ClientSummaryPage extends PageNavigation {
+  items: ClientSummary[];
 }
 
 /** What the caller holds in one workspace: the roles that apply there and their action groups. */

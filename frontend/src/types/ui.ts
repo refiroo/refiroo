@@ -102,6 +102,10 @@ export type SettingsRoute =
   /** Stored import profiles, or one profile's page with its next file's check (0.10 A5c, D85). */
   | { kind: "settings"; page: "import-profiles"; profileKey?: string }
   | { kind: "settings"; page: "workspaces"; workspaceKey?: string }
+  /** Security › People and Groups, or one person's or group's page; Roles (0.12 SP1). */
+  | { kind: "settings"; page: "people"; userId?: string }
+  | { kind: "settings"; page: "groups"; groupId?: string }
+  | { kind: "settings"; page: "roles" }
   | {
       kind: "settings";
       page: "webhooks";

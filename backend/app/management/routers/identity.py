@@ -122,9 +122,10 @@ def list_users(
     active: bool | None = None,
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> UserPage:
-    """People in the order they were created; ``q`` matches the username, name or e-mail."""
+    """People in the order they were created, each with the roles they hold, directly or through a
+    group, and where (D298); ``q`` matches the username, name or e-mail."""
     return present.user_page(
-        user_page(session, q=q, active=active, page=paging, page_size=page_size)
+        session, user_page(session, q=q, active=active, page=paging, page_size=page_size)
     )
 
 
@@ -133,13 +134,13 @@ def list_users(
 def post_user(payload: UserCreate, session: DbSession) -> UserResponse:
     """A person, without a password until they set one; the username is unique ignoring case
     (``409 USERNAME_TAKEN``)."""
-    return present.user_response(create_user(session, payload))
+    return present.user_response(session, create_user(session, payload))
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
 @requires("security.manage", at=INSTANCE)
 def get_user(user_id: str, session: DbSession) -> UserResponse:
-    return present.user_response(load_user(session, user_id))
+    return present.user_response(session, load_user(session, user_id))
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
@@ -147,7 +148,7 @@ def get_user(user_id: str, session: DbSession) -> UserResponse:
 def patch_user(user_id: str, payload: UserUpdate, session: DbSession) -> UserResponse:
     """Change a person's name or e-mail, or deactivate them with ``active: false``: their tokens are
     refused from the next request and their sessions end. A person is never deleted (D237)."""
-    return present.user_response(update_user(session, user_id, payload))
+    return present.user_response(session, update_user(session, user_id, payload))
 
 
 @router.post(
@@ -176,12 +177,13 @@ def delete_user_sessions(user_id: str, session: DbSession) -> Response:
 def list_clients(
     session: DbSession,
     paging: PageQuery,
+    q: str | None = Query(default=None, max_length=200),
     active: bool | None = None,
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> ClientPage:
-    """OAuth clients in the order they were created."""
+    """OAuth clients in the order they were created; ``q`` matches the name (D300)."""
     return present.client_page(
-        session, client_page(session, active=active, page=paging, page_size=page_size)
+        session, client_page(session, q=q, active=active, page=paging, page_size=page_size)
     )
 
 

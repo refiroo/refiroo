@@ -37,7 +37,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account | Available | 0.12 I1, I2 |
-| F27 | Control who can do what | One's own roles on Settings › Account and in the account menu | Roles, groups and grants; every operation checked; writes narrowed to record types; jobs as their requester | 0.12 Z1, Z2; Security pages SP1 |
+| F27 | Control who can do what | Settings › Security (People, Groups, Roles), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; every operation checked; writes narrowed to record types; jobs as their requester | 0.12 Z1, Z2, SP1 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
 (`frontend/e2e/`). The acceptance runs are recorded in the release plans.
@@ -1266,9 +1266,24 @@ The engine never lets the last security administrator be removed. Settings › A
 person's roles, where each applies, what it narrows and the group it comes through; the account
 menu names the roles held in the workspace open.
 
-Limits: any system with a consumer token reads every
-consumer API (Z3); the interface still offers what a person may not do and shows the refusal (Z5);
-people, groups, roles and grants are managed through the API until the Security pages (SP1).
+A security administrator manages all of it in Settings › Security. **People** lists everyone with
+the roles they hold, searched by name and shown active or deactivated; a person's page edits their
+name and e-mail, makes a one-time password link to pass on (shown once; the engine sends no
+e-mail), signs them out everywhere, deactivates or restores them, and lists their roles, directly
+or through a group, and their groups. **Groups** creates, renames and deletes groups, grants them
+roles and adds or removes members. **Roles** shows every role against the action groups; a custom
+role is made empty or copied from any role and edited in place. A workspace's page in Settings ›
+Workspaces shows its **Access**: who can do what there, granted in the workspace or for the whole
+instance. One dialog grants a role from each of these places: who, or where, the role, and
+optionally the applications and record types writes are narrowed to, with a sentence saying what
+the grant will allow. A role that can only be held for the whole instance, such as Security
+administrator, is never granted in a single workspace. The Security pages are shown only to
+security administrators.
+
+Limits: any system with a consumer token reads every consumer API (Z3); the interface still offers
+what a person may not do and shows the refusal (Z5), and a person without Browse in the default
+workspace sees only that refusal instead of the application (Z5); clients are managed through the API until SP2; groups from a sign-in
+provider come with I3; who granted or changed what is recorded from Z4.
 
 Evidence: [authorization contract](../API.md#authorization), [OPERATIONS](../OPERATIONS.md#roles-and-grants),
 [catalogue](../../backend/app/engine/authorization/catalogue.py), [route check](../../backend/app/management/access.py).

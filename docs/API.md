@@ -5724,8 +5724,10 @@ roles, groups and members, grants, a workspace's access, `/action-groups`, `/me/
 `/me/grants`; the lists filtered. **Delivered by Z2 (2026-10-23):** a grant's narrowing enforced at
 the write unit, `details.recordTypes` on the refusal, jobs run as their requester, source files read
 by their uploader and their workspace's holders, `stale` grants, and a move's source needing Work
-in change sets for `mode: move`. The rest is designed; each part moves into
-"delivered" with its package (I3, Z2–Z5, SP1, SP2, K1, C1, A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
+in change sets for `mode: move`. **Delivered by SP1 (2026-10-24):** a person's `roles` on
+`/users`, `GET /users/{id}/grants`, `q` and `memberId` on `/groups`, `q` on `/clients`, and a
+workspace grant of a role held only at the instance refused. The rest is designed; each part moves
+into "delivered" with its package (I3, Z3–Z5, SP2, K1, C1, A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
 ### Authentication
@@ -5981,7 +5983,13 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   is unique ignoring case (`409 USERNAME_TAKEN`); a missing person is `404 USER_NOT_FOUND`.
   Deactivating a person ends their sessions. _Delivered by I2:_ `POST /users/{id}/password-reset`
   (`201 {url, expiresAt}`, answered once; valid `PASSWORD_RESET_HOURS`, once; a newer link replaces an
-  older one, D272) and `DELETE /users/{id}/sessions` (`204`). The grants come with Z1.
+  older one, D272) and `DELETE /users/{id}/sessions` (`204`). _Delivered by SP1:_ every read of a
+  person also answers `roles` (D298): each role they hold, directly or through a group, as `key`,
+  `name`, `instance` (held for the whole instance, then no workspaces are named) and `workspaces`
+  (`key`, `label`, by label); predefined roles first in the catalogue's order, then custom ones by
+  name. `GET /users/{id}/grants` (cursor-paged, D299) answers the person's grants as `GET /grants`
+  does, those made to them and those of their groups, a group's grant naming the group as its
+  `principal`; an unknown person is `404 USER_NOT_FOUND`.
 - **Groups:** `GET|POST /groups`, `GET|PATCH|DELETE /groups/{id}`, `GET|POST /groups/{id}/members`,
   `DELETE /groups/{id}/members/{userId}`. A provider group (`source: {provider, name}`) is created on
   first sight at a sign-in and its membership is the provider's; only its grants change here (D229).
@@ -5989,7 +5997,9 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   `409 GROUP_NAME_TAKEN`), `description`, `members` (a count), `version`, `createdAt`, `updatedAt`;
   `PATCH` takes `expectedVersion`; a member reads `id`, `username`, `name`, `active`; adding one
   already in the group changes nothing; deleting a group removes its memberships and grants. Missing
-  ones are `404 GROUP_NOT_FOUND` and `404 GROUP_MEMBER_NOT_FOUND`.
+  ones are `404 GROUP_NOT_FOUND` and `404 GROUP_MEMBER_NOT_FOUND`. _Delivered by SP1 (D300):_
+  `GET /groups` takes `q` (a case-insensitive part of the name) and `memberId` (the groups a person
+  is in).
 - **Action groups:** `GET /action-groups` (delivered, Z1): the catalogue, each group with `key`,
   `name`, `description`, `grantableAt` (`workspace` or `instance`), `narrowable`, and its `actions`,
   each with the `operations` (method and path) declaring it.
@@ -6029,7 +6039,10 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   (Z2, above). "The last Security administrator" counts active people holding `security-admin` at the
   instance, directly or through a group; clients do not count, and the rule also refuses
   deactivating that person, taking them out of the group, deleting the group or taking the group
-  out of a custom role (D283). A missing grant is `404 GRANT_NOT_FOUND`.
+  out of a custom role (D283). A missing grant is `404 GRANT_NOT_FOUND`. _Delivered by SP1 (D302):_
+  a workspace grant of a role none of whose action groups can be held in a workspace (each
+  `grantableAt: instance`, such as Security administrator) is `422 GRANT_SCOPE_INVALID` naming the
+  role in `details.role`: it would allow nothing; such a role is granted at the instance.
 - **Who can do what here:** `GET /workspaces/{workspaceKey}/access`: every grant that applies in the
   workspace, direct, through a group or from the instance; readable with `security-admin`
   (delivered, Z1: the grants made in the workspace or at the instance, a group's named as the
@@ -6042,7 +6055,8 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   `secrets` (`id`, `createdAt`, `expiresAt` at the end of an overlap, `lastUsedAt`; never a value).
   `POST /clients` and `POST /clients/{id}/secrets` (`{expectedVersion, overlapHours}`, 24 by default,
   0 to 168; 0 stops the other secrets at once) answer the client with `secretId` and `secret`, this
-  once. Missing ones are `404 CLIENT_NOT_FOUND` and `404 CLIENT_SECRET_NOT_FOUND`.
+  once. Missing ones are `404 CLIENT_NOT_FOUND` and `404 CLIENT_SECRET_NOT_FOUND`. _Delivered by
+  SP1 (D300):_ `GET /clients` takes `q` (a case-insensitive part of the name).
 - **Token signing keys:** `GET /token-signing-keys` (`kid`, created, retired, never the key),
   `POST /token-signing-keys/rotation` `{immediate: true|false}`. _Delivered by I1:_ newest first,
   each with `kid`, `state` (`current`, `verifying` while its tokens may still be valid, `retired`),

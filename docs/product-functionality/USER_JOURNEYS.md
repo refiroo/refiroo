@@ -2033,7 +2033,10 @@ signing a person out everywhere, through the API; the People page is SP1. Z1 (20
 groups and grants through the API, every operation checked at its route (J40.1, J40.2, J40.4–J40.9);
 the person's roles on Settings › Account and in the account menu. Z2 (2026-10-23): J40.3's
 narrowing enforced on every write path, a stale grant reported, J40.10, and an import profile's
-files kept to their uploader and their workspace.
+files kept to their uploader and their workspace. SP1 (2026-10-24): the UI channel: Settings ›
+Security › People, Groups and Roles and a workspace's Access, shown to Security administrators; a
+person's roles in the people list and their grants through groups, groups and clients found by
+name, and a role held only at the instance refused in a workspace, through the API.
 
 1. Create a person; they set a password through a one-time link.
 2. Grant them a role in a workspace, directly or through a group, optionally narrowing what they may

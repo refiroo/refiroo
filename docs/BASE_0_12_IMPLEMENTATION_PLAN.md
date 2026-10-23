@@ -1518,6 +1518,10 @@ or continues their change set, instead of saving live. Every guard stays on the 
 only avoids offering what would be refused. _Amended after Z2 (the user, 2026-10-24):_ Z5's checks
 include the full backend suite, announced with its expected time, which closes Track Z and stands
 for Z1's, Z2's, Z3's and Z4's; a failure it finds from them is fixed in Z5 and named in its record.
+_Found in SP1 (2026-10-24):_ a person without Browse in the default workspace (a person just
+created and given a role elsewhere, or none) sees only "Reading the model in workspace 'default'
+needs Browse" instead of the application; Z5 opens the application in a workspace they may use and
+says plainly when there is none.
 
 ### Track SP — The Security pages (U8)
 
@@ -1531,6 +1535,227 @@ provider groups, members, grants), Roles (predefined read-only, custom created a
 matrix of action groups), and the grants per workspace from both sides ("who can do what here").
 Every page uses the list-and-detail pattern (U-D10) and the UI foundation; no page names an
 application or record type.
+
+##### SP1 plan (2026-10-24)
+
+**Planned 2026-10-24; accepted by the user the same day** ("above accepted"): D298–D305, the test
+cases and the "SP1 as planned" boards, after the user asked where the workspace's Access board is
+(the new row's fourth) and where token scopes are set (nowhere: `management` and `consumer` are the
+two audiences any active client may ask for; what a token may do is its principal's grants, D226;
+a client's consumer API grants are Z3 and SP2). Checked against the code at `eea6ca1` with the approved boards (People, People at 390px,
+Groups, Roles, Access), U8 in SETTINGS_AND_UI_PLAN and J40.
+
+**What the check found:**
+
+- **Every write the pages need exists** (I1, I2, Z1): people (create, change, deactivate and
+  restore, the one-time link, sign out everywhere), groups and members, roles (created empty or
+  copied, changed, deleted when unused), grants (created, removed), a workspace's access, and the
+  catalogue at `/action-groups`.
+- **Four reads the boards show do not:** a person's roles in the People list ("Data steward ·
+  Herbarium"): `GET /users` carries no roles; a person's roles **through their groups** (the
+  board's "Through" column): `GET /grants?principalId=` answers only direct grants, and
+  `/me/grants`, which includes groups, is the caller's own; **a person's groups**: no route answers
+  them; **finding a group or a client** for the grant dialog's "Who": `/groups` and `/clients` take
+  no search (`/users` has `q`).
+- **A role whose action groups are all instance-only** (Security administration, Model authoring,
+  Workspace administration, Operations: `grantableAt: instance`) **can be granted in a workspace,
+  where it allows nothing**: `create_grant` does not check the groups' reach, and the route check
+  and the last-administrator count read only instance grants. A dialog offering it would let an
+  administrator make a grant that silently does nothing (D302).
+- **The workspace page has no tabs** (`WorkspaceAdmin`: a header, actions, then sections such as its
+  webhooks); the Access board drew tabs Overview, Model, Access, Approvals (D301).
+- **The boards show five things other packages own:** a person's **Recent activity** (who granted,
+  who created: the actor is recorded only from Z4), **provider groups** and "from Entra ID" (I3),
+  the **Clients, Sign-in and Signing keys** entries (SP2, I3), a client's **consumer API grant** in
+  Access (Z3, SP2), and the **Approvals** tab (A3).
+- **No page hides itself yet** (Z5): every settings page is listed for everyone and a page the person
+  may not use shows the engine's refusal. The account menu already reads `/me/permissions` for its
+  role line.
+- **Reference patterns in the code:** `CatalogueLayout` with `useCursorFeed` and Load more
+  (Workspaces, Webhooks) for the list beside the detail; `SigningKeyDialog`'s "shown once" dialog
+  with `CopyValue` (Webhooks), which the one-time link reuses after extracting it; `ConfirmDialog`;
+  Account's grant rows (`grantDetail`).
+
+**What is built:**
+
+1. **API** (`security-admin` at the instance, cursor-paged, documented in API.md):
+   - `GET /users` and `GET /users/{id}` gain `roles`: each role the person holds, directly or through
+     a group, with where (`instance`, or the workspaces by key and label), one PostgreSQL aggregation
+     per page (D298).
+   - `GET /users/{id}/grants`: the person's grants, direct and through groups, in the shape of
+     `/me/grants` (a group's grant names the group) (D299).
+   - `GET /groups?q=&memberId=` and `GET /clients?q=` (D300).
+   - `POST /grants` refuses, `422 GRANT_SCOPE_INVALID`, a workspace grant of a role none of whose
+     groups can be held in a workspace (D302).
+   OpenAPI lock re-baselined from a diff.
+2. **Settings › Security › People** (`/settings/security/people[/{id}]`): the catalogue beside the
+   person, as the People board: search, Active and Deactivated as filters with their counts, each
+   row the name and the role line (D298); the person: name, username, e-mail, Active or Deactivated,
+   "Has not set a password yet" or the last sign-in; **Edit** (name, e-mail), **Reset password**
+   and, for someone without one, **Send a password link** (D304), **Sign out everywhere**,
+   **Deactivate** or **Restore**, each refusal shown as the engine words it
+   (`LAST_SECURITY_ADMINISTRATOR`); **Roles**: where, role, narrowed to (writes), through (directly,
+   or the group with a link to it), a stale narrowing marked (D296), Remove for a direct grant,
+   **Grant a role** (the dialog, item 6); **Groups**: their groups with Remove, **Add to a group**.
+   **New person**: username, name, e-mail, then the one-time link shown once (D304).
+3. **Groups** (`/settings/security/groups[/{id}]`): local groups with members and roles counted;
+   **New group**, Rename (name and description), Delete (refusals as worded); **Roles** as on a
+   person, with **Grant a role**; **Members** (paged) with **Add a member** (people found by `q`)
+   and Remove.
+4. **Roles** (`/settings/security/roles`): the matrix of the 13 action groups (each with its
+   one-line description) by role, predefined columns read-only; **New role** (a name, empty or
+   copied from any role) and a custom role's column edited in place: its groups as checkboxes, its
+   name and description, Save and Cancel, how many grants hold it ("a change applies on their next
+   request"), Delete when unused (`ROLE_IN_USE` otherwise). At 390px the matrix scrolls sideways in
+   its box with the group column fixed (D305).
+5. **A workspace's Access** (D301): a section on the workspace's page in Settings › Workspaces
+   listing every grant that applies there (who, kind, role, narrowed to, from: this workspace or the
+   whole instance; through a group named with a link), Remove for a grant made here, **Grant a
+   role**.
+6. **The grant dialog**, one component for all three places: from Access, **who** (people, groups
+   and clients found by name); from a person or group, **where** (the whole instance or a
+   workspace); the **role** with its groups in a sentence; **Narrow what they may change**
+   (everything, or chosen applications and record types from the workspace's model, offered only
+   for a workspace grant of a role with narrowable groups), "Reading is never narrowed", and a
+   sentence of what the grant allows, as the Access board. A role that can only be held at the
+   instance offers only the whole instance (D302).
+7. **Who sees Security** (D303): the navigation's Security group and the workspace's Access section
+   appear only to a person holding Security administration, read from the `/me/permissions` the
+   account menu already reads; Z5 extends the same check to the other pages.
+8. **Left out until their packages** (U-D11, as D273 did): Recent activity (Z4), provider groups
+   (I3), Clients, Sign-in and Signing keys (SP2, I3), consumer API grants (Z3, SP2), Approvals (A3).
+9. **Documents:** API.md (the four reads, D302's refusal), SETTINGS_AND_UI_PLAN (U8 and the
+   settings table: SP1 built), USER_JOURNEYS (J40's UI channel) and API_JOURNEYS,
+   CURRENT_FUNCTIONALITY, UI_ACCEPTANCE (SP1 state rows), EXECUTION_GUIDE (the new runner),
+   CHANGELOG, PROJECT_STATUS.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D298 | A person's roles in the People list | **Recommended:** `GET /users` and `GET /users/{id}` answer `roles`: each role the person holds, directly or through a group, with `instance: true` or the workspaces (key and label), computed in one PostgreSQL aggregation per page; the list's line reads "Data steward · Herbarium", "Data owner · Herbarium, Field stations", "Reader · 3 workspaces", "Security administrator" (an instance role), "No roles yet". Why: the approved board shows it, a person is found by what they do as much as by name, and an integrator listing people needs the same; one statement per page, not one call per row. Cost: every user read joins grants and groups |
+| D299 | A person's roles through their groups | **Recommended:** `GET /users/{id}/grants` (cursor-paged): direct grants and those of the person's groups, the same rows as `/me/grants` (D284), so "Through" is the grant's group. Why: a person's page must answer "why can Ana do this"; `GET /grants?principalId=` keeps meaning the grants made to that principal. Cost: one route |
+| D300 | Finding groups and clients | **Recommended:** `q` on `GET /groups` (name) and `GET /clients` (name), and `memberId` on `GET /groups` (the person's groups). Why: the grant dialog's "Who" searches people, groups and clients alike, and a person's page lists their groups; both are filters on existing lists. Cost: none beyond the filters |
+| D301 | Where a workspace's Access goes (**differs from the Access board's tabs**) | **Recommended:** a section **Access** on the workspace's page in Settings › Workspaces, below its details and before its webhooks; no tabs. Why: the page has no tabs today and holds three short sections; tabs for one more section would reshape the page; A3's approval policy becomes another section. Cost: on a workspace with many grants, the page is long (the section pages with Load more) |
+| D302 | A role that cannot be held in a workspace (**a refusal added**) | **Recommended:** `POST /grants` refuses a workspace grant whose role has no group grantable in a workspace, `422 GRANT_SCOPE_INVALID` naming the role; the dialog offers only "the whole instance" for it, and for a mixed role (a custom one, or Model administrator's Model authoring) says which of its groups apply only at the instance. Why: today such a grant is stored and allows nothing, so an administrator would believe they gave Security administration to someone who has none; refusing it makes the mistake visible through every client. Cost: a client that made such grants gets a refusal (none can have relied on them: they allowed nothing) |
+| D303 | Who sees the Security pages before Z5 | **Recommended:** the Security group in the navigation and the workspace's Access section are shown only to a person holding Security administration, read from `/me/permissions` (an instance group appears in every workspace's answer); a person without it who opens the address sees the engine's refusal. Why: a page the person can only be refused on is a dead end, and the read is already made for the menu; Z5 makes the same check general. Cost: none |
+| D304 | Inviting a person | **Recommended:** New person creates the person (username, name, e-mail) and, in the same dialog, shows their one-time password link once with Copy, its expiry and "Pass this link to the person yourself; it is not shown again"; **Reset password** on a person makes a new link the same way and says that it replaces an earlier one and that using it signs them out everywhere; the "shown once" dialog is extracted from Webhooks' signing key so both use one component. Why: D272 designed the link for this page and D233 sends no e-mail; one dialog for every secret shown once. Cost: the administrator passes the link on |
+| D305 | Roles at 390px (**no board**) | **Recommended:** the same matrix, scrolling sideways in its own box with the action-group column fixed; a custom role edited the same way. Why: a matrix is how roles are compared, and a list of roles each opening its groups would be a second design to keep; phones are not where roles are designed. Cost: sideways scrolling on a phone |
+
+**Journey test cases** (`tests/journeys/test_j40_security_pages.py`, on two configurations; written
+first and seen failing; the harness client acting as security administrator):
+
+1. **J40, the people list names roles:** given a person granted Data steward in workspace A
+   directly and Reader in B through a group, and another with an instance role, when `GET /users`
+   (and `GET /users/{id}`) is read, then the first lists Data steward in A and Reader in B, the
+   second the role with `instance: true`, and a person with none an empty list; `q` and `active`
+   still narrow the list.
+2. **J40.4, a person's grants through groups:** given the same person, when
+   `GET /users/{id}/grants` is read, then both grants are listed, the group's naming the group; when
+   they leave the group, then only the direct one; an unknown person answers `404 USER_NOT_FOUND`.
+3. **J40, finding groups and clients:** given two groups and two clients, `GET /groups?q=` and
+   `GET /clients?q=` answer the matching one; `GET /groups?memberId=` answers the person's groups.
+4. **J40, a role held only at the instance:** granting Security administrator in workspace A answers
+   `422 GRANT_SCOPE_INVALID`; at the instance it passes; Model administrator in A passes (Model
+   release is held in a workspace).
+
+Unit tests (Vitest): the role line (D298's wording, several roles and workspaces), the grant
+dialog's sentence (narrowed, instance, through which groups apply only at the instance).
+
+**Browser** (a new runner `sp1-security`, on two models; reference pattern: Settings › Workspaces'
+catalogue beside the detail, and Account's grant rows): as the harness person, create a person and
+copy their link; open the link's page and set the password in a second context, then sign in as
+them; grant them Data steward in a workspace narrowed to one record type of that workspace's model;
+add them to a new group, grant the group Reader in another workspace, see both on the person with
+"Through"; copy Data steward into a custom role, untick Publish, save; the workspace's Access lists
+all of it; remove a grant; deactivate the harness person and see `LAST_SECURITY_ADMINISTRATOR`'s
+message; a person without Security administration sees no Security entries. Keyboard only through
+the grant dialog; 390px (People, a person, Roles' matrix scrolled); axe; screenshots of People,
+Groups, Roles and Access at 1440px light and dark and People and Roles at 390px inspected against
+the boards.
+
+**Checks:** the new journey module and J40's authorization module; `test_openapi_contract` with the
+lock diffed; `test_api_journeys`; Ruff on the changed files; Vitest for the new pages, the dialog and
+`WorkspaceAdmin`; format, lint, build; the runners `sp1-security`, `u3-settings` (the navigation)
+and `u5-webhooks` (the extracted dialog). No migration, so no startup groups.
+
+**Composable domains (ADR-032):** the identity door is touched only by reads (a person's roles and
+grants); no value source, audit row or `cause` changes.
+
+**What the user will still not be able to do after SP1:** manage clients, their secrets and their
+consumer API grants on a page (SP2; API calls until then); sign in with a provider or see provider
+groups (I3); see who granted or changed what (Z4); have the rest of the interface hide what a person
+may not do (Z5).
+
+##### SP1 record (2026-10-24)
+
+**Delivered 2026-10-24.** What was built is the plan's list, items 1–9:
+
+- **API:** `roles` on every read of a person, from one statement per page over direct and group
+  grants (`administration.held_roles`, D298); `GET /users/{id}/grants` (`user_grant_page`, sharing
+  `/me/grants`' query, D299); `q` and `memberId` on `GET /groups`, `q` on `GET /clients` (D300);
+  `POST /grants` refuses a workspace grant of a role held only at the instance with
+  `422 GRANT_SCOPE_INVALID` and `details.role` (D302). OpenAPI lock re-baselined from a diff
+  against `eea6ca1`: `UserRole`, `UserRoleWorkspace`, the route, the three filters and two
+  descriptions; nothing else.
+- **Frontend** `features/security/`: `PeoplePage`, `GroupsPage`, `RolesPage`, `GrantsSection` (a
+  person's, a group's and a workspace's grants), `GrantDialog`, `PrincipalPicker` (people, groups and
+  clients found by name), `PickDialog`, `securityText`; `api/securityClient.ts`; routes
+  `/settings/people[/{id}]`, `/settings/groups[/{id}]`, `/settings/roles`; the Security group in the
+  navigation for holders of Security administration (`useHoldsGroup`, D303); Access on the
+  workspace's page (D301); `ui/ShownOnceDialog`, extracted from Webhooks' signing key and used for
+  the password link (D304); a `users` icon; `SettingsTable` names a column for assistive technology
+  only (the rows' actions).
+- **Documents:** API.md (SP1 delivered), USER_JOURNEYS (J40's UI channel), API_JOURNEYS,
+  CURRENT_FUNCTIONALITY (F27), SETTINGS_AND_UI_PLAN (U8 and the settings table), UI_ACCEPTANCE
+  (SP1-1 to SP1-4), EXECUTION_GUIDE (`sp1-security`), CHANGELOG, PROJECT_STATUS; Z5's scope gains
+  what SP1 found (below).
+
+**Where it differs from the plan:**
+
+- **Addresses** are `/settings/people`, `/settings/groups` and `/settings/roles`, like every other
+  settings page, not `/settings/security/…`.
+- **The groups list** shows each group's member count and description; a group's roles are on its
+  page (counting them in the list needed another field on every group read, not planned).
+- **The new person signs in after a grant** in the browser runner: a person without Browse in the
+  default workspace sees only "Reading the model in workspace 'default' needs Browse" instead of the
+  application. This was so since Z1 and is Z5's to fix; recorded in Z5's scope (decided within the
+  approved package).
+- **The journey cases were seen failing first** (8 of 8, each for the missing field, route, filter
+  or refusal), then passed.
+- **Found and fixed on the way, not SP1's:** `u5-webhooks` and the release gates' surface helper
+  still passed `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, which startup has refused since I1 (D253), so
+  neither could start; the harness already supplies `SECRETS_ENCRYPTION_KEY`, and the old setting is
+  removed from both. `u3-settings`' keyboard order now includes Security.
+- **Found by the runner and fixed:** the Roles matrix widened the page (at 1440px through its long
+  descriptions, at 390px through its cells' visually hidden labels escaping the scroll box); the
+  box now takes its width from the page and is the labels' containing block.
+
+**Checks** (single process):
+
+- `tests/journeys/test_j40_security_pages.py`: 8 passed (4 cases × 2 configurations), seen failing
+  first; with `test_j40_authorization.py`, `test_j39_j41_j43_identity.py` and `test_api_journeys.py`:
+  65 passed; after the final backend change `test_j40_security_pages`, `test_openapi_contract`,
+  `test_api_journeys`, `test_boundaries`: 28 passed. Ruff on the changed files (check and format).
+- Vitest: `src/features/security`, `src/routing`, `src/features/settings`, `src/features/workspaces`,
+  `src/app`, `src/ui`: 36 files, 331 passed (`securityText.test` new: the role line and the grant
+  sentence; `Settings.test`: Security listed only to a Security administrator; routes). `format`,
+  `lint` (0 errors; the 8 warnings in untouched files), `build`.
+- **Browser:** `sp1-security` on two models: 34 checks, axe 0 violations on the link dialog, the
+  grant dialog, People (light and dark), Groups, Roles and Access; `u3-settings`: 10 checks;
+  `u5-webhooks`: 19 checks (the extracted dialog). Screenshots inspected against the boards: People
+  and a person at 1440px light and dark and at 390px, the grant dialog, Groups, Access, Roles at
+  1440px and 390px (two layout defects found and fixed, above).
+
+**Not run:** the full backend suite (with Z5, the user's decision of 2026-10-24) and the other
+browser runners, which SP1 changes only through the navigation's Security group (R); the
+accessibility and visual gates (R).
+
+**What the user cannot do yet:** manage clients, their secrets and their consumer API grants on a
+page (SP2; API calls until then), or limit a client to some consumer APIs (Z3); sign in with a
+provider or see provider groups (I3); see who granted or changed what, or a person's recent
+activity (Z4); open the application as a person without Browse in the default workspace, or have the
+rest of the interface hide what a person may not do (Z5).
 
 #### SP2: OAuth clients and their access
 
@@ -1646,7 +1871,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 6 | [Z3](#z3-consumer-apis-per-client) | Z1 | Consumer APIs per client and workspace |
 | 7 | [Z4](#z4-audit-identity) | Z1 | The actor beside `cause` everywhere |
 | 8 | [Z5](#z5-the-interface-follows-the-callers-permissions) | Z2, I2 | The interface follows permissions; Reader and Contributor |
-| 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | Settings › Security: people, groups, roles, grants |
+| 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | **Delivered 2026-10-24.** Settings › Security: people, groups, roles, grants |
 | 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | Settings › Security: clients and their access; sign-in providers |
 | 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | OpenID Connect providers and their groups |
 | 12 | [K1](#k1-webhook-signing-key-rotation) | Z1 | Signing-key rotation with overlap; re-sealing |

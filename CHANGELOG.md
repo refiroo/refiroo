@@ -6,6 +6,28 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 SP1, the Security pages)
+
+- Settings › Security › **People**, **Groups** and **Roles**, shown to people holding Security
+  administration (D303): people listed with the roles they hold, searched, active or deactivated; a
+  person's page to edit them, make a one-time password link shown once (D304), sign them out
+  everywhere, deactivate or restore them, and see their roles, directly or through a group, and
+  their groups; groups with their roles and members; the matrix of roles by action group, a custom
+  role made empty or copied and edited in place (D305 at phone width).
+- A workspace's **Access** on its page in Settings › Workspaces: every grant that applies there,
+  made in it or for the whole instance (D301). One grant dialog for Access, a person and a group,
+  with the narrowing to applications and record types and a sentence of what the grant allows.
+- `GET /api/v1/users` and `GET /api/v1/users/{id}` answer the person's `roles` and where (D298);
+  `GET /api/v1/users/{id}/grants` lists a person's grants including their groups' (D299); `q` and
+  `memberId` on `GET /api/v1/groups`, `q` on `GET /api/v1/clients` (D300).
+
+### Changed (0.12 SP1)
+
+- `POST /api/v1/grants` refuses a workspace grant of a role whose action groups are all held only
+  at the instance, such as Security administrator, with `422 GRANT_SCOPE_INVALID` (D302): such a
+  grant was stored and allowed nothing.
+- Webhooks' "keep the signing key" dialog is the shared "shown once" dialog the password link uses.
+
 ### Added (0.12 Z2, record types at the write unit, jobs as their requester)
 
 - A grant narrowed to applications and record types now limits every write its holder makes in the

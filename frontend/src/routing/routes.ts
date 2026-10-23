@@ -103,7 +103,15 @@ export function isSettingsRoute(route: RouteState): route is SettingsRoute {
  * canonical URL back on first load, so an old link lands on its page without a second entry.
  */
 /** The settings pages with no selection of their own; About is the fallback. */
-const SINGLE_PAGES = ["appearance", "account", "deployment", "operations", "consumer-apis", "api-reference"] as const;
+const SINGLE_PAGES = [
+  "appearance",
+  "account",
+  "deployment",
+  "operations",
+  "consumer-apis",
+  "api-reference",
+  "roles",
+] as const;
 const isSinglePage = (page: string): page is (typeof SINGLE_PAGES)[number] =>
   (SINGLE_PAGES as readonly string[]).includes(page);
 
@@ -123,6 +131,8 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
   if (isSinglePage(page)) return { kind: "settings", page };
   if (page === "workspaces") return kind ? { kind: "settings", page, workspaceKey: kind } : { kind: "settings", page };
   if (page === "jobs") return kind ? { kind: "settings", page, jobId: kind } : { kind: "settings", page };
+  if (page === "people") return kind ? { kind: "settings", page, userId: kind } : { kind: "settings", page };
+  if (page === "groups") return kind ? { kind: "settings", page, groupId: kind } : { kind: "settings", page };
   if (page === "moves")
     return kind ? { kind: "settings", page, ...moveAddress(kind, query) } : { kind: "settings", page };
   // Import profiles were "Imports" until 2026-10-14; the old address opens the same page.
@@ -252,6 +262,8 @@ function settingsPath(route: SettingsRoute) {
     return route.eventId ? `${opened}/${encodeURIComponent(route.eventId)}` : opened;
   }
   if (route.page === "jobs" && route.jobId) return `/settings/jobs/${encodeURIComponent(route.jobId)}`;
+  if (route.page === "people" && route.userId) return `/settings/people/${encodeURIComponent(route.userId)}`;
+  if (route.page === "groups" && route.groupId) return `/settings/groups/${encodeURIComponent(route.groupId)}`;
   if (route.page === "moves" && route.move) return movePath(route.move);
   if (route.page === "import-profiles" && route.profileKey)
     return `/settings/import-profiles/${encodeURIComponent(route.profileKey)}`;

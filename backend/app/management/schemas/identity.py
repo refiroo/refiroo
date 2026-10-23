@@ -48,6 +48,22 @@ class PasswordResetLinkResponse(BaseModel):
     expiresAt: datetime
 
 
+class UserRoleWorkspace(BaseModel):
+    key: str
+    label: str
+
+
+class UserRole(BaseModel):
+    """A role the person holds, directly or through a group (D298)."""
+
+    key: str
+    name: str
+    instance: bool = Field(description="Held for the whole instance; then no workspaces are named")
+    workspaces: list[UserRoleWorkspace] = Field(
+        description="The workspaces it is held in, by label"
+    )
+
+
 class UserResponse(BaseModel):
     id: str
     username: str
@@ -61,6 +77,9 @@ class UserResponse(BaseModel):
     createdAt: datetime
     updatedAt: datetime
     lastSignInAt: datetime | None
+    roles: list[UserRole] = Field(
+        description="The roles the person holds, directly or through a group, and where (D298)"
+    )
 
 
 class UserPage(CollectionPage[UserResponse]):

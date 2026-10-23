@@ -39,7 +39,14 @@ their requester at every step; an import profile's files stay with their uploade
 stale grants are reported and allow nothing
 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z2-record-2026-10-24)). Its journeys, unit tests and the
 neighbouring write-path, migration, event and several-process groups passed; the full backend
-suite runs with Z5, which closes Track Z. No Security pages until SP1; no sign-in provider until
+suite runs with Z5, which closes Track Z. **SP1, the Security pages, is delivered (2026-10-24)**,
+D298–D305: Settings › Security › People, Groups and Roles for Security administrators, a
+workspace's Access, one grant dialog with the narrowing and a sentence of what it allows, the
+one-time password link shown once; the people list names each person's roles, a person's grants
+include their groups', groups and clients are found by name, and a role held only at the instance
+is refused in a workspace ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#sp1-record-2026-10-24)). Its
+journeys, the J40 and identity journeys, the contract tests, the touched Vitest files and the new
+`sp1-security` runner on two models passed. No clients page until SP2; no sign-in provider until
 I3. Next: Z3.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)

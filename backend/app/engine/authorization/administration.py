@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Select, delete, exists, func, or_, select
+from sqlalchemy import Select, delete, exists, func, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -33,8 +33,10 @@ from ...models.database import (
     User,
     UserGroup,
     UserGroupMember,
+    Workspace,
 )
 from ..model.registry import resolve_model_snapshot
+from ..reads.object_query import name_contains
 from ..workspaces.catalogue import load_workspace
 from .catalogue import FIRST_ADMINISTRATOR_ROLES, GROUPS, PREDEFINED_ROLES
 from .permissions import role_groups
@@ -250,13 +252,32 @@ def load_group(session: Session, public_id: str, *, for_update: bool = False) ->
     return group
 
 
-def group_page(session: Session, *, page: PageRequest, page_size: int) -> Page[UserGroup]:
+def group_page(
+    session: Session,
+    *,
+    q: str | None = None,
+    member_id: str | None = None,
+    page: PageRequest,
+    page_size: int,
+) -> Page[UserGroup]:
+    """Groups as created; ``q`` matches the name, ``memberId`` keeps a person's groups (D300)."""
+    statement = select(UserGroup)
+    if q:
+        statement = statement.where(name_contains(UserGroup.name, q))
+    if member_id is not None:
+        statement = statement.where(
+            UserGroup.id.in_(
+                select(UserGroupMember.group_id)
+                .join(User, User.id == UserGroupMember.user_id)
+                .where(User.public_id == member_id)
+            )
+        )
     return paginate_statement(
         session,
-        select(UserGroup),
+        statement,
         keys=(integer_key("sequenceId", UserGroup.id, "id"),),
         scope="groups",
-        filters={},
+        filters={"q": q, "memberId": member_id},
         page=page,
         page_size=page_size,
         message="Group list cursor is invalid",
@@ -443,6 +464,20 @@ def _check_narrowing(
         )
 
 
+def _held_in_a_workspace(session: Session, role: Role) -> None:
+    """A workspace grant of a role whose every group is held only at the instance would allow
+    nothing; it is refused (D302)."""
+    groups = groups_of(session, role)
+    if groups and all(GROUPS[group].reach == "instance" for group in groups):
+        raise api_error(
+            422,
+            "GRANT_SCOPE_INVALID",
+            f"{role.name} is granted at the instance (instance: true): its action groups are not "
+            "held in a workspace",
+            {"role": role.key},
+        )
+
+
 def create_grant(session: Session, payload: GrantCreate) -> GrantRow:
     scope = payload.scope
     if scope.instance == (scope.workspaceKey is not None):
@@ -462,6 +497,7 @@ def create_grant(session: Session, payload: GrantCreate) -> GrantRow:
         role = load_role(session, payload.role)
         principal = _principal_ids(session, payload.principal.kind, payload.principal.id)
         if scope.workspaceKey is not None:
+            _held_in_a_workspace(session, role)
             load_workspace(session, scope.workspaceKey)
             _check_narrowing(session, scope.workspaceKey, scope.applications, scope.recordTypes)
         grant = Grant(
@@ -581,6 +617,22 @@ def own_grant_page(
     session: Session, kind: str, row_id: int, *, page: PageRequest, page_size: int
 ) -> Page[GrantRow]:
     """The caller's grants: direct, and for a person those of their groups (D284)."""
+    return _held_grant_page(session, kind, row_id, "my-grants", page=page, page_size=page_size)
+
+
+def user_grant_page(
+    session: Session, public_id: str, *, page: PageRequest, page_size: int
+) -> Page[GrantRow]:
+    """A person's grants, direct and through their groups, as their page shows them (D299)."""
+    user = _user(session, public_id)
+    return _held_grant_page(
+        session, "user", user.id, f"user-grants:{public_id}", page=page, page_size=page_size
+    )
+
+
+def _held_grant_page(
+    session: Session, kind: str, row_id: int, scope: str, *, page: PageRequest, page_size: int
+) -> Page[GrantRow]:
     statement = _grant_statement()
     if kind == "user":
         member_of = select(UserGroupMember.group_id).where(UserGroupMember.user_id == row_id)
@@ -591,7 +643,7 @@ def own_grant_page(
         session,
         statement,
         keys=_GRANT_KEYS,
-        scope="my-grants",
+        scope=scope,
         filters={},
         page=page,
         page_size=page_size,
@@ -599,6 +651,57 @@ def own_grant_page(
         rows=True,
     )
     return replace(page_of_rows, items=[_grant_row(row) for row in page_of_rows.items])
+
+
+@dataclass(frozen=True)
+class HeldRole:
+    """A role a person holds, directly or through a group: at the instance, or in workspaces given
+    as (key, label); an instance role names no workspaces, since it covers them all (D298)."""
+
+    key: str
+    name: str
+    instance: bool
+    workspaces: tuple[tuple[str, str], ...]
+
+
+def held_roles(session: Session, user_ids: list[int]) -> dict[int, list[HeldRole]]:
+    """The roles each of ``user_ids`` holds, in one statement for a page of people (D298)."""
+    if not user_ids:
+        return {}
+    direct = select(Grant.user_id.label("user_id"), Grant.role_id, Grant.workspace_key).where(
+        Grant.user_id.in_(user_ids)
+    )
+    through = (
+        select(UserGroupMember.user_id.label("user_id"), Grant.role_id, Grant.workspace_key)
+        .join(Grant, Grant.group_id == UserGroupMember.group_id)
+        .where(UserGroupMember.user_id.in_(user_ids))
+    )
+    held = union_all(direct, through).subquery()
+    rows = session.execute(
+        select(held.c.user_id, Role.key, Role.name, held.c.workspace_key, Workspace.label)
+        .distinct()
+        .join(Role, Role.id == held.c.role_id)
+        .outerjoin(Workspace, Workspace.key == held.c.workspace_key)
+        .order_by(held.c.user_id, Role.key, Workspace.label)
+    ).all()
+    found: dict[int, dict[str, tuple[str, bool, list[tuple[str, str]]]]] = {}
+    for user_id, key, name, workspace_key, label in rows:
+        _, instance, workspaces = found.setdefault(user_id, {}).get(key, (name, False, []))
+        if workspace_key is None:
+            instance = True
+        else:
+            workspaces.append((workspace_key, label))
+        found[user_id][key] = (name, instance, workspaces)
+    order = {key: index for index, key in enumerate(PREDEFINED_ROLES)}
+    return {
+        user_id: [
+            HeldRole(key, name, instance, () if instance else tuple(workspaces))
+            for key, (name, instance, workspaces) in sorted(
+                roles.items(), key=lambda item: (order.get(item[0], len(order)), item[1][0])
+            )
+        ]
+        for user_id, roles in found.items()
+    }
 
 
 def refuse_last_administrator(session: Session, before: int) -> None:

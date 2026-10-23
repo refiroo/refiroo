@@ -89,13 +89,13 @@ becomes a select at the top of the page.
 | Data operations | Jobs | Recent jobs with status and outcome counts; cancel; batch and job limits (the feed's retention moved to Consumer APIs, 0.10 A5c) | job routes (B1–B2), `GET /api/v1/capabilities` | U4 (0.9) |
 | Integration | API reference | Links to `/docs`, one per source, with its version | `GET /api/consumer` | U4 (0.9) |
 | General | Account | The person, their password, where they are signed in (sign out one or everywhere), what they can do per workspace (until Z1 "Everything", then their roles) | `/me`, `/me/sessions`, `/me/password`, `/me/permissions` | 0.12 I2 (built 2026-10-23), Z1 |
-| Security | People | List and detail: create, a one-time reset link, deactivate, sign out everywhere, last sign-in; roles by workspace with their narrowing and where they come from; groups; recent activity | `/users`, `/grants` | 0.12 SP1 |
-| Security | Groups | Local and provider groups; members (a provider group's as seen at sign-in); roles | `/groups`, `/grants` | 0.12 SP1 |
-| Security | Roles | The matrix of roles and action groups; predefined read-only; a custom role created, copied, edited | `/roles`, `/action-groups` | 0.12 SP1 |
+| Security | People | List and detail: create, a one-time reset link, deactivate, sign out everywhere, last sign-in; roles by workspace with their narrowing and where they come from; groups; recent activity | `/users`, `/users/{id}/grants`, `/grants` | 0.12 SP1 (built 2026-10-24; recent activity with Z4) |
+| Security | Groups | Local and provider groups; members (a provider group's as seen at sign-in); roles | `/groups`, `/grants` | 0.12 SP1 (built 2026-10-24, local groups; provider groups with I3) |
+| Security | Roles | The matrix of roles and action groups; predefined read-only; a custom role created, copied, edited | `/roles`, `/action-groups` | 0.12 SP1 (built 2026-10-24) |
 | Security | Clients | List and detail: create (secret shown once), rotate with an overlap, end a secret, deactivate; management roles and consumer API grants per workspace; last use | `/clients`, `/grants` | 0.12 SP2 |
 | Security | Sign-in | Sign-in providers; local accounts on or off | `/sign-in-providers` | 0.12 I3 |
 | Security | Signing keys | Token signing keys by age; rotate now | `/token-signing-keys` | 0.12 I1, SP2 |
-| Administration | Workspaces › a workspace › Access | Who can do what here, the grant dialog (who, role, narrowing of writes); Approvals tab with the four-eyes policy (Track A) | `/workspaces/{key}/access`, `/grants`, `/approval-policy` | 0.12 SP1, A3 |
+| Administration | Workspaces › a workspace › Access | Who can do what here, the grant dialog (who, role, narrowing of writes); Approvals tab with the four-eyes policy (Track A) | `/workspaces/{key}/access`, `/grants`, `/approval-policy` | 0.12 SP1 (built 2026-10-24, a section of the workspace's page), A3 |
 
 ### `GET /api/v1/system` (U3)
 
@@ -2609,6 +2609,16 @@ packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
   publish" and "Send back", and the history of decisions. The **inbox** is a top-bar button with an
   unread count opening a list (requests, decisions, finished jobs); at 390px the two actions sit in
   a bar at the bottom.
+
+- _Built by SP1 (2026-10-24)_ from the approved boards and the "SP1 as planned" row: People,
+  Groups and Roles under a **Security** group of the settings navigation, listed only to a person
+  holding Security administration (D303); a workspace's **Access** as a section of its page in
+  Settings › Workspaces, not a tab (D301); one grant dialog for Access, a person and a group (who or
+  where, the role, the narrowing, the sentence; a role held only at the instance offers only the
+  instance, D302); New person followed by the one-time link in the "shown once" dialog Webhooks'
+  signing key also uses (D304); Roles' matrix scrolling sideways in its box at 390px (D305). Left
+  out until their packages: a person's recent activity (Z4), provider groups (I3), Clients, Sign-in
+  and Signing keys (SP2, I3), consumer API grants (Z3, SP2), Approvals (A3).
 
 U-D11 holds: each Security entry appears in the navigation only when its page is built.
 

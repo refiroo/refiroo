@@ -116,9 +116,19 @@ def delete_role(role_key: str, session: DbSession) -> Response:
 
 @router.get("/groups", response_model=GroupPage)
 @requires("security.manage", at=INSTANCE)
-def list_groups(session: DbSession, paging: PageQuery, page_size: int = _PAGE_SIZE) -> GroupPage:
+def list_groups(
+    session: DbSession,
+    paging: PageQuery,
+    q: str | None = Query(default=None, max_length=200),
+    member_id: str | None = Query(default=None, alias="memberId"),
+    page_size: int = _PAGE_SIZE,
+) -> GroupPage:
+    """Groups as created; ``q`` matches the name, ``memberId`` keeps a person's groups (D300)."""
     return present.group_page(
-        session, administration.group_page(session, page=paging, page_size=page_size)
+        session,
+        administration.group_page(
+            session, q=q, member_id=member_id, page=paging, page_size=page_size
+        ),
     )
 
 
@@ -206,7 +216,9 @@ def list_grants(
 def post_grant(payload: GrantCreate, session: DbSession) -> GrantResponse:
     """Give a role to a person, client or group, at the instance or in a workspace, optionally
     narrowing writes to applications and record types of its model (``422 GRANT_SCOPE_UNKNOWN``
-    otherwise). It applies from the principal's next request."""
+    otherwise). A role whose every action group is held only at the instance is granted there
+    (``422 GRANT_SCOPE_INVALID`` in a workspace, D302). It applies from the principal's next
+    request."""
     return present.grant_response(session, administration.create_grant(session, payload))
 
 
@@ -217,6 +229,19 @@ def delete_grant(grant_id: str, session: DbSession) -> Response:
     person's Security administration answers ``409 LAST_SECURITY_ADMINISTRATOR``."""
     administration.delete_grant(session, grant_id)
     return Response(status_code=204)
+
+
+@router.get("/users/{user_id}/grants", response_model=GrantPage)
+@requires("security.manage", at=INSTANCE)
+def list_user_grants(
+    user_id: str, session: DbSession, paging: PageQuery, page_size: int = _PAGE_SIZE
+) -> GrantPage:
+    """A person's grants: those made to them and those of their groups, a group's naming the group
+    (D299)."""
+    return present.grant_page(
+        session,
+        administration.user_grant_page(session, user_id, page=paging, page_size=page_size),
+    )
 
 
 @router.get("/workspaces/{workspace_key}/access", response_model=GrantPage)

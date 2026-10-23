@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Eye,
   EyeOff,
+  UsersRound,
   Laptop,
   Smartphone,
   Undo2,
@@ -123,6 +124,7 @@ const icons = {
   grip: GripVertical,
   tree: ListTree,
   user: UserRound,
+  users: UsersRound,
   webhook: Webhook,
   api: Plug,
   document: FileText,

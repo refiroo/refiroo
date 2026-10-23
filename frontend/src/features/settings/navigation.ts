@@ -1,6 +1,7 @@
 /**
- * The settings navigation: groups and their pages, in order. Only built pages are listed (U-D11);
- * Security's pages come with U8.
+ * The settings navigation: groups and their pages, in order. Only built pages are listed (U-D11).
+ * A group that needs an action group is listed only to a person holding it (Security, 0.12 SP1,
+ * D303); the engine refuses the pages to anyone else either way.
  */
 
 import type { SettingsPage } from "@/types";
@@ -8,6 +9,8 @@ import type { SettingsPage } from "@/types";
 export interface SettingsGroup {
   label: string;
   pages: { page: SettingsPage; label: string }[];
+  /** The action group the caller must hold for the group to be listed. */
+  requires?: "security-admin";
 }
 
 export const SETTINGS_NAVIGATION: SettingsGroup[] = [
@@ -36,6 +39,15 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
       { page: "import-profiles", label: "Import profiles" },
       { page: "moves", label: "Copy and move" },
       { page: "jobs", label: "Jobs" },
+    ],
+  },
+  {
+    label: "Security",
+    requires: "security-admin",
+    pages: [
+      { page: "people", label: "People" },
+      { page: "groups", label: "Groups" },
+      { page: "roles", label: "Roles" },
     ],
   },
   {

@@ -225,10 +225,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # GET /jobs' description (filtered, D285). Diffed against ffe558b, nothing else changed.
     # Re-baselined for 0.12 Z2 (D289–D297): a grant's stale and its scope's missingApplications
     # and missingRecordTypes, stale on a held group (D296), and GET /source-files' description
-    # (filtered, D295). Diffed against eaa724c, nothing else changed.
+    # (filtered, D295). Diffed against eaa724c, nothing else changed. Re-baselined for 0.12 SP1
+    # (D298–D302): a person's roles (UserRole, UserRoleWorkspace), GET /users/{user_id}/grants,
+    # q and memberId on GET /groups, q on GET /clients, and the descriptions of GET /users and
+    # POST /grants. Diffed against eea6ca1, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "5964ea4d372d557d95ef18540c69f8c7a02b717417a1d2b3c73e287b6c03e5d4"
+        "081595ede17a004e172f689e1bd9101163c3824eef73299166db38e201a5df5c"
     )
 
 
@@ -271,8 +274,9 @@ def test_paging_openapi_inventory():
     # model assignments; 0.11 X1 the model mappings, a mapping's history and its proposals; 0.11 O1
     # the processes and the readiness per workspace; 0.11 O2 the backup rehearsals; 0.12 I1 the
     # people, clients and token signing keys; 0.12 I2 a person's sessions; 0.12 Z1 the roles, groups,
-    # a group's members, grants, a workspace's access and the caller's grants.
-    assert seekable <= paged and len(paged) == 54
+    # a group's members, grants, a workspace's access and the caller's grants; 0.12 SP1 a person's
+    # grants.
+    assert seekable <= paged and len(paged) == 55
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

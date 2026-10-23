@@ -267,6 +267,10 @@ try {
     "navigation:Import profiles",
     "navigation:Copy and move",
     "navigation:Jobs",
+    // The harness person holds Security administration, so Security is listed (0.12 SP1, D303).
+    "navigation:People",
+    "navigation:Groups",
+    "navigation:Roles",
     "navigation:Consumer APIs",
     "navigation:Webhooks",
     "navigation:API reference",
@@ -293,9 +297,9 @@ try {
     expected.every((item, index) => order[index] === item) && order[expected.length].startsWith("main:"),
     `keyboard order: ${order.join(" → ")}`,
   );
-  // Back past the resize handle, Integration's three pages, Data operations' three, Operations and
-  // Deployment to Model, and open it.
-  for (let index = 0; index < 10; index += 1) await page.keyboard.press("Shift+Tab");
+  // Back past the resize handle, Integration's three pages, Security's three, Data operations' three,
+  // Operations and Deployment to Model, and open it.
+  for (let index = 0; index < 13; index += 1) await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Enter");
   await page.getByRole("heading", { level: 1, name: "Model" }).waitFor();
   checks.push(`keyboard order: ${order.join(" → ")}; Enter on a navigation link opens its page`);

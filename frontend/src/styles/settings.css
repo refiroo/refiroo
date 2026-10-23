@@ -2124,3 +2124,247 @@ tr.openable-row:hover > * {
 .session-start button {
   justify-self: start;
 }
+
+/* Settings › Security (0.12 SP1): People, Groups, Roles and a workspace's Access. */
+.security-catalogue section {
+  display: grid;
+  gap: var(--space-2);
+}
+.security-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 var(--space-1);
+}
+.security-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.security-filter span {
+  color: var(--text-tertiary);
+}
+.security-filter[aria-pressed="true"] {
+  border-color: var(--state-selected-line);
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+  font-weight: 600;
+}
+.security-filter[aria-pressed="true"] span {
+  color: inherit;
+}
+/* A person's and a group's sections, and a workspace's Access, keep the detail's inset. */
+.security-detail > .section,
+.security-detail > .notice,
+.workspace-access {
+  margin: 0 20px;
+}
+.security-person-header {
+  justify-content: flex-start;
+  gap: var(--space-4);
+}
+.security-person-header .account-profile-avatar {
+  width: 48px;
+  height: 48px;
+  font-size: 17px;
+}
+.security-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--space-2);
+}
+.security-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.security-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 4px 0 12px;
+  border-radius: 999px;
+  background: var(--surface-fill);
+  font-size: var(--text-sm);
+}
+.security-chip a {
+  color: var(--link);
+}
+.security-chip button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+}
+.security-chip button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.grant-action {
+  text-align: right;
+}
+.grant-stale {
+  display: block;
+  margin-top: 2px;
+  color: var(--status-warning-text);
+  font-size: var(--text-xs);
+}
+.grant-form {
+  display: grid;
+  gap: var(--space-4);
+}
+.grant-where,
+.grant-narrowing {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.grant-where > .theme-choice,
+.grant-narrowing > .theme-choice {
+  justify-self: start;
+  max-width: 100%;
+}
+.grant-sentence {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--state-selected);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+/* Roles: the matrix scrolls sideways in its box, the group column fixed (D305). */
+.role-matrix-wrap {
+  /* Its width never comes from the table, so a wide matrix scrolls here, not the page. */
+  contain: inline-size;
+  /* Positioned, so the cells' visually hidden labels scroll with it instead of widening the page. */
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+.role-matrix {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+}
+.role-matrix th,
+.role-matrix td {
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--surface-raised);
+  text-align: center;
+  vertical-align: middle;
+}
+.role-matrix th {
+  white-space: normal;
+}
+.role-matrix thead th {
+  min-width: 92px;
+  max-width: 120px;
+  border-bottom-color: var(--border-subtle);
+  color: var(--text-secondary);
+  font-weight: 500;
+  line-height: 1.25;
+  vertical-align: bottom;
+}
+.role-matrix thead th > span {
+  display: block;
+  color: var(--text-primary);
+}
+.role-matrix thead small {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+.role-matrix .role-matrix-group {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 200px;
+  max-width: 300px;
+  border-right: 1px solid var(--border-subtle);
+  text-align: left;
+}
+.role-matrix tbody .role-matrix-group {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.role-matrix tbody .role-matrix-group small {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+.role-matrix .role-custom {
+  background: var(--surface-sunken);
+}
+.role-matrix .role-custom.editing {
+  background: var(--state-selected);
+}
+.role-matrix tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.role-matrix input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--action-primary);
+}
+.role-yes {
+  color: var(--action-primary);
+}
+.role-edit {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+}
+.role-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--state-selected-line);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+}
+.role-editor > p,
+.role-editor > .notice,
+.role-editor > .dialog-actions {
+  grid-column: 1 / -1;
+}
+.role-editor-spacer {
+  flex: 1;
+}
+
+@media (max-width: 760px) {
+  .role-matrix .role-matrix-group {
+    min-width: 140px;
+    max-width: 160px;
+  }
+  .role-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .grant-action {
+    text-align: left;
+  }
+}

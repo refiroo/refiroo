@@ -1,0 +1,326 @@
+// 0.12 SP1 browser evidence: Settings › Security against a real backend, on two models (the
+// starter, and the starter under another product name), at 1440px and 390px, light and dark. As the
+// harness person (Security administrator): create a person and copy their one-time link; they set a
+// password through it and sign in; grant them Data steward in the default workspace narrowed to one
+// record type of that workspace's model; make a group, add them to it and grant it Reader in a second
+// workspace, so the person's page shows both, one through the group; copy Data steward into a custom
+// role and untick Publish; a workspace's Access lists the grants and removes one; deactivating the
+// only Security administrator is refused as the engine words it; the new person, without Security
+// administration, is not shown the Security pages. The grant dialog by keyboard; axe on each page;
+// screenshots; no horizontal page scroll at 390px.
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { bootHarness } from "./helpers/harness.mjs";
+import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+
+const MODELS = [{ name: "starter" }, { name: "renamed", product: "Northfield Reference Data" }];
+const SECOND = { key: "field-stations", label: "Field stations" };
+
+const checks = [];
+const failures = [];
+
+function expect(condition, message) {
+  if (!condition) failures.push(message);
+}
+
+async function axe(page, name) {
+  const result = await runAxe(page, [], name);
+  if (result.violations.length) failures.push(`${name}:\n${formatViolations(result.violations)}`);
+  checks.push(`axe ${name}: ${result.violations.length} violations`);
+}
+
+async function walk(configuration) {
+  const harness = await bootHarness({
+    transformModel: configuration.product
+      ? (model) => {
+          model.product.name = configuration.product;
+        }
+      : undefined,
+  });
+  try {
+    const { uiUrl, api, output, browser, signedOutContext, harnessIdentity } = harness;
+    const tag = configuration.name;
+    const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    const shot = (page, name) => page.screenshot({ path: resolve(output, `${tag}-${name}.png`), fullPage: true });
+    await api("/workspaces", SECOND, "POST");
+    const [recordType] = (await api("/object-types?workspaceKey=default")).items;
+    const lena = { username: `lena-${tag}`, name: `Lena ${tag}`, password: "a passphrase for lena here" };
+
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    page.setDefaultTimeout(15000);
+    page.on("pageerror", (error) => failures.push(`${tag}: ${error.message}`));
+
+    // 1. People: Security is in the navigation; a new person and their one-time link.
+    await page.goto(`${uiUrl}/settings/people`);
+    await page.getByRole("heading", { level: 1, name: "People" }).waitFor();
+    const navigation = page.getByRole("navigation", { name: "Settings" });
+    await navigation.getByRole("heading", { name: "Security" }).waitFor();
+    await page.getByRole("button", { name: "New person" }).click();
+    const create = page.getByRole("dialog", { name: "New person" });
+    await create.getByLabel("Username", { exact: true }).fill(lena.username);
+    await create.getByLabel("Name", { exact: true }).fill(lena.name);
+    await create.getByRole("button", { name: "Create and make a password link" }).click();
+    const shown = page.getByRole("dialog", { name: "Pass on the password link" });
+    const link = await shown.locator("code").innerText();
+    expect(link.includes("/oauth/password?token="), `${tag}: the link is the engine's password page: ${link}`);
+    await shot(page, "link-shown-once");
+    await axe(page, `${tag}-link-dialog`);
+    await shown.getByRole("button", { name: "I have copied it" }).click();
+    await page.getByRole("heading", { level: 2, name: lena.name }).waitFor();
+    await page.getByText("Has not set a password yet").waitFor();
+    checks.push(`${tag}: a new person, their one-time link shown once`);
+
+    // 2. They set their password through the link and sign in.
+    const theirs = await signedOutContext({ viewport: { width: 1440, height: 900 } });
+    const lenaPage = await theirs.newPage();
+    lenaPage.setDefaultTimeout(15000);
+    await lenaPage.goto(link);
+    await lenaPage.getByLabel("New password", { exact: true }).fill(lena.password);
+    await lenaPage.getByLabel(/again|Repeat/i).fill(lena.password);
+    await lenaPage.getByRole("button", { name: /Set password/i }).click();
+    checks.push(`${tag}: the person sets a password through the link`);
+
+    // 3. Grant Data steward in the default workspace, narrowed to one record type; by keyboard into the
+    // dialog, Escape returns to its button.
+    await page.reload();
+    await page.getByRole("heading", { level: 2, name: lena.name }).waitFor();
+    const grantButton = page.getByRole("button", { name: "Grant a role" });
+    await grantButton.focus();
+    await page.keyboard.press("Enter");
+    let dialog = page.getByRole("dialog", { name: `Grant ${lena.name} a role` });
+    await dialog.getByText("Where").waitFor();
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(() => !!document.activeElement?.closest("[role=dialog]")),
+      `${tag}: focus stays in the grant dialog`,
+    );
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "detached" });
+    expect(
+      await grantButton
+        .evaluate(
+          (button) =>
+            new Promise((done) => {
+              const started = Date.now();
+              const check = () =>
+                button === document.activeElement
+                  ? done(true)
+                  : Date.now() - started > 2000
+                    ? done(false)
+                    : setTimeout(check, 50);
+              check();
+            }),
+        )
+        .catch(() => false),
+      `${tag}: Escape returns to Grant a role`,
+    );
+    await grantButton.click();
+    dialog = page.getByRole("dialog", { name: `Grant ${lena.name} a role` });
+    await dialog.getByRole("button", { name: /Role$/ }).click();
+    await page.getByRole("option", { name: /^Data steward/ }).click();
+    await dialog.getByText("Only these applications and record types").click();
+    await dialog.getByRole("button", { name: "Add" }).click();
+    await page.getByRole("searchbox", { name: /Search applications and record types/i }).fill(recordType.name);
+    await page
+      .getByRole("option", { name: new RegExp(`^${recordType.name}`) })
+      .first()
+      .click();
+    await page.getByRole("button", { name: "Done" }).click();
+    await dialog.getByText(`changing only ${recordType.name}`, { exact: false }).waitFor();
+    await shot(page, "grant-dialog");
+    await axe(page, `${tag}-grant-dialog`);
+    await dialog.getByRole("button", { name: "Grant", exact: true }).click();
+    await dialog.waitFor({ state: "detached" });
+    const roles = page.getByRole("group", { name: "Roles" });
+    await roles.getByRole("row", { name: new RegExp(`Data steward.*${recordType.name}`) }).waitFor();
+    checks.push(`${tag}: Data steward granted in the default workspace, narrowed to ${recordType.name}`);
+
+    // 3b. With a role, the person signs in; without Security administration they are not shown it.
+    await lenaPage.goto(`${uiUrl}/settings/about`);
+    await lenaPage.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
+    await lenaPage.getByLabel("Username").fill(lena.username);
+    await lenaPage.getByLabel("Password").fill(lena.password);
+    await lenaPage.getByRole("button", { name: "Sign in" }).click();
+    await lenaPage
+      .getByRole("heading", { level: 1, name: "About" })
+      .waitFor()
+      .catch(async (error) => {
+        console.error((await lenaPage.locator("body").innerText()).slice(0, 800));
+        throw error;
+      });
+    await lenaPage.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Account" }).waitFor();
+    expect(
+      (await lenaPage
+        .getByRole("navigation", { name: "Settings" })
+        .getByRole("heading", { name: "Security" })
+        .count()) === 0,
+      `${tag}: a person without Security administration is not shown Security`,
+    );
+    checks.push(`${tag}: the person signs in; no Security for them`);
+
+    // 4. A group with the person, granted Reader in the second workspace.
+    await navigation.getByRole("link", { name: "Groups" }).click();
+    await page.getByRole("heading", { level: 1, name: "Groups" }).waitFor();
+    await page.getByRole("button", { name: "New group" }).click();
+    const groupDialog = page.getByRole("dialog", { name: "New group" });
+    await groupDialog.getByLabel("Name", { exact: true }).fill("Curators");
+    await groupDialog.getByRole("button", { name: "Create group" }).click();
+    await page.getByRole("heading", { level: 2, name: "Curators" }).waitFor();
+    await page.getByRole("button", { name: "Add a member" }).click();
+    const memberDialog = page.getByRole("dialog", { name: "Add a member to Curators" });
+    await memberDialog.getByRole("combobox", { name: "Person" }).fill(lena.name);
+    await page.getByRole("option", { name: new RegExp(lena.name) }).click();
+    await memberDialog.getByRole("button", { name: "Add to the group" }).click();
+    await page.getByRole("group", { name: "Members" }).getByText(lena.username).waitFor();
+    await page.getByRole("button", { name: "Grant a role" }).click();
+    dialog = page.getByRole("dialog", { name: "Grant Curators a role" });
+    await dialog.getByRole("button", { name: /Workspace$/ }).click();
+    await page.getByRole("option", { name: new RegExp(SECOND.label) }).click();
+    await dialog.getByText(`Curators will read everything in ${SECOND.label}.`).waitFor();
+    await dialog.getByRole("button", { name: "Grant", exact: true }).click();
+    await page
+      .getByRole("group", { name: "Roles" })
+      .getByRole("row", { name: new RegExp(SECOND.label) })
+      .waitFor();
+    await shot(page, "groups");
+    await axe(page, `${tag}-groups`);
+    checks.push(`${tag}: a group with the person, granted Reader in ${SECOND.label}`);
+
+    // 5. The person's page: both roles, one through the group; their groups.
+    await page.getByRole("group", { name: "Members" }).getByRole("link", { name: lena.name }).click();
+    await page.getByRole("heading", { level: 2, name: lena.name }).waitFor();
+    await roles.getByRole("row", { name: new RegExp(`${SECOND.label}.*Reader.*Group Curators`) }).waitFor();
+    await page
+      .getByRole("list", { name: `${lena.name}'s groups` })
+      .getByRole("link", { name: "Curators" })
+      .waitFor();
+    const entry = page.getByRole("navigation", { name: "People" }).getByRole("button", { name: new RegExp(lena.name) });
+    await entry.getByText(/Data steward · /).waitFor();
+    await shot(page, "person");
+    await axe(page, `${tag}-people`);
+    checks.push(`${tag}: the person's page names both roles, one through the group; the list names their roles`);
+
+    // 6. A custom role copied from Data steward, without Publish.
+    await navigation.getByRole("link", { name: "Roles" }).click();
+    await page.getByRole("heading", { level: 1, name: "Roles" }).waitFor();
+    await page.getByRole("button", { name: "New role" }).click();
+    const roleDialog = page.getByRole("dialog", { name: "New role" });
+    await roleDialog.getByLabel("Name", { exact: true }).fill("Careful steward");
+    await roleDialog.getByRole("button", { name: /Start from$/ }).click();
+    await page.getByRole("option", { name: /^Data steward/ }).click();
+    await roleDialog.getByRole("button", { name: "Create role" }).click();
+    const publish = page.getByRole("checkbox", { name: "Careful steward: Publish" });
+    expect(await publish.isChecked(), `${tag}: the copy starts with Data steward's Publish`);
+    await publish.uncheck();
+    await page.getByRole("button", { name: "Save role" }).click();
+    await page.getByRole("button", { name: "Edit Careful steward" }).waitFor();
+    const careful = (await api("/roles?pageSize=500")).items.find((role) => role.name === "Careful steward");
+    expect(
+      careful && !careful.actionGroups.includes("publish") && careful.actionGroups.includes("edit-live"),
+      `${tag}: the custom role is saved without Publish: ${JSON.stringify(careful?.actionGroups)}`,
+    );
+    expect((await overflow(page)) <= 0, `${tag}: Roles scrolls the page sideways at 1440px`);
+    await shot(page, "roles");
+    await axe(page, `${tag}-roles`);
+    checks.push(`${tag}: a custom role copied from Data steward, Publish unticked in place`);
+
+    // 7. The workspace's Access lists the grants; removing one there.
+    await page.goto(`${uiUrl}/settings/workspaces/default`);
+    const access = page.getByRole("region", { name: "Access" });
+    await access
+      .getByRole("row", { name: new RegExp(`${lena.name}.*Data steward.*${recordType.name}.*This workspace`) })
+      .waitFor();
+    await access
+      .getByRole("row", { name: /Whole instance/ })
+      .first()
+      .waitFor();
+    await shot(page, "access");
+    await axe(page, `${tag}-access`);
+    await access.getByRole("button", { name: `Remove Data steward from ${lena.name}` }).click();
+    await access.getByRole("row", { name: new RegExp(`${lena.name}.*Data steward`) }).waitFor({ state: "detached" });
+    checks.push(`${tag}: a workspace's Access lists who can do what and removes a grant`);
+
+    // 8. Deactivating the only Security administrator is refused as the engine words it.
+    const [self] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.username)}`)).items;
+    await page.goto(`${uiUrl}/settings/people/${self.id}`);
+    await page.getByRole("heading", { level: 2, name: self.name }).waitFor();
+    await page.getByRole("button", { name: "Deactivate", exact: true }).click();
+    const confirm = page.getByRole("alertdialog");
+    await confirm.waitFor().catch(async (error) => {
+      await shot(page, "debug-deactivate");
+      console.error(output);
+      throw error;
+    });
+    await confirm.getByRole("button", { name: "Deactivate", exact: true }).click();
+    await confirm.getByText(/no active person holding Security administration/).waitFor();
+    await confirm.getByRole("button", { name: "Cancel" }).click();
+    checks.push(`${tag}: deactivating the last Security administrator is refused, as worded`);
+
+    // 9. Dark at 1440px; People, a person and Roles at 390px without a horizontal page scroll.
+    const dark = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
+    const night = await dark.newPage();
+    await night.goto(`${uiUrl}/settings/people`);
+    await night.getByRole("heading", { level: 1, name: "People" }).waitFor();
+    await night
+      .getByRole("navigation", { name: "People" })
+      .getByRole("button", { name: new RegExp(lena.name) })
+      .click();
+    await night.getByRole("heading", { level: 2, name: lena.name }).waitFor();
+    await night.getByRole("group", { name: "Roles" }).waitFor();
+    await shot(night, "person-dark");
+    await axe(night, `${tag}-people-dark`);
+    await night.goto(`${uiUrl}/settings/roles`);
+    await night.getByRole("heading", { level: 1, name: "Roles" }).waitFor();
+    await shot(night, "roles-dark");
+    await dark.close();
+    const narrow = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const phone = await narrow.newPage();
+    phone.setDefaultTimeout(15000);
+    await phone.goto(`${uiUrl}/settings/people`);
+    await phone.getByRole("heading", { level: 1, name: "People" }).waitFor();
+    expect((await overflow(phone)) <= 0, `${tag}: People scrolls sideways at 390px`);
+    await shot(phone, "people-narrow");
+    await phone
+      .getByRole("navigation", { name: "People" })
+      .getByRole("button", { name: new RegExp(lena.name) })
+      .click();
+    await phone.getByRole("heading", { level: 2, name: lena.name }).waitFor();
+    expect((await overflow(phone)) <= 0, `${tag}: a person's page scrolls sideways at 390px`);
+    await shot(phone, "person-narrow");
+    await phone.goto(`${uiUrl}/settings/roles`);
+    await phone.getByRole("heading", { level: 1, name: "Roles" }).waitFor();
+    await phone.getByRole("group", { name: "Roles by action group" }).waitFor();
+    expect((await overflow(phone)) <= 0, `${tag}: Roles scrolls the page sideways at 390px`);
+    const box = phone.getByRole("group", { name: "Roles by action group" });
+    expect(
+      await box.evaluate((element) => element.scrollWidth > element.clientWidth),
+      `${tag}: the matrix scrolls in its own box at 390px`,
+    );
+    await shot(phone, "roles-narrow");
+    await narrow.close();
+    checks.push(`${tag}: dark; 390px without horizontal page scroll, the matrix scrolling in its box`);
+
+    await theirs.close();
+    await context.close();
+    const report = { browser: browser.version(), model: tag, checks, failures, passed: !failures.length };
+    await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
+    console.log(`SP1 browser evidence (${tag}): ${output}`);
+  } finally {
+    harness.cleanup();
+  }
+}
+
+try {
+  for (const configuration of MODELS) await walk(configuration);
+  console.log(`Checks: ${checks.length}`);
+  for (const check of checks) console.log(`  ${check}`);
+  if (failures.length) {
+    for (const failure of failures) console.error(failure);
+    process.exitCode = 1;
+  }
+} catch (error) {
+  console.error("SP1 browser evidence failed:", error);
+  for (const failure of failures) console.error(failure);
+  process.exitCode = 1;
+}
