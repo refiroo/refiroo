@@ -62,6 +62,16 @@ EVERYTHING = Narrowing(everything=True)
 @dataclass(frozen=True)
 class Permissions:
     holdings: tuple[Holding, ...]
+    # The consumer APIs the caller may read, as (workspace, consumer API) pairs (Z3, D306).
+    consumer_apis: frozenset[tuple[str, str]] = frozenset()
+
+    def reads_consumer_api(self, consumer_api: str, workspace_key: str) -> bool:
+        """Whether a grant lets the caller read ``consumer_api`` in ``workspace_key`` (D307)."""
+        return (workspace_key, consumer_api) in self.consumer_apis
+
+    def consumer_apis_in(self, workspace_key: str) -> frozenset[str]:
+        """The consumer APIs the caller may read in ``workspace_key``."""
+        return frozenset(api for key, api in self.consumer_apis if key == workspace_key)
 
     def allows(self, group: str, workspace_key: str | None) -> bool:
         """Whether the caller holds ``group`` in ``workspace_key`` (an instance grant covers every
@@ -127,7 +137,8 @@ def role_groups(role: Role, custom: list[str] | None) -> tuple[str, ...]:
 
 
 def read_permissions(session: Session, kind: PrincipalKind, principal_id: int) -> Permissions:
-    """The caller's grants in one statement: direct ones, and for a person those of their groups."""
+    """The caller's grants in one statement: direct ones, and for a person those of their groups;
+    a grant naming a consumer API instead of a role goes to ``consumer_apis``."""
     custom = (
         select(func.array_agg(RoleActionGroup.group_key))
         .where(RoleActionGroup.role_id == Role.id)
@@ -135,7 +146,7 @@ def read_permissions(session: Session, kind: PrincipalKind, principal_id: int) -
     )
     statement = (
         select(Grant, Role, custom, UserGroup.public_id, UserGroup.name)
-        .join(Role, Role.id == Grant.role_id)
+        .outerjoin(Role, Role.id == Grant.role_id)
         .outerjoin(UserGroup, UserGroup.id == Grant.group_id)
     )
     if kind == "user":
@@ -145,23 +156,26 @@ def read_permissions(session: Session, kind: PrincipalKind, principal_id: int) -
         )
     else:
         statement = statement.where(Grant.client_id == principal_id)
-    holdings = tuple(
-        Holding(
-            grant_id=grant.public_id,
-            role_key=role.key,
-            role_name=role.name,
-            groups=role_groups(role, groups),
-            workspace_key=grant.workspace_key,
-            applications=tuple(grant.applications),
-            record_types=tuple(grant.record_types),
-            through_group_id=group_id,
-            through_group_name=group_name,
+    holdings: list[Holding] = []
+    consumer_apis: set[tuple[str, str]] = set()
+    for grant, role, groups, group_id, group_name in session.execute(statement.order_by(Grant.id)):
+        if role is None:
+            consumer_apis.add((grant.workspace_key, grant.consumer_api))
+            continue
+        holdings.append(
+            Holding(
+                grant_id=grant.public_id,
+                role_key=role.key,
+                role_name=role.name,
+                groups=role_groups(role, groups),
+                workspace_key=grant.workspace_key,
+                applications=tuple(grant.applications),
+                record_types=tuple(grant.record_types),
+                through_group_id=group_id,
+                through_group_name=group_name,
+            )
         )
-        for grant, role, groups, group_id, group_name in session.execute(
-            statement.order_by(Grant.id)
-        )
-    )
-    return Permissions(holdings)
+    return Permissions(tuple(holdings), frozenset(consumer_apis))
 
 
 def permissions_of(

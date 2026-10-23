@@ -39,7 +39,11 @@ export interface RoleRef {
 export interface Grant {
   id: string;
   principal: { kind: "user" | "client" | "group"; id: string; name: string };
-  role: RoleRef;
+  /** Null for a consumer API grant (0.12 Z3, D306). */
+  role: RoleRef | null;
+  /** Instead of a role, read of this consumer API in the grant's workspace; its name is null when
+   * the workspace's model no longer declares it (D306). */
+  consumerApi?: { key: string; name: string | null } | null;
   scope: {
     instance: boolean;
     workspaceKey: string | null;

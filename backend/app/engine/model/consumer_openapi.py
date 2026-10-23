@@ -54,10 +54,31 @@ def consumer_openapi_path(definition: ConsumerApiDefinition) -> str:
 
 
 def consumer_openapi(
-    model: EngineModel, definition: ConsumerApiDefinition, *, root_path: str, resolve_max_items: int
+    model: EngineModel,
+    definition: ConsumerApiDefinition,
+    *,
+    root_path: str,
+    resolve_max_items: int,
+    token_url: str,
 ) -> dict[str, Any]:
-    """The OpenAPI 3.1 document of ``definition`` as the active release ``model`` declares it."""
-    return _Document(model, definition, root_path, resolve_max_items).build()
+    """The OpenAPI 3.1 document of ``definition`` as the active release ``model`` declares it; every
+    operation needs a ``consumer`` token from ``token_url`` (0.12 Z3, D311)."""
+    document = _Document(model, definition, root_path, resolve_max_items).build()
+    document["components"]["securitySchemes"] = {
+        "oauth2": {
+            "type": "oauth2",
+            "description": "A client's credentials exchanged for a `consumer` access token; a read "
+            "needs a grant of this consumer API in the workspace it reads.",
+            "flows": {
+                "clientCredentials": {
+                    "tokenUrl": token_url,
+                    "scopes": {"consumer": "Read the consumer APIs granted to the client"},
+                }
+            },
+        }
+    }
+    document["security"] = [{"oauth2": ["consumer"]}]
+    return document
 
 
 def _ref(name: str) -> dict[str, str]:
@@ -720,7 +741,17 @@ _RESPONSES = {
     "NotModified": {
         "description": "Unchanged since the `If-None-Match` tag.",
         "headers": {"ETag": {"$ref": "#/components/headers/ETag"}},
-    }
+    },
+    "Unauthorized": {
+        "description": "No access token (AUTHENTICATION_REQUIRED), or one refused (TOKEN_INVALID, with"
+        " `details.reason`); with `WWW-Authenticate: Bearer`.",
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+    },
+    "Forbidden": {
+        "description": "FORBIDDEN: the client holds no grant of this consumer API in the workspace read"
+        " (`details`: `consumerApi`, `workspaceKey`).",
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+    },
 }
 
 
@@ -744,6 +775,8 @@ def _responses(
     refused = "UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes"
     responses: dict[str, Any] = {
         "200": {"description": "The answer.", "headers": headers, "content": {"application/json": {"schema": ok}}},
+        "401": {"$ref": "#/components/responses/Unauthorized"},
+        "403": {"$ref": "#/components/responses/Forbidden"},
         "400": {"description": f"A request error: {', '.join(filter(None, [bad, refused]))}.", **error},
         "404": {
             "description": f"Not found: {missing}, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",

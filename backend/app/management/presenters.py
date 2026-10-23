@@ -50,6 +50,7 @@ from .schemas.consumer_subscriptions import (
     DeliveryRow,
     PendingDelivery,
     SubscriptionDelivery,
+    SubscriptionOwner,
     SubscriptionPage,
     SubscriptionResponse,
     SubscriptionSuspension,
@@ -464,7 +465,9 @@ def batch_response(session: Session, job: Job, items: Page[JobItem]) -> BatchRes
     )
 
 
-def subscription_response(item: ConsumerSubscription, secret: str | None = None) -> SubscriptionResponse:
+def subscription_response(
+    item: ConsumerSubscription, secret: str | None = None, owner: dict[str, str] | None = None
+) -> SubscriptionResponse:
     return SubscriptionResponse(
         id=item.public_id,
         name=item.name,
@@ -492,6 +495,7 @@ def subscription_response(item: ConsumerSubscription, secret: str | None = None)
         version=item.version,
         createdAt=as_utc(item.created_at),
         updatedAt=as_utc(item.updated_at),
+        owner=SubscriptionOwner.model_validate(owner) if owner else None,
         signingSecret=secret,
     )
 
@@ -519,8 +523,15 @@ def _delivery(item: ConsumerSubscription) -> SubscriptionDelivery:
     )
 
 
-def subscription_page(page: Page[ConsumerSubscription]) -> SubscriptionPage:
-    return SubscriptionPage(items=[subscription_response(item) for item in page.items], **page.links())
+def subscription_page(
+    page: Page[ConsumerSubscription], owners: dict[int, dict[str, str]]
+) -> SubscriptionPage:
+    return SubscriptionPage(
+        items=[
+            subscription_response(item, owner=owners.get(item.sequence_id)) for item in page.items
+        ],
+        **page.links(),
+    )
 
 
 def delivery_page(page: Page[Any], subscription: ConsumerSubscription) -> DeliveryPage:

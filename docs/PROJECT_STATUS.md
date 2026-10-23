@@ -47,7 +47,15 @@ include their groups', groups and clients are found by name, and a role held onl
 is refused in a workspace ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#sp1-record-2026-10-24)). Its
 journeys, the J40 and identity journeys, the contract tests, the touched Vitest files and the new
 `sp1-security` runner on two models passed. No clients page until SP2; no sign-in provider until
-I3. Next: Z3.
+I3. **Z3, consumer APIs per client, is delivered (2026-10-24)**, D306–D312: a consumer API is read
+in a workspace only with a grant of it there (a grant naming `consumerApi` instead of a role, to a
+client, person or group); `403 FORBIDDEN` naming the API and workspace, checked after the workspace
+and before the definition; the index lists what a consumer token is granted, every API for Browse
+with a management token; each OpenAPI document declares the client credentials scheme and `401`
+and `403`; subscriptions name their owner; Access shows "Consumer API: *name*"
+([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z3-record-2026-10-24)). Its journeys, every journey
+module reading the consumer API, the contract and foreign-key tests and the `sp1-security` runner on
+two models passed. Next: Z4.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 

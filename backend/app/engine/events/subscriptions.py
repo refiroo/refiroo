@@ -25,7 +25,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session, object_session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -35,8 +35,9 @@ from ...models.commands import (
     ConsumerSubscriptionCreate,
     ConsumerSubscriptionUpdate,
 )
-from ...models.database import ConsumerSubscription, Workspace
+from ...models.database import ConsumerSubscription, OAuthClient, User, Workspace
 from ...models.schema import EngineModel
+from ..identity.tokens import PrincipalKind
 from ..model.registry import resolve_model_snapshot
 from ..reads.consumer_events import AFTER_POSITION, EventWindow, check_after, event_window
 from ..reads.consumer_parameters import unmatched_values
@@ -152,9 +153,13 @@ def clear_delivery(subscription: ConsumerSubscription) -> None:
 
 
 def create_subscription(
-    session: Session, payload: ConsumerSubscriptionCreate, settings: SubscriptionSettings
+    session: Session,
+    payload: ConsumerSubscriptionCreate,
+    settings: SubscriptionSettings,
+    creator: tuple[PrincipalKind, int] | None = None,
 ) -> tuple[ConsumerSubscription, str]:
-    """The new subscription and its signing key, which no later read returns."""
+    """The new subscription and its signing key, which no later read returns; ``creator`` is the
+    person or client that owns it (0.12 Z3, D310)."""
     model = _model_of(session, payload.workspaceKey)
     asked = Asked(payload.consumerApi, list(dict.fromkeys(payload.events)), listed(payload.filters))
     findings, workspace = _findings(session, model, asked, payload.workspaceKey, payload.url, settings)
@@ -191,6 +196,8 @@ def create_subscription(
         version=1,
         created_at=now,
         updated_at=now,
+        created_by_user_id=creator[1] if creator and creator[0] == "user" else None,
+        created_by_client_id=creator[1] if creator and creator[0] == "client" else None,
     )
     session.add(subscription)
     session.commit()
@@ -377,11 +384,13 @@ def subscription_page(
     consumer_api: str | None,
     workspace_key: str | None,
     status: str | None,
+    owner_id: str | None = None,
     page: PageRequest,
     page_size: int,
     visible: Any = None,
 ) -> Page[ConsumerSubscription]:
-    """Subscriptions, newest first; ``visible`` keeps those the caller may see (0.12 Z1)."""
+    """Subscriptions, newest first; ``visible`` keeps those the caller may see (0.12 Z1);
+    ``owner_id`` those a person or client created (Z3)."""
     statement = select(ConsumerSubscription)
     if visible is not None:
         statement = statement.where(visible)
@@ -391,13 +400,53 @@ def subscription_page(
         statement = statement.where(ConsumerSubscription.workspace_key == workspace_key)
     if status is not None:
         statement = statement.where(ConsumerSubscription.status == status)
+    if owner_id is not None:
+        statement = statement.where(
+            or_(
+                ConsumerSubscription.created_by_user_id.in_(
+                    select(User.id).where(User.public_id == owner_id)
+                ),
+                ConsumerSubscription.created_by_client_id.in_(
+                    select(OAuthClient.id).where(OAuthClient.public_id == owner_id)
+                ),
+            )
+        )
     return paginate_statement(
         session,
         statement,
         keys=_KEYS,
         scope="consumer-subscriptions",
-        filters={"consumerApi": consumer_api, "workspaceKey": workspace_key, "status": status},
+        filters={
+            "consumerApi": consumer_api,
+            "workspaceKey": workspace_key,
+            "status": status,
+            "ownerId": owner_id,
+        },
         page=page,
         page_size=page_size,
         message="Subscription list cursor is invalid",
     )
+
+
+def owners(
+    session: Session, subscriptions: Sequence[ConsumerSubscription]
+) -> dict[int, dict[str, str]]:
+    """Each subscription's owner as it reads (``kind``, ``id``, ``name``), by sequence ID; one
+    statement per kind for a page (D310)."""
+    found: dict[int, dict[str, str]] = {}
+    for kind, model, column in (
+        ("user", User, "created_by_user_id"),
+        ("client", OAuthClient, "created_by_client_id"),
+    ):
+        wanted = {getattr(item, column) for item in subscriptions} - {None}
+        if not wanted:
+            continue
+        rows = session.execute(
+            select(model.id, model.public_id, model.name).where(model.id.in_(wanted))
+        )
+        by_row = {row_id: {"kind": kind, "id": public_id, "name": name} for row_id, public_id, name in rows}
+        for item in subscriptions:
+            row_id = getattr(item, column)
+            if row_id in by_row:
+                found[item.sequence_id] = by_row[row_id]
+    return found

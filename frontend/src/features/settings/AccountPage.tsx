@@ -10,6 +10,7 @@ import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { signOut } from "@/api/session";
 import { initials } from "@/app/useMe";
+import { grantHeld } from "@/features/security/securityText";
 import { formatServerAgo, formatServerDayTime } from "@/lib/dates";
 import type { Grant, Me, SignInSession, WorkspacePage } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
@@ -375,7 +376,7 @@ function Permissions() {
                     </strong>
                     <span className="account-muted">{grantDetail(grant)}</span>
                   </div>
-                  <span className="account-pill role">{grant.role.name}</span>
+                  <span className="account-pill role">{grantHeld(grant)}</span>
                 </li>
               ))}
             </ul>

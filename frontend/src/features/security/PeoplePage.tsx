@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, invalidFields, isApiError } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import { initials } from "@/app/useMe";
 import { formatServerTime } from "@/lib/dates";
@@ -18,6 +18,7 @@ import { routePath } from "@/routing/routes";
 import type { Group, PasswordResetLink, RouteState, SettingsRoute, User } from "@/types";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
@@ -206,6 +207,19 @@ function PasswordLinkDialog({
   );
 }
 
+// What a person's fields must be, said where the engine refused one (`422`, by field).
+const PERSON_FIELDS: Record<string, string> = {
+  username: "A username has no spaces and at most 150 characters. Use a dot, dash or underscore instead, as in user.1.",
+  name: "A name has 1 to 200 characters.",
+  email: "An e-mail address looks like name@example.org.",
+};
+
+/** The message under each field the engine refused, in the words above; others as it said them. */
+function refusedFields(cause: unknown): Record<string, string> {
+  const fields = invalidFields(cause);
+  return Object.fromEntries(Object.keys(fields).map((key) => [key, PERSON_FIELDS[key] ?? fields[key]]));
+}
+
 function NewPersonDialog({
   onClose,
   onCreated,
@@ -218,10 +232,14 @@ function NewPersonDialog({
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [refused, setRefused] = useState<Record<string, string>>({});
+  // A space is refused by the engine; said as it is typed, before anything is sent.
+  const usernameProblem = /\s/.test(username) ? PERSON_FIELDS.username : refused.username;
 
   async function create() {
     setPending(true);
     setError("");
+    setRefused({});
     let user: User;
     try {
       user = await security.createUser({
@@ -230,7 +248,9 @@ function NewPersonDialog({
         ...(email.trim() ? { email: email.trim() } : {}),
       });
     } catch (cause) {
-      setError(errorMessage(cause));
+      const fields = refusedFields(cause);
+      setRefused(fields);
+      if (!Object.keys(fields).length) setError(errorMessage(cause));
       setPending(false);
       return;
     }
@@ -250,31 +270,57 @@ function NewPersonDialog({
       onClose={onClose}
     >
       <form
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           void create();
         }}
       >
-        <label>
-          Username
-          <input
-            autoFocus
-            required
-            maxLength={150}
-            autoComplete="off"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-          />
-        </label>
-        <p className="admin-hint">What they type to sign in; it cannot change later.</p>
-        <label>
-          Name
-          <input required maxLength={200} value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        <label>
-          E-mail (optional)
-          <input type="email" maxLength={320} value={email} onChange={(event) => setEmail(event.target.value)} />
-        </label>
+        <FormField
+          label="Username"
+          help="What they type to sign in, without spaces; it cannot change later."
+          error={usernameProblem}
+        >
+          {(control) => (
+            <input
+              {...control}
+              autoFocus
+              required
+              maxLength={150}
+              autoComplete="off"
+              value={username}
+              onChange={(event) => {
+                setUsername(event.target.value);
+                setRefused(({ username: _, ...rest }) => rest);
+              }}
+            />
+          )}
+        </FormField>
+        <FormField label="Name" error={refused.name}>
+          {(control) => (
+            <input
+              {...control}
+              required
+              maxLength={200}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          )}
+        </FormField>
+        <FormField label="E-mail (optional)" error={refused.email}>
+          {(control) => (
+            <input
+              {...control}
+              type="email"
+              maxLength={320}
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setRefused(({ email: _, ...rest }) => rest);
+              }}
+            />
+          )}
+        </FormField>
         {error && (
           <Notice tone="error" title="The person was not created">
             {error}
@@ -284,7 +330,7 @@ function NewPersonDialog({
           <button type="button" className="secondary" disabled={pending} onClick={onClose}>
             Cancel
           </button>
-          <button className="primary" disabled={pending || !username.trim() || !name.trim()}>
+          <button className="primary" disabled={pending || !username.trim() || !name.trim() || /\s/.test(username)}>
             {pending ? "Creating…" : "Create and make a password link"}
           </button>
         </div>
@@ -530,12 +576,14 @@ function EditPersonDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState("");
+  const [refused, setRefused] = useState<Record<string, string>>({});
   const changed = name.trim() !== user.name || email.trim() !== (user.email ?? "");
 
   async function save() {
     setPending(true);
     setError("");
     setConflict("");
+    setRefused({});
     try {
       onSaved(
         await security.updateUser(user.id, {
@@ -562,19 +610,38 @@ function EditPersonDialog({
   return (
     <Modal title={`Edit ${user.name}`} eyebrow="Person" size="compact" busy={pending} dirty={changed} onClose={onClose}>
       <form
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           void save();
         }}
       >
-        <label>
-          Name
-          <input autoFocus required maxLength={200} value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        <label>
-          E-mail (optional)
-          <input type="email" maxLength={320} value={email} onChange={(event) => setEmail(event.target.value)} />
-        </label>
+        <FormField label="Name" error={refused.name}>
+          {(control) => (
+            <input
+              {...control}
+              autoFocus
+              required
+              maxLength={200}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          )}
+        </FormField>
+        <FormField label="E-mail (optional)" error={refused.email}>
+          {(control) => (
+            <input
+              {...control}
+              type="email"
+              maxLength={320}
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setRefused(({ email: _, ...rest }) => rest);
+              }}
+            />
+          )}
+        </FormField>
         <p className="admin-hint">The username {user.username} does not change.</p>
         {conflict && (
           <Notice tone="warning" title="Not saved">

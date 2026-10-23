@@ -973,8 +973,14 @@ A request's path through the checks:
    through its groups, read in one statement and kept per process by database, principal and
    generation. PostgreSQL triggers raise the generation whenever a grant, role, a role's groups, a
    group, a membership or a principal's `active` changes, so every process reads them again on the
-   next request; no listener, and a change made by SQL counts too.
-3. **The route check** (`management/access.py`): every operation declares `requires(action,
+   next request; no listener, and a change made by SQL counts too. A grant naming a consumer API
+   instead of a role is kept apart, as (workspace, consumer API) pairs (Z3).
+3. **The consumer check** (`consumer/router.py`, `_authenticated`, Z3, D306–D309): after the
+   token, the workspace the request reads is resolved (its own `404`); a `consumer` token then
+   needs a grant of the path's consumer API there, and a `management` token, accepted only on the
+   index and the OpenAPI documents (D266), needs Browse there. Both run before the definition is
+   resolved. The index lists a consumer caller's granted APIs only.
+4. **The route check** (`management/access.py`): every operation declares `requires(action,
    at=…)`; the declaration names where the workspace comes from (the path, the query's context, a
    change set, publication, record, relation, job or subscription the request names, the body, the
    instance, any scope). One dependency of every management router resolves it with the engine's
@@ -983,7 +989,7 @@ A request's path through the checks:
    FORBIDDEN` before the handler runs. The declaration is published per operation in the OpenAPI
    document (`x-action`), and the contract test refuses an operation without one. Lists filter with
    the same permissions as conditions on their own statement (`engine/authorization/visibility.py`).
-4. **The write-unit check** (Z2, `engine/authorization/writes.py`): the route check puts the
+5. **The write-unit check** (Z2, `engine/authorization/writes.py`): the route check puts the
    caller's **writer** on the session (their permissions, the groups the route allowed and its
    action); the worker puts a job's requester's there before each step
    (`engine/authorization/requesters.py`), refusing the step when the requester was deactivated or

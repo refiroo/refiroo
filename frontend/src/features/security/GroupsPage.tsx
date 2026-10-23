@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, refusalMessage } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
@@ -381,7 +381,7 @@ function GroupDialog({
       setError(
         isApiError(cause, "VERSION_CONFLICT")
           ? "Someone changed this group while you were editing. Close the dialog to see it as it is now."
-          : errorMessage(cause),
+          : refusalMessage(cause, { name: "Name", description: "Description" }),
       );
     } finally {
       setPending(false);

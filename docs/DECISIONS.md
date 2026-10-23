@@ -1763,7 +1763,10 @@ must be served as well as stewards (the user's ideas, 2026-10-22).
   narrow **writes** to applications and record types. Reads are per workspace: a reader sees the
   whole workspace, because relations, coverage, the lookup, the feed and exports cross applications;
   data some readers must not see goes in its own workspace. A client is granted a consumer API in a
-  workspace instead of a role.
+  workspace instead of a role (Z3, D306–D309): one API in one workspace, never narrowed, never at
+  the instance; only such a grant opens the consumer data routes, checked by the consumer router
+  after the token and the workspace and before the definition, so a caller without a grant cannot
+  probe which API keys exist.
 - **Roles and grants are runtime data,** in the database, managed through the API and the Security
   pages. They are never part of a model release: a model must not be able to grant itself access, and
   roles change without a release. Grants refer to applications and record types as data; a grant

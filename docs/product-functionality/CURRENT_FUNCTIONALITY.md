@@ -1280,7 +1280,16 @@ the grant will allow. A role that can only be held for the whole instance, such 
 administrator, is never granted in a single workspace. The Security pages are shown only to
 security administrators.
 
-Limits: any system with a consumer token reads every consumer API (Z3); the interface still offers
+A system reads a consumer API only where it is granted that API: a security administrator grants a
+client (or a person or group) one consumer API in one workspace, and the system then reads that API
+there and nothing else; another API, or the same API in another workspace, is refused, and the list
+of consumer APIs it gets names only those granted. No role opens the consumer APIs. A workspace's
+Access lists such a grant as "Consumer API: *name*" and removes it like any other. Each consumer
+API's OpenAPI document tells a generated client how to obtain its token. A webhook subscription names
+the person or client that created it; administrators manage it as before.
+
+Limits: consumer API grants are made through the API until the clients page arrives (SP2), which
+also shows a subscription's owner; the interface still offers
 what a person may not do and shows the refusal (Z5), and a person without Browse in the default
 workspace sees only that refusal instead of the application (Z5); clients are managed through the API until SP2; groups from a sign-in
 provider come with I3; who granted or changed what is recorded from Z4.

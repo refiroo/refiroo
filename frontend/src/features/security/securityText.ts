@@ -20,6 +20,13 @@ export function userRoleLine(roles: readonly UserRole[]): string {
   return parts.length > 2 ? `${parts.slice(0, 2).join("; ")}; and ${parts.length - 2} more` : parts.join("; ");
 }
 
+/** What a grant gives: its role's name, or "Consumer API: Name" for a consumer API grant (Z3). */
+export function grantHeld(grant: Grant): string {
+  if (grant.role) return grant.role.name;
+  const api = grant.consumerApi;
+  return `Consumer API: ${api?.name ?? api?.key ?? ""}`;
+}
+
 /** Where a grant applies: "Every workspace", or the workspace's label (its key when not known). */
 export function grantWhere(grant: Grant, labels: ReadonlyMap<string, string>): string {
   if (grant.scope.instance) return "Every workspace";
@@ -36,6 +43,8 @@ export function grantNarrowing(grant: Grant): string {
 /** A stale narrowing's missing keys, as a sentence (D296); empty when not stale. */
 export function staleNote(grant: Grant): string {
   const missing = [...(grant.scope.missingApplications ?? []), ...(grant.scope.missingRecordTypes ?? [])];
+  if (grant.stale && grant.consumerApi && grant.consumerApi.name === null)
+    return `Stale: consumer API “${grant.consumerApi.key}” is no longer in this workspace’s model, and allows nothing.`;
   if (!grant.stale || !missing.length) return "";
   const named = missing.map((key) => `“${key}”`).join(", ");
   return `Stale: ${named} ${missing.length > 1 ? "are" : "is"} no longer in this workspace’s model, and allow${missing.length > 1 ? "" : "s"} nothing.`;

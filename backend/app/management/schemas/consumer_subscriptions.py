@@ -65,6 +65,12 @@ class SubscriptionDelivery(BaseModel):
     pending: PendingDelivery | None
 
 
+class SubscriptionOwner(BaseModel):
+    kind: Literal["user", "client"]
+    id: str
+    name: str
+
+
 class SubscriptionResponse(BaseModel):
     """A subscription. ``contractVersion`` is the version it was accepted under; delivery continues
     after ``acknowledgedThrough``. ``signingSecret`` is in the create answer only (C-D12): keep it,
@@ -91,6 +97,10 @@ class SubscriptionResponse(BaseModel):
     version: int
     createdAt: datetime
     updatedAt: datetime
+    owner: SubscriptionOwner | None = Field(
+        description="The person or client that created it (0.12 Z3, D310); null for a subscription "
+        "from before. Owning gives no right of its own: Integration administration manages it"
+    )
     signingSecret: str | SkipJsonSchema[None] = Field(
         default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
     )

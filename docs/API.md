@@ -6024,7 +6024,12 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   ```
 
   `scope: {"instance": true}` for the instance. A consumer API grant names `consumerApi` instead of
-  `role` and a workspace (Z3). A grant naming an application or record type the workspace's model no
+  `role` and a workspace (delivered, Z3, D306): never at the instance or narrowed (`422
+  GRANT_SCOPE_INVALID`), a key the workspace's model declares (`422 GRANT_SCOPE_UNKNOWN` with
+  `consumerApi`), both or neither of `role` and `consumerApi` `422 REQUEST_VALIDATION_ERROR`; it
+  reads `role: null` and `consumerApi` (`key`, `name`, the name `null` and the grant `stale: true`
+  once the model no longer declares it), `GET /grants` takes `consumerApi=`, and what it opens is in
+  CONSUMER_API ("Delivered by Z3"). A grant naming an application or record type the workspace's model no
   longer has is listed with `stale: true`, never widened (delivered, Z2, D296: `stale`, and
   `scope.missingApplications` and `scope.missingRecordTypes` naming what is gone; a missing name
   allows nothing, so a grant naming only such allows no writes; `/me/permissions` marks a held
@@ -6130,5 +6135,11 @@ Where an operation's workspace comes from (`x-action-scope`):
 | `the query's context, or the record's workspace` (and the relationship's) | A read naming a record or relationship: the query's context when it names one, else the workspace holding it |
 | `the move's target and source workspaces` | `copy-move` in the target and `browse` in the source (D286) |
 
-The consumer routes (`/api/consumer`) need a token with audience `consumer`; until Z3 any such
-token reads every consumer API. `/docs`, its script and `/openapi.json` need none.
+The consumer routes (`/api/consumer`) need a token with audience `consumer` and a grant of the
+consumer API in the workspace read (Z3, D306–D309); the index and each consumer OpenAPI document also
+take a `management` token with Browse there (D266, D308). `/docs`, its script and `/openapi.json`
+need none.
+
+Subscriptions (`/consumer-subscriptions`) read `owner` (`kind`, `id`, `name`), the person or client
+that created one, `null` for one from before Z3, and the list takes `ownerId=` (Z3, D310); owning
+gives no right of its own.

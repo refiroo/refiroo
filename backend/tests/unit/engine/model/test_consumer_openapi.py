@@ -30,7 +30,7 @@ def test_the_example_model_gives_one_valid_document_over_every_type():
     rdm = consumer_api(model, "rdm")
     assert rdm.key == "rdm"
     assert set(rdm.objectTypes) == {item.key for item in model.objectTypes}
-    document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000)
+    document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000, token_url="/oauth/token")
     validate_openapi(document)
 
     codelists = document["paths"][f"{_base(rdm)}/lists/codelists"]["get"]["parameters"]
@@ -47,7 +47,7 @@ def test_as_of_is_documented_where_a_read_can_return_a_dated_type():
     ``RDM-As-Of-Applied`` header and an optional ``asOfApplied`` on the envelopes."""
     model = load_model(EXAMPLE)
     rdm = consumer_api(model, "rdm")
-    document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000)
+    document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000, token_url="/oauth/token")
     base = _base(rdm)
 
     def names(path: str, method: str = "get") -> set[str]:
@@ -75,14 +75,14 @@ def test_a_definition_with_events_documents_its_pull_feed():
     (definition,) = [item for item in document["consumerApis"] if item["key"] == "rdm"]
     del definition["operations"]["events"]
     model = parse_model(document)
-    plain = consumer_openapi(model, consumer_api(model, "rdm"), root_path="", resolve_max_items=1000)
+    plain = consumer_openapi(model, consumer_api(model, "rdm"), root_path="", resolve_max_items=1000, token_url="/oauth/token")
     assert f"{_base(consumer_api(model, 'rdm'))}/events" not in plain["paths"]
 
     definition["operations"]["events"] = {
         "custom": [{"key": "reference-data-changed", "objectTypes": definition["exposes"][:2], "changes": ["created", "deleted"]}]
     }
     model = parse_model(document)
-    built = consumer_openapi(model, consumer_api(model, "rdm"), root_path="", resolve_max_items=1000)
+    built = consumer_openapi(model, consumer_api(model, "rdm"), root_path="", resolve_max_items=1000, token_url="/oauth/token")
     validate_openapi(built)
     events = built["paths"][f"{_base(consumer_api(model, 'rdm'))}/events"]["get"]
     names = {item["name"] for item in events["parameters"]}
@@ -100,7 +100,7 @@ def test_the_document_states_the_limits_the_reads_apply():
     limit the document states are the engine's own, so a changed limit changes the document."""
     model = load_model(STARTER)
     rdm = consumer_api(model, "rdm")
-    document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000)
+    document = consumer_openapi(model, rdm, root_path="", resolve_max_items=1000, token_url="/oauth/token")
     xref = document["paths"][f"{_base(rdm)}/xref"]["get"]
     (size,) = [item for item in xref["parameters"] if item["name"] == "pageSize"]
     smallest, largest, default = consumer_lists.PAGE_SIZE

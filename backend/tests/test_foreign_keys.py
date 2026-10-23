@@ -96,6 +96,9 @@ RULES = {
     ("jobs", "requested_by_client_id"): ("oauth_clients", "RESTRICT"),
     ("source_files", "uploaded_by_user_id"): ("users", "RESTRICT"),
     ("source_files", "uploaded_by_client_id"): ("oauth_clients", "RESTRICT"),
+    # Who created a subscription (0.12 Z3, D310), kept alike.
+    ("consumer_subscriptions", "created_by_user_id"): ("users", "RESTRICT"),
+    ("consumer_subscriptions", "created_by_client_id"): ("oauth_clients", "RESTRICT"),
     # A person is deactivated, never deleted (D237); their sessions, codes and reset links would go
     # with them. A session ends, never deleted; its refresh tokens would go with it, and a code
     # forgets the session it started (0.12 I2).

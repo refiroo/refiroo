@@ -1232,6 +1232,12 @@ class ConsumerSubscription(Base):
         Index("ix_consumer_subscriptions_api", "consumer_api", "sequence_id"),
         Index("ix_consumer_subscriptions_workspace", "workspace_key", "sequence_id"),
         Index("ix_consumer_subscriptions_due", "next_attempt_at", postgresql_where=text("status = 'active'")),
+        CheckConstraint(
+            "num_nonnulls(created_by_user_id, created_by_client_id) <= 1",
+            name="ck_consumer_subscriptions_one_created_by",
+        ),
+        Index("ix_consumer_subscriptions_created_by_user", "created_by_user_id"),
+        Index("ix_consumer_subscriptions_created_by_client", "created_by_client_id"),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -1282,6 +1288,13 @@ class ConsumerSubscription(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    # Who created it (0.12 Z3, D310); neither for one from before Z3.
+    created_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_by_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
     )
 
 
@@ -2117,7 +2130,8 @@ class UserGroupMember(Base):
 class Grant(Base):
     """A role given to one person, client or group, at the instance (no workspace) or in one
     workspace, optionally narrowing writes to applications and record types (Z1, D228, D243,
-    D281). Created and deleted, never changed; it goes with its workspace."""
+    D281); or, instead of a role, read of one consumer API in one workspace, never narrowed (Z3,
+    D306). Created and deleted, never changed; it goes with its workspace."""
 
     __tablename__ = "grants"
     __table_args__ = (
@@ -2129,6 +2143,15 @@ class Grant(Base):
             "AND cardinality(record_types) = 0)",
             name="ck_grants_instance_not_narrowed",
         ),
+        CheckConstraint(
+            "num_nonnulls(role_id, consumer_api) = 1", name="ck_grants_role_or_consumer_api"
+        ),
+        CheckConstraint(
+            "consumer_api IS NULL OR (workspace_key IS NOT NULL AND cardinality(applications) = 0 "
+            "AND cardinality(record_types) = 0)",
+            name="ck_grants_consumer_api_scope",
+        ),
+        Index("ix_grants_consumer_api", "consumer_api", "workspace_key"),
         Index("ix_grants_user", "user_id"),
         Index("ix_grants_client", "client_id"),
         Index("ix_grants_group", "group_id"),
@@ -2149,9 +2172,11 @@ class Grant(Base):
     group_id: Mapped[int | None] = mapped_column(
         ForeignKey("user_groups.id", ondelete="CASCADE"), nullable=True
     )
-    role_id: Mapped[int] = mapped_column(
-        ForeignKey("roles.id", ondelete="RESTRICT"), nullable=False
+    role_id: Mapped[int | None] = mapped_column(
+        ForeignKey("roles.id", ondelete="RESTRICT"), nullable=True
     )
+    # The consumer API a grant without a role lets its holder read in its workspace (D306).
+    consumer_api: Mapped[str | None] = mapped_column(String(160), nullable=True)
     workspace_key: Mapped[str | None] = mapped_column(
         ForeignKey("workspaces.key", ondelete="CASCADE"), nullable=True
     )

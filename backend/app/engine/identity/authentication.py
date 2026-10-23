@@ -53,6 +53,8 @@ class Principal:
     # lookup (Z1, D278); never shown.
     row_id: int = 0
     generation: int = 0
+    # The API the token is for (D260): the consumer routes read it (Z3, D308).
+    audience: Audience = "management"
 
 
 def required() -> ApiError:
@@ -118,7 +120,7 @@ def authenticate(
         key, principal = (row[0], row[1]) if row is not None else (None, None)
         if key is None or not keys.verifies(key, now):
             raise TokenRefused("unknownKey")
-        tokens.verify(token, keys.public_key(key.kid, key.public_jwk), settings, audience)
+        claims = tokens.verify(token, keys.public_key(key.kid, key.public_jwk), settings, audience)
         if principal is None or not principal.active:
             raise TokenRefused("revoked")
         user_session = row[3] if claimed.kind == "user" and row is not None else None
@@ -141,6 +143,7 @@ def authenticate(
             user_session.signed_in_with,
             principal.id,
             row[2],
+            _audience(claims),
         )
     return Principal(
         "client",
@@ -151,4 +154,12 @@ def authenticate(
         principal.last_used_at,
         row_id=principal.id,
         generation=row[2],
+        audience=_audience(claims),
     )
+
+
+def _audience(claims: dict[str, object]) -> Audience:
+    """The token's one audience (``aud`` is a string or a one-item list)."""
+    audience = claims["aud"]
+    value = audience[0] if isinstance(audience, list) else audience
+    return "consumer" if value == "consumer" else "management"

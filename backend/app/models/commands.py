@@ -666,5 +666,15 @@ class GrantCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     principal: GrantPrincipal
-    role: str = Field(description="The role's key")
+    role: str | None = Field(default=None, description="The role's key; or give consumerApi")
+    consumerApi: ModelKey | None = Field(
+        default=None,
+        description="Instead of a role, read of this consumer API in the scope's workspace (Z3)",
+    )
     scope: GrantScope
+
+    @model_validator(mode="after")
+    def require_role_or_consumer_api(self) -> GrantCreate:
+        if (self.role is None) == (self.consumerApi is None):
+            raise ValueError("A grant names either a role or a consumer API")
+        return self

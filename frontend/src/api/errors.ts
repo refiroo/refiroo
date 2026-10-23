@@ -47,3 +47,29 @@ export function changedObjectType(cause: unknown): string | undefined {
   const current = (cause.details as { objectTypeKey?: unknown } | undefined)?.objectTypeKey;
   return typeof current === "string" ? current : undefined;
 }
+
+/**
+ * The body fields a `422 REQUEST_VALIDATION_ERROR` refused, each with the engine's reason, keyed by
+ * the field's name (`username`, `email`); empty for any other failure. A dialog shows each under its
+ * field instead of the bare "Request validation failed".
+ */
+export function invalidFields(cause: unknown): Record<string, string> {
+  if (!isApiError(cause, "REQUEST_VALIDATION_ERROR") || !Array.isArray(cause.details)) return {};
+  const fields: Record<string, string> = {};
+  for (const item of cause.details as { loc?: unknown[]; msg?: unknown }[]) {
+    const loc = Array.isArray(item.loc) ? item.loc : [];
+    const field = loc[0] === "body" ? loc[1] : undefined;
+    if (typeof field === "string" && typeof item.msg === "string") fields[field] ??= item.msg;
+  }
+  return fields;
+}
+
+/**
+ * `errorMessage`, naming each refused field by its label for a `422 REQUEST_VALIDATION_ERROR`
+ * ("Name: String should have at most 200 characters") instead of "Request validation failed".
+ */
+export function refusalMessage(cause: unknown, labels: Record<string, string>): string {
+  const fields = Object.entries(invalidFields(cause));
+  if (!fields.length) return errorMessage(cause);
+  return fields.map(([field, reason]) => `${labels[field] ?? field}: ${reason}.`).join(" ");
+}

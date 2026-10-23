@@ -12,6 +12,10 @@ made in that database, as ``create_client`` makes one, once per database.
 
 ``TestClient`` is FastAPI's, carrying the token; ``TestClient(app, authenticated=False)`` sends
 none, for a test of a refusal. An explicit ``Authorization`` header on a request wins.
+
+A consumer API is read only with a grant of it in the workspace read (0.12 Z3, D306). The harness
+client, refused one, is granted that API there by the engine's own grant function, as a Security
+administrator would, and the request is sent again (D312): once per database, API and workspace.
 """
 
 import base64
@@ -115,8 +119,11 @@ def request_token(
 
 
 def audience(path: str) -> str:
-    """The audience a request's path needs: the consumer routes take a ``consumer`` token."""
-    return "consumer" if path.startswith("/api/consumer") else "management"
+    """The audience a request's path needs: the consumer routes take a ``consumer`` token; the
+    routes describing them (the index, each OpenAPI document) are read with the ``management`` one,
+    as the browser reads them, which lists every API (D266, D308)."""
+    describing = path.rstrip("/") == "/api/consumer" or path.endswith("/openapi.json")
+    return "consumer" if path.startswith("/api/consumer") and not describing else "management"
 
 
 def token(post: Callable[..., httpx.Response], scope: str = "management") -> str | None:
@@ -165,9 +172,44 @@ def own_token(post: Callable[..., httpx.Response], scope: str = "management") ->
         return _own_tokens[(url, scope)]
 
 
+def _consumer_refusal(response: httpx.Response) -> tuple[str, str] | None:
+    """The consumer API and workspace a consumer route refused for want of a grant (D309)."""
+    if response.status_code != 403 or not response.request.url.path.startswith("/api/consumer"):
+        return None
+    response.read()
+    details = response.json().get("error", {}).get("details") or {}
+    if set(details) != {"consumerApi", "workspaceKey"}:
+        return None
+    return details["consumerApi"], details["workspaceKey"]
+
+
+def grant_consumer_api(client_id: str, consumer_api: str, workspace_key: str) -> bool:
+    """Grant ``consumer_api`` in ``workspace_key`` to the harness client ``client_id`` in the
+    configured database, as ``POST /grants`` does; False when that cannot be done there."""
+    from app.db import SessionLocal
+    from app.engine.authorization.administration import create_grant
+    from app.errors import ApiError
+    from app.models.commands import GrantCreate
+
+    payload = GrantCreate.model_validate(
+        {
+            "principal": {"kind": "client", "id": client_id},
+            "consumerApi": consumer_api,
+            "scope": {"workspaceKey": workspace_key},
+        }
+    )
+    try:
+        with SessionLocal() as session:
+            create_grant(session, payload)
+    except ApiError:
+        return False
+    return True
+
+
 class HarnessAuth(httpx.Auth):
     """Adds the harness token to a request without an ``Authorization`` header of its own, and
-    sends it again with the database's own client's token when the shared one is refused."""
+    sends it again with the database's own client's token when the shared one is refused, or once
+    its client is granted the consumer API it was refused (D312)."""
 
     def __init__(self, post: Callable[..., httpx.Response]):
         self._post = post
@@ -181,6 +223,10 @@ class HarnessAuth(httpx.Auth):
         if shared is not None:
             request.headers["Authorization"] = f"Bearer {shared}"
             response = yield request
+            refusal = _consumer_refusal(response)
+            if refusal is not None and grant_consumer_api(str(credentials()["clientId"]), *refusal):
+                yield request
+                return
             if response.status_code != 401:
                 return
         own = own_token(self._post, scope)
@@ -189,7 +235,14 @@ class HarnessAuth(httpx.Auth):
                 yield request
             return
         request.headers["Authorization"] = f"Bearer {own}"
-        yield request
+        response = yield request
+        refusal = _consumer_refusal(response)
+        if refusal is not None:
+            from app.config import get_settings
+
+            own_client = _own_clients.get(get_settings().database_url or "")
+            if own_client is not None and grant_consumer_api(own_client[0], *refusal):
+                yield request
 
 
 class TestClient(_FastApiTestClient):

@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from ..common.cursors import decode_cursor, signed_scope
 from ..common.pagination import PageRequest, paginate_sequence
 from ..db import SessionLocal
+from ..engine.authorization.permissions import permissions_of
 from ..engine.identity.authentication import authenticate, require_started
 from ..engine.model.consumer_definitions import consumer_api as declared_api
 from ..engine.model.consumer_definitions import consumer_apis
@@ -118,16 +119,41 @@ DESCRIBING = {PREFIX, f"{PREFIX}/{{consumer_api}}/v{{contract_version}}/openapi.
 
 def _authenticated(request: Request, session: DbSession) -> None:
     """Every consumer route needs a ``consumer`` token (0.12 I1, D260), the describing routes a
-    ``consumer`` or ``management`` one (D266); Z3 narrows it to the consumer APIs a caller is
-    granted."""
+    ``consumer`` or ``management`` one (D266). After the token, the workspace (its own ``404``),
+    then the grant (0.12 Z3, D307–D309): a ``consumer`` token reads ``{consumerApi}`` only with a
+    grant of it in the workspace; a ``management`` token reads the describing routes with Browse
+    there, as the model reads do. The index filters what it lists itself (``request.state``)."""
     route = request.scope.get("route")
     describing = getattr(route, "path", None) in DESCRIBING
-    authenticate(
+    principal = authenticate(
         session,
         request.app.state.identity_settings,
         request.headers.get("Authorization"),
         ("consumer", "management") if describing else "consumer",
     )
+    workspace = _workspace(session, request.query_params.get("workspace"))
+    permissions = permissions_of(session, principal.kind, principal.row_id, principal.generation)
+    # What the index lists: every API for a management caller, the granted ones for a consumer.
+    request.state.listed_apis = (
+        None if principal.audience == "management" else permissions.consumer_apis_in(workspace.key)
+    )
+    if principal.audience == "management":
+        if not permissions.allows("browse", workspace.key):
+            raise api_error(
+                403,
+                "FORBIDDEN",
+                f"Reading the model in workspace '{workspace.key}' needs Browse",
+                {"action": "model.read", "groups": ["browse"], "workspaceKey": workspace.key},
+            )
+        return
+    consumer_api = request.path_params.get("consumer_api")
+    if consumer_api is not None and not permissions.reads_consumer_api(consumer_api, workspace.key):
+        raise api_error(
+            403,
+            "FORBIDDEN",
+            f"Reading consumer API '{consumer_api}' in workspace '{workspace.key}' needs a grant of it",
+            {"consumerApi": consumer_api, "workspaceKey": workspace.key},
+        )
 
 
 router = APIRouter(
@@ -543,8 +569,10 @@ def get_index(request: Request, response: Response, session: DbSession) -> dict[
     """The API index: every consumer API of the release ``workspace`` runs (the default workspace
     without it), by ``consumerApi``, with its name, contract version and the URL of its OpenAPI
     document (C-D69), which carries the ``workspace`` asked for. A definition key may mean another
-    contract in another workspace (0.11 D27): the headers name the workspace and release described."""
+    contract in another workspace (0.11 D27): the headers name the workspace and release described.
+    A ``consumer`` token sees the APIs it is granted there (0.12 Z3, D308)."""
     parameters = _plain(request, _PUBLICATIONS)
+    listed: frozenset[str] | None = request.state.listed_apis
     workspace, active = _described(response, session, request.query_params.get("workspace"))
     page_size, page = _page(parameters)
     root_path = _root_path(request)
@@ -558,6 +586,7 @@ def get_index(request: Request, response: Response, session: DbSession) -> dict[
             "openapi": f"{root_path}{consumer_openapi_path(item)}{suffix}",
         }
         for item in consumer_apis(active.model)
+        if listed is None or item.key in listed
     ]
 
     def read() -> dict[str, Any]:
@@ -566,7 +595,9 @@ def get_index(request: Request, response: Response, session: DbSession) -> dict[
         )
         return {"items": found.items, "pageSize": page_size, **found.links()}
 
-    tag = entity_tag(("index", workspace.key, active.release_id, root_path, suffix), "index")
+    tag = entity_tag(
+        ("index", workspace.key, active.release_id, root_path, suffix, *(sorted(listed) if listed is not None else ["*"])), "index"
+    )
     return _document(request, response, tag, read)
 
 
@@ -592,6 +623,7 @@ def get_openapi(
             definition,
             root_path=root_path,
             resolve_max_items=request.app.state.consumer_resolve_max_items,
+            token_url=f"{request.app.state.identity_settings.issuer}/oauth/token",
         ),
     )
 

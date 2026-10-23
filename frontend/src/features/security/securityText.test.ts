@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ActionGroup, UserRole } from "@/types";
-import { grantSentence, userRoleLine } from "./securityText";
+import type { ActionGroup, Grant, UserRole } from "@/types";
+import { grantHeld, grantSentence, staleNote, userRoleLine } from "./securityText";
 
 const group = (
   key: string,
@@ -87,5 +87,33 @@ describe("grantSentence", () => {
     expect(
       grantSentence({ who: "Ana", groups: ["edit-live"], catalogue: CATALOGUE, where: "Herbarium", narrowedTo: [] }),
     ).toBe("Ana will change records live in Herbarium. Without Browse they cannot read the records they change.");
+  });
+});
+
+describe("a consumer API grant (Z3, D306)", () => {
+  const consumer = (name: string | null): Grant => ({
+    id: "g1",
+    principal: { kind: "client", id: "c1", name: "Catalogue sync" },
+    role: null,
+    consumerApi: { key: "catalogue", name },
+    scope: {
+      instance: false,
+      workspaceKey: "herbarium",
+      applications: [],
+      recordTypes: [],
+      applicationNames: [],
+      recordTypeNames: [],
+    },
+    stale: name === null,
+    createdAt: "2026-10-24T09:00:00Z",
+  });
+
+  it("is named by its API, and by its key once the model no longer declares it", () => {
+    expect(grantHeld(consumer("Catalogue"))).toBe("Consumer API: Catalogue");
+    expect(staleNote(consumer("Catalogue"))).toBe("");
+    expect(grantHeld(consumer(null))).toBe("Consumer API: catalogue");
+    expect(staleNote(consumer(null))).toBe(
+      "Stale: consumer API “catalogue” is no longer in this workspace’s model, and allows nothing.",
+    );
   });
 });

@@ -10,11 +10,12 @@ from ...engine.authorization.administration import GrantRow
 from ...engine.authorization.catalogue import ACTIONS, GROUPS
 from ...engine.authorization.permissions import Permissions
 from ...engine.model.registry import resolve_model_snapshot
-from ...models.database import Role, User, UserGroup, Workspace
+from ...models.database import Grant, Role, User, UserGroup, Workspace
 from ..schemas.authorization import (
     ActionGroupList,
     ActionGroupResponse,
     ActionResponse,
+    GrantConsumerApiResponse,
     GrantPage,
     GrantPrincipalResponse,
     GrantResponse,
@@ -131,17 +132,29 @@ def _missing(session: Session, workspace_key: str | None, kind: str, keys: list[
     return [key for key in keys if key not in names]
 
 
+def _consumer_api(session: Session, grant: Grant) -> GrantConsumerApiResponse | None:
+    """A consumer API grant's API with its name in the workspace's model; no name when the model no
+    longer declares it (D306)."""
+    if grant.consumer_api is None or grant.workspace_key is None:
+        return None
+    model = resolve_model_snapshot(session, grant.workspace_key).model
+    names = {item.key: item.name for item in model.consumerApis or ()}
+    return GrantConsumerApiResponse(key=grant.consumer_api, name=names.get(grant.consumer_api))
+
+
 def grant_response(session: Session, row: GrantRow) -> GrantResponse:
     grant = row.grant
     workspace = grant.workspace_key
     missing_applications = _missing(session, workspace, "applications", list(grant.applications))
     missing_types = _missing(session, workspace, "recordTypes", list(grant.record_types))
+    consumer_api = _consumer_api(session, grant)
     return GrantResponse(
         id=grant.public_id,
         principal=GrantPrincipalResponse(
             kind=row.principal_kind, id=row.principal_id, name=row.principal_name
         ),
-        role=GrantRoleResponse(key=row.role.key, name=row.role.name),
+        role=GrantRoleResponse(key=row.role.key, name=row.role.name) if row.role else None,
+        consumerApi=consumer_api,
         scope=GrantScopeResponse(
             instance=grant.workspace_key is None,
             workspaceKey=grant.workspace_key,
@@ -156,7 +169,9 @@ def grant_response(session: Session, row: GrantRow) -> GrantResponse:
             missingApplications=missing_applications,
             missingRecordTypes=missing_types,
         ),
-        stale=bool(missing_applications or missing_types),
+        stale=bool(
+            missing_applications or missing_types or (consumer_api and consumer_api.name is None)
+        ),
         createdAt=grant.created_at,
     )
 

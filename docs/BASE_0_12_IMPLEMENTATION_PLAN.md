@@ -1495,6 +1495,210 @@ are owned by the client or person who created them and managed under Integration
 The per-definition OpenAPI document states the security scheme. `401` and `403` are added to the
 consumer contract (CONSUMER_API) with the same envelope.
 
+##### Z3 plan (2026-10-24)
+
+**Planned 2026-10-24; accepted by the user the same day** ("ok"): D306–D312 and the test cases
+as written. Checked
+against the code at `1ef0b7d` (SP1 committed).
+
+**What the check found:**
+
+- **The consumer router authenticates and checks nothing else** (`consumer/router.py`,
+  `_authenticated`): any active principal with a `consumer` token reads every API in every
+  workspace; the two describing routes (`DESCRIBING`, D266) take a `management` token too, also
+  unchecked. The router never imports `management/`, so its check reads the engine's permissions
+  (`engine/authorization/permissions.py`) directly.
+- **A grant must name a role** (`grants.role_id NOT NULL`); every grant read joins `roles`
+  (`administration._grant_statement`, `permissions.read_permissions`), so a grant without a role
+  needs outer joins there. `held_roles` (the people list, D298) and the Security administrator
+  count join roles and must keep ignoring consumer grants.
+- **Every route resolves the workspace before anything else** (`_workspace`, `resolve_model_snapshot`),
+  answering `404 WORKSPACE_NOT_FOUND` for an unknown or retired one; the definition is resolved
+  after it (`consumer_definition`: `404 CONSUMER_API_NOT_FOUND`, `CONTRACT_VERSION_NOT_FOUND`).
+- **The per-definition OpenAPI document declares no security** and answers `400`, `404`, `409`,
+  `410` (`engine/model/consumer_openapi.py`, `_responses`); the issuer (`PUBLIC_URL`) is in
+  `IdentitySettings`.
+- **Subscriptions record no creator** (`consumer_subscriptions`); Z1 checks Integration
+  administration in their workspace on every subscription route.
+- **The harness client holds every role at the instance and no consumer grant**
+  (`tests/harness_identity.py`). Seventeen test modules read the consumer routes with its token,
+  most through `journeys/scenario.py`, in workspaces they create; each would be refused.
+- **The frontend reads only the describing routes** (Settings › Consumer APIs, the API reference,
+  with the person's `management` token) and lists grants with `grant.role.name`
+  (`features/security/GrantsSection.tsx`), which a grant without a role breaks.
+- **A person may obtain a `consumer` token** (`POST /oauth/token`, `scope=consumer`, after signing
+  in), so a consumer grant to a person or a group is usable.
+
+**What is built:**
+
+1. **Migration** `20261031_01`: `grants.role_id` nullable and `grants.consumer_api` (nullable,
+   160), exactly one of the two (`ck_grants_role_or_consumer_api`), a consumer API grant always in a
+   workspace and never narrowed (`ck_grants_consumer_api_scope`); `consumer_subscriptions.
+   created_by_user_id` and `created_by_client_id` (nullable, at most one, `RESTRICT`, indexed).
+   Rows from before keep their role, and subscriptions from before name nobody (D306, D310).
+2. **Grants** (D306): `POST /grants` takes `consumerApi` instead of `role`, in a workspace, with
+   any principal; the key is checked against the workspace's model (`422 GRANT_SCOPE_UNKNOWN` with
+   `consumerApi`); an instance scope or a narrowing is `422 GRANT_SCOPE_INVALID`, both or neither of
+   `role` and `consumerApi` `422 REQUEST_VALIDATION_ERROR`. A grant reads `role: null` and
+   `consumerApi` (`key`, `name`, or `null` for the name when the model no longer has it, with
+   `stale: true`); `GET /grants` gains `consumerApi=`; `/me/grants`, a person's grants and a
+   workspace's access list them. `held_roles` and the administrator count ignore them.
+3. **Permissions** carry the caller's consumer API grants beside their holdings, read in the same
+   statement (direct, and for a person through their groups), cached by the same generation.
+4. **The consumer routes check the grant** (D307–D309): after the token and the workspace, a data
+   route and a definition's OpenAPI document need the grant of `{consumerApi}` in that workspace
+   (the default workspace without `workspace`), else `403 FORBIDDEN` with
+   `details: {consumerApi, workspaceKey}`; with a `management` token the describing routes need
+   Browse there instead, as the model reads do. The index lists the granted APIs only (an empty
+   page with none) for a `consumer` token, every API for a `management` one. A pinned read
+   (`publication`) needs the same grant.
+5. **The OpenAPI document** (D311): `components.securitySchemes.oauth2` with the
+   `clientCredentials` flow, `tokenUrl` the issuer's `/oauth/token`, scope `consumer`; top-level
+   `security`; `401` and `403` on every operation, with the envelope, from `components.responses`.
+6. **Subscriptions** (D310): the creator stored at create; a subscription reads `owner` (`kind`,
+   `id`, `name`; `null` from before Z3); `GET /consumer-subscriptions` gains `ownerId=`; managed
+   with Integration administration in its workspace as in Z1.
+7. **The harness** (D312): the harness client is granted a consumer API in a workspace on its
+   first refusal there, by the engine's own grant function as a Security administrator would, and
+   the request is sent again; the shared token is unchanged.
+8. **Frontend**: the grant lists (a person's, a group's, a workspace's Access) show a consumer API
+   grant with "Consumer API: *name*" in the Role column and "—" as its narrowing, and remove it like
+   any grant; the grant dialog still grants roles only (consumer API grants on a page are SP2).
+   Webhooks shows nothing new (the owner is shown with SP2's client pages).
+9. **OpenAPI lock** re-baselined (`consumerApi` on grants, `owner` on subscriptions, the two
+   filters); no route added.
+10. **Documents:** CONSUMER_API (Z3 delivered: grants, the refusal order, the index, the security
+   scheme, `401`/`403`, owners); API.md § Security (consumer API grants, the subscription owner);
+   ADR-044 and ARCHITECTURE (the consumer check); USER_JOURNEYS (J41.2) and API_JOURNEYS;
+   CURRENT_FUNCTIONALITY; OPERATIONS (after upgrading, a consumer client reads nothing until
+   granted); EXECUTION_GUIDE (the harness's consumer grants); CHANGELOG, PROJECT_STATUS.
+
+The Access table with a consumer API grant (desktop; at 390px the row stacks as the others do):
+
+```
+Who              Kind     Role                        Narrowed to (writes)   From
+Ana Varga        Person   Data steward                Two record types       This workspace
+Catalogue sync   Client   Consumer API: Catalogue     —                      This workspace   Remove
+Harness          Client   Security administrator      —                      Whole instance
+```
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D306 | What a consumer API grant is | **Recommended:** a grant naming `consumerApi` instead of `role`, always in one workspace, never narrowed, to a person, a group or a client; the key must be one the workspace's model declares when granted, and a grant whose API the model later drops reads `stale: true` and allows nothing. No grant at the instance and none of "every consumer API". Why: one key may mean different contracts in two workspaces (ADR-042), and a grant that widens by itself when a release adds an API or a workspace is created would contradict D296's "never widened". Cost: a system reading three APIs in two workspaces holds six grants |
+| D307 | What opens the consumer data routes | **Recommended:** only a consumer API grant; no role does (Browse included), and a consumer API grant opens nothing on the management API. Why: the two APIs stay separately granted, as ADR-044 and CONSUMER_API say; an administrator reading every role cannot be surprised that a Reader's system also reads the consumer API. Cost: a person who wants consumer access too gets the grant explicitly |
+| D308 | The index and the OpenAPI documents | **Recommended:** with a `consumer` token, the index lists the APIs granted in the workspace (an empty page, not `403`, when none) and a definition's document needs its grant; with a `management` token (the browser, D266) both need Browse in the workspace and show every API. Why: D266's reason: a management caller sees the same through the model reads, which Browse opens; a client learns only what it may read. Cost: a person without Browse in a workspace gets `403` on its Consumer APIs page, as on its model |
+| D309 | The order of refusals | **Recommended:** the token (`401`), then the workspace (`404 WORKSPACE_NOT_FOUND` as today), then the grant (`403 FORBIDDEN`, `details: {consumerApi, workspaceKey}`, "Reading consumer API 'x' in workspace 'w' needs a grant of it"), then the definition and version (`404`). Why: the workspace answers its own `404` first as at Z1's route check; the grant before the definition means a caller without a grant cannot probe which API keys exist. Cost: a mistyped key without a grant reads `403`, not `404` |
+| D310 | A subscription's owner | **Recommended:** the creator (person or client) stored and read as `owner`, `null` for subscriptions from before Z3, with an `ownerId` filter; owning gives no right of its own: a subscription is created and managed with Integration administration in its workspace, as in Z1, and creating one needs no consumer API grant; deliveries do not depend on the owner. Why: sending a workspace's events to a receiver is an administrator's act, as D290 treats a migration: the group is the permission; tying deliveries to a person who later leaves would stop a working integration. Cost: a system subscribes itself only when it holds Integration administration; Z4's "subscriptions who created them" is then delivered here, Z4 shows the name in history |
+| D311 | The security scheme in each OpenAPI document | **Recommended:** OAuth 2.0 `clientCredentials` with the absolute `tokenUrl` from `PUBLIC_URL` and the scope `consumer`, required on every operation, and `401`/`403` in every operation's responses. Why: client generators then fetch and renew the token themselves; the issuer is the URL the metadata document already publishes. Cost: each document's `ETag` changes once |
+| D312 | How the tests read the consumer API after Z3 | **Recommended:** the harness client, refused with `403 FORBIDDEN` on a consumer route, is granted that consumer API in that workspace through the engine's grant function and the request is sent again, once per database, API and workspace. Why: a Security administrator could make the same grant, so no test builds a state no client could produce; one place in the harness instead of edits to seventeen modules; refusal tests use clients of their own. Cost: one extra round trip the first time a test reads an API in a workspace |
+
+**Journey test cases** (`tests/journeys/test_j41_consumer_grants.py`, on two configurations,
+clients made and granted through the API by the harness as Security administrator; written first and
+seen failing):
+
+1. **J41.2, a granted API answers, others are refused:** given client C granted consumer API X in
+   workspace A, when it reads an object, a list, xref, resolve and the events of X in A, then all
+   answer `200`; X in workspace B and API Y in A answer `403 FORBIDDEN` with `consumerApi` and
+   `workspaceKey`; a pinned read of X in A answers.
+2. **J41.2, the index and the documents:** given C, the index of A lists X only and the index of B is
+   empty; X's document in A declares the `clientCredentials` scheme with the token URL and `401` and
+   `403` on its operations; Y's document in A answers `403`. With a `management` token, a person
+   holding Reader in A sees every API in A's index, and a person without Browse in A gets `403`.
+3. **J41.2, what a refusal reveals:** a client without grants asking for a key no model declares
+   answers `403`, not `404`; C asking for X at another contract version answers `404
+   CONTRACT_VERSION_NOT_FOUND`; an unknown workspace answers `404 WORKSPACE_NOT_FOUND`.
+4. **J41.2, a grant removed:** given C reading X in A, when its grant is removed, then its next
+   request answers `403`.
+5. **J40, granting a consumer API:** `POST /grants` with `consumerApi` and a workspace answers `201`
+   with `role: null` and `consumerApi`; A's access lists it and `GET /grants?consumerApi=` finds it;
+   an instance scope or a narrowing is `422 GRANT_SCOPE_INVALID`; a key A's model lacks is
+   `422 GRANT_SCOPE_UNKNOWN`; both a role and a consumer API is `422`.
+6. **D306, a stale consumer API grant:** given C granted X in A, when a release without X is
+   activated in A, then the grant reads `stale: true`.
+7. **D310, a subscription's owner:** given a client holding Integration administration in A, when it
+   creates a subscription, then the subscription's `owner` names it and `ownerId=` lists it; a person
+   holding Integration administration in A reads and suspends it.
+
+No unit tests: the check is a set lookup with no edge cases of its own beyond the journeys.
+
+**Checks:** the new module and J41's (`test_j39_j41_j43_identity`), J40's authorization and
+security-pages modules; the consumer journeys the harness change touches (J20, J28, J29, J30,
+J36 and the modules reading `/api/consumer`, selected by `--testmon` and the execution guide's
+consumer group); `test_openapi_contract` with the lock diffed; `test_boundaries`,
+`test_foreign_keys`; Ruff on the changed files. Frontend: the touched Vitest files
+(`Settings.test.tsx`, `WorkspaceAdmin.test.tsx`), format, lint, build; the `sp1-security` runner
+with a consumer API grant shown in a workspace's Access and removed, on two models, by keyboard and
+at 390px. The full backend suite is Z5's (the user, 2026-10-24).
+
+**Composable domains (ADR-032):** the identity door is touched: subscriptions name their principal
+by kind, and a grant names a consumer API as data; the consumer API `match` declaration, values,
+audit and history are unchanged.
+
+**What the user will still not be able to do after Z3:** grant a client its consumer APIs on a page,
+or see a subscription's owner in the interface (SP2; API calls until then); see who changed what
+(Z4); have the interface hide what a person may not do (Z5).
+
+##### Z3 record (2026-10-24)
+
+**Delivered 2026-10-24.** What was built is the plan's list, items 1–10:
+
+- **Migration** `20261031_01`: `grants.role_id` nullable, `grants.consumer_api`,
+  `ck_grants_role_or_consumer_api`, `ck_grants_consumer_api_scope`, `ix_grants_consumer_api`;
+  `consumer_subscriptions.created_by_user_id` and `created_by_client_id` (`RESTRICT`, at most one,
+  indexed). It ran on the user's development database through the running dev server; checked
+  afterwards: head `20261031_01`, the three columns, health `200`.
+- **Engine:** `Permissions.consumer_apis` (read in the same statement as the roles, an outer join
+  on `roles`), `reads_consumer_api`, `consumer_apis_in`; `create_grant` with `consumerApi`
+  (`_create_consumer_api_grant`, `_check_consumer_api`), the grant reads with an outer join and the
+  `consumerApi` filter; `Principal.audience` from the token's `aud`; `consumer_openapi(…,
+  token_url=)` with the `oauth2` scheme and the `Unauthorized` and `Forbidden` responses (the model
+  editor's preview passes the same URL); `create_subscription(…, creator)` and `owners()`.
+- **Consumer router:** `_authenticated` resolves the workspace, then the grant or, for a
+  `management` token, Browse, before any handler; the index lists `request.state.listed_apis`, its
+  `ETag` keyed by them.
+- **Management API:** `consumerApi` on `GrantCreate` (exactly one of it and `role`), `role`
+  nullable and `consumerApi` on `GrantResponse`, `consumerApi=` on `GET /grants`; `owner` on a
+  subscription and `ownerId=` on the list. OpenAPI lock re-baselined, diffed against `1ef0b7d`: only
+  those (the subscription routes are off in the locked document).
+- **Harness** (D312): `HarnessAuth` grants the harness client, or a database's own client, the
+  consumer API it was refused and resends; the describing routes go with the `management` token, as
+  the browser sends them, which lists every API (the docstring of `tests/harness_identity.py`).
+- **Frontend:** `grantHeld` (`securityText.ts`) names a consumer API grant in the grant lists and on
+  the Account page; `staleNote` for a dropped API; `Grant.role` nullable in `types/security.ts`.
+- **Documents:** CONSUMER_API ("Delivered by Z3"), API.md (grants, the consumer routes, owners),
+  ADR-044, ARCHITECTURE (the consumer check, step 3), USER_JOURNEYS J41, API_JOURNEYS,
+  CURRENT_FUNCTIONALITY, OPERATIONS ("Consumer API grants", the upgrade note), EXECUTION_GUIDE (the
+  runner's row), CHANGELOG, PROJECT_STATUS. EXECUTION_GUIDE has no section on the harness's tokens,
+  so D312 is described where the harness is.
+
+**Older tests changed by Z3's planned behaviour:** J41.5
+(`test_a_token_for_the_other_api_is_refused`) grants its client Reader and the consumer API before
+comparing the index (D308); J28.4 (`test_refusals`) expects `403 FORBIDDEN` for an unknown API key
+(D309); `test_foreign_keys` lists the two owner columns; the consumer OpenAPI unit tests pass a token
+URL.
+
+**Exercised:** the seven cases (14 runs) written first and seen failing (each on the missing
+`consumerApi`, `owner` or the `404` before the grant); then one selection of 535 tests in 2 min
+14 s with `-n auto`: the new module, J39–J41, J40's two modules, every journey module reading the
+consumer API (J20, J23, J25, J28, J28/J29, J29, J30's five, J33, J36's two, J37.8, J38.3), the
+consumer OpenAPI, objects, xref and delivery unit tests, the authorization unit tests,
+`test_consumer_api_model`, `test_openapi_contract`, `test_foreign_keys`, `test_boundaries`; Ruff
+check on `app/` and `tests/`, Ruff format on the changed files that were formatted before. Frontend:
+`securityText.test.ts` with the new case and `vitest related` for the changed files (5 files, 68
+tests), Prettier on the changed files, lint (0 errors), build. **Browser:** `test:browser:security`
+on both models (36.9 s): a client's consumer API grant listed in a workspace's Access as "Consumer
+API: *name*", removed by keyboard, Access at 390px without a horizontal page scroll, axe 0
+violations; the two screenshots inspected (1440px: the row as the mock-up; 390px: stacked like the
+other rows). Accessibility and visual evidence beyond that runner wait for R.
+
+**Not run:** the full backend suite (Z5's, the user, 2026-10-24); no upgrade test (pre-1.0).
+
+**Shared working tree:** during Z3 another session edited CHANGELOG (SP1's fix), the People, Groups
+and Roles pages, `api/errors.ts` and `sp1-security.mjs`'s New person step. Z3's hunks are separate;
+the runner's pass covered their step too.
+
 #### Z4: Audit identity
 
 **Needs:** Z1.
@@ -1750,6 +1954,16 @@ may not do (Z5).
 **Not run:** the full backend suite (with Z5, the user's decision of 2026-10-24) and the other
 browser runners, which SP1 changes only through the navigation's Security group (R); the
 accessibility and visual gates (R).
+
+**Fixed after delivery (the user, 2026-10-24):** New person with the username "user 1" said only
+"Request validation failed": the engine refuses a username with a space (`^\S+$`), and the dialog
+showed the `422`'s message without its details. Now New person says a username has no spaces as it
+is typed and sends nothing; the engine's refusal of a field is said under that field in New person
+and Edit (`invalidFields`), and by field name in the group and role dialogs (`refusalMessage`).
+Checks: `errors.test` and `PeoplePage.test` (both dialog cases seen failing on the delivered code),
+Vitest for `src/api`, `src/features/security`, `src/features/settings`; lint, format, build;
+`sp1-security` on two models: 36 checks (a space refused before sending, a malformed e-mail
+refused by the engine and said under its field).
 
 **What the user cannot do yet:** manage clients, their secrets and their consumer API grants on a
 page (SP2; API calls until then), or limit a client to some consumer APIs (Z3); sign in with a

@@ -406,7 +406,8 @@ class GrantRow:
     """A grant with what it names, as the API answers it."""
 
     grant: Grant
-    role: Role
+    # None for a consumer API grant (D306).
+    role: Role | None
     principal_kind: str
     principal_id: str
     principal_name: str
@@ -418,7 +419,7 @@ _GRANT_KEYS = (integer_key("sequenceId", Grant.id, "grant_sequence"),)
 def _grant_statement() -> Select[Any]:
     return (
         select(Grant, Role, User, OAuthClient, UserGroup, Grant.id.label("grant_sequence"))
-        .join(Role, Role.id == Grant.role_id)
+        .outerjoin(Role, Role.id == Grant.role_id)
         .outerjoin(User, User.id == Grant.user_id)
         .outerjoin(OAuthClient, OAuthClient.id == Grant.client_id)
         .outerjoin(UserGroup, UserGroup.id == Grant.group_id)
@@ -478,6 +479,18 @@ def _held_in_a_workspace(session: Session, role: Role) -> None:
         )
 
 
+def _check_consumer_api(session: Session, workspace_key: str, consumer_api: str) -> None:
+    """A consumer API grant names an API the workspace's model declares (D306)."""
+    model = resolve_model_snapshot(session, workspace_key).model
+    if consumer_api not in {item.key for item in model.consumerApis or ()}:
+        raise api_error(
+            422,
+            "GRANT_SCOPE_UNKNOWN",
+            f"Workspace '{workspace_key}' has no consumer API '{consumer_api}'",
+            {"consumerApi": consumer_api},
+        )
+
+
 def create_grant(session: Session, payload: GrantCreate) -> GrantRow:
     scope = payload.scope
     if scope.instance == (scope.workspaceKey is not None):
@@ -486,6 +499,8 @@ def create_grant(session: Session, payload: GrantCreate) -> GrantRow:
             "GRANT_SCOPE_INVALID",
             "A grant's scope is either the instance (instance: true) or one workspace (workspaceKey)",
         )
+    if payload.consumerApi is not None:
+        return _create_consumer_api_grant(session, payload)
     if scope.instance and (scope.applications or scope.recordTypes):
         raise api_error(
             422,
@@ -505,6 +520,37 @@ def create_grant(session: Session, payload: GrantCreate) -> GrantRow:
             workspace_key=scope.workspaceKey,
             applications=sorted(set(scope.applications)),
             record_types=sorted(set(scope.recordTypes)),
+            **principal,
+        )
+        session.add(grant)
+        return grant
+
+    grant = _changing(session, change)
+    return load_grant(session, grant.public_id)
+
+
+def _create_consumer_api_grant(session: Session, payload: GrantCreate) -> GrantRow:
+    """Read of one consumer API in one workspace, never narrowed (D306)."""
+    scope, consumer_api = payload.scope, payload.consumerApi
+    assert consumer_api is not None
+    if scope.workspaceKey is None or scope.applications or scope.recordTypes:
+        raise api_error(
+            422,
+            "GRANT_SCOPE_INVALID",
+            "A consumer API is granted in one workspace (workspaceKey), never at the instance or "
+            "narrowed",
+        )
+    workspace_key = scope.workspaceKey
+
+    def change() -> Grant:
+        principal = _principal_ids(session, payload.principal.kind, payload.principal.id)
+        load_workspace(session, workspace_key)
+        _check_consumer_api(session, workspace_key, consumer_api)
+        grant = Grant(
+            consumer_api=consumer_api,
+            workspace_key=workspace_key,
+            applications=[],
+            record_types=[],
             **principal,
         )
         session.add(grant)
@@ -559,11 +605,12 @@ def grant_page(
     principal_id: str | None,
     workspace_key: str | None,
     role_key: str | None,
+    consumer_api: str | None = None,
     page: PageRequest,
     page_size: int,
 ) -> Page[GrantRow]:
     """Grants as created; ``principalId`` matches a person, client or group, ``workspaceKey`` the
-    grants made in that workspace."""
+    grants made in that workspace, ``consumerApi`` the grants of that consumer API."""
     statement = _grant_statement()
     if principal_id is not None:
         statement = statement.where(
@@ -577,12 +624,19 @@ def grant_page(
         statement = statement.where(Grant.workspace_key == workspace_key)
     if role_key is not None:
         statement = statement.where(Role.key == role_key)
+    if consumer_api is not None:
+        statement = statement.where(Grant.consumer_api == consumer_api)
     page_of_rows = paginate_statement(
         session,
         statement,
         keys=_GRANT_KEYS,
         scope="grants",
-        filters={"principalId": principal_id, "workspaceKey": workspace_key, "roleKey": role_key},
+        filters={
+            "principalId": principal_id,
+            "workspaceKey": workspace_key,
+            "roleKey": role_key,
+            "consumerApi": consumer_api,
+        },
         page=page,
         page_size=page_size,
         message="Grant list cursor is invalid",

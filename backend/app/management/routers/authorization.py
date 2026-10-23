@@ -194,10 +194,11 @@ def list_grants(
     principal_id: str | None = Query(default=None, alias="principalId"),
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     role_key: str | None = Query(default=None, alias="roleKey"),
+    consumer_api: str | None = Query(default=None, alias="consumerApi"),
     page_size: int = _PAGE_SIZE,
 ) -> GrantPage:
     """Grants as made; ``principalId`` names a person, client or group, ``workspaceKey`` the grants
-    made in that workspace, ``roleKey`` a role."""
+    made in that workspace, ``roleKey`` a role, ``consumerApi`` the grants of a consumer API."""
     return present.grant_page(
         session,
         administration.grant_page(
@@ -205,6 +206,7 @@ def list_grants(
             principal_id=principal_id,
             workspace_key=workspace_key,
             role_key=role_key,
+            consumer_api=consumer_api,
             page=paging,
             page_size=page_size,
         ),
@@ -217,8 +219,9 @@ def post_grant(payload: GrantCreate, session: DbSession) -> GrantResponse:
     """Give a role to a person, client or group, at the instance or in a workspace, optionally
     narrowing writes to applications and record types of its model (``422 GRANT_SCOPE_UNKNOWN``
     otherwise). A role whose every action group is held only at the instance is granted there
-    (``422 GRANT_SCOPE_INVALID`` in a workspace, D302). It applies from the principal's next
-    request."""
+    (``422 GRANT_SCOPE_INVALID`` in a workspace, D302). Instead of ``role``, ``consumerApi`` grants
+    read of a consumer API the workspace's model declares, in one workspace and never narrowed
+    (D306). It applies from the principal's next request."""
     return present.grant_response(session, administration.create_grant(session, payload))
 
 

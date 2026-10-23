@@ -22,7 +22,7 @@ import { SettingsTable } from "@/ui/SettingsTable";
 import { useToast } from "@/ui/Toast";
 import { GrantDialog } from "./GrantDialog";
 import type { PickedPrincipal } from "./PrincipalPicker";
-import { grantNarrowing, grantWhere, staleNote } from "./securityText";
+import { grantHeld, grantNarrowing, grantWhere, staleNote } from "./securityText";
 import { useSettingsRead } from "@/features/settings/useSystem";
 
 const KIND: Record<Grant["principal"]["kind"], string> = { user: "Person", group: "Group", client: "Client" };
@@ -78,7 +78,7 @@ export function GrantsSection({
     try {
       await security.deleteGrant(grant.id);
       feed.setItems((items) => items.filter((item) => item.id !== grant.id));
-      toast(`${grant.principal.name} no longer holds ${grant.role.name} ${place(grant)}.`);
+      toast(`${grant.principal.name} no longer holds ${grantHeld(grant)} ${place(grant)}.`);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -145,7 +145,7 @@ export function GrantsSection({
                     type="button"
                     className="ghost"
                     disabled={removing === grant.id}
-                    aria-label={`Remove ${grant.role.name} ${workspace ? `from ${grant.principal.name}` : place(grant)}`}
+                    aria-label={`Remove ${grantHeld(grant)} ${workspace ? `from ${grant.principal.name}` : place(grant)}`}
                     onClick={() => void remove(grant)}
                   >
                     Remove
@@ -157,7 +157,7 @@ export function GrantsSection({
               <tr key={grant.id}>
                 <th scope="row">{holder(grant)}</th>
                 <td data-label="Kind">{KIND[grant.principal.kind]}</td>
-                <td data-label="Role">{grant.role.name}</td>
+                <td data-label="Role">{grantHeld(grant)}</td>
                 {narrowed}
                 <td data-label="From">{grant.scope.instance ? "Whole instance" : "This workspace"}</td>
                 {action}
@@ -165,7 +165,7 @@ export function GrantsSection({
             ) : (
               <tr key={grant.id}>
                 <th scope="row">{grantWhere(grant, labels)}</th>
-                <td data-label="Role">{grant.role.name}</td>
+                <td data-label="Role">{grantHeld(grant)}</td>
                 {narrowed}
                 {principal?.kind === "user" && (
                   <td data-label="Through">
@@ -193,7 +193,7 @@ export function GrantsSection({
           }}
           onGranted={(grant) => {
             setGranting(false);
-            toast(`${grant.principal.name} now holds ${grant.role.name} ${place(grant)}.`);
+            toast(`${grant.principal.name} now holds ${grantHeld(grant)} ${place(grant)}.`);
             feed.reload();
             grantRef.current?.focus();
           }}

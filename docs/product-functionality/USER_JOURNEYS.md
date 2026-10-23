@@ -2073,8 +2073,9 @@ narrowed write, `requestedBy` for a job's step), `409 ROLE_PREDEFINED`, `409 ROL
 **Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, Z1, Z3, SP2. I1 (2026-10-23):
 the main flow through the API (any active client may use every route until Z1), J41.3, J41.4, J41.5;
 the first client from `create_client`. Z1 (2026-10-23): a client does what its roles allow, granted
-like a person's (step 2 for the management API; `create_client --role`); consumer API grants are
-Z3.
+like a person's (step 2 for the management API; `create_client --role`). Z3 (2026-10-24): J41.2,
+a consumer API granted in a workspace (step 2 for the consumer APIs) through the API; the index
+lists only what is granted, and a subscription names the client or person that created it.
 
 1. A security administrator creates a client and copies its secret, shown once.
 2. Grant it a role on the management API or a consumer API in a workspace.

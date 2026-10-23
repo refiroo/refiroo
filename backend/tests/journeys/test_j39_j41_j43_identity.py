@@ -229,15 +229,21 @@ def test_a_token_for_the_other_api_is_refused(world):
     """Given a `consumer` token and a `management` token. When the consumer token calls the
     management API, or the management token a consumer API's data, then `401 TOKEN_INVALID`
     (`audience`); each is accepted by its own. The routes describing the consumer APIs (the index
-    and each OpenAPI document) take either, as the browser holds a management token (D266)."""
+    and each OpenAPI document) take either, as the browser holds a management token (D266); the
+    client holds Reader and the consumer API's grant (Z3, D308)."""
     client = _client(world)
     consumer = _bearer(_token(world, client, scope="consumer"))
     management = _bearer(_token(world, client))
     anonymous = _anonymous(world)
-    _invalid(anonymous.get("/api/v1/workspaces", headers=consumer), "audience")
-    index = ok(anonymous.get("/api/consumer", headers=consumer))
-    assert ok(anonymous.get("/api/consumer", headers=management)) == index
+    principal = {"kind": "client", "id": client["id"]}
+    scope = {"workspaceKey": "default"}
+    ok(world.api.post("/grants", {"principal": principal, "role": "reader", "scope": scope}), 201)
+    index = ok(anonymous.get("/api/consumer", headers=management))
     entry = index["items"][0]
+    granted = {"principal": principal, "consumerApi": entry["consumerApi"], "scope": scope}
+    ok(world.api.post("/grants", granted), 201)
+    _invalid(anonymous.get("/api/v1/workspaces", headers=consumer), "audience")
+    assert ok(anonymous.get("/api/consumer", headers=consumer))["items"] == [entry]
     base = f"/api/consumer/{entry['consumerApi']}/v{entry['contractVersion']}"
     for token in (consumer, management):
         assert anonymous.get(f"{base}/openapi.json", headers=token).status_code == 200

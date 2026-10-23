@@ -58,15 +58,20 @@ def draft_consumer_api(draft: ModelDraft, key: str, active: EngineModel | None) 
     return answer
 
 
-def draft_openapi(draft: ModelDraft, key: str, *, root_path: str, resolve_max_items: int) -> dict[str, Any]:
+def draft_openapi(
+    draft: ModelDraft, key: str, *, root_path: str, resolve_max_items: int, token_url: str
+) -> dict[str, Any]:
     """The definition's OpenAPI document as the consumer tier will serve it from this draft."""
     model, definition = _compiled(draft, key)
-    return consumer_openapi(model, definition, root_path=root_path, resolve_max_items=resolve_max_items)
+    return consumer_openapi(
+        model, definition, root_path=root_path, resolve_max_items=resolve_max_items, token_url=token_url
+    )
 
 
 def draft_schema(draft: ModelDraft, key: str, *, resolve_max_items: int) -> dict[str, Any]:
     """The JSON Schema of the object message: the OpenAPI document's ``Object`` and what it refers to."""
-    document = draft_openapi(draft, key, root_path="", resolve_max_items=resolve_max_items)
+    # Only the schemas are taken, so the token URL is never read.
+    document = draft_openapi(draft, key, root_path="", resolve_max_items=resolve_max_items, token_url="")
     return object_schema(document, title=document["info"]["title"])
 
 

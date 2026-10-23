@@ -47,9 +47,25 @@ design, recorded now so 0.9 does not close it off:
 - **Consumer events do not carry the actor** (D239); the management feed and history do.
 
 **Delivered by I1 (2026-10-23):** every consumer route, the index and the per-definition OpenAPI
-document included, needs a `consumer` token and refuses as above; until Z3 any active client or person
-holding one reads every consumer API in every workspace (no grants yet, and no `403`). The rest is
-delivered by Z3 and K1. The `{consumerApi}` segment in the routes below is not a credential; see
+document included, needs a `consumer` token and refuses as above.
+
+**Delivered by Z3 (2026-10-24):** a caller reads a consumer API in a workspace only with a grant of
+that API there (`POST /api/v1/grants` with `consumerApi` instead of `role`, in one workspace, never
+narrowed, to a client, a person or a group, D306). No role opens the data routes, Browse included,
+and a consumer API grant opens nothing on the management API (D307). A request is checked in this
+order (D309): the token (`401`), the workspace (`404 WORKSPACE_NOT_FOUND`, the default workspace
+without `workspace`), the grant (`403 FORBIDDEN`, `details: {consumerApi, workspaceKey}`), then the
+API and its version (`404`); so a caller without a grant reads `403` for a key no model declares. A
+pinned read (`publication`) needs the same grant. With a `consumer` token the index lists the APIs
+granted in the workspace (an empty page with none) and a definition's OpenAPI document needs its
+grant; with a `management` token both need Browse in the workspace, as the model reads do, and the
+index lists every API (D308). Each OpenAPI document declares the scheme: `oauth2` with the
+`clientCredentials` flow, `tokenUrl` the issuer's `/oauth/token` (`PUBLIC_URL`), the scope
+`consumer`, required on every operation, which lists `401` and `403` (D311). A subscription reads
+`owner` (`kind`, `id`, `name`; `null` for one from before Z3), the person or client that created it,
+and `GET /api/v1/consumer-subscriptions` takes `ownerId`; owning gives no right of its own, and
+Integration administration in its workspace manages it as before (D310). Rotation is K1. The
+`{consumerApi}` segment in the routes below is not a credential; see
 [The consumer API name](#the-consumer-api-name-consumerapi).
 
 ## Why a second API tier

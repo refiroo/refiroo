@@ -480,6 +480,7 @@ def get_model_draft_consumer_api_openapi(
         consumer_api,
         root_path=request.scope.get("root_path", ""),
         resolve_max_items=request.app.state.consumer_resolve_max_items,
+        token_url=f"{request.app.state.identity_settings.issuer}/oauth/token",
     )
 
 

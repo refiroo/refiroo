@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage, isApiError, refusalMessage } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import type { ActionGroup, Role } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
@@ -20,6 +20,9 @@ import { SelectField } from "@/ui/Selection";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
+
+// A role's fields by the names its form shows them under.
+const ROLE_FIELDS = { name: "Name", description: "Description", actionGroups: "Action groups" };
 
 const held = (count: number) =>
   count === 0 ? "not granted to anyone" : `granted ${count === 1 ? "once" : `${count} times`}`;
@@ -84,7 +87,7 @@ export function RolesPage() {
         if (current) setEditing({ ...editing, role: current });
         setError("Someone changed this role while you were editing. Save again to replace their change with yours.");
       } else {
-        setError(errorMessage(cause));
+        setError(refusalMessage(cause, ROLE_FIELDS));
       }
     } finally {
       setPending(false);
@@ -329,7 +332,7 @@ function NewRoleDialog({
         ),
       );
     } catch (cause) {
-      setError(errorMessage(cause));
+      setError(refusalMessage(cause, ROLE_FIELDS));
       setPending(false);
     }
   }

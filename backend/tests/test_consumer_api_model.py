@@ -206,7 +206,7 @@ def test_the_shipped_models_rewritten_in_schema_0_9_are_the_same_definitions(shi
     assert consumer_apis(rewritten) == consumer_apis(before)
 
     def document(model, definition):
-        built = consumer_openapi(model, definition, root_path="", resolve_max_items=1000)
+        built = consumer_openapi(model, definition, root_path="", resolve_max_items=1000, token_url="/oauth/token")
         release = f"{model.release.name} {model.release.version}"
         built["info"]["description"] = built["info"]["description"].replace(release, "<release>")
         return built

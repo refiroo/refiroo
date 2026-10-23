@@ -228,10 +228,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (filtered, D295). Diffed against eaa724c, nothing else changed. Re-baselined for 0.12 SP1
     # (D298–D302): a person's roles (UserRole, UserRoleWorkspace), GET /users/{user_id}/grants,
     # q and memberId on GET /groups, q on GET /clients, and the descriptions of GET /users and
-    # POST /grants. Diffed against eea6ca1, nothing else changed.
+    # POST /grants. Diffed against eea6ca1, nothing else changed. Re-baselined for 0.12 Z3
+    # (D306): a grant's role nullable beside consumerApi (GrantConsumerApiResponse), consumerApi on
+    # GrantCreate and as a filter on GET /grants, and the descriptions of GET and POST /grants and of
+    # stale (the subscription routes, with their owner, are off in this document). Diffed against
+    # 1ef0b7d, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "081595ede17a004e172f689e1bd9101163c3824eef73299166db38e201a5df5c"
+        "564f246a9bba547dc1d216ebeb46fa09832c85c2ba0685b87c433b159f68e5ac"
     )
 
 

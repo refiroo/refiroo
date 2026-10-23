@@ -6,6 +6,26 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 Z3, consumer APIs per client)
+
+- **Consumer API grants** (D306): `POST /api/v1/grants` with `consumerApi` instead of `role` lets a
+  client, person or group read that consumer API in one workspace; a grant reads `role: null` and
+  `consumerApi` (`stale: true` once the model drops the API); `GET /api/v1/grants` takes
+  `consumerApi=`. A workspace's Access and the Account page show it as "Consumer API: *name*".
+- Each consumer API's OpenAPI document declares the OAuth 2.0 client credentials scheme with the
+  token URL and scope `consumer`, and `401` and `403` on every operation (D311).
+- A subscription reads `owner`, the person or client that created it, and the list takes `ownerId=`
+  (D310).
+
+### Changed (0.12 Z3)
+
+- **The consumer data routes need a grant of the API in the workspace read** (D307): `403 FORBIDDEN`
+  with `details: {consumerApi, workspaceKey}`, checked after the workspace and before the definition,
+  so an unknown API key now answers `403` to a caller without a grant (D309). No role opens them.
+  After upgrading, consumer clients read nothing until granted.
+- The consumer index lists only the APIs granted to a `consumer` token; with a `management` token
+  the index and the OpenAPI documents need Browse in the workspace (D308).
+
 ### Added (0.12 SP1, the Security pages)
 
 - Settings › Security › **People**, **Groups** and **Roles**, shown to people holding Security
@@ -27,6 +47,12 @@ All notable changes to this project are documented in this file. The format foll
   at the instance, such as Security administrator, with `422 GRANT_SCOPE_INVALID` (D302): such a
   grant was stored and allowed nothing.
 - Webhooks' "keep the signing key" dialog is the shared "shown once" dialog the password link uses.
+
+### Fixed (0.12 SP1, after delivery)
+
+- New person said only "Request validation failed" for a username with a space: it now says a
+  username has no spaces as it is typed, and the engine's refusal of a field is shown under that
+  field (New person, Edit) or by the field's name (groups, roles).
 
 ### Added (0.12 Z2, record types at the write unit, jobs as their requester)
 

@@ -244,6 +244,15 @@ then fail naming the requester. Jobs queued before upgrading to 0.12 Z2 name no 
 as before; an import profile's files uploaded before it name no uploader and are seen by the
 workspace's Bulk and import holders.
 
+**Consumer API grants** (0.12 Z3): a system reading a consumer API needs a grant of that API in
+each workspace it reads, made with `POST /api/v1/grants` naming `consumerApi` instead of `role` and
+`scope: {"workspaceKey": …}`; no role, not even the Security administrator's, opens the consumer
+data routes. **After upgrading to 0.12 Z3, every consumer client reads nothing** (`403 FORBIDDEN`
+naming the API and workspace) until it is granted the APIs it reads; the index and the OpenAPI
+documents read with the browser's token are unaffected for anyone holding Browse. A grant whose API
+a later release drops reads `stale: true` and allows nothing. Subscriptions created before Z3 name no
+owner.
+
 **Locked out:** the engine refuses to remove the last active person holding Security administration
 at the instance (`409 LAST_SECURITY_ADMINISTRATOR`). If every such person is lost anyway, run
 `python -m app.cli.create_admin` on the server: the new person holds Security administration again.

@@ -58,6 +58,25 @@ async function walk(configuration) {
     await navigation.getByRole("heading", { name: "Security" }).waitFor();
     await page.getByRole("button", { name: "New person" }).click();
     const create = page.getByRole("dialog", { name: "New person" });
+    // A space in the username is said as it is typed; a malformed e-mail is refused by the engine
+    // and said under its field, not as "Request validation failed" (found by the user, 2026-10-24).
+    await create.getByLabel("Username", { exact: true }).fill("user 1");
+    await create.getByLabel("Name", { exact: true }).fill(lena.name);
+    await create.getByText(/A username has no spaces/).waitFor();
+    expect(
+      await create.getByRole("button", { name: "Create and make a password link" }).isDisabled(),
+      `${tag}: a username with a space is not sent`,
+    );
+    await create.getByLabel("Username", { exact: true }).fill(lena.username);
+    await create.getByLabel("E-mail (optional)").fill("not an e-mail");
+    await create.getByRole("button", { name: "Create and make a password link" }).click();
+    await create.getByText("An e-mail address looks like name@example.org.").waitFor();
+    expect(
+      (await create.getByText("Request validation failed").count()) === 0,
+      `${tag}: the engine's refusal is said by field`,
+    );
+    await create.getByLabel("E-mail (optional)").fill("");
+    checks.push(`${tag}: New person says a username has no spaces, and the engine's e-mail refusal by field`);
     await create.getByLabel("Username", { exact: true }).fill(lena.username);
     await create.getByLabel("Name", { exact: true }).fill(lena.name);
     await create.getByRole("button", { name: "Create and make a password link" }).click();
@@ -240,6 +259,33 @@ async function walk(configuration) {
     await access.getByRole("button", { name: `Remove Data steward from ${lena.name}` }).click();
     await access.getByRole("row", { name: new RegExp(`${lena.name}.*Data steward`) }).waitFor({ state: "detached" });
     checks.push(`${tag}: a workspace's Access lists who can do what and removes a grant`);
+
+    // 7b. A client's consumer API grant (0.12 Z3) is listed in Access by the API's name, and
+    // removed by keyboard; Access at 390px without a horizontal page scroll.
+    const [consumerApi] = (await api("/model")).consumerApis;
+    const sync = await api("/clients", { name: `Catalogue sync ${tag}` });
+    await api("/grants", {
+      principal: { kind: "client", id: sync.id },
+      consumerApi: consumerApi.key,
+      scope: { workspaceKey: "default" },
+    });
+    await page.reload();
+    const held = `Consumer API: ${consumerApi.name}`;
+    await access.getByRole("row", { name: new RegExp(`${sync.name}.*Client.*${held}.*This workspace`) }).waitFor();
+    await shot(page, "access-consumer-api");
+    await axe(page, `${tag}-access-consumer-api`);
+    const narrowAccess = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const accessPhone = await narrowAccess.newPage();
+    await accessPhone.goto(`${uiUrl}/settings/workspaces/default`);
+    await accessPhone.getByRole("region", { name: "Access" }).getByText(held).waitFor();
+    expect((await overflow(accessPhone)) <= 0, `${tag}: Access scrolls sideways at 390px`);
+    await shot(accessPhone, "access-consumer-api-narrow");
+    await narrowAccess.close();
+    await access.getByRole("button", { name: `Remove ${held} from ${sync.name}` }).focus();
+    await page.keyboard.press("Enter");
+    await access.getByRole("row", { name: new RegExp(sync.name) }).waitFor({ state: "detached" });
+    expect(!(await api(`/grants?principalId=${sync.id}`)).items.length, `${tag}: the consumer API grant is removed`);
+    checks.push(`${tag}: a consumer API grant in Access by its API's name, removed by keyboard, 390px`);
 
     // 8. Deactivating the only Security administrator is refused as the engine words it.
     const [self] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.username)}`)).items;

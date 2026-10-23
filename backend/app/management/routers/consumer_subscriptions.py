@@ -16,6 +16,7 @@ from ...engine.events.subscriptions import (
     create_subscription,
     delete_subscription,
     load_subscription,
+    owners,
     resume_subscription,
     subscription_page,
     suspend_subscription,
@@ -37,7 +38,7 @@ from ..access import (
     CurrentPermissions,
     requires,
 )
-from ..dependencies import DbSession
+from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..presenters import delivery_detail_response, delivery_page, subscription_response
 from ..presenters import subscription_page as present_page
@@ -55,18 +56,34 @@ def _settings(request: Request) -> SubscriptionSettings:
     return request.app.state.subscription_settings
 
 
+def _answer(
+    session: DbSession, subscription: ConsumerSubscription, secret: str | None = None
+) -> SubscriptionResponse:
+    """The subscription with its owner (D310)."""
+    owner = owners(session, [subscription]).get(subscription.sequence_id)
+    return subscription_response(subscription, secret, owner)
+
+
 @router.post("/consumer-subscriptions", response_model=SubscriptionResponse, status_code=201)
 @requires("subscriptions.manage", at=BODY)
-def create(payload: ConsumerSubscriptionCreate, request: Request, session: DbSession) -> SubscriptionResponse:
+def create(
+    payload: ConsumerSubscriptionCreate,
+    request: Request,
+    session: DbSession,
+    principal: CurrentPrincipal,
+) -> SubscriptionResponse:
     """Subscribe a URL to some of a consumer API's events in a workspace.
 
     The subscription is checked against the active release's definition, the URL's form and the
     workspace; each filter value must match
     a record. It starts after the workspace's feed head, or after ``startAfter``. The answer holds
-    ``signingSecret``, the key every delivery is signed with: it is never returned again.
+    ``signingSecret``, the key every delivery is signed with: it is never returned again. The caller
+    is its ``owner`` (D310).
     """
-    subscription, secret = create_subscription(session, payload, _settings(request))
-    return subscription_response(subscription, secret)
+    subscription, secret = create_subscription(
+        session, payload, _settings(request), (principal.kind, principal.row_id)
+    )
+    return _answer(session, subscription, secret)
 
 
 @router.get("/consumer-subscriptions", response_model=SubscriptionPage)
@@ -78,29 +95,30 @@ def list_subscriptions(
     consumer_api: str | None = Query(default=None, alias="consumerApi"),
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     status: Literal["active", "suspended"] | None = None,
+    owner_id: str | None = Query(default=None, alias="ownerId"),
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> SubscriptionPage:
     """Subscriptions, newest first: those in workspaces where the caller holds Integration
-    administration."""
-    return present_page(
-        subscription_page(
-            session,
-            consumer_api=consumer_api,
-            workspace_key=workspace_key,
-            status=status,
-            page=paging,
-            page_size=page_size,
-            visible=in_workspaces(
-                ConsumerSubscription.workspace_key, permissions, frozenset({"integration-admin"})
-            ),
-        )
+    administration; ``ownerId`` those a person or client created."""
+    page = subscription_page(
+        session,
+        consumer_api=consumer_api,
+        workspace_key=workspace_key,
+        status=status,
+        owner_id=owner_id,
+        page=paging,
+        page_size=page_size,
+        visible=in_workspaces(
+            ConsumerSubscription.workspace_key, permissions, frozenset({"integration-admin"})
+        ),
     )
+    return present_page(page, owners(session, page.items))
 
 
 @router.get("/consumer-subscriptions/{subscription_id}", response_model=SubscriptionResponse)
 @requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
 def get_subscription(subscription_id: str, session: DbSession) -> SubscriptionResponse:
-    return subscription_response(load_subscription(session, subscription_id))
+    return _answer(session, load_subscription(session, subscription_id))
 
 
 @router.patch("/consumer-subscriptions/{subscription_id}", response_model=SubscriptionResponse)
@@ -111,14 +129,14 @@ def update(
     """Edit the events, filters, URL, mode or payload, checked as a create; a suspended
     subscription stays suspended until it is resumed. A batch being retried is dropped: the next
     attempt is at once, with the edit, from the first event not acknowledged."""
-    return subscription_response(update_subscription(session, subscription_id, payload, _settings(request)))
+    return _answer(session, update_subscription(session, subscription_id, payload, _settings(request)))
 
 
 @router.post("/consumer-subscriptions/{subscription_id}/suspend", response_model=SubscriptionResponse)
 @requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
 def suspend(subscription_id: str, payload: ConsumerSubscriptionVersion, session: DbSession) -> SubscriptionResponse:
     """Stop delivery (``SUSPENDED_BY_USER``) until the subscription is resumed."""
-    return subscription_response(suspend_subscription(session, subscription_id, payload.expectedVersion))
+    return _answer(session, suspend_subscription(session, subscription_id, payload.expectedVersion))
 
 
 @router.post("/consumer-subscriptions/{subscription_id}/resume", response_model=SubscriptionResponse)
@@ -134,8 +152,9 @@ def resume(
     the receiver re-syncs what it missed, after the reset, so nothing falls between. Resuming
     accepts the contract version served and clears a failing batch's retries.
     """
-    return subscription_response(
-        resume_subscription(session, subscription_id, payload.expectedVersion, payload.reset, _settings(request))
+    return _answer(
+        session,
+        resume_subscription(session, subscription_id, payload.expectedVersion, payload.reset, _settings(request)),
     )
 
 

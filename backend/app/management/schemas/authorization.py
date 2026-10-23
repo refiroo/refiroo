@@ -109,14 +109,27 @@ class GrantScopeResponse(BaseModel):
     )
 
 
+class GrantConsumerApiResponse(BaseModel):
+    key: str
+    name: str | None = Field(
+        description="The consumer API's name in the workspace's model; null when it no longer "
+        "declares the API"
+    )
+
+
 class GrantResponse(BaseModel):
     id: str
     principal: GrantPrincipalResponse
-    role: GrantRoleResponse
+    role: GrantRoleResponse | None = Field(description="The role; null for a consumer API grant")
+    consumerApi: GrantConsumerApiResponse | None = Field(
+        description="The consumer API this grant lets its holder read in its workspace, instead of "
+        "a role (Z3, D306); null for a role grant"
+    )
     scope: GrantScopeResponse
     stale: bool = Field(
         description="The narrowing names an application or record type the workspace's model no "
-        "longer has; those allow nothing, and a grant naming only such allows no writes (D296)"
+        "longer has, or the consumer API it grants is no longer declared; those allow nothing, and "
+        "a grant naming only such allows no writes (D296, D306)"
     )
     createdAt: datetime
 

@@ -161,12 +161,13 @@ def test_another_workspace(world):
 @pytest.mark.journey("J28.4")
 @pytest.mark.structures(*CAPI)
 def test_refusals(world):
-    """An unknown consumer API name is 404 CONSUMER_API_NOT_FOUND. Version 2 of a version-1 API is 404
+    """An unknown consumer API name is 403 FORBIDDEN, since no grant can name it (0.12 Z3, D309;
+    404 CONSUMER_API_NOT_FOUND before). Version 2 of a version-1 API is 404
     CONTRACT_VERSION_NOT_FOUND. A record of a type the definition does not expose is 404
     OBJECT_NOT_FOUND. pagesize=5 is 400 UNKNOWN_PARAMETER, naming it. A list's parent parameter is
     400 PARAMETER_NOT_SUPPORTED (C3)."""
     record = world.made("R", "Refusals")
-    refused(consumer_object(world, record["id"], api="no-such-api"), 404, "CONSUMER_API_NOT_FOUND")
+    refused(consumer_object(world, record["id"], api="no-such-api"), 403, "FORBIDDEN")
     error = refused(consumer_object(world, record["id"], version=2), 404, "CONTRACT_VERSION_NOT_FOUND")
     assert error["details"]["contractVersion"] == 1
     token = world.made("K", "Not exposed")
