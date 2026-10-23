@@ -8,13 +8,21 @@ from ...common.pagination import Page
 from ...engine.identity import keys
 from ...engine.identity.authentication import Principal
 from ...engine.identity.clients import secrets_of
-from ...models.database import OAuthClient, OAuthClientSecret, TokenSigningKey, User
+from ...models.database import (
+    OAuthClient,
+    OAuthClientSecret,
+    TokenSigningKey,
+    User,
+    UserSession,
+)
 from ..schemas.identity import (
     ClientPage,
     ClientResponse,
     ClientSecretInfo,
     ClientWithSecret,
     MeResponse,
+    SessionPage,
+    SessionResponse,
     SigningKeyPage,
     SigningKeyResponse,
     UserPage,
@@ -30,6 +38,26 @@ def me_response(principal: Principal) -> MeResponse:
         username=principal.username,
         email=principal.email,
         lastSignInAt=principal.last_sign_in_at,
+        signedInWith=principal.signed_in_with,
+        sessionId=principal.session_id,
+    )
+
+
+def session_page(page: Page[UserSession], current: str | None) -> SessionPage:
+    return SessionPage(
+        items=[
+            SessionResponse(
+                id=item.public_id,
+                current=item.public_id == current,
+                signedInWith=item.signed_in_with,
+                userAgent=item.user_agent,
+                createdAt=item.created_at,
+                lastUsedAt=item.last_used_at,
+                endsAt=min(item.idle_ends_at, item.ends_at),
+            )
+            for item in page.items
+        ],
+        **page.links(),
     )
 
 

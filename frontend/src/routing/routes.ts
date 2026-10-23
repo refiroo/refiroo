@@ -103,7 +103,7 @@ export function isSettingsRoute(route: RouteState): route is SettingsRoute {
  * canonical URL back on first load, so an old link lands on its page without a second entry.
  */
 /** The settings pages with no selection of their own; About is the fallback. */
-const SINGLE_PAGES = ["appearance", "deployment", "operations", "consumer-apis", "api-reference"] as const;
+const SINGLE_PAGES = ["appearance", "account", "deployment", "operations", "consumer-apis", "api-reference"] as const;
 const isSinglePage = (page: string): page is (typeof SINGLE_PAGES)[number] =>
   (SINGLE_PAGES as readonly string[]).includes(page);
 

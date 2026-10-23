@@ -306,6 +306,11 @@ def create_app() -> FastAPI:
         issuer=settings.public_url,
         access_token_seconds=settings.access_token_minutes * 60,
         signing_key_days=settings.token_signing_key_days,
+        browser_origins=settings.cors_origins,
+        session_idle_hours=settings.session_idle_hours,
+        session_days=settings.session_days,
+        password_reset_hours=settings.password_reset_hours,
+        password_min_length=settings.password_min_length,
     )
     application.state.subscription_settings = (
         SubscriptionSettings(

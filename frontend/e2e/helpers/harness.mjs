@@ -1,5 +1,6 @@
 // Shared test harness: starts isolated backend + frontend, seeds data, provides cleanup.
 import { spawn } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, dirname } from "node:path";
@@ -42,6 +43,44 @@ export async function harnessToken(apiUrl, harness) {
   });
   if (!response.ok) throw new Error(`The harness could not obtain a token: ${response.status} ${await response.text()}`);
   return `Bearer ${(await response.json()).access_token}`;
+}
+
+/**
+ * Sign a browser context in as the seed's harness person (0.12 I2, D274), through the engine's real
+ * sign-in form and code exchange with PKCE. Playwright's request context shares the context's
+ * cookies, so the session's refresh cookie lands where the app's pages renew from it.
+ */
+export async function signInContext(context, { apiUrl, uiUrl, person }) {
+  const base64Url = (bytes) => bytes.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const verifier = base64Url(randomBytes(48));
+  const redirectUri = `${uiUrl}/signed-in`;
+  const form = await context.request.post(`${apiUrl}/oauth/authorize`, {
+    form: {
+      response_type: "code",
+      client_id: "browser",
+      redirect_uri: redirectUri,
+      code_challenge: base64Url(createHash("sha256").update(verifier).digest()),
+      code_challenge_method: "S256",
+      state: "harness",
+      username: person.username,
+      password: person.password,
+    },
+    maxRedirects: 0,
+  });
+  const location = form.headers().location;
+  if (form.status() !== 303 || !location)
+    throw new Error(`The harness person could not sign in: ${form.status()} ${(await form.text()).slice(0, 300)}`);
+  const exchanged = await context.request.post(`${apiUrl}/oauth/token`, {
+    form: {
+      grant_type: "authorization_code",
+      client_id: "browser",
+      code: new URL(location).searchParams.get("code"),
+      code_verifier: verifier,
+      redirect_uri: redirectUri,
+    },
+  });
+  if (!exchanged.ok()) throw new Error(`The harness person's sign-in was refused: ${await exchanged.text()}`);
+  return context;
 }
 
 /**
@@ -117,7 +156,8 @@ export async function bootHarness(options = {}) {
   const uiPort = await freePort();
   const apiUrl = `http://127.0.0.1:${apiPort}`;
   const uiUrl = `http://127.0.0.1:${uiPort}`;
-  // The harness's access token, sent on every request to this backend (0.12 I1, D263).
+  // The harness client's access token, sent with the runners' own API calls (0.12 I1, D263); the
+  // pages sign in as the harness person instead (I2, D274).
   let authorization = "";
   sendTokenTo(apiUrl, () => authorization);
 
@@ -148,6 +188,8 @@ export async function bootHarness(options = {}) {
 
   let browser;
   let page;
+  // A context that is not signed in, for a runner that walks the sign-in itself (0.12 I2).
+  let signedOutContext;
   try {
     const backend = start(
       resolve(root, "backend/.venv/bin/python"),
@@ -157,6 +199,8 @@ export async function bootHarness(options = {}) {
         DATABASE_URL: database.databaseUrl,
         RDM_MODEL_PATH: modelPath,
         CORS_ORIGINS: uiUrl,
+        // The engine's address as the browser reaches it: the token issuer and its pages (0.12 I1, I2).
+        PUBLIC_URL: apiUrl,
         MODEL_ADMIN_MUTATIONS_ENABLED: String(modelAdmin),
         WORKSPACE_ADMIN_MUTATIONS_ENABLED: String(workspaceAdmin),
         WEB_CONCURRENCY: "1",
@@ -186,18 +230,17 @@ export async function bootHarness(options = {}) {
     });
 
     const watch = (context) => watchPageErrors(context, (error) => pageErrors.push(error));
-    // Every page carries the harness token until I2 signs the browser in (D265).
-    const signedIn = (options = {}) => ({
-      ...options,
-      extraHTTPHeaders: { Authorization: authorization, ...(options.extraHTTPHeaders ?? {}) },
-    });
+    // Every context is signed in as the harness person through the sign-in form (0.12 I2, D274);
+    // the pages carry no injected token, so a page that forgets the header fails here.
+    const person = database.payload.harness.person;
+    const signedIn = (context) => signInContext(context, { apiUrl, uiUrl, person });
     const newContext = browser.newContext.bind(browser);
-    browser.newContext = async (options, ...rest) => watch(await newContext(signedIn(options), ...rest));
+    signedOutContext = async (...args) => watch(await newContext(...args));
+    browser.newContext = async (...args) => watch(await signedIn(await newContext(...args)));
     const newPage = browser.newPage.bind(browser);
-    browser.newPage = async (options, ...rest) => {
-      const opened = await newPage(signedIn(options), ...rest);
-      watch(opened.context());
-      return opened;
+    browser.newPage = async (...args) => {
+      const context = await browser.newContext(...args);
+      return context.newPage();
     };
 
     const context = await browser.newContext({ hasTouch: true, viewport: viewport ?? { width: 1440, height: 900 } });
@@ -237,6 +280,9 @@ export async function bootHarness(options = {}) {
     uiUrl,
     output,
     records,
+    signedOutContext,
+    // The person every context is signed in as, and the harness client's credentials (0.12 I2).
+    harnessIdentity: database.payload.harness,
     api,
     timings,
     pageErrors,

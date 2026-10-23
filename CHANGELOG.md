@@ -6,6 +6,32 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 I2, signing in from the browser)
+
+- The engine's sign-in page (`/oauth/authorize`): the browser signs a person in with the
+  authorization code flow and PKCE and returns to the page asked for; the access token stays in
+  memory and the session in an `HttpOnly`, `SameSite=Strict` cookie that renews it unseen, each
+  refresh token used once (a reused one ends the session). Sessions end after `SESSION_IDLE_HOURS`
+  (12) idle or `SESSION_DAYS` (14). `POST /oauth/revoke` signs out. Failed sign-ins are slowed per
+  account and address, never locked. Migration `20261028_01`.
+- The account menu names the person and offers Account, All settings, the theme and Sign out;
+  **Settings › Account** shows the person, changes the password and lists where they are signed in,
+  with sign out per browser or everywhere (`/api/v1/me/sessions`, `/api/v1/me/password`).
+- `POST /api/v1/users/{id}/password-reset`: a one-time link (valid `PASSWORD_RESET_HOURS`, 24) to the
+  engine's page that sets the person's password; `DELETE /api/v1/users/{id}/sessions` signs a person
+  out everywhere. Deactivating a person ends their sessions.
+- `PASSWORD_MIN_LENGTH` (15): a development machine may lower it for a short password (D276).
+- Settings › Account reworked: a profile card, the password changed in place, sessions with device
+  icons and relative times, and what you can do in each workspace (everything, until roles).
+
+### Changed (0.12 I2)
+
+- `GET /api/v1/me` adds `signedInWith` and `sessionId`. The metadata lists the authorization and
+  revocation endpoints and the `authorization_code` and `refresh_token` grants.
+- The browser reads a job's progress and downloads exports and consumer OpenAPI documents with
+  `fetch` and the access token; the consumer `openapi.json` link on Settings › API reference, refused
+  since I1, works again. The browser runners sign in as a test person through the real form.
+
 ### Added (0.12 I1, the engine issues tokens; every route authenticated)
 
 - The engine is its own OAuth 2.0 authorization server: `GET /.well-known/oauth-authorization-server`,

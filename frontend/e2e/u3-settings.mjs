@@ -259,6 +259,7 @@ try {
     "topbar:Account",
     "navigation:About",
     "navigation:Appearance",
+    "navigation:Account",
     "navigation:Workspaces",
     "navigation:Model",
     "navigation:Deployment",

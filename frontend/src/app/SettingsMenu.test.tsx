@@ -1,7 +1,25 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "@/api/client";
+import { signOut } from "@/api/session";
 import { AccountMenu } from "@/app/SettingsMenu";
 import { resetThemePreference, THEME_STORAGE_KEY } from "@/lib/theme";
+
+vi.mock("@/api/client", () => ({
+  api: {
+    me: vi.fn(async () => ({
+      id: "u1",
+      kind: "user",
+      name: "Ana Ferreira",
+      username: "ana",
+      email: "ana@example.org",
+      lastSignInAt: null,
+      signedInWith: "password",
+      sessionId: "s1",
+    })),
+  },
+}));
+vi.mock("@/api/session", () => ({ signOut: vi.fn(async () => undefined) }));
 
 beforeEach(() => {
   const values = new Map<string, string>();
@@ -17,17 +35,28 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function openMenu(onOpenSettings = vi.fn()) {
-  render(<AccountMenu settingsHref="/settings/about" onOpenSettings={onOpenSettings} />);
+function openMenu(onOpenSettings = vi.fn(), onOpenAccount = vi.fn()) {
+  render(
+    <AccountMenu
+      settingsHref="/settings/about"
+      accountHref="/settings/account"
+      onOpenSettings={onOpenSettings}
+      onOpenAccount={onOpenAccount}
+    />,
+  );
   fireEvent.click(screen.getByRole("button", { name: "Account" }));
   return onOpenSettings;
 }
 
 describe("AccountMenu", () => {
-  it("offers an account placeholder and persists the theme choice", async () => {
+  it("names the person, signs out, and persists the theme choice (0.12 I2)", async () => {
     openMenu();
     await screen.findByRole("dialog", { name: "Account" });
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeDisabled();
+    expect(await screen.findByText("Ana Ferreira")).toBeInTheDocument();
+    expect(screen.getByText("ana@example.org")).toBeInTheDocument();
+    expect(api.me).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(signOut).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("radio", { name: "System" })).toBeChecked();
 
     fireEvent.click(screen.getByRole("radio", { name: "Dark" }));
@@ -48,6 +77,16 @@ describe("AccountMenu", () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, '"sepia"');
     openMenu();
     expect(await screen.findByRole("radio", { name: "System" })).toBeChecked();
+  });
+
+  it("links to the person's Account page and closes when it is followed", async () => {
+    const onOpenAccount = vi.fn();
+    openMenu(vi.fn(), onOpenAccount);
+    const link = await screen.findByRole("link", { name: "Account" });
+    expect(link).toHaveAttribute("href", "/settings/account");
+    fireEvent.click(link);
+    expect(onOpenAccount).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
   });
 
   it("links to all settings and closes when it is followed", async () => {

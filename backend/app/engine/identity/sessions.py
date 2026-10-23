@@ -1,0 +1,229 @@
+"""A person's browser sessions (Product 0.12 I2, ADR-043, D234, D251).
+
+A session starts when the browser exchanges a sign-in's code and is renewed with a refresh token
+held in an ``HttpOnly`` cookie. Each refresh token is used once: renewing answers a new one, and a
+used one presented again ends the session, since only a copy can present it twice. A session ends
+after ``SESSION_IDLE_HOURS`` without a renewal or ``SESSION_DAYS`` in all, when signed out, and
+when the person is deactivated or their password is changed or reset. Its access tokens carry
+``sid`` and are refused from the next request once it has ended.
+"""
+
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from typing import Literal
+
+from sqlalchemy import select, update
+from sqlalchemy.orm import Session
+
+from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
+from ...errors import api_error
+from ...models.database import SessionRefreshToken, User, UserSession
+from .passwords import digest, new_token
+from .settings import IdentitySettings
+
+# Why a session ended, as the API and the log name it.
+EndReason = Literal[
+    "signedOut",
+    "signedOutEverywhere",
+    "administrator",
+    "reused",
+    "expired",
+    "deactivated",
+    "passwordChanged",
+    "passwordReset",
+]
+
+_KEYS = (integer_key("sequenceId", UserSession.id, "id"),)
+
+
+class SessionRefused(Exception):
+    """A refresh token that renews nothing: unknown, used, or its session ended or lapsed."""
+
+
+@dataclass(frozen=True)
+class Renewed:
+    user_session: UserSession
+    user: User
+    refresh_token: str
+
+
+def is_open(user_session: UserSession, now: datetime) -> bool:
+    return (
+        user_session.ended_at is None
+        and now < user_session.idle_ends_at
+        and now < user_session.ends_at
+    )
+
+
+def _refresh_token(session: Session, user_session: UserSession, now: datetime) -> str:
+    token = new_token()
+    session.add(
+        SessionRefreshToken(session_id=user_session.id, token_hash=digest(token), issued_at=now)
+    )
+    return token
+
+
+def start(
+    session: Session,
+    settings: IdentitySettings,
+    user: User,
+    *,
+    signed_in_with: str,
+    user_agent: str | None,
+    now: datetime,
+) -> tuple[UserSession, str]:
+    """A new session for a person who has just signed in, with its first refresh token. The caller
+    commits."""
+    ends_at = now + timedelta(days=settings.session_days)
+    user_session = UserSession(
+        user_id=user.id,
+        signed_in_with=signed_in_with,
+        user_agent=(user_agent or None) and user_agent[:512],
+        created_at=now,
+        last_used_at=now,
+        idle_ends_at=min(now + timedelta(hours=settings.session_idle_hours), ends_at),
+        ends_at=ends_at,
+    )
+    session.add(user_session)
+    session.flush()
+    user.last_sign_in_at = now
+    return user_session, _refresh_token(session, user_session, now)
+
+
+def end(user_session: UserSession, reason: EndReason, now: datetime) -> None:
+    if user_session.ended_at is None:
+        user_session.ended_at = now
+        user_session.ended_reason = reason
+
+
+def end_all(
+    session: Session,
+    user_id: int,
+    reason: EndReason,
+    now: datetime,
+    *,
+    keep: int | None = None,
+) -> None:
+    """End every open session of a person, but ``keep``. The caller commits."""
+    statement = update(UserSession).where(
+        UserSession.user_id == user_id, UserSession.ended_at.is_(None)
+    )
+    if keep is not None:
+        statement = statement.where(UserSession.id != keep)
+    session.execute(
+        statement.values(ended_at=now, ended_reason=reason),
+        execution_options={"synchronize_session": "fetch"},
+    )
+
+
+def renew(
+    session: Session, settings: IdentitySettings, refresh_token: str, now: datetime
+) -> Renewed:
+    """Use a refresh token once: the session goes on with a new one. A used token presented again
+    ends its session (D251); so does one presented after the session lapsed. Commits either way."""
+    row = session.execute(
+        select(SessionRefreshToken, UserSession, User)
+        .join(UserSession, UserSession.id == SessionRefreshToken.session_id)
+        .join(User, User.id == UserSession.user_id)
+        .where(SessionRefreshToken.token_hash == digest(refresh_token))
+        .with_for_update(of=[SessionRefreshToken, UserSession])
+    ).one_or_none()
+    if row is None:
+        raise SessionRefused
+    token, user_session, user = row
+    if token.used_at is not None:
+        end(user_session, "reused", now)
+        session.commit()
+        raise SessionRefused
+    if not is_open(user_session, now) or not user.active:
+        end(user_session, "expired" if user.active else "deactivated", now)
+        session.commit()
+        raise SessionRefused
+    token.used_at = now
+    user_session.last_used_at = now
+    user_session.idle_ends_at = min(
+        now + timedelta(hours=settings.session_idle_hours), user_session.ends_at
+    )
+    renewed = _refresh_token(session, user_session, now)
+    session.commit()
+    return Renewed(user_session, user, renewed)
+
+
+def end_by_refresh_token(session: Session, refresh_token: str, reason: EndReason) -> None:
+    """Sign out the session a refresh token belongs to (``/oauth/revoke``); an unknown token is
+    ignored, as RFC 7009 asks."""
+    user_session = session.scalar(
+        select(UserSession)
+        .join(SessionRefreshToken, SessionRefreshToken.session_id == UserSession.id)
+        .where(SessionRefreshToken.token_hash == digest(refresh_token))
+        .with_for_update(of=UserSession)
+    )
+    if user_session is not None:
+        end(user_session, reason, datetime.now(UTC))
+        session.commit()
+
+
+def _user_id(session: Session, public_id: str) -> int:
+    user_id = session.scalar(select(User.id).where(User.public_id == public_id))
+    if user_id is None:
+        raise api_error(404, "USER_NOT_FOUND", f"User '{public_id}' not found")
+    return user_id
+
+
+def end_session_of(session: Session, user_public_id: str, session_public_id: str) -> None:
+    """Sign out one of a person's own sessions; another's, or none, is ``404 SESSION_NOT_FOUND``."""
+    user_session = session.scalar(
+        select(UserSession)
+        .join(User, User.id == UserSession.user_id)
+        .where(User.public_id == user_public_id, UserSession.public_id == session_public_id)
+        .with_for_update(of=UserSession)
+    )
+    if user_session is None or not is_open(user_session, datetime.now(UTC)):
+        raise api_error(404, "SESSION_NOT_FOUND", f"Session '{session_public_id}' not found")
+    end(user_session, "signedOut", datetime.now(UTC))
+    session.commit()
+
+
+def end_sessions_of(
+    session: Session,
+    user_public_id: str,
+    reason: EndReason,
+    *,
+    keep: str | None = None,
+) -> None:
+    """Sign a person out everywhere, but the session ``keep``."""
+    user_id = _user_id(session, user_public_id)
+    kept = (
+        session.scalar(select(UserSession.id).where(UserSession.public_id == keep))
+        if keep
+        else None
+    )
+    end_all(session, user_id, reason, datetime.now(UTC), keep=kept)
+    session.commit()
+
+
+def session_page(
+    session: Session, user_public_id: str, *, page: PageRequest, page_size: int
+) -> Page[UserSession]:
+    """A person's open sessions in the order they started."""
+    now = datetime.now(UTC)
+    statement = (
+        select(UserSession)
+        .join(User, User.id == UserSession.user_id)
+        .where(
+            User.public_id == user_public_id,
+            UserSession.ended_at.is_(None),
+            UserSession.idle_ends_at > now,
+            UserSession.ends_at > now,
+        )
+    )
+    return paginate_statement(
+        session,
+        statement,
+        keys=_KEYS,
+        scope="sessions",
+        filters={"user": user_public_id},
+        page=page,
+        page_size=page_size,
+        message="Session list cursor is invalid",
+    )

@@ -5,6 +5,8 @@
  */
 
 import { API_URL } from "@/api/client";
+import { downloadFrom } from "@/api/download";
+import { DownloadLink } from "@/ui/DownloadLink";
 import { InlineError } from "@/ui/InlineError";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
@@ -56,7 +58,12 @@ export function ApiReferencePage() {
                   <code>v{entry.contractVersion}</code>
                 </td>
                 <td data-label="OpenAPI document">
-                  <a href={openapiUrl(entry)}>openapi.json</a>
+                  <DownloadLink
+                    href={openapiUrl(entry)}
+                    save={() => downloadFrom(openapiUrl(entry), `${consumerSlug(entry)}-openapi.json`)}
+                  >
+                    openapi.json
+                  </DownloadLink>
                 </td>
               </tr>
             ))}

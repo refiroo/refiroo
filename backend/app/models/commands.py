@@ -432,9 +432,10 @@ class BatchRequest(BaseModel):
 
 
 # A subscription filter's value: one text or a list of texts, as a batch resolve item holds them.
-FilterValue = Annotated[str, Field(min_length=1)] | Annotated[
-    list[Annotated[str, Field(min_length=1)]], Field(min_length=1)
-]
+FilterValue = (
+    Annotated[str, Field(min_length=1)]
+    | Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)]
+)
 SubscriptionPayload = Literal["full", "identity"]
 SubscriptionFormat = Literal["rdm", "cloudevents"]
 # The most events a webhook request may carry (C-D120), reported in capabilities.
@@ -442,7 +443,9 @@ MAX_EVENTS_PER_BATCH = 1000
 
 
 # What the operator calls a subscription (U5a, C-D115): 1–200 characters once trimmed, not unique.
-SubscriptionName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+SubscriptionName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
 
 
 class ConsumerSubscriptionCreate(BaseModel):
@@ -455,7 +458,9 @@ class ConsumerSubscriptionCreate(BaseModel):
     name: SubscriptionName
     consumerApi: str = Field(min_length=1, max_length=160)
     workspaceKey: str | None = Field(default=None, min_length=1, max_length=160)
-    events: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(min_length=1, max_length=100)
+    events: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(
+        min_length=1, max_length=100
+    )
     filters: dict[str, FilterValue] = Field(default_factory=dict)
     url: str = Field(min_length=1)
     maxEventsPerBatch: int = Field(default=1, ge=1, le=MAX_EVENTS_PER_BATCH)
@@ -570,6 +575,15 @@ class ClientSecretCreate(BaseModel):
 
     expectedVersion: int = Field(ge=1)
     overlapHours: int = Field(default=24, ge=0, le=MAX_OVERLAP_HOURS)
+
+
+class PasswordChange(BaseModel):
+    """A signed-in person's new password, with the current one (I2, J39.6)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    currentPassword: str = Field(min_length=1, max_length=1024)
+    newPassword: str = Field(min_length=1, max_length=1024)
 
 
 class SigningKeyRotation(BaseModel):

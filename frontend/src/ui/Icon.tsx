@@ -1,5 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Eye,
+  EyeOff,
+  Laptop,
+  Smartphone,
   Undo2,
   Redo2,
   GripVertical,
@@ -81,6 +85,10 @@ const icons = {
   info: Info,
   list: List,
   lock: Lock,
+  eye: Eye,
+  "eye-off": EyeOff,
+  laptop: Laptop,
+  phone: Smartphone,
   mapping: GitCompareArrows,
   matrix: Grid3x3,
   gear: Settings,

@@ -117,6 +117,7 @@ describe("SettingsShell", () => {
     ).toEqual([
       "About",
       "Appearance",
+      "Account",
       "Workspaces",
       "Model",
       "Deployment",

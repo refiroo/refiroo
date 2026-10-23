@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { openEventStream } from "@/api/eventStream";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { testModel } from "@/test/fixtures";
@@ -8,6 +9,9 @@ import { ToastProvider } from "@/ui/Toast";
 import { JobNotificationsProvider } from "./JobNotifications";
 import { JobPage } from "./JobPage";
 
+// Job streams are read with fetch (0.12 I2); the test drives them instead.
+vi.mock("@/api/eventStream", () => ({ openEventStream: vi.fn() }));
+
 vi.mock("@/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/client")>()),
   api: { model: vi.fn(), job: vi.fn(), jobRows: vi.fn(), jobItems: vi.fn(), confirmJob: vi.fn(), cancelJob: vi.fn() },
@@ -15,7 +19,7 @@ vi.mock("@/api/client", async (importOriginal) => ({
 
 class SilentEventSource {
   static opened: string[] = [];
-  constructor(url: string) {
+  constructor(readonly url: string) {
     SilentEventSource.opened.push(url);
   }
   addEventListener() {}
@@ -142,7 +146,7 @@ describe("JobPage of an import (0.9 J4)", () => {
     vi.mocked(api.model).mockResolvedValue(testModel);
     SilentEventSource.opened = [];
     window.sessionStorage.clear();
-    vi.stubGlobal("EventSource", SilentEventSource);
+    vi.mocked(openEventStream).mockImplementation((url) => new SilentEventSource(url));
     vi.mocked(api.job).mockResolvedValue(waiting);
     vi.mocked(api.jobRows).mockResolvedValue({ items: [refusedRow], nextCursor: null });
   });
@@ -276,7 +280,7 @@ describe("JobPage of a batch (0.9 K2)", () => {
     vi.clearAllMocks();
     SilentEventSource.opened = [];
     window.sessionStorage.clear();
-    vi.stubGlobal("EventSource", SilentEventSource);
+    vi.mocked(openEventStream).mockImplementation((url) => new SilentEventSource(url));
     vi.mocked(api.jobItems).mockImplementation(async (_, query) => ({
       items: outcomes.filter((outcome) => !query?.status || outcome.status === query.status),
       nextCursor: null,
@@ -328,7 +332,7 @@ describe("JobPage of a batch that deletes (0.9 K2b)", () => {
     vi.clearAllMocks();
     SilentEventSource.opened = [];
     window.sessionStorage.clear();
-    vi.stubGlobal("EventSource", SilentEventSource);
+    vi.mocked(openEventStream).mockImplementation((url) => new SilentEventSource(url));
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -399,7 +403,7 @@ describe("JobPage of a batch that changes relationships (0.9 K3)", () => {
     vi.clearAllMocks();
     SilentEventSource.opened = [];
     window.sessionStorage.clear();
-    vi.stubGlobal("EventSource", SilentEventSource);
+    vi.mocked(openEventStream).mockImplementation((url) => new SilentEventSource(url));
   });
   afterEach(() => vi.unstubAllGlobals());
 

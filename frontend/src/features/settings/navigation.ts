@@ -16,6 +16,7 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
     pages: [
       { page: "about", label: "About" },
       { page: "appearance", label: "Appearance" },
+      { page: "account", label: "Account" },
     ],
   },
   {

@@ -25,11 +25,15 @@ and the one line the API and the Deployment page show) and to the table of its g
 | `DATABASE_URL` | required | PostgreSQL URL, `postgresql+psycopg://…`. See [Database](#database) |
 | `RDM_MODEL_PATH` | `model/rdm-starter.json` | Bootstrap model file. Not the active-model setting; see [Model releases](#model-releases-and-rollback) |
 | `RDM_CURSOR_SIGNING_KEY` | ephemeral | Secret that signs pagination cursors. Without it each process generates its own key, so cursors stop working after a restart and between instances |
-| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API |
+| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API. They are also where a person's sign-in may return: `<origin>/signed-in` for each (0.12 D267), so the browser application is served at the root of one of them |
 | `PUBLIC_URL` | `http://localhost:8000` | The engine's address as callers reach it, behind any proxy: the issuer (`iss`) of its tokens and the base of the addresses in `/.well-known/oauth-authorization-server` (0.12 D259). An absolute `http` or `https` URL; anything else stops startup. Set it on every production installation, the same on every process. See [Authentication](#authentication) |
 | `SECRETS_ENCRYPTION_KEY` | required | 32 bytes in URL-safe base64 (`python -m app.cli.generate_key`); seals the stored token signing keys and webhook signing keys (AES-256-GCM, D253). Startup refuses without it, and refuses the setting it replaced, `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, by name. Keep it outside the database and its backups; the same on every process |
 | `ACCESS_TOKEN_MINUTES` | `60` | Minutes an access token lasts, for people and clients (D251). A deactivation or a retired key applies on the next request whatever the lifetime |
 | `TOKEN_SIGNING_KEY_DAYS` | `30` | Days a token signing key signs; the first token issued after that brings a new key, and the old one keeps accepting its tokens until they expire (D254, D264) |
+| `SESSION_IDLE_HOURS` | `12` | Hours a person's browser session lasts without being renewed; the browser renews it while the person works (D251). See [Signing in from the browser](#signing-in-from-the-browser) |
+| `SESSION_DAYS` | `14` | Days a browser session lasts in all; then the person signs in again (D251) |
+| `PASSWORD_RESET_HOURS` | `24` | Hours a password-reset link stays valid; it works once (0.12 D272) |
+| `PASSWORD_MIN_LENGTH` | `15` | Characters a local password needs at least (D252). **For a development machine only** it may be lowered, down to `1`, for a short password (D276); the most common passwords stay refused. Leave it at 15 in production |
 | `JOB_FILE_DIR` | `var/job-files` | Where export files wait for download and import files wait to be read, named after their job, and where model authoring's source files are kept (0.10 A3); created at start. With job creation on, a directory that cannot be written stops startup. An export's file is kept while its job is completed and removed when the job expires (`JOB_RETENTION_DAYS`), fails or is cancelled; an import's file until its job finishes. Several instances need it on shared storage. See [Exports](#exports), [Imports](#imports) and [Source files and dry runs](#source-files-and-dry-runs) |
 | `RDM_API_REFERENCE_SCRIPT` | `bundled` | `bundled` serves the pinned Scalar script from the engine, so `/docs` works offline; `cdn` loads the same version from jsDelivr under its integrity hash. Any other value stops startup |
 | `WEB_CONCURRENCY` | `1` | Uvicorn worker count. Any count, with or without model administration (0.11 N1); see [Several processes](#several-processes) |
@@ -152,7 +156,8 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 
 Every route needs an access token issued by the engine (0.12, ADR-043) except `/health`,
 `/health/live`, `/openapi.json`, `/docs` with its script, and the OAuth endpoints
-(`/.well-known/oauth-authorization-server`, `/oauth/jwks`, `/oauth/token`). A request without one
+(`/.well-known/oauth-authorization-server`, `/oauth/jwks`, `/oauth/token`, `/oauth/revoke`, and the
+sign-in and password pages `/oauth/authorize` and `/oauth/password`). A request without one
 answers `401 AUTHENTICATION_REQUIRED`; a token that does not verify, has expired, is for the other API
 or belongs to a deactivated client or person answers `401 TOKEN_INVALID` with the reason. No setting
 turns this off (D235). Until roles arrive (Z1), every active client and person may use every route.
@@ -167,8 +172,8 @@ cd backend
 ```
 
 `create_admin` reads the password from the terminal twice (`--password-stdin` reads one line from
-standard input): 15 to 128 characters, not the username, not one of the most common (D252). People
-sign in from the browser from I2; until then the API is reached with a client. `create_client` prints
+standard input): 15 to 128 characters, not the username, not one of the most common (D252). The
+administrator then signs in from the browser. `create_client` prints
 the client's `client_id` and `client_secret` once (`--json` for a script); keep the secret in the
 calling system's secret store. More clients and people are managed through `/api/v1/clients` and
 `/api/v1/users`.
@@ -196,9 +201,39 @@ clients obtain new ones with their unchanged credentials. `GET /api/v1/token-sig
 keys and their state, never a private key.
 
 **Setting up:** set `SECRETS_ENCRYPTION_KEY` (`python -m app.cli.generate_key`) and, outside local
-development, `PUBLIC_URL`; then create the first client and administrator with the commands above.
-Local accounts have a password only; a sign-in provider (I3) brings the organisation's multi-factor
-sign-in (D225).
+development, `PUBLIC_URL` and `CORS_ORIGINS`; then create the first client and administrator with the
+commands above. Local accounts have a password only; a sign-in provider (I3) brings the
+organisation's multi-factor sign-in (D225).
+
+### Signing in from the browser
+
+The browser application signs a person in on the engine's own page, `/oauth/authorize`, with the
+authorization code flow and PKCE (0.12 I2, D234): opening the application without a session leads
+there, and signing in returns to the page asked for. The page shows the default workspace's product
+name, needs no script, and cannot be framed. The access token stays in the page's memory; the
+session is held in an `HttpOnly`, `SameSite=Strict` cookie named `oauth_refresh`, scoped to `/oauth`,
+which the browser renews unseen while the person works. Each renewal replaces the cookie's token; a
+token presented a second time ends the session, since only a copy can do that.
+
+- **Serve over `https`.** The cookie is marked `Secure` when `PUBLIC_URL` is `https` (D268); over
+  plain `http` it is not, which is for a development machine only.
+- **One site.** The application and the engine must share a site (the same registrable domain, for
+  example `rdm.example.org` and `api.rdm.example.org`, or one host on two ports in development), or
+  the browser does not send the cookie. The application's origin is in `CORS_ORIGINS`.
+- **Sessions** end after `SESSION_IDLE_HOURS` without use or `SESSION_DAYS` in all, when the person
+  signs out (the account menu), signs out everywhere (Settings › Account, or
+  `DELETE /api/v1/users/{id}/sessions` by an administrator), changes or resets their password, or is
+  deactivated. Their access tokens are refused from the next request.
+- **A first password** for a person created through the API: `POST /api/v1/users/{id}/password-reset`
+  answers a one-time link, valid `PASSWORD_RESET_HOURS`, to pass on to the person (no e-mail is sent,
+  D233). It opens the engine's page that sets the password; a newer link replaces an older one, and
+  using it ends the person's sessions. The same link resets a forgotten password.
+- **Failed sign-ins are slowed, never locked** (D271): after 5 failures for one username, or 20 from
+  one address, each attempt waits 1 second, doubling to at most 15 minutes, and the page says how
+  long. A success clears the username's count; counts lapse after 24 hours. Each failure is logged
+  (`sign_in_failed`, with the username and address). Behind a proxy, the address is the proxy's
+  unless uvicorn trusts it to forward the caller's (`--forwarded-allow-ips` with
+  `--proxy-headers`); without that, every person shares the proxy's address and its count of 20.
 
 ## Database
 

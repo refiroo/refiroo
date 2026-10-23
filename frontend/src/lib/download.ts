@@ -5,7 +5,11 @@
  * the model document boundary Base 0.6 principle 5 fixes in place.
  */
 export function downloadJson(filename: string, content: string) {
-  const blob = new Blob([content], { type: "application/json" });
+  saveBlob(filename, new Blob([content], { type: "application/json" }));
+}
+
+/** Save a file the page holds, under `filename` made safe for a file system. */
+export function saveBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;

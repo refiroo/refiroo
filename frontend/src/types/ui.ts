@@ -91,7 +91,10 @@ export type RouteState =
  * URL under `/settings`. Workspaces and Model are a list page with a detail page per entry (U-D10).
  */
 export type SettingsRoute =
-  | { kind: "settings"; page: "about" | "appearance" | "deployment" | "operations" | "consumer-apis" | "api-reference" }
+  | {
+      kind: "settings";
+      page: "about" | "appearance" | "account" | "deployment" | "operations" | "consumer-apis" | "api-reference";
+    }
   /** Jobs, or one job's page (0.9 J1u). */
   | { kind: "settings"; page: "jobs"; jobId?: string }
   /** Moves between workspaces, or the move editor of one mapping between two workspaces (0.11 X4). */

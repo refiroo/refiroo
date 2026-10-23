@@ -36,6 +36,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
 | F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
+| F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account | Available | 0.12 I1, I2; roles come with Z1 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
 (`frontend/e2e/`). The acceptance runs are recorded in the release plans.
@@ -776,7 +777,8 @@ keys. Every list is paged with signed cursors bound to the query, or by position
 request. Errors are structured and distinguish not found, invalid input, conflict, retired scope and
 unavailable service. Integration-scale functions are F20–F23 and F25; the reference page is F24.
 
-Limits: every API is unauthenticated until 0.12.
+Every call needs an access token the engine issues (F26). Limits: until roles arrive in 0.12, every
+signed-in person and every active client may use every route.
 
 Evidence: [API contracts](../API.md),
 [ADR-018](../DECISIONS.md#adr-018--bind-opaque-cursors-to-query-semantics).
@@ -1210,3 +1212,27 @@ Limits: re-synchronising from an export instead of a publication follows with ex
 
 Evidence: [feed contract](../API.md#change-feed-base-09-f1-f2),
 [positions](../../backend/app/engine/records/feed.py), [read](../../backend/app/engine/reads/feed.py).
+
+## F26 — Sign in and manage one's sessions
+
+**User outcome:** A person signs in once and works for the day; a system calls the API with its own
+credentials; nobody reaches the data without either.
+
+Opening the application without a session leads to the engine's sign-in page, which names the
+instance's product and asks for a username and password; signing in returns to the page asked for.
+The session renews itself while the person works and ends after a day without use or two weeks in
+all. A wrong username or password is refused without saying which was wrong; after repeated failures
+each attempt waits longer, up to fifteen minutes, but the account is never locked. The account menu
+names the person and leads to Settings › Account, where they change their password and see where they
+are signed in, signing out one browser or all of them. An administrator signs a person out everywhere,
+deactivates them (their access ends at once) or makes a one-time link that sets their password, for a
+new person or a forgotten password. Systems obtain tokens with a client's credentials (F16).
+
+Limits: no sign-in provider (single sign-on) until 0.12 I3, and no roles until 0.12 Z1, so every
+signed-in person may do everything. The administration pages for people and clients come with the
+Security pages; until then they are API calls. Local accounts have a password only; multi-factor
+sign-in comes with a sign-in provider.
+
+Evidence: [authentication contract](../API.md#authentication), [OPERATIONS](../OPERATIONS.md#signing-in-from-the-browser),
+[sign-in](../../backend/app/engine/identity/sign_in.py), [sessions](../../backend/app/engine/identity/sessions.py),
+[browser session](../../frontend/src/api/session.ts).

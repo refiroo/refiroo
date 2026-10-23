@@ -39,6 +39,8 @@ import type {
   EngineProcess,
   WorkspaceReadiness,
   BackupRehearsalPage,
+  Me,
+  SignInSession,
   PageNavigation,
   ConsumerApiDefinition,
   ConsumerApiDocument,
@@ -120,7 +122,9 @@ import type {
   SourceSheet,
 } from "@/types";
 
+import { API_URL } from "@/api/address";
 import { ApiError } from "@/api/errors";
+import { authorizedFetch } from "@/api/session";
 import { everyPage } from "@/lib/everyPage";
 import { expectedReleaseHeader, reportModelReleaseChanged } from "@/api/expectedRelease";
 
@@ -128,8 +132,7 @@ import { expectedReleaseHeader, reportModelReleaseChanged } from "@/api/expected
 // `isApiError` live in ./errors so that a test mocking this module does not shadow them.
 export { ApiError } from "@/api/errors";
 
-/** The engine this browser application calls (`VITE_API_URL`, set when the frontend is built). */
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+export { API_URL } from "@/api/address";
 
 /** A completed export's file, as a link the browser downloads (0.9 J1). */
 export const jobOutputUrl = (jobId: string) => `${API_URL}/api/v1/jobs/${encodeURIComponent(jobId)}/output`;
@@ -191,7 +194,7 @@ async function send(
   path: string,
   init: RequestInit,
 ): Promise<{ response: Response; body: string | undefined }> {
-  const response = await fetch(url, init);
+  const response = await authorizedFetch(url, init);
   if (!response.ok) {
     const body = await response.text();
     let message = failedResponseMessage(path, response.status);
@@ -446,6 +449,21 @@ export const api = {
   processes: () => allPages<EngineProcess>("/api/v1/system/processes"),
   /** Whether each active workspace is served, every page. */
   readiness: () => allPages<WorkspaceReadiness>("/api/v1/system/readiness"),
+  /** Who is signed in (0.12 I2). */
+  me: () => request<Me>("/api/v1/me"),
+  /** Where the person is signed in: every open session (a person has a handful). */
+  mySessions: () => allPages<SignInSession>("/api/v1/me/sessions"),
+  /** Sign out one session, its tokens refused from the next request. */
+  endMySession: (sessionId: string) =>
+    request<void>(`/api/v1/me/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" }),
+  /** Sign out everywhere, this browser included. */
+  endAllMySessions: () => request<void>("/api/v1/me/sessions", { method: "DELETE" }),
+  /** A new password; the person's other sessions end. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<void>("/api/v1/me/password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
   /** Backup rehearsals, newest first, one page. */
   backupRehearsals: (cursor?: string) => {
     const params = new URLSearchParams({ pageSize: "20" });

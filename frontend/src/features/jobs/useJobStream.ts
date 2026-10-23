@@ -1,12 +1,14 @@
 /**
  * Follow a job as it changes (0.9 J1u, J24.7): the engine pushes the job over a server-sent event
- * stream at once and after each committed change; nothing is polled. The stream is closed once the
+ * stream at once and after each committed change; nothing is polled. The stream is read with
+ * `fetch` so it carries the access token (0.12 I2, D247). The stream is closed once the
  * job reaches a final state, so the browser does not reconnect to a stream the engine has ended, or
  * once a preview waits for confirmation (`isResting`).
  */
 
 import { useEffect, useRef } from "react";
 import { jobEventsUrl } from "@/api/client";
+import { openEventStream } from "@/api/eventStream";
 import type { Job, JobState } from "@/types";
 
 export const FINAL_STATES: readonly JobState[] = ["completed", "failed", "cancelled", "expired"];
@@ -27,9 +29,9 @@ export function useJobStream(jobId: string | undefined, onJob: (job: Job) => voi
   });
   useEffect(() => {
     if (!jobId) return;
-    const source = new EventSource(jobEventsUrl(jobId));
+    const source = openEventStream(jobEventsUrl(jobId));
     source.addEventListener("job", (event) => {
-      const job = JSON.parse((event as MessageEvent<string>).data) as Job;
+      const job = JSON.parse(event.data) as Job;
       latest.current(job);
       if (isResting(job)) source.close();
     });

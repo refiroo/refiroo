@@ -1917,3 +1917,97 @@ class TokenSigningKey(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
     rotated_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class UserSession(Base):
+    """A person's browser session (Product 0.12 I2, ADR-043, D234, D251).
+
+    Started when the browser exchanges a sign-in's code; renewed through refresh tokens, each used
+    once. It ends when signed out, when a used refresh token is presented again, after
+    ``idle_ends_at`` or ``ends_at``, or when the person is deactivated; an ended session's access
+    tokens are refused from the next request (``sid``).
+    """
+
+    __tablename__ = "user_sessions"
+    __table_args__ = (Index("ix_user_sessions_user", "user_id", "id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, default=lambda: str(uuid4())
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    signed_in_with: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    last_used_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    idle_ends_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    ended_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class SessionRefreshToken(Base):
+    """One refresh token of a session, stored as its SHA-256 (I2). Each is used once; presenting a
+    used one again ends the session (D251)."""
+
+    __tablename__ = "session_refresh_tokens"
+    __table_args__ = (Index("ix_session_refresh_tokens_session", "session_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("user_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class AuthorizationCode(Base):
+    """A sign-in's one-time code (I2, RFC 6749 §4.1 with PKCE ``S256``), stored as its SHA-256 and
+    bound to the redirect address and the browser's code challenge; it lasts a minute."""
+
+    __tablename__ = "authorization_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    client_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    redirect_uri: Mapped[str] = mapped_column(Text, nullable=False)
+    code_challenge: Mapped[str] = mapped_column(String(128), nullable=False)
+    signed_in_with: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # The session the code started, so a code presented twice ends it (RFC 6749 §4.1.2).
+    session_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_sessions.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+class PasswordResetLink(Base):
+    """A one-time link that sets a person's password (I2, D272), stored as its SHA-256. A newer
+    link replaces an older one; it is used once and lasts ``PASSWORD_RESET_HOURS``."""
+
+    __tablename__ = "password_reset_links"
+    __table_args__ = (Index("ix_password_reset_links_user", "user_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class SignInFailure(Base):
+    """Failed sign-ins counted per account (the username as typed, lower case) and per address, to
+    slow guessing without locking anyone out (I2, D252, D271)."""
+
+    __tablename__ = "sign_in_failures"
+    __table_args__ = (UniqueConstraint("kind", "key", name="ux_sign_in_failures_kind_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    key: Mapped[str] = mapped_column(String(320), nullable=False)
+    count: Mapped[int] = mapped_column(Integer, nullable=False)
+    last_failure_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)

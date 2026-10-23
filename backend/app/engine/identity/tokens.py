@@ -1,7 +1,8 @@
 """Access tokens: JWTs signed with ES256 that prove who calls, never what they may do (D226, D258).
 
 Claims: ``iss`` (``PUBLIC_URL``), ``sub`` (the principal's public ID), ``aud`` (``management`` or
-``consumer``), ``iat``, ``exp``, ``jti`` and ``principalKind``. Verification accepts ES256 alone and
+``consumer``), ``iat``, ``exp``, ``jti``, ``principalKind`` and, for a person, ``sid``, the browser
+session the token was issued in (I2). Verification accepts ES256 alone and
 requires every claim; what PyJWT refuses becomes a reason the API names.
 """
 
@@ -43,6 +44,8 @@ class Unverified:
     kid: str
     subject: str
     kind: PrincipalKind
+    # A person's session; ``None`` for a client.
+    session: str | None = None
 
 
 def issue(
@@ -52,6 +55,7 @@ def issue(
     subject: str,
     kind: PrincipalKind,
     audience: Audience,
+    session_id: str | None = None,
 ) -> str:
     kid, private = keys.signing_key(session, settings)
     now = int(time.time())
@@ -64,6 +68,8 @@ def issue(
         "jti": uuid4().hex,
         "principalKind": kind,
     }
+    if session_id is not None:
+        claims["sid"] = session_id
     return jwt.encode(claims, private, algorithm=ALGORITHM, headers={"kid": kid})
 
 
@@ -78,7 +84,11 @@ def read_unverified(token: str) -> Unverified:
         raise TokenRefused("malformed")
     if kind not in PRINCIPAL_KINDS:
         raise TokenRefused("malformed")
-    return Unverified(kid, subject, kind)
+    session = claims.get("sid")
+    # A person's token is always issued in a session; a client's never.
+    if (kind == "user") != isinstance(session, str):
+        raise TokenRefused("malformed")
+    return Unverified(kid, subject, kind, session)
 
 
 def verify(

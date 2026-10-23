@@ -1,11 +1,11 @@
-"""The caller, people, OAuth clients and token signing keys (Product 0.12 I1, API.md § Security).
+"""The caller, people, OAuth clients and token signing keys (Product 0.12 I1, I2, API.md § Security).
 
 Until Z1 every active principal may use these routes; Z1 gives them to Security administration.
 """
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, Response
 
-from ...engine.identity import keys
+from ...engine.identity import keys, resets, sessions
 from ...engine.identity.clients import (
     add_secret,
     client_page,
@@ -15,10 +15,12 @@ from ...engine.identity.clients import (
     update_client,
 )
 from ...engine.identity.users import create_user, load_user, update_user, user_page
+from ...errors import api_error
 from ...models.commands import (
     ClientCreate,
     ClientSecretCreate,
     ClientUpdate,
+    PasswordChange,
     SigningKeyRotation,
     UserCreate,
     UserUpdate,
@@ -31,6 +33,8 @@ from ..schemas.identity import (
     ClientResponse,
     ClientWithSecret,
     MeResponse,
+    PasswordResetLinkResponse,
+    SessionPage,
     SigningKeyPage,
     SigningKeyResponse,
     UserPage,
@@ -44,6 +48,57 @@ router = APIRouter(prefix="/api/v1", tags=["security"])
 def get_me(principal: CurrentPrincipal) -> MeResponse:
     """Who the request's token belongs to: a person or a client."""
     return present.me_response(principal)
+
+
+def _person(principal: CurrentPrincipal) -> str:
+    """The signed-in person's ID; a client has no sessions or password (``403 NOT_A_PERSON``)."""
+    if principal.kind != "user":
+        raise api_error(403, "NOT_A_PERSON", "Only a signed-in person has sessions and a password")
+    return principal.id
+
+
+@router.get("/me/sessions", response_model=SessionPage)
+def list_my_sessions(
+    principal: CurrentPrincipal,
+    session: DbSession,
+    paging: PageQuery,
+    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+) -> SessionPage:
+    """Where the caller is signed in: their open sessions, ``current`` marking this one."""
+    page = sessions.session_page(session, _person(principal), page=paging, page_size=page_size)
+    return present.session_page(page, principal.session_id)
+
+
+@router.delete("/me/sessions/{session_id}", status_code=204)
+def delete_my_session(session_id: str, principal: CurrentPrincipal, session: DbSession) -> Response:
+    """Sign out one of the caller's sessions; its tokens are refused from the next request and it
+    renews no more."""
+    sessions.end_session_of(session, _person(principal), session_id)
+    return Response(status_code=204)
+
+
+@router.delete("/me/sessions", status_code=204)
+def delete_my_sessions(principal: CurrentPrincipal, session: DbSession) -> Response:
+    """Sign out everywhere, this session included (J39.3)."""
+    sessions.end_sessions_of(session, _person(principal), "signedOutEverywhere")
+    return Response(status_code=204)
+
+
+@router.post("/me/password", status_code=204)
+def post_my_password(
+    payload: PasswordChange, principal: CurrentPrincipal, request: Request, session: DbSession
+) -> Response:
+    """Change the caller's password: the current one must be right (``422 PASSWORD_INCORRECT``) and
+    the new one meet the rules (``422 PASSWORD_REJECTED``). Every other session ends (J39.6)."""
+    resets.change_password(
+        session,
+        request.app.state.identity_settings,
+        _person(principal),
+        principal.session_id,
+        payload.currentPassword,
+        payload.newPassword,
+    )
+    return Response(status_code=204)
 
 
 @router.get("/users", response_model=UserPage)
@@ -75,8 +130,27 @@ def get_user(user_id: str, session: DbSession) -> UserResponse:
 @router.patch("/users/{user_id}", response_model=UserResponse)
 def patch_user(user_id: str, payload: UserUpdate, session: DbSession) -> UserResponse:
     """Change a person's name or e-mail, or deactivate them with ``active: false``: their tokens are
-    refused from the next request. A person is never deleted (D237)."""
+    refused from the next request and their sessions end. A person is never deleted (D237)."""
     return present.user_response(update_user(session, user_id, payload))
+
+
+@router.post(
+    "/users/{user_id}/password-reset", response_model=PasswordResetLinkResponse, status_code=201
+)
+def post_password_reset(
+    user_id: str, request: Request, session: DbSession
+) -> PasswordResetLinkResponse:
+    """A one-time link that sets the person's password, answered this once and valid for
+    ``PASSWORD_RESET_HOURS``; it replaces any earlier link. Using it ends their sessions (D272)."""
+    url, expires_at = resets.create_link(session, request.app.state.identity_settings, user_id)
+    return PasswordResetLinkResponse(url=url, expiresAt=expires_at)
+
+
+@router.delete("/users/{user_id}/sessions", status_code=204)
+def delete_user_sessions(user_id: str, session: DbSession) -> Response:
+    """Sign the person out everywhere: every session's tokens are refused from the next request."""
+    sessions.end_sessions_of(session, user_id, "administrator")
+    return Response(status_code=204)
 
 
 @router.get("/clients", response_model=ClientPage)

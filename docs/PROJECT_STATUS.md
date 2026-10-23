@@ -16,8 +16,14 @@ every route but the open ones needs a token; `SECRETS_ENCRYPTION_KEY` and `PUBLI
 harnesses on real tokens ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i1-record-2026-10-23)).
 The whole backend suite passed but for one timing budget under parallel load, and the
 settings browser runner passed. D266 (the consumer index and documents take a management token
-too) decided and built. Next: I2. People cannot
-sign in from the browser until I2, and no role narrows anything until Z1. Next: I2.
+too) decided and built. **I2, signing in from the browser, is delivered (2026-10-23)**, D267–D275
+accepted: the engine's sign-in page with PKCE, sessions in an `HttpOnly` cookie renewed unseen (each
+refresh token once), sign-out, failed sign-ins slowed, the account menu and Settings › Account
+(password, sessions, sign out everywhere), the one-time password link and signing a person out
+through the API, the job stream and downloads through `fetch`, and the browser runners signing in as
+a test person ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i2-record-2026-10-23)). Its journeys, unit
+tests, three browser runners and the touched Vitest files passed; the full suites and the other
+browser runners wait for R. No role narrows anything until Z1; no sign-in provider until I3. Next: Z1.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 

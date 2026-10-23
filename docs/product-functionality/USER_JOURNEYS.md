@@ -1994,7 +1994,8 @@ applications and record types as data.
 
 **Actor:** any person. **Channel:** UI (the sign-in page, the account menu, the account page), API.
 **Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, I2 and I3. I1 (2026-10-23):
-the refusals without a token or with one not issued here; signing in from the browser is I2.
+the refusals without a token or with one not issued here. I2 (2026-10-23): steps 1–3 with a username
+and password, J39.1–J39.6; the provider's button and J39.7 are I3.
 
 1. Open the application; the engine's sign-in page asks for a username and password, or offers the
    organisation's sign-in provider.
@@ -2018,14 +2019,17 @@ the refusals without a token or with one not issued here; signing in from the br
   subject; the provider's groups become provider groups.
 
 **Refusals:** `401 AUTHENTICATION_REQUIRED`, `401 TOKEN_INVALID` (`expired`, `revoked`), the token
-endpoint's `invalid_grant`, `422 PASSWORD_REJECTED`.
+endpoint's `invalid_grant`, `422 PASSWORD_REJECTED`, `422 PASSWORD_INCORRECT`, `404
+SESSION_NOT_FOUND`, `403 NOT_A_PERSON`; on the sign-in page `401` (wrong credentials) and `429`
+(slowed, with `Retry-After`).
 
 ### J40 — Manage who can do what
 
 **Actor:** security administrator. **Channel:** UI (Settings › Security), API.
 **Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, Z1, Z2, SP1. I1 (2026-10-23):
 people created, changed and deactivated through the API, and the first administrator from
-`create_admin`; roles and grants are Z1.
+`create_admin`; roles and grants are Z1. I2 (2026-10-23): a person's one-time password link and
+signing a person out everywhere, through the API; the People page is SP1.
 
 1. Create a person; they set a password through a one-time link.
 2. Grant them a role in a workspace, directly or through a group, optionally narrowing what they may

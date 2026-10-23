@@ -1,13 +1,15 @@
 /**
- * The account popover at the right of both top bars (ADR-039, Track U U3): the account (a
- * placeholder until multi-user authentication), the theme, and a link to all settings. Theme is
- * the same per-browser preference Settings › Appearance writes.
+ * The account popover at the right of both top bars (ADR-039, Track U U3, 0.12 I2): who is signed
+ * in, their Account page, all settings, the theme, and signing out. Theme is the same per-browser
+ * preference Settings › Appearance writes. The person's role joins it with Z1 (D273).
  */
 
+import { signOut } from "@/api/session";
 import { ControlPopover } from "@/ui/ControlPopover";
 import { Icon, type IconName } from "@/ui/Icon";
 import { RouteLink } from "@/ui/RouteLink";
 import { useThemePreference, type ThemePreference } from "@/lib/theme";
+import { initials, useMe } from "./useMe";
 
 export const THEMES: { value: ThemePreference; label: string; icon: IconName }[] = [
   { value: "system", label: "System", icon: "monitor" },
@@ -15,46 +17,59 @@ export const THEMES: { value: ThemePreference; label: string; icon: IconName }[]
   { value: "dark", label: "Dark", icon: "moon" },
 ];
 
-export function AccountMenu({ settingsHref, onOpenSettings }: { settingsHref: string; onOpenSettings: () => void }) {
+export function AccountMenu({
+  settingsHref,
+  accountHref,
+  onOpenSettings,
+  onOpenAccount,
+}: {
+  settingsHref: string;
+  accountHref: string;
+  onOpenSettings: () => void;
+  onOpenAccount: () => void;
+}) {
   const { theme, setTheme } = useThemePreference();
+  const me = useMe();
+  const avatar = me ? (
+    <span className="account-avatar account-initials" aria-hidden="true">
+      {initials(me.name)}
+    </span>
+  ) : (
+    <span className="account-avatar" aria-hidden="true">
+      <Icon name="user" size={16} />
+    </span>
+  );
   return (
     <ControlPopover
       label="Account"
       className="settings-popover"
       placement="bottom end"
       triggerClassName="topbar-icon-button account-button"
-      trigger={
-        <span className="account-avatar" aria-hidden="true">
-          <Icon name="user" size={16} />
-        </span>
-      }
+      trigger={avatar}
     >
       {(close) => (
         <>
           <section className="settings-section" aria-labelledby="settings-account">
-            <h3 id="settings-account">Account</h3>
+            <h3 id="settings-account" className="visually-hidden">
+              Signed in as
+            </h3>
             <div className="account-card">
-              <span className="account-avatar" aria-hidden="true">
-                <Icon name="user" size={18} />
-              </span>
+              {avatar}
               <div>
-                <strong>Local session</strong>
-                <small>Single-user mode. No sign-in is required.</small>
+                <strong>{me?.name ?? "Signed in"}</strong>
+                {me?.email && <small>{me.email}</small>}
               </div>
             </div>
-            <button type="button" className="secondary" disabled aria-describedby="settings-auth-note">
-              Sign in
-            </button>
-            <p id="settings-auth-note" className="settings-note">
-              Multi-user authentication and per-user attribution are planned for a later release.
-            </p>
-          </section>
-          <fieldset className="settings-section">
-            <legend>Theme</legend>
-            <ThemeChoice theme={theme} onChange={setTheme} name="account-theme" />
-            <p className="settings-note">System follows your device. The choice is saved in this browser.</p>
-          </fieldset>
-          <div className="settings-section">
+            <RouteLink
+              className="settings-all-link"
+              href={accountHref}
+              onNavigate={() => {
+                close();
+                onOpenAccount();
+              }}
+            >
+              <Icon name="user" size={15} /> Account
+            </RouteLink>
             <RouteLink
               className="settings-all-link"
               href={settingsHref}
@@ -65,6 +80,16 @@ export function AccountMenu({ settingsHref, onOpenSettings }: { settingsHref: st
             >
               <Icon name="gear" size={15} /> All settings
             </RouteLink>
+          </section>
+          <fieldset className="settings-section">
+            <legend>Theme</legend>
+            <ThemeChoice theme={theme} onChange={setTheme} name="account-theme" />
+            <p className="settings-note">System follows your device. The choice is saved in this browser.</p>
+          </fieldset>
+          <div className="settings-section">
+            <button type="button" className="secondary account-sign-out" onClick={() => void signOut()}>
+              Sign out
+            </button>
           </div>
         </>
       )}

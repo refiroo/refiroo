@@ -14,6 +14,8 @@
 import { useWorkspaceModel } from "@/model/workspaceModels";
 import { useEffect, useState } from "react";
 import { api, jobOutputUrl } from "@/api/client";
+import { downloadFrom } from "@/api/download";
+import { DownloadLink } from "@/ui/DownloadLink";
 import { errorMessage } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
 import { routePath } from "@/routing/routes";
@@ -170,9 +172,13 @@ export function JobPage({
       actions={
         <>
           {output && (
-            <a className="primary" href={jobOutputUrl(job.id)} download>
+            <DownloadLink
+              className="primary"
+              href={jobOutputUrl(job.id)}
+              save={() => downloadFrom(jobOutputUrl(job.id), `export-${job.id}`)}
+            >
               Download
-            </a>
+            </DownloadLink>
           )}
           {canCancel && waiting && (
             <button type="button" className="primary" disabled={pending} onClick={() => void confirm()}>

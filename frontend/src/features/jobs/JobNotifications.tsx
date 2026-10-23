@@ -14,6 +14,7 @@
 import { loadedWorkspaceModel } from "@/model/workspaceModels";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { jobOutputUrl } from "@/api/client";
+import { downloadFrom } from "@/api/download";
 import { routePath } from "@/routing/routes";
 import type { EngineModel, Job, RouteState } from "@/types";
 import { useToast, type ToastAction } from "@/ui/Toast";
@@ -126,7 +127,13 @@ export function JobNotificationsProvider({
       const title = jobTitle(modelOf(job, model), job);
       if (job.state === "completed") {
         const download: ToastAction[] = job.output
-          ? [{ label: "Download", href: jobOutputUrl(job.id), download: true }]
+          ? [
+              {
+                label: "Download",
+                href: jobOutputUrl(job.id),
+                download: () => downloadFrom(jobOutputUrl(job.id), `export-${job.id}`),
+              },
+            ]
           : [];
         toast(`${title} completed.`, { actions: [...download, jobPage(job)] });
       } else {

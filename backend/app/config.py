@@ -73,6 +73,13 @@ class Settings(BaseModel):
     # replaced when the next token is issued (D254, D264).
     access_token_minutes: int = Field(default=60, ge=1)
     token_signing_key_days: int = Field(default=30, ge=1)
+    # A browser session ends after this many idle hours or days in all (D251), and a password-reset
+    # link after this many hours (D272).
+    session_idle_hours: int = Field(default=12, ge=1)
+    session_days: int = Field(default=14, ge=1)
+    password_reset_hours: int = Field(default=24, ge=1)
+    # A local password's least length: 15 (D252), lowered only on a development machine (D276).
+    password_min_length: int = Field(default=15, ge=1, le=128)
     model_admin_mutations_enabled: bool = False
     workspace_admin_mutations_enabled: bool = True
     web_concurrency: int = Field(default=1, ge=1)
@@ -150,6 +157,10 @@ class Settings(BaseModel):
             secrets_encryption_key=_encryption_key(env.get("SECRETS_ENCRYPTION_KEY", "")),
             access_token_minutes=_positive(env, "ACCESS_TOKEN_MINUTES", 60),
             token_signing_key_days=_positive(env, "TOKEN_SIGNING_KEY_DAYS", 30),
+            session_idle_hours=_positive(env, "SESSION_IDLE_HOURS", 12),
+            session_days=_positive(env, "SESSION_DAYS", 14),
+            password_reset_hours=_positive(env, "PASSWORD_RESET_HOURS", 24),
+            password_min_length=_positive(env, "PASSWORD_MIN_LENGTH", 15),
             model_admin_mutations_enabled=(
                 env.get("MODEL_ADMIN_MUTATIONS_ENABLED", "false").strip().lower() in TRUTHY
             ),
@@ -525,6 +536,30 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "token_signing_key_days",
         "runtime",
         "Days a token signing key signs before the next token brings a new one",
+    ),
+    CatalogueEntry(
+        "SESSION_IDLE_HOURS",
+        "session_idle_hours",
+        "runtime",
+        "Hours a browser session lasts without being used",
+    ),
+    CatalogueEntry(
+        "SESSION_DAYS",
+        "session_days",
+        "runtime",
+        "Days a browser session lasts in all before the person signs in again",
+    ),
+    CatalogueEntry(
+        "PASSWORD_RESET_HOURS",
+        "password_reset_hours",
+        "runtime",
+        "Hours a password-reset link stays valid",
+    ),
+    CatalogueEntry(
+        "PASSWORD_MIN_LENGTH",
+        "password_min_length",
+        "runtime",
+        "Characters a local password needs at least; lower only for development",
     ),
     CatalogueEntry(
         "JOB_RETENTION_DAYS",

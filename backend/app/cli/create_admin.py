@@ -3,7 +3,7 @@
     python -m app.cli.create_admin --username ada --name "Ada Lovelace" [--email ada@example.org]
 
 The password is read from the terminal twice, or from standard input with ``--password-stdin``, and
-must meet the password rules (D252). There is no other way to create a person without signing in,
+must meet the password rules (D252, its least length ``PASSWORD_MIN_LENGTH`` as amended by D276). There is no other way to create a person without signing in,
 and no setting turns authentication off. Until Z1 every active person and client may do everything;
 from Z1 this person holds Security administration at the instance.
 """
@@ -14,6 +14,7 @@ import sys
 
 from pydantic import ValidationError
 
+from ..config import get_settings
 from ..db import DatabaseStartupError, SessionLocal, create_database
 from ..engine.identity.users import create_user
 from ..errors import ApiError
@@ -53,7 +54,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         create_database()
         with SessionLocal() as session:
-            user = create_user(session, payload, password=password)
+            user = create_user(
+                session,
+                payload,
+                password=password,
+                min_length=get_settings().password_min_length,
+            )
             user_id = user.public_id
     except DatabaseStartupError as exc:
         print(str(exc), file=sys.stderr)

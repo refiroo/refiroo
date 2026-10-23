@@ -80,7 +80,12 @@ def test_every_route_but_the_open_ones_needs_a_token(world):
         assert anonymous.get(path).status_code == 200, path
     metadata = ok(anonymous.get("/.well-known/oauth-authorization-server"))
     assert metadata["token_endpoint"] == f"{metadata['issuer']}/oauth/token"
-    assert metadata["grant_types_supported"] == ["client_credentials"]
+    assert metadata["grant_types_supported"] == [
+        "authorization_code",
+        "refresh_token",
+        "client_credentials",
+    ]
+    assert metadata["authorization_endpoint"] == f"{metadata['issuer']}/oauth/authorize"
     assert {key["kid"] for key in ok(anonymous.get("/oauth/jwks"))["keys"]}
 
 
@@ -325,7 +330,7 @@ def test_the_first_administrator_from_the_command_line(world):
             check=False,
         )
 
-    short = create_admin("too-short")
+    short = create_admin("short")
     assert short.returncode == 2 and "at least 15 characters" in short.stderr
     assert ok(world.api.get("/users", q="ada"))["items"] == []
     common = create_admin("passwordpassword")

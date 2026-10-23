@@ -707,6 +707,241 @@ menu showing the person, "Account" and "Sign out" in place of the placeholder; t
 revoked sessions return to the sign-in page and back to where the person was. _Amended by P0:_ the
 job stream and downloads read with `fetch` and the header (D247).
 
+##### I2 plan (2026-10-23)
+
+**Planned 2026-10-23; accepted by the user the same day** ("okay"): D267–D275 and the test cases
+as written. Checked
+against the code at `3633627` with P0's documents and the approved mock-ups (sign-in at 1440px and
+390px, the account menu and the Account page).
+
+**What the check found:**
+
+- **The token endpoint** knows `client_credentials` only; `authenticate` reads the key and the
+  principal in one statement and has no session to check. The `Principal` carries no session.
+- **No session, code, reset or failure table** exists; `users.last_sign_in_at` is never written.
+- **The browser** calls the engine on another origin (`VITE_API_URL`, `localhost:5173` against
+  `localhost:8000`, `127.0.0.1` on two ports in the browser harness): the same site, so a
+  `SameSite=Strict` cookie reaches the engine on a credentialed `fetch`; CORS already allows
+  credentials for `CORS_ORIGINS`.
+- **Three places read without the header:** the job stream (`EventSource` in `useJobStream`), the
+  export download (`<a href download>` in the job page and the job toast) and the consumer API's
+  `openapi.json` link on Settings › API reference, which has answered `401` since I1 (D266 accepts
+  a management token there, but a link carries none).
+- **The account menu** (`app/SettingsMenu.tsx`) shows "Local session" and a disabled "Sign in".
+- **The browser harness** puts the harness client's token on every page (D265); the app has no
+  notion of signing in, so with I2 every page would be sent to the sign-in page.
+- **The mock-ups show four things later packages own:** the person's main role in the menu and
+  "What you can do" on Account (Z1's `/me/permissions`), the provider's button (I3), and the source
+  link with the licence (L1).
+
+**What is built:**
+
+1. **Migration** `20261028_01`: `user_sessions` (public ID, user, created, last used, idle and
+   absolute ends, user agent, how signed in, ended and why), `session_refresh_tokens` (hash, session,
+   issued, used), `authorization_codes` (hash, user, redirect URI, PKCE challenge, expires in 60
+   seconds, used), `password_reset_links` (hash, user, expires, used), `sign_in_failures` (per
+   account and per address: count, last failure).
+2. **Engine** `engine/identity/`: `sessions` (start, renew with rotation, end one or all, the
+   reuse that ends a session, idle and absolute ends), `sign_in` (the password check with D271's
+   slowing, the authorization code with PKCE `S256`), `resets` (D272). Refresh, code and reset
+   tokens are 32 random bytes stored as SHA-256 (high-entropy tokens checked on every renewal;
+   Argon2id stays for passwords and client secrets). Access tokens for people carry `sid`;
+   `authenticate` reads the session with the key and the principal in the same statement and
+   refuses an ended one as `revoked`.
+3. **OAuth routes:** `GET /oauth/authorize` (the sign-in page) and `POST /oauth/authorize` (its
+   form), for the browser's client only (D267); `POST /oauth/token` gains `authorization_code`
+   (with `code_verifier`) and `refresh_token` (read from the cookie, or the form for a client
+   library), both setting a new refresh cookie; `POST /oauth/revoke` (RFC 7009) ends the session
+   and clears the cookie; `GET|POST /oauth/password` (the reset link's page). The metadata names
+   the new endpoints and grants.
+4. **Caller and administration routes:** `GET /me` gains `signedInWith` and `sessionId`;
+   `GET /me/sessions` (cursor-paged, `current` on this browser's), `DELETE /me/sessions/{id}`,
+   `DELETE /me/sessions`; `POST /me/password` (ends every other session); `POST
+   /users/{id}/password-reset` and `DELETE /users/{id}/sessions`. Deactivating a person ends their
+   sessions. OpenAPI lock re-baselined.
+5. **Settings:** `SESSION_IDLE_HOURS` (12), `SESSION_DAYS` (14), `PASSWORD_RESET_HOURS` (24), in
+   the `runtime` group, on Deployment like the others.
+6. **The sign-in page** (D275): the default workspace's product name, username and password,
+   "Forgotten your password? Ask a security administrator for a reset link.", the messages of the
+   mock-up (wrong username or password, slowed with the wait, the session ended: D270), one column
+   at 390px, light and dark from the device.
+7. **Frontend:** a session layer in `api/` (sign in with PKCE, the token in memory, renewal under a
+   Web Lock shared by the tabs (D269), one retry after a `401`, back to the sign-in page with the
+   address kept); the app starts behind it with a short "Signing in…" state; `/signed-in` finishes
+   the code exchange. The account menu as the mock-up without the role line: name, e-mail,
+   Account, All settings, theme, Sign out. **Settings › General › Account**: you, change password,
+   where you are signed in with "Sign out" per row and "Sign out everywhere". The job stream read
+   with `fetch` (an SSE reader beside `useJobStream`), the export and the consumer `openapi.json`
+   saved from a `fetch` (D247).
+8. **Harnesses** (D274): the `schema` seed gains a harness person; each browser context signs in
+   through the real form with Playwright's request context (it shares the context's cookies);
+   the header on pages goes, the runners' own `api()` keeps the client token. The backend journey
+   harness is unchanged (clients).
+9. **Documents:** API.md's delivered parts; OPERATIONS (the sign-in page, sessions, the cookie and
+   `https`, the reset link, slowing and proxies); ARCHITECTURE's sign-in path; USER_JOURNEYS'
+   statuses; API_JOURNEYS; SETTINGS_AND_UI_PLAN's settings table (Account); UI_ACCEPTANCE's state
+   rows; CHANGELOG, PROJECT_STATUS.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D267 | Which addresses may receive a sign-in | **Recommended:** the browser is one built-in public client, `browser`, with no secret and no database row; its redirect addresses are `<origin>/signed-in` for each origin in `CORS_ORIGINS`, matched exactly. Why: the origins allowed to call the API with the browser's credentials are exactly where the app runs, so no second list can disagree with the first; PKCE protects a public client. Cost: the app must be served at the root of its origin (as today); another browser app is another origin in `CORS_ORIGINS` |
+| D268 | The cookie's `Secure` flag | **Recommended:** set when `PUBLIC_URL` is `https`, left off when it is `http` (a development server). Why: a browser drops a `Secure` cookie set over plain `http` on any host but `localhost`, so a developer on another machine or address could never sign in; production runs on `https` (OPERATIONS says so, as D234 requires). Cost: an installation wrongly run on `http` sends the cookie unprotected, which OPERATIONS warns of |
+| D269 | Two tabs renewing at once | **Recommended:** the browser renews under a Web Lock (`navigator.locks`), so tabs renew one at a time and the second uses the cookie the first received; the engine keeps the strict rule that a used refresh token ends the session. Why: without it, opening two tabs at once would present the same token twice and sign the person out; a grace window on the engine would weaken reuse detection. Cost: none; every current browser has Web Locks |
+| D270 | "Your session ended" | **Recommended:** the sign-in page says "Your session ended. Sign in again to return to where you were." without the page's name (the mock-up named it), and the app returns to the exact address afterwards. Why: the engine would otherwise print text taken from a link, which anyone can craft to show a misleading message on the real sign-in page. Cost: the page is not named |
+| D271 | How failed sign-ins are slowed | **Recommended:** per account, the first 5 failures cost nothing, then each further attempt waits 1 s, doubling to at most 15 minutes; per address the same after 20; a success clears the account's count; counts lapse after 24 hours without a failure. While waiting, an attempt is refused with the time left without checking the password. Each failure is logged with the username and address; the audit entry comes with Z4. The address is the connection's, or the proxy's forwarded one when uvicorn trusts it (`--forwarded-allow-ips`, OPERATIONS). Why: D252's "growing delay, never locked"; 5 lets a person mistype, 20 lets an office behind one address work. Cost: an attacker can slow one account's owner by guessing, never lock it |
+| D272 | The password-reset link | **Recommended:** `POST /users/{id}/password-reset` answers `{url, expiresAt}` once; the link opens the engine's page (`/oauth/password?token=…`) where the person sets a password under D252's rules; valid 24 hours (`PASSWORD_RESET_HOURS`) and once; a newer link replaces an older one; using it ends the person's sessions and leads to the sign-in page. Why: a person created through the API has no password, and API.md designs a one-time link; it is a token in a URL, which C-D1 excludes for API credentials, but a single-use, short-lived link that only sets a password is the standard way and no API accepts it. Cost: the administrator passes the link on (no e-mail, D233); the page arrives in SP1 |
+| D273 | What of the mock-ups I2 leaves out | **Recommended:** the role line in the menu and "What you can do" on Account come with Z1 (`/me/permissions`), the provider's button with I3, the source link and licence with L1; I2 shows none of them. Why: U-D11, nothing is shown before it works. Cost: the menu and Account are shorter than the mock-ups until then |
+| D274 | How the browser runners sign in | **Recommended:** the `schema` seed holds a harness person with a fixed test password; each browser context signs in through the real sign-in form and token exchange with Playwright's request context, which shares the cookie jar, so the app starts with a real session; the token header on pages goes. Why: the runners then pass through the same sign-in as a person, and any page that forgets the header fails in a runner. Cost: the seeds rebuilt once; one password check per context |
+| D275 | The engine's pages | **Recommended:** the sign-in and reset pages are HTML built in one module with every value escaped, no template library and no script; styles inline with the app's colours, light or dark by the device. Headers: `Content-Security-Policy` allowing no script, form posts to the engine only and redirects to D267's origins, `frame-ancestors 'none'`, `Cache-Control: no-store`; a form post whose `Origin` is not `PUBLIC_URL`'s is refused (forged sign-ins). Why: two small pages do not justify a dependency, and a page with no script cannot leak a password to one. Cost: the page's look is maintained beside the app's tokens |
+
+**Journey test cases** (`tests/journeys/test_j39_sign_in.py`, on two configurations; written first
+and seen failing):
+
+1. **J39, sign in:** given a person with a password, when the browser's authorization request
+   (PKCE) opens the sign-in page and the form is posted with the right credentials, then it
+   redirects to `<origin>/signed-in` with a code and the `state`; the code with its verifier at
+   `/oauth/token` answers a token for an hour and sets the `HttpOnly`, `SameSite=Strict` cookie;
+   `GET /me` names the person, `signedInWith: "password"`, `lastSignInAt` set; the person reads
+   and writes records. A code used twice, a wrong verifier, or a redirect address not in
+   `CORS_ORIGINS` is refused (`invalid_grant`, or the page refuses to redirect).
+2. **J39.2, renewing:** given a session, when the cookie renews it, then a new token and a new
+   cookie; when the old cookie is presented again, `invalid_grant` and the session is ended: the
+   new cookie is refused too and the access token answers `401 TOKEN_INVALID` (`revoked`).
+3. **J39.3, sign out everywhere:** given a person signed in twice, when one session is ended from
+   `/me/sessions/{id}`, then only that one is refused; when `DELETE /me/sessions`, or an
+   administrator's `DELETE /users/{id}/sessions`, then every session's next request is refused and
+   no cookie renews; `POST /oauth/revoke` ends the session it is sent with.
+4. **J39.4, a deactivated person:** given a signed-in person, when deactivated, then the token
+   answers `401 TOKEN_INVALID` (`revoked`) and the cookie no longer renews; restored, they sign in
+   again.
+5. **J39.5, a wrong password, then many:** a wrong password and an unknown username give the same
+   message; after D271's free failures the next attempt is refused with the wait even with the right
+   password; after the wait the right password signs in and clears the count.
+6. **J39.6, change one's password:** without the right current password `422`; a short or common
+   one `422 PASSWORD_REJECTED`; with both right, the other sessions end, this one goes on, and the
+   new password signs in.
+7. **J40 (I2 part), the reset link:** given a person without a password, when an administrator
+   creates a link, then the link's page sets a password under the rules and the person signs in;
+   the link used again, or after a newer one, is refused; using it ends the person's sessions.
+
+Unit tests: PKCE verification, the slowing schedule's edges, session ends (idle, absolute), the
+SSE reader in the frontend, the renewal under the lock.
+
+**Browser** (a new runner `i2-sign-in`, on two models): open a record page signed out → the
+sign-in page → a wrong password, then the right one → back on that page; the account menu → Account
+→ change the password; sign out → the sign-in page; a session ended elsewhere → the sign-in page and
+back to the same page; an export downloaded and a job's progress followed through `fetch`; keyboard
+only and at 390px; axe; screenshots of the sign-in page (light, dark, 390px) and Account inspected
+against the mock-ups.
+
+**Checks:** the new journey module and the identity journeys; the unit tests; `test_openapi_contract`
+with the lock diffed; Ruff on the changed files; Vitest for the session layer, the job stream, the
+account menu and Account; format, lint, build; the runners `i2-sign-in`, `u3-settings` and the job
+runner on the new harness sign-in. The other browser runners change only through the harness and run
+at R.
+
+**Composable domains (ADR-032):** the identity door is touched: sessions belong to a person, and a
+provider sign-in (I3) records itself in the same `signedInWith`; no value source or `cause` changes.
+
+##### I2 record (2026-10-23)
+
+**Delivered 2026-10-23.** What was built is the plan's list, items 1–9:
+
+- **Engine** `engine/identity/`: `sessions` (start, renew with each refresh token used once, end one
+  or all, a reused token ending its session), `sign_in` (the password check slowed per D271, the
+  one-time code with PKCE `S256`), `resets` (the reset link, the password change); refresh, code and
+  link tokens stored as SHA-256; `tokens` carry `sid` for a person and `authentication` reads the
+  session in the same statement as the key and principal. Deactivating a person ends their sessions.
+  Migration `20261028_01` (five tables).
+- **Routes:** `GET|POST /oauth/authorize`, the `authorization_code` and `refresh_token` grants with the
+  `oauth_refresh` cookie (path `/oauth`, `HttpOnly`, `SameSite=Strict`, `Secure` under `https`),
+  `POST /oauth/revoke`, `GET|POST /oauth/password`; `/me` with `signedInWith` and `sessionId`,
+  `/me/sessions`, `/me/password`, `/users/{id}/password-reset`, `/users/{id}/sessions`. The pages are
+  `management/sign_in_pages.py` (D275). Settings `SESSION_IDLE_HOURS`, `SESSION_DAYS`,
+  `PASSWORD_RESET_HOURS`.
+- **Frontend:** `api/session.ts` (PKCE, the token in memory, renewal under a Web Lock, one retry after
+  a `401`, the sign-in page with the address kept), the app started behind it in `main.tsx` ("Signing
+  in…", or the engine out of reach with Try again); `api/eventStream.ts` reading the job stream with
+  `fetch`; `api/download.ts` and `ui/DownloadLink` for the export (job page and toast) and the consumer
+  `openapi.json`; the account menu (`useMe`, initials, Account, Sign out); Settings › General ›
+  Account (`AccountPage`, `browserName`).
+- **Harnesses:** the `schema` seed's harness person; `signInContext` in the browser harness signs each
+  context in through the real form (D274); the harness sets `PUBLIC_URL` to its engine's address.
+- **Documents:** API.md, OPERATIONS (§ Signing in from the browser, the settings), ARCHITECTURE,
+  USER_JOURNEYS, API_JOURNEYS, SETTINGS_AND_UI_PLAN, UI_ACCEPTANCE (I2-1 to I2-5), EXECUTION_GUIDE,
+  CURRENT_FUNCTIONALITY (F26, and F16's limit, wrong since I1), CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **The journey cases were written after the engine code**, as in I1, then run: they were not seen
+  failing first.
+- **The sign-in and reset pages are outside the OpenAPI document** (HTML, `include_in_schema=False`);
+  `/oauth/revoke` is in it and listed among the open operations.
+- **Found by the browser runner, fixed:** the pages' form policy and the forged-post check used only
+  `PUBLIC_URL`, so an engine reached at another address (the harness, `127.0.0.1:<port>`) could not
+  post its own form. Both now also accept the page's own origin, and the harness sets `PUBLIC_URL`.
+  `Referrer-Policy: no-referrer` made Chrome send `Origin: null` on the form post, refused as forged;
+  it is `same-origin` (nothing is sent to another site, the app included).
+- Two codes not named in the plan: `PASSWORD_INCORRECT` (`422`, the current password wrong) and
+  `NOT_A_PERSON` (`403`, a client on `/me/sessions` or `/me/password`); `404 SESSION_NOT_FOUND`.
+- After `/oauth/revoke` the cookie is gone, so a renewal sends nothing and answers `invalid_request`
+  rather than `invalid_grant`; J39.3's case asserts that.
+- `test_startup`'s pinned head revision and `u3-settings`' expected keyboard order (Account in the
+  rail) brought up to date.
+
+**Checks** (single process):
+
+- `tests/journeys/test_j39_sign_in.py`: 14 passed (7 cases × 2 configurations);
+  `tests/journeys/test_j39_j41_j43_identity.py` with `tests/test_foreign_keys.py` and
+  `tests/test_openapi_contract.py`: 30 passed, after the lock was re-baselined from a diff against
+  `3633627` (six paths, five schemas, `MeResponse`, the token form, `PATCH /users/{id}`'s description;
+  nothing else) and the paged-collection count rose to 48.
+- `tests/unit/engine/identity/`: 37 passed (slowing at its edges, the PKCE challenge, session ends).
+- `tests/test_boundaries.py`, `tests/unit/test_config.py`, `tests/journeys/test_j31_system.py`: 77
+  passed after OPERATIONS listed the new settings; `tests/test_startup.py`: 11 passed. Ruff on the
+  changed files.
+- Vitest, one run of the touched areas (`src/api`, `src/app`, `src/features/settings`,
+  `src/features/jobs`, `src/routing`, UI foundation, the three bulk dialogs moved off `EventSource`):
+  26 files, 265 passed, among them `session.test` (6), `eventStream.test` (2), `AccountPage.test` (3),
+  `browserName.test` and `SettingsMenu.test` (7). `format`, `lint` (0 errors; 8 warnings, all in
+  untouched files), `build`.
+- **Browser:** `i2-sign-in` on two models: 24 checks, axe 0 violations on the sign-in page light and
+  dark and on Account; `u3-settings`: 10 checks; `j1u-export` (the job stream and the download through
+  `fetch`): 12 checks, axe 0. Screenshots inspected against the mock-ups: the sign-in page at 1440px
+  light and dark and at 390px, the wrong-password state, Account at 1440px (a column misalignment
+  found and fixed) and 390px.
+- A read-only smoke check of the development server on `rdm` after it applied the migration: health
+  `200`, the metadata with the new endpoints, the sign-in page `200`.
+
+**Not run:** the full backend suite (the selection for an authentication or migration change is
+"everything", which waits for R); the other 60 browser runners, which change only through the
+harness's sign-in and run at R; the accessibility and visual gates (R).
+
+**D276, decided by the user (2026-10-23), after delivery:** a short password on a development
+machine. The user could not create a person on the development database with a password they would
+type there, and said it is "only for development, you can have strong password for production". Built:
+`PASSWORD_MIN_LENGTH`, 15 by default (D252 unchanged for production), which a development machine
+lowers, down to 1; `create_admin`, the reset page and `/me/password` apply it; the most common
+passwords stay refused at any length, with short ones added to the list for that case. Account's hint
+no longer names a number. Checks: the identity unit tests and `test_config` (100), both identity
+journey modules (32), `AccountPage.test`.
+
+**Account reworked, at the user's request (2026-10-23), after delivery:** from a mock-up the user
+approved (the security canvas, "Account page reworked" at 1440px and 390px): a profile card, the
+password changed in a form opened in place with a reveal button per field and a length bar, sessions
+as rows with a laptop or phone tile and relative times, and **What you can do** kept at the user's
+request: each active workspace with **Everything** and a line that roles come later, true until Z1,
+which fills it with roles (this revises D273 for that section only). Checks: `AccountPage.test` (4),
+`dates.test`, Settings and app Vitest (111), lint, build, `i2-sign-in` (24 checks, axe 0) with
+screenshots of Account closed and open at 1440px and at 390px inspected; dark Account not inspected.
+
+**What the user cannot do yet:** sign in with the organisation's provider (I3); narrow what anyone
+may do (Z1: every signed-in person and active client may do everything, and Account's "What you can
+do" waits for it); manage people and clients in Settings (SP1, SP2: the reset link and signing a
+person out are API calls until then).
+
 #### I3: A sign-in provider
 
 **Needs:** I2.
@@ -904,7 +1139,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 0 | — | 0.11.0 released | **Met 2026-10-22** |
 | 1 | [P0](#p0-design-pass) | — | **Delivered 2026-10-23.** The catalogue and action groups, roles, ADR-043/044/045, API design, J39–J43, mock-ups approved; D224–D257 settled |
 | 2 | [I1](#i1-the-issuer-people-and-clients-every-route-authenticated) | P0 | The issuer, users and clients, every route authenticated, harnesses on real tokens |
-| 3 | [I2](#i2-signing-in-from-the-browser) | I1 | The sign-in page, PKCE, the account menu and page |
+| 3 | [I2](#i2-signing-in-from-the-browser) | I1 | **Delivered 2026-10-23.** The sign-in page, PKCE, the account menu and page |
 | 4 | [Z1](#z1-roles-groups-and-grants-at-the-route) | I1 | Roles, groups and grants; every route checked; `/me/permissions` |
 | 5 | [Z2](#z2-record-types-at-the-write-unit-jobs-moves-and-the-feed) | Z1 | Record types at the write unit; jobs as their requester; moves; the feed |
 | 6 | [Z3](#z3-consumer-apis-per-client) | Z1 | Consumer APIs per client and workspace |

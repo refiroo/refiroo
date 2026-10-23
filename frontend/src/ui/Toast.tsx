@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@/ui/Icon";
+import { DownloadLink } from "@/ui/DownloadLink";
 import { RouteLink } from "@/ui/RouteLink";
 
 /** How long a toast stays once nothing holds it: no pointer over it and no focus in it. */
@@ -10,7 +11,8 @@ export interface ToastAction {
   label: string;
   href: string;
   onNavigate?: () => void;
-  download?: boolean;
+  /** Saves the file `href` names through the page, with the access token (0.12 I2). */
+  download?: () => Promise<void>;
 }
 
 /** `info` for news that is not a success, such as a job that failed or was cancelled. */
@@ -96,8 +98,12 @@ function ToastItem({ toast, onDismiss }: { toast: ShownToast; onDismiss: () => v
                 >
                   {action.label}
                 </RouteLink>
+              ) : action.download ? (
+                <DownloadLink key={action.label} href={action.href} save={action.download}>
+                  {action.label}
+                </DownloadLink>
               ) : (
-                <a key={action.label} href={action.href} download={action.download || undefined}>
+                <a key={action.label} href={action.href}>
                   {action.label}
                 </a>
               ),

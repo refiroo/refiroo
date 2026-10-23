@@ -214,10 +214,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # secrets, /token-signing-keys and its rotation, /system/configuration with SystemResponse
     # narrowed to the engine, schema languages and active release (D246), the engineOAuth scheme
     # and `security` on every operation but the open ones. Diffed against 5622b67, nothing else
-    # changed.
+    # changed. Re-baselined for 0.12 I2: /oauth/revoke, the token endpoint's authorization_code and
+    # refresh_token fields, /me/sessions, /me/password, /users/{id}/password-reset and
+    # /users/{id}/sessions with their schemas, MeResponse's signedInWith and sessionId, and a
+    # person's deactivation ending their sessions in PATCH /users/{id}'s description. Diffed against
+    # 3633627, nothing else changed (the sign-in and reset pages are HTML, outside the document).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "936f9df5ab583b1900b88c69544d41ab6329e9519248844eebb3f105ca20516b"
+        "08332c010239556e5e8b1730342952eef44a124081788facd33fa35b63f87f75"
     )
 
 
@@ -259,8 +263,8 @@ def test_paging_openapi_inventory():
     # drift, missing records and rows; 0.10 A8b a range of a sheet's cells; 0.11 M1 the workspaces'
     # model assignments; 0.11 X1 the model mappings, a mapping's history and its proposals; 0.11 O1
     # the processes and the readiness per workspace; 0.11 O2 the backup rehearsals; 0.12 I1 the
-    # people, clients and token signing keys.
-    assert seekable <= paged and len(paged) == 47
+    # people, clients and token signing keys; 0.12 I2 a person's sessions.
+    assert seekable <= paged and len(paged) == 48
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",
@@ -550,6 +554,7 @@ OPEN_OPERATIONS = {
     ("get", "/.well-known/oauth-authorization-server"),
     ("get", "/oauth/jwks"),
     ("post", "/oauth/token"),
+    ("post", "/oauth/revoke"),
 }
 
 

@@ -19,6 +19,33 @@ class MeResponse(BaseModel):
     lastSignInAt: datetime | None = Field(
         description="A person's last sign-in, or when a client last obtained a token"
     )
+    signedInWith: str | None = Field(
+        description="How a person signed in to this session: `password`; null for a client"
+    )
+    sessionId: str | None = Field(description="A person's session; null for a client")
+
+
+class SessionResponse(BaseModel):
+    """One of a person's open browser sessions."""
+
+    id: str
+    current: bool = Field(description="The session the request's token was issued in")
+    signedInWith: str
+    userAgent: str | None = Field(description="The browser that signed in, as it named itself")
+    createdAt: datetime
+    lastUsedAt: datetime = Field(description="When the session was last renewed")
+    endsAt: datetime = Field(description="When it ends unless renewed sooner, or at the latest")
+
+
+class SessionPage(CollectionPage[SessionResponse]):
+    """A person's open sessions in the order they started (ADR-030)."""
+
+
+class PasswordResetLinkResponse(BaseModel):
+    """A one-time link that sets a person's password, answered this once (D272)."""
+
+    url: str = Field(description="The link to pass to the person; valid once")
+    expiresAt: datetime
 
 
 class UserResponse(BaseModel):

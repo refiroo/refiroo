@@ -6,6 +6,7 @@
 
 import { AboutPage } from "@/features/settings/AboutPage";
 import { ApiReferencePage } from "@/features/settings/ApiReferencePage";
+import { AccountPage } from "@/features/settings/AccountPage";
 import { AppearancePage } from "@/features/settings/AppearancePage";
 import { ConsumerApisPage } from "@/features/settings/ConsumerApisPage";
 import { DeploymentPage } from "@/features/settings/DeploymentPage";
@@ -99,6 +100,8 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         <AboutPage onNavigate={(next) => navigate(next)} />
       ) : route.page === "appearance" ? (
         <AppearancePage />
+      ) : route.page === "account" ? (
+        <AccountPage />
       ) : route.page === "deployment" ? (
         <DeploymentPage />
       ) : route.page === "operations" ? (

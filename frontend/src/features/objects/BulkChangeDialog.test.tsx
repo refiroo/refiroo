@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { openEventStream } from "@/api/eventStream";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { JobNotificationsProvider } from "@/features/jobs/JobNotifications";
@@ -11,6 +12,9 @@ import { testModel } from "@/test/fixtures";
 import type { BatchUpdateItem, Job, JobItemOutcome } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
 import { BulkChangeDialog } from "./BulkChangeDialog";
+
+// Job streams are read with fetch (0.12 I2); the test drives them instead.
+vi.mock("@/api/eventStream", () => ({ openEventStream: vi.fn() }));
 
 vi.mock("@/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/client")>()),
@@ -107,7 +111,7 @@ describe("BulkChangeDialog (0.9 K2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     PushedEventSource.open = [];
-    vi.stubGlobal("EventSource", PushedEventSource);
+    vi.mocked(openEventStream).mockImplementation((url) => new PushedEventSource(url));
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture());
     vi.mocked(api.startBatch).mockResolvedValue(job({}));
     vi.mocked(api.cancelJob).mockResolvedValue(job({ state: "cancelled" }));

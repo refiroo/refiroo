@@ -1860,3 +1860,250 @@ tr.openable-row:hover > * {
     text-align: left;
   }
 }
+
+/* Account (0.12 I2, reworked from the mock-up): the person's initials in the avatar, a profile card,
+   rows of tiles with a title, a line and an action, pills, the password form with its reveal button
+   and length bar, and a download refused beside its link. */
+.account-avatar.account-initials {
+  border-color: transparent;
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.account-page {
+  display: grid;
+  gap: var(--space-6);
+  max-width: 760px;
+}
+.account-panel {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+.account-profile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  border-top: 6px solid var(--action-primary);
+}
+.account-profile-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+  box-shadow:
+    0 0 0 4px var(--surface-raised),
+    0 0 0 5px var(--border-subtle);
+  font-size: 26px;
+  font-weight: 600;
+}
+.account-profile-text {
+  display: grid;
+  flex: 1;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.account-profile-text p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.account-profile-name {
+  font-size: 22px;
+  font-weight: 600;
+}
+.account-muted {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.account-profile .account-muted {
+  color: var(--text-secondary);
+  font-size: inherit;
+}
+.account-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2) !important;
+}
+.account-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 11px;
+  background: var(--surface-fill);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.account-pill.success {
+  background: var(--status-success-surface);
+  color: var(--status-success-text);
+}
+.account-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-success-marker);
+}
+.account-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+}
+.account-row + .account-row,
+.account-list + .account-row,
+.account-list .account-row + .account-row {
+  border-top: 1px solid var(--border-faint);
+}
+.account-row-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.account-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.account-tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+.account-tile.current {
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+}
+.account-footer {
+  background: var(--surface-sunken);
+}
+.account-password {
+  display: grid;
+  gap: var(--space-4);
+  padding-left: 72px;
+}
+.account-password .form-field,
+.account-password > div {
+  max-width: 380px;
+}
+.account-password-field {
+  position: relative;
+  display: block;
+}
+.account-password-field input {
+  width: 100%;
+  padding-right: 40px;
+}
+.account-reveal {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-tertiary);
+  transform: translateY(-50%);
+}
+.account-reveal:hover {
+  color: var(--text-primary);
+}
+.account-meter {
+  display: flex;
+  gap: 4px;
+  margin-top: var(--space-2);
+}
+.account-meter span {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-fill);
+}
+.account-meter span.filled {
+  background: var(--status-success-marker);
+}
+.account-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+.download-failure {
+  margin-left: var(--space-2);
+  color: var(--status-error-text);
+  font-size: var(--text-sm);
+}
+@media (max-width: 760px) {
+  .account-profile {
+    flex-direction: column;
+    padding: var(--space-6) var(--space-4) var(--space-5);
+    text-align: center;
+  }
+  .account-profile .account-pills {
+    justify-content: center;
+  }
+  .account-profile > button {
+    width: 100%;
+  }
+  .account-row {
+    padding: 14px;
+  }
+  .account-password {
+    padding-left: 14px;
+  }
+  .account-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* The page while the session starts (0.12 I2). */
+.session-start {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: var(--space-6) var(--space-4);
+  color: var(--text-secondary);
+}
+.session-start > div {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 480px;
+}
+.session-start h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 20px;
+}
+.session-start p {
+  margin: 0;
+}
+.session-start button {
+  justify-self: start;
+}

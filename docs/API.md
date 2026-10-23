@@ -5715,8 +5715,11 @@ Designed in the [Base 0.12 P0 plan](BASE_0_12_IMPLEMENTATION_PLAN.md#p0-plan-202
 (2026-10-23):** the server metadata, the JWKS and the token endpoint with `client_credentials`; every
 route but the open ones needing a token, with the refusals below; `GET /me`; people (`/users`, without
 password resets or sessions), clients and their secrets (`/clients`), token signing keys and their
-rotation; `GET /system/configuration`; `SECRETS_ENCRYPTION_KEY`. Until Z1 every active principal may
-use every route. The rest is designed; each part moves into "delivered" with its package (I2, I3, Z1–Z5, SP1, SP2, K1, C1,
+rotation; `GET /system/configuration`; `SECRETS_ENCRYPTION_KEY`. **Delivered by I2 (2026-10-23):** the
+sign-in page and its form, the `authorization_code` and `refresh_token` grants, `/oauth/revoke`,
+sessions and the `sid` check, `/me/sessions`, `/me/password`, `signedInWith` and `sessionId` on `/me`,
+`/users/{id}/password-reset` and `/users/{id}/sessions`, the reset link's page, and failed sign-ins
+slowed. Until Z1 every active principal may use every route. The rest is designed; each part moves into "delivered" with its package (I2, I3, Z1–Z5, SP1, SP2, K1, C1,
 A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
@@ -5733,18 +5736,35 @@ Outside `/api/v1`, needing no token:
 - `GET /oauth/jwks`: the public keys that verify access tokens, each with its `kid`; every process
   serves the same set (keys live in the database, sealed, D253).
 - `GET /oauth/authorize`, `POST /oauth/authorize`: the engine's sign-in page and its form (I2). The
-  authorization code flow with PKCE, `code_challenge_method=S256` only; a registered `redirect_uri`
-  matched exactly. A sign-in provider's button leads through that provider and back (I3).
+  authorization code flow with PKCE, `code_challenge_method=S256` only, for the browser's built-in
+  public client `client_id=browser` (no secret); its `redirect_uri` is `<origin>/signed-in` for an
+  origin in `CORS_ORIGINS`, matched exactly (D267). An unknown client or address is explained on the
+  page and never redirected to; a wrong `response_type` or a missing `S256` challenge is redirected
+  back with `error`. Right credentials redirect (`303`) with a one-time `code`, valid 60 seconds, and
+  the `state`; wrong ones show the page again (`401`) without saying which part was wrong; while
+  failures are slowed it answers `429` with `Retry-After` and the wait on the page (D271). A form
+  posted from another origin is refused (`403`). `session=ended` adds "Your session ended" (D270).
+  The pages are HTML outside the OpenAPI document, with a policy allowing no script and no framing
+  (D275). A sign-in provider's button leads through that provider and back (I3).
+- `GET /oauth/password?token=`, `POST /oauth/password` (I2): the page a password-reset link opens
+  (D272): a new password, typed twice, under the rules below. A used, replaced or expired link answers
+  `410` on the page.
 - `POST /oauth/token`: grant types `authorization_code` (the browser), `refresh_token` (the browser,
   read from the cookie) and `client_credentials` (a client, `client_secret_basic` or
   `client_secret_post`). The answer is RFC 6749's: `access_token`, `token_type: "Bearer"`,
   `expires_in` and `scope`, with `Cache-Control: no-store`. `scope` asks for the audience:
-  `management` (the default) or `consumer` (D260); another answers `invalid_scope`. I1 serves
-  `client_credentials`; any other grant answers `unsupported_grant_type` until I2. A missing
+  `management` (the default) or `consumer` (D260); another answers `invalid_scope`. A missing
   `grant_type` is `invalid_request`; credentials sent both ways are `invalid_request`; an unknown or
   inactive client or a wrong secret is `401 invalid_client` (with `WWW-Authenticate: Basic` when sent
-  as Basic).
-- `POST /oauth/revoke` (RFC 7009): a refresh token, which ends its session.
+  as Basic). The browser's grants take `client_id=browser` and no secret (`401 invalid_client`
+  otherwise): `authorization_code` with `code`, `code_verifier` and `redirect_uri` starts a session;
+  `refresh_token` takes the token from the cookie (or a `refresh_token` field) and renews it. Both
+  answer the access token in the body and the new refresh token as the cookie. A code that is unknown,
+  expired, used, or whose verifier or address differs, and a refresh token that is unknown, used or
+  whose session ended, answer `400 invalid_grant`; a code or refresh token presented a second time
+  ends the session it started. No refresh token at all is `invalid_request`.
+- `POST /oauth/revoke` (RFC 7009): the refresh token in `token`, or the cookie, ends its session; the
+  cookie is cleared; always `200`.
 
 The OAuth endpoints answer errors in the RFC's shape, `{"error": "invalid_grant",
 "error_description": "…"}`, because client libraries parse it (D250); every other route uses the
@@ -5783,25 +5803,30 @@ issues: another algorithm, no `kid`, an unknown `principalKind`, or not `Bearer`
 signature, the issuer or a required claim does not verify); both with `WWW-Authenticate: Bearer`
 (`error="invalid_token"` on the second).
 
-**Local passwords** (D252): 15 to 128 characters, no composition rules; refused when equal to the
+**Local passwords** (D252): 15 to 128 characters (`PASSWORD_MIN_LENGTH`, lowered only on a
+development machine, D276), no composition rules; refused when equal to the
 username or in a built-in list of the most common (`422 PASSWORD_REJECTED`, `details.reason`).
 Failed sign-ins are slowed per account and per address with a growing delay, never locked; the
 sign-in page says how long to wait. Passwords and client secrets are hashed with Argon2id.
 
 ### The caller
 
-- `GET /api/v1/me` (delivered, I1): the principal: `id`, `kind` (`user` or `client`), `name`,
+- `GET /api/v1/me` (delivered, I1, I2): the principal: `id`, `kind` (`user` or `client`), `name`,
   `username` and `email` (a person; `null` for a client), `lastSignInAt` (a person's last sign-in, or
-  when a client last obtained a token). `signedInWith` (`password` or a provider's key) comes with
-  I2.
+  when a client last obtained a token), `signedInWith` (`password`, or a provider's key with I3) and
+  `sessionId` (a person's session; `null` for a client).
 - `GET /api/v1/me/permissions?workspaceKey=`: the action groups the caller holds in that workspace
   (the default workspace when absent) and at the instance, each with its narrowing
   (`applications`, `recordTypes` for writes) and where it comes from (`direct`, a group, the
   instance). The browser follows it (Z5).
-- `GET /api/v1/me/sessions` (cursor-paged), `DELETE /api/v1/me/sessions/{sessionId}`,
-  `DELETE /api/v1/me/sessions` ("sign out everywhere").
-- `POST /api/v1/me/password` `{currentPassword, newPassword}`: a local account only; ends every other
-  session.
+- `GET /api/v1/me/sessions` (cursor-paged; delivered, I2): the person's open sessions, each with
+  `id`, `current` (this request's), `signedInWith`, `userAgent`, `createdAt`, `lastUsedAt`, `endsAt`.
+  `DELETE /api/v1/me/sessions/{sessionId}` (`204`; another person's or an ended one is
+  `404 SESSION_NOT_FOUND`), `DELETE /api/v1/me/sessions` ("sign out everywhere", this one included).
+  A client calling them is refused with `403 NOT_A_PERSON`.
+- `POST /api/v1/me/password` `{currentPassword, newPassword}` (delivered, I2): `204`; a wrong current
+  password is `422 PASSWORD_INCORRECT`, a new one the rules refuse `422 PASSWORD_REJECTED`; ends every
+  other session.
 - `GET /api/v1/me/notifications` (Track A, A2): cursor-paged, `unread=true|false`;
   `POST /api/v1/me/notifications/read` `{ids}` or `{all: true}`; a live stream at
   `GET /api/v1/me/notifications/events` (`text/event-stream`, read with `fetch`, D247).
@@ -5901,8 +5926,10 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   order), create, read and `PATCH` (`expectedVersion`; `active: true` restores). A person reads
   `id`, `username`, `name`, `email`, `active`, `hasPassword` (never the password), `version`,
   `createdAt`, `updatedAt`, `lastSignInAt`. The username has no spaces, at most 150 characters, and
-  is unique ignoring case (`409 USERNAME_TAKEN`); a missing person is `404 USER_NOT_FOUND`. The reset
-  link and the sessions come with I2 (D261), the grants with Z1.
+  is unique ignoring case (`409 USERNAME_TAKEN`); a missing person is `404 USER_NOT_FOUND`.
+  Deactivating a person ends their sessions. _Delivered by I2:_ `POST /users/{id}/password-reset`
+  (`201 {url, expiresAt}`, answered once; valid `PASSWORD_RESET_HOURS`, once; a newer link replaces an
+  older one, D272) and `DELETE /users/{id}/sessions` (`204`). The grants come with Z1.
 - **Groups:** `GET|POST /groups`, `GET|PATCH|DELETE /groups/{id}`, `GET|POST /groups/{id}/members`,
   `DELETE /groups/{id}/members/{userId}`. A provider group (`source: {provider, name}`) is created on
   first sight at a sign-in and its membership is the provider's; only its grants change here (D229).

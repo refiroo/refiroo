@@ -281,6 +281,20 @@ inspected then. US-P05 end to end, by keyboard and by clicking, is `test:browser
 W1, W3, W4, S12 and S13 above describe these pages before U3. W3's capability status is replaced by
 Deployment's capability groups and a notice on a disabled page naming its setting.
 
+### Surfaces added in 0.12 I2
+
+Signing in from the browser, from the approved security mock-ups (U8). The sign-in and reset pages
+are the engine's own HTML (`management/sign_in_pages.py`) in the app's colours, not React; the others
+reuse the Settings layout.
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| I2-1 | The sign-in page | any page of the app without a session; `/oauth/authorize` on the engine | The mock-ups' sign-in (1440px, 390px) | — (served whole) | **B** (the product's name from the default workspace's model, on two models) | — (a form post) | **B** (back to the page asked for) | **B** (wrong username or password, never which; slowed with the wait, `429`, journey J39.5; "Your session ended") | — | **B** (an unknown client or address explained, never redirected; journey) | **B** (one column, no horizontal scroll) | **B** (username focused, then the password after a refusal; Enter submits) | `i2-sign-in` (axe light and dark, screenshots), `test_j39_sign_in` |
+| I2-2 | Starting the session | opening the app | — | **C** ("Signing in…") | — | — | **C** (renewed from the cookie; back from the sign-in page to the address kept) | **C** (no session: the sign-in page) | — | **C** (the engine out of reach: a message with **Try again**, no redirect) | — | — | `session.test`, `i2-sign-in` |
+| I2-3 | The account menu | the avatar at the right of the top bar | `ControlPopover`, the mock-up's menu without the role and source link (D273) | — | **B** (name, e-mail, initials) | — | **B** (Account, All settings, Sign out leading to the sign-in page) | — | — | — (the name missing while `/me` cannot be read: "Signed in") | **B** | **B** (opened by Enter) | `i2-sign-in`, `u3-settings`, `SettingsMenu.test` |
+| I2-4 | Settings › Account (reworked from the user's mock-up, 2026-10-23) | `/settings/account`; **Account** in the menu | Settings layout, the mock-up's profile card and rows of tiles, FormField, ConfirmDialog | **C** (Skeleton) | **B** (the profile card; this browser marked among the sessions; each workspace with **Everything** until roles) | **C** (Saving…) | **B** (the password form opened in place, changed, toast, closed; another session signed out; everywhere after confirming) | **B** (wrong current password at its field; a rejected new one at its field) | — | **C** (InlineError, Retry, per section) | **B** (the card centred, rows kept, buttons full width) | **C** (labelled fields, a reveal button named per field with `aria-pressed`, the confirm dialog) | `i2-sign-in` (axe, screenshots closed and open), `AccountPage.test` |
+| I2-5 | Downloads and the job stream through `fetch` (D247) | Download on a job and its toast; openapi.json on API reference; a job's progress | `ui/DownloadLink` | — | **B** (the export's name and size) | — | **B** | **C** (a refused download said beside its link) | — | **C** (the stream connects again after it drops) | — | — | `j1u-export`, `eventStream.test` |
+
 ## 3. Selected focused browser checks
 
 Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,

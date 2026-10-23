@@ -965,9 +965,10 @@ A request's path through the checks:
    with (`MANAGEMENT_DEPENDENCIES`, `authenticated`) and its counterpart on the consumer router, both
    calling `engine/identity/authentication.py`: the token's key by `kid` and its principal are read
    in one statement, then its ES256 signature, expiry, issuer and audience are checked and the
-   principal must be active. Public keys are cached per process; whether a key is retired is read on
-   every request, so "rotate now" applies at once everywhere. Until Z1 an authenticated principal
-   passes every route.
+   principal must be active. A person's token carries its session (`sid`, I2), read in the same
+   statement: an ended or lapsed session refuses it. Public keys are cached per process; whether a key
+   is retired is read on every request, so "rotate now" applies at once everywhere. Until Z1 an
+   authenticated principal passes every route.
 2. **The principal's permissions**, from a per-process cache keyed by principal and invalidated
    through `pg_notify`: whether the principal is active and its session open, and the action groups
    it holds per workspace with their write narrowing.
@@ -980,6 +981,16 @@ A request's path through the checks:
 
 The deployment capability flags stay outside both (ADR-031): an unregistered route never reaches
 them.
+
+**How a person gets a token** (I2): the browser application, before it renders, renews its session
+from the `HttpOnly` refresh cookie (`api/session.ts`), or goes to the engine's sign-in page
+(`management/routers/oauth.py`, HTML from `management/sign_in_pages.py`) with a PKCE challenge. The
+page checks the password (`engine/identity/sign_in.py`, slowed per account and address) and
+redirects back with a one-time code; the code and its verifier start a session
+(`engine/identity/sessions.py`) whose refresh tokens are each used once. The access token lives in
+the page's memory; tabs renew one at a time under a Web Lock, and a `401` renews once and repeats the
+request. The job stream and downloads are read with `fetch`, since `EventSource` and links cannot send
+the header.
 
 ### Workspace migrations (0.11 V1)
 

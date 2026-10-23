@@ -88,7 +88,7 @@ becomes a select at the top of the page.
 | Data operations | Import profiles | Stored import profiles as a catalogue: a profile's last load, the next version uploaded and checked, loaded into a change set (0.10 A5c) | `/import-profiles`, its check, `/source-files`, `/imports` | 0.10 A5c |
 | Data operations | Jobs | Recent jobs with status and outcome counts; cancel; batch and job limits (the feed's retention moved to Consumer APIs, 0.10 A5c) | job routes (B1–B2), `GET /api/v1/capabilities` | U4 (0.9) |
 | Integration | API reference | Links to `/docs`, one per source, with its version | `GET /api/consumer` | U4 (0.9) |
-| General | Account | The person, their password, where they are signed in (sign out one or everywhere), what they can do (read-only) | `/me`, `/me/sessions`, `/me/password`, `/me/permissions` | 0.12 I2 |
+| General | Account | The person, their password, where they are signed in (sign out one or everywhere), what they can do per workspace (until Z1 "Everything", then their roles) | `/me`, `/me/sessions`, `/me/password`, `/me/permissions` | 0.12 I2 (built 2026-10-23), Z1 |
 | Security | People | List and detail: create, a one-time reset link, deactivate, sign out everywhere, last sign-in; roles by workspace with their narrowing and where they come from; groups; recent activity | `/users`, `/grants` | 0.12 SP1 |
 | Security | Groups | Local and provider groups; members (a provider group's as seen at sign-in); roles | `/groups`, `/grants` | 0.12 SP1 |
 | Security | Roles | The matrix of roles and action groups; predefined read-only; a custom role created, copied, edited | `/roles`, `/action-groups` | 0.12 SP1 |
@@ -2585,7 +2585,8 @@ packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
   the person returns to. At 390px it is one column.
 - **The account menu** replaces "Local session": the person, their e-mail and main role,
   "Account", "All settings", the theme, "Sign out", and the source link. **Account** is a General
-  page.
+  page. _Built by I2 (2026-10-23)_ without the role (Z1) and the source link (L1), D273; the sign-in
+  page without the provider's button (I3) and the source link.
 - **Security pages** use the list-and-detail pattern (U-D10): the list beside the selected entry,
   inside the page; at 390px the list alone, a row opening the detail. No page names an application or
   record type; narrowing shows the model's names as data.

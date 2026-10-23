@@ -27,6 +27,9 @@ from fastapi.testclient import TestClient as _FastApiTestClient
 # The key every test database's secrets are sealed with: 32 bytes, URL-safe base64. Test data only.
 SECRETS_ENCRYPTION_KEY = base64.urlsafe_b64encode(b"rdm-engine-test-harness-key-0001").decode()
 os.environ.setdefault("SECRETS_ENCRYPTION_KEY", SECRETS_ENCRYPTION_KEY)
+# The person the browser runners sign in as, through the real sign-in page (0.12 I2, D274). Test
+# data only.
+HARNESS_PERSON = {"username": "harness", "password": "harness person passphrase 0001"}
 # Long enough that a seed's signing key is never replaced while it is reused (D264).
 SIGNING_KEY_DAYS = "36500"
 os.environ.setdefault("TOKEN_SIGNING_KEY_DAYS", SIGNING_KEY_DAYS)
@@ -34,21 +37,22 @@ os.environ.setdefault("TOKEN_SIGNING_KEY_DAYS", SIGNING_KEY_DAYS)
 _lock = threading.Lock()
 # The harness token for each audience, with when it expires.
 _tokens: dict[str, tuple[str, float]] = {}
-_credentials: dict[str, str] | None = None
+_credentials: dict[str, object] | None = None
 # Tokens of clients made in databases without the harness client, by database URL and audience.
 _own_tokens: dict[tuple[str, str], str] = {}
 _own_clients: dict[str, tuple[str, str]] = {}
 
 
-def create_harness_client() -> dict[str, str]:
-    """Make the harness client and the first signing key in the configured database (the
-    ``schema`` seed's build); the credentials go into the seed's payload."""
+def create_harness_client() -> dict[str, object]:
+    """Make the harness client, the harness person and the first signing key in the configured
+    database (the ``schema`` seed's build); the credentials go into the seed's payload."""
     from app.config import get_settings
     from app.db import SessionLocal
     from app.engine.identity import keys
     from app.engine.identity.clients import create_client
     from app.engine.identity.settings import IdentitySettings
-    from app.models.commands import ClientCreate
+    from app.engine.identity.users import create_user
+    from app.models.commands import ClientCreate, UserCreate
 
     settings = get_settings()
     assert settings.secrets_encryption_key is not None
@@ -61,10 +65,15 @@ def create_harness_client() -> dict[str, str]:
     with SessionLocal() as session:
         client, secret = create_client(session, ClientCreate(name="Test harness"))
         keys.signing_key(session, identity)
-        return {"clientId": client.public_id, "clientSecret": secret}
+        create_user(
+            session,
+            UserCreate(username=HARNESS_PERSON["username"], name="Test harness person"),
+            password=HARNESS_PERSON["password"],
+        )
+        return {"clientId": client.public_id, "clientSecret": secret, "person": HARNESS_PERSON}
 
 
-def credentials() -> dict[str, str]:
+def credentials() -> dict[str, object]:
     global _credentials
     if _credentials is None:
         import seeds
@@ -103,7 +112,9 @@ def token(post: Callable[..., httpx.Response], scope: str = "management") -> str
         held = _tokens.get(scope)
         if held is None or held[1] - time.monotonic() < 120:
             harness = credentials()
-            response = request_token(post, harness["clientId"], harness["clientSecret"], scope)
+            response = request_token(
+                post, str(harness["clientId"]), str(harness["clientSecret"]), scope
+            )
             if response.status_code != 200:
                 return None
             body = response.json()

@@ -1,10 +1,14 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { openEventStream } from "@/api/eventStream";
 import { jobEventsUrl, jobOutputUrl } from "@/api/client";
 import { testModel } from "@/test/fixtures";
 import type { Job } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
 import { JobNotificationsProvider, jobTitle, useJobNotifications } from "./JobNotifications";
+
+// Job streams are read with fetch (0.12 I2); the test drives them instead.
+vi.mock("@/api/eventStream", () => ({ openEventStream: vi.fn() }));
 
 /** An EventSource the test drives: what the engine would push over a job's stream. */
 class FakeEventSource {
@@ -55,7 +59,7 @@ describe("JobNotifications (0.9 J1u)", () => {
   beforeEach(() => {
     FakeEventSource.opened = [];
     window.sessionStorage.clear();
-    vi.stubGlobal("EventSource", FakeEventSource);
+    vi.mocked(openEventStream).mockImplementation((url) => new FakeEventSource(url));
   });
   afterEach(() => vi.unstubAllGlobals());
 

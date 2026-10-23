@@ -20,6 +20,7 @@ import { AccountMenu } from "./SettingsMenu";
 import { useInstanceProduct } from "./instanceProduct";
 
 const SETTINGS: RouteState = { kind: "settings", page: "about" };
+const ACCOUNT: RouteState = { kind: "settings", page: "account" };
 
 /** The applications as buttons, each with its tile; the top bar's tabs and the phone band's menu (0.10 N1). */
 export function ApplicationButtons({
@@ -88,7 +89,12 @@ export function TopBar({
         >
           <Icon name="gear" size={18} />
         </RouteLink>
-        <AccountMenu settingsHref={routePath(SETTINGS)} onOpenSettings={() => onNavigate(SETTINGS)} />
+        <AccountMenu
+          settingsHref={routePath(SETTINGS)}
+          accountHref={routePath(ACCOUNT)}
+          onOpenSettings={() => onNavigate(SETTINGS)}
+          onOpenAccount={() => onNavigate(ACCOUNT)}
+        />
       </div>
     </header>
   );

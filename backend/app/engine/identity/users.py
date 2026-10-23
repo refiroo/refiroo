@@ -11,7 +11,8 @@ from ...common.pagination import Page, PageRequest, integer_key, paginate_statem
 from ...errors import ApiError, api_error
 from ...models.commands import UserCreate, UserUpdate
 from ...models.database import User
-from .passwords import check_password, hash_secret
+from . import sessions
+from .passwords import DEFAULT_MIN_LENGTH, check_password, hash_secret
 
 _KEYS = (integer_key("sequenceId", User.id, "id"),)
 
@@ -41,10 +42,16 @@ def load_user(session: Session, public_id: str, *, for_update: bool = False) -> 
     return user
 
 
-def create_user(session: Session, payload: UserCreate, *, password: str | None = None) -> User:
+def create_user(
+    session: Session,
+    payload: UserCreate,
+    *,
+    password: str | None = None,
+    min_length: int = DEFAULT_MIN_LENGTH,
+) -> User:
     """A person; with ``password`` (``create_admin``), checked against the rules first."""
     if password is not None:
-        check_password(password, payload.username)
+        check_password(password, payload.username, min_length)
 
     def change() -> User:
         taken = session.scalar(
@@ -81,10 +88,13 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
             user.name = payload.name
         if "email" in fields:
             user.email = payload.email
+        now = datetime.now(UTC)
         if "active" in fields and payload.active is not None:
+            if user.active and not payload.active:
+                sessions.end_all(session, user.id, "deactivated", now)
             user.active = payload.active
         user.version += 1
-        user.updated_at = datetime.now(UTC)
+        user.updated_at = now
         return user
 
     return _changing(session, change)
