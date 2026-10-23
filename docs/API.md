@@ -5721,8 +5721,10 @@ sessions and the `sid` check, `/me/sessions`, `/me/password`, `signedInWith` and
 `/users/{id}/password-reset` and `/users/{id}/sessions`, the reset link's page, and failed sign-ins
 slowed. **Delivered by Z1 (2026-10-23):** every operation's declared action and the `403` refusal;
 roles, groups and members, grants, a workspace's access, `/action-groups`, `/me/permissions` and
-`/me/grants`; the lists filtered. A grant's narrowing is stored and checked against the workspace's
-model; it is enforced at the write unit by Z2. The rest is designed; each part moves into
+`/me/grants`; the lists filtered. **Delivered by Z2 (2026-10-23):** a grant's narrowing enforced at
+the write unit, `details.recordTypes` on the refusal, jobs run as their requester, source files read
+by their uploader and their workspace's holders, `stale` grants, and a move's source needing Work
+in change sets for `mode: move`. The rest is designed; each part moves into
 "delivered" with its package (I3, Z2–Z5, SP1, SP2, K1, C1, A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
@@ -5855,10 +5857,10 @@ D278).
 | Browse | `browse` | Read a workspace: its model, records, values, relations, history, the query, matrices, mapping coverage, change sets, publications; exports | Workspace |
 | Edit live | `edit-live` | Record, value, relation and relationship-set writes without a change set | Workspace, narrowed to applications and record types |
 | Work in change sets | `change-sets` | Create, rename, discard, validate and restructure change sets, move them onto a release; the same writes inside them; submit for publication (Track A) | Workspace, narrowed alike |
-| Publish | `publish` | Publish a change set; withdraw a publication | Workspace |
+| Publish | `publish` | Publish a change set; withdraw a publication | Workspace, narrowed alike (the change set's record types) |
 | Approve publications | `approve` | Approve or send back another's request; with `own`, one's own (Track A) | Workspace |
 | Bulk and import | `bulk` | Batches, imports, import profiles and their checks, source files | Workspace, narrowed alike |
-| Copy and move | `copy-move` | Model-to-model mappings and moves | Workspace (read on the source, write on the target) |
+| Copy and move | `copy-move` | Model-to-model mappings and moves | Workspace (Browse on the source, and Work in change sets there for `mode: move`; written in the target, narrowed alike) |
 | Model authoring | `model-authoring` | Model drafts and everything on them; reading releases | Instance |
 | Model release | `model-release` | Install a draft, activate a release into a workspace, migrate a workspace; reading releases | Instance or workspace |
 | Workspace administration | `workspace-admin` | Create, rename, retire and delete workspaces; set the default | Instance |
@@ -5879,9 +5881,11 @@ Rules the catalogue applies:
   may browse (workspaces, which model each runs, jobs, change sets, the cross-type lookup across
   workspaces, the feed); a named resource the caller may not use answers `403 FORBIDDEN`.
 - **Instance-wide resources** (D248): import profiles and model mappings carry no data and are read
-  and changed by anyone holding `bulk` (profiles) or `copy-move` (mappings) at any scope; source files
-  are read by their owner and by holders of `bulk` in their workspace (at the instance for one
-  without a workspace); model drafts by holders of `model-authoring`.
+  and changed by anyone holding `bulk` (profiles) or `copy-move` (mappings) at any scope; an import
+  profile's source files are read, changed and listed for their uploader and for holders of `bulk`
+  in their workspace (at the instance for one without a workspace), and refused to anyone else with
+  `403` (delivered, Z2, D295; a file uploaded before Z2 has no uploader); a draft's source files
+  stay with holders of `bulk` at any scope; model drafts by holders of `model-authoring`.
 - **Jobs** are read, followed, cancelled and confirmed by their requester, or by a holder in the
   job's workspace of the group that starts its kind (`bulk` for batches and imports, `browse` for
   exports, `copy-move` for moves, `model-release` for migrations, `change-sets` for a change set's
@@ -5920,8 +5924,46 @@ A client may hold any of them; **Consumer** is not a role but a consumer API gra
 }
 ```
 
-A write refused for its record types (Z2) adds `details.recordTypes`, the types the caller may not
-write, checked as one set over the work's distinct types.
+**Narrowed writes** (delivered, Z2, D289–D293, D297). A grant narrowed to `applications` and
+`recordTypes` lets its holder write a record whose application **or** type it names; several grants
+holding the group in the workspace add up, and one without a narrowing allows every record. A
+relationship may be added, changed or removed when either end's type is allowed. The narrowing
+applies to the group the write is made under: Edit live for a live write, Work in change sets for a
+write in a change set and a restructuring (the type a record leaves and the one it takes), Bulk and
+import for batches and imports, Publish for a publication (every record type the change set holds,
+and the types live records it replaces or deletes had), Copy and move for what a move loads into
+its target. A migration and a withdrawal are not narrowed. A write refused for its record types
+adds `details.recordTypes`, the types refused:
+
+```json
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Changing records live in workspace 'herbarium' is not granted for record type 'collector'",
+    "details": {
+      "action": "records.write",
+      "groups": ["edit-live"],
+      "workspaceKey": "herbarium",
+      "recordTypes": ["collector"]
+    }
+  }
+}
+```
+
+A single write and a publication are refused whole. In a batch, an import or a move each item of a
+refused type carries that refusal as its outcome, and the batch's policy decides as for any refused
+item; a preview, a dry run and a restructuring's plan show the same refusal. The allowance is read
+once per request or job step, and each write tests its distinct types against it; a caller holding
+the group unnarrowed costs no statement. A write no request or job names a caller for is refused
+with `500 WRITER_UNKNOWN`, which only an engine defect can cause.
+
+**Jobs run as their requester** (delivered, Z2, D236, D294). Submitting a job records the caller;
+confirming it checks the requester again, and so does every step the worker takes. A requester who
+was deactivated, or who no longer holds the group the job's kind is used under in its workspace,
+makes the job fail at that step with `403 FORBIDDEN`, whose details add `requestedBy` (`kind`, `id`,
+`name`); a confirmation is refused the same way and the job keeps waiting. The requester reads,
+follows, cancels and confirms their own job and sees it in `GET /jobs` without holding that group.
+Jobs submitted before 0.12 Z2 have no requester and run as before.
 
 ### Security administration
 
@@ -5973,15 +6015,18 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
 
   `scope: {"instance": true}` for the instance. A consumer API grant names `consumerApi` instead of
   `role` and a workspace (Z3). A grant naming an application or record type the workspace's model no
-  longer has is listed with `stale: true`, never widened (Z2). Removing the last active holder of
+  longer has is listed with `stale: true`, never widened (delivered, Z2, D296: `stale`, and
+  `scope.missingApplications` and `scope.missingRecordTypes` naming what is gone; a missing name
+  allows nothing, so a grant naming only such allows no writes; `/me/permissions` marks a held
+  group `stale` alike). Removing the last active holder of
   `security-admin` at the instance is refused with `409 LAST_SECURITY_ADMINISTRATOR`.
   _Delivered by Z1:_ a grant reads `id`, `principal` (`kind`, `id`, `name`), `role` (`key`,
   `name`), `scope` (`instance`, `workspaceKey`, `applications`, `recordTypes`, and
   `applicationNames`, `recordTypeNames` from the workspace's model) and `createdAt`; grants are made
   and removed, never changed. A scope that is both or neither the instance and a workspace, or an
   instance grant that narrows, is `422 GRANT_SCOPE_INVALID`; a narrowing naming what the workspace's
-  model lacks is `422 GRANT_SCOPE_UNKNOWN` (D281); the narrowing is enforced at the write unit by
-  Z2. "The last Security administrator" counts active people holding `security-admin` at the
+  model lacks is `422 GRANT_SCOPE_UNKNOWN` (D281); the narrowing is enforced at the write unit
+  (Z2, above). "The last Security administrator" counts active people holding `security-admin` at the
   instance, directly or through a group; clients do not count, and the rule also refuses
   deactivating that person, taking them out of the group, deleting the group or taking the group
   out of a custom role (D283). A missing grant is `404 GRANT_NOT_FOUND`.

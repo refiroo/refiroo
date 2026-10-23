@@ -49,7 +49,7 @@ def get_my_permissions(
     """The action groups the caller holds in a workspace (the default workspace without
     ``workspaceKey``), each with its narrowing and the grants it comes from."""
     workspace = resolve_workspace(session, workspace_key)
-    return present.permissions_response(permissions, workspace)
+    return present.permissions_response(session, permissions, workspace)
 
 
 @router.get("/me/grants", response_model=GrantPage)

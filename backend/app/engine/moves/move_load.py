@@ -19,6 +19,8 @@ until a change set is published (D20).
 
 import json
 from collections.abc import Callable
+from contextlib import nullcontext
+from dataclasses import replace
 from typing import Any
 
 from sqlalchemy import select, text
@@ -27,6 +29,7 @@ from sqlalchemy.orm import Session
 from ...errors import api_error
 from ...models.commands import BatchDeleteItem, RecordReference
 from ...models.database import ChangeSet, Job, Workspace, WorkspaceModel
+from ..authorization.writes import writer_of, writing_as
 from ..change_sets.access import change_set_model
 from ..change_sets.lifecycle import open_job_change_set
 from ..jobs.background import open_job_context
@@ -294,18 +297,26 @@ def _delete_in_source(session: Session, job: Job) -> str | None:
     # this move deletes too is refused for them in the pass that deletes them, and tried again in
     # the next (0.11 X5). Passes end when one deletes nothing more: at most the hierarchy's depth.
     decided: dict[int, Any] = {}
+    # The source's deletion is change-set work there, narrowed by those grants (0.12 Z2, D297).
+    writer = writer_of(session)
+    source_writer = (
+        replace(writer, groups=("change-sets",))
+        if writer is not None and writer.permissions is not None
+        else writer
+    )
     while pending:
         session.refresh(change_set)
-        outcomes = run_items(
-            session,
-            context,
-            pending,
-            policy="independent",
-            on_existing="reject",
-            expected_change_set_version=change_set.version,
-            job_id=job.id,
-            own_links=True,
-        )
+        with writing_as(session, source_writer) if source_writer else nullcontext():
+            outcomes = run_items(
+                session,
+                context,
+                pending,
+                policy="independent",
+                on_existing="reject",
+                expected_change_set_version=change_set.version,
+                job_id=job.id,
+                own_links=True,
+            )
         decided.update((outcome.index, outcome) for outcome in outcomes)
         if not any(outcome.status == "applied" for outcome in outcomes):
             break

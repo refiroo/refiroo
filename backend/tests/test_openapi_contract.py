@@ -223,9 +223,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # /grants, /workspaces/{key}/access, /me/permissions and /me/grants with their schemas;
     # x-action, x-action-groups and x-action-scope on every operation but the open ones (D256);
     # GET /jobs' description (filtered, D285). Diffed against ffe558b, nothing else changed.
+    # Re-baselined for 0.12 Z2 (D289–D297): a grant's stale and its scope's missingApplications
+    # and missingRecordTypes, stale on a held group (D296), and GET /source-files' description
+    # (filtered, D295). Diffed against eaa724c, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "8a046f1aa5f8458480977c64a35ff15f5d83aab2d58d7bd5fb5277273ffe0188"
+        "5964ea4d372d557d95ef18540c69f8c7a02b717417a1d2b3c73e287b6c03e5d4"
     )
 
 

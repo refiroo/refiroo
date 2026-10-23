@@ -1739,7 +1739,7 @@ the consumer APIs alike (ROADMAP), with no API keys and no credential in a URL (
 
 **Status:** Accepted, 2026-10-23, by the user with the
 [Base 0.12 P0 plan](BASE_0_12_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-22) (D226–D231, D236, D241,
-D243–D249, D255–D257). Corrects ARCHITECTURE's "model-configurable permissions" and ADR-031's
+D243–D249, D255–D257). Z2 (2026-10-23) settled how the write-unit check works (D289–D297). Corrects ARCHITECTURE's "model-configurable permissions" and ADR-031's
 release number. The catalogue is in [API.md § Security](API.md#security-product-012-designed).
 
 ### Motivation
@@ -1769,9 +1769,12 @@ must be served as well as stewards (the user's ideas, 2026-10-22).
   roles change without a release. Grants refer to applications and record types as data; a grant
   naming one the model no longer has is reported, never widened.
 - **Two checks on every path:** at the route, for the action and the workspace; at the write unit,
-  for the record types written, as one set statement over the work's distinct types. Bulk work,
-  imports, moves, publications, type changes and jobs pass both; a job runs with its requester's
-  permissions, checked at submission, confirmation and each step.
+  for the record types written, tested once over the work's distinct types against what the
+  caller's grants allow there (Z2: a record whose application or type a grant names, grants adding
+  up, a relationship by either end, D289–D291). Bulk work, imports, moves, publications, type
+  changes and jobs pass both; a job runs with its requester's permissions, checked at submission,
+  confirmation and each step (D294). The write unit learns the caller from a writer the route check
+  or the worker puts on the session, and writes nothing without one (D292).
 - **Live and change-set writes are separate permissions** on the same routes: the request's
   `changeSetId` decides which is checked. This is what lets a Contributor change data only by
   proposing it.

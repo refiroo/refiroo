@@ -13,6 +13,12 @@ Records created and updated through the object services are decided first and wr
 The operation keeps what only it knows: which rules to run (``rules.py``), what to record in the
 audit log, and when to commit. In-place edits of a row the unit handed out (a name, a parent, new
 values of a change set row) stay with the operation.
+
+The unit also refuses what the session's writer may not write (Product 0.12 Z2, D289–D293): each
+method that adds, claims or removes rows checks the distinct record types it is handed, and a
+relationship's end types, against ``authorization.writes.allowance`` before it writes. A writer
+holding the group unnarrowed reads nothing for it. A value is saved or removed only after its
+record's claim, which checked the record.
 """
 
 from collections.abc import Iterable, Iterator
@@ -21,7 +27,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import String, all_, any_, bindparam, delete, select, update
+from sqlalchemy import String, all_, any_, bindparam, delete, select, text, update
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
@@ -37,10 +43,12 @@ from ...models.database import (
     Workspace,
 )
 from ...models.schema import EngineModel
+from ..authorization.writes import allowance, refuse_types
 from ..indexes import matrix_states, unique_values
 from ..model import expected_release
 from .audit import AuditEntry, record_audit_event, record_audit_events
 from .batch_lookup import Changes
+from .context import ChangeSetLookup
 from .values import VALUE_COLUMNS, normalize_value
 
 # Change sets whose version a job has claimed for all its items, in ``Session.info``.
@@ -61,7 +69,60 @@ def _listed(ids: Iterable[str]) -> Any:
     return bindparam(None, sorted(ids), type_=ARRAY(String))
 
 
-class LiveWrites:
+TypePair = tuple[str, str]
+
+
+class _Permits:
+    """The write-unit check (Z2): what the session's writer may write in the unit's workspace."""
+
+    session: Session
+    workspace_key: str
+
+    def _types(self, object_ids: set[str]) -> dict[str, TypePair]:
+        raise NotImplementedError
+
+    def permit(
+        self,
+        records: Iterable[TypePair] = (),
+        relations: Iterable[tuple[str, str]] = (),
+        known: dict[str, TypePair] | None = None,
+    ) -> None:
+        """Refuse a write of ``records`` (application and type) and of relationships between the
+        ``relations`` end IDs, whose types are read in one statement unless ``known``."""
+        if allowance(self.session, self.workspace_key).everything:
+            return
+        relations = list(relations)
+        types = dict(known or {})
+        missing = {end for pair in relations for end in pair if end not in types}
+        if missing:
+            types.update(self._types(missing))
+        refuse_types(
+            self.session,
+            self.workspace_key,
+            records,
+            [(types[a], types[b]) for a, b in relations if a in types and b in types],
+        )
+
+    def permit_changes(self, changes: Changes) -> None:
+        """A decided write's records and relationships."""
+        if allowance(self.session, self.workspace_key).everything:
+            return
+        known = {
+            object_id: (record.application_key, record.object_type_key)
+            for object_id, record in changes.records.items()
+        }
+        self.permit(
+            known.values(),
+            (
+                (relation.from_object_id, relation.to_object_id)
+                for relations in (changes.added, changes.changed, changes.removed)
+                for relation in relations.values()
+            ),
+            known,
+        )
+
+
+class LiveWrites(_Permits):
     """The live graph of one workspace."""
 
     def __init__(self, session: Session, workspace_key: str) -> None:
@@ -107,6 +168,36 @@ class LiveWrites:
         # A client that built this write on another release than the workspace runs (M6a, D64).
         expected_release.check(self.session, self.workspace_key)
 
+    def _types(self, object_ids: set[str]) -> dict[str, TypePair]:
+        return {
+            object_id: (application_key, type_key)
+            for object_id, application_key, type_key in self.session.execute(
+                select(RdmObject.id, RdmObject.application_key, RdmObject.object_type_key).where(
+                    RdmObject.id == any_(_listed(object_ids))
+                )
+            )
+        }
+
+    def permit_publication(self, change_set_id: str) -> None:
+        """A publication's records, as the change set leaves them and as live data holds them (a
+        type change's old type, a deletion's), and its relationships' ends: two statements over
+        the change set's rows, before anything is written (D290)."""
+        if allowance(self.session, self.workspace_key).everything:
+            return
+        bind = {"change_set": change_set_id}
+        records = self.session.execute(_PUBLISHED_TYPES, bind).all()
+        relations = self.session.execute(_PUBLISHED_RELATION_TYPES, bind).all()
+        refuse_types(
+            self.session,
+            self.workspace_key,
+            ((app, type_key) for app, type_key in records),
+            (
+                ((from_app, from_type), (to_app, to_type))
+                for from_app, from_type, to_app, to_type in relations
+                if from_type is not None and to_type is not None
+            ),
+        )
+
     # --- the audit log and the feed ---------------------------------------------------------------
 
     def record(self, **event: Any) -> AuditEvent:
@@ -142,11 +233,13 @@ class LiveWrites:
             item.id = object_id
         if version is not None:
             item.version = version
+        self.permit([(application_key, object_type_key)])
         self.session.add(item)
         self.session.flush()
         return item
 
     def claim_object(self, item: RdmObject, expected_version: int) -> None:
+        self.permit([(item.application_key, item.object_type_key)])
         result = self.session.execute(
             update(RdmObject)
             .where(RdmObject.id == item.id, RdmObject.version == expected_version)
@@ -169,6 +262,7 @@ class LiveWrites:
         the old one is gone; new records go before the rows that name them.
         """
         session = self.session
+        self.permit_changes(changes)
         if changes.removed:
             matrix_states.note_relations(session, changes.removed.values())
             for chunk in _chunks(sorted(changes.removed)):
@@ -316,6 +410,8 @@ class LiveWrites:
         hold a parent and its children in any order.
         """
         object_ids = {item.id for item in objects}
+        # The relationships go with their records, one of their ends (D291).
+        self.permit({(item.application_key, item.object_type_key) for item in objects})
         if relation_ids:
             matrix_states.note_rows(self.session, endpoint_ids)
             self.session.execute(
@@ -343,6 +439,7 @@ class LiveWrites:
         *,
         flush: bool = True,
     ) -> ObjectRelation:
+        self.permit(relations=[(from_object_id, to_object_id)])
         relation = ObjectRelation(
             relation_type_key=relation_type_key,
             from_object_id=from_object_id,
@@ -355,6 +452,7 @@ class LiveWrites:
         return relation
 
     def claim_relation(self, relation: ObjectRelation, expected_version: int) -> None:
+        self.permit(relations=[(relation.from_object_id, relation.to_object_id)])
         result = self.session.execute(
             update(ObjectRelation)
             .where(ObjectRelation.id == relation.id, ObjectRelation.version == expected_version)
@@ -371,6 +469,7 @@ class LiveWrites:
         self.session.refresh(relation)
 
     def remove_relation(self, relation: ObjectRelation) -> None:
+        self.permit(relations=[(relation.from_object_id, relation.to_object_id)])
         self.session.delete(relation)
 
     # --- publishing ------------------------------------------------------------------------------
@@ -511,7 +610,39 @@ class LiveWrites:
                     live.version = authored.version
 
 
-class ChangeSetWrites:
+# A publication's record types: the change set's rows, and the live rows they replace or delete.
+_PUBLISHED_TYPES = text(
+    """
+    SELECT row.application_key, row.object_type_key FROM change_set_objects row
+    WHERE row.change_set_id = :change_set
+    UNION
+    SELECT live.application_key, live.object_type_key FROM change_set_objects row
+    JOIN objects live ON live.id = row.object_id
+    WHERE row.change_set_id = :change_set
+    """
+)
+
+# A publication's relationships' end types, each end as the change set or live data holds it.
+_PUBLISHED_RELATION_TYPES = text(
+    """
+    SELECT DISTINCT
+        coalesce(from_row.application_key, from_live.application_key),
+        coalesce(from_row.object_type_key, from_live.object_type_key),
+        coalesce(to_row.application_key, to_live.application_key),
+        coalesce(to_row.object_type_key, to_live.object_type_key)
+    FROM change_set_relations relation
+    LEFT JOIN change_set_objects from_row ON from_row.change_set_id = relation.change_set_id
+        AND from_row.object_id = relation.from_object_id
+    LEFT JOIN objects from_live ON from_live.id = relation.from_object_id
+    LEFT JOIN change_set_objects to_row ON to_row.change_set_id = relation.change_set_id
+        AND to_row.object_id = relation.to_object_id
+    LEFT JOIN objects to_live ON to_live.id = relation.to_object_id
+    WHERE relation.change_set_id = :change_set
+    """
+)
+
+
+class ChangeSetWrites(_Permits):
     """The rows of one change set: each record or relation it changes has its own row, copied from
     the base on first change; a deletion is a tombstone row."""
 
@@ -522,6 +653,19 @@ class ChangeSetWrites:
         self.workspace_key = change_set.workspace_key
         expected_release.check(
             session, self.workspace_key, change_set.model_release_id, change_set_id=change_set.id
+        )
+
+    def _types(self, object_ids: set[str]) -> dict[str, TypePair]:
+        found = ChangeSetLookup.of(self.session, self.change_set_id).objects(object_ids)
+        return {
+            object_id: (record.application_key, record.object_type_key)
+            for object_id, record in found.items()
+        }
+
+    def permit_type_change(self, record: Any, application_key: str, object_type_key: str) -> None:
+        """A record changing type: the type it leaves and the one it takes (ADR-034)."""
+        self.permit(
+            [(record.application_key, record.object_type_key), (application_key, object_type_key)]
         )
 
     def record(self, **event: Any) -> AuditEvent:
@@ -580,6 +724,7 @@ class ChangeSetWrites:
         first change), a tombstone for every relation they remove, and the relations they add.
         Returns the written rows by record ID."""
         session = self.session
+        self.permit_changes(changes)
         stored = {
             row.object_id: row
             for chunk in _chunks(
@@ -688,6 +833,7 @@ class ChangeSetWrites:
 
     def own_object(self, record: Any, *, flush: bool = False) -> ChangeSetObject:
         """The change set's own row for an effective record, copied from its base when it has none."""
+        self.permit([(record.application_key, record.object_type_key)])
         row = self.stored_object(record.object_id)
         if row is None:
             row = ChangeSetObject(
@@ -715,6 +861,7 @@ class ChangeSetWrites:
         parent_object_id: str | None,
         attributes: dict[str, Any],
     ) -> ChangeSetObject:
+        self.permit([(application_key, object_type_key)])
         row = ChangeSetObject(
             change_set_id=self.change_set_id,
             object_id=object_id,
@@ -730,6 +877,7 @@ class ChangeSetWrites:
 
     def remove_object(self, record: Any) -> None:
         """Tombstone a record the change set holds."""
+        self.permit([(record.application_key, record.object_type_key)])
         row = self.stored_object(record.object_id)
         if row is None:
             self.session.add(
@@ -761,6 +909,7 @@ class ChangeSetWrites:
 
     def own_relation(self, relation: Any, *, flush: bool = False) -> ChangeSetRelation:
         """The change set's own row for an effective relation, copied from its base when it has none."""
+        self.permit(relations=[(relation.from_object_id, relation.to_object_id)])
         row = self.stored_relation(relation.relation_id)
         if row is None:
             row = ChangeSetRelation(
@@ -786,6 +935,7 @@ class ChangeSetWrites:
         *,
         relation_id: str | None = None,
     ) -> ChangeSetRelation:
+        self.permit(relations=[(from_object_id, to_object_id)])
         row = ChangeSetRelation(
             change_set_id=self.change_set_id,
             relation_id=relation_id or str(uuid4()),
@@ -800,6 +950,7 @@ class ChangeSetWrites:
 
     def remove_relation(self, relation: Any) -> None:
         """Tombstone a relation the change set holds."""
+        self.permit(relations=[(relation.from_object_id, relation.to_object_id)])
         row = self.stored_relation(relation.relation_id)
         if row is None:
             self.session.add(

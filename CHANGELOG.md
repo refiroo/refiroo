@@ -6,6 +6,39 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 Z2, record types at the write unit, jobs as their requester)
+
+- A grant narrowed to applications and record types now limits every write its holder makes in the
+  workspace (D289–D291): a record may be written when its application or its type is named, grants
+  holding the group there add up, and a relationship may be written when either end may. Live
+  writes, change sets, restructurings (both the old and the new type), batches, imports, publishing
+  a change set and moves into a workspace are checked at the write unit; a refusal is `403
+  FORBIDDEN` with `details.recordTypes`. A batch, an import or a move refuses only the items of
+  other types; a single write and a publication are refused whole (D293).
+- Jobs run with their requester's permissions (D236, D294): checked at confirmation and before
+  every worker step; a requester deactivated or without the job's group fails it with `403
+  FORBIDDEN` and `details.requestedBy`. The requester reads, follows, cancels and confirms their own
+  job and sees it in `GET /api/v1/jobs`.
+- An import profile's source files are read, changed and listed for their uploader and for holders
+  of Bulk and import in their workspace, `403` for anyone else (D295).
+- A grant naming what the workspace's model no longer has reads `stale: true` with
+  `scope.missingApplications` and `scope.missingRecordTypes`, and `/me/permissions` marks the group
+  `stale`; such names allow nothing (D296). Migration `20261030_01` (`jobs.requested_by_*`,
+  `source_files.uploaded_by_*`).
+
+### Changed (0.12 Z2)
+
+- Publish and Copy and move are narrowable action groups (D290).
+- `POST /api/v1/moves` with `mode: move` also needs Work in change sets in the source, which it
+  writes a change set of; `mode: copy` needs Browse there as before (D297).
+- A write the engine cannot attribute to a request or a job is refused with `500 WRITER_UNKNOWN`
+  (D292).
+
+### Fixed (0.12 Z2, found in Z1)
+
+- An import naming a stored source file, sent as a URL-encoded form without a file part, failed
+  with an internal error: the route check read its body as JSON after the form was read.
+
 ### Added (0.12 Z1, roles, groups and grants at the route)
 
 - Authorization (ADR-044): every management operation declares its action, published in the

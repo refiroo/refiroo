@@ -232,6 +232,18 @@ operations exist at all; a role decides who may use them.
 administrator's roles at the instance, so nothing that worked stops (D282); review them with
 `GET /api/v1/grants`.
 
+**A narrowed grant** limits every write its holder makes in the workspace (0.12 Z2): live edits,
+change sets, batches and imports, publishing, moves into it and type changes, each refused with
+`403 FORBIDDEN` naming the record types outside it. After a model change, look for grants marked
+`stale: true` in `GET /api/v1/grants`: the types or applications they name are gone and allow
+nothing, so replace them.
+
+**Jobs run with their requester's rights** at every step (0.12 Z2): taking a role away from a person
+or client, or deactivating them, also stops their queued and running jobs at the next step, which
+then fail naming the requester. Jobs queued before upgrading to 0.12 Z2 name no requester and run
+as before; an import profile's files uploaded before it name no uploader and are seen by the
+workspace's Bulk and import holders.
+
 **Locked out:** the engine refuses to remove the last active person holding Security administration
 at the instance (`409 LAST_SECURITY_ADMINISTRATOR`). If every such person is lost anyway, run
 `python -m app.cli.create_admin` on the server: the new person holds Security administration again.

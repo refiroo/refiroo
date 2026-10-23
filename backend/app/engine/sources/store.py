@@ -14,8 +14,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
-from sqlalchemy import delete, exists, select, text, update
+from sqlalchemy import delete, exists, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -27,6 +28,7 @@ from ...models.database import (
     SourceFileSheet,
 )
 from ...models.sources import SourceFileRequest
+from ..authorization.writes import requester_of
 from ..imports.profiles import load_profile, require_model
 from ..imports.submit import Upload
 from ..jobs.files import JobFiles
@@ -75,6 +77,13 @@ def store_source_file(
         version=1,
         uploaded_at=now,
     )
+    # Who uploaded it reads it back wherever they hold Bulk and import (0.12 Z2, D295).
+    uploader = requester_of(session)
+    if uploader is not None:
+        if uploader[0] == "user":
+            source.uploaded_by_user_id = uploader[1]
+        else:
+            source.uploaded_by_client_id = uploader[1]
     session.add(source)
     session.flush()
     session.execute(
@@ -177,9 +186,13 @@ def source_file_page(
     profile_key: str | None,
     page: PageRequest,
     page_size: int,
+    visible: Any = None,
 ) -> Page[SourceFile]:
-    """An owner's source files, newest first; every file without an owner named."""
+    """An owner's source files, newest first; every file without an owner named. ``visible``
+    narrows the profiles' files to those the caller may use (0.12 Z2, D295)."""
     statement = select(SourceFile)
+    if visible is not None:
+        statement = statement.where(or_(SourceFile.profile_key.is_(None), visible))
     if draft_public_id is not None:
         statement = statement.join(ModelDraft, ModelDraft.id == SourceFile.draft_id).where(
             ModelDraft.public_id == draft_public_id

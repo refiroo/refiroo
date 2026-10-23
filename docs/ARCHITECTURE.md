@@ -983,9 +983,20 @@ A request's path through the checks:
    FORBIDDEN` before the handler runs. The declaration is published per operation in the OpenAPI
    document (`x-action`), and the contract test refuses an operation without one. Lists filter with
    the same permissions as conditions on their own statement (`engine/authorization/visibility.py`).
-4. **The write-unit check**: the record types the work writes, gathered as one set over its distinct
-   types, against the grant's narrowing. Batches, imports, moves, publications, type changes and job
-   steps all pass here; a job checks its requester.
+4. **The write-unit check** (Z2, `engine/authorization/writes.py`): the route check puts the
+   caller's **writer** on the session (their permissions, the groups the route allowed and its
+   action); the worker puts a job's requester's there before each step
+   (`engine/authorization/requesters.py`), refusing the step when the requester was deactivated or
+   lost the group. The write unit (`LiveWrites`, `ChangeSetWrites`) asks what the writer may write
+   in its workspace, once per writer and workspace, and every method that adds, claims or removes
+   rows tests the distinct record types it is handed (a relationship's end types, read in one
+   statement when not in hand) before writing; a publication is tested in two set statements over
+   the change set's rows first. The batch lookup tests each decided item the same way, so a batch,
+   an import or a move refuses that item alone. A writer holding the group unnarrowed reads
+   nothing. A session with no writer writes nothing (`WRITER_UNKNOWN`); only tests and seeds,
+   which call the engine directly, give their sessions the engine's own writer
+   (`tests/engine_writer.py`). A workspace's and a change set's migrations write in SQL outside the
+   unit and are Model release work, which is not narrowed.
 
 The deployment capability flags stay outside both (ADR-031): an unregistered route never reaches
 them.

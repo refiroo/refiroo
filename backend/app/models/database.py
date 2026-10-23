@@ -1379,8 +1379,14 @@ class Job(Base):
             "'cancelled', 'expired')",
             name="ck_job_state",
         ),
+        CheckConstraint(
+            "num_nonnulls(requested_by_user_id, requested_by_client_id) <= 1",
+            name="ck_jobs_one_requested_by",
+        ),
         Index("ix_jobs_workspace_created", "workspace_key", "sequence_id"),
         Index("ix_jobs_state", "state", "sequence_id"),
+        Index("ix_jobs_requested_by_user", "requested_by_user_id"),
+        Index("ix_jobs_requested_by_client", "requested_by_client_id"),
         # The jobs a draft, a profile, a source file or a model mapping has (0.10 R, R-F14; 0.11
         # X1), read through `jobs.store.job_parameter`, which writes the key literally so these
         # match.
@@ -1441,6 +1447,14 @@ class Job(Base):
     report: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     # When a previewed import was confirmed (D87); the worker then runs it as ``execute``.
     confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # Who asked for it; it runs with their permissions (0.12 Z2, D236, D294). Neither for a job
+    # from before Z2.
+    requested_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    requested_by_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
 
 
 class JobInput(Base):
@@ -1559,8 +1573,14 @@ class SourceFile(Base):
         CheckConstraint(
             "(draft_id IS NULL) <> (profile_key IS NULL)", name="ck_source_files_one_owner"
         ),
+        CheckConstraint(
+            "num_nonnulls(uploaded_by_user_id, uploaded_by_client_id) <= 1",
+            name="ck_source_files_one_uploaded_by",
+        ),
         Index("ix_source_files_draft", "draft_id", "id"),
         Index("ix_source_files_profile", "profile_key", "id"),
+        Index("ix_source_files_uploaded_by_user", "uploaded_by_user_id"),
+        Index("ix_source_files_uploaded_by_client", "uploaded_by_client_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -1587,6 +1607,13 @@ class SourceFile(Base):
     )
     superseded_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     profile_job_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    # Who uploaded it (0.12 Z2, D295); neither for a file from before Z2.
+    uploaded_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    uploaded_by_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
 
 
 class SourceFileCell(Base):

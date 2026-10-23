@@ -20,8 +20,8 @@ class ActionGroup:
     name: str
     description: str
     reach: Reach
-    # Whether a grant's applications and record types narrow it (writes only, D243); enforced at
-    # the write unit by Z2 (D281).
+    # Whether a grant's applications and record types narrow it (writes only, D243), enforced at
+    # the write unit (Z2, D281, D290).
     narrowable: bool = False
 
 
@@ -50,7 +50,11 @@ GROUPS: dict[str, ActionGroup] = {
             narrowable=True,
         ),
         ActionGroup(
-            "publish", "Publish", "Publish a change set; withdraw a publication", "workspace"
+            "publish",
+            "Publish",
+            "Publish a change set; withdraw a publication",
+            "workspace",
+            narrowable=True,
         ),
         ActionGroup(
             "bulk",
@@ -64,6 +68,7 @@ GROUPS: dict[str, ActionGroup] = {
             "Copy and move",
             "Model-to-model mappings, and moving records between workspaces",
             "workspace",
+            narrowable=True,
         ),
         ActionGroup(
             "model-authoring",

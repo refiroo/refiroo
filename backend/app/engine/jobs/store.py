@@ -42,6 +42,8 @@ from ...models.database import (
     RdmObject,
     WorkspaceModel,
 )
+from ..authorization.requesters import job_writer
+from ..authorization.writes import requester_of
 from ..records.refusals import ACROSS_MODELS, ELSEWHERE
 
 ACTIONS = ("created", "updated", "unchanged", "deleted")
@@ -103,6 +105,14 @@ def start_job(
         started_at=None if queued else now,
         expires_at=now + timedelta(days=retention_days),
     )
+    # The caller whose request starts it; it runs with their permissions (0.12 Z2, D294).
+    requester = requester_of(session)
+    if requester is not None:
+        kind, row_id = requester
+        if kind == "user":
+            job.requested_by_user_id = row_id
+        else:
+            job.requested_by_client_id = row_id
     session.add(job)
     session.flush()
     return job
@@ -466,6 +476,8 @@ def confirm_job(
             "confirmation is confirmed",
             {"jobId": job.id, "state": job.state},
         )
+    # The requester still holds what the job needs (0.12 Z2, D294); a refusal leaves it waiting.
+    job_writer(session, job)
     check_context(job)
     if not imported and not keep_items:
         _carry_preview_claims(session, job)

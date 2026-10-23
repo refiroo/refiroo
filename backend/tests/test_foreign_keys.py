@@ -90,6 +90,12 @@ RULES = {
     ("role_action_groups", "role_id"): ("roles", "CASCADE"),
     ("user_group_members", "group_id"): ("user_groups", "CASCADE"),
     ("user_group_members", "user_id"): ("users", "CASCADE"),
+    # Who asked for a job and who uploaded a source file (0.12 Z2, D294, D295): principals are never
+    # deleted (D237), so a row naming one keeps it.
+    ("jobs", "requested_by_user_id"): ("users", "RESTRICT"),
+    ("jobs", "requested_by_client_id"): ("oauth_clients", "RESTRICT"),
+    ("source_files", "uploaded_by_user_id"): ("users", "RESTRICT"),
+    ("source_files", "uploaded_by_client_id"): ("oauth_clients", "RESTRICT"),
     # A person is deactivated, never deleted (D237); their sessions, codes and reset links would go
     # with them. A session ends, never deleted; its refresh tokens would go with it, and a code
     # forgets the session it started (0.12 I2).

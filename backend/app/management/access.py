@@ -23,8 +23,10 @@ from fastapi.routing import APIRoute
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..engine.authorization.catalogue import ACTIONS, JOB_GROUPS, group_names
+from ..engine.authorization.catalogue import ACTIONS, group_names
 from ..engine.authorization.permissions import Permissions, permissions_of
+from ..engine.authorization.requesters import job_group, requester
+from ..engine.authorization.writes import Writer, set_writer
 from ..engine.events.subscriptions import load_subscription
 from ..engine.identity.authentication import Principal
 from ..engine.jobs.store import load_job
@@ -159,12 +161,13 @@ def _import_form(context: Context, groups: tuple[str, ...]) -> Check:
 
 
 def _job(context: Context, groups: tuple[str, ...]) -> Check:
-    """A job by the group that starts its kind, in its workspace (D285); Work in change sets for a
-    change set's migration."""
+    """A job by its requester (D294), or by the group that starts its kind, in its workspace
+    (D285); Work in change sets for a change set's migration."""
     job = load_job(context.session, context.path("job_id"))
-    group = JOB_GROUPS[job.kind]
-    if job.kind == "migration" and job.change_set_id:
-        group = "change-sets"
+    caller = context.request.state.principal
+    if requester(job) == (caller.kind, caller.row_id):
+        return Check(())
+    group = job_group(job)
     if group == "model-authoring":
         return Check((group,))
     return Check((group,), (job.workspace_key,))
@@ -317,7 +320,8 @@ async def request_body(request: Request) -> dict[str, Any] | None:
         return None
     content_type = request.headers.get("content-type", "")
     try:
-        if content_type.startswith("multipart/form-data"):
+        # An import naming a stored source file sends no file part: a URL-encoded form.
+        if content_type.startswith(("multipart/form-data", "application/x-www-form-urlencoded")):
             form = await request.form()
             return {key: value for key, value in form.items() if isinstance(value, str)}
         body = await request.json()
@@ -336,6 +340,8 @@ def forbidden(action: str, groups: tuple[str, ...], workspace_key: str | None) -
     if action == "records.write" and len(groups) == 1:
         doing = _WRITES[groups[0]]
     elif action == "moves.create" and groups == ("browse",):
+        doing = "Copying records out of a workspace"
+    elif action == "moves.create" and groups == ("change-sets",):
         doing = "Moving records out of a workspace"
     return api_error(
         403,
@@ -365,6 +371,11 @@ def authorized(
         raise api_error(500, "ROUTE_NOT_DECLARED", "This operation declares no action")
     action = ACTIONS[requirement.action]
     check = requirement.at.resolve(Context(request, session, body), action.groups)
+    # Whose writes the request makes, for the write unit's record-type check (Z2, D292).
+    set_writer(
+        session,
+        Writer(permissions, check.groups, action.key, principal=(principal.kind, principal.row_id)),
+    )
     if not check.groups:
         return permissions
     if check.anywhere:
@@ -380,9 +391,12 @@ def authorized(
     if requirement.at is MOVE:
         source = body.get("sourceWorkspaceKey") if body else None
         source = source or default_workspace_key(session)
-        if not permissions.allows("browse", source):
-            load_workspace(session, source)
-            raise forbidden(action.key, ("browse",), source)
+        # A move deletes what it moved in a change set of the source (D134, D297).
+        moving = bool(body) and body.get("mode") == "move"
+        for group in ("browse", "change-sets") if moving else ("browse",):
+            if not permissions.allows(group, source):
+                load_workspace(session, source)
+                raise forbidden(action.key, (group,), source)
     return permissions
 
 

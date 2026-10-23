@@ -75,6 +75,8 @@ from ...common.time import as_utc
 from ...errors import ApiError
 from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job, SourceFile
+from ..authorization.requesters import job_writer
+from ..authorization.writes import set_writer
 from ..imports.binding import ImportLimits, bind_import
 from ..model import change_set_migrations, migrations
 from ..moves import move_job, move_load
@@ -352,6 +354,8 @@ class JobWorker:
                 self._run_export(job)
                 return
             try:
+                # Each step as its requester, with their permissions now (0.12 Z2, D294).
+                set_writer(session, job_writer(session, job))
                 if job.kind == "migration":
                     self._migrate(session, job)
                 elif job.kind == "profile":
@@ -746,8 +750,12 @@ class JobWorker:
         )
         try:
             files.directory.mkdir(parents=True, exist_ok=True)
+            # The requester's right, read before the export's snapshot begins (D294).
+            with self.session_factory() as check:
+                writer = job_writer(check, job)
             with self.session_factory() as work:
                 try:
+                    set_writer(work, writer)
                     outcome = run_export(work, job, partial, control)
                 finally:
                     work.rollback()

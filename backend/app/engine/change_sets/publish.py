@@ -683,6 +683,7 @@ def apply_publication(
         _require_copy_published(session, change_set)
     writes.claim(expected_change_set_version)
     live = LiveWrites(session, change_set.workspace_key)
+    live.permit_publication(change_set.id)
     if workspace.active_publication_id != expected_active_publication_id:
         raise api_error(
             409, "WORKSPACE_ACTIVE_PUBLICATION_CONFLICT", "Active publication has changed"

@@ -109,19 +109,33 @@ def member_page(page: Page[User]) -> GroupMemberPage:
     return GroupMemberPage(items=[member_response(user) for user in page.items], **page.links())
 
 
+def _model_names(session: Session, workspace_key: str, kind: str) -> dict[str, str]:
+    model = resolve_model_snapshot(session, workspace_key).model
+    items = model.applications if kind == "applications" else model.objectTypes
+    return {item.key: item.name for item in items}
+
+
 def _names(session: Session, workspace_key: str, kind: str, keys: list[str]) -> list[str]:
     """The names of a narrowing's keys in the workspace's model; a key it lacks as it is."""
     if not keys:
         return []
-    model = resolve_model_snapshot(session, workspace_key).model
-    items = model.applications if kind == "applications" else model.objectTypes
-    names = {item.key: item.name for item in items}
+    names = _model_names(session, workspace_key, kind)
     return [names.get(key, key) for key in keys]
+
+
+def _missing(session: Session, workspace_key: str | None, kind: str, keys: list[str]) -> list[str]:
+    """A narrowing's keys the workspace's model no longer has (D296)."""
+    if not keys or workspace_key is None:
+        return []
+    names = _model_names(session, workspace_key, kind)
+    return [key for key in keys if key not in names]
 
 
 def grant_response(session: Session, row: GrantRow) -> GrantResponse:
     grant = row.grant
     workspace = grant.workspace_key
+    missing_applications = _missing(session, workspace, "applications", list(grant.applications))
+    missing_types = _missing(session, workspace, "recordTypes", list(grant.record_types))
     return GrantResponse(
         id=grant.public_id,
         principal=GrantPrincipalResponse(
@@ -139,7 +153,10 @@ def grant_response(session: Session, row: GrantRow) -> GrantResponse:
             recordTypeNames=_names(session, workspace, "recordTypes", grant.record_types)
             if workspace
             else [],
+            missingApplications=missing_applications,
+            missingRecordTypes=missing_types,
         ),
+        stale=bool(missing_applications or missing_types),
         createdAt=grant.created_at,
     )
 
@@ -148,10 +165,24 @@ def grant_page(session: Session, page: Page[GrantRow]) -> GrantPage:
     return GrantPage(items=[grant_response(session, row) for row in page.items], **page.links())
 
 
-def permissions_response(permissions: Permissions, workspace: Workspace) -> PermissionsResponse:
+def permissions_response(
+    session: Session, permissions: Permissions, workspace: Workspace
+) -> PermissionsResponse:
     """What the caller holds in a workspace; a group's narrowing is the union of its grants', none
-    when any grant holds it unnarrowed."""
+    when any grant holds it unnarrowed (D289)."""
     holdings = permissions.groups_in(workspace.key)
+    known: dict[str, set[str]] = {}
+
+    def stale(applications: list[str], types: list[str]) -> bool:
+        if not applications and not types:
+            return False
+        if not known:
+            known["applications"] = set(_model_names(session, workspace.key, "applications"))
+            known["recordTypes"] = set(_model_names(session, workspace.key, "recordTypes"))
+        return not (
+            set(applications) <= known["applications"] and set(types) <= known["recordTypes"]
+        )
+
     roles: dict[str, GrantRoleResponse] = {}
     held: list[HeldGroup] = []
     for holding in holdings:
@@ -165,16 +196,17 @@ def permissions_response(permissions: Permissions, workspace: Workspace) -> Perm
         narrowed = group.narrowable and all(
             holding.applications or holding.record_types for holding in granting
         )
+        applications = (
+            sorted({key for item in granting for key in item.applications}) if narrowed else []
+        )
+        types = sorted({key for item in granting for key in item.record_types}) if narrowed else []
         held.append(
             HeldGroup(
                 key=group.key,
                 name=group.name,
-                applications=sorted({key for item in granting for key in item.applications})
-                if narrowed
-                else [],
-                recordTypes=sorted({key for item in granting for key in item.record_types})
-                if narrowed
-                else [],
+                applications=applications,
+                recordTypes=types,
+                stale=stale(applications, types),
                 sources=[
                     PermissionSource(
                         grantId=holding.grant_id,

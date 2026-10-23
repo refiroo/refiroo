@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import Json
 from sqlalchemy.orm import Session
 
+from ...engine.authorization.visibility import may_use_source_file, visible_source_files
 from ...engine.imports.submit import Upload
 from ...engine.jobs.inline import BatchLimits
 from ...engine.sources.dry_run import InvalidDraft, latest_dry_run, submit_dry_run
@@ -23,15 +24,17 @@ from ...engine.sources.store import (
 )
 from ...engine.sources.store import source_file_page as read_source_files
 from ...errors import api_error
-from ...models.database import Job
+from ...models.database import Job, SourceFile
 from ...models.sources import DryRunRequest, SourceFileRequest
 from ..access import (
     ANYWHERE,
     INSTANCE,
     AuthorizedRoute,
+    CurrentPermissions,
+    forbidden,
     requires,
 )
-from ..dependencies import DbSession
+from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..presenters import diagnostic_details
 from ..projections.job_rows import job_row_page
@@ -58,6 +61,23 @@ write_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["s
 dry_run_router = APIRouter(
     route_class=AuthorizedRoute, prefix="/api/v1", tags=["model administration"]
 )
+
+
+def _usable(
+    session: Session,
+    source_file_id: str,
+    permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
+) -> SourceFile:
+    """A source file the caller may use: a profile's by its uploader and by holders of Bulk and
+    import in its workspace, or at the instance for one naming none (0.12 Z2, D248, D295); a
+    draft's as before."""
+    source = load_source_file(session, source_file_id)
+    if source.profile_key is not None and not may_use_source_file(
+        permissions, principal.kind, principal.row_id, source
+    ):
+        raise forbidden("source-files.manage", ("bulk",), source.workspace_key)
+    return source
 
 
 def _wake_worker(request: Request) -> None:
@@ -106,26 +126,35 @@ def create_source_file(
 @requires("source-files.manage", at=ANYWHERE)
 def list_source_files(
     session: DbSession,
+    permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
     paging: PageQuery,
     draft_id: str | None = Query(default=None, alias="draftId"),
     profile_key: str | None = Query(default=None, alias="profileKey"),
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> SourceFilePage:
-    """Source files, newest first: a draft's, a profile's, or all."""
+    """Source files, newest first: a draft's, a profile's, or all; a profile's only where the
+    caller may use them (D295)."""
     page = read_source_files(
         session,
         draft_public_id=draft_id,
         profile_key=profile_key,
         page=paging,
         page_size=page_size,
+        visible=visible_source_files(permissions, principal.kind, principal.row_id),
     )
     return source_file_page(session, page)
 
 
 @router.get("/source-files/{source_file_id}", response_model=SourceFileResponse)
 @requires("source-files.manage", at=ANYWHERE)
-def get_source_file(source_file_id: str, session: DbSession) -> SourceFileResponse:
-    return source_file_response(session, load_source_file(session, source_file_id))
+def get_source_file(
+    source_file_id: str,
+    session: DbSession,
+    permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
+) -> SourceFileResponse:
+    return source_file_response(session, _usable(session, source_file_id, permissions, principal))
 
 
 @write_router.delete("/source-files/{source_file_id}", status_code=204)
@@ -134,10 +163,13 @@ def remove_source_file(
     source_file_id: str,
     request: Request,
     session: DbSession,
+    permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
     expected_version: int = Query(alias="expectedVersion", ge=1),
 ) -> Response:
     """Delete the file, its staged cells and its profile (``409 VERSION_CONFLICT`` at another
     version)."""
+    _usable(session, source_file_id, permissions, principal)
     delete_source_file(
         session, source_file_id, expected_version, files=request.app.state.job_files
     )
@@ -149,12 +181,15 @@ def remove_source_file(
 def list_source_sheets(
     source_file_id: str,
     session: DbSession,
+    permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
     paging: PageQuery,
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> SourceSheetPage:
     """The file's sheets in workbook order, each with its rows, header row and blocks (D68);
     ``409 SOURCE_FILE_PROFILE_NOT_READY`` with the profile's state until it is stored."""
-    return sheet_page(session, load_source_file(session, source_file_id), paging, page_size)
+    source = _usable(session, source_file_id, permissions, principal)
+    return sheet_page(session, source, paging, page_size)
 
 
 @router.get(
@@ -166,12 +201,14 @@ def list_source_columns(
     source_file_id: str,
     sheet: str,
     session: DbSession,
+    permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
     paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> SourceColumnPage:
     """A sheet's columns in column order with their statistics (D68–D70); ``404
     SOURCE_SHEET_NOT_FOUND`` for a sheet the file does not have."""
-    source = load_source_file(session, source_file_id)
+    source = _usable(session, source_file_id, permissions, principal)
     return column_page(session, source, sheet, paging, page_size)
 
 
@@ -184,6 +221,8 @@ def list_source_cells(
     source_file_id: str,
     sheet: str,
     session: DbSession,
+    permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
     paging: PageQuery,
     cell_range: str = Query(alias="range", description="The rectangle to read, such as A3:C12"),
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
@@ -191,7 +230,7 @@ def list_source_cells(
     """The rows of a range of a sheet that hold a cell, in row order, each with its cells by column
     letter: the staged text and its value type (0.10 A8b, D124). Refused: ``422 INVALID_RANGE``
     for a range that is malformed, empty or outside the sheet, ``404 SOURCE_SHEET_NOT_FOUND``."""
-    source = load_source_file(session, source_file_id)
+    source = _usable(session, source_file_id, permissions, principal)
     return cell_page(session, source, sheet, cell_range, paging, page_size)
 
 

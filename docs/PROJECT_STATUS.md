@@ -32,8 +32,15 @@ change; the first administrator and the principals from before hold the setting-
 and the account menu show the person's roles
 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z1-record-2026-10-23)). Its journeys, unit tests, the
 neighbouring journey groups, the sign-in runner and the touched Vitest files passed; the full suite
-runs with Z2, which fixes what it finds from Z1 (the user, 2026-10-23). Record-type narrowing is enforced from Z2; no sign-in provider until I3. Next:
-Z2.
+runs with Z5 (the user, 2026-10-24). **Z2, record types at the write unit, is delivered
+(2026-10-24)**, D289–D297: a narrowed grant limits every write (live, change sets, restructurings,
+batches, imports, publications, moves) with `403 FORBIDDEN` naming the record types; jobs run as
+their requester at every step; an import profile's files stay with their uploader and workspace;
+stale grants are reported and allow nothing
+([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z2-record-2026-10-24)). Its journeys, unit tests and the
+neighbouring write-path, migration, event and several-process groups passed; the full backend
+suite runs with Z5, which closes Track Z. No Security pages until SP1; no sign-in provider until
+I3. Next: Z3.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 

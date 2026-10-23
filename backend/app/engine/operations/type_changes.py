@@ -236,6 +236,9 @@ def change_object_type(
             {"objectId": change.object_id, "objectTypeKey": new_type.key},
         )
     rules.object_identity(model, record.application_key, new_type.key, CHANGE_SET)
+    ChangeSetWrites(session, change_set).permit_type_change(
+        record, record.application_key, new_type.key
+    )
 
     old_values = dict(record.attributes or {})
     outcomes, values = _new_values(model, old_type, new_type, old_values, change)

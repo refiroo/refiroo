@@ -2031,8 +2031,9 @@ people created, changed and deactivated through the API, and the first administr
 `create_admin`; roles and grants are Z1. I2 (2026-10-23): a person's one-time password link and
 signing a person out everywhere, through the API; the People page is SP1. Z1 (2026-10-23): roles,
 groups and grants through the API, every operation checked at its route (J40.1, J40.2, J40.4–J40.9);
-the person's roles on Settings › Account and in the account menu. J40.3's narrowing is stored and
-checked against the model but enforced at the write unit by Z2, as is J40.10.
+the person's roles on Settings › Account and in the account menu. Z2 (2026-10-23): J40.3's
+narrowing enforced on every write path, a stale grant reported, J40.10, and an import profile's
+files kept to their uploader and their workspace.
 
 1. Create a person; they set a password through a one-time link.
 2. Grant them a role in a workspace, directly or through a group, optionally narrowing what they may
@@ -2058,10 +2059,10 @@ checked against the model but enforced at the write unit by Z2, as is J40.10.
 - **J40.9 Lists follow permissions**: the workspace list, the jobs and the cross-type lookup show
   only workspaces the caller may browse.
 - **J40.10 A job keeps its requester's permissions**: a job whose requester lost the right fails
-  with the reason at its next step.
+  with the reason at its next step; the requester still sees and cancels their own job.
 
 **Refusals:** `403 FORBIDDEN` (`details.action`, `groups`, `workspaceKey`, and `recordTypes` for a
-narrowed write), `409 ROLE_PREDEFINED`, `409 ROLE_IN_USE`, `409 LAST_SECURITY_ADMINISTRATOR`.
+narrowed write, `requestedBy` for a job's step), `409 ROLE_PREDEFINED`, `409 ROLE_IN_USE`, `409 LAST_SECURITY_ADMINISTRATOR`.
 
 ### J41 — A system calls with a client
 

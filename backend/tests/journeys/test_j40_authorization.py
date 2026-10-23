@@ -347,3 +347,344 @@ def test_what_i_may_do(world):
         "GRANT_SCOPE_UNKNOWN",
     )
     _forbidden(caller.api.get("/users"), "security.manage", ["security-admin"], None)
+
+
+# --- Z2: record types at the write unit, jobs as their requester (D289–D297) ---------------------
+
+
+def _narrowed(response, action: str, groups: list[str], workspace: str, types: list[str]) -> None:
+    """A write refused for record types the caller's grants there do not name (D293)."""
+    error = refused(response, 403, "FORBIDDEN")
+    assert error["details"] == {
+        "action": action,
+        "groups": groups,
+        "workspaceKey": workspace,
+        "recordTypes": sorted(types),
+    }
+
+
+def _item(world, structure: str, name: str, **extra) -> dict:
+    return {
+        "op": "create",
+        "applicationKey": world.app(structure),
+        "objectTypeKey": world.key(structure),
+        "name": name,
+        "attributes": [
+            {"attributeTypeKey": key, "value": value}
+            for key, value in world.required_values(structure).items()
+        ],
+        **extra,
+    }
+
+
+def _batch(world, items, **body):
+    request = {"workspaceKey": W1, "policy": "independent", "run": "inline", "items": items}
+    return world.api.post("/batches", {**request, **body})
+
+
+def _run_jobs(world) -> None:
+    world.api.client.app.state.job_worker.run_until_idle()
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures("H", "K")
+def test_a_narrowed_live_write(world):
+    """Given a client granted Data steward in A narrowed to one record type. When it creates and
+    changes a record of that type, then both pass; a record of another type answers `403
+    FORBIDDEN` with `recordTypes` naming it. A grant narrowed to the first type's application
+    allows it."""
+    h, k = world.key("H"), world.key("K")
+    _, narrowed = _client(world, "One type", ("steward", {"workspaceKey": W1, "recordTypes": [h]}))
+    record = ok(narrowed.create("H", "Allowed"), 201)
+    ok(narrowed.update("H", record["id"], record["version"], name="Allowed again"))
+    _narrowed(narrowed.create("K", "Not this type"), "records.write", ["edit-live"], W1, [k])
+
+    other = world.made("K", "Made by the harness")
+    _narrowed(
+        narrowed.update("K", other["id"], other["version"], name="Not this one"),
+        "records.write",
+        ["edit-live"],
+        W1,
+        [k],
+    )
+    _, by_application = _client(
+        world,
+        "One application",
+        ("steward", {"workspaceKey": W1, "applications": [world.app("H")]}),
+    )
+    ok(by_application.create("H", "By its application"), 201)
+    _narrowed(
+        by_application.create("K", "Other application"), "records.write", ["edit-live"], W1, [k]
+    )
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures("H", "K")
+def test_a_narrowed_batch_and_import(world):
+    """Given the same grant. When it sends a batch with items of both types, one by one, then the
+    permitted items pass and the others carry `403 FORBIDDEN` with `recordTypes`; sent atomic,
+    nothing applies. An import of records of the other type reports each refused."""
+    h, k = world.key("H"), world.key("K")
+    _, narrowed = _client(world, "Batches", ("steward", {"workspaceKey": W1, "recordTypes": [h]}))
+    items = [_item(world, "H", "Kept"), _item(world, "K", "Refused"), _item(world, "H", "Kept too")]
+    result = ok(_batch(narrowed, items))
+    assert [item["status"] for item in result["items"]] == ["applied", "rejected", "applied"]
+    error = result["items"][1]["error"]
+    assert error["code"] == "FORBIDDEN"
+    assert error["details"]["recordTypes"] == [k]
+    assert error["details"]["groups"] == ["bulk"]
+
+    atomic = ok(_batch(narrowed, items, policy="atomic"))
+    assert [item["status"] for item in atomic["items"]] == [
+        "unprocessed",
+        "rejected",
+        "unprocessed",
+    ]
+
+    lines = "\n".join(json.dumps(_item(world, "K", f"Imported {n}")) for n in range(2)) + "\n"
+    request = {"workspaceKey": W1, "policy": "independent", "stage": "execute"}
+    job = ok(
+        narrowed.api.upload(
+            "/imports",
+            {"file": ("rows.jsonl", lines.encode(), "application/x-ndjson")},
+            {"request": json.dumps(request)},
+        ),
+        202,
+    )
+    _run_jobs(world)
+    done = ok(narrowed.api.get(f"/jobs/{job['id']}"))
+    assert done["state"] == "completed" and done["counts"]["rejected"] == 2, done
+    outcomes = ok(narrowed.api.get(f"/jobs/{job['id']}/items"))["items"]
+    assert {
+        (item["error"]["code"], tuple(item["error"]["details"]["recordTypes"])) for item in outcomes
+    } == {("FORBIDDEN", (k,))}
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures("R", "H", "K", "Bnn")
+def test_a_narrowed_relationship(world):
+    """Given a grant narrowed to one type, a relationship from a permitted record to a record of
+    another type passes; given one narrowed to a third type, a relationship between two records of
+    other types answers `403` naming both."""
+    h, k = world.key("H"), world.key("K")
+    source, target = world.made("H", "From"), world.made("K", "To")
+    _, narrowed = _client(world, "Relate", ("steward", {"workspaceKey": W1, "recordTypes": [h]}))
+    ok(narrowed.relate("Bnn", source["id"], target["id"], {"Bnn.weight": 2}), 201)
+    _, elsewhere = _client(
+        world, "Neither end", ("steward", {"workspaceKey": W1, "recordTypes": [world.key("R")]})
+    )
+    other = world.made("H", "Another")
+    _narrowed(
+        elsewhere.relate("Bnn", other["id"], target["id"], {"Bnn.weight": 3}),
+        "records.write",
+        ["edit-live"],
+        W1,
+        [h, k],
+    )
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures("H", "K")
+def test_a_narrowed_change_set_and_publication(world):
+    """Given the narrowed grant. In a change set, writing a record of the other type answers `403`;
+    a change set the harness wrote touching both types, published by the client, answers `403`
+    naming the other type and publishes nothing."""
+    h, k = world.key("H"), world.key("K")
+    _, narrowed = _client(world, "Publisher", ("steward", {"workspaceKey": W1, "recordTypes": [h]}))
+    own = narrowed.change_set()
+    ok(narrowed.create("H", "Proposed", change_set=own), 201)
+    _narrowed(
+        narrowed.create("K", "Not proposed", change_set=narrowed.current(own)),
+        "records.write",
+        ["change-sets"],
+        W1,
+        [k],
+    )
+    both = world.change_set()
+    world.made("H", "In both", change_set=both)
+    world.made("K", "Out of reach", change_set=world.current(both))
+    _narrowed(
+        narrowed.api.post(f"/change-sets/{both['id']}/publication", _publication_body(world, both)),
+        "change-sets.publish",
+        ["publish"],
+        W1,
+        [k],
+    )
+    live = ok(world.api.get(f"/objects/{k}", workspaceKey=W1, search="Out of reach"))
+    assert live["items"] == []
+
+
+LADDER = ("L1", "L2", "L3", "L.only1", "L.extra")
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures(*LADDER)
+def test_a_narrowed_type_change(world):
+    """Given a grant narrowed to L1 and two top-level L1 records. When the client moves one under the
+    other, which makes it an L2, then the plan is refused with `FORBIDDEN` naming L2 for that record,
+    and applying it changes nothing."""
+    l1, l2 = world.key("L1"), world.key("L2")
+    moving = world.made("L1", "Moving", values={"L.code": "M-1", "L.only1": "kept"})
+    world.made("L2", "Moving 2", parent=moving["id"], values={"L.code": "M-2"})
+    receiving = world.made("L1", "Receiving", values={"L.code": "R-1"})
+    _, narrowed = _client(world, "Reshaper", ("steward", {"workspaceKey": W1, "recordTypes": [l1]}))
+    change_set = narrowed.change_set()
+    operation = {"kind": "move", "objectId": moving["id"], "parentObjectId": receiving["id"]}
+    inputs = [
+        {
+            "objectId": moving["id"],
+            "attributes": [{"attributeTypeKey": world.key("L.extra"), "value": "given"}],
+        }
+    ]
+    mappings = [{"fromObjectTypeKey": l1, "toObjectTypeKey": l2, "attributes": []}]
+    body = {"operation": operation, "inputs": inputs, "choices": {"mappings": mappings}}
+    plan = ok(narrowed.api.post(f"/change-sets/{change_set['id']}/restructurings/preview", body))
+    assert plan["status"] == "refused", plan
+    [refusal] = [item for record in plan["records"] for item in record["refusals"]]
+    assert refusal["code"] == "FORBIDDEN" and refusal["objectId"] == moving["id"]
+    assert refusal["details"]["recordTypes"] == [l2]
+    applied = narrowed.api.post(
+        f"/change-sets/{change_set['id']}/restructurings",
+        {
+            **body,
+            "planDigest": plan["planDigest"],
+            "expectedChangeSetVersion": narrowed.current(change_set)["version"],
+        },
+    )
+    assert applied.status_code in (403, 422), applied.text
+    assert world.record("L1", moving["id"], changeSetId=change_set["id"])["objectTypeKey"] == l1
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures("R", "R2")
+def test_a_narrowed_move(world):
+    """Given copy and move in the target narrowed to one of its types and Browse in the source. When
+    the client moves the whole workspace, then only that type's records load and the others are
+    refused with `FORBIDDEN` naming their type. A `mode: move` without Work in change sets in
+    the source answers `403` before it starts (D297)."""
+    from test_j38_1_model_mapping import _read
+    from test_j38_2_move_dry_run import _rows
+    from test_j38_3_move import _ledger, _mapped
+
+    other, target, key = _mapped(world)
+    ledger = _ledger(world, "Ledger")
+    world.made("R2", "Entry", parent=ledger["id"])
+    allowed = other.key("R")
+    _, mover = _client(
+        world,
+        "Mover",
+        ("owner", {"workspaceKey": target, "recordTypes": [allowed]}),
+        ("reader", {"workspaceKey": W1}),
+    )
+    body = {
+        "sourceWorkspaceKey": W1,
+        "targetWorkspaceKey": target,
+        "mapping": {"key": key, "expectedVersion": _read(world, key)["version"]},
+        "selection": {},
+        "stage": "execute",
+    }
+    _forbidden(
+        mover.api.post("/moves", {**body, "mode": "move"}), "moves.create", ["change-sets"], W1
+    )
+    job = ok(mover.api.post("/moves", body), 202)
+    _run_jobs(world)
+    job = ok(mover.api.get(f"/jobs/{job['id']}"))
+    assert job["state"] == "completed", job
+    rows = [row for row in _rows(world, job["id"]) if row["kind"] == "record"]
+    loaded = {row["targetType"] for row in rows if row["outcome"] in ("create", "update")}
+    assert loaded == {allowed}, rows
+    [entry] = [row for row in rows if row["targetType"] == other.key("R2")]
+    [reason] = entry["reasons"]
+    assert entry["outcome"] == "refused" and reason["code"] == "FORBIDDEN"
+    assert reason["details"]["recordTypes"] == [other.key("R2")]
+    assert reason["details"]["groups"] == ["copy-move"]
+
+
+@pytest.mark.journey("J40.10")
+@pytest.mark.structures("H")
+def test_a_job_keeps_its_requesters_permissions(world):
+    """Given a client that submits two background batches, when its grant is removed before they
+    run, then the requester still reads and cancels its own job, and the other fails at its step
+    with `403 FORBIDDEN` naming the requester; a client holding nothing there gets `403` for it."""
+    client, steward = _client(world, "Requester", ("steward", {"workspaceKey": W1}))
+    first = ok(_batch(steward, [_item(world, "H", "Queued")], run="background"), 202)
+    second = ok(_batch(steward, [_item(world, "H", "Cancelled")], run="background"), 202)
+    [grant] = ok(world.api.get("/grants", principalId=client["id"]))["items"]
+    assert world.api.delete(f"/grants/{grant['id']}").status_code == 204
+
+    assert ok(steward.api.get(f"/jobs/{first['id']}"))["state"] == "queued"
+    ok(steward.api.post(f"/jobs/{second['id']}/cancel"), 202)
+    listed = {job["id"] for job in ok(steward.api.get("/jobs"))["items"]}
+    assert {first["id"], second["id"]} <= listed
+    _run_jobs(world)
+    failed = ok(steward.api.get(f"/jobs/{first['id']}"))
+    assert failed["state"] == "failed", failed
+    assert failed["error"]["code"] == "FORBIDDEN"
+    assert failed["error"]["details"]["requestedBy"]["id"] == client["id"]
+    assert failed["error"]["details"]["groups"] == ["bulk"]
+    assert ok(steward.api.get(f"/jobs/{second['id']}"))["state"] == "cancelled"
+
+    _, stranger = _client(world, "Stranger", ("reader", {"workspaceKey": W2}))
+    _forbidden(stranger.api.get(f"/jobs/{first['id']}"), "jobs.use", ["bulk"], W1)
+
+
+@pytest.mark.journey("J40")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+def test_a_source_file_belongs_to_its_uploader_and_workspace(world):
+    """Given clients holding Bulk and import in A, and one in B only. A file the first uploads for
+    A's profile is listed for it and for A's other holder, not for B's client, whose read of it
+    answers `403` (D295)."""
+    from test_j36_workspace_resources import XLSX, _profile, _rows
+
+    profile = ok(world.api.post("/import-profiles", _profile(world)), 201)
+    _, uploader = _client(world, "Uploader", ("steward", {"workspaceKey": W1}))
+    _, colleague = _client(world, "Colleague", ("steward", {"workspaceKey": W1}))
+    _, elsewhere = _client(world, "Elsewhere", ("steward", {"workspaceKey": W2}))
+    source = ok(
+        uploader.api.upload(
+            "/source-files",
+            {"file": ("rows.xlsx", _rows("MINE"), XLSX)},
+            {"request": json.dumps({"owner": {"profileKey": profile["key"]}, "workspaceKey": W1})},
+        ),
+        201,
+    )
+
+    def listed(caller) -> set[str]:
+        page = ok(caller.api.get("/source-files", profileKey=profile["key"]))
+        return {item["id"] for item in page["items"]}
+
+    assert source["id"] in listed(uploader) and source["id"] in listed(colleague)
+    assert source["id"] not in listed(elsewhere)
+    ok(colleague.api.get(f"/source-files/{source['id']}"))
+    _forbidden(
+        elsewhere.api.get(f"/source-files/{source['id']}"), "source-files.manage", ["bulk"], W1
+    )
+
+
+@pytest.mark.journey("J40")
+@pytest.mark.structures("R")
+def test_a_stale_grant_allows_nothing(world):
+    """Given a grant narrowed to a record type that only a newer release has, when the workspace
+    goes back to the release without it, then the grant reads `stale: true` naming the type, and
+    the client's writes of any type answer `403` (D296)."""
+    original = world.workspace_model()["releaseId"]
+    model, _key = world.candidate("compatible")
+    ok(world.activate(world.install(model)["id"]))
+    added = f"{world.key('R')}-added-type"
+    client, narrowed = _client(
+        world, "Stale", ("steward", {"workspaceKey": W1, "recordTypes": [added]})
+    )
+    ok(world.activate(original))
+
+    [grant] = ok(world.api.get("/grants", principalId=client["id"]))["items"]
+    assert grant["stale"] is True
+    assert grant["scope"]["missingRecordTypes"] == [added]
+    held = {g["key"]: g for g in ok(narrowed.api.get("/me/permissions"))["actionGroups"]}
+    assert held["edit-live"]["stale"] is True
+    _narrowed(
+        narrowed.create("R", "Nothing allowed"),
+        "records.write",
+        ["edit-live"],
+        W1,
+        [world.key("R")],
+    )

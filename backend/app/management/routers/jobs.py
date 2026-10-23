@@ -36,7 +36,7 @@ from ..access import (
     CurrentPermissions,
     requires,
 )
-from ..dependencies import DbSession
+from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..presenters import batch_response, job_responses
 from ..presenters import job_item_page as present_job_items
@@ -247,6 +247,7 @@ def _wake_worker(request: Request) -> None:
 def list_jobs(
     session: DbSession,
     permissions: CurrentPermissions,
+    principal: CurrentPrincipal,
     paging: PageQuery,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     kind: Literal[
@@ -270,7 +271,7 @@ def list_jobs(
             state=state,
             page=paging,
             page_size=page_size,
-            visible=visible_jobs(permissions),
+            visible=visible_jobs(permissions, principal.kind, principal.row_id),
         ),
     )
 

@@ -1254,6 +1254,237 @@ gain an owner). _Amended after Z1 (the user, 2026-10-23):_ Z2's checks include t
 backend suite, announced with its expected time, which also stands for Z1's; a failure it finds
 from Z1 is fixed in Z2 and named in its record.
 
+##### Z2 plan (2026-10-23)
+
+**Planned 2026-10-23; accepted by the user the same day** ("its ok"): D289–D296 and the test
+cases as written. Checked
+against the code at `eaa724c` (Z1 committed).
+
+**What the check found:**
+
+- **Nothing below `management/` knows the caller.** The route check puts the caller's permissions
+  on `request.state`; no engine function takes them. `Session.info` already carries the audit's
+  cause to the write unit (`records/audit.py`), the channel D292 reuses.
+- **Almost every record write ends in the write unit**: single live and change-set writes, batches,
+  imports and inline batches (`jobs/batches.py:run_items`, `_LiveItems`, `_ChangeSetItems`), moves
+  (`run_items` into the target's change set), relationship sets, mapping replacements, deletions
+  with their cascades (`LiveWrites.remove_records`), type changes and restructurings
+  (`ChangeSetWrites.own_object`), and publication (`LiveWrites.apply_publication`). The types written
+  are at hand there: a decided `Changes` holds each record's application and type; a relation holds
+  only its type and end IDs.
+- **Two writers go around the unit with SQL:** a workspace's migration (`model/migrations.py`) and a
+  change set's (`model/change_set_migrations.py`). Both are Model release work (D290).
+- **A publication's types are one statement away:** the distinct `(application_key,
+  object_type_key)` of `change_set_objects` with the live row's (a type change's old type, a
+  tombstone's), and the relations' ends through `change_set_relations`.
+- **A relationship set may be incoming** (`direction: incoming`): the record it is replaced on is
+  then the relation's `to` end (D291).
+- **Jobs record no requester**; the worker rebuilds a job's context from its row
+  (`open_job_context`), so it can read the requester's permissions there with the same cached
+  lookup and the current generation.
+- **Source files belong to a draft or an import profile**, carry the workspace their overlaps read
+  (nullable) and no uploader. Z1 lets anyone holding `bulk` anywhere read and change every profile's
+  file (D287).
+- **The feed, exports and the cross-type lookup are already checked per workspace by Z1**: the feed
+  and an export name one workspace, which the route checks, and the lookup across workspaces checks
+  every one it names (`403` for one not allowed, D249). Z2 adds nothing there; J40.9's case already
+  covers the lookup.
+- **Withdrawing a publication changes no data** (only the current-publication pointer), so it is not
+  narrowed.
+
+**What is built:**
+
+1. **Migration** `20261030_01`: `jobs.requested_by_user_id` and `requested_by_client_id` (nullable,
+   one at most, a check constraint; `ON DELETE RESTRICT`, principals are never deleted, D237), and
+   `source_files.uploaded_by_user_id` and `uploaded_by_client_id` alike. Existing rows keep null
+   (D294, D295).
+2. **Engine** `engine/authorization/writes.py`: the **writer** (the caller's permissions, the
+   workspace and the action group a write runs under, D292), what a narrowed group allows in a
+   workspace (D289), and one check over a set of distinct `(application, type)` pairs and relation
+   end pairs, refusing with `403 FORBIDDEN` and `details.recordTypes` (D293). A caller holding the
+   group unnarrowed is allowed without reading anything, so a normal request costs no statement.
+3. **The write unit** checks before it writes: `LiveWrites.write`, `remove_records`, `save_values`,
+   `remove_value` and `apply_publication`, and `ChangeSetWrites`' adds, claims, removes and
+   `own_object`, each over the distinct types of what it is handed (records in memory; relation ends
+   with one `SELECT DISTINCT` when a relation's ends are not among them). A batch or import chunk is
+   checked once as a set; its items of a refused type get the refusal as their outcome and the
+   batch's policy decides as for any refused item (D293). A publication is checked once over the
+   change set's types (one statement) before anything is written. A type change and a restructuring
+   are checked over both the old and the new types. A write with no writer on the session is refused
+   (D292).
+4. **The route check** sets the writer (`authorized` in `management/access.py`): the group the
+   route's action needs in the workspace it resolved (`edit-live` or `change-sets` by `changeSetId`,
+   `bulk` for batches and imports, `publish`, `copy-move` in a move's target). `publish` and
+   `copy-move` become narrowable in the catalogue (D290; `/action-groups` shows it).
+5. **Jobs as their requester** (D294): submission stores the requester; confirmation checks the
+   requester again (the confirmer is checked at the route as in Z1); the worker reads the requester's
+   permissions before each chunk, binding, preview, export or move step and fails the job with
+   `403 FORBIDDEN` naming what is missing and `details.requestedBy`, or with the requester's
+   deactivation, and sets the job's writer for the write unit. The requester reads, follows, cancels
+   and confirms their own job, and sees it in `GET /jobs`, beside D285's holders.
+6. **Source files** (D295): the uploader is stored; a profile's file is read and changed by its
+   uploader, by holders of `bulk` in its workspace, or at the instance for one without a workspace;
+   the list is filtered and a named file refused with `403`. A draft's files stay Model authoring.
+7. **Stale grants** (D296): a grant's read (`GET /grants`, `/me/grants`, a workspace's access)
+   answers `stale: true` and the names the workspace's model no longer has; `/me/permissions` the
+   same per group; a stale name never widens what a grant allows.
+8. **OpenAPI lock** re-baselined (the new fields; `stale`); no route added.
+9. **Documents:** API.md (Z2 delivered: the write-unit check, `recordTypes` on `403`, jobs and
+   their requester, source files' owner, `stale`); ADR-044 and ARCHITECTURE (the second check as
+   built, D289–D292); USER_JOURNEYS (J40.3, J40.10) and API_JOURNEYS; CURRENT_FUNCTIONALITY;
+   OPERATIONS (jobs and source files from before Z2); CHANGELOG, PROJECT_STATUS.
+
+No frontend change: a refused write shows the engine's message as today; the interface following
+permissions is Z5.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D289 | What a narrowed grant lets a caller write | **Recommended:** a record may be written when its application is among the grant's `applications` **or** its type among its `recordTypes`; a grant with neither is unnarrowed. Across several grants holding the group in the workspace (direct, through groups, at the instance) the allowances add up, and one unnarrowed grant allows every type. Why: "this application, plus that one type from another" is the natural way to name a steward's area, and grants only ever add rights, as everywhere else in ADR-044. Cost: no way to say "only type T inside application A"; a type is the finer name already |
+| D290 | Which writes are narrowed (**changes Z1's catalogue: `publish` and `copy-move` become narrowable**) | **Recommended:** live writes by `edit-live`'s grants, change-set writes (with type changes and restructurings) by `change-sets`', batches and imports by `bulk`'s, a publication by `publish`'s over the change set's types, a move by `copy-move`'s in the target. A migration (Model release) and discarding a change set are not narrowed. Why: J40.3 names publications and moves; a person narrowed to one type who could publish a change set touching every type would hold more than the grant says. A migration converts the whole workspace to a new model, an administrator's work the model administrator is granted for. Cost: `/action-groups` reports two more groups as narrowable; a narrowed publisher can publish only change sets inside their types |
+| D291 | What a relationship write counts as | **Recommended:** a relationship may be added, changed or removed when the caller may write **either** of its ends' types. Why: a steward narrowed to translations must be able to link a translation to the value it translates; a relationship set may be replaced from either end (`incoming` sets), so "the from record" would refuse the same change made from the other side. The set check is over distinct pairs of end types. Cost: a narrowed person can add a relationship that appears on a record type they cannot otherwise edit |
+| D292 | How the write unit knows the caller | **Recommended:** a **writer** on the session (`Session.info`, as the audit's cause already travels): the route check puts it there for a request, the worker for a job step from its requester. The write unit refuses a write with no writer (`500 WRITER_UNKNOWN`, failing closed like Z1's `ROUTE_NOT_DECLARED`); the engine's own non-caller paths (the CLI, the seeds, the startup's example install) set an explicit system writer. Why: passing permissions through every engine function would change hundreds of signatures; a path that forgets to set a writer is refused instead of silently allowed. Cost: tests calling the engine directly set a writer (the harness's fixtures do it once) |
+| D293 | How a narrowed refusal looks, and in a batch | **Recommended:** `403 FORBIDDEN` with `action`, `groups`, `workspaceKey` and `recordTypes` (the refused types, sorted; J40's refusals). A single write and a publication are refused whole. In a batch or an import chunk the distinct types are checked once; each item of a refused type gets that refusal as its outcome, and the batch's policy (atomic or per item) decides as for any refused item; a preview shows the same outcomes. Why: a batch already reports refusals per item and integrators handle them so; refusing a whole 10,000-row import for one row would hide which rows. Cost: none beyond the check |
+| D294 | Jobs and their requester | **Recommended:** `requested_by` stored at submission; the requester's permissions checked at confirmation and before each worker step; a requester deactivated or without the kind's group fails the job with the reason. The requester keeps reading, following, cancelling and confirming their own job (it still fails at its next step if they lost the right). Jobs submitted before Z2 have no requester: they finish under Z1's rules and are read by D285's holders. Why: D236 as accepted; old jobs expire within `JOB_RETENTION_DAYS`, so no backfill is needed. Cost: one cached permission read per job step |
+| D295 | Source files' owner (D248, D287) | **Recommended:** the uploader stored; a profile's file read and changed by its uploader, by holders of `bulk` in the file's workspace, or by holders of `bulk` at the instance when it names none; the list filtered, a named file `403`. Files uploaded before Z2 have no uploader and follow the workspace rule. Why: D248 as accepted: a workbook holds one workspace's data. Cost: a steward granted one workspace no longer sees another workspace's uploads (the point) |
+| D296 | A grant naming what the model no longer has | **Recommended:** the grant's reads answer `stale: true` with the missing names; the missing names allow nothing, and a grant whose every name is missing allows no writes at all (never "unnarrowed"). Why: ADR-044 "reported, never widened"; a model change dropping a type must not turn a narrow grant into a full one. Cost: an administrator removes or replaces the stale grant (SP1 shows it) |
+| D297 | A move's source (**found during delivery; decided by recommendation, the user's standing instruction after an approved plan**) | **Decided:** a `mode: move` also needs Work in change sets in the source, checked at the route before the move starts, and the source's deletion change set is written under those grants (narrowed alike); `mode: copy` needs Browse there as before (D286). Why: a move writes a change set of the source deleting what it loaded (D134); with Browse alone a Reader of the source could propose deleting its records, and the write-unit check would refuse it only at the move's last step. Cost: a mover needs Work in change sets in the source, which Data steward and Data owner hold |
+
+**Journey test cases** (`tests/journeys/test_j40_authorization.py`, on two configurations, clients
+granted through the API by the harness acting as security administrator; written first and seen
+failing):
+
+1. **J40.3, a narrowed live write:** given a client granted Data steward in A narrowed to one record
+   type, when it creates and changes a record of that type, then both pass; a record of another type
+   answers `403 FORBIDDEN` with `recordTypes` naming it; a grant narrowed to that type's application
+   allows it.
+2. **J40.3, in a batch and an import:** given the same grant, when it sends a batch with items of
+   both types (per item), then the permitted items pass and the others carry `403 FORBIDDEN` with
+   `recordTypes`; atomic, the whole batch is refused; an import of rows of the refused type reports
+   them refused.
+3. **J40.3, a relationship:** given the narrowed grant, a relationship from a permitted record to a
+   record of another type passes; one between two records of other types answers `403`.
+4. **J40.3, publication and type change:** given the narrowed grant in a change set, writing a record
+   of the other type answers `403`; given a change set (written by the harness) touching both types,
+   publishing it answers `403` naming the other type; changing a permitted record into the other type
+   answers `403`.
+5. **J40.3, a move:** given `copy-move` in B narrowed to one type and Browse in A, moving records of
+   another type into B reports them refused.
+6. **J40.10, a job keeps its requester's permissions:** given a client that submits a background
+   batch, when its grant is removed before the job runs, then the job fails with `403 FORBIDDEN` and
+   `requestedBy`; when it is the requester, it still reads and cancels its job after losing the group,
+   and a second client holding nothing there gets `403`.
+7. **D295, source files:** given two clients with `bulk` in A and B, a file one uploads for A is
+   listed for it and for A's holders, not for B's client, whose read of it answers `403`.
+8. **D296, a stale grant:** given a grant narrowed to a type, when a release without that type is
+   activated in the workspace, then the grant reads `stale: true` and the client's writes of any type
+   answer `403`.
+
+Unit tests: D289's allowance (applications or types, several grants, instance, stale names) and
+D291's pair check; the writer missing (`WRITER_UNKNOWN`).
+
+**Checks:** the new cases and J40's module; the journeys of the write paths the check enters (J24
+background jobs, J27 import and export, J38.3 moves, change-set publish and restructure, the batch
+statement-count modules, since the check must add no statement for an unnarrowed caller);
+`test_openapi_contract` with the lock diffed; `test_boundaries`, `test_foreign_keys`,
+`test_startup`; Ruff on the changed files. **The full backend suite**, which also stands for Z1's
+(the user, 2026-10-23): about 12½ minutes with `-n 6`, announced and run on the user's go-ahead
+once the package's own checks pass; a failure it finds from Z1 is fixed here and named in the
+record. No browser runner: nothing in the interface changes.
+
+**Composable domains (ADR-032):** the identity door is touched: jobs and source files name their
+principal by kind; no value source, audit row or `cause` changes (Z4 adds the actor).
+
+**What the user will still not be able to do after Z2:** limit a client to some consumer APIs (Z3);
+see who changed what (Z4); have the interface hide what a person may not do (Z5); manage people,
+groups, roles and grants on a page (SP1).
+
+##### Z2 record (2026-10-24)
+
+**Delivered 2026-10-24.** What was built is the plan's list, items 1–9, with D297 added:
+
+- **Migration** `20261030_01`: `jobs.requested_by_user_id`, `requested_by_client_id` and
+  `source_files.uploaded_by_user_id`, `uploaded_by_client_id` (`RESTRICT`, at most one, indexed);
+  rows from before name nobody. It ran on the user's development database through the running dev
+  server; checked afterwards: head `20261030_01`, the four columns, health `200`.
+- **Engine** `engine/authorization/writes.py` (the writer on the session, the allowance per
+  workspace, `refuse_types`, `WRITER_UNKNOWN`), `requesters.py` (a job step's writer from its
+  requester, `403` with `requestedBy`), `Permissions.narrowing` and `Narrowing` (D289), `publish` and
+  `copy-move` narrowable (D290), visibility conditions for a requester's jobs and an uploader's
+  files.
+- **The write unit** checks in `LiveWrites` (`add_object`, `claim_object`, `write`, `remove_records`,
+  the relation methods, `permit_publication` over the change set's rows in two set statements) and
+  `ChangeSetWrites` (`write`, `own_object`, `add_object`, `remove_object`, the relation methods,
+  `permit_type_change`); the batch lookup checks each decided item (`BatchLookup.deciding`), so a
+  batch, an import, a move and a restructuring's plan refuse that item alone. Values are saved or
+  removed only after their record's claim, which checked it.
+- **The route check** puts the writer on the session; a job is used by its requester without the
+  group; `mode: move` needs Work in change sets in the source (D297), and the source's deletion
+  change set runs under it.
+- **Jobs:** `start_job` records the requester; `confirm_job` and every worker step check them
+  (`job_writer`), an export before its snapshot begins; the jobs list includes the caller's own.
+- **Source files:** the uploader stored; a profile's file listed, read and deleted by its uploader
+  and its workspace's `bulk` holders, `403` otherwise; a draft's files as before.
+- **Stale grants:** `stale`, `scope.missingApplications`, `scope.missingRecordTypes` on a grant and
+  `stale` on a held group.
+- **Harness:** `tests/engine_writer.py` gives a session the engine's own writer when nothing named
+  one, for tests and seeds that call the engine directly; the application has no such default.
+- **Documents:** API.md (Z2 delivered, narrowed writes, jobs as their requester, source files,
+  stale grants, Publish and Copy and move narrowable), ADR-044, ARCHITECTURE (the write-unit check as
+  built), OPERATIONS (narrowed and stale grants, jobs and files from before Z2), USER_JOURNEYS (J40),
+  API_JOURNEYS, CURRENT_FUNCTIONALITY (F27), CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **D297, decided during delivery:** a move's source needs Work in change sets for `mode: move`
+  (in the decisions table above).
+- **Per item, then per write:** the allowance is read once per request or job step; each decided
+  item's types are tested against it in memory, and the write unit tests the distinct types it is
+  handed again before writing. A relationship's end types are read in one statement only when the
+  writer is narrowed and they are not in hand. An unnarrowed writer costs no statement; a job step
+  costs one (the requester and the generation).
+- **A refused restructuring is refused in its plan:** the preview answers `status: refused` with a
+  `FORBIDDEN` refusal on the record, since a plan runs the same writes and rolls them back.
+- **Nothing in the application needed the explicit system writer** D292 named for the CLI, the
+  seeds and the startup: none of them writes records. Only jobs from before Z2 and the test harness
+  use it.
+- **A draft's source files** keep Z1's rule (`bulk` at any scope); D295 applies to a profile's.
+- **The journey cases were written after the engine code**, as in Z1, then run: not seen failing
+  first. Two cases differ in detail from their plan lines: the move case moves the whole workspace
+  and checks that only the permitted type loads; the stale case narrows to a type a newer release
+  added and goes back to the release without it.
+- **Fixed on the way, from Z1:** an import naming a stored source file, sent as a URL-encoded form,
+  failed with an internal error (the route check read the body as JSON after the form). The J34 and
+  J36 source-file journeys exposed it and pass now.
+
+**Checks** (`-n 6` unless noted):
+
+- `tests/journeys/test_j40_authorization.py`: 34 passed (the 9 new cases on two configurations each,
+  and Z1's).
+- `tests/unit/engine/authorization/`: 24 passed (D289's allowance, D291's either end, a group not
+  narrowable, `WRITER_UNKNOWN`).
+- The write paths' journeys: J05/J06 publish, J11 bulk, J13 relate, J14 hierarchy, J15 reshape, J24
+  background jobs and stream, J27 import and export, J38.1–J38.3 moves, `test_batch_statements`,
+  `test_move_statements`: 288 passed (1 min 54 s), budgets unchanged.
+- J34 onboarding, J36 workspace resources and models, J39/J41/J43 identity, J39 sign-in: 168 passed.
+- J37 workspace and change-set migrations, J35, J08, J10, J26, J30 consumer events, the
+  several-process J24, J03/J26 and J24/J26 journeys, `test_w6_workspace_deletion`, `test_workspaces`:
+  213 passed (1 min 54 s).
+- `test_openapi_contract` (the lock re-baselined after a diff against `eaa724c`: `stale`, the two
+  `missing…` lists, `stale` on a held group, `GET /source-files`' description; nothing else),
+  `test_foreign_keys` (four reviewed rules added), `test_startup` (its pinned head), `test_boundaries`,
+  `test_api_journeys`: 33 passed.
+- Ruff on the changed files; formatting kept to this package's lines.
+
+**Not run:** the full backend suite, **moved to Z5 by the user (2026-10-24)**: Z5 closes Track Z and
+its full run stands for Z1–Z4. No browser runner: the interface did not change.
+
+**What the user cannot do yet:** manage people, groups, roles and grants on a page, or set a grant's
+narrowing in the interface (SP1; API calls until then); limit a client to some consumer APIs (Z3);
+see who changed what (Z4); have the interface hide what a person may not do (Z5: a narrowed steward
+sees edit buttons for other types and the engine's refusal).
+
 #### Z3: Consumer APIs per client
 
 **Needs:** Z1.
@@ -1284,7 +1515,9 @@ not open (settings pages, model administration) and disables, with the reason, w
 not do ("You can read this workspace"). A Reader's record view has no edit affordance at all. A
 Contributor (D231) edits only in change sets: the record view offers "Propose a change", which opens
 or continues their change set, instead of saving live. Every guard stays on the server; the interface
-only avoids offering what would be refused.
+only avoids offering what would be refused. _Amended after Z2 (the user, 2026-10-24):_ Z5's checks
+include the full backend suite, announced with its expected time, which closes Track Z and stands
+for Z1's, Z2's, Z3's and Z4's; a failure it finds from them is fixed in Z5 and named in its record.
 
 ### Track SP — The Security pages (U8)
 
@@ -1409,7 +1642,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 2 | [I1](#i1-the-issuer-people-and-clients-every-route-authenticated) | P0 | The issuer, users and clients, every route authenticated, harnesses on real tokens |
 | 3 | [I2](#i2-signing-in-from-the-browser) | I1 | **Delivered 2026-10-23.** The sign-in page, PKCE, the account menu and page |
 | 4 | [Z1](#z1-roles-groups-and-grants-at-the-route) | I1 | **Delivered 2026-10-23.** Roles, groups and grants; every route checked; `/me/permissions` |
-| 5 | [Z2](#z2-record-types-at-the-write-unit-jobs-moves-and-the-feed) | Z1 | Record types at the write unit; jobs as their requester; moves; the feed |
+| 5 | [Z2](#z2-record-types-at-the-write-unit-jobs-moves-and-the-feed) | Z1 | **Delivered 2026-10-24.** Record types at the write unit; jobs as their requester; moves; source files |
 | 6 | [Z3](#z3-consumer-apis-per-client) | Z1 | Consumer APIs per client and workspace |
 | 7 | [Z4](#z4-audit-identity) | Z1 | The actor beside `cause` everywhere |
 | 8 | [Z5](#z5-the-interface-follows-the-callers-permissions) | Z2, I2 | The interface follows permissions; Reader and Contributor |

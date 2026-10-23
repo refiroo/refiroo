@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from ...models.database import AttributeValue, ChangeSetObject, RdmObject, RelationSetVersion
 from ...models.schema import CandidateCriterion, EngineModel
+from ..authorization.writes import allowance, refuse_types
 from ..model.candidates import meets_criteria
 from .audit import AuditEntry
 from .context import Ancestors, ChangeSetLookup, LiveLookup
@@ -174,13 +175,39 @@ class BatchLookup(Ancestors):
     @contextmanager
     def deciding(self) -> Iterator[None]:
         """Decide one item: what it lays over is kept when the block ends, and discarded when a
-        rule refuses it."""
+        rule refuses it, or when it writes a record the writer may not write (Z2, D293), so a
+        batch refuses that item alone."""
         self._item = Changes()
         try:
             yield
+            self._permit(self._item)
             self.chunk.absorb(self._item)
         finally:
             self._item = None
+
+    def _permit(self, item: Changes) -> None:
+        """Refuse an item writing records, or relationships between records, of types the writer
+        may not write: the allowance is read once per batch, each item's types tested against it
+        (D289, D291)."""
+        workspace_key = self._set_scope()[0]
+        if allowance(self.session, workspace_key).everything:
+            return
+        relations = [
+            (relation.from_object_id, relation.to_object_id)
+            for relations in (item.added, item.changed, item.removed)
+            for relation in relations.values()
+        ]
+        ends = self.objects(end for pair in relations for end in pair)
+        types = {
+            object_id: (record.application_key, record.object_type_key)
+            for object_id, record in ends.items()
+        }
+        refuse_types(
+            self.session,
+            workspace_key,
+            ((record.application_key, record.object_type_key) for record in item.records.values()),
+            [(types[a], types[b]) for a, b in relations if a in types and b in types],
+        )
 
     def changes(self) -> Changes:
         return self.chunk

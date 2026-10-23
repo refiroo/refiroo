@@ -101,6 +101,12 @@ class GrantScopeResponse(BaseModel):
     recordTypeNames: list[str] = Field(
         description="The record types' names in the workspace's model, in the order of recordTypes"
     )
+    missingApplications: list[str] = Field(
+        description="Applications of the narrowing the workspace's model no longer has (D296)"
+    )
+    missingRecordTypes: list[str] = Field(
+        description="Record types of the narrowing the workspace's model no longer has (D296)"
+    )
 
 
 class GrantResponse(BaseModel):
@@ -108,6 +114,10 @@ class GrantResponse(BaseModel):
     principal: GrantPrincipalResponse
     role: GrantRoleResponse
     scope: GrantScopeResponse
+    stale: bool = Field(
+        description="The narrowing names an application or record type the workspace's model no "
+        "longer has; those allow nothing, and a grant naming only such allows no writes (D296)"
+    )
     createdAt: datetime
 
 
@@ -132,6 +142,10 @@ class HeldGroup(BaseModel):
     )
     recordTypes: list[str] = Field(
         description="Writes narrowed to these record types; empty when not narrowed"
+    )
+    stale: bool = Field(
+        description="The narrowing names an application or record type the workspace's model no "
+        "longer has, which allows nothing (D296)"
     )
     sources: list[PermissionSource]
 

@@ -33,6 +33,7 @@ from uuid import uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import engine_writer  # noqa: F401
 import harness_identity
 import postgres_server
 from sqlalchemy import URL, create_engine, text

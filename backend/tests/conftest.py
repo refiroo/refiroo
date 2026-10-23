@@ -64,6 +64,8 @@ if _WORKER:
 else:
     os.environ.setdefault("JOB_FILE_DIR", _SESSION_FILES)
 
+import engine_writer  # noqa: F401
+
 from app.config import reload_settings
 from app.db import get_engine
 

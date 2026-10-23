@@ -39,6 +39,27 @@ class Holding:
 
 
 @dataclass(frozen=True)
+class Narrowing:
+    """What one group allows writing in a workspace (Z2, D289): a record whose application or type
+    a grant names; every record when ``everything``. Names the model no longer has match nothing,
+    so a stale grant never widens (D296)."""
+
+    everything: bool
+    applications: frozenset[str] = frozenset()
+    record_types: frozenset[str] = frozenset()
+
+    def permits(self, application_key: str, object_type_key: str) -> bool:
+        return (
+            self.everything
+            or application_key in self.applications
+            or object_type_key in self.record_types
+        )
+
+
+EVERYTHING = Narrowing(everything=True)
+
+
+@dataclass(frozen=True)
 class Permissions:
     holdings: tuple[Holding, ...]
 
@@ -66,6 +87,23 @@ class Permissions:
                 return None
             keys.add(holding.workspace_key)
         return frozenset(keys)
+
+    def narrowing(self, group: str, workspace_key: str) -> Narrowing | None:
+        """What ``group`` allows writing in ``workspace_key``; None when the caller does not hold
+        it there. The grants' narrowings add up, and one grant without any allows every record
+        (D289); a group that is not narrowable is never narrowed (D290)."""
+        granting = [holding for holding in self.groups_in(workspace_key) if group in holding.groups]
+        if not granting:
+            return None
+        if not GROUPS[group].narrowable or any(
+            not (holding.applications or holding.record_types) for holding in granting
+        ):
+            return EVERYTHING
+        return Narrowing(
+            everything=False,
+            applications=frozenset(key for item in granting for key in item.applications),
+            record_types=frozenset(key for item in granting for key in item.record_types),
+        )
 
     def groups_in(self, workspace_key: str | None) -> list[Holding]:
         """The holdings that apply in ``workspace_key`` (instance ones included)."""
