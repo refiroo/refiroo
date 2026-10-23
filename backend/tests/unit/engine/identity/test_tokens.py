@@ -25,7 +25,8 @@ def _claims(**changes):
         "sub": "client-1",
         "aud": "management",
         "iat": now,
-        "exp": now + 60,
+        # Built at collection, so valid for the whole run, however long.
+        "exp": now + 3600,
         "jti": "j",
         "principalKind": "client",
     }
@@ -78,6 +79,7 @@ def test_an_hmac_token_is_never_accepted():
         "not a token",
         jwt.encode(_claims(principalKind="robot"), KEY, "ES256", {"kid": "k"}),
     ],
+    ids=["empty", "two-parts", "text", "unknown-principal-kind"],
 )
 def test_a_token_that_is_not_ours_is_malformed(token):
     with pytest.raises(TokenRefused) as refused:

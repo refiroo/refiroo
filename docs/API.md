@@ -5771,7 +5771,8 @@ C1), and the OAuth endpoints above. Every other route, including `/metrics` (a s
 holding Operator) and the consumer API index and per-definition OpenAPI, needs a token.
 
 **Every request** with a token is checked for its signature and `kid`, `exp`, `aud` (the management
-API takes `management`, the consumer routes `consumer`), that the principal is active and, for a
+API takes `management`, the consumer routes `consumer`, and the two routes describing the consumer
+APIs, the index and each OpenAPI document, either, D266), that the principal is active and, for a
 person, that `sid` is not signed out. The last two are looked up with the permissions (D226, D251),
 so a deactivation or "sign out everywhere" applies on the next request.
 

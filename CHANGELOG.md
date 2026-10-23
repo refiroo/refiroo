@@ -27,7 +27,8 @@ All notable changes to this project are documented in this file. The format foll
 
 - **Every route needs an access token** except `/health`, `/health/live`, `/openapi.json`, `/docs`
   and the OAuth endpoints: `401 AUTHENTICATION_REQUIRED` without one, `401 TOKEN_INVALID` with the
-  reason otherwise. This includes `/metrics` and the consumer API (a `consumer` token). Until roles
+  reason otherwise. This includes `/metrics` and the consumer API (a `consumer` token; its index and
+  OpenAPI documents take a `management` token too, D266). Until roles
   (Z1) every active client or person may use every route. The browser shows the refusals until
   signing in arrives (I2).
 - `SECRETS_ENCRYPTION_KEY` is required on every installation and seals token and webhook signing

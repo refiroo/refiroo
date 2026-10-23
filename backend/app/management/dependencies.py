@@ -97,6 +97,12 @@ bearer = OAuth2(
 )
 
 
+def started(request: Request) -> None:
+    """In maintenance mode (startup could not prepare the database) a route answers 503 before a
+    session is opened or a token read."""
+    require_started(request.app.state.maintenance)
+
+
 def authenticated(
     request: Request,
     session: DbSession,
@@ -117,7 +123,7 @@ CurrentPrincipal = Annotated[Principal, Depends(authenticated)]
 # Every route of the management API needs a token and takes the header. In maintenance mode it
 # answers 503 before a session is opened or a token read.
 MANAGEMENT_DEPENDENCIES = [
-    Depends(require_started),
+    Depends(started),
     Depends(authenticated),
     Depends(expect_model_release),
 ]

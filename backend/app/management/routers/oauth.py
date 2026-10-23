@@ -15,10 +15,9 @@ from fastapi import APIRouter, Depends, Form, Header, Request
 from fastapi.responses import JSONResponse
 
 from ...engine.identity import keys, tokens
-from ...engine.identity.authentication import require_started
 from ...engine.identity.clients import authenticate_client
 from ...engine.identity.settings import IdentitySettings
-from ..dependencies import DbSession
+from ..dependencies import DbSession, started
 
 router = APIRouter(tags=["oauth"])
 
@@ -59,7 +58,7 @@ def server_metadata(request: Request) -> dict[str, object]:
 
 
 # Checked before the request's session is opened: in maintenance mode the database may be unusable.
-_STARTED = [Depends(require_started)]
+_STARTED = [Depends(started)]
 
 
 @router.get("/oauth/jwks", dependencies=_STARTED)

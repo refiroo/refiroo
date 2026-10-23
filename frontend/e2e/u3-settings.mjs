@@ -17,7 +17,7 @@ function expect(condition, message) {
 }
 
 const PAGES = [
-  ["About", "/settings/about", (page) => page.getByRole("region", { name: "Database" })],
+  ["About", "/settings/about", (page) => page.getByRole("region", { name: "Active model release" })],
   ["Appearance", "/settings/appearance", (page) => page.getByRole("group", { name: "Table density" })],
   ["Workspaces", "/settings/workspaces", (page) => page.getByRole("navigation", { name: "Workspace catalogue" })],
   ["Model", "/settings/model", (page) => page.getByRole("navigation", { name: "Model catalogue" })],
@@ -176,15 +176,18 @@ try {
   // About and Deployment read the deployment: the engine version, the active release, the settings.
   await page.goto(`${uiUrl}/settings/about`);
   const system = await api("/system");
+  // How it is configured is the operator's read since 0.12 I1 (D246).
+  const configuration = await api("/system/configuration");
   const engine = page.getByRole("region", { name: "Engine" });
   await engine.getByText(system.engine.version, { exact: true }).waitFor();
-  await page.getByRole("region", { name: "Database" }).getByText(system.database.revision, { exact: true }).waitFor();
+  expect((await page.getByRole("region", { name: "Database" }).count()) === 0, "About shows the database");
   await page.getByRole("button", { name: "Open release" }).click();
   await page.waitForURL(`**/settings/model/releases/${system.activeModelRelease.id}`);
   await page.goto(`${uiUrl}/settings/deployment`);
+  await page.getByRole("region", { name: "Database" }).getByText(configuration.database.revision, { exact: true }).waitFor();
   const runtime = page.getByRole("region", { name: "Runtime" });
   await runtime.getByRole("row", { name: /RDM_CURSOR_SIGNING_KEY/ }).waitFor();
-  const cursorKey = system.settings.find((setting) => setting.name === "RDM_CURSOR_SIGNING_KEY");
+  const cursorKey = configuration.settings.find((setting) => setting.name === "RDM_CURSOR_SIGNING_KEY");
   const keyRow = await runtime.getByRole("row", { name: /RDM_CURSOR_SIGNING_KEY/ }).innerText();
   expect(keyRow.includes(cursorKey.source === "environment" ? "Set" : "Not set"), `cursor key row: ${keyRow}`);
   const databaseRow = await runtime.getByRole("row", { name: /DATABASE_URL/ }).innerText();
@@ -196,7 +199,7 @@ try {
     "capability group names its setting",
   );
   checks.push(
-    "About shows the engine version, revision and active release from GET /system; Deployment shows secrets as set or not and the database URL without a password",
+    "About shows the engine version and active release from GET /system; Deployment shows the revision from GET /system/configuration, secrets as set or not and the database URL without a password",
   );
 
   // 3. Every replaced address lands on its page, rewritten in place.

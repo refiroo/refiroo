@@ -32,10 +32,12 @@ SIGNING_KEY_DAYS = "36500"
 os.environ.setdefault("TOKEN_SIGNING_KEY_DAYS", SIGNING_KEY_DAYS)
 
 _lock = threading.Lock()
-_token: tuple[str, float] | None = None
+# The harness token for each audience, with when it expires.
+_tokens: dict[str, tuple[str, float]] = {}
 _credentials: dict[str, str] | None = None
-# Tokens of clients made in databases without the harness client, by database URL.
-_own_tokens: dict[str, str] = {}
+# Tokens of clients made in databases without the harness client, by database URL and audience.
+_own_tokens: dict[tuple[str, str], str] = {}
+_own_clients: dict[str, tuple[str, str]] = {}
 
 
 def create_harness_client() -> dict[str, str]:
@@ -89,22 +91,27 @@ def request_token(
     )
 
 
-def token(post: Callable[..., httpx.Response]) -> str | None:
-    """This process's harness token, obtained once through ``post`` and renewed near its expiry;
-    none when the database answering has no harness client."""
-    global _token
+def audience(path: str) -> str:
+    """The audience a request's path needs: the consumer routes take a ``consumer`` token."""
+    return "consumer" if path.startswith("/api/consumer") else "management"
+
+
+def token(post: Callable[..., httpx.Response], scope: str = "management") -> str | None:
+    """This process's harness token for ``scope``, obtained once through ``post`` and renewed near
+    its expiry; none when the database answering has no harness client."""
     with _lock:
-        if _token is None or _token[1] - time.monotonic() < 120:
+        held = _tokens.get(scope)
+        if held is None or held[1] - time.monotonic() < 120:
             harness = credentials()
-            response = request_token(post, harness["clientId"], harness["clientSecret"])
+            response = request_token(post, harness["clientId"], harness["clientSecret"], scope)
             if response.status_code != 200:
                 return None
             body = response.json()
-            _token = (body["access_token"], time.monotonic() + body["expires_in"])
-        return _token[0]
+            held = _tokens[scope] = (body["access_token"], time.monotonic() + body["expires_in"])
+        return held[0]
 
 
-def own_token(post: Callable[..., httpx.Response]) -> str | None:
+def own_token(post: Callable[..., httpx.Response], scope: str = "management") -> str | None:
     """A token of a client made in the configured database, for one not cloned from the seed; none
     when that database cannot hold one (not migrated, or unreachable)."""
     from sqlalchemy.exc import SQLAlchemyError
@@ -116,25 +123,19 @@ def own_token(post: Callable[..., httpx.Response]) -> str | None:
 
     url = get_settings().database_url or ""
     with _lock:
-        if url not in _own_tokens:
-            try:
-                with SessionLocal() as session:
-                    client, secret = create_client(session, ClientCreate(name="Test harness"))
-                    client_id = client.public_id
-            except SQLAlchemyError, DatabaseStartupError:
-                return None
-            response = request_token(post, client_id, secret)
+        if (url, scope) not in _own_tokens:
+            if url not in _own_clients:
+                try:
+                    with SessionLocal() as session:
+                        client, secret = create_client(session, ClientCreate(name="Test harness"))
+                        _own_clients[url] = (client.public_id, secret)
+                except SQLAlchemyError, DatabaseStartupError:
+                    return None
+            response = request_token(post, *_own_clients[url], scope)
             if response.status_code != 200:
                 return None
-            _own_tokens[url] = response.json()["access_token"]
-        return _own_tokens[url]
-
-
-def forget_own_token() -> None:
-    from app.config import get_settings
-
-    with _lock:
-        _own_tokens.pop(get_settings().database_url or "", None)
+            _own_tokens[(url, scope)] = response.json()["access_token"]
+        return _own_tokens[(url, scope)]
 
 
 class HarnessAuth(httpx.Auth):
@@ -148,27 +149,20 @@ class HarnessAuth(httpx.Auth):
         if "Authorization" in request.headers:
             yield request
             return
-        shared = token(self._post)
+        scope = audience(request.url.path)
+        shared = token(self._post, scope)
         if shared is not None:
             request.headers["Authorization"] = f"Bearer {shared}"
             response = yield request
             if response.status_code != 401:
                 return
-        own = own_token(self._post)
+        own = own_token(self._post, scope)
         if own is None:
             if shared is None:
                 yield request
             return
         request.headers["Authorization"] = f"Bearer {own}"
-        response = yield request
-        if response.status_code == 401:
-            # The database was rebuilt under the same URL (a downgrade and upgrade): its client is
-            # gone, so a new one is made.
-            forget_own_token()
-            own = own_token(self._post)
-            if own is not None:
-                request.headers["Authorization"] = f"Bearer {own}"
-                yield request
+        yield request
 
 
 class TestClient(_FastApiTestClient):

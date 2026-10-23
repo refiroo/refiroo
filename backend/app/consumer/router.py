@@ -106,17 +106,33 @@ async def _body(request: Request) -> bytes:
 DbSession = Annotated[Session, Depends(_session, scope="function")]
 Body = Annotated[bytes, Depends(_body)]
 
+def _started(request: Request) -> None:
+    require_started(request.app.state.maintenance)
+
+
+# The routes that describe the consumer APIs rather than serve their data: the index and each
+# definition's OpenAPI document. They take a management token too, so the browser, holding one,
+# shows them (D266); what they reveal the management API's model reads show already.
+DESCRIBING = {PREFIX, f"{PREFIX}/{{consumer_api}}/v{{contract_version}}/openapi.json"}
+
+
 def _authenticated(request: Request, session: DbSession) -> None:
-    """Every consumer route needs a ``consumer`` token (0.12 I1, D260); Z3 narrows it to the
-    consumer APIs a caller is granted."""
+    """Every consumer route needs a ``consumer`` token (0.12 I1, D260), the describing routes a
+    ``consumer`` or ``management`` one (D266); Z3 narrows it to the consumer APIs a caller is
+    granted."""
+    route = request.scope.get("route")
+    describing = getattr(route, "path", None) in DESCRIBING
     authenticate(
-        session, request.app.state.identity_settings, request.headers.get("Authorization"), "consumer"
+        session,
+        request.app.state.identity_settings,
+        request.headers.get("Authorization"),
+        ("consumer", "management") if describing else "consumer",
     )
 
 
 router = APIRouter(
     prefix=PREFIX, tags=["consumer"], include_in_schema=False,
-    dependencies=[Depends(require_started), Depends(_authenticated)],
+    dependencies=[Depends(_started), Depends(_authenticated)],
 )
 
 

@@ -649,19 +649,46 @@ all fixed:
   they answer `503 MODEL_REGISTRY_UNAVAILABLE` again, checked before a session is opened
   (`require_started`), with a regression check in `test_startup`'s refusal helper.
 - `test_startup`'s hard-coded head revision; J12's pool test reading `settings` from `/system`.
-- A harness retry for an existing test that downgrades and re-upgrades one database. **The user,
-  2026-10-23: no upgrade or downgrade scenarios are tested or measured before 1.0**; no such test was
-  added or extended, and removing the existing ones is for the user to decide.
+- **The user, 2026-10-23: no upgrade, downgrade or interrupted-migration scenarios are tested or
+  measured before 1.0.** On the user's instruction the existing ones were removed: 34 tests of
+  `test_startup` (upgrades from older revisions with an interrupted run each, downgrades, a failed
+  migration's recovery) and J12.5's two tests, with the harness retry built for one of them. J12.5 is
+  marked not tested before 1.0. `test_startup` keeps the clean start, the refusals, the unknown
+  revision, the job file directory and the secrets key (8 tests).
 
 Then: `test_startup` 45 passed (1 min 57 s), J12 run the service 62 passed (1 min 47 s), J30
 subscriptions 14, J31 12, `test_pg3_concurrency` 21, each alone.
 
-**Not run, and why:**
+**The whole suite** (`-n 6`, then `-m serial`), on the user's go-ahead, after the removal above:
 
-- **The whole backend suite**, which `python -m tests.affected` selects for the harness change (about
-  11 minutes): announced, waiting for the user's go-ahead.
-- **The browser runner** (`u3-settings`, 1440px and 390px) for the harness token and the Deployment
-  page; its appearance is unverified.
+- A first run stopped at once: a new unit test built signed tokens at collection, so each worker
+  named its cases differently and xdist ran nothing. Fixed ids.
+- The second: 153 failed, 6,020 passed, 20 errors, 12 min 36 s. Causes: the harness sent its
+  `management` token to the consumer routes (most failures: it now picks the audience by path);
+  the job-stream journeys call `httpx.stream` directly without the token; maintenance mode had been
+  tied to the registry's health, which `wp6`/`wp81a` mark unhealthy for another purpose (now an
+  application flag set only when startup fails on the database); `session.delete` in
+  `identity/clients` broke the tier rule; the foreign-key review lacked the client-secret rule; each
+  request now costs one more statement (the token lookup), so the batch statement budgets rose by
+  one; the harness's first token fetch was counted inside measured requests (the volume app now takes
+  both tokens before anything is measured).
+- The third: **6,190 passed, 3 failed, 12 min 26 s**: the consumer xref and event budgets (the same
+  first-fetch count, fixed in the volume app; their modules then passed, 20) and the 2,000-record
+  move dry run at 3.7 s against 2.5 s in the parallel run, which passes alone (load from parallel
+  tests, not this change). `-m serial`: 5 passed.
+- **Browser:** `u3-settings` at 1440px and 390px, on the harness token: 10 checks, keyboard order, axe
+  0 violations; the runner reads the revision on Deployment now. Screenshots of About and Deployment
+  inspected at 1440px; at 390px only the no-horizontal-scroll check, the page being too tall to read
+  as one image.
+
+**D266, decided by the user (2026-10-23):** the browser reads the consumer API index and its OpenAPI
+documents (Settings › Consumer APIs, the API reference page), and with D260 its one `management` token
+was refused there. **Accepted as recommended:** those two describing routes take a `consumer` or a
+`management` token; the consumer data routes take only `consumer`. Why: they describe contracts the
+management API's model reads show anyway, and the browser keeps one token. Cost: J41.5 now refuses a
+management token only on the data routes. Built in the consumer router (`DESCRIBING`); J41.5's case
+changed with it (2 passed); the identity module, the token unit tests and J20 then passed (55, one
+J20 case failing once in that mixed run and passing alone and in its module's rerun; in TODO).
 
 **What the user cannot do yet:** sign in from the browser (the interface shows the refusals until
 I2, D265); reset a password or end sessions (I2); narrow anyone's rights (Z1: every active client and

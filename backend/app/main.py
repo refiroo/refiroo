@@ -115,6 +115,8 @@ async def lifespan(application: FastAPI):
         create_database(then=startup_writes)
     except DatabaseStartupError as exc:
         model_registry.mark_unhealthy()
+        # Maintenance mode: no route reads the database, a token included (0.12 I1).
+        application.state.maintenance = True
         logger.error("%s", exc)
         yield
         return
@@ -289,6 +291,7 @@ def create_app() -> FastAPI:
         },
     )
     application.state.model_admin_mutations_enabled = mutations_enabled
+    application.state.maintenance = False
     application.state.workspace_admin_mutations_enabled = workspace_mutations_enabled
     application.state.integration_jobs_enabled = settings.integration_jobs_enabled
     application.state.consumer_resolve_max_items = settings.consumer_resolve_max_items

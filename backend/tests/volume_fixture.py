@@ -1340,6 +1340,10 @@ def volume_app(directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, Volum
             app.state.run_consumer_dispatcher = False
             app.state.run_process_heartbeat = False
             with TestClient(app) as client:
+                # The harness obtains its tokens, one for each API, on a first request (0.12 I1); no
+                # budget counts them.
+                client.get("/api/v1/workspaces")
+                client.get("/api/consumer")
                 yield client, VolumeDataset.from_payload(payload["dataset"])
     finally:
         seeds.drop(url.database)

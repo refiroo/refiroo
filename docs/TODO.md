@@ -226,6 +226,14 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
+## Found in 0.12 I1 (2026-10-23), not I1's
+
+- [ ] **Flake:** `test_j20_discover::test_the_api_reference_lists_the_consumer_apis[generated-b]`
+  answered `422 UNKNOWN_PARAMETER` for `/docs?api=…` once in a mixed `-n 3` run; it passed alone and
+  in the module's rerun. Cause not found.
+- [ ] **Timing under parallel load:** `test_move_step_time` (a 2,000-record dry run, 2.5 s budget)
+  took 3.7 s in the full `-n 6` run and passes alone; it is not marked `serial`.
+
 ## Base 0.8 delivery record (released 2026-09-29)
 
 Track S (S1–S8, ADR-030), Track W (W1–W6, ADR-031), Milestone A (A1–A6, ADR-033), Milestone B (B1–B5b),

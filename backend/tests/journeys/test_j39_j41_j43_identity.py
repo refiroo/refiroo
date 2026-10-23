@@ -214,15 +214,23 @@ def test_a_deactivated_client_is_refused_at_once(world):
 
 @pytest.mark.journey("J41.5")
 def test_a_token_for_the_other_api_is_refused(world):
-    """Given a `consumer` token and a `management` token. When each calls the other API, then
-    `401 TOKEN_INVALID` (`audience`); each is accepted by its own."""
+    """Given a `consumer` token and a `management` token. When the consumer token calls the
+    management API, or the management token a consumer API's data, then `401 TOKEN_INVALID`
+    (`audience`); each is accepted by its own. The routes describing the consumer APIs (the index
+    and each OpenAPI document) take either, as the browser holds a management token (D266)."""
     client = _client(world)
     consumer = _bearer(_token(world, client, scope="consumer"))
     management = _bearer(_token(world, client))
     anonymous = _anonymous(world)
     _invalid(anonymous.get("/api/v1/workspaces", headers=consumer), "audience")
-    _invalid(anonymous.get("/api/consumer", headers=management), "audience")
-    assert anonymous.get("/api/consumer", headers=consumer).status_code == 200
+    index = ok(anonymous.get("/api/consumer", headers=consumer))
+    assert ok(anonymous.get("/api/consumer", headers=management)) == index
+    entry = index["items"][0]
+    base = f"/api/consumer/{entry['consumerApi']}/v{entry['contractVersion']}"
+    for token in (consumer, management):
+        assert anonymous.get(f"{base}/openapi.json", headers=token).status_code == 200
+    _invalid(anonymous.get(f"{base}/publications", headers=management), "audience")
+    assert anonymous.get(f"{base}/publications", headers=consumer).status_code == 200
     assert anonymous.get("/api/v1/workspaces", headers=management).status_code == 200
     _oauth_error(
         request_token(anonymous.post, client["id"], client["secret"], "everything"),

@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
 from ...models.database import OAuthClient, TokenSigningKey, User
-from ..model.registry import model_registry
 from . import keys, tokens
 from .settings import IdentitySettings
 from .tokens import Audience, PrincipalKind, Reason, TokenRefused
@@ -61,10 +60,10 @@ def refused(reason: Reason) -> ApiError:
     )
 
 
-def require_started() -> None:
+def require_started(maintenance: bool) -> None:
     """Refuse, as every route did before tokens, while startup could not prepare the database
     (maintenance mode): its identity tables may not exist yet."""
-    if not model_registry.started:
+    if maintenance:
         raise api_error(503, "MODEL_REGISTRY_UNAVAILABLE", "The model registry is unavailable")
 
 
@@ -82,10 +81,9 @@ def authenticate(
     session: Session,
     settings: IdentitySettings,
     authorization: str | None,
-    audience: Audience,
+    audience: Audience | tuple[Audience, ...],
 ) -> Principal:
     token = bearer_token(authorization)
-    require_started()
     try:
         claimed = tokens.read_unverified(token)
         model = User if claimed.kind == "user" else OAuthClient

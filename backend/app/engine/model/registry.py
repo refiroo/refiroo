@@ -230,13 +230,6 @@ class ModelRegistry:
             if not self._ready:
                 raise ModelRegistryUnavailable("The model registry is unhealthy")
 
-    @property
-    def started(self) -> bool:
-        """Whether startup prepared the database; false in maintenance mode, when nothing the
-        database holds may be read (``ready`` adds that some workspace can be served)."""
-        with self._lock:
-            return self._ready
-
     def mark_unhealthy(self) -> None:
         with self._lock:
             self._ready = False

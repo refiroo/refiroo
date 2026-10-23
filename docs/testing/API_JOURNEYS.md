@@ -276,7 +276,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | `CORS_ORIGINS` | J12.7 (a browser client on another origin) |
 | `RDM_CURSOR_SIGNING_KEY` | J21 (cursors that survive a restart), J12.7 |
 | `RDM_API_REFERENCE_SCRIPT` | J20, J12.7 |
-| `python -m app.cli.database_upgrade` | J12, J12.5 |
+| `python -m app.cli.database_upgrade` | J12 |
 | `python -m app.cli.model_schema_upgrade --model` | J12.6 |
 | `scripts/postgres.sh start\|stop\|status\|backup` | J12 (development) |
 

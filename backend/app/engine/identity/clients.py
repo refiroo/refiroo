@@ -11,7 +11,7 @@ import secrets
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -148,7 +148,7 @@ def remove_secret(session: Session, public_id: str, secret_id: str) -> OAuthClie
             raise api_error(
                 404, "CLIENT_SECRET_NOT_FOUND", f"Client '{public_id}' has no secret '{secret_id}'"
             )
-        session.delete(removed)
+        session.execute(delete(OAuthClientSecret).where(OAuthClientSecret.id == removed.id))
         _touch(client)
         return client
 

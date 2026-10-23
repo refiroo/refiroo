@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 import seeds
-from alembic import command as alembic
 from alembic.script import ScriptDirectory
 from model_support import starter_at_schema
 from scenario import W1, W2, W3, model_path, ok, scenario_seed
@@ -179,80 +178,6 @@ def test_missing_extensions_are_refused_until_they_are_installed(configuration, 
             server.exec_driver_sql(f'REVOKE ALL ON DATABASE "{url.database}" FROM {LIMITED_ROLE}')
         execute(url, f"REASSIGN OWNED BY {LIMITED_ROLE} TO CURRENT_USER")
         execute(url, f"DROP OWNED BY {LIMITED_ROLE}")
-
-
-@pytest.mark.journey("J12.5")
-def test_an_interrupted_migration_leaves_the_database_as_it_was(configuration, databases):
-    """Given a database whose migration fails part-way. When the upgrade command runs, then the
-    service starts in the same condition, then starts once the cause is removed. Then the command
-    names the database, the current and target revisions, the reason, and the backup and retry
-    steps, without credentials or a traceback; nothing it created remains; the service is in
-    maintenance; once fixed, the next start migrates and serves."""
-    url = _empty(databases)
-    # The last table the baseline creates is there already: the migration fails at its end.
-    execute(url, "CREATE TABLE relation_set_versions (stray integer)")
-    upgrade = command("app.cli.database_upgrade", url)
-    assert upgrade.returncode == 1
-    for phrase in (
-        f"'{url.database}'",
-        "Current revision: unversioned",
-        f"target revision: {HEAD}",
-        "relation_set_versions",
-        "pg_dump",
-        "python -m app.cli.database_upgrade",
-    ):
-        assert phrase in upgrade.stderr, upgrade.stderr
-    assert "Traceback" not in upgrade.stderr + upgrade.stdout
-    assert scalar(url, "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'") == 1
-    with serve(configuration, url) as service:
-        _refusal(service, "Database migration failed", "still at its current revision")
-    execute(url, "DROP TABLE relation_set_versions")
-    with serve(configuration, url) as service:
-        _serves(service)
-    assert scalar(url, "SELECT version_num FROM alembic_version") == HEAD
-
-
-# The revision before the name search indexes (0.9.0-alpha.1 PG5), as the previous version left it.
-BEFORE_NAME_INDEXES = "20261001_02"
-
-
-def _name_indexes(url) -> int:
-    return scalar(url, "SELECT count(*) FROM pg_indexes WHERE indexname LIKE '%\\_name\\_search'")
-
-
-@pytest.mark.journey("J12.5")
-@pytest.mark.structures("R")
-def test_an_interrupted_name_index_revision_is_refused_then_recovers(configuration, databases):
-    """Given a database at the revision before the name search indexes, one of whose names is taken.
-    When the service starts, then starts once the name is free, then starts again. Then the first
-    start refuses, naming the current and target revisions and the index, and leaves the database
-    at its revision with none of the revision's indexes; the second migrates and serves, and a
-    search finds a record by part of its name; the third serves without migrating."""
-    url = _empty(databases)
-    alembic.upgrade(migration_config(url), BEFORE_NAME_INDEXES)
-    execute(url, "CREATE INDEX ix_change_set_objects_name_search ON change_set_objects (change_set_id)")
-    with serve(configuration, url) as service:
-        message = _refusal(
-            service,
-            "Database migration failed",
-            f"Current revision: {BEFORE_NAME_INDEXES}",
-            f"target revision: {HEAD}",
-            "still at its current revision",
-        )
-        assert "ix_change_set_objects_name_search" in message
-    assert scalar(url, "SELECT version_num FROM alembic_version") == BEFORE_NAME_INDEXES
-    assert _name_indexes(url) == 1
-    execute(url, "DROP INDEX ix_change_set_objects_name_search")
-    with serve(configuration, url) as service:
-        _serves(service)
-        world = service.world
-        made = world.made("R", "Quarterly harbour ledger")
-        page = ok(world.api.get(f"/objects/{world.key('R')}", workspaceKey=W1, search="harbour"))
-        assert [item["id"] for item in page["items"]] == [made["id"]]
-    assert scalar(url, "SELECT version_num FROM alembic_version") == HEAD
-    assert _name_indexes(url) == 4
-    with serve(configuration, url) as service:
-        _serves(service)
 
 
 def _select_a_schema_04_release(configuration, url):

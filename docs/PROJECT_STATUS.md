@@ -14,8 +14,9 @@ is built (2026-10-23)**, D258–D265 accepted: the OAuth metadata, JWKS and clie
 endpoint; people, clients and signing keys through the API; `create_admin` and `create_client`;
 every route but the open ones needs a token; `SECRETS_ENCRYPTION_KEY` and `PUBLIC_URL`; both test
 harnesses on real tokens ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i1-record-2026-10-23)).
-**Waiting for the user:** a go-ahead for the backend run the harness change needs (the whole suite,
-about 11 minutes) and one browser runner. People cannot
+The whole backend suite passed but for one timing budget under parallel load, and the
+settings browser runner passed. D266 (the consumer index and documents take a management token
+too) decided and built. Next: I2. People cannot
 sign in from the browser until I2, and no role narrows anything until Z1. Next: I2.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)

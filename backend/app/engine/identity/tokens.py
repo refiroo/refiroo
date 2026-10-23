@@ -85,14 +85,16 @@ def verify(
     token: str,
     key: ec.EllipticCurvePublicKey,
     settings: IdentitySettings,
-    audience: Audience,
+    audience: Audience | tuple[Audience, ...],
 ) -> dict[str, object]:
+    """The token's claims, verified; ``audience`` names the one audience a route takes, or the
+    several it accepts."""
     try:
         return jwt.decode(
             token,
             key,
             algorithms=[ALGORITHM],
-            audience=audience,
+            audience=list(audience) if isinstance(audience, tuple) else audience,
             issuer=settings.issuer,
             options={"require": _REQUIRED},
         )

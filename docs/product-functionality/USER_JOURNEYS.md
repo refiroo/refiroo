@@ -1902,7 +1902,8 @@ controlled diagnostics.
 - **J12.1 No or a wrong database URL**, **J12.2 the wrong collation**, **J12.3 an unknown revision**,
   **J12.4 `pg_trgm`, `btree_gin` or `pgcrypto` missing**: each refused with its instruction.
 - **J12.5 An interrupted migration** leaves the database at its previous revision; the next start
-  recovers.
+  recovers. Not tested before 1.0: no instance runs an older version, so upgrades, downgrades and
+  interrupted migrations are not exercised (the user, 2026-10-23).
 - **J12.6 An unsupported model schema in the database**: startup names the offline upgrade command,
   which installs and selects a supported release atomically.
 - **J12.7 Settings**: model administration, workspace administration, integration jobs and their
@@ -2073,8 +2074,9 @@ the first client from `create_client`.
   another API, or the same in another workspace, is refused; the index lists only granted APIs.
 - **J41.3 The secret rotated**: both secrets work during the overlap, then only the new one.
 - **J41.4 A deactivated client**: its tokens are refused at once; it obtains no new one.
-- **J41.5 A token for the other audience**: a consumer token on the management API, or the reverse,
-  is refused.
+- **J41.5 A token for the other audience**: a consumer token on the management API, or a management
+  token on a consumer API's data, is refused; the routes describing the consumer APIs (the index and
+  each OpenAPI document) take either, so the browser shows them (D266).
 - **J41.6 Metrics with a client**: a scraper's client holding Operator reads `/metrics`.
 
 **Refusals:** the token endpoint's `invalid_client`, `401 TOKEN_INVALID` (`audience`, `revoked`),
