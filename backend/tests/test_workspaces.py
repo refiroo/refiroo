@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from wp8_support import (
     create_change_set,
     create_domain,

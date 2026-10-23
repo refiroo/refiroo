@@ -1,6 +1,8 @@
 import hashlib
 import json
 
+from harness_identity import TestClient
+
 from app.main import app, create_app
 
 
@@ -207,10 +209,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # changed. Re-baselined for 0.11 O2 (D198–D204): GET /api/v1/system/summary and GET
     # /api/v1/system/backup-rehearsals with the Summary* and *Rehearsal* schemas. Diffed against the
     # previous commit, nothing else changed. Re-baselined for 0.11.0 (R, D229): info.version 0.11.0;
-    # with 0.11.0-alpha.1 the document hashes to the previous lock exactly.
+    # with 0.11.0-alpha.1 the document hashes to the previous lock exactly. Re-baselined for 0.12 I1
+    # (ADR-043): the OAuth metadata, JWKS and token endpoints, /me, /users, /clients and their
+    # secrets, /token-signing-keys and its rotation, /system/configuration with SystemResponse
+    # narrowed to the engine, schema languages and active release (D246), the engineOAuth scheme
+    # and `security` on every operation but the open ones. Diffed against 5622b67, nothing else
+    # changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "90c49eff1c0bb302e3eb0aedd81694033a140f4279661e31237ec642d9250e1e"
+        "936f9df5ab583b1900b88c69544d41ab6329e9519248844eebb3f105ca20516b"
     )
 
 
@@ -251,8 +258,9 @@ def test_paging_openapi_inventory():
     # the source files and a profile's sheets and columns; 0.10 A5c a profile check's new values,
     # drift, missing records and rows; 0.10 A8b a range of a sheet's cells; 0.11 M1 the workspaces'
     # model assignments; 0.11 X1 the model mappings, a mapping's history and its proposals; 0.11 O1
-    # the processes and the readiness per workspace; 0.11 O2 the backup rehearsals.
-    assert seekable <= paged and len(paged) == 44
+    # the processes and the readiness per workspace; 0.11 O2 the backup rehearsals; 0.12 I1 the
+    # people, clients and token signing keys.
+    assert seekable <= paged and len(paged) == 47
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",
@@ -424,7 +432,6 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
 
 def test_base_0_9_c11_c12_enabled_openapi_exposes_the_subscriptions_api(monkeypatch):
     monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
-    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
     schema = create_app().openapi()
     assert {
         path: frozenset(method for method in schema["paths"][path] if method != "parameters")
@@ -534,3 +541,39 @@ def test_build07_wp6_openapi_selected_model_contract():
     for path in ("/api/v1/model", "/api/v1/applications", "/api/v1/attribute-types"):
         names = {item["name"] for item in schema["paths"][path]["get"]["parameters"]}
         assert {"changeSetId", "publicationId"} <= names
+
+
+# The routes that need no token (0.12 D245); every other operation the document lists needs one.
+OPEN_OPERATIONS = {
+    ("get", "/health"),
+    ("get", "/health/live"),
+    ("get", "/.well-known/oauth-authorization-server"),
+    ("get", "/oauth/jwks"),
+    ("post", "/oauth/token"),
+}
+
+
+def test_0_12_i1_every_operation_but_the_open_ones_refuses_a_call_without_a_token(monkeypatch):
+    """With every capability on, each operation of the document, called with no token, answers
+    `401 AUTHENTICATION_REQUIRED` before anything else is read (ADR-043: no route is left open)."""
+    for flag in (
+        "MODEL_ADMIN_MUTATIONS_ENABLED",
+        "WORKSPACE_ADMIN_MUTATIONS_ENABLED",
+        "INTEGRATION_JOBS_ENABLED",
+        "CONSUMER_SUBSCRIPTIONS_ENABLED",
+    ):
+        monkeypatch.setenv(flag, "true")
+    application = create_app()
+    schema = application.openapi()
+    anonymous = TestClient(application, authenticated=False)
+    checked = 0
+    for path, operations in schema["paths"].items():
+        for method in operations:
+            if method == "parameters" or (method, path) in OPEN_OPERATIONS:
+                continue
+            assert operations[method]["security"] == [{"engineOAuth": []}], (method, path)
+            response = anonymous.request(method, path.replace("{", "x").replace("}", "x"))
+            assert response.status_code == 401, (method, path, response.text)
+            assert response.json()["error"]["code"] == "AUTHENTICATION_REQUIRED"
+            checked += 1
+    assert checked > 150

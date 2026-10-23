@@ -509,3 +509,72 @@ class ConsumerSubscriptionResume(BaseModel):
 
     expectedVersion: int = Field(ge=1)
     reset: bool = False
+
+
+# --- People, clients and signing keys (Product 0.12 I1, API.md "Security administration") ------
+
+Username = Annotated[str, StringConstraints(min_length=1, max_length=150, pattern=r"^\S+$")]
+PrincipalName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
+Email = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=320, pattern=r"^[^@\s]+@[^@\s]+$")
+]
+# A rotation keeps the previous client secret valid for this many hours (D238's range).
+MAX_OVERLAP_HOURS = 168
+
+
+class UserCreate(BaseModel):
+    """A person; they have no password until they set one (I2's link, or ``create_admin``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: Username
+    name: PrincipalName
+    email: Email | None = None
+
+
+class UserUpdate(BaseModel):
+    """A change to a person with the version read; ``active: false`` deactivates (never deleted,
+    D237) and ``active: true`` restores."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    name: PrincipalName | None = None
+    email: Email | None = None
+    active: bool | None = None
+
+
+class ClientCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: PrincipalName
+
+
+class ClientUpdate(BaseModel):
+    """A change to a client with the version read; ``active: false`` deactivates it at once."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    name: PrincipalName | None = None
+    active: bool | None = None
+
+
+class ClientSecretCreate(BaseModel):
+    """A new secret, shown once; the client's other secrets stay valid for ``overlapHours`` (0:
+    they stop at once)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    overlapHours: int = Field(default=24, ge=0, le=MAX_OVERLAP_HOURS)
+
+
+class SigningKeyRotation(BaseModel):
+    """Replace the token signing key; ``immediate`` refuses the old key's tokens at once (J43.2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    immediate: bool = False

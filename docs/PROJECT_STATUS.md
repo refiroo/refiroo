@@ -1,5 +1,23 @@
 # Project status
 
+## In progress — Product 0.12, security and the first public release
+
+[Planned](BASE_0_12_IMPLEMENTATION_PLAN.md) 2026-10-22, the security plan and D224–D242 accepted
+the same day. **P0, the design pass, is delivered (2026-10-23):** D243–D257 accepted (access tokens
+last an hour, D251 changed by the user); ADR-043 (identity and tokens), ADR-044 (authorization:
+action groups, roles, grants; reads per workspace, writes narrowed) and ADR-045 (change-set
+publication approvals); the catalogue of all 159 operations in API.md § Security with the OAuth,
+caller, administration and approval routes; J39–J43; U8 detailed from the approved
+[mock-ups](https://claude.ai/artifact/CiHGaobpx8jsqaNZvmfXXo)
+([record](BASE_0_12_IMPLEMENTATION_PLAN.md#p0-record-2026-10-23)). **I1, the engine issuing tokens,
+is built (2026-10-23)**, D258–D265 accepted: the OAuth metadata, JWKS and client credentials token
+endpoint; people, clients and signing keys through the API; `create_admin` and `create_client`;
+every route but the open ones needs a token; `SECRETS_ENCRYPTION_KEY` and `PUBLIC_URL`; both test
+harnesses on real tokens ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i1-record-2026-10-23)).
+**Waiting for the user:** a go-ahead for the backend run the harness change needs (the whole suite,
+about 11 minutes) and one browser runner. People cannot
+sign in from the browser until I2, and no role narrows anything until Z1. Next: I2.
+
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 
 **Base 0.11 is complete**, build acceptance R included

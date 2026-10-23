@@ -19,8 +19,35 @@ design, recorded now so 0.9 does not close it off:
 - **Administration in the UI** for both: OAuth clients and their access, and webhook subscriptions and
   their signing keys.
 
-Until 0.12 the consumer API is unauthenticated, like the management API, and a deployment exposes it
-only where that is acceptable. The `{consumerApi}` segment in the routes below is not a credential; see
+**Designed in 0.12 P0** ([ADR-043](DECISIONS.md#adr-043--identity-and-tokens-issued-by-the-engine),
+[ADR-044](DECISIONS.md#adr-044--authorization-action-groups-roles-and-grants),
+[API.md § Security](API.md#security-product-012-designed)), delivered by Z3 and K1:
+
+- **Every consumer route needs a token** with audience `consumer`, obtained with the client
+  credentials grant at `POST /oauth/token` with `scope=consumer` (D260). The index (`GET /api/consumer`) and the per-definition
+  OpenAPI document need one too, since they reveal a workspace's model; the index lists only the
+  consumer APIs the client is granted.
+- **A client reads a consumer API in a workspace only with a grant of that consumer API there**
+  (a grant naming `consumerApi` and the workspace instead of a role), because one key may mean
+  different contracts in two workspaces (ADR-042). A person may hold the same grant.
+- **Refusals**, in this API's envelope: `401 AUTHENTICATION_REQUIRED`, `401 TOKEN_INVALID`
+  (`details.reason`: `expired`, `revoked`, `audience`, `unknownKey`, `malformed`, `signature`), both with
+  `WWW-Authenticate: Bearer`; `403 FORBIDDEN` with `details` `{consumerApi, workspaceKey}`.
+- **The per-definition OpenAPI document** declares the OAuth 2.0 client credentials scheme and its
+  token URL.
+- **Subscriptions** are owned by the client or person that created them and managed with
+  Integration administration in their workspace.
+- **Rotation** (K1): `POST /api/v1/consumer-subscriptions/{id}/rotate-secret` `{overlapHours}`
+  (default 24, from 0 to 168) answers the new key once. During the overlap every delivery carries
+  both signatures, `RDM-Signature: sha256=<new>,sha256=<old>`, and a receiver accepts the request
+  when any of them verifies; afterwards only the new one (D238). Receivers must accept a
+  comma-separated list from 0.12 on.
+- **Consumer events do not carry the actor** (D239); the management feed and history do.
+
+**Delivered by I1 (2026-10-23):** every consumer route, the index and the per-definition OpenAPI
+document included, needs a `consumer` token and refuses as above; until Z3 any active client or person
+holding one reads every consumer API in every workspace (no grants yet, and no `403`). The rest is
+delivered by Z3 and K1. The `{consumerApi}` segment in the routes below is not a credential; see
 [The consumer API name](#the-consumer-api-name-consumerapi).
 
 ## Why a second API tier

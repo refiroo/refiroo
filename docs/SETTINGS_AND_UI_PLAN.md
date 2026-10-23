@@ -88,7 +88,14 @@ becomes a select at the top of the page.
 | Data operations | Import profiles | Stored import profiles as a catalogue: a profile's last load, the next version uploaded and checked, loaded into a change set (0.10 A5c) | `/import-profiles`, its check, `/source-files`, `/imports` | 0.10 A5c |
 | Data operations | Jobs | Recent jobs with status and outcome counts; cancel; batch and job limits (the feed's retention moved to Consumer APIs, 0.10 A5c) | job routes (B1–B2), `GET /api/v1/capabilities` | U4 (0.9) |
 | Integration | API reference | Links to `/docs`, one per source, with its version | `GET /api/consumer` | U4 (0.9) |
-| Security | Users and roles; OAuth clients and their access per consumer API; signing keys; sign-in | 0.12 routes | U8 (0.12) |
+| General | Account | The person, their password, where they are signed in (sign out one or everywhere), what they can do (read-only) | `/me`, `/me/sessions`, `/me/password`, `/me/permissions` | 0.12 I2 |
+| Security | People | List and detail: create, a one-time reset link, deactivate, sign out everywhere, last sign-in; roles by workspace with their narrowing and where they come from; groups; recent activity | `/users`, `/grants` | 0.12 SP1 |
+| Security | Groups | Local and provider groups; members (a provider group's as seen at sign-in); roles | `/groups`, `/grants` | 0.12 SP1 |
+| Security | Roles | The matrix of roles and action groups; predefined read-only; a custom role created, copied, edited | `/roles`, `/action-groups` | 0.12 SP1 |
+| Security | Clients | List and detail: create (secret shown once), rotate with an overlap, end a secret, deactivate; management roles and consumer API grants per workspace; last use | `/clients`, `/grants` | 0.12 SP2 |
+| Security | Sign-in | Sign-in providers; local accounts on or off | `/sign-in-providers` | 0.12 I3 |
+| Security | Signing keys | Token signing keys by age; rotate now | `/token-signing-keys` | 0.12 I1, SP2 |
+| Administration | Workspaces › a workspace › Access | Who can do what here, the grant dialog (who, role, narrowing of writes); Approvals tab with the four-eyes policy (Track A) | `/workspaces/{key}/access`, `/grants`, `/approval-policy` | 0.12 SP1, A3 |
 
 ### `GET /api/v1/system` (U3)
 
@@ -2564,6 +2571,42 @@ the same day and passed (19 checks).
   documentation shows that version with no placeholder.
 - Every surface uses the token layers and `ui/` components. The contrast test and the
   accessibility and visual gates pass in light and dark at desktop and 390px.
+
+### U8: the Security pages (0.12, designed)
+
+Designed in the [0.12 P0 plan](BASE_0_12_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-22); the user
+approved the [mock-ups](https://claude.ai/artifact/CiHGaobpx8jsqaNZvmfXXo) on 2026-10-23. The
+packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
+
+- **The sign-in page** is the engine's (`/oauth/authorize`), not the frontend's: the product name,
+  username and password, the provider's button, "Forgotten your password? Ask a security
+  administrator", and the source link with the licence. Its messages: a wrong username or password
+  (never which), slowed after repeated failures with the wait, and "your session ended" with the page
+  the person returns to. At 390px it is one column.
+- **The account menu** replaces "Local session": the person, their e-mail and main role,
+  "Account", "All settings", the theme, "Sign out", and the source link. **Account** is a General
+  page.
+- **Security pages** use the list-and-detail pattern (U-D10): the list beside the selected entry,
+  inside the page; at 390px the list alone, a row opening the detail. No page names an application or
+  record type; narrowing shows the model's names as data.
+- **Roles** is a matrix of roles by action group, each group with a one-line description;
+  predefined columns read-only, a custom role edited in place with its holders counted.
+- **A workspace's Access** tab lists every grant that applies, with "From" (this workspace, the whole
+  instance) and "Through" (directly, a group); the grant dialog takes who (a person, group or
+  client), the role, and "Narrow what they may change" (everything, or chosen record types), states
+  that reading is never narrowed and says in a sentence what the grant allows.
+- **Secrets** are shown once in a dialog with "Copy" and "I have copied it"; the previous one's end
+  is stated and can be brought forward from the Secrets table.
+- **The interface follows permissions** (Z5): a Reader's record view has no edit affordance and a
+  note "You can read this workspace" with whom to ask; a Contributor sees "Propose a change" and a
+  note that changes go to their change set, whose name and count sit in the top bar.
+- **Approvals** (A3): the change set's review shows "Waiting for approval", the submitter and
+  version; the approver's side panel holds the comment ("required to send back"), "Approve and
+  publish" and "Send back", and the history of decisions. The **inbox** is a top-bar button with an
+  unread count opening a list (requests, decisions, finished jobs); at 390px the two actions sit in
+  a bar at the bottom.
+
+U-D11 holds: each Security entry appears in the navigation only when its page is built.
 
 ## Decisions
 

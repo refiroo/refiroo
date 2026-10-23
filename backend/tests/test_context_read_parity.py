@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from postgres_server import collated
 from sqlalchemy import select
 

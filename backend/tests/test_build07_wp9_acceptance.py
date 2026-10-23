@@ -10,7 +10,7 @@ import json
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from test_build07_wp6 import add_field_and_view, install_model
 from wp8_support import create_object, create_workspace, unique_key
 

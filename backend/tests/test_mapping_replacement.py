@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from test_relation_set_versions import (
     _create_codelist,
     _create_domain,

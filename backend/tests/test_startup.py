@@ -18,7 +18,7 @@ from uuid import uuid4
 import pytest
 import seeds
 from alembic import command
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from sqlalchemy import URL, create_engine, inspect, text
 
 import app.main as main_module
@@ -28,7 +28,7 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261026_01"
+HEAD = "20261027_01"
 MOVES = "20261021_01"
 MODEL_MAPPINGS = "20261020_01"
 WORKSPACE_MIGRATIONS = "20261019_01"
@@ -105,6 +105,14 @@ def _scalar(url: URL, statement: str):
 
 def _assert_refused(client: TestClient, errors: list[str], *phrases: str) -> str:
     assert client.get("/health").status_code == 503
+    # In maintenance mode a token is not looked up, nor one issued: both answer 503 as every route
+    # did before tokens, never an internal error (0.12 I1; the identity tables may not exist yet).
+    for response in (
+        client.get("/api/v1/workspaces", headers={"Authorization": "Bearer any"}),
+        client.post("/oauth/token", data={"grant_type": "client_credentials", "client_id": "a", "client_secret": "b"}),
+    ):
+        assert response.status_code == 503, response.text
+        assert response.json()["error"]["code"] == "MODEL_REGISTRY_UNAVAILABLE"
     assert len(errors) == 1, errors
     message = errors[0]
     for phrase in (*phrases, "maintenance mode", "/health will return HTTP 503"):
@@ -621,7 +629,6 @@ def test_a_database_with_consumer_events_upgrades_to_subscriptions(monkeypatch, 
     command.upgrade(migration_config(url), CONSUMER_EVENTS)
     assert _scalar(url, "SELECT to_regclass('consumer_subscriptions')") is None
     monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
-    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
     for _start in range(2):
         with serve(monkeypatch, _render(url)) as (client, errors):
             assert errors == []
@@ -660,7 +667,6 @@ def test_a_database_with_subscriptions_upgrades_to_delivery_state(monkeypatch, d
         )
     engine.dispose()
     monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
-    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
     for _start in range(2):
         with serve(monkeypatch, _render(url)) as (client, errors):
             assert errors == []
@@ -727,7 +733,6 @@ def test_a_database_with_subscriptions_upgrades_to_names_and_the_delivery_log(mo
         )
     engine.dispose()
     monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
-    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
     for _start in range(2):
         with serve(monkeypatch, _render(url)) as (client, errors):
             assert errors == []
@@ -796,7 +801,6 @@ def test_a_delivery_log_upgrades_to_resends_and_an_interrupted_run_recovers(monk
         connection.execute(text("ALTER TABLE consumer_webhook_requests DROP COLUMN resend_of"))
     engine.dispose()
     monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
-    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
     for _start in range(2):
         with serve(monkeypatch, _render(url)) as (client, errors):
             assert errors == []
@@ -869,7 +873,6 @@ def test_subscriptions_upgrade_to_the_delivery_choices_and_an_interrupted_run_re
         connection.execute(text("ALTER TABLE consumer_subscriptions DROP COLUMN format"))
     engine.dispose()
     monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
-    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "a" * 43)
     for _start in range(2):
         with serve(monkeypatch, _render(url)) as (client, errors):
             assert errors == []
@@ -1792,18 +1795,17 @@ def test_a_job_file_directory_that_cannot_be_written_refuses_to_start(monkeypatc
 @pytest.mark.parametrize(
     ("key", "message"),
     [
-        (None, "requires CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY"),
+        (None, "SECRETS_ENCRYPTION_KEY is required"),
         ("too-short", "must be 32 bytes written in URL-safe base64"),
     ],
 )
-def test_subscriptions_without_a_usable_encryption_key_refuse_to_start(monkeypatch, key, message):
-    """Base 0.9 C11 (C-D96): with the capability on, a missing or malformed key refuses the
+def test_without_a_usable_secrets_key_the_application_refuses_to_start(monkeypatch, key, message):
+    """0.12 I1 (D253, after Base 0.9 C11's C-D96): a missing or malformed key refuses the
     application's construction with the setting named and the command that generates one."""
-    monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
     if key is None:
-        monkeypatch.delenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("SECRETS_ENCRYPTION_KEY", raising=False)
     else:
-        monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", key)
+        monkeypatch.setenv("SECRETS_ENCRYPTION_KEY", key)
     try:
         with pytest.raises(RuntimeError, match=message) as refused:
             create_app()

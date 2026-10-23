@@ -21,7 +21,6 @@ The dataset is a seed of its own, built once through ``POST /batches`` and reuse
   (Train).
 """
 
-import base64
 import copy
 import re
 from collections.abc import Iterator
@@ -538,10 +537,7 @@ def test_the_reference_shape(fixture):
 # --- the definition rewritten (C18) --------------------------------------------------------------
 
 
-SUBSCRIPTIONS = {
-    "CONSUMER_SUBSCRIPTIONS_ENABLED": "true",
-    "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY": base64.urlsafe_b64encode(b"k" * 32).decode(),
-}
+SUBSCRIPTIONS = {"CONSUMER_SUBSCRIPTIONS_ENABLED": "true"}
 
 
 def _stored_in_schema_0_8(model: dict[str, Any]) -> str:

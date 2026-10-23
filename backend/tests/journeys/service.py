@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from configurations import Configuration
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from scenario import Api, World, model_path
 from sqlalchemy import URL, create_engine, make_url, text
 from sqlalchemy.pool import NullPool

@@ -10,8 +10,8 @@ is unauthenticated today: run it only in a trusted environment or behind an acce
 
 The backend reads its settings from the environment at startup (`backend/app/config.py`).
 `GET /api/v1/capabilities` reports the effective capability groups and job limits, and
-`GET /api/v1/system` every setting with its value, default and source (secrets only as set or not,
-`DATABASE_URL` without its password). In the browser, **Settings › Deployment** shows both, read only:
+`GET /api/v1/system/configuration` every setting with its value, default and source (secrets only as
+set or not, `DATABASE_URL` without its password). In the browser, **Settings › Deployment** shows both, read only:
 a change needs a restart.
 
 A new setting is added to the `Settings` model, to the settings catalogue in `config.py` (its group
@@ -26,6 +26,10 @@ and the one line the API and the Deployment page show) and to the table of its g
 | `RDM_MODEL_PATH` | `model/rdm-starter.json` | Bootstrap model file. Not the active-model setting; see [Model releases](#model-releases-and-rollback) |
 | `RDM_CURSOR_SIGNING_KEY` | ephemeral | Secret that signs pagination cursors. Without it each process generates its own key, so cursors stop working after a restart and between instances |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API |
+| `PUBLIC_URL` | `http://localhost:8000` | The engine's address as callers reach it, behind any proxy: the issuer (`iss`) of its tokens and the base of the addresses in `/.well-known/oauth-authorization-server` (0.12 D259). An absolute `http` or `https` URL; anything else stops startup. Set it on every production installation, the same on every process. See [Authentication](#authentication) |
+| `SECRETS_ENCRYPTION_KEY` | required | 32 bytes in URL-safe base64 (`python -m app.cli.generate_key`); seals the stored token signing keys and webhook signing keys (AES-256-GCM, D253). Startup refuses without it, and refuses the setting it replaced, `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, by name. Keep it outside the database and its backups; the same on every process |
+| `ACCESS_TOKEN_MINUTES` | `60` | Minutes an access token lasts, for people and clients (D251). A deactivation or a retired key applies on the next request whatever the lifetime |
+| `TOKEN_SIGNING_KEY_DAYS` | `30` | Days a token signing key signs; the first token issued after that brings a new key, and the old one keeps accepting its tokens until they expire (D254, D264) |
 | `JOB_FILE_DIR` | `var/job-files` | Where export files wait for download and import files wait to be read, named after their job, and where model authoring's source files are kept (0.10 A3); created at start. With job creation on, a directory that cannot be written stops startup. An export's file is kept while its job is completed and removed when the job expires (`JOB_RETENTION_DAYS`), fails or is cancelled; an import's file until its job finishes. Several instances need it on shared storage. See [Exports](#exports), [Imports](#imports) and [Source files and dry runs](#source-files-and-dry-runs) |
 | `RDM_API_REFERENCE_SCRIPT` | `bundled` | `bundled` serves the pinned Scalar script from the engine, so `/docs` works offline; `cdn` loads the same version from jsDelivr under its integrity hash. Any other value stops startup |
 | `WEB_CONCURRENCY` | `1` | Uvicorn worker count. Any count, with or without model administration (0.11 N1); see [Several processes](#several-processes) |
@@ -113,7 +117,7 @@ not authorization ([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-dep
 | `MODEL_ADMIN_MUTATIONS_ENABLED` | off | Model draft create/edit, compile, release install and activation. Works with any number of processes and instances on one database (0.11 N1) |
 | `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, reactivate, delete and default switching. Turn it off on an API exposed outside a trusted environment unless an access-control layer protects it |
 | `INTEGRATION_JOBS_ENABLED` | on | Job creation (`POST /api/v1/batches`) and cancellation. Job reads stay registered |
-| `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | The webhook subscriptions API (`/api/v1/consumer-subscriptions`), reads included, and from 0.9 C12 their delivery. Requires `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`; startup refuses without it. Turned off, stored subscriptions are kept and continue when it is turned on again |
+| `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | The webhook subscriptions API (`/api/v1/consumer-subscriptions`), reads included, and from 0.9 C12 their delivery. Their signing keys are sealed with `SECRETS_ENCRYPTION_KEY`. Turned off, stored subscriptions are kept and continue when it is turned on again |
 | `INFERENCE_ASSISTANT` | empty | The optional assistant of a model draft's inference (0.10 A6, D95), as `package.module:function`, a factory returning an object with `suggest(request)`. Empty, nothing is sent anywhere. Configured, each inference sends it every sheet's headers and at most `INFERENCE_ASSISTANT_ROWS` rows, and the types its proposals add; its label suggestions become proposals, never applied unasked. No provider is bundled; a failing assistant is a warning on the inference |
 
 Always available: installed-release reads, diff and inline validation; workspace discovery; the
@@ -143,6 +147,58 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | `JOB_RETENTION_DAYS` | 7 | How long a finished job keeps its outcomes and idempotency key |
 | `FEED_RETENTION_DAYS` | 30 | How long the change feed answers a position; older positions are `410 FEED_POSITION_EXPIRED`, naming the publication to re-read. Entries after the active publication, and every entry of a workspace without one, are always answered. Consumer events expire with the entries (`410 EVENTS_EXPIRED`) and are deleted hourly. The audit log is not pruned |
 | `CONSUMER_RESOLVE_MAX_ITEMS` | 1,000 | Items in one consumer batch resolve (`POST /api/consumer/…/resolve`); more are refused as `413 BATCH_TOO_LARGE`. Reported by `GET /capabilities` |
+
+## Authentication
+
+Every route needs an access token issued by the engine (0.12, ADR-043) except `/health`,
+`/health/live`, `/openapi.json`, `/docs` with its script, and the OAuth endpoints
+(`/.well-known/oauth-authorization-server`, `/oauth/jwks`, `/oauth/token`). A request without one
+answers `401 AUTHENTICATION_REQUIRED`; a token that does not verify, has expired, is for the other API
+or belongs to a deactivated client or person answers `401 TOKEN_INVALID` with the reason. No setting
+turns this off (D235). Until roles arrive (Z1), every active client and person may use every route.
+
+**The first administrator and the first client** are created on the server, in the configured
+environment:
+
+```bash
+cd backend
+.venv/bin/python -m app.cli.create_admin --username ada --name "Ada Lovelace"
+.venv/bin/python -m app.cli.create_client --name "Deployment automation"
+```
+
+`create_admin` reads the password from the terminal twice (`--password-stdin` reads one line from
+standard input): 15 to 128 characters, not the username, not one of the most common (D252). People
+sign in from the browser from I2; until then the API is reached with a client. `create_client` prints
+the client's `client_id` and `client_secret` once (`--json` for a script); keep the secret in the
+calling system's secret store. More clients and people are managed through `/api/v1/clients` and
+`/api/v1/users`.
+
+**A client obtains a token** with the client credentials grant and sends it as a bearer token:
+
+```bash
+curl -s -u "$CLIENT_ID:$CLIENT_SECRET" -d grant_type=client_credentials \
+  http://localhost:8000/oauth/token
+curl -s -H "Authorization: Bearer $ACCESS_TOKEN" http://localhost:8000/api/v1/workspaces
+```
+
+`scope=consumer` asks for a token for the consumer APIs (`/api/consumer`); the default, `management`,
+is for `/api/v1` and `/metrics`. A token lasts `ACCESS_TOKEN_MINUTES`; a client asks for a new one
+with the same credentials, as OAuth client libraries do on expiry or on a `401`. A client's secret is
+rotated with `POST /api/v1/clients/{id}/secrets` (`overlapHours`, 24 by default): both secrets work
+during the overlap. A client is deactivated with `PATCH /api/v1/clients/{id}` `{"active": false}`;
+its tokens are refused from the next request.
+
+**Signing keys** are made by the engine, stored sealed with `SECRETS_ENCRYPTION_KEY` and published at
+`/oauth/jwks`. A new key replaces the current one after `TOKEN_SIGNING_KEY_DAYS`; tokens of the old
+one stay valid until they expire, and nobody acts. After a suspected leak,
+`POST /api/v1/token-signing-keys/rotation` `{"immediate": true}` refuses the old key's tokens at once;
+clients obtain new ones with their unchanged credentials. `GET /api/v1/token-signing-keys` lists the
+keys and their state, never a private key.
+
+**Setting up:** set `SECRETS_ENCRYPTION_KEY` (`python -m app.cli.generate_key`) and, outside local
+development, `PUBLIC_URL`; then create the first client and administrator with the commands above.
+Local accounts have a password only; a sign-in provider (I3) brings the organisation's multi-factor
+sign-in (D225).
 
 ## Database
 
@@ -185,7 +241,10 @@ Startup refuses to serve, logs what to do and answers `GET /health` with `503` w
   command (`python -m app.cli.model_schema_upgrade`), for a schema newer than the window (a database
   a later RDM Engine used) to start that version (0.11 V4);
 - `RDM_MODEL_PATH` names a model of a schema outside the window: the process does not start, and the
-  message names the setting, the file, its schema and the supported ones.
+  message names the setting, the file, its schema and the supported ones;
+- `SECRETS_ENCRYPTION_KEY` is missing or not 32 bytes in URL-safe base64, or the retired
+  `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` is set, or `PUBLIC_URL` is not an absolute `http(s)` URL: the
+  process does not start, and the message names the setting (0.12 I1).
 
 `/health` also returns `503` when an activation committed but this process could not load the newly
 selected release. Restart the process; it then loads the database selection.
@@ -259,10 +318,11 @@ Worth alerting on: `rdm_workspaces_unavailable` above 0; `rdm_process_ready` 0; 
 [Database connections](#database-connections)); `rdm_background_thread_failing` 1 for minutes;
 `rdm_jobs` `queued` growing; `rdm_webhook_subscriptions` `suspended` above 0.
 
-**Who can read them.** `/health`, `/health/live`, `/metrics` and `/api/v1/system/*` need no
-capability setting, as `GET /api/v1/system`; until roles exist (0.12) anyone who reaches the
-instance reads host names, process IDs and pool figures. Keep `/metrics` and the management API
-off a public network.
+**Who can read them.** `/health` and `/health/live` need no token, so probes work unchanged; they
+say only `ok` or `unhealthy`. `/metrics` and `/api/v1/system/*` need an access token (0.12 I1): a
+Prometheus scrape uses a client's token (`authorization` with `credentials_file`, or the
+`oauth2` client credentials block with `token_url` `/oauth/token`). Until roles (Z1) any active
+client or person reads them; from Z1 they need the Operator role.
 
 ### Logs
 
@@ -402,7 +462,6 @@ release and are not copied by one.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | Serves the subscriptions API (see capability groups) and runs the dispatcher that delivers them |
-| `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` | none | 32 bytes in URL-safe base64; signing keys are stored sealed with it (AES-256-GCM). Required with the capability on |
 | `CONSUMER_WEBHOOK_LOG_RETENTION_DAYS` | 7 | Days the delivery log keeps each request, with the body it sent (up to 1 MiB), its events and its attempts (0.9 U5a); a batch still being retried or awaiting a resume is kept longer. Reported by `GET /api/v1/capabilities` |
 
 **The delivery log** (0.9 U5a) records every request the dispatcher sends: its body, the events
@@ -414,10 +473,10 @@ dispatcher deletes expired entries at most hourly.
 A webhook URL may name any host and port. It must use HTTPS; plain HTTP is accepted only to
 `localhost`, `127.0.0.1` or `::1` (development). There is no host allowlist (C-D101 revised).
 
-- **Generating the key:** `python -m app.cli.generate_key` prints one. Keep it with the deployment's
-  other secrets, never in the database or its backups. Every process of a deployment uses the same
-  key. Changing it makes every stored signing key unreadable: subscriptions would have to be
-  recreated (rotation arrives in 0.12).
+- **The key:** signing keys are stored sealed with `SECRETS_ENCRYPTION_KEY` (0.12 D253; before
+  0.12, `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, which startup now refuses by name: rename it, keeping
+  its value). Changing the key makes every stored signing key unreadable until re-sealing arrives
+  (0.12 K1).
 - **A model activation** that drops what a subscription names suspends it (`MODEL_CHANGED`); one
   that raises its consumer API's contract version suspends it until resumed
   (`CONTRACT_VERSION_CHANGED`). **Retiring a workspace** suspends its subscriptions
@@ -521,7 +580,8 @@ Before upgrading the application:
 2. Take a consistent backup (`pg_dump` or the platform's snapshot) and
    [rehearse its restore](#backup-and-restore).
 3. Keep the backup with the application version and its configuration, especially `DATABASE_URL`,
-   `RDM_MODEL_PATH`, `RDM_CURSOR_SIGNING_KEY`, the capability settings and the worker count.
+   `RDM_MODEL_PATH`, `RDM_CURSOR_SIGNING_KEY`, `SECRETS_ENCRYPTION_KEY` (without it the restored
+   signing keys cannot be read), the capability settings and the worker count.
 4. Run the migrations with the new application before accepting traffic:
 
    ```bash

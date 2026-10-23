@@ -11,7 +11,7 @@ verified directly against :class:`AuditEvent` because ``publication`` events car
 
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from sqlalchemy import func, select
 from wp8_support import (
     attribute,

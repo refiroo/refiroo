@@ -11,7 +11,7 @@ import { DeploymentPage } from "@/features/settings/DeploymentPage";
 import { TABLE_DENSITY_STORAGE_KEY } from "@/lib/tableDensity";
 import { resetThemePreference, THEME_STORAGE_KEY } from "@/lib/theme";
 import { capabilitiesFixture } from "@/test/capabilities";
-import type { SystemResponse, SystemSetting } from "@/types";
+import type { SystemConfiguration, SystemResponse, SystemSetting } from "@/types";
 
 vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
@@ -38,6 +38,9 @@ const system: SystemResponse = {
     schemaVersion: "0.8",
     activatedAt: "2026-10-06T08:00:00Z",
   },
+};
+
+const configuration: SystemConfiguration = {
   database: { revision: "20261005_02" },
   settings: [
     setting("DATABASE_URL", "runtime", "postgresql+psycopg://rdm@db:5432/rdm", "environment"),
@@ -45,7 +48,7 @@ const system: SystemResponse = {
     { ...setting("CORS_ORIGINS", "runtime", ["https://a.example", "https://b.example"], "environment") },
     { ...setting("MODEL_ADMIN_MUTATIONS_ENABLED", "capabilities", true, "environment"), default: false },
     setting("FEED_RETENTION_DAYS", "limits", 30, "default"),
-    { ...setting("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "webhooks", null, "environment") },
+    { ...setting("SECRETS_ENCRYPTION_KEY", "runtime", null, "environment") },
   ],
 };
 
@@ -65,6 +68,7 @@ beforeEach(() => {
     vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
   );
   vi.mocked(api.system).mockResolvedValue(system);
+  vi.mocked(api.systemConfiguration).mockResolvedValue(configuration);
   vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
 });
 afterEach(() => {
@@ -168,7 +172,8 @@ describe("About", () => {
     expect(engine).toHaveTextContent("0.7, 0.8");
     const release = screen.getByRole("region", { name: "Active model release" });
     expect(release).toHaveTextContent(/Starter.*starter.*0\.9\.0.*0\.8/);
-    expect(screen.getByRole("region", { name: "Database" })).toHaveTextContent("20261005_02");
+    // The migration revision is the operator's, on Deployment (0.12 D246).
+    expect(screen.queryByRole("region", { name: "Database" })).toBeNull();
     fireEvent.click(within(release).getByRole("button", { name: "Open release" }));
     expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "model", releaseId: "r1" });
   });
@@ -196,6 +201,7 @@ describe("Deployment", () => {
     const row = (region: HTMLElement, name: string) => within(region).getByRole("row", { name: new RegExp(name) });
     expect(row(runtime, "CORS_ORIGINS")).toHaveTextContent(/https:\/\/a\.example, https:\/\/b\.example.*Environment/);
     expect(row(runtime, "DATABASE_URL")).toHaveTextContent("postgresql+psycopg://rdm@db:5432/rdm");
+    expect(screen.getByRole("region", { name: "Database" })).toHaveTextContent("20261005_02");
     const capabilitySettings = screen.getByRole("region", { name: "Capability settings" });
     expect(row(capabilitySettings, "MODEL_ADMIN")).toHaveTextContent(/On\s*Off\s*Environment/);
     expect(row(screen.getByRole("region", { name: "Batch and job limits" }), "FEED")).toHaveTextContent(
@@ -212,16 +218,15 @@ describe("Deployment", () => {
       /Not set\s*None\s*Default/,
     );
     expect(within(runtime).getByText("Cursors do not survive a restart")).toBeInTheDocument();
-    const webhooks = screen.getByRole("region", { name: "Webhook subscriptions" });
-    expect(within(webhooks).getByRole("row", { name: /KEY_ENCRYPTION_KEY/ })).toHaveTextContent(
+    expect(within(runtime).getByRole("row", { name: /SECRETS_ENCRYPTION_KEY/ })).toHaveTextContent(
       /Set\s*None\s*Environment/,
     );
   });
 
   it("leaves out the warning once the cursor key is set", async () => {
-    vi.mocked(api.system).mockResolvedValue({
-      ...system,
-      settings: system.settings.map((item) =>
+    vi.mocked(api.systemConfiguration).mockResolvedValue({
+      ...configuration,
+      settings: configuration.settings.map((item) =>
         item.name === "RDM_CURSOR_SIGNING_KEY" ? { ...item, source: "environment" } : item,
       ),
     });

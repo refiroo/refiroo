@@ -8,7 +8,7 @@ from threading import Barrier
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from sqlalchemy import func, select
 from workspace_model_support import default_model
 from wp8_support import create_change_set, create_object, create_workspace, unique_key

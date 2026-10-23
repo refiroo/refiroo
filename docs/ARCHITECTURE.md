@@ -948,12 +948,38 @@ values, redaction within immutable history, keyed inbound upsert and additive va
 
 ### Security (0.12)
 
-Authentication and authorization are deferred to the 0.12 security release: OAuth 2.0 with
-engine-issued JWT access tokens for the backend, frontend and consumer APIs, model-configurable
-application, object-type and operation permissions, webhook signing-key rotation (signing itself
-arrives in 0.9) and UI administration of
-clients and subscriptions, replacing the default-enabled workspace administration. No API keys, and no
-credential in a URL. Record-level rules come only for demonstrated needs.
+Designed, delivered by the 0.12 packages ([ADR-043](DECISIONS.md#adr-043--identity-and-tokens-issued-by-the-engine),
+[ADR-044](DECISIONS.md#adr-044--authorization-action-groups-roles-and-grants),
+[ADR-045](DECISIONS.md#adr-045--change-set-publication-approvals); contract in
+[API.md § Security](API.md#security-product-012-designed)). The engine issues OAuth 2.0 JWT access
+tokens for the browser, the management API and the consumer APIs; no API keys and no credential in a
+URL. Permissions are **runtime data**, not part of a model release: roles made of action groups,
+granted to users, groups and clients at the instance or in a workspace, managed through the API and
+Settings › Security. Grants refer to the model's applications and record types as data and narrow
+writes only. Webhook signing-key rotation and approvals of change-set publication belong to the same
+release. Record-level rules come only for demonstrated needs.
+
+A request's path through the checks:
+
+1. **Authentication** (delivered by I1), in the dependency every management router is registered
+   with (`MANAGEMENT_DEPENDENCIES`, `authenticated`) and its counterpart on the consumer router, both
+   calling `engine/identity/authentication.py`: the token's key by `kid` and its principal are read
+   in one statement, then its ES256 signature, expiry, issuer and audience are checked and the
+   principal must be active. Public keys are cached per process; whether a key is retired is read on
+   every request, so "rotate now" applies at once everywhere. Until Z1 an authenticated principal
+   passes every route.
+2. **The principal's permissions**, from a per-process cache keyed by principal and invalidated
+   through `pg_notify`: whether the principal is active and its session open, and the action groups
+   it holds per workspace with their write narrowing.
+3. **The route check**: the action the route declares (for record writes, the live or change-set
+   action the request's `changeSetId` picks) in the workspace the request resolves (path, query or
+   the resource's own workspace). Refused with `403 FORBIDDEN` before anything is read.
+4. **The write-unit check**: the record types the work writes, gathered as one set over its distinct
+   types, against the grant's narrowing. Batches, imports, moves, publications, type changes and job
+   steps all pass here; a job checks its requester.
+
+The deployment capability flags stay outside both (ADR-031): an unregistered route never reaches
+them.
 
 ### Workspace migrations (0.11 V1)
 

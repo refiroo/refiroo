@@ -33,6 +33,7 @@ from uuid import uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import harness_identity
 import postgres_server
 from sqlalchemy import URL, create_engine, text
 from sqlalchemy.engine import Connection
@@ -188,7 +189,13 @@ def ensure(name: str) -> dict[str, Any]:
                     "excluded.payload, built_at = excluded.built_at, build_seconds = "
                     "excluded.build_seconds"
                 ),
-                {"n": name, "f": expected, "p": json.dumps(payload), "at": datetime.now(UTC), "s": seconds},
+                {
+                    "n": name,
+                    "f": expected,
+                    "p": json.dumps(payload),
+                    "at": datetime.now(UTC),
+                    "s": seconds,
+                },
             )
             ACTIVITY.append((name, "built", seconds))
             return payload
@@ -305,7 +312,12 @@ def application_environment(url: URL, model_path: Path | None = None) -> Iterato
 
 
 def _migrations() -> list[str | Path]:
-    return sorted((APP / "migrations").rglob("*.py"))
+    # With the harness's client and signing key (0.12 I1, D263): what makes them is an input too.
+    return [
+        *sorted((APP / "migrations").rglob("*.py")),
+        *sorted((APP / "engine" / "identity").glob("*.py")),
+        TESTS / "harness_identity.py",
+    ]
 
 
 def _build_schema(url: URL) -> dict[str, Any]:
@@ -313,7 +325,7 @@ def _build_schema(url: URL) -> dict[str, Any]:
 
     with application_environment(url):
         create_database()
-    return {}
+        return {"harness": harness_identity.create_harness_client()}
 
 
 register(Seed("schema", _build_schema, _migrations))
@@ -328,7 +340,7 @@ def volume_seed(shape: Any) -> str:
     name = f"volume-{shape.groups}x{shape.items}-{digest}"
 
     def build(url: URL) -> dict[str, Any]:
-        from fastapi.testclient import TestClient
+        from harness_identity import TestClient
 
         from app.db import get_engine
         from app.main import create_app

@@ -2,7 +2,7 @@ import json
 from copy import deepcopy
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from model_support import MODEL_PATH, starter_at_schema
 from sqlalchemy import func, select
 

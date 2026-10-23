@@ -9,7 +9,7 @@ import json
 from unittest.mock import patch
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from workspace_model_support import DEFAULT_ACTIVATION, default_model
 
 from app.db import SessionLocal

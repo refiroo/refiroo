@@ -1061,12 +1061,13 @@ so the only version users see is the model release's.
 
 **Deployment capability versus authorization.** The flags stay environment settings and stay after
 authentication. They answer "does this installation expose the operation at all"; authorization in
-0.11 answers "who may use it here" within that limit:
+0.12 answers "who may use it here" within that limit
+([ADR-044](#adr-044--authorization-action-groups-roles-and-grants); corrected from "0.11" in 0.12 P0):
 
 | Layer | Lives in | Set by | Arrives |
 | --- | --- | --- | --- |
 | Deployment capability | Environment, read at startup | Operator | Now |
-| Authorization | Database, managed in the UI | Authorized administrator | 0.12 (moved from 0.11, 2026-09-29) |
+| Authorization | Database (roles and grants are runtime data, never in a model release), managed in the UI and the API | A principal holding Security administration | 0.12 (moved from 0.11, 2026-09-29; ADR-044) |
 
 They are environment settings rather than UI settings because:
 
@@ -1681,3 +1682,142 @@ multi-tenancy: hosting stays one instance per organisation.
   from the start.
 - Workspace groups owning a model history (unscheduled) stay possible: release identities remain
   instance-wide.
+
+## ADR-043 — Identity and tokens issued by the engine
+
+**Status:** Accepted, 2026-10-23, by the user with the
+[Base 0.12 P0 plan](BASE_0_12_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-22) (D224, D225, D234, D235,
+D250–D254; D251 amended by the user: access tokens last an hour). Implements C-D1. The contract is in
+[API.md § Security](API.md#security-product-012-designed).
+
+### Motivation
+
+Until 0.12 nothing is authenticated: every route answers anyone who reaches it, and changes record a
+cause but no actor. 0.12 must authenticate people and systems on the management API, the frontend and
+the consumer APIs alike (ROADMAP), with no API keys and no credential in a URL (C-D1).
+
+### Decision
+
+- **The engine is the OAuth 2.0 authorization server** and issues one token format for every
+  caller: the browser (authorization code with PKCE `S256`), clients (client credentials) and the
+  "try it" console. A sign-in provider (OpenID Connect) may prove who a person is; the engine still
+  issues the token. Local accounts exist beside providers, for the first administrator, small
+  installations and a way back. SAML and LDAP are not supported.
+- **Principals:** users and OAuth clients. Both are deactivated, never deleted, so history always
+  resolves a name (D237).
+- **An access token proves who, never what.** A JWT signed with ES256: subject, principal kind,
+  audience (`management` or `consumer`), expiry and, for a person, the session. Permissions are
+  looked up on the server per request (ADR-044), together with whether the principal is active and
+  the session open, so a change applies on the next request and a token's lifetime (an hour) is not a
+  security window for revocation.
+- **The browser** keeps the access token in memory and the refresh token in an `HttpOnly`, `Secure`,
+  `SameSite=Strict` cookie read only by the token and revocation endpoints. Refresh tokens are
+  opaque, stored hashed and rotated on every use; a reused one ends the session. The frontend and the
+  engine share a site.
+- **Signing keys** live in the database, sealed under `SECRETS_ENCRYPTION_KEY` (the one setting for
+  every sealed secret, replacing `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`), published at
+  `/oauth/jwks` by `kid`, rotated every 30 days with the previous key verifying until its tokens
+  expire, and retired at once by "rotate now". Refresh tokens and client secrets are never signed
+  with them, so a rotation needs no action from anyone.
+- **Passwords** (local accounts): 15–128 characters without composition rules, common ones refused,
+  hashed with Argon2id; failed sign-ins slowed per account and address, never locked. MFA is left to
+  the sign-in provider.
+- **No switch turns authentication off.** Development and tests use real tokens; the first
+  administrator comes from a CLI command on the server.
+- **Open routes:** `/health`, `/health/live`, `/openapi.json`, `/docs` and its script, and the OAuth
+  endpoints, which answer errors in the RFC's shape. Everything else needs a token.
+
+### Consequences
+
+- Every test harness obtains real tokens (I1); the browser reads its job stream and downloads with
+  `fetch`, since `EventSource` and links cannot carry the header.
+- An installation with local accounts only has no second factor; OPERATIONS advises a provider in
+  production.
+- A stolen access token works for up to an hour while its holder stays active.
+
+## ADR-044 — Authorization: action groups, roles and grants
+
+**Status:** Accepted, 2026-10-23, by the user with the
+[Base 0.12 P0 plan](BASE_0_12_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-22) (D226–D231, D236, D241,
+D243–D249, D255–D257). Corrects ARCHITECTURE's "model-configurable permissions" and ADR-031's
+release number. The catalogue is in [API.md § Security](API.md#security-product-012-designed).
+
+### Motivation
+
+Every operation must be authorized against what the caller may do in that workspace, and the exit
+gate asks that no administrative, bulk, job, feed or consumer path bypass it. An administrator
+thinks in jobs ("may publish"), not in 157 routes, and people who should only read, or only propose,
+must be served as well as stewards (the user's ideas, 2026-10-22).
+
+### Decision
+
+- **Every route declares its action; actions belong to action groups** named after journeys
+  (Browse, Edit live, Work in change sets, Publish, Approve publications, Bulk and import, Copy and
+  move, Model authoring, Model release, Workspace administration, Integration administration, Feed,
+  Operations, Security administration). A route without a declaration fails the contract test.
+- **Roles are sets of action groups.** Nine predefined, read-only roles named after the personas
+  (Reader, Contributor, Data steward, Data owner, Model administrator, Workspace administrator,
+  Integration administrator, Operator, Security administrator); custom roles are made from scratch or
+  copied.
+- **Grants** give a role to a user, a group or a client, at the instance or in a workspace, and may
+  narrow **writes** to applications and record types. Reads are per workspace: a reader sees the
+  whole workspace, because relations, coverage, the lookup, the feed and exports cross applications;
+  data some readers must not see goes in its own workspace. A client is granted a consumer API in a
+  workspace instead of a role.
+- **Roles and grants are runtime data,** in the database, managed through the API and the Security
+  pages. They are never part of a model release: a model must not be able to grant itself access, and
+  roles change without a release. Grants refer to applications and record types as data; a grant
+  naming one the model no longer has is reported, never widened.
+- **Two checks on every path:** at the route, for the action and the workspace; at the write unit,
+  for the record types written, as one set statement over the work's distinct types. Bulk work,
+  imports, moves, publications, type changes and jobs pass both; a job runs with its requester's
+  permissions, checked at submission, confirmation and each step.
+- **Live and change-set writes are separate permissions** on the same routes: the request's
+  `changeSetId` decides which is checked. This is what lets a Contributor change data only by
+  proposing it.
+- **Lists are filtered to what the caller may browse; a named resource the caller may not use is
+  refused** with `403 FORBIDDEN` naming the action, its groups and the workspace.
+- **Permissions are looked up per request** from a cache invalidated across processes through
+  `pg_notify` when a grant, role, membership or principal changes.
+- **Deployment flags stay** as defence in depth: a flag decides whether the installation exposes an
+  operation, a role whether this caller may use it. The workspace administration flag stays on by
+  default, now protected by a role.
+
+### Consequences
+
+- The catalogue's upkeep: each new route names its action, which the contract test enforces and the
+  OpenAPI document publishes.
+- One cached lookup per request.
+- No record-level or field-level rules; they come only on demonstrated need.
+
+## ADR-045 — Change-set publication approvals
+
+**Status:** Accepted, 2026-10-22, by the user (D232, D233, D242), recorded with the
+[Base 0.12 P0 plan](BASE_0_12_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-22). Moves change-set
+publication approvals from 1.0's protected publishing into 0.12 (Track A, after the cut line);
+approving a model activation or a rollback stays in 1.0.
+
+### Motivation
+
+With live editing and change-set work as separate permissions, a Contributor's change set otherwise
+waits until someone notices it. PRODUCT.md requires a stated benefit and an explicit decision for any
+mandatory review step, because a data owner's daily correction must stay live when saved (ADR-026).
+
+### Decision
+
+- **No one is forced through an approval** unless a role or a workspace policy asks for it. With the
+  predefined roles, a steward publishes in one step, as before.
+- **A change set may be submitted** (frozen; an edit withdraws the submission), then **approved**
+  (which publishes it, bound to the reviewed version and the workspace's active publication) or
+  **sent back** with a comment. A holder of Approve publications with "own" approves their own in the
+  same step as publishing; a workspace's four-eyes policy removes "own" there.
+- **Each decision is a row of its own** (who, when, version, outcome, comment), so several approvers
+  or ordered stages can be added later without a contract change.
+- **Notifications:** a per-principal inbox in the engine (API and top bar) and webhook events for each
+  step; no e-mail. An organisation's own process tool drives longer processes through the events and
+  the API; there is no workflow engine.
+
+### Consequences
+
+- Track A: three packages after 0.12's cut line; if 0.12 must ship sooner they follow in 0.12.x.
+- A person learns of a request only in the app unless the organisation routes the events.

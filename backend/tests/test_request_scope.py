@@ -1,6 +1,6 @@
 """Guards for the structural guarantees introduced by the refactor."""
 
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 
 from app.config import Settings, reload_settings
 from app.db import get_engine

@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from sqlalchemy import event, func, select
 from sqlalchemy.orm import Session
 from wp8_support import create_workspace, unique_key

@@ -8,7 +8,7 @@ carry no ``AuditEventSubject`` rows and therefore never surface on object-histor
 
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from sqlalchemy import func, select
 
 from app.db import SessionLocal

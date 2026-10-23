@@ -28,6 +28,7 @@ parameter or code missing here fails it.
 | `applicationKey`, `viewKey` | lookup, mapping and matrix reads | J01, J10, J16, J22.1 |
 | `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction` | relations, edge list, mapping reads | J10, J13, J22.2, J22.3 |
 | `Idempotency-Key` header | `POST /batches` | J11.5, J24 |
+| `Authorization` header (`Bearer <access token>`, 0.12 I1): `401 AUTHENTICATION_REQUIRED` without one, `401 TOKEN_INVALID` with its reason | every route but `/health`, `/health/live`, `/openapi.json`, `/docs` and the OAuth endpoints; on `POST /oauth/token`, `Basic` client credentials | J39, J41, J41.4, J41.5, J43.2 |
 | `X-Expected-Model-Release-Id` header (0.11 M6a) | every route of the management API: a record, relation or value write live or in a change set, a batch, an import; a read naming its context's release | J36.9 |
 
 ## Routes
@@ -42,7 +43,8 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/health/
 | `GET /metrics` (the Prometheus text format, 0.11 O1) | J12.14 |
 | `GET /docs` (`api`, the source Scalar opens; `workspace`, whose consumer APIs it lists, 0.11 M3), `GET /openapi.json` | J20, J20.5 |
 | `GET /capabilities` | J20, J12.7, J26.6 (`changeFeed.retentionDays`) |
-| `GET /system` | J31, J31.1–J31.3 |
+| `GET /system` (the engine, schema languages, active release), `GET /system/configuration` (the database revision and every setting, 0.12 I1, D246) | J31, J31.1–J31.3 |
+| Delivered in 0.12 I1 ([API.md § Security](../API.md#security-product-012-designed)): `GET /.well-known/oauth-authorization-server`, `GET /oauth/jwks`, `POST /oauth/token` (`grant_type=client_credentials`, `scope` `management` or `consumer`, `client_secret_basic` or `client_secret_post`; RFC errors `invalid_request`, `invalid_client`, `invalid_scope`, `unsupported_grant_type`); `GET /me`; `GET /users` (`q`, `active`), `POST /users`, `GET/PATCH /users/{id}`; `GET /clients` (`active`), `POST /clients`, `GET/PATCH /clients/{id}`, `POST /clients/{id}/secrets` (`overlapHours`), `DELETE /clients/{id}/secrets/{secretId}`; `GET /token-signing-keys`, `POST /token-signing-keys/rotation` (`immediate`) | J39, J40, J41, J41.3, J41.4, J41.5, J43.1, J43.2 |
 | `GET /system/processes`, `GET /system/readiness` (paging; 0.11 O1) | J12.13 |
 | `GET /system/summary` (0.11 O2) | J12.13, J12.14 |
 | `GET /system/backup-rehearsals` (paging; 0.11 O2) and `python -m app.cli.restore_check` | J12.16, J12.17 |
@@ -165,6 +167,39 @@ deployment's, each answer checked against the API's own document.
 | `GET /` (the API index: `workspace` (0.11 M3), `pageSize`, `cursor`, `position`, `from`, `includeTotal`) | J20.3, J36.3 |
 | `GET /{consumerApi}/v{contractVersion}/openapi.json` (`workspace`, 0.11 M3) | J20.3, J20.4, J36.3 |
 
+### Planned for 0.12 (designed in P0)
+
+The security routes, codes and settings designed in [API.md § Security](../API.md#security-product-012-designed);
+each moves into the tables above with its package. Every existing route gains `401` and `403`
+(J39, J40), and every operation its declared action (the catalogue in API.md).
+
+| Operation | Journeys | Package |
+| --- | --- | --- |
+| `GET /.well-known/oauth-authorization-server`, `GET /oauth/jwks` | J39, J41, J43.1 | I1 |
+| `GET/POST /oauth/authorize` (the sign-in page; PKCE `S256`) | J39, J39.1, J39.5, J39.7 | I2, I3 |
+| `POST /oauth/token` (`authorization_code`, `refresh_token`, `client_credentials`), `POST /oauth/revoke` | J39.2, J39.3, J41, J41.3, J41.4 | I1, I2 |
+| `GET /me`, `GET /me/permissions` (`workspaceKey`) | J39, J40, J40.1, J40.2 | I1, Z1 |
+| `GET/DELETE /me/sessions`, `DELETE /me/sessions/{id}`, `POST /me/password` | J39.3, J39.6 | I2 |
+| `GET/POST /users`, `GET/PATCH /users/{id}`, `POST /users/{id}/password-reset`, `DELETE /users/{id}/sessions`, `GET /users/{id}/grants` | J40, J39.3, J39.4 | I1, SP1 |
+| `GET/POST /groups`, `GET/PATCH/DELETE /groups/{id}`, `GET/POST /groups/{id}/members`, `DELETE /groups/{id}/members/{userId}` | J40.4, J39.7 | Z1, I3 |
+| `GET /action-groups`, `GET/POST /roles`, `GET/PATCH/DELETE /roles/{key}` | J40.5 | Z1 |
+| `GET/POST /grants`, `DELETE /grants/{id}`, `GET /workspaces/{key}/access` | J40, J40.3, J40.6, J40.7, J40.8, J41.2 | Z1, Z3 |
+| `GET/POST /clients`, `GET/PATCH /clients/{id}`, `POST /clients/{id}/secrets`, `DELETE /clients/{id}/secrets/{secretId}` | J41, J41.3, J41.4 | I1, SP2 |
+| `GET /token-signing-keys`, `POST /token-signing-keys/rotation` | J43.1, J43.2 | I1 |
+| `GET/POST /sign-in-providers`, `GET/PATCH/DELETE /sign-in-providers/{key}` | J39.7 | I3 |
+| `GET /system/configuration` (`GET /system` narrowed) | J31, J31.2 | I1 |
+| `POST /consumer-subscriptions/{id}/rotate-secret` (`overlapHours`) | J43.3, J43.4 | K1 |
+| `POST/DELETE /change-sets/{id}/submission`, `POST /change-sets/{id}/decisions`, `GET /workspaces/{key}/publication-requests`, `GET/PUT /workspaces/{key}/approval-policy` | J42, J42.1–J42.4, J42.6 | A1, A3 |
+| `GET /me/notifications`, `POST /me/notifications/read`, `GET /me/notifications/events` | J42.5 | A2 |
+
+Codes: `AUTHENTICATION_REQUIRED`, `TOKEN_INVALID` (J39, J41.5, J43.2), `FORBIDDEN` (J40, J41.2),
+`PASSWORD_REJECTED` (J39.6), `ROLE_PREDEFINED`, `ROLE_IN_USE` (J40.5),
+`LAST_SECURITY_ADMINISTRATOR` (J40.8), `CHANGE_SET_SUBMITTED`, `APPROVAL_REQUIRED` (J42.2, J42.4);
+the OAuth endpoints' `invalid_request`, `invalid_grant`, `invalid_client`, `unsupported_grant_type`.
+Settings: `SECRETS_ENCRYPTION_KEY` (replaces `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, J43.5), the token
+and session lifetimes (J39.2), `python -m app.cli.create_admin` (J40) and the re-sealing command
+(J43.5).
+
 ## Error codes
 
 Every code the API returns, by the journey that meets it. 32 of them were raised by the backend but
@@ -209,6 +244,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J34 (0.10 A6) | `PROPOSAL_NOT_FOUND`, `INFERENCE_NOT_FOUND` (`404`), `PROPOSAL_ALREADY_APPLIED`, `NOTHING_TO_APPLY`, `INFERENCE_STALE` (the draft changed after the inference), `INFERENCE_NOT_READY` (`409`), `PROPOSAL_REQUIREMENT_MISSING` (with `proposal` and `requirement`), `INVALID_INFERENCE_REQUEST` (an application key that does not fit the mode), `INVALID_MODEL` (`422`); `SOURCE_FILE_NOT_FOUND`, `SOURCE_FILE_PROFILE_NOT_READY` as for the dry run; the warning `INFERENCE_DISAGREES` (D92); `SKIP_NEEDS_KEY` (an `INVALID_IMPORT_PROFILE` problem, 0.10 A7, D110); `REFERENCE_NOT_FOUND` on the rows naming a value the stored list lacks (D112); `AMBIGUOUS_NAME_KEY` on a row of a source keyed by name naming a name two records share (0.10 A8a, D117); `INVALID_RANGE` (`422`, a range that is malformed, empty or outside the sheet, or a rectangle with no value under its header, 0.10 A8b) |
 | J35 (0.10 A5c) | `MISSING_DELETE_NEEDS_CHANGE_SET` (`422`, a live load through a profile that deletes missing records, D82), `PROFILE_CHECK_NOT_FOUND` (`404`, a profile without a checked file), `SOURCE_FILE_NOT_FOUND` (`404`) and `SOURCE_FILE_PROFILE_NOT_READY` (`409`) on `POST …/check`; `INVALID_IMPORT_PROFILE` for a load through a profile a newer release broke (J35.3); a missing record with dependants refused `OBJECT_HAS_DEPENDANTS` with its impact (D104) |
 | J34 (0.10 A3, A5a) | `CREATE_NEEDS_NAME_MATCH` (an `INVALID_IMPORT_PROFILE` problem, D77); the draft profile's warnings `COLUMN_UNMAPPED`, `SOURCE_WITHOUT_COLUMNS`, `SOURCE_WITHOUT_KEY` (D78); `SOURCE_FILE_NOT_FOUND`, `SOURCE_SHEET_NOT_FOUND`, `DRY_RUN_NOT_FOUND`, `MODEL_DRAFT_NOT_FOUND`, `IMPORT_PROFILE_NOT_FOUND` (`404`), `SOURCE_FILE_PROFILE_NOT_READY` (`409`, with the profile's `state`), `VERSION_CONFLICT` (`409`, delete), `SOURCE_FILE_MISSING` (`410`, the stored file gone from `JOB_FILE_DIR`: a profile job's or a load's error), `IMPORT_TOO_LARGE` (`413`), `UNSUPPORTED_FILE_FORMAT`, `INVALID_IMPORT_PROFILE`, `INVALID_MODEL` (`422`, a dry run of a draft that does not compile, D71), `REQUEST_VALIDATION_ERROR` (`422`, an import sending a file and naming `sourceFileId`); J27's import codes for the load |
+| J39, J40, J41, J43 (0.12 I1) | `AUTHENTICATION_REQUIRED`, `TOKEN_INVALID` (`expired`, `revoked`, `audience`, `unknownKey`, `malformed`, `signature`), `USERNAME_TAKEN`, `USER_NOT_FOUND`, `CLIENT_NOT_FOUND`, `CLIENT_SECRET_NOT_FOUND`, `PASSWORD_REJECTED` (`create_admin`; `tooShort`, `tooLong`, `username`, `common`) |
 | J11, J24 | `BATCH_TOO_LARGE`, `INVALID_BATCH_CONTEXT`, `IDEMPOTENCY_KEY_REUSED`, `IDEMPOTENCY_IN_PROGRESS`, `MISSING_RECORD_KEY`, `INVALID_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH`, `JOB_NOT_FOUND`, `JOB_FINISHED`, `JOB_FAILED` |
 
 ## Operator surface (J12)
@@ -216,7 +252,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | Setting or command | Journeys |
 | --- | --- |
 | `DATABASE_URL` | J12, J12.1, J31.2 (reported without its password) |
-| Every setting (reported by `GET /system` with value, default and source; secrets as set or not) | J31, J31.1, J31.2 |
+| Every setting (reported by `GET /system/configuration` with value, default and source; secrets as set or not) | J31, J31.1, J31.2 |
 | `RDM_MODEL_PATH` | J12 (the starter or bootstrap model), J08 |
 | `MODEL_ADMIN_MUTATIONS_ENABLED`, `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, `INTEGRATION_JOBS_ENABLED` | J12.7, J08, J19.4, J11 |
 | `BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `ATOMIC_JOB_MAX_ITEMS`, `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES`, `JOB_CHUNK_ITEMS`, `JOB_LEASE_SECONDS`, `JOB_RETENTION_DAYS` | J12.7, J11, J24, J24.8 |
@@ -227,8 +263,11 @@ documented nowhere; API.md documents them since H4c (D-4).
 | `INFERENCE_ASSISTANT` (the optional assistant's factory, empty by default) and `INFERENCE_ASSISTANT_ROWS` (the rows of each sheet it is sent, 20; 0.10 A6, D95): the interface only, no provider bundled; covered by a unit test with a fake | J34.4 |
 | `JOB_PREVIEW_MAX_ITEMS` (the items a preview of an import or a batch runs before it is a sample, reported as `integrationJobs.limits.previewMaxItems`) | J27.12, J11.9 |
 | `CONSUMER_RESOLVE_MAX_ITEMS` (reported by `GET /capabilities` as `consumerApi.resolveMaxItems`) | J29.10 |
-| `CONSUMER_SUBSCRIPTIONS_ENABLED` (the subscriptions API and their delivery, reported by `GET /capabilities` as `consumerSubscriptions` with the delivery limits, `maxEventsPerBatch` among them), `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (required with the capability on) | J30.6–J30.9 |
-| `python -m app.cli.generate_key` | J30.6 (the encryption key) |
+| `CONSUMER_SUBSCRIPTIONS_ENABLED` (the subscriptions API and their delivery, reported by `GET /capabilities` as `consumerSubscriptions` with the delivery limits, `maxEventsPerBatch` among them), their signing keys sealed with `SECRETS_ENCRYPTION_KEY` | J30.6–J30.9 |
+| `SECRETS_ENCRYPTION_KEY` (required; seals token and webhook signing keys; `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` refused by name, 0.12 I1, D253), `PUBLIC_URL` (the token issuer, D259) | J12.7, J39, J41 |
+| `ACCESS_TOKEN_MINUTES` (an access token's lifetime, D251), `TOKEN_SIGNING_KEY_DAYS` (the signing key's age before the next token replaces it, D264) | J41, J43.1 |
+| `python -m app.cli.create_admin` (`--password-stdin`), `python -m app.cli.create_client` (`--json`) (0.12 I1, D235, D262) | J40, J41 |
+| `python -m app.cli.generate_key` | J30.6, J12.7 (the secrets key) |
 | `WEB_CONCURRENCY` | J12.7 (served above 1 with model administration on), J12.10 (several workers or processes on one database, 0.11 N1) |
 | `DATABASE_POOL_SIZE`, `DATABASE_POOL_MAX_OVERFLOW`, `DATABASE_POOL_TIMEOUT` (each process's connections, 0.11 Q1) | J12.7, J12.11 |
 | `DATABASE_IDLE_TRANSACTION_TIMEOUT` (a stalled process's transaction ended, 0.11 N3) | J12.7, J24.3 |

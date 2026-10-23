@@ -6,7 +6,7 @@ import json
 import re
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 
 from app.config import reload_settings
 from app.main import app, create_app

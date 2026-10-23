@@ -22,6 +22,7 @@ from .engine.events.dispatcher import EventDispatcher
 from .engine.events.subscriptions import SubscriptionSettings
 from .engine.events.worker import THREAD_NAME as DERIVER_THREAD
 from .engine.events.worker import EventDeriver
+from .engine.identity.settings import IdentitySettings
 from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
 from .engine.jobs.events import THREAD_NAME as LISTENER_THREAD
 from .engine.jobs.events import JobListener
@@ -48,6 +49,7 @@ from .management.routers import (
     attributes,
     change_sets,
     consumer_subscriptions,
+    identity,
     imports,
     inference,
     jobs,
@@ -57,6 +59,7 @@ from .management.routers import (
     model_mappings,
     model_releases,
     moves,
+    oauth,
     objects,
     queries,
     relation_matrix,
@@ -229,7 +232,7 @@ async def lifespan(application: FastAPI):
 def create_app() -> FastAPI:
     settings = reload_settings()
     configure_logging(settings.log_format, settings.log_level)
-    settings.validate_consumer_subscriptions()
+    settings.validate_secrets()
     settings.prepare_job_file_dir()
     mutations_enabled = settings.model_admin_mutations_enabled
     workspace_mutations_enabled = settings.workspace_admin_mutations_enabled
@@ -293,13 +296,21 @@ def create_app() -> FastAPI:
     application.state.consumer_webhook_log_retention_days = (
         settings.consumer_webhook_log_retention_days
     )
+    assert settings.secrets_encryption_key is not None
+    # Tokens (0.12 I1, ADR-043): their issuer, lifetime and signing keys.
+    application.state.identity_settings = IdentitySettings(
+        encryption_key=settings.secrets_encryption_key,
+        issuer=settings.public_url,
+        access_token_seconds=settings.access_token_minutes * 60,
+        signing_key_days=settings.token_signing_key_days,
+    )
     application.state.subscription_settings = (
         SubscriptionSettings(
-            encryption_key=settings.consumer_webhook_key_encryption_key,
+            encryption_key=settings.secrets_encryption_key,
             retention_days=settings.feed_retention_days,
             log_retention_days=settings.consumer_webhook_log_retention_days,
         )
-        if settings.consumer_subscriptions_enabled and settings.consumer_webhook_key_encryption_key
+        if settings.consumer_subscriptions_enabled
         else None
     )
     application.state.batch_limits = BatchLimits(
@@ -413,6 +424,9 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     application.include_router(api_reference_router(settings.api_reference_script))
+    # The OAuth endpoints need no token (D245); every management router below needs one.
+    application.include_router(oauth.router)
+    application.include_router(identity.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(model.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(system.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(system.metrics_router, dependencies=MANAGEMENT_DEPENDENCIES)

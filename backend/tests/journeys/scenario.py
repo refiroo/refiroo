@@ -29,7 +29,7 @@ from uuid import uuid4
 
 import seeds
 from configurations import Configuration, application_of
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from httpx import Response
 from sqlalchemy import URL, create_engine, text
 from sqlalchemy.pool import NullPool

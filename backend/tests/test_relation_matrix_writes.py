@@ -12,7 +12,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from test_relation_matrix import (
     CODELIST_SYSTEMS,
     MASTER_SYSTEMS,

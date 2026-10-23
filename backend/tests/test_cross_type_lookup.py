@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from model_support import renamed_model
 from postgres_server import collated
 from test_context_read_parity import APP, CITES, ENTRY, FOLDER, parity_model

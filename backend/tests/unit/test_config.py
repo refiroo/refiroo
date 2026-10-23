@@ -65,7 +65,7 @@ def test_the_catalogue_names_every_setting_once():
     assert len(set(names)) == len(names)
     assert {entry.name for entry in SETTINGS_CATALOGUE if entry.secret} == {
         "RDM_CURSOR_SIGNING_KEY",
-        "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY",
+        "SECRETS_ENCRYPTION_KEY",
     }
 
 
@@ -108,7 +108,7 @@ def test_a_secret_reports_only_whether_it_is_set():
     reported = {s.name: s for s in describe_settings(Settings.from_env(environ), environ)}
     key = reported["RDM_CURSOR_SIGNING_KEY"]
     assert (key.value, key.default, key.source) == (None, None, "environment")
-    unset = reported["CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY"]
+    unset = reported["SECRETS_ENCRYPTION_KEY"]
     assert (unset.value, unset.default, unset.source) == (None, None, "default")
 
 

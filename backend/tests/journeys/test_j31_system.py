@@ -1,16 +1,17 @@
 """J31 — Check what a deployment runs and how it is configured (USER_JOURNEYS.md).
 
-The operator reads ``GET /api/v1/system``: the engine and management API version, the schema
-languages, the active model release, the database revision and every setting with its value, its
-default and where the value came from. Secrets and the database password are never returned.
+Anyone signed in reads ``GET /api/v1/system``: the engine and management API version, the schema
+languages and the active model release. The operator reads ``GET /api/v1/system/configuration``
+(0.12 D246): the database revision and every setting with its value, its default and where the value
+came from. Secrets and the database password are never returned.
 """
 
-import base64
 from collections.abc import Iterator
 
 import pytest
 import seeds
 from alembic.script import ScriptDirectory
+from harness_identity import SECRETS_ENCRYPTION_KEY
 from scenario import ok, scenario_seed
 from service import serve
 
@@ -19,9 +20,10 @@ from app.engine.model.compiler import SCHEMA_VERSIONS
 
 HEAD = ScriptDirectory.from_config(migration_config()).get_current_head()
 GROUPS = {"runtime", "capabilities", "limits", "webhooks"}
-SECRETS = ("RDM_CURSOR_SIGNING_KEY", "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY")
+SECRETS = ("RDM_CURSOR_SIGNING_KEY", "SECRETS_ENCRYPTION_KEY")
 SIGNING_KEY = "journey-signing-key-not-to-be-shown"
-ENCRYPTION_KEY = base64.urlsafe_b64encode(b"k" * 32).decode()
+# The harness's key: every test database's secrets are sealed with it (0.12 I1).
+ENCRYPTION_KEY = SECRETS_ENCRYPTION_KEY
 PASSWORD = "s3cret-pass"
 
 
@@ -44,6 +46,7 @@ def test_read_what_the_deployment_runs(world):
     release as the runtime state and the release read name it, the database at the newest revision,
     and every setting once, in one of the four groups, each with what it controls."""
     system = ok(world.api.get("/system"))
+    configuration = ok(world.api.get("/system/configuration"))
     document = ok(world.api.get("/openapi.json"))
     assert system["engine"] == {"version": document["info"]["version"], "managementApi": "v1"}
     # Oldest first, by number: 0.10 after 0.9 (0.10 N1).
@@ -59,10 +62,12 @@ def test_read_what_the_deployment_runs(world):
         "schemaVersion": release["schemaVersion"],
         "activatedAt": state["updatedAt"],
     }
-    assert system["database"] == {"revision": HEAD}
-    names = [setting["name"] for setting in system["settings"]]
+    # What the deployment runs is for anyone signed in; how it is configured is not in it (D246).
+    assert set(system) == {"engine", "schemaLanguages", "activeModelRelease"}
+    assert configuration["database"] == {"revision": HEAD}
+    names = [setting["name"] for setting in configuration["settings"]]
     assert len(names) == len(set(names)) and "DATABASE_URL" in names
-    for setting in system["settings"]:
+    for setting in configuration["settings"]:
         assert setting["group"] in GROUPS and setting["description"]
         assert setting["source"] in {"environment", "default"}
 
@@ -77,7 +82,7 @@ def test_a_setting_from_the_environment_against_one_at_its_default(world):
     """Given the service started with three settings in the environment. When the operator reads the
     system. Then each reads its value with its type (an integer, a list, a boolean), its default and
     `environment`; a setting left alone reads its default as its value and `default`."""
-    settings = _settings(ok(world.api.get("/system")))
+    settings = _settings(ok(world.api.get("/system/configuration")))
     assert settings["FEED_RETENTION_DAYS"] | {"description": ""} == {
         "name": "FEED_RETENTION_DAYS",
         "group": "limits",
@@ -101,13 +106,11 @@ def test_a_setting_from_the_environment_against_one_at_its_default(world):
 
 
 @pytest.mark.journey("J31.2")
-@pytest.mark.settings(
-    RDM_CURSOR_SIGNING_KEY=SIGNING_KEY, CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY=ENCRYPTION_KEY
-)
+@pytest.mark.settings(RDM_CURSOR_SIGNING_KEY=SIGNING_KEY, SECRETS_ENCRYPTION_KEY=ENCRYPTION_KEY)
 def test_secrets_are_set_and_never_shown(world):
-    """Given both secrets set. When the operator reads the system. Then each reads no value and no
-    default, only `environment`, and neither appears anywhere in the response."""
-    response = world.api.get("/system")
+    """Given both secrets set. When the operator reads the configuration. Then each reads no value
+    and no default, only `environment`, and neither appears anywhere in the response."""
+    response = world.api.get("/system/configuration")
     settings = _settings(ok(response))
     for name in SECRETS:
         assert (settings[name]["value"], settings[name]["default"]) == (None, None)
@@ -116,11 +119,12 @@ def test_secrets_are_set_and_never_shown(world):
 
 
 @pytest.mark.journey("J31.2")
-@pytest.mark.settings(RDM_CURSOR_SIGNING_KEY="", CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY="")
-def test_secrets_left_unset(world):
-    """Given neither secret set. Then each reads no value, no default and `default`."""
-    settings = _settings(ok(world.api.get("/system")))
-    for name in SECRETS:
+@pytest.mark.settings(RDM_CURSOR_SIGNING_KEY="")
+def test_a_secret_left_unset(world):
+    """Given the cursor signing key not set (the secrets key is required, D253). Then it reads no
+    value, no default and `default`."""
+    settings = _settings(ok(world.api.get("/system/configuration")))
+    for name in SECRETS[:1]:
         assert settings[name] | {"description": ""} == {
             "name": name,
             "group": settings[name]["group"],
@@ -139,7 +143,7 @@ def test_the_database_password_is_never_returned(configuration, databases):
     url = seeds.clone(scenario_seed(configuration))
     databases.append(url)
     with serve(configuration, url.set(password=PASSWORD)) as service:
-        response = service.world.api.get("/system")
+        response = service.world.api.get("/system/configuration")
         database_url = _settings(ok(response))["DATABASE_URL"]
     assert PASSWORD not in response.text
     assert database_url["value"] == url.render_as_string(hide_password=False)

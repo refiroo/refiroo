@@ -260,10 +260,11 @@ request.
 `workspaceAdmin.manageWorkspaces` follows `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, which defaults to true
 until authentication exists. It is a deployment capability and not evidence of caller authorization.
 
-#### What the deployment runs (`GET /api/v1/system`)
+#### What the deployment runs (`GET /api/v1/system`, `GET /api/v1/system/configuration`)
 
-Read-only and behind no capability, like `/capabilities` (for administrators once roles exist,
-0.12). It answers what the deployment runs and how it is configured, read on one session:
+Read-only and behind no capability, like `/capabilities`. Since 0.12 I1 (D246) they are two reads:
+`GET /api/v1/system` answers what the deployment runs, for anyone signed in (About, and "New draft"
+for an empty model, read it):
 
 ```json
 {
@@ -272,7 +273,14 @@ Read-only and behind no capability, like `/capabilities` (for administrators onc
   "activeModelRelease": {
     "id": "…", "key": "rdm-starter", "name": "RDM Starter Model", "version": "0.9.0",
     "schemaVersion": "0.8", "activatedAt": "2026-10-06T08:00:00Z"
-  },
+  }
+}
+```
+
+`GET /api/v1/system/configuration` answers how it is configured, for operators (Operations from Z1):
+
+```json
+{
   "database": { "revision": "20261006_03" },
   "settings": [
     { "name": "FEED_RETENTION_DAYS", "group": "limits", "description": "Days the change feed and consumer events answer a position", "value": 14, "default": 30, "source": "environment" },
@@ -290,7 +298,7 @@ Read-only and behind no capability, like `/capabilities` (for administrators onc
   `value` and `default` keep their types (integers, booleans, lists). `source` is `environment` when
   the variable is set to a non-empty value, otherwise `default`. Values are those the process read at
   startup; they change only with a restart.
-- Secrets (`RDM_CURSOR_SIGNING_KEY`, `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`) report `value` and
+- Secrets (`RDM_CURSOR_SIGNING_KEY`, `SECRETS_ENCRYPTION_KEY`) report `value` and
   `default` as `null`; only `source` says whether they are set. `DATABASE_URL` is reported without its
   password (also a `password` query parameter), or `null` when it cannot be read as a URL.
 
@@ -5697,3 +5705,454 @@ base version against live (`409 VERSION_CONFLICT` for a record edited live since
 new type, and validates the merged graph (`422 WORKSPACE_GRAPH_INVALID` for a live relationship,
 child or value the new type cannot have). Removed relationships follow the existing relation merge
 rules, including mapping-set divergence.
+
+## Security (Product 0.12, designed)
+
+Designed in the [Base 0.12 P0 plan](BASE_0_12_IMPLEMENTATION_PLAN.md#p0-plan-2026-10-22) from
+[ADR-043](DECISIONS.md#adr-043--identity-and-tokens-issued-by-the-engine) (identity and tokens),
+[ADR-044](DECISIONS.md#adr-044--authorization-action-groups-roles-and-grants) (authorization) and
+[ADR-045](DECISIONS.md#adr-045--change-set-publication-approvals) (approvals). **Delivered by I1
+(2026-10-23):** the server metadata, the JWKS and the token endpoint with `client_credentials`; every
+route but the open ones needing a token, with the refusals below; `GET /me`; people (`/users`, without
+password resets or sessions), clients and their secrets (`/clients`), token signing keys and their
+rotation; `GET /system/configuration`; `SECRETS_ENCRYPTION_KEY`. Until Z1 every active principal may
+use every route. The rest is designed; each part moves into "delivered" with its package (I2, I3, Z1–Z5, SP1, SP2, K1, C1,
+A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
+0.12 carries the project's name.
+
+### Authentication
+
+The engine is an OAuth 2.0 authorization server for itself (C-D1). One token format serves the
+browser, the management API, the consumer APIs and the "try it" console. There is no API key and no
+credential in a URL, and no setting switches authentication off (D235).
+
+Outside `/api/v1`, needing no token:
+
+- `GET /.well-known/oauth-authorization-server`: the server's metadata (RFC 8414): issuer, the
+  endpoints below, `code_challenge_methods_supported: ["S256"]`, the grant types.
+- `GET /oauth/jwks`: the public keys that verify access tokens, each with its `kid`; every process
+  serves the same set (keys live in the database, sealed, D253).
+- `GET /oauth/authorize`, `POST /oauth/authorize`: the engine's sign-in page and its form (I2). The
+  authorization code flow with PKCE, `code_challenge_method=S256` only; a registered `redirect_uri`
+  matched exactly. A sign-in provider's button leads through that provider and back (I3).
+- `POST /oauth/token`: grant types `authorization_code` (the browser), `refresh_token` (the browser,
+  read from the cookie) and `client_credentials` (a client, `client_secret_basic` or
+  `client_secret_post`). The answer is RFC 6749's: `access_token`, `token_type: "Bearer"`,
+  `expires_in` and `scope`, with `Cache-Control: no-store`. `scope` asks for the audience:
+  `management` (the default) or `consumer` (D260); another answers `invalid_scope`. I1 serves
+  `client_credentials`; any other grant answers `unsupported_grant_type` until I2. A missing
+  `grant_type` is `invalid_request`; credentials sent both ways are `invalid_request`; an unknown or
+  inactive client or a wrong secret is `401 invalid_client` (with `WWW-Authenticate: Basic` when sent
+  as Basic).
+- `POST /oauth/revoke` (RFC 7009): a refresh token, which ends its session.
+
+The OAuth endpoints answer errors in the RFC's shape, `{"error": "invalid_grant",
+"error_description": "…"}`, because client libraries parse it (D250); every other route uses the
+engine's envelope.
+
+**Access tokens** are JWTs signed with ES256, `kid` in the header (D254). Claims: `iss`, `sub` (the
+principal's ID), `aud` (`management` or `consumer`), `exp`, `iat`, `jti`, `principalKind` (`user` or
+`client`) and, for a person, `sid` (the session). They prove **who**, never what the caller may do
+(D226). Lifetime one hour for people and clients (D251), a setting.
+
+**Sessions** (people only): a refresh token, opaque and stored hashed, held in an `HttpOnly`,
+`Secure`, `SameSite=Strict` cookie scoped to `/oauth/token` and `/oauth/revoke` (D234). Each use
+rotates it; presenting a used one ends the session. A session ends after 12 idle hours or 14 days
+(settings). Clients have no refresh token; they ask for a new access token with their credentials.
+
+**Signing keys** rotate on their own every 30 days (`TOKEN_SIGNING_KEY_DAYS`): the first token issued
+after that makes the new key (D264); the previous key verifies until its last token expires. "Rotate now" retires the current key at once (J43). Nobody acts on a rotation: refresh
+tokens and client secrets are never signed with the key, and a client refused with `401
+TOKEN_INVALID` obtains a new token as OAuth libraries do.
+
+**Routes that need no token** (D245): `/health` (status only, for probes), `/health/live`,
+`/openapi.json`, `/docs` and its bundled script (the page signs in through the browser's session,
+C1), and the OAuth endpoints above. Every other route, including `/metrics` (a scraper uses a client
+holding Operator) and the consumer API index and per-definition OpenAPI, needs a token.
+
+**Every request** with a token is checked for its signature and `kid`, `exp`, `aud` (the management
+API takes `management`, the consumer routes `consumer`), that the principal is active and, for a
+person, that `sid` is not signed out. The last two are looked up with the permissions (D226, D251),
+so a deactivation or "sign out everywhere" applies on the next request.
+
+**Refusals:** `401 AUTHENTICATION_REQUIRED` (no token), `401 TOKEN_INVALID` with
+`details.reason` `expired`, `revoked` (session ended or principal deactivated), `audience`,
+`unknownKey` (no key, or a retired one, has the token's `kid`), `malformed` (not a JWT this engine
+issues: another algorithm, no `kid`, an unknown `principalKind`, or not `Bearer`) or `signature` (the
+signature, the issuer or a required claim does not verify); both with `WWW-Authenticate: Bearer`
+(`error="invalid_token"` on the second).
+
+**Local passwords** (D252): 15 to 128 characters, no composition rules; refused when equal to the
+username or in a built-in list of the most common (`422 PASSWORD_REJECTED`, `details.reason`).
+Failed sign-ins are slowed per account and per address with a growing delay, never locked; the
+sign-in page says how long to wait. Passwords and client secrets are hashed with Argon2id.
+
+### The caller
+
+- `GET /api/v1/me` (delivered, I1): the principal: `id`, `kind` (`user` or `client`), `name`,
+  `username` and `email` (a person; `null` for a client), `lastSignInAt` (a person's last sign-in, or
+  when a client last obtained a token). `signedInWith` (`password` or a provider's key) comes with
+  I2.
+- `GET /api/v1/me/permissions?workspaceKey=`: the action groups the caller holds in that workspace
+  (the default workspace when absent) and at the instance, each with its narrowing
+  (`applications`, `recordTypes` for writes) and where it comes from (`direct`, a group, the
+  instance). The browser follows it (Z5).
+- `GET /api/v1/me/sessions` (cursor-paged), `DELETE /api/v1/me/sessions/{sessionId}`,
+  `DELETE /api/v1/me/sessions` ("sign out everywhere").
+- `POST /api/v1/me/password` `{currentPassword, newPassword}`: a local account only; ends every other
+  session.
+- `GET /api/v1/me/notifications` (Track A, A2): cursor-paged, `unread=true|false`;
+  `POST /api/v1/me/notifications/read` `{ids}` or `{all: true}`; a live stream at
+  `GET /api/v1/me/notifications/events` (`text/event-stream`, read with `fetch`, D247).
+
+### Authorization
+
+A **principal** is a user, a group or a client. A **grant** gives a principal a **role** at a
+**scope**; a role is a set of **action groups**; every route declares the **action** it performs and
+the groups that allow it (ADR-044). A request is checked once at the route, for the action and the
+workspace, and again at the write unit for the record types it writes (Z2). Permissions are looked
+up on the server per request, from a cache invalidated across processes through `pg_notify` when a
+grant, role, membership or principal changes (D226).
+
+| Action group | Key | Allows | Granted at |
+| --- | --- | --- | --- |
+| Browse | `browse` | Read a workspace: its model, records, values, relations, history, the query, matrices, mapping coverage, change sets, publications; exports | Workspace |
+| Edit live | `edit-live` | Record, value, relation and relationship-set writes without a change set | Workspace, narrowed to applications and record types |
+| Work in change sets | `change-sets` | Create, rename, discard, validate and restructure change sets, move them onto a release; the same writes inside them; submit for publication (Track A) | Workspace, narrowed alike |
+| Publish | `publish` | Publish a change set; withdraw a publication | Workspace |
+| Approve publications | `approve` | Approve or send back another's request; with `own`, one's own (Track A) | Workspace |
+| Bulk and import | `bulk` | Batches, imports, import profiles and their checks, source files | Workspace, narrowed alike |
+| Copy and move | `copy-move` | Model-to-model mappings and moves | Workspace (read on the source, write on the target) |
+| Model authoring | `model-authoring` | Model drafts and everything on them; reading releases | Instance |
+| Model release | `model-release` | Install a draft, activate a release into a workspace, migrate a workspace; reading releases | Instance or workspace |
+| Workspace administration | `workspace-admin` | Create, rename, retire and delete workspaces; set the default | Instance |
+| Integration administration | `integration-admin` | Consumer subscriptions, deliveries, webhook keys | Workspace |
+| Feed | `feed` | The workspace's change feed | Workspace |
+| Operations | `operations` | Processes, readiness detail, summary, backup rehearsals, `/metrics`, `GET /system/configuration` | Instance |
+| Security administration | `security-admin` | Users, groups, roles, grants, clients, token signing keys, sign-in providers | Instance |
+
+Rules the catalogue applies:
+
+- **Reads are per workspace** (D243): Browse is never narrowed to applications or record types; a
+  grant's `applications` and `recordTypes` narrow writes only.
+- **The same write, live or in a change set** (D244): the record, value, relation and
+  relationship-set writes declare both `edit-live` and `change-sets`; the request's `changeSetId`
+  picks which is checked.
+- **A grant at the instance** applies in every workspace, now and later.
+- **Lists are filtered, named resources refused** (D249): a collection returns only what the caller
+  may browse (workspaces, which model each runs, jobs, change sets, the cross-type lookup across
+  workspaces, the feed); a named resource the caller may not use answers `403 FORBIDDEN`.
+- **Instance-wide resources** (D248): import profiles and model mappings carry no data and are read
+  and changed by anyone holding `bulk` (profiles) or `copy-move` (mappings) at any scope; source files
+  are read by their owner and by holders of `bulk` in their workspace (at the instance for one
+  without a workspace); model drafts by holders of `model-authoring`.
+- **Jobs** are read, followed, cancelled and confirmed by their requester, or by a holder in the
+  job's workspace of the group that starts its kind (`bulk` for batches and imports, `browse` for
+  exports, `copy-move` for moves, `model-release` for migrations, `change-sets` for a change set's
+  migration). A job runs with its requester's permissions, checked at submission, confirmation and
+  each step (D236).
+- **Change sets are shared** (D255): anyone holding `change-sets` in the workspace changes any open
+  one; the creator is recorded (Z4).
+- **Deployment flags stay** (ADR-031): a route a flag leaves unregistered does not exist, whatever
+  the caller's roles.
+
+**The predefined roles** (D230, D257) are read-only:
+
+| Role | Key | Action groups |
+| --- | --- | --- |
+| Reader | `reader` | `browse` |
+| Contributor | `contributor` | `browse`, `change-sets` |
+| Data steward | `steward` | `browse`, `edit-live`, `change-sets`, `publish`, `bulk` |
+| Data owner | `owner` | the steward's, `approve` with `own`, `feed`, `copy-move` |
+| Model administrator | `model-admin` | `model-authoring`, `model-release` |
+| Workspace administrator | `workspace-admin` | `workspace-admin` |
+| Integration administrator | `integration-admin` | `integration-admin`, `feed` |
+| Operator | `operator` | `operations` |
+| Security administrator | `security-admin` | `security-admin` |
+
+A client may hold any of them; **Consumer** is not a role but a consumer API grant (below).
+
+**`403 FORBIDDEN`:**
+
+```json
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Changing records live in workspace 'herbarium' needs Edit live",
+    "details": {"action": "records.write", "groups": ["edit-live"], "workspaceKey": "herbarium"}
+  }
+}
+```
+
+A write refused for its record types (Z2) adds `details.recordTypes`, the types the caller may not
+write, checked as one set over the work's distinct types.
+
+### Security administration
+
+All under `/api/v1`, needing `security-admin` at the instance; lists cursor-paged; writes take
+`expectedVersion` like every other resource.
+
+- **Users:** `GET /users` (`q`, `active`), `POST /users` `{username, name, email}`, `GET /users/{id}`,
+  `PATCH /users/{id}` (`name`, `email`, `active: false` to deactivate; never deleted, D237),
+  `POST /users/{id}/password-reset` (a one-time link, shown once), `DELETE /users/{id}/sessions`
+  (sign out everywhere), `GET /users/{id}/grants`. A user has no password until the link is used.
+  _Delivered by I1:_ the list (`q` matches the username, name or e-mail; `active`; in creation
+  order), create, read and `PATCH` (`expectedVersion`; `active: true` restores). A person reads
+  `id`, `username`, `name`, `email`, `active`, `hasPassword` (never the password), `version`,
+  `createdAt`, `updatedAt`, `lastSignInAt`. The username has no spaces, at most 150 characters, and
+  is unique ignoring case (`409 USERNAME_TAKEN`); a missing person is `404 USER_NOT_FOUND`. The reset
+  link and the sessions come with I2 (D261), the grants with Z1.
+- **Groups:** `GET|POST /groups`, `GET|PATCH|DELETE /groups/{id}`, `GET|POST /groups/{id}/members`,
+  `DELETE /groups/{id}/members/{userId}`. A provider group (`source: {provider, name}`) is created on
+  first sight at a sign-in and its membership is the provider's; only its grants change here (D229).
+- **Action groups:** `GET /action-groups`: the catalogue, each group with its actions and the routes
+  declaring them.
+- **Roles:** `GET /roles`, `POST /roles` `{name, actionGroups, copiedFrom?}`,
+  `GET|PATCH|DELETE /roles/{key}`; a predefined role refuses changes with
+  `409 ROLE_PREDEFINED`, a role still granted refuses deletion with `409 ROLE_IN_USE`.
+- **Grants:** `GET /grants` (`principalId`, `workspaceKey`, `roleKey`), `POST /grants`,
+  `DELETE /grants/{id}`:
+
+  ```json
+  {
+    "principal": {"kind": "user", "id": "…"},
+    "role": "steward",
+    "scope": {"workspaceKey": "herbarium", "applications": [], "recordTypes": ["specimen"]}
+  }
+  ```
+
+  `scope: {"instance": true}` for the instance. A consumer API grant names `consumerApi` instead of
+  `role` and a workspace (Z3). A grant naming an application or record type the workspace's model no
+  longer has is listed with `stale: true`, never widened (Z2). Removing the last active holder of
+  `security-admin` at the instance is refused with `409 LAST_SECURITY_ADMINISTRATOR`.
+- **Who can do what here:** `GET /workspaces/{workspaceKey}/access`: every grant that applies in the
+  workspace, direct, through a group or from the instance; readable with `security-admin`.
+- **Clients:** `GET|POST /clients` (`POST` answers the secret once), `GET|PATCH /clients/{id}`
+  (`active: false` deactivates), `POST /clients/{id}/secrets` `{overlapHours}` (a new secret, shown
+  once; the previous one valid for the overlap), `DELETE /clients/{id}/secrets/{secretId}`;
+  `lastUsedAt` on the client and each secret. _Delivered by I1:_ a client reads `id` (the OAuth
+  `client_id`), `name`, `active`, `version`, `createdAt`, `updatedAt`, `lastUsedAt` and its valid
+  `secrets` (`id`, `createdAt`, `expiresAt` at the end of an overlap, `lastUsedAt`; never a value).
+  `POST /clients` and `POST /clients/{id}/secrets` (`{expectedVersion, overlapHours}`, 24 by default,
+  0 to 168; 0 stops the other secrets at once) answer the client with `secretId` and `secret`, this
+  once. Missing ones are `404 CLIENT_NOT_FOUND` and `404 CLIENT_SECRET_NOT_FOUND`.
+- **Token signing keys:** `GET /token-signing-keys` (`kid`, created, retired, never the key),
+  `POST /token-signing-keys/rotation` `{immediate: true|false}`. _Delivered by I1:_ newest first,
+  each with `kid`, `state` (`current`, `verifying` while its tokens may still be valid, `retired`),
+  `createdAt`, `rotatedAt`, `retiredAt`; the rotation answers `201` with the new key.
+- **Sign-in providers** (I3): `GET|POST /sign-in-providers`, `GET|PATCH|DELETE
+  /sign-in-providers/{key}` `{issuer, clientId, clientSecret (write-only), groupsClaim, enabled}`;
+  `PATCH /sign-in-providers/local {enabled: false}` turns local sign-in off, except for the
+  administrator created by the CLI (OPERATIONS).
+
+The first administrator is created on the server with `python -m app.cli.create_admin` (D235). Every
+security change is audited with its actor.
+
+### Approvals (Track A)
+
+Change-set publication only (D232, ADR-045):
+
+- `POST /change-sets/{changeSetId}/submission` `{expectedChangeSetVersion, comment?}` (`change-sets`):
+  the change set is **submitted**; an edit to it withdraws the submission
+  (`DELETE …/submission` withdraws it explicitly).
+- `POST /change-sets/{changeSetId}/decisions` `{outcome: "approve" | "sendBack", comment,
+  expectedChangeSetVersion}` (`approve`): one row per decision (who, when, version, outcome,
+  comment, D242). `approve` publishes in the same request, bound to the version and the workspace's
+  active publication, as `POST …/publication` does; `sendBack` needs a comment.
+- Publishing a change set directly needs `publish` and, where the workspace's policy asks, an
+  approval: a holder of `approve` with `own` approves and publishes their own in one step.
+- `GET /workspaces/{workspaceKey}/publication-requests` (`state`), cursor-paged.
+- `GET|PUT /workspaces/{workspaceKey}/approval-policy` `{requireApproval: bool, secondPerson: bool}`
+  (`workspace-admin`); `secondPerson` removes `own` in that workspace (four-eyes).
+- Webhook events `change-set.submitted`, `change-set.approved`, `change-set.sent-back` (A2, D233).
+
+**Refusals:** `409 CHANGE_SET_SUBMITTED` (an edit while submitted needs `withdraw: true`),
+`409 APPROVAL_REQUIRED`, `403 FORBIDDEN` with `details.reason: "ownApproval"` under four-eyes,
+`409 VERSION_CONFLICT` when the change set changed after the reviewed version.
+
+### Changes to existing routes
+
+- `GET /system` keeps `engine` and `schemaLanguages` (and, with L1, the licence and source) for
+  anyone signed in; `database` and `settings` move to `GET /system/configuration` (`operations`)
+  (D246).
+- `GET /jobs/{jobId}/events` and `GET /jobs/{jobId}/output` are unchanged on the API; the browser
+  reads both with `fetch` and the `Authorization` header (D247).
+- `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` is replaced by `SECRETS_ENCRYPTION_KEY` (D253).
+- `POST /consumer-subscriptions/{id}/rotate-secret` (K1); `RDM-Signature` becomes a comma-separated
+  list of `sha256=<hex>` during an overlap (D238).
+- Each operation in the OpenAPI document gains `security` and the action and groups it declares
+  (Z1, D256); this table then gives way to the document.
+
+### The catalogue
+
+Every management operation with the group that allows it, from an app built with all four
+capability flags on at `5622b67` (157 operations under `/api/v1` and `/metrics`, plus the two health
+routes). `signed-in` needs any valid token; `(filtered)` lists only what the caller may browse;
+`edit-live / change-sets` is decided by `changeSetId` (D244). Z1 moves this table into the route
+declarations (D256).
+
+| Method | Path | Group |
+| --- | --- | --- |
+| GET | `/health` | public |
+| GET | `/health/live` | public |
+| GET | `/api/v1/capabilities` | signed-in |
+| GET | `/api/v1/model` | browse |
+| GET | `/api/v1/model/placements` | browse |
+| GET | `/api/v1/model/consumer-apis/{consumerApi}` | browse |
+| POST | `/api/v1/model-validations` | model-authoring |
+| GET | `/api/v1/applications` | browse |
+| GET | `/api/v1/applications/{application_key}` | browse |
+| GET | `/api/v1/attribute-types` | browse |
+| GET | `/api/v1/attribute-types/{attribute_type_key}` | browse |
+| GET | `/api/v1/object-types` | browse |
+| GET | `/api/v1/object-types/{object_type_key}` | browse |
+| GET | `/api/v1/relation-types` | browse |
+| GET | `/api/v1/relation-types/{relation_type_key}` | browse |
+| GET | `/api/v1/object-type-relations` | browse |
+| GET | `/api/v1/system` | signed-in |
+| GET | `/api/v1/system/processes` | operations |
+| GET | `/api/v1/system/readiness` | operations |
+| GET | `/api/v1/system/summary` | operations |
+| GET | `/api/v1/system/backup-rehearsals` | operations |
+| GET | `/metrics` | operations |
+| GET | `/api/v1/model-releases` | model-authoring, model-release |
+| GET | `/api/v1/model-releases/{release_id}` | model-authoring, model-release |
+| GET | `/api/v1/model-releases/{release_id}/activations` | model-authoring, model-release |
+| GET | `/api/v1/model-releases/{release_id}/diff` | model-authoring, model-release |
+| GET | `/api/v1/workspaces` | signed-in (filtered) |
+| POST | `/api/v1/workspaces` | workspace-admin |
+| GET | `/api/v1/workspaces/{workspace_key}` | browse |
+| PATCH | `/api/v1/workspaces/{workspace_key}` | workspace-admin |
+| DELETE | `/api/v1/workspaces/{workspace_key}` | workspace-admin |
+| GET | `/api/v1/workspaces/{workspace_key}/model` | browse |
+| GET | `/api/v1/workspace-models` | signed-in (filtered) |
+| GET | `/api/v1/workspaces/{workspace_key}/feed` | feed |
+| GET | `/api/v1/workspace-runtime-state` | signed-in (filtered) |
+| PATCH | `/api/v1/workspace-runtime-state` | workspace-admin |
+| GET | `/api/v1/workspaces/{workspace_key}/change-sets` | browse |
+| POST | `/api/v1/workspaces/{workspace_key}/change-sets` | change-sets |
+| GET | `/api/v1/change-sets/{change_set_id}` | browse |
+| PATCH | `/api/v1/change-sets/{change_set_id}` | change-sets |
+| DELETE | `/api/v1/change-sets/{change_set_id}` | change-sets |
+| PATCH | `/api/v1/change-sets/{change_set_id}/model-release` | change-sets |
+| GET | `/api/v1/change-sets/{change_set_id}/object-changes` | browse |
+| GET | `/api/v1/change-sets/{change_set_id}/relation-changes` | browse |
+| POST | `/api/v1/change-sets/{change_set_id}/restructurings/preview` | change-sets |
+| POST | `/api/v1/change-sets/{change_set_id}/restructurings` | change-sets |
+| POST | `/api/v1/change-sets/{change_set_id}/validation` | change-sets |
+| POST | `/api/v1/change-sets/{change_set_id}/publication` | publish |
+| GET | `/api/v1/workspaces/{workspace_key}/publications` | browse |
+| GET | `/api/v1/publications/{publication_id}` | browse |
+| POST | `/api/v1/publications/{publication_id}/withdrawal` | publish |
+| POST | `/api/v1/workspaces/{workspace_key}/model/activation` | model-release |
+| GET | `/api/v1/model-drafts` | model-authoring |
+| POST | `/api/v1/model-drafts` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}` | model-authoring |
+| PATCH | `/api/v1/model-drafts/{draft_id}` | model-authoring |
+| DELETE | `/api/v1/model-drafts/{draft_id}` | model-authoring |
+| POST | `/api/v1/model-drafts/{draft_id}/operations` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/operations` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/outline` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/model` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json` | model-authoring |
+| POST | `/api/v1/model-drafts/{draft_id}/undo` | model-authoring |
+| POST | `/api/v1/model-drafts/{draft_id}/redo` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/profile` | model-authoring |
+| POST | `/api/v1/model-drafts/{draft_id}/compile` | model-authoring |
+| POST | `/api/v1/model-drafts/{draft_id}/installation` | model-release |
+| POST | `/api/v1/objects` | edit-live / change-sets |
+| GET | `/api/v1/objects` | browse |
+| PATCH | `/api/v1/objects/{object_type_key}/{object_id}` | edit-live / change-sets |
+| DELETE | `/api/v1/objects/{object_type_key}/{object_id}` | edit-live / change-sets |
+| GET | `/api/v1/objects/{object_type_key}/{object_id}` | browse |
+| GET | `/api/v1/objects/{object_type_key}` | browse |
+| GET | `/api/v1/objects/{object_type_key}/{object_id}/parent-candidates` | browse |
+| GET | `/api/v1/objects/{object_type_key}/{object_id}/history` | browse |
+| POST | `/api/v1/workspaces/{workspace_key}/queries/objects` | browse |
+| GET | `/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}` | browse |
+| POST | `/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}` | edit-live / change-sets |
+| PATCH | `/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}` | edit-live / change-sets |
+| DELETE | `/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}` | edit-live / change-sets |
+| POST | `/api/v1/relations` | edit-live / change-sets |
+| GET | `/api/v1/relations` | browse |
+| GET | `/api/v1/relations/held` | browse |
+| GET | `/api/v1/relations/{relation_id}` | browse |
+| PATCH | `/api/v1/relations/{relation_id}` | edit-live / change-sets |
+| DELETE | `/api/v1/relations/{relation_id}` | edit-live / change-sets |
+| GET | `/api/v1/workspaces/{workspace_key}/mapping-coverage` | browse |
+| GET | `/api/v1/workspaces/{workspace_key}/relations` | browse |
+| GET | `/api/v1/workspaces/{workspace_key}/mapping-candidates` | browse |
+| GET | `/api/v1/workspaces/{workspace_key}/mapping-targets` | browse |
+| PUT | `/api/v1/workspaces/{workspace_key}/mappings` | edit-live / change-sets |
+| GET | `/api/v1/workspaces/{workspace_key}/relation-matrix` | browse |
+| GET | `/api/v1/workspaces/{workspace_key}/relation-matrix/containers` | browse |
+| GET | `/api/v1/workspaces/{workspace_key}/relation-matrix/link-candidates` | browse |
+| GET | `/api/v1/jobs` | job (requester or kind's group) |
+| GET | `/api/v1/jobs/{job_id}` | job (requester or kind's group) |
+| GET | `/api/v1/jobs/{job_id}/items` | job (requester or kind's group) |
+| GET | `/api/v1/jobs/{job_id}/rows` | job (requester or kind's group) |
+| GET | `/api/v1/jobs/{job_id}/output` | job (requester or kind's group) |
+| GET | `/api/v1/jobs/{job_id}/events` | job (requester or kind's group) |
+| GET | `/api/v1/import-profiles` | bulk |
+| POST | `/api/v1/import-profiles` | bulk |
+| GET | `/api/v1/import-profiles/{profile_key}` | bulk |
+| PUT | `/api/v1/import-profiles/{profile_key}` | bulk |
+| DELETE | `/api/v1/import-profiles/{profile_key}` | bulk |
+| GET | `/api/v1/import-profiles/{profile_key}/check` | bulk |
+| POST | `/api/v1/import-profiles/{profile_key}/check` | bulk |
+| GET | `/api/v1/import-profiles/{profile_key}/check/new-values` | bulk |
+| GET | `/api/v1/import-profiles/{profile_key}/check/drift` | bulk |
+| GET | `/api/v1/import-profiles/{profile_key}/check/missing-records` | bulk |
+| GET | `/api/v1/import-profiles/{profile_key}/check/rows` | bulk |
+| GET | `/api/v1/source-files` | bulk |
+| POST | `/api/v1/source-files` | bulk |
+| GET | `/api/v1/source-files/{source_file_id}` | bulk |
+| DELETE | `/api/v1/source-files/{source_file_id}` | bulk |
+| GET | `/api/v1/source-files/{source_file_id}/profile/sheets` | bulk |
+| GET | `/api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/columns` | bulk |
+| GET | `/api/v1/source-files/{source_file_id}/profile/sheets/{sheet}/cells` | bulk |
+| GET | `/api/v1/model-mappings` | copy-move |
+| POST | `/api/v1/model-mappings` | copy-move |
+| GET | `/api/v1/model-mappings/{key}` | copy-move |
+| DELETE | `/api/v1/model-mappings/{key}` | copy-move |
+| GET | `/api/v1/model-mappings/{key}/operations` | copy-move |
+| POST | `/api/v1/model-mappings/{key}/operations` | copy-move |
+| GET | `/api/v1/model-mappings/{key}/inference` | copy-move |
+| POST | `/api/v1/model-mappings/{key}/inference` | copy-move |
+| GET | `/api/v1/model-mappings/{key}/inference/proposals` | copy-move |
+| POST | `/api/v1/batches` | bulk |
+| POST | `/api/v1/jobs/{job_id}/cancel` | job (requester or kind's group) |
+| POST | `/api/v1/jobs/{job_id}/confirm` | job (requester or kind's group) |
+| POST | `/api/v1/exports` | browse |
+| POST | `/api/v1/imports` | bulk |
+| POST | `/api/v1/model-mappings/{key}/undo` | copy-move |
+| POST | `/api/v1/model-mappings/{key}/redo` | copy-move |
+| POST | `/api/v1/model-mappings/{key}/inference/application` | copy-move |
+| POST | `/api/v1/change-sets/{change_set_id}/model-migrations` | change-sets |
+| POST | `/api/v1/model-drafts/{draft_id}/dry-run` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/dry-run` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/dry-run/rows` | model-authoring |
+| POST | `/api/v1/model-drafts/{draft_id}/inference` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/inference` | model-authoring |
+| GET | `/api/v1/model-drafts/{draft_id}/inference/proposals` | model-authoring |
+| POST | `/api/v1/model-drafts/{draft_id}/inference/application` | model-authoring |
+| POST | `/api/v1/model-drafts/{draft_id}/inference/list` | model-authoring |
+| POST | `/api/v1/moves` | copy-move |
+| POST | `/api/v1/workspaces/{workspace_key}/model/migrations` | model-release |
+| POST | `/api/v1/consumer-subscriptions` | integration-admin |
+| GET | `/api/v1/consumer-subscriptions` | integration-admin |
+| GET | `/api/v1/consumer-subscriptions/{subscription_id}` | integration-admin |
+| PATCH | `/api/v1/consumer-subscriptions/{subscription_id}` | integration-admin |
+| DELETE | `/api/v1/consumer-subscriptions/{subscription_id}` | integration-admin |
+| POST | `/api/v1/consumer-subscriptions/{subscription_id}/suspend` | integration-admin |
+| POST | `/api/v1/consumer-subscriptions/{subscription_id}/resume` | integration-admin |
+| GET | `/api/v1/consumer-subscriptions/{subscription_id}/deliveries` | integration-admin |
+| GET | `/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}` | integration-admin |
+| POST | `/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}/resend` | integration-admin |
+
+The consumer routes (`/api/consumer`) need a token with audience `consumer` and a grant of that
+consumer API in the workspace; the index lists only granted APIs. `/docs`, its script and
+`/openapi.json` need none.

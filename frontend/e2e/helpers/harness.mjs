@@ -27,6 +27,38 @@ export function watchPageErrors(context, push) {
   return context;
 }
 
+/**
+ * A token for the seed's harness client (`database.payload.harness`, backend/tests/browser_seeds.py)
+ * from the client credentials grant: every route but the open ones needs one (0.12 I1).
+ */
+export async function harnessToken(apiUrl, harness) {
+  const response = await fetch(`${apiUrl}/oauth/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${Buffer.from(`${harness.clientId}:${harness.clientSecret}`).toString("base64")}`,
+    },
+    body: "grant_type=client_credentials",
+  });
+  if (!response.ok) throw new Error(`The harness could not obtain a token: ${response.status} ${await response.text()}`);
+  return `Bearer ${(await response.json()).access_token}`;
+}
+
+/**
+ * Add the token to every `fetch` this process makes to `apiUrl` without an Authorization header of
+ * its own, so a runner's direct API calls reach the backend as its pages do.
+ */
+function sendTokenTo(apiUrl, token) {
+  const original = globalThis.fetch;
+  globalThis.fetch = (input, init = {}) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (!url.startsWith(apiUrl) || !token()) return original(input, init);
+    const headers = new Headers(init.headers ?? (input instanceof Request ? input.headers : undefined));
+    if (!headers.has("Authorization")) headers.set("Authorization", token());
+    return original(input, { ...init, headers });
+  };
+}
+
 async function freePort() {
   const server = createServer();
   await new Promise((done, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", done); });
@@ -85,6 +117,9 @@ export async function bootHarness(options = {}) {
   const uiPort = await freePort();
   const apiUrl = `http://127.0.0.1:${apiPort}`;
   const uiUrl = `http://127.0.0.1:${uiPort}`;
+  // The harness's access token, sent on every request to this backend (0.12 I1, D263).
+  let authorization = "";
+  sendTokenTo(apiUrl, () => authorization);
 
   async function api(path, body, method) {
     const response = await fetch(`${apiUrl}/api/v1${path}`, {
@@ -127,10 +162,13 @@ export async function bootHarness(options = {}) {
         WEB_CONCURRENCY: "1",
         // Export files (0.9 J1) stay in the run's own folder, never the project's var/.
         JOB_FILE_DIR: resolve(output, "job-files"),
+        // The seed's harness client and the key its signing key is sealed with (0.12 I1).
+        ...database.payload.harness.settings,
         ...backendEnv,
       },
     );
     await ready(`${apiUrl}/health`, backend);
+    authorization = await harnessToken(apiUrl, database.payload.harness);
     phase = mark("backendReady", phase);
 
     const ui = start(
@@ -148,11 +186,16 @@ export async function bootHarness(options = {}) {
     });
 
     const watch = (context) => watchPageErrors(context, (error) => pageErrors.push(error));
+    // Every page carries the harness token until I2 signs the browser in (D265).
+    const signedIn = (options = {}) => ({
+      ...options,
+      extraHTTPHeaders: { Authorization: authorization, ...(options.extraHTTPHeaders ?? {}) },
+    });
     const newContext = browser.newContext.bind(browser);
-    browser.newContext = async (...args) => watch(await newContext(...args));
+    browser.newContext = async (options, ...rest) => watch(await newContext(signedIn(options), ...rest));
     const newPage = browser.newPage.bind(browser);
-    browser.newPage = async (...args) => {
-      const opened = await newPage(...args);
+    browser.newPage = async (options, ...rest) => {
+      const opened = await newPage(signedIn(options), ...rest);
       watch(opened.context());
       return opened;
     };

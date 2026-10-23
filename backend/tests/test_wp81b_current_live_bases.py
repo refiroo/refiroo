@@ -3,7 +3,7 @@
 import threading
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import OperationalError
 from workspace_model_support import default_model

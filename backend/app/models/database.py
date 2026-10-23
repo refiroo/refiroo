@@ -1811,3 +1811,109 @@ class BackupRehearsal(Base):
     failure_code: Mapped[str | None] = mapped_column(String(60), nullable=True)
     failure_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     workspaces: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+
+
+class User(Base):
+    """A person who signs in (Product 0.12 I1, ADR-043).
+
+    Deactivated, never deleted, so history always resolves who acted (D237). ``password_hash`` is
+    an Argon2id PHC string, or none for a person who has not set a password (D252); the username is
+    unique ignoring case.
+    """
+
+    __tablename__ = "users"
+    __table_args__ = (
+        Index("ux_users_username", func.lower(literal_column("username")), unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, default=lambda: str(uuid4())
+    )
+    username: Mapped[str] = mapped_column(String(150), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    last_sign_in_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class OAuthClient(Base):
+    """A system that calls the API with the client credentials grant (Product 0.12 I1, D226).
+
+    Its ``public_id`` is the OAuth ``client_id``. Deactivated, never deleted (D237).
+    """
+
+    __tablename__ = "oauth_clients"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, default=lambda: str(uuid4())
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class OAuthClientSecret(Base):
+    """One of a client's secrets, hashed with Argon2id and shown once (D253). A client has two
+    during a rotation: the previous one ``expires_at`` the end of its overlap."""
+
+    __tablename__ = "oauth_client_secrets"
+    __table_args__ = (Index("ix_oauth_client_secrets_client", "client_id", "id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, default=lambda: str(uuid4())
+    )
+    client_id: Mapped[int] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="CASCADE"), nullable=False
+    )
+    secret_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class TokenSigningKey(Base):
+    """A key that signs access tokens (ES256, D254), its private half sealed with
+    ``SECRETS_ENCRYPTION_KEY`` (D253).
+
+    The current key has no ``rotated_at``; one key at most is current. A rotated key verifies the
+    tokens it signed until ``retired_at``: the end of their lifetime after a scheduled rotation, at
+    once after "rotate now".
+    """
+
+    __tablename__ = "token_signing_keys"
+    __table_args__ = (
+        Index(
+            "ux_token_signing_keys_current",
+            literal_column("(rotated_at IS NULL)"),
+            unique=True,
+            postgresql_where=text("rotated_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kid: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    private_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    public_jwk: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    rotated_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)

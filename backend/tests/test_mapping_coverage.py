@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Event, Thread, current_thread
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from postgres_server import collated
 from sqlalchemy import event, select
 from test_context_read_parity import reissue_cursor

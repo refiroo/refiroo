@@ -288,8 +288,6 @@ describe("App", () => {
         schemaVersion: "0.8",
         activatedAt: "2026-09-05T00:00:00Z",
       },
-      database: { revision: "20261005_02" },
-      settings: [],
     });
     visit("/apps/test-app/views/domains?workspaceKey=west&search=cli");
     render(<App />);
@@ -303,7 +301,7 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("button", { name: /home$/ })).toBeInTheDocument();
     expect(screen.queryByLabelText("Current context")).not.toBeInTheDocument();
-    expect(await screen.findByText("20261005_02")).toBeInTheDocument();
+    expect(await screen.findByText("0.9.0-alpha.1")).toBeInTheDocument();
 
     fireEvent.click(within(settingsNavigation()).getByRole("link", { name: "Appearance" }));
     expect(await screen.findByRole("heading", { name: "Appearance", level: 1 })).toBeInTheDocument();

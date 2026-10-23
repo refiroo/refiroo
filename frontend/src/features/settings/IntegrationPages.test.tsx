@@ -27,8 +27,6 @@ const system = {
     schemaVersion: "0.8",
     activatedAt: "2026-10-07T08:00:00Z",
   },
-  database: { revision: "x" },
-  settings: [],
 } satisfies SystemResponse;
 
 // Two consumer APIs, one on each page of the index.

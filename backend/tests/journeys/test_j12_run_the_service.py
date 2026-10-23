@@ -427,8 +427,25 @@ def test_the_api_reference_loads_its_pinned_script(configuration, databases, scr
         ({"DATABASE_POOL_SIZE": "0"}, ("DATABASE_POOL_SIZE",)),
         ({"DATABASE_POOL_MAX_OVERFLOW": "-1"}, ("DATABASE_POOL_MAX_OVERFLOW",)),
         ({"DATABASE_IDLE_TRANSACTION_TIMEOUT": "-1"}, ("DATABASE_IDLE_TRANSACTION_TIMEOUT",)),
+        # Every stored secret is sealed with one key, required (0.12 I1, D253); the setting it
+        # replaced is refused by name.
+        ({"SECRETS_ENCRYPTION_KEY": ""}, ("SECRETS_ENCRYPTION_KEY", "generate_key")),
+        (
+            {"CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY": "a" * 43},
+            ("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "SECRETS_ENCRYPTION_KEY"),
+        ),
+        ({"PUBLIC_URL": "localhost:8000"}, ("PUBLIC_URL",)),
     ],
-    ids=["reference-script", "limit", "pool-size", "pool-overflow", "idle-transaction"],
+    ids=[
+        "reference-script",
+        "limit",
+        "pool-size",
+        "pool-overflow",
+        "idle-transaction",
+        "no-secrets-key",
+        "retired-key-name",
+        "public-url",
+    ],
 )
 def test_an_invalid_setting_refuses_to_start(configuration, databases, settings, named):
     """When the service starts with an invalid setting. Then it refuses to start with a message
@@ -529,7 +546,7 @@ def test_the_pool_runs_out(configuration, databases):
     held, as a long request holds it. When a read is sent. Then it answers 503 DATABASE_UNAVAILABLE,
     reason poolExhausted, with Retry-After and a message naming DATABASE_POOL_SIZE; the log has a
     WARNING and no traceback. Once the connection is released, the same read answers 200, and
-    GET /system reports the pool settings as set (0.11 Q1, D179, D180)."""
+    GET /system/configuration reports the pool settings as set (0.11 Q1, D179, D180)."""
     from app.db import get_engine
 
     pool = {"DATABASE_POOL_SIZE": "1", "DATABASE_POOL_MAX_OVERFLOW": "0", "DATABASE_POOL_TIMEOUT": "1"}
@@ -550,7 +567,7 @@ def test_the_pool_runs_out(configuration, databases):
         assert any("DATABASE_POOL_SIZE" in r.getMessage() for r in warnings)
         assert all(r.exc_info is None for r in service.output.records)
         ok(api.get("/objects", workspaceKey=W1, pageSize=5))
-        reported = {s["name"]: s for s in ok(api.get("/system"))["settings"]}
+        reported = {s["name"]: s for s in ok(api.get("/system/configuration"))["settings"]}
         for name, value in pool.items():
             assert reported[name]["value"] == int(value) and reported[name]["source"] == "environment"
 

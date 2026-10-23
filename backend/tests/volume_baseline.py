@@ -698,12 +698,9 @@ def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat
 
 CONSUMER_EVENTS = f"/api/consumer/{CONSUMER_API}/v1/events"
 SUBSCRIPTIONS_PATH = "/api/v1/consumer-subscriptions"
-# The subscriptions capability (0.9 C11, C12) as the delivery scenarios need it: on, and a key to
-# seal signing keys with.
-SUBSCRIPTION_SETTINGS = {
-    "CONSUMER_SUBSCRIPTIONS_ENABLED": "true",
-    "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY": "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=",
-}
+# The subscriptions capability (0.9 C11, C12) as the delivery scenarios need it: on; signing keys
+# are sealed with the harness's SECRETS_ENCRYPTION_KEY (0.12 D253).
+SUBSCRIPTION_SETTINGS = {"CONSUMER_SUBSCRIPTIONS_ENABLED": "true"}
 CAUGHT_UP_SUBSCRIPTIONS = 100
 EVENT_PAGE = 100
 

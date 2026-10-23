@@ -27,6 +27,8 @@ DEFAULT_MODEL_PATH = PROJECT_ROOT / "model" / "rdm-starter.json"
 # Where export files wait for download when JOB_FILE_DIR is not set (0.9 J1, D55).
 DEFAULT_JOB_FILE_DIR = PROJECT_ROOT / "var" / "job-files"
 DEFAULT_CORS_ORIGINS = "http://localhost:5173"
+# The engine's address as callers reach it: the token issuer (0.12 I1, D259).
+DEFAULT_PUBLIC_URL = "http://localhost:8000"
 
 TRUTHY = {"1", "true", "yes", "on"}
 
@@ -41,6 +43,9 @@ LogFormat = Literal["text", "json"]
 LOG_FORMATS: tuple[LogFormat, ...] = ("text", "json")
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 LOG_LEVELS: tuple[LogLevel, ...] = ("DEBUG", "INFO", "WARNING", "ERROR")
+
+# The setting SECRETS_ENCRYPTION_KEY replaced (D253); startup refuses it, naming the new one.
+RETIRED_ENCRYPTION_KEY = "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY"
 
 # Regenerating this per process is deliberate: without RDM_CURSOR_SIGNING_KEY, cursors issued
 # before a restart stop verifying after it. It is generated once at import so reloading settings
@@ -58,6 +63,16 @@ class Settings(BaseModel):
     database_url: str | None = None
     model_path: Path = DEFAULT_MODEL_PATH
     cors_origins: tuple[str, ...] = (DEFAULT_CORS_ORIGINS,)
+    # The engine's address as callers reach it, the issuer of its tokens and the base of the
+    # addresses its OAuth metadata names (0.12 I1, D259).
+    public_url: str = DEFAULT_PUBLIC_URL
+    # Seals every secret the engine must read back: token signing keys, webhook signing keys
+    # (D253, ADR-043). Required; startup refuses without it (``validate_secrets``).
+    secrets_encryption_key: bytes | None = None
+    # How long an access token lasts (D251), and the age at which the token signing key is
+    # replaced when the next token is issued (D254, D264).
+    access_token_minutes: int = Field(default=60, ge=1)
+    token_signing_key_days: int = Field(default=30, ge=1)
     model_admin_mutations_enabled: bool = False
     workspace_admin_mutations_enabled: bool = True
     web_concurrency: int = Field(default=1, ge=1)
@@ -107,10 +122,9 @@ class Settings(BaseModel):
     feed_retention_days: int = Field(default=30, ge=1)
     # The items one consumer batch resolve holds (C-D13, C-D50); reported by GET /capabilities.
     consumer_resolve_max_items: int = Field(default=1_000, ge=1)
-    # Webhook subscriptions as a deployment capability group, off by default (C-D10, C-D102), and
-    # the key their signing keys are encrypted with (C-D96).
+    # Webhook subscriptions as a deployment capability group, off by default (C-D10, C-D102); their
+    # signing keys are sealed with SECRETS_ENCRYPTION_KEY (C-D96, D253).
     consumer_subscriptions_enabled: bool = False
-    consumer_webhook_key_encryption_key: bytes | None = None
     # How long the webhook delivery log keeps a request (U5a, C-D118).
     consumer_webhook_log_retention_days: int = Field(default=7, ge=1)
 
@@ -119,6 +133,12 @@ class Settings(BaseModel):
         env = os.environ if environ is None else environ
         configured_model_path = env.get("RDM_MODEL_PATH")
         configured_signing_key = env.get("RDM_CURSOR_SIGNING_KEY")
+        if env.get(RETIRED_ENCRYPTION_KEY, "").strip():
+            raise RuntimeError(
+                f"{RETIRED_ENCRYPTION_KEY} is no longer read: SECRETS_ENCRYPTION_KEY replaces it "
+                "and seals every stored secret (0.12, D253). Rename the setting, keeping its value, "
+                "and start again"
+            )
         return cls(
             database_url=env.get("DATABASE_URL", "").strip() or None,
             model_path=Path(configured_model_path) if configured_model_path else DEFAULT_MODEL_PATH,
@@ -126,6 +146,10 @@ class Settings(BaseModel):
                 origin.strip()
                 for origin in env.get("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
             ),
+            public_url=_public_url(env.get("PUBLIC_URL", "")),
+            secrets_encryption_key=_encryption_key(env.get("SECRETS_ENCRYPTION_KEY", "")),
+            access_token_minutes=_positive(env, "ACCESS_TOKEN_MINUTES", 60),
+            token_signing_key_days=_positive(env, "TOKEN_SIGNING_KEY_DAYS", 30),
             model_admin_mutations_enabled=(
                 env.get("MODEL_ADMIN_MUTATIONS_ENABLED", "false").strip().lower() in TRUTHY
             ),
@@ -174,9 +198,6 @@ class Settings(BaseModel):
             consumer_subscriptions_enabled=(
                 env.get("CONSUMER_SUBSCRIPTIONS_ENABLED", "false").strip().lower() in TRUTHY
             ),
-            consumer_webhook_key_encryption_key=_encryption_key(
-                env.get("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "")
-            ),
             consumer_webhook_log_retention_days=_positive(env, "CONSUMER_WEBHOOK_LOG_RETENTION_DAYS", 7),
         )
 
@@ -199,14 +220,14 @@ class Settings(BaseModel):
                 "INTEGRATION_JOBS_ENABLED=false"
             ) from exc
 
-    def validate_consumer_subscriptions(self) -> None:
-        """Refuse to start with subscriptions on and no key to encrypt their signing keys with
-        (C-D96): a key generated per process would leave every stored signing key unreadable after
-        a restart."""
-        if self.consumer_subscriptions_enabled and self.consumer_webhook_key_encryption_key is None:
+    def validate_secrets(self) -> None:
+        """Refuse to start without the key stored secrets are sealed with (D253): token signing
+        keys exist on every installation, and a key generated per process would leave every sealed
+        secret unreadable after a restart."""
+        if self.secrets_encryption_key is None:
             raise RuntimeError(
-                "CONSUMER_SUBSCRIPTIONS_ENABLED=true requires CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY, the "
-                "key webhook signing keys are encrypted with. Generate one with "
+                "SECRETS_ENCRYPTION_KEY is required: it seals the token signing keys and webhook "
+                "signing keys stored in the database. Generate one with "
                 "`python -m app.cli.generate_key` and keep it outside the database"
             )
 
@@ -264,6 +285,17 @@ def _choice[T: str](
     raise RuntimeError(f"{name} must be one of {', '.join(choices)}, not {raw!r}")
 
 
+def _public_url(raw: str) -> str:
+    """The engine's address without a trailing slash; an absolute http(s) URL (RFC 8414)."""
+    value = raw.strip().rstrip("/") or DEFAULT_PUBLIC_URL
+    scheme, _, rest = value.partition("://")
+    if scheme not in ("http", "https") or not rest or "?" in rest or "#" in rest:
+        raise RuntimeError(
+            f"PUBLIC_URL must be the engine's absolute http or https address, not {raw!r}"
+        )
+    return value
+
+
 def _encryption_key(raw: str) -> bytes | None:
     """The 32-byte key written in URL-safe base64, or none when unset."""
     value = raw.strip()
@@ -275,7 +307,7 @@ def _encryption_key(raw: str) -> bytes | None:
         key = b""
     if len(key) != 32:
         raise RuntimeError(
-            "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY must be 32 bytes written in URL-safe base64; "
+            "SECRETS_ENCRYPTION_KEY must be 32 bytes written in URL-safe base64; "
             "generate one with `python -m app.cli.generate_key`"
         )
     return key
@@ -330,6 +362,19 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
     ),
     CatalogueEntry(
         "CORS_ORIGINS", "cors_origins", "runtime", "Browser origins allowed to call the API"
+    ),
+    CatalogueEntry(
+        "PUBLIC_URL",
+        "public_url",
+        "runtime",
+        "The engine's address as callers reach it; the issuer of its tokens",
+    ),
+    CatalogueEntry(
+        "SECRETS_ENCRYPTION_KEY",
+        "secrets_encryption_key",
+        "runtime",
+        "Seals the stored token and webhook signing keys; required",
+        secret=True,
     ),
     CatalogueEntry(
         "JOB_FILE_DIR",
@@ -470,6 +515,18 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "Seconds a worker holds a job, renewed with each chunk",
     ),
     CatalogueEntry(
+        "ACCESS_TOKEN_MINUTES",
+        "access_token_minutes",
+        "runtime",
+        "Minutes an access token lasts, for people and clients",
+    ),
+    CatalogueEntry(
+        "TOKEN_SIGNING_KEY_DAYS",
+        "token_signing_key_days",
+        "runtime",
+        "Days a token signing key signs before the next token brings a new one",
+    ),
+    CatalogueEntry(
         "JOB_RETENTION_DAYS",
         "job_retention_days",
         "limits",
@@ -492,13 +549,6 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "consumer_webhook_log_retention_days",
         "webhooks",
         "Days the webhook delivery log keeps a request, its body and its attempts",
-    ),
-    CatalogueEntry(
-        "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY",
-        "consumer_webhook_key_encryption_key",
-        "webhooks",
-        "Encrypts the stored webhook signing keys; required with subscriptions on",
-        secret=True,
     ),
 )
 

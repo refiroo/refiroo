@@ -33,6 +33,7 @@ import type {
   ObjectSort,
   CollectionFilter,
   CapabilitiesResponse,
+  SystemConfiguration,
   SystemResponse,
   SystemSummary,
   EngineProcess,
@@ -438,6 +439,7 @@ export const api = {
   },
   capabilities: () => request<CapabilitiesResponse>("/api/v1/capabilities"),
   system: () => request<SystemResponse>("/api/v1/system"),
+  systemConfiguration: () => request<SystemConfiguration>("/api/v1/system/configuration"),
   /** The instance's figures counted now (0.11 O2). */
   systemSummary: () => request<SystemSummary>("/api/v1/system/summary"),
   /** Every engine process, every page (an instance has a handful). */

@@ -14,7 +14,7 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from model_support import MODEL_PATH, renamed_model, without_relation_columns
 from sqlalchemy import select
 from test_consumer_api_model import API, definition, with_definition

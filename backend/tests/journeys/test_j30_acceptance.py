@@ -319,7 +319,7 @@ def test_a_running_application_delivers_on_its_own(world, receiver):
     threads on, and a subscription. When a record is created. Then the receiver gets its event
     within 10 s, with nothing driving either thread; after the application stops, both threads have
     stopped and the subscription holds no lease."""
-    from fastapi.testclient import TestClient
+    from harness_identity import TestClient
     from sqlalchemy import create_engine, text
     from sqlalchemy.pool import NullPool
 

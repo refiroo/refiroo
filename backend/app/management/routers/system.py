@@ -1,5 +1,6 @@
-"""``GET /api/v1/system`` (0.9 U3): what the deployment runs and how it is configured. Read-only and
-behind no capability, like ``/capabilities``; for administrators once roles exist (0.12)."""
+"""``GET /api/v1/system`` (0.9 U3): what the deployment runs, for anyone signed in, and
+``GET /api/v1/system/configuration``: how it is configured, for operators once roles exist (0.12
+D246). Read-only and behind no capability, like ``/capabilities``."""
 
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -31,6 +32,7 @@ from ..schemas.system import (
     DatabaseInfo,
     EngineInfo,
     ProcessPage,
+    SystemConfiguration,
     SystemResponse,
     SystemSetting,
     SystemSummary,
@@ -43,7 +45,7 @@ metrics_router = APIRouter(tags=["system"])
 
 
 @router.get("/system", response_model=SystemResponse)
-def get_system(request: Request, session: DbSession) -> SystemResponse:
+def get_system(session: DbSession) -> SystemResponse:
     state = read_system_state(session)
     release = state.active_release
     return SystemResponse(
@@ -57,7 +59,15 @@ def get_system(request: Request, session: DbSession) -> SystemResponse:
             schemaVersion=release.schema_version,
             activatedAt=as_utc(state.activated_at),
         ),
-        database=DatabaseInfo(revision=state.revision),
+    )
+
+
+@router.get("/system/configuration", response_model=SystemConfiguration)
+def get_configuration(request: Request, session: DbSession) -> SystemConfiguration:
+    """The database's migration revision and every setting with its value, its default and where
+    the value came from; a secret shows neither (D246)."""
+    return SystemConfiguration(
+        database=DatabaseInfo(revision=read_system_state(session).revision),
         settings=[
             SystemSetting(**asdict(setting)) for setting in request.app.state.settings_report
         ],

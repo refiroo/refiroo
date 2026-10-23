@@ -7,7 +7,7 @@ cases are what the effective lookup of the matching records decides.
 
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from wp8_support import (
     attribute,
     create_change_set,

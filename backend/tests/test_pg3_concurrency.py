@@ -11,7 +11,6 @@ background job holds the lock for one chunk only, answers a cancel request while
 hands its job to another worker through the lease (D28).
 """
 
-import base64
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -21,7 +20,7 @@ from typing import Any
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from sqlalchemy import event, func, select, text, update
 from sqlalchemy.orm import Session
 from test_w5_activation_write_race import _activate, _candidate
@@ -48,7 +47,6 @@ def client(monkeypatch, migrated_database) -> Iterator[TestClient]:
     monkeypatch.setenv("DATABASE_URL", migrated_database("pg3.db"))
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     monkeypatch.setenv("CONSUMER_SUBSCRIPTIONS_ENABLED", "true")
-    monkeypatch.setenv("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", base64.urlsafe_b64encode(b"k" * 32).decode())
     model_registry.clear()
     application = create_app()
     application.state.run_job_worker = False

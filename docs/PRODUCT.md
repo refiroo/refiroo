@@ -25,7 +25,9 @@ engine is built is in [ARCHITECTURE.md](ARCHITECTURE.md).
 | Model administrator | Define a new domain or change its rules | The application evolves without custom code |
 | Service operator | Run, upgrade and recover the service | People can rely on the service and its data |
 
-These are responsibilities, not permission roles: sign-in and permissions arrive in 0.12.
+These are responsibilities, not permission roles. From 0.12 the predefined roles are named after them
+(Reader, Contributor, Data steward, Data owner, Model, Workspace and Integration administrator,
+Operator, Security administrator; [ADR-044](DECISIONS.md#adr-044--authorization-action-groups-roles-and-grants)).
 
 ## What makes it different
 

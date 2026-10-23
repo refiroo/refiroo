@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import type { CapabilitiesResponse, SystemResponse } from "@/types";
+import type { CapabilitiesResponse, SystemConfiguration, SystemResponse } from "@/types";
 
 /** One read a settings page shows (`load` must be stable, such as an `api` call), with its error and a retry. */
 export function useSettingsRead<T>(load: () => Promise<T>) {
@@ -32,6 +32,12 @@ export function useSettingsRead<T>(load: () => Promise<T>) {
 export function useSystem() {
   const { data, ...read } = useSettingsRead<SystemResponse>(api.system);
   return { system: data, ...read };
+}
+
+/** `GET /system/configuration`, with its error and a retry. */
+export function useSystemConfiguration() {
+  const { data, ...read } = useSettingsRead<SystemConfiguration>(api.systemConfiguration);
+  return { configuration: data, ...read };
 }
 
 /** `GET /capabilities`, with its error and a retry. */

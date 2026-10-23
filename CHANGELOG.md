@@ -6,6 +6,42 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 I1, the engine issues tokens; every route authenticated)
+
+- The engine is its own OAuth 2.0 authorization server: `GET /.well-known/oauth-authorization-server`,
+  `GET /oauth/jwks` and `POST /oauth/token` with the client credentials grant (`scope` `management`
+  or `consumer`), errors in the RFC's shape. Access tokens are ES256 JWTs lasting an hour
+  (`ACCESS_TOKEN_MINUTES`); their signing keys live in the database, sealed, replaced after
+  `TOKEN_SIGNING_KEY_DAYS` (30) when the next token is issued, and rotated on request, at once after a
+  leak (`/api/v1/token-signing-keys`).
+- People (`/api/v1/users`: create, change, deactivate, never delete) and OAuth clients
+  (`/api/v1/clients`, the secret shown once, a second secret with an overlap); `GET /api/v1/me`.
+- `python -m app.cli.create_admin` (the first administrator, with the password rules: 15–128
+  characters, not the username, not one of the most common) and `python -m app.cli.create_client`
+  (a client's credentials, shown once). Migration `20261027_01`.
+- `GET /api/v1/system/configuration`: the database revision and the settings, moved out of
+  `GET /api/v1/system`, which keeps what the deployment runs. Settings › Deployment shows the
+  migration revision; About no longer does.
+
+### Changed (0.12 I1, breaking)
+
+- **Every route needs an access token** except `/health`, `/health/live`, `/openapi.json`, `/docs`
+  and the OAuth endpoints: `401 AUTHENTICATION_REQUIRED` without one, `401 TOKEN_INVALID` with the
+  reason otherwise. This includes `/metrics` and the consumer API (a `consumer` token). Until roles
+  (Z1) every active client or person may use every route. The browser shows the refusals until
+  signing in arrives (I2).
+- `SECRETS_ENCRYPTION_KEY` is required on every installation and seals token and webhook signing
+  keys; it replaces `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, which startup refuses by name. `PUBLIC_URL`
+  names the engine's address, the token issuer. Upgrading: OPERATIONS § Authentication.
+
+### Added (0.12 P0, design only)
+
+- The security design: the engine as its own OAuth 2.0 authorization server (ADR-043), roles made
+  of journey-named action groups granted to people, groups and clients per workspace (ADR-044), and
+  change-set publication approvals with an inbox (ADR-045); every management operation mapped to its
+  action group in API.md § Security; journeys J39–J43; the Security pages (U8) from approved
+  mock-ups. Decisions D243–D257. No code changes yet.
+
 ## [0.11.0] - 2026-10-22
 
 Base 0.11 is released: each workspace runs a model of its own and moves to another release on its

@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from model_support import MODEL_PATH, starter_at_schema
 from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session

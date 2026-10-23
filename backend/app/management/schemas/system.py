@@ -40,12 +40,18 @@ class SystemSetting(BaseModel):
 
 
 class SystemResponse(BaseModel):
-    """What the deployment runs and how it is configured. Settings are read at startup and change
-    only with a restart."""
+    """What the deployment runs, for anyone signed in (D246). How it is configured is
+    ``GET /system/configuration``."""
 
     engine: EngineInfo
     schemaLanguages: list[str]
     activeModelRelease: ActiveModelRelease
+
+
+class SystemConfiguration(BaseModel):
+    """How the deployment is configured, for operators (D246). Settings are read at startup and
+    change only with a restart."""
+
     database: DatabaseInfo
     settings: list[SystemSetting]
 

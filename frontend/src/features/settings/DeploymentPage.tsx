@@ -1,8 +1,9 @@
 /**
  * Settings › Deployment (Track U U3, U-D2): how this deployment is configured, read only. The
  * capability groups lead, from `GET /capabilities`, each on or off with the setting that switches
- * it and its limits; then every setting from `GET /system`, one section per group in OPERATIONS'
- * order. A secret shows only whether it is set.
+ * it and its limits; then the database's migration revision and every setting from
+ * `GET /system/configuration` (0.12 D246), one section per group in OPERATIONS' order. A secret shows
+ * only whether it is set.
  */
 
 import { API_URL } from "@/api/client";
@@ -16,7 +17,7 @@ import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { bytes, count, feedRetentionItem, jobLimitItems } from "./limits";
-import { useCapabilities, useSystem } from "./useSystem";
+import { useCapabilities, useSystemConfiguration } from "./useSystem";
 
 const GROUPS: { group: SystemSetting["group"]; title: string }[] = [
   { group: "runtime", title: "Runtime" },
@@ -25,7 +26,7 @@ const GROUPS: { group: SystemSetting["group"]; title: string }[] = [
   { group: "webhooks", title: "Webhook subscriptions" },
 ];
 
-const SECRETS = new Set(["RDM_CURSOR_SIGNING_KEY", "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY"]);
+const SECRETS = new Set(["RDM_CURSOR_SIGNING_KEY", "SECRETS_ENCRYPTION_KEY"]);
 
 /** A setting's value as text: booleans as On and Off, lists joined, and nothing as None. */
 function shown(value: unknown) {
@@ -37,10 +38,10 @@ function shown(value: unknown) {
 }
 
 export function DeploymentPage() {
-  const { system, error, retry } = useSystem();
+  const { configuration, error, retry } = useSystemConfiguration();
   const { capabilities, error: capabilityError, retry: retryCapabilities } = useCapabilities();
   const failure = error || capabilityError;
-  const signingKey = system?.settings.find((setting) => setting.name === "RDM_CURSOR_SIGNING_KEY");
+  const signingKey = configuration?.settings.find((setting) => setting.name === "RDM_CURSOR_SIGNING_KEY");
 
   return (
     <SettingsLayout
@@ -60,7 +61,7 @@ export function DeploymentPage() {
             if (error) retry();
           }}
         />
-      ) : !system || !capabilities ? (
+      ) : !configuration || !capabilities ? (
         <Skeleton label="Loading the deployment's settings" lines={8} />
       ) : (
         <>
@@ -82,6 +83,11 @@ export function DeploymentPage() {
               ))}
             </ul>
           </Section>
+          <Section title="Database">
+            <DescriptionList
+              items={[{ term: "Migration revision", value: <code>{configuration.database.revision ?? "None"}</code> }]}
+            />
+          </Section>
           {GROUPS.map(({ group, title }) => (
             <Section key={group} title={title}>
               {group === "runtime" && signingKey?.source === "default" && (
@@ -92,7 +98,7 @@ export function DeploymentPage() {
               )}
               <SettingValues
                 label={`${title} settings`}
-                settings={system.settings.filter((setting) => setting.group === group)}
+                settings={configuration.settings.filter((setting) => setting.group === group)}
               />
             </Section>
           ))}

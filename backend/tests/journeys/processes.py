@@ -18,6 +18,7 @@ from pathlib import Path
 
 import httpx
 from configurations import Configuration
+from harness_identity import HarnessAuth
 from scenario import Api, World, model_path
 from service import BACKEND, render
 from sqlalchemy import URL
@@ -75,6 +76,8 @@ def run(
         )
     base = f"http://127.0.0.1:{port}"
     client = httpx.Client(base_url=base, timeout=60)
+    # The harness's token (0.12 I1, D263), valid on this clone of the schema seed.
+    client.auth = HarnessAuth(client.post)
     try:
         _wait_until_serving(server, client, log)
         world = World(configuration, Api(client), url, ids=dict(ids or {}))

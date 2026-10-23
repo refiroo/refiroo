@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from model_support import MODEL_PATH, renamed_model
 from workspace_model_support import DEFAULT_ACTIVATION, default_model
 

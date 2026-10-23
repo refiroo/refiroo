@@ -168,7 +168,7 @@ def test_paginate_statement_requires_at_least_one_key():
 
 def test_draft_paging_visits_every_row_when_timestamps_tie(monkeypatch):
     """Drafts sharing an updatedAt must page without loss or repetition."""
-    from fastapi.testclient import TestClient
+    from harness_identity import TestClient
 
     from app.main import create_app
 

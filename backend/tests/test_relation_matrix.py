@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from wp8_support import (
     create_change_set,
     inject_change_set_object,

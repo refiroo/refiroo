@@ -1,7 +1,7 @@
 /**
  * Settings › About (Track U U3): what this deployment runs, from `GET /system` (J31): the engine
- * and management API version, the schema languages, the active model release and the database's
- * migration revision.
+ * and management API version, the schema languages and the active model release. The database's
+ * migration revision is the operator's, on Deployment (0.12 D246).
  */
 
 import { formatServerTime } from "@/lib/dates";
@@ -50,11 +50,6 @@ export function AboutPage({ onNavigate }: { onNavigate: (route: SettingsRoute) =
                 { term: "Schema language", value: release.schemaVersion },
                 { term: "Activated", value: formatServerTime(release.activatedAt) },
               ]}
-            />
-          </Section>
-          <Section title="Database">
-            <DescriptionList
-              items={[{ term: "Migration revision", value: <code>{system.database.revision ?? "None"}</code> }]}
             />
           </Section>
         </>

@@ -37,6 +37,7 @@ sys.path.insert(0, str(TESTS))
 DEVELOPMENT_SERVER = "postgresql+psycopg://postgres@localhost:54320/postgres"
 os.environ.setdefault("RDM_TEST_DATABASE_SERVER", DEVELOPMENT_SERVER)
 
+import harness_identity
 import postgres_server
 import seeds
 from sqlalchemy import URL, make_url, text
@@ -117,7 +118,7 @@ def starter_seed(model_path: Path) -> str:
     name = f"starter-{hashlib.sha256(model_text.encode()).hexdigest()[:6]}"
 
     def build(url: URL) -> dict[str, Any]:
-        from fastapi.testclient import TestClient
+        from harness_identity import TestClient
 
         from app.main import create_app
 
@@ -163,7 +164,16 @@ def clone(seed: str, *, model: Path | None, scale: float) -> dict[str, Any]:
         payload = seeds.ensure(name)["dataset"]
     _prune()
     url = seeds.clone(name, f"{CLONE_PREFIX}{int(time.time())}_{uuid4().hex[:8]}")
-    return {"database_url": url.render_as_string(hide_password=False), **payload}
+    # The harness client every clone of the schema seed holds, and the settings its signing key
+    # needs, so the runner's backend issues it tokens (0.12 I1, D263).
+    harness = {
+        **seeds.ensure("schema")["harness"],
+        "settings": {
+            "SECRETS_ENCRYPTION_KEY": harness_identity.SECRETS_ENCRYPTION_KEY,
+            "TOKEN_SIGNING_KEY_DAYS": harness_identity.SIGNING_KEY_DAYS,
+        },
+    }
+    return {"database_url": url.render_as_string(hide_password=False), **payload, "harness": harness}
 
 
 def main() -> None:

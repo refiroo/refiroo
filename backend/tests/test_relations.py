@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient as HttpTestClient
+from harness_identity import TestClient as HttpTestClient
 from test_api import ChangeSetTestClient
 
 from app.db import SessionLocal

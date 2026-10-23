@@ -7,7 +7,6 @@ manage subscriptions and check what suspends them. An expired position (J30.7) n
 than the retention period; the test moves their times back in the database, as J30.5 does.
 """
 
-import base64
 from uuid import uuid4
 
 import pytest
@@ -26,11 +25,7 @@ from test_j30_consumer_events import (
     _workspace,
 )
 
-KEY = base64.urlsafe_b64encode(b"k" * 32).decode()
-SUBSCRIPTIONS = {
-    "CONSUMER_SUBSCRIPTIONS_ENABLED": "true",
-    "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY": KEY,
-}
+SUBSCRIPTIONS = {"CONSUMER_SUBSCRIPTIONS_ENABLED": "true"}
 PATH = "/consumer-subscriptions"
 # How webhooks are delivered (C12, C-D103, C-D104), reported whether the capability is on or off.
 DELIVERY = {

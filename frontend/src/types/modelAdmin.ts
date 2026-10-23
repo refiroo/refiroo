@@ -78,7 +78,7 @@ export interface SystemSetting {
   source: "environment" | "default";
 }
 
-/** What the deployment runs and how it is configured (`GET /api/v1/system`). */
+/** What the deployment runs, for anyone signed in (`GET /api/v1/system`, D246). */
 export interface SystemResponse {
   engine: { version: string; managementApi: string };
   schemaLanguages: string[];
@@ -90,6 +90,10 @@ export interface SystemResponse {
     schemaVersion: string;
     activatedAt: string;
   };
+}
+
+/** How the deployment is configured, for operators (`GET /api/v1/system/configuration`, D246). */
+export interface SystemConfiguration {
   database: { revision: string | null };
   settings: SystemSetting[];
 }

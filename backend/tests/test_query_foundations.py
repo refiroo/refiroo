@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient as LiveTestClient
+from harness_identity import TestClient as LiveTestClient
 from test_api import ChangeSetTestClient as TestClient
 
 from app.main import app

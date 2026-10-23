@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from ..common.cursors import decode_cursor, signed_scope
 from ..common.pagination import PageRequest, paginate_sequence
 from ..db import SessionLocal
+from ..engine.identity.authentication import authenticate, require_started
 from ..engine.model.consumer_definitions import consumer_api as declared_api
 from ..engine.model.consumer_definitions import consumer_apis
 from ..engine.model.consumer_openapi import consumer_openapi, consumer_openapi_path
@@ -105,7 +106,18 @@ async def _body(request: Request) -> bytes:
 DbSession = Annotated[Session, Depends(_session, scope="function")]
 Body = Annotated[bytes, Depends(_body)]
 
-router = APIRouter(prefix=PREFIX, tags=["consumer"], include_in_schema=False)
+def _authenticated(request: Request, session: DbSession) -> None:
+    """Every consumer route needs a ``consumer`` token (0.12 I1, D260); Z3 narrows it to the
+    consumer APIs a caller is granted."""
+    authenticate(
+        session, request.app.state.identity_settings, request.headers.get("Authorization"), "consumer"
+    )
+
+
+router = APIRouter(
+    prefix=PREFIX, tags=["consumer"], include_in_schema=False,
+    dependencies=[Depends(require_started), Depends(_authenticated)],
+)
 
 
 def reads_own_parameters[F](endpoint: F) -> F:

@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 import seeds
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from workspace_model_support import DEFAULT_ACTIVATION, default_model

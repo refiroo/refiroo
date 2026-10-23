@@ -16,7 +16,7 @@ publication.  These tests exercise the divergence cases the old wholesale rebuil
 
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from sqlalchemy import select
 from wp8_support import (
     attribute,

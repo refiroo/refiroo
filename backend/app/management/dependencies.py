@@ -1,12 +1,16 @@
-"""Request-scoped FastAPI dependencies: one session per request and the model a request reads."""
+"""Request-scoped FastAPI dependencies: one session per request, the caller, and the model a request
+reads."""
 
 from collections.abc import Iterator
 from typing import Annotated
 
-from fastapi import Depends, Header, Query
+from fastapi import Depends, Header, Query, Request
+from fastapi.openapi.models import OAuthFlowClientCredentials, OAuthFlows
+from fastapi.security import OAuth2
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
+from ..engine.identity.authentication import Principal, authenticate, require_started
 from ..engine.model import expected_release
 from ..engine.model.registry import (
     ModelSnapshot,
@@ -72,5 +76,48 @@ def expect_model_release(
     expected_release.expect(session, expected_model_release_id)
 
 
-# Every route of the management API takes the header.
-MANAGEMENT_DEPENDENCIES = [Depends(expect_model_release)]
+# The scheme the OpenAPI document declares: a client obtains a token with its credentials at the
+# token endpoint (ADR-043); the browser's sign-in (I2) issues the same token.
+bearer = OAuth2(
+    flows=OAuthFlows(
+        clientCredentials=OAuthFlowClientCredentials(
+            tokenUrl="/oauth/token",
+            scopes={
+                "management": "The management API (the default)",
+                "consumer": "The consumer APIs",
+            },
+        )
+    ),
+    scheme_name="engineOAuth",
+    description=(
+        "An access token issued by the engine: `Authorization: Bearer <token>`. Every route needs "
+        "one except /health, /health/live, /openapi.json, /docs and the OAuth endpoints."
+    ),
+    auto_error=False,
+)
+
+
+def authenticated(
+    request: Request,
+    session: DbSession,
+    authorization: Annotated[str | None, Depends(bearer)],
+) -> Principal:
+    """The caller of a management route, from its ``management`` token (0.12 I1). Until Z1 every
+    active principal may use every route."""
+    principal = authenticate(
+        session, request.app.state.identity_settings, authorization, "management"
+    )
+    request.state.principal = principal
+    return principal
+
+
+CurrentPrincipal = Annotated[Principal, Depends(authenticated)]
+
+
+# Every route of the management API needs a token and takes the header. In maintenance mode it
+# answers 503 before a session is opened or a token read.
+MANAGEMENT_DEPENDENCIES = [
+    Depends(require_started),
+    Depends(authenticated),
+    Depends(expect_model_release),
+]

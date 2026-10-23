@@ -561,6 +561,11 @@ to a proven identity.
 - Protected model and workspace administration, replacing the default-enabled workspace mutation
   posture; deployment capability flags stay as defence in depth (ADR-031)
 - Authentication in the API reference "try it" console
+- _Added 2026-10-22 by the user (D232):_ approvals of change-set publication: submit, approve or send
+  back with a comment, self-approval where the role allows it, a per-workspace four-eyes policy, an
+  inbox and webhook events per step; after the release's cut line, so they may follow in 0.12.x.
+  Approving a model activation or a rollback stays in 1.0
+  ([ADR-045](DECISIONS.md#adr-045--change-set-publication-approvals))
 - _Moved from 0.11 on 2026-10-22:_ the first public release: licensing, contribution and security
   policies, and the compatibility commitment with the supported schema versions and their dates
   ([plan](BASE_0_12_IMPLEMENTATION_PLAN.md#track-l--first-public-release))
@@ -616,7 +621,7 @@ need a migration, and reuses proven definitions.
 - Migration-class operations in the 0.10 editor (key renames, splits, merges, cardinality changes on
   released structure), each with its impact preview, on the 0.11 migration boundary
 - Read-only dependency visualization where it materially improves comprehension
-- Protected publish, activation and rollback workflows built on the 0.11 migration boundary
+- Protected publish, activation and rollback workflows built on the 0.11 migration boundary (change-set publication approvals moved to 0.12, ADR-045)
 - Extension packaging and reusable model modules after two concrete reuse cases
 
 ### Exit gate

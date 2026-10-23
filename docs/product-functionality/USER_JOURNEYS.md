@@ -50,6 +50,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Workspace models | J36 run a workspace on a model of its own, J37 move a workspace to another release, J38 move data between workspaces whose models differ |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
+| Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key |
 
 ## Records and structure
 
@@ -1979,6 +1980,154 @@ Settings change only with a restart; the API and the page read them, never edit 
 
 **Evidence today:** `test_j31_system`; the settings catalogue and URL masking in
 `tests/unit/test_config.py`; the settings pages in `e2e/u3-settings.mjs`.
+
+## Security
+
+Who may do what, for people and systems alike (0.12; [ADR-043](../DECISIONS.md#adr-043--identity-and-tokens-issued-by-the-engine),
+[ADR-044](../DECISIONS.md#adr-044--authorization-action-groups-roles-and-grants),
+[ADR-045](../DECISIONS.md#adr-045--change-set-publication-approvals)). Every journey here runs on
+`generated-a` and `generated-b` side by side and names no configuration's keys; grants refer to
+applications and record types as data.
+
+### J39 — Sign in and work
+
+**Actor:** any person. **Channel:** UI (the sign-in page, the account menu, the account page), API.
+**Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, I2 and I3. I1 (2026-10-23):
+the refusals without a token or with one not issued here; signing in from the browser is I2.
+
+1. Open the application; the engine's sign-in page asks for a username and password, or offers the
+   organisation's sign-in provider.
+2. Sign in and return to the page asked for; work for the day without signing in again.
+3. Sign out, from the account menu.
+
+**Variants:**
+
+- **J39.1 Return to where you were**: a session that ended sends the person to the sign-in page and
+  back to the same page afterwards.
+- **J39.2 The session renews unseen**: the access token is renewed from the session while the
+  person works; a renewal with a refresh token already used ends the session.
+- **J39.3 Sign out everywhere**: from the account page or by an administrator; every session's next
+  request is refused.
+- **J39.4 A deactivated person**: their next request is refused, whatever their token's expiry.
+- **J39.5 A wrong password, then many**: refused without saying which part was wrong; after repeated
+  failures the account and the address are slowed, never locked.
+- **J39.6 Change one's password**: the current one is needed; a password too short or too common is
+  refused; the other sessions end.
+- **J39.7 Sign in with a provider**: the person is found or created by the provider's issuer and
+  subject; the provider's groups become provider groups.
+
+**Refusals:** `401 AUTHENTICATION_REQUIRED`, `401 TOKEN_INVALID` (`expired`, `revoked`), the token
+endpoint's `invalid_grant`, `422 PASSWORD_REJECTED`.
+
+### J40 — Manage who can do what
+
+**Actor:** security administrator. **Channel:** UI (Settings › Security), API.
+**Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, Z1, Z2, SP1. I1 (2026-10-23):
+people created, changed and deactivated through the API, and the first administrator from
+`create_admin`; roles and grants are Z1.
+
+1. Create a person; they set a password through a one-time link.
+2. Grant them a role in a workspace, directly or through a group, optionally narrowing what they may
+   change to applications or record types.
+3. They can do exactly what the role allows there, through every channel.
+
+**Variants:**
+
+- **J40.1 A Reader**: reads everything in the workspace; every write is refused, live, in a change
+  set, in a batch, an import, a move or a job.
+- **J40.2 A Contributor**: changes records only in change sets; a live write is refused; publishing
+  is refused.
+- **J40.3 Narrowed to record types**: writes to the named types pass, any other type is refused,
+  also inside a batch, an import, a move, a publication or a type change.
+- **J40.4 Through a group**: a grant to a group applies to its members; leaving the group removes it.
+- **J40.5 A custom role**: copied from a predefined role, changed, granted; a predefined role cannot
+  change; a role still granted cannot be deleted.
+- **J40.6 A change applies on the next request**: a grant removed, a role changed or a person
+  deactivated takes effect at once, in every process.
+- **J40.7 Who can do what here**: a workspace's access lists every grant that applies there, direct,
+  through a group or from the instance.
+- **J40.8 The last security administrator**: removing the last one is refused.
+- **J40.9 Lists follow permissions**: the workspace list, the jobs and the cross-type lookup show
+  only workspaces the caller may browse.
+- **J40.10 A job keeps its requester's permissions**: a job whose requester lost the right fails
+  with the reason at its next step.
+
+**Refusals:** `403 FORBIDDEN` (`details.action`, `groups`, `workspaceKey`, and `recordTypes` for a
+narrowed write), `409 ROLE_PREDEFINED`, `409 ROLE_IN_USE`, `409 LAST_SECURITY_ADMINISTRATOR`.
+
+### J41 — A system calls with a client
+
+**Actor:** integration team. **Channel:** API, UI (Settings › Security › Clients).
+**Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, Z1, Z3, SP2. I1 (2026-10-23):
+the main flow through the API (any active client may use every route until Z1), J41.3, J41.4, J41.5;
+the first client from `create_client`.
+
+1. A security administrator creates a client and copies its secret, shown once.
+2. Grant it a role on the management API or a consumer API in a workspace.
+3. The system obtains a token with its credentials and calls the API within its grants.
+
+**Variants:**
+
+- **J41.1 The management API within its role**: allowed operations pass; others are refused.
+- **J41.2 A consumer API with and without its grant**: the granted API in that workspace answers;
+  another API, or the same in another workspace, is refused; the index lists only granted APIs.
+- **J41.3 The secret rotated**: both secrets work during the overlap, then only the new one.
+- **J41.4 A deactivated client**: its tokens are refused at once; it obtains no new one.
+- **J41.5 A token for the other audience**: a consumer token on the management API, or the reverse,
+  is refused.
+- **J41.6 Metrics with a client**: a scraper's client holding Operator reads `/metrics`.
+
+**Refusals:** the token endpoint's `invalid_client`, `401 TOKEN_INVALID` (`audience`, `revoked`),
+`403 FORBIDDEN`.
+
+### J42 — Propose and approve a change
+
+**Actor:** contributor and data owner. **Channel:** UI (the change set's review, the inbox), API.
+**Stories:** US-S01. **Status:** designed (0.12 P0); delivered by A1, A2, A3 (after the cut line).
+
+1. A Contributor prepares a change set and submits it for publication.
+2. An approver is notified, reviews it and approves, which publishes it, or sends it back with a
+   comment.
+3. The Contributor is notified of the decision.
+
+**Variants:**
+
+- **J42.1 Sent back**: with a comment; the Contributor edits and submits again.
+- **J42.2 An edit withdraws the submission**: an approval of the older version is refused.
+- **J42.3 One's own**: an owner whose role approves their own publishes in one step.
+- **J42.4 Four-eyes**: with the workspace's policy on, approving one's own is refused.
+- **J42.5 The inbox and events**: each step reaches the inbox of those concerned and the webhook
+  events of the workspace.
+- **J42.6 The workspace changed meanwhile**: publication re-validates as today; a changed active
+  publication refuses the stale approval.
+
+**Refusals:** `409 CHANGE_SET_SUBMITTED`, `409 APPROVAL_REQUIRED`, `403 FORBIDDEN` (`ownApproval`),
+`409 VERSION_CONFLICT`.
+
+### J43 — Rotate a key
+
+**Actor:** security administrator, integration administrator. **Channel:** UI (Settings › Security
+› Signing keys, a webhook's page), API. **Stories:** US-S01. **Status:** designed (0.12 P0);
+delivered by I1 and K1. I1 (2026-10-23): J43.1 (rotated on request, and on its own after
+`TOKEN_SIGNING_KEY_DAYS`) and J43.2.
+
+1. Rotate a key, on a schedule or at once.
+2. Callers and receivers carry on without a gap, or, after a leak, the old key stops working at once.
+
+**Variants:**
+
+- **J43.1 The token key rotated on schedule**: tokens signed with the previous key verify until they
+  expire; new tokens use the new key; nobody acts.
+- **J43.2 The token key rotated now**: tokens of the old key are refused at once; people renew from
+  their session unseen and clients obtain a new token.
+- **J43.3 A webhook key rotated with an overlap**: deliveries carry both signatures during the
+  overlap, then only the new one; the old key stops verifying.
+- **J43.4 A webhook key rotated at once**: overlap 0; the old key stops verifying with the next
+  delivery.
+- **J43.5 Re-sealing**: every sealed secret re-sealed under a new `SECRETS_ENCRYPTION_KEY` by a CLI
+  command; the engine starts and signs as before.
+
+**Refusals:** `401 TOKEN_INVALID` (`unknownKey`), `404 SUBSCRIPTION_NOT_FOUND`.
 
 ## Guardrails kept from 0.7
 

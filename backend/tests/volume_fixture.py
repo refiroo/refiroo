@@ -1321,7 +1321,7 @@ def volume_app(directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, Volum
     """A test client over a clone of the volume seed at ``shape`` (built once, ``tests/seeds.py``)."""
     # Imported here: the baseline script must set its database before the app is imported.
     import seeds
-    from fastapi.testclient import TestClient
+    from harness_identity import TestClient
 
     from app.main import create_app
 
@@ -1351,7 +1351,7 @@ def seed_fresh(directory: Path, shape: VolumeShape) -> VolumeDataset:
     For the check that a shape always produces the same data; everything else uses the seed.
     """
     import seeds
-    from fastapi.testclient import TestClient
+    from harness_identity import TestClient
 
     from app.db import get_engine
     from app.main import create_app

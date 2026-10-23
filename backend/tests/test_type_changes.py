@@ -16,7 +16,7 @@ import json
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from model_support import MODEL_PATH, renamed_model
 from volume_fixture import (
     ACTIVE,

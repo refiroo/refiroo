@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from sqlalchemy import func, select
 from wp8_support import (
     create_change_set,

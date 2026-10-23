@@ -15,7 +15,7 @@ verified directly against :class:`AuditEvent` because workspace-scoped events ca
 
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
+from harness_identity import TestClient
 from sqlalchemy import func, inspect, select
 from wp8_support import (
     attribute,

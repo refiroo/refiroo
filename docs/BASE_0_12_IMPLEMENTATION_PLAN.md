@@ -240,6 +240,200 @@ A consumer API is not an action group: a client is granted **read of a named con
 workspace** (Z3), because a consumer API key may mean different contracts in two workspaces
 (ADR-042).
 
+##### P0 plan (2026-10-22)
+
+**Planned 2026-10-22; accepted by the user on 2026-10-23** ("otherwise ok"): D243–D257, the
+catalogue and the mock-ups, with D251 changed (access tokens last an hour) and D254 confirmed after
+the user asked whether it needs action from anyone (it does not; recorded in D254). Checked against the code at `5622b67` by
+reading it and by listing every operation of an app built with all four capability flags on.
+
+**What the check found:**
+
+- **157 management operations** (plus `/health` and `/health/live`), the eight consumer routes, and
+  `/docs` with its bundled script. Every management router is registered with
+  `MANAGEMENT_DEPENDENCIES` (`management/dependencies.py`); the consumer router with none. That
+  list is the one place I1 adds authentication and Z1 the route check.
+- **One route, two actions.** The record, value, relation and relationship-set writes (10 routes)
+  are live writes without `changeSetId` and change-set writes with it, in the body or the query. Edit
+  live and Work in change sets (D231) are therefore decided per request, not per route (D244).
+- **The browser reads two things a header cannot reach.** The job toast streams
+  `/jobs/{id}/events` with `EventSource` (`features/jobs/useJobStream.ts`), and "Download" is an
+  `<a href download>` to `/jobs/{id}/output` (`features/jobs/JobNotifications.tsx`). Neither sends
+  `Authorization`, and a token in the URL is excluded (C-D1). D247.
+- **`GET /system` mixes two audiences.** It carries the engine version and schema languages (read by
+  About and by "New draft" for an empty model) beside the database and every setting (Deployment).
+  L1 adds the licence and the source offer there, which every user must reach (AGPL §13). D246.
+- **`/health` is the readiness probe** (status only, `503` when the registry or database is down);
+  a probe carries no token. I1's list of open routes omits it. D245.
+- **Instance-wide resources hold different things.** Import profiles and model mappings are
+  configuration bound to a model; source files carry an uploaded workbook and an optional workspace;
+  job rows and outputs carry a workspace's data. D248.
+- **Relationships cross applications** (USER_JOURNEYS: "related … within one application and across
+  applications"; mapping coverage and the cross-type lookup read both ends). Reading narrowed to an
+  application meets the same filtering D228 avoided for record types. D243.
+- **`CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`** seals webhook keys and is required only with
+  subscriptions on; token signing keys and sign-in provider secrets need sealing on every
+  installation. D253.
+- **Change sets have no owner** and are edited by anyone today; nothing records who made one. D255.
+
+**The catalogue, completed** (every operation; the full per-route table goes to API.md, D256). The
+draft's groups stand; two pseudo-groups are added for routes every caller needs.
+
+| Group | Key | Operations | What they are |
+| --- | --- | --- | --- |
+| Public (no token) | — | 2 + 3 + OAuth | `/health`, `/health/live`; `/openapi.json`, `/docs` and its script (C1 signs the page in); the OAuth metadata, JWKS, authorize, token and revocation endpoints (D245) |
+| Signed in | `signed-in` | 5 + `/me` | Capabilities; the workspace list and the default workspace, **filtered** to what the caller may browse (D249); which model each workspace runs, filtered alike; `GET /system`'s engine part (D246); `/me` and its sub-resources |
+| Browse | `browse` | 38 | The workspace's model (12 reads, the default workspace when none is named); a workspace and its model; records, values, relations, history, parent candidates, the query, relation matrix, mapping coverage, candidates and targets; change sets and their changes; publications; **exports** (a job, read like the rest) |
+| Edit live | `edit-live` | 10, shared | Record, value, relation and relationship-set writes **without** `changeSetId` (D244) |
+| Work in change sets | `change-sets` | 8 + the 10 | Create, rename, discard, validate, restructure (preview and apply), move onto a release (`model-release`, `model-migrations`); the 10 writes **with** `changeSetId` |
+| Publish | `publish` | 2 | Publish a change set; withdraw a publication |
+| Approve publications | `approve` | Track A | Submit is `change-sets`; approve and send back are `approve` |
+| Bulk and import | `bulk` | 20 | Batches and imports; import profiles and their checks; source files and their profiles |
+| Copy and move | `copy-move` | 13 | Model-to-model mappings, their operations and inference; moves (read on the source, write on the target, checked in Z2) |
+| Model authoring | `model-authoring` | 26 + 4 | Model validation; drafts, operations, outline, consumer API previews, undo and redo, profile, compile, dry run, inference; **reads** of releases and their diff (shared with Model release) |
+| Model release | `model-release` | 3 + 4 | Install a draft; activate a release into a workspace; migrate a workspace; reads of releases and their diff |
+| Workspace administration | `workspace-admin` | 4 | Create, rename and retire, delete a workspace; set the default |
+| Integration administration | `integration-admin` | 10 | Consumer subscriptions, deliveries, resends, suspend and resume (K1 adds rotation) |
+| Feed | `feed` | 1 | The workspace's change feed |
+| Operations | `operations` | 5 + 1 | Processes, readiness detail, summary, backup rehearsals, `/metrics`; `GET /system/configuration` (D246) |
+| Security administration | `security-admin` | new | Users, groups, roles, grants, clients, token signing keys, sign-in providers (I1–I3, SP1, SP2) |
+| Jobs | — | 8 | Not a group: a job is read, followed, cancelled or confirmed by its requester, or by a holder of the group that started its kind in its workspace (the import's `bulk`, the move's `copy-move`, the migration's `model-release`, the export's `browse`) |
+| Consumer API grant | — | 8 consumer routes | Read of a named consumer API in a workspace (Z3); the index lists only the APIs granted; the per-definition OpenAPI needs the grant too (D245) |
+
+**The predefined roles** (D230; names settled, D257):
+
+| Role | Action groups | Granted at |
+| --- | --- | --- |
+| Reader | Browse | Workspace |
+| Contributor | Browse, Work in change sets | Workspace |
+| Data steward | Browse, Edit live, Work in change sets, Publish, Bulk and import | Workspace |
+| Data owner | The steward's, plus Approve publications (own), Feed, Copy and move | Workspace |
+| Model administrator | Model authoring, Model release | Instance or workspace (release only) |
+| Workspace administrator | Workspace administration | Instance |
+| Integration administrator | Integration administration, Feed | Workspace |
+| Operator | Operations | Instance |
+| Security administrator | Security administration | Instance |
+| Consumer (clients) | Consumer API grants only | Workspace |
+
+**API design** (written in API.md and CONSUMER_API on delivery; routes free of the project's name):
+
+- **OAuth** (outside `/api/v1`): `GET /.well-known/oauth-authorization-server` (RFC 8414),
+  `GET /oauth/jwks`, `GET|POST /oauth/authorize` (the sign-in page; code flow with PKCE `S256`
+  only), `POST /oauth/token` (`authorization_code`, `refresh_token`, `client_credentials`),
+  `POST /oauth/revoke` (RFC 7009). Errors in the RFC's own shape (D250).
+- **The caller:** `GET /api/v1/me`, `GET /me/permissions?workspaceKey=`, `GET|DELETE /me/sessions`
+  (one or all: "sign out everywhere"), `POST /me/password`.
+- **Security administration:** `/users` (create, read, change, deactivate; a password-reset link
+  shown once; sign out everywhere), `/groups` and their members, `/action-groups` (read: the
+  catalogue), `/roles` (predefined read-only, custom created, copied, changed, deleted when unused),
+  `/grants` (principal, role or consumer API, scope: instance, or a workspace optionally narrowed to
+  applications and record types for writes), `/workspaces/{key}/access` (who can do what here),
+  `/clients` and `/clients/{id}/secrets` (a second secret during a rotation),
+  `/token-signing-keys` (ages, "rotate now"), `/sign-in-providers` (I3).
+- **Approvals and the inbox (Track A):** `POST|DELETE /change-sets/{id}/submission`,
+  `POST /change-sets/{id}/decisions` (approve or send back, one row each),
+  `GET /workspaces/{key}/publication-requests`, `PUT /workspaces/{key}/approval-policy`,
+  `GET /me/notifications` (cursor-paged, read and unread) and its stream.
+- **K1:** `POST /consumer-subscriptions/{id}/rotate-secret`; `RDM-Signature` a comma-separated list
+  (D238).
+- **Refusals:** `401 AUTHENTICATION_REQUIRED`, `401 TOKEN_INVALID` (with the reason: expired,
+  revoked, audience, unknown key), `403 FORBIDDEN` naming the action, its groups and the workspace;
+  `WWW-Authenticate: Bearer` on every 401.
+
+**Journeys** (wording final in USER_JOURNEYS, a new "Security" group; routes and codes in
+API_JOURNEYS):
+
+- **J39 Sign in and work.** Variants: sign in with a password and return to the page asked for; the
+  session renewed silently; signed out, or signed out everywhere from another device; a deactivated
+  person's next request refused; a wrong password, then throttling (D252); a sign-in provider (I3).
+- **J40 Manage who can do what.** Variants: create a person and grant a role in a workspace; a group
+  holding the grant; a custom role copied from a predefined one; a grant narrowed to record types; a
+  grant removed takes effect on the next request; "who can do what here"; the last Security
+  administrator cannot be removed.
+- **J41 A system calls with a client.** Variants: client credentials to a token; the management API
+  within its roles; a consumer API with and without its grant; the secret rotated with two valid
+  during the overlap; a deactivated client refused.
+- **J42 Propose and approve a change** (Track A). Variants: a Contributor submits; an approver
+  approves and publishes, or sends back with a comment; an edit withdraws the submission; an owner
+  publishes their own in one step; four-eyes refuses self-approval; the inbox and webhook events.
+- **J43 Rotate a key.** Variants: a token signing key rotated with tokens of the old one valid until
+  they expire; "rotate now" after a leak refuses them at once; a webhook key rotated with both
+  signatures during the overlap, then only the new one (K1).
+
+**Decisions raised by the check.** D224–D242 stand; these are new.
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D243 | Reading narrowed to applications (**revisits D228**) | D228 says reads are per workspace "(and application)". **Recommended: reads per workspace only; applications and record types narrow writes alone.** Why: a record's relations, mapping coverage, the cross-type lookup, the feed and exports cross applications, so a reader limited to one application would need every one of them filtered, the cost D228 refused for record types; no user need for it is recorded. Cost: data that must be hidden from some readers goes in its own workspace, as D228 already says |
+| D244 | The record writes with and without a change set | **Recommended:** the 10 shared routes declare both actions; the request's `changeSetId` picks which is checked (Edit live without, Work in change sets with). Why: splitting them into two routes each would break the record-write contract for no gain; the check runs on the same request data the route already reads. Cost: the contract test checks these routes for both actions |
+| D245 | Which routes need no token | **Recommended:** `/health` (status only) and `/health/live`, because probes carry no token; `/openapi.json`, `/docs` and its script, because the management contract is published anyway and C1 signs the page in; the OAuth endpoints. Everything else needs a token, including `/metrics` (a scraper uses a client with the Operator role, which Prometheus supports) and the consumer index and per-definition OpenAPI (they reveal a workspace's model). Cost: a monitoring set-up needs a client |
+| D246 | `GET /system` | **Recommended:** split. `GET /system` keeps the engine, the schema languages and (L1) the licence and source, readable by anyone signed in; `GET /system/configuration` takes the database and settings, for Operations. Why: About and the source offer must reach everyone; settings and database details are an operator's. Cost: a contract change; Deployment reads the new route |
+| D247 | The job stream and downloads in the browser | **Recommended:** both read with `fetch` and the `Authorization` header: the stream from the response body (the same `text/event-stream` format), the download as a file saved from the response. Why: `EventSource` and a link cannot send the header, and a token in a URL is excluded (C-D1). Cost: a small stream reader in place of `EventSource` (I2); a client of the API is unaffected |
+| D248 | Who reads instance-wide resources | **Recommended:** configuration without data (import profiles, model mappings) is read and changed by anyone holding its group at any scope; resources carrying data (source files, job rows and outputs) by their owner and by holders of the group in their workspace, or at the instance for a source file without one. Why: a steward granted one workspace must still build a profile; an uploaded workbook or a job's rows hold one workspace's data. Cost: source files gain an owner (Z4 records it) |
+| D249 | Lists and single reads the caller may not see | **Recommended:** lists are filtered to what the caller may browse (workspaces, jobs, the cross-type lookup, the feed); a named resource the caller may not use answers `403 FORBIDDEN` naming the action and the workspace, not `404`. Why: one organisation per instance, so a workspace's key is not a secret, and an integrator needs to know which grant is missing. Cost: none |
+| D250 | Error shapes of the token endpoint | **Recommended:** the OAuth endpoints answer in the RFC's shape (`{"error": "invalid_grant", "error_description": …}`), every other route in the engine's envelope. Why: every OAuth client library parses the RFC's shape. Cost: two shapes, each documented where it applies |
+| D251 | Token lifetimes | **Accepted with a change by the user (2026-10-23): access tokens last an hour.** As settings with these defaults: access tokens 60 minutes for people and clients; refresh tokens (people only) rotated on every use, a reused one revoking its whole session; a session ends after 12 idle hours or 14 days. An hour loses nothing: the per-request lookup (D226) also checks that the principal is active and that the token's session (`sid`) is not signed out, so a removed role, a deactivation or "sign out everywhere" takes effect on the next request, not at expiry. Cost: a stolen access token works for up to an hour while its holder is still active; a person working past 14 days signs in again. Amends D234's "about 10 minutes" |
+| D252 | Local passwords and failed sign-ins | **Recommended:** at least 15 characters, at most 128, no composition rules, refused when equal to the username or in a short built-in list of the most common; failed sign-ins slowed per account and per address with a growing delay, never a hard lock; each failure in the audit. Why: NIST SP 800-63B (rev. 4) for a password used alone (D225); a hard lock lets anyone lock out an administrator. Cost: long passwords for local accounts, which OPERATIONS explains |
+| D253 | Sealing secrets | **Recommended:** one setting, `SECRETS_ENCRYPTION_KEY`, required on every installation, seals token signing keys, webhook keys and sign-in provider secrets, **replacing** `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (startup refuses the old name and names the new one). Passwords and client secrets are hashed with Argon2id, never sealed. Why: three keys for one purpose is three things to lose; pre-1.0 a renamed setting is allowed. Cost: an operator renames one setting |
+| D254 | Token signing keys | **Recommended:** ES256, a new key every 30 days on its own, the previous one verifying until its last token expires; "rotate now" (J43) retires the current key at once. Why: small tokens, supported by every JWT library, and a leaked key is closed without a restart. Cost: one scheduled step in the existing worker. **Nobody acts on a rotation** (the user asked, 2026-10-23): refresh tokens and client secrets are database records, never signed with the key, so a browser session renews onto the new key unnoticed; after "rotate now" a client's current token is refused with `401 TOKEN_INVALID` and it obtains a new one with its unchanged credentials, as OAuth client libraries do on a 401; tokens are for the engine alone, and anyone verifying one picks the key by its `kid` from the published set. Webhook keys are separate (K1, D238) |
+| D255 | Whose change set | **Recommended:** change sets stay shared: anyone holding Work in change sets in the workspace edits any open one; the creator is recorded and shown (Z4), not enforced. A1's submission freezes it. Why: change sets are coordinated work, as today. Cost: none |
+| D256 | Where the catalogue lives | **Recommended:** P0 writes the full per-route table in API.md; Z1 moves it into each route's declaration, published per operation in the OpenAPI document (its `security` and the action and groups), and API.md keeps the groups and points there. Why: one home, checked by the contract test, readable on `/docs`. Cost: none beyond Z1 |
+| D257 | The predefined roles' names | **Recommended:** as in the table above; "Editor / Data steward" becomes **Data steward** (key `steward`). Why: one name per role; the PRODUCT persona's. Cost: none |
+
+**Mock-ups** ([security mock-ups canvas](https://claude.ai/artifact/CiHGaobpx8jsqaNZvmfXXo), twelve
+boards on the Atlas tokens, each with a dark tweak, 1440px and 390px, in an invented herbarium
+domain): the sign-in page with its refusals; the account menu and account page; Settings ›
+Security › People, Groups and Roles (the role matrix); a workspace's access ("who can do what here")
+and the grant dialog; Clients with the secret shown once and a rotation; a Reader's and a
+Contributor's record view (Z5); the approval round trip and the inbox (A3).
+
+**What P0 produces on acceptance:** ADR-043 (identity and tokens: D224, D225, D234, D235, D250–D254)
+and ADR-044 (authorization: D226–D231, D236, D243–D249, D255, D256) and ADR-045 (approvals: D232,
+D233, D242); ADR-031's prose corrected ("0.11" → 0.12, the table's second row); ARCHITECTURE's
+"model-configurable permissions" corrected and the request's path through the two checks; API.md
+(the catalogue, the routes above, the refusals) and CONSUMER_API (`401`, `403`, the grant, the
+signature list); J39–J43 and API_JOURNEYS; SETTINGS_AND_UI_PLAN's U8 detailed from the approved
+mock-ups; ROADMAP's 0.12 scope gains the approvals (D232); PRODUCT's persona note; package scopes
+amended (I1: D245, D251–D254; I2: D247; Z1: D243, D244, D249, D256; Z2: D248); the P0 record.
+
+**Composable domains (ADR-032):** P0 changes documents only. The identity and audit doors are
+touched by Z4's design: the actor beside `cause`, never instead of it (unchanged from the plan).
+
+**Checks:** `pytest tests/test_api_journeys.py`; links to the anchors added; no product code.
+
+##### P0 record (2026-10-23)
+
+**Delivered 2026-10-23.** The user accepted the plan, D243–D257, the catalogue and the mock-ups
+("otherwise ok"), changing D251 (access tokens last an hour) and asking whether D254 needs action
+from anyone (it does not: recorded in D254 and ADR-043).
+
+- **Decisions:** D243–D257 recorded in the table above; D228 narrowed by D243; D234's "about 10
+  minutes" replaced by D251's hour. Package scopes amended: I1 (D245, D246, D250–D254), I2 (D247),
+  Z1 (D243, D244, D249, D256), Z2 (D248).
+- **ADRs:** [ADR-043](DECISIONS.md#adr-043--identity-and-tokens-issued-by-the-engine) identity and
+  tokens, [ADR-044](DECISIONS.md#adr-044--authorization-action-groups-roles-and-grants)
+  authorization, [ADR-045](DECISIONS.md#adr-045--change-set-publication-approvals) approvals;
+  ADR-031's "0.11" corrected to 0.12 and its table's authorization row restated.
+- **ARCHITECTURE** § Security: "model-configurable permissions" replaced by roles and grants as
+  runtime data, and the request's path through authentication, the permission lookup, the route
+  check and the write-unit check.
+- **API design:** [API.md § Security](API.md#security-product-012-designed): the OAuth endpoints and
+  tokens, the caller's routes, the action groups and their rules, the predefined roles, `403`'s
+  envelope, Security administration, approvals and the inbox, changes to existing routes, and the
+  catalogue of all 159 operations, generated from an app with every flag on. CONSUMER_API: tokens,
+  grants per consumer API and workspace, `401` and `403`, rotation with a signature list.
+- **Journeys:** J39 (7 variants), J40 (10), J41 (6), J42 (6), J43 (5) in a new "Security" group of
+  USER_JOURNEYS; their planned routes, codes and settings in API_JOURNEYS.
+- **U8** detailed in SETTINGS_AND_UI_PLAN from the mock-ups, with the new pages in the settings
+  table. ROADMAP's 0.12 scope gains the approvals (D232) and 1.0's protected publishing points to
+  ADR-045; PRODUCT's persona note names the roles.
+- **Mock-ups:** [security mock-ups canvas](https://claude.ai/artifact/CiHGaobpx8jsqaNZvmfXXo),
+  approved; private until shared.
+
+**Checks:** `pytest tests/test_api_journeys.py` (5 passed). **Not done:** the mock-ups were not opened
+in a browser at either width or in dark before approval; the anchors of the new links were checked
+by reading the headings, not by a link checker. No product code changed.
+
 ### Track I — Identity
 
 #### I1: The issuer, people and clients; every route authenticated
@@ -251,11 +445,228 @@ workspace** (Z3), because a consumer API key may mean different contracts in two
 the token, revocation and discovery endpoints; **users** (local accounts with a password hashed
 with Argon2id, deactivation, never deletion, D237) and **OAuth clients** (client credentials grant,
 secret shown once, two secrets valid during a rotation); a refresh-token store with revocation
-("sign out everywhere"). Every route requires a valid access token except the discovery, token,
-JWKS, `/health/live` and the sign-in page; `/health` readiness detail and `/metrics` become
-Operations-only in Z1. The first administrator is created with `python -m app.cli.create_admin`
+("sign out everywhere"). Every route requires a valid access token except those D245 names
+(`/health`, `/health/live`, `/openapi.json`, `/docs`, the OAuth endpoints); readiness detail and
+`/metrics` become Operations-only in Z1. _Amended by P0:_ ES256 keys rotated every 30 days and
+"rotate now" (D254); lifetimes as settings (D251: access tokens an hour; the per-request check of the
+principal and session); passwords and slowing (D252); `SECRETS_ENCRYPTION_KEY` replacing
+`CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (D253); `GET /system` split (D246); OAuth errors in the RFC's
+shape (D250). The first administrator is created with `python -m app.cli.create_admin`
 (D235). The journey harness and the browser harness obtain real tokens; with one temporary role,
 "all actions", until Z1. `/me` returns the caller.
+
+##### I1 plan (2026-10-23)
+
+**Planned 2026-10-23; accepted by the user the same day** ("its oky"): D258–D265 and the test
+cases as written. Checked
+against the code at `5622b67` with P0's documents.
+
+**What the check found:**
+
+- **No JWT library**; `cryptography` 46 (already a dependency, OpenSSL 3.5) provides ES256 and
+  Argon2id, so only token encoding needs a choice (D258).
+- **Every management router is registered with `MANAGEMENT_DEPENDENCIES`**, the consumer router and
+  `/metrics`' router with none or the same list: three places to add authentication.
+- **The tests build 293 `TestClient`s in 51 modules**, plus the journey world (`scenario.application`),
+  the several-process journeys (`journeys/processes.py`, `httpx`) and the browser harness
+  (`e2e/helpers/harness.mjs`, one `newContext`, an `api()` helper, and direct `fetch` in 12 runners).
+  Every database a test uses is a clone of the `schema` seed or a seed built on it (journey
+  scenarios, the browser seeds), so credentials placed in that seed reach them all (D263).
+- **No user can obtain a token in I1.** The token endpoint's grants for a person are
+  `authorization_code` and `refresh_token`, both I2's sign-in page; only clients sign in with I1.
+  So the first administrator from `create_admin` cannot act until I2, and the first client needs
+  another way in (D262). Sessions, refresh tokens, `/oauth/revoke`, the password-reset link and
+  failed-sign-in slowing have no caller before I2 either (D261).
+- **`RDM_CURSOR_SIGNING_KEY` and `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`** are the existing secrets;
+  the second is read in `config.py`, `SubscriptionSettings`, `generate_key` and nine test modules.
+- **`GET /system`** carries `activeModelRelease` too; it stays there with the engine (D246 moves only
+  `database` and `settings`). Settings › Deployment is the one browser reader of what moves.
+
+**What is built:**
+
+1. **Settings:** `SECRETS_ENCRYPTION_KEY` required on every installation (startup refuses a missing
+   one, and refuses `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` naming the new setting, D253);
+   `ACCESS_TOKEN_MINUTES` (60, D251); `PUBLIC_URL` (D259); `generate_key` prints a key for the new
+   setting. All reported in Settings › Deployment like the others, secrets as "set".
+2. **Migration** `20261027_01`: `users` (public ID, username unique ignoring case, name, e-mail,
+   Argon2id password hash or none, active, version, created and last sign-in), `oauth_clients`
+   (public ID, name, active, version, last used), `oauth_client_secrets` (hash, created, expires
+   after an overlap, last used), `token_signing_keys` (`kid`, the private key sealed, the public
+   JWK, created, rotated, retired).
+3. **Engine** `engine/identity/`: passwords (D252's rules, Argon2id), signing keys (created when
+   none is current, rotated lazily at issue after 30 days, D264, or on request; retired at once by
+   "rotate now"), tokens (issue and verify, D258), clients and their secrets (two valid during an
+   overlap), users (create, change, deactivate; never deleted). The request's principal is one
+   query by primary key with the token's key state; the permission cache of D226 comes with Z1,
+   which first has permissions to cache.
+4. **Routes:** `GET /.well-known/oauth-authorization-server`, `GET /oauth/jwks`, `POST /oauth/token`
+   (`client_credentials` only in I1; `client_secret_basic` and `client_secret_post`; `scope`
+   picks the audience, D260; RFC errors, D250); `GET /api/v1/me`; `GET|POST /users`,
+   `GET|PATCH /users/{id}`; `GET|POST /clients`, `GET|PATCH /clients/{id}`,
+   `POST /clients/{id}/secrets`, `DELETE /clients/{id}/secrets/{secretId}`;
+   `GET /token-signing-keys`, `POST /token-signing-keys/rotation`; `GET /system/configuration`.
+   Lists cursor-paged, writes with `expectedVersion`, as API.md designs them.
+5. **Every other route needs a token:** the management routers and `/metrics` a `management` one,
+   the consumer routes a `consumer` one (D260); `401 AUTHENTICATION_REQUIRED` and
+   `401 TOKEN_INVALID` (`expired`, `revoked`, `audience`, `unknownKey`) with `WWW-Authenticate:
+   Bearer`. Any active principal may do everything until Z1 (the temporary "all actions").
+   The OpenAPI document declares the bearer scheme and the token URL; the lock is re-baselined.
+6. **CLI:** `python -m app.cli.create_admin` (a user with a password read from the terminal, D252
+   applied) and `python -m app.cli.create_client` (D262).
+7. **Harnesses** (D263): the `schema` seed holds a harness client and a signing key; the backend
+   tests take one token per process from `POST /oauth/token`; the 51 modules import a `TestClient`
+   carrying it; the several-process journeys and the browser harness obtain theirs the same way.
+8. **Frontend:** Settings › Deployment reads `GET /system/configuration`. Nothing else changes until
+   I2 (D265).
+9. **Documents:** API.md's delivered parts moved out of "designed"; OPERATIONS (the settings, the
+   first administrator, the first client, the public URL); CONSUMER_API's "until those packages"
+   sentence (D260); journeys' status; CHANGELOG, PROJECT_STATUS.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D258 | Encoding and verifying tokens | **Recommended:** PyJWT (`pyjwt>=2.10`) for the JWT format, verifying with `algorithms=["ES256"]` only, over keys `cryptography` generates. Why: token parsing is where hand-written code goes wrong (algorithm confusion, claim checks); PyJWT is the library most Python OAuth servers use and adds no other dependency. Cost: one new runtime dependency |
+| D259 | The issuer's address | **Recommended:** a setting `PUBLIC_URL`, the engine's address as callers reach it (default `http://localhost:8000`, the address the frontend already assumes), used as `iss` and for the absolute URLs in the server metadata. Why: RFC 8414 needs absolute URLs and a fixed issuer; reading it from each request would give every node behind a proxy another issuer. Cost: a production installation sets one more setting, which OPERATIONS lists |
+| D260 | Asking for a consumer token, and consumer routes in I1 | **Recommended:** the token request's `scope` is `management` (the default) or `consumer` and becomes `aud`; I1 makes the consumer routes need a `consumer` token, which any active principal may use until Z3 adds grants per consumer API. Why: every OAuth client library can send `scope` in client credentials; and leaving the consumer API open after I1 would break "every route authenticated" for no gain. Cost: CONSUMER_API's sentence that the consumer API stays open until Z3 is corrected; an integrator asks for `scope=consumer` |
+| D261 | What moves from I1 to I2 | **Recommended:** sessions and refresh tokens, `/oauth/revoke`, the `sid` check, `DELETE /users/{id}/sessions`, the password-reset link and the slowing of failed sign-ins go to I2, where the sign-in page first creates sessions and checks passwords. Why: in I1 nothing can create a session or try a password from outside, so this code would have no journey and no honest test (AGENTS: no test builds a state no client could produce). Client secrets are 32 random bytes, so slowing guesses at them protects nothing. Cost: none; I2 is next |
+| D262 | The first client | **Recommended:** `python -m app.cli.create_client --name …`, run on the server like `create_admin`, printing the client's ID and secret once. Why: until I2 nobody can sign in, so without it no one could reach the API at all; afterwards it is how an installation is automated without a browser (infrastructure as code). Cost: a second command, the same trust as the first |
+| D263 | How the tests reach the engine | **Recommended:** the `schema` seed holds a signing key and a harness client with fixed test credentials, created by the same engine function as the CLI; each test process takes one real token from `POST /oauth/token` and reuses it on every clone; the 51 modules change one import to a `TestClient` that carries it; a test of a refusal builds a client without it. Why: one token request per test would add Argon2id's cost to thousands of tests, past the 11-minute ceiling; one per process costs nothing. Cost: the 51 import lines, the seeds rebuilt once |
+| D264 | When the signing key rotates on its own | **Recommended:** when a token is issued and the current key is 30 days old, under a lock, instead of a step in the job worker (D254 said worker). Why: the same result without a timer; works on a process with jobs off, and a test can see it. Cost: none |
+| D265 | The interface between I1 and I2 | **Recommended:** the browser shows the engine's refusals until I2 (next in the queue) signs it in; the browser runners pass by sending the harness token on every request (Playwright's headers). Why: anything in the frontend or the dev server that hands the browser a token without signing in is the switch D235 refused, and I2 replaces it at once. Cost: no one uses the interface on a dev server between I1 and I2 |
+
+**Journey test cases** (`tests/journeys/test_j39_j41_j43_identity.py`, on two configurations;
+written first and seen failing):
+
+1. **J39, refused without a token:** given the engine, when a management read, a consumer route and
+   `/metrics` are called with no token, then each answers `401 AUTHENTICATION_REQUIRED` with
+   `WWW-Authenticate: Bearer`; `/health`, `/health/live`, `/openapi.json`, `/docs`, the server
+   metadata and the JWKS answer without one.
+2. **J39, a token not ours:** given a token signed by another key, or altered, when it calls a
+   management read, then `401 TOKEN_INVALID` (`unknownKey`, and for the altered one the signature
+   reason) with `error="invalid_token"`.
+3. **J41, a client calls:** given an administrator creates a client (the secret shown once, never on
+   a read), when the client posts its credentials to `/oauth/token` (basic, and in the body), then it
+   gets a Bearer token for an hour; `GET /me` names it; it reads and writes records in the
+   workspace. A wrong secret answers `invalid_client`, an unknown grant `unsupported_grant_type`, in
+   the RFC's shape.
+4. **J41.3, the secret rotated:** given a client, when a second secret is created with an overlap,
+   then both obtain tokens; when the old one is deleted, or the overlap is 0, only the new one does.
+5. **J41.4, a deactivated client:** given a client with a token, when it is deactivated, then that
+   token's next request answers `401 TOKEN_INVALID` (`revoked`) and the token endpoint
+   `invalid_client`.
+6. **J41.5, the other audience:** given a `consumer` token, when it calls the management API, then
+   `401 TOKEN_INVALID` (`audience`); a `management` token on a consumer route likewise.
+7. **J43.1 and J43.2, the token key rotated:** given a token, when the key is rotated with
+   `immediate: false`, then the old token still works, new tokens carry the new `kid` and the JWKS
+   lists both; when rotated with `immediate: true`, the old key's tokens answer `401 TOKEN_INVALID`
+   (`unknownKey`), the JWKS drops it, and the client obtains a new token with its unchanged secret.
+8. **J40 (I1 part), people:** given an administrator, when a person is created, read, changed and
+   deactivated with `expectedVersion`, then each read shows it; a stale version answers
+   `409 VERSION_CONFLICT`; a person is never deleted. `create_admin` refuses a short or common
+   password and creates the user with one that passes.
+9. **J31, `/system` split:** `GET /system` carries the engine, the schema languages and the active
+   release but no database or settings; `GET /system/configuration` carries them, secrets as "set".
+
+Startup (J12, the existing startup journeys extended): a missing `SECRETS_ENCRYPTION_KEY`, and the
+old setting's name, each refuse to start with a message naming `SECRETS_ENCRYPTION_KEY`.
+Unit tests: the password rules' edges, token verification (expiry, algorithm, audience, issuer,
+an unknown `kid`), sealing of a signing key, lazy rotation's age check.
+
+**Checks:** the new journey module; the journey groups the harness change touches selected by
+`python -m tests.affected`; `test_openapi_contract` with the lock diffed; `test_startup`'s settings
+cases; the unit tests; Ruff on the changed files; frontend Vitest for Deployment, format, lint,
+build; one browser runner (`u3-settings`) to show the harness token and the Deployment page, at
+1440px and 390px. The harness change touches every test's setup, so a wider run than three minutes
+may be needed: it is announced with its expected time before it runs.
+
+**Composable domains (ADR-032):** the identity door is touched: principals are users and clients,
+with public IDs and deactivation, never deletion; no value source or `cause` changes (Z4).
+
+##### I1 record (2026-10-23)
+
+**Built 2026-10-23; the backend run the harness change needs is waiting for the user's go-ahead**
+(below). What was built is the plan's list, items 1–9:
+
+- **Engine** `engine/identity/` (`passwords`, `keys`, `tokens`, `clients`, `users`,
+  `authentication`, `settings`); migration `20261027_01`; PyJWT added (D258).
+- **Routes:** `oauth.py` (metadata, JWKS, token) outside `/api/v1` with no token; `identity.py`
+  (`/me`, `/users`, `/clients` and secrets, `/token-signing-keys` and rotation) and
+  `/system/configuration` behind the token. `authenticated` is the first of
+  `MANAGEMENT_DEPENDENCIES`; the consumer router has its own `consumer` check. The OpenAPI document
+  declares `engineOAuth` (client credentials, `/oauth/token`) on every operation but the open ones.
+- **CLI** `create_admin`, `create_client`; `generate_key` prints the secrets key.
+- **Harnesses:** `tests/harness_identity.py` (the `schema` seed's client and key, one token per
+  process, `TestClient` carrying it), the 48 modules importing it, the several-process journeys,
+  `browser_seeds.py` handing the credentials to the browser harness, which sends the token from the
+  browser context and from the runners' `fetch`.
+- **Frontend:** Settings › Deployment reads `/system/configuration`; About keeps the engine and the
+  release.
+- **Documents:** API.md (the system split, the delivered security routes, the refusal reasons),
+  CONSUMER_API, OPERATIONS (§ Authentication, the settings, startup refusals, metrics with a token,
+  upgrading from 0.11), ARCHITECTURE's authentication step, USER_JOURNEYS' statuses, API_JOURNEYS'
+  inventory, CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- `TOKEN_SIGNING_KEY_DAYS` (30) is a setting: the test seeds are reused for longer than 30 days, and
+  a key replaced in one clone would make the shared harness token unknown in the others; the harness
+  sets it to 100 years. D254's 30 days stay the default.
+- Two more `TOKEN_INVALID` reasons: `malformed` (not a JWT this engine issues, including an HS256
+  token: algorithm confusion is refused before a key is chosen) and `signature`.
+- The token lifetimes are in the `runtime` settings group, not `limits` ("Batch and job limits").
+- About showed the migration revision, which moved to `/system/configuration`; it is shown on
+  Deployment instead, so About stays readable by everyone after Z1.
+- Case 9 extends `test_j31_system.py`; the startup cases are J12.7's invalid-setting cases plus
+  `test_startup`'s rewritten key test.
+- **The journey cases were written after the engine code**, not seen failing first: the harness
+  needs the token endpoint to reach the engine at all. They were then run and passed.
+- One more check: every operation of the document with all four flags on refuses an anonymous call
+  (`test_openapi_contract`).
+
+**Checks** (single process unless noted):
+
+- `tests/journeys/test_j39_j41_j43_identity.py`: 18 passed (9 cases × 2 configurations).
+- `tests/journeys/test_j31_system.py` with `tests/unit/test_config.py`: passed (after OPERATIONS
+  listed the new settings).
+- `tests/unit/engine/identity/`: 23 passed (password rules, token verification, lazy rotation).
+- `tests/test_openapi_contract.py` (lock re-baselined after a diff against `5622b67`: 13 paths, 17
+  schemas, `SystemResponse` narrowed, `security` added, nothing else), `tests/test_api_journeys.py`,
+  `tests/unit/harness`: passed.
+- Ruff on the changed files; frontend Vitest for Settings, IntegrationPages and App's settings cases
+  (23), `format:check`, `lint` (0 errors), `build`.
+
+**The stopped run, and what it hid.** A first run of seven exposed modules in one parallel
+invocation was left in the background for 50 minutes, far past the 3-minute package ceiling; it
+should have been stopped at the ceiling and split. Blaming the machine's load (51, macOS services,
+disk 97% full) was premature. Run one module at a time under a 3-minute cap, they found real defects,
+all fixed:
+
+- **The harness had no token for databases built from empty** (startup tests): it now falls back to a
+  client made in that database, as `create_client` makes one.
+- **In maintenance mode** (startup could not prepare the database) a request with a token, the token
+  endpoint and the JWKS answered `500 INTERNAL_ERROR` reading identity tables that may not exist;
+  they answer `503 MODEL_REGISTRY_UNAVAILABLE` again, checked before a session is opened
+  (`require_started`), with a regression check in `test_startup`'s refusal helper.
+- `test_startup`'s hard-coded head revision; J12's pool test reading `settings` from `/system`.
+- A harness retry for an existing test that downgrades and re-upgrades one database. **The user,
+  2026-10-23: no upgrade or downgrade scenarios are tested or measured before 1.0**; no such test was
+  added or extended, and removing the existing ones is for the user to decide.
+
+Then: `test_startup` 45 passed (1 min 57 s), J12 run the service 62 passed (1 min 47 s), J30
+subscriptions 14, J31 12, `test_pg3_concurrency` 21, each alone.
+
+**Not run, and why:**
+
+- **The whole backend suite**, which `python -m tests.affected` selects for the harness change (about
+  11 minutes): announced, waiting for the user's go-ahead.
+- **The browser runner** (`u3-settings`, 1440px and 390px) for the harness token and the Deployment
+  page; its appearance is unverified.
+
+**What the user cannot do yet:** sign in from the browser (the interface shows the refusals until
+I2, D265); reset a password or end sessions (I2); narrow anyone's rights (Z1: every active client and
+person may do everything); limit a client to some consumer APIs (Z3). A local development server needs
+`SECRETS_ENCRYPTION_KEY` set to start, and a client from `create_client` to call the API.
 
 #### I2: Signing in from the browser
 
@@ -266,7 +677,8 @@ the authorization code flow with PKCE for the frontend (D234), the access token 
 renewed through a refresh token in an `HttpOnly`, `SameSite=Strict` cookie; sign-out; the account
 menu showing the person, "Account" and "Sign out" in place of the placeholder; the account page
 (change password, sessions with "sign out everywhere", the person's roles read-only). Expired or
-revoked sessions return to the sign-in page and back to where the person was.
+revoked sessions return to the sign-in page and back to where the person was. _Amended by P0:_ the
+job stream and downloads read with `fetch` and the header (D247).
 
 #### I3: A sign-in provider
 
@@ -292,7 +704,10 @@ and record types (D228). Every route declares its action; the request is refused
 `403 FORBIDDEN` naming the action and the workspace when no grant allows it, and the contract test
 refuses a route without a declaration. Effective permissions are resolved on the server per request
 from a cache invalidated across processes through `pg_notify` (D226). `GET /me/permissions` per
-workspace. The temporary "all actions" role from I1 becomes the predefined Security administrator
+workspace. _Amended by P0:_ reads per workspace only, narrowing for writes (D243); the record
+writes check the live or change-set action by `changeSetId` (D244); lists filtered, named resources
+`403` (D249); the declarations published per operation in the OpenAPI document, API.md's table
+then pointing there (D256). The temporary "all actions" role from I1 becomes the predefined Security administrator
 plus Owner of every workspace for the first administrator.
 
 #### Z2: Record types at the write unit, jobs, moves and the feed
@@ -306,7 +721,8 @@ not write, checked as one set in PostgreSQL over the work's distinct types, neve
 again at confirmation and execution (D236). A move needs read on the source and write on the target
 (0.11 I33). A grant naming a record type the workspace's model no longer has is reported on the
 grant, never silently widened. The feed, exports and the cross-type lookup across workspaces return
-only workspaces the caller may browse.
+only workspaces the caller may browse. _Amended by P0:_ instance-wide resources by D248 (source files
+gain an owner).
 
 #### Z3: Consumer APIs per client
 
@@ -438,13 +854,13 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | D225 | Multi-factor authentication | **Recommended:** left to the sign-in provider in 0.12; local accounts have password only, which OPERATIONS states with the advice to use a provider in production. TOTP for local accounts in TODO for after 1.0. Why: MFA is what the organisation's provider already does well; building TOTP, recovery codes and resets is a package of its own. Cost: an installation with local accounts only has no second factor |
 | D226 | Where permissions live in a request | **Recommended:** the token proves **who** (subject, client, expiry, a coarse audience: management or consumer); **what** they may do is looked up on the server per request from a cache invalidated across processes when a grant changes. Why: a role removed takes effect on the next request, not when a token expires; tokens stay small however many workspaces a person works in. Cost: one cached lookup per request; the cache invalidation (reusing N1's signal) |
 | D227 | How roles are made | **Recommended:** the user's idea as stated: **action groups** named after journeys (P0's table) → **roles** made of action groups → **grants** of a role to a user, group or client at a scope. Predefined roles are read-only; a custom role is created from scratch or copied from one. Why: an administrator thinks in jobs ("may publish"), not in 157 routes; a new route joins an existing group without touching any role. Cost: the catalogue's upkeep, checked by the contract test |
-| D228 | Scopes of a grant | **Recommended:** the instance or one workspace; within a workspace optionally narrowed to applications and record types **for writes**; reads are per workspace (and application). Why: SC-13 asks that "a permitted editor can edit only the assigned scope"; hiding a record type from a reader would need every list, query, relation column, feed, export and lookup filtered, with no user need recorded (ARCHITECTURE: record-level and finer rules only on demonstrated need). Workspaces are already the governed scope (ADR-031). Cost: data that must be hidden from some readers goes in its own workspace |
+| D228 | Scopes of a grant | _Narrowed by D243 (2026-10-23): reads are per workspace only._ **Recommended:** the instance or one workspace; within a workspace optionally narrowed to applications and record types **for writes**; reads are per workspace (and application). Why: SC-13 asks that "a permitted editor can edit only the assigned scope"; hiding a record type from a reader would need every list, query, relation column, feed, export and lookup filtered, with no user need recorded (ARCHITECTURE: record-level and finer rules only on demonstrated need). Workspaces are already the governed scope (ADR-031). Cost: data that must be hidden from some readers goes in its own workspace |
 | D229 | Groups | **Recommended:** local groups managed in the engine, plus **provider groups** taken from a sign-in provider's claim at each sign-in; both hold grants the same way; no nested groups. Why: the user's idea 1, and in an organisation with a directory, membership is managed there and only the grant lives in the engine. Cost: a provider group's members are only known after they sign in once |
 | D230 | The predefined roles | **Recommended**, named after the PRODUCT personas and common governance practice: **Reader** (Browse), **Contributor** (Browse, Work in change sets: proposes, cannot publish, D231), **Editor / Data steward** (Browse, Edit live, Work in change sets, Publish, Bulk and import), **Data owner** (Steward's groups plus Approve publications with own, Feed, Copy and move), **Model administrator** (Model authoring, Model release), **Workspace administrator**, **Integration administrator** (Integration administration, Feed), **Operator** (Operations), **Security administrator** (Security administration only, no data). For clients: **Consumer** (consumer API grants only) and any role above. Why: covers ideas 4 and 5 with names people recognise, and separates security administration from data so no single default role does everything. Cost: names to agree; nine roles to keep true in the catalogue |
 | D231 | Editing live as its own permission | **Recommended:** Edit live and Work in change sets are separate action groups. Why: it is what makes the Contributor of idea 5 possible: a person who can change things only by proposing them. With today's behaviour (a correction is live when saved) the Editor keeps live editing. Cost: Z2 checks the two separately on every write path |
 | D232 | Approvals in 0.12 | **The user decides; conflicts with the roadmap (1.0) and PRODUCT.md's rule.** Recommended: **yes, change-set publication only, as Track A after the cut line**, with self-approval for those whose role allows it and a per-workspace four-eyes policy. Why: with D231, a Contributor's change set otherwise waits for someone to notice it; approval needs identity and roles, which 0.12 brings, and its smallest useful flow (submit, review, approve or send back with a comment, notify, audit; REAL_WORLD_RESEARCH) is small once they exist. No one is forced into it: the default roles publish as today, which keeps ADR-026. Approvals of model activation and rollback stay in 1.0's protected publishing. Cost: Track A (three packages); if 0.12 must ship sooner, the cut line releases without it and it follows in 0.12.x |
 | D233 | How approvals notify | **Recommended:** an inbox in the engine (API and top bar) and webhook events for each step; **no e-mail** in 0.12. Why: API first: an organisation routes the events to its e-mail, Teams or Slack with its own tooling; sending mail needs SMTP settings, templates, bounces and unsubscribes. Cost: without integration work, a person learns of a request only when they open the app |
-| D234 | How the browser holds its session | **Recommended:** authorization code with PKCE; the access token (short, about 10 minutes) in memory, the refresh token in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie that only the token endpoint reads. Why: the current OAuth guidance for browser applications; a script injected into the page cannot read the refresh token, and the engine still issues one token format for all clients. Cost: the frontend and engine must share a site (one origin or a same-site subdomain), which OPERATIONS states |
+| D234 | How the browser holds its session | **Recommended:** authorization code with PKCE; the access token (short-lived: an hour, D251 as amended 2026-10-23) in memory, the refresh token in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie that only the token endpoint reads. Why: the current OAuth guidance for browser applications; a script injected into the page cannot read the refresh token, and the engine still issues one token format for all clients. Cost: the frontend and engine must share a site (one origin or a same-site subdomain), which OPERATIONS states |
 | D235 | Is there a way to switch authentication off? | **Recommended:** **no**. Development and tests use real tokens; the first administrator comes from a CLI command on the server. Why: a switch that disables security is eventually left on in production, and ADR-031 already says "a switch cannot guard itself". Cost: the harness changes in I1 (one fixture), and the local dev server needs a sign-in once |
 | D236 | Whose permissions a job runs with | **Recommended:** its requester's, checked at submission, at confirmation and when it runs; a requester deactivated or losing the right makes the job fail with the reason. Why: a job is the bulk path the exit gate names; a job queued before a permission was removed must not keep it. Cost: one check per job step |
 | D237 | People in the audit | **Recommended:** the audit stores the principal's ID; names are resolved when read. Users and clients are deactivated, never deleted, so history always resolves; a person's name and e-mail can be anonymised in one place. Why: a name copied into every audit row could not be erased, and a deleted user would leave unexplained IDs. Cost: a join when history is read |
@@ -459,7 +875,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | # | Package | Needs | Scope in one line |
 | --- | --- | --- | --- |
 | 0 | — | 0.11.0 released | **Met 2026-10-22** |
-| 1 | [P0](#p0-design-pass) | — | The catalogue and action groups, roles, ADR-043/044, API design, J39–J43, mock-ups; D224–D241 settled |
+| 1 | [P0](#p0-design-pass) | — | **Delivered 2026-10-23.** The catalogue and action groups, roles, ADR-043/044/045, API design, J39–J43, mock-ups approved; D224–D257 settled |
 | 2 | [I1](#i1-the-issuer-people-and-clients-every-route-authenticated) | P0 | The issuer, users and clients, every route authenticated, harnesses on real tokens |
 | 3 | [I2](#i2-signing-in-from-the-browser) | I1 | The sign-in page, PKCE, the account menu and page |
 | 4 | [Z1](#z1-roles-groups-and-grants-at-the-route) | I1 | Roles, groups and grants; every route checked; `/me/permissions` |

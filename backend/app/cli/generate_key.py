@@ -1,6 +1,6 @@
-"""Print a new key for ``CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY``: 32 random bytes in URL-safe base64.
+"""Print a new key for ``SECRETS_ENCRYPTION_KEY``: 32 random bytes in URL-safe base64.
 
-Keep it with the deployment's other secrets, outside the database it protects (C-D96).
+Keep it with the deployment's other secrets, outside the database it protects (C-D96, D253).
 """
 
 import base64
