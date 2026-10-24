@@ -97,7 +97,8 @@ try {
   await page.getByRole("button", { name: "Activate in a workspace…" }).click();
   await page.getByRole("dialog").getByRole("button", { name: /^Activate .* in / }).click();
   await page.locator(".model-detail-header .status-pill.tone-success", { hasText: "Run by" }).waitFor();
-  await page.getByText("Default: the active release this one replaced when it was first activated.").waitFor();
+  // The activation names who made it since 0.12 Z4 ("… first activated by Test harness.").
+  await page.getByText(/^Default: the active release this one replaced when it was first activated( by .+)?\.$/).waitFor();
   expect(
     (await page.locator(".model-detail-header .status-pill", { hasText: "Run by no workspace" }).count()) === 0,
     "Run by no workspace shown after activation",

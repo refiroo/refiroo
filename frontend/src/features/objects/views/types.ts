@@ -41,6 +41,13 @@ export interface ViewComponentProps {
    * hold (`backgroundJobMaxItems`, D104).
    */
   bulkSelection?: { maxItems: number };
+  /**
+   * In live data the person cannot change but can propose changes to (0.12 Z5, D324): the way to
+   * propose a new record of a type, or a change to one, through their own change set, if any.
+   */
+  onPropose?: (applicationKey: string, objectTypeKey: string) => ((objectId?: string) => void) | undefined;
+  /** One-shot: open the create form on arrival (a proposed new record, D324); changes per request. */
+  createRequest?: number;
   /** Sibling lenses of the same source collection, placed by the renderer below its heading. */
   lenses?: ReactNode;
   /**

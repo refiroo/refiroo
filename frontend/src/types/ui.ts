@@ -41,6 +41,8 @@ export type RouteState =
       workspaceKey: string;
       changeSetId?: string;
       publicationId?: string;
+      /** One-shot: open the collection's create form (0.12 Z5, a proposed new record); never restored. */
+      createRequest?: { key: number };
     } & CollectionQueryState)
   | {
       kind: "detail";

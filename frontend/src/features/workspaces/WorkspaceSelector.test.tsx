@@ -41,6 +41,8 @@ describe("WorkspaceSelector", () => {
         // Retired workspaces are opened from Settings › Workspaces, not chosen here (the user, 2026-10-19).
         status: "active",
         pageSize: 50,
+        // Only the workspaces the person may browse are offered (0.12 Z5, D327).
+        holding: "browse",
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Show workspace options/ }));

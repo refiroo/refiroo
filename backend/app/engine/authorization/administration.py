@@ -106,7 +106,8 @@ def security_administrators(session: Session) -> int:
 # --- roles ----------------------------------------------------------------------------------------
 
 
-def _groups(keys: list[str]) -> list[str]:
+def known_groups(keys: list[str]) -> list[str]:
+    """``keys`` in the catalogue's order; an unknown one is ``422 ACTION_GROUP_UNKNOWN``."""
     unknown = sorted(set(keys) - set(GROUPS))
     if unknown:
         raise api_error(
@@ -175,7 +176,7 @@ def create_role(session: Session, payload: RoleCreate) -> Role:
     def change() -> Role:
         _name_taken(session, payload.name)
         if payload.actionGroups is not None:
-            keys = _groups(payload.actionGroups)
+            keys = known_groups(payload.actionGroups)
         elif payload.copiedFrom is not None:
             keys = list(groups_of(session, load_role(session, payload.copiedFrom)))
         else:
@@ -220,7 +221,7 @@ def update_role(session: Session, key: str, payload: RoleUpdate) -> Role:
         if "description" in fields:
             role.description = payload.description
         if "actionGroups" in fields and payload.actionGroups is not None:
-            keys = _groups(payload.actionGroups)
+            keys = known_groups(payload.actionGroups)
             session.execute(delete(RoleActionGroup).where(RoleActionGroup.role_id == role.id))
             session.add_all(RoleActionGroup(role_id=role.id, group_key=item) for item in keys)
         role.version += 1

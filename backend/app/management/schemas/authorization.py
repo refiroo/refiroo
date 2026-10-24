@@ -171,3 +171,23 @@ class PermissionsResponse(BaseModel):
         description="The action groups the caller holds in the workspace, from grants there or at "
         "the instance"
     )
+
+
+class HeldWorkspace(BaseModel):
+    key: str
+    label: str
+
+
+class HeldAnywhere(BaseModel):
+    """An action group the caller holds somewhere (Z5, D328)."""
+
+    key: str
+    name: str
+    instance: bool = Field(description="Held at the instance, so in every workspace")
+    workspaces: list[HeldWorkspace] = Field(
+        description="The workspaces it is held in, by label; empty when held at the instance"
+    )
+
+
+class HeldAnywhereList(BaseModel):
+    items: list[HeldAnywhere] = Field(description="In the catalogue's order")

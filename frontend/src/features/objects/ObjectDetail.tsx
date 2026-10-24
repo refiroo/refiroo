@@ -3,7 +3,7 @@ import { useLocalNumberPreference } from "@/lib/localPreference";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { EditableField, fieldEditing, type FieldLayout } from "@/features/objects/EditableField";
-import { useWorkspaceData, useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useWorkspaceData, useDataApi, useRecordWrites } from "@/features/workspaces/WorkspaceDataContext";
 import { changedObjectType, errorMessage } from "@/api/errors";
 import { fallbackDetail } from "@/model/defaults";
 import { fieldValue } from "@/model/fields";
@@ -53,6 +53,7 @@ export function ObjectDetail({
   refreshToken = 0,
   onChanged = () => undefined,
   onTypeChanged,
+  onPropose,
 }: {
   model: EngineModel;
   application: ApplicationDefinition;
@@ -74,8 +75,18 @@ export function ObjectDetail({
    * follows it there, replacing the old route so Back does not return to it.
    */
   onTypeChanged?: (objectTypeKey: string) => void;
+  /**
+   * A record the person cannot change live but can propose a change to, through their own change
+   * set (0.12 Z5, D324): the way to do it for a record of this type, if any.
+   */
+  onPropose?: (applicationKey: string, objectTypeKey: string) => ((objectId?: string) => void) | undefined;
 }) {
   const api = useDataApi();
+  // The record's own values and its deletion follow its type's writes (Z5, D329); relationships
+  // and the records in its panels follow theirs, in their panels.
+  const writes = useRecordWrites();
+  const recordReadOnly = readOnly || !writes.permits(application.key, objectTypeKey);
+  const proposeHere = readOnly ? onPropose?.(application.key, objectTypeKey) : undefined;
   const { changeSet, publication } = useWorkspaceData();
   const [editing, setEditing] = useState(initialAction === "edit");
   const [deleting, setDeleting] = useState(initialAction === "delete");
@@ -236,7 +247,7 @@ export function ObjectDetail({
   const subtitleField = detail.header.subtitleField;
   const subtitleShown =
     subtitleField !== undefined &&
-    (fieldEditing(model, object, subtitleField, readOnly) !== undefined ||
+    (fieldEditing(model, object, subtitleField, recordReadOnly) !== undefined ||
       (subtitle !== undefined && subtitle !== null && subtitle !== ""));
 
   /** The header's title or subtitle, edited in place as a details-panel field is (UA8, U-D16). */
@@ -251,7 +262,7 @@ export function ObjectDetail({
         object={currentObject!}
         field={field}
         layout={layout}
-        readOnly={readOnly}
+        readOnly={recordReadOnly}
         editing={headerField === field}
         disabled={headerField !== undefined && headerField !== field}
         focusOnMount={headerReturn === field}
@@ -296,7 +307,7 @@ export function ObjectDetail({
             setHistoryRefresh((value) => value + 1);
           }}
           onReload={loadObject}
-          readOnly={readOnly}
+          readOnly={panel.type === "attributes" ? recordReadOnly : readOnly}
         />
       </Card>
     );
@@ -358,9 +369,14 @@ export function ObjectDetail({
                   Expand to full page
                 </button>
               )}
+              {proposeHere && (
+                <button className="primary" onClick={() => proposeHere(object.id)}>
+                  Propose a change
+                </button>
+              )}
               <RecordActionMenu
                 object={object}
-                readOnly={readOnly}
+                readOnly={recordReadOnly}
                 label="Record actions"
                 isOpen={menuOpen}
                 onOpenChange={setMenuOpen}
@@ -409,7 +425,7 @@ export function ObjectDetail({
           )}
         </div>
       </div>
-      {editing && !readOnly && (
+      {editing && !recordReadOnly && (
         <ObjectFormDialog
           model={model}
           applicationKey={application.key}
@@ -426,7 +442,7 @@ export function ObjectDetail({
           }}
         />
       )}
-      {deleting && !readOnly && (
+      {deleting && !recordReadOnly && (
         <ObjectDeleteDialog
           model={model}
           object={object}

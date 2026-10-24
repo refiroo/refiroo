@@ -3,6 +3,7 @@ import { formatServerTime } from "@/lib/dates";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { allows } from "@/features/security/permissions";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { Publication } from "@/types";
 import { ActionMenu } from "@/ui/ActionMenu";
@@ -29,6 +30,10 @@ export function Publications({
   onChangeSetCreated: (changeSetId: string) => void;
 }) {
   const feed = useCursorFeed((cursor) => api.publications(workspaceKey, cursor), [workspaceKey]);
+  // A change set from a publication needs Work in change sets, a withdrawal Publish (0.12 Z5, D323).
+  const { permissions } = useWorkspaceData();
+  const starts = !readOnly && allows(permissions, "change-sets");
+  const withdraws = !readOnly && allows(permissions, "publish");
   const [changeSetSource, setChangeSetSource] = useState<Publication>();
   const [withdrawing, setWithdrawing] = useState<Publication>();
   const [pending, setPending] = useState(false);
@@ -93,17 +98,21 @@ export function Publications({
                   <button className="secondary" onClick={() => onOpen(publication.id)}>
                     Open publication
                   </button>
-                  {!readOnly && (
+                  {(starts || (withdraws && publication.status === "active")) && (
                     <ActionMenu
                       label={`More actions for Publication ${publication.publicationNumber}`}
                       tooltip="More actions"
                       items={[
-                        {
-                          id: "change-set",
-                          label: "Start a change set from this publication",
-                          onAction: () => setChangeSetSource(publication),
-                        },
-                        ...(publication.status === "active"
+                        ...(starts
+                          ? [
+                              {
+                                id: "change-set",
+                                label: "Start a change set from this publication",
+                                onAction: () => setChangeSetSource(publication),
+                              },
+                            ]
+                          : []),
+                        ...(withdraws && publication.status === "active"
                           ? [
                               {
                                 id: "withdraw",

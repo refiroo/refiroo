@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { allows } from "@/features/security/permissions";
 import { TreeMoveDialog } from "@/features/objects/TreeMoveDialog";
 import { useTreeMoves } from "@/features/objects/useTreeMoves";
 import { AnchoredMenu } from "@/ui/AnchoredMenu";
@@ -52,8 +53,13 @@ export function Explorer({
 
   // The sidebar drags and moves as the lens does (UA9, U-D22, U-D28), by the one move rule; a type
   // changes only in the lens, which previews it.
-  const { changeSet, publication } = useWorkspaceData();
-  const writable = !readOnly && !publication;
+  const { changeSet, publication, permissions } = useWorkspaceData();
+  // A record moves where the person may write its type; several move as a batch, which needs Bulk
+  // and import (0.12 Z5, D323, D329).
+  const writes = useRecordWrites();
+  const writable = !readOnly && !publication && writes.any;
+  const severalMove = allows(permissions, "bulk");
+  const mayMove = (item: ObjectItem) => writes.permits(item.applicationKey, item.objectTypeKey);
   const roots = useMemo(() => rootObjectTypeKeys(model, application), [model, application]);
   const treeTypes = useMemo(
     () => ({ nodeTypes: new Set(application.objectTypeKeys), rootTypes: roots }),
@@ -75,14 +81,14 @@ export function Explorer({
   /** The records Move to… moves from `item`: the selection it belongs to, in tree order, or just `item`. */
   const movingFrom = useCallback(
     (item: ObjectItem) =>
-      selection.length > 1 && selection.some((selected) => selected.id === item.id)
+      severalMove && selection.length > 1 && selection.some((selected) => selected.id === item.id)
         ? { item: selection[0], others: selection.slice(1) }
         : { item },
-    [selection],
+    [selection, severalMove],
   );
   /** Opens the record's menu, which holds Move to… only, where the record can move. */
   const openMenu = (item: ObjectItem, anchor: HTMLElement | null) => {
-    if (!writable || !movable(item.objectTypeKey)) return false;
+    if (!writable || !mayMove(item) || !movable(item.objectTypeKey)) return false;
     menuAnchor.current = anchor;
     setMenu(item);
     return true;
@@ -95,7 +101,10 @@ export function Explorer({
     onItemContextMenu: openMenu,
     drag: writable
       ? {
-          canDrag: (item: ObjectItem) => movable(item.objectTypeKey),
+          canDrag: (item: ObjectItem) =>
+            movable(item.objectTypeKey) &&
+            mayMove(item) &&
+            (severalMove || !(selection.length > 1 && selection.some((selected) => selected.id === item.id))),
           refusal: refusalOf,
           onDrop: ([item, ...others]: ObjectItem[], parent: ObjectItem | null) =>
             setMoving({ item, others, target: parent }),

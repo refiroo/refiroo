@@ -5731,8 +5731,10 @@ the write unit, `details.recordTypes` on the refusal, jobs run as their requeste
 by their uploader and their workspace's holders, `stale` grants, and a move's source needing Work
 in change sets for `mode: move`. **Delivered by SP1 (2026-10-24):** a person's `roles` on
 `/users`, `GET /users/{id}/grants`, `q` and `memberId` on `/groups`, `q` on `/clients`, and a
-workspace grant of a role held only at the instance refused. The rest is designed; each part moves
-into "delivered" with its package (I3, Z3–Z5, SP2, K1, C1, A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
+workspace grant of a role held only at the instance refused. **Delivered by Z5 (2026-10-24):**
+`holding` on `GET /workspaces`, `GET /me/action-groups`, and `createdBy` on a workspace's change
+sets. The rest is designed; each part moves into "delivered" with its package (I3, Z3, SP2, K1, C1,
+A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
 ### Authentication
@@ -5833,6 +5835,18 @@ sign-in page says how long to wait. Passwords and client secrets are hashed with
   narrowing (`applications`, `recordTypes` for writes; empty when any grant holds it unnarrowed)
   and its `sources` (`grantId`, `role`, `scope` `workspace` or `instance`, and the `group` it comes
   through, or null). The account menu names the roles; the browser follows the groups in Z5.
+- `GET /api/v1/me/action-groups` (delivered, Z5, D328): every action group the caller holds
+  anywhere, in the catalogue's order, each with `instance` (held at the instance, so in every
+  workspace) and the `workspaces` (`key`, `label`, by label) it is held in otherwise. The interface
+  lists a settings page to whoever holds its group somewhere. A bounded list (one entry per group),
+  not paged.
+- `GET /api/v1/workspaces?holding=<action group>` (delivered, Z5, D327): the workspaces where the
+  caller holds that group, every workspace for an instance grant; without it, those where the caller
+  holds any role (D288). An unknown group is `422 ACTION_GROUP_UNKNOWN` (`details.actionGroups`).
+  The browser's workspace selector and the first workspace opened ask for `browse`.
+- `GET /api/v1/workspaces/{key}/change-sets?createdBy=<principal ID>` (delivered, Z5, D325): the
+  open change sets a person or client created; an ID no principal has lists none. Change sets stay
+  shared (D255); the filter only finds one's own.
 - `GET /api/v1/me/grants` (cursor-paged; delivered, Z1, D284): the caller's grants, direct and,
   for a person, those of their groups (whose `principal` is then the group), shaped as
   `GET /grants` answers them. Settings › Account lists them.

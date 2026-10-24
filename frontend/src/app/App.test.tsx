@@ -7,6 +7,7 @@ import { codelistObject, domainObject, testModel, testWorkspaceModel } from "@/t
 import type { ApplicationDefinition } from "@/types";
 import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
 import { capabilitiesFixture } from "@/test/capabilities";
+import { EVERY_GROUP, heldAnywhereFixture, permissionsFixture } from "@/test/permissions";
 import { findTreeItem } from "@/test/tree";
 import App, { releaseChangedText } from "./App";
 
@@ -35,6 +36,9 @@ vi.mock("@/api/client", () => ({
     relations: vi.fn(),
     createChangeSetFromPublication: vi.fn(),
     withdrawPublication: vi.fn(),
+    myPermissions: vi.fn(),
+    myActionGroups: vi.fn(),
+    me: vi.fn(),
   },
 }));
 
@@ -71,6 +75,12 @@ describe("App", () => {
       vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
     );
     vi.mocked(api.model).mockResolvedValue(testModel);
+    // The person holds every group, as before the interface followed permissions (0.12 Z5).
+    // Security administration is left out: no case here is about the Security pages.
+    const groups = EVERY_GROUP.filter((key) => key !== "security-admin");
+    vi.mocked(api.myPermissions).mockImplementation(async (workspaceKey) => permissionsFixture(workspaceKey, groups));
+    vi.mocked(api.myActionGroups).mockResolvedValue(heldAnywhereFixture(groups));
+    vi.mocked(api.me).mockRejectedValue(new Error("not needed"));
     vi.mocked(api.capabilities).mockResolvedValue(capabilities(true));
     vi.mocked(api.workspaceRuntimeState).mockResolvedValue({
       defaultWorkspaceKey: "default",
@@ -523,7 +533,12 @@ describe("App", () => {
     const selector = await screen.findByRole("combobox", { name: "Workspace" });
     fireEvent.change(selector, { target: { value: "west" } });
     await waitFor(() =>
-      expect(api.workspaces).toHaveBeenCalledWith({ search: "west", status: "active", pageSize: 50 }),
+      expect(api.workspaces).toHaveBeenCalledWith({
+        search: "west",
+        status: "active",
+        pageSize: 50,
+        holding: "browse",
+      }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Show workspace options/ }));
     fireEvent.click(await screen.findByRole("option", { name: /West/ }));

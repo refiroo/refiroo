@@ -1,96 +1,52 @@
 import { recordAction } from "./record-actions.mjs";
 // Real-backend SC-05/SC-06 and change set SC-04 regression. All model/data mutations target a temporary database.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { createServer } from "node:net";
-import { chromium } from "playwright";
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { chooseObject } from "./helpers/lists.mjs";
-import { cloneDatabase } from "./helpers/database.mjs";
-import { watchPageErrors } from "./helpers/harness.mjs";
+import { bootHarness, watchPageErrors } from "./helpers/harness.mjs";
 
-const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const root = resolve(frontend, "..");
-const output = await mkdtemp(resolve(tmpdir(), "rdm-wp9-change-sets-"));
-let database;
-const processes = [];
-let browser;
 const failures = [];
 const checks = [];
-let log = "";
-async function port() {
-  const server = createServer();
-  await new Promise((done, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", done); });
-  const value = server.address().port;
-  await new Promise((done) => server.close(done));
-  return value;
-}
-function start(command, args, cwd, env) {
-  const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
-  processes.push(child);
-  child.stdout.on("data", (data) => { log += data; });
-  child.stderr.on("data", (data) => { log += data; });
-  child.on("error", (error) => { log += error.message; });
-  return child;
-}
-async function ready(url, child) {
-  for (let attempt = 0; attempt < 200; attempt++) {
-    if (child.exitCode !== null) throw new Error(`Server exited: ${log}`);
-    try { if ((await fetch(url)).ok) return; } catch { /* starting */ }
-    await new Promise((done) => setTimeout(done, 100));
-  }
-  throw new Error(`Server did not become ready: ${url}\n${log}`);
-}
-const apiPort = await port();
-const uiPort = await port();
-const apiUrl = `http://127.0.0.1:${apiPort}`;
-const uiUrl = `http://127.0.0.1:${uiPort}`;
-async function api(path, body, method = body ? "POST" : "GET") {
-  const response = await fetch(`${apiUrl}/api/v1${path}`, {
-    method, headers: { "Content-Type": "application/json" },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  assert(response.ok, `${path}: ${response.status} ${await response.clone().text()}`);
-  return response.status === 204 ? undefined : response.json();
-}
+// The engine, the browser and a database of their own, signed in as the harness person, the API
+// called with the harness client's token (0.12 I1, I2): this runner started its own servers before.
+let harness;
+let output;
+let browser;
+let apiUrl;
+let uiUrl;
+let api;
 async function shown(locator) { await locator.waitFor({ state: "visible" }); }
 function panel(page, title) {
   return page.locator("section.panel").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 }
 try {
-  const model = JSON.parse(await readFile(resolve(root, "model/rdm-starter.json"), "utf8"));
-  model.attributeTypes.push(
-    { key: "qa-count", name: "Count", valueType: "integer", features: { filterable: true, sortable: true } },
-    { key: "qa-date", name: "Date", valueType: "date", features: { filterable: true, sortable: true } },
-  );
-  for (const type of model.objectTypes.filter((type) => ["domain", "system"].includes(type.key))) {
-    type.attributes.push({ attributeTypeKey: "qa-count" }, { attributeTypeKey: "qa-date" });
-  }
-  for (const app of model.applications) {
-    for (const view of app.views.filter((view) => ["domain", "system"].includes(view.objectTypeKey))) {
-      view.config.filterFields.push("qa-count", "qa-date");
-      view.config.columns.push("qa-count", "qa-date");
-    }
-
-  }
-  for (const relation of model.objectTypeRelations.filter((item) => item.relationTypeKey === "reference-has-system-representation")) relation.attributeTypeKeys = ["qa-count"];
-  const modelPath = resolve(output, "model.json");
-  database = cloneDatabase("schema");
-  await writeFile(modelPath, JSON.stringify(model));
-  const backend = start(resolve(root, "backend/.venv/bin/python"), ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(apiPort)], resolve(root, "backend"), {
-    DATABASE_URL: database.databaseUrl, RDM_MODEL_PATH: modelPath,
-    CORS_ORIGINS: uiUrl, MODEL_ADMIN_MUTATIONS_ENABLED: "false", WORKSPACE_ADMIN_MUTATIONS_ENABLED: "true", WEB_CONCURRENCY: "1",
+  harness = await bootHarness({
+    modelAdmin: false,
+    workspaceAdmin: true,
+    viewport: { width: 1440, height: 1000 },
+    transformModel: (model) => {
+      model.attributeTypes.push(
+        { key: "qa-count", name: "Count", valueType: "integer", features: { filterable: true, sortable: true } },
+        { key: "qa-date", name: "Date", valueType: "date", features: { filterable: true, sortable: true } },
+      );
+      for (const type of model.objectTypes.filter((type) => ["domain", "system"].includes(type.key))) {
+        type.attributes.push({ attributeTypeKey: "qa-count" }, { attributeTypeKey: "qa-date" });
+      }
+      for (const app of model.applications) {
+        for (const view of app.views.filter((view) => ["domain", "system"].includes(view.objectTypeKey))) {
+          view.config.filterFields.push("qa-count", "qa-date");
+          view.config.columns.push("qa-count", "qa-date");
+        }
+      }
+      for (const relation of model.objectTypeRelations.filter((item) => item.relationTypeKey === "reference-has-system-representation")) relation.attributeTypeKeys = ["qa-count"];
+    },
   });
-  await ready(`${apiUrl}/health`, backend);
-  const ui = start(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"], frontend, { VITE_API_URL: apiUrl });
-  await ready(uiUrl, ui);
+  ({ output, browser, apiUrl, uiUrl, api } = harness);
+  const model = await api("/model?workspaceKey=default");
   await api("/workspaces", { key: "authoring", label: "Change set acceptance" });
   const workspaceKey = "authoring";
-  browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}) });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const page = harness.page;
   page.setDefaultTimeout(10000);
   watchPageErrors(page.context(), (error) => failures.push(error));
   page.on("dialog", (dialog) => dialog.accept());
@@ -332,7 +288,7 @@ try {
     assert(!item.url.includes("/change-sets/"));
   }
   assert.deepEqual(failures, []);
-  const report = { browser: browser.version(), viewports: ["1440x1000", "390x844"], checks, pageErrors: failures, canonicalChangeSetWrites: changeSetWrites.length, isolatedDatabase: database.databaseUrl };
+  const report = { browser: browser.version(), viewports: ["1440x1000", "390x844"], checks, pageErrors: failures, canonicalChangeSetWrites: changeSetWrites.length };
   await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ ...report, output }, null, 2));
 } catch (error) {
@@ -343,8 +299,5 @@ try {
   console.error(`Browser evidence: ${output}`);
   throw error;
 } finally {
-  await browser?.close();
-  for (const child of processes) child.kill("SIGTERM");
-  await writeFile(resolve(output, "servers.log"), log);
-  database?.drop();
+  harness?.cleanup();
 }

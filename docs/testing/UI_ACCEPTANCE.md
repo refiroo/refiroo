@@ -309,6 +309,18 @@ each page reuses Settings › Workspaces' catalogue beside the detail (`Catalogu
 | SP1-3 | **Roles**: the matrix and a custom role edited in place | `/settings/roles` | ADR-039's ruled tables | **C** (Skeleton) | **B** (predefined read-only, custom marked, each group with its description) | **C** | **B** (a copy saved without a group; applies on the next request) | **C** (`ROLE_IN_USE`: Delete disabled while granted, the refusal as worded) | **C** (`VERSION_CONFLICT` reloads the role) | **C** (InlineError, Retry) | **B** (the matrix scrolls in its box, the group column fixed, D305) | **C** (checkboxes named role and group; the box focusable) | `sp1-security` (axe; screenshots 1440, dark, 390) |
 | SP1-4 | A workspace's **Access** and the **grant dialog** | `/settings/workspaces/{key}`; Grant a role on a person, a group and Access | I2-4's dialogs; `SettingsTable` | **C** | **B** (who, kind, role, narrowing by name, from this workspace or the whole instance; stale narrowing said, D296) | **C** (Granting…) | **B** (the sentence of what the grant allows; a narrowed grant listed) | **B** (a role held only at the instance offers only the instance, D302; the engine's refusal as worded) | — | **C** | **C** (stacked) | **B** (focus kept in the dialog; Escape returns to Grant a role) | `sp1-security` (axe on Access and the dialog), `securityText.test` |
 
+### Surfaces changed in 0.12 Z5
+
+What a person may do, from the "Z5 as planned" boards: the data-context band (ADR-040) says it;
+nothing is shown disabled (D323).
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Z5-1 | A **Reader's** record, collection and settings | any record or view; `/settings` | the band's line | **C** (no write shown until the permissions are read) | **B** (the band's line; no Add, Edit, Delete, inline edit, relationship, selection or Import; Settings lists only their pages) | — | — | **B** (a refusal after a role change shown as worded; permissions read again, D330) | — | **C** (permissions unread: nothing offered) | **B** (390px, no page scroll) | — | `z5-permissions` (axe, screenshots), `permissionText.test`, `Settings.test` |
+| Z5-2 | A **Contributor's** Propose a change | a record or collection in Live | `ProposeDialog` on `ui/Modal`; the change set's bar | **C** | **B** (the band's line and "Your change set: *name* · *n* changes") | **C** (Start and edit disabled while it creates) | **B** (the record opens in the change set with its form; the second continues it) | **B** (the engine's refusal in the dialog) | — | **C** | **B** (390px, light and dark) | **B** (focus in the dialog; Enter starts) | `z5-permissions` (axe on the dialog and the record), `Proposal.test` |
+| Z5-3 | A **narrowed** writer's record | a record of another type | the band's line | **C** | **B** (no Edit or Delete on other types; the band names the permitted types) | — | — | — | — | — | — | — | `z5-permissions` (dark screenshot), `permissions.test` |
+| Z5-4 | **No workspace** to open | `/` for a person who may browse none | `ShellFrame`, `TopBar` without applications | **C** | **B** (their roles; People for a Security administrator, Settings otherwise; Account) | — | — | — | — | — | **C** | **C** | `z5-permissions` (axe, screenshot), `NoWorkspace.test` |
+
 ## 3. Selected focused browser checks
 
 Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,

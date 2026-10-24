@@ -3,6 +3,7 @@ import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { applicationFor } from "@/model/lookup";
 import { forgetWorkspaceModel, workspaceModel } from "@/model/workspaceModels";
+import { loadEmptyModel } from "@/model/emptyModel";
 import {
   addressWorkspaceKey,
   defaultRoute,
@@ -80,6 +81,25 @@ export interface Router {
   defaultWorkspaceKey: string;
   /** Records a new default workspace, the fallback for a URL that names none. */
   defaultWorkspaceChanged: (workspaceKey: string) => void;
+  /**
+   * The person may browse no workspace (0.12 Z5, D326): `model` is empty, Settings open under it,
+   * and the application's place says there is no workspace yet.
+   */
+  noWorkspace: boolean;
+}
+
+/**
+ * The workspace the application opens in (0.12 Z5, D326): the default one when the person may
+ * browse it, otherwise the first the person may browse; undefined when there is none. A failed
+ * read of the permissions keeps the default, whose own read then says what failed.
+ */
+export async function openingWorkspace(defaultWorkspaceKey: string): Promise<string | undefined> {
+  const permissions = await Promise.resolve()
+    .then(() => api.myPermissions(defaultWorkspaceKey))
+    .catch(() => undefined);
+  if (!permissions || permissions.actionGroups.some((group) => group.key === "browse")) return defaultWorkspaceKey;
+  const page = await api.workspaces({ holding: "browse", status: "all", pageSize: 1 });
+  return page.items[0]?.key;
 }
 
 /**
@@ -96,6 +116,8 @@ export function useRouter(): Router {
   const [problem, setProblem] = useState<RouteProblem>();
   const [error, setError] = useState("");
   const [defaultWorkspaceKey, setDefaultWorkspaceKey] = useState("default");
+  const [noWorkspace, setNoWorkspace] = useState(false);
+  const emptyRef = useRef<EngineModel | undefined>(undefined);
   const lastCollections = useRef(new Map<string, ListRoute>());
   const mostRecentCollection = useRef<ListRoute | undefined>(undefined);
   const mostRecentApplicationRoute = useRef<ApplicationRoute | undefined>(undefined);
@@ -129,6 +151,15 @@ export function useRouter(): Router {
     async (location: Pick<Location, "pathname" | "search">, entry: ReturnType<typeof navigationEntry>) => {
       const fallback = defaultKey.current;
       const settings = location.pathname.startsWith("/settings");
+      // Nothing to browse (D326): Settings under the empty model, the application's start otherwise.
+      const empty = emptyRef.current;
+      if (empty)
+        return {
+          loaded: empty,
+          workspaceKey: fallback,
+          route: settings ? parseRoute(empty, fallback, location) : defaultRoute(empty, fallback),
+          problem: undefined,
+        };
       // Settings keep the model of the workspace shown before them (D49).
       const workspaceKey = settings
         ? (shown.current?.workspaceKey ?? fallback)
@@ -145,7 +176,9 @@ export function useRouter(): Router {
         };
       } catch (cause) {
         const unknown = isApiError(cause, "WORKSPACE_NOT_FOUND");
-        if (workspaceKey === fallback || (!unknown && !isApiError(cause, "MODEL_REGISTRY_UNAVAILABLE"))) throw cause;
+        // A workspace the person may not browse is said as its refusal, in one they may (Z5, D330).
+        const fallsBack = isApiError(cause, "MODEL_REGISTRY_UNAVAILABLE") || isApiError(cause, "FORBIDDEN");
+        if (workspaceKey === fallback || (!unknown && !fallsBack)) throw cause;
         const loaded = await workspaceModel(fallback);
         return {
           loaded,
@@ -166,8 +199,13 @@ export function useRouter(): Router {
     api
       .workspaceRuntimeState()
       .then(async (workspaceState) => {
-        defaultKey.current = workspaceState.defaultWorkspaceKey;
+        const opening = await openingWorkspace(workspaceState.defaultWorkspaceKey);
+        defaultKey.current = opening ?? workspaceState.defaultWorkspaceKey;
         setDefaultWorkspaceKey(workspaceState.defaultWorkspaceKey);
+        if (opening === undefined) {
+          emptyRef.current = await loadEmptyModel();
+          setNoWorkspace(true);
+        }
         const entry = navigationEntry(window.history.state, `${window.location.pathname}${window.location.search}`);
         const resolved = await resolveAddress(window.location, entry);
         historyIndex.current = entry?.index ?? 0;
@@ -371,5 +409,6 @@ export function useRouter(): Router {
       defaultKey.current = workspaceKey;
       setDefaultWorkspaceKey(workspaceKey);
     },
+    noWorkspace,
   };
 }

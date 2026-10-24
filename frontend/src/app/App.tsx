@@ -16,7 +16,12 @@ import { AppShell } from "./AppShell";
 import { SettingsArea } from "./SettingsArea";
 import { useRouter, type Router } from "./useRouter";
 import { InstanceProductContext, useLoadInstanceProduct } from "./instanceProduct";
-import { WorkspaceDataProvider, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { WorkspaceDataProvider, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { ProposeDialog, ownChangeSetText, useOwnChangeSet } from "@/features/workspaces/Proposal";
+import { holds, recordWrites } from "@/features/security/permissions";
+import { permissionLine } from "@/features/security/permissionText";
+import { useMe } from "./useMe";
+import { NoWorkspace } from "./NoWorkspace";
 import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
 import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
 import { PublicationBanner, Publications } from "@/features/workspaces/Publications";
@@ -42,6 +47,13 @@ export default function App() {
   const shownWorkspaceRef = useRef<Workspace | undefined>(undefined);
   const product = useLoadInstanceProduct(router.defaultWorkspaceKey);
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
+  // Nothing to browse (0.12 Z5, D326): Settings open; the application's place says so.
+  if (router.noWorkspace && !isSettingsRoute(route))
+    return (
+      <InstanceProductContext.Provider value={product}>
+        <NoWorkspace model={model} onNavigate={router.navigate} />
+      </InstanceProductContext.Provider>
+    );
   // Toasts and the notifications about this tab's jobs live above every page (0.9 J1u).
   return (
     <InstanceProductContext.Provider value={product}>
@@ -86,6 +98,13 @@ export async function releaseChangedText(refusal: ApiError, read = false): Promi
     ? "This change set now uses"
     : `${workspace?.label ?? details.workspaceKey ?? "This workspace"} now runs`;
   return `${subject} ${runs}. ${read ? "Reload to see it." : "Nothing was saved."}`;
+}
+
+/** The record a proposal edits, or the type it adds one of (0.12 Z5, D324). */
+interface ProposalTarget {
+  applicationKey: string;
+  objectTypeKey: string;
+  objectId?: string;
 }
 
 export function modelChangeText(previous: Workspace, next: Workspace): string | undefined {
@@ -147,6 +166,17 @@ function AppContent({
     );
   const [workspace, setWorkspace] = useState<Workspace>();
   const actionSequence = useRef(0);
+  // What the person may do here (0.12 Z5): record writes of this context, and in live data without
+  // Edit live but with Work in change sets, a proposal through their own change set (D324).
+  const writes = useRecordWrites();
+  const permissions = data.permissions;
+  const me = useMe();
+  const inLive = !routeChangeSetId(route) && !routePublicationId(route);
+  const workspaceActive = workspace?.key === route.workspaceKey && workspace.status === "active";
+  const proposals = recordWrites(permissions, "change-sets");
+  const proposing = inLive && workspaceActive && !writes.any && proposals.any;
+  const own = useOwnChangeSet(route.workspaceKey, me?.id, proposing, refreshToken);
+  const [proposal, setProposal] = useState<ProposalTarget>();
   useEffect(() => {
     if (!workspace) return;
     const previous = shownWorkspaceRef.current;
@@ -187,13 +217,15 @@ function AppContent({
 
   const changeSetId = routeChangeSetId(activeRoute);
   const publicationId = routePublicationId(activeRoute);
-  const readOnly =
+  // The data shown cannot be written whoever reads it: a publication, a retired workspace.
+  const contextReadOnly =
     Boolean(publicationId) || workspace?.key !== activeRoute.workspaceKey || workspace?.status !== "active";
-  // Records are selected for a bulk change where the data can be written and jobs created (K1, D105).
-  const bulkSelection = bulkSelectionFor(capabilities, readOnly);
-  // Import loads into the data the page shows, so it is offered where that data can be written (D89).
+  // And the person may write no record here (0.12 Z5, D323): every write affordance is left out.
+  const readOnly = contextReadOnly || !writes.any;
+  // Import loads into the data the page shows, so it is offered where that data can be written (D89)
+  // and the person holds Bulk and import, which every import needs (Z5, D323).
   const onImport =
-    capabilities?.integrationJobs.createJobs && !readOnly
+    capabilities?.integrationJobs.createJobs && !contextReadOnly && holds(permissions, "bulk")
       ? () =>
           setImportStart({
             context: {
@@ -345,13 +377,89 @@ function AppContent({
         ? activeRoute.collectionOrigin
         : undefined;
   const collectionApplication = collection ? applicationFor(model, collection.applicationKey) : undefined;
+  const collectionView = collection
+    ? (collectionApplication?.views.find((view) => view.key === collection.viewKey) ?? collectionApplication?.views[0])
+    : undefined;
+  // Records are selected for a bulk change where the data can be written and jobs created (K1,
+  // D105), by someone holding Bulk and import for the collection's records (Z5, D323).
+  const bulkWrites = recordWrites(permissions, "bulk");
+  const bulkSelection = bulkSelectionFor(
+    capabilities,
+    contextReadOnly ||
+      !collectionApplication ||
+      !(collectionView && "objectTypeKey" in collectionView && collectionView.objectTypeKey
+        ? bulkWrites.permits(collectionApplication.key, collectionView.objectTypeKey)
+        : bulkWrites.any),
+  );
+
+  /** Edit a record, or add one, through the person's own change set (D324). */
+  function propose(target: ProposalTarget) {
+    if (own.changeSet) openProposal(own.changeSet.id, target);
+    else setProposal(target);
+  }
+
+  function openProposal(id: string, target: ProposalTarget) {
+    if (target.objectId)
+      navigate({
+        kind: "detail",
+        applicationKey: target.applicationKey,
+        objectTypeKey: target.objectTypeKey,
+        objectId: target.objectId,
+        actionRequest: { action: "edit", key: ++actionSequence.current },
+        workspaceKey: activeRoute.workspaceKey,
+        changeSetId: id,
+      });
+    else if (collection)
+      navigate({
+        ...collection,
+        anchor: undefined,
+        changeSetId: id,
+        createRequest: { key: ++actionSequence.current },
+      });
+  }
+  const proposeIn = (applicationKey: string, objectTypeKey: string) =>
+    proposing && proposals.permits(applicationKey, objectTypeKey)
+      ? (objectId?: string) => propose({ applicationKey, objectTypeKey, objectId })
+      : undefined;
+  const permissionNote = data.changeSet
+    ? permissionLine(model, {
+        context: "changeSet",
+        workspaceLabel: workspace?.label ?? activeRoute.workspaceKey,
+        writes: permissions ? writes : undefined,
+        proposing: false,
+        publishes: holds(permissions, "publish"),
+      })
+    : !publicationId && !contextReadOnly
+      ? permissionLine(model, {
+          context: "live",
+          workspaceLabel: workspace?.label ?? activeRoute.workspaceKey,
+          writes: permissions ? writes : undefined,
+          proposing,
+          publishes: holds(permissions, "publish"),
+        })
+      : undefined;
+  const ownText = proposing ? ownChangeSetText(own) : undefined;
+  const ownChangeSet = ownText && own.changeSet && (
+    <button
+      type="button"
+      className="secondary"
+      onClick={() =>
+        navigate({
+          ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
+          changeSetId: own.changeSet!.id,
+        })
+      }
+    >
+      {ownText}
+    </button>
+  );
   const hasDetail = activeRoute.kind === "detail";
   const inspector = hasDetail && Boolean(collection) && activeRoute.fullPage === false;
   // The change set's or publication's own bar sits in the shell's data-context band once loaded.
   const contextActions =
     data.loadingError || contextLoading ? undefined : data.changeSet ? (
       <ChangeSetActions
-        readOnly={readOnly}
+        readOnly={contextReadOnly}
         reviewing={activeRoute.kind === "changeSetChanges"}
         onReview={() => navigate(changeReviewFor(application.key, data.changeSet!.workspaceKey, data.changeSet!.id))}
         onExit={(result) => {
@@ -398,6 +506,8 @@ function AppContent({
       onHome={goHome}
       onOpenObject={(item) => openObject(item, undefined, "hierarchy")}
       contextActions={contextActions}
+      permissionNote={permissionNote}
+      ownChangeSet={ownChangeSet}
     >
       {problem ? (
         <NotInModel
@@ -472,7 +582,7 @@ function AppContent({
           ) : activeRoute.kind === "changeSets" ? (
             <ChangeSets
               workspaceKey={activeRoute.workspaceKey}
-              readOnly={readOnly}
+              readOnly={contextReadOnly}
               onOpen={(id) =>
                 navigate({
                   ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
@@ -497,7 +607,7 @@ function AppContent({
           ) : activeRoute.kind === "publications" ? (
             <Publications
               workspaceKey={activeRoute.workspaceKey}
-              readOnly={readOnly}
+              readOnly={contextReadOnly}
               onOpen={(id) =>
                 navigate({
                   ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
@@ -522,12 +632,11 @@ function AppContent({
                     key={`${collection.applicationKey}:${collection.viewKey}:${collection.workspaceKey}:${changeSetId ?? publicationId ?? "live"}:${data.changeSet?.modelReleaseId ?? ""}`}
                     model={model}
                     application={collectionApplication}
-                    view={
-                      collectionApplication.views.find((view) => view.key === collection.viewKey) ??
-                      collectionApplication.views[0]
-                    }
+                    view={collectionView!}
                     workspaceKey={collection.workspaceKey}
                     readOnly={readOnly}
+                    onPropose={proposeIn}
+                    createRequest={activeRoute.kind === "list" ? activeRoute.createRequest?.key : undefined}
                     refreshToken={refreshToken}
                     selectedId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
                     selectedObjectTypeKey={activeRoute.kind === "detail" ? activeRoute.objectTypeKey : undefined}
@@ -608,6 +717,7 @@ function AppContent({
                     initialAction={activeRoute.actionRequest?.action}
                     onExpand={inspector ? () => navigate({ ...activeRoute, fullPage: true }) : undefined}
                     readOnly={readOnly}
+                    onPropose={proposeIn}
                     refreshToken={collectionWrites}
                     onChanged={() => setRefreshToken((value) => value + 1)}
                     onOpen={openObjectById}
@@ -629,6 +739,18 @@ function AppContent({
           onStarted={(job) => {
             setExportStart(undefined);
             notifications.follow(job);
+          }}
+        />
+      )}
+      {proposal && (
+        <ProposeDialog
+          workspaceKey={activeRoute.workspaceKey}
+          workspaceLabel={workspace?.label ?? activeRoute.workspaceKey}
+          personName={me?.name}
+          onClose={() => setProposal(undefined)}
+          onStarted={(changeSet) => {
+            setProposal(undefined);
+            openProposal(changeSet.id, proposal);
           }}
         />
       )}

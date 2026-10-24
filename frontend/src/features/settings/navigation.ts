@@ -1,16 +1,16 @@
 /**
  * The settings navigation: groups and their pages, in order. Only built pages are listed (U-D11).
- * A group that needs an action group is listed only to a person holding it (Security, 0.12 SP1,
- * D303); the engine refuses the pages to anyone else either way.
+ * A page that needs an action group is listed only to a person holding one of its groups somewhere
+ * (0.12 SP1, D303; Z5, D328), and a group with no page left is not shown; the engine refuses the
+ * pages to anyone else either way.
  */
 
 import type { SettingsPage } from "@/types";
 
 export interface SettingsGroup {
   label: string;
-  pages: { page: SettingsPage; label: string }[];
-  /** The action group the caller must hold for the group to be listed. */
-  requires?: "security-admin";
+  /** Each page, and the action groups any of which lists it; none for a page everyone opens. */
+  pages: { page: SettingsPage; label: string; requires?: string[] }[];
 }
 
 export const SETTINGS_NAVIGATION: SettingsGroup[] = [
@@ -26,9 +26,9 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
     label: "Administration",
     pages: [
       { page: "workspaces", label: "Workspaces" },
-      { page: "model", label: "Model" },
-      { page: "deployment", label: "Deployment" },
-      { page: "operations", label: "Operations" },
+      { page: "model", label: "Model", requires: ["model-authoring", "model-release"] },
+      { page: "deployment", label: "Deployment", requires: ["operations"] },
+      { page: "operations", label: "Operations", requires: ["operations"] },
     ],
   },
   {
@@ -36,29 +36,38 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
     // user, 2026-10-14). They are not settings either, and move out of Settings together later.
     label: "Data operations",
     pages: [
-      { page: "import-profiles", label: "Import profiles" },
-      { page: "moves", label: "Copy and move" },
+      { page: "import-profiles", label: "Import profiles", requires: ["bulk"] },
+      { page: "moves", label: "Copy and move", requires: ["copy-move"] },
       { page: "jobs", label: "Jobs" },
     ],
   },
   {
     label: "Security",
-    requires: "security-admin",
     pages: [
-      { page: "people", label: "People" },
-      { page: "groups", label: "Groups" },
-      { page: "roles", label: "Roles" },
+      { page: "people", label: "People", requires: ["security-admin"] },
+      { page: "groups", label: "Groups", requires: ["security-admin"] },
+      { page: "roles", label: "Roles", requires: ["security-admin"] },
     ],
   },
   {
     label: "Integration",
     pages: [
-      { page: "consumer-apis", label: "Consumer APIs" },
-      { page: "webhooks", label: "Webhooks" },
+      { page: "consumer-apis", label: "Consumer APIs", requires: ["browse"] },
+      { page: "webhooks", label: "Webhooks", requires: ["integration-admin"] },
       { page: "api-reference", label: "API reference" },
     ],
   },
 ];
+
+/** The navigation a person sees, holding `held` somewhere; `undefined` while it loads lists only
+ * what everyone opens. */
+export function navigationFor(held: { key: string }[] | undefined): SettingsGroup[] {
+  const keys = new Set(held?.map((group) => group.key));
+  return SETTINGS_NAVIGATION.map((group) => ({
+    ...group,
+    pages: group.pages.filter((item) => !item.requires || item.requires.some((key) => keys.has(key))),
+  })).filter((group) => group.pages.length > 0);
+}
 
 export function settingsGroupOf(page: SettingsPage) {
   return SETTINGS_NAVIGATION.find((group) => group.pages.some((item) => item.page === page))!.label;

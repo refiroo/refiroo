@@ -6,7 +6,7 @@ import { Card } from "@/ui/Card";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { attributeName, isQueryableField, listSortFields, RELATED_EXPAND_LIMIT, relatedKeys } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
@@ -47,10 +47,13 @@ export function ObjectCollectionView({
   onExport,
   onImport,
   bulkSelection,
+  onPropose,
+  createRequest,
 }: ViewComponentProps) {
   const declaredView = rawView as TableViewDefinition;
   const api = useDataApi();
   const { changeSet, publication } = useWorkspaceData();
+  const writes = useRecordWrites();
   // Change sets and history record no timestamps, so they are neither offered nor requested there, and
   // a view whose default sort is a timestamp sorts by name instead.
   const live = !changeSet && !publication;
@@ -80,7 +83,8 @@ export function ObjectCollectionView({
         sort: isQueryableField(requestedQuery.sort, false) ? requestedQuery.sort : "name",
         filters: queryableFilters,
       };
-  const [creating, setCreating] = useState(false);
+  // A proposed new record arrives with its form open (0.12 Z5, D324).
+  const [creating, setCreating] = useState(() => createRequest !== undefined);
   // The bulk action open over the selection (0.9 K2, K2b).
   const [bulkAction, setBulkAction] = useState<BulkActionKind>();
   const root = useRef<HTMLDivElement>(null);
@@ -217,10 +221,19 @@ export function ObjectCollectionView({
   if (!objectType) return <div className="empty-state">This configured view does not select an object type.</div>;
   const hue = objectTypeHue(model, objectType.key);
   const narrowed = query.search !== "" || query.filters.length > 0;
-  const add = !readOnly && (
+  // Records are added where the person may write this type (Z5, D329), or proposed (D324).
+  const creatable = !readOnly && writes.permits(application.key, objectType.key);
+  const proposeNew = readOnly ? onPropose?.(application.key, objectType.key) : undefined;
+  const add = creatable ? (
     <button className="primary" onClick={() => setCreating(true)}>
       <Icon name="plus" /> Add {objectType.name}
     </button>
+  ) : (
+    proposeNew && (
+      <button className="primary" onClick={() => proposeNew()}>
+        <Icon name="plus" /> Propose a new {objectType.name}
+      </button>
+    )
   );
   // Export changes nothing, so it is offered in every context; the search is not carried (D60).
   const exportAction = onExport && (
@@ -441,7 +454,7 @@ export function ObjectCollectionView({
           }
         />
       )}
-      {creating && !readOnly && (
+      {creating && creatable && (
         <ObjectFormDialog
           model={model}
           applicationKey={application.key}

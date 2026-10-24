@@ -180,7 +180,10 @@ export function WebhookDialog({
   useEffect(() => {
     if (editing) return;
     let active = true;
-    Promise.all([everyPage((cursor) => api.workspaces({ status: "active", cursor })), api.workspaceRuntimeState()])
+    Promise.all([
+      everyPage((cursor) => api.workspaces({ status: "active", cursor, holding: "integration-admin" })),
+      api.workspaceRuntimeState(),
+    ])
       .then(([all, runtime]) => {
         if (!active) return;
         // Every active workspace (0.9 R-F19), the default first, as a subscription without a

@@ -3,6 +3,7 @@ import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { allows } from "@/features/security/permissions";
 import { allowNavigation } from "@/routing/navigationGuard";
 import type { ChangeSet, ChangeSetValidation, ModelReleaseSummary } from "@/types";
 import { Notice } from "@/ui/Notice";
@@ -44,13 +45,16 @@ export function ChangeSets({
 }) {
   const feed = useCursorFeed((cursor) => api.changeSets(workspaceKey, cursor), [workspaceKey]);
   const [creating, setCreating] = useState(false);
+  // Starting one needs Work in change sets (0.12 Z5, D323).
+  const { permissions } = useWorkspaceData();
+  const creates = !readOnly && allows(permissions, "change-sets");
   return (
     <section className="context-page">
       <PageHeader
         title="Change sets"
         description="Coordinate changes in an optional change set. Ordinary maintenance remains available in Live."
         actions={
-          !readOnly && (
+          creates && (
             <button className="primary" onClick={() => setCreating(true)}>
               <Icon name="plus" /> Start from current live data
             </button>
@@ -87,7 +91,7 @@ export function ChangeSets({
         <Card flush>
           <EmptyState
             action={
-              !readOnly && (
+              creates && (
                 <button className="secondary" onClick={() => setCreating(true)}>
                   <Icon name="plus" /> Start from current live data
                 </button>
@@ -295,7 +299,14 @@ export function ChangeSetActions({
   /** A migration publishing this change set (0.11 V2, D85), or moving it (V3, D95), started: its job. */
   onMigrationStarted?: (jobId: string) => void;
 }) {
-  const { changeSet, activeModelReleaseId, activeModelReleaseLabel, warning, refresh } = useWorkspaceData();
+  const { changeSet, activeModelReleaseId, activeModelReleaseLabel, warning, refresh, permissions } =
+    useWorkspaceData();
+  // What the person may do with it (0.12 Z5, D323): its work needs Work in change sets; publishing
+  // also needs Publish, after a validation only Work in change sets makes; moving the workspace to
+  // its release also needs Model release. Without permissions read (a test), every action.
+  const works = !readOnly && allows(permissions, "change-sets");
+  const publishes = works && allows(permissions, "publish");
+  const migrates = canMigrate && publishes && allows(permissions, "model-release");
   const mismatchedWorkspace =
     changeSet && activeModelReleaseId && activeModelReleaseId !== changeSet.modelReleaseId
       ? changeSet.workspaceKey
@@ -477,10 +488,10 @@ export function ChangeSetActions({
             {current.createdBy && <span>Created by {principalName(current.createdBy)}</span>}
           </span>
         </div>
-        {(!readOnly || (onReview && !reviewing)) && (
+        {(works || (onReview && !reviewing)) && (
           <div className="change-set-bar-actions">
             {/* A passed validation is said beside the buttons, so they do not move (the user, 2026-10-19). */}
-            {!readOnly && validationPassed && (
+            {works && validationPassed && (
               <span role="status">
                 <StatusPill tone="success">Change set validation passed</StatusPill>
               </span>
@@ -490,7 +501,7 @@ export function ChangeSetActions({
                 Review changes
               </button>
             )}
-            {!readOnly && (
+            {works && (
               <>
                 <button
                   className="secondary"
@@ -500,20 +511,22 @@ export function ChangeSetActions({
                 >
                   Validate change set
                 </button>
-                <button
-                  className="primary"
-                  disabled={
-                    pending || modelMismatch || !validation?.result.valid || validation.version !== current.version
-                  }
-                  title={
-                    modelMismatch
-                      ? "Change set model version differs from the active release. Change the version or wait until this release is activated."
-                      : "Publishing is available after a successful validation."
-                  }
-                  onClick={() => setConfirm("publish")}
-                >
-                  Publish change set
-                </button>
+                {publishes && (
+                  <button
+                    className="primary"
+                    disabled={
+                      pending || modelMismatch || !validation?.result.valid || validation.version !== current.version
+                    }
+                    title={
+                      modelMismatch
+                        ? "Change set model version differs from the active release. Change the version or wait until this release is activated."
+                        : "Publishing is available after a successful validation."
+                    }
+                    onClick={() => setConfirm("publish")}
+                  >
+                    Publish change set
+                  </button>
+                )}
                 <ActionMenu
                   label="More change set actions"
                   tooltip="More change set actions"
@@ -544,14 +557,14 @@ export function ChangeSetActions({
             tone="info"
             title="This change set uses a different model version"
             actions={
-              !readOnly && ((canMove && onMigrationStarted) || (canMigrate && onMigrationStarted)) ? (
+              works && ((canMove && onMigrationStarted) || (migrates && onMigrationStarted)) ? (
                 <>
                   {canMove && (
                     <button type="button" className="primary" disabled={pending} onClick={() => void moveChangeSet()}>
                       Move this change set to {activeModelReleaseLabel ?? "the workspace's release"}…
                     </button>
                   )}
-                  {canMigrate && (
+                  {migrates && (
                     <button
                       type="button"
                       className={canMove ? "secondary" : "primary"}
@@ -568,13 +581,13 @@ export function ChangeSetActions({
             This change set works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the
             active model{activeModelReleaseLabel ? ` ${activeModelReleaseLabel}` : ""}. Publishing requires these
             versions to match.
-            {readOnly
+            {!works
               ? " You can change the change set’s model version if the content fits, or discard the change set."
               : ` You can move this change set to the active model (its content is converted where that model differs, and you review every item first), move ${workspaceLabel ?? "the workspace"} to ${current.modelReleaseVersion} and publish this change set with it, or discard the change set.`}
-            {!readOnly && !canMove && (
+            {works && !canMove && (
               <> Moving the change set needs background jobs, which this deployment does not run.</>
             )}
-            {!readOnly && canMove && !canMigrate && (
+            {works && canMove && !canMigrate && (
               <>
                 {" "}
                 Moving {workspaceLabel ?? "the workspace"} needs model administration, which this deployment does not

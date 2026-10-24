@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
+import { holdsAnywhere, useHeldAnywhere, useWorkspacePermissions } from "@/features/security/permissions";
 import type { Me, MyPermissions } from "@/types";
 
 // Who is signed in, read once per page load: it changes only by signing in again (0.12 I2).
@@ -30,43 +31,18 @@ export function useMe(): Me | undefined {
  * Herbarium" (Z1). `undefined` while it loads or when it cannot be read.
  */
 export function useRoleLine(workspaceKey?: string): string | undefined {
-  const [permissions, setPermissions] = useState<MyPermissions>();
-  useEffect(() => {
-    let active = true;
-    Promise.resolve()
-      .then(() => api.myPermissions(workspaceKey))
-      .then(
-        (loaded) => active && setPermissions(loaded),
-        () => undefined,
-      );
-    return () => {
-      active = false;
-    };
-  }, [workspaceKey]);
+  const permissions = useWorkspacePermissions(workspaceKey);
   return permissions && roleLine(permissions);
 }
 
 /**
- * Whether the caller holds an instance action group, such as Security administration (0.12 SP1,
- * D303), read from their permissions in the default workspace, where an instance group appears as
- * in every workspace: `undefined` while it loads, `false` when it cannot be read. Only offers or
- * hides what the engine would refuse anyway.
+ * Whether the caller holds an action group anywhere, such as Security administration (0.12 SP1,
+ * D303; Z5, D328): `undefined` while it loads, `false` when it cannot be read. Only offers or hides
+ * what the engine would refuse anyway.
  */
 export function useHoldsGroup(groupKey: string): boolean | undefined {
-  const [held, setHeld] = useState<boolean>();
-  useEffect(() => {
-    let active = true;
-    Promise.resolve()
-      .then(() => api.myPermissions())
-      .then(
-        (loaded) => active && setHeld(loaded.actionGroups.some((group) => group.key === groupKey)),
-        () => active && setHeld(false),
-      );
-    return () => {
-      active = false;
-    };
-  }, [groupKey]);
-  return held;
+  const held = useHeldAnywhere();
+  return held && holdsAnywhere(held, groupKey);
 }
 
 export function roleLine(permissions: MyPermissions): string {

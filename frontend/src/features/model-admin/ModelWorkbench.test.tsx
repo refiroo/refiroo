@@ -5,6 +5,7 @@ import type { ModelDraft } from "@/types";
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
 import { capabilitiesFixture } from "@/test/capabilities";
+import { heldAnywhereFixture } from "@/test/permissions";
 import { ToastProvider } from "@/ui/Toast";
 
 vi.mock("@/api/client", async (load) => {
@@ -72,6 +73,8 @@ function mockWorkspaces() {
 }
 
 beforeEach(() => {
+  // The person holds every group (0.12 Z5); the deployment's capabilities decide what is offered.
+  vi.mocked(api.myActionGroups).mockResolvedValue(heldAnywhereFixture());
   vi.clearAllMocks();
   vi.mocked(api.modelReleaseActivations).mockResolvedValue({ items: [], nextCursor: null });
   vi.mocked(api.modelReleaseDiff).mockResolvedValue({

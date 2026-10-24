@@ -29,6 +29,7 @@ from ..schemas.authorization import (
     GroupMemberResponse,
     GroupPage,
     GroupResponse,
+    HeldAnywhereList,
     PermissionsResponse,
     RolePage,
     RoleResponse,
@@ -50,6 +51,14 @@ def get_my_permissions(
     ``workspaceKey``), each with its narrowing and the grants it comes from."""
     workspace = resolve_workspace(session, workspace_key)
     return present.permissions_response(session, permissions, workspace)
+
+
+@router.get("/me/action-groups", response_model=HeldAnywhereList)
+@requires("signed-in", at=SIGNED_IN)
+def get_my_action_groups(permissions: CurrentPermissions, session: DbSession) -> HeldAnywhereList:
+    """Every action group the caller holds anywhere: at the instance, or in which workspaces
+    (D328). The interface lists a settings page to whoever holds its group somewhere."""
+    return present.held_anywhere(session, permissions)
 
 
 @router.get("/me/grants", response_model=GrantPage)

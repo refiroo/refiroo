@@ -33,6 +33,7 @@ import { StatusPill } from "@/ui/StatusPill";
 import { RESULT, STATE, cancellable, kindOf } from "@/features/jobs/jobText";
 import { count, jobLimitItems } from "./limits";
 import { useCapabilities } from "./useSystem";
+import { useHoldsGroup } from "@/app/useMe";
 
 const JOBS: Extract<SettingsRoute, { page: "jobs" }> = { kind: "settings", page: "jobs" };
 
@@ -66,6 +67,7 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
   const notifications = useJobNotifications();
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const imports = useHoldsGroup("bulk");
   const { capabilities, error: capabilityError, retry: retryCapabilities } = useCapabilities();
   const [cancelling, setCancelling] = useState<Job>();
   const [pending, setPending] = useState(false);
@@ -107,9 +109,12 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
       actions={
         canCancel && (
           <>
-            <button type="button" className="secondary" onClick={() => setImporting(true)}>
-              New import
-            </button>
+            {/* An import needs Bulk and import somewhere (0.12 Z5, D323). */}
+            {imports && (
+              <button type="button" className="secondary" onClick={() => setImporting(true)}>
+                New import
+              </button>
+            )}
             <button type="button" className="primary" onClick={() => setExporting(true)}>
               New export
             </button>

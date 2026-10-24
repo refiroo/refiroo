@@ -22,6 +22,7 @@ export function WorkspaceField({
   disabled,
   describe,
   exclude,
+  holding,
 }: {
   /** A workspace's key; empty for the deployment's default workspace, with `withDefault`. */
   value: string;
@@ -36,6 +37,8 @@ export function WorkspaceField({
   describe?: (workspace: Workspace) => string;
   /** A workspace not offered, such as the other side of a move. */
   exclude?: string;
+  /** Only the workspaces where the person holds this action group (0.12 Z5, D323, D327). */
+  holding?: string;
 }) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
   // Callers pass a new handler with each render; the workspaces are read once.
@@ -45,7 +48,7 @@ export function WorkspaceField({
   });
   useEffect(() => {
     let cancelled = false;
-    everyPage((cursor) => api.workspaces({ cursor }))
+    everyPage((cursor) => api.workspaces({ cursor, holding }))
       .then((items) => {
         if (!cancelled) setWorkspaces(items);
       })
@@ -55,7 +58,7 @@ export function WorkspaceField({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [holding]);
   const offered = (workspaces ?? []).filter((item) => item.key !== exclude);
   // A workspace the user chose stays; one picked here gives way when the other side takes it. The
   // other way round, choosing as the source the workspace the target had picked by itself put the

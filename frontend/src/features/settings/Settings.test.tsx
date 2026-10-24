@@ -11,6 +11,7 @@ import { DeploymentPage } from "@/features/settings/DeploymentPage";
 import { TABLE_DENSITY_STORAGE_KEY } from "@/lib/tableDensity";
 import { resetThemePreference, THEME_STORAGE_KEY } from "@/lib/theme";
 import { capabilitiesFixture } from "@/test/capabilities";
+import { EVERY_GROUP, heldAnywhereFixture } from "@/test/permissions";
 import type { SystemConfiguration, SystemResponse, SystemSetting } from "@/types";
 
 vi.mock("@/api/client", async (load) => {
@@ -71,6 +72,10 @@ beforeEach(() => {
   vi.mocked(api.systemConfiguration).mockResolvedValue(configuration);
   vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
   vi.mocked(api.myPermissions).mockResolvedValue(permissions([]));
+  // Every group but Security administration somewhere (0.12 Z5, D328).
+  vi.mocked(api.myActionGroups).mockResolvedValue(
+    heldAnywhereFixture(EVERY_GROUP.filter((key) => key !== "security-admin")),
+  );
 });
 
 /** The caller's permissions in the default workspace, holding `groups` (0.12 Z1). */
@@ -113,9 +118,10 @@ describe("SettingsShell", () => {
     expect(settings).toHaveTextContent("");
   });
 
-  it("lists the built pages by group and marks the current one", () => {
+  it("lists the built pages by group and marks the current one", async () => {
     const { onNavigate } = renderShell();
     const navigation = screen.getByRole("navigation", { name: "Settings" });
+    await within(navigation).findByRole("link", { name: "Webhooks" });
     expect(
       within(navigation)
         .getAllByRole("heading")
@@ -146,8 +152,25 @@ describe("SettingsShell", () => {
     expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "model" });
   });
 
+  it("lists only the pages of the groups a Reader holds (0.12 Z5, D328)", async () => {
+    vi.mocked(api.myActionGroups).mockResolvedValue(heldAnywhereFixture(["browse"]));
+    renderShell();
+    const navigation = screen.getByRole("navigation", { name: "Settings" });
+    await within(navigation).findByRole("link", { name: "Consumer APIs" });
+    expect(
+      within(navigation)
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toEqual(["About", "Appearance", "Account", "Workspaces", "Jobs", "Consumer APIs", "API reference"]);
+    expect(
+      within(navigation)
+        .getAllByRole("heading")
+        .map((heading) => heading.textContent),
+    ).toEqual(["General", "Administration", "Data operations", "Integration"]);
+  });
+
   it("lists Security only to a person holding Security administration (0.12 SP1, D303)", async () => {
-    vi.mocked(api.myPermissions).mockResolvedValue(permissions(["security-admin"]));
+    vi.mocked(api.myActionGroups).mockResolvedValue(heldAnywhereFixture(["security-admin"]));
     renderShell();
     const navigation = screen.getByRole("navigation", { name: "Settings" });
     expect(await within(navigation).findByRole("heading", { name: "Security" })).toBeInTheDocument();

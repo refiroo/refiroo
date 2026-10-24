@@ -34,7 +34,8 @@
 import { Card } from "@/ui/Card";
 import { useCallback, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { changedObjectType, errorMessage, isApiError } from "@/api/errors";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { allows } from "@/features/security/permissions";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { RecordTree, type TreeConfiguration, type TreeFocusRequest } from "@/features/objects/RecordTree";
 import { RestructuringDialog, type RestructuringSetup } from "@/features/objects/RestructuringDialog";
@@ -86,6 +87,16 @@ export function TreeView({
   const actions = useMemo(
     () => new Set(readOnly || publication ? [] : (config.actions ?? [])),
     [readOnly, publication, config.actions],
+  );
+  // A record's own actions follow its type's writes (0.12 Z5, D329); Move to… saves as a batch,
+  // which needs Bulk and import (D323).
+  const writes = useRecordWrites();
+  const { permissions } = useWorkspaceData();
+  const severalMove = allows(permissions, "bulk");
+  const may = useCallback(
+    (item: ObjectItem, action: string) =>
+      actions.has(action as never) && writes.permits(item.applicationKey, item.objectTypeKey),
+    [actions, writes],
   );
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
@@ -211,7 +222,7 @@ export function TreeView({
     if (actions.has("createChild")) {
       for (const key of childTypesOf(item.objectTypeKey)) {
         const objectType = objectTypeFor(model, key);
-        if (objectType)
+        if (objectType && writes.permits(application.key, key))
           entries.push({
             id: `add:${key}`,
             label: `Add ${objectType.name.toLowerCase()}`,
@@ -219,9 +230,9 @@ export function TreeView({
           });
       }
     }
-    if (actions.has("rename"))
+    if (may(item, "rename"))
       entries.push({ id: "rename", label: "Rename", hint: "F2", run: () => setRenaming(item.id) });
-    if (actions.has("setAvailability") && config.availabilityField)
+    if (may(item, "setAvailability") && config.availabilityField)
       entries.push({
         id: "availability",
         label: available(item)
@@ -229,9 +240,14 @@ export function TreeView({
           : `Mark ${availabilityName.toLowerCase()}`,
         run: () => void toggleAvailability(item),
       });
-    if (actions.has("move") && movable(item.objectTypeKey))
-      entries.push({ id: "move", label: "Move to…", run: () => setMoving(movingFrom(item)) });
-    if (typeChanges) {
+    if (may(item, "move") && movable(item.objectTypeKey))
+      entries.push({
+        id: "move",
+        label: "Move to…",
+        // Several records move as a batch, which needs Bulk and import (0.12 Z5, D323).
+        run: () => setMoving(severalMove ? movingFrom(item) : { item }),
+      });
+    if (typeChanges && writes.permits(item.applicationKey, item.objectTypeKey)) {
       const choices = restructuringChoices(model, application, treeTypes, item);
       if (choices.changeType.length)
         entries.push({
@@ -301,7 +317,7 @@ export function TreeView({
 
   const onItemKeyDown = useCallback(
     (event: KeyboardEvent<HTMLElement>, item: ObjectItem) => {
-      if (event.key === "F2" && actions.has("rename")) {
+      if (event.key === "F2" && may(item, "rename")) {
         event.preventDefault();
         setRenaming(item.id);
       } else if (actions.size > 0 && (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey))) {
@@ -309,7 +325,7 @@ export function TreeView({
         openMenu(item, event.currentTarget.querySelector<HTMLElement>(".tree-row"));
       }
     },
-    [actions, openMenu],
+    [actions, may, openMenu],
   );
 
   // The tree reveals records again when these change, so they keep their identity across renders.
@@ -374,22 +390,18 @@ export function TreeView({
     ),
     renderExtras: (item) => (
       <span className="tree-extras">
-        {config.availabilityField && (actions.has("setAvailability") || !available(item)) && (
+        {config.availabilityField && (may(item, "setAvailability") || !available(item)) && (
           <span
             aria-hidden="true"
             className={`tree-availability${available(item) ? " on" : ""}${busy === item.id ? " busy" : ""}`}
             title={
-              actions.has("setAvailability")
+              may(item, "setAvailability")
                 ? `${availabilityName}: ${available(item) ? "yes" : "no"} — click to change`
                 : `Not ${availabilityName.toLowerCase()}`
             }
-            onClick={actions.has("setAvailability") ? () => void toggleAvailability(item) : undefined}
+            onClick={may(item, "setAvailability") ? () => void toggleAvailability(item) : undefined}
           >
-            {actions.has("setAvailability") ? (
-              <span className="tree-switch" />
-            ) : (
-              `Not ${availabilityName.toLowerCase()}`
-            )}
+            {may(item, "setAvailability") ? <span className="tree-switch" /> : `Not ${availabilityName.toLowerCase()}`}
           </span>
         )}
         {actions.size > 0 && (
@@ -407,7 +419,12 @@ export function TreeView({
     onItemKeyDown,
     drag: actions.has("move")
       ? {
-          canDrag: (item) => movable(item.objectTypeKey) && renaming !== item.id && busy !== item.id,
+          canDrag: (item) =>
+            movable(item.objectTypeKey) &&
+            writes.permits(item.applicationKey, item.objectTypeKey) &&
+            (severalMove || !(selection.length > 1 && selection.some((selected) => selected.id === item.id))) &&
+            renaming !== item.id &&
+            busy !== item.id,
           refusal: refusalOf,
           note: becomesText,
           onDrop: ([item, ...others], parent) =>

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type Ref } from "react";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { errorMessage, isApiError } from "@/api/errors";
@@ -44,7 +44,7 @@ export function MappingGridView({
   application,
   view: rawView,
   workspaceKey,
-  readOnly,
+  readOnly: contextReadOnly,
   onChanged,
   query,
   onQueryChange,
@@ -65,6 +65,10 @@ export function MappingGridView({
   const sourceType = objectTypeFor(model, sourceTypeKey);
   const targetType = objectTypeFor(model, targetTypeKey);
   const relationType = model.relationTypes.find((rt) => rt.key === config.relationTypeKey);
+  // A mapping is a relationship: written where either end's type may be (0.12 Z5, D291, D329).
+  const writes = useRecordWrites();
+  const readOnly =
+    contextReadOnly || !(writes.permits(application.key, sourceTypeKey) || writes.permitsType(targetTypeKey));
 
   const combinedRefresh = refreshToken + internalRefresh;
 

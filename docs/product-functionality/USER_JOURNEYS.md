@@ -2036,7 +2036,8 @@ narrowing enforced on every write path, a stale grant reported, J40.10, and an i
 files kept to their uploader and their workspace. SP1 (2026-10-24): the UI channel: Settings ›
 Security › People, Groups and Roles and a workspace's Access, shown to Security administrators; a
 person's roles in the people list and their grants through groups, groups and clients found by
-name, and a role held only at the instance refused in a workspace, through the API.
+name, and a role held only at the instance refused in a workspace, through the API. Z5 (2026-10-24):
+J40.12, the interface following the person's permissions (J40.1–J40.3's UI channel).
 
 1. Create a person; they set a password through a one-time link.
 2. Grant them a role in a workspace, directly or through a group, optionally narrowing what they may
@@ -2066,6 +2067,12 @@ name, and a role held only at the instance refused in a workspace, through the A
 - **J40.11 Who changed access**: every change to people, groups, roles, grants, clients and keys,
   and every sign-in, succeeded or failed, is a security event naming who made it; a security
   administrator lists a person's or client's events, never a secret in them (0.12 Z4).
+- **J40.12 The interface follows permissions**: a person is offered only what their roles allow in
+  the workspace open, and a flow only when they can finish it; a Reader sees no edit affordance; a
+  Contributor proposes a change into their own change set; a narrowed writer edits only the named
+  types; the application opens in a workspace they may browse, or says there is none; Settings lists
+  only the pages of groups they hold anywhere. Through the API: the workspaces holding a group, the
+  groups held anywhere, and the change sets a caller created (0.12 Z5).
 
 **Refusals:** `403 FORBIDDEN` (`details.action`, `groups`, `workspaceKey`, and `recordTypes` for a
 narrowed write, `requestedBy` for a job's step), `409 ROLE_PREDEFINED`, `409 ROLE_IN_USE`, `409 LAST_SECURITY_ADMINISTRATOR`.

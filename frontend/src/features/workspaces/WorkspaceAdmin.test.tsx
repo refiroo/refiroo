@@ -4,6 +4,7 @@ import { ApiError, api } from "@/api/client";
 import type { WorkspaceDetail } from "@/types";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { capabilitiesFixture } from "@/test/capabilities";
+import { EVERY_GROUP, heldAnywhereFixture, permissionsFixture } from "@/test/permissions";
 import { testWorkspaceModel } from "@/test/fixtures";
 import { ToastProvider } from "@/ui/Toast";
 
@@ -75,13 +76,11 @@ const byKey = new Map<string, WorkspaceDetail>();
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // A caller without Security administration: the workspace's Access is not shown (0.12 SP1).
-  vi.mocked(api.myPermissions).mockResolvedValue({
-    workspaceKey: "default",
-    workspaceLabel: "Default",
-    roles: [],
-    actionGroups: [],
-  });
+  // A caller holding every group but Security administration: the workspace's Access is not
+  // shown (0.12 SP1); the workspaces are managed and opened (Z5, D323).
+  const groups = EVERY_GROUP.filter((key) => key !== "security-admin");
+  vi.mocked(api.myPermissions).mockImplementation(async (key) => permissionsFixture(key, groups));
+  vi.mocked(api.myActionGroups).mockResolvedValue(heldAnywhereFixture(groups));
   byKey.clear();
   for (const item of [primary, retail, archive]) byKey.set(item.key, item);
   vi.mocked(api.capabilities).mockResolvedValue(capabilities(true));

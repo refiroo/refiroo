@@ -11,7 +11,8 @@
 import { useState, type ReactNode } from "react";
 import type { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { allows, recordWrites } from "@/features/security/permissions";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName, relatedRecords } from "@/model/fields";
 import { RELATED_FIELD_PREFIX, relatedCellEdit, type RelatedCellEdit } from "@/model/lookup";
@@ -47,7 +48,11 @@ export function useCellEditing({
   onChanged?: () => void;
 }): { renderCell?: CellRenderer; dialogs: ReactNode } {
   const api = useDataApi();
-  const { changeSet, warning } = useWorkspaceData();
+  const { changeSet, warning, permissions } = useWorkspaceData();
+  // Each row follows its own type's writes, a relationship either end's (0.12 Z5, D329, D291); a
+  // cell holding many records saves as a batch, which needs Bulk and import (D323).
+  const writes = useRecordWrites();
+  const batches = permissions ? recordWrites(permissions, "bulk") : undefined;
   const toast = useToast();
   const [open, setOpen] = useState<Open>();
   const [reading, setReading] = useState(false);
@@ -78,9 +83,22 @@ export function useCellEditing({
   const busy = Boolean(open) || reading || Boolean(warning);
 
   const renderCell: CellRenderer = (item, column, shown) => {
+    const own = writes.permits(item.applicationKey, item.objectTypeKey);
     if (column.startsWith(RELATED_FIELD_PREFIX)) {
-      const edit = relatedCellEdit(model, item.objectTypeKey, column);
-      if (!edit) return shown;
+      const found = relatedCellEdit(model, item.objectTypeKey, column);
+      const choices = found?.choices.filter((choice) => own || writes.permitsType(choice.otherObjectTypeKey));
+      if (!found || !choices?.length) return shown;
+      const edit = { ...found, choices };
+      if (
+        !edit.single &&
+        (!allows(permissions, "bulk") ||
+          (batches &&
+            !(
+              batches.permits(item.applicationKey, item.objectTypeKey) ||
+              choices.some((choice) => batches.permitsType(choice.otherObjectTypeKey))
+            )))
+      )
+        return shown;
       const holds = (relatedRecords(item, column, model)?.count ?? 0) > 0;
       return (
         <EditInPlaceCell
@@ -94,7 +112,7 @@ export function useCellEditing({
         </EditInPlaceCell>
       );
     }
-    const editable = fieldEditing(model, item, column, false);
+    const editable = own ? fieldEditing(model, item, column, false) : undefined;
     if (!editable) return shown;
     const editing = open?.kind === "value" && open.id === item.id && open.field === column;
     return (

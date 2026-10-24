@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ActionMenu } from "@/ui/ActionMenu";
-import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { routePath } from "@/routing/routes";
 import type { ObjectItem } from "@/types";
 
@@ -23,6 +23,9 @@ export function RecordActionMenu({
   onOpenChange?: (open: boolean) => void;
 }) {
   const { changeSet, publication } = useWorkspaceData();
+  // A record whose type the person may not write offers no edit or delete (0.12 Z5, D329).
+  const writes = useRecordWrites();
+  const writable = !readOnly && writes.permits(object.applicationKey, object.objectTypeKey);
   const [message, setMessage] = useState("");
   async function copyLink() {
     const path = routePath({
@@ -48,9 +51,9 @@ export function RecordActionMenu({
         isOpen={isOpen}
         onOpenChange={onOpenChange}
         items={[
-          ...(!readOnly ? [{ id: "edit", label: "Edit record", onAction: onEdit }] : []),
+          ...(writable ? [{ id: "edit", label: "Edit record", onAction: onEdit }] : []),
           { id: "copy", label: "Copy link", onAction: () => void copyLink() },
-          ...(!readOnly ? [{ id: "delete", label: "Delete record", tone: "danger" as const, onAction: onDelete }] : []),
+          ...(writable ? [{ id: "delete", label: "Delete record", tone: "danger" as const, onAction: onDelete }] : []),
         ]}
       />
       <span className="record-action-feedback" role="status">

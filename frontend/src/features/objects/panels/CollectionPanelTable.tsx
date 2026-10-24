@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName, listSortFields, RELATED_EXPAND_LIMIT, relatedKeys } from "@/model/fields";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
@@ -43,6 +43,9 @@ export function CollectionPanelTable({
 }) {
   const api = useDataApi();
   const { changeSet, publication } = useWorkspaceData();
+  // A record of this type is added where the person may write it (0.12 Z5, D329).
+  const writes = useRecordWrites();
+  const creatable = !readOnly && writes.permits(application.key, objectTypeKey);
   const display = useTableDisplay(columns, `${application.key}:${object.id}:${objectTypeKey}`);
   const [selectedPageSize, setPageSize] = useState(pageSize);
   const objectType = objectTypeFor(model, objectTypeKey);
@@ -124,7 +127,7 @@ export function CollectionPanelTable({
           onPageSize={setPageSize}
         />
         <SortMenu sorting={sorting} />
-        {allowCreate && !readOnly && (
+        {allowCreate && creatable && (
           <button className="secondary" onClick={() => setCreating(true)}>
             <Icon name="plus" /> Add {objectType.name}
           </button>

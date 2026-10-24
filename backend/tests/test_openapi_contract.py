@@ -236,10 +236,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # entry, a feed entry and an activation (ActorResponse), createdBy on a change set, publishedBy
     # and withdrawnBy on a publication, requestedBy on a job, a draft operation's author
     # (PrincipalResponse), and GET /security-events (SecurityEventPage). Diffed against f604cbd,
+    # nothing else changed. Re-baselined for 0.12 Z5 (D325, D327, D328): holding on GET
+    # /workspaces, createdBy on GET /workspaces/{workspace_key}/change-sets, and GET
+    # /me/action-groups (HeldAnywhereList, HeldAnywhere, HeldWorkspace). Diffed against 260bac0,
     # nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "7af99824ca3cbb233de37133662e9e48be7d4877d83db4f253d817c0a3fa788f"
+        "2d0b75a7abe3cfbe32489462bbb7bba033016549a526fa307cbda63a50933c00"
     )
 
 

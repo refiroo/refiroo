@@ -214,3 +214,15 @@ export interface MyPermissions {
     }[];
   }[];
 }
+
+/** An action group the caller holds somewhere: at the instance, or in these workspaces (0.12 Z5). */
+export interface HeldAnywhere {
+  key: string;
+  name: string;
+  instance: boolean;
+  workspaces: { key: string; label: string }[];
+}
+
+export interface HeldAnywhereList {
+  items: HeldAnywhere[];
+}

@@ -226,6 +226,27 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
+## Found in 0.12 Z5 (2026-10-24), not Z5's
+
+- [ ] **A record's live history lists its change-set edits:** `GET /objects/{type}/{id}/history`
+  without `changeSetId` reads the audit by record ID whatever the context, so a Contributor's edit
+  in a change set shows on the live record as "Record updated · version 2" while the live record is
+  still version 1 (seen in `z5-permissions`' screenshots). Decide whether live history shows only
+  live and published changes, or says which change set an entry was made in.
+- [ ] **Three browser runners cannot start since I1:** `wp9-authoring`, `wp9-publications` and
+  `v1-api-reference` start their own servers without `SECRETS_ENCRYPTION_KEY` and send no token.
+  Z5 moved `wp9-change-sets` and `wp9-navigation` onto the shared harness; these three need the same.
+- [ ] **`wp9-navigation` fails at "Collection page unavailable"** (the list's read-ahead refused and
+  retried in place); on the shared harness it fails the same way on `260bac0`. The steps before it
+  pass. Cause not looked for.
+- [ ] **`j4-import` fails at the Jobs list** (`a[href$="/settings/jobs/{id}"]` never appears after
+  the preview); it fails the same way on `260bac0`, before Z5. Cause not looked for.
+
+## Left by 0.12 Z5 (2026-10-24)
+
+- [ ] **Import into a narrowed grant:** Import is offered to a holder of Bulk and import before the
+  file is read, so a narrowed holder learns in the preview that rows of other types are refused.
+
 ## Left by 0.12 Z4 (2026-10-24)
 
 - [ ] **Retention of security events** (D318): sign-in events, succeeded and failed, are kept

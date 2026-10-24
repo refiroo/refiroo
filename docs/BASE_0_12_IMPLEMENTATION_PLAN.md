@@ -1965,13 +1965,278 @@ not open (settings pages, model administration) and disables, with the reason, w
 not do ("You can read this workspace"). A Reader's record view has no edit affordance at all. A
 Contributor (D231) edits only in change sets: the record view offers "Propose a change", which opens
 or continues their change set, instead of saving live. Every guard stays on the server; the interface
-only avoids offering what would be refused. _Amended after Z2 (the user, 2026-10-24):_ Z5's checks
+only avoids offering what would be refused. _Changed by the user with D323 (2026-10-24):_ nothing
+is shown disabled; what the person may not do is not offered, and no flow is offered that would be
+refused before it finishes. _Amended after Z2 (the user, 2026-10-24):_ Z5's checks
 included the full backend suite; _moved to Z6 by the user (2026-10-24),_ since Z6 now closes Track Z.
 Z5's checks are its own groups.
 _Found in SP1 (2026-10-24):_ a person without Browse in the default workspace (a person just
 created and given a role elsewhere, or none) sees only "Reading the model in workspace 'default'
 needs Browse" instead of the application; Z5 opens the application in a workspace they may use and
 says plainly when there is none.
+
+##### Z5 plan (2026-10-24)
+
+**Planned 2026-10-24; accepted by the user the same day** ("yes"): D321–D330 (D323 changed by the
+user before acceptance: hidden, never disabled, and no flow offered that is refused at its end), the test cases and the "Z5 as
+planned" boards. Checked against the code at `260bac0` with P0's approved "Reader's and Contributor's
+record view" board, U8 in SETTINGS_AND_UI_PLAN, J40.1–J40.3 and D291.
+
+**What the check found:**
+
+- **One gate decides every record write in the browser today:** `readOnly` in `App.tsx` (a
+  publication, a retired workspace, another workspace), passed to the collection, the record, the
+  tree, the matrix, the mapping grid, the panels, the change-set bar and the bulk selection. It knows
+  nothing of permissions, and it is one boolean: it cannot say "this record type yes, that one no",
+  which a narrowed grant needs (Z2: "a narrowed steward sees edit buttons for other types").
+- **Which group a write needs is known where the data is chosen:** `WorkspaceDataProvider` swaps in
+  the change-set client when a change set is open, which is exactly D244's rule (Edit live without a
+  change set, Work in change sets with one).
+- **Permissions are read three times, uncached** (`useRoleLine`, `useHoldsGroup` in the settings
+  navigation and on a workspace's page), always for the default workspace in the last two.
+- **Startup:** `useRouter` resolves the default workspace's model; a `403` on it is the whole page
+  ("Reading the model in workspace 'default' needs Browse"). Settings is drawn inside a loaded
+  model (`SettingsShell` takes `model` for the top bar), so a person who can browse nothing cannot
+  even reach Account or, for a Security administrator, People.
+- **The workspace selector** lists `GET /workspaces` (D288: any role there), so a Security
+  administrator, whose instance grant covers every workspace, is offered workspaces they cannot read.
+- **Settings lists every page to everyone** except Security (D303); each page then shows the
+  engine's refusal.
+- **Change sets have no "mine":** the list has no filter; `createdBy` is on every change set (Z4);
+  published and discarded change sets are deleted, so the list holds the open ones.
+- **Reference patterns:** the data-context band's line saying what an edit does here
+  (`DataContextBand`, ADR-040); `Notice`; the gate `bulkSelectionFor` and `onImport` already use
+  (an entry not offered when its writes cannot be made).
+
+**What is built:**
+
+1. **API** (documented in API.md, OpenAPI lock re-baselined from a diff):
+   - `GET /workspaces?holding=<action group>`: the workspaces where the caller holds that group
+     (all of them for an instance grant); an unknown key is `422 ACTION_GROUP_UNKNOWN` (D327).
+   - `GET /me/action-groups`: every group the caller holds anywhere, each with `instance` (held at
+     the instance) and the `workspaces` (key and label) it is held in otherwise (D328).
+   - `GET /workspaces/{key}/change-sets?createdBy=<principal ID>`: the open change sets a person or
+     client created (D325).
+2. **One permission read in the browser** (D321): `PermissionsProvider` reads `/me/permissions` for
+   the open workspace and `/me/action-groups` once, kept for the page load and per workspace, read
+   again when the workspace changes and after any `403 FORBIDDEN`. `useRoleLine` and
+   `useHoldsGroup` move onto it; nothing else reads permissions.
+3. **What a record write may touch** (D329): `useWorkspaceData()` gains `writes`: whether the open
+   context allows record writes at all (the existing `readOnly`, plus Edit live without a change set
+   or Work in change sets with one) and `permits(application, recordType)` from that group's
+   narrowing; a relationship is offered when either end's type is permitted (D291). Every surface
+   the `readOnly` gate reaches reads it: create (only permitted types are offered), edit, inline
+   cells, delete, remove a value, relationships and their dialogs, matrix cells, the mapping grid,
+   the tree's moves and drag, restructuring. The bulk selection and Import also need Bulk and import;
+   Export stays (Browse).
+4. **The Reader** (D322, D323): the data-context band's line says "You can read this workspace. To
+   change records, ask a security administrator for a role that allows it." in place of "Edits apply
+   immediately"; no create, edit, delete, inline, relationship, tree-move or selection affordance on
+   any view or panel; on the change sets and publications lists, New change set, Start a change set
+   from this publication and Withdraw are not offered.
+5. **The Contributor** (D324, D326): in live data, the record's **Edit** becomes **Propose a
+   change** and a collection's **New** becomes **Propose a new record**; each continues the person's
+   newest open change set (D325) or, when they have none, asks for its name in a small dialog
+   ("Changes by *name*", editable) and creates it, then opens the same record (or the new record's
+   form) in it. The band's line in live says "Changes you make go into your change set, not live. A
+   data steward or owner publishes it." and, when they have one open, a button "Your change set:
+   *name* · *n* changes" opens it. In the change set they edit as today; **Publish** is not offered
+   (the band's line says who publishes: "Edits stay in this change set until someone who holds
+   Publish in *workspace* publishes it."); Validate, Rename and Discard stay.
+6. **A narrowed writer** (D329): types outside the narrowing are read-only as for a Reader, and the
+   record's page says, in the band's line, "Your role changes *Specimen* and *Determination*
+   records here; others you can read." (the model's names, as data).
+7. **Startup and no workspace** (D326): the application opens the default workspace when the
+   person may browse it, otherwise the first by label of `GET /workspaces?holding=browse`; with none,
+   a page "There is no workspace you can open yet" naming the roles they hold ("You hold no roles
+   yet." or their roles) and "Ask a security administrator for a role in a workspace.", with
+   Settings and Account; a Security administrator reads instead "A role in a workspace is granted
+   on People." with People. Settings and the no-workspace page open without a workspace model: the top bar then
+   shows the product and the settings button without applications. The workspace selector lists
+   `holding=browse`.
+8. **Settings follows the groups** (D328, D330): a page is listed only to someone holding its group
+   anywhere: About, Appearance, Account, Jobs and API reference to everyone; Workspaces to
+   everyone (each workspace's page reads it), its create, rename, retire, delete and set-default
+   only with Workspace administration and Access with Security administration (as now); Model with
+   Model authoring or Model release (drafts and their actions with Model authoring; Install,
+   Activate and Migrate with Model release in the workspace); Deployment and Operations with
+   Operations; Import profiles with Bulk and import; Copy and move with Copy and move; Consumer APIs
+   with Browse; Webhooks with Integration administration; Security as now. A group of the
+   navigation with no page left is not shown. An address of an unlisted page shows the engine's
+   refusal as today.
+9. **A refusal still reaches the person** (D330): the interface only avoids offering what would be
+   refused; a `403 FORBIDDEN` (a role changed meanwhile) shows the engine's message and re-reads the
+   permissions, so the page follows on the spot.
+10. **Documents:** API.md (the three reads), USER_JOURNEYS (J40.1–J40.3's UI channel, J40.12),
+    API_JOURNEYS, CURRENT_FUNCTIONALITY, SETTINGS_AND_UI_PLAN (U8: Z5 built), UI_ACCEPTANCE (Z5 state
+    rows), EXECUTION_GUIDE (the new runner), CHANGELOG, PROJECT_STATUS.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D321 | How the browser knows what the person may do | **Recommended:** one provider reads `/me/permissions` for the open workspace and `/me/action-groups` once; kept per workspace for the page load, read again on a workspace change and after any `403 FORBIDDEN`; the account menu, the settings navigation and the views all read it. Why: three uncached reads today, two of them for the wrong workspace; a role changed meanwhile is caught on the first refusal, without polling. Cost: a role granted meanwhile shows after the next refusal or a reload, not at once |
+| D322 | Where the Reader's and Contributor's note goes (**differs from the board**, which puts it on the record) | **Recommended:** in the data-context band's line, which already says what an edit does in this context, on every view. Why: one place for every view, collection, tree, matrix and record, instead of a note repeated on each record page; the band is the reference pattern (ADR-040). Cost: the record page carries no note of its own |
+| D323 | Hidden or disabled | **Changed by the user (2026-10-24): hidden.** What the person may not do is **not offered**: no disabled button with a reason (a Reader's Edit, a narrowed writer's Edit on another type, a Contributor's Publish, Withdraw without Publish); a settings page they cannot open is not listed. **A flow is offered only when it can be finished:** its entry (a button, a menu item, a dialog's opening) checks every group its steps need in every workspace it writes before anything opens, so nobody fills in a dialog to be refused at its last step. The flows and what each needs: Import, a profile's load and the bulk changes (Bulk and import, with its narrowing); a move (Copy and move in the target, and Browse in the source for a copy or Work in change sets for a move); a change set's Change model version and migrate-and-publish (Model release; Publish for the second); Start a change set from a publication (Work in change sets); Install and Activate (Model release in the workspace); a draft's actions (Model authoring); the grant dialog (Security administration). Why: the user's rule: being able to click, open the dialog and be refused a few steps later makes no sense. Cost: the scope's "disables, with the reason" wording is replaced; the band's line is where a person learns who can do what they cannot |
+| D324 | What "Propose a change" does | **Recommended:** continues the person's newest open change set (by `updatedAt`) and opens the same record in it with its form; with none, a small dialog asks the change set's name ("Changes by *name*", editable) and creates it. The band's button names it and its count; other change sets are opened from Change sets as today. Why: a Contributor should not have to know about change sets before their first change; the name dialog is the one step that cannot be guessed. Cost: with several open change sets, the newest is chosen; another is opened from the list |
+| D325 | Finding "their" change set | **Recommended:** `createdBy=<principal ID>` on `GET /workspaces/{key}/change-sets`, the person's or client's public ID. Change sets stay shared (D255); the filter only finds them. Why: an integrator's journey too (a client continuing its own change set), and the list stays one route. Cost: none |
+| D326 | Which workspace opens first | **Recommended:** the default workspace when the person may browse it; otherwise the first by label they may browse; with none, the "no workspace yet" page with their roles and Settings. Why: SP1's finding; the default stays the organisation's choice for those who can read it. Cost: Settings must open without a model (the top bar without applications) |
+| D327 | Workspaces the person may use | **Recommended:** `holding=<action group>` on `GET /workspaces` (any group with D288's meaning without it); the selector asks for `browse`. Why: a Security administrator's instance grant lists every workspace, though they cannot read one; the filter is the engine's own visibility rule (`in_workspaces`). Cost: none |
+| D328 | Which settings pages are listed | **Recommended:** by the groups held **anywhere**, from `GET /me/action-groups`, as item 8's table. Why: Webhooks or Copy and move held in one workspace must not vanish because another is open; one read answers every page. Cost: one route; the table to keep with the catalogue |
+| D329 | A narrowed writer in the interface | **Recommended:** the open context's group's narrowing decides per record type, through `writes.permits`; relationships when either end is permitted (D291); create lists only permitted types; the band's line names the permitted types or applications. Why: Z2's finding (edit buttons for types that are refused); the same rule the engine applies, read from the same answer. Cost: every write surface reads `permits` instead of one boolean |
+| D330 | When the interface and the engine disagree | **Recommended:** the engine decides; a `403 FORBIDDEN` is shown as worded and the permissions are re-read. An unlisted settings page opened by its address shows the refusal as today. Why: the interface only avoids offering what would be refused (the scope). Cost: none |
+
+**Journey test cases** (`tests/journeys/test_j40_interface_permissions.py`, J40.12 "The interface
+follows permissions", on two configurations; written first and seen failing):
+
+1. **Workspaces holding a group:** given a person who is Reader in workspace A and Integration
+   administrator in B, and a Security administrator holding only that role, when
+   `GET /workspaces?holding=browse` is read, then the person sees A only and the administrator none;
+   `holding=integration-admin` gives the person B; an instance Reader sees every workspace;
+   `holding=nonsense` is `422 ACTION_GROUP_UNKNOWN`.
+2. **The groups held anywhere:** given the same person, when `GET /me/action-groups` is read, then it
+   lists Browse in A, Integration administration in B and nothing else; the administrator's lists
+   Security administration with `instance: true`; after the person's grant in B is removed, B is
+   gone on the next request.
+3. **Their change sets:** given two Contributors in A each creating a change set, when
+   `GET /workspaces/A/change-sets?createdBy=` is read with each one's ID, then each sees only their
+   own; after one is published it is no longer listed; another workspace's change sets are never
+   listed.
+4. **A Contributor proposes:** given a Contributor in A with no change set, when they create one, write
+   a record in it and try to publish, then the write passes, the publish is `403 FORBIDDEN` naming
+   Publish, and the live record is unchanged (J40.2's flow as the interface walks it).
+
+Unit tests (Vitest): `writes.permits` (unnarrowed, narrowed by type, by application, a
+relationship's two ends, live against change set); the settings navigation from held groups; the
+startup choice (default browsable, another, none); the band's line for Reader, Contributor and
+narrowed writer.
+
+**Browser** (a new runner `z5-permissions`, on two models; reference patterns: the data-context
+band, P0's board, the change set's bar): as a Reader, a collection, a record, the tree and the matrix
+offer no write and the band says so; as a Contributor, Propose a change on a record names a new
+change set, opens the record in it with its form, saves, the band's button shows "1 change", Publish
+is not offered; a person without Bulk and import is offered no Import and no selection; a
+second Propose a change continues the same change set; as a Data
+steward narrowed to one record type, another type's record has no Edit and the band names the
+permitted type; a person with Browse only in a second workspace lands there; a Security
+administrator without data roles sees the no-workspace page and reaches People; a Reader's settings
+navigation lists only their pages. Keyboard through Propose a change and its dialog; 390px (the
+band, a Contributor's record); axe; screenshots of a Reader's and a Contributor's record, the dialog
+and the no-workspace page at 1440px light and dark and at 390px, inspected against the boards.
+
+**Checks:** the new journey module, J40's authorization module, `test_openapi_contract` with the
+lock diffed, `test_api_journeys`, `test_boundaries`; Ruff on the changed files; Vitest for the
+touched folders (`src/app`, `src/features/objects`, `src/features/workspaces`, `src/features/settings`,
+`src/features/security`, `src/routing`); format, lint, build; the runners `z5-permissions`,
+`sp1-security`, `u3-settings` and those EXECUTION_GUIDE §2 selects for the data-context band and
+the change-set bar (`authoring-n1`, `change-sets`), each named with its result. No migration. The
+full backend suite is Z6's.
+
+**Composable domains (ADR-032):** no door is touched: the interface reads permissions and one list
+gains a filter on its creator; no identity, attribute storage, audit or bulk contract changes.
+
+**What the user will still not be able to do after Z5:** submit a change set for approval or be told
+when it is published (A1–A3: a Contributor tells someone who can publish); see one person's changes
+across workspaces (Z6); manage clients on a page (SP2); sign in with a provider (I3).
+
+##### Z5 record (2026-10-24)
+
+**Delivered 2026-10-24.** What was built is the plan's list, items 1–10:
+
+- **API:** `holding` on `GET /workspaces` through the engine's own visibility rule, an unknown group
+  refused with `ACTION_GROUP_UNKNOWN` by the check roles already used (`known_groups`, D327);
+  `GET /me/action-groups` (`held_anywhere`, D328); `createdBy` on a workspace's change sets
+  (`principals.named_by`, D325). OpenAPI lock re-baselined from a diff against `260bac0`: the three
+  and their schemas (`HeldAnywhereList`, `HeldAnywhere`, `HeldWorkspace`); nothing else.
+- **One permission read** (D321): `features/security/permissions.ts` keeps `/me/permissions` per
+  workspace and `/me/action-groups` for the page load, read again after any `403 FORBIDDEN`
+  (`api/forbidden.ts`); `useRoleLine` and `useHoldsGroup` read it. **What a record write may touch**
+  (D329): `recordWrites` (the engine's rule: the group's narrowing by application or type, a
+  relationship by either end) on the data context as `useRecordWrites()`, Edit live's in live data,
+  Work in change sets' in a change set, none in a publication.
+- **The surfaces:** App's `readOnly` adds "no record write here"; the record (its header, menu,
+  values and deletion by its type), table cells and row menus by each row's type, the child tables'
+  Add, relationships by either end (the far end by type before its record is chosen), matrix cells
+  by the cell type, the mapping grid, the tree's actions and drags, the sidebar's moves; Import and
+  the bulk selection with Bulk and import (its narrowing for the collection's type); a many-records
+  cell and moving several records (batches) with Bulk and import; the change set's bar (Validate,
+  Change model version, Discard with Work in change sets; Publish also with Publish; migrate and
+  publish also with Model release); New change set, Start a change set from a publication and
+  Withdraw; Manage workspaces, the workspace page's actions and Open workspace; the Model page's
+  drafts, Install and Activate per workspace; Copy or move data… and its source and target lists;
+  the Jobs page's New import; the import, export and webhook dialogs' workspace lists (D323).
+- **The band** (D322): `permissionLine` for a Reader, a Contributor in live data, a narrowed writer
+  and someone in a change set who cannot publish; the Contributor's "Your change set: *name* · *n*
+  changes" in the band's actions. **Propose a change** (D324): `features/workspaces/Proposal.tsx`
+  (the person's newest open change set by `createdBy`, its changes counted, the name dialog); the
+  record's "Propose a change" and a collection's "Propose a new *type*", which open the record's form
+  or the create form in the change set (a one-shot `createRequest` on the list route).
+- **Startup** (D326): `openingWorkspace` in `useRouter`; with none, the router shows Settings under
+  an empty model (`model/emptyModel.ts`, its product named after the instance's release) and
+  `app/NoWorkspace.tsx` in the application's place; an address naming a workspace the person may not
+  browse opens their own with the refusal said, as an unknown workspace is. **Settings** (D328):
+  `navigationFor` lists pages by the groups held anywhere; a group with no page left is not shown.
+- **Tests and runners:** the journey module and unit tests below; the shared fixture
+  `test/permissions.ts` (the person holding every group, as before Z5) in the App, Settings,
+  WorkspaceAdmin and ModelWorkbench tests, and the permission store reset after each test in
+  `test/setup.ts`; the new runner `z5-permissions`.
+- **Documents:** API.md, USER_JOURNEYS (J40.12), API_JOURNEYS, CURRENT_FUNCTIONALITY (F27),
+  SETTINGS_AND_UI_PLAN (U8), UI_ACCEPTANCE (Z5-1 to Z5-4), EXECUTION_GUIDE, CHANGELOG, TODO,
+  PROJECT_STATUS; the "Z5 as planned" boards on the security canvas.
+
+**Where it differs from the plan:**
+
+- **The first other workspace is the first by key**, the order `GET /workspaces` lists (D326 said
+  by label); one page of one workspace is read.
+- **J40.12 case 2 corrected:** the approved case said the caller holds "Browse in A and Integration
+  administration in B and nothing else", but the predefined Integration administrator also holds
+  Feed (D230); the case now expects Feed in B too. The code was right; the case was written wrong
+  (found when it ran).
+- **At 390px** the band's line stays in the context popover, where the phone band holds every
+  context's line; the change set's button is in the band, as on the phone board.
+- **Import is offered before its file is read:** a holder of a narrowed Bulk and import learns in
+  the preview that rows of other types are refused (TODO).
+- **The journey cases were seen failing first** (8 of 8, for the missing filter or route), then
+  passed.
+- **Found and fixed on the way, not Z5's:** `wp9-change-sets` and `wp9-navigation` started their
+  own servers without the secrets key and token every engine needs since I1, so neither could run;
+  both now boot through the shared harness. `wp12` expected the activation's sentence as it was
+  before Z4 added who made it.
+- **Found, not fixed (TODO):** a record's live history lists its change-set edits as if live
+  (version 2 on a version 1 record); `j4-import` fails at the Jobs list and `wp9-navigation` at the
+  list's read-ahead retry, each the same on `260bac0`; `wp9-authoring`, `wp9-publications` and
+  `v1-api-reference` still cannot start.
+
+**Checks** (single process):
+
+- `tests/journeys/test_j40_interface_permissions.py`: 8 passed (4 cases × 2 configurations), seen
+  failing first; with `test_openapi_contract`, `test_api_journeys`, `test_boundaries`: 20 passed.
+  Ruff check and format on the changed backend files.
+- Vitest: `src/app`, `src/features/settings`, `src/features/security`, `src/features/workspaces`:
+  197 passed before the new unit tests; `src/features/objects`, `src/features/model-admin`,
+  `src/features/moves`, `src/features/jobs`, `src/routing`, `src/api`: 441 passed; the new
+  `permissions.test`, `permissionText.test`, `NoWorkspace.test`, `Proposal.test`: 26 passed.
+  `format`, `lint` (0 errors; the 8 warnings in untouched files), `build`.
+- **Browser:** `z5-permissions` on two models: 26 checks, axe 0 violations on the Reader's record,
+  the Propose a change dialog, the Contributor's record and the no-workspace page; `sp1-security`:
+  46 checks; `u3-settings`: 10; `authoring-n1`: 8; `change-sets` (on the harness) passed; `ua8`,
+  `w4`, `k1`, `wp11` passed; `j4` and `wp9-navigation` failed the same as on `260bac0` (above).
+  Screenshots inspected against the "Z5 as planned" boards: a Reader's record, the dialog, a
+  Contributor's record at 1440px and at 390px light and dark, a narrowed steward's record dark, the
+  no-workspace page.
+
+- **The rest of EXECUTION_GUIDE §2's selection, on the user's go-ahead (2026-10-24), one at a
+  time:** `b3`, `b4`, `c4`, `c5`, `a4`, `a5`, `wp14`, `wp13c`, `s6`, `ua9`, `authoring-a9`, `k3`,
+  `j1u`, `webhooks`, `workspace-x4` passed; `wp12` failed on the activation's sentence, which Z4
+  ended with "by *name*" without updating the runner; its expectation now allows the name, and it
+  passed.
+
+**Not run:** the full backend suite is Z6's (the user, 2026-10-24); the accessibility and visual
+gates are R's.
+
+**What the user cannot do yet:** submit a change set for approval or be told when it is published
+(A1–A3; a Contributor tells someone who can publish); see one person's changes across workspaces
+(Z6); manage clients on a page (SP2); sign in with a provider (I3).
 
 #### Z6: One person's changes across workspaces
 
@@ -2348,7 +2613,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 5 | [Z2](#z2-record-types-at-the-write-unit-jobs-moves-and-the-feed) | Z1 | **Delivered 2026-10-24.** Record types at the write unit; jobs as their requester; moves; source files |
 | 6 | [Z3](#z3-consumer-apis-per-client) | Z1 | Consumer APIs per client and workspace |
 | 7 | [Z4](#z4-audit-identity) | Z1 | **Delivered 2026-10-24.** The actor beside `cause` everywhere; security events |
-| 8 | [Z5](#z5-the-interface-follows-the-callers-permissions) | Z2, I2 | The interface follows permissions; Reader and Contributor |
+| 8 | [Z5](#z5-the-interface-follows-the-callers-permissions) | Z2, I2 | **Delivered 2026-10-24.** The interface follows permissions; Reader and Contributor |
 | 8a | [Z6](#z6-one-persons-changes-across-workspaces) | Z4, Z5 | One person's or client's changes across workspaces, filtered to what the caller may browse |
 | 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | **Delivered 2026-10-24.** Settings › Security: people, groups, roles, grants |
 | 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | Settings › Security: clients and their access; sign-in providers |

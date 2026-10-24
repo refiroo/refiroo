@@ -11,7 +11,7 @@
 import { StatusPill } from "@/ui/StatusPill";
 import { Card } from "@/ui/Card";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { nextGridCell } from "@/lib/gridNavigation";
 import { InlineError } from "@/ui/InlineError";
@@ -80,7 +80,15 @@ export function RelationMatrixView({
   const columnType = objectTypeFor(model, config.columnObjectTypeKey);
   const cellType = objectTypeFor(model, config.cellObjectTypeKey);
   const binding = matrixBinding(model, config);
-  const actions = readOnly || publication ? [] : (config.cellActions ?? []);
+  // A cell's actions write its cell record and that record's relationships, so they follow the
+  // cell type's writes (0.12 Z5, D329).
+  const writes = useRecordWrites();
+  const cellApplication =
+    model.applications.find((item) => item.objectTypeKeys.includes(config.cellObjectTypeKey))?.key ?? application.key;
+  const actions =
+    readOnly || publication || !writes.permits(cellApplication, config.cellObjectTypeKey)
+      ? []
+      : (config.cellActions ?? []);
   const columnIds = query.matrixColumnIds;
   const state = columnIds?.length ? query.matrixState : undefined;
   const pageSize = query.pageSize || config.pageSize;

@@ -9,13 +9,13 @@
  */
 
 import type { ReactNode } from "react";
-import { SETTINGS_NAVIGATION } from "@/features/settings/navigation";
+import { SETTINGS_NAVIGATION, navigationFor } from "@/features/settings/navigation";
+import { useHeldAnywhere } from "@/features/security/permissions";
 import { routePath } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, RouteState, SettingsPage } from "@/types";
 import { RouteLink } from "@/ui/RouteLink";
 import { ShellFrame } from "./ShellFrame";
 import { TopBar } from "./TopBar";
-import { useHoldsGroup } from "./useMe";
 
 export function SettingsShell({
   model,
@@ -34,8 +34,7 @@ export function SettingsShell({
   fullWidth?: boolean;
   children: ReactNode;
 }) {
-  const securityAdmin = useHoldsGroup("security-admin");
-  const navigation = SETTINGS_NAVIGATION.filter((group) => !group.requires || securityAdmin);
+  const navigation = navigationFor(useHeldAnywhere());
   const current = SETTINGS_NAVIGATION.flatMap((group) => group.pages).find((item) => item.page === page);
   return (
     <ShellFrame

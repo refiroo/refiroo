@@ -41,6 +41,8 @@ export function DataContextBand({
   onSelectApplication,
   onChangeWorkspace,
   onManageWorkspaces,
+  permissionNote,
+  ownChangeSet,
 }: {
   model: EngineModel;
   application: ApplicationDefinition;
@@ -52,6 +54,10 @@ export function DataContextBand({
   onChangeWorkspace: (workspaceKey: string) => void;
   /** Offered where the deployment allows workspace administration. */
   onManageWorkspaces?: () => void;
+  /** What the person may do here, in place of the line about edits (0.12 Z5, D322). */
+  permissionNote?: string;
+  /** The way into the person's own change set from live data (D324). */
+  ownChangeSet?: ReactNode;
 }) {
   const phone = useMediaQuery(PHONE_WIDTH);
   const [band, setBand] = useState<HTMLDivElement | null>(null);
@@ -71,13 +77,14 @@ export function DataContextBand({
         : "Publication"
       : "Live";
   const note =
-    tone === "live"
+    permissionNote ??
+    (tone === "live"
       ? "Edits apply immediately in this workspace."
       : tone === "changeSet"
         ? changeSet
           ? "Edits stay in this change set until it is published."
           : undefined
-        : "Read-only. A publication's records never change.";
+        : "Read-only. A publication's records never change.");
   const live = () => onNavigate(viewRoute(application, application.defaultView, route.workspaceKey));
 
   const switcher = (close?: () => void) => (
@@ -217,7 +224,12 @@ export function DataContextBand({
           {switcher()}
         </div>
       )}
-      {contextActions && <div className="band-actions">{contextActions}</div>}
+      {(contextActions || ownChangeSet) && (
+        <div className="band-actions">
+          {contextActions}
+          {ownChangeSet}
+        </div>
+      )}
     </div>
   );
 }

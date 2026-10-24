@@ -30,6 +30,7 @@ export function ModelDetail({
   defaultWorkspaceKey,
   canManageDrafts,
   canActivate,
+  activatesIn,
   onActivate,
   onNewDraft,
   onOpenRelease,
@@ -43,6 +44,8 @@ export function ModelDetail({
   defaultWorkspaceKey: string;
   canManageDrafts: boolean;
   canActivate: boolean;
+  /** Whether the person may change the model of this workspace (0.12 Z5, D323). */
+  activatesIn?: (workspaceKey: string) => boolean;
   onActivate: (workspaceKey: string) => void;
   onNewDraft: (release: ModelReleaseSummary) => void;
   onOpenRelease: (releaseId: string) => void;
@@ -102,7 +105,7 @@ export function ModelDetail({
                     {workspace.label}
                   </RouteLink>
                   <span className="mono">{workspace.model.releaseVersion}</span>
-                  {canActivate ? (
+                  {canActivate && (activatesIn?.(workspace.key) ?? true) ? (
                     <button
                       type="button"
                       className="secondary"

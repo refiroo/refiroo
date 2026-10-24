@@ -9,7 +9,7 @@ kind. An audit entry's actor may also be the engine, or nobody for an entry from
 from collections.abc import Iterable
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ...models.database import OAuthClient, User
@@ -83,3 +83,12 @@ def actors(session: Session, rows: Iterable[Any]) -> dict[int, dict[str, str] | 
             principal = actor_ref(row)
             found[row.sequence_id] = resolved.get(principal) if principal else None
     return found
+
+
+def named_by(user_column: Any, client_column: Any, public_id: str) -> Any:
+    """Rows whose ``…_user_id``/``…_client_id`` pair names the person or client ``public_id``;
+    none for an ID no principal has."""
+    return or_(
+        user_column.in_(select(User.id).where(User.public_id == public_id)),
+        client_column.in_(select(OAuthClient.id).where(OAuthClient.public_id == public_id)),
+    )

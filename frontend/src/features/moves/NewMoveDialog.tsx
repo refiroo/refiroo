@@ -144,9 +144,17 @@ export function NewMoveDialog({
           Nothing changes yet: the editor opens with a dry run of every item, and there you choose to copy or to move;
           either loads into a change set of the target for review.
         </p>
-        <WorkspaceField label="From workspace" value={from} onChange={setFrom} onError={setError} describe={modelOf} />
+        <WorkspaceField
+          label="From workspace"
+          value={from}
+          onChange={setFrom}
+          onError={setError}
+          describe={modelOf}
+          holding="browse"
+        />
         <WorkspaceField
           label="To workspace"
+          holding="copy-move"
           value={to}
           onChange={setTo}
           onError={setError}

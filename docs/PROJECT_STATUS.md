@@ -63,7 +63,17 @@ operations their author; changes to access and sign-ins are security events, rea
 `/security-events` and on a person's Recent activity; consumer events name no one
 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z4-record-2026-10-24)). Its journeys, the journeys whose
 reads gained a field, the registries and contract tests, the touched Vitest files and the
-`sp1-security` runner on two models passed. Next: Z5.
+`sp1-security` runner on two models passed. **Z5, the interface following permissions, is
+delivered (2026-10-24)**, D321–D330 (D323 changed by the user: hidden, never disabled, and a flow
+only when it can finish): a Reader sees no way to change anything and the band says so; a
+Contributor proposes a change into a change set of their own; a narrowed writer edits only the
+permitted types; the application opens in a workspace the person may read or says there is none;
+Settings lists only the pages of groups held; `GET /me/action-groups`, `holding=` on workspaces and
+`createdBy=` on change sets ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z5-record-2026-10-24)). Its
+journeys, the contract tests, the touched Vitest folders, the new `z5-permissions` runner on two
+models and every other runner the execution guide selects passed but `j4-import` and the
+navigation runner, which fail the same before Z5 (TODO). Next:
+Z6.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 

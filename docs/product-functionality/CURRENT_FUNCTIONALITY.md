@@ -37,7 +37,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account | Available | 0.12 I1, I2 |
-| F27 | Control who can do what | Settings › Security (People, Groups, Roles), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; every operation checked; writes narrowed to record types; jobs as their requester | 0.12 Z1, Z2, SP1 |
+| F27 | Control who can do what | Settings › Security (People, Groups, Roles), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
 (`frontend/e2e/`). The acceptance runs are recorded in the release plans.
@@ -1300,11 +1300,28 @@ Access lists such a grant as "Consumer API: *name*" and removes it like any othe
 API's OpenAPI document tells a generated client how to obtain its token. A webhook subscription names
 the person or client that created it; administrators manage it as before.
 
+The interface offers each person only what their roles allow in the workspace open, and a piece of
+work only when they can finish it: nothing is shown disabled. A Reader sees records, relationships,
+trees and matrices with no way to change them, and the band at the top says "You can read this
+workspace" and whom to ask. A Contributor, who may change records only in change sets, sees
+**Propose a change** on a record (and "Propose a new …" on a collection): the first time it asks for
+the name of a change set of their own, then opens the record in it to edit; later it continues
+their newest change set, which the band names with its count of changes; publishing is not offered,
+and the band says who publishes. A person whose writes are narrowed to some record types sees edit
+controls only on those, and the band names them. Imports, bulk changes and moving several records
+at once appear only with Bulk and import; Publish, Withdraw and the change set's migration only with
+the groups they need; a move's target lists only workspaces where Copy and move is held. The
+application opens in the default workspace when the person may read it, otherwise in the first
+they may read; with none, it says so plainly, names their roles and leads to Settings (a security
+administrator to People). The workspace selector lists only workspaces the person may read, and
+Settings lists only the pages of groups they hold somewhere. The engine still checks everything; a
+refusal (a role changed meanwhile) is shown as worded and the page follows at once.
+
 Limits: consumer API grants are made through the API until the clients page arrives (SP2), which
-also shows a subscription's owner; the interface still offers
-what a person may not do and shows the refusal (Z5), and a person without Browse in the default
-workspace sees only that refusal instead of the application (Z5); clients are managed through the API until SP2; groups from a sign-in
-provider come with I3; who granted or changed what is recorded from Z4.
+also shows a subscription's owner; clients are managed through the API until SP2; groups from a
+sign-in provider come with I3; a Contributor's change set waits for someone to notice it until
+approvals (A1–A3); an import into a narrowed grant is offered before its file is read, so rows of
+other types are refused in its preview.
 
 Evidence: [authorization contract](../API.md#authorization), [OPERATIONS](../OPERATIONS.md#roles-and-grants),
 [catalogue](../../backend/app/engine/authorization/catalogue.py), [route check](../../backend/app/management/access.py).

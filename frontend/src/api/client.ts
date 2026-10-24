@@ -42,6 +42,7 @@ import type {
   Me,
   SignInSession,
   Grant,
+  HeldAnywhereList,
   MyPermissions,
   PageNavigation,
   ConsumerApiDefinition,
@@ -129,6 +130,7 @@ import { ApiError } from "@/api/errors";
 import { authorizedFetch } from "@/api/session";
 import { everyPage } from "@/lib/everyPage";
 import { expectedReleaseHeader, reportModelReleaseChanged } from "@/api/expectedRelease";
+import { reportForbidden } from "@/api/forbidden";
 
 // `ApiError` is re-exported because it is what `request` throws; `errorMessage` and
 // `isApiError` live in ./errors so that a test mocking this module does not shadow them.
@@ -214,6 +216,7 @@ async function send(
     const read = !init.method || init.method.toUpperCase() === "GET";
     if (code === "MODEL_RELEASE_CHANGED" && (read || expectedReleaseHeader(path, init.method)))
       reportModelReleaseChanged(failure, read);
+    if (code === "FORBIDDEN") reportForbidden();
     throw failure;
   }
   if (response.status === 204) return { response, body: undefined };
@@ -458,6 +461,8 @@ export const api = {
     request<MyPermissions>(
       `/api/v1/me/permissions${workspaceKey ? `?workspaceKey=${encodeURIComponent(workspaceKey)}` : ""}`,
     ),
+  /** Every action group the caller holds, at the instance or in which workspaces (0.12 Z5, D328). */
+  myActionGroups: () => request<HeldAnywhereList>("/api/v1/me/action-groups"),
   /** The caller's grants, direct and through their groups, every page (a caller has a handful). */
   myGrants: () => allPages<Grant>("/api/v1/me/grants"),
   /** Where the person is signed in: every open session (a person has a handful). */
@@ -890,6 +895,8 @@ export const api = {
       status?: "active" | "retired" | "all";
       cursor?: string;
       pageSize?: number;
+      /** Only those where the caller holds this action group (0.12 Z5, D327). */
+      holding?: string;
     } = {},
   ) => {
     const params = new URLSearchParams({
@@ -897,6 +904,7 @@ export const api = {
       pageSize: String(options.pageSize ?? 100),
     });
     if (options.search) params.set("search", options.search);
+    if (options.holding) params.set("holding", options.holding);
     if (options.cursor) params.set("cursor", options.cursor);
     return request<WorkspacePage>(`/api/v1/workspaces?${params}`);
   },
@@ -922,9 +930,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ defaultWorkspaceKey, expectedVersion }),
     }),
-  changeSets: (workspaceKey: string, cursor?: string) => {
+  /** A workspace's open change sets; `createdBy` keeps one person's or client's (0.12 Z5, D325). */
+  changeSets: (workspaceKey: string, cursor?: string, createdBy?: string) => {
     const query = new URLSearchParams({ pageSize: "50" });
     if (cursor) query.set("cursor", cursor);
+    if (createdBy) query.set("createdBy", createdBy);
     return request<ChangeSetPage>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/change-sets?${query}`);
   },
   changeSet: (id: string) => request<ChangeSet>(`/api/v1/change-sets/${encodeURIComponent(id)}`),

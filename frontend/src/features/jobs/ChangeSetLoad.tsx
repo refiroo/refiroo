@@ -66,7 +66,7 @@ export function ChangeSetFields({
           <input {...control} value={name} disabled={disabled} onChange={(event) => onName(event.target.value)} />
         )}
       </FormField>
-      <WorkspaceField value={workspace} onChange={onWorkspace} onError={onError} disabled={disabled} />
+      <WorkspaceField holding="bulk" value={workspace} onChange={onWorkspace} onError={onError} disabled={disabled} />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { ownEndReason, ownEndScope } from "@/model/candidates";
 import { useEffect, useMemo, useState } from "react";
-import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { EngineModel, ObjectItem, RelationItem, RelationsPanelDefinition } from "@/types";
@@ -43,6 +43,9 @@ export function RelationsPanel({
 }) {
   const api = useDataApi();
   const { changeSet, publication } = useWorkspaceData();
+  // A relationship is written where either end's type may be (0.12 Z5, D291, D329).
+  const writes = useRecordWrites();
+  const own = writes.permits(object.applicationKey, object.objectTypeKey);
   const live = !changeSet && !publication;
   const showRelationshipColumn = panel.config.showRelationshipColumn !== false;
   const display = useTableDisplay(
@@ -88,8 +91,11 @@ export function RelationsPanel({
   const [setting, setSetting] = useState(false);
   const [removing, setRemoving] = useState<RelationItem>();
   const choices = useMemo(
-    () => relationChoices(model, object.objectTypeKey, panel),
-    [model, object.objectTypeKey, panel],
+    () =>
+      relationChoices(model, object.objectTypeKey, panel).filter(
+        (choice) => own || writes.permitsType(choice.otherObjectTypeKey),
+      ),
+    [model, object.objectTypeKey, panel, own, writes],
   );
   // A relationship whose end the record does not meet is not offered, with the reason (0.9 K7, D172).
   const [refusedOwn, setRefusedOwn] = useState<{ id: string; kinds: ReadonlySet<string> }>();
@@ -258,9 +264,12 @@ export function RelationsPanel({
     const definition = model.relationTypes.find((relation) => relation.key === item.relation.relationTypeKey);
     const kind = `${(item.direction === "outgoing" ? definition?.name : definition?.reverseName) ?? item.relation.relationTypeKey}: ${item.object.name}`;
     const locked = managed(item) ? "Managed through Parent" : required ? "Required relationship" : undefined;
+    // A relationship to a record of a type the person may not write, from a record they may not
+    // write either, offers no change (D291).
+    const fixed = readOnly || !(own || writes.permits(item.object.applicationKey, item.object.objectTypeKey));
     return (
       <div className="row-actions relation-row-actions">
-        {!readOnly && !locked && changeChoice(item) && (
+        {!fixed && !locked && changeChoice(item) && (
           <IconButton
             icon="swap"
             label={`Change ${kind}`}
@@ -269,7 +278,7 @@ export function RelationsPanel({
             onClick={() => setChanging(item)}
           />
         )}
-        {!readOnly && !managed(item) && hasAttributes && (
+        {!fixed && !managed(item) && hasAttributes && (
           <IconButton
             icon="pencil"
             label={`Edit values of ${kind}`}
@@ -283,7 +292,7 @@ export function RelationsPanel({
             <Icon name="lock" size={14} />
             <span className="visually-hidden">{locked}</span>
           </span>
-        ) : !readOnly ? (
+        ) : !fixed ? (
           <IconButton
             icon="trash"
             label={`Delete ${kind}`}
@@ -345,16 +354,18 @@ export function RelationsPanel({
         />
         <SortMenu sorting={sorting} />
         {!readOnly &&
-          dependentCreates.map((creation) => (
-            <button
-              key={`${creation.relationTypeKey}:${creation.objectTypeKey}`}
-              className="secondary"
-              onClick={() => setCreatingDependent(creation)}
-            >
-              <Icon name="plus" /> Add{" "}
-              {model.objectTypes.find((item) => item.key === creation.objectTypeKey)?.name ?? creation.objectTypeKey}
-            </button>
-          ))}
+          dependentCreates
+            .filter((creation) => writes.permits(creation.applicationKey, creation.objectTypeKey))
+            .map((creation) => (
+              <button
+                key={`${creation.relationTypeKey}:${creation.objectTypeKey}`}
+                className="secondary"
+                onClick={() => setCreatingDependent(creation)}
+              >
+                <Icon name="plus" /> Add{" "}
+                {model.objectTypes.find((item) => item.key === creation.objectTypeKey)?.name ?? creation.objectTypeKey}
+              </button>
+            ))}
         {!readOnly && settable.length > 0 && (
           <button className="secondary" onClick={() => setSetting(true)}>
             <Icon name="plus" /> Set relationship

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query, Request, status
 from sqlalchemy import select
 
 from ...common.pagination import paginate_statement, text_key
+from ...engine.authorization.administration import known_groups
 from ...engine.authorization.visibility import in_workspaces
 from ...engine.model.workspace_models import assignments_of, load_assignment
 from ...engine.reads.feed import read_feed
@@ -58,10 +59,17 @@ def list_workspaces(
     paging: PageQuery,
     search: str | None = None,
     workspace_status: Literal["active", "retired", "all"] = Query(default="active", alias="status"),
+    holding: str | None = Query(
+        default=None,
+        description="Only the workspaces where the caller holds this action group (D327)",
+    ),
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> WorkspacePage:
     statement, filters = build_workspace_query(search, workspace_status)
-    visible = in_workspaces(Workspace.key, permissions, None)
+    groups = frozenset(known_groups([holding])) if holding is not None else None
+    if holding is not None:
+        filters["holding"] = holding
+    visible = in_workspaces(Workspace.key, permissions, groups)
     if visible is not None:
         statement = statement.where(visible)
     page = paginate_statement(
@@ -74,9 +82,7 @@ def list_workspaces(
         page_size=page_size,
         message="Workspace cursor is invalid",
     )
-    return WorkspacePage(
-        items=workspace_page_items(session, page.items), **page.links()
-    )
+    return WorkspacePage(items=workspace_page_items(session, page.items), **page.links())
 
 
 @read_router.get("/workspaces/{workspace_key}", response_model=WorkspaceDetailResponse)
@@ -126,7 +132,9 @@ def list_workspace_models(
     )
     assignments = assignments_of(session, (item.workspace_key for item in page.items))
     return WorkspaceAssignmentPage(
-        items=[workspace_assignment_response(assignments[item.workspace_key]) for item in page.items],
+        items=[
+            workspace_assignment_response(assignments[item.workspace_key]) for item in page.items
+        ],
         **page.links(),
     )
 

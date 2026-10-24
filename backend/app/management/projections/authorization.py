@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page
@@ -25,7 +26,10 @@ from ..schemas.authorization import (
     GroupMemberResponse,
     GroupPage,
     GroupResponse,
+    HeldAnywhere,
+    HeldAnywhereList,
     HeldGroup,
+    HeldWorkspace,
     OperationRef,
     PermissionSource,
     PermissionsResponse,
@@ -245,3 +249,45 @@ def permissions_response(
         roles=list(roles.values()),
         actionGroups=held,
     )
+
+
+def held_anywhere(session: Session, permissions: Permissions) -> HeldAnywhereList:
+    """Every group the caller holds, at the instance or in which workspaces (D328)."""
+    where: dict[str, set[str] | None] = {}
+    for holding in permissions.holdings:
+        for key in holding.groups:
+            if holding.workspace_key is None:
+                where[key] = None
+            elif where.get(key, set()) is not None:
+                where.setdefault(key, set()).add(holding.workspace_key)
+    keys = {key for workspaces in where.values() if workspaces for key in workspaces}
+    labels = (
+        dict(
+            session.execute(select(Workspace.key, Workspace.label).where(Workspace.key.in_(keys)))
+            .tuples()
+            .all()
+        )
+        if keys
+        else {}
+    )
+    items = []
+    for group in GROUPS.values():
+        if group.key not in where:
+            continue
+        workspaces = where[group.key]
+        items.append(
+            HeldAnywhere(
+                key=group.key,
+                name=group.name,
+                instance=workspaces is None,
+                workspaces=sorted(
+                    (
+                        HeldWorkspace(key=key, label=labels[key])
+                        for key in workspaces or ()
+                        if key in labels
+                    ),
+                    key=lambda item: (item.label.casefold(), item.key),
+                ),
+            )
+        )
+    return HeldAnywhereList(items=items)

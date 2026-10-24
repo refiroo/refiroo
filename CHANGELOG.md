@@ -6,6 +6,26 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 Z5, the interface follows permissions)
+
+- **The interface offers only what a person may do** (D321–D330): a Reader sees no way to change
+  anything and the data-context band says they can read; a Contributor proposes a change from a
+  record into a change set of their own (named the first time, continued afterwards, counted in the
+  band) and is not offered Publish; a narrowed writer edits only the permitted record types, named in
+  the band; imports, bulk changes, moves, publishing, withdrawals, migrations and Settings' pages
+  appear only to whoever holds their groups, and a flow appears only when every step can finish.
+- **The first workspace** is the default one the person may read, otherwise the first they may
+  read; with none, a page says so with their roles and leads to Settings (People for a Security
+  administrator). The workspace selector lists only workspaces the person may read.
+- `GET /api/v1/me/action-groups`, `holding=` on `GET /api/v1/workspaces` and `createdBy=` on a
+  workspace's change sets (D325, D327, D328).
+
+### Fixed (0.12 Z5)
+
+- The `change-sets` and `test:browser` (navigation) browser runners start again: they ran their own
+  servers without the secrets key and token every engine needs since I1, and now use the shared
+  harness. `test:browser:wp12` accepts the activation's sentence naming who made it (0.12 Z4).
+
 ### Added (0.12 Z4, audit identity)
 
 - **Every change names who made it** (D313): `actor` beside `cause` on a record's history, a feed

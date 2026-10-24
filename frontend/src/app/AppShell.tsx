@@ -23,6 +23,7 @@ import { ContextBandSlotContext } from "@/ui/ContextBandSlot";
 import { DataContextBand } from "./DataContextBand";
 import { ShellFrame } from "./ShellFrame";
 import { TopBar } from "./TopBar";
+import { useHoldsGroup } from "./useMe";
 
 export function AppShell({
   model,
@@ -39,6 +40,8 @@ export function AppShell({
   onOpenObject,
   onChanged,
   contextActions,
+  permissionNote,
+  ownChangeSet,
   children,
 }: {
   model: EngineModel;
@@ -58,12 +61,19 @@ export function AppShell({
   onChanged?: () => void;
   /** The change set's or publication's own bar, shown inside the band once its context has loaded. */
   contextActions?: ReactNode;
+  /** What the person may do here, said in the band (0.12 Z5, D322). */
+  permissionNote?: string;
+  /** The way into the person's own change set, in the band (D324). */
+  ownChangeSet?: ReactNode;
   children: ReactNode;
 }) {
   const [bandSlot, setBandSlot] = useState<HTMLElement | null>(null);
   // Capabilities only decide whether Manage workspaces is offered; a failed read leaves it hidden,
   // and the Workspaces page itself reports the capability state.
-  const [manageWorkspaces, setManageWorkspaces] = useState(false);
+  const [deploymentManages, setManageWorkspaces] = useState(false);
+  // Offered only to whoever may manage them (0.12 Z5, D323).
+  const workspaceAdmin = useHoldsGroup("workspace-admin");
+  const manageWorkspaces = deploymentManages && Boolean(workspaceAdmin);
   useEffect(() => {
     let active = true;
     api
@@ -159,6 +169,8 @@ export function AppShell({
         route={activeRoute}
         workspaceLabel={workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}
         contextActions={contextActions}
+        permissionNote={permissionNote}
+        ownChangeSet={ownChangeSet}
         onNavigate={onNavigate}
         onSelectApplication={onSelectApplication}
         onChangeWorkspace={onChangeWorkspace}

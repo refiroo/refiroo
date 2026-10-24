@@ -1,11 +1,18 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { createChangeSetClient } from "@/api/changeSetClient";
 import { createPublicationClient } from "@/api/publicationClient";
 import { setExpectedRelease } from "@/api/expectedRelease";
 import { errorMessage, isApiError } from "@/api/errors";
-import type { EngineModel, ChangeSet, Publication } from "@/types";
+import type { EngineModel, ChangeSet, MyPermissions, Publication } from "@/types";
 import { allowNavigation } from "@/routing/navigationGuard";
+import {
+  ALL_WRITES,
+  NO_WRITES,
+  recordWrites,
+  useWorkspacePermissions,
+  type RecordWrites,
+} from "@/features/security/permissions";
 
 class WorkspaceContextError extends Error {
   constructor(
@@ -31,17 +38,27 @@ interface DataContext {
   retryLoading?: () => void;
   refresh?: () => Promise<ChangeSet>;
   reloadChangeSetModel?: () => Promise<void>;
+  /**
+   * Which records the person may write here (0.12 Z5, D329): Edit live's in live data, Work in
+   * change sets' in a change set, none in a publication. Absent without a workspace (the model
+   * editor's preview, whose client refuses writes): every record. Read it with `useRecordWrites`.
+   */
+  writes?: RecordWrites;
+  /** The person's permissions in this workspace, once read. */
+  permissions?: MyPermissions;
 }
-const Context = createContext<DataContext>({ api, warning: "" });
+const Context = createContext<DataContext>({ api, warning: "", writes: ALL_WRITES });
 export const useWorkspaceData = () => useContext(Context);
 export const useDataApi = () => useContext(Context).api;
+/** Which records the person may write in the data shown (0.12 Z5, D329). */
+export const useRecordWrites = () => useContext(Context).writes ?? ALL_WRITES;
 
 /**
  * The data of the model editor's preview (0.10 A4b, D44): live records read through a client that
  * refuses every write (`api/previewClient`), under a model the server is not running.
  */
 export function PreviewDataProvider({ client, children }: { client: typeof api; children: ReactNode }) {
-  return <Context.Provider value={{ api: client, warning: "" }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ api: client, warning: "", writes: ALL_WRITES }}>{children}</Context.Provider>;
 }
 
 export function WorkspaceDataProvider({
@@ -65,6 +82,12 @@ export function WorkspaceDataProvider({
     activeModelReleaseLabel?: string;
   }>();
   const [error, setError] = useState<{ message: string; retryable: boolean }>();
+  const permissions = useWorkspacePermissions(workspaceKey);
+  const writes = useMemo(
+    () => (publicationId ? NO_WRITES : recordWrites(permissions, changeSetId ? "change-sets" : "edit-live")),
+    [permissions, changeSetId, publicationId],
+  );
+  const live = useMemo(() => ({ api, warning: "", writes, permissions }), [writes, permissions]);
   const [retry, setRetry] = useState(0);
   // The release this page's data writes name (M6a, D65): live data its model's; a change set its
   // own (LoadedChangeSet); a publication none, as it takes no writes.
@@ -108,13 +131,15 @@ export function WorkspaceDataProvider({
       active = false;
     };
   }, [changeSetId, publicationId, workspaceKey, model.schemaVersion, retry]);
-  if (!changeSetId && !publicationId) return children;
+  if (!changeSetId && !publicationId) return <Context.Provider value={live}>{children}</Context.Provider>;
   if (!loaded)
     return (
       <Context.Provider
         value={{
           api,
           warning: "",
+          writes: NO_WRITES,
+          permissions,
           loadingError: error?.message,
           retryLoading: error?.retryable ? () => setRetry((value) => value + 1) : undefined,
         }}
@@ -124,6 +149,8 @@ export function WorkspaceDataProvider({
     );
   return loaded.changeSet ? (
     <LoadedChangeSet
+      writes={writes}
+      permissions={permissions}
       initial={loaded.changeSet}
       model={loaded.model}
       activeModelReleaseId={loaded.activeModelReleaseId}
@@ -140,6 +167,8 @@ export function WorkspaceDataProvider({
         activeModelReleaseId: loaded.activeModelReleaseId,
         activeModelReleaseLabel: loaded.activeModelReleaseLabel,
         warning: "",
+        writes,
+        permissions,
       }}
     >
       {children}
@@ -148,12 +177,16 @@ export function WorkspaceDataProvider({
 }
 
 function LoadedChangeSet({
+  writes,
+  permissions,
   initial,
   model: initialModel,
   activeModelReleaseId: initialActiveId,
   activeModelReleaseLabel: initialActiveLabel,
   children,
 }: {
+  writes: RecordWrites;
+  permissions?: MyPermissions;
   initial: ChangeSet;
   model: EngineModel;
   activeModelReleaseId?: string;
@@ -221,6 +254,8 @@ function LoadedChangeSet({
         warning,
         refresh,
         reloadChangeSetModel,
+        writes,
+        permissions,
       }}
     >
       {children}

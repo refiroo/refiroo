@@ -18,7 +18,7 @@ from ...engine.change_sets.pinning import (
 )
 from ...engine.change_sets.publish import publish_change_set, withdraw_publication
 from ...engine.change_sets.validation import validate_change_set
-from ...engine.identity.principals import named, ref
+from ...engine.identity.principals import named, named_by, ref
 from ...engine.model.change_set_migrations import submit_change_set_migration
 from ...engine.model.registry import resolve_model_snapshot, resolve_pinned_release
 from ...engine.model.workspace_models import load_assignment
@@ -151,15 +151,26 @@ def list_change_sets(
     workspace_key: str,
     session: DbSession,
     paging: PageQuery,
+    created_by: str | None = Query(
+        default=None,
+        alias="createdBy",
+        max_length=36,
+        description="Only the change sets this person or client created (D325)",
+    ),
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> ChangeSetPage:
     load_workspace(session, workspace_key)
-    items = list(session.scalars(select(ChangeSet).where(ChangeSet.workspace_key == workspace_key)))
+    statement = select(ChangeSet).where(ChangeSet.workspace_key == workspace_key)
+    if created_by is not None:
+        statement = statement.where(
+            named_by(ChangeSet.created_by_user_id, ChangeSet.created_by_client_id, created_by)
+        )
+    items = list(session.scalars(statement))
     page = paginate_sequence(
         items,
         lambda x: (x.created_at.isoformat(), x.id),
         scope="change-sets",
-        filters={"workspaceKey": workspace_key},
+        filters={"workspaceKey": workspace_key, "createdBy": created_by},
         page=paging,
         page_size=page_size,
         sort=("createdAt", "id"),

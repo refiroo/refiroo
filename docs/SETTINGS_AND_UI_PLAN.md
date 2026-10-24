@@ -2624,6 +2624,14 @@ packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
   timeline (one `ui/Timeline`) with "by *name*". Record history, the editor's history, a change set,
   a publication and a job name who made them through one `ui/ActorName` (D320).
 
+- _Built by Z5 (2026-10-24)_ from the "Z5 as planned" boards: what a person may do is said in the
+  data-context band's line, not on the record (D322); nothing is shown disabled, and a flow is
+  offered only when every step can finish (D323, the user's change); a Contributor's **Propose a
+  change** names their change set the first time and continues it afterwards, the band naming it
+  with its count (D324); the no-workspace page; Settings lists pages by the groups held anywhere
+  (D328). At 390px the band's line stays in the context popover, as the phone band holds every
+  context's line; the change set's button sits in the band.
+
 U-D11 holds: each Security entry appears in the navigation only when its page is built.
 
 ## Decisions

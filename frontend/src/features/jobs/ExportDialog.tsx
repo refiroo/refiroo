@@ -197,6 +197,7 @@ export function ExportDialog({
           )}
           {!start.workspaceKey && (
             <WorkspaceField
+              holding="browse"
               value={workspaceKey}
               onChange={setWorkspaceKey}
               onError={(message) => setError({ field: "form", message })}

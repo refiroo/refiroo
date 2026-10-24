@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { security } from "@/api/securityClient";
 import { useHoldsGroup } from "@/app/useMe";
+import { holds, useWorkspacePermissions } from "@/features/security/permissions";
 import { GrantsSection } from "@/features/security/GrantsSection";
 import { errorMessage, isApiError } from "@/api/errors";
 import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
@@ -101,7 +102,10 @@ export function WorkspaceAdmin({
     return state;
   }, []);
 
-  const canManage = !!capabilities?.workspaceAdmin.manageWorkspaces;
+  // Managed by whoever holds Workspace administration where the deployment allows it (0.12 Z5, D323).
+  const workspaceAdmin = useHoldsGroup("workspace-admin");
+  const copiesAndMoves = useHoldsGroup("copy-move");
+  const canManage = !!capabilities?.workspaceAdmin.manageWorkspaces && Boolean(workspaceAdmin);
   // Without a selection in the address the default workspace is shown, as the screen always did.
   const selectedKey = route.workspaceKey ?? runtime?.defaultWorkspaceKey;
   const defaultWorkspace = feed.items.find((item) => item.key === runtime?.defaultWorkspaceKey);
@@ -195,7 +199,7 @@ export function WorkspaceAdmin({
             workspaceKey={selectedKey}
             runtime={runtime}
             canManage={canManage}
-            canMove={moveAbility(capabilities).canMove}
+            canMove={moveAbility(capabilities).canMove && Boolean(copiesAndMoves)}
             onMove={(mappingKey, from, to) =>
               onRouteChange({ kind: "settings", page: "moves", move: { mappingKey, from, to } })
             }
@@ -270,6 +274,8 @@ function WorkspaceDetail({
   onDeleted: (workspace: Workspace) => void;
 }) {
   const securityAdmin = useHoldsGroup("security-admin");
+  // Opened only by someone who may browse it (Z5, D323).
+  const browses = holds(useWorkspacePermissions(workspaceKey), "browse");
   const [workspace, setWorkspace] = useState<WorkspaceDetail>();
   const [loadError, setLoadError] = useState("");
   const [loadToken, setLoadToken] = useState(0);
@@ -459,9 +465,11 @@ function WorkspaceDetail({
         </Notice>
       )}
       <div className="model-actions">
-        <button className="secondary" onClick={() => onOpen(workspace.key)}>
-          Open workspace
-        </button>
+        {browses && (
+          <button className="secondary" onClick={() => onOpen(workspace.key)}>
+            Open workspace
+          </button>
+        )}
         {canMove && active && (
           <button className="secondary" onClick={() => setMoving(true)}>
             Copy or move data…

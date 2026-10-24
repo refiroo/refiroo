@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import type {
+  HeldAnywhere,
   CapabilitiesResponse,
   ModelDraft,
   ModelRelease,
@@ -86,6 +87,9 @@ export function ModelWorkbench({
 }) {
   const toast = useToast();
   const [capabilities, setCapabilities] = useState<CapabilitiesResponse>();
+  // What the person may do here (0.12 Z5, D323): drafts with Model authoring; installing (at the
+  // instance), activating and migrating (in a workspace) with Model release.
+  const [held, setHeld] = useState<HeldAnywhere[]>([]);
   const [releases, setReleases] = useState<ModelReleaseSummary[]>([]);
   const [drafts, setDrafts] = useState<ModelDraft[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -116,7 +120,11 @@ export function ModelWorkbench({
   async function load() {
     setError("");
     try {
-      const [caps, installed, workspacePage, state] = await Promise.all([
+      const [groups, caps, installed, workspacePage, state] = await Promise.all([
+        api.myActionGroups().then(
+          (list) => list.items,
+          () => [],
+        ),
         api.capabilities(),
         allReleases(),
         // Workspaces are few (ADR-042); retired ones keep their release and take no activation.
@@ -124,7 +132,9 @@ export function ModelWorkbench({
         api.workspaceRuntimeState(),
       ]);
       // The drafts first, so the page never shows a model's count before its drafts arrived.
-      const loadedDrafts = caps.modelAdmin.manageDrafts ? await allDrafts() : [];
+      const authors = groups.some((group) => group.key === "model-authoring");
+      const loadedDrafts = caps.modelAdmin.manageDrafts && authors ? await allDrafts() : [];
+      setHeld(groups);
       setDrafts(loadedDrafts);
       setCapabilities(caps);
       setReleases(installed);
@@ -180,10 +190,18 @@ export function ModelWorkbench({
   const modelOfDraft = (draft: ModelDraft) =>
     draft.baseReleaseId ? modelOfRelease.get(draft.baseReleaseId) : undefined;
   const newModelDrafts = drafts.filter((draft) => !modelOfDraft(draft));
-  const canActivate = Boolean(capabilities?.modelAdmin.activate);
+  const releaseGroup = held.find((group) => group.key === "model-release");
+  const releasesIn = (workspaceKey: string) =>
+    Boolean(
+      releaseGroup && (releaseGroup.instance || releaseGroup.workspaces.some((item) => item.key === workspaceKey)),
+    );
+  const activatable = workspaces.filter((item) => releasesIn(item.key));
+  const canActivate = Boolean(capabilities?.modelAdmin.activate) && activatable.length > 0;
   // A migration is model administration and a background job both (D14).
   const canMigrate = canActivate && Boolean(capabilities?.integrationJobs.createJobs);
-  const canManageDrafts = Boolean(capabilities?.modelAdmin.manageDrafts);
+  const canManageDrafts =
+    Boolean(capabilities?.modelAdmin.manageDrafts) && held.some((group) => group.key === "model-authoring");
+  const canInstall = Boolean(capabilities?.modelAdmin.install) && Boolean(releaseGroup?.instance);
   // The order of the list: the default workspace's model, the other models in use, then the rest.
   const defaultModelKey = workspaces.find((item) => item.key === defaultWorkspaceKey)?.model.releaseKey;
   const inUse = (model: ModelLine) => runningWorkspaces(workspaces, model.releases).length > 0;
@@ -301,7 +319,7 @@ export function ModelWorkbench({
           {selectedDraft ? (
             <ModelDraftEditor
               draft={selectedDraft}
-              canInstall={!!capabilities.modelAdmin.install}
+              canInstall={canInstall}
               onSaved={updateDraft}
               onReload={() => reloadDraft(selectedDraft.id)}
               onInstalled={installed}
@@ -333,6 +351,7 @@ export function ModelWorkbench({
               defaultWorkspaceKey={defaultWorkspaceKey}
               canManageDrafts={canManageDrafts}
               canActivate={canActivate}
+              activatesIn={releasesIn}
               onActivate={(workspaceKey) => setActivating({ workspaceKey })}
               onNewDraft={(release) => setCreating({ name: `${release.name} draft`, releaseId: release.id })}
               onOpenRelease={(releaseId) => onRouteChange({ ...MODEL, releaseId })}
@@ -348,7 +367,7 @@ export function ModelWorkbench({
       )}
       {activating && (
         <ActivateDialog
-          workspaces={workspaces}
+          workspaces={activatable}
           releases={releases}
           workspaceKey={activating.workspaceKey}
           releaseId={activating.releaseId}

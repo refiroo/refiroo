@@ -173,6 +173,7 @@ export function ImportDialog({
           {!start.context && (
             <>
               <WorkspaceField
+                holding="bulk"
                 value={workspaceKey}
                 onChange={(key) => {
                   // Only another workspace reads its change sets; the same one keeps those read.
