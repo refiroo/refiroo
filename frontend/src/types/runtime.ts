@@ -234,6 +234,40 @@ export interface ChangeSetPage {
   nextCursor: string | null;
 }
 
+/** One of the caller's open change sets, wherever it is (0.12 HM1, D333). */
+export interface OwnChangeSet extends ChangeSet {
+  workspaceLabel: string;
+  /** The records and relations it adds, changes or removes. */
+  changeCount: number;
+}
+
+export interface OwnChangeSetPage extends PageNavigation {
+  items: OwnChangeSet[];
+}
+
+/** An application of a workspace's model, as the home page links it. */
+export interface WorkspaceApplication {
+  key: string;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  defaultView: string;
+}
+
+/** A workspace the caller may browse, with what waits for them there (0.12 HM1, D332). */
+export interface OwnWorkspace {
+  key: string;
+  label: string;
+  isDefault: boolean;
+  model: Omit<WorkspaceModel, "workspaceKey">;
+  /** Empty when this version cannot serve the workspace's model. */
+  applications: WorkspaceApplication[];
+  /** The open change sets the caller created here. */
+  ownChangeSets: number;
+  /** Every open change set here, for a caller holding Publish; null otherwise. */
+  openChangeSets: number | null;
+}
+
 export interface Publication {
   id: string;
   workspaceKey: string;

@@ -58,7 +58,11 @@ async function walk(configuration) {
     const tables = model.applications.flatMap((application) =>
       application.views
         .filter((view) => view.type === "table" && view.objectTypeKey)
-        .map((view) => ({ application, view, type: model.objectTypes.find((item) => item.key === view.objectTypeKey) })),
+        .map((view) => ({
+          application,
+          view,
+          type: model.objectTypes.find((item) => item.key === view.objectTypeKey),
+        })),
     );
     const [first, second] = tables.filter((table) => table.application.key === tables[0].application.key);
     const recordOf = async (table) =>
@@ -71,7 +75,8 @@ async function walk(configuration) {
     /** A person granted `grants`, signed in in a context of their own at `width`. */
     async function person(username, grants, width = 1440) {
       const created = await api("/users", { username: `${username}-${tag}`, name: `${username} ${tag}` });
-      for (const [role, scope] of grants) await api("/grants", { principal: { kind: "user", id: created.id }, role, scope });
+      for (const [role, scope] of grants)
+        await api("/grants", { principal: { kind: "user", id: created.id }, role, scope });
       const { url } = await api(`/users/${created.id}/password-reset`, {}, "POST");
       const context = await signedOutContext({ viewport: { width, height: width < 600 ? 844 : 900 } });
       const page = await context.newPage();
@@ -88,7 +93,9 @@ async function walk(configuration) {
       await page.getByLabel("Password").fill(PASSWORD);
       await page.getByRole("button", { name: "Sign in" }).click();
       // Signed in once the application has opened: its top bar's Settings.
-      await page.waitForURL((address) => !address.pathname.startsWith("/oauth") && !address.pathname.startsWith("/signed-in"));
+      await page.waitForURL(
+        (address) => !address.pathname.startsWith("/oauth") && !address.pathname.startsWith("/signed-in"),
+      );
       await page.getByRole("link", { name: "Settings" }).waitFor();
       return { ...created, context, page };
     }
@@ -108,17 +115,25 @@ async function walk(configuration) {
       JSON.stringify(await actions(reader.page)) === JSON.stringify(["Copy link"]),
       `${tag}: a Reader's record actions are Copy link only`,
     );
-    expect((await reader.page.getByRole("button", { name: "Propose a change" }).count()) === 0, `${tag}: no proposal for a Reader`);
+    expect(
+      (await reader.page.getByRole("button", { name: "Propose a change" }).count()) === 0,
+      `${tag}: no proposal for a Reader`,
+    );
     await shot(reader.page, "reader-record");
     await axe(reader.page, `${tag}-reader-record`);
     await reader.page.goto(`${uiUrl}/apps/${first.application.key}/views/${first.view.key}?workspaceKey=default`);
     await reader.page.getByRole("heading", { level: 1 }).first().waitFor();
     await reader.page.getByRole("table").first().waitFor();
     expect(
-      (await reader.page.getByRole("button", { name: new RegExp(`^(Add|Propose a new) ${first.type.name}`) }).count()) === 0,
+      (await reader.page
+        .getByRole("button", { name: new RegExp(`^(Add|Propose a new) ${first.type.name}`) })
+        .count()) === 0,
       `${tag}: a Reader's collection offers no Add`,
     );
-    expect((await reader.page.getByRole("button", { name: /^Import/ }).count()) === 0, `${tag}: no Import for a Reader`);
+    expect(
+      (await reader.page.getByRole("button", { name: /^Import/ }).count()) === 0,
+      `${tag}: no Import for a Reader`,
+    );
     checks.push(`${tag}: a Reader's record and collection offer no write; the band says they can read`);
     await reader.page.goto(`${uiUrl}/settings/about`);
     const readerNav = reader.page.getByRole("navigation", { name: "Settings" });
@@ -143,7 +158,10 @@ async function walk(configuration) {
     const dialog = page.getByRole("dialog", { name: "Propose a change" });
     const name = dialog.getByLabel("Change set name");
     expect((await name.inputValue()) === `Changes by contributor ${tag}`, `${tag}: the change set's name is suggested`);
-    expect(await page.evaluate(() => !!document.activeElement?.closest("[role=dialog]")), `${tag}: focus is in the dialog`);
+    expect(
+      await page.evaluate(() => !!document.activeElement?.closest("[role=dialog]")),
+      `${tag}: focus is in the dialog`,
+    );
     await shot(page, "propose-dialog");
     await axe(page, `${tag}-propose-dialog`);
     await name.fill(`Proposed ${tag}`);
@@ -157,16 +175,27 @@ async function walk(configuration) {
     await form.getByRole("button", { name: "Save changes" }).click();
     await form.waitFor({ state: "detached" });
     await band(page).getByText("until someone who holds Publish", { exact: false }).waitFor();
-    expect((await page.getByRole("button", { name: "Publish change set" }).count()) === 0, `${tag}: a Contributor has no Publish`);
+    expect(
+      (await page.getByRole("button", { name: "Publish change set" }).count()) === 0,
+      `${tag}: a Contributor has no Publish`,
+    );
     checks.push(`${tag}: Propose a change names a change set, edits the record in it; no Publish`);
     await page.goto(recordUrl(first, one));
-    await band(page).getByRole("button", { name: `Your change set: Proposed ${tag} · 1 change` }).waitFor();
-    expect((await api(`/objects/${first.type.key}/${one.id}?workspaceKey=default`)).name === one.name, `${tag}: live is unchanged`);
+    await band(page)
+      .getByRole("button", { name: `Your change set: Proposed ${tag} · 1 change` })
+      .waitFor();
+    expect(
+      (await api(`/objects/${first.type.key}/${one.id}?workspaceKey=default`)).name === one.name,
+      `${tag}: live is unchanged`,
+    );
     await shot(page, "contributor-record");
     await axe(page, `${tag}-contributor-record`);
     await page.getByRole("button", { name: "Propose a change" }).click();
     await page.getByRole("dialog", { name: `${one.name}` }).waitFor();
-    expect(new URL(page.url()).searchParams.get("changeSetId") === changeSetId, `${tag}: the second proposal continues it`);
+    expect(
+      new URL(page.url()).searchParams.get("changeSetId") === changeSetId,
+      `${tag}: the second proposal continues it`,
+    );
     checks.push(`${tag}: the band counts the change; a second proposal continues the same change set`);
     await contributor.context.close();
 
@@ -198,10 +227,17 @@ async function walk(configuration) {
     await steward.context.close();
     checks.push(`${tag}: a narrowed steward edits only the permitted type; the band names it`);
 
-    // 4. Browse only in the second workspace: the application opens there.
+    // 4. Browse only in the second workspace: Home shows it alone (0.12 HM1), and an application
+    // address naming no workspace opens there.
     const elsewhere = await person("elsewhere", [["reader", { workspaceKey: SECOND.key }]]);
+    await elsewhere.page.getByRole("heading", { level: 3, name: SECOND.label }).waitFor();
+    expect((await elsewhere.page.locator(".home-card").count()) === 1, `${tag}: Home shows ${SECOND.key} alone`);
+    await elsewhere.page.goto(`${uiUrl}/apps/${first.application.key}/views/${first.view.key}`);
     await band(elsewhere.page).getByText(SECOND.label, { exact: false }).first().waitFor();
-    expect(elsewhere.page.url().includes(`workspaceKey=${SECOND.key}`), `${tag}: opens in ${SECOND.key}: ${elsewhere.page.url()}`);
+    expect(
+      elsewhere.page.url().includes(`workspaceKey=${SECOND.key}`),
+      `${tag}: opens in ${SECOND.key}: ${elsewhere.page.url()}`,
+    );
     await elsewhere.context.close();
     checks.push(`${tag}: a person with Browse only in ${SECOND.key} lands there`);
 

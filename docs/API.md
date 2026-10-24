@@ -273,9 +273,14 @@ for an empty model, read it):
   "activeModelRelease": {
     "id": "…", "key": "rdm-starter", "name": "RDM Starter Model", "version": "0.9.0",
     "schemaVersion": "0.8", "activatedAt": "2026-10-06T08:00:00Z"
-  }
+  },
+  "product": { "name": "RDM Engine", "description": "A model-driven reference data management engine" }
 }
 ```
+
+`product` (0.12 HM1, D338) is the instance's name and description: the default workspace's model's
+`product`, which the top bar shows. A person who may browse no workspace cannot read that model, so
+they read the name here; `null` when this version cannot serve the default workspace's model.
 
 `GET /api/v1/system/configuration` answers how it is configured, for operators (Operations from Z1):
 
@@ -5733,7 +5738,8 @@ in change sets for `mode: move`. **Delivered by SP1 (2026-10-24):** a person's `
 `/users`, `GET /users/{id}/grants`, `q` and `memberId` on `/groups`, `q` on `/clients`, and a
 workspace grant of a role held only at the instance refused. **Delivered by Z5 (2026-10-24):**
 `holding` on `GET /workspaces`, `GET /me/action-groups`, and `createdBy` on a workspace's change
-sets. The rest is designed; each part moves into "delivered" with its package (I3, Z3, SP2, K1, C1,
+sets. **Delivered by HM1 (2026-10-25):** `GET /me/workspaces`, `GET /me/change-sets` and `product`
+on `GET /system`. The rest is designed; each part moves into "delivered" with its package (I3, Z3, SP2, K1, C1,
 A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
@@ -5844,6 +5850,20 @@ sign-in page says how long to wait. Passwords and client secrets are hashed with
   caller holds that group, every workspace for an instance grant; without it, those where the caller
   holds any role (D288). An unknown group is `422 ACTION_GROUP_UNKNOWN` (`details.actionGroups`).
   The browser's workspace selector and the first workspace opened ask for `browse`.
+- `GET /api/v1/me/workspaces` (delivered, HM1, D332): the active workspaces where the caller holds
+  Browse, the default first and then by label, cursor paged (`pageSize` up to 500, 50 by default).
+  Each: `key`, `label`, `isDefault`, its `model` (as on `GET /workspaces`), its `applications`
+  (`key`, `name`, `icon`, `color`, `defaultView`, from the workspace's own release; empty when this
+  version cannot serve it), `ownChangeSets` (the open change sets the caller created there) and
+  `openChangeSets` (every open change set there where the caller holds Publish, otherwise `null`).
+  The counts are one grouped statement per page. The home page's cards; a client asks where it may
+  work and what it has open.
+- `GET /api/v1/me/change-sets` (delivered, HM1, D333): the open change sets the caller created, in
+  every workspace where they hold Browse, newest change first (`updatedAt`, then `id`), cursor paged
+  (`pageSize` up to 100, 20 by default). Each is the change set as `GET /change-sets/{id}` answers
+  it, plus `workspaceLabel` and `changeCount`: the records and relations it adds, changes or
+  removes, as its two change lists total them. Change sets stay shared (D255); this only finds the
+  caller's.
 - `GET /api/v1/workspaces/{key}/change-sets?createdBy=<principal ID>` (delivered, Z5, D325): the
   open change sets a person or client created; an ID no principal has lists none. Change sets stay
   shared (D255); the filter only finds one's own.

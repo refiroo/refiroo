@@ -24,7 +24,7 @@ import { ModelEditor } from "@/features/model-editor/ModelEditor";
 import { workspaceModel } from "@/model/workspaceModels";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
-import { changeReviewFor, defaultRoute, viewRoute } from "@/routing/routes";
+import { changeReviewFor, HOME, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, SettingsRoute } from "@/types";
 import { SettingsShell } from "./SettingsShell";
 import type { Router } from "./useRouter";
@@ -56,7 +56,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
       model={model}
       page={route.page}
       fullWidth={Boolean(editing || moving)}
-      onHome={() => navigate(defaultRoute(model, workspaceKey))}
+      onHome={() => navigate(HOME)}
       onSelectApplication={selectApplication}
       onNavigate={(next) => navigate(next)}
     >

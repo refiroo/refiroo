@@ -239,10 +239,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # nothing else changed. Re-baselined for 0.12 Z5 (D325, D327, D328): holding on GET
     # /workspaces, createdBy on GET /workspaces/{workspace_key}/change-sets, and GET
     # /me/action-groups (HeldAnywhereList, HeldAnywhere, HeldWorkspace). Diffed against 260bac0,
-    # nothing else changed.
+    # nothing else changed. Re-baselined for 0.12 HM1 (D332, D333): GET /me/workspaces
+    # (OwnWorkspacePage, OwnWorkspaceResponse, WorkspaceApplication) and GET /me/change-sets
+    # (OwnChangeSetPage, OwnChangeSetResponse), and product on GET /system (InstanceProduct, D338).
+    # Diffed against 56f090d, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "2d0b75a7abe3cfbe32489462bbb7bba033016549a526fa307cbda63a50933c00"
+        "726ab1b765b19b7cb5ae666c150d174de5e434ac892f73c615488b689ab836cc"
     )
 
 
@@ -286,8 +289,8 @@ def test_paging_openapi_inventory():
     # the processes and the readiness per workspace; 0.11 O2 the backup rehearsals; 0.12 I1 the
     # people, clients and token signing keys; 0.12 I2 a person's sessions; 0.12 Z1 the roles, groups,
     # a group's members, grants, a workspace's access and the caller's grants; 0.12 SP1 a person's
-    # grants; 0.12 Z4 the security events.
-    assert seekable <= paged and len(paged) == 56
+    # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets.
+    assert seekable <= paged and len(paged) == 58
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

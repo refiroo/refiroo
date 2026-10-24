@@ -63,7 +63,8 @@ def test_read_what_the_deployment_runs(world):
         "activatedAt": state["updatedAt"],
     }
     # What the deployment runs is for anyone signed in; how it is configured is not in it (D246).
-    assert set(system) == {"engine", "schemaLanguages", "activeModelRelease"}
+    # The instance's product, which a person with no workspace reads too (0.12 HM1, D338).
+    assert set(system) == {"engine", "schemaLanguages", "activeModelRelease", "product"}
     assert configuration["database"] == {"revision": HEAD}
     names = [setting["name"] for setting in configuration["settings"]]
     assert len(names) == len(set(names)) and "DATABASE_URL" in names

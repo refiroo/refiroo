@@ -149,7 +149,12 @@ try {
   await catalogue.getByRole("button", { name: /Central Europe East.*Default/s }).waitFor();
   await axe(page, "w4-workspaces-new-default");
   await shot("w4-set-default-wide");
+  // Home lists the default first (0.12 HM1, D337); its applications open there.
   await page.goto(`${uiUrl}/`);
+  const firstCard = page.locator(".home-card").first();
+  await firstCard.getByRole("heading", { level: 3, name: /Central Europe East/ }).waitFor();
+  await firstCard.getByText("Default", { exact: true }).waitFor();
+  await firstCard.locator(".home-app").first().click();
   await page.waitForURL(/workspaceKey=central-europe/);
   checks.push("set as default stores the runtime state, blocks its retirement and changes the landing workspace");
 
@@ -230,7 +235,9 @@ try {
   await page.getByRole("option", { name: /Nordics/ }).waitFor();
   expect((await page.getByRole("option", { name: /nordcis/ }).count()) === 0, "selector offers the deleted key");
   await page.keyboard.press("Escape");
-  checks.push("W6: mistyped workspace deleted by keyboard after a confirmation naming its key; stale URL is not found; corrected key created; selector drops it");
+  checks.push(
+    "W6: mistyped workspace deleted by keyboard after a confirmation naming its key; stale URL is not found; corrected key created; selector drops it",
+  );
 
   // 12. Narrow: the selected workspace alone with a way back to the catalogue; no page overflow.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -255,7 +262,9 @@ try {
   expect(scroll <= 0, `narrow rename dialog scrolls horizontally by ${scroll}px`);
   await shot("w4-rename-narrow");
   await page.keyboard.press("Escape");
-  checks.push("390px: the workspace, the catalogue (All workspaces) and the rename dialog take turns and fit without horizontal scroll");
+  checks.push(
+    "390px: the workspace, the catalogue (All workspaces) and the rename dialog take turns and fit without horizontal scroll",
+  );
   await harness.cleanup();
   harness = undefined;
 
@@ -269,7 +278,10 @@ try {
   await offSingle.waitFor();
   expect((await offSingle.getByRole("button", { name: "Manage workspaces" }).count()) === 0, "manage shown when off");
   await off.page.getByRole("banner").getByRole("link", { name: "Settings" }).click();
-  await off.page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "Model", exact: true }).click();
+  await off.page
+    .getByRole("navigation", { name: "Settings" })
+    .getByRole("link", { name: "Model", exact: true })
+    .click();
   const modelStatus = off.page.getByRole("region", { name: "Deployment capabilities" });
   await modelStatus.waitFor();
   const modelStatusText = await modelStatus.innerText();
@@ -288,7 +300,9 @@ try {
   await off.page.getByRole("button", { name: "Open workspace" }).waitFor();
   await axe(off.page, "w4-workspaces-disabled");
   await off.page.screenshot({ path: resolve(off.output, "w4-workspaces-disabled-wide.png"), fullPage: true });
-  checks.push("flag off: no manage link; Settings › Model names the setting; the old /workspaces link lands on a read-only page");
+  checks.push(
+    "flag off: no manage link; Settings › Model names the setting; the old /workspaces link lands on a read-only page",
+  );
 
   const report = {
     browser: off.browser.version(),

@@ -173,11 +173,22 @@ def ensure(name: str) -> dict[str, Any]:
         catalogue.execute(text("SELECT pg_advisory_lock(hashtext(:n))"), {"n": name})
         try:
             row = catalogue.execute(
-                text("SELECT fingerprint, payload FROM seeds WHERE name = :n"), {"n": name}
+                text("SELECT fingerprint, payload, built_at FROM seeds WHERE name = :n"),
+                {"n": name},
             ).one_or_none()
+            # A base rebuilt with the same inputs holds new content (a schema seed's harness client
+            # is made anew), so a seed built on it before is stale too (found in 0.12 HM1).
+            base_built = (
+                catalogue.execute(
+                    text("SELECT built_at FROM seeds WHERE name = :n"), {"n": seed.base}
+                ).scalar_one_or_none()
+                if seed.base is not None
+                else None
+            )
             with admin() as server:
                 present = _database_exists(server, template_name(name))
-            if row is not None and present and row.fingerprint == expected:
+            fresh = base_built is None or (row is not None and row.built_at >= base_built)
+            if row is not None and present and row.fingerprint == expected and fresh:
                 ACTIVITY.append((name, "reused", 0.0))
                 return row.payload
             started = time.perf_counter()

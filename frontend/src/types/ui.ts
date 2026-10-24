@@ -86,7 +86,13 @@ export type RouteState =
       changeSetId?: string;
       publicationId?: string;
     }
+  | HomeRoute
   | SettingsRoute;
+
+/** The home page after sign-in (0.12 HM1, D331): the bare address, outside any workspace. */
+export interface HomeRoute {
+  kind: "home";
+}
 
 /**
  * The Settings area (Track U U3): pages outside any workspace and application, each with its own
@@ -182,5 +188,5 @@ export type ConsumerApiTab = "types" | "fields" | "operations" | "filters" | "sc
 
 export type SettingsPage = SettingsRoute["page"];
 
-/** Every route that is not a settings page: an application's data, in a workspace. */
-export type ApplicationRoute = Exclude<RouteState, SettingsRoute>;
+/** Every route that is neither a settings page nor home: an application's data, in a workspace. */
+export type ApplicationRoute = Exclude<RouteState, SettingsRoute | HomeRoute>;

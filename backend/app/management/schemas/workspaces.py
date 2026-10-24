@@ -117,6 +117,35 @@ class WorkspacePage(CollectionPage[WorkspaceResponse]):
     pass
 
 
+class WorkspaceApplication(BaseModel):
+    """An application of the workspace's model, as the home page links it."""
+
+    key: str
+    name: str
+    icon: str | None
+    color: str | None
+    defaultView: str
+
+
+class OwnWorkspaceResponse(BaseModel):
+    """A workspace the caller may browse, with what waits for them there (0.12 HM1, D332)."""
+
+    key: str
+    label: str
+    isDefault: bool
+    model: WorkspaceModelResponse
+    # Empty when this version cannot serve the workspace's model (0.11 D29).
+    applications: list[WorkspaceApplication]
+    # The open change sets the caller created here.
+    ownChangeSets: int
+    # Every open change set here, for a caller holding Publish; null otherwise.
+    openChangeSets: int | None
+
+
+class OwnWorkspacePage(CollectionPage[OwnWorkspaceResponse]):
+    pass
+
+
 class WorkspaceRuntimeStateUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

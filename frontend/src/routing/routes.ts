@@ -6,9 +6,11 @@
 
 import type {
   ApplicationDefinition,
+  ApplicationRoute,
   ChangeKind,
   EditorSelection,
   EngineModel,
+  HomeRoute,
   MoveAddress,
   MoveChoice,
   RouteState,
@@ -96,6 +98,13 @@ export function routePublicationId(route: RouteState) {
 export function isSettingsRoute(route: RouteState): route is SettingsRoute {
   return route.kind === "settings";
 }
+
+/** An application's data in a workspace: neither a settings page nor home. */
+export function isApplicationRoute(route: RouteState): route is ApplicationRoute {
+  return route.kind !== "settings" && route.kind !== "home";
+}
+
+export const HOME: HomeRoute = { kind: "home" };
 
 /**
  * A settings page from its path below `/settings`, or from an address the settings area replaced:
@@ -314,6 +323,8 @@ export function parseRoute(
 ): RouteState {
   const parts = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
   const query = new URLSearchParams(location.search);
+  // The bare address is home (0.12 HM1, D331); naming a workspace still opens it.
+  if (!parts.length && !query.get("workspaceKey")?.trim()) return HOME;
   const workspaceKey = query.get("workspaceKey")?.trim() || defaultWorkspaceKey;
   const changeSetId = query.get("changeSetId")?.trim() || undefined;
   const publicationId = changeSetId ? undefined : query.get("publicationId")?.trim() || undefined;
@@ -455,6 +466,7 @@ export function addressWorkspaceKey(fallback: string, location: Pick<Location, "
 }
 
 export function routePath(route: RouteState) {
+  if (route.kind === "home") return "/";
   if (route.kind === "settings") return settingsPath(route);
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });

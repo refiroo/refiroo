@@ -1,8 +1,7 @@
 /**
  * The model a person who may browse no workspace sees Settings under (0.12 Z5, D326): no
  * applications and no types, so the top bar offers none and every page that reads the model
- * finds nothing in it. Its product is named after the release the instance runs, the only name
- * such a person may read.
+ * finds nothing in it. Its product is the instance's, which `GET /system` names for anyone signed in.
  */
 
 import { api } from "@/api/client";
@@ -22,8 +21,8 @@ export function emptyModel(productName = ""): EngineModel {
   };
 }
 
-/** The empty model, named after the release the instance runs where it can be read. */
+/** The empty model, named after the instance's product (0.12 HM1, D338), the same as everyone sees. */
 export async function loadEmptyModel(): Promise<EngineModel> {
   const system = await api.system().catch(() => undefined);
-  return emptyModel(system?.activeModelRelease.name ?? "");
+  return emptyModel(system?.product?.name ?? system?.activeModelRelease.name ?? "");
 }

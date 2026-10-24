@@ -20,7 +20,7 @@ after 0.12 documents authentication too.
 | [V3–V9](#track-v--the-management-api-documented) | 0.9 V2 | The management API documented on `/docs`: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9 |
 | [V10](#v10-the-operation-kinds-in-the-document) | — | The 67 operation kinds of model drafts and model mappings declared in the OpenAPI document, each with its parameters |
 | [UP1](#up1-type-palettes-a-and-b-reworked) | 0.9 UA | The type palettes A and B reworked so a person tells them apart at a glance |
-| [UP2](#up2-an-application-opens-on-a-start-page-optional) (optional) | 0.10 | An application opens on an empty start page asking to choose a list in the sidebar, not on its default view |
+| [UP2](#up2-an-application-opens-on-a-start-page-optional) (optional) | 0.10 | _Superseded for the first screen by 0.12 HM1 (D336)._ An application opens on an empty start page asking to choose a list in the sidebar, not on its default view |
 
 ## Track V — The management API documented
 
@@ -144,6 +144,10 @@ section of [SETTINGS_AND_UI_PLAN](SETTINGS_AND_UI_PLAN.md#type-palettes-a-and-b)
 with its screenshots, when it starts.
 
 ## UP2: An application opens on a start page (optional)
+
+**Superseded for the first screen by 0.12 HM1 (D336, 2026-10-25):** signing in and the bare address
+open the home page, not an application's list. Switching application inside a workspace still opens
+its default view; UP2 can be reopened for that alone.
 
 _Asked by the user 2026-10-15 during 0.10 (first filed under A8), moved here the same day as an
 optional element; 0.10 goes on to R._

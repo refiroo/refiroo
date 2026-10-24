@@ -261,7 +261,8 @@ describe("App", () => {
   });
 
   it("renders the shell from the model and lands on the default view", async () => {
-    visit("/");
+    // The bare address is home (0.12 HM1, D331); naming the workspace opens its start.
+    visit("/?workspaceKey=default");
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Domains", level: 1 })).toBeInTheDocument();
@@ -416,7 +417,7 @@ describe("App", () => {
       version: 2,
       updatedAt: "2026-09-05T00:00:00Z",
     });
-    visit("/");
+    visit("/apps/test-app/views/domains");
     render(<App />);
 
     await waitFor(() => expect(window.location.search).toContain("workspaceKey=central-europe"));

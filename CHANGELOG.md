@@ -6,6 +6,25 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 HM1, a home page after sign-in)
+
+- **Home** (D331–D339): signing in, the bare address and the product name open a home page: a
+  greeting with the person's roles and what is open; Continue where you left off, back to the last
+  list, record or review opened in this browser; the workspaces they may browse as cards, the
+  default first, each with its model, their role, its applications and buttons counting their open
+  change sets and, for a publisher, every open change set; their open change sets across workspaces,
+  each opening its review. A workspace's name opens the workspace. An address naming a workspace,
+  application or record opens it as before.
+- `GET /api/v1/me/workspaces` and `GET /api/v1/me/change-sets` (D332, D333); `product` on
+  `GET /api/v1/system` (D338).
+
+### Fixed (0.12 HM1)
+
+- A person with no workspace saw the model release's name in the top bar; it is the instance's
+  product name, as everyone else sees.
+- A browser runner's seed built on an older schema seed was reused after the schema seed was rebuilt,
+  so its backend refused the harness client (`401 invalid_client`); such a seed is rebuilt now.
+
 ### Added (0.12 Z5, the interface follows permissions)
 
 - **The interface offers only what a person may do** (D321–D330): a Reader sees no way to change

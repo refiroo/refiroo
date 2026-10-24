@@ -72,8 +72,13 @@ Settings lists only the pages of groups held; `GET /me/action-groups`, `holding=
 `createdBy=` on change sets ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z5-record-2026-10-24)). Its
 journeys, the contract tests, the touched Vitest folders, the new `z5-permissions` runner on two
 models and every other runner the execution guide selects passed but `j4-import` and the
-navigation runner, which fail the same before Z5 (TODO). Next:
-Z6.
+navigation runner, which fail the same before Z5 (TODO). **HM1, a home page after sign-in, is
+delivered (2026-10-25)**, added by the user and D331–D339: signing in opens Home, with the person's
+workspaces as cards on their own models, what waits for them, Continue where they left off and
+their change sets across workspaces; `GET /me/workspaces`, `GET /me/change-sets` and the instance's
+product on `GET /system` ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#hm1-record-2026-10-25)). Its
+journeys, J31, the contract tests, the touched Vitest folders and the runners `hm1-home`,
+`z5-permissions`, `w4-workspace-admin` and `u3-settings` passed. Next: Z6.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 

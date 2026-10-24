@@ -43,6 +43,8 @@ import type {
   SignInSession,
   Grant,
   HeldAnywhereList,
+  OwnChangeSetPage,
+  OwnWorkspace,
   MyPermissions,
   PageNavigation,
   ConsumerApiDefinition,
@@ -465,6 +467,14 @@ export const api = {
   myActionGroups: () => request<HeldAnywhereList>("/api/v1/me/action-groups"),
   /** The caller's grants, direct and through their groups, every page (a caller has a handful). */
   myGrants: () => allPages<Grant>("/api/v1/me/grants"),
+  /** The workspaces the caller may browse, with what waits there, every page (0.12 HM1, D332). */
+  myWorkspaces: () => allPages<OwnWorkspace>("/api/v1/me/workspaces"),
+  /** A page of the caller's open change sets across workspaces, newest change first (D333). */
+  myChangeSets: (cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: "20" });
+    if (cursor) query.set("cursor", cursor);
+    return request<OwnChangeSetPage>(`/api/v1/me/change-sets?${query}`);
+  },
   /** Where the person is signed in: every open session (a person has a handful). */
   mySessions: () => allPages<SignInSession>("/api/v1/me/sessions"),
   /** Sign out one session, its tokens refused from the next request. */

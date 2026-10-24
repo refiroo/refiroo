@@ -14,6 +14,11 @@ from ...common.prometheus import CONTENT_TYPE
 from ...common.time import as_utc
 from ...config import ENGINE_VERSION
 from ...engine.model.compiler import SCHEMA_VERSIONS
+from ...engine.model.registry import (
+    ModelRegistryUnavailable,
+    WorkspaceModelUnavailable,
+    model_registry,
+)
 from ...engine.processes.reads import live_processes, workspace_readiness
 from ...engine.reads.system import read_system_state
 from ...models.database import BackupRehearsal, EngineProcess, Workspace
@@ -37,6 +42,7 @@ from ..schemas.system import (
     BackupRehearsalPage,
     DatabaseInfo,
     EngineInfo,
+    InstanceProduct,
     ProcessPage,
     SystemConfiguration,
     SystemResponse,
@@ -66,7 +72,16 @@ def get_system(session: DbSession) -> SystemResponse:
             schemaVersion=release.schema_version,
             activatedAt=as_utc(state.activated_at),
         ),
+        product=_instance_product(session),
     )
+
+
+def _instance_product(session: DbSession) -> InstanceProduct | None:
+    try:
+        product = model_registry.resolve_workspace(session, None).model.product
+    except WorkspaceModelUnavailable, ModelRegistryUnavailable:
+        return None
+    return InstanceProduct(name=product.name, description=product.description)
 
 
 @router.get("/system/configuration", response_model=SystemConfiguration)

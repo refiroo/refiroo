@@ -321,6 +321,14 @@ nothing is shown disabled (D323).
 | Z5-3 | A **narrowed** writer's record | a record of another type | the band's line | **C** | **B** (no Edit or Delete on other types; the band names the permitted types) | — | — | — | — | — | — | — | `z5-permissions` (dark screenshot), `permissions.test` |
 | Z5-4 | **No workspace** to open | `/` for a person who may browse none | `ShellFrame`, `TopBar` without applications | **C** | **B** (their roles; People for a Security administrator, Settings otherwise; Account) | — | — | — | — | — | **C** | **C** | `z5-permissions` (axe, screenshot), `NoWorkspace.test` |
 
+### Surfaces changed in 0.12 HM1
+
+The home page, from the "HM1 as planned" boards, on the Account page's panels, pills and rows.
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| HM1-1 | **Home** | `/` after sign-in, the bare address, the product name | `ShellFrame`, `TopBar` without applications; the Account page's panels | **C** (skeleton while the cards load) | **B** (cards on two models, the publisher's and a Reader's counts, Continue, Your change sets; no workspace: Z5-4's text under the instance's name; no Continue before anything was opened) | — | **B** (a workspace's name, an application, a count, Continue and a change set each open their page) | — | — | **C** (an inline error with Retry; a card whose model cannot be served says so) | **B** (390px, no page scroll) | **B** (Tab reaches Continue and each card's links; Enter opens) | `hm1-home` (axe light, dark, 390px; screenshots), `home.test`, `routes.test` |
+
 ## 3. Selected focused browser checks
 
 Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,

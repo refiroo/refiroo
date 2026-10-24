@@ -1,9 +1,10 @@
+from dataclasses import replace
 from typing import Literal
 
 from fastapi import APIRouter, Query, Request, status
-from sqlalchemy import select
+from sqlalchemy import Integer, select
 
-from ...common.pagination import paginate_statement, text_key
+from ...common.pagination import integer_key, paginate_statement, text_key
 from ...engine.authorization.administration import known_groups
 from ...engine.authorization.visibility import in_workspaces
 from ...engine.model.workspace_models import assignments_of, load_assignment
@@ -27,7 +28,7 @@ from ..access import (
     CurrentPermissions,
     requires,
 )
-from ..dependencies import DbSession
+from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..presenters import (
     feed_page,
@@ -36,8 +37,10 @@ from ..presenters import (
     workspace_detail_response,
     workspace_page_items,
 )
+from ..projections.home import own_workspace_items
 from ..schemas.records import FeedPage
 from ..schemas.workspaces import (
+    OwnWorkspacePage,
     WorkspaceAssignmentPage,
     WorkspaceAssignmentResponse,
     WorkspaceDetailResponse,
@@ -83,6 +86,46 @@ def list_workspaces(
         message="Workspace cursor is invalid",
     )
     return WorkspacePage(items=workspace_page_items(session, page.items), **page.links())
+
+
+@read_router.get("/me/workspaces", response_model=OwnWorkspacePage)
+@requires("signed-in", at=SIGNED_IN)
+def list_own_workspaces(
+    session: DbSession,
+    principal: CurrentPrincipal,
+    permissions: CurrentPermissions,
+    paging: PageQuery,
+    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+) -> OwnWorkspacePage:
+    """The active workspaces where the caller holds Browse, the default first and then by label,
+    each with its applications and the open change sets waiting there (0.12 HM1, D332)."""
+    default_key = load_workspace_runtime_state(session).default_workspace_key
+    statement = select(Workspace).where(Workspace.status == "active")
+    visible = in_workspaces(Workspace.key, permissions, frozenset({"browse"}))
+    if visible is not None:
+        statement = statement.where(visible)
+    first = replace(
+        integer_key("default", (Workspace.key != default_key).cast(Integer), "key"),
+        extract=lambda _session, row: int(row.key != default_key),
+    )
+    page = paginate_statement(
+        session,
+        statement,
+        keys=(
+            first,
+            text_key("label", Workspace.label, "label"),
+            text_key("key", Workspace.key, "key"),
+        ),
+        scope="own-workspaces",
+        filters={"defaultWorkspaceKey": default_key},
+        page=paging,
+        page_size=page_size,
+        message="Workspace cursor is invalid",
+    )
+    return OwnWorkspacePage(
+        items=own_workspace_items(session, principal, permissions, page.items, default_key),
+        **page.links(),
+    )
 
 
 @read_router.get("/workspaces/{workspace_key}", response_model=WorkspaceDetailResponse)

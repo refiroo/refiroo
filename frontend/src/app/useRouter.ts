@@ -7,7 +7,7 @@ import { loadEmptyModel } from "@/model/emptyModel";
 import {
   addressWorkspaceKey,
   defaultRoute,
-  isSettingsRoute,
+  isApplicationRoute,
   missingElement,
   parseRoute,
   routePath,
@@ -102,6 +102,13 @@ export async function openingWorkspace(defaultWorkspaceKey: string): Promise<str
   return page.items[0]?.key;
 }
 
+/** The bare address, naming no workspace: home (0.12 HM1, D331). */
+function isHomeAddress(location: Pick<Location, "pathname" | "search">) {
+  return (
+    location.pathname.replace(/\/+$/, "") === "" && !new URLSearchParams(location.search).get("workspaceKey")?.trim()
+  );
+}
+
 /**
  * Loads the model and keeps route state and the browser URL in step.
  *
@@ -150,23 +157,24 @@ export function useRouter(): Router {
   const resolveAddress = useCallback(
     async (location: Pick<Location, "pathname" | "search">, entry: ReturnType<typeof navigationEntry>) => {
       const fallback = defaultKey.current;
-      const settings = location.pathname.startsWith("/settings");
+      // Settings and home are outside any workspace (0.12 HM1, D331).
+      const outside = location.pathname.startsWith("/settings") || isHomeAddress(location);
       // Nothing to browse (D326): Settings under the empty model, the application's start otherwise.
       const empty = emptyRef.current;
       if (empty)
         return {
           loaded: empty,
           workspaceKey: fallback,
-          route: settings ? parseRoute(empty, fallback, location) : defaultRoute(empty, fallback),
+          route: outside ? parseRoute(empty, fallback, location) : defaultRoute(empty, fallback),
           problem: undefined,
         };
-      // Settings keep the model of the workspace shown before them (D49).
-      const workspaceKey = settings
+      // Settings and home keep the model of the workspace shown before them (D49).
+      const workspaceKey = outside
         ? (shown.current?.workspaceKey ?? fallback)
         : addressWorkspaceKey(fallback, location);
       try {
         const loaded = await workspaceModel(workspaceKey);
-        const missing = settings ? undefined : missingElement(loaded, location);
+        const missing = outside ? undefined : missingElement(loaded, location);
         const parsed = restoreOrigin(parseRoute(loaded, workspaceKey, location), entry, loaded);
         return {
           loaded,
@@ -267,10 +275,11 @@ export function useRouter(): Router {
     return () => window.removeEventListener("popstate", pop);
   }, [model, resolveAddress, show]);
 
-  const requested = model && route && !isSettingsRoute(route) ? applicationFor(model, route.applicationKey) : undefined;
+  const requested =
+    model && route && isApplicationRoute(route) ? applicationFor(model, route.applicationKey) : undefined;
   const active =
     model && route
-      ? isSettingsRoute(route) || requested
+      ? !isApplicationRoute(route) || requested
         ? route
         : defaultRoute(model, modelWorkspaceKey ?? defaultWorkspaceKey)
       : undefined;
@@ -284,16 +293,16 @@ export function useRouter(): Router {
       lastCollections.current.set(collection.applicationKey, collection);
       mostRecentCollection.current = collection;
     }
-    if (active && !isSettingsRoute(active)) mostRecentApplicationRoute.current = active;
+    if (active && isApplicationRoute(active)) mostRecentApplicationRoute.current = active;
   }, [active]);
 
   /** Write `destination` to the history, then show it (its model already loaded). */
   const commit = useCallback(
     (destination: RouteState, replace: boolean, loaded: EngineModel, workspaceKey: string) => {
       const path = routePath(destination);
-      const missing = isSettingsRoute(destination)
-        ? undefined
-        : missingElement(loaded, new URL(path, window.location.origin));
+      const missing = isApplicationRoute(destination)
+        ? missingElement(loaded, new URL(path, window.location.origin))
+        : undefined;
       const shownRoute = missing ? defaultRoute(loaded, workspaceKey) : destination;
       if (!replace) historyIndex.current += 1;
       window.history[replace ? "replaceState" : "pushState"](historyState(shownRoute, historyIndex.current), "", path);
@@ -307,7 +316,7 @@ export function useRouter(): Router {
       if (restoring.current || !allowNavigation()) return false;
       const destination = routeWithOrigin(next, currentRoute.current);
       const current = shown.current;
-      const workspaceKey = isSettingsRoute(destination) ? current?.workspaceKey : destination.workspaceKey;
+      const workspaceKey = isApplicationRoute(destination) ? destination.workspaceKey : current?.workspaceKey;
       const ticket = ++sequence.current;
       if (current && (!workspaceKey || workspaceKey === current.workspaceKey)) {
         commit(destination, replace, current.model, current.workspaceKey);

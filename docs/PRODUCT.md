@@ -121,6 +121,12 @@ can complete the task in the application; "API" means another system can.
   records keep their identity, and what a new type has no place for is kept in history and offered
   back later.
 
+### Start from home — browser and API
+
+- After signing in, see the workspaces you may open as cards, each with its model, your role there
+  and its applications, what waits for you in each (your open change sets; every open change set
+  where you publish), your change sets across workspaces, and a link back to where you left off.
+
 ### Check and set up the deployment — browser and API
 
 - In **Settings** (the gear in the top bar), see what the deployment runs (engine version, schema

@@ -1952,6 +1952,10 @@ tr.openable-row:hover > * {
   background: var(--status-success-surface);
   color: var(--status-success-text);
 }
+.account-pill.warning {
+  background: var(--status-warning-surface);
+  color: var(--status-warning-text);
+}
 .account-pill.role {
   background: var(--state-selected);
   color: var(--state-selected-text);

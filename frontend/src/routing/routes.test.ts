@@ -376,3 +376,13 @@ it("round-trips a navigation group's page in its data context, and falls back fo
     defaultRoute(model, "main"),
   );
 });
+
+describe("Home (0.12 HM1, D331)", () => {
+  it("is the bare address; naming a workspace still opens it", () => {
+    expect(parseRoute(testModel, "default", { pathname: "/", search: "" })).toEqual({ kind: "home" });
+    expect(routePath({ kind: "home" })).toBe("/");
+    const named = parseRoute(testModel, "default", { pathname: "/", search: "?workspaceKey=north" });
+    expect(named.kind).toBe("list");
+    expect(named).toMatchObject({ workspaceKey: "north" });
+  });
+});

@@ -2632,6 +2632,13 @@ packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
   (D328). At 390px the band's line stays in the context popover, as the phone band holds every
   context's line; the change set's button sits in the band.
 
+- _Built by HM1 (2026-10-25)_ from the "HM1 as planned" boards: the **home page** after sign-in, on
+  the bare address and behind the product name (D331): a welcome card with the person's roles,
+  Continue where you left off (D334), the workspaces they may browse as cards with a tile in a type
+  hue picked from the key (D337), their applications, a name opening the workspace (D339) and
+  button-like counts of open change sets, and their change sets across workspaces. The no-workspace
+  page is Home's empty state, under the instance's product name (D338).
+
 U-D11 holds: each Security entry appears in the navigation only when its page is built.
 
 ## Decisions

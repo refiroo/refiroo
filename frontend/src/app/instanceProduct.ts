@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { api } from "@/api/client";
 import { workspaceModel } from "@/model/workspaceModels";
 import type { EngineModel } from "@/types";
 
@@ -14,7 +15,11 @@ export function useLoadInstanceProduct(defaultWorkspaceKey: string): EngineModel
   useEffect(() => {
     let active = true;
     workspaceModel(defaultWorkspaceKey)
-      .then((model) => active && setProduct(model.product))
+      .then((model) => model.product)
+      // A person who may not read the default workspace's model still sees the instance's name
+      // (0.12 HM1, D338).
+      .catch(() => api.system().then((system) => system.product ?? undefined))
+      .then((found) => active && found && setProduct({ name: found.name, description: found.description ?? undefined }))
       .catch(() => undefined);
     return () => {
       active = false;

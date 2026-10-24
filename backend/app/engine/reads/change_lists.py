@@ -15,7 +15,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
-from sqlalchemy import String, and_, case, literal, or_, select, union_all
+from sqlalchemy import String, and_, case, func, literal, or_, select, union_all
 from sqlalchemy.orm import Session, aliased
 
 from ...common.pagination import Page, PageRequest, paginate_statement, text_key
@@ -136,7 +136,11 @@ def list_object_changes(
     ``ix_change_set_objects_type_name``.
     """
     types = _require_types(
-        object_type_keys or (), model.object_type, "UNKNOWN_OBJECT_TYPE", "Object type", "objectTypeKey"
+        object_type_keys or (),
+        model.object_type,
+        "UNKNOWN_OBJECT_TYPE",
+        "Object type",
+        "objectTypeKey",
     )
     wanted = _kinds(kinds)
     own = ChangeSetObject
@@ -287,7 +291,9 @@ def list_object_changes(
                 before=before_state,
                 after=after_state,
                 changed_fields=changed,
-                path=paths.get(("source" if after_state is None else "change_set", row.object_id), []),
+                path=paths.get(
+                    ("source" if after_state is None else "change_set", row.object_id), []
+                ),
                 before_path=(
                     paths.get(("source", row.object_id), [])
                     if after_state is not None and "parent" in changed
@@ -376,7 +382,11 @@ def _paths(
     hierarchy level, as ``snapshot_reads.object_paths`` resolves one context."""
 
     def part(record: Any) -> dict[str, Any]:
-        return {"id": record.object_id, "name": record.name, "objectTypeKey": record.object_type_key}
+        return {
+            "id": record.object_id,
+            "name": record.name,
+            "objectTypeKey": record.object_type_key,
+        }
 
     paths = {(side, row.object_id): [part(row)] for side, row in items}
     visited = {(side, row.object_id): {row.object_id} for side, row in items}
@@ -542,7 +552,9 @@ def list_relation_changes(
 
     # Both ends of the page in one statement: as the change set holds them, or for an end it
     # removed, as its source does.
-    end_ids = {row.from_object_id for row in result.items} | {row.to_object_id for row in result.items}
+    end_ids = {row.from_object_id for row in result.items} | {
+        row.to_object_id for row in result.items
+    }
     found = _read_records(session, context, {"change_set": end_ids, "source": end_ids})
     records = {
         object_id: found.get(("change_set", object_id)) or found.get(("source", object_id))
@@ -563,7 +575,11 @@ def list_relation_changes(
             if row.kind == "added"
             else RelationState(dict(row.source_attributes or {}), row.source_version)
         )
-        after = None if row.kind == "removed" else RelationState(dict(row.attributes or {}), row.version)
+        after = (
+            None
+            if row.kind == "removed"
+            else RelationState(dict(row.attributes or {}), row.version)
+        )
         from_end, to_end = end(row.from_object_id), end(row.to_object_id)
         # A parent edge by the ``to`` end's type on either side: a record whose type the change
         # set changed (ADR-034) had its former edge under its former type.
@@ -587,3 +603,44 @@ def list_relation_changes(
             )
         )
     return replace(result, items=entries)
+
+
+def _counted(own: Any, id_column: str, context: SnapshotContext, source_entity: Any | None) -> Any:
+    """How many of the change set's own rows ``own`` the lists show: a tombstone with no source
+    row is left out, as above."""
+    if source_entity is None:
+        return (
+            select(func.count())
+            .select_from(own)
+            .where(own.change_set_id == context.id, _kind(own.is_deleted, None).is_not(None))
+            .scalar_subquery()
+        )
+    source = aliased(source_entity)
+    base = context.base
+    return (
+        select(func.count())
+        .select_from(own)
+        .outerjoin(
+            source,
+            and_(
+                getattr(source, base.owner_column) == base.owner_id,
+                getattr(source, id_column) == getattr(own, id_column),
+            ),
+        )
+        .where(
+            own.change_set_id == context.id,
+            _kind(own.is_deleted, getattr(source, id_column)).is_not(None),
+        )
+        .scalar_subquery()
+    )
+
+
+def count_changes(session: Session, context: SnapshotContext) -> int:
+    """The records and relations the change set adds, changes or removes: the totals of both lists
+    read in one statement (0.12 HM1, D333)."""
+    base = context.base
+    records = _counted(ChangeSetObject, "object_id", context, base.objects if base else None)
+    relations = _counted(
+        ChangeSetRelation, "relation_id", context, base.relations if base else None
+    )
+    return int(session.scalar(select(records + relations)) or 0)

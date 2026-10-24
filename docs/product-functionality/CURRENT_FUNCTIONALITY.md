@@ -90,7 +90,20 @@ Each workspace names the model and release it runs, in the selector and in Setti
 and a new workspace starts on the default workspace's model or on another installed release chosen
 when it is created.
 
-Evidence: [workspace selector](../../frontend/src/features/workspaces/WorkspaceSelector.tsx),
+**Home.** Signing in, the bare address and the product name in the top bar open the home page: a
+greeting with the person's roles and one sentence on what is open; **Continue where you left off**,
+back to the last list, record or review they opened in this browser; the workspaces they may browse
+as large cards, the default first, each with a coloured tile, its model and version, their role
+there and its applications (a workspace's name opens the workspace, an application its default view);
+under each card, buttons with the number of their own open change sets and, for someone who
+publishes there, every open change set; and their open change sets across workspaces with how much
+each changes, each opening its review. Someone who may browse no workspace reads there that there is
+none yet, under the instance's name. An address naming a workspace, application or record opens it
+directly. The same reads are in the API (`GET /me/workspaces`, `GET /me/change-sets`).
+
+Evidence: [home page](../../frontend/src/features/home/HomePage.tsx),
+[HM1 runner](../../frontend/e2e/hm1-home.mjs),
+[workspace selector](../../frontend/src/features/workspaces/WorkspaceSelector.tsx),
 [workspace administration](../../frontend/src/features/workspaces/WorkspaceAdmin.tsx),
 [W4 runner](../../frontend/e2e/w4-workspace-admin.mjs),
 [workspace catalogue](../../backend/app/engine/workspaces/catalogue.py),

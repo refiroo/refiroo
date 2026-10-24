@@ -2255,6 +2255,223 @@ reachable from a person, and from a client once SP2 builds its page. The plan se
 mock-up, and the journey (J44 variant). _Moved from Z5 by the user (2026-10-24):_ Z6's checks
 include the full backend suite, announced with its expected time, which closes Track Z and stands
 for Z1's to Z5's; a failure it finds from them is fixed in Z6 and named in its record.
+_Amended by HM1 (2026-10-25):_ Z6 also adds "Your recent changes" to the home page (D335), from
+the same read for the signed-in person.
+
+### HM1: A home page after sign-in
+
+**Needs:** Z5. _Added by the user, 2026-10-25,_ choosing a personal home page over workspace icons
+alone or opening a record at once: "add the option 3 to the build 0.12 as a workpackage and start
+delivery".
+
+**Scope:** signing in, or opening the bare address, lands on a home page instead of the first
+application's default list. It shows the workspaces the person can open as large cards (each with
+its model and its applications), what waits for them in each (their open change sets; for those who
+publish, every open change set), their change sets across workspaces, and a link back to where they
+left off. Supersedes 0.14's UP2 for the first screen (D336).
+
+##### HM1 plan (2026-10-25)
+
+**Planned 2026-10-25; accepted by the user the same day** ("yes you can build this"), after the boards were redrawn at the user's request ("more nice and lovely like usually the other pages"): D331–D337, the test cases and the "HM1 as planned" boards. Checked against the code at `56f090d`
+with Z5's plan and record, D321–D330, and 0.14's UP2.
+
+**What the check found:**
+
+- **The first screen:** `defaultRoute` (`routing/routes.ts`) opens the first application's default
+  view in the opening workspace (D326: the default when browsable, else the first by label); with no
+  workspace, `NoWorkspace`. The product name in the top bar (`onHome`) goes to the same route. Since
+  0.11 each workspace may run its own model, so "the first application" depends on which workspace
+  opened.
+- **Settings and `NoWorkspace` already open without a workspace model** (Z5): the top bar then shows
+  the product and the settings button without applications. A home page needs the same, since its
+  cards span workspaces with different models.
+- **What the API has:** `GET /workspaces?holding=browse` (D327) lists the workspaces; each carries its
+  release's name and version but not its applications. `GET /workspaces/{key}/change-sets?createdBy=`
+  (D325) finds a person's change sets in **one** workspace; published and discarded change sets are
+  deleted, so the list holds the open ones. A change set's size is two more reads
+  (`object-changes` and `relation-changes` with `includeTotal`), as `useOwnChangeSet` does. A card
+  with applications, counts and change sets would cost about four reads per workspace.
+- **Nothing records what a person opened.** No favourites, no recently opened records, no
+  "last address" anywhere.
+- **Not built yet:** one person's changes across workspaces (Z6) and approvals waiting for someone
+  (A1–A3).
+- **Browser runners opening the bare address:** five (`w4-workspace-admin`, `workspace-m5`,
+  `workspace-m6-checkpoint`, `z5-permissions`, `helpers/workspace-surfaces`); all but two name
+  `?workspaceKey=`, which keeps opening that workspace (D331), so only `w4-workspace-admin:152` and
+  `z5-permissions:85` change.
+- **Reference patterns:** `ShellFrame` and `TopBar` without applications (Settings, `NoWorkspace`);
+  `NoWorkspace` itself as the empty state; the change sets list's rows; `Notice`.
+
+**Mock-up:** [security mock-ups canvas](https://claude.ai/artifact/CiHGaobpx8jsqaNZvmfXXo), row "HM1
+as planned": the home page at 1440px (a Data steward in three workspaces with two models; dark in
+Tweaks; a Reader with one workspace in Tweaks) and at 390px.
+
+**What is built:**
+
+1. **API** (documented in API.md, OpenAPI lock re-baselined from a diff):
+   - `GET /me/workspaces` (D332): the workspaces where the caller holds Browse, active only, the
+     default first and then by label, cursor paged. Each: key, label, `isDefault`, its model
+     (release name and version), its `applications` (key, name; from the workspace's release, the
+     model the engine already resolves per workspace), `ownChangeSets` (the open change sets the
+     caller created) and `openChangeSets` (all open change sets there, only where the caller holds
+     Publish, otherwise `null`). Counts are one grouped statement per page, not per workspace.
+   - `GET /me/change-sets` (D333): the open change sets the caller created, across the workspaces
+     where they hold Browse, newest change first, cursor paged. Each is the change set as
+     `GET /change-sets/{id}` returns it plus `workspaceLabel` and `changeCount` (records and
+     relationships it changes, counted in SQL for the page).
+2. **The home route** (D331): `/` without `workspaceKey` is `{ kind: "home" }`; after sign-in with no
+   address asked, and the product name in the top bar, lead there. `/?workspaceKey=<key>` opens that
+   workspace as today. Home opens without a workspace model, as Settings does.
+3. **The page** (D337), in `features/home/`, in the reworked Account page's style (the hero card
+   with its band, tiles, pills, rows): a **welcome card** ("Good morning/afternoon/evening, *first
+   name*" from `/me` and the browser's clock; one sentence from the counts, such as "Three workspaces
+   are yours to work in. Two of your change sets are open, and five change sets wait for someone to
+   publish them."; the person's roles as pills, from `GET /me/grants`) beside **Continue where you
+   left off** (D334) when there is an address to return to; **Your workspaces**, a grid of cards
+   (three across at 1440px, one at 390px): a large two-letter tile in a colour taken from the
+   workspace's key, the label, "Default" on the default one, the model's name and version, the
+   person's role there, each application as a link opening its default view there, and a footer of
+   two figures, "*n* your change sets" and, for a publisher, "*n* open change sets to publish", each
+   opening that workspace's change sets, or "Nothing open here" with a line on what the role can do;
+   **Your change sets**, rows of name, workspace and model, "*n* changes" and when it last changed,
+   each opening its review; shown only when there is one, 20 at a time with Load more. With no
+   workspace, `NoWorkspace`'s content is the page, unchanged.
+4. **Continue where you left off** (D334): the browser keeps the last data address the person opened
+   (a list, a record, a group, a change set's review or a publication), per person, in local storage;
+   the link names the application, view or record type and the workspace. It is shown only when the
+   workspace is still among the cards; an address whose view has gone falls back as any address does.
+5. **Startup** (D326 narrowed): the "which workspace opens first" rule now serves only an address
+   that needs a workspace and names none (an `/apps/…` address without `workspaceKey`).
+6. **Documents:** API.md (the two reads), USER_JOURNEYS (J45 new), API_JOURNEYS,
+   CURRENT_FUNCTIONALITY, PRODUCT (the first screen), SETTINGS_AND_UI_PLAN (the home page),
+   UI_ACCEPTANCE (Home's state row), EXECUTION_GUIDE (the new runner), 0.14's UP2 (superseded, D336),
+   Z6's and A3's scope (their sections on Home, D335), CHANGELOG, PROJECT_STATUS.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D331 | When the home page shows | **Recommended:** always after sign-in (when no address was asked), on the bare address and from the product name, including for a person with one workspace. An address naming a workspace, application, view or record opens it as today; `/?workspaceKey=<key>` keeps opening that workspace. Why: a page that appears only sometimes is hard to find again, and the first screen stops being a list nobody chose (UP2's complaint). _This differs from the chat answer of 2026-10-25,_ which skipped Home for one workspace and nothing waiting; the reason to change is that the product name must lead somewhere stable. Cost: a person with one workspace clicks once more (Continue, or an application on the card) |
+| D332 | One read for the cards | **Recommended:** `GET /me/workspaces`, the workspaces where the caller holds Browse with their applications and two counts. Why: about four reads per workspace otherwise; an integrator's journey too (a client asking where it may work and what it has open). It sits under `/me` because the counts are the caller's. Cost: one route; `GET /workspaces?holding=browse` stays for the selector |
+| D333 | The person's change sets across workspaces | **Recommended:** `GET /me/change-sets`, newest change first, with each one's workspace label and change count. Why: the list on Home without one read per workspace and two per change set; a client continuing its own work anywhere. Change sets stay shared (D255); this only finds the caller's. Cost: one route; the count is two grouped counts per page |
+| D334 | Where "Continue where you left off" is kept | **Recommended:** in the browser, per person (local storage keyed by the person's ID): the last data address opened. Why: it is navigation state like a remembered tab; no integrator journey needs it, and a server store would write on every page opened. Cost: it does not follow the person to another browser or device, and clearing site data forgets it |
+| D335 | What Home leaves out until its package | **Recommended:** nothing is shown as a placeholder (D323). **Your recent changes** arrives with Z6 (its read for the signed-in person), **Waiting for your approval** with A3. Recently opened records are not planned: they need a server store of every record opened. Cost: Home is workspaces, change sets and Continue until Z6 |
+| D336 | 0.14's UP2 | **Recommended:** superseded for the first screen; UP2 is closed in 0.14's plan with a pointer here. Switching application inside a workspace keeps opening its default view. Why: UP2 asked that the first screen not be a list nobody chose; Home answers it. Cost: an application still opens on its default view when switched to; UP2 can be reopened for that alone |
+| D337 | What a card shows | **Recommended:** a two-letter tile from the label in one of a few soft colours picked from the workspace's key (the same workspace always gets the same colour, in light and dark), the label, "Default" on the default workspace, the model's name and version, the person's role there, the applications as links, and the counts as links to the change sets. The default first, then by label; retired workspaces not shown. Above the cards, a welcome card with the person's name, one sentence from the counts and their roles. Why: the user's "big icons" and "nice and lovely" (2026-10-25), with what makes a workspace worth opening; with per-workspace models (0.11) the applications differ by card. Cost: three tile colours in the tokens (light and dark, ink at 4.5:1); the role per card comes from `GET /me/grants`, one read |
+
+**Journey test cases** (`tests/journeys/test_j45_home.py`, J45 "Start from home", on two
+configurations, each workspace of a case on a different model where the case has two; written first
+and seen failing):
+
+1. **J45.1, the workspaces I can open:** given a person who is Reader in A, Data steward in B and has
+   no role in C, and a Security administrator with no data role, when `GET /me/workspaces` is read,
+   then the person sees A and B (the default first), each naming its own model's applications; A's
+   `openChangeSets` is `null` and B's counts every open change set; the administrator sees none; a
+   retired workspace the person may browse is not listed.
+2. **J45.2, what is mine:** given the person creates a change set in B and changes two records and one
+   relationship in it, and another person creates one in B, when both reads are taken, then B's
+   `ownChangeSets` is 1 and `openChangeSets` 2, and `GET /me/change-sets` lists the person's one with
+   `changeCount` 3 and B's label.
+3. **J45.3, it follows the work:** given the same change set, when it is published, then it is gone
+   from `GET /me/change-sets` and both counts drop; when the person's role in B is removed, B and
+   their change sets there are gone on the next request.
+4. **J45.4, a client:** given a client holding Contributor in A that created a change set there, when
+   it reads `GET /me/change-sets`, then it sees its own change set and no one else's.
+
+Unit tests (Vitest): the home route (`/` with and without `workspaceKey`, `routePath`); the
+continue-address store (per person, another person's ignored, an unparseable entry dropped, a
+workspace no longer listed hides the link); a card's lines (no counts, a Reader's `null`, one and
+several).
+
+**Browser** (a new runner `hm1-home`, on two models; reference patterns: `ShellFrame`/`TopBar`
+without applications, `NoWorkspace`): signing in lands on Home; two workspaces' cards name their
+own models' applications and one opens its view; after opening a record, the product name returns
+Home and Continue reopens the record; a Contributor's change set is listed with its count and opens
+its review; a Reader's card has no open change sets count; a person with no workspace sees the
+no-workspace text at `/`. Keyboard from the first card's application through Continue; 390px; axe;
+screenshots of Home at 1440px light and dark and at 390px, inspected against the boards.
+
+**Checks:** the new journey module, `test_openapi_contract` with the lock diffed,
+`test_api_journeys`, `test_boundaries`; Ruff on the changed files; Vitest for `src/app`,
+`src/routing`, `src/features/home`, `src/features/workspaces`; format, lint, build; the runners
+`hm1-home`, `z5-permissions` and `w4-workspace-admin` (their bare-address steps), `u3-settings` (the
+top bar), each named with its result. No migration.
+
+**Composable domains (ADR-032):** no door is touched: two reads for the caller over existing
+workspaces and change sets; no identity, attribute storage, audit, bulk or consumer contract changes.
+
+**What the user will still not be able to do after HM1:** see their recent changes on Home (Z6) or
+what waits for their approval (A3); pin a record or a view to Home (not planned); have Continue
+follow them to another browser (D334).
+
+##### HM1 record (2026-10-25)
+
+**Delivered 2026-10-25.** Everything in the plan, with the boards' layout; the user looked at the
+page during the package and asked for three changes, made in it (below).
+
+**What was built:**
+
+- **API:** `GET /me/workspaces` (`management/routers/workspaces.py`, the cards from
+  `management/projections/home.py`: applications from each workspace's own release, both counts in
+  one grouped statement per page) and `GET /me/change-sets` (`management/routers/change_sets.py`,
+  each change set's size from `engine/reads/change_lists.count_changes`, the totals of its two change
+  lists in one statement, so Home's count and Z5's band agree); `product` on `GET /system` (D338).
+  API.md, the OpenAPI lock (diffed against `56f090d`: the two routes, `product` and their six
+  schemas, nothing else) and the paged-collections inventory (56 → 58).
+- **Browser:** the home route (`{ kind: "home" }`, `/`; `isApplicationRoute` where the router and
+  the shell meant "not Settings"), `features/home/` (the page, its text and the Continue store), the
+  product name and Settings' product mark leading Home, `styles/home.css` on the Account page's
+  panels and pills (`account-pill.warning` added beside `success`).
+- **Documents:** API.md, USER_JOURNEYS (J45, J45.1–J45.5), API_JOURNEYS, CURRENT_FUNCTIONALITY (F02),
+  PRODUCT, SETTINGS_AND_UI_PLAN, UI_ACCEPTANCE (HM1-1), EXECUTION_GUIDE (`hm1-home`), 0.14's UP2,
+  Z6's and A3's scope, CHANGELOG, PROJECT_STATUS.
+
+**Decided within the approved package:**
+
+| # | Question | Decision |
+| --- | --- | --- |
+| D338 | What a person with no workspace sees in the top bar | _Reported by the user during the package:_ the empty model was named after the release ("… Example"), not the product everyone else sees. **Decided:** `GET /system`, readable by anyone signed in, names the instance's product (the default workspace's model's `product`), and the top bar reads it when the model itself is closed to the person. Why: the instance's name is not data of a workspace. Cost: one optional field on `/system`; J31's key list gains `product` (an older approved case changed for the contract it pins, named here) |
+| D339 | What a workspace's name on its card opens | _Asked by the user during the package_ ("the workspace admin … or opening the first application?"). **Decided as recommended:** the workspace at its start, the first application's default view, as `/?workspaceKey=` does. Why: most people on Home read or change data; workspace administration is offered only to whoever holds it (D323) and stays one click away in Settings. Cost: an administrator opens the workspace's page from Settings |
+| — | The counts under a card | _Asked by the user:_ "these somehow can be like buttons". Each figure is a bordered, raised link with its label and a chevron, opening the workspace's change sets; the boards drew them as plain figures |
+| — | The tile's colour (D337 named three new colours) | The type palette's eight hue slots (`[data-hue]`, light and dark, ink checked by `tokens.test`), picked from the workspace's key; no new tokens. Why: one palette, already contrast-checked (U-D14) |
+| — | Continue's icon | `undo` (a turning arrow), the icon set having no history icon |
+| — | Before anything was opened | The welcome card takes the whole row; Continue appears once an address is remembered |
+
+**Found on the way and fixed:** a browser runner's starter seed built on an older schema seed was
+reused after the schema seed was rebuilt with the same inputs (the harness client is made anew each
+build), so its backend refused the harness client (`401 invalid_client`); `z5-permissions`' second
+model failed so. `tests/seeds.py` now rebuilds a seed whose base was built after it.
+
+**Where it differs from the plan:** Continue's title for a list is the view's name and its second
+line the workspace; a card whose model this version cannot serve says so instead of listing
+applications; the summary reads "… workspaces are open to you" for every role (the board's "yours to
+work in" does not fit a Reader).
+
+**Checks:**
+
+- **Journeys:** J45 (5 cases × 2 configurations) seen failing before the routes existed (8 of 8 for
+  J45.1–J45.4), then passing; with J31: 22 passed.
+- **Contract:** `test_openapi_contract`, `test_api_journeys`, `test_boundaries`, `test_paging_contract`:
+  passed (51 + 11 after the first lock, 20 after `product`).
+- **Ruff** on the changed backend files: clean.
+- **Vitest:** `src/app`, `src/model`, `src/routing`, `src/features/home`: 14 files, 173 tests passed;
+  two App cases that opened `/` and expected a list now open `/?workspaceKey=default` and an
+  application address without a workspace (D331 changes what `/` means).
+- **Frontend:** format (changed files), lint (0 errors; the 8 listed warnings), build: passed.
+- **Browser:** `hm1-home` 11 checks, axe 0 on Home at 1440px light and dark and at 390px;
+  `z5-permissions` 26 checks on both models (step 4 now finds the second workspace on Home, then
+  an application address naming none); `w4-workspace-admin` 21 checks (step 8 reads the default
+  first on Home and opens it); `u3-settings` 10 checks. Screenshots inspected against the boards:
+  the welcome card, Continue, tiles, application chips, the count buttons and Your change sets at
+  1440px light and dark, a Reader's single card at 390px with a 16px gutter.
+- **Not run (build acceptance):** the full suites, `test:a11y`, `test:visual` (Home has no baseline
+  yet), other runners.
+
+**Composable domains (ADR-032):** no door is touched.
+
+**What the user will still not be able to do after HM1:** see their recent changes on Home (Z6) or
+what waits for their approval (A3); pin a record or view to Home (not planned); have Continue follow
+them to another browser (D334).
 
 ### Track SP — The Security pages (U8)
 
@@ -2573,6 +2790,7 @@ itself (D233).
 **Scope:** "Submit for publication" for a Contributor, "Approve and publish" and "Send back" on the
 change-set review for an approver, the request's state and comments in the change set's header, the
 four-eyes policy on Settings › Workspaces. Smoke on a real Contributor → Steward round trip.
+_Amended by HM1 (2026-10-25):_ A3 also adds "Waiting for your approval" to the home page (D335).
 
 ## Decisions
 
@@ -2615,6 +2833,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 7 | [Z4](#z4-audit-identity) | Z1 | **Delivered 2026-10-24.** The actor beside `cause` everywhere; security events |
 | 8 | [Z5](#z5-the-interface-follows-the-callers-permissions) | Z2, I2 | **Delivered 2026-10-24.** The interface follows permissions; Reader and Contributor |
 | 8a | [Z6](#z6-one-persons-changes-across-workspaces) | Z4, Z5 | One person's or client's changes across workspaces, filtered to what the caller may browse |
+| 8b | [HM1](#hm1-a-home-page-after-sign-in) | Z5 | **Delivered 2026-10-25.** A home page after sign-in: workspaces as cards, what waits for the person, Continue where you left off |
 | 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | **Delivered 2026-10-24.** Settings › Security: people, groups, roles, grants |
 | 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | Settings › Security: clients and their access; sign-in providers |
 | 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | OpenID Connect providers and their groups |
@@ -2632,7 +2851,8 @@ line). Each is explained in plain words: what is decided, why the recommendation
 ```text
 Design:     P0
 Identity:   P0 ─ I1 ─ I2 ─────────────── I3 (needs SP2)
-Authz:           I1 ─ Z1 ─┬─ Z2 ─ Z5 (needs I2) ─ Z6 (needs Z4)
+Authz:           I1 ─ Z1 ─┬─ Z2 ─ Z5 (needs I2) ─┬─ Z6 (needs Z4)
+                          │                     └─ HM1
                           ├─ Z3 ─ SP2
                           ├─ Z4
                           ├─ SP1 (needs I2) ─ SP2

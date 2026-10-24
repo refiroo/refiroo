@@ -3,12 +3,14 @@ from sqlalchemy import select
 
 from ...common.pagination import (
     PageRequest,
+    datetime_key,
     integer_key,
     paginate_sequence,
     paginate_statement,
     text_key,
 )
 from ...db import begin_snapshot_read
+from ...engine.authorization.visibility import in_workspaces
 from ...engine.change_sets.access import effective_change_set_membership
 from ...engine.change_sets.lifecycle import create_change_set, discard_change_set, update_change_set
 from ...engine.change_sets.pinning import (
@@ -42,6 +44,7 @@ from ...engine.reads.change_lists import (
     ObjectChangeEntry,
     RelationChangeEntry,
     RelationEnd,
+    count_changes,
     list_object_changes,
     list_relation_changes,
 )
@@ -49,17 +52,20 @@ from ...engine.reads.snapshot_reads import change_set_context
 from ...engine.workspaces.catalogue import load_workspace
 from ...engine.workspaces.workspace_audit import record_change_set_validated
 from ...errors import ApiError, api_error
-from ...models.database import ChangeSet, ModelRelease, Publication
+from ...models.database import ChangeSet, ModelRelease, Publication, Workspace
 from ..access import (
     CHANGE_SET_PATH,
     PUBLICATION_PATH,
+    SIGNED_IN,
     WORKSPACE_PATH,
     AuthorizedRoute,
+    CurrentPermissions,
     requires,
 )
-from ..dependencies import DbSession
+from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..presenters import job_responses, snapshot_attributes
+from ..projections.home import created_by
 from ..schemas.change_sets import (
     ChangeKind,
     ChangeSetCreate,
@@ -73,6 +79,8 @@ from ..schemas.change_sets import (
     ObjectChange,
     ObjectChangePage,
     ObjectChangeState,
+    OwnChangeSetPage,
+    OwnChangeSetResponse,
     PublicationPage,
     PublicationResponse,
     RelationChange,
@@ -178,6 +186,55 @@ def list_change_sets(
     )
     return ChangeSetPage(
         items=[_change_set_response(session, x) for x in page.items], **page.links()
+    )
+
+
+@router.get("/me/change-sets", response_model=OwnChangeSetPage)
+@requires("signed-in", at=SIGNED_IN)
+def list_own_change_sets(
+    session: DbSession,
+    principal: CurrentPrincipal,
+    permissions: CurrentPermissions,
+    paging: PageQuery,
+    page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
+) -> OwnChangeSetPage:
+    """The open change sets the caller created, in every workspace where they hold Browse, newest
+    change first, each with its workspace's label and how many records and relations it changes
+    (0.12 HM1, D333). Change sets stay shared (D255); this only finds the caller's."""
+    statement = select(ChangeSet).where(created_by(principal))
+    visible = in_workspaces(ChangeSet.workspace_key, permissions, frozenset({"browse"}))
+    if visible is not None:
+        statement = statement.where(visible)
+    page = paginate_statement(
+        session,
+        statement,
+        keys=(
+            datetime_key("updatedAt", ChangeSet.updated_at, "updated_at", descending=True),
+            text_key("id", ChangeSet.id, "id", descending=True),
+        ),
+        scope="own-change-sets",
+        filters={},
+        page=paging,
+        page_size=page_size,
+        message="Change set cursor is invalid",
+    )
+    keys = {item.workspace_key for item in page.items}
+    labels = {
+        row.key: row.label
+        for row in session.execute(
+            select(Workspace.key, Workspace.label).where(Workspace.key.in_(keys))
+        )
+    }
+    return OwnChangeSetPage(
+        items=[
+            OwnChangeSetResponse(
+                **_change_set_response(session, item).model_dump(),
+                workspaceLabel=labels[item.workspace_key],
+                changeCount=count_changes(session, change_set_context(session, item.id)),
+            )
+            for item in page.items
+        ],
+        **page.links(),
     )
 
 

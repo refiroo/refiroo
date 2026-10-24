@@ -5,6 +5,7 @@ import { ObjectDetail } from "@/features/objects/ObjectDetail";
 import {
   changeReviewFor,
   defaultRoute,
+  HOME,
   isSettingsRoute,
   routeChangeSetId,
   routePublicationId,
@@ -22,6 +23,8 @@ import { holds, recordWrites } from "@/features/security/permissions";
 import { permissionLine } from "@/features/security/permissionText";
 import { useMe } from "./useMe";
 import { NoWorkspace } from "./NoWorkspace";
+import { HomePage } from "@/features/home/HomePage";
+import { continueAddressFor, rememberContinueAddress } from "@/features/home/continueAddress";
 import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
 import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
 import { PublicationBanner, Publications } from "@/features/workspaces/Publications";
@@ -62,6 +65,9 @@ export default function App() {
           {isSettingsRoute(route) ? (
             // Settings are not workspace data: their own shell, and no workspace or data context (U3).
             <SettingsArea router={router} model={model} route={route} />
+          ) : route.kind === "home" ? (
+            // Home spans the workspaces the person may browse, each on its own model (0.12 HM1).
+            <HomePage model={model} onNavigate={router.navigate} />
           ) : (
             <WorkspaceDataProvider
               key={`${route.workspaceKey}:${routeChangeSetId(route) ?? routePublicationId(route) ?? "live"}`}
@@ -201,6 +207,13 @@ function AppContent({
     previousPin.current = pin;
   }, [data.changeSet, model, route, navigate]);
 
+  // Where Home's "Continue where you left off" leads (0.12 HM1, D334): the last data address opened.
+  const changeSetName = data.changeSet?.name;
+  useEffect(() => {
+    if (!me || !model || workspace?.key !== route.workspaceKey || !applicationFor(model, route.applicationKey)) return;
+    rememberContinueAddress(me.id, continueAddressFor(model, route, workspace.label, changeSetName));
+  }, [me, model, route, workspace, changeSetName]);
+
   if (!model) return <div className="center-message">{error || "Loading the model…"}</div>;
   const requested = applicationFor(model, route.applicationKey);
   const application = requested ?? model.applications[0];
@@ -211,10 +224,6 @@ function AppContent({
       (route.kind === "detail" && !model.objectTypes.some((type) => type.key === route.objectTypeKey)))
       ? { ...viewRoute(application, application.defaultView, route.workspaceKey), changeSetId: data.changeSet.id }
       : route;
-  // Aliased because the handlers below are hoisted function declarations, which TypeScript types
-  // from the declaration rather than from the narrowing performed by the guard above.
-  const activeModel = model;
-
   const changeSetId = routeChangeSetId(activeRoute);
   const publicationId = routePublicationId(activeRoute);
   // The data shown cannot be written whoever reads it: a publication, a retired workspace.
@@ -319,12 +328,7 @@ function AppContent({
   }
 
   function goHome() {
-    navigate({
-      ...defaultRoute(activeModel),
-      changeSetId,
-      publicationId,
-      workspaceKey: activeRoute.workspaceKey,
-    });
+    navigate(HOME);
   }
 
   function changeWorkspace(workspaceKey: string) {

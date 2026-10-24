@@ -39,6 +39,11 @@ class SystemSetting(BaseModel):
     source: Literal["environment", "default"]
 
 
+class InstanceProduct(BaseModel):
+    name: str
+    description: str | None
+
+
 class SystemResponse(BaseModel):
     """What the deployment runs, for anyone signed in (D246). How it is configured is
     ``GET /system/configuration``."""
@@ -46,6 +51,9 @@ class SystemResponse(BaseModel):
     engine: EngineInfo
     schemaLanguages: list[str]
     activeModelRelease: ActiveModelRelease
+    # The instance's name in the top bar: the default workspace's model's product, readable by a
+    # person who may browse no workspace (0.12 HM1, D338); null when that model cannot be served.
+    product: InstanceProduct | None = None
 
 
 class SystemConfiguration(BaseModel):

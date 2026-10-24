@@ -50,7 +50,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Workspace models | J36 run a workspace on a model of its own, J37 move a workspace to another release, J38 move data between workspaces whose models differ |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
-| Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key |
+| Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key, J45 start from home |
 
 ## Records and structure
 
@@ -2179,6 +2179,33 @@ reads and the feed). **Stories:** US-S01. **Status:** delivered by 0.12 Z4 (2026
 - **J44.6 Before sign-in**: a change recorded before 0.12 names nobody.
 
 **Refusals:** none of its own; each read refuses as before.
+
+### J45 — Start from home
+
+**Actor:** every signed-in person; integrator (a client asking where it may work and what it has
+open). **Channel:** UI (the home page after sign-in, the bare address, the product name), API
+(`GET /me/workspaces`, `GET /me/change-sets`). **Status:** delivered by 0.12 HM1 (2026-10-25).
+
+1. Sign in, or open the bare address, or choose the product name in the top bar.
+2. The home page greets the person, offers to continue where they left off, and shows the
+   workspaces they may browse as cards: each with its model, their role there, its applications and
+   what waits in it (their open change sets; for someone who publishes, every open change set).
+3. Their open change sets across workspaces are listed with how much each changes; one opens its
+   review.
+
+**Variants:**
+
+- **J45.1 The workspaces I can open**: only workspaces where the caller holds Browse, active, the
+  default first; each names its own model's applications; the count of every open change set only
+  where the caller holds Publish.
+- **J45.2 What is mine**: the caller's open change sets are counted per workspace and listed across
+  workspaces with the records and relationships each changes.
+- **J45.3 It follows the work**: a published change set leaves the list and the counts; a role
+  removed takes its workspace and the change sets there off the page on the next request.
+- **J45.4 A client**: a client sees its own change sets and no one else's.
+- **J45.5 No workspace**: a person who may browse none sees the no-workspace text on the home page.
+
+**Refusals:** none of its own; both reads answer only what the caller may browse.
 
 ## Guardrails kept from 0.7
 

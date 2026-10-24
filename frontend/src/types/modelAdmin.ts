@@ -91,6 +91,8 @@ export interface SystemResponse {
     schemaVersion: string;
     activatedAt: string;
   };
+  /** The instance's product, readable without a workspace (0.12 HM1, D338); null when unavailable. */
+  product?: { name: string; description: string | null } | null;
 }
 
 /** How the deployment is configured, for operators (`GET /api/v1/system/configuration`, D246). */

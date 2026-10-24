@@ -73,6 +73,18 @@ class ChangeSetPage(CollectionPage[ChangeSetResponse]):
     pass
 
 
+class OwnChangeSetResponse(ChangeSetResponse):
+    """One of the caller's open change sets, wherever it is (0.12 HM1, D333)."""
+
+    workspaceLabel: str
+    # The records and relations it adds, changes or removes, as its two change lists total them.
+    changeCount: int
+
+
+class OwnChangeSetPage(CollectionPage[OwnChangeSetResponse]):
+    pass
+
+
 class PublicationResponse(BaseModel):
     id: str
     workspaceKey: str
