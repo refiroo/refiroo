@@ -1,6 +1,6 @@
 import re
 from datetime import date
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, Field
 from pydantic.json_schema import SkipJsonSchema
@@ -48,6 +48,28 @@ class CollectionPage[Item](BaseModel):
     anchor: str | None = None
     totalCount: int | SkipJsonSchema[None] = requested_count()
     startIndex: int | SkipJsonSchema[None] = requested_count()
+
+
+class PrincipalResponse(BaseModel):
+    """A person or a client as a read names it now (0.12 Z4, D237): a renamed or deactivated one
+    reads as it is."""
+
+    kind: Literal["user", "client"]
+    id: str
+    name: str
+
+
+class ActorResponse(BaseModel):
+    """Who made a change (0.12 Z4, D313): a person or a client, or the engine for its own changes,
+    which has no ID or name. An entry from before Z4 has no actor (``null``)."""
+
+    kind: Literal["user", "client", "engine"]
+    id: str | SkipJsonSchema[None] = Field(
+        default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
+    )
+    name: str | SkipJsonSchema[None] = Field(
+        default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
+    )
 
 
 class ApiErrorBody(BaseModel):

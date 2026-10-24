@@ -4,6 +4,7 @@
  */
 
 import type { EngineModel, ModelPlacements } from "./model";
+import type { Actor, Principal } from "@/types/security";
 
 export interface ModelAdminCapabilities {
   readReleases: boolean;
@@ -166,6 +167,7 @@ export interface ModelReleaseActivation {
   previousReleaseId: string;
   runtimeVersion: number;
   occurredAt: string;
+  actor: Actor | null;
 }
 
 export interface ModelReleaseActivationPage {
@@ -261,7 +263,8 @@ export interface ModelDraftOperationEntry {
   /** What the operation could not keep anywhere (a move between applications); empty mostly. */
   removed?: RemovedElement[];
   draftVersion: number;
-  author: string | null;
+  /** Who applied it (0.12 Z4); null for an operation from before sign-in. */
+  author: Principal | null;
   at: string;
   undone: boolean;
   origin: {

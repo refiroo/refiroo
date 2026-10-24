@@ -232,10 +232,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (D306): a grant's role nullable beside consumerApi (GrantConsumerApiResponse), consumerApi on
     # GrantCreate and as a filter on GET /grants, and the descriptions of GET and POST /grants and of
     # stale (the subscription routes, with their owner, are off in this document). Diffed against
-    # 1ef0b7d, nothing else changed.
+    # 1ef0b7d, nothing else changed. Re-baselined for 0.12 Z4 (D313–D317): actor on a history
+    # entry, a feed entry and an activation (ActorResponse), createdBy on a change set, publishedBy
+    # and withdrawnBy on a publication, requestedBy on a job, a draft operation's author
+    # (PrincipalResponse), and GET /security-events (SecurityEventPage). Diffed against f604cbd,
+    # nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "564f246a9bba547dc1d216ebeb46fa09832c85c2ba0685b87c433b159f68e5ac"
+        "7af99824ca3cbb233de37133662e9e48be7d4877d83db4f253d817c0a3fa788f"
     )
 
 
@@ -279,8 +283,8 @@ def test_paging_openapi_inventory():
     # the processes and the readiness per workspace; 0.11 O2 the backup rehearsals; 0.12 I1 the
     # people, clients and token signing keys; 0.12 I2 a person's sessions; 0.12 Z1 the roles, groups,
     # a group's members, grants, a workspace's access and the caller's grants; 0.12 SP1 a person's
-    # grants.
-    assert seekable <= paged and len(paged) == 55
+    # grants; 0.12 Z4 the security events.
+    assert seekable <= paged and len(paged) == 56
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

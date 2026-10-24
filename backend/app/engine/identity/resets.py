@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import api_error
 from ...models.database import PasswordResetLink, User, UserSession
-from . import sessions
+from . import security_events, sessions
 from .passwords import check_password, digest, hash_secret, new_token, verify_secret
 from .settings import IdentitySettings
 from .users import load_user
@@ -37,6 +37,11 @@ def create_link(
             token_hash=digest(token), user_id=user.id, created_at=now, expires_at=expires_at
         )
     )
+    # The link itself is never recorded (D317).
+    security_events.record(
+        session, "user", user.public_id, "password-link-created", about=[user.public_id],
+        details={"expiresAt": expires_at.isoformat()},
+    )  # fmt: skip
     session.commit()
     return f"{settings.issuer}/oauth/password?token={token}", expires_at
 
@@ -75,6 +80,10 @@ def use_link(session: Session, settings: IdentitySettings, token: str, password:
     _set(user, password, now)
     link.used_at = now
     sessions.end_all(session, user.id, "passwordReset", now)
+    security_events.record(
+        session, "user", user.public_id, "password-set", about=[user.public_id],
+        version=user.version, by=("user", user.id),
+    )  # fmt: skip
     session.commit()
     return True
 
@@ -101,4 +110,8 @@ def change_password(
             select(UserSession.id).where(UserSession.public_id == session_public_id)
         )
     sessions.end_all(session, user.id, "passwordChanged", now, keep=kept)
+    security_events.record(
+        session, "user", user.public_id, "password-changed", about=[user.public_id],
+        version=user.version, by=("user", user.id),
+    )  # fmt: skip
     session.commit()

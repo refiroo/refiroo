@@ -1992,7 +1992,12 @@ Each history item contains `id`, `aggregateType`, public `aggregateId`, `action`
 `changedFields`, `attributeTypeKeys` and `occurredAt`, and `cause` when a job made the change
 (`{"kind": "job", "id": …}`, Base 0.9 B1) or a publish applied it to live data
 (`{"kind": "publication", "id": …}`, Base 0.9 F1, D15). `attributeTypeKeys` names affected object or
-relation attributes without returning their values. The response deliberately omits the internal
+relation attributes without returning their values. `actor` names who made it, beside the cause
+(Product 0.12 Z4, D313): `{"kind": "user" | "client", "id", "name"}` with the name as it is now, so a
+renamed or deactivated person reads as they are (D237); `{"kind": "engine"}` for the engine's own
+changes (an offline schema upgrade, a job's step from before Z2 named no requester); `null` for an
+entry recorded before Z4 ("Before sign-in"). A job's entries name its requester, a publication's
+applied entries its publisher. The response deliberately omits the internal
 sequence ID and complete before/after values. History cursors are signed and bound to the object
 identity, type and workspace; mismatches return `422 INVALID_CURSOR`.
 
@@ -6074,6 +6079,27 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
 The first administrator is created on the server with `python -m app.cli.create_admin` (D235). Every
 security change is audited with its actor.
 
+- **Security events** (delivered, Z4, D317, D318): `GET /security-events` (`security-admin` at the
+  instance), newest first and cursor paged, `principalId=` (those a person or client made or that
+  are about them; a group's ID, those about the group) and `aggregateType=` (repeatable). Each
+  reads `id`, `aggregateType` (`user`, `group`, `role`, `grant`, `client`, `token-signing-key`,
+  `sign-in`), `aggregateId` (the public ID, a role's key, a key's `kid`, for a sign-in the person's
+  ID or `unknown`), `action`, `version`, `occurredAt`, `actor` (as on history; a failed sign-in names
+  nobody) and `details`, which holds what changed and never a password, secret, link or key:
+  - `user`: `created` (`username`, `name`, `roles`), `updated` (`changedFields`, `name`, `active`),
+    `password-link-created` (`expiresAt`), `password-set` (through a link), `password-changed`,
+    `signed-out-everywhere` (`reason`, `keptSession`);
+  - `group`: `created`, `updated`, `deleted` (`name`), `member-added`, `member-removed` (`groupName`,
+    `userId`); `role`: `created`, `updated` (`changedFields`, `name`, `actionGroups`), `deleted`;
+  - `grant`: `created`, `deleted` (`principal`, `role`, `consumerApi`, `workspaceKey`,
+    `applications`, `recordTypes`);
+  - `client`: `created`, `updated`, `secret-added` (`secretId`, `overlapHours`), `secret-removed`;
+    `token-signing-key`: `rotated` (`previousKid`, `immediate`; by the engine when due);
+  - `sign-in`: `succeeded`, and `failed` once the password was checked (`username`, `address`); an
+    attempt refused while slowed (D271) is a log line only.
+  Grants given at startup or by the CLI's `--role` (the first administrator's) are not events; the
+  person's creation is. Nothing expires them yet (TODO).
+
 ### Approvals (Track A)
 
 Change-set publication only (D232, ADR-045):
@@ -6108,6 +6134,13 @@ Change-set publication only (D232, ADR-045):
   list of `sha256=<hex>` during an overlap (D238).
 - Each operation in the OpenAPI document gains `security` and the action and groups it declares
   (Z1, D256); this table then gives way to the document.
+- _Delivered by Z4 (D313, D315):_ `actor` on a record's history, a feed entry (`GET
+  /workspaces/{key}/feed`, beside `cause`, whose `user` still means a single write) and a release's
+  activation (`GET /model-releases/{id}/activations`); `createdBy` on a change set; `publishedBy` and
+  `withdrawnBy` (also the publisher of the publication that superseded it) on a publication;
+  `requestedBy` on a job; `author` on a draft's and a mapping's operations, now `{kind, id, name}`
+  instead of a string no path wrote. Each is `null` from before Z4; a subscription's `owner` (Z3) is
+  the same shape. Consumer events carry no actor (D239, D314).
 
 ### The catalogue
 

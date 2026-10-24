@@ -44,6 +44,7 @@ const waiting: Job = {
   finishedAt: null,
   expiresAt: "2026-10-15T09:00:00Z",
   cancelRequestedAt: null,
+  requestedBy: null,
   parameters: {
     policy: "independent",
     onExisting: "overwrite",

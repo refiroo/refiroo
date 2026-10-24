@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import api_error
 from ...models.database import AuthorizationState, Job, OAuthClient, User
+from ..identity.principals import named
 from .catalogue import JOB_GROUPS, group_names
 from .permissions import PrincipalKind, permissions_of
 from .writes import JOB_ACTIONS, SYSTEM, Writer, doing
@@ -37,15 +38,7 @@ def requester(job: Job) -> tuple[PrincipalKind, int] | None:
 
 def requested_by(session: Session, job: Job) -> dict[str, Any] | None:
     """The requester as a job shows it: kind, public ID and name."""
-    found = requester(job)
-    if found is None:
-        return None
-    kind, row_id = found
-    model = User if kind == "user" else OAuthClient
-    public_id, name = session.execute(
-        select(model.public_id, model.name).where(model.id == row_id)
-    ).one()
-    return {"kind": kind, "id": public_id, "name": name}
+    return named(session, requester(job))
 
 
 def job_writer(session: Session, job: Job) -> Writer:

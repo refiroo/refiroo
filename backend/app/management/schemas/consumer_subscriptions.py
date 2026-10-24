@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
-from .common import CollectionPage, omitted_when_none, without_default
+from .common import CollectionPage, PrincipalResponse, omitted_when_none, without_default
 
 SuspensionReason = Literal[
     "SUSPENDED_BY_USER",
@@ -65,12 +65,6 @@ class SubscriptionDelivery(BaseModel):
     pending: PendingDelivery | None
 
 
-class SubscriptionOwner(BaseModel):
-    kind: Literal["user", "client"]
-    id: str
-    name: str
-
-
 class SubscriptionResponse(BaseModel):
     """A subscription. ``contractVersion`` is the version it was accepted under; delivery continues
     after ``acknowledgedThrough``. ``signingSecret`` is in the create answer only (C-D12): keep it,
@@ -97,7 +91,7 @@ class SubscriptionResponse(BaseModel):
     version: int
     createdAt: datetime
     updatedAt: datetime
-    owner: SubscriptionOwner | None = Field(
+    owner: PrincipalResponse | None = Field(
         description="The person or client that created it (0.12 Z3, D310); null for a subscription "
         "from before. Owning gives no right of its own: Integration administration manages it"
     )

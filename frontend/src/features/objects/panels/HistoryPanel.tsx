@@ -1,11 +1,12 @@
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import { formatServerTime } from "@/lib/dates";
 import { attributeName } from "@/model/fields";
 import type { Hue } from "@/model/hues";
 import type { AuditEventItem, EngineModel } from "@/types";
 import { InlineError } from "@/ui/InlineError";
+import { ActorName } from "@/ui/ActorName";
 import { Card } from "@/ui/Card";
+import { Timeline } from "@/ui/Timeline";
 
 export function HistoryPanel({
   model,
@@ -38,23 +39,20 @@ export function HistoryPanel({
       ) : !error && items.length === 0 ? (
         <div className="panel-state">No history recorded yet.</div>
       ) : (
-        <ol className="history-timeline">
-          {items.map((item) => (
-            <li key={item.id}>
-              <span className="history-marker" />
-              <div>
-                <strong>{historyTitle(item)}</strong>
-                {historySummary(item, model) && <p>{historySummary(item, model)}</p>}
-                <small>
-                  <time dateTime={item.occurredAt} title={formatServerTime(item.occurredAt)}>
-                    {relativeTime(item.occurredAt)}
-                  </time>{" "}
-                  · version {item.version}
-                </small>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <Timeline
+          entries={items.map((item) => ({
+            key: item.id,
+            title: historyTitle(item),
+            summary: historySummary(item, model),
+            at: item.occurredAt,
+            after: (
+              <>
+                {" "}
+                · <ActorName actor={item.actor} /> · version {item.version}
+              </>
+            ),
+          }))}
+        />
       )}
       {hasMore && !error && (
         <button type="button" className="load-more inline history-more" disabled={loading} onClick={loadMore}>
@@ -82,20 +80,4 @@ function historySummary(item: AuditEventItem, model?: EngineModel) {
   const attributes = item.attributeTypeKeys.map((key) => (model ? attributeName(model, key) : key));
   const parts = [...fields, ...attributes];
   return parts.length ? `Changed ${parts.join(", ")}` : "";
-}
-
-const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ["day", 86_400_000],
-  ["hour", 3_600_000],
-  ["minute", 60_000],
-];
-
-function relativeTime(iso: string) {
-  const elapsed = new Date(iso).getTime() - Date.now();
-  if (Number.isNaN(elapsed) || Math.abs(elapsed) > 7 * 86_400_000) return formatServerTime(iso);
-  for (const [unit, size] of UNITS) {
-    if (Math.abs(elapsed) >= size) return relative.format(Math.round(elapsed / size), unit);
-  }
-  return "just now";
 }

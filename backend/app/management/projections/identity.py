@@ -5,11 +5,14 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page
+from ...common.time import as_utc
 from ...engine.authorization.administration import HeldRole, held_roles
 from ...engine.identity import keys
 from ...engine.identity.authentication import Principal
 from ...engine.identity.clients import secrets_of
+from ...engine.identity.principals import actors
 from ...models.database import (
+    AuditEvent,
     OAuthClient,
     OAuthClientSecret,
     TokenSigningKey,
@@ -22,6 +25,8 @@ from ..schemas.identity import (
     ClientSecretInfo,
     ClientWithSecret,
     MeResponse,
+    SecurityEventPage,
+    SecurityEventResponse,
     SessionPage,
     SessionResponse,
     SigningKeyPage,
@@ -156,3 +161,23 @@ def signing_key_response(key: TokenSigningKey) -> SigningKeyResponse:
 
 def signing_key_page(page: Page[TokenSigningKey]) -> SigningKeyPage:
     return SigningKeyPage(items=[signing_key_response(key) for key in page.items], **page.links())
+
+
+def security_event_page(session: Session, page: Page[AuditEvent]) -> SecurityEventPage:
+    named = actors(session, page.items)
+    return SecurityEventPage(
+        items=[
+            SecurityEventResponse(
+                id=event.event_id,
+                aggregateType=event.aggregate_type,
+                aggregateId=event.aggregate_id,
+                action=event.action,
+                version=event.version,
+                occurredAt=as_utc(event.occurred_at),
+                actor=named[event.sequence_id],
+                details=event.changes if isinstance(event.changes, dict) else {},
+            )
+            for event in page.items
+        ],
+        **page.links(),
+    )

@@ -40,6 +40,7 @@ const changeSet: ChangeSet = {
   version: 4,
   createdAt: "2026-09-28T00:00:00Z",
   updatedAt: "2026-09-28T00:00:00Z",
+  createdBy: null,
 };
 
 const code = (value: string) => ({

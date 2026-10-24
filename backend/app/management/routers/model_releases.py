@@ -4,6 +4,7 @@ from sqlalchemy import select
 from ...common.cursors import METADATA_CURSOR_MESSAGE
 from ...common.pagination import datetime_key, integer_key, paginate_statement, text_key
 from ...common.time import as_utc
+from ...engine.identity.principals import actors
 from ...engine.model.compiler import SCHEMA_VERSIONS, compile_model
 from ...engine.model.diff import semantic_diff
 from ...engine.model.draft_compatibility import assess
@@ -134,6 +135,7 @@ def list_model_release_activations(
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
     )
+    named_actors = actors(session, page.items)
     return ModelReleaseActivationPage(
         items=[
             ModelReleaseActivationResponse(
@@ -143,6 +145,7 @@ def list_model_release_activations(
                 workspaceKey=event.changes.get("workspaceKey"),
                 runtimeVersion=event.version,
                 occurredAt=as_utc(event.occurred_at),
+                actor=named_actors[event.sequence_id],
             )
             for event in page.items
         ],

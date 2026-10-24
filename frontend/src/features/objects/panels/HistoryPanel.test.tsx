@@ -22,6 +22,7 @@ describe("HistoryPanel", () => {
             changedFields: ["name"],
             attributeTypeKeys: [],
             occurredAt: "2026-09-05T10:00:00Z",
+            actor: { kind: "client", id: "c1", name: "Catalogue sync" },
           },
         ],
         nextCursor: "older",
@@ -37,6 +38,7 @@ describe("HistoryPanel", () => {
             changedFields: ["attributes"],
             attributeTypeKeys: ["code"],
             occurredAt: "2026-09-04T10:00:00Z",
+            actor: null,
           },
         ],
         nextCursor: null,
@@ -44,9 +46,12 @@ describe("HistoryPanel", () => {
     render(<HistoryPanel objectTypeKey="domain" objectId={domainObject.id} />);
     expect(await screen.findByText("Record updated")).toBeInTheDocument();
     expect(screen.getByText("Changed name")).toBeInTheDocument();
+    // Who made each change (0.12 Z4, D320): a client by name, and nobody before sign-in.
+    expect(screen.getByText("by Catalogue sync (client)")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Load older history" }));
     expect(await screen.findByText("Field value added")).toBeInTheDocument();
     expect(screen.getByText("Changed code")).toBeInTheDocument();
+    expect(screen.getByText("Before sign-in")).toBeInTheDocument();
     await waitFor(() =>
       expect(api.objectHistory).toHaveBeenLastCalledWith("domain", domainObject.id, { cursor: "older", pageSize: 20 }),
     );
@@ -65,6 +70,7 @@ describe("HistoryPanel", () => {
             changedFields: ["name"],
             attributeTypeKeys: [],
             occurredAt: "2026-09-05T10:00:00Z",
+            actor: null,
           },
         ],
         nextCursor: "older",
@@ -81,6 +87,7 @@ describe("HistoryPanel", () => {
             changedFields: ["name"],
             attributeTypeKeys: [],
             occurredAt: "2026-09-04T10:00:00Z",
+            actor: null,
           },
         ],
         nextCursor: null,
@@ -104,6 +111,7 @@ describe("HistoryPanel", () => {
           changedFields: ["expectedChangeSetVersion", "fromObjectId", "relationTypeKey", "changeSetId"],
           attributeTypeKeys: [],
           occurredAt: "2026-09-05T10:00:00Z",
+          actor: null,
         },
         {
           id: "event-4",
@@ -114,6 +122,7 @@ describe("HistoryPanel", () => {
           changedFields: ["initialRelations", "objectTypeKey", "attributes"],
           attributeTypeKeys: ["code"],
           occurredAt: "2026-09-04T10:00:00Z",
+          actor: null,
         },
       ],
       nextCursor: null,

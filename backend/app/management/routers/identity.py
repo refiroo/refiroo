@@ -6,7 +6,7 @@ instance (Z1).
 
 from fastapi import APIRouter, Query, Request, Response
 
-from ...engine.identity import keys, resets, sessions
+from ...engine.identity import keys, resets, security_events, sessions
 from ...engine.identity.clients import (
     add_secret,
     client_page,
@@ -41,6 +41,8 @@ from ..schemas.identity import (
     ClientWithSecret,
     MeResponse,
     PasswordResetLinkResponse,
+    SecurityAggregate,
+    SecurityEventPage,
     SessionPage,
     SigningKeyPage,
     SigningKeyResponse,
@@ -250,4 +252,31 @@ def rotate_signing_key(
     obtain new ones (J43.2). Answers the new key."""
     return present.signing_key_response(
         keys.rotate(session, request.app.state.identity_settings, immediate=payload.immediate)
+    )
+
+
+_AGGREGATE_TYPE = Query(default=None, alias="aggregateType")
+
+
+@router.get("/security-events", response_model=SecurityEventPage)
+@requires("security.manage", at=INSTANCE)
+def list_security_events(
+    session: DbSession,
+    paging: PageQuery,
+    principal_id: str | None = Query(default=None, alias="principalId", max_length=36),
+    aggregate_type: list[SecurityAggregate] | None = _AGGREGATE_TYPE,
+    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+) -> SecurityEventPage:
+    """Changes to people, groups, roles, grants, clients and signing keys, and sign-ins, newest
+    first, each naming who made it (D317, D318). ``principalId`` keeps those a person or client
+    made or that are about them (a group's ID, those about the group)."""
+    return present.security_event_page(
+        session,
+        security_events.event_page(
+            session,
+            principal_id=principal_id,
+            aggregate_types=aggregate_type,
+            page=paging,
+            page_size=page_size,
+        ),
     )

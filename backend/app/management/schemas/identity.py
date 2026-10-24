@@ -1,11 +1,11 @@
 """The caller, people, OAuth clients and token signing keys (Product 0.12 I1, API.md § Security)."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from .common import CollectionPage
+from .common import ActorResponse, CollectionPage
 
 
 class MeResponse(BaseModel):
@@ -132,3 +132,30 @@ class SigningKeyResponse(BaseModel):
 
 class SigningKeyPage(CollectionPage[SigningKeyResponse]):
     """Token signing keys, newest first (ADR-030)."""
+
+
+SecurityAggregate = Literal[
+    "user", "group", "role", "grant", "client", "token-signing-key", "sign-in"
+]
+
+
+class SecurityEventResponse(BaseModel):
+    """A change to access, or a sign-in (0.12 Z4, D317, D318). ``aggregateId`` is the person's,
+    group's or client's public ID, the role's key, the grant's ID, the key's ``kid`` or, for a
+    sign-in, the person's ID (``unknown`` for a username nobody has). ``details`` holds what changed
+    (``changedFields`` and the new values for an update; the principal, role and scope for a grant;
+    the username and address for a sign-in), never a password, secret, link or key. ``actor`` is
+    who made it; a failed sign-in names nobody."""
+
+    id: str
+    aggregateType: SecurityAggregate
+    aggregateId: str
+    action: str
+    version: int
+    occurredAt: datetime
+    actor: ActorResponse | None
+    details: dict[str, Any]
+
+
+class SecurityEventPage(CollectionPage[SecurityEventResponse]):
+    """Security events, newest first (ADR-030)."""

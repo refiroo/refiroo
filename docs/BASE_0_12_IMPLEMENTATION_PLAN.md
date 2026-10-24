@@ -188,7 +188,7 @@ sign-in; I3 a sign-in provider.
 
 **Track Z — authorization:** Z1 roles, groups and grants enforced at the route; Z2 record types at the
 write unit, and jobs, moves and the feed; Z3 the consumer APIs per client; Z4 audit identity; Z5 the
-interface follows permissions.
+interface follows permissions; Z6 one person's changes across workspaces.
 
 **Track SP — the Security pages:** SP1 people, groups and roles; SP2 OAuth clients and their access.
 **K1** signing-key rotation. **C1** the "try it" console. **E1** the security checkpoint.
@@ -1710,6 +1710,252 @@ created them. History, the feed, change-set review and the model editor's histor
 name, resolved when read (D237). Changes from before 0.12 show "Before sign-in". Whether consumer
 events carry the actor: D239.
 
+##### Z4 plan (2026-10-24)
+
+**Planned 2026-10-24; accepted by the user the same day** ("its okay"): D313–D320 and the test
+cases as written. Checked
+against the code at `f604cbd` (Z3 committed).
+
+**What the check found:**
+
+- **Every request already names its caller to the session.** The route check sets a `Writer` with
+  `principal` (kind, row ID) on every authorized request (`management/access.authorized`), and a
+  job's step runs as its requester (`authorization/requesters.job_writer`; `SYSTEM` for a job from
+  before Z2). `requester_of(session)` reads it. Nothing else sets a writer: startup's model
+  install, the CLI and the worker's own housekeeping write with none.
+- **Audit events are written in four ways:** `records/audit.record_audit_event(s)` (the write unit,
+  change-set rows, publishing, restructurings, type changes, workspace lifecycle, pinning,
+  change-set migrations), `AuditEvent(...)` built directly (`model/drafts.py` three times,
+  `model/releases.py`, `routers/model_management.py`, `cli/model_schema_upgrade.py`), and two raw
+  `INSERT INTO audit_events` statements (`records/deletion.py`, `model/migrations.py`). Each reads
+  the cause from `session.info`; the actor can come from the same place.
+- **The reads:** a record's history (`GET /objects/{type}/{id}/history`, live or in a change set,
+  `AuditEventResponse` with `cause` only when a job or publication made it), the feed
+  (`FeedEntry.cause`, `kind: "user"` for a single write), a release's activations
+  (`ModelReleaseActivation`), and the draft and mapping histories (`author: str | null`, a
+  `String(300)` never written). No change set, publication or draft records who made it; `jobs`
+  has `requested_by_user_id`/`_client_id` (Z2) but `JobResponse` does not show it, only a refusal's
+  `details.requestedBy`. Subscriptions read `owner` (Z3).
+- **Two name resolvers already exist:** `events/subscriptions.owners` (one statement per kind for a
+  page) and `authorization/requesters.requested_by` (one row). Both return `{kind, id, name}`.
+- **Security changes are not audited at all**, though API.md § Security says "every security
+  change is audited with its actor"; a failed sign-in is a log line only ("the audit entry comes with
+  Z4", D271). SP1 left a person's **Recent activity** for Z4 (the boards: who created them, who
+  granted what).
+- **Consumer events** copy `cause` from the feed entry (`events/deriver.py`) and show it
+  (`reads/consumer_events.py`); D239 keeps the actor out of them.
+- **The interface:** `HistoryPanel` shows a title, the fields and "time · version N"; the model
+  editor's history (`IssuesAndHistory`) the step and time; the change-set bar and cards their name;
+  `Publications` "Model x · Published *time*"; `JobPage` and the Jobs list Created/Started/Finished;
+  `ModelReleaseDetail` the activations; the People page no activity.
+
+**What is built:**
+
+1. **Migration** `20261101_01`: `audit_events.actor_kind` (`user`, `client`, `engine`; null for
+   entries from before Z4), `actor_user_id`, `actor_client_id` (`RESTRICT`, matching `actor_kind`,
+   a check; indexed); `change_sets.created_by_*`, `publications.published_by_*` and
+   `withdrawn_by_*`, `model_draft_operations.author_*` and `model_mapping_operations.author_*`
+   (user and client, at most one, `RESTRICT`, indexed); the two `author` strings dropped (never
+   written). No backfill: rows from before name nobody (D313).
+2. **One actor helper** (`records/audit.audit_actor_of`): the session's writer's principal, else
+   `engine`; every audit insert, direct or raw SQL, takes it, as each already takes the cause. The
+   change-set, publication, withdrawal and operation writers record the same principal.
+3. **One name resolver** (`engine/identity/principals.names`): `{kind, id, name}` for a page's
+   principals, one statement per kind; subscriptions' `owner` and a job's `requestedBy` move onto it
+   (one component, no copies).
+4. **The reads** (D315, D316): `actor` on a history entry, a feed entry, an activation and every
+   security event: `{kind: "user"|"client", id, name}`, `{kind: "engine"}`, or `null` before Z4;
+   `createdBy` on a change set, `publishedBy` and `withdrawnBy` on a publication, `requestedBy` on a
+   job, `author` (same shape) on draft and mapping operations. `cause` is unchanged beside it.
+   Consumer events unchanged (D314).
+5. **Security events** (D317, D318): each change to people, groups and their members, roles,
+   grants, clients and their secrets, token signing keys, a one-time password link, a person signed
+   out everywhere, and each sign-in (succeeded, or failed after the password was checked, with the
+   address) is an audit event with `aggregateType` `user`, `group`, `role`, `grant`, `client`,
+   `token-signing-key` or `sign-in`, outside any workspace and the feed. `GET /security-events`
+   (Security administration, at the instance): newest first, cursor paged, `principalId=` (the
+   person or client it is about or who made it) and `aggregateType=`; each entry names what changed
+   (`changedFields`), never a password, secret, link or key.
+6. **Frontend** (D319, D320): the record history's line reads "*time* · by *name* · version N"
+   ("by *name* (client)", "by the engine", "Before sign-in"); the editor's and the move editor's
+   history the author; a change set "Created by"; a publication "Published by" and "Withdrawn by";
+   a job "Requested by" on its page and in the Jobs list; a release's activations "by"; the People
+   page's person a **Recent activity** section from `/security-events?principalId=` with Load
+   more. One `ActorName` component renders all of them.
+7. **OpenAPI lock** re-baselined: the fields above, `GET /security-events` and its action in the
+   catalogue (`security-events.read`, group Security administration).
+8. **Documents:** API.md (the actor on every read, `/security-events`, `author`'s new shape),
+   ADR-044's audit paragraph and ARCHITECTURE (the actor beside the cause), USER_JOURNEYS (J44 new;
+   J40.11) and API_JOURNEYS, CURRENT_FUNCTIONALITY, SETTINGS_AND_UI_PLAN (Recent activity built),
+   OPERATIONS (security events, no retention yet), CHANGELOG, PROJECT_STATUS, TODO (retention of
+   sign-in events).
+
+The record history and a person's recent activity (desktop; at 390px each entry wraps the same way):
+
+```
+History                                    Recent activity               Ana Varga
+● Field value updated                      ● Granted Data steward in Catalogue
+  Changed Colour                             today 09:12 · by Sam Lee
+  2 hours ago · by Ana Varga · version 4   ● Signed in from 10.0.4.17
+● Record updated                             today 09:14 · by Ana Varga
+  Changed name                             ● Sign-in failed from 10.0.4.17
+  yesterday · by Catalogue sync (client)     today 09:13
+  · version 3                              ● Person created
+● Record created                             yesterday · by Sam Lee
+  12 Oct 2026 · Before sign-in · v1        [ Load more ]
+```
+
+A change set's bar: `Spring range · Created by Ana Varga · 14 changes`; a publication:
+`Model 1.4.0 · Published 23 Oct 2026 by Sam Lee`; a job's facts gain `Requested by  Ana Varga`.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D313 | How the actor is stored | **Recommended:** on each audit event, `actor_kind` (`user`, `client` or `engine`) and a foreign key to the person or the client, taken from whoever the session writes as: the caller of a request, the requester of a job's step, `engine` when nobody is (startup's model install, the CLI, a job from before Z2); `null` for entries from before Z4, which read "Before sign-in". A publication's applied entries name its publisher, with the publication as their cause. Why: the same source Z2's record-type check trusts, so no path records one caller and is checked as another; foreign keys keep D237's "always resolves"; `engine` keeps "Before sign-in" true, since engine writes after Z4 are not anonymous. Cost: every audit insert takes two more values; a raw insert that forgets them reads "Before sign-in", which J44's cases watch |
+| D314 | Consumer events and the actor | **Recommended:** no column on `consumer_events`, nothing in an event (D239, accepted); the scope's mention of the column is dropped. Why: nothing would read it, and the actor stays reachable through the management feed entry an event was derived from (its position); adding it later is additive. Cost: none |
+| D315 | Who is shown on change sets, publications, jobs and operations | **Recommended:** a change set's creator (`createdBy`), a publication's publisher and withdrawer (`publishedBy`, `withdrawnBy`), a job's requester (`requestedBy`, already stored) and an operation's author (`author`, now `{kind, id, name}` instead of the never-filled string), each `null` from before Z4. Who changed each record inside a shared change set (D255) is its history in the change set, not a field on the review's rows. Why: the scope's list; one field per row each list already reads; a per-row "last changed by" would duplicate the history. Cost: `author`'s type changes (pre-1.0, no client fills it); a draft's or a mapping's creator is its first operation's author |
+| D316 | Who may read the actor | **Recommended:** whoever may read the entry: Browse for a record's history and the change sets, the feed group for the feed, the job's readers, Model authoring for operations; no permission of its own. Names are resolved when read and a deactivated person keeps their name (D237). Why: knowing who changed a record is what history is for, and colleagues in a workspace already see each other in Access; D239 keeps it from external systems. Cost: a Reader learns who made each change |
+| D317 | Security changes in the audit | **Recommended:** each change to people, groups, members, roles, grants, clients and secrets, signing keys, one-time links and sign-outs everywhere is a security event with its actor and what changed, never a secret's value; read with `GET /security-events` by Security administration at the instance, newest first, filtered by `principalId` (by or about) and `aggregateType`. Why: API.md already promises it; a security administrator must answer "who gave her that role"; an organisation's log tooling reads the same route with a client. Cost: one audit insert in each security write; a new route and action |
+| D318 | Sign-ins in the audit | **Recommended:** a succeeded sign-in and a failed one whose password was checked (with the username tried and the address) are security events; an attempt refused while slowed (D271) is not, and stays a log line. No retention in 0.12 (TODO). Why: D271 promised the failure's audit entry; recording only checked attempts keeps the table bounded by D271's growing delay. Cost: a distributed guessing run still adds rows; their retention follows after 0.12 |
+| D319 | A person's recent activity | **Recommended:** a section of the person's page in Settings › Security › People listing their security events, by or about them (created, granted, joined a group, signed in, a failed sign-in, deactivated), 20 at a time with Load more; their record changes are not shown there. Why: SP1's boards; a Security administrator holds no data (D230), so changes in workspaces stay in the workspaces' history. Cost: "what did she change this week" across workspaces needs the feed or a later audit page |
+| D320 | How a name reads | **Recommended:** "by *name*" after the time; a client "by *name* (client)"; `engine` "by the engine"; before Z4 "Before sign-in" and nothing else; a deactivated person by their name. One component renders it everywhere. Why: the scope's wording, readable in a line; the kind matters when a system made a change. Cost: none |
+
+**Journey test cases** (`tests/journeys/test_j44_who_changed_what.py` and J40.11 in the security
+module, on two configurations, people and clients made and granted through the API by the harness
+as Security administrator; written first and seen failing):
+
+1. **J44.1, a single write names its caller:** given person P and client C, both Editors in A, when
+   P changes a record live and C changes it next, then its history lists C then P (`actor` kind, id
+   and name, no `cause`), the feed's two entries name the same actors with `cause.kind: "user"`, and
+   the consumer events derived from them carry no actor.
+2. **J44.2, a job names its requester:** given P submits a batch that changes two records, when it
+   runs, then their history entries carry `cause` the job and `actor` P, and the job reads
+   `requestedBy` P.
+3. **J44.3, a change set:** given P creates a change set in A, Q (Contributor) changes a record in
+   it and R (Editor) publishes it, then the change set reads `createdBy` P, the record's history in
+   the change set names Q, the publication reads `publishedBy` R, and the live entries it applied
+   name R with the publication as cause; when R withdraws it, `withdrawnBy` is R.
+4. **J44.4, the model editor:** given P with Model authoring, when P applies an operation to a
+   draft and to a model mapping, then each history's entry reads `author` P; an activation P makes
+   reads `actor` P.
+5. **J44.5, names when read:** given P's change in A's history, when P is renamed and then
+   deactivated, then the entry reads P's new name.
+6. **J44.6, before sign-in:** an audit entry from an older release (written without an actor, the
+   test says so) reads `actor: null`; an entry the engine wrote at startup (a release installed)
+   reads `{kind: "engine"}`.
+7. **J40.11, security events:** given S (Security administrator) creates person P, grants P a role
+   in A and adds P to a group, and P signs in once with a wrong password and once rightly, then
+   `/security-events?principalId=P` lists, newest first, the sign-in (by P), the failed sign-in
+   (address, no actor), the membership, the grant and the creation (by S), and no entry holds a
+   password or link; a person without Security administration gets `403 FORBIDDEN`.
+
+Unit tests: `audit_actor_of` for its three outcomes (a request's caller, a job's requester, none);
+nothing else has edge cases of its own.
+
+**Checks:** the new module and J40's two modules; the journeys whose reads gain a field (J02/J01
+history, J05–J07 change sets and publications, J17, J24 jobs, J26 the feed, J30 consumer events,
+J33 editor history, J38 mappings, J08 activations), selected by `--testmon` and the execution
+guide's groups for the audit, feed and change-set boundaries; `test_openapi_contract` with the lock
+diffed; `test_foreign_keys`, `test_boundaries`, the `startup` group (a migration); Ruff on the
+changed files. Frontend: the touched Vitest files, format, lint, build; the `sp1-security` runner
+extended with a person's Recent activity and a record's history naming its actor, on two models, by
+keyboard and at 390px. The full backend suite is Z5's.
+
+**Composable domains (ADR-032):** the identity and provenance doors are touched: the actor is
+recorded beside `cause`, never instead of it, and a value source stays an additive field on values;
+consumer events, the `match` declaration and bulk APIs are unchanged.
+
+**What the user will still not be able to do after Z4:** see a client's activity or a
+subscription's owner on a page (SP2's client pages; the API until then); read every change a person
+made across workspaces in one place (the feed per workspace; no audit page planned); have the
+interface hide what a person may not do (Z5); expire old sign-in events (TODO, after 0.12).
+
+##### Z4 record (2026-10-24)
+
+**Delivered 2026-10-24.** What was built is the plan's list, items 1–8:
+
+- **Migration** `20261101_01`: `audit_events.actor_kind`, `actor_user_id`, `actor_client_id`
+  (`ck_audit_events_actor_kind`, partial indexes), `ix_audit_events_security`; the creator,
+  publisher, withdrawer and author pairs on `change_sets`, `publications`, `model_draft_operations`
+  and `model_mapping_operations` (`RESTRICT`, at most one, partial indexes); the two `author`
+  strings dropped. It ran on the user's development database through the running dev server;
+  checked afterwards: head `20261101_01`, the three actor columns, its 49,483 earlier entries naming
+  nobody, health `200`.
+- **Engine:** `records/audit.audit_actor_of` and a `before_flush` hook that names the actor on
+  every audit entry the ORM inserts (an entry built naming its actor, even nobody, keeps it); the
+  two raw inserts (`records/deletion.py`, `model/migrations.py`) take it; the offline
+  `model_schema_upgrade` names the engine. `identity/principals` (`names`, `named`, `actors`,
+  `columns`) resolves principals, and a subscription's `owner` and a job's `requestedBy` moved onto
+  it. Change sets, publications (and the one a publication supersedes) and editor operations record
+  the caller. `identity/security_events` records and pages security events; they are written in
+  `administration.py` (roles, groups, members, grants), `users.py`, `clients.py`, `resets.py`,
+  `sessions.py`, `keys.py` and `sign_in.py`.
+- **API:** `ActorResponse` and `PrincipalResponse` (`SubscriptionOwner` replaced by the latter);
+  `actor` on history, feed entries and activations; `createdBy`, `publishedBy`, `withdrawnBy`,
+  `requestedBy`, `author`; `GET /security-events`. OpenAPI lock re-baselined, diffed against
+  `f604cbd`: only those (the mapping routes and the subscription routes are off in the locked
+  document).
+- **Frontend:** `ui/ActorName` (`actorText`, `principalName`) renders every name; `ui/Timeline`
+  extracted from the history panel, which the person's **Recent activity** reuses;
+  `useWorkspaceLabels` extracted from `GrantsSection` so grant events name a workspace by its label;
+  "by *name*" in the record history and the model editor's history; "Created by" on a change set's
+  bar and list; "Published … by" and "Withdrawn by" on a publication; "Requested by" on a job and
+  as a Jobs list column; the activation baseline sentence names who activated.
+- **Documents:** API.md (history's `actor`, security events, the changes to existing routes),
+  ADR-044 and ARCHITECTURE (the actor from the writer), USER_JOURNEYS (J44, J40.11) and
+  API_JOURNEYS, CURRENT_FUNCTIONALITY (F11, F27), SETTINGS_AND_UI_PLAN, OPERATIONS ("Who changed
+  what"), EXECUTION_GUIDE (the runner's row), TODO (retention of sign-in events), CHANGELOG,
+  PROJECT_STATUS.
+
+**Where it differs from the plan, decided by recommendation:**
+
+- `GET /security-events` declares the existing `security.manage` action rather than a new
+  `security-events.read`: every other Security read does, an action only names its group, and the
+  group (and so who may read) is the same.
+- J44.6's engine half ("an entry the engine wrote at startup (a release installed)") has no path
+  to test: startup writes no audit entry. The engine's entries come from the offline schema
+  upgrade and from a job submitted before Z2; the unit test `test_entries_name_whoever_the_session_
+  writes_as` covers them (`SYSTEM` and no writer read `engine`). J44.6 tests the entry from before
+  Z4.
+- The move editor shows no history list, so its operations' `author` is on the API only.
+- Security events also record a password set through a link and a password changed (`user`
+  `password-set`, `password-changed`), the same kind of change as the link itself. Grants made at
+  startup or by `create_admin`/`create_client --role` are not events (the creation is). A failed
+  sign-in for a username nobody has reads `aggregateId: "unknown"`.
+- A publication superseded by a new publish reads `withdrawnBy` the new publisher, as its status
+  reads `withdrawn`.
+
+**Older tests changed by Z4's planned behaviour:** the Vitest fixtures of change sets,
+publications, jobs, activations and history entries gained the new fields (the server's shape);
+`test_foreign_keys` lists the twelve new columns; `test_api_journeys`' inventory needed
+`GET /security-events`. `test_startup.HEAD` still read `20261030_01`, stale since Z3's migration
+(Z3 did not run that module); it now reads `20261101_01`.
+
+**Exercised:** the seven cases (14 runs) written first and seen failing (on the missing `actor`,
+`createdBy`, `requestedBy` and the route), then passing; the actor unit test. One selection of 540
+tests in 1 min 52 s with `-n auto`: J44, J01, J02, J04, J05/J06, J07, J08, J11, J17, J24, J26, J30
+events and subscriptions, J33 operations, J37 migration, J38.1, J39, J39/J41/J43, J40's two modules,
+J41.2, the records, identity and authorization unit tests, `test_layout`, `test_openapi_contract`,
+`test_foreign_keys`, `test_boundaries`, `test_schema_drift`, `test_startup`,
+`test_model_schema_upgrade`, `test_api_journeys`: 534 passed, the six registry failures above
+fixed and those modules rerun (24 passed); after the final formatting, the directly touched modules
+again (110 passed). Ruff check on `app/` and `tests/`; Ruff format on the changed files that were
+formatted before and on the new ones. Frontend: `vitest related` for the changed files (15 files,
+168 tests) and the changed test files (12 files, 113 tests), Prettier on the changed files, lint (0
+errors, the listed warnings), build. **Browser:** `test:browser:security` on both models (46 checks,
+39 s): a person's Recent activity naming who did what (the administrator's changes, their own
+sign-in and password), a record changed by a client naming it in its history, axe 0 violations on
+every page including the record's; the screenshots inspected (Recent activity at 1440px and 390px,
+a record's history). Accessibility and visual evidence beyond that runner wait for R.
+
+**Not run:** the full backend suite (Z5's, the user, 2026-10-24); no upgrade test (pre-1.0).
+
+**What the user still cannot do after Z4:** see a client's activity or a subscription's owner on a
+page (SP2; `/security-events?principalId=` and the API until then); read every change one person
+made across workspaces in one place (each workspace's feed; Z6, added by the user the same day);
+have the interface hide what a person may not do (Z5); expire sign-in events (TODO, after 0.12).
+
 #### Z5: The interface follows the caller's permissions
 
 **Needs:** Z1, Z2, I2.
@@ -1726,6 +1972,23 @@ _Found in SP1 (2026-10-24):_ a person without Browse in the default workspace (a
 created and given a role elsewhere, or none) sees only "Reading the model in workspace 'default'
 needs Browse" instead of the application; Z5 opens the application in a workspace they may use and
 says plainly when there is none.
+
+#### Z6: One person's changes across workspaces
+
+**Needs:** Z4, Z5. _Added by the user, 2026-10-24,_ after Z4 named the gap: each workspace's history
+and feed show who changed what, but nothing lists everything one person or client changed.
+
+**Scope:** a read of the audit entries a person or client made (Z4's actor), across workspaces,
+newest first and cursor paged: their record and relationship changes, change-set work,
+publications and model administration, each naming its workspace, what it changed and its cause.
+Filtered as every list is (D249): the caller sees the entries in workspaces where they hold Browse,
+and entries outside any workspace (model administration) only with the group that reads them; a
+Security administrator without data roles therefore sees none of the data changes (D230), which
+stay apart from Recent activity's security events (D319). In the interface, a "Changes" view
+reachable from a person, and from a client once SP2 builds its page. The plan settles the route
+(a filter on a general audit read, or one per principal), the time filter, the view's place and
+mock-up, and the journey (J44 variant). Its checks are its own groups; Z5's full suite does not
+cover it.
 
 ### Track SP — The Security pages (U8)
 
@@ -2083,8 +2346,9 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 4 | [Z1](#z1-roles-groups-and-grants-at-the-route) | I1 | **Delivered 2026-10-23.** Roles, groups and grants; every route checked; `/me/permissions` |
 | 5 | [Z2](#z2-record-types-at-the-write-unit-jobs-moves-and-the-feed) | Z1 | **Delivered 2026-10-24.** Record types at the write unit; jobs as their requester; moves; source files |
 | 6 | [Z3](#z3-consumer-apis-per-client) | Z1 | Consumer APIs per client and workspace |
-| 7 | [Z4](#z4-audit-identity) | Z1 | The actor beside `cause` everywhere |
+| 7 | [Z4](#z4-audit-identity) | Z1 | **Delivered 2026-10-24.** The actor beside `cause` everywhere; security events |
 | 8 | [Z5](#z5-the-interface-follows-the-callers-permissions) | Z2, I2 | The interface follows permissions; Reader and Contributor |
+| 8a | [Z6](#z6-one-persons-changes-across-workspaces) | Z4, Z5 | One person's or client's changes across workspaces, filtered to what the caller may browse |
 | 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | **Delivered 2026-10-24.** Settings › Security: people, groups, roles, grants |
 | 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | Settings › Security: clients and their access; sign-in providers |
 | 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | OpenID Connect providers and their groups |
@@ -2102,7 +2366,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 ```text
 Design:     P0
 Identity:   P0 ─ I1 ─ I2 ─────────────── I3 (needs SP2)
-Authz:           I1 ─ Z1 ─┬─ Z2 ─ Z5 (needs I2)
+Authz:           I1 ─ Z1 ─┬─ Z2 ─ Z5 (needs I2) ─ Z6 (needs Z4)
                           ├─ Z3 ─ SP2
                           ├─ Z4
                           ├─ SP1 (needs I2) ─ SP2

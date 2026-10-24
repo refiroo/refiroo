@@ -70,7 +70,7 @@ function diff(releaseId: string, againstReleaseId: string, changes: ModelRelease
 }
 
 function introduction(previousReleaseId: string, kind: ModelReleaseActivation["kind"] = "activated") {
-  return { eventId: "e1", kind, previousReleaseId, runtimeVersion: 2, occurredAt: "2026-09-02T00:00:00Z" };
+  return { eventId: "e1", kind, previousReleaseId, runtimeVersion: 2, occurredAt: "2026-09-02T00:00:00Z", actor: null };
 }
 
 function setup({

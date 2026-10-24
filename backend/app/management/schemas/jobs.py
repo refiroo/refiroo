@@ -6,7 +6,13 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
-from .common import ApiErrorBody, CollectionPage, omitted_when_none, without_default
+from .common import (
+    ApiErrorBody,
+    CollectionPage,
+    PrincipalResponse,
+    omitted_when_none,
+    without_default,
+)
 from .records import RecordOrigin
 
 
@@ -523,6 +529,10 @@ class JobResponse(BaseModel):
     move: MoveSummary | None = Field(
         default=None,
         description="A move's dry run summary once completed (0.11 X2); null for other jobs",
+    )
+    requestedBy: PrincipalResponse | None = Field(
+        description="Who submitted it, whose permissions it runs with (0.12 Z2, Z4); null for a "
+        "job from before Z2"
     )
 
 

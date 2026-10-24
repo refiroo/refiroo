@@ -2063,6 +2063,9 @@ name, and a role held only at the instance refused in a workspace, through the A
   only workspaces the caller may browse.
 - **J40.10 A job keeps its requester's permissions**: a job whose requester lost the right fails
   with the reason at its next step; the requester still sees and cancels their own job.
+- **J40.11 Who changed access**: every change to people, groups, roles, grants, clients and keys,
+  and every sign-in, succeeded or failed, is a security event naming who made it; a security
+  administrator lists a person's or client's events, never a secret in them (0.12 Z4).
 
 **Refusals:** `403 FORBIDDEN` (`details.action`, `groups`, `workspaceKey`, and `recordTypes` for a
 narrowed write, `requestedBy` for a job's step), `409 ROLE_PREDEFINED`, `409 ROLE_IN_USE`, `409 LAST_SECURITY_ADMINISTRATOR`.
@@ -2144,6 +2147,31 @@ delivered by I1 and K1. I1 (2026-10-23): J43.1 (rotated on request, and on its o
   command; the engine starts and signs as before.
 
 **Refusals:** `401 TOKEN_INVALID` (`unknownKey`), `404 SUBSCRIPTION_NOT_FOUND`.
+
+### J44 — See who changed what
+
+**Actor:** data owner, steward, model administrator; integrator. **Channel:** UI (a record's
+history, a change set, a publication, a job, the model and move editors' history), API (the same
+reads and the feed). **Stories:** US-S01. **Status:** delivered by 0.12 Z4 (2026-10-24).
+
+1. Open a record's history, the feed, a change set, a publication, a job or an editor's history.
+2. Each change names who made it: a person or a client, as they are named now; the engine for its
+   own changes; nobody for a change from before sign-in.
+
+**Variants:**
+
+- **J44.1 A single write**: a person's or a client's change names them, beside the cause; consumer
+  events name nobody.
+- **J44.2 A job**: the changes a job made name its requester, with the job as cause; the job names
+  its requester.
+- **J44.3 A change set**: it names who created it; a change inside it names who made it; its
+  publication names who published and withdrew it, and the changes it applied name the publisher.
+- **J44.4 The editors**: an operation on a draft or a model mapping names its author; an activation
+  names who made it.
+- **J44.5 Names as they are now**: a renamed or deactivated person is read by their current name.
+- **J44.6 Before sign-in**: a change recorded before 0.12 names nobody.
+
+**Refusals:** none of its own; each read refuses as before.
 
 ## Guardrails kept from 0.7
 

@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...common.sealing import seal, unseal
 from ...models.database import TokenSigningKey
+from . import security_events
 from .settings import IdentitySettings
 
 # pg_advisory_xact_lock's key for replacing the current key: any constant no other lock uses.
@@ -96,6 +97,11 @@ def _replace(
     replacement = _new_key(settings, now)
     session.add(replacement)
     session.flush()
+    # On request (J43.2) by its caller; when due (D264) by the engine.
+    security_events.record(
+        session, "token-signing-key", replacement.kid, "rotated",
+        details={"previousKid": current.kid if current else None, "immediate": immediate},
+    )  # fmt: skip
     return replacement
 
 

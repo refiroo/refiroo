@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from .common import ApiErrorBody, CollectionPage
+from .common import ApiErrorBody, CollectionPage, PrincipalResponse
 
 
 class MappingProblem(BaseModel):
@@ -86,7 +86,8 @@ class ModelMappingOperationEntry(BaseModel):
     parameters: dict[str, Any]
     inverse: dict[str, Any]
     mappingVersion: int
-    author: str | None
+    # Who applied it (0.12 Z4, D315); null for an operation from before Z4.
+    author: PrincipalResponse | None
     at: datetime
     undone: bool
     origin: dict[str, Any]

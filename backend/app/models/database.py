@@ -58,6 +58,11 @@ class UTCDateTime(TypeDecorator[datetime]):
         return as_utc(value) if value is not None else None
 
 
+# The audit entries that are security events (0.12 Z4, D317, D318): outside every workspace.
+SECURITY_AGGREGATES = ("user", "group", "role", "grant", "client", "token-signing-key", "sign-in")
+SECURITY_AGGREGATES_SQL = ", ".join(f"'{item}'" for item in SECURITY_AGGREGATES)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -115,6 +120,19 @@ class ModelDraftOperation(Base):
     __table_args__ = (
         UniqueConstraint("draft_id", "sequence", name="uq_model_draft_operations_sequence"),
         Index("ix_model_draft_operations_step", "draft_id", "step"),
+        CheckConstraint(
+            "num_nonnulls(author_user_id, author_client_id) <= 1", name="ck_model_draft_operations_author_one"
+        ),
+        Index(
+            "ix_model_draft_operations_author_user",
+            "author_user_id",
+            postgresql_where=text("author_user_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_model_draft_operations_author_client",
+            "author_client_id",
+            postgresql_where=text("author_client_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -127,7 +145,13 @@ class ModelDraftOperation(Base):
     parameters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     inverse: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     draft_version: Mapped[int] = mapped_column(Integer, nullable=False)
-    author: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # Who applied it (0.12 Z4, D315); nobody for one from before Z4.
+    author_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    author_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
     origin: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     # The elements the entry created, re-keyed and named, as element atoms (D8's dependants).
     effects: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
@@ -448,6 +472,32 @@ class Publication(Base):
     __table_args__ = (
         UniqueConstraint("workspace_key", "publication_number", name="uq_publication_number"),
         CheckConstraint("status IN ('active', 'withdrawn')", name="ck_publication_status"),
+        CheckConstraint(
+            "num_nonnulls(published_by_user_id, published_by_client_id) <= 1", name="ck_publications_published_by_one"
+        ),
+        Index(
+            "ix_publications_published_by_user",
+            "published_by_user_id",
+            postgresql_where=text("published_by_user_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_publications_published_by_client",
+            "published_by_client_id",
+            postgresql_where=text("published_by_client_id IS NOT NULL"),
+        ),
+        CheckConstraint(
+            "num_nonnulls(withdrawn_by_user_id, withdrawn_by_client_id) <= 1", name="ck_publications_withdrawn_by_one"
+        ),
+        Index(
+            "ix_publications_withdrawn_by_user",
+            "withdrawn_by_user_id",
+            postgresql_where=text("withdrawn_by_user_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_publications_withdrawn_by_client",
+            "withdrawn_by_client_id",
+            postgresql_where=text("withdrawn_by_client_id IS NOT NULL"),
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -477,10 +527,38 @@ class Publication(Base):
     withdrawn_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     # The position of its ``published`` feed entry (Base 0.9 F1); none before that revision.
     feed_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Who published and who withdrew it (0.12 Z4, D315); neither from before Z4.
+    published_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    published_by_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
+    withdrawn_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    withdrawn_by_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
 
 
 class ChangeSet(Base):
     __tablename__ = "change_sets"
+    __table_args__ = (
+        CheckConstraint(
+            "num_nonnulls(created_by_user_id, created_by_client_id) <= 1", name="ck_change_sets_created_by_one"
+        ),
+        Index(
+            "ix_change_sets_created_by_user",
+            "created_by_user_id",
+            postgresql_where=text("created_by_user_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_change_sets_created_by_client",
+            "created_by_client_id",
+            postgresql_where=text("created_by_client_id IS NOT NULL"),
+        ),
+    )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id: Mapped[str] = mapped_column(
@@ -514,6 +592,13 @@ class ChangeSet(Base):
     # A move's deletion change set in its source workspace: the target's change set holding the
     # copy, which must publish first (0.11 X3, D135).
     waits_for_change_set_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    # Who created it (0.12 Z4, D315); nobody for one from before Z4.
+    created_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_by_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
 
 
 class RecordOrigin(Base):
@@ -1108,6 +1193,33 @@ class AuditEvent(Base):
             "feed_position",
             postgresql_where=text("feed_position IS NOT NULL"),
         ),
+        CheckConstraint(
+            "num_nonnulls(actor_user_id, actor_client_id) <= 1", name="ck_audit_events_actor_one"
+        ),
+        Index(
+            "ix_audit_events_actor_user",
+            "actor_user_id",
+            postgresql_where=text("actor_user_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_audit_events_actor_client",
+            "actor_client_id",
+            postgresql_where=text("actor_client_id IS NOT NULL"),
+        ),
+        CheckConstraint(
+            "(actor_kind IS NULL AND num_nonnulls(actor_user_id, actor_client_id) = 0)"
+            " OR (actor_kind = 'engine' AND num_nonnulls(actor_user_id, actor_client_id) = 0)"
+            " OR (actor_kind = 'user' AND actor_user_id IS NOT NULL)"
+            " OR (actor_kind = 'client' AND actor_client_id IS NOT NULL)",
+            name="ck_audit_events_actor_kind",
+        ),
+        # Security events newest first (0.12 Z4, D317); they stand outside every workspace.
+        Index(
+            "ix_audit_events_security",
+            "occurred_at",
+            "sequence_id",
+            postgresql_where=text(f"aggregate_type IN ({SECURITY_AGGREGATES_SQL})"),
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -1125,6 +1237,15 @@ class AuditEvent(Base):
     # What made the change when it was not a single write: a job (Base 0.9, INTEGRATION_API P6).
     cause_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
     cause_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    # Who made it, beside the cause (0.12 Z4, D313): ``user`` or ``client`` with its row, or
+    # ``engine`` for the engine's own changes; none for an entry from before Z4.
+    actor_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    actor_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
     # A change to live data takes the next position of its workspace's feed (Base 0.9 F1); other
     # entries have none. ``feed_subject`` names what the entry changed (object or relation type,
     # relation ends), kept here since a later delete leaves nothing to look it up by.
@@ -1758,6 +1879,19 @@ class ModelMappingOperation(Base):
     __table_args__ = (
         UniqueConstraint("mapping_id", "sequence", name="uq_model_mapping_operations_sequence"),
         Index("ix_model_mapping_operations_step", "mapping_id", "step"),
+        CheckConstraint(
+            "num_nonnulls(author_user_id, author_client_id) <= 1", name="ck_model_mapping_operations_author_one"
+        ),
+        Index(
+            "ix_model_mapping_operations_author_user",
+            "author_user_id",
+            postgresql_where=text("author_user_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_model_mapping_operations_author_client",
+            "author_client_id",
+            postgresql_where=text("author_client_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -1770,7 +1904,13 @@ class ModelMappingOperation(Base):
     parameters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     inverse: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     mapping_version: Mapped[int] = mapped_column(Integer, nullable=False)
-    author: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # Who applied it (0.12 Z4, D315); nobody for one from before Z4.
+    author_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    author_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
     origin: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     # The entries the operation created and named, as element atoms (D8's dependants).
     effects: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)

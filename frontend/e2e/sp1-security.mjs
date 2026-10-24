@@ -7,7 +7,8 @@
 // role and untick Publish; a workspace's Access lists the grants and removes one; deactivating the
 // only Security administrator is refused as the engine words it; the new person, without Security
 // administration, is not shown the Security pages. The grant dialog by keyboard; axe on each page;
-// screenshots; no horizontal page scroll at 390px.
+// screenshots; no horizontal page scroll at 390px. 0.12 Z4: the person's recent activity names who
+// did what, and a record changed by a client names it in the record's history.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -219,6 +220,45 @@ async function walk(configuration) {
     await shot(page, "person");
     await axe(page, `${tag}-people`);
     checks.push(`${tag}: the person's page names both roles, one through the group; the list names their roles`);
+
+    // 5b. Their recent activity (0.12 Z4, D319): what was done to them and by them, each by whom.
+    const activity = page.getByRole("list", { name: `${lena.name}'s recent activity` });
+    const [administrator] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.username)}`)).items;
+    const admin = administrator.name;
+    await activity.getByText("Added to Curators").waitFor();
+    for (const line of [`Granted Data steward in Default`, "Person created", "Password set from a one-time link"])
+      await activity.getByText(line).waitFor();
+    await activity.getByText(/^Signed in from /).waitFor();
+    expect(
+      (await activity.getByText(`by ${admin}`).count()) >= 3,
+      `${tag}: the administrator's changes name them in the person's activity`,
+    );
+    expect((await activity.getByText(`by ${lena.name}`).count()) >= 1, `${tag}: their own sign-in names them`);
+    await activity.scrollIntoViewIfNeeded();
+    await shot(page, "person-activity");
+    checks.push(`${tag}: the person's recent activity names who did what`);
+
+    // 5c. A record changed by a client names it in the record's history (0.12 Z4, D320).
+    const [record] = (await api(`/objects/${recordType.key}?workspaceKey=default&pageSize=1`)).items;
+    await api(
+      `/objects/${recordType.key}/${record.id}`,
+      { expectedVersion: record.version, name: `${record.name} (renamed by a client)` },
+      "PATCH",
+    );
+    await page.goto(
+      `${uiUrl}/apps/${record.applicationKey}/objects/${recordType.key}/${record.id}?workspaceKey=default`,
+    );
+    const history = page.locator(".history-panel");
+    await history
+      .getByText(/by .+ \(client\)/)
+      .first()
+      .waitFor();
+    await history.scrollIntoViewIfNeeded();
+    await shot(page, "record-history");
+    await axe(page, `${tag}-record-history`);
+    checks.push(`${tag}: a record's history names the client that changed it`);
+    await page.goto(`${uiUrl}/settings/people`);
+    await page.getByRole("heading", { level: 1, name: "People" }).waitFor();
 
     // 6. A custom role copied from Data steward, without Publish.
     await navigation.getByRole("link", { name: "Roles" }).click();

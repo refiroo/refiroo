@@ -15,7 +15,10 @@ def step_response(session: Session, result: history.StepResult, request: Request
     when integration jobs are enabled (0.10 A5, D79). Commits."""
     response = ModelDraftStepResponse(
         version=result.draft.version,
-        entries=[ModelDraftOperationEntry(**history.entry_response(row)) for row in result.entries],
+        entries=[
+            ModelDraftOperationEntry(**entry)
+            for entry in history.entry_responses(session, result.entries)
+        ],
         valid=result.valid,
         diagnostics=[diagnostic_response(item) for item in result.diagnostics],
         dryRun=None,

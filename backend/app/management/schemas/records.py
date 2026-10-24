@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
 from ...models.commands import RelationCreate
-from .common import CollectionPage, omitted_when_none, without_default
+from .common import ActorResponse, CollectionPage, omitted_when_none, without_default
 
 
 class AttributeOutput(BaseModel):
@@ -151,6 +151,8 @@ class AuditEventResponse(BaseModel):
     cause: AuditCause | SkipJsonSchema[None] = Field(
         default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
     )
+    # Who made it, beside the cause (0.12 Z4, D313); null for an entry from before Z4.
+    actor: ActorResponse | None
 
 
 class AuditEventPage(CollectionPage[AuditEventResponse]):
@@ -194,6 +196,8 @@ class FeedEntry(BaseModel):
     changedFields: list[str]
     attributeTypeKeys: list[str]
     cause: FeedCause
+    # Who made it, beside the cause (0.12 Z4, D313, D239); null for an entry from before Z4.
+    actor: ActorResponse | None
     modelReleaseId: str | None
 
 

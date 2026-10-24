@@ -35,6 +35,7 @@ from ...models.database import (
     UserGroupMember,
     Workspace,
 )
+from ..identity import security_events
 from ..model.registry import resolve_model_snapshot
 from ..reads.object_query import name_contains
 from ..workspaces.catalogue import load_workspace
@@ -188,6 +189,10 @@ def create_role(session: Session, payload: RoleCreate) -> Role:
         session.add(role)
         session.flush()
         session.add_all(RoleActionGroup(role_id=role.id, group_key=key) for key in keys)
+        security_events.record(
+            session, "role", role.key, "created",
+            details={"name": role.name, "actionGroups": keys},
+        )  # fmt: skip
         return role
 
     return _changing(session, change)
@@ -220,6 +225,12 @@ def update_role(session: Session, key: str, payload: RoleUpdate) -> Role:
             session.add_all(RoleActionGroup(role_id=role.id, group_key=item) for item in keys)
         role.version += 1
         role.updated_at = datetime.now(UTC)
+        security_events.record(
+            session, "role", role.key, "updated", version=role.version,
+            details=security_events.changed(
+                sorted(fields), name=role.name, actionGroups=payload.actionGroups
+            ),
+        )  # fmt: skip
         return role
 
     return _changing(session, change, guard=True)
@@ -237,6 +248,7 @@ def delete_role(session: Session, key: str) -> None:
                 {"grants": holders(session, role)},
             )
         session.execute(delete(Role).where(Role.id == role.id))
+        security_events.record(session, "role", role.key, "deleted", details={"name": role.name})
 
     _changing(session, change)
 
@@ -308,6 +320,11 @@ def create_group(session: Session, payload: GroupCreate) -> UserGroup:
         _group_name(session, payload.name)
         group = UserGroup(name=payload.name, description=payload.description)
         session.add(group)
+        session.flush()
+        security_events.record(
+            session, "group", group.public_id, "created", about=[group.public_id],
+            details={"name": group.name},
+        )  # fmt: skip
         return group
 
     return _changing(session, change)
@@ -326,6 +343,10 @@ def update_group(session: Session, public_id: str, payload: GroupUpdate) -> User
             group.description = payload.description
         group.version += 1
         group.updated_at = datetime.now(UTC)
+        security_events.record(
+            session, "group", group.public_id, "updated", about=[group.public_id],
+            version=group.version, details=security_events.changed(sorted(fields), name=group.name),
+        )  # fmt: skip
         return group
 
     return _changing(session, change)
@@ -336,7 +357,16 @@ def delete_group(session: Session, public_id: str) -> None:
 
     def change() -> None:
         group = load_group(session, public_id, for_update=True)
+        members = session.scalars(
+            select(User.public_id)
+            .join(UserGroupMember, UserGroupMember.user_id == User.id)
+            .where(UserGroupMember.group_id == group.id)
+        ).all()
         session.execute(delete(UserGroup).where(UserGroup.id == group.id))
+        security_events.record(
+            session, "group", group.public_id, "deleted", about=[group.public_id, *members],
+            details={"name": group.name},
+        )  # fmt: skip
 
     _changing(session, change, guard=True)
 
@@ -376,6 +406,11 @@ def add_member(session: Session, public_id: str, user_id: str) -> User:
         member = session.get(UserGroupMember, (group.id, user.id))
         if member is None:
             session.add(UserGroupMember(group_id=group.id, user_id=user.id))
+            security_events.record(
+                session, "group", group.public_id, "member-added",
+                about=[group.public_id, user.public_id],
+                details={"groupName": group.name, "userId": user.public_id},
+            )  # fmt: skip
         return user
 
     return _changing(session, change)
@@ -394,6 +429,11 @@ def remove_member(session: Session, public_id: str, user_id: str) -> None:
             raise api_error(
                 404, "GROUP_MEMBER_NOT_FOUND", f"User '{user_id}' is not in group '{group.name}'"
             )
+        security_events.record(
+            session, "group", group.public_id, "member-removed",
+            about=[group.public_id, user.public_id],
+            details={"groupName": group.name, "userId": user.public_id},
+        )  # fmt: skip
 
     _changing(session, change, guard=True)
 
@@ -523,7 +563,7 @@ def create_grant(session: Session, payload: GrantCreate) -> GrantRow:
             **principal,
         )
         session.add(grant)
-        return grant
+        return _granted(session, grant)
 
     grant = _changing(session, change)
     return load_grant(session, grant.public_id)
@@ -554,7 +594,7 @@ def _create_consumer_api_grant(session: Session, payload: GrantCreate) -> GrantR
             **principal,
         )
         session.add(grant)
-        return grant
+        return _granted(session, grant)
 
     grant = _changing(session, change)
     return load_grant(session, grant.public_id)
@@ -583,6 +623,33 @@ def grant_first_administrator(session: Session, user_id: int) -> None:
     grant_roles(session, "user", user_id, FIRST_ADMINISTRATOR_ROLES)
 
 
+def _grant_details(row: GrantRow) -> dict[str, Any]:
+    grant = row.grant
+    return {
+        "principal": {
+            "kind": row.principal_kind,
+            "id": row.principal_id,
+            "name": row.principal_name,
+        },
+        "role": {"key": row.role.key, "name": row.role.name} if row.role else None,
+        "consumerApi": grant.consumer_api,
+        "workspaceKey": grant.workspace_key,
+        "applications": list(grant.applications or []),
+        "recordTypes": list(grant.record_types or []),
+    }
+
+
+def _granted(session: Session, grant: Grant) -> Grant:
+    """The grant just added, with its security event (D317), in the same transaction."""
+    session.flush()
+    row = load_grant(session, grant.public_id)
+    security_events.record(
+        session, "grant", grant.public_id, "created", about=[row.principal_id],
+        details=_grant_details(row),
+    )  # fmt: skip
+    return grant
+
+
 def load_grant(session: Session, public_id: str) -> GrantRow:
     row = session.execute(_grant_statement().where(Grant.public_id == public_id)).one_or_none()
     if row is None:
@@ -592,9 +659,12 @@ def load_grant(session: Session, public_id: str) -> GrantRow:
 
 def delete_grant(session: Session, public_id: str) -> None:
     def change() -> None:
-        removed = session.execute(delete(Grant).where(Grant.public_id == public_id))
-        if not removed.rowcount:
-            raise api_error(404, "GRANT_NOT_FOUND", f"Grant '{public_id}' not found")
+        row = load_grant(session, public_id)
+        session.execute(delete(Grant).where(Grant.public_id == public_id))
+        security_events.record(
+            session, "grant", public_id, "deleted", about=[row.principal_id],
+            details=_grant_details(row),
+        )  # fmt: skip
 
     _changing(session, change, guard=True)
 

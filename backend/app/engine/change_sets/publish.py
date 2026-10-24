@@ -24,6 +24,8 @@ from ...models.database import (
     RelationSetVersion,
     Workspace,
 )
+from ..authorization.writes import requester_of
+from ..identity.principals import columns
 from ..indexes import matrix_states
 from ..indexes.snapshot_values import copy_live
 from ..records.attributes import load_workspace_attribute_values
@@ -720,6 +722,7 @@ def apply_publication(
         status="active",
         derived_from_publication_id=change_set.derived_from_publication_id,
         supersedes_publication_id=workspace.active_publication_id,
+        **columns(requester_of(session), "published_by"),
     )
     session.add(publication)
     session.flush()
@@ -746,6 +749,9 @@ def apply_publication(
         )
         old.status = "withdrawn"
         old.withdrawn_at = datetime.now(UTC)
+        # Superseded by this publication: its publisher withdrew the old one (0.12 Z4).
+        for column, value in columns(requester_of(session), "withdrawn_by").items():
+            setattr(old, column, value)
     publication.published_at = datetime.now(UTC)
     workspace.active_publication_id = publication.id
     merge_change_set_relation_set_versions_to_live(session, change_set.id, change_set.workspace_key)
@@ -810,6 +816,8 @@ def withdraw_publication(session: Session, publication_id: str) -> None:
         )
     publication.status = "withdrawn"
     publication.withdrawn_at = datetime.now(UTC)
+    for column, value in columns(requester_of(session), "withdrawn_by").items():
+        setattr(publication, column, value)
     workspace.active_publication_id = None
     # Record the withdrawal in the same transaction as the pointer clear so a rolled-back
     # withdrawal never leaves an orphan event (D3a).  The event is aggregated on the workspace key

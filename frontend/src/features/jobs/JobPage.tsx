@@ -30,6 +30,7 @@ import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
+import { principalName } from "@/ui/ActorName";
 import { StatusPill } from "@/ui/StatusPill";
 import { count } from "@/features/settings/limits";
 import { jobTitle, useJobNotifications } from "./JobNotifications";
@@ -421,6 +422,7 @@ function ProgressLine({
 function times(job: Job): DescriptionItem[] {
   return [
     { term: "Workspace", value: <code>{job.workspaceKey}</code> },
+    ...(job.requestedBy ? [{ term: "Requested by", value: principalName(job.requestedBy) }] : []),
     { term: "Created", value: formatServerTime(job.createdAt) },
     ...(job.startedAt ? [{ term: "Started", value: formatServerTime(job.startedAt) }] : []),
     ...(job.finishedAt ? [{ term: "Finished", value: formatServerTime(job.finishedAt) }] : []),

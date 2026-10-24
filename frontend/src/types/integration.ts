@@ -4,6 +4,7 @@
  */
 
 import type { MoveSummary } from "@/types/moves";
+import type { Principal } from "@/types/security";
 
 /** One consumer API of the active release, as the API index lists it. */
 export interface ConsumerApiIndexEntry {
@@ -84,6 +85,8 @@ export interface Job {
   migration?: MigrationSummary | null;
   /** A move's dry run summary (0.11 X2), and what its load opened (X3). */
   move?: MoveSummary | null;
+  /** Who submitted it, whose permissions it runs with (0.12 Z2, Z4); null from before Z2. */
+  requestedBy: Principal | null;
 }
 
 /** A migration's items by outcome (0.11 V1, D68). */

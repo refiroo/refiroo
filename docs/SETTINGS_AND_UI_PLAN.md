@@ -89,7 +89,7 @@ becomes a select at the top of the page.
 | Data operations | Jobs | Recent jobs with status and outcome counts; cancel; batch and job limits (the feed's retention moved to Consumer APIs, 0.10 A5c) | job routes (B1–B2), `GET /api/v1/capabilities` | U4 (0.9) |
 | Integration | API reference | Links to `/docs`, one per source, with its version | `GET /api/consumer` | U4 (0.9) |
 | General | Account | The person, their password, where they are signed in (sign out one or everywhere), what they can do per workspace (until Z1 "Everything", then their roles) | `/me`, `/me/sessions`, `/me/password`, `/me/permissions` | 0.12 I2 (built 2026-10-23), Z1 |
-| Security | People | List and detail: create, a one-time reset link, deactivate, sign out everywhere, last sign-in; roles by workspace with their narrowing and where they come from; groups; recent activity | `/users`, `/users/{id}/grants`, `/grants` | 0.12 SP1 (built 2026-10-24; recent activity with Z4) |
+| Security | People | List and detail: create, a one-time reset link, deactivate, sign out everywhere, last sign-in; roles by workspace with their narrowing and where they come from; groups; recent activity | `/users`, `/users/{id}/grants`, `/grants`, `/security-events` | 0.12 SP1 (built 2026-10-24); recent activity 0.12 Z4 (built 2026-10-24) |
 | Security | Groups | Local and provider groups; members (a provider group's as seen at sign-in); roles | `/groups`, `/grants` | 0.12 SP1 (built 2026-10-24, local groups; provider groups with I3) |
 | Security | Roles | The matrix of roles and action groups; predefined read-only; a custom role created, copied, edited | `/roles`, `/action-groups` | 0.12 SP1 (built 2026-10-24) |
 | Security | Clients | List and detail: create (secret shown once), rotate with an overlap, end a secret, deactivate; management roles and consumer API grants per workspace; last use | `/clients`, `/grants` | 0.12 SP2 |
@@ -2619,6 +2619,10 @@ packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
   signing key also uses (D304); Roles' matrix scrolling sideways in its box at 390px (D305). Left
   out until their packages: a person's recent activity (Z4), provider groups (I3), Clients, Sign-in
   and Signing keys (SP2, I3), consumer API grants (Z3, SP2), Approvals (A3).
+- _Built by Z4 (2026-10-24):_ a person's **Recent activity**, the last section of their page: their
+  security events by or about them, 20 at a time with Load more, each on the record history's
+  timeline (one `ui/Timeline`) with "by *name*". Record history, the editor's history, a change set,
+  a publication and a job name who made them through one `ui/ActorName` (D320).
 
 U-D11 holds: each Security entry appears in the navigation only when its page is built.
 

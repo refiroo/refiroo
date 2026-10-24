@@ -5,6 +5,7 @@
 
 import type { ValueType } from "@/types/model";
 import type { WorkspaceModel } from "@/types/modelAdmin";
+import type { Actor, Principal } from "@/types/security";
 
 /**
  * Navigation every collection page returns (ADR-030). The cursor fields other than `nextCursor`
@@ -203,6 +204,8 @@ export interface AuditEventItem {
   changedFields: string[];
   attributeTypeKeys: string[];
   occurredAt: string;
+  /** Who made it (0.12 Z4); null for a change from before sign-in. */
+  actor: Actor | null;
 }
 
 export interface AuditEventPage {
@@ -222,6 +225,8 @@ export interface ChangeSet {
   version: number;
   createdAt: string;
   updatedAt: string;
+  /** Who created it (0.12 Z4); null for one from before sign-in. */
+  createdBy: Principal | null;
 }
 
 export interface ChangeSetPage {
@@ -242,6 +247,9 @@ export interface Publication {
   createdAt: string;
   publishedAt: string;
   withdrawnAt: string | null;
+  /** Who published it, and who withdrew it or published the one after it (0.12 Z4). */
+  publishedBy: Principal | null;
+  withdrawnBy: Principal | null;
 }
 
 export interface PublicationPage {

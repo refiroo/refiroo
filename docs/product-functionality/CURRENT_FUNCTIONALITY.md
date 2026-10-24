@@ -21,7 +21,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F08 | Maintain relationships and mappings | Validated | Available | Mapping grid lens |
 | F09 | Maintain translations and coverage | Validated | Available | Relation matrix lens |
 | F10 | Preview and confirm dependent deletion | Validated | Available | |
-| F11 | Inspect record history | Validated | Available | No authenticated actor until 0.12 |
+| F11 | Inspect record history | Validated | Available | Changes from before 0.12 name nobody |
 | F12 | Prepare a change set | Validated | Available | From live data or a publication |
 | F13 | Review, validate and publish a change set | Validated | Available | |
 | F14 | Browse publications and withdraw one | Validated | Available | |
@@ -357,10 +357,17 @@ Evidence: [delete dialog](../../frontend/src/features/objects/ObjectDeleteDialog
 
 The record page has an independently paged history, newest first; loading older entries keeps those
 already shown, and a failed page can be retried. Entries made by a bulk job name the job as their
-cause, and changes a publish applied to live data name the publication. History is bounded and does
-not expose whole model documents.
+cause, and changes a publish applied to live data name the publication. Each entry names who made
+it: a person or a system (marked "client") by the name they have now, even once deactivated; "the
+engine" for its own changes. A job's changes name the person or system that asked for it, and a
+publish's those of the person who published. The change feed names the same. History is bounded and
+does not expose whole model documents. A change set names who created it and a change inside it who
+made it; a publication who published it and who withdrew it; a job who asked for it, on its page and
+in the jobs list; and each step in the model editor's history who applied it.
 
-Limits: no authenticated actor until 0.12.
+Limits: changes recorded before 0.12 name nobody and read "Before sign-in". Consumer events name no
+one; the management feed does. The move editor shows no history list; its operations name their
+author through the API.
 
 Evidence: [history panel](../../frontend/src/features/objects/panels/HistoryPanel.tsx),
 [audit](../../backend/app/engine/records/audit.py).
@@ -1278,7 +1285,12 @@ instance. One dialog grants a role from each of these places: who, or where, the
 optionally the applications and record types writes are narrowed to, with a sentence saying what
 the grant will allow. A role that can only be held for the whole instance, such as Security
 administrator, is never granted in a single workspace. The Security pages are shown only to
-security administrators.
+security administrators. A person's page ends with their **recent activity**: what was done to
+them or by them in Security, newest first, each saying who did it: created, granted or ungranted a
+role, added to or removed from a group, a password link made or used, signed in (with the address)
+or a failed sign-in, deactivated. Every change to access and every sign-in is recorded so, and the
+API lists them for a person, a system or the whole instance; no record holds a password, secret or
+link. Their changes to data stay in the workspaces' history.
 
 A system reads a consumer API only where it is granted that API: a security administrator grants a
 client (or a person or group) one consumer API in one workspace, and the system then reads that API

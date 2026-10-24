@@ -20,6 +20,7 @@ import { Tabs } from "@/ui/Tabs";
 import { describeStep, historySteps, undoable } from "@/features/model-editor/history";
 import { elementLabel, nameOf } from "@/features/model-editor/outline";
 import { columnsOfIssue } from "@/features/model-editor/mapping";
+import { ActorName } from "@/ui/ActorName";
 
 /** Where an issue's link goes: the element's own panel, the matrix for a relation between two types. */
 export function selectionFor(element: OutlineElement): EditorSelection {
@@ -110,7 +111,9 @@ export function IssuesAndHistory({
                     <li key={step.step} className={step.undone ? "undone" : undefined}>
                       <span className="editor-history-step">#{step.step}</span>
                       <span className="editor-history-text">{describeStep(step, names)}</span>
-                      <span className="editor-history-at">{formatServerTime(step.at)}</span>
+                      <span className="editor-history-at">
+                        {formatServerTime(step.at)} <ActorName actor={step.entries[0]?.author ?? null} />
+                      </span>
                       <span className="editor-history-state">
                         {step.undone ? "Undone" : step.origin.type === "patch" ? "JSON edit" : "Applied"}
                       </span>

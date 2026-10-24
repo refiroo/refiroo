@@ -55,7 +55,15 @@ with a management token; each OpenAPI document declares the client credentials s
 and `403`; subscriptions name their owner; Access shows "Consumer API: *name*"
 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z3-record-2026-10-24)). Its journeys, every journey
 module reading the consumer API, the contract and foreign-key tests and the `sp1-security` runner on
-two models passed. Next: Z4.
+two models passed. **Z4, audit identity, is delivered (2026-10-24)**, D313–D320: every audit entry
+names its actor beside its cause (the caller, a job's requester, a publication's publisher, or the
+engine; nobody before Z4), shown on record history, the feed and activations; change sets name
+their creator, publications their publisher and withdrawer, jobs their requester and editor
+operations their author; changes to access and sign-ins are security events, read at
+`/security-events` and on a person's Recent activity; consumer events name no one
+([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z4-record-2026-10-24)). Its journeys, the journeys whose
+reads gained a field, the registries and contract tests, the touched Vitest files and the
+`sp1-security` runner on two models passed. Next: Z5.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 

@@ -21,7 +21,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ...models.database import AuthorizationCode, SignInFailure, User, UserSession
-from . import sessions
+from . import security_events, sessions
 from .passwords import digest, hash_secret, new_token, verify_secret
 from .settings import IdentitySettings
 
@@ -118,6 +118,12 @@ def check_password(
     matches = verify_secret(password, stored or _absent_hash())
     if user is None or stored is None or not matches:
         _record_failure(session, username, address, now)
+        # Checked, so bounded by the growing delay; a slowed attempt is only logged (D318).
+        security_events.record(
+            session, "sign-in", user.public_id if user else "unknown", "failed",
+            about=[user.public_id] if user else [], by=None,
+            details={"username": username[:150], "address": address},
+        )  # fmt: skip
         session.commit()
         logger.warning(
             "A sign-in failed",
@@ -129,6 +135,10 @@ def check_password(
             SignInFailure.kind == "account", SignInFailure.key == _keys(username, None)[0][1]
         )
     )
+    security_events.record(
+        session, "sign-in", user.public_id, "succeeded", about=[user.public_id],
+        by=("user", user.id), details={"username": user.username, "address": address},
+    )  # fmt: skip
     session.commit()
     return user
 

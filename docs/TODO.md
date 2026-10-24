@@ -226,6 +226,12 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
+## Left by 0.12 Z4 (2026-10-24)
+
+- [ ] **Retention of security events** (D318): sign-in events, succeeded and failed, are kept
+  forever; a distributed guessing run adds rows the per-account and per-address delay does not
+  bound. Expire `sign-in` events after a setting's period, after 0.12.
+
 ## Found in 0.12 I1 (2026-10-23), not I1's
 
 - [ ] **Flake:** `test_j20_discover::test_the_api_reference_lists_the_consumer_apis[generated-b]`

@@ -61,7 +61,7 @@ from ..reads.snapshot_reads import (
     relation_projection,
 )
 from ..workspaces.catalogue import resolve_workspace
-from .audit import audit_cause_of
+from .audit import audit_actor_of, audit_cause_of
 from .context import load_object
 from .feed import take_positions
 from .writes import LiveWrites
@@ -217,11 +217,13 @@ _LIVE_AUDIT = text(
     ), inserted AS (
         INSERT INTO audit_events (event_id, aggregate_type, aggregate_id, action, version,
             changes, occurred_at, cause_kind, cause_id, workspace_key, feed_position,
-            model_release_id, feed_subject)
+            model_release_id, feed_subject, actor_kind, actor_user_id, actor_client_id)
         SELECT gen_random_uuid()::text, aggregate_type, id, 'deleted', version, changes,
             CAST(:now AS timestamptz), CAST(:cause_kind AS varchar), CAST(:cause_id AS varchar),
             CASE WHEN feed THEN CAST(:workspace AS varchar) END, position,
-            CASE WHEN feed THEN CAST(:release AS integer) END, CASE WHEN feed THEN subject END
+            CASE WHEN feed THEN CAST(:release AS integer) END, CASE WHEN feed THEN subject END,
+            CAST(:actor_kind AS varchar), CAST(:actor_user_id AS integer),
+            CAST(:actor_client_id AS integer)
         FROM placed ORDER BY item, rank, id COLLATE "C"
         RETURNING sequence_id, aggregate_type, aggregate_id, changes
     )
@@ -241,12 +243,14 @@ _CHANGE_SET_AUDIT = text(
     """
     WITH inserted AS (
         INSERT INTO audit_events (event_id, aggregate_type, aggregate_id, action, version,
-            changes, occurred_at, cause_kind, cause_id)
+            changes, occurred_at, cause_kind, cause_id, actor_kind, actor_user_id, actor_client_id)
         SELECT gen_random_uuid()::text, 'change-set-object', o.object_id, 'deleted',
             o.version + 1,
             json_build_object('changeSetId', CAST(:change_set AS varchar),
                 'objectTypeKey', o.object_type_key, 'cascadeRootObjectId', root.object_id),
-            CAST(:now AS timestamptz), CAST(:cause_kind AS varchar), CAST(:cause_id AS varchar)
+            CAST(:now AS timestamptz), CAST(:cause_kind AS varchar), CAST(:cause_id AS varchar),
+            CAST(:actor_kind AS varchar), CAST(:actor_user_id AS integer),
+            CAST(:actor_client_id AS integer)
         FROM deletion_objects o JOIN deletion_roots root ON root.item = o.item
         ORDER BY o.item, o.object_id COLLATE "C"
         RETURNING sequence_id, aggregate_id
@@ -471,6 +475,7 @@ class LiveScope(DeletionScope):
                 "cause_id": cause_id,
                 "workspace": self.workspace_key,
                 "release": release_id,
+                **audit_actor_of(session),
             },
         )
         session.execute(_LIVE_SETS, {"workspace": self.workspace_key, "change_set": None, "now": now})
@@ -540,6 +545,7 @@ class ChangeSetScope(DeletionScope):
                 "now": now,
                 "cause_kind": cause_kind,
                 "cause_id": cause_id,
+                **audit_actor_of(session),
             },
         )
         session.execute(

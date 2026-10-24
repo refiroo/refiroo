@@ -15,6 +15,8 @@ from ...models.database import (
     Workspace,
     WorkspaceModel,
 )
+from ..authorization.writes import requester_of
+from ..identity.principals import columns
 from ..indexes import matrix_states
 from ..indexes.snapshot_values import copy_live, delete_owner_values
 from ..records.relation_set_versions import delete_change_set_relation_set_versions
@@ -78,6 +80,7 @@ def create_change_set(
             )
         model_release_id = publication.model_release_id
     change_set = ChangeSet(
+        **columns(requester_of(session), "created_by"),
         workspace_key=workspace_key,
         model_release_id=model_release_id,
         derived_from_publication_id=source_publication_id,
@@ -126,6 +129,7 @@ def open_job_change_set(
     session.flush()
     copy_live(session, "base", base.id, workspace_key)
     change_set = ChangeSet(
+        **columns(requester_of(session), "created_by"),
         workspace_key=workspace_key,
         model_release_id=model_release_id,
         base_id=base.id,
@@ -227,6 +231,7 @@ def _capture_current_live(
     session.flush()
     copy_live(session, "base", base.id, workspace_key)
     change_set = ChangeSet(
+        **columns(requester_of(session), "created_by"),
         workspace_key=workspace_key,
         model_release_id=model_release_id,
         base_id=base.id,

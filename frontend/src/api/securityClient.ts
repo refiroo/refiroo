@@ -17,6 +17,7 @@ import type {
   PasswordResetLink,
   Role,
   RolePage,
+  SecurityEventPage,
   User,
   UserPage,
 } from "@/types";
@@ -56,6 +57,10 @@ export const security = {
   passwordLink: (userId: string) =>
     request<PasswordResetLink>(`/api/v1/users/${id(userId)}/password-reset`, { method: "POST" }),
   signOutEverywhere: (userId: string) => request<void>(`/api/v1/users/${id(userId)}/sessions`, { method: "DELETE" }),
+  /** Security events newest first: those a person or client made or that are about them (0.12 Z4,
+   * D317, D319). */
+  securityEvents: (principalId: string, cursor?: string, pageSize = 20) =>
+    request<SecurityEventPage>(`/api/v1/security-events${query({ principalId, cursor, pageSize })}`),
   /** A person's grants, direct and through their groups (D299). */
   userGrants: (userId: string, cursor?: string) =>
     request<GrantPage>(`/api/v1/users/${id(userId)}/grants${query({ cursor, pageSize: 100 })}`),

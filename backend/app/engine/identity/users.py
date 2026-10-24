@@ -16,7 +16,7 @@ from ..authorization.administration import (
     refuse_last_administrator,
     security_administrators,
 )
-from . import sessions
+from . import security_events, sessions
 from .passwords import DEFAULT_MIN_LENGTH, check_password, hash_secret
 
 _KEYS = (integer_key("sequenceId", User.id, "id"),)
@@ -77,6 +77,10 @@ def create_user(
         session.flush()
         if roles:
             grant_roles(session, "user", user.id, roles)
+        security_events.record(
+            session, "user", user.public_id, "created", about=[user.public_id],
+            details={"username": user.username, "name": user.name, "roles": list(roles)},
+        )  # fmt: skip
         return user
 
     return _changing(session, change)
@@ -108,6 +112,12 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
             user.active = payload.active
         user.version += 1
         user.updated_at = now
+        changed = sorted(fields - {"expectedVersion"})
+        security_events.record(
+            session, "user", user.public_id, "updated", about=[user.public_id],
+            version=user.version,
+            details=security_events.changed(changed, name=user.name, active=user.active),
+        )  # fmt: skip
         return user
 
     return _changing(session, change)

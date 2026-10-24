@@ -253,6 +253,18 @@ documents read with the browser's token are unaffected for anyone holding Browse
 a later release drops reads `stale: true` and allows nothing. Subscriptions created before Z3 name no
 owner.
 
+**Who changed what** (0.12 Z4): every audit entry names the person or client that made it, or the
+engine (an offline `model_schema_upgrade`, a job submitted before Z2); entries recorded before the
+upgrade name nobody and read "Before sign-in", with no backfill. **Security events** record each
+change to people, groups, roles, grants, clients and token signing keys, and each sign-in, succeeded
+or failed once the password was checked, with the username and the address (the connection's, or
+the proxy's forwarded one when uvicorn trusts it); an attempt refused while an account or address is
+slowed stays a log line (`sign_in_failed`). Read them with `GET /api/v1/security-events`
+(`principalId=`, `aggregateType=`) as a Security administrator, or with a client holding that role
+for a log tool. They never hold a password, secret, link or key, and **nothing expires them yet**:
+the table grows with sign-ins, bounded per account and address by the growing delay (TODO, after
+0.12).
+
 **Locked out:** the engine refuses to remove the last active person holding Security administration
 at the instance (`409 LAST_SECURITY_ADMINISTRATOR`). If every such person is lost anyway, run
 `python -m app.cli.create_admin` on the server: the new person holds Security administration again.

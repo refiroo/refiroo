@@ -16,6 +16,7 @@ const changeSet: ChangeSet = {
   version: 4,
   createdAt: "",
   updatedAt: "",
+  createdBy: null,
 };
 afterEach(() => vi.restoreAllMocks());
 

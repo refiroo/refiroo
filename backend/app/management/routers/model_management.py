@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, Query, Request, Response, status
@@ -387,7 +388,7 @@ def list_model_draft_operations(
         cursor_sort_tokens=("sequence",),
         message=METADATA_CURSOR_MESSAGE,
     )
-    return ModelDraftOperationPage(items=[_entry(row) for row in page.items], **page.links())
+    return ModelDraftOperationPage(items=_entries(session, page.items), **page.links())
 
 
 @router.get(
@@ -524,8 +525,10 @@ def get_model_draft_profile(draft_id: str, session: DbSession) -> ModelDraftProf
     return ModelDraftProfileResponse.model_validate(answer)
 
 
-def _entry(row: ModelDraftOperation) -> ModelDraftOperationEntry:
-    return ModelDraftOperationEntry(**history.entry_response(row))
+def _entries(
+    session: Session, rows: Sequence[ModelDraftOperation]
+) -> list[ModelDraftOperationEntry]:
+    return [ModelDraftOperationEntry(**entry) for entry in history.entry_responses(session, rows)]
 
 
 @router.delete("/model-drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)

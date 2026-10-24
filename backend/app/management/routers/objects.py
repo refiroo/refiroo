@@ -864,7 +864,7 @@ def get_object_history(
             page=paging,
             page_size=page_size,
         )
-        return audit_event_page(events, history_origin(session, item.object_id, events.items))
+        return audit_event_page(session, events, history_origin(session, item.object_id, events.items))
     snapshot = resolve_record_snapshot(session, object_id)
     get_object_type(snapshot.model, object_type_key)
     item = load_object(session, object_id, object_type_key)
@@ -876,4 +876,4 @@ def get_object_history(
         page=paging,
         page_size=page_size,
     )
-    return audit_event_page(events, history_origin(session, item.id, events.items))
+    return audit_event_page(session, events, history_origin(session, item.id, events.items))

@@ -18,6 +18,7 @@ from ...engine.change_sets.pinning import (
 )
 from ...engine.change_sets.publish import publish_change_set, withdraw_publication
 from ...engine.change_sets.validation import validate_change_set
+from ...engine.identity.principals import named, ref
 from ...engine.model.change_set_migrations import submit_change_set_migration
 from ...engine.model.registry import resolve_model_snapshot, resolve_pinned_release
 from ...engine.model.workspace_models import load_assignment
@@ -119,6 +120,7 @@ def _change_set_response(session, item: ChangeSet) -> ChangeSetResponse:
         version=item.version,
         createdAt=item.created_at,
         updatedAt=item.updated_at,
+        createdBy=named(session, ref(item.created_by_user_id, item.created_by_client_id)),
     )
 
 
@@ -138,6 +140,8 @@ def _publication_response(session, item: Publication) -> PublicationResponse:
         publishedAt=item.published_at,
         withdrawnAt=item.withdrawn_at,
         feedPosition=item.feed_position,
+        publishedBy=named(session, ref(item.published_by_user_id, item.published_by_client_id)),
+        withdrawnBy=named(session, ref(item.withdrawn_by_user_id, item.withdrawn_by_client_id)),
     )
 
 

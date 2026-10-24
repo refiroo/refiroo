@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
-from .common import CollectionPage
+from .common import ActorResponse, CollectionPage, PrincipalResponse
 
 
 class ModelPlacementParent(BaseModel):
@@ -153,6 +153,8 @@ class ModelReleaseActivationResponse(BaseModel):
     workspaceKey: str | None = None
     runtimeVersion: int
     occurredAt: datetime
+    # Who made it (0.12 Z4, D313); the engine for an offline schema upgrade, null before Z4.
+    actor: ActorResponse | None
 
 
 class ModelReleaseActivationPage(CollectionPage[ModelReleaseActivationResponse]):
@@ -395,7 +397,8 @@ class ModelDraftOperationEntry(BaseModel):
     parameters: dict[str, Any]
     inverse: dict[str, Any]
     draftVersion: int
-    author: str | None
+    # Who applied it (0.12 Z4, D315); null for an operation from before Z4.
+    author: PrincipalResponse | None
     at: datetime
     undone: bool
     origin: dict[str, Any]

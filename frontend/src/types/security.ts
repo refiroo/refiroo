@@ -14,6 +14,32 @@ export interface Me {
   sessionId: string | null;
 }
 
+/** A person or a client as a read names them now (0.12 Z4, D237). */
+export interface Principal {
+  kind: "user" | "client";
+  id: string;
+  name: string;
+}
+
+/** Who made a change (0.12 Z4, D313): a person, a client or the engine; null before sign-in. */
+export type Actor = Principal | { kind: "engine" };
+
+/** A change to access, or a sign-in (0.12 Z4, D317, D318); `details` never holds a secret. */
+export interface SecurityEvent {
+  id: string;
+  aggregateType: "user" | "group" | "role" | "grant" | "client" | "token-signing-key" | "sign-in";
+  aggregateId: string;
+  action: string;
+  version: number;
+  occurredAt: string;
+  actor: Actor | null;
+  details: Record<string, unknown>;
+}
+
+export interface SecurityEventPage extends PageNavigation {
+  items: SecurityEvent[];
+}
+
 /** One of the person's open browser sessions. */
 export interface SignInSession {
   id: string;

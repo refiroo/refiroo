@@ -1778,6 +1778,11 @@ must be served as well as stewards (the user's ideas, 2026-10-22).
   changes and jobs pass both; a job runs with its requester's permissions, checked at submission,
   confirmation and each step (D294). The write unit learns the caller from a writer the route check
   or the worker puts on the session, and writes nothing without one (D292).
+- **Every change names its actor, from the same writer** (Z4, D313): each audit entry records the
+  person or client the session writes as, beside its cause (a job's entries name the requester, a
+  publication's the publisher), or the engine when nobody is; names are resolved when read (D237).
+  Changes to access and sign-ins are security events in the same log (D317, D318). Consumer events
+  name no actor (D239).
 - **Live and change-set writes are separate permissions** on the same routes: the request's
   `changeSetId` decides which is checked. This is what lets a Contributor change data only by
   proposing it.

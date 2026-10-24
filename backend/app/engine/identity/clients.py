@@ -20,6 +20,7 @@ from ...models.commands import ClientCreate, ClientSecretCreate, ClientUpdate
 from ...models.database import OAuthClient, OAuthClientSecret
 from ..authorization.administration import grant_roles
 from ..reads.object_query import name_contains
+from . import security_events
 from .passwords import hash_secret, verify_secret
 
 _KEYS = (integer_key("sequenceId", OAuthClient.id, "id"),)
@@ -94,6 +95,10 @@ def create_client(
         if roles:
             grant_roles(session, "client", client.id, roles)
         session.flush()
+        security_events.record(
+            session, "client", client.public_id, "created", about=[client.public_id],
+            details={"name": client.name, "roles": list(roles)},
+        )  # fmt: skip
         return client
 
     return _changing(session, change), secret
@@ -107,6 +112,12 @@ def update_client(session: Session, public_id: str, payload: ClientUpdate) -> OA
         if payload.active is not None:
             client.active = payload.active
         _touch(client)
+        fields = sorted(payload.model_fields_set - {"expectedVersion"})
+        security_events.record(
+            session, "client", client.public_id, "updated", about=[client.public_id],
+            version=client.version,
+            details=security_events.changed(fields, name=client.name, active=client.active),
+        )  # fmt: skip
         return client
 
     return _changing(session, change)
@@ -134,6 +145,11 @@ def add_secret(
         session.add(added)
         _touch(client)
         session.flush()
+        security_events.record(
+            session, "client", client.public_id, "secret-added", about=[client.public_id],
+            version=client.version,
+            details={"secretId": added.public_id, "overlapHours": payload.overlapHours},
+        )  # fmt: skip
         return client, added
 
     client, added = _changing(session, change)
@@ -157,6 +173,10 @@ def remove_secret(session: Session, public_id: str, secret_id: str) -> OAuthClie
             )
         session.execute(delete(OAuthClientSecret).where(OAuthClientSecret.id == removed.id))
         _touch(client)
+        security_events.record(
+            session, "client", client.public_id, "secret-removed", about=[client.public_id],
+            version=client.version, details={"secretId": secret_id},
+        )  # fmt: skip
         return client
 
     return _changing(session, change)

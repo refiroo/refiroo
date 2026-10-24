@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ActionGroup, Grant, UserRole } from "@/types";
-import { grantHeld, grantSentence, staleNote, userRoleLine } from "./securityText";
+import type { ActionGroup, Grant, SecurityEvent, UserRole } from "@/types";
+import { grantHeld, grantSentence, securityEventTitle, staleNote, userRoleLine } from "./securityText";
 
 const group = (
   key: string,
@@ -115,5 +115,51 @@ describe("a consumer API grant (Z3, D306)", () => {
     expect(staleNote(consumer(null))).toBe(
       "Stale: consumer API “catalogue” is no longer in this workspace’s model, and allows nothing.",
     );
+  });
+});
+
+describe("securityEventTitle", () => {
+  const event = (aggregateType: SecurityEvent["aggregateType"], action: string, details = {}): SecurityEvent => ({
+    id: `${aggregateType}-${action}`,
+    aggregateType,
+    aggregateId: "x",
+    action,
+    version: 1,
+    occurredAt: "2026-10-24T09:00:00Z",
+    actor: null,
+    details,
+  });
+
+  it("says what happened to or by a person, never a secret (0.12 Z4, D319)", () => {
+    expect(securityEventTitle(event("sign-in", "succeeded", { address: "10.0.4.17" }))).toBe(
+      "Signed in from 10.0.4.17",
+    );
+    expect(securityEventTitle(event("sign-in", "failed", { address: null }))).toBe("Sign-in failed");
+    expect(
+      securityEventTitle(
+        event("grant", "created", { role: { key: "steward", name: "Data steward" }, workspaceKey: "herbarium" }),
+      ),
+    ).toBe("Granted Data steward in herbarium");
+    expect(
+      securityEventTitle(
+        event("grant", "created", { role: { name: "Reader" }, workspaceKey: "herbarium" }),
+        new Map([["herbarium", "Herbarium"]]),
+      ),
+    ).toBe("Granted Reader in Herbarium");
+    expect(
+      securityEventTitle(event("grant", "deleted", { role: null, consumerApi: "catalogue", workspaceKey: "w" })),
+    ).toBe("Grant removed: Consumer API: catalogue in w");
+    expect(securityEventTitle(event("grant", "created", { role: { name: "Operator" }, workspaceKey: null }))).toBe(
+      "Granted Operator in every workspace",
+    );
+    expect(securityEventTitle(event("group", "member-added", { groupName: "Stewards" }))).toBe("Added to Stewards");
+    expect(securityEventTitle(event("user", "updated", { changedFields: ["active"], active: false }))).toBe(
+      "Deactivated",
+    );
+    expect(securityEventTitle(event("user", "updated", { changedFields: ["name", "email"] }))).toBe(
+      "Changed name, email",
+    );
+    expect(securityEventTitle(event("user", "password-link-created"))).toBe("One-time password link made");
+    expect(securityEventTitle(event("token-signing-key", "rotated"))).toBe("Token signing key rotated");
   });
 });

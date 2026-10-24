@@ -14,6 +14,7 @@ import { Notice } from "@/ui/Notice";
 import { PageHeader } from "@/ui/PageHeader";
 import { RuledList, RuledListItem } from "@/ui/RuledList";
 import { StatusPill } from "@/ui/StatusPill";
+import { principalName } from "@/ui/ActorName";
 import { Card } from "@/ui/Card";
 
 export function Publications({
@@ -189,9 +190,14 @@ export function Publications({
   );
 }
 
-/** Secondary text beside a publication number: its model release and publish date. */
+/** Secondary text beside a publication number: its model release, publish date and who published
+ * it, and who withdrew it (0.12 Z4). */
 function publicationContext(publication: Publication) {
-  return `Model ${publication.modelReleaseVersion} · Published ${formatServerTime(publication.publishedAt)}`;
+  const by = (principal: Publication["publishedBy"]) => (principal ? ` by ${principalName(principal)}` : "");
+  const published = `Model ${publication.modelReleaseVersion} · Published ${formatServerTime(publication.publishedAt)}${by(publication.publishedBy)}`;
+  return publication.withdrawnAt && publication.withdrawnBy
+    ? `${published} · Withdrawn${by(publication.withdrawnBy)}`
+    : published;
 }
 
 function CreateChangeSetFromPublication({

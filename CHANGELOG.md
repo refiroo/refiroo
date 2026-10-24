@@ -6,6 +6,27 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 Z4, audit identity)
+
+- **Every change names who made it** (D313): `actor` beside `cause` on a record's history, a feed
+  entry and a release's activation: the person or client by their current name, `{"kind":
+  "engine"}` for the engine's own changes, `null` for changes from before 0.12 ("Before sign-in").
+  A job's changes name its requester, a publish's the publisher. Consumer events name no one (D314).
+- `createdBy` on a change set, `publishedBy` and `withdrawnBy` on a publication, `requestedBy` on a
+  job (D315).
+- **Security events** (D317, D318): `GET /api/v1/security-events` (`principalId=`,
+  `aggregateType=`) lists changes to people, groups, roles, grants, clients and signing keys, and
+  sign-ins, succeeded or failed, with who made them and never a secret.
+- In the interface: "by *name*" in a record's history and the model editor's history, "Created by"
+  on a change set, "Published by" and "Withdrawn by" on a publication, "Requested by" on a job and
+  in the Jobs list, and a person's **Recent activity** in Settings › Security › People (D319, D320).
+
+### Changed (0.12 Z4)
+
+- `author` on a model draft's and a model mapping's operations is now `{kind, id, name}` (or
+  `null`) instead of a string, which was never filled.
+- A subscription's `owner` uses the shared `PrincipalResponse` schema (same fields).
+
 ### Added (0.12 Z3, consumer APIs per client)
 
 - **Consumer API grants** (D306): `POST /api/v1/grants` with `consumerApi` instead of `role` lets a

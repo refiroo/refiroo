@@ -16,6 +16,7 @@ import { PageHeader } from "@/ui/PageHeader";
 import { EmptyState } from "@/ui/EmptyState";
 import { RuledList, RuledListItem } from "@/ui/RuledList";
 import { BelowContextBand } from "@/ui/ContextBandSlot";
+import { principalName } from "@/ui/ActorName";
 import { Card } from "@/ui/Card";
 
 /** An API message followed by more guidance, so the two read as separate sentences. */
@@ -68,6 +69,7 @@ export function ChangeSets({
                 <>
                   Version {changeSet.version} · {changeSetSource(changeSet)} · Model {changeSet.modelReleaseKey}{" "}
                   {changeSet.modelReleaseVersion}
+                  {changeSet.createdBy && ` · Created by ${principalName(changeSet.createdBy)}`}
                 </>
               }
               actions={
@@ -472,6 +474,7 @@ export function ChangeSetActions({
             <span>
               Model {current.modelReleaseKey} {current.modelReleaseVersion}
             </span>
+            {current.createdBy && <span>Created by {principalName(current.createdBy)}</span>}
           </span>
         </div>
         {(!readOnly || (onReview && !reviewing)) && (

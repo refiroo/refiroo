@@ -17,6 +17,8 @@ const current: Publication = {
   createdAt: "2026-09-10T10:00:00Z",
   publishedAt: "2026-09-10T10:00:00Z",
   withdrawnAt: null,
+  publishedBy: null,
+  withdrawnBy: null,
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -65,6 +67,7 @@ describe("workspace publications", () => {
       version: 1,
       createdAt: "",
       updatedAt: "",
+      createdBy: null,
     };
     const create = vi.spyOn(api, "createChangeSetFromPublication").mockResolvedValue(changeSet);
     const withdraw = vi.spyOn(api, "withdrawPublication").mockResolvedValue();

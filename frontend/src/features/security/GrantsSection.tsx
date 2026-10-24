@@ -30,6 +30,12 @@ const KIND: Record<Grant["principal"]["kind"], string> = { user: "Person", group
 /** Every workspace's label by key, retired ones included, for naming where a grant applies. */
 const allWorkspaces = () => api.workspaces({ status: "all", pageSize: 500 });
 
+/** Every workspace's label by key, as the Security pages name workspaces. */
+export function useWorkspaceLabels(): ReadonlyMap<string, string> {
+  const { data } = useSettingsRead(allWorkspaces);
+  return new Map(data?.items.map((workspace) => [workspace.key, workspace.label]));
+}
+
 function principalRoute(principal: Grant["principal"]): SettingsRoute | undefined {
   if (principal.kind === "user") return { kind: "settings", page: "people", userId: principal.id };
   if (principal.kind === "group") return { kind: "settings", page: "groups", groupId: principal.id };
@@ -57,8 +63,7 @@ export function GrantsSection({
   className?: string;
 }) {
   const feed = useCursorFeed(load, deps);
-  const { data: workspacePage } = useSettingsRead(allWorkspaces);
-  const labels = new Map(workspacePage?.items.map((workspace) => [workspace.key, workspace.label]));
+  const labels = useWorkspaceLabels();
   const [granting, setGranting] = useState(false);
   const [removing, setRemoving] = useState<string>();
   const [error, setError] = useState("");

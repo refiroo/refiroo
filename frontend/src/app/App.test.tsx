@@ -717,6 +717,7 @@ describe("App", () => {
       version: 8,
       createdAt: "",
       updatedAt: "",
+      createdBy: null,
     };
     vi.mocked(api.changeSet).mockResolvedValue(changeSet);
     vi.mocked(api.modelRelease).mockResolvedValue({
@@ -775,6 +776,7 @@ describe("App", () => {
       version: 8,
       createdAt: "",
       updatedAt: "",
+      createdBy: null,
     });
     vi.mocked(api.discardChangeSet).mockResolvedValue(undefined);
     vi.mocked(api.objects).mockResolvedValue({ items: [{ ...domainObject, workspaceKey: "west" }], nextCursor: null });
@@ -807,6 +809,7 @@ describe("App", () => {
       version: 8,
       createdAt: "",
       updatedAt: "",
+      createdBy: null,
     };
     const nextModel = {
       ...testModel,
@@ -863,6 +866,8 @@ describe("App", () => {
       status: "withdrawn" as const,
       derivedFromPublicationId: "publication-1",
       supersedesPublicationId: "publication-1",
+      publishedBy: null,
+      withdrawnBy: null,
       createdAt: "2026-09-01T00:00:00Z",
       publishedAt: "2026-09-01T00:00:00Z",
       withdrawnAt: "2026-09-02T00:00:00Z",
@@ -914,6 +919,8 @@ describe("App", () => {
       status: "withdrawn" as const,
       derivedFromPublicationId: null,
       supersedesPublicationId: null,
+      publishedBy: null,
+      withdrawnBy: null,
       createdAt: "",
       publishedAt: "",
       withdrawnAt: "",
@@ -953,6 +960,8 @@ describe("App", () => {
       status: "withdrawn",
       derivedFromPublicationId: null,
       supersedesPublicationId: null,
+      publishedBy: null,
+      withdrawnBy: null,
       createdAt: "",
       publishedAt: "",
       withdrawnAt: "",

@@ -12,7 +12,7 @@ both share one history.
 """
 
 import copy
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
@@ -23,6 +23,8 @@ from sqlalchemy.orm import Session
 from ....common.time import as_utc
 from ....errors import ApiError, api_error
 from ....models.database import ModelDraft, ModelDraftOperation
+from ...authorization.writes import requester_of
+from ...identity.principals import Ref, columns, names, ref
 from ...sources import draft_profile
 from ..compiler import ModelDiagnostic, compile_authored_model
 from ..drafts import load_draft_for_update, update_draft
@@ -280,7 +282,7 @@ def conflict(
     details: dict[str, Any] = {
         "expectedVersion": expected_version,
         "actualVersion": subject.version,
-        "operations": [entry_response(row, owner) for row in rows[:CONFLICT_ENTRIES]],
+        "operations": entry_responses(session, rows[:CONFLICT_ENTRIES], owner),
     }
     if len(rows) > CONFLICT_ENTRIES:
         details["more"] = True
@@ -289,8 +291,17 @@ def conflict(
     )
 
 
-def entry_response(row: Any, owner: Owner | None = None) -> dict[str, Any]:
-    owner = owner or DRAFTS
+def entry_responses(
+    session: Session, rows: Sequence[Any], owner: Owner | None = None
+) -> list[dict[str, Any]]:
+    """The entries as a history reads them, each with its author as they are named now (0.12 Z4,
+    D315); one name lookup for the rows."""
+    authors = names(session, (ref(row.author_user_id, row.author_client_id) for row in rows))
+    return [_entry_response(row, owner or DRAFTS, authors) for row in rows]
+
+
+def _entry_response(row: Any, owner: Owner, authors: dict[Ref, dict[str, str]]) -> dict[str, Any]:
+    author = ref(row.author_user_id, row.author_client_id)
     return {
         "sequence": row.sequence,
         "step": row.step,
@@ -298,7 +309,7 @@ def entry_response(row: Any, owner: Owner | None = None) -> dict[str, Any]:
         "parameters": row.parameters,
         "inverse": row.inverse,
         owner.version_field: owner.row_version(row),
-        "author": row.author,
+        "author": authors.get(author) if author else None,
         "at": as_utc(row.created_at).isoformat().replace("+00:00", "Z"),
         "undone": row.undone_by_step is not None,
         # A proposal step's snapshot is for ownership (0.10 A6, D92), not for readers.
@@ -451,7 +462,7 @@ def _write_entries(
             kind=operation["kind"],
             parameters=result.parameters,
             inverse=result.inverse,
-            author=None,
+            **columns(requester_of(session), "author"),
             origin=origin,
             effects={
                 "created": sorted(result.created),

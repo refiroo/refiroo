@@ -5,6 +5,7 @@
  */
 
 import type { ExportCriterion } from "@/types/integration";
+import type { Principal } from "@/types/security";
 
 export interface MappingAttributeEntry {
   source: string;
@@ -88,6 +89,7 @@ export interface ModelMappingOperationEntry {
   kind: string;
   parameters: Record<string, unknown>;
   mappingVersion: number;
+  author: Principal | null;
   at: string;
   undone: boolean;
   origin: { type: string } & Record<string, unknown>;

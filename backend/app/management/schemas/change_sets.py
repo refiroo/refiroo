@@ -3,7 +3,7 @@ from typing import Any, Literal
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
-from .common import CollectionPage
+from .common import CollectionPage, PrincipalResponse
 from .records import AttributeOutput, ObjectPathPart
 from .workspaces import MigrationTypeMapping
 
@@ -65,6 +65,8 @@ class ChangeSetResponse(BaseModel):
     version: int
     createdAt: datetime
     updatedAt: datetime
+    # Who created it (0.12 Z4, D315); null for one from before Z4.
+    createdBy: PrincipalResponse | None
 
 
 class ChangeSetPage(CollectionPage[ChangeSetResponse]):
@@ -87,6 +89,10 @@ class PublicationResponse(BaseModel):
     # The position of its ``published`` feed entry: live data at that position is the publication,
     # so a feed reader re-syncs from it (INTEGRATION_API F5). None when published before the feed.
     feedPosition: int | None
+    # Who published it, and who withdrew it or published the one that superseded it (0.12 Z4,
+    # D315); null from before Z4, and ``withdrawnBy`` while it is active.
+    publishedBy: PrincipalResponse | None
+    withdrawnBy: PrincipalResponse | None
 
 
 class PublicationPage(CollectionPage[PublicationResponse]):

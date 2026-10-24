@@ -57,6 +57,7 @@ const job = (id: string, overrides: Partial<Job> = {}): Job => ({
   finishedAt: "2026-10-07T08:00:02Z",
   expiresAt: "2026-10-14T08:00:00Z",
   cancelRequestedAt: null,
+  requestedBy: null,
   parameters: {},
   output: null,
   ...overrides,

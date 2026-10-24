@@ -281,7 +281,14 @@ readable and refuse every runtime write. Workspace administration is a deploymen
   another binding of the same relation type.
 - **`audit_events`** is the ordered, append-only record of every change, read by record history and
   by the change feed (ADR-037). A job's writes name the job as their cause, a publish's the
-  publication. An entry that changes live data has its workspace's `feed_position`, the model release
+  publication. Beside the cause, every entry names its actor (`actor_kind` and the person or client):
+  the caller the session writes as (ADR-044's writer, so the actor recorded is the caller checked), a
+  job step's requester, or `engine`; a flush hook in `records/audit.py` fills it on every entry the
+  ORM inserts, and the raw inserts take `audit_actor_of` (0.12 Z4). Names are read through
+  `identity/principals`, one statement per kind for a page. Security events (people, groups, roles,
+  grants, clients, keys, sign-ins) are entries outside every workspace whose subjects are the
+  principals they concern (`identity/security_events`). An entry that changes live data has its
+  workspace's `feed_position`, the model release
   it ran under and `feed_subject` (the type, or relation type and ends, the feed names).
 
 Live records, values and relations are the authority for current data (ADR-026, ADR-027). Records have

@@ -37,6 +37,7 @@ from ...models.commands import (
 )
 from ...models.database import ConsumerSubscription, OAuthClient, User, Workspace
 from ...models.schema import EngineModel
+from ..identity.principals import names, ref
 from ..identity.tokens import PrincipalKind
 from ..model.registry import resolve_model_snapshot
 from ..reads.consumer_events import AFTER_POSITION, EventWindow, check_after, event_window
@@ -433,20 +434,9 @@ def owners(
 ) -> dict[int, dict[str, str]]:
     """Each subscription's owner as it reads (``kind``, ``id``, ``name``), by sequence ID; one
     statement per kind for a page (D310)."""
-    found: dict[int, dict[str, str]] = {}
-    for kind, model, column in (
-        ("user", User, "created_by_user_id"),
-        ("client", OAuthClient, "created_by_client_id"),
-    ):
-        wanted = {getattr(item, column) for item in subscriptions} - {None}
-        if not wanted:
-            continue
-        rows = session.execute(
-            select(model.id, model.public_id, model.name).where(model.id.in_(wanted))
-        )
-        by_row = {row_id: {"kind": kind, "id": public_id, "name": name} for row_id, public_id, name in rows}
-        for item in subscriptions:
-            row_id = getattr(item, column)
-            if row_id in by_row:
-                found[item.sequence_id] = by_row[row_id]
-    return found
+    found = {
+        item.sequence_id: ref(item.created_by_user_id, item.created_by_client_id)
+        for item in subscriptions
+    }
+    resolved = names(session, found.values())
+    return {key: resolved[value] for key, value in found.items() if value in resolved}

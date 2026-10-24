@@ -76,6 +76,8 @@ def transition(model_path: Path) -> str:
                     aggregate_type="workspace_model",
                     aggregate_id=candidate_release.public_id,
                     action="schema_upgraded",
+                    # The offline upgrade is the engine's own change (0.12 Z4, D313).
+                    actor_kind="engine",
                     version=session.get(WorkspaceModel, workspace_key).version,
                     changes={
                         "workspaceKey": workspace_key,

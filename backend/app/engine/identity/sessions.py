@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
 from ...models.database import SessionRefreshToken, User, UserSession
+from . import security_events
 from .passwords import digest, new_token
 from .settings import IdentitySettings
 
@@ -199,6 +200,10 @@ def end_sessions_of(
         else None
     )
     end_all(session, user_id, reason, datetime.now(UTC), keep=kept)
+    security_events.record(
+        session, "user", user_public_id, "signed-out-everywhere", about=[user_public_id],
+        details={"reason": reason, "keptSession": keep},
+    )  # fmt: skip
     session.commit()
 
 

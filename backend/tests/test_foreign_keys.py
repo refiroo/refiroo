@@ -99,6 +99,20 @@ RULES = {
     # Who created a subscription (0.12 Z3, D310), kept alike.
     ("consumer_subscriptions", "created_by_user_id"): ("users", "RESTRICT"),
     ("consumer_subscriptions", "created_by_client_id"): ("oauth_clients", "RESTRICT"),
+    # Who made each change, created a change set, published or withdrew a publication and applied
+    # an operation (0.12 Z4, D313, D315), kept alike.
+    ("audit_events", "actor_user_id"): ("users", "RESTRICT"),
+    ("audit_events", "actor_client_id"): ("oauth_clients", "RESTRICT"),
+    ("change_sets", "created_by_user_id"): ("users", "RESTRICT"),
+    ("change_sets", "created_by_client_id"): ("oauth_clients", "RESTRICT"),
+    ("publications", "published_by_user_id"): ("users", "RESTRICT"),
+    ("publications", "published_by_client_id"): ("oauth_clients", "RESTRICT"),
+    ("publications", "withdrawn_by_user_id"): ("users", "RESTRICT"),
+    ("publications", "withdrawn_by_client_id"): ("oauth_clients", "RESTRICT"),
+    ("model_draft_operations", "author_user_id"): ("users", "RESTRICT"),
+    ("model_draft_operations", "author_client_id"): ("oauth_clients", "RESTRICT"),
+    ("model_mapping_operations", "author_user_id"): ("users", "RESTRICT"),
+    ("model_mapping_operations", "author_client_id"): ("oauth_clients", "RESTRICT"),
     # A person is deactivated, never deleted (D237); their sessions, codes and reset links would go
     # with them. A session ends, never deleted; its refresh tokens would go with it, and a code
     # forgets the session it started (0.12 I2).

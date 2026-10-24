@@ -28,6 +28,7 @@ import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
+import { principalName } from "@/ui/ActorName";
 import { StatusPill } from "@/ui/StatusPill";
 import { RESULT, STATE, cancellable, kindOf } from "@/features/jobs/jobText";
 import { count, jobLimitItems } from "./limits";
@@ -148,7 +149,7 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
         ) : (
           <SettingsTable
             label="Jobs"
-            columns={["Job", "Workspace", "State", "Items", "Created", "Finished", "Actions"]}
+            columns={["Job", "Workspace", "State", "Items", "Requested by", "Created", "Finished", "Actions"]}
           >
             {feed.items.map((job) => (
               <JobRow
@@ -260,6 +261,7 @@ function JobRow({
         {total !== null && ` of ${count(total)}`} processed: {count(applied)} applied, {count(rejected)} rejected,{" "}
         {count(unprocessed)} unprocessed
       </td>
+      <td data-label="Requested by">{job.requestedBy ? principalName(job.requestedBy) : ""}</td>
       <td data-label="Created">{formatServerTime(job.createdAt)}</td>
       <td data-label="Finished">{job.finishedAt ? formatServerTime(job.finishedAt) : ""}</td>
       <td data-label="Actions">

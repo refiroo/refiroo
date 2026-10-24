@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 
 from ..common.pagination import Page
 from ..common.time import as_utc
+from ..engine.authorization.requesters import requester
 from ..engine.events import delivery_log
+from ..engine.identity.principals import actors, named
 from ..engine.imports.profiles import StoredProfile
 from ..engine.jobs.store import release_public_ids
 from ..engine.model.compiler import ModelDiagnostic
@@ -40,6 +42,7 @@ from ..models.database import (
     WorkspaceRuntimeState,
 )
 from ..models.schema import EngineModel
+from .schemas.common import ActorResponse, PrincipalResponse
 from .schemas.consumer_subscriptions import (
     DeliveryAttempt,
     DeliveryAttemptError,
@@ -50,7 +53,6 @@ from .schemas.consumer_subscriptions import (
     DeliveryRow,
     PendingDelivery,
     SubscriptionDelivery,
-    SubscriptionOwner,
     SubscriptionPage,
     SubscriptionResponse,
     SubscriptionSuspension,
@@ -294,7 +296,13 @@ def runtime_state_response(item: WorkspaceRuntimeState) -> WorkspaceRuntimeState
     )
 
 
-def _audit_response(event: AuditEvent, origin: HistoryOrigin | None = None) -> AuditEventResponse:
+def _actor(actor: dict[str, str] | None) -> ActorResponse | None:
+    return ActorResponse.model_validate(actor) if actor else None
+
+
+def _audit_response(
+    event: AuditEvent, actor: dict[str, str] | None, origin: HistoryOrigin | None = None
+) -> AuditEventResponse:
     changed_fields, attribute_type_keys = changed_names(event)
     moved = origin is not None and event.cause_id in origin.moves
     return AuditEventResponse(
@@ -317,16 +325,22 @@ def _audit_response(event: AuditEvent, origin: HistoryOrigin | None = None) -> A
             if event.cause_kind
             else None
         ),
+        actor=_actor(actor),
     )
 
 
 def audit_event_page(
-    events: Page[AuditEvent], origin: HistoryOrigin | None = None
+    session: Session, events: Page[AuditEvent], origin: HistoryOrigin | None = None
 ) -> AuditEventPage:
-    """A page of a record's history; ``origin`` names, on the entries a move caused, where the
-    record came from (0.11 X3, D136)."""
+    """A page of a record's history, each entry with its actor (0.12 Z4); ``origin`` names, on the
+    entries a move caused, where the record came from (0.11 X3, D136)."""
+    named_actors = actors(session, events.items)
     return AuditEventPage(
-        items=[_audit_response(event, origin) for event in events.items], **events.links()
+        items=[
+            _audit_response(event, named_actors[event.sequence_id], origin)
+            for event in events.items
+        ],
+        **events.links(),
     )
 
 
@@ -334,7 +348,9 @@ _FEED_KINDS = {"object": "object", "relation": "relation", "publication": "publi
 _FEED_ACTIONS = {"publication-withdrawn": "withdrawn"}
 
 
-def _feed_entry(event: AuditEvent, releases: dict[int, str]) -> FeedEntry:
+def _feed_entry(
+    event: AuditEvent, releases: dict[int, str], actor: dict[str, str] | None
+) -> FeedEntry:
     subject = event.feed_subject or {}
     changes = event.changes if isinstance(event.changes, dict) else {}
     if event.aggregate_type in ("publication", "workspace"):
@@ -361,6 +377,7 @@ def _feed_entry(event: AuditEvent, releases: dict[int, str]) -> FeedEntry:
         changedFields=changed_fields,
         attributeTypeKeys=attribute_type_keys,
         cause=FeedCause(kind=event.cause_kind or "user", id=event.cause_id),
+        actor=_actor(actor),
         modelReleaseId=releases.get(event.model_release_id),
     )
 
@@ -378,8 +395,12 @@ def feed_page(session: Session, page: FeedRead) -> FeedPage:
         if ids
         else {}
     )
+    named_actors = actors(session, page.entries)
     return FeedPage(
-        items=[_feed_entry(event, releases) for event in page.entries],
+        items=[
+            _feed_entry(event, releases, named_actors[event.sequence_id])
+            for event in page.entries
+        ],
         nextAfter=page.next_after,
         headPosition=page.head_position,
         earliestPosition=page.earliest_position,
@@ -436,6 +457,7 @@ def job_responses(session: Session, jobs: list[Job]) -> list[JobResponse]:
             notices=(job.report or {}).get("notices"),
             migration=(job.report or {}).get("migration"),
             move=(job.report or {}).get("move"),
+            requestedBy=named(session, requester(job)),
         )
         for job in jobs
     ]
@@ -495,7 +517,7 @@ def subscription_response(
         version=item.version,
         createdAt=as_utc(item.created_at),
         updatedAt=as_utc(item.updated_at),
-        owner=SubscriptionOwner.model_validate(owner) if owner else None,
+        owner=PrincipalResponse.model_validate(owner) if owner else None,
         signingSecret=secret,
     )
 

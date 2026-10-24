@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { formatServerTime } from "@/lib/dates";
+import { actorText } from "@/ui/ActorName";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { ModelRelease, ModelReleaseActivation, ModelReleaseDiff, ModelReleaseSummary, Workspace } from "@/types";
@@ -422,10 +423,14 @@ export function ModelReleaseDetail({
 }
 
 function baselineExplanation(baseline: Baseline) {
-  if (baseline.source === "activation")
+  if (baseline.source === "activation") {
+    // Who made it, when recorded (0.12 Z4); a selection from before sign-in names nobody.
+    const actor = baseline.activation?.actor;
+    const by = actor ? ` ${actorText(actor)}` : "";
     return baseline.activation?.kind === "schemaUpgraded"
-      ? "Default: the active release this one replaced in the recorded offline schema upgrade."
-      : "Default: the active release this one replaced when it was first activated.";
+      ? `Default: the active release this one replaced in the recorded offline schema upgrade${by}.`
+      : `Default: the active release this one replaced when it was first activated${by}.`;
+  }
   if (baseline.source === "installation")
     return "Default: the preceding installed release of the same model. No activation of this release is recorded, so this reflects installation order only.";
   return "Chosen baseline.";

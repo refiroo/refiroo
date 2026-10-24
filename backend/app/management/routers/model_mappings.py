@@ -6,6 +6,8 @@ and proposed by an inference.
 and is registered with ``INTEGRATION_JOBS_ENABLED``, as import profiles are (D111).
 """
 
+from collections.abc import Sequence
+
 from fastapi import APIRouter, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -78,15 +80,20 @@ def _step(session: Session, result: history.StepResult) -> ModelMappingStepRespo
     read = mappings.read_mapping(session, result.subject)
     response = ModelMappingStepResponse(
         version=result.subject.version,
-        entries=[_entry(row) for row in result.entries],
+        entries=_entries(session, result.entries),
         problems=read.problems,
     )
     session.commit()
     return response
 
 
-def _entry(row: ModelMappingOperation) -> ModelMappingOperationEntry:
-    return ModelMappingOperationEntry(**history.entry_response(row, mappings.MAPPINGS))
+def _entries(
+    session: Session, rows: Sequence[ModelMappingOperation]
+) -> list[ModelMappingOperationEntry]:
+    return [
+        ModelMappingOperationEntry(**entry)
+        for entry in history.entry_responses(session, rows, mappings.MAPPINGS)
+    ]
 
 
 # --- reads -----------------------------------------------------------------------------------------
@@ -154,7 +161,7 @@ def list_model_mapping_operations(
         page_size=page_size,
         message="Model mapping history cursor is invalid",
     )
-    return ModelMappingOperationPage(items=[_entry(row) for row in page.items], **page.links())
+    return ModelMappingOperationPage(items=_entries(session, page.items), **page.links())
 
 
 @router.get("/model-mappings/{key}/inference", response_model=MappingInferenceResponse)

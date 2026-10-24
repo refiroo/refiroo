@@ -3,12 +3,15 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
+from sqlalchemy import event as orm_event
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...common.encoding import to_jsonable
 from ...common.pagination import Page, PageRequest, datetime_key, integer_key, paginate_statement
 from ...models.database import AuditEvent, AuditEventSubject
+from ..authorization.writes import requester_of
+from ..identity.principals import columns
 from .feed import take_positions
 
 _HISTORY_KEYS = (
@@ -48,6 +51,34 @@ def trial_run(session: Session) -> Iterator[None]:
 def audit_cause_of(session: Session) -> tuple[str | None, str | None]:
     """What ``audit_cause`` names for this session now: the kind and ID, or neither."""
     return session.info.get(_CAUSE, (None, None))
+
+
+def audit_actor_of(session: Session) -> dict[str, Any]:
+    """Who the session's audit entries name as their actor (0.12 Z4, D313), as the three
+    columns: the caller whose writes the session makes (a request's, or a job step's requester),
+    else the engine. The same writer Z2's record-type check trusts."""
+    principal = requester_of(session)
+    return {
+        "actor_kind": principal[0] if principal is not None else "engine",
+        **columns(principal, "actor"),
+    }
+
+
+@orm_event.listens_for(Session, "before_flush")
+def _name_actors(session: Session, _context: Any, _instances: Any) -> None:
+    """Every audit entry the ORM inserts names its actor, however it was built, unless it was built
+    naming one (a failed sign-in names nobody); the raw inserts take ``audit_actor_of``."""
+    added = [
+        item
+        for item in session.new
+        if isinstance(item, AuditEvent) and "actor_kind" not in item.__dict__
+    ]
+    if not added:
+        return
+    actor = audit_actor_of(session)
+    for item in added:
+        for column, value in actor.items():
+            setattr(item, column, value)
 
 
 @dataclass(frozen=True)

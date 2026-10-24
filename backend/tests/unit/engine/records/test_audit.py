@@ -8,14 +8,16 @@ from scenario import W1
 from sqlalchemy import func, select
 
 from app.db import SessionLocal
+from app.engine.authorization.writes import SYSTEM, Writer, writing_as
 from app.engine.records.audit import (
     AuditEntry,
+    audit_actor_of,
     audit_cause,
     record_audit_event,
     record_audit_events,
     trial_run,
 )
-from app.models.database import AuditEvent, AuditEventSubject, Workspace
+from app.models.database import AuditEvent, AuditEventSubject, OAuthClient, User, Workspace
 
 
 def _both(session, aggregate_id: str):
@@ -67,4 +69,32 @@ def test_a_trial_run_records_no_entry_and_takes_no_feed_position(seeded):
         events, subjects, _position = written()
         assert (len(recorded), events, subjects) == (1, before[0] + 1, before[1] + 1)
         assert recorded[0].feed_position is not None
+        session.rollback()
+
+
+def test_entries_name_whoever_the_session_writes_as(seeded):
+    """0.12 Z4 (D313): an entry names the caller the session writes as, a request's or a job
+    step's requester, whichever way it was built; with no caller, or a job without a requester,
+    the engine; one built naming nobody (a failed sign-in) keeps that."""
+    with SessionLocal() as session:
+        person = User(username="audit-unit", name="Audit unit", active=True)
+        client = OAuthClient(name="Audit unit client", active=True)
+        session.add_all([person, client])
+        session.flush()
+        for principal in (("user", person.id), ("client", client.id)):
+            with writing_as(session, Writer(None, (), "records.write", principal=principal)):
+                assert audit_actor_of(session)["actor_kind"] == principal[0]
+                for event in _both(session, f"{principal[0]}-entry"):
+                    assert event.actor_kind == principal[0]
+                    assert (event.actor_user_id or event.actor_client_id) == principal[1]
+        with writing_as(session, SYSTEM):
+            assert {e.actor_kind for e in _both(session, "requester-less")} == {"engine"}
+        assert {e.actor_kind for e in _both(session, "no-writer")} == {"engine"}
+        nobody = AuditEvent(
+            aggregate_type="sign-in", aggregate_id="x", action="failed", version=1, changes={},
+            actor_kind=None,
+        )  # fmt: skip
+        session.add(nobody)
+        session.flush()
+        assert nobody.actor_kind is None
         session.rollback()
