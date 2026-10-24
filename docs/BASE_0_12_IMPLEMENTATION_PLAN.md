@@ -1966,8 +1966,8 @@ not do ("You can read this workspace"). A Reader's record view has no edit affor
 Contributor (D231) edits only in change sets: the record view offers "Propose a change", which opens
 or continues their change set, instead of saving live. Every guard stays on the server; the interface
 only avoids offering what would be refused. _Amended after Z2 (the user, 2026-10-24):_ Z5's checks
-include the full backend suite, announced with its expected time, which closes Track Z and stands
-for Z1's, Z2's, Z3's and Z4's; a failure it finds from them is fixed in Z5 and named in its record.
+included the full backend suite; _moved to Z6 by the user (2026-10-24),_ since Z6 now closes Track Z.
+Z5's checks are its own groups.
 _Found in SP1 (2026-10-24):_ a person without Browse in the default workspace (a person just
 created and given a role elsewhere, or none) sees only "Reading the model in workspace 'default'
 needs Browse" instead of the application; Z5 opens the application in a workspace they may use and
@@ -1987,8 +1987,9 @@ Security administrator without data roles therefore sees none of the data change
 stay apart from Recent activity's security events (D319). In the interface, a "Changes" view
 reachable from a person, and from a client once SP2 builds its page. The plan settles the route
 (a filter on a general audit read, or one per principal), the time filter, the view's place and
-mock-up, and the journey (J44 variant). Its checks are its own groups; Z5's full suite does not
-cover it.
+mock-up, and the journey (J44 variant). _Moved from Z5 by the user (2026-10-24):_ Z6's checks
+include the full backend suite, announced with its expected time, which closes Track Z and stands
+for Z1's to Z5's; a failure it finds from them is fixed in Z6 and named in its record.
 
 ### Track SP — The Security pages (U8)
 
