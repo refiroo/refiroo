@@ -122,7 +122,10 @@ Publications stay immutable in meaning and shape. Do not make targeted redaction
 keep stored values in places a redaction can reach (value rows, `snapshot_attribute_values`, search
 indexes) and keep complete before/after value blobs out of audit event payloads, as Base 0.5 already
 requires. A redaction would replace a value and record an audit event; it would not remove the record,
-the publication or the history entry.
+the publication or the history entry. Since 0.12 RH1 (D389) a record's history shows the values its
+entries stored (`changes.attributes`, a name's or parent's `from` and `to`), so a redaction must also
+replace the value in those entries; they are the only other place a value is kept, and the feed and
+consumer events keep names only.
 
 ### Inbound flow
 

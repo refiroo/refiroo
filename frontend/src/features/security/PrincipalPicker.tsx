@@ -23,11 +23,14 @@ export function PrincipalPicker({
   label,
   kinds,
   description,
+  exclude,
   onPick,
 }: {
   label: string;
   kinds: readonly PrincipalKind[];
   description?: string;
+  /** A principal not offered: the person a link moves from. */
+  exclude?: string;
   onPick: (principal: PickedPrincipal | undefined) => void;
 }) {
   const [text, setText] = useState("");
@@ -38,6 +41,7 @@ export function PrincipalPicker({
   const [picked, setPicked] = useState<PickedPrincipal>();
   const search = useDebouncedValue(text.trim());
   const kindsKey = kinds.join(",");
+  const excluded = exclude;
 
   useEffect(() => {
     let active = true;
@@ -73,14 +77,14 @@ export function PrincipalPicker({
     ])
       .then((lists) => {
         if (!active) return;
-        setFound(lists.flat());
+        setFound(lists.flat().filter((item) => item.id !== excluded));
         setError("");
       })
       .catch((cause) => active && setError(errorMessage(cause)));
     return () => {
       active = false;
     };
-  }, [search, kindsKey]);
+  }, [search, kindsKey, excluded]);
 
   const options: SelectionOption[] = found.map((item) => ({
     id: `${item.kind}:${item.id}`,

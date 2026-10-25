@@ -369,11 +369,12 @@ try {
   expect((await h.item("Logistics").getAttribute("aria-level")) === "4", "publish: Logistics is not drawn under Domain 00 in the live tree");
   await page.goto(`${uiUrl}/apps/rdm-master/objects/master-value/${seed.carriers.id}?${live}`);
   const historyPanel = page.locator(".history-panel");
-  await historyPanel.getByText("Record reclassified").first().waitFor();
+  // Since 0.12 RH1 a record's history says a reclassification as "Type changed".
+  await historyPanel.getByText("Type changed").first().waitFor();
   await h.shot("c5-live-history-1440");
   await page.goto(`${uiUrl}/apps/rdm-master/objects/codelist/${seed.carriers.id}?${live}`);
   await page.waitForURL((url) => url.pathname.includes(`/objects/master-value/${seed.carriers.id}`));
-  checks.push("publish (browser): the live tree draws Logistics under Domain 00, the lens search reveals Carriers with the breadcrumb Domain 00 › Logistics, its history panel lists Record reclassified, and its old codelist route follows to the master value (D42)");
+  checks.push("publish (browser): the live tree draws Logistics under Domain 00, the lens search reveals Carriers with the breadcrumb Domain 00 › Logistics, its history panel lists the type change, and its old codelist route follows to the master value (D42)");
 
   // Change back in a second change set: Carriers becomes a codelist again and gets its flags back.
   const back = await api("/workspaces/default/change-sets", { name: "Carriers back", source: "currentLive" });

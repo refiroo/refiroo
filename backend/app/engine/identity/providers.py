@@ -25,6 +25,8 @@ from . import provider_client, security_events
 from .settings import IdentitySettings
 
 LOCAL = "local"
+# A session's signed_in_with is a provider's key, or one of these ways in.
+RESERVED_KEYS = (LOCAL, "password", "passkey")
 _KEYS = (integer_key("sequenceId", SignInProvider.id, "id"),)
 
 
@@ -39,6 +41,16 @@ def client_secret(settings: IdentitySettings, provider: SignInProvider) -> str:
 def redirect_uri(settings: IdentitySettings, key: str) -> str:
     """The address to register with the provider: where it returns the browser (D366)."""
     return f"{settings.issuer}/oauth/providers/{key}/callback"
+
+
+def signed_out_uri(settings: IdentitySettings, key: str) -> str:
+    """The address to register for signing out of the provider: where it returns the browser
+    (I4a, D379)."""
+    return f"{settings.issuer}/oauth/providers/{key}/signed-out"
+
+
+def id_token_context(session_key: str) -> bytes:
+    return b"provider-id-token:" + session_key.encode()
 
 
 def _changing[T](session: Session, change: Callable[[], T]) -> T:
@@ -120,6 +132,18 @@ def _check(issuer: str) -> None:
         ) from None
 
 
+def _check_sign_out(issuer: str) -> None:
+    try:
+        provider_client.check_sign_out(issuer)
+    except provider_client.ProviderError as error:
+        raise api_error(
+            422,
+            "SIGN_IN_PROVIDER_UNREACHABLE",
+            f"The provider at {issuer!r} cannot sign people out: {error}",
+            {"reason": str(error), "kind": error.kind},
+        ) from None
+
+
 def _groups_claim(value: str | None) -> str | None:
     return (value or "").strip() or None
 
@@ -127,11 +151,13 @@ def _groups_claim(value: str | None) -> str | None:
 def create_provider(
     session: Session, settings: IdentitySettings, payload: SignInProviderCreate
 ) -> SignInProvider:
-    if payload.key == LOCAL:
+    if payload.key in RESERVED_KEYS:
         raise _key_taken()
     issuer = payload.issuer.strip()
     if payload.enabled:
         _check(issuer)
+    if payload.signOutOfProvider:
+        _check_sign_out(issuer)
 
     def change() -> SignInProvider:
         if session.scalar(select(SignInProvider.id).where(SignInProvider.key == payload.key)):
@@ -146,13 +172,15 @@ def create_provider(
             ),
             groups_claim=_groups_claim(payload.groupsClaim),
             enabled=payload.enabled,
+            sign_out_of_provider=payload.signOutOfProvider,
         )
         session.add(provider)
         session.flush()
         security_events.record(
             session, "sign-in-provider", provider.key, "created",
             details={"name": provider.name, "issuer": provider.issuer,
-                     "groupsClaim": provider.groups_claim, "enabled": provider.enabled},
+                     "groupsClaim": provider.groups_claim, "enabled": provider.enabled,
+                     "signOutOfProvider": provider.sign_out_of_provider},
         )  # fmt: skip
         return provider
 
@@ -164,7 +192,7 @@ def _end_sessions(session: Session, key: str, now: datetime) -> None:
     session.execute(
         update(UserSession)
         .where(UserSession.signed_in_with == key, UserSession.ended_at.is_(None))
-        .values(ended_at=now, ended_reason="providerDisabled"),
+        .values(ended_at=now, ended_reason="providerDisabled", provider_id_token=None),
         execution_options={"synchronize_session": "fetch"},
     )
 
@@ -178,6 +206,13 @@ def update_provider(
     enabled = payload.enabled if payload.enabled is not None else current.enabled
     if enabled and ({"issuer", "enabled"} & fields):
         _check(issuer)
+    sign_out = (
+        payload.signOutOfProvider
+        if payload.signOutOfProvider is not None
+        else current.sign_out_of_provider
+    )
+    if sign_out and ({"issuer", "signOutOfProvider"} & fields):
+        _check_sign_out(issuer)
 
     def change() -> SignInProvider:
         provider = load_provider(session, key, for_update=True)
@@ -198,6 +233,7 @@ def update_provider(
         if provider.enabled and not enabled:
             _end_sessions(session, provider.key, now)
         provider.enabled = enabled
+        provider.sign_out_of_provider = sign_out
         provider.version += 1
         provider.updated_at = now
         security_events.record(
@@ -205,6 +241,7 @@ def update_provider(
             details=security_events.changed(
                 sorted(fields), name=provider.name, issuer=provider.issuer,
                 groupsClaim=provider.groups_claim, enabled=provider.enabled,
+                signOutOfProvider=provider.sign_out_of_provider,
             ),
         )  # fmt: skip
         return provider
@@ -266,7 +303,8 @@ def set_local(session: Session, payload: LocalSignInUpdate) -> LocalSignIn:
         state = local_state(session, for_update=True)
         if state.version != payload.expectedVersion:
             raise _stale("Local sign-in", state.version)
-        if state.enabled and not payload.enabled:
+        changed: list[str] = []
+        if payload.enabled is not None and state.enabled and not payload.enabled:
             working = session.scalar(
                 select(
                     exists().where(
@@ -282,17 +320,38 @@ def set_local(session: Session, payload: LocalSignInUpdate) -> LocalSignIn:
                     "Local sign-in stays on until an enabled sign-in provider has signed someone "
                     "in, so nobody is locked out",
                 )
-        if state.enabled != payload.enabled:
+        if payload.enabled is not None and state.enabled != payload.enabled:
             state.enabled = payload.enabled
+            changed.append("enabled")
+        required = payload.secondFactorRequired
+        if required is not None and state.second_factor_required != required:
+            state.second_factor_required = required
+            changed.append("secondFactorRequired")
+        if changed:
             state.version += 1
             state.updated_at = datetime.now(UTC)
             security_events.record(
                 session, "sign-in-provider", LOCAL, "updated", version=state.version,
-                details={"changedFields": ["enabled"], "enabled": state.enabled},
+                details=security_events.changed(
+                    changed, enabled=state.enabled,
+                    secondFactorRequired=state.second_factor_required,
+                ),
             )  # fmt: skip
         return state
 
     return _changing(session, change)
+
+
+def refuse_last_kept(session: Session, user: User) -> None:
+    """While local sign-in is off, the last active person who keeps it is the way back (I4a,
+    D381): they neither lose it nor are deactivated."""
+    if user.local_kept and user.active and not local_enabled(session) and kept_people(session) <= 1:
+        raise api_error(
+            409,
+            "LAST_LOCAL_ADMINISTRATOR",
+            "Local sign-in is off and this is the last person who keeps it; turn local sign-in "
+            "on, or let someone else keep it first",
+        )
 
 
 def refuse_while_off(session: Session, user: User) -> None:

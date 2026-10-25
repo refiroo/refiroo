@@ -1,10 +1,20 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
+// The dev server over https on the network (`scripts/dev.sh frontend --network`, 0.12 D411): the
+// certificate files the script made. Without them it is plain http on localhost, as before.
+const certificate = process.env.DEV_HTTPS_CERT && process.env.DEV_HTTPS_KEY;
+
 export default defineConfig({
   plugins: [react()],
+  server: certificate
+    ? {
+        https: { cert: readFileSync(process.env.DEV_HTTPS_CERT!), key: readFileSync(process.env.DEV_HTTPS_KEY!) },
+      }
+    : undefined,
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

@@ -168,12 +168,26 @@ export async function authorizedFetch(input: string, init: RequestInit = {}): Pr
   return signIn(here(), true);
 }
 
-/** Sign out: the engine ends the session and clears its cookie; the sign-in page follows. */
-export async function signOut(): Promise<void> {
-  try {
-    await fetch(`${API_URL}/oauth/revoke`, { method: "POST", credentials: "include" });
-  } finally {
-    accessToken = undefined;
-  }
-  await signIn("/");
+/**
+ * Add a passkey on the engine's own page (0.12 I4c, D392): a passkey belongs to the engine's host,
+ * so the browser's prompt runs there, and the page returns here when it is done.
+ */
+export function addPasskey(): Promise<never> {
+  const query = new URLSearchParams({ return: `${window.location.origin}/settings/account` });
+  browserNavigation.go(`${API_URL}/oauth/passkeys/new?${query}`);
+  // The page is leaving; nothing after this should run.
+  return new Promise<never>(() => undefined);
+}
+
+/**
+ * Sign out by navigation (0.12 I4a, D380): the engine ends the session from its cookie and sends the
+ * browser back to the app, by way of the provider's own sign-out when the provider that started
+ * the session signs people out too; the app then finds no session and shows the sign-in page.
+ */
+export function signOut(): Promise<never> {
+  accessToken = undefined;
+  const query = new URLSearchParams({ return: `${window.location.origin}/` });
+  browserNavigation.go(`${API_URL}/oauth/sign-out?${query}`);
+  // The page is leaving; nothing after this should run.
+  return new Promise<never>(() => undefined);
 }

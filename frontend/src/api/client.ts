@@ -32,6 +32,7 @@ import type {
   RelationRecord,
   RelationUpdateInput,
   AuditEventPage,
+  HistoryKind,
   ObjectSort,
   CollectionFilter,
   CapabilitiesResponse,
@@ -43,6 +44,9 @@ import type {
   BackupRehearsalPage,
   Me,
   SignInSession,
+  MySecondFactor,
+  Passkey,
+  SecondFactorEnrolment,
   Grant,
   HeldAnywhereList,
   OwnChangeSetPage,
@@ -510,6 +514,38 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
+  /** The caller's second factor: whether an authenticator app is set up, its recovery codes left and
+   * whether the instance requires one (0.12 I4b). */
+  mySecondFactor: () => request<MySecondFactor>("/api/v1/me/second-factor"),
+  /** A new secret to set up, answered once: the key, the address and a drawn QR code (D386). */
+  startSecondFactor: () => request<SecondFactorEnrolment>("/api/v1/me/second-factor", { method: "POST" }),
+  /** A code from the app turns it on and answers ten recovery codes, once (D385). */
+  confirmSecondFactor: (code: string) =>
+    request<{ recoveryCodes: string[] }>("/api/v1/me/second-factor/confirmation", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+  /** Ten new recovery codes on a code from the app or a recovery code; the old ones stop working. */
+  newRecoveryCodes: (code: string) =>
+    request<{ recoveryCodes: string[] }>("/api/v1/me/second-factor/recovery-codes", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+  /** The caller's passkeys (I4c); one is added on the engine's own page, `addPasskey`. */
+  myPasskeys: () => allPages<Passkey>("/api/v1/me/passkeys"),
+  renamePasskey: (passkeyId: string, name: string) =>
+    request<Passkey>(`/api/v1/me/passkeys/${encodeURIComponent(passkeyId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    }),
+  /** `proof` is the password, or a code from the app or a recovery code (asked again, I4 review). */
+  removePasskey: (passkeyId: string, proof: string) =>
+    request<void>(`/api/v1/me/passkeys/${encodeURIComponent(passkeyId)}`, {
+      method: "DELETE",
+      body: JSON.stringify({ proof }),
+    }),
+  removeMySecondFactor: (code: string) =>
+    request<void>("/api/v1/me/second-factor", { method: "DELETE", body: JSON.stringify({ code }) }),
   /** Backup rehearsals, newest first, one page. */
   backupRehearsals: (cursor?: string) => {
     const params = new URLSearchParams({ pageSize: "20" });
@@ -1381,9 +1417,15 @@ export const api = {
     }
     return request<void>(`/api/v1/relations/${encodeURIComponent(relationId)}?${params}`, { method: "DELETE" });
   },
-  objectHistory: (objectTypeKey: string, objectId: string, options: { cursor?: string; pageSize?: number } = {}) => {
+  objectHistory: (
+    objectTypeKey: string,
+    objectId: string,
+    options: { cursor?: string; pageSize?: number; kind?: HistoryKind; actorId?: string } = {},
+  ) => {
     const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 20) });
     if (options.cursor) params.set("cursor", options.cursor);
+    if (options.kind) params.set("kind", options.kind);
+    if (options.actorId) params.set("actorId", options.actorId);
     return request<AuditEventPage>(
       `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/history?${params}`,
     );

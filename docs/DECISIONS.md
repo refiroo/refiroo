@@ -1429,7 +1429,10 @@ changed, whose edits had been audited earlier as change-set edits.
   publication a valid re-sync baseline.
 - **Entries carry identity and changed keys, never values**, including for `reclassified`, whose full
   before state stays in the audit log only. Readers fetch values when they need them; a redaction
-  never rewrites the feed.
+  never rewrites the feed. _Amended 2026-10-25 (0.12 RH1, D389, D16 revised for history only):_ a
+  record's history answers the values each entry stored, with the value before from the record's
+  previous entry; the feed and consumer events are unchanged, and a redaction must also clean the
+  values the audit log stores (COMPOSABLE_DOMAINS, History and erasure).
 - **Retention is a setting** (30 days by default) shared by the raw feed and consumer events; an
   expired position answers `410` with the baselines to recover from (a publication or an export, each
   with its position). The setting does not prune the audit log.
@@ -1731,14 +1734,24 @@ the consumer APIs alike (ROADMAP), with no API keys and no credential in a URL (
 
 - Every test harness obtains real tokens (I1); the browser reads its job stream and downloads with
   `fetch`, since `EventSource` and links cannot carry the header.
-- An installation with local accounts only has no second factor; OPERATIONS advises a provider in
-  production.
+- Local accounts have an optional second factor, an authenticator app with recovery codes, which an
+  administrator can require with every password (0.12 I4b, D383–D388; D225 revised); OPERATIONS still
+  advises a provider in production. Passkeys are a second factor and a way in alone (0.12 I4c,
+  D389–D394), verified by `webauthn`, bound to the host of `PUBLIC_URL`; the engine's pages run one
+  script of its own where a passkey is offered, and none elsewhere (D390; D275 revised).
 - A stolen access token works for up to an hour while its holder stays active.
 - A person signing in through a provider is found by the provider and the token's subject, never by
   e-mail, and created at their first sign-in (0.12 I3, D363); someone with a local account becomes
   a second person. A provider's groups are groups of the engine whose membership each sign-in sets
   (D364). Local sign-in can be turned off once a provider works, the administrators made on the
   server keeping it as the way back (D365).
+- An administrator moves a provider identity onto the person who already had a local account after
+  the first sign-in made a new one, never automatically and never by e-mail (0.12 I4a, D377); it
+  moves the identity and provider groups, deactivates the new person, and is refused for a person
+  with a password, direct roles or local groups (D378). Signing out of a provider is per provider and
+  off by default (D379); the app signs out by navigation so the engine can send the browser on with
+  the ID token it kept sealed (D380). While local sign-in is off, the last person who keeps it
+  cannot lose it (D381).
 
 ## ADR-044 — Authorization: action groups, roles and grants
 

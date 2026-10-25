@@ -2060,6 +2060,8 @@ class SignInProvider(Base):
     client_secret: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     groups_claim: Mapped[str | None] = mapped_column(String(200), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Signing out of the engine signs the person out of the provider too (I4a, D379).
+    sign_out_of_provider: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
@@ -2078,6 +2080,8 @@ class LocalSignIn(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # A password needs a second factor: an authenticator app set up on the sign-in page (I4b, D388).
+    second_factor_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
@@ -2229,6 +2233,9 @@ class UserSession(Base):
     ends_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
     ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     ended_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # The provider's ID token, sealed, kept while the session is open when its provider signs
+    # people out too (I4a, D380).
+    provider_id_token: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
 
 class SessionRefreshToken(Base):
@@ -2260,6 +2267,8 @@ class AuthorizationCode(Base):
     redirect_uri: Mapped[str] = mapped_column(Text, nullable=False)
     code_challenge: Mapped[str] = mapped_column(String(128), nullable=False)
     signed_in_with: Mapped[str] = mapped_column(String(64), nullable=False)
+    # The provider's ID token, sealed, handed on to the session the code starts (I4a, D380).
+    provider_id_token: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
     used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
@@ -2267,6 +2276,83 @@ class AuthorizationCode(Base):
     session_id: Mapped[int | None] = mapped_column(
         ForeignKey("user_sessions.id", ondelete="SET NULL"), nullable=True
     )
+
+
+class UserSecondFactor(Base):
+    """A person's authenticator app (Product 0.12 I4b, D383, D384): the TOTP secret sealed with
+    ``SECRETS_ENCRYPTION_KEY``, confirmed once the person typed a code from it (none while they are
+    setting it up), and the last time step a code was accepted for, so each works once."""
+
+    __tablename__ = "user_second_factors"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    secret: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    last_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+
+class UserRecoveryCode(Base):
+    """One of a person's recovery codes (I4b, D385), stored as its SHA-256; used once."""
+
+    __tablename__ = "user_recovery_codes"
+    __table_args__ = (Index("ix_user_recovery_codes_user", "user_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class SignInStep(Base):
+    """A sign-in between the right password and its second step (I4b, D388), stored as the token's
+    SHA-256 with the browser's authorization request. ``stage``: ``code`` (a second factor to
+    present), ``setup`` (the requirement is on and the person sets one up), ``codes`` (set up; the
+    recovery codes are shown before the sign-in goes on), and for a passkey (I4c) ``passkey-add``
+    (a person registering one) and ``passkey-in`` (signing in with one alone). Used once, within
+    ``expires_at``."""
+
+    __tablename__ = "sign_in_steps"
+    __table_args__ = (Index("ix_sign_in_steps_expires", "expires_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    # None for a passkey ceremony used before anyone is known (I4c, D393).
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
+    stage: Mapped[str] = mapped_column(String(16), nullable=False)
+    request: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    # The challenge of a passkey ceremony in progress (I4c).
+    challenge: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class UserPasskey(Base):
+    """A person's passkey (Product 0.12 I4c, D389–D394): a WebAuthn credential the engine verifies
+    with its public key; ``sign_count`` is the authenticator's last counter. The name is the
+    person's, to tell their passkeys apart."""
+
+    __tablename__ = "user_passkeys"
+    __table_args__ = (Index("ix_user_passkeys_user", "user_id", "id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, default=lambda: str(uuid4())
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    credential_id: Mapped[bytes] = mapped_column(LargeBinary, unique=True, nullable=False)
+    public_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    sign_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class PasswordResetLink(Base):

@@ -45,11 +45,15 @@ describe("HistoryPanel", () => {
       });
     render(<HistoryPanel objectTypeKey="domain" objectId={domainObject.id} />);
     expect(await screen.findByText("Record updated")).toBeInTheDocument();
+    // The 10 newest first, then 20 more (0.12 RH1, D393).
+    expect(api.objectHistory).toHaveBeenLastCalledWith("domain", domainObject.id, { pageSize: 10 });
+    // Opened, an entry that kept names only says what changed and who made it (0.12 Z4, D320).
+    fireEvent.click(screen.getByRole("button", { name: /Record updated/ }));
     expect(screen.getByText("Changed name")).toBeInTheDocument();
-    // Who made each change (0.12 Z4, D320): a client by name, and nobody before sign-in.
     expect(screen.getByText("by Catalogue sync (client)")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Load older history" }));
     expect(await screen.findByText("Field value added")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Field value added/ }));
     expect(screen.getByText("Changed code")).toBeInTheDocument();
     expect(screen.getByText("Before sign-in")).toBeInTheDocument();
     await waitFor(() =>
@@ -130,8 +134,71 @@ describe("HistoryPanel", () => {
     render(<HistoryPanel model={testModel} objectTypeKey="domain" objectId={domainObject.id} />);
     expect(await screen.findByText("Relationship created")).toBeInTheDocument();
     expect(screen.getByText("Record created")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Record created/ }));
     expect(screen.getByText("Changed Code")).toBeInTheDocument();
     expect(screen.queryByText(/expectedChangeSetVersion|fromObjectId|initialRelations|objectTypeKey/)).toBeNull();
+  });
+
+  it("shows each value with the one before, and says where the one before was not recorded (0.12 RH1)", async () => {
+    vi.mocked(api.objectHistory).mockResolvedValueOnce({
+      items: [
+        {
+          id: "event-5",
+          aggregateType: "object",
+          aggregateId: domainObject.id,
+          action: "updated",
+          version: 3,
+          changedFields: ["attributes", "name"],
+          attributeTypeKeys: ["code"],
+          occurredAt: "2026-09-06T10:00:00Z",
+          actor: null,
+          kind: "values",
+          values: [
+            { field: "name", kind: "name", from: "Old name", to: "New name", fromKnown: true },
+            { field: "code", kind: "attribute", from: null, to: "C-2", fromKnown: false },
+          ],
+        },
+      ],
+      nextCursor: null,
+    });
+    render(<HistoryPanel model={testModel} objectTypeKey="domain" objectId={domainObject.id} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Name and Code changed/ }));
+    expect(screen.getByText("Old name")).toBeInTheDocument();
+    expect(screen.getByText("New name")).toBeInTheDocument();
+    expect(screen.getByText("not recorded")).toBeInTheDocument();
+    expect(screen.getByText("C-2")).toBeInTheDocument();
+  });
+
+  it("asks the API for one kind of change, and shows fewer again after loading older ones", async () => {
+    const entry = (index: number) => ({
+      id: `event-${index}`,
+      aggregateType: "object",
+      aggregateId: domainObject.id,
+      action: "updated",
+      version: index,
+      changedFields: ["name"],
+      attributeTypeKeys: [],
+      occurredAt: `2026-09-0${1 + (index % 8)}T10:00:00Z`,
+      actor: null,
+    });
+    vi.mocked(api.objectHistory)
+      .mockResolvedValueOnce({ items: Array.from({ length: 10 }, (_, index) => entry(index)), nextCursor: "older" })
+      .mockResolvedValueOnce({ items: Array.from({ length: 5 }, (_, index) => entry(index + 10)), nextCursor: null })
+      .mockResolvedValueOnce({ items: [], nextCursor: null });
+    render(<HistoryPanel objectTypeKey="domain" objectId={domainObject.id} />);
+    expect(await screen.findByText("Showing 10 changes")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Load older history" }));
+    expect(await screen.findByText("Showing 15 changes")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(screen.getByText("Showing 10 changes")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Relationships" }));
+    await waitFor(() =>
+      expect(api.objectHistory).toHaveBeenLastCalledWith("domain", domainObject.id, {
+        pageSize: 10,
+        kind: "relationships",
+      }),
+    );
+    expect(await screen.findByText("No change matches.")).toBeInTheDocument();
   });
 
   it("reads through the page's client, so a new type's empty record in the preview asks the server nothing", async () => {

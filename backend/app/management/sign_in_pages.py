@@ -1,9 +1,11 @@
 """The engine's own pages: signing in and setting a password (Product 0.12 I2, I3, U8, D275).
 
-Plain HTML built here with every value escaped: no template library and no script, so nothing on
-the page can read a password. The colours are the app's tokens (``frontend/src/styles/tokens.css``),
-light or dark by the device. Every page is sent with a policy that allows no script, no framing and
-form posts to the engine alone, redirecting to the browser's origins (D267).
+Plain HTML built here with every value escaped: no template library, so nothing on the page can
+read a password. The colours are the app's tokens (``frontend/src/styles/tokens.css``), light or
+dark by the device. A page is sent with a policy that allows no script, no framing and form posts to
+the engine alone, redirecting to the browser's origins (D267). Only a page that offers a passkey
+(I4c, D390) loads a script, the engine's own ``/oauth/passkey.js`` and no other: ``script-src
+'self'``, nothing inline.
 """
 
 from html import escape
@@ -49,6 +51,17 @@ input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(-
 .hint{display:block;margin-top:6px;font-size:12px;color:var(--text-tertiary)}
 .aside{margin:0;font-size:13px;color:var(--text-secondary)}
 a{color:var(--action)}a:hover{color:var(--text-primary)}
+input.code{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:18px;letter-spacing:6px}
+.mono{font-family:ui-monospace,"JetBrains Mono",monospace;font-size:13px}
+form.inline{display:inline;margin:0}
+button.link{display:inline;width:auto;height:auto;padding:0;border:0;background:none;color:var(--action);
+font:inherit;text-decoration:underline;cursor:pointer}
+button.link:hover{color:var(--text-primary)}
+button.button{display:flex;align-items:center;justify-content:center;gap:8px}
+.qr{display:flex;gap:16px;align-items:center}.qr svg{width:132px;height:132px;flex:none;border-radius:4px}
+.qr code{display:block;margin-top:6px;color:var(--text-primary);overflow-wrap:break-word}
+.codes{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;padding:12px;border-radius:8px;
+background:var(--surface-sunken)}
 @media (max-width:480px){body{justify-content:flex-start;background:var(--surface-raised);padding-top:48px}
 main{border:0;padding:0}}
 """
@@ -66,11 +79,14 @@ def _origin(url: str) -> str:
     return f"{parts.scheme}://{parts.netloc}"
 
 
-def _headers(issuer: str, redirect_origins: tuple[str, ...]) -> dict[str, str]:
+def _headers(
+    issuer: str, redirect_origins: tuple[str, ...], script: bool = False
+) -> dict[str, str]:
     targets = " ".join(dict.fromkeys(["'self'", _origin(issuer), *redirect_origins]))
+    scripts = "script-src 'self'; connect-src 'self'; " if script else ""
     return {
         "Content-Security-Policy": (
-            "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; "
+            f"default-src 'none'; {scripts}style-src 'unsafe-inline'; img-src 'self'; "
             f"form-action {targets}; frame-ancestors 'none'; base-uri 'none'"
         ),
         "X-Frame-Options": "DENY",
@@ -89,19 +105,30 @@ def _page(
     redirect_origins: tuple[str, ...],
     status: int = 200,
     headers: dict[str, str] | None = None,
+    script: bool = False,
 ) -> HTMLResponse:
+    loaded = '<script src="/oauth/passkey.js" defer></script>' if script else ""
     html = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         f"<title>{escape(title)} · {escape(product)}</title><style>{_STYLE}</style></head><body>"
         f'<header class="brand">{_MARK}<span>{escape(product)}</span></header>'
-        f"<main>{body}</main></body></html>"
+        f"<main>{body}</main>{loaded}</body></html>"
     )
     return HTMLResponse(
         html,
         status_code=status,
-        headers={**_headers(issuer, redirect_origins), **(headers or {})},
+        headers={**_headers(issuer, redirect_origins, script), **(headers or {})},
     )
+
+
+_PASSKEY_ICON = (
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    'stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="4">'
+    '</circle><path d="M2 21c0-4 3-6 7-6 1.5 0 2.8.3 3.9.8"></path><circle cx="18" cy="15" r="2.5">'
+    '</circle><path d="M18 17.5V22M18 20h2"></path></svg>'
+)
+_PASSKEY_NOTE = '<p id="passkey-note" class="note error" role="alert" hidden></p>'
 
 
 def _note(kind: str, text: str) -> str:
@@ -137,8 +164,11 @@ def sign_in(
     providers: tuple[tuple[str, str], ...] = (),
     local: bool = True,
     local_link: str | None = None,
+    passkey: bool = False,
 ) -> HTMLResponse:
-    """The sign-in page: the authorization request's fields travel in the form, hidden. Each of
+    """The sign-in page: the authorization request's fields travel in the form, hidden. With
+    ``passkey`` it offers **Sign in with a passkey** above the form (I4c) and loads the engine's
+    script. Each of
     ``providers`` (name, start address) is a "Continue with" button below the form (I3). With local
     sign-in off the page shows the buttons and a link to ``local_link``, where the form is shown
     with ``local`` false for the administrators who keep it (D365)."""
@@ -160,7 +190,12 @@ def sign_in(
             + "account</a></p>"
         )
         return _page(
-            "Sign in", product, body, issuer=issuer, redirect_origins=redirect_origins, status=status
+            "Sign in",
+            product,
+            body,
+            issuer=issuer,
+            redirect_origins=redirect_origins,
+            status=status,
         )
     notes = []
     if ended:
@@ -182,9 +217,18 @@ def sign_in(
     invalid = ' aria-invalid="true" aria-describedby="sign-in-problem"' if wrong else ""
     if wrong:
         notes[-1] = notes[-1].replace("<p ", '<p id="sign-in-problem" ', 1)
+    offer = (
+        '<button type="button" class="button primary" data-passkey="login">'
+        f"{_PASSKEY_ICON}Sign in with a passkey</button>"
+        + _PASSKEY_NOTE
+        + '<p class="or">or with a password</p>'
+        if passkey
+        else ""
+    )
     body = (
         "<h1>Sign in</h1>"
         + "".join(notes)
+        + offer
         + '<form method="post" action="/oauth/authorize">'
         + _hidden(request_fields)
         + '<div><label for="username">Username</label>'
@@ -221,6 +265,7 @@ def sign_in(
         redirect_origins=redirect_origins,
         status=status,
         headers=headers,
+        script=passkey,
     )
 
 
@@ -250,7 +295,9 @@ def provider_problem(
     status: int = 400,
 ) -> HTMLResponse:
     """A provider sign-in that cannot finish, with the reason and a way to start again (D368)."""
-    retry = f'<a class="button primary" href="{escape(retry_url)}">Try again</a>' if retry_url else ""
+    retry = (
+        f'<a class="button primary" href="{escape(retry_url)}">Try again</a>' if retry_url else ""
+    )
     body = f"<h1>{escape(provider_name)} could not sign you in</h1>" + _note("error", text) + retry
     return _page(
         "Sign in", product, body, issuer=issuer, redirect_origins=redirect_origins, status=status
@@ -316,3 +363,219 @@ def password_set(
         + link
     )
     return _page("Password set", product, body, issuer=issuer, redirect_origins=redirect_origins)
+
+
+def _recovery_form(step: str, *, wrong: bool, wait_seconds: int) -> str:
+    """The recovery code step: one field, the code as it was written down."""
+    notes = _factor_notes(wrong, wait_seconds)
+    invalid = ' aria-invalid="true" aria-describedby="code-problem"' if wrong else ""
+    return (
+        "<h1>Use a recovery code</h1>"
+        '<p class="aside">One of the ten codes you kept when you set up the authenticator app. '
+        "Each works once.</p>"
+        + notes
+        + '<form method="post" action="/oauth/second-factor">'
+        + _hidden({"step": step})
+        + '<div><label for="recovery">Recovery code</label>'
+        + '<input id="recovery" name="recovery" class="mono" autocomplete="off" '
+        + f'autocapitalize="none" spellcheck="false" required autofocus{invalid}></div>'
+        + '<button type="submit">Sign in</button></form>'
+    )
+
+
+def _factor_notes(wrong: bool, wait_seconds: int) -> str:
+    notes = ""
+    if wrong:
+        notes += _note(
+            "error",
+            "That code is not right, or was already used. Wait for the next one and try again.",
+        ).replace("<p ", '<p id="code-problem" ', 1)
+    if wait_seconds:
+        notes += _note(
+            "warn",
+            "Too many wrong codes for this account or from this address. You can try again in "
+            f"{wait_text(wait_seconds)}. An administrator can reset the second factor.",
+        )
+    return notes
+
+
+def _link_button(step: str, view: str, text: str) -> str:
+    return (
+        '<form method="post" action="/oauth/second-factor" class="inline">'
+        + _hidden({"step": step})
+        + f'<button type="submit" class="link" name="view" value="{view}">{escape(text)}</button>'
+        "</form>"
+    )
+
+
+def second_factor_code(
+    product: str,
+    step: str,
+    username: str,
+    *,
+    start_again: str,
+    issuer: str,
+    redirect_origins: tuple[str, ...],
+    recovery: bool = False,
+    wrong: bool = False,
+    wait_seconds: int = 0,
+    status: int = 200,
+    app: bool = True,
+    passkey: bool = False,
+) -> HTMLResponse:
+    """The second step after the right password: a code from the authenticator app, a recovery code,
+    or, with ``passkey`` (I4c), one of the person's passkeys, which loads the engine's script. A
+    person with only passkeys (``app`` false) sees no code field. The step's token is the form's
+    only state."""
+    if recovery and app:
+        body = (
+            _recovery_form(step, wrong=wrong, wait_seconds=wait_seconds)
+            + '<p class="aside">Lost the codes too? A security administrator can remove your '
+            "second factor.</p>"
+            + '<div class="aside">'
+            + _link_button(step, "code", "Use the app's code")
+            + "</div>"
+        )
+        title = "Use a recovery code"
+    else:
+        invalid = ' aria-invalid="true" aria-describedby="code-problem"' if wrong else ""
+        who = f'<p class="aside">Signing in as <strong>{escape(username)}</strong>. '
+        if passkey:
+            heading = "Confirm it is you"
+            intro = who + (
+                "Use one of your passkeys, or the code from your authenticator app.</p>"
+                if app
+                else "Use one of your passkeys.</p>"
+            )
+        else:
+            heading = "Enter your code"
+            intro = who + (
+                "Open your authenticator app and type the six-digit code for "
+                f"{escape(product)}.</p>"
+            )
+        offer = (
+            f'<button type="button" class="button primary" data-passkey="second" '
+            f'data-step="{escape(step)}">{_PASSKEY_ICON}Use a passkey</button>' + _PASSKEY_NOTE
+            if passkey
+            else ""
+        )
+        divider = '<p class="or">or</p>' if passkey and app else ""
+        code_form = (
+            '<form method="post" action="/oauth/second-factor">'
+            + _hidden({"step": step})
+            + '<div><label for="code">'
+            + ("Code from the app" if passkey else "Code")
+            + "</label>"
+            + '<input id="code" name="code" class="code" inputmode="numeric" '
+            + 'autocomplete="one-time-code" required'
+            + (" autofocus" if not passkey else "")
+            + f"{invalid}></div>"
+            + '<button type="submit">'
+            + ("Sign in with the code" if passkey else "Sign in")
+            + "</button></form>"
+            if app
+            else ""
+        )
+        body = (
+            f"<h1>{heading}</h1>"
+            + intro
+            + _factor_notes(wrong, wait_seconds)
+            + offer
+            + divider
+            + code_form
+            + '<div class="aside">'
+            + (_link_button(step, "recovery", "Use a recovery code instead") + " · " if app else "")
+            + f'<a href="{escape(start_again)}">Start again</a></div>'
+        )
+        title = heading
+    headers = {"Retry-After": str(wait_seconds)} if wait_seconds else None
+    return _page(
+        title, product, body, issuer=issuer, redirect_origins=redirect_origins, status=status,
+        headers=headers, script=passkey and not recovery,
+    )  # fmt: skip
+
+
+def passkey_add(
+    product: str,
+    username: str,
+    return_to: str,
+    *,
+    issuer: str,
+    redirect_origins: tuple[str, ...],
+) -> HTMLResponse:
+    """The engine's own page for adding a passkey: the person's session is the page's, the name is
+    asked, and the engine's script runs the browser's prompt (I4c, D392). Where the relying party's
+    host is the engine's, a passkey made here works on the sign-in page."""
+    body = (
+        "<h1>Add a passkey</h1>"
+        f'<p class="aside">For <strong>{escape(username)}</strong>. Your browser will ask you to '
+        "confirm with your fingerprint, face, device PIN or security key.</p>"
+        + _PASSKEY_NOTE
+        + '<div><label for="passkey-name">Name it</label>'
+        + '<input id="passkey-name" name="name" maxlength="100" value="Passkey" '
+        + 'autocomplete="off" aria-describedby="passkey-name-help">'
+        + '<small id="passkey-name-help" class="hint">So you can tell your passkeys apart on '
+        + "Account.</small></div>"
+        + f'<button type="button" data-passkey="register" data-return="{escape(return_to)}">'
+        + "Create passkey</button>"
+        + f'<p class="aside"><a href="{escape(return_to)}">Back to Account</a></p>'
+    )
+    return _page(
+        "Add a passkey", product, body, issuer=issuer, redirect_origins=redirect_origins,
+        script=True,
+    )  # fmt: skip
+
+
+def second_factor_setup(
+    product: str,
+    step: str,
+    *,
+    secret: str,
+    svg: str,
+    issuer: str,
+    redirect_origins: tuple[str, ...],
+    wrong: bool = False,
+    wait_seconds: int = 0,
+    status: int = 200,
+) -> HTMLResponse:
+    """The set-up step, shown when the instance requires a second factor and the person has none: a
+    QR code drawn here (no script), the key to type, and a code to confirm (I4b, D386, D388)."""
+    key = " ".join(secret[i : i + 4] for i in range(0, len(secret), 4))
+    invalid = ' aria-invalid="true" aria-describedby="code-problem"' if wrong else ""
+    body = (
+        "<h1>Set up a second factor</h1>"
+        '<p class="aside">This instance asks for a code from an authenticator app with every '
+        "password. Scan the code with the app, then type the six digits it shows.</p>"
+        + _factor_notes(wrong, wait_seconds)
+        + f'<div class="qr">{svg}<div class="aside">Cannot scan? Type this key into the app:'
+        + f'<code id="key" class="mono">{escape(key)}</code></div></div>'
+        + '<form method="post" action="/oauth/second-factor">'
+        + _hidden({"step": step})
+        + '<div><label for="code">Code from the app</label>'
+        + '<input id="code" name="code" class="code" inputmode="numeric" '
+        + 'autocomplete="one-time-code" placeholder="000 000" required autofocus'
+        + f"{invalid}></div>"
+        + '<button type="submit">Confirm and continue</button></form>'
+    )
+    headers = {"Retry-After": str(wait_seconds)} if wait_seconds else None
+    return _page(
+        "Set up a second factor", product, body, issuer=issuer,
+        redirect_origins=redirect_origins, status=status, headers=headers,
+    )  # fmt: skip
+
+
+def recovery_codes(
+    product: str, step: str, codes: list[str], *, issuer: str, redirect_origins: tuple[str, ...]
+) -> HTMLResponse:
+    """The recovery codes, shown once, before the sign-in goes on (I4b, D385)."""
+    listed = "".join(f"<span>{escape(code)}</span>" for code in codes)
+    body = (
+        "<h1>Keep your recovery codes</h1>"
+        '<p class="aside">If you lose your phone, each code signs you in once. They are shown only '
+        "now: save them in a password manager or print them.</p>"
+        f'<div class="codes mono">{listed}</div>'
+        '<form method="post" action="/oauth/second-factor">'
+        + _hidden({"step": step, "continue": "1"})
+        + '<button type="submit">I have kept them; continue</button></form>'
+    )
+    return _page("Recovery codes", product, body, issuer=issuer, redirect_origins=redirect_origins)

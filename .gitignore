@@ -1,5 +1,7 @@
 .DS_Store
 .env
+# The developer instance's settings and certificate (scripts/dev.sh)
+.dev/
 .idea/
 .vscode/
 __pycache__/

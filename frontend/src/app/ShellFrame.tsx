@@ -3,7 +3,9 @@
  * its width remembered in this browser) and the main content. Below 760px the rail moves into the
  * navigation drawer, opened from a bar that names what it holds. Areas differ only in what they
  * put in the rail and the content. A page that lays out panes of its own (the model editor, 0.10
- * A4a, D37) has no rail and takes the full width.
+ * A4a, D37) has no rail and takes the full width. A page whose content is fitted to the window
+ * (`main.fill`: a collection's table, 0.12 LS1, D371) does not scroll: the frame is the window's
+ * height, the rail scrolls on its own, and the content's own part scrolls inside it.
  */
 
 import { useState, type CSSProperties, type ReactNode } from "react";
@@ -38,7 +40,7 @@ export function ShellFrame({
     /** The rail's content; `close` shuts the drawer after a choice on a phone. */
     content: (close: () => void) => ReactNode;
   };
-  main?: { className?: string };
+  main?: { className?: string; fill?: boolean };
   children: ReactNode;
 }) {
   const width = useLocalNumberPreference("rdm:layout:navigation-width:v1", 248, 210, 380);
@@ -47,7 +49,7 @@ export function ShellFrame({
   const Rail = rail?.as ?? "nav";
   return (
     <div
-      className={`app-shell${rail ? "" : " app-shell-full"}`}
+      className={`app-shell${rail ? "" : " app-shell-full"}${main?.fill ? " app-shell-fill" : ""}`}
       style={rail ? ({ "--sidebar": `${width.value}px` } as CSSProperties) : undefined}
     >
       <a className="skip-link" href="#main-content">
@@ -88,7 +90,11 @@ export function ShellFrame({
           </NavigationDrawer>
         </>
       )}
-      <main id="main-content" className={`workspace-main${main?.className ? ` ${main.className}` : ""}`} tabIndex={-1}>
+      <main
+        id="main-content"
+        className={`workspace-main${main?.fill ? " fill-main" : ""}${main?.className ? ` ${main.className}` : ""}`}
+        tabIndex={-1}
+      >
         <ErrorBoundary resetKey={window.location.pathname + window.location.search}>{children}</ErrorBoundary>
       </main>
     </div>

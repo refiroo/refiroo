@@ -51,6 +51,11 @@ export interface ViewComponentProps {
   /** Sibling lenses of the same source collection, placed by the renderer below its heading. */
   lenses?: ReactNode;
   /**
+   * The view is its page's whole content, fitted to the window, and only its rows scroll (0.12 LS1,
+   * D371); a view that has no such layout ignores it.
+   */
+  fill?: boolean;
+  /**
    * Opens a record; a lens that holds only a record's identity passes just that. `beside` keeps the
    * lens on screen with the record in the inspector beside it, where the viewport is wide enough.
    */

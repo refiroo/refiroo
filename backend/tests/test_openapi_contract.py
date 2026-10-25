@@ -255,9 +255,31 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # on /me (SignInProviderRef), sign-in-provider among the security events' aggregates, and the
     # descriptions of POST /groups, POST /groups/{group_id}/members, GET /me, PATCH /users/{user_id}
     # and POST /users/{user_id}/password-reset. Diffed against a11f71e, nothing else changed.
+    # Re-baselined for 0.12 I4a (D377–D381): POST /users/{user_id}/identities (IdentityLink) and
+    # DELETE /users/{user_id}/identities/{provider}, signOutOfProvider on the provider's create,
+    # update and read, signedOutUri on its read, and the description of PATCH /users/{user_id}.
+    # Diffed against ebd2a2a with I4's files alone (the working tree also holds RH1's history
+    # changes, which this hash leaves out), nothing else changed. Re-baselined for 0.12 I4b
+    # (D383–D388): GET|POST /me/second-factor, POST /me/second-factor/confirmation, POST
+    # /me/second-factor/recovery-codes, DELETE /me/second-factor (MySecondFactorResponse,
+    # SecondFactorEnrolment, RecoveryCodesResponse, SecondFactorCode), DELETE
+    # /users/{user_id}/second-factor, secondFactor on a person (SecondFactorSummary),
+    # secondFactorRequired on local sign-in's read and update (whose enabled becomes optional) and
+    # the description of PATCH /sign-in-providers/local. Diffed against I4a's lock, nothing else
+    # changed. Re-baselined for 0.12 I4c (D389–D394): GET /me/passkeys, PATCH|DELETE
+    # /me/passkeys/{passkey_id}, GET /users/{user_id}/passkeys, DELETE
+    # /users/{user_id}/passkeys/{passkey_id} (PasskeyResponse, PasskeyPage, PasskeyRename), passkeys on
+    # a person and on the caller's second factor, and the description of DELETE /me/second-factor.
+    # The ceremonies' endpoints and the script are the engine's pages, outside the document. Diffed
+    # against I4b's lock, nothing else changed. Re-baselined for the I4 review: DELETE
+    # /me/passkeys/{passkey_id} takes an optional body (PasskeyRemoval: the password, or a code)
+    # and its description. This hash is of the
+    # whole working tree, RH1's history changes (HistoryRelated, HistoryValue, kind and actorId)
+    # included, so the lock passes in the shared checkout; the earlier hash of I4's files alone
+    # could not be re-derived.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "d7ba025ac881078c0eb32fa52a1500af37b008ef1152f19f217b0cf9c6270785"
+        "c771d33f5ecc46cab4532d621ee89271c10709a0c6f7b1fd3b632e32235e007b"
     )
 
 
@@ -302,8 +324,9 @@ def test_paging_openapi_inventory():
     # people, clients and token signing keys; 0.12 I2 a person's sessions; 0.12 Z1 the roles, groups,
     # a group's members, grants, a workspace's access and the caller's grants; 0.12 SP1 a person's
     # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets; 0.12
-    # Z6 the changes across workspaces; 0.12 I3 the sign-in providers.
-    assert seekable <= paged and len(paged) == 60
+    # Z6 the changes across workspaces; 0.12 I3 the sign-in providers; 0.12 I4c a person's passkeys,
+    # their own and an administrator's.
+    assert seekable <= paged and len(paged) == 62
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

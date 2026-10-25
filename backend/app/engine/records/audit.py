@@ -11,8 +11,9 @@ from ...common.encoding import to_jsonable
 from ...common.pagination import Page, PageRequest, datetime_key, integer_key, paginate_statement
 from ...models.database import AuditEvent, AuditEventSubject, ChangeSet
 from ..authorization.writes import requester_of
-from ..identity.principals import columns
+from ..identity.principals import columns, named_by
 from .feed import take_positions
+from .history_details import kind_condition
 
 _HISTORY_KEYS = (
     datetime_key("occurredAt", AuditEvent.occurred_at, "occurred_at", descending=True),
@@ -241,12 +242,24 @@ def object_history(
     workspace_key: str,
     page: PageRequest,
     page_size: int,
+    kind: str | None = None,
+    actor_id: str | None = None,
 ) -> Page[AuditEvent]:
+    """A record's history, newest first; ``kind`` and ``actor_id`` (a person's or client's ID, or
+    ``engine``) narrow it in the database (0.12 RH1, D391)."""
     statement = (
         select(AuditEvent)
         .join(AuditEventSubject, AuditEventSubject.audit_event_id == AuditEvent.sequence_id)
         .where(AuditEventSubject.object_id == object_id)
     )
+    if kind is not None:
+        statement = statement.where(kind_condition(kind))
+    if actor_id == "engine":
+        statement = statement.where(AuditEvent.actor_kind == "engine")
+    elif actor_id is not None:
+        statement = statement.where(
+            named_by(AuditEvent.actor_user_id, AuditEvent.actor_client_id, actor_id)
+        )
     return paginate_statement(
         session,
         statement,
@@ -256,6 +269,8 @@ def object_history(
             "objectId": object_id,
             "objectTypeKey": object_type_key,
             "workspaceKey": workspace_key,
+            "kind": kind,
+            "actorId": actor_id,
         },
         page=page,
         page_size=page_size,

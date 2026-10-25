@@ -120,13 +120,14 @@ describe("the browser's session (0.12 I2)", () => {
     expect(go).not.toHaveBeenCalled();
   });
 
-  it("signs out through the engine and returns to the sign-in page", async () => {
+  it("signs out by opening the engine's sign-out address, returning to the app", async () => {
     const session = await load();
     const go = vi.spyOn(session.browserNavigation, "go").mockImplementation(() => undefined);
-    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
     void session.signOut();
-    await vi.waitFor(() => expect(go).toHaveBeenCalledTimes(1));
-    expect(fetchMock.mock.calls[0][0]).toBe(`${API}/oauth/revoke`);
-    expect(fetchMock.mock.calls[0][1].credentials).toBe("include");
+    expect(go).toHaveBeenCalledTimes(1);
+    const address = new URL(go.mock.calls[0][0]);
+    expect(`${address.origin}${address.pathname}`).toBe(`${API}/oauth/sign-out`);
+    expect(address.searchParams.get("return")).toBe(`${window.location.origin}/`);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

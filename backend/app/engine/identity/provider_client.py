@@ -44,6 +44,8 @@ class Discovery:
     token_endpoint: str
     jwks_uri: str
     auth_methods: tuple[str, ...]
+    # RP-Initiated Logout 1.0: where the browser goes to sign out of the provider (I4a, D380).
+    end_session_endpoint: str | None = None
 
 
 _discoveries: dict[str, tuple[float, Discovery]] = {}
@@ -108,12 +110,16 @@ def discover(issuer: str, *, fresh: bool = False) -> Discovery:
         )
     for name in ("authorization_endpoint", "token_endpoint", "jwks_uri"):
         _checked_url(document[name], name.replace("_", " "))
+    end_session = document.get("end_session_endpoint")
+    if isinstance(end_session, str):
+        _checked_url(end_session, "end session endpoint")
     found = Discovery(
         issuer=issuer,
         authorization_endpoint=document["authorization_endpoint"],
         token_endpoint=document["token_endpoint"],
         jwks_uri=document["jwks_uri"],
         auth_methods=tuple(document.get("token_endpoint_auth_methods_supported") or ()),
+        end_session_endpoint=end_session if isinstance(end_session, str) else None,
     )
     _discoveries[issuer] = (now, found)
     return found
@@ -135,6 +141,32 @@ def keys(discovery: Discovery, *, fresh: bool = False) -> dict[str, Any]:
 def check(issuer: str) -> None:
     """Whether a provider at ``issuer`` can be used: its discovery document and keys, read now."""
     keys(discover(issuer, fresh=True), fresh=True)
+
+
+def check_sign_out(issuer: str) -> None:
+    """Whether the provider at ``issuer`` offers a sign-out address, read now."""
+    if discover(issuer, fresh=True).end_session_endpoint is None:
+        raise ProviderError(
+            "sign-out", "Its discovery document names no end_session_endpoint to sign people out at"
+        )
+
+
+def sign_out_url(
+    discovery: Discovery, *, id_token_hint: str, post_logout_redirect_uri: str, state: str
+) -> str | None:
+    """Where the browser goes to sign out of the provider, or none when it offers no such address
+    (RP-Initiated Logout 1.0 §2)."""
+    if discovery.end_session_endpoint is None:
+        return None
+    query = urlencode(
+        {
+            "id_token_hint": id_token_hint,
+            "post_logout_redirect_uri": post_logout_redirect_uri,
+            "state": state,
+        }
+    )
+    separator = "&" if "?" in discovery.end_session_endpoint else "?"
+    return f"{discovery.end_session_endpoint}{separator}{query}"
 
 
 def authorization_url(

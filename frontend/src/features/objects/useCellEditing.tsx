@@ -6,9 +6,13 @@
  * `DeleteRelationDialog`; where it holds several, `RelatedRecordsDialog`. Ancestor and containment
  * columns, computed fields, read-only bindings and a read-only list show no icons. One cell edits at
  * a time. A save reloads the list where it is and says where it went in a toast.
+ *
+ * `renderCell` changes only with what the cells show (the cell being edited, whether editing is
+ * possible, the model and the permissions); its handlers read the rest through a ref, so the table's
+ * rows draw again only then (0.12 LS1, D373).
  */
 
-import { useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
@@ -52,7 +56,7 @@ export function useCellEditing({
   // Each row follows its own type's writes, a relationship either end's (0.12 Z5, D329, D291); a
   // cell holding many records saves as a batch, which needs Bulk and import (D323).
   const writes = useRecordWrites();
-  const batches = permissions ? recordWrites(permissions, "bulk") : undefined;
+  const batches = useMemo(() => (permissions ? recordWrites(permissions, "bulk") : undefined), [permissions]);
   const toast = useToast();
   const [open, setOpen] = useState<Open>();
   const [reading, setReading] = useState(false);
@@ -81,57 +85,68 @@ export function useCellEditing({
   }
 
   const busy = Boolean(open) || reading || Boolean(warning);
+  const latest = useRef({ openSingle, saved, list });
+  useLayoutEffect(() => {
+    latest.current = { openSingle, saved, list };
+  });
 
-  const renderCell: CellRenderer = (item, column, shown) => {
-    const own = writes.permits(item.applicationKey, item.objectTypeKey);
-    if (column.startsWith(RELATED_FIELD_PREFIX)) {
-      const found = relatedCellEdit(model, item.objectTypeKey, column);
-      const choices = found?.choices.filter((choice) => own || writes.permitsType(choice.otherObjectTypeKey));
-      if (!found || !choices?.length) return shown;
-      const edit = { ...found, choices };
-      if (
-        !edit.single &&
-        (!allows(permissions, "bulk") ||
-          (batches &&
-            !(
-              batches.permits(item.applicationKey, item.objectTypeKey) ||
-              choices.some((choice) => batches.permitsType(choice.otherObjectTypeKey))
-            )))
-      )
-        return shown;
-      const holds = (relatedRecords(item, column, model)?.count ?? 0) > 0;
+  const renderCell = useCallback<CellRenderer>(
+    (item, column, shown) => {
+      const own = writes.permits(item.applicationKey, item.objectTypeKey);
+      if (column.startsWith(RELATED_FIELD_PREFIX)) {
+        const found = relatedCellEdit(model, item.objectTypeKey, column);
+        const choices = found?.choices.filter((choice) => own || writes.permitsType(choice.otherObjectTypeKey));
+        if (!found || !choices?.length) return shown;
+        const edit = { ...found, choices };
+        if (
+          !edit.single &&
+          (!allows(permissions, "bulk") ||
+            (batches &&
+              !(
+                batches.permits(item.applicationKey, item.objectTypeKey) ||
+                choices.some((choice) => batches.permitsType(choice.otherObjectTypeKey))
+              )))
+        )
+          return shown;
+        const holds = (relatedRecords(item, column, model)?.count ?? 0) > 0;
+        return (
+          <EditInPlaceCell
+            name={edit.choices[0].label}
+            record={item.name}
+            disabled={busy}
+            onEdit={() =>
+              edit.single ? void latest.current.openSingle(item, edit, false) : setOpen({ kind: "many", item, edit })
+            }
+            onRemove={edit.single && holds ? () => void latest.current.openSingle(item, edit, true) : undefined}
+          >
+            {shown}
+          </EditInPlaceCell>
+        );
+      }
+      const editable = own ? fieldEditing(model, item, column, false) : undefined;
+      if (!editable) return shown;
+      const editing = open?.kind === "value" && open.id === item.id && open.field === column;
       return (
-        <EditInPlaceCell
-          name={edit.choices[0].label}
-          record={item.name}
-          disabled={busy}
-          onEdit={() => (edit.single ? void openSingle(item, edit, false) : setOpen({ kind: "many", item, edit }))}
-          onRemove={edit.single && holds ? () => void openSingle(item, edit, true) : undefined}
-        >
-          {shown}
-        </EditInPlaceCell>
+        <EditableField
+          model={model}
+          object={item}
+          field={column}
+          layout="cell"
+          display={shown}
+          editing={editing}
+          disabled={busy && !editing}
+          onEdit={() => setOpen({ kind: "value", id: item.id, field: column })}
+          onClose={() => setOpen(undefined)}
+          onSaved={() => latest.current.saved(attributeName(model, column), item)}
+          onConflict={async () => latest.current.list.reload()}
+          onRemove={
+            editable.isName ? undefined : () => setOpen({ kind: "remove", item, attribute: editable.attribute })
+          }
+        />
       );
-    }
-    const editable = own ? fieldEditing(model, item, column, false) : undefined;
-    if (!editable) return shown;
-    const editing = open?.kind === "value" && open.id === item.id && open.field === column;
-    return (
-      <EditableField
-        model={model}
-        object={item}
-        field={column}
-        layout="cell"
-        display={shown}
-        editing={editing}
-        disabled={busy && !editing}
-        onEdit={() => setOpen({ kind: "value", id: item.id, field: column })}
-        onClose={() => setOpen(undefined)}
-        onSaved={() => saved(attributeName(model, column), item)}
-        onConflict={async () => list.reload()}
-        onRemove={editable.isName ? undefined : () => setOpen({ kind: "remove", item, attribute: editable.attribute })}
-      />
-    );
-  };
+    },
+    [model, writes, permissions, batches, open, busy],
+  );
 
   const dialogs = open && (
     <>

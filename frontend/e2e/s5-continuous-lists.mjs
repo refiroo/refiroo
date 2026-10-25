@@ -13,9 +13,12 @@
 // 0.11 X6 (D164): every list is drawn by row number. The item lens (with a relation column) is walked
 // with the wheel through its first 2,000 rows and back from its last: at every step the row at a fixed
 // point moves by exactly the distance scrolled. Every list read asks the reader's page size, the page
-// draws at most three screens of rows, a scrollbar drag reads once where it rests, the wheel carries on
-// to the page at the last row, an edit in place keeps the list where it was; at 390px, in a record
-// panel and in the mapping grid the walk holds too.
+// draws at most three screens of rows, a scrollbar drag reads once where it rests, an edit in place
+// keeps the list where it was; at 390px, in a record panel and in the mapping grid the walk holds too.
+//
+// 0.12 LS1 (D371, D372): a collection's table page is fitted to the window. The wheel at the last row
+// leaves the window where it is, and the list's footer and the rail end on the window's bottom line,
+// at 1440px and 390px.
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -61,6 +64,38 @@ function windowState(region) {
       rowCount: viewport.querySelector("[aria-rowcount]")?.getAttribute("aria-rowcount") ?? null,
     };
   });
+}
+
+/**
+ * LS1 (D371): a collection's page fitted to the window. Nothing but its rows scrolls, the list's
+ * footer ends on the window's bottom line (less the page's bottom padding) and so does the rail,
+ * where there is one. Returns the footer's distance from the bottom.
+ */
+async function fittedPage(page) {
+  const edges = await page.evaluate(() => {
+    const footer = document.querySelector(".scroll-window-fill .scroll-window-footer")?.getBoundingClientRect();
+    const main = document.querySelector(".workspace-main");
+    const rail = document.querySelector(".workspace-sidebar:not([hidden])")?.getBoundingClientRect();
+    return {
+      windowTop: window.scrollY,
+      mainTop: main?.scrollTop ?? 0,
+      footerGap: footer ? window.innerHeight - footer.bottom : Number.NaN,
+      railGap: rail ? window.innerHeight - rail.bottom : 0,
+      // The band stands above the page's header, never over it (found 2026-10-25).
+      bandOverlap:
+        (document.querySelector(".data-context-band")?.getBoundingClientRect().bottom ?? 0) -
+        (document.querySelector(".workspace-main h1")?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY),
+    };
+  });
+  assert.equal(edges.windowTop, 0, "the fitted page's window does not scroll");
+  assert.equal(edges.mainTop, 0, "the fitted page's content does not scroll");
+  assert.ok(
+    edges.footerGap >= 0 && edges.footerGap <= 24,
+    `the footer ends on the window's bottom line (${edges.footerGap} px)`,
+  );
+  assert.ok(Math.abs(edges.railGap) <= 1, `the rail ends on the window's bottom line (${edges.railGap} px)`);
+  assert.ok(edges.bandOverlap <= 0, `the band covers the page's heading by ${edges.bandOverlap} px`);
+  return edges;
 }
 
 /**
@@ -341,7 +376,7 @@ try {
     );
   }
 
-  // D164 (1), from the last row back; (5) the wheel carries on to the page at the last row.
+  // D164 (1), from the last row back; LS1: at the last row the fitted page stays where it is.
   {
     await page.goto(`${base}/views/items?workspaceKey=vol-workspace`);
     const table = page.getByRole("region", { name: "items table" });
@@ -353,22 +388,14 @@ try {
       Number((await windowState(table)).rowCount) - 2,
     );
     await settle(page);
-    const outer = () =>
-      page.evaluate(() => ({
-        top: window.scrollY,
-        room: document.documentElement.scrollHeight - window.scrollY - window.innerHeight,
-      }));
     const box = await table.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    const before = await outer();
     await page.mouse.wheel(0, 400);
     await page.waitForTimeout(400);
-    const after = await outer();
-    if (before.room > 1)
-      assert.ok(after.top > before.top, `at the last row the wheel scrolls the page (${before.top} → ${after.top})`);
+    const edges = await fittedPage(page);
     const up = await walk(page, table, 1000, -1, "live wheel up from the end");
     checks.push(
-      `volume live: from the last row the wheel carries on to the page${before.room > 1 ? "" : " (the page had no room)"}; walking back 1,000 rows (${up.steps} steps) no row jumped more than 1 px (worst ${up.worst.toFixed(1)} px)`,
+      `volume live: at the last row the wheel leaves the fitted page where it is (window and content at 0), the footer ends ${edges.footerGap.toFixed(0)} px above the window's bottom and the rail on it; walking back 1,000 rows (${up.steps} steps) no row jumped more than 1 px (worst ${up.worst.toFixed(1)} px)`,
     );
   }
 
@@ -576,6 +603,7 @@ try {
   const phoneReads = pageSizes(phone, "/api/v1/objects/vol-item");
   // D164 (8): the walk and the page size hold at phone width.
   const phoneWalk = await walk(phone, phoneTable, 400, 1, "390px wheel down");
+  await fittedPage(phone);
   let phoneState = await windowState(phoneTable);
   assert.ok(phoneState.first > 40, `390px: scrolled to ${phoneState.first}`);
   const phonePage = phone.getByRole("spinbutton", { name: "Page" });
@@ -601,7 +629,7 @@ try {
   assert.deepEqual(phoneReads.odd, [], `390px: reads over the reader's page: ${phoneReads.odd.join(" ")}`);
   await narrow.close();
   checks.push(
-    `volume 390px: the lens walks 400 rows by wheel (${phoneWalk.steps} steps) with no row jumping more than 1 px and reads the reader's page only, jumps by page number without horizontal page scroll; the record panel scrolls`,
+    `volume 390px: the lens walks 400 rows by wheel (${phoneWalk.steps} steps) with no row jumping more than 1 px on its fitted page (window still, footer on the bottom line) and reads the reader's page only, jumps by page number without horizontal page scroll; the record panel scrolls`,
   );
 } catch (error) {
   console.error(harness.log().slice(-3000));

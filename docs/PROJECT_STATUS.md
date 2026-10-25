@@ -107,7 +107,13 @@ group, and local sign-in turned off with the administrators made on the server k
 journeys against the harness's minimal provider, the identity, security-page and authorization
 journeys, the unit, contract, startup and foreign-key tests, the touched Vitest folders and the
 runners `i3-sign-in-providers`, `i2-sign-in`, `sp1-security` and `u3-settings` passed; the
-development database upgraded through the running server. A sign-in against a real provider the user
+development database upgraded through the running server. **I4a, a provider identity linked, signing
+out of the provider and the last kept person, is delivered (2026-10-25)**, D377–D381 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i4a-record-2026-10-25),
+migration `20261105_01`). **I4b, a second factor for local accounts, is delivered (2026-10-25)**,
+D383–D388 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i4b-record-2026-10-25), migration
+`20261106_01`). **I4c, passkeys, is delivered (2026-10-25)**, D389–D394
+([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i4c-record-2026-10-25), migration `20261107_01`); I4
+is complete. A sign-in against a real provider the user
 names waits for its registration, before E1. Next: K1, C1 and E1 above the cut line, then A1–A3, L1,
 L2 and R.
 

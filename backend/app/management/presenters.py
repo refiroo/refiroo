@@ -27,6 +27,7 @@ from ..engine.reads.feed import FeedPage as FeedRead
 from ..engine.reads.object_query import live_object_paths
 from ..engine.records.attributes import load_attribute_values
 from ..engine.records.feed import changed_names
+from ..engine.records.history_details import HistoryDetails, history_details
 from ..engine.records.values import row_value
 from ..engine.workspaces.catalogue import delete_blocker, load_workspace_runtime_state
 from ..models.database import (
@@ -83,6 +84,8 @@ from .schemas.records import (
     FeedCause,
     FeedEntry,
     FeedPage,
+    HistoryRelated,
+    HistoryValue,
     ObjectResponse,
     RecordOrigin,
     RelationResponse,
@@ -302,7 +305,10 @@ def actor_response(actor: dict[str, str] | None) -> ActorResponse | None:
 
 
 def _audit_response(
-    event: AuditEvent, actor: dict[str, str] | None, origin: HistoryOrigin | None = None
+    event: AuditEvent,
+    actor: dict[str, str] | None,
+    origin: HistoryOrigin | None = None,
+    details: HistoryDetails | None = None,
 ) -> AuditEventResponse:
     changed_fields, attribute_type_keys = changed_names(event)
     moved = origin is not None and event.cause_id in origin.moves
@@ -327,18 +333,36 @@ def _audit_response(
             else None
         ),
         actor=actor_response(actor),
+        **(
+            {
+                "kind": details.kind,
+                "values": [HistoryValue.model_validate(value) for value in details.values],
+                "related": HistoryRelated.model_validate(details.related)
+                if details.related
+                else None,
+            }
+            if details
+            else {}
+        ),
     )
 
 
 def audit_event_page(
-    session: Session, events: Page[AuditEvent], origin: HistoryOrigin | None = None
+    session: Session,
+    events: Page[AuditEvent],
+    origin: HistoryOrigin | None = None,
+    object_id: str | None = None,
 ) -> AuditEventPage:
     """A page of a record's history, each entry with its actor (0.12 Z4); ``origin`` names, on the
-    entries a move caused, where the record came from (0.11 X3, D136)."""
+    entries a move caused, where the record came from (0.11 X3, D136). For ``object_id``'s history
+    each entry also says its kind, its values and a relationship's other record (0.12 RH1)."""
     named_actors = actors(session, events.items)
+    details = history_details(session, object_id, events.items) if object_id else {}
     return AuditEventPage(
         items=[
-            _audit_response(event, named_actors[event.sequence_id], origin)
+            _audit_response(
+                event, named_actors[event.sequence_id], origin, details.get(event.sequence_id)
+            )
             for event in events.items
         ],
         **events.links(),

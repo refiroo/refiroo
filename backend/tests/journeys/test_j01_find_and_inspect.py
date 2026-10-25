@@ -213,7 +213,10 @@ def test_one_value_in_each_context(world):
 def test_history_newest_first_with_its_relationships(world):
     """Given a record created, updated twice, related to a K record whose relationship attribute then
     changes. When its history is paged two at a time. Then the events are newest first, with what
-    changed and no values; a cursor from another record's history is refused."""
+    changed, each value with the one before (0.12 RH1, D389) and the relationship's other record; a
+    cursor from another record's history is refused. Filtered by kind or by person, only those
+    entries answer; after a change set's publish, the next live change's value before is not
+    recorded (D390)."""
     h = world.made("H", "Storied", values={"H.code": "ST"})
     h = ok(world.update("H", h["id"], h["version"], name="Storied once"))
     h = ok(world.update("H", h["id"], h["version"], values={"H.rank": 3}))
@@ -241,12 +244,54 @@ def test_history_newest_first_with_its_relationships(world):
         ("object", "updated"),
         ("object", "created"),
     ]
-    assert all("value" not in event and "values" not in event for event in events)
     assert world.key("H.rank") in events[2]["attributeTypeKeys"]
+    rank, code = world.key("H.rank"), world.key("H.code")
+
+    def change(field, kind, before, after, known=True):
+        return {"field": field, "kind": kind, "from": before, "to": after, "fromKnown": known}
+
+    assert [event["kind"] for event in events] == ["relationships"] * 2 + ["values"] * 3
+    assert events[2]["values"] == [change(rank, "attribute", None, 3)]
+    assert events[3]["values"] == [change("name", "name", "Storied", "Storied once")]
+    assert change(code, "attribute", None, "ST") in events[4]["values"]
+    k01 = world.record("K", world.ids["k01"])
+    assert events[1]["related"] == {
+        "relationTypeKey": world.key("Bnn"),
+        "direction": "outgoing",
+        "objectId": k01["id"],
+        "name": k01["name"],
+        "objectTypeKey": world.key("K"),
+    }
 
     first = ok(world.api.get(path, pageSize=2))
     other = f"/objects/{world.key('H')}/{world.ids['h1']}/history"
     refused(world.api.get(other, pageSize=2, cursor=first["nextCursor"]), 422, "INVALID_CURSOR")
+
+    # Filtered in the database, by kind and by who made the change (D391).
+    assert len(ok(world.api.get(path, kind="relationships"))["items"]) == 2
+    assert len(ok(world.api.get(path, kind="values"))["items"]) == 3
+    assert ok(world.api.get(path, kind="structure"))["items"] == []
+    person = events[0]["actor"]["id"]
+    assert len(ok(world.api.get(path, actorId=person))["items"]) == 5
+    assert ok(world.api.get(path, actorId="engine"))["items"] == []
+
+    # A change set's publish names what changed without values: the next live change cannot say
+    # what the value was before it, and says so rather than guess.
+    cs = world.change_set()
+    staged = world.record("H", h["id"], changeSetId=cs["id"])
+    body = {
+        "attributes": [{"attributeTypeKey": rank, "value": 4}],
+        "expectedVersion": staged["version"],
+        "changeSetId": cs["id"],
+        "expectedChangeSetVersion": world.current(cs)["version"],
+    }
+    ok(world.api.patch(f"/objects/{world.key('H')}/{h['id']}", body))
+    world.publish(cs)
+    published = world.record("H", h["id"])
+    ok(world.update("H", h["id"], published["version"], values={"H.rank": 5}))
+    latest = ok(world.api.get(path, pageSize=2))["items"]
+    assert latest[0]["values"] == [change(rank, "attribute", None, 5, known=False)]
+    assert latest[1]["values"] == []
 
 
 @pytest.mark.journey("J01.7")

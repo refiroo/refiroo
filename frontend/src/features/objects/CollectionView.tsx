@@ -3,7 +3,7 @@
  */
 
 import { Card } from "@/ui/Card";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
@@ -49,6 +49,7 @@ export function ObjectCollectionView({
   bulkSelection,
   onPropose,
   createRequest,
+  fill = false,
 }: ViewComponentProps) {
   const declaredView = rawView as TableViewDefinition;
   const api = useDataApi();
@@ -212,6 +213,24 @@ export function ObjectCollectionView({
     }
   }, [loading, error, pages]);
 
+  // The row actions change only with read-only, so the rows draw again only then (0.12 LS1, D373).
+  const open = useRef(onOpen);
+  useLayoutEffect(() => {
+    open.current = onOpen;
+  });
+  const renderActions = useCallback(
+    (item: ObjectItem, menu: { isOpen: boolean; onOpenChange: (open: boolean) => void }): ReactNode => (
+      <RecordActionMenu
+        object={item}
+        readOnly={readOnly}
+        onEdit={() => open.current(item, "edit")}
+        onDelete={() => open.current(item, "delete")}
+        {...menu}
+      />
+    ),
+    [readOnly],
+  );
+
   const sorting = useTableSort({
     sort: query.sort,
     fields: objectType ? listSortFields(model, [objectType], columns, view.config.sortFields, live) : [],
@@ -265,6 +284,7 @@ export function ObjectCollectionView({
   return (
     <div
       ref={root}
+      className={fill ? "collection-page" : undefined}
       onFocusCapture={(event) => {
         focusedRow.current = (event.target as HTMLElement).dataset.recordId;
       }}
@@ -393,16 +413,9 @@ export function ObjectCollectionView({
                 },
               }
             }
-            renderActions={(item, menu) => (
-              <RecordActionMenu
-                object={item}
-                readOnly={readOnly}
-                onEdit={() => onOpen(item, "edit")}
-                onDelete={() => onOpen(item, "delete")}
-                {...menu}
-              />
-            )}
+            renderActions={renderActions}
             renderCell={cells.renderCell}
+            fill={fill}
             label={`${view.name} table`}
             emptyIcon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
             emptyMessage={

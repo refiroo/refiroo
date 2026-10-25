@@ -102,6 +102,13 @@ const PAIRS: Array<[string, string, number]> = [
   ),
   ...["text-primary", "text-secondary"].map((text): [string, string, number] => [text, "state-selected", 4.5]),
   ["text-placeholder", "surface-raised", 4.5],
+  // Home's Continue where you left off: its title, its muted lines and the focus ring (0.12 HM1a).
+  ...["text-primary", "text-secondary", "text-tertiary"].map((text): [string, string, number] => [
+    text,
+    "home-continue-surface",
+    4.5,
+  ]),
+  ["focus-color", "home-continue-surface", 3],
   ["link", "surface-app", 4.5],
   ["link", "surface-nav", 4.5],
   ["state-selected-text", "state-selected", 4.5],

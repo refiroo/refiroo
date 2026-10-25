@@ -98,7 +98,8 @@ empty result, not an error. A failed page or panel can retry without losing succ
   and `0` are values, not blanks.
 - **J01.4 Across types**: one search over every type, or over chosen types.
 - **J01.5 One value**: read one attribute value of a record, in any context.
-- **J01.6 History**: a record's audit history, newest first, with the events of its relationships.
+- **J01.6 History**: a record's audit history, newest first, with the events of its relationships;
+  each change's values with the ones before, filtered by kind and by person (0.12 RH1).
 - **J01.7 Related records of another application**: the relationships of a record list records of
   any application, searched and sorted by their fields.
 - **J01.8 Related records in a list** (0.9 K5): a list's rows show their first related records of
@@ -1997,7 +1998,8 @@ applications and record types as data.
 the refusals without a token or with one not issued here. I2 (2026-10-23): steps 1–3 with a username
 and password, J39.1–J39.6; the provider's button and J39.7 are I3. I3 (2026-10-25): J39.7 through
 the API and the UI (Settings › Security › Sign-in, the sign-in page's button), and local sign-in
-turned off with the administrators made on the server keeping it.
+turned off with the administrators made on the server keeping it. I4a (2026-10-25): J39.8, and the
+link of J40.13. I4b (2026-10-25): J39.9, a second factor for a password. I4c (2026-10-25): J39.10, passkeys.
 
 1. Open the application; the engine's sign-in page asks for a username and password, or offers the
    organisation's sign-in provider.
@@ -2019,6 +2021,22 @@ turned off with the administrators made on the server keeping it.
   refused; the other sessions end.
 - **J39.7 Sign in with a provider**: the person is found or created by the provider's issuer and
   subject; the provider's groups become provider groups.
+- **J39.10 A passkey**: a signed-in person adds a passkey on the engine's own page and names it; it
+  signs them in alone, with no username, or after a password as the second step; a passkey of another
+  site, or used without the person verified, is refused and counted; they rename and remove theirs and
+  an administrator removes one; a passkey meets the instance's requirement, and a passkey alone is
+  refused while local sign-in is off for someone who does not keep it (0.12 I4c).
+- **J39.9 A second factor with a password**: a person sets up an authenticator app on Account
+  (the QR code or the key, a code to confirm) and keeps ten recovery codes shown once; their password
+  then leads to a code page, where the app's code, once, or a recovery code, once, signs them in and
+  a wrong one is refused and slowed like a wrong password; with the instance's requirement on, a
+  person without one sets it up on the sign-in page, and sees the recovery codes, before their session
+  starts; an administrator removes the factor of someone who lost the phone and the codes; a
+  provider's sign-in is never asked (0.12 I4b).
+- **J39.8 Sign out of the provider too**: with the provider's **Sign people out of *name* too** on,
+  signing out takes the browser through the provider's sign-out and back to the sign-in page; with it
+  off, or for a person who signed in with a password, straight back; the setting needs the
+  provider's sign-out address (0.12 I4a).
 
 **Refusals:** `401 AUTHENTICATION_REQUIRED`, `401 TOKEN_INVALID` (`expired`, `revoked`), the token
 endpoint's `invalid_grant`, `422 PASSWORD_REJECTED`, `422 PASSWORD_INCORRECT`, `404
@@ -2058,6 +2076,8 @@ made at a sign-in or ahead of it and granted like any group, their membership se
 - **J40.3 Narrowed to record types**: writes to the named types pass, any other type is refused,
   also inside a batch, an import, a move, a publication or a type change.
 - **J40.4 Through a group**: a grant to a group applies to its members; leaving the group removes it.
+  Several people join or leave at once, by ID or by a pasted list of usernames and e-mail addresses
+  checked first (0.12 SP1b).
 - **J40.5 A custom role**: copied from a predefined role, changed, granted; a predefined role cannot
   change; a role still granted cannot be deleted.
 - **J40.6 A change applies on the next request**: a grant removed, a role changed or a person
@@ -2072,6 +2092,12 @@ made at a sign-in or ahead of it and granted like any group, their membership se
 - **J40.11 Who changed access**: every change to people, groups, roles, grants, clients and keys,
   and every sign-in, succeeded or failed, is a security event naming who made it; a security
   administrator lists a person's or client's events, never a secret in them (0.12 Z4).
+- **J40.13 A provider sign-in linked to an existing person**: the person who first signed in through
+  the provider became a new, empty person; an administrator moves their identity and provider groups
+  onto the person who had the account, who then signs in as themselves with their roles; the new
+  person is deactivated; a person with a password, roles of their own or local groups is not moved,
+  one provider is linked once, an unlink makes the next sign-in a new person again; while local
+  sign-in is off the last person who keeps it cannot lose it (0.12 I4a).
 - **J40.12 The interface follows permissions**: a person is offered only what their roles allow in
   the workspace open, and a flow only when they can finish it; a Reader sees no edit affordance; a
   Contributor proposes a change into their own change set; a narrowed writer edits only the named

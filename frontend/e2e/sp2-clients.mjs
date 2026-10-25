@@ -196,7 +196,8 @@ try {
   expect((await token(client.id, second)).status !== 200, "a deactivated client obtains no token");
   await page.getByRole("button", { name: "Restore" }).click();
   await page.getByRole("button", { name: "Deactivate", exact: true }).waitFor();
-  const activity = page.getByRole("list", { name: "catalogue-sync-2's recent activity" });
+  // Grouped by day since 0.12 RA1: the name is the group's, a list under each day's heading.
+  const activity = page.getByRole("group", { name: "catalogue-sync-2's recent activity" });
   for (const line of ["Client created", "Renamed to catalogue-sync-2", "Deactivated", "Restored", "A secret was ended"])
     await activity.getByText(line).first().waitFor();
   checks.push("renamed, deactivated (no token) and restored; its recent activity says so");

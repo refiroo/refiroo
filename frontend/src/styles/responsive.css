@@ -124,6 +124,20 @@
   .data-context-band {
     position: static;
   }
+  /* A page fitted to the window (0.12 LS1, D371): the top bar, the rail's bar and the band stay,
+     the rows scroll below them. */
+  .app-shell.app-shell-fill {
+    display: flex;
+    flex-direction: column;
+  }
+  .app-shell-fill > .global-header,
+  .app-shell-fill > .navigation-toggle {
+    flex: none;
+  }
+  .app-shell-fill > .workspace-main {
+    flex: 1 1 auto;
+    padding-bottom: var(--space-3);
+  }
   .data-context-switch {
     margin-left: 0;
   }

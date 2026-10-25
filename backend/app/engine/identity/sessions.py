@@ -34,6 +34,7 @@ EndReason = Literal[
     "passwordChanged",
     "passwordReset",
     "providerDisabled",
+    "identityUnlinked",
 ]
 
 _KEYS = (integer_key("sequenceId", UserSession.id, "id"),)
@@ -41,6 +42,14 @@ _KEYS = (integer_key("sequenceId", UserSession.id, "id"),)
 
 class SessionRefused(Exception):
     """A refresh token that renews nothing: unknown, used, or its session ended or lapsed."""
+
+
+@dataclass(frozen=True)
+class Ended:
+    """A session just signed out: how it started and the provider's ID token it held, sealed."""
+
+    signed_in_with: str
+    provider_id_token: bytes | None
 
 
 @dataclass(frozen=True)
@@ -74,6 +83,7 @@ def start(
     signed_in_with: str,
     user_agent: str | None,
     now: datetime,
+    provider_id_token: bytes | None = None,
 ) -> tuple[UserSession, str]:
     """A new session for a person who has just signed in, with its first refresh token. The caller
     commits."""
@@ -82,6 +92,7 @@ def start(
         user_id=user.id,
         signed_in_with=signed_in_with,
         user_agent=(user_agent or None) and user_agent[:512],
+        provider_id_token=provider_id_token,
         created_at=now,
         last_used_at=now,
         idle_ends_at=min(now + timedelta(hours=settings.session_idle_hours), ends_at),
@@ -97,6 +108,21 @@ def end(user_session: UserSession, reason: EndReason, now: datetime) -> None:
     if user_session.ended_at is None:
         user_session.ended_at = now
         user_session.ended_reason = reason
+        user_session.provider_id_token = None
+
+
+def end_provider_sessions(session: Session, user_id: int, provider_key: str, now: datetime) -> None:
+    """End a person's open sessions that a sign-in provider started (its identity was unlinked)."""
+    session.execute(
+        update(UserSession)
+        .where(
+            UserSession.user_id == user_id,
+            UserSession.signed_in_with == provider_key,
+            UserSession.ended_at.is_(None),
+        )
+        .values(ended_at=now, ended_reason="identityUnlinked", provider_id_token=None),
+        execution_options={"synchronize_session": "fetch"},
+    )
 
 
 def end_all(
@@ -114,7 +140,7 @@ def end_all(
     if keep is not None:
         statement = statement.where(UserSession.id != keep)
     session.execute(
-        statement.values(ended_at=now, ended_reason=reason),
+        statement.values(ended_at=now, ended_reason=reason, provider_id_token=None),
         execution_options={"synchronize_session": "fetch"},
     )
 
@@ -152,18 +178,37 @@ def renew(
     return Renewed(user_session, user, renewed)
 
 
-def end_by_refresh_token(session: Session, refresh_token: str, reason: EndReason) -> None:
+def end_by_refresh_token(session: Session, refresh_token: str, reason: EndReason) -> Ended | None:
     """Sign out the session a refresh token belongs to (``/oauth/revoke``); an unknown token is
-    ignored, as RFC 7009 asks."""
+    ignored, as RFC 7009 asks. What the session held, when this ended it."""
     user_session = session.scalar(
         select(UserSession)
         .join(SessionRefreshToken, SessionRefreshToken.session_id == UserSession.id)
         .where(SessionRefreshToken.token_hash == digest(refresh_token))
         .with_for_update(of=UserSession)
     )
-    if user_session is not None:
-        end(user_session, reason, datetime.now(UTC))
-        session.commit()
+    if user_session is None or user_session.ended_at is not None:
+        return None
+    held = Ended(user_session.signed_in_with, user_session.provider_id_token)
+    end(user_session, reason, datetime.now(UTC))
+    session.commit()
+    return held
+
+
+def user_of_refresh_token(session: Session, refresh_token: str, now: datetime) -> User | None:
+    """The person whose open session holds this refresh token (the browser's cookie), without
+    renewing it: the engine's own pages know who is signed in (the passkey page, I4c). None when
+    the token is unknown or used, or its session or person is no longer open."""
+    row = session.execute(
+        select(SessionRefreshToken, UserSession, User)
+        .join(UserSession, UserSession.id == SessionRefreshToken.session_id)
+        .join(User, User.id == UserSession.user_id)
+        .where(SessionRefreshToken.token_hash == digest(refresh_token))
+    ).one_or_none()
+    if row is None:
+        return None
+    token, user_session, user = row
+    return user if token.used_at is None and is_open(user_session, now) and user.active else None
 
 
 def _user_id(session: Session, public_id: str) -> int:

@@ -42,6 +42,7 @@ export function AppShell({
   contextActions,
   permissionNote,
   ownChangeSet,
+  fill = false,
   children,
 }: {
   model: EngineModel;
@@ -65,6 +66,8 @@ export function AppShell({
   permissionNote?: string;
   /** The way into the person's own change set, in the band (D324). */
   ownChangeSet?: ReactNode;
+  /** The page is fitted to the window (a collection's table, 0.12 LS1, D371). */
+  fill?: boolean;
   children: ReactNode;
 }) {
   const [bandSlot, setBandSlot] = useState<HTMLElement | null>(null);
@@ -90,6 +93,7 @@ export function AppShell({
 
   return (
     <ShellFrame
+      main={fill ? { fill: true } : undefined}
       topBar={
         <TopBar
           model={model}

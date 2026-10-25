@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { formatServerTime } from "@/lib/dates";
+import { useState, type ReactNode } from "react";
+import { byDay, formatServerTime } from "@/lib/dates";
 
 export interface TimelineEntry {
   key: string;
@@ -10,29 +10,102 @@ export interface TimelineEntry {
   at: string;
   /** What follows the time on its line, such as " · by Ana Varga · version 4". */
   after?: ReactNode;
+  /** What an opened entry shows below its line, such as each value with the one before (0.12 RH1). */
+  details?: ReactNode;
+  /** The marker's colour, where entries of different kinds stand together. */
+  tone?: string;
 }
 
-/** Changes newest first, each with a marker, a title, a summary and when: a record's history, a
- * person's recent activity (0.12 Z4) and a person's changes across workspaces (0.12 Z6). */
-export function Timeline({ entries, label }: { entries: readonly TimelineEntry[]; label?: string }) {
+/**
+ * Changes newest first, each with a marker, a title, a summary and when: a record's history, a
+ * person's recent activity (0.12 Z4) and a person's changes across workspaces (0.12 Z6).
+ *
+ * `byDay` (0.12 RH1, D393) puts the entries under a heading for each day, each on one line with its
+ * time of day; an entry with `details` opens to show them.
+ */
+export function Timeline({
+  entries,
+  label,
+  byDay: grouped = false,
+}: {
+  entries: readonly TimelineEntry[];
+  label?: string;
+  byDay?: boolean;
+}) {
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (key: string) =>
+    setOpen((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  if (!grouped)
+    return (
+      <ol className="history-timeline" aria-label={label}>
+        {entries.map((entry) => (
+          <li key={entry.key}>
+            <span className="history-marker" />
+            <div>
+              <strong>{entry.title}</strong>
+              {entry.summary && <p>{entry.summary}</p>}
+              <small>
+                <time dateTime={entry.at} title={formatServerTime(entry.at)}>
+                  {relativeTime(entry.at)}
+                </time>
+                {entry.after}
+              </small>
+            </div>
+          </li>
+        ))}
+      </ol>
+    );
   return (
-    <ol className="history-timeline" aria-label={label}>
-      {entries.map((entry) => (
-        <li key={entry.key}>
-          <span className="history-marker" />
-          <div>
-            <strong>{entry.title}</strong>
-            {entry.summary && <p>{entry.summary}</p>}
-            <small>
-              <time dateTime={entry.at} title={formatServerTime(entry.at)}>
-                {relativeTime(entry.at)}
-              </time>
-              {entry.after}
-            </small>
-          </div>
-        </li>
+    <div className="history-days" aria-label={label} role="group">
+      {byDay(entries.map((entry) => ({ ...entry, occurredAt: entry.at }))).map((day) => (
+        <section key={day.day} aria-label={day.day}>
+          <h3 className="history-day">{day.day}</h3>
+          <ol className="history-lines">
+            {day.entries.map((entry) => {
+              const expanded = open.has(entry.key);
+              const line = (
+                <>
+                  <span className="history-line-marker" data-tone={entry.tone} aria-hidden="true" />
+                  <span className="history-line-text">
+                    <strong>{entry.title}</strong>
+                    {entry.summary && <span className="history-line-summary"> · {entry.summary}</span>}
+                    {entry.after && <span className="history-line-after">{entry.after}</span>}
+                  </span>
+                  <time dateTime={entry.at} title={formatServerTime(entry.at)}>
+                    {timeOfDay(entry.at)}
+                  </time>
+                </>
+              );
+              return (
+                <li key={entry.key}>
+                  {entry.details ? (
+                    <button
+                      type="button"
+                      className="history-line"
+                      aria-expanded={expanded}
+                      onClick={() => toggle(entry.key)}
+                    >
+                      {line}
+                      <span className="history-line-chevron" aria-hidden="true">
+                        {expanded ? "▾" : "▸"}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="history-line">{line}</div>
+                  )}
+                  {expanded && entry.details && <div className="history-line-details">{entry.details}</div>}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
       ))}
-    </ol>
+    </div>
   );
 }
 
@@ -50,4 +123,11 @@ function relativeTime(iso: string) {
     if (Math.abs(elapsed) >= size) return relative.format(Math.round(elapsed / size), unit);
   }
   return "just now";
+}
+
+function timeOfDay(iso: string) {
+  const date = new Date(iso);
+  return Number.isNaN(date.valueOf())
+    ? iso
+    : date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }

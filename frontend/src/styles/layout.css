@@ -723,6 +723,73 @@ fieldset.settings-section legend {
   margin-left: auto;
   margin-right: auto;
 }
+
+/* A page fitted to the window (0.12 LS1, D371; `ShellFrame`'s `main.fill`): a collection's table.
+   The window does not scroll; the top bar, the band, the header and the toolbar keep their heights,
+   the collection's card takes the rest down to the window's bottom, also when it holds few rows,
+   and only its rows scroll. The rail keeps its own scroll, so it and the card end on one line. */
+.app-shell.app-shell-fill {
+  height: 100dvh;
+  min-height: 0;
+  grid-template-rows: var(--topbar-height) minmax(0, 1fr);
+}
+.workspace-main.fill-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* Only where the window is too short for the header and a few rows does the content scroll. */
+  overflow-y: auto;
+  padding-bottom: var(--space-4);
+}
+.workspace-main.fill-main > * {
+  flex: none;
+}
+/* Nothing scrolls under the band here; sticky, it measured its top bar offset inside the content,
+   which scrolls only on a short window, and covered the page's header (found 2026-10-25). */
+.workspace-main.fill-main > .data-context-band {
+  position: relative;
+  top: auto;
+}
+/* Kept centred at the content's width as in a page that scrolls; the band spans the full width. */
+.workspace-main.fill-main > :not(.data-context-band) {
+  width: min(100%, 1440px);
+}
+.workspace-main.fill-main > .record-workspace,
+.fill-main .record-collection,
+.fill-main .collection-page,
+.fill-main .collection-page > .collection-surface {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.fill-main .collection-page > *,
+.fill-main .collection-surface > * {
+  flex: none;
+}
+.fill-main .collection-page > .collection-surface {
+  min-height: 240px;
+}
+.fill-main .collection-surface > .scroll-window-fill {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.scroll-window-fill > .scroll-window-frame {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.scroll-window-fill .scroll-window-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+.scroll-window-fill > .scroll-window-footer {
+  flex: none;
+}
 .shell-context {
   display: flex;
   align-items: center;

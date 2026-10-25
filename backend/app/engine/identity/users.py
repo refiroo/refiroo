@@ -16,7 +16,7 @@ from ..authorization.administration import (
     refuse_last_administrator,
     security_administrators,
 )
-from . import security_events, sessions
+from . import providers, security_events, sessions
 from .passwords import DEFAULT_MIN_LENGTH, check_password, hash_secret
 
 _KEYS = (integer_key("sequenceId", User.id, "id"),)
@@ -105,10 +105,13 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
         if "email" in fields:
             user.email = payload.email
         if "localKept" in fields and payload.localKept is not None:
+            if not payload.localKept:
+                providers.refuse_last_kept(session, user)
             user.local_kept = payload.localKept
         now = datetime.now(UTC)
         if "active" in fields and payload.active is not None:
             if user.active and not payload.active:
+                providers.refuse_last_kept(session, user)
                 before = security_administrators(session)
                 sessions.end_all(session, user.id, "deactivated", now)
                 user.active = False

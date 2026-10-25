@@ -463,6 +463,19 @@ function ProviderDetail({
           <CopyValue label="Redirect address" value={provider.redirectUri} />
         </p>
       </Section>
+      <ProviderSignOut
+        key={`sign-out-${provider.version}`}
+        provider={provider}
+        pending={pending}
+        onSave={(body) =>
+          write(async () =>
+            stored(
+              await security.updateSignInProvider(provider.key, body),
+              body.signOutOfProvider ? `People who sign in with ${provider.name} are signed out of it too.` : "Saved.",
+            ),
+          )
+        }
+      />
       <ProviderSettings
         key={provider.version}
         provider={provider}
@@ -496,6 +509,69 @@ function ProviderDetail({
         </ConfirmDialog>
       )}
     </div>
+  );
+}
+
+/** Whether signing out of the engine signs the person out of the provider too (I4a, D379). */
+function ProviderSignOut({
+  provider,
+  pending,
+  onSave,
+}: {
+  provider: SignInProvider;
+  pending: boolean;
+  onSave: (body: { expectedVersion: number; signOutOfProvider: boolean }) => Promise<boolean>;
+}) {
+  const [on, setOn] = useState(provider.signOutOfProvider);
+  const dirty = on !== provider.signOutOfProvider;
+  return (
+    <Section title="Signing out">
+      <form
+        noValidate
+        className="security-settings-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void onSave({ expectedVersion: provider.version, signOutOfProvider: on });
+        }}
+      >
+        <label className="checkbox">
+          <input type="checkbox" checked={on} onChange={(event) => setOn(event.target.checked)} />
+          <span>
+            Sign people out of {provider.name} too
+            <small>
+              Signing out of the engine also signs the person out of {provider.name}, and so of every application of the
+              organisation that uses it in this browser: useful on shared computers. Off: they stay signed in to{" "}
+              {provider.name} and come back without typing a password.
+            </small>
+          </span>
+        </label>
+        {on && (
+          <div className="form-field">
+            <p className="admin-hint">Sign-out address to register (post-logout redirect)</p>
+            <p className="webhook-secret">
+              <CopyValue label="Sign-out address" value={provider.signedOutUri} />
+            </p>
+          </div>
+        )}
+        <Notice tone="warning" title="Only this browser">
+          Sign out everywhere, and an administrator signing a person out, end the engine's sessions only: another
+          browser cannot be sent to {provider.name}.
+        </Notice>
+        <div className="dialog-actions">
+          <button
+            type="button"
+            className="secondary"
+            disabled={pending || !dirty}
+            onClick={() => setOn(provider.signOutOfProvider)}
+          >
+            Cancel
+          </button>
+          <button className="primary" disabled={pending || !dirty}>
+            {pending ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </Section>
   );
 }
 
@@ -620,6 +696,7 @@ function LocalDetail({
   onChanged: (local: LocalSignIn) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [requiring, setRequiring] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const offRef = useRef<HTMLButtonElement>(null);
@@ -642,6 +719,25 @@ function LocalDetail({
     }
   }
 
+  async function require(required: boolean) {
+    setPending(true);
+    setError("");
+    try {
+      onChanged(await security.setLocalSignIn({ expectedVersion: local.version, secondFactorRequired: required }));
+      setRequiring(false);
+      toast(
+        required
+          ? "A password now needs a code from an authenticator app."
+          : "A second factor is no longer required with a password.",
+      );
+    } catch (cause) {
+      setError(errorMessage(cause));
+      if (isApiError(cause, "VERSION_CONFLICT")) void security.localSignIn().then(onChanged, () => undefined);
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="model-editor-stack security-detail">
       <header className="model-detail-header">
@@ -655,7 +751,7 @@ function LocalDetail({
       </header>
       <p>
         {local.enabled
-          ? "People sign in with a username and password. Passwords have no second factor: a provider brings the organisation's multi-factor sign-in."
+          ? "People sign in with a username and password; each may add an authenticator app on their Account page, and you can require it below. A provider brings the organisation's own multi-factor sign-in."
           : `Only the ${local.keptPeople === 1 ? "administrator" : `${local.keptPeople} administrators`} made on the server sign in with a password, from the link on the sign-in page. Everyone else signs in with a provider.`}
       </p>
       {error && !confirming && (
@@ -676,10 +772,47 @@ function LocalDetail({
           </button>
         )}
       </div>
+      <Section title="Second factor">
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={local.secondFactorRequired}
+            disabled={pending}
+            onChange={(event) => (event.target.checked ? setRequiring(true) : void require(false))}
+          />
+          <span>
+            Require a second factor with a password
+            <small>
+              A password alone no longer signs anyone in: a person with neither an authenticator app nor a passkey sets
+              an app up on the sign-in page first. People signing in with a provider are not asked; the provider's own
+              factor applies.
+            </small>
+          </span>
+        </label>
+      </Section>
       {local.enabled && !working.length && (
         <p className="admin-hint">
           Local sign-in can be turned off once a provider is enabled and has signed someone in, so nobody is locked out.
         </p>
+      )}
+      {requiring && (
+        <ConfirmDialog
+          title="Require a second factor?"
+          confirmLabel="Require it"
+          pending={pending}
+          error={error}
+          onCancel={() => {
+            setRequiring(false);
+            setError("");
+          }}
+          onConfirm={() => void require(true)}
+        >
+          <p>
+            From now on, a password signs nobody in by itself. Each person types a code from an authenticator app, and
+            one without an app sets it up on the sign-in page, with its recovery codes, before their session starts.
+            That includes the administrators made on the server. People signing in with a provider are not asked.
+          </p>
+        </ConfirmDialog>
       )}
       {confirming && (
         <ConfirmDialog

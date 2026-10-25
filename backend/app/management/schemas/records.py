@@ -138,6 +138,43 @@ class AuditCause(BaseModel):
     )
 
 
+class HistoryValue(BaseModel):
+    """One value an entry changed, with the value before (0.12 RH1, D389, D390)."""
+
+    field: str = Field(description="`name`, `parent`, an attribute type's key or a relation type's")
+    kind: Literal["name", "parent", "attribute", "relation"]
+    from_: Any = Field(
+        alias="from",
+        description="The value before: a parent by its name, a relationship's records by theirs",
+    )
+    to: Any
+    fromKnown: bool = Field(
+        description="False where the record's previous entry kept names only (a publish, a type "
+        "change): the value before was not recorded"
+    )
+
+    model_config = {"populate_by_name": True, "serialize_by_alias": True}
+
+
+class HistoryRelated(BaseModel):
+    """A relationship's entry's other record, read from this record (0.12 RH1, D392)."""
+
+    relationTypeKey: str | None
+    direction: Literal["outgoing", "incoming"]
+    objectId: str | SkipJsonSchema[None] = Field(
+        default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
+    )
+    name: str | SkipJsonSchema[None] = Field(
+        default=None,
+        exclude_if=omitted_when_none,
+        json_schema_extra=without_default,
+        description="Its current name; omitted for a record no longer in live data",
+    )
+    objectTypeKey: str | SkipJsonSchema[None] = Field(
+        default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
+    )
+
+
 class AuditEventResponse(BaseModel):
     id: str
     aggregateType: str
@@ -153,6 +190,13 @@ class AuditEventResponse(BaseModel):
     )
     # Who made it, beside the cause (0.12 Z4, D313); null for an entry from before Z4.
     actor: ActorResponse | None
+    # What kind of change, the values with the value before, and a relationship's other record
+    # (0.12 RH1, D389–D392). The change feed and consumer events keep names only (D16).
+    kind: Literal["values", "relationships", "structure"] = "values"
+    values: list[HistoryValue] = Field(default_factory=list)
+    related: HistoryRelated | SkipJsonSchema[None] = Field(
+        default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
+    )
 
 
 class AuditEventPage(CollectionPage[AuditEventResponse]):

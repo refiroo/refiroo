@@ -57,7 +57,8 @@ def wait_after(failures: int, kind: str) -> int:
 
 
 def _keys(username: str, address: str | None) -> list[tuple[str, str]]:
-    keys = [("account", username.strip().casefold()[:320])]
+    """What a failure is counted against: the account, when one is known, and the address."""
+    keys = [("account", username.strip().casefold()[:320])] if username.strip() else []
     if address:
         keys.append(("address", address[:320]))
     return keys
@@ -80,7 +81,8 @@ def seconds_to_wait(session: Session, username: str, address: str | None, now: d
     return longest
 
 
-def _record_failure(session: Session, username: str, address: str | None, now: datetime) -> None:
+def record_failure(session: Session, username: str, address: str | None, now: datetime) -> None:
+    """Count a failed attempt against the account and the address (D271)."""
     for kind, key in _keys(username, address):
         statement = insert(SignInFailure).values(kind=kind, key=key, count=1, last_failure_at=now)
         session.execute(
@@ -113,10 +115,14 @@ def check_password(
     now: datetime,
     *,
     kept_only: bool = False,
+    finish: bool = True,
 ) -> User | Refused:
     """The active person these credentials belong to, or why not. A failure is counted and logged;
     a success clears the account's count. With ``kept_only`` (local sign-in off, I3, D365) a person
-    who does not keep local sign-in is refused as a wrong password is. Commits."""
+    who does not keep local sign-in is refused as a wrong password is. With ``finish`` false (a
+    second step may follow, I4b) a success is neither logged nor clears the count: ``complete``
+    does, once the sign-in is whole, so guessing codes after a known password is still slowed.
+    Commits."""
     wait = seconds_to_wait(session, username, address, now)
     if wait > 0:
         return Refused("slowed", wait)
@@ -125,7 +131,7 @@ def check_password(
     stored = user.password_hash if usable else None
     matches = verify_secret(password, stored or _absent_hash())
     if user is None or stored is None or not matches:
-        _record_failure(session, username, address, now)
+        record_failure(session, username, address, now)
         # Checked, so bounded by the growing delay; a slowed attempt is only logged (D318).
         security_events.record(
             session, "sign-in", user.public_id if user else "unknown", "failed",
@@ -138,17 +144,29 @@ def check_password(
             extra={"event": "sign_in_failed", "username": username[:150], "address": address},
         )
         return Refused("wrong")
+    if finish:
+        complete(session, user, username, address)
+        session.commit()
+    return user
+
+
+def complete(
+    session: Session, user: User, username: str, address: str | None, *, method: str | None = None
+) -> None:
+    """A sign-in that is whole: the account's count of failures is cleared and the sign-in is a
+    security event, with ``method`` when it was not by a password alone. The caller commits."""
     session.execute(
         delete(SignInFailure).where(
-            SignInFailure.kind == "account", SignInFailure.key == _keys(username, None)[0][1]
+            SignInFailure.kind == "account", SignInFailure.key == username.strip().casefold()[:320]
         )
     )
+    details = {"username": user.username, "address": address}
+    if method:
+        details["method"] = method
     security_events.record(
         session, "sign-in", user.public_id, "succeeded", about=[user.public_id],
-        by=("user", user.id), details={"username": user.username, "address": address},
+        by=("user", user.id), details=details,
     )  # fmt: skip
-    session.commit()
-    return user
 
 
 def valid_challenge(challenge: str | None) -> bool:
@@ -169,8 +187,10 @@ def issue_code(
     code_challenge: str,
     signed_in_with: str,
     now: datetime,
+    provider_id_token: bytes | None = None,
 ) -> str:
-    """A one-time code for a person who has just proved who they are. Commits."""
+    """A one-time code for a person who has just proved who they are; with the provider's ID token
+    (sealed) when its provider signs people out too (I4a). Commits."""
     code = new_token()
     session.add(
         AuthorizationCode(
@@ -180,6 +200,7 @@ def issue_code(
             redirect_uri=redirect_uri,
             code_challenge=code_challenge,
             signed_in_with=signed_in_with,
+            provider_id_token=provider_id_token,
             created_at=now,
             expires_at=now + timedelta(seconds=CODE_SECONDS),
         )
@@ -222,6 +243,7 @@ def redeem_code(
                 session.commit()
         raise CodeRefused
     stored.used_at = now
+    held, stored.provider_id_token = stored.provider_id_token, None
     valid = (
         now < stored.expires_at
         and stored.redirect_uri == redirect_uri
@@ -239,6 +261,7 @@ def redeem_code(
         signed_in_with=stored.signed_in_with,
         user_agent=user_agent,
         now=now,
+        provider_id_token=held,
     )
     stored.session_id = user_session.id
     session.commit()

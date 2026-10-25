@@ -6,6 +6,106 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (0.12 I4 review)
+
+- **Removing a passkey asks for the password again** (or a code from the app or a recovery code):
+  `DELETE /me/passkeys/{id}` takes `proof`, so a stolen session cannot strip a person's passkeys.
+- **Recovery codes are stored keyed** (HMAC-SHA-256 under `SECRETS_ENCRYPTION_KEY`), not as plain
+  SHA-256 of 60-bit codes. Recovery codes made before this stop working: make new ones.
+- **A second factor and passkeys need a password:** `409 PASSWORD_REQUIRED` for a person who signs
+  in with a provider (a passkey would have been a way in past the provider).
+- **Linking** locks both people in one order (no deadlock between opposite links) and refuses a
+  deactivated person as the target (`409 LINK_TARGET_DEACTIVATED`).
+- **Open passkey sign-ins are capped** (2000 waiting at once, then `429` with `Retry-After`), so the
+  open options endpoint cannot fill the database.
+
+### Added (0.12 DP1a, a developer instance on the network)
+
+- `scripts/dev.sh` runs a developer instance in two terminals: `settings` (the database and a secrets
+  key in a git-ignored `.dev/settings.env`), `admin` (the first administrator), `engine`, `frontend`;
+  with `--network` both over https on this computer's network address, after `cert` finds the
+  address and makes an mkcert certificate, so a phone or another computer on the network signs in.
+- README's setup uses it, and OPERATIONS § A developer instance explains each step and the settings.
+
+### Changed (0.12 SP1b, a group's members)
+
+- **Add members** on a group's page adds several people at once: searched and ticked (people already
+  in the group or deactivated shown but not tickable), or pasted as a list of usernames and e-mail
+  addresses that is checked first, each line saying whom it names or that nobody has it; the people
+  to add gather as chips and are added together (D401).
+- Members are ticked and **removed together**; the last Security administrator is still kept (D402).
+- `POST /groups/{id}/members/batch` (with `dryRun`) and `POST /groups/{id}/members/removal`.
+
+### Changed (0.12 RA1, a person's recent activity)
+
+- **Recent activity** on a person's or client's page reads like a record's history: a heading for
+  each day, one line each, filtered by kind (**Signing in**, **Roles and groups**, **Account**), the
+  10 newest first, **Load more** adds 20, **Show fewer** returns to 10. The kinds use the API's
+  existing `aggregateType` filter.
+
+### Changed (0.12 RH1, a record's history)
+
+- A record's **History** lists its changes under a heading for each day, one line each (what, who,
+  when); a line opens to show each value with the one before (D389, D16 revised for history only),
+  or says the one before was not recorded after a publish or a type change (D390).
+- Filters by kind (values, relationships, moves) and by who made the changes; the 10 newest first,
+  **Load older history** adds 20, **Show fewer** returns to 10 (D391, D393). A relationship's line
+  names the record at its other end (D392).
+- `GET /objects/{type}/{id}/history` takes `kind` and `actorId` and answers `kind`, `values` and
+  `related` on each entry. The change feed and consumer events still name changes only.
+
+### Added (0.12 I4c, passkeys)
+
+- **Passkeys** (D389–D394): Settings › Account › **Passkeys** adds one on the engine's own page,
+  where the browser asks for a fingerprint, face, device PIN or security key; it signs the person in
+  alone from the sign-in page's **Sign in with a passkey**, or after a password as the second step,
+  and meets the requirement for a second factor. Rename and remove them; an administrator removes
+  one from a person's page. A passkey belongs to the host of `PUBLIC_URL`: changing it invalidates
+  them.
+- The sign-in page runs one script of the engine's own, `/oauth/passkey.js`, only where a passkey is
+  offered, and none elsewhere (`script-src 'self'`; D275 revised, D390).
+- `GET|PATCH|DELETE /me/passkeys`, `GET|DELETE /users/{id}/passkeys`, `passkeys` on a person and on
+  `/me/second-factor`. Migration `20261107_01`; one new dependency, `webauthn`.
+
+### Fixed (0.12 I4c)
+
+- A sign-in provider's key cannot be `password` or `passkey`, nor `local`: a session's
+  `signedInWith` is one of those or a provider's key.
+
+### Added (0.12 I4b, a second factor for local accounts)
+
+- **An authenticator app** (D383–D388, D225 revised): Settings › Account › **Second factor** sets one
+  up with a QR code the engine draws, the key and a code, and shows ten recovery codes, once. After
+  the password the sign-in page asks for the app's code, or a recovery code; each works once, and a
+  wrong one is slowed like a wrong password. **New recovery codes…** and **Remove…** ask for a code.
+- **Require a second factor with a password** (Settings › Security › Sign-in › Local accounts): a
+  person without an app sets one up on the sign-in page, and sees the recovery codes, before their
+  session starts; nobody removes their own factor meanwhile. Provider sign-ins are never asked.
+- A Security administrator removes a person's second factor from their page (a security event).
+- `GET|POST /me/second-factor`, `POST /me/second-factor/confirmation`, `POST
+  /me/second-factor/recovery-codes`, `DELETE /me/second-factor`, `DELETE /users/{id}/second-factor`,
+  `secondFactor` on a person, `secondFactorRequired` on local sign-in. Migration `20261106_01`; one new
+  dependency, `segno` (the QR code).
+
+### Fixed (0.12 I4b)
+
+- The browser runner's provider helper passed its secret as a separate argument, which failed when the
+  random secret began with `-`.
+
+### Added (0.12 I4a, a provider identity linked, signing out of the provider)
+
+- **Link to an existing person…** on the person a provider sign-in made (D377, D378): their
+  identity and provider groups move onto the person who already had the account, with their roles
+  and history; the new person is deactivated. Refused for a person with a password, roles of their
+  own or local groups. **Unlink…** undoes it. `POST /users/{id}/identities`,
+  `DELETE /users/{id}/identities/{provider}`.
+- **Sign people out of *name* too** (D379, D380): a provider's setting, off by default, with the
+  second address to register (`signedOutUri`). The app signs out by opening `GET /oauth/sign-out`;
+  the browser goes through the provider's sign-out with the ID token the session kept, sealed, and
+  back to the sign-in page. Migration `20261105_01`.
+- **Keeps local sign-in** is a switch on a person's page (D381); while local sign-in is off, the last
+  person who keeps it can neither lose it nor be deactivated (`409 LAST_LOCAL_ADMINISTRATOR`).
+
 ### Added (0.12 I3, a sign-in provider)
 
 - **Sign in with the organisation's provider** (D361–D370): an OpenID Connect provider (Entra ID,
@@ -31,6 +131,31 @@ All notable changes to this project are documented in this file. The format foll
 - A group's page kept its old name after Rename until it was opened again.
 - Two fields side by side in a dialog no longer push one input down when only the other has help
   text.
+
+### Changed (0.12 HM1a, Home)
+
+- A workspace card's tile (its initials) opens the workspace, as its name does.
+- **Continue where you left off** stands on a shade of its own, in light and dark.
+
+### Changed (0.12 LS1, a collection's rows scroll on their own)
+
+- A collection's table page fits the window (D371): only its rows scroll; the top bar, the band,
+  the header and the toolbar stay, and the table's footer and the rail end on the window's bottom
+  line, also with few records and on a phone.
+- The wheel over a list that fills its page is the browser's alone (D372); a list nested in a page
+  that scrolls (a record's panels, dialogs) keeps carrying the wheel on at its ends, finding the
+  scroller around it once per gesture.
+- A record list's rows keep to one line once its columns are laid out (D375); a cut value is shown
+  whole on hover, focus or a long press.
+
+### Fixed (0.12 LS1)
+
+- Scrolling a collection lagged even with a few hundred records. Rows passing under the pointer
+  measured their cells and drew the whole table again, twice, for every cut-off value; every page
+  arriving in the background and every draw of the page drew every row again; the wheel waited
+  for a script that read the layout at each step; and every scroll frame laid the table out again.
+  Now a row on the page is drawn once (D373), and the layout is read only when the list or its size
+  changes (D374).
 
 ### Added (0.12 SP2, clients and their access)
 

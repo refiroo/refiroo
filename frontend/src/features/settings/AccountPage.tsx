@@ -23,9 +23,14 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
 import { browserName, onPhone } from "./browserName";
+import { PasskeysPanel } from "./PasskeysPanel";
+import { SecondFactorPanel } from "./SecondFactorPanel";
 import { useSettingsRead } from "./useSystem";
 
-const SIGNED_IN_WITH: Record<string, string> = { password: "Signed in with your password" };
+const SIGNED_IN_WITH: Record<string, string> = {
+  password: "Signed in with your password",
+  passkey: "Signed in with a passkey",
+};
 // The production rule (D252); the engine's refusal is what counts where a deployment sets another.
 const LONG_ENOUGH = 15;
 
@@ -41,6 +46,8 @@ export function AccountPage() {
         <div className="account-page">
           <Profile me={me} />
           {me.signedInWith === "password" && <PasswordPanel />}
+          {(me.signedInWith === "password" || me.signedInWith === "passkey") && <PasskeysPanel />}
+          {(me.signedInWith === "password" || me.signedInWith === "passkey") && <SecondFactorPanel />}
           <Sessions />
           <Permissions />
         </div>

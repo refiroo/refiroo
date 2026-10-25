@@ -15,6 +15,15 @@ vi.mock("@/api/client", () => ({
     endMySession: vi.fn(async () => undefined),
     endAllMySessions: vi.fn(async () => undefined),
     changePassword: vi.fn(),
+    // Their own panels are tested in SecondFactorPanel.test and PasskeysPanel.test.
+    myPasskeys: vi.fn(async () => []),
+    mySecondFactor: vi.fn(async () => ({
+      enabled: false,
+      confirmedAt: null,
+      recoveryCodesLeft: 0,
+      passkeys: 0,
+      required: false,
+    })),
   },
 }));
 vi.mock("@/api/session", () => ({ signOut: vi.fn(async () => undefined) }));

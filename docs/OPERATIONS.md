@@ -6,6 +6,30 @@ How to configure, run, upgrade and recover RDM Engine. The design reasons behind
 The engine is pre-production until 0.11 (production hardening) and 0.12 (authentication). Every API
 is unauthenticated today: run it only in a trusted environment or behind an access-control layer.
 
+## A developer instance
+
+`scripts/dev.sh` runs one for development, each server in the foreground of its own terminal
+(0.12 Track DP, D411); `scripts/dev.sh` alone lists its commands. `scripts/dev.sh settings` writes
+`.dev/settings.env` once (git-ignored): `DATABASE_URL` for `scripts/postgres.sh`'s database and a new
+`SECRETS_ENCRYPTION_KEY`, or the one already in your environment, which an existing database needs.
+A setting in your environment wins over the file. `scripts/dev.sh admin <username> "<name>"` makes
+the first administrator.
+
+**From a phone or another computer on the network.** A browser signs in (PKCE) and uses passkeys
+only on a secure page, `https` or `localhost`, so another device needs https:
+
+| Step | What it does |
+| --- | --- |
+| `scripts/dev.sh cert` | Finds this computer's address on the network (the one its default route leaves from; `RDM_DEV_ADDRESS` overrides it), trusts mkcert's authority on this computer and makes a certificate for the address, `localhost` and `127.0.0.1` in `.dev/certs/`; again when the address changes |
+| On the phone, once | Trust mkcert's authority (`mkcert -CAROOT`/`rootCA.pem`): on an iPhone install the profile, then switch it on under Settings › General › About › Certificate Trust Settings; on Android install it as a CA certificate |
+| `scripts/dev.sh engine --network` | The engine on `https://<address>:8000` with `PUBLIC_URL=https://<address>:8000` and `CORS_ORIGINS=https://<address>:5173` |
+| `scripts/dev.sh frontend --network` | The frontend on `https://<address>:5173` (`DEV_HTTPS_CERT` and `DEV_HTTPS_KEY` switch Vite to https) calling `VITE_API_URL=https://<address>:8000` |
+
+Open `https://<address>:5173` on every device, this computer included: the page and the engine
+share the address, which the sign-in cookie needs (one site, below). Changing between the network
+and `localhost` changes the engine's `PUBLIC_URL`, so everyone signs in again. This is for
+development; an installation is served as [Deployment topologies](#deployment-topologies) says.
+
 ## Settings
 
 The backend reads its settings from the environment at startup (`backend/app/config.py`).
@@ -208,9 +232,10 @@ keys and their state, never a private key.
 
 **Setting up:** set `SECRETS_ENCRYPTION_KEY` (`python -m app.cli.generate_key`) and, outside local
 development, `PUBLIC_URL` and `CORS_ORIGINS`; then create the first client and administrator with the
-commands above. Local accounts have a password only; a sign-in provider brings the organisation's
-multi-factor sign-in (D225, [Signing in with the organisation's
-provider](#signing-in-with-the-organisations-provider)).
+commands above. Local accounts have a password, and optionally an authenticator app as a second
+factor (D383, [A second factor for local accounts](#a-second-factor-for-local-accounts)); a
+sign-in provider brings the organisation's own multi-factor sign-in (D225, [Signing in with the
+organisation's provider](#signing-in-with-the-organisations-provider)).
 
 ### Roles and grants
 
@@ -291,7 +316,8 @@ at the instance (`409 LAST_SECURITY_ADMINISTRATOR`). If every such person is los
 The browser application signs a person in on the engine's own page, `/oauth/authorize`, with the
 authorization code flow and PKCE (0.12 I2, D234): opening the application without a session leads
 there, and signing in returns to the page asked for. The page shows the default workspace's product
-name, needs no script, and cannot be framed. The access token stays in the page's memory; the
+name, cannot be framed and runs no script, except where it offers a passkey: then only the engine's
+own `/oauth/passkey.js` (a policy of `script-src 'self'`, nothing inline, D390). The access token stays in the page's memory; the
 session is held in an `HttpOnly`, `SameSite=Strict` cookie named `oauth_refresh`, scoped to `/oauth`,
 which the browser renews unseen while the person works. Each renewal replaces the cookie's token; a
 token presented a second time ends the session, since only a copy can do that.
@@ -348,13 +374,19 @@ only proves who the person is.
 never by e-mail (D363). At their first sign-in a person is created with the token's name, e-mail
 and username (`preferred_username`, else `email`, numbered when taken) and no roles; their groups
 grant what they may do. Name and e-mail follow the provider at each sign-in. Someone who already had
-a local account becomes a second person: grant the new one and deactivate the old.
+a local account becomes a second person: open the new person's page and choose **Link to an existing
+person…** (0.12 I4a, D377): their identity and provider groups move onto the person who had the
+account, with their roles and history, and the new person is deactivated. It is refused when the new
+person already has a password, roles of their own or local groups: remove those first. **Unlink** on
+the person's page undoes a wrong link; the next sign-in with that provider makes a new person.
 
 **Turning local sign-in off** (D365): on Settings › Security › Sign-in › Local accounts, once an
 enabled provider has signed someone in. Passwords then stop working, except for the people who
 **keep local sign-in**: those made on the server with `create_admin`, and those made before 0.12 Z4
 (the upgrade marks them; `PATCH /api/v1/users/{id}` with `localKept` changes it). They sign in
-through **Sign in with a local administrator account** on the sign-in page. If every provider fails
+through **Sign in with a local administrator account** on the sign-in page; the switch **Keeps local
+sign-in** on a person's page gives or takes it away, and while local sign-in is off the last person
+who keeps it can neither lose it nor be deactivated (D381). If every provider fails
 and nobody who keeps local sign-in is available, run `python -m app.cli.create_admin` on the server:
 the new administrator keeps it. Clients are not affected.
 
@@ -362,7 +394,62 @@ the new administrator keeps it. Clients are not affected.
 ask the provider again until the next sign-in. Someone removed in the provider keeps an open session
 until it lapses (`SESSION_IDLE_HOURS`, at most `SESSION_DAYS`), so deactivate leavers in the engine
 too, or shorten `SESSION_IDLE_HOURS`. Disabling a provider ends every session it started. Signing
-out of the engine does not sign the person out of the provider.
+out of the engine signs the person out of the provider only when the provider's **Sign people out of
+*name* too** is on (below).
+
+**Signing out of the provider too** (0.12 I4a, D379, D380). Off by default: with Entra ID or Google,
+signing out of the provider signs the person out of every application of the organisation in that
+browser (mail, chat), which suits shared computers and surprises everyone else. Turn it on for a
+provider on its page under **Signing out**; the engine needs the provider's `end_session_endpoint`
+in its discovery document (Entra ID, Google, Keycloak and Okta publish one) and refuses the setting
+without it. Then register the second address the page shows, `<PUBLIC_URL>/oauth/providers/<key>/
+signed-out`, as the application's **post-logout redirect address** (Entra ID: *Front-channel logout
+URL* / redirect URIs; Keycloak: *Valid post logout redirect URIs*; Okta: *Sign-out redirect URIs*).
+From then on, signing out in the app takes the browser to the provider's sign-out with the ID token
+the person signed in with, which the engine keeps sealed for as long as the session is open, and
+back to the sign-in page. Sessions started before the setting was turned on hold no ID token and
+sign out of the engine only. Signing out everywhere, and an administrator signing a person out,
+end engine sessions only: another browser cannot be sent to the provider. Changing `PUBLIC_URL`'s
+host means registering both addresses again.
+
+### A second factor for local accounts
+
+A person with a password can add an authenticator app (any TOTP app: Microsoft Authenticator,
+Google Authenticator, 1Password, Aegis) on Settings › Account › Second factor (0.12 I4b, D383,
+D384): the engine draws a QR code, shows the key, and asks for a code to confirm; it then shows ten
+**recovery codes**, once. From then on the password alone does not sign them in: the sign-in page asks
+for the six-digit code, or a recovery code ("Use a recovery code instead"). Each code, the app's or
+a recovery code, works once, and a wrong one is slowed like a wrong password (D271). The secret is
+sealed with `SECRETS_ENCRYPTION_KEY` (a lost key loses every app), the recovery codes are stored as
+keyed hashes (a lost key voids them too: make new ones). Removing a passkey asks for the password
+again (or a code). A person who signs in with a provider has no password, so no app and no passkey. The phone's clock must be right within about a minute.
+
+**Requiring it.** Settings › Security › Sign-in › Local accounts › **Require a second factor with a
+password** (D388): a person without an app sets one up on the sign-in page, with their recovery
+codes, before their session starts, the administrators made on the server included; nobody can
+remove their own factor while it is on. Clients and people signing in with a provider are never
+asked: the provider's own factor applies.
+
+**Passkeys** (0.12 I4c, D389–D394). A person adds a passkey on Settings › Account › Passkeys: the
+button opens the engine's own page, where the browser asks for their fingerprint, face, device PIN
+or security key. A passkey signs them in alone (the sign-in page's **Sign in with a passkey**, no
+username) or as the second step after a password, and meets the requirement above. A passkey belongs
+to one site name, the host of `PUBLIC_URL` (the relying party): it works on the engine's pages, never
+on a look-alike. **Changing `PUBLIC_URL`'s host invalidates every passkey**; people add them again,
+and until then the password and the app still work. The engine needs `PUBLIC_URL` at the address
+people reach it by, over `https` (a browser allows passkeys on `localhost` over `http` only), and the
+application and the engine on one site (OPERATIONS' "one site") so the person's session reaches the
+engine's page. With local sign-in off, a passkey alone works only for the people who keep it. A
+person with only passkeys has no recovery codes: a lost device is a Security administrator removing
+the passkey from their page (or a second passkey, kept elsewhere).
+
+**A lost phone.** The person signs in with a recovery code and sets the app up again from Account
+(New recovery codes after any use). Without the codes, a Security administrator opens their page and
+chooses **Remove second factor…** (D387, a security event records it); with the requirement on, they
+set one up at their next sign-in. If no administrator can sign in, run
+`python -m app.cli.create_admin` on the server: the new administrator signs in with their password,
+sets an app up on the sign-in page when the requirement is on, and then removes the others' second
+factors or turns the requirement off.
 
 **When a sign-in fails**, the person sees "*provider* could not sign you in" with the reason, and the
 Security events record it (`sign-in` `failed` with `reason` and `detail`), for example `issuer` or

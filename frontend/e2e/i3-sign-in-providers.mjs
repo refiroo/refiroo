@@ -9,15 +9,12 @@
 // through its confirmation; the sign-in page then shows only the provider's button and the local
 // administrator's link, where the harness person (keeping local sign-in) signs in; turned on again.
 // Axe on each page; screenshots; no horizontal page scroll at 390px.
-import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
 import { writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { startProvider } from "./helpers/oidc-provider.mjs";
 
-const root = resolve(import.meta.dirname, "..", "..");
 const MODELS = [{ name: "starter" }, { name: "renamed", product: "Northfield Reference Data" }];
 
 const checks = [];
@@ -31,42 +28,6 @@ async function axe(page, name) {
   const result = await runAxe(page, [], name);
   if (result.violations.length) failures.push(`${name}:\n${formatViolations(result.violations)}`);
   checks.push(`axe ${name}: ${result.violations.length} violations`);
-}
-
-function freePort() {
-  return new Promise((done, fail) => {
-    const server = createServer();
-    server.once("error", fail);
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address();
-      server.close(() => done(port));
-    });
-  });
-}
-
-/** The harness provider as a process of its own; stopped with the run. */
-async function startProvider() {
-  const port = await freePort();
-  const secret = randomBytes(18).toString("base64url");
-  const child = spawn(
-    resolve(root, "backend/.venv/bin/python"),
-    ["tests/oidc_provider.py", "--port", String(port), "--client-id", "engine", "--client-secret", secret],
-    { cwd: resolve(root, "backend"), stdio: ["ignore", "pipe", "pipe"] },
-  );
-  let log = "";
-  child.stdout.on("data", (data) => (log += data));
-  child.stderr.on("data", (data) => (log += data));
-  const issuer = `http://127.0.0.1:${port}`;
-  for (let attempt = 0; attempt < 100; attempt++) {
-    if (child.exitCode !== null) throw new Error(`The harness provider exited: ${log}`);
-    try {
-      if ((await fetch(`${issuer}/.well-known/openid-configuration`)).ok) return { issuer, secret, child };
-    } catch {
-      /* starting */
-    }
-    await new Promise((done) => setTimeout(done, 100));
-  }
-  throw new Error(`The harness provider did not start: ${log}`);
 }
 
 async function walk(configuration) {
@@ -163,8 +124,8 @@ async function walk(configuration) {
     const seen = page.getByRole("group", { name: "Members" });
     await seen.getByRole("link", { name: pat.name }).waitFor();
     expect(
-      !(await page.getByRole("button", { name: "Add a member" }).count()),
-      `${tag}: no Add a member on a provider group`,
+      !(await page.getByRole("button", { name: "Add members" }).count()),
+      `${tag}: no Add members on a provider group`,
     );
     expect(!(await seen.getByRole("button", { name: /Remove/ }).count()), `${tag}: no Remove on a provider group`);
     await page.getByRole("button", { name: "Rename…" }).click();

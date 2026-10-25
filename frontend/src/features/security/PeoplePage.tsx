@@ -15,7 +15,7 @@ import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { routePath } from "@/routing/routes";
-import type { Group, PasswordResetLink, RouteState, SettingsRoute, User } from "@/types";
+import type { Group, Passkey, PasswordResetLink, RouteState, SettingsRoute, SignInProviderRef, User } from "@/types";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { FormField } from "@/ui/FormField";
@@ -25,17 +25,20 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { SearchField } from "@/ui/SearchField";
+import { RuledList, RuledListItem } from "@/ui/RuledList";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { ShownOnceDialog } from "@/ui/ShownOnceDialog";
 import { StatusPill } from "@/ui/StatusPill";
+import { Switch } from "@/ui/Switch";
 import { useToast } from "@/ui/Toast";
 import { readsChanges } from "@/features/changes/changeText";
 import { GrantsSection } from "./GrantsSection";
 import { useHeldAnywhere } from "./permissions";
 import { PickDialog } from "./PickDialog";
 import { RecentActivity } from "./RecentActivity";
-import { personSignInLine, userRoleLine } from "./securityText";
+import { PrincipalPicker, type PickedPrincipal } from "./PrincipalPicker";
+import { identityNames, linkSentence, personSignInLine, unlinkSentence, userRoleLine } from "./securityText";
 
 type PeopleRoute = Extract<SettingsRoute, { page: "people" }>;
 
@@ -53,11 +56,17 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
   const [countToken, setCountToken] = useState(0);
   // While local sign-in is off, a new person or a password is of no use (I3, D365).
   const [localOn, setLocalOn] = useState(true);
+  // With the requirement on, a person without a second factor sets one up at their next sign-in (I4b).
+  const [required, setRequired] = useState(false);
 
   useEffect(() => {
     let current = true;
     security.localSignIn().then(
-      (local) => current && setLocalOn(local.enabled),
+      (local) => {
+        if (!current) return;
+        setLocalOn(local.enabled);
+        setRequired(local.secondFactorRequired);
+      },
       () => undefined,
     );
     return () => {
@@ -158,9 +167,15 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
             key={route.userId}
             userId={route.userId}
             localOn={localOn}
+            required={required}
             onNavigate={onNavigate}
             onChanged={changed}
             onLink={(user, made) => setLink({ user, link: made, created: false })}
+            onLinked={(target) => {
+              feed.reload();
+              setCountToken((token) => token + 1);
+              onNavigate({ ...PEOPLE, userId: target.id });
+            }}
           />
         ) : (
           <div className="panel-state">Choose a person.</div>
@@ -361,21 +376,28 @@ function NewPersonDialog({
 function PersonDetail({
   userId,
   localOn,
+  required,
   onNavigate,
   onChanged,
   onLink,
+  onLinked,
 }: {
   userId: string;
   localOn: boolean;
+  required: boolean;
   onNavigate: (route: RouteState) => void;
   onChanged: (user: User) => void;
   onLink: (user: User, link: PasswordResetLink) => void;
+  onLinked: (target: User) => void;
 }) {
   const [user, setUser] = useState<User>();
   const [loadError, setLoadError] = useState("");
   const [loadToken, setLoadToken] = useState(0);
   const [editing, setEditing] = useState(false);
-  const [confirming, setConfirming] = useState<"deactivate" | "sign-out">();
+  const [confirming, setConfirming] = useState<"deactivate" | "sign-out" | "keep" | "remove-factor">();
+  const [linking, setLinking] = useState(false);
+  const [unlinking, setUnlinking] = useState<SignInProviderRef>();
+  const linkRef = useRef<HTMLButtonElement>(null);
   const [pending, setPending] = useState(false);
   const [actionError, setActionError] = useState("");
   const [conflict, setConflict] = useState("");
@@ -456,11 +478,6 @@ function PersonDetail({
             <StatusPill tone={user.hasPassword || user.identities.length ? "neutral" : "warning"} marker={false}>
               {signedIn}
             </StatusPill>
-            {user.localKept && (
-              <StatusPill tone="neutral" marker={false}>
-                Keeps local sign-in
-              </StatusPill>
-            )}
           </div>
         </div>
       </header>
@@ -469,7 +486,7 @@ function PersonDetail({
           {conflict}
         </Notice>
       )}
-      {actionError && !confirming && (
+      {actionError && !confirming && !unlinking && (
         <Notice tone="error" title="The action could not be completed">
           {actionError}
         </Notice>
@@ -482,6 +499,11 @@ function PersonDetail({
           <RouteLink className="secondary" href={routePath(changes)} onNavigate={() => onNavigate(changes)}>
             See changes
           </RouteLink>
+        )}
+        {user.active && user.identities.length > 0 && !user.hasPassword && (
+          <button ref={linkRef} className="secondary" disabled={pending} onClick={() => setLinking(true)}>
+            Link to an existing person…
+          </button>
         )}
         {user.active && passwords && (
           <button
@@ -518,6 +540,61 @@ function PersonDetail({
           </button>
         )}
       </div>
+      {user.active && user.identities.length > 0 && !user.hasPassword && (
+        <p className="admin-hint">
+          If this person already has an account of their own, link this sign-in to it: they keep their roles and
+          history.
+        </p>
+      )}
+      <Section title="Sign-in">
+        <RuledList label={`How ${user.name} signs in`}>
+          {user.identities.map((identity) => (
+            <RuledListItem
+              key={identity.provider.key}
+              title={identity.provider.name}
+              meta={`Subject ${identity.subject}`}
+              actions={
+                <button className="secondary" disabled={pending} onClick={() => setUnlinking(identity.provider)}>
+                  Unlink…
+                </button>
+              }
+            />
+          ))}
+          {(user.hasPassword || !user.identities.length) && (
+            <RuledListItem title="Password" meta={user.hasPassword ? "Set" : "Not set yet"} />
+          )}
+          {user.secondFactor && (
+            <RuledListItem
+              title="Second factor: authenticator app"
+              meta={`Set up ${formatServerTime(user.secondFactor.confirmedAt)} · ${user.secondFactor.recoveryCodesLeft} of 10 recovery codes left`}
+              actions={
+                <button className="danger-ghost" disabled={pending} onClick={() => setConfirming("remove-factor")}>
+                  Remove second factor…
+                </button>
+              }
+            />
+          )}
+          {user.passkeys > 0 && (
+            <PersonPasskeys user={user} onRemoved={(updated) => stored(updated, "The passkey was removed.")} />
+          )}
+          <RuledListItem
+            title="Keeps local sign-in"
+            meta={
+              localOn
+                ? "Signs in with a password even while local sign-in is off: the way back if the provider fails"
+                : "Local sign-in is off: only people who keep it sign in with a password"
+            }
+            actions={
+              <Switch
+                label="Keeps local sign-in"
+                checked={user.localKept}
+                disabled={pending || !user.active}
+                onChange={() => setConfirming("keep")}
+              />
+            }
+          />
+        </RuledList>
+      </Section>
       <GrantsSection
         subject={{ principal: { kind: "user", id: user.id, name: user.name } }}
         load={(cursor) => security.userGrants(user.id, cursor)}
@@ -542,6 +619,93 @@ function PersonDetail({
             onChanged(current);
           }}
         />
+      )}
+      {linking && (
+        <LinkIdentityDialog
+          user={user}
+          onClose={() => {
+            setLinking(false);
+            linkRef.current?.focus();
+          }}
+          onLinked={(target) => {
+            setLinking(false);
+            toast(`${target.name} now signs in with ${identityNames(target)}; ${user.name} was deactivated.`);
+            onLinked(target);
+          }}
+        />
+      )}
+      {unlinking && (
+        <ConfirmDialog
+          title={`Unlink ${unlinking.name}?`}
+          confirmLabel="Unlink"
+          pending={pending}
+          error={actionError}
+          onCancel={() => {
+            setUnlinking(undefined);
+            setActionError("");
+          }}
+          onConfirm={() =>
+            void write(async () => {
+              await security.unlinkIdentity(user.id, unlinking.key);
+              stored(await security.user(user.id), `${user.name} no longer signs in with ${unlinking.name}.`);
+              setUnlinking(undefined);
+            })
+          }
+        >
+          <p>{unlinkSentence(user.name, unlinking.name)}</p>
+        </ConfirmDialog>
+      )}
+      {confirming === "remove-factor" && (
+        <ConfirmDialog
+          title={`Remove ${user.name}'s second factor?`}
+          confirmLabel="Remove second factor"
+          pending={pending}
+          error={actionError}
+          onCancel={() => {
+            setConfirming(undefined);
+            setActionError("");
+          }}
+          onConfirm={() =>
+            void write(async () => {
+              await security.removeSecondFactor(user.id);
+              stored(await security.user(user.id), `${user.name}'s second factor was removed.`);
+            })
+          }
+        >
+          <p>
+            {user.name} signs in with their password alone, and their recovery codes stop working.{" "}
+            {required
+              ? "The instance requires a second factor, so they set one up again at their next sign-in."
+              : "They can set one up again on their Account page."}{" "}
+            Use this when they lost the phone and the recovery codes; the change is recorded.
+          </p>
+        </ConfirmDialog>
+      )}
+      {confirming === "keep" && (
+        <ConfirmDialog
+          title={user.localKept ? `${user.name} stops keeping local sign-in?` : `${user.name} keeps local sign-in?`}
+          confirmLabel={user.localKept ? "Stop keeping it" : "Keep local sign-in"}
+          pending={pending}
+          error={actionError}
+          onCancel={() => {
+            setConfirming(undefined);
+            setActionError("");
+          }}
+          onConfirm={() =>
+            void write(async () =>
+              stored(
+                await security.updateUser(user.id, { expectedVersion: user.version, localKept: !user.localKept }),
+                user.localKept ? `${user.name} no longer keeps local sign-in.` : `${user.name} keeps local sign-in.`,
+              ),
+            )
+          }
+        >
+          <p>
+            {user.localKept
+              ? `While local sign-in is off, ${user.name} can no longer sign in with a password; they sign in with a provider. The last person who keeps it cannot stop.`
+              : `${user.name} can sign in with a password even while local sign-in is off. Give it to the people who must get in if the provider fails.`}
+          </p>
+        </ConfirmDialog>
       )}
       {confirming === "deactivate" && (
         <ConfirmDialog
@@ -589,6 +753,130 @@ function PersonDetail({
         </ConfirmDialog>
       )}
     </div>
+  );
+}
+
+/** Pick the existing person a provider sign-in belongs to; their roles and history carry on (D377). */
+function LinkIdentityDialog({
+  user,
+  onClose,
+  onLinked,
+}: {
+  user: User;
+  onClose: () => void;
+  onLinked: (target: User) => void;
+}) {
+  const [picked, setPicked] = useState<PickedPrincipal>();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function link(target: PickedPrincipal) {
+    setPending(true);
+    setError("");
+    try {
+      const current = await security.user(target.id);
+      onLinked(await security.linkIdentity(target.id, { expectedVersion: current.version, fromUserId: user.id }));
+    } catch (cause) {
+      setError(errorMessage(cause));
+      setPending(false);
+    }
+  }
+
+  return (
+    <Modal
+      title="Link this sign-in to an existing person"
+      eyebrow="Security"
+      size="compact"
+      busy={pending}
+      onClose={onClose}
+    >
+      <form
+        className="grant-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (picked) void link(picked);
+        }}
+      >
+        <PrincipalPicker label="Person" kinds={["user"]} exclude={user.id} onPick={setPicked} />
+        {picked && <p>{linkSentence(user, picked.name)}</p>}
+        {error && (
+          <Notice tone="error" title="Not linked">
+            {error}
+          </Notice>
+        )}
+        <div className="dialog-actions">
+          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
+            Cancel
+          </button>
+          <button className="primary" disabled={pending || !picked}>
+            {pending ? "Linking…" : picked ? `Link to ${picked.name}` : "Link"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** A person's passkeys, one row each, with Remove for an administrator (I4c, D394). */
+function PersonPasskeys({ user, onRemoved }: { user: User; onRemoved: (user: User) => void }) {
+  const feed = useCursorFeed((cursor) => security.userPasskeys(user.id, cursor), [user.id, user.passkeys]);
+  const [removing, setRemoving] = useState<Passkey>();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function remove(passkey: Passkey) {
+    setPending(true);
+    setError("");
+    try {
+      await security.removeUserPasskey(user.id, passkey.id);
+      setRemoving(undefined);
+      onRemoved(await security.user(user.id));
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      {feed.items.map((passkey) => (
+        <RuledListItem
+          key={passkey.id}
+          title={`Passkey: ${passkey.name}`}
+          meta={`Added ${formatServerTime(passkey.createdAt)} · ${
+            passkey.lastUsedAt ? `last used ${formatServerTime(passkey.lastUsedAt)}` : "not used yet"
+          }`}
+          actions={
+            <button
+              className="danger-ghost"
+              aria-label={`Remove the passkey ${passkey.name}`}
+              onClick={() => setRemoving(passkey)}
+            >
+              Remove passkey…
+            </button>
+          }
+        />
+      ))}
+      {removing && (
+        <ConfirmDialog
+          title={`Remove ${user.name}'s passkey ${removing.name}?`}
+          confirmLabel="Remove passkey"
+          pending={pending}
+          error={error}
+          onCancel={() => {
+            setRemoving(undefined);
+            setError("");
+          }}
+          onConfirm={() => void remove(removing)}
+        >
+          <p>
+            {user.name} can no longer sign in with {removing.name}. Use this when they lost the device; the change is
+            recorded.
+          </p>
+        </ConfirmDialog>
+      )}
+    </>
   );
 }
 

@@ -223,6 +223,10 @@
   --selection-bar-hover: color-mix(in srgb, var(--action-primary) 12%, transparent);
   --selection-bar-danger: #b4261a;
   --selection-bar-muted: var(--text-secondary);
+  /* Home's Continue where you left off (0.12 HM1a, the user, 2026-10-25): a soft tint of the action
+     colour, set apart from the workspace cards. */
+  --home-continue-surface: color-mix(in srgb, var(--action-primary) 6%, var(--surface-raised));
+  --home-continue-border: var(--state-selected-line);
   --border-control: var(--neutral-450);
   --border-control-hover: var(--neutral-600);
 
@@ -362,6 +366,7 @@
   --border-subtle: var(--night-200);
   --border-strong: var(--night-300);
   --selection-bar-surface: var(--night-200);
+  --home-continue-surface: color-mix(in srgb, var(--action-primary) 12%, var(--surface-raised));
   --selection-bar-border: var(--night-300);
   --selection-bar-text: var(--night-900);
   --selection-bar-action: var(--night-900);
@@ -466,6 +471,7 @@
     --border-subtle: var(--night-200);
     --border-strong: var(--night-300);
     --selection-bar-surface: var(--night-200);
+    --home-continue-surface: color-mix(in srgb, var(--action-primary) 12%, var(--surface-raised));
     --selection-bar-border: var(--night-300);
     --selection-bar-text: var(--night-900);
     --selection-bar-action: var(--night-900);

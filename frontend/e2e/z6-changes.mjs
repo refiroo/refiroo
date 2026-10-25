@@ -198,6 +198,8 @@ try {
   let page = rex.page;
   await page.goto(`${uiUrl}/apps/${table.application.key}/objects/${table.type.key}/${record.id}?workspaceKey=default`);
   const history = page.locator(".history-panel");
+  // Since 0.12 RH1 the name links from the opened entry (a line is a button of its own).
+  await history.getByRole("button", { name: /Ana Varga/ }).first().click();
   await history.getByRole("link", { name: "Ana Varga: their changes" }).first().click();
   await page.getByRole("heading", { level: 1, name: "Ana Varga's changes" }).waitFor();
   expect(new URL(page.url()).pathname === "/changes", `the changes page: ${page.url()}`);
@@ -219,6 +221,7 @@ try {
   await page.getByRole("heading", { level: 1, name: `${record.name} (synced)` }).waitFor();
   checks.push("Load more continues; an entry's title opens the record it changed");
   // The client's name opens the client's changes.
+  await page.locator(".history-panel").getByRole("button", { name: /Catalogue sync \(client\)/ }).first().click();
   await page.locator(".history-panel").getByRole("link", { name: "Catalogue sync (client): their changes" }).click();
   await page.getByRole("heading", { level: 1, name: "Catalogue sync's changes" }).waitFor();
   await page.getByText("Client · newest first, in the workspaces you can read").waitFor();

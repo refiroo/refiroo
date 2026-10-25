@@ -114,3 +114,27 @@ def test_a_providers_discovery_is_refused_with_its_reason(monkeypatch):
     with pytest.raises(ProviderError) as plain:
         provider_client.discover("http://id.example.org", fresh=True)
     assert plain.value.kind == "address"
+
+
+def test_the_providers_sign_out_address():
+    """RP-Initiated Logout (I4a): the address carries the hint, the return address and the state; a
+    provider whose discovery names none offers no sign-out."""
+    with OidcProvider() as idp:
+        found = provider_client.discover(idp.issuer, fresh=True)
+        url = provider_client.sign_out_url(
+            found, id_token_hint="a.b.c", post_logout_redirect_uri="https://e/x?y=1", state="s"
+        )
+        assert url is not None and url.startswith(f"{idp.issuer}/logout?id_token_hint=a.b.c&")
+        assert "post_logout_redirect_uri=https%3A%2F%2Fe%2Fx%3Fy%3D1" in url and "state=s" in url
+        provider_client.check_sign_out(idp.issuer)
+        idp.end_session = False
+        with pytest.raises(ProviderError) as none:
+            provider_client.check_sign_out(idp.issuer)
+        assert none.value.kind == "sign-out"
+        bare = provider_client.discover(idp.issuer, fresh=True)
+        assert (
+            provider_client.sign_out_url(
+                bare, id_token_hint="t", post_logout_redirect_uri="https://e/x", state="s"
+            )
+            is None
+        )

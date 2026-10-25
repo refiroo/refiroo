@@ -15,7 +15,9 @@
  * reads budget pages ahead of it; a far move (a scrollbar drag, a fling, a page field) reads the
  * page where the view comes to rest, once. Jumps land by row number.
  *
- * A wheel over the list first brings the whole list, with its footer, into view in whatever scrolls
+ * A list that fills its page (`fill`: a collection's table page, which does not scroll, 0.12 LS1,
+ * D371, D372) leaves the wheel to the browser: nothing around it scrolls. In a list nested in a page
+ * that scrolls, a wheel first brings the whole list, with its footer, into view in whatever scrolls
  * around it (the page, a pane, a dialog), and only then scrolls the rows; at the rows' first or last
  * row the wheel carries on to the page. The list is never a place the wheel gets stuck in (reported
  * 2026-10-19), and its height leaves room for the page's sticky top and the footer (CSS).
@@ -42,6 +44,8 @@ const FIRST_ESTIMATE = 41;
 const REST_MS = 120;
 /** How long after the reader's own wheel, pointer, touch or key the list's scrolling is theirs. */
 const GESTURE_MS = 1000;
+/** A pause in the wheel this long starts a new gesture, whose scroller around the list is found again. */
+const WHEEL_GAP_MS = 200;
 
 /**
  * Height the sticky table header covers once the list is scrolled. A landed or revealed row is
@@ -138,6 +142,7 @@ export function ScrollWindow<T>({
   rowNavigation = true,
   footer = true,
   edgeMarkers = "always",
+  fill = false,
   onAnchorChange,
   children,
 }: {
@@ -155,6 +160,8 @@ export function ScrollWindow<T>({
   footer?: boolean;
   /** "partial" shows the start and end markers only for a list longer than one page. */
   edgeMarkers?: "always" | "partial";
+  /** The list fills a page that does not scroll: the wheel is the browser's (see above). */
+  fill?: boolean;
   /** Receives the cursor that reopens the viewport's page, for the URL. */
   onAnchorChange?: (anchor: string | undefined) => void;
   children: (drawn: DrawnRange<T>) => ReactNode;
@@ -195,6 +202,8 @@ export function ScrollWindow<T>({
   const [singular, plural] = noun;
   const total = list.totalCount;
   const held = list.startIndex + list.items.length;
+  const empty = list.items.length === 0;
+  const long = (total ?? list.items.length) > pageSize;
   // Without a total, one more place stands for the rows not read yet.
   const count =
     list.loading && list.items.length === 0 ? 0 : Math.max(total ?? 0, held + (total === null && list.hasNext ? 1 : 0));
@@ -342,14 +351,19 @@ export function ScrollWindow<T>({
     }, REST_MS);
   }, [track]);
 
-  // A list shown again after being hidden, or resized, measures again and reads as needed.
+  // A list shown again after being hidden, or resized, measures again and reads as needed; so does
+  // one whose header or start marker changes height, which moves where the rows start. Nothing else
+  // reads the list's geometry, so a scroll frame reads none (0.12 LS1, D374).
   useEffect(() => {
     const element = viewport.current;
     if (!element || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(schedule);
     observer.observe(element);
+    element.querySelectorAll<HTMLElement>("thead, .scroll-window-edge").forEach((part) => {
+      if (own(element, part)) observer.observe(part);
+    });
     return () => observer.disconnect();
-  }, [schedule]);
+  }, [schedule, empty, long]);
 
   // A wheel brings the whole list into view before it scrolls the rows, where the list fits in what
   // scrolls around it (see above). At the rows' first or last row the same gesture carries on to
@@ -359,11 +373,18 @@ export function ScrollWindow<T>({
     const element = viewport.current;
     const box = element?.closest<HTMLElement>(".scroll-window");
     if (!element || !box) return;
-    const onWheel = (event: WheelEvent) => {
+    const onGesture = () => {
       gesture.current = Date.now();
       pinned.current = undefined;
+    };
+    // What scrolls around the list, found once per gesture rather than at every wheel event.
+    let around: { scroller: HTMLElement; at: number } | undefined;
+    const onWheel = (event: WheelEvent) => {
+      onGesture();
       if (event.ctrlKey || event.defaultPrevented || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-      const scroller = outerScroller(box);
+      if (!around || event.timeStamp - around.at > WHEEL_GAP_MS) around = { scroller: outerScroller(box), at: 0 };
+      around.at = event.timeStamp;
+      const scroller = around.scroller;
       const area = visibleArea(scroller);
       const line = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? area.bottom - area.top : 1;
       const delta = event.deltaY * line;
@@ -386,21 +407,20 @@ export function ScrollWindow<T>({
       if (scroller === document.scrollingElement || scroller === document.documentElement) window.scrollBy(0, step);
       else scroller.scrollTop += step;
     };
-    const onGesture = () => {
-      gesture.current = Date.now();
-      pinned.current = undefined;
-    };
-    element.addEventListener("wheel", onWheel, { passive: false });
+    // A list filling its page notes the reader's wheel without holding it up.
+    if (fill) element.addEventListener("wheel", onGesture, { passive: true });
+    else element.addEventListener("wheel", onWheel, { passive: false });
     element.addEventListener("pointerdown", onGesture);
     element.addEventListener("touchstart", onGesture, { passive: true });
     element.addEventListener("keydown", onGesture);
     return () => {
+      element.removeEventListener("wheel", onGesture);
       element.removeEventListener("wheel", onWheel);
       element.removeEventListener("pointerdown", onGesture);
       element.removeEventListener("touchstart", onGesture);
       element.removeEventListener("keydown", onGesture);
     };
-  }, []);
+  }, [fill]);
 
   useEffect(
     () => () => {
@@ -452,7 +472,43 @@ export function ScrollWindow<T>({
     [focusRow, virtualizer],
   );
 
-  // Rows changed: land a jump, focus a row waited for, and read around the view.
+  /**
+   * The steps a change of the drawn range needs, none of which reads the list's geometry: a landed
+   * row held in its place, a row waited for focused, focus kept with the list, and the rows on screen.
+   */
+  const settle = useCallback(() => {
+    const element = viewport.current;
+    const current = listRef.current;
+    if (!element) return;
+    // The landed row stays where it landed while the rows around it are read and measured: rows
+    // above it measured taller than estimated moved it down, so a reopened link showed the row
+    // above (found by s5 and s7). The reader's first wheel, touch, pointer or key ends it.
+    const pin = pinned.current;
+    if (pin && !current.loading && handledLanding.current === current.landing?.token) {
+      const wanted = virtualizer.getOffsetForIndex(pin.index, pin.align)?.[0];
+      if (wanted !== undefined && Math.abs(element.scrollTop - wanted) > 0.5) virtualizer.scrollToOffset(wanted);
+    }
+    if (pendingFocus.current) {
+      const { index, column } = pendingFocus.current;
+      const row = ownRows(element).find((item) => item.dataset.rowIndex === String(index));
+      if (row) {
+        pendingFocus.current = undefined;
+        focusRow(row, column);
+      }
+    }
+    // A focused row scrolled out of the drawn range leaves focus with the list rather than the page.
+    if (
+      focusedKey.current &&
+      (document.activeElement === document.body || document.activeElement === null) &&
+      !ownRows(element).some((item) => item.dataset.rowKey === focusedKey.current)
+    ) {
+      focusedKey.current = undefined;
+      element.focus({ preventScroll: true });
+    }
+    track();
+  }, [virtualizer, focusRow, track]);
+
+  // The list changed: measure where its rows start, land a jump, then settle.
   useLayoutEffect(() => {
     const element = viewport.current;
     if (!element) return;
@@ -490,48 +546,28 @@ export function ScrollWindow<T>({
             (list.totalCount !== null ? ` of ${format(list.totalCount)}` : ""),
         );
     }
-    // The landed row stays where it landed while the rows around it are read and measured: rows
-    // above it measured taller than estimated moved it down, so a reopened link showed the row
-    // above (found by s5 and s7). The reader's first wheel, touch, pointer or key ends it.
-    const pin = pinned.current;
-    if (pin && !list.loading && handledLanding.current === list.landing?.token) {
-      const wanted = virtualizer.getOffsetForIndex(pin.index, pin.align)?.[0];
-      if (wanted !== undefined && Math.abs(element.scrollTop - wanted) > 0.5) virtualizer.scrollToOffset(wanted);
-    }
-    if (pendingFocus.current) {
-      const { index, column } = pendingFocus.current;
-      const row = ownRows(element).find((item) => item.dataset.rowIndex === String(index));
-      if (row) {
-        pendingFocus.current = undefined;
-        focusRow(row, column);
-      }
-    }
-    // A focused row scrolled out of the drawn range leaves focus with the list rather than the page.
-    if (
-      focusedKey.current &&
-      (document.activeElement === document.body || document.activeElement === null) &&
-      !ownRows(element).some((item) => item.dataset.rowKey === focusedKey.current)
-    ) {
-      focusedKey.current = undefined;
-      element.focus({ preventScroll: true });
-    }
-    track();
+    settle();
   }, [
     margin,
-    track,
     list.items,
     list.landing,
     list.loading,
     list.startIndex,
     list.totalCount,
-    virtualRows,
     count,
     plural,
     virtualizer,
-    focusRow,
     measure,
     follow,
+    settle,
   ]);
+
+  // The drawn range changed (a scroll, a row measured): only the steps that read no geometry. Reading
+  // it here, after every range change, laid the table out again in the middle of each scroll frame
+  // (0.12 LS1, D374).
+  useLayoutEffect(() => {
+    settle();
+  }, [virtualRows, settle]);
 
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement;
@@ -556,8 +592,6 @@ export function ScrollWindow<T>({
     if (next >= 0 && next < count) focusIndex(next, target.closest<HTMLElement>("[data-grid-col]")?.dataset.gridCol);
   }
 
-  const empty = list.items.length === 0;
-  const long = (total ?? list.items.length) > pageSize;
   const showEnd = edgeMarkers === "always" || long || list.hasNext;
   const pageCount = total !== null ? Math.max(1, Math.ceil(total / pageSize)) : undefined;
   const firstVisible = visible?.first ?? list.startIndex;
@@ -568,7 +602,7 @@ export function ScrollWindow<T>({
   const edgeError = list.before.error || list.after.error;
 
   return (
-    <div className="scroll-window">
+    <div className={`scroll-window${fill ? " scroll-window-fill" : ""}`}>
       <div className="scroll-window-frame">
         <div
           ref={viewport}

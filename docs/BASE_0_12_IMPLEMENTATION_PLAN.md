@@ -1217,6 +1217,451 @@ provider until they register the engine there (the try before E1); clear `localK
 only); rotate a webhook's signing key (K1); try the API console with their token (C1); submit and
 approve publications (Track A).
 
+#### I4: A provider identity linked, signing out of the provider, a second factor
+
+**Needs:** I3. _Added by the user, 2026-10-25,_ after I3's delivery, from its "cannot do yet": "can
+you please plan these into a package? … linking a provider identity to an existing person, signing
+out of the provider from the engine, a second factor for local accounts, and changing localKept on a
+page." Then, on the plan: "I would like the passkey too included", and on SMS: answered that
+no SMS gateway is planned (D395).
+
+**Scope:** an administrator moves a provider sign-in onto the person who already had a local account;
+signing out of the engine can sign the person out of the provider too; local accounts can use an
+authenticator app or a passkey as a second factor, optionally required, and a passkey alone signs a
+person in; whether a person keeps local sign-in is changed on their page. Delivered in three parts,
+each finished on its own: **I4a** (linking, signing out of the provider, the switch), **I4b** (the
+authenticator app, recovery codes, the requirement, D383) and **I4c** (passkeys, D389–D394).
+
+##### I4 plan (2026-10-25)
+
+**Planned 2026-10-25; accepted by the user the same day** ("cool above accepted"): D377–D395
+(D389–D395 added for passkeys and SMS at the user's request; D383 revises D225, D390 revises D275),
+the test cases and the "I4 as planned" boards ([security mock-ups canvas](https://claude.ai/artifact/CiHGaobpx8jsqaNZvmfXXo), the
+eleventh row). Checked against the code at `ebd2a2a`.
+
+**What the check found:**
+
+- **A person's provider identity is one row** (`user_identities`: person, provider, subject), and a
+  provider group's memberships are rows of the person; moving both onto another person is two
+  updates. A person made at a provider sign-in has no password, and starts with no direct grants and
+  no local groups.
+- **Signing out** is `POST /oauth/revoke` from the page (`api/session.ts`), then the sign-in page;
+  the engine never sees the browser leave, so it cannot send it to the provider. The provider's
+  sign-out address is `end_session_endpoint` in its discovery document (OpenID Connect RP-Initiated
+  Logout 1.0); most providers want the ID token back (`id_token_hint`), which the engine does not
+  keep after the sign-in.
+- **The sign-in page runs no script** (D275), so a second step there is a form, and a QR code there
+  must be drawn by the server; neither the backend nor the frontend has a QR library. WebAuthn
+  (passkeys) is reached only from script, so passkeys on that page revise D275 (D390).
+- **A passkey belongs to one site name** (the relying party ID): it works only on pages at that host
+  or below it. The application and the engine may be on different hosts of one site
+  (OPERATIONS' "one site"), and the sign-in page is the engine's.
+- **D225 left a second factor for local accounts to after 1.0**; I4b reopens it (D383).
+- **`localKept`** is changed through `PATCH /users/{id}` only (I3); nothing keeps the last person
+  who has it while local sign-in is off.
+
+**What is built:**
+
+*I4a*
+
+1. **Linking** (D377, D378): `POST /users/{id}/identities {fromUserId, expectedVersion}` moves the
+   other person's provider identities and their provider-group memberships to this person,
+   deactivates the other person (their sessions end; never deleted, D237) and answers this person;
+   refused `409 PERSON_HAS_ACCESS` when the other person has a password, direct grants or local
+   groups, `409 IDENTITY_PROVIDER_TAKEN` when this person already signs in with that provider.
+   `DELETE /users/{id}/identities/{provider}` undoes a wrong link (the next sign-in with that
+   provider makes a new person). Security events `user` `identity-linked`, `identity-unlinked`.
+   On the page: a person made at a provider sign-in has **Link to an existing person…** (pick the
+   person, a sentence saying what moves and that this one is deactivated); a person's sign-in line
+   gains **Unlink** per provider, behind a confirmation.
+2. **Signing out of the provider** (D379, D380): a provider's setting **Sign people out of
+   *name* too** (`signOutOfProvider`, off by default; turning it on needs the provider's
+   `end_session_endpoint`, `422 SIGN_IN_PROVIDER_UNREACHABLE` otherwise), with a second address to
+   register, `<PUBLIC_URL>/oauth/providers/{key}/signed-out`. A session started through such a
+   provider keeps the ID token sealed until it ends. The page signs out by opening
+   `GET /oauth/sign-out` (new, open): it ends the session from the cookie, clears it, and sends the
+   browser to the provider's sign-out address with the ID token, which returns it through
+   `signed-out` to the sign-in page; for anyone else straight to the sign-in page. Sign out
+   everywhere and an administrator's sign-out stay in the engine (another browser cannot be sent).
+3. **The switch** (D381): a person's page shows **Keeps local sign-in** as a switch with a
+   confirmation; turning it off for the last active person who has it while local sign-in is off is
+   refused `409 LAST_LOCAL_ADMINISTRATOR` (the API too).
+
+*I4b*
+
+4. **Migration** `user_second_factors` (person, the TOTP secret sealed with `SECRETS_ENCRYPTION_KEY`,
+   confirmed when, the last step used), `user_recovery_codes` (hashed, used when), `sign_in_steps`
+   (a password checked and waiting for its code: hashed token, person, the browser's request,
+   expiry), `local_sign_in.second_factor_required`.
+5. **Engine** `engine/identity/second_factor.py`: TOTP per RFC 6238 (D384), recovery codes (D385),
+   the sign-in's second step, enrolment, removal; codes counted in the same slowing as passwords
+   (D271).
+6. **API** (D386): `GET /me/second-factor`; `POST /me/second-factor` (an unconfirmed secret:
+   `secret`, `otpauthUri`, `qrSvg`, answered once); `POST /me/second-factor/confirmation {code}`
+   (answers ten recovery codes, once); `POST /me/second-factor/recovery-codes {code}` (new ones,
+   the old ones void); `DELETE /me/second-factor {code}`; `DELETE /users/{id}/second-factor`
+   (Security administration, audited, D387); `secondFactor` on a person's reads;
+   `secondFactorRequired` on `/sign-in-providers/local`. Refusals `422 CODE_INCORRECT`,
+   `409 SECOND_FACTOR_EXISTS`, `404 SECOND_FACTOR_NOT_FOUND`.
+7. **The sign-in page** (D388): after the right password, a person with a second factor gets
+   **Enter the code from your authenticator app** (or **Use a recovery code**); with the requirement
+   on, a person without one sets it up there (the QR code as an inline SVG, the key to type, a code
+   to confirm, then the recovery codes) before any session starts. People signing in through a
+   provider are not asked (their provider's own factor applies, D225).
+8. **Account › Second factor:** set up (QR code, key, code), the recovery codes shown once with Copy,
+   **New recovery codes**, **Remove** (with a code). Settings › Security › Sign-in › Local accounts:
+   **Require a second factor with a password**. A person's page: "Second factor: authenticator app"
+   and **Remove second factor** (D387).
+*I4c*
+
+9. **Passkeys** (D389–D394): migration `user_passkeys` (person, credential ID, public key, sign
+   count, a name, created, last used); `engine/identity/passkeys.py` on `webauthn` (py_webauthn,
+   BSD; D391). Both ceremonies run on the engine's own pages, bound to `PUBLIC_URL`'s host (D392):
+   **Add a passkey** on Account opens `/oauth/passkeys/new` (the person's session checked, a name
+   asked, the browser's passkey prompt, back to Account); the sign-in page offers **Sign in with a
+   passkey** (a passkey alone, user verification required, D393) and, after a password, a passkey
+   as the second step beside the app's code. API: `GET /me/passkeys`, `PATCH|DELETE
+   /me/passkeys/{id}`, `GET /users/{id}/passkeys`, `DELETE /users/{id}/passkeys/{id}`
+   (Security administration, D387); the ceremonies' options and results at
+   `POST /oauth/passkeys/{registration|authentication}/{options|verify}` (open, the page's script
+   only calls them). The requirement (D388) is met by an app or a passkey.
+10. **The engine's pages' script** (D390): one file, `/oauth/passkey.js`, served by the engine;
+   the pages' policy allows exactly that script (`script-src 'self'`), nothing inline, nothing from
+   elsewhere; pages without a passkey step keep no script.
+11. **Documents** for all parts: API.md, OPERATIONS (registering the sign-out address; a lost
+   phone; requiring the factor), ARCHITECTURE, DECISIONS (ADR-043: D225 revised), USER_JOURNEYS
+   (J39.8, J39.9, J40.13), API_JOURNEYS, CURRENT_FUNCTIONALITY, SETTINGS_AND_UI_PLAN, UI_ACCEPTANCE,
+   EXECUTION_GUIDE, CHANGELOG, PROJECT_STATUS.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D377 | How a provider identity reaches an existing person | **Recommended:** an administrator moves it from the person the provider sign-in made onto the existing one, after it was made; never automatically, and never by entering a subject ahead. Why: matching by e-mail is the takeover I3 refused (D363); a subject is not known ahead (Entra ID's `sub` differs per application), but the duplicate appears at the person's first sign-in, so the administrator links it then. Cost: until linked, the person signs in as the new, empty person (their roles are on the old one) |
+| D378 | What linking moves, and what it refuses | **Recommended:** the identities and the provider-group memberships move; the other person is deactivated and their sessions end; their history stays under their name. Refused when the other person has a password, direct grants or local groups (`409 PERSON_HAS_ACCESS`): those are a real person's, which an administrator removes deliberately first. Unlink is offered for a wrong link. Why: a link must never merge two people's access silently, and the deactivated person keeps history resolvable (D237). Cost: anything the duplicate changed before the link stays under its name |
+| D379 | Signing out of the provider | **Recommended:** per provider, off by default: **Sign people out of *name* too**. Why: with Entra ID or Google, signing out of the provider signs the person out of every application of the organisation (mail, chat); some organisations want that on a shared computer, most do not. Cost: one setting, one more address to register |
+| D380 | How the engine sends the browser to the provider's sign-out | **Recommended:** the page signs out by navigating to `GET /oauth/sign-out` (the engine ends the session from its cookie, as `/oauth/revoke` does) instead of `fetch`; a provider session keeps its ID token sealed until it ends, for `id_token_hint`. Why: only a navigation can take the browser to the provider; most providers need the ID token to know whom to sign out. Cost: an ID token held per open provider session (sealed); `/oauth/revoke` stays for other clients |
+| D381 | `localKept` on a page | **Recommended:** a switch on the person's page with a confirmation; refused for the last active person who has it while local sign-in is off (`409 LAST_LOCAL_ADMINISTRATOR`), as the last Security administrator is (D283). Why: it is the way back; `create_admin` stays the last resort on the server. Cost: none |
+| D382 | One package or several | **Recommended:** one package, I4, delivered as I4a, I4b and I4c, each reported finished on its own; I4 before E1, and E1 needs it. Why: I4a is small and closes I3's gaps; I4b and I4c change sign-in itself, which the security review in E1 must see. Cost: E1 waits for I4 |
+| D383 | A second factor for local accounts in 0.12 (**revises D225**, which left it to after 1.0) | **Recommended:** yes, an authenticator app (TOTP), optional per person, and an instance switch to require it. Why: the user asked; an installation without a provider otherwise has passwords alone, which OPERATIONS warns about. Cost: I4b, a second sign-in step, codes to support (a lost phone) |
+| D384 | Which second factors | **Recommended:** both an authenticator app (TOTP, RFC 6238: SHA-1, 6 digits, 30 seconds, one step either side, each step used once) in I4b and passkeys (WebAuthn) in I4c (**the user, 2026-10-25**); a person may have either or both. Why: every authenticator app speaks TOTP and it needs no script; passkeys cannot be phished and need no typing. Cost: two methods to support |
+| D385 | Losing the phone | **Recommended:** ten one-time recovery codes, shown once at set-up and on demand (the old ones void), stored hashed; a Security administrator removes a person's factor (D387); `create_admin` stays the way back on the server. Why: the person recovers alone first; an administrator second. Cost: codes to keep somewhere safe |
+| D386 | The QR code | **Recommended:** drawn on the server as SVG with `segno` (pure Python, no dependencies, BSD), answered beside the `otpauthUri` and the key. Why: the sign-in page's set-up step has no script, so the server must draw it; one drawing serves the page, Account and any client. Cost: one new runtime dependency |
+| D387 | Removing someone's second factor | **Recommended:** **Remove second factor** on the person's page (Security administration, a confirmation, a security event); the person sets one up again, at their next sign-in when it is required. Why: the lost-phone path when the recovery codes are lost too. Cost: an administrator can lower one person's protection, which the event records |
+| D388 | When the factor is asked, and requiring it | **Recommended:** after the right password, before any session or code is issued: the password page answers the code page (a step token, five minutes, hashed); a wrong code counts in the same slowing as a wrong password (D271). With **Require a second factor with a password** on, a person without one sets it up on that page before signing in, the people made on the server included. Provider sign-ins are never asked. Why: no session exists with one factor while the requirement is on; the slowing already protects against guessing. Cost: a person who loses both phone and codes needs an administrator |
+| D389 | Passkeys in I4 | **Recommended:** yes, as I4c after I4b (the user asked); a passkey is a second factor after a password and also signs a person in alone. Why: a passkey is possession plus the device's fingerprint, face or PIN, so on its own it is already two factors, and it cannot be phished. Cost: I4c, a script on the sign-in page (D390), a dependency (D391) |
+| D390 | Script on the engine's pages (**revises D275**, which allowed none) | **Recommended:** one script file of the engine's own, `/oauth/passkey.js`, allowed by the pages' policy as `script-src 'self'`, nothing inline and nothing from another site, loaded only on the pages that offer a passkey; it calls the browser's WebAuthn and posts the result. Why: WebAuthn exists only for script; D275's point, that nothing foreign runs beside a password field, holds with one file served by the engine and no inline code. Cost: the sign-in page is no longer script-free; the file is reviewed in E1 |
+| D391 | Checking passkeys | **Recommended:** `webauthn` (py_webauthn, BSD, maintained by Duo; depends only on `cryptography` and `cbor2`, which come with it) verifies registrations and sign-ins; no attestation required (`none`), user verification required. Why: WebAuthn's verification is long and easy to get subtly wrong; a maintained library carries it. Cost: a runtime dependency and its one transitive dependency |
+| D392 | Where passkeys are made and used | **Recommended:** on the engine's own pages only, the relying party ID being `PUBLIC_URL`'s host; Account's **Add a passkey** opens the engine's page and returns. Why: the sign-in page is the engine's, and a passkey made on the application's host would not work there when the two hosts differ. Cost: a hop to the engine's page to add one; changing `PUBLIC_URL`'s host later invalidates every passkey (OPERATIONS says so) |
+| D393 | A passkey alone | **Recommended:** **Sign in with a passkey** on the sign-in page signs a person in without a password, user verification required; it meets the requirement (D388); a person keeps their password as a fallback (local sign-in off: only the people who keep it, as for passwords, D365). Why: the strongest and simplest sign-in a local account can have. Cost: a second way in to explain |
+| D394 | Managing passkeys | **Recommended:** Account lists a person's passkeys by the name they gave (and when last used), renames and removes them; a Security administrator sees and removes them on the person's page (D387, audited); recovery codes (D385) are shared with the app. Why: people lose devices; the administrator path is the same as the app's. Cost: none beyond the pages |
+| D395 | SMS or e-mail codes | **Recommended:** none: no SMS gateway setting and no codes by e-mail. Why: SMS needs a paid outside service with its credentials, stores phone numbers, fails abroad and is the weakest factor (SIM swap; NIST SP 800-63B restricts it); an organisation wanting SMS or push approvals gets them from its sign-in provider. Cost: someone without a smartphone or a passkey device uses a provider, or a hardware key (a passkey) |
+
+**Journey test cases** (on two configurations; written first and seen failing):
+
+- `tests/journeys/test_j40_identity_links.py` (I4a): **J40.13** a person with roles and a password
+  signs in through the provider the first time, becoming a new person; the administrator links the
+  new person's identity to them; their next provider sign-in is them, with their roles and the
+  provider's groups; the new person is deactivated; linking a person who has a password or grants is
+  refused; unlinking makes the next sign-in a new person again. **J39.8** with sign-out on, signing
+  out sends the browser to the provider's sign-out address with the ID token and back through
+  `signed-out` to the sign-in page, the session ended; with it off, straight to the sign-in page;
+  turning it on for a provider without `end_session_endpoint` is refused. **J40** turning
+  `localKept` off for the last kept person while local sign-in is off is refused.
+- `tests/journeys/test_j39_second_factor.py` (I4b): **J39.9** a person sets up the factor (a wrong
+  code refused, the right one answering ten recovery codes); their password alone then gives the
+  code page, not a code; a wrong code is refused and counted, the right one signs them in, the same
+  code again is refused; a recovery code works once; with the requirement on, a person without one
+  sets it up on the sign-in page before a session exists; an administrator removes a person's
+  factor; a provider sign-in is never asked.
+
+- `tests/journeys/test_j39_passkeys.py` (I4c, with a software authenticator in the harness):
+  **J39.10** a signed-in person adds a passkey on the engine's page and names it; it signs them in
+  alone; after a password it serves as the second step; a passkey of another site or with user
+  verification missing is refused; renaming, removing, and an administrator removing one; the
+  requirement met by a passkey; the sign-in page's policy allows only the engine's script.
+
+Unit tests: TOTP against RFC 6238's test vectors, the step window and replay, recovery codes,
+linking's refusals. Vitest: the link sentence, the factor's lines. Startup checks for each migration.
+
+**Browser** (one runner per part, on two models with the harness provider): I4a: a duplicate linked
+from its page and the person signing in as themselves, unlink; sign-out through the provider and
+back; the switch refused for the last kept person. I4b: set up on Account with the QR code, sign in
+with a code and with a recovery code, the requirement turned on and a person setting up on the
+sign-in page, an administrator removing a factor. Keyboard, 390px, axe, screenshots light and dark
+inspected against the boards.
+
+**Composable domains (ADR-032):** none of the doors is touched (people's identity, not records').
+
+**Delivery notes** (the user, 2026-10-25: save tokens, no repeated checks across the parts; deliver
+in a fresh session, Sonnet allowed):
+
+- **Each part is finished on its own** (its code, its journey module seen failing then passing, its
+  unit and Vitest tests, its docs and record, its runner section) and committed on request, only its
+  own hunks (other sessions share the checkout).
+- **Checked once, at the end of I4c, not per part:** the neighbouring groups (`test_j39_*`,
+  `test_j40_*`, `test_j41_*` identity modules, `test_startup`, `test_schema_drift`,
+  `test_foreign_keys`, `test_boundaries`, `test_api_journeys`) and the other runners (`i2-sign-in`,
+  `i3-sign-in-providers`, `sp1-security`, `u3-settings`). Per part: only its own journey module, the
+  unit tests of the modules it changed, `test_openapi_contract` (the lock re-baselined from a diff,
+  a hash) and the startup test for its migration.
+- **One runner,** `frontend/e2e/i4-sign-in.mjs` (`test:browser:i4`), grown by each part, with a
+  `--part a|b|c` switch; each part runs its own section, and I4c runs the whole once. The harness
+  provider (`backend/tests/oidc_provider.py`) gains `end_session_endpoint` in I4a; a software
+  WebAuthn authenticator in I4c (Playwright's CDP virtual authenticator for the runner; a test
+  helper signing with a generated key for the journeys).
+- **One migration per part** (I4a: `user_sessions.provider_id_token`; I4b: the factor tables; I4c:
+  `user_passkeys`), each written in one go: the user's `--reload` server applies a migration when
+  its file is saved.
+- **Records:** one "I4a/b/c record" subsection per part under this plan, as I3's record.
+
+**What the user will still not be able to do after I4:** codes by SMS or e-mail (D395); a provider telling
+the engine that someone signed out or left (back-channel logout: Entra ID does not offer it); link
+an identity before the person's first provider sign-in (D377).
+
+##### I4a record (2026-10-25)
+
+**Delivered 2026-10-25.** What was built is the plan's items 1–3:
+
+- **Migration** `20261105_01_provider_sign_out`: `sign_in_providers.sign_out_of_provider`,
+  `user_sessions.provider_id_token` and `authorization_codes.provider_id_token` (the ID token travels
+  from the callback to the session in the sign-in's one-time code, sealed).
+- **Engine:** `engine/identity/links.py` (link, unlink), `provider_sign_in.sign_out`,
+  `provider_client.check_sign_out` and `sign_out_url` (the discovery document's
+  `end_session_endpoint`), `providers.refuse_last_kept`, `sessions.end_by_refresh_token` answering
+  what the session held and `end_provider_sessions`.
+- **Pages and API:** `GET /oauth/sign-out` and `GET /oauth/providers/{key}/signed-out`;
+  `POST /users/{id}/identities`, `DELETE /users/{id}/identities/{provider}`; `signOutOfProvider` and
+  `signedOutUri` on providers; `409 LAST_LOCAL_ADMINISTRATOR`. OpenAPI lock re-baselined.
+- **Frontend:** a person's **Sign-in** section (a row per provider with **Unlink…**, the password,
+  **Keeps local sign-in** as a switch with a confirmation, new `ui/Switch`), **Link to an existing
+  person…** and its dialog, a provider's **Signing out**, the app's sign-out as a navigation
+  (`api/session.ts`), the security events' titles for a link, an unlink and `localKept`.
+- **Harness:** `tests/oidc_provider.py` gains `end_session_endpoint` (`end_session`), a `/logout`
+  endpoint and `logouts`; the runner `e2e/i4-sign-in.mjs` (`test:browser:i4`, `--part`), and the
+  provider's start moved to `e2e/helpers/oidc-provider.mjs`, which `i3-sign-in-providers` now uses.
+- **Documents:** API.md, OPERATIONS (linking, the switch, signing out of the provider), ARCHITECTURE,
+  DECISIONS (ADR-043's consequences), USER_JOURNEYS (J39.8, J40.13), API_JOURNEYS,
+  CURRENT_FUNCTIONALITY, SETTINGS_AND_UI_PLAN, UI_ACCEPTANCE (I4a-1, I4a-2), EXECUTION_GUIDE,
+  CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **Three columns, not one:** the ID token needs the one-time code to carry it; the setting needs its
+  own column.
+- **Deactivating** the last person who keeps local sign-in while it is off is refused too
+  (`LAST_LOCAL_ADMINISTRATOR`), not only the switch: both remove the way back.
+- **New codes:** `409 NO_IDENTITY_TO_LINK`, `422 LINK_SAME_PERSON`, `404 IDENTITY_NOT_FOUND`. Unlinking
+  also ends the sessions that provider started for the person.
+- **A session without an ID token** (started before the setting was turned on) signs out of the engine
+  only; the plan did not say. `return` on the sign-out address must be at one of the browser's origins,
+  otherwise the first origin's front page; the provider's `signed-out` takes the `state` it echoes.
+- **The page offers Link** when the person has a provider identity and no password. Whether they hold
+  direct roles or local groups is not on the page, so the dialog shows the engine's
+  `PERSON_HAS_ACCESS` in those cases; the plan's "hide what cannot finish" holds for the password only.
+- **The linked person takes the provider's name** at the next sign-in (D363), so the person the
+  administrator picked changes name; the dialog says what moves, not that.
+- **OpenAPI lock:** the working tree also holds the record-history changes of another session (RH1:
+  `HistoryRelated`, `HistoryValue`, `kind` and `actorId`), so the hash is of HEAD plus I4a's files
+  alone, diffed against `ebd2a2a`. `test_openapi_contract` fails in the shared tree until RH1's
+  hunks are re-baselined on top of it.
+
+**Checks:**
+
+- `tests/journeys/test_j40_identity_links.py`: 6 passed (3 cases × 2 configurations), seen failing
+  first (6 of 6); with `test_j39_provider_sign_in.py`, the identity unit tests (provider client with
+  the sign-out address among them), `test_startup` (head `20261105_01`) and `test_schema_drift`:
+  75 passed. Ruff check on `app/` and `tests/`; format on the files I4a wrote.
+- **Migration:** clean bootstrap and restart (`test_startup`), the schema against the ORM; the
+  development database upgraded through the running `--reload` server (head `20261105_01`).
+- Vitest: `src/features/security` and `src/api/session.test.ts`: 39 passed (the link and unlink
+  sentences, the events' titles, sign-out as a navigation). `tsc`, `eslint` (0 errors), `build`.
+- **Browser:** `i4-sign-in --part a` on two models: 26 checks, axe 0 violations on the made person,
+  the link dialog, the linked person, the unlink confirmation, a provider's Signing out, the last-kept
+  confirmation and the person in dark. Screenshots inspected against the boards: the made person, the
+  link dialog, a provider's Signing out, the last-kept confirmation, the person at 390px and in dark.
+
+**Not run:** the neighbouring groups and the other runners (once, at the end of I4c); the full
+suites (R); a sign-out against a real provider (before E1, D369).
+
+**Shared working tree:** other sessions edit RH1's history, RA1's recent activity and LS1's scrolling
+in the same checkout (CHANGELOG, this plan, the API document, `client.ts`, shared style sheets); I4a's
+hunks are separate from theirs.
+
+**What the user cannot do yet:** a second factor for local accounts and passkeys (I4b, I4c).
+
+##### I4b record (2026-10-25)
+
+**Delivered 2026-10-25.** What was built is the plan's items 4–8:
+
+- **Migration** `20261106_01_second_factor`: `user_second_factors`, `user_recovery_codes`,
+  `sign_in_steps` and `local_sign_in.second_factor_required`. One new runtime dependency, `segno`.
+- **Engine** `engine/identity/second_factor.py`: TOTP (RFC 6238), the secret sealed, recovery codes as
+  SHA-256, the QR code drawn as an inline SVG from `segno`'s modules, enrolment, confirmation, new
+  codes, removal (own, with a code; an administrator's), and the sign-in's step (`open_step`,
+  `load_step`); `sign_in.check_password(finish=False)`, `complete` and `record_failure`;
+  `providers.set_local` takes `secondFactorRequired`.
+- **API and pages:** `GET|POST /me/second-factor`, `POST /me/second-factor/confirmation`, `POST
+  /me/second-factor/recovery-codes`, `DELETE /me/second-factor`, `DELETE /users/{id}/second-factor`,
+  `secondFactor` on a person, `secondFactorRequired` on local sign-in; the sign-in page's code step,
+  recovery step, set-up and recovery codes (`POST /oauth/second-factor`). OpenAPI lock re-baselined.
+- **Frontend:** Account's **Second factor** (`SecondFactorPanel`), **Require a second factor with a
+  password** on Local accounts, a person's second-factor row with **Remove second factor…**, the
+  events' titles. **Runner** `i4-sign-in --part b`.
+- **Documents:** API.md, OPERATIONS (a second factor for local accounts, a lost phone), ARCHITECTURE,
+  DECISIONS (ADR-043: D225 revised), USER_JOURNEYS (J39.9), API_JOURNEYS, CURRENT_FUNCTIONALITY
+  (F26, and its limits corrected for I4a), SETTINGS_AND_UI_PLAN, UI_ACCEPTANCE (I4b-1 to I4b-4),
+  EXECUTION_GUIDE, CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **A code of the app signs in once per step.** The code that confirmed the app is spent, so the first
+  sign-in after set-up takes the next step's code (accepted: one step either side). The journey
+  cannot show a second distinct app code within one test without waiting 30 s; the unit tests show the
+  window and the replay with RFC 6238's vectors.
+- **Recovery codes:** twelve characters in three groups of four (the board's), 60 bits, stored as
+  SHA-256 (not keyed); a code or recovery code is also accepted by New recovery codes and Remove.
+- **The password's own success** is logged, and the account's count of failures cleared, only when the
+  whole sign-in is done; otherwise a known password would let someone guess codes without being slowed.
+- **Found while writing:** a code typed in non-ASCII digits (Arabic-Indic) made the comparison raise
+  and the page answer `500`; the code is now read as ASCII digits only (unit test). The runner's
+  provider helper passed `--client-secret <secret>`, which argparse took for an option when the random
+  secret began with `-`; it passes `--client-secret=<secret>` (I3's runner uses the helper too).
+- **Account offers it when the session is a password's** (as Change password): a person signed in with
+  a provider has no use for it. Remove is not shown while the instance requires a second factor.
+- **A test over 10 s:** the second-factor journey case is 11 s, ten Argon2id password checks and the
+  1.2 s wait of the slowing.
+
+**Checks:**
+
+- `tests/journeys/test_j39_second_factor.py`: 6 passed (3 cases × 2 configurations), seen failing
+  first (6 of 6); with the I4a module, `test_j39_provider_sign_in.py`, the identity unit tests
+  (`test_second_factor`: RFC 6238's vectors, the window, replay, what people type, the QR drawing),
+  `test_startup` (head `20261106_01`) and `test_schema_drift`: 90 passed. Ruff check and format on
+  the files I4b wrote.
+- **Migration:** clean bootstrap and restart, the schema against the ORM; the seeds rebuilt.
+- Vitest: `src/features/security`, `settings`, `api`, `ui`, `routing`, `app`: 44 files, 354 passed
+  (`SecondFactorPanel.test`: the key grouped, a wrong code then the codes once, removing with a code,
+  no Remove while required). `tsc`, `eslint` (0 errors), `build`.
+- **Browser:** `i4-sign-in --part b` on two models: 38 checks, axe 0 violations on Account in each
+  state, the code page (and with a wrong code), the recovery page, the requirement's confirmation, the
+  set-up page, its recovery codes, a person's row, the removal confirmation and the code page in dark.
+  Screenshots inspected against the boards: Account setting up, with the codes and on, the set-up
+  page, a person's page, the code page at 390px.
+
+**Not run:** the neighbouring groups (`test_j39_sign_in` among them, whose password check this part
+changed) and the other runners, once at the end of I4c; the full suites (R); a second factor with
+an authenticator on a real phone (the codes are made from the key by RFC 4226's arithmetic).
+
+**Shared working tree:** as I4a's.
+
+**What the user cannot do yet:** passkeys (I4c).
+
+##### I4c record (2026-10-25)
+
+**Delivered 2026-10-25.** What was built is the plan's items 9 and 10, and the documents of item 11:
+
+- **Migration** `20261107_01_passkeys`: `user_passkeys`; `sign_in_steps.challenge` and a `user_id` that
+  may be empty, which keep a ceremony's challenge. Dependency `webauthn` (py_webauthn).
+- **Engine** `engine/identity/passkeys.py`: the relying party (the host and origin of `PUBLIC_URL`),
+  registration and authentication ceremonies, the passkey alone and as the second step, rename and
+  remove, the requirement met by an app or a passkey (`second_factor.required_step`).
+- **The engine's pages and script:** `GET /oauth/passkeys/new`, `GET /oauth/passkey.js` (the file
+  `management/passkey.js`), `POST /oauth/passkeys/{registration,authentication}/{options,verify}`; the
+  sign-in page's **Sign in with a passkey** and the second step's **Use a passkey** ("Confirm it is
+  you"); the policy `script-src 'self'` only on the pages that offer one.
+- **API:** `GET|PATCH|DELETE /me/passkeys`, `GET|DELETE /users/{id}/passkeys`, `passkeys` on a person
+  and on `/me/second-factor`. OpenAPI lock re-baselined.
+- **Frontend:** Account's **Passkeys** (`PasskeysPanel`) before **Authenticator app**, a person's
+  passkey rows with **Remove passkey…**, the events' titles, "Signed in with a passkey". **Runner**
+  `i4-sign-in --part c`; the browser harness takes `host` (`localhost`).
+- **Harness:** `tests/software_authenticator.py`; the runner's Chromium virtual authenticator.
+- **Documents:** API.md, OPERATIONS (passkeys, `PUBLIC_URL`'s host), ARCHITECTURE, DECISIONS (ADR-043:
+  D275 revised), USER_JOURNEYS (J39.10), API_JOURNEYS, CURRENT_FUNCTIONALITY, SETTINGS_AND_UI_PLAN,
+  UI_ACCEPTANCE (I4c-1 to I4c-4), EXECUTION_GUIDE, CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **A challenge table was not needed, but a column was:** a ceremony's challenge lives in
+  `sign_in_steps` (I4b's table), which gains `challenge` and may have no person yet; the plan's
+  migration named `user_passkeys` only.
+- **The dependency is larger than the plan said:** `webauthn` 2.x also needs `pyOpenSSL` and
+  `pyasn1`, and its newest release (3.x) needs `cryptography` 49, which the project pins below 48.
+  The pin is `webauthn>=2.7,<3`; installing it unpinned moved the shared virtual environment's
+  `cryptography` to 50 for a while, and it was put back to 47.0.0, within the project's range.
+- **`signedInWith` `passkey`:** a passkey alone makes a session of that name; a provider's key can no
+  longer be `password`, `passkey` or `local`.
+- **A passkey-only person has no recovery codes** (they belong to the app): a lost device is an
+  administrator removing the passkey. The plan's "recovery codes shared with the app" holds for
+  people who have both.
+- **Removing the app while the instance requires a second factor** is allowed once the person has a
+  passkey (the requirement is met by either); Account hides Remove otherwise.
+- **Found by the runner and fixed:** a helper function I added for the passkey pages was named like
+  the token endpoint's `_error` and replaced it, so every error of `/oauth/token` answered `500`
+  (the journeys had not yet exercised that path in this combination; `test_j39_sign_in` now passes
+  and was run with the neighbouring groups); the password's own success was logged and cleared the
+  account's failures before the second step because the form did not pass `finish=False` (`sp1-security`
+  saw two "Signed in" events; the journey now asserts one and that a right password does not wipe the
+  count of wrong codes).
+- **Account's two cards** follow the I4c board (**Passkeys**, **Authenticator app**), so I4b's heading
+  "Second factor" on Account became "Authenticator app".
+- **Journeys over 10 s:** the second-factor case (17 s: Argon2id password checks and three waits of the
+  slowing) and the passkey case (12 s: seven sign-ins).
+
+**Checks:**
+
+- `test_j39_passkeys.py`: 6 passed (3 cases × 2 configurations), seen failing first (6 of 6); unit
+  `test_passkeys` (the relying party) and `test_second_factor`.
+- **Once, at the end of I4c:** the identity journeys (`test_j39_*`, `test_j40_*`, `test_j41_*`) with
+  the unit tests for `app/engine/identity`, `test_startup` (head `20261107_01`), `test_schema_drift`,
+  `test_foreign_keys` (the four new rules added), `test_boundaries` (a cycle and a row delete in the
+  new module were refused and fixed), `test_api_journeys` and `test_openapi_contract`: 224 passed and
+  one failed, `test_openapi_contract`'s lock, which fails in the shared tree because it also holds
+  RH1's changes; the document of HEAD plus I4's files alone has the hash the test now holds
+  (`04a8bcae…`). Its paged-operation count rose by two (62).
+- **Migration:** clean bootstrap and restart, the schema against the ORM, the foreign-key rules; the
+  development database at `20261107_01`.
+- Vitest: `src/features/security`, `settings`, `api`, `ui`, `routing`, `app`, `workspaces`: 53 files,
+  433 passed (`PasskeysPanel.test`: the list, the engine's page to add, rename, remove). `tsc`,
+  `eslint` (0 errors; 8 warnings in untouched files), `build`, prettier on the files I4 wrote.
+- **Browser, once:** `i4-sign-in` with its three parts on two models: 90 checks, axe 0 violations on
+  Account's Passkeys in each state, the engine's Add a passkey page, the sign-in page with the
+  button, the second step, a person's passkey rows and the removal confirmation, and the sign-in page
+  in dark; with `i2-sign-in` (28 checks), `i3-sign-in-providers` (24), `sp1-security` (50) and
+  `u3-settings` (10), which run the pages I4 touched. Screenshots inspected against the boards:
+  Account's Passkeys, the sign-in page's button, the second step; I4a's and I4b's as recorded.
+
+**Not run:** the full suites and the other runners (R); the accessibility and visual gates (R); a
+passkey on a real device and a real domain (Chromium's virtual authenticator and the software
+authenticator stand in; `https` on the real `PUBLIC_URL` is the E1 review's); a sign-in against a
+real provider (before E1, D369).
+
+**Shared working tree:** as I4a's. `test_openapi_contract` needs RH1's hunks re-baselined on top of
+I4's hash when both are committed.
+
+**What the user cannot do yet** (after I4): codes by SMS or e-mail (D395); a provider telling the
+engine that someone signed out or left; an identity linked before the person's first provider sign-in
+(D377); a passkey before the engine's address is final (changing `PUBLIC_URL`'s host invalidates them).
+
+##### I4 review record (2026-10-25)
+
+**Delivered 2026-10-25,** after a review of I4a–c; every finding fixed, none postponed:
+
+- **Passkey removal asks for proof** (password, or a code): `PasskeyRemoval {proof}`,
+  `second_factor.prove` (slowed and counted like a wrong password); Account's removal dialog asks
+  for it.
+- **Recovery codes keyed:** HMAC-SHA-256 under the encryption key (`_recovery_hash`); codes made
+  before stop working (pre-1.0, no upgrade path kept).
+- **Password required** for an app or a passkey (`409 PASSWORD_REQUIRED`); the passkey closes a way
+  past a provider.
+- **Link** locks both rows in id order; `409 LINK_TARGET_DEACTIVATED`.
+- **Passkey ceremonies capped** at 2000 open (`MAX_OPEN_CEREMONIES`), `429` with `Retry-After: 60`.
+- **Tests:** `test_j39_passkeys` (proof required and wrong, the cap), `test_j40_identity_links`
+  (`PASSWORD_REQUIRED`, `LINK_TARGET_DEACTIVATED`), unit `test_recovery_codes_are_stored_keyed`,
+  `PasskeysPanel.test`. **OpenAPI lock:** the hash is now of the whole working tree, RH1's history
+  changes included (the earlier I4-only hash could not be re-derived), so the test passes in the
+  shared checkout.
+
 ### Track Z — Authorization
 
 #### Z1: Roles, groups and grants at the route
@@ -3000,6 +3445,175 @@ work in" does not fit a Reader).
 what waits for their approval (A3); pin a record or view to Home (not planned); have Continue follow
 them to another browser (D334).
 
+### HM1a: Home's workspace tile and Continue
+
+**Needs:** HM1 (delivered). _Added by the user, 2026-10-25,_ during LS1's delivery: "on the home page
+the workspace cards have a link to the workspace … I would like that their icon (initials) have this
+link too. I also would like that the continue where you left off has a bit different shade of
+background (also then reflecting this to the dark scheme)".
+
+**Built, 2026-10-25:** a workspace card's tile (its initials) opens the workspace as its name does,
+out of the tab order and hidden from assistive technology, so keyboard and screen-reader users meet
+one link per workspace, as before. Continue where you left off sits on a soft tint of the action
+colour with a border to match (`--home-continue-surface`, `--home-continue-border`), its own value in
+dark, held to AA for its text and 3:1 for the focus ring in `tokens.test.ts`. No decision was needed.
+`hm1-home` passed on `ebd2a2a` with this session's files, axe clean in light, dark and at 390px.
+
+
+### RH1: A record's history, shorter and with its values
+
+**Needs:** 0.12 Z4 (actors, delivered). _Added by the user, 2026-10-25:_ "for the history of the
+records. its a free long list on the records page, I would like to make it somehow a better ux";
+the recommendation (compact entries by day, filters, paging) and the
+[history and activity mock-up](https://claude.ai/artifact/CFS7AtndnBosJ7yjdksVLr) accepted ("okay",
+twice), and old → new values chosen over D16 (below).
+
+**Scope:** a record's history groups its changes by day, one line each, opened for the old and new
+values; it is filtered by kind and by person, and shows the 10 newest, then 20 more at a time.
+
+##### RH1 plan (2026-10-25)
+
+**What the check found:** `GET /objects/{type}/{id}/history` answers each entry's action, the field
+names and attribute keys it changed, its actor and cause, never values (D16 of 0.9). A record write
+stores the new values in the entry (`changes.attributes`) and a name or parent change both ends
+(`{"from", "to"}`); a change set's edit stores the record's whole attribute set; a publish's entry
+and a type change store names only (D15, ADR-034). Live values are not versioned. A relationship's
+entry names its type and both ends (`subject`). The panel (`HistoryPanel`) reads 20 at a time and
+appends without end.
+
+**What is built:**
+
+1. **API.** The history read takes `kind` (`values`, `relationships`, `structure`: a parent or type
+   change) and `actorId` (a person's or client's ID, or `engine`), both filtered in PostgreSQL, and
+   answers on each entry `kind`, `values` (each changed field's `from` and `to`, with `fromKnown`)
+   and, on a relationship's entry, `related` (the relation type, the direction read from this
+   record, the other record's ID, type and current name). A parent's ID is answered with its name.
+2. **The values** (D390): `to` is what the entry stored; `from` is what the record's previous entry
+   in the same context stored for that field, found in one query per page (`LATERAL`); where that
+   entry stored names only, `fromKnown` is false and the page says the earlier value was not
+   recorded. A field whose `from` equals its `to` is left out.
+3. **The panel.** Entries by day, one line each (what, who, when), opened for the values; the kind
+   chips and a By choice of the people seen so far; the 10 newest, **Load older history** adds 20,
+   **Show fewer** returns to 10. Day groups live in `ui/Timeline`, so a person's recent activity and
+   their changes across workspaces (Z6) are grouped by day too.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D389 | Values in a record's history (**revises D16** for history) | **Accepted by the user, 2026-10-25:** a record's history answers each changed field's old and new value, to whoever may read the record; the change feed and consumer events stay names only. Why: "Code changed" alone sends people looking for what it was. Cost: a later redaction (the erasure door, COMPOSABLE_DOMAINS) must also clean the values the audit log stores, which that section now says |
+| D390 | Where an old value comes from | **Recommended:** the record's previous entry in the same context (live, or the change set) that named the field; unknown where that entry stored names only (a publish, a type change), never guessed. Why: live values keep no versions; a wrong old value is worse than none. Cost: after a publish, the next change's old value reads "not recorded" |
+| D391 | Filtering | **Recommended:** by `kind` and `actorId` in the API, the panel's chips and By choice over it. Why: filtering only the loaded entries would show wrong or empty lists with Load more; every capability is in the API. Cost: two query parameters |
+| D392 | Names in relationship entries | **Recommended:** the other record's current name, its type and the relation's name read from this record ("Offered in French added"); a parent by its name. Why: an ID tells a person nothing. Cost: a name lookup per page; a record renamed since shows its new name |
+| D393 | Paging and day groups | **Recommended:** the 10 newest, 20 more at a time, Show fewer; day headings in `ui/Timeline` for every timeline. Why: the app's other feeds load more by a button; day headings shorten a long list. Cost: recent activity and Z6's list change look with it, before their own package |
+| D394 | What RH1 leaves out | **Recommended:** a publish's values (they stay in the change set's own history); a list of every person who ever changed the record (By offers those seen so far); recent activity's filters (RA1, after I3). Cost: as listed |
+
+**Test cases:** API journey: a record edited live twice, a relationship added, moved, read with its
+values (old and new, the first value's old empty), filtered by kind and by person; a change set's
+edit and its publish, the next live change's old value not recorded. Unit: `ui/Timeline` (day
+groups), `HistoryPanel` (paging, Show fewer, filters, an entry opened).
+
+##### RH1 record (2026-10-25)
+
+**Built 2026-10-25,** everything in the plan; a person's recent activity followed the same day as RA1
+(below), at the user's reminder ("the Recent activity is still not yet fixed though I highlighted
+that too"). One check waits for I3 (below).
+
+**What was built:** `engine/records/history_details.py` (the kind, `kind_condition` for the filter,
+the values with one `LATERAL` query a page, the other records' names); `object_history`'s `kind`
+and `actor_id`; `HistoryValue`, `HistoryRelated` and `kind`, `values`, `related` on
+`AuditEventResponse`; the route's `kind` and `actorId`. In the browser: `ui/Timeline`'s `byDay`
+(day headings, one line per entry, an entry opened for its `details`), `byDay` and `dayLabel`
+moved to `lib/dates` from the Z6 page (re-exported there), `HistoryPanel` rewritten (the `Choice`
+of kinds, By, 10 then 20, Show fewer, the values table). Documents: API (the history read), DECISIONS
+(ADR-037 amended), COMPOSABLE_DOMAINS (History and erasure), CURRENT_FUNCTIONALITY (F11),
+USER_JOURNEYS (J01.6), EXECUTION_GUIDE (the module's row), CHANGELOG.
+
+**Checks:**
+
+- **Backend**, in the worktree of `a11f71e` with only RH1's files, against the development
+  PostgreSQL server: J01.6 (extended: values, the first value's old empty, kinds, the other record,
+  both filters, the old value not recorded after a publish), J15 and J44, both models: 36 passed.
+  `test_boundaries`, `test_api_reference`, `test_api_journeys`: passed.
+- **The OpenAPI lock:** `ebd2a2a` with RH1 hashes to `a1b97453e10e…`, and with RH1 and SP1b to
+  `3de8ab1dff7e…`; diffed against `ebd2a2a`, only RH1's and SP1b's paths and schemas are new. The
+  shared tree's lock holds I4a's value (`ebd2a2a` with I4a alone), so whichever is committed second
+  re-baselines on top of the other.
+- **Browser runners** reading the history panel, changed to the new lines (a line opens to show who
+  made it, with the link): `sp1-security`, `z6-changes` and `c5-restructuring-acceptance` passed.
+- **Frontend:** `src/features/objects`, `security`, `changes`, `src/ui`, `src/lib`, `src/api`: 62
+  files, 468 tests passed (new: the values with "not recorded", the kind asked of the API, Show
+  fewer); typecheck, lint and format on the changed files clean.
+- **Not run:** a browser runner (no runner covers the history panel's look; the user tries it).
+
+**Composable domains (ADR-032):** the erasure door is touched and kept open: the values the history
+shows are those the audit entries already stored, the one other place a redaction must reach, which
+COMPOSABLE_DOMAINS now says (D389).
+
+**What the user still cannot do after RH1:** see a publish's values in the live history (the change
+set's own history has them, D394); pick a person who has not appeared in the loaded entries in By.
+
+### RA1: A person's recent activity, like the history
+
+**Needs:** RH1. _Asked by the user, 2026-10-25,_ with RH1 ("I would like to limit the visibility of the
+recent activity on the user page since it can get very long"), the
+[mock-up](https://claude.ai/artifact/CFS7AtndnBosJ7yjdksVLr)'s second screen accepted.
+
+**Built, 2026-10-25:** `RecentActivity` on `ui/Timeline`'s `byDay`; the kinds **Signing in**
+(`sign-in`), **Roles and groups** (`grant`, `group`, `role`) and **Account** (`user`, `client`) as
+the API's existing `aggregateType` filter, All asking for every kind (keys and providers too); the
+10 newest, then 20, Show fewer, through `ui/TimelinePaging`, which `HistoryPanel` now uses too (one
+paging, no copy). No API change and no decision beyond RH1's D391 and D393. Its one change in
+`api/securityClient.ts`, a file I3 also edits, is the `securityEvents` call.
+
+**Checks:** Vitest `src/features/security`, `src/features/objects/panels`, `src/ui`: passed, with
+`RecentActivity.test.tsx` (10 then 20, Show fewer, a kind asked of the API); typecheck, lint and
+format clean. `sp1-security` and `sp2-clients` passed once their activity locator named the group
+(the day groups hold a list each).
+
+### SP1b: A group's members, several at once
+
+**Needs:** SP1, I3. _Asked by the user, 2026-10-25:_ "for the group membership dialog, please make it
+more realistic than just a dropdown list for picking users one by one"; the
+[group members mock-up](https://claude.ai/artifact/VpWrqXLoAUfXpSFtScpnu3) accepted ("yes the mock
+looks good"). Decision numbers D401–D403 leave D395–D400 to I4, which was numbering in parallel.
+
+**Built, 2026-10-25:**
+
+- **API.** `POST /groups/{group_id}/members/batch` (`userIds`, `identifiers`, `dryRun`) and `POST
+  /groups/{group_id}/members/removal` (`userIds`), answering each input's outcome and how many
+  changed (`GroupMembersResult`); the people read in one query, the memberships written in one
+  statement, one security event per member (`administration.add_members`, `remove_members`).
+- **The page.** **Add members** opens `AddMembersDialog`: **Search and tick** (the first 20 matches,
+  each asked of the engine with `dryRun`, so those already in and the deactivated are shown and not
+  tickable; Tick all shown) and **Paste a list** (checked with `dryRun`, the people found joining the
+  people to add, every line saying what it is); the people to add as chips under both tabs; one
+  request adds them. The members table gains a checkbox column (`SettingsTable` takes a control as a
+  column head) and the selection bar's **Remove N from the group**; Remove on a row stays.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D401 | How several people join a group | **Recommended:** up to 500 in one transaction, by ID or by username or e-mail address in any case, checked first with `dryRun`; people already in the group are answered, deactivated people left out and said so, a line nobody has said so. Why: the mock-up's two ways (search and tick, paste a list) share one call, and checking first shows what will happen before anything changes. Cost: a deactivated person can still be added alone with the one-person call, as before |
+| D402 | Removing several members | **Recommended:** ticked and removed together, refused whole when it would leave no Security administrator (D283); Remove on a row stays. Why: the same rule as one removal, so nothing is half done. Cost: none |
+| D403 | What SP1b leaves out | **Recommended:** a person's page keeps adding one group at a time (its page is in I4's work); the search offers the first 20 matches and asks to narrow beyond them. Cost: as listed |
+
+**Checks:** API journey J40.4 (`test_several_people_join_and_leave_a_group_at_once`: a pasted list
+checked, three added by ID with the deactivated one left out, two removed with an unknown ID), both
+models; Vitest `AddMembersDialog.test.tsx` and the `security` group; the `sp1-security` runner walks
+the dialog (search and tick, a pasted list with an unknown line, axe) and `i3-sign-in-providers`
+finds no Add members on a provider group.
+
+**Record (2026-10-25):** delivered as above, in a worktree of `ebd2a2a` with this session's files:
+J40 and J40.4 66 passed on both models; `sp1-security` and `i3-sign-in-providers` passed, axe
+clean; the contract group passed but the OpenAPI lock (RH1's record) once `API_JOURNEYS` listed both
+routes; Vitest `src/ui`, `src/lib`, `src/features/objects`, `security`, `changes`, `home`,
+`src/styles`, `src/api` 66 files, 492 tests passed in the shared tree; the build passed. The new
+routes, schemas and fields are the only differences of the API document from `ebd2a2a`'s.
+**Composable domains:** no door touched. **What the user still cannot do:** add a person to several
+groups at once from their page (D403).
+
 ### TV1: A record's parent in its list
 
 **Needs:** 0.9 K5 and K6 (delivered). _Added by the user, 2026-10-25,_ during SP2's delivery: "on the
@@ -3084,6 +3698,149 @@ CURRENT_FUNCTIONALITY (the layout editor), EXECUTION_GUIDE (the `authoring-a4b` 
 **What the user will still not be able to do after TV1:** sort a list by its parent from the
 interface (D360, the model file until then); show one "Parent" column for a type with several parent
 relationships (D359, not planned).
+
+### LS1: A collection's rows scroll on their own
+
+**Needs:** 0.11 X6 (delivered). _Added by the user, 2026-10-25:_ "scrolling it immediately laggy …
+200 timetable types, with some language relations … if it's laggy for 200 records … what could we
+expect for a larger set?", asking for a code review and a solution, not more measuring. After the
+review: "I accept the decision", then, on how the page would avoid the sidebar scrolling away and
+columns ending at different bottoms, the layout below; "ok"; "add this to the build 0.12 then deliver
+it".
+
+**Scope:** a collection's table page is fitted to the window: the window does not scroll, the rows
+do, and every row drawn while scrolling is drawn once. The reader's wheel goes straight to the
+browser.
+
+##### LS1 plan (2026-10-25)
+
+**Planned and accepted 2026-10-25** in the user's words above, with the
+[scrolling mock-up](https://claude.ai/artifact/SGjSLyQJfEGcWk2SKpAEu3) (laptop with 200 records,
+laptop with 9, phone). D371–D376 are recorded as recommended. Checked against the code at `9c702d7`
+by reading it; nothing was measured.
+
+**What the review found** (most serious first):
+
+1. **Pointing at a cell while scrolling draws the table again.** Rows moving under a still pointer
+   fire `pointerover`; `ui/CellReveal` measures the cell (layout reads, text ranges, a clone) and,
+   where it is cut, sets state held in `DataTable`. `DataTable`'s `secondary` is a new function at
+   every draw and goes to every row, so the row memo (X6) never holds: every drawn row, about three
+   screens, draws again, and the scroll listener closing the box draws them a second time. The
+   hovered row's edit icons are drawn for each row passing under the pointer.
+2. **Any draw of the page draws every row.** `ObjectTable` builds its columns, row attributes,
+   selection and actions anew at each draw, `useCellEditing`'s `renderCell` and
+   `useRecordSelection`'s `isSelected` are new each time: 200 records at the page size of 20 arrive
+   as eleven background pages after the list opens, each drawing every drawn row again.
+3. **The wheel waits for the script.** `ScrollWindow`'s wheel listener is not passive and reads the
+   layout at each event (`getComputedStyle` up the ancestors, `scrollHeight`, a bounding box), so
+   the browser holds every scroll step until the main thread answers, which 1 and 2 keep busy.
+4. **The layout is read at every scroll frame.** The window's layout effect lists `virtualRows`, a
+   new array at each range change, and calls `measure()`, which reads sizes right after rows were
+   written: the table is laid out again in the middle of the frame.
+5. **Row heights differ.** Cells wrap, so each new row is measured and the scroll position corrected
+   where it differs from the estimate.
+
+**What is built:**
+
+1. **The page fitted to the window (D371).** On a collection's table page (the `list` route of a
+   table view), `ShellFrame` gives the frame a fill layout through its `main` option (the model
+   editor's, D37): the frame is the window's height; the top bar, the band, the page header, the
+   lenses, the toolbar and the selection bar keep their heights; the collection's card takes the
+   rest down to the window's bottom, also when it holds few rows; the table's header stays at the
+   card's top and its footer (range, Go to, page, start and end) at its bottom. The rail keeps its
+   own scroll. On a phone the same, the band and the top bar included (they scroll with the page
+   today). The split view (a record beside its list) and every other page keep their layout.
+2. **One kind of scrolling per window (D372).** `ScrollWindow` takes `fill`: a window that fills its
+   page has no wheel handler, only passive listeners noting the reader's gestures. A window nested
+   in a page that scrolls (a record's panels, dialogs, the model editor's preview, the split view)
+   keeps today's wheel behaviour, with the scroller around it found once per gesture instead of at
+   every event.
+3. **A row is drawn once (D373).** `CellReveal`'s box holds its own state in a small store, drawn by
+   its own component, so showing and closing it draws no row; it ignores rows passing under a still
+   pointer while the list scrolls and acts on the pointer's own movement. The hovered row follows the
+   same rule. `DataTable`'s functions to the rows are stable; `ObjectTable` memoises what it gives
+   the rows, with the handlers read through a ref; `useCellEditing`'s `renderCell` changes only with
+   the cell editing state and the permissions; `useRecordSelection`'s `isSelected` only with the
+   selection; `CollectionView`'s row actions only with read-only. A page arriving in the background
+   draws only its own rows.
+4. **The layout read only when it can change (D374).** The window's geometry (where the rows start,
+   the header it covers) is read when the list, its landing or its size changes, and when the header
+   or the start marker resizes (observed); a change of the drawn range runs only the cheap steps (a
+   pinned landing, a focus waited for, the visible range).
+5. **One-line rows in a record list (D375).** Once the columns are laid out (frozen or sized, wide
+   screens), a record list's cells (`ObjectTable`: collections, a record's children) keep to one
+   line and end in an ellipsis; the whole value is shown by `CellReveal`, as for a sized column.
+   Every row is then as tall as the first, so the estimate is exact and nothing is corrected while
+   scrolling. Other tables (relationships, reports, the model editor's) keep wrapping.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D371 | Which pages are fitted to the window | **Recommended:** a collection's table page, on every width. Why: it is the page reported, and the one that holds a long list as its whole content; the window not scrolling is what keeps the rail, the list and its footer on one bottom line (the user's question, 2026-10-25). Cost: the header, lenses and toolbar always take their height, so a short screen shows fewer rows; the matrix, mapping grid and tree views, the split view and a record's page keep today's layout |
+| D372 | The wheel over a list | **Recommended:** a list that fills its page leaves the wheel to the browser; a list nested in a page that scrolls keeps the 2026-10-19 behaviour (the list brought into view first, the page carrying on at its ends), made cheap. Why: the wheel handler is what made the browser wait; where nothing scrolls around the list it has nothing to do. Cost: two behaviours in `ScrollWindow`, chosen by the page |
+| D373 | How hovering a cell and pointing at a row work while the list scrolls | **Recommended:** rows passing under a still pointer show no cell's whole value and draw no edit icons; moving the pointer does, as today. Why: each of them drew the table again during scrolling. Cost: after scrolling stops, the cell under the pointer shows its value once the pointer moves |
+| D374 | Overscan | **Recommended:** unchanged, one screen either side (D156). Why: with rows drawn once, the rows drawn ahead cost only when they enter; a steady scroll adds about one row per row height either way. Cost: none |
+| D375 | One-line rows | **Recommended:** in record lists on wide screens once the columns are laid out; the narrow layout (columns by their content) keeps wrapping. Why: equal rows remove the measuring and the scroll corrections behind the jumps found in X6; a cut value is shown whole on hover, focus or a long press. Cost: a long text value no longer shows whole in the row; the phone keeps measured rows |
+| D376 | How LS1 is tried | **Recommended:** the changed modules' unit groups, the frontend build, and S5's runner, its collection steps changed to the fitted page; then the user tries it on the dev instance with the steps the record lists. No new measuring. Why: the user's request; S5 is the guide's group for continuous lists. Cost: no figure for scrolling speed, which the user's own try stands for |
+
+**Test cases:** unit: `ScrollWindow` (a filling window registers no wheel handler that cancels; a
+nested one still carries the wheel on), `CellReveal` (no box while the list scrolls, one on the
+pointer's movement), `DataTable` (a re-draw of the table with the same rows draws no row again;
+one-line rows class), `ObjectTable`. Browser: `s5-continuous-lists` with its collection walk on the
+fitted page (the window's scroll stays at 0, the footer and the rail's bottom on the window's bottom
+line at 1440px and 390px), the record panel and mapping grid walks unchanged.
+
+##### LS1 record (2026-10-25)
+
+**Built 2026-10-25,** everything in the plan; one browser check is still open (below).
+
+**What was built:** `ShellFrame`'s `main.fill` and `AppShell`'s `fill`, set by `App` on a table view's
+`list` route; `fill` through `ViewComponentProps`, `CollectionView`, `ObjectTable`, `DataTable` and
+`ScrollWindow` (no wheel handler, passive gesture listeners; the nested handler finds its scroller
+once per gesture); `ScrollWindow`'s layout effect split into the list's (geometry, landing) and the
+drawn range's (`settle`), the header and start marker observed; `ui/CellReveal`'s box in a store of
+its own, drawn by `RevealBox`, acting on the pointer's movement; `lib/scrollActivity`; the hovered
+row left alone while the list scrolls; `DataTable`'s `secondary` stable and `oneLine`;
+`ObjectTable`'s row props memoised with its handlers through a ref; `useCellEditing`'s `renderCell`,
+`useRecordSelection`'s `isSelected` and `CollectionView`'s row actions memoised; the fill layout in
+`layout.css` and `responsive.css`, the one-line rows in `components.css`. Documents:
+CURRENT_FUNCTIONALITY (F03), EXECUTION_GUIDE (the `s5` row), CHANGELOG.
+
+**Found during delivery:** on the fitted page the band, still sticky, took its top bar offset inside
+the content and covered the page's header (the user's screenshot); on that page it no longer
+sticks, and S5's fitted-page check asserts the band stands above the heading.
+
+**Checks:**
+
+- **Vitest:** `src/ui`, `src/lib`, `src/features/objects`: 49 files, 377 tests passed (new: the
+  filling window's wheel, the box and the edit icons while the list scrolls, a table drawn again
+  drawing no row). A `RestructuringDialog` case timed out once under load and passed alone and in two
+  reruns of the groups.
+- **Frontend:** typecheck, lint and format on the changed files clean; build passed.
+- **Browser, `s5-continuous-lists`** in a worktree of `a11f71e` with only LS1's files (I3's backend
+  was mid-change in the shared tree): the first run passed the lens walks and the new fitted-page
+  check at 1440px (window and content at 0, footer and rail on the bottom line) and failed later
+  waiting for the 2,000-child record panel; the panel drew at once in two separate tries of the same
+  sequence. The second run failed at "live wheel up from the end" (a row moved 36 px). **The same
+  step fails on `a11f71e` without LS1** (a row moved 33.7 px), so it is not LS1's; it is recorded
+  below.
+- **Done after I3 landed** (worktree of `ebd2a2a` with this session's files): the fitted page at
+  1440px and 390px with the wheel: the window and the content at 0, the footer 17 px and 13 px above
+  the window's bottom (the page's bottom padding), the rail on it, the band clear of the heading, no
+  horizontal scroll. At 390×844 the bars, header, actions and toolbar leave room for about four or
+  five rows and the footer wraps to two lines (D371's cost, seen on the screenshot).
+- **Not run:** backend tests (no backend change); other runners.
+
+**Recorded for later:** S5's "live wheel up from the end" fails without LS1 too: after Ctrl+End,
+the first wheel steps up meet rows not measured yet, and one row moves by about a row's height
+while the virtualizer corrects (`a11f71e`: 33.7 px; with LS1: 36 px).
+
+**Composable domains (ADR-032):** no door is touched.
+
+**What the user still cannot do after LS1:** see a long text value whole in the row (hover, focus or
+a long press shows it, D375); the matrix, mapping grid and tree views and the split view keep their
+layout (D371).
 
 ### Track SP — The Security pages (U8)
 
@@ -3551,6 +4308,51 @@ off (I3); rotate a webhook's signing key (K1); try the API console with their to
 approve publications (Track A); choose a secret overlap other than 1 hour, 24 hours, 7 days or none
 except through the API.
 
+### Track DP — Deployment
+
+_Added by the user, 2026-10-25,_ after "The engine cannot be reached … http://localhost:8000" on a
+phone: "there has to be a deployment track in this build where these questions are answered well and
+have their assigned work packages". **Planned, awaiting the user's approval** of D404–D411.
+
+**What the check found** (at `ebd2a2a`):
+
+- **The browser application calls a build-time address.** `api/address.ts` reads `VITE_API_URL`,
+  else `http://localhost:8000`, so a page opened from any other device calls that device. OPERATIONS
+  lists `VITE_API_URL`, `PUBLIC_URL` and `CORS_ORIGINS` and the one-site rule for the session cookie
+  (D234, D268) but never says how the application is served or reached.
+- **There is no production way to serve the application.** `frontend/Dockerfile` runs `npm run dev`;
+  `docker-compose.yml` starts the dev server with `VITE_API_URL: http://localhost:8000`.
+- **The compose file no longer starts the engine.** Since 0.12 I1 the engine refuses to start
+  without `SECRETS_ENCRYPTION_KEY`, which the compose file does not set; nor does it set
+  `PUBLIC_URL`, `CORS_ORIGINS`, `RDM_CURSOR_SIGNING_KEY` or create a first administrator. The image
+  runs as root and Uvicorn trusts no proxy headers, so behind a proxy every caller would share the
+  proxy's address (the sign-in throttle counts per address, D271).
+- **What the engine serves:** `/api/v1`, `/api/consumer`, `/oauth` (the sign-in pages and token
+  endpoints), `/.well-known`, `/docs` and `/openapi.json`, `/health` and `/health/live`, and
+  `/metrics`. Everything else the browser asks for is the application.
+
+**Packages:**
+
+| # | Package | Needs | Scope |
+| --- | --- | --- | --- |
+| DP1a | A developer instance on the network (**delivered 2026-10-25**) | — | `scripts/dev.sh` (`settings`, `admin`, `engine`, `frontend`, `cert`, `address`): `.dev/settings.env` with the database and the secrets key, the first administrator, and with `--network` the engine and frontend over https on the address `cert` finds, `PUBLIC_URL`, `CORS_ORIGINS` and `VITE_API_URL` set to match; `vite.config.ts` serves https when `DEV_HTTPS_CERT` and `DEV_HTTPS_KEY` are given; README's setup and OPERATIONS § A developer instance. The user's request: "we prepare this to be accessible once we release the code on github, so other people can run their developer instance very easily". Checked: the script's syntax, the address found (`192.168.0.36`), the build with the config; the servers are tried by the user in their own terminals (no server started for it) |
+| DP1 | One address for the application and the engine | DP1a | The application calls the engine's paths on its own address unless `VITE_API_URL` names another (D404); the Vite dev server forwards those paths to the engine, so `vite --host` serves a phone on the same network (D411); `PUBLIC_URL` is the address people open; the sign-in, provider and second-factor flows checked through it; OPERATIONS' settings and "Signing in from the browser" amended |
+| DP2 | Images and a reference installation | DP1 | A `web` image built in two stages (the application built, then served by nginx with the engine's paths forwarded, D405, D406); the engine image as a non-root user, Uvicorn behind the proxy (`--proxy-headers`, the proxy's address trusted), a health check; `compose.yml` as the reference installation (database, engine, web) reading an `.env` the operator fills from `.env.example` (D408, D409); HTTPS at `web` with the organisation's certificate files, HTTP sent to HTTPS (D407); the first administrator by `docker compose run`; the development compose file retired (D408) |
+| DP3 | The deployment guide and its check | DP2 | OPERATIONS § Deploying: the topology, the settings in the order they are needed, the certificate, the public paths and `/metrics` kept inside, the first administrator, a sign-in provider's addresses, upgrading and backups by reference, "From a phone on the same network" for development; a deployment runner that builds the images, starts the installation from empty, creates the first administrator, signs in through `web` at a non-`localhost` address from a second browser context (a phone's size) and opens a collection (D410) |
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D404 | Where the application calls the engine | **Recommended:** on its own address by default (`/api/…`, `/oauth/…` relative to the page); `VITE_API_URL` stays for an engine on another address. Why: one build serves every installation and every device; the session cookie's one-site rule and `CORS_ORIGINS` stop mattering in the common setup. Cost: an installation with the engine on its own host sets `VITE_API_URL`, `CORS_ORIGINS` and the one-site rule as today |
+| D405 | Who serves the application in production | **Recommended:** a `web` image: nginx serving the built files, the engine's paths forwarded to the engine, which stays an API. Why: the usual shape organisations run and their proxies and load balancers understand; caching, compression and certificates stay out of the engine; the engine and the application can be upgraded together from one release. Cost: a second container; an organisation with its own proxy copies the forwarding rules from the guide |
+| D406 | Which engine paths are public | **Recommended:** `/api/v1`, `/api/consumer`, `/oauth`, `/.well-known`, `/docs`, `/openapi.json`, `/health`, `/health/live`; `/metrics` only inside (the monitoring network reaches the engine directly). Why: everything people and integrations need, and the process metrics only to monitoring. Cost: a monitoring system scrapes the engine's own port, not the public address |
+| D407 | HTTPS | **Recommended:** ended at `web` with the organisation's certificate and key mounted as files, plain HTTP answered with a redirect, HSTS on; the engine trusts the proxy's forwarded address and scheme. An organisation's own load balancer in front may end HTTPS instead (the guide says how). Automatic certificates (ACME) are left out of the image. Why: organisations issue their own certificates for internal services; the session cookie is `Secure` only over HTTPS (D268). Cost: the operator provides and renews the certificate |
+| D408 | The compose file | **Recommended:** `compose.yml` becomes the reference installation (database, engine, web, with health checks and the `.env`); the development compose file is retired, since development runs the servers locally (AGENTS.md) and the file no longer starts. Why: one compose file that works and that the guide describes. Cost: anyone using Docker for development uses the reference installation with the development settings the guide names |
+| D409 | Secrets | **Recommended:** never in an image or the repository; the operator generates `SECRETS_ENCRYPTION_KEY`, `RDM_CURSOR_SIGNING_KEY` and the database password once into `.env` (`.env.example` lists every setting with a sentence each, the generating commands included), and keeps it beside the backups. Why: losing `SECRETS_ENCRYPTION_KEY` makes the stored signing and webhook keys unreadable (D253). Cost: one file the operator guards |
+| D410 | How Track DP is tried | **Recommended:** DP1 by the browser runner of the sign-in (I2) through the Vite proxy at the laptop's network address; DP2 and DP3 by one deployment runner that builds the images and runs the installation from empty, once per package, each run announced (Docker builds load the laptop). Why: the questions are about reaching the installation, which only a real build answers. Cost: a runner of its own, run before R |
+| D411 | A phone in development | _Revised 2026-10-25 after the user's iPhone try:_ **Recommended:** **accepted by the user, 2026-10-25, and delivered as DP1a:** `scripts/dev.sh` runs the developer instance, and with `--network` both servers over https on the computer's network address with an mkcert certificate (`scripts/dev.sh cert` finds the address on macOS and Linux and makes it), so another developer after the GitHub release runs one with a few commands; plain `vite --host` is not enough, because a page on `http://<address>` is not a secure page, and the sign-in (PKCE's `crypto.subtle`) and passkeys need one. On an insecure page the application says so instead of "The engine cannot be reached" (it said that on the iPhone). Why: the user's setup stays the two servers they run, with one documented switch. Cost: a one-time certificate per laptop; the phone accepts its warning or trusts the certificate |
+
 ### K1: Webhook signing-key rotation
 
 **Needs:** Z1.
@@ -3570,7 +4372,7 @@ pasted for testing a client's view. `/docs/oauth2-redirect` stays 404.
 
 ### E1: Security checkpoint
 
-**Needs:** Z1–Z5, I1–I3, SP1, SP2, K1, C1.
+**Needs:** Z1–Z5, I1–I4, SP1, SP2, K1, C1 (I4 by D382).
 
 **Scope:** the exit gate composed: a sweep that calls every operation in the catalogue as each
 predefined role and as a client without grants and checks allowed or refused against the catalogue
@@ -3661,11 +4463,21 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 8a | [Z6](#z6-one-persons-changes-across-workspaces) | Z4, Z5 | **Delivered 2026-10-25.** One person's or client's changes across workspaces, filtered to what the caller may browse |
 | 8b | [HM1](#hm1-a-home-page-after-sign-in) | Z5 | **Delivered 2026-10-25.** A home page after sign-in: workspaces as cards, what waits for the person, Continue where you left off |
 | 8c | [TV1](#tv1-a-records-parent-in-its-list) | — | **Delivered 2026-10-25.** A table view's Columns… and Filters… offer the record's relationships, its parent's first |
+| 8d | [LS1](#ls1-a-collections-rows-scroll-on-their-own) | — | **Delivered 2026-10-25.** A collection's table page fitted to the window, only its rows scrolling; each row drawn once; the wheel left to the browser |
+| 8e | [HM1a](#hm1a-homes-workspace-tile-and-continue) | HM1 | **Delivered 2026-10-25** (`hm1-home` passed, axe clean). A workspace card's tile opens the workspace; Continue on its own shade, light and dark |
+| 8f | [RH1](#rh1-a-records-history-shorter-and-with-its-values) | Z4 | **Delivered 2026-10-25;** the OpenAPI lock re-baselines with I4a (see its record). A record's history by day, filtered, with old → new values (D16 revised for history) |
+| 8g | [RA1](#ra1-a-persons-recent-activity-like-the-history) | RH1 | **Delivered 2026-10-25.** A person's recent activity like the history: by day, kinds, 10 then 20, Show fewer |
+| 8h | [SP1b](#sp1b-a-groups-members-several-at-once) | SP1, I3 | **Delivered 2026-10-25.** Group members: search and tick, paste a list checked first, several removed at once |
 | 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | **Delivered 2026-10-24.** Settings › Security: people, groups, roles, grants |
 | 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | **Delivered 2026-10-25.** Settings › Security: clients and their access, signing keys (sign-in providers moved to I3, D357) |
-| 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | OpenID Connect providers and their groups; Settings › Security › Sign-in |
+| 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | **Delivered 2026-10-25.** OpenID Connect providers and their groups; Settings › Security › Sign-in |
+| 11a | [I4](#i4-a-provider-identity-linked-signing-out-of-the-provider-a-second-factor) | I3 | Planned 2026-10-25 (D382): I4a linking, provider sign-out, the local sign-in switch; I4b an authenticator app for local accounts; I4c passkeys |
 | 12 | [K1](#k1-webhook-signing-key-rotation) | Z1 | Signing-key rotation with overlap; re-sealing |
 | 13 | [C1](#c1-the-try-it-console-authenticated) | I2 | The console with the person's token |
+| 12z | [DP1a](#track-dp--deployment) | — | **Delivered 2026-10-25.** `scripts/dev.sh`: a developer instance, on this computer or over https on the network |
+| 13a | [DP1](#track-dp--deployment) | DP1a | One address for the application and the engine; a phone in development (planned, D404, D411) |
+| 13b | [DP2](#track-dp--deployment) | DP1 | The `web` and engine images, `compose.yml` as the reference installation, HTTPS, secrets (planned, D405–D409) |
+| 13c | [DP3](#track-dp--deployment) | DP2 | OPERATIONS § Deploying and the deployment runner (planned, D410) |
 | 14 | [E1](#e1-security-checkpoint) | all above | The exit gate composed; independent security review |
 | — | _cut line_ | | _If R is out of reach, 0.12.0 releases here and Track A follows in 0.12.x_ |
 | 15 | [A1](#a1-a-publication-request-and-its-approval) | Z1, Z4 | Submit, approve or send back, self-approval, four-eyes policy |

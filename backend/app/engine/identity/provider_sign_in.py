@@ -11,6 +11,7 @@ with a one-time code. A sign-in that cannot finish is a ``SignInFailed`` with a 
 shows and a ``sign-in`` ``failed`` security event.
 """
 
+import logging
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -19,6 +20,7 @@ from typing import Any
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
+from ...common.sealing import SealError, seal, unseal
 from ...models.database import (
     ProviderSignIn,
     SignInProvider,
@@ -28,10 +30,12 @@ from ...models.database import (
     UserIdentity,
 )
 from ..authorization.administration import free_group_name
-from . import provider_client, providers, security_events
+from . import provider_client, providers, security_events, sessions
 from .passwords import digest, new_token
 from .settings import IdentitySettings
 from .sign_in import challenge_of
+
+logger = logging.getLogger(__name__)
 
 SIGN_IN_MINUTES = 10
 # Pending sign-ins are removed this long after they lapse.
@@ -145,8 +149,9 @@ def finish(
     browser_token: str | None,
     address: str | None,
     now: datetime,
-) -> tuple[User, dict[str, str]]:
-    """The person the provider signed in and the browser's request, or ``SignInFailed``. Commits."""
+) -> tuple[User, dict[str, str], bytes | None]:
+    """The person the provider signed in, the browser's request and, when the provider signs people
+    out too (I4a), its ID token sealed for the session; or ``SignInFailed``. Commits."""
     pending = session.scalar(
         select(ProviderSignIn)
         .where(ProviderSignIn.state_hash == digest(state or ""))
@@ -227,7 +232,46 @@ def finish(
         details={"username": user.username, "address": address, "provider": provider.key},
     )  # fmt: skip
     session.commit()
-    return user, request
+    sealed = (
+        seal(settings.encryption_key, id_token.encode(), providers.id_token_context(provider.key))
+        if provider.sign_out_of_provider
+        else None
+    )
+    return user, request, sealed
+
+
+def sign_out(session: Session, settings: IdentitySettings, refresh_token: str) -> str | None:
+    """End the session a refresh token belongs to; where the browser goes to sign out of the
+    provider that started it, when that provider signs people out too and the session kept its ID
+    token (I4a, D379, D380). None: straight back to the application. Commits."""
+    ended = sessions.end_by_refresh_token(session, refresh_token, "signedOut")
+    if ended is None or ended.provider_id_token is None:
+        return None
+    provider = session.scalar(
+        select(SignInProvider).where(SignInProvider.key == ended.signed_in_with)
+    )
+    if provider is None or not provider.sign_out_of_provider:
+        return None
+    try:
+        hint = unseal(
+            settings.encryption_key,
+            ended.provider_id_token,
+            providers.id_token_context(provider.key),
+        ).decode()
+        discovery = provider_client.discover(provider.issuer)
+    except (SealError, provider_client.ProviderError) as failure:
+        logger.warning(
+            "Signing out of a provider failed; the person is signed out of the engine only",
+            extra={"event": "provider_sign_out_failed", "provider": provider.key,
+                   "reason": str(failure)[:200]},
+        )  # fmt: skip
+        return None
+    return provider_client.sign_out_url(
+        discovery,
+        id_token_hint=hint,
+        post_logout_redirect_uri=providers.signed_out_uri(settings, provider.key),
+        state=new_token(),
+    )
 
 
 # --- the person -----------------------------------------------------------------------------------

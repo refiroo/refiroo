@@ -57,6 +57,7 @@
     "test:browser:changes": "node e2e/z6-changes.mjs",
     "test:browser:clients": "node e2e/sp2-clients.mjs",
     "test:browser:sign-in-providers": "node e2e/i3-sign-in-providers.mjs",
+    "test:browser:i4": "node e2e/i4-sign-in.mjs",
     "test:browser:operations": "node e2e/operations-o2.mjs",
     "test:browser:integration": "node e2e/u4-integration.mjs",
     "test:browser:webhooks": "node e2e/u5-webhooks.mjs",

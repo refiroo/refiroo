@@ -13,6 +13,8 @@ from ...models.commands import (
     GrantCreate,
     GroupCreate,
     GroupMemberAdd,
+    GroupMembersAdd,
+    GroupMembersRemove,
     GroupUpdate,
     RoleCreate,
     RoleUpdate,
@@ -29,6 +31,7 @@ from ..schemas.authorization import (
     GrantResponse,
     GroupMemberPage,
     GroupMemberResponse,
+    GroupMembersResult,
     GroupPage,
     GroupResponse,
     HeldAnywhereList,
@@ -192,6 +195,38 @@ def post_group_member(
     """Add a person to the group; adding one already in it changes nothing. A provider group's
     members come from sign-ins (``409 GROUP_FROM_PROVIDER``)."""
     return present.member_response(administration.add_member(session, group_id, payload.userId))
+
+
+@router.post("/groups/{group_id}/members/batch", response_model=GroupMembersResult)
+@requires("security.manage", at=INSTANCE)
+def post_group_members(
+    group_id: str, payload: GroupMembersAdd, session: DbSession
+) -> GroupMembersResult:
+    """Add several people at once, by their IDs or by usernames or e-mail addresses as pasted (in
+    any case), up to 500, in one transaction (0.12 SP1b, D401). Each input answers what it did:
+    ``added``, ``alreadyMember``, ``deactivated`` (not added) or ``notFound``; with ``dryRun``
+    ``toAdd`` in place of ``added`` and nothing changes. A provider group's members come from
+    sign-ins (``409 GROUP_FROM_PROVIDER``)."""
+    return present.members_result(
+        administration.add_members(
+            session,
+            group_id,
+            user_ids=payload.userIds,
+            identifiers=payload.identifiers,
+            dry_run=payload.dryRun,
+        )
+    )
+
+
+@router.post("/groups/{group_id}/members/removal", response_model=GroupMembersResult)
+@requires("security.manage", at=INSTANCE)
+def post_group_members_removal(
+    group_id: str, payload: GroupMembersRemove, session: DbSession
+) -> GroupMembersResult:
+    """Take several people out at once, up to 500, in one transaction (0.12 SP1b, D402): each
+    answers ``removed``, ``notMember`` or ``notFound``. Refused whole when it would leave no
+    Security administrator (``409 LAST_SECURITY_ADMINISTRATOR``, D283)."""
+    return present.members_result(administration.remove_members(session, group_id, payload.userIds))
 
 
 @router.delete("/groups/{group_id}/members/{user_id}", status_code=204)

@@ -36,7 +36,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
 | F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
-| F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups | 0.12 I1, I2, I3 |
+| F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
 | F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
@@ -374,8 +374,12 @@ Evidence: [delete dialog](../../frontend/src/features/objects/ObjectDeleteDialog
 
 **User outcome:** A user sees how a record and its relationships changed over time.
 
-The record page has an independently paged history, newest first; loading older entries keeps those
-already shown, and a failed page can be retried. Entries made by a bulk job name the job as their
+The record page has an independently paged history, newest first, under a heading for each day,
+one line per change (what, who, when); a line opens to show each value with the one before, or that
+the one before was not recorded (after a publish or a type change, which keep only what changed). It
+is filtered by kind (values, relationships, moves) and by who made the changes, and shows the 10
+newest, then 20 more at a time, with Show fewer (0.12 RH1); a failed page can be retried. A
+relationship's line names the record at its other end. Entries made by a bulk job name the job as their
 cause, and changes a publish applied to live data name the publication. Each entry names who made
 it: a person or a system (marked "client") by the name they have now, even once deactivated; "the
 engine" for its own changes. A job's changes name the person or system that asked for it, and a
@@ -1282,10 +1286,15 @@ members. Once a provider works, local sign-in can be turned off: only the admini
 server keep a password, as the way back.
 
 Limits: someone who already has a local account becomes a second person at their first provider
-sign-in (no linking); signing out of the engine does not sign out of the provider, and someone
-removed in the provider keeps an open session until it lapses unless deactivated here. What a person
-may do is F27; people, clients and signing keys are managed in Settings › Security (F27). Local
-accounts have a password only; multi-factor sign-in comes with a sign-in provider.
+sign-in, whom an administrator links to the first (their roles and history stay with the first);
+signing out of the engine signs the person out of the provider only where that provider's setting is
+on, and someone removed in the provider keeps an open session until it lapses unless deactivated
+here. What a person may do is F27; people, clients and signing keys are managed in Settings ›
+Security (F27). Local accounts have a password, and an authenticator app with recovery codes that
+each person adds on Account and an administrator can require; a sign-in provider brings the
+organisation's own multi-factor sign-in. A person can also add passkeys on Account, made on the
+engine's own page, which sign them in alone or after a password; they lose their use if the engine's
+address changes host.
 
 Evidence: [authentication contract](../API.md#authentication), [OPERATIONS](../OPERATIONS.md#signing-in-from-the-browser),
 [provider sign-in](../../backend/app/engine/identity/provider_sign_in.py),
@@ -1325,7 +1334,9 @@ the roles they hold, searched by name and shown active or deactivated; a person'
 name and e-mail, makes a one-time password link to pass on (shown once; the engine sends no
 e-mail), signs them out everywhere, deactivates or restores them, and lists their roles, directly
 or through a group, and their groups. **Groups** creates, renames and deletes groups, grants them
-roles and adds or removes members. **Roles** shows every role against the action groups; a custom
+roles and adds or removes members: several at once, searched and ticked or pasted as a list of
+usernames and e-mail addresses that is checked first (each line saying whom it names, or that
+nobody has it), and several ticked members removed together (0.12 SP1b). **Roles** shows every role against the action groups; a custom
 role is made empty or copied from any role and edited in place. A workspace's page in Settings ›
 Workspaces shows its **Access**: who can do what there, granted in the workspace or for the whole
 instance. One dialog grants a role from each of these places: who, or where, the role, and
@@ -1337,7 +1348,9 @@ them or by them in Security, newest first, each saying who did it: created, gran
 role, added to or removed from a group, a password link made or used, signed in (with the address)
 or a failed sign-in, deactivated. Every change to access and every sign-in is recorded so, and the
 API lists them for a person, a system or the whole instance; no record holds a password, secret or
-link. Their changes to data stay in the workspaces' history.
+link. Their changes to data stay in the workspaces' history. Like a record's history, the activity
+is grouped under a heading for each day, one line each, filtered by kind (signing in, roles and
+groups, account) and shows the 10 newest, then 20 more, with Show fewer (0.12 RA1).
 
 A system reads a consumer API only where it is granted that API: a security administrator grants a
 client (or a person or group) one consumer API in one workspace, and the system then reads that API
@@ -1377,7 +1390,7 @@ administrator to People). The workspace selector lists only workspaces the perso
 Settings lists only the pages of groups they hold somewhere. The engine still checks everything; a
 refusal (a role changed meanwhile) is shown as worded and the page follows at once.
 
-Limits: groups from a sign-in provider come with I3; a webhook's signing key is rotated with K1; a
+Limits: a webhook's signing key is rotated with K1; a
 client's secret overlap other than an hour, a day or a week, or none, is set through the API;
 secrets made before 0.12 SP2 show no last four characters; a Contributor's change set waits for someone to notice it until
 approvals (A1–A3); an import into a narrowed grant is offered before its file is read, so rows of

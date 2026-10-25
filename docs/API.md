@@ -1986,7 +1986,7 @@ names 200 records a read, which keeps the address within common URL limits.
 
 ## Object audit history
 
-- `GET /api/v1/objects/{objectTypeKey}/{objectId}/history?cursor=...&pageSize=...`
+- `GET /api/v1/objects/{objectTypeKey}/{objectId}/history?cursor=...&pageSize=...&kind=...&actorId=...`
 
 History is ordered newest first by occurrence time and an internal non-public sequence tie-breaker.
 It returns the standard bounded page and includes events recorded directly for the object plus events
@@ -2002,9 +2002,27 @@ relation attributes without returning their values. `actor` names who made it, b
 renamed or deactivated person reads as they are (D237); `{"kind": "engine"}` for the engine's own
 changes (an offline schema upgrade, a job's step from before Z2 named no requester); `null` for an
 entry recorded before Z4 ("Before sign-in"). A job's entries name its requester, a publication's
-applied entries its publisher. The response deliberately omits the internal
-sequence ID and complete before/after values. History cursors are signed and bound to the object
-identity, type and workspace; mismatches return `422 INVALID_CURSOR`.
+applied entries its publisher. The response deliberately omits the internal sequence ID and complete
+before/after states. History cursors are signed and bound to the object identity, type, workspace and
+filters; mismatches return `422 INVALID_CURSOR`.
+
+Since Product 0.12 RH1 (D389–D392, D16 revised for history only) each item also answers:
+
+- `kind`: `values`, `relationships` (a relationship or a mapping transition) or `structure` (a parent
+  or type change). `kind=` filters the read to one of them and `actorId=` to one person's or client's
+  changes (their ID) or `engine`, both in the database (D391).
+- `values`: each field the entry changed, `{"field", "kind": "name" | "parent" | "attribute" |
+  "relation", "from", "to", "fromKnown"}`. `to` is what the entry stored; `from` is what the
+  record's previous entry in the same context (live, or the change set) stored for that field, `null`
+  where it had no value, and `fromKnown: false` where that previous entry kept names only (a
+  publish, a type change), never guessed (D390). A field whose value did not change is left out. A
+  parent is named by its current name; a mapping transition's `from` and `to` list the target records'
+  names. Empty for an entry that kept names only.
+- `related`, on a relationship's entry: `{"relationTypeKey", "direction", "objectId", "name",
+  "objectTypeKey"}`, the record at the other end read from this one, by its current name (omitted for
+  a record no longer in live data, D392).
+
+The change feed and consumer events still carry names only (ADR-037).
 
 ## Batches and jobs (Base 0.9 B1, B2, B3)
 
@@ -5744,8 +5762,14 @@ across workspaces. **Delivered by SP2 (2026-10-25):** a client's `roles`, `consu
 `createdBy`, a secret's `hint`, and `GET /workspaces/{workspaceKey}/grant-options`. **Delivered by
 I3 (2026-10-25):** sign-in providers (`/sign-in-providers`) and local sign-in on or off, a provider's
 start and return pages, provider groups (a group's `source`), a person's `identities` and
-`localKept`, and `signInProvider` on `/me`. The rest is designed; each part moves into "delivered"
-with its package (K1, C1, A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
+`localKept`, and `signInProvider` on `/me`. **Delivered by I4a (2026-10-25):** moving a provider
+identity onto another person (`/users/{id}/identities`), a provider's `signOutOfProvider` and
+`signedOutUri`, signing out by `GET /oauth/sign-out`, and the last kept person's refusal. **Delivered by I4c
+(2026-10-25):** passkeys (`/me/passkeys`, `/users/{id}/passkeys`, the engine's passkey pages and
+their ceremonies). **Delivered by I4b
+(2026-10-25):** a second factor for local accounts (`/me/second-factor`, the sign-in page's code
+step), a person's `secondFactor`, `secondFactorRequired` on local sign-in. The rest
+is designed; each part moves into "delivered" with its package (K1, C1, A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
 ### Authentication
@@ -5769,8 +5793,9 @@ Outside `/api/v1`, needing no token:
   the `state`; wrong ones show the page again (`401`) without saying which part was wrong; while
   failures are slowed it answers `429` with `Retry-After` and the wait on the page (D271). A form
   posted from another origin is refused (`403`). `session=ended` adds "Your session ended" (D270).
-  The pages are HTML outside the OpenAPI document, with a policy allowing no script and no framing
-  (D275). Each enabled sign-in provider is a **Continue with *name*** button below the form (I3).
+  The pages are HTML outside the OpenAPI document, with a policy allowing no framing and no
+  script (D275), except the pages that offer a passkey (I4c, D390), which allow the engine's own
+  `/oauth/passkey.js` and nothing else (`script-src 'self'`, nothing inline). Each enabled sign-in provider is a **Continue with *name*** button below the form (I3).
   While local sign-in is off (D365) the page shows only the buttons and a link, **Sign in with a
   local administrator account**, to the same request with `local=1`, where the form is shown and
   accepts only the people who keep local sign-in; anyone else's right password is refused as a wrong
@@ -5792,6 +5817,52 @@ Outside `/api/v1`, needing no token:
   `signedInWith` is the provider's key. A sign-in that cannot finish shows "*name* could not sign
   you in" with the reason and **Try again** (`400`; `403` for a deactivated person or a disabled
   provider) and is a `sign-in` `failed` security event; nothing is redirected.
+- `POST /oauth/second-factor` (I4b, D388): the sign-in page's second step, a form post carrying the
+  `step` token that the password's answer put in its page (the page, not a redirect, answers a right
+  password when the person has a second factor or the instance requires one; `401` for a wrong
+  username or password as before). Fields: `code` (the app's six digits, spaces ignored) or
+  `recovery` (a recovery code), `view=recovery|code` to switch the page, `continue=1` after the
+  recovery codes were shown. A right code answers as the password form did (`303`, a one-time code);
+  a wrong or used one `401` on the page, counted in the same slowing as a wrong password and a
+  `sign-in` `failed` event with `reason: code` (`429` with `Retry-After` while a wait runs, and from `/authentication/options` when 2000 passkey
+  sign-ins are already waiting); a step
+  unknown, used or older than five minutes `410` on a page (the codes page lasts fifteen). With the
+  requirement on and no app, the page is the set-up (a QR code drawn by the engine, the key, a code);
+  a right code turns the app on and shows ten recovery codes, then `continue` ends the sign-in. No
+  session or code exists before the whole step is done. A provider's sign-in never reaches it.
+- **Passkeys** (I4c, D389–D394), the engine's own pages and one script. `GET /oauth/passkeys/new?
+  return=` is the page where a person adds a passkey: it serves the person whose session the
+  `oauth_refresh` cookie holds (`401` page without one), asks a name for it and runs the browser's
+  prompt; `return` is an address at one of the browser's origins. `GET /oauth/passkey.js` is the
+  script (`text/javascript`, no cache); it asks the browser for a passkey and posts the answers to
+  `POST /oauth/passkeys/registration/options` (`{}`; answers `{ceremony, options}`, the browser's
+  creation options: a discoverable credential, the user verified, no attestation) and
+  `/registration/verify` (`{ceremony, credential, name}`; the passkey is kept, `{id, name}`), and to
+  `POST /oauth/passkeys/authentication/options` (`{step}` for the second step of a password sign-in,
+  or the browser's authorization request fields for a passkey alone; answers `{ceremony, options}`)
+  and `/authentication/verify` (`{ceremony, credential}`). A right answer ends as the password form
+  does, with `{redirect}`: the browser's address with a one-time code and its `state`; the session's
+  `signedInWith` is `passkey` when it signed in alone and `password` after a password. A wrong one is
+  `401 {error}`, counted like a wrong password (`429` with `Retry-After` while a wait runs) and a
+  `sign-in` `failed` event with `reason: passkey`; a ceremony unknown, used or older than five
+  minutes is `410`. These routes are the page's own and are not in the OpenAPI document; they need
+  `Origin` to be the engine's own. The relying party is the host of `PUBLIC_URL`, the origin its
+  scheme and port: a passkey works on the engine's pages and nowhere else. A passkey alone is refused
+  while local sign-in is off unless the person keeps it. `/me/passkeys` etc. below.
+- `GET /oauth/sign-out?return=` (I4a, D380): signing out by navigation. It ends the session the
+  `oauth_refresh` cookie holds, clears the cookie and redirects (`303`) the browser to `return`
+  (an address at one of the browser's origins, `CORS_ORIGINS`; anything else, or none, is the first
+  origin's front page, so the endpoint redirects nowhere else). When the session was started through
+  a provider whose `signOutOfProvider` is on, and still holds that provider's ID token, the browser
+  goes first to the provider's `end_session_endpoint` (OpenID Connect RP-Initiated Logout 1.0) with
+  `id_token_hint`, `post_logout_redirect_uri` (the provider's `signedOutUri`) and a `state`, and
+  returns through `GET /oauth/providers/{key}/signed-out`, which redirects (`303`) to `return`,
+  remembered in a short `oauth_signed_out` cookie (`HttpOnly`, `SameSite=Lax`, path
+  `/oauth/providers`). A provider that cannot be reached, or whose ID token cannot be opened, is
+  skipped: the person is signed out of the engine and goes straight to `return`. Sign out
+  everywhere, an administrator's sign-out and `POST /oauth/revoke` end engine sessions only; they
+  cannot send another browser to the provider. A session keeps the provider's ID token, sealed with
+  `SECRETS_ENCRYPTION_KEY`, only while it is open and its provider has the setting on.
 - `GET /oauth/password?token=`, `POST /oauth/password` (I2): the page a password-reset link opens
   (D272): a new password, typed twice, under the rules below. A used, replaced or expired link answers
   `410` on the page.
@@ -6060,9 +6131,59 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   and `localKept` (they sign in with a password while local sign-in is off: made by `create_admin`,
   or before 0.12 Z4; D365), which `PATCH /users/{id}` changes. A person made at a provider sign-in
   has no password; a password link for someone who does not keep local sign-in, while it is off, is
-  `409 LOCAL_SIGN_IN_OFF`.
+  `409 LOCAL_SIGN_IN_OFF`. _Delivered by I4a (D377, D378, D381):_ `POST /users/{id}/identities
+  {expectedVersion, fromUserId}` (`expectedVersion` is this person's) moves the provider identities
+  and provider-group memberships of the person a provider sign-in made onto this person and
+  deactivates that person (their sessions end; their history keeps their name); it answers this
+  person. Refused: `409 PERSON_HAS_ACCESS` when the other person has a password, direct grants or
+  local groups (`details.held` names them), `409 IDENTITY_PROVIDER_TAKEN` when this person already
+  signs in with one of those providers, `409 NO_IDENTITY_TO_LINK` when the other has none,
+  `422 LINK_SAME_PERSON`, `409 LINK_TARGET_DEACTIVATED` (this person is deactivated),
+  `409 VERSION_CONFLICT`. `DELETE /users/{id}/identities/{provider}`
+  (`204`) undoes a link: it removes the identity, the person's memberships in that provider's
+  groups and the sessions it started; the next sign-in with the provider makes a new person
+  (`404 IDENTITY_NOT_FOUND` when there is none). While local sign-in is off, `PATCH /users/{id}` is
+  `409 LAST_LOCAL_ADMINISTRATOR` when it would take `localKept` from, or deactivate, the last active
+  person who has it. _Delivered by I4b (D383–D388):_ every read of a person answers `secondFactor`
+  (`{method: "authenticator-app", confirmedAt, recoveryCodesLeft}`; `null` without one, never the
+  secret or the codes). `DELETE /users/{id}/second-factor` (`204`, Security administration) removes
+  it and the recovery codes (`404 SECOND_FACTOR_NOT_FOUND` when there is none) for someone who lost
+  the phone and the codes; a security event records it.
+- **Passkeys** (delivered, I4c, D394): `GET /me/passkeys` (cursor-paged, in the order they were made)
+  answers each as `{id, name, createdAt, lastUsedAt}`, never the credential; `PATCH
+  /me/passkeys/{id} {name}` renames it; `DELETE /me/passkeys/{id} {proof}` (`204`) removes it; `proof` is the
+  person's password, or a code from the app or a recovery code (`422 PROOF_REQUIRED` without one,
+  `422 CODE_INCORRECT`, `429 SIGN_IN_SLOWED`; none is asked of a person with neither a password nor
+  an app), so a stolen session cannot strip passkeys. It is
+  `409 SECOND_FACTOR_REQUIRED` for the last one while the instance requires a second factor and the
+  person has no authenticator app; `404 PASSKEY_NOT_FOUND` for another person's. A person has at
+  most 25 (`409 TOO_MANY_PASSKEYS`); only a person with a password has any, and likewise an
+  authenticator app (`409 PASSWORD_REQUIRED` for a person who signs in with a provider). `GET /users/{id}/passkeys` and `DELETE
+  /users/{id}/passkeys/{passkeyId}` are the same for a Security administrator (D394), a security
+  event records the removal. `passkeys` counts them on a person and on `/me/second-factor`. A
+  sign-in provider's key is never `local`, `password` or `passkey`.
+- **The caller's second factor** (delivered, I4b, D383–D388): `GET /me/second-factor` answers
+  `{enabled, confirmedAt, recoveryCodesLeft, passkeys, required}`. `POST /me/second-factor` (`201`) makes a
+  secret, answered once: `secret` (base32), `otpauthUri` (the Key URI Format address) and `qrSvg`
+  (the QR code as an inline SVG), replacing a secret not yet confirmed; `409 SECOND_FACTOR_EXISTS`
+  when one is set up. `POST /me/second-factor/confirmation {code}` turns it on (a code from the
+  app) and answers `{recoveryCodes}`, ten, once (`422 CODE_INCORRECT`, `404 SECOND_FACTOR_NOT_FOUND`).
+  `POST /me/second-factor/recovery-codes {code}` makes ten new ones, the old void, and
+  `DELETE /me/second-factor {code}` (`204`) removes it; both take a code from the app or an unused
+  recovery code, and removal is `409 SECOND_FACTOR_REQUIRED` while the instance requires one. The
+  code is TOTP as RFC 6238 specifies it (HMAC-SHA-1, six digits, 30 seconds, the step before and
+  after accepted, each step once); a recovery code is twelve characters in groups of four. A wrong
+  code is counted like a wrong password; after repeated ones, `429 SIGN_IN_SLOWED` with
+  `details.waitSeconds` (D271). A client is `403 NOT_A_PERSON`.
 - **Groups:** `GET|POST /groups`, `GET|PATCH|DELETE /groups/{id}`, `GET|POST /groups/{id}/members`,
-  `DELETE /groups/{id}/members/{userId}`. _Delivered by I3 (provider groups, D229, D364):_ a group
+  `DELETE /groups/{id}/members/{userId}`. _Since 0.12 SP1b (D401, D402):_ `POST
+  /groups/{id}/members/batch {userIds?, identifiers?, dryRun?}` adds up to 500 people in one
+  transaction, by ID or by username or e-mail address in any case; each input answers `added`
+  (`toAdd` with `dryRun`, which changes nothing), `alreadyMember`, `deactivated` (left out) or
+  `notFound`, with the person it names, and `changed` counts those added; each added member has its
+  `member-added` security event. `POST /groups/{id}/members/removal {userIds}` takes up to 500 out
+  together: `removed`, `notMember` or `notFound`, refused whole with `409
+  LAST_SECURITY_ADMINISTRATOR` (D283). A provider group answers `409 GROUP_FROM_PROVIDER` to both. _Delivered by I3 (provider groups, D229, D364):_ a group
   reads `source` (`{provider: {key, name}, claimValue}`; `null` for a local group). A provider group
   is created when a sign-in's groups claim first names its value (named after it, or "*value*
   (*provider*)" when that name is taken), or ahead of anyone's sign-in with `POST /groups {name,
@@ -6162,7 +6283,11 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   button's), `issuer`, `clientId`, `clientSecretSet` (the secret, `clientSecret` on writes, is sealed
   with `SECRETS_ENCRYPTION_KEY` and never answered), `groupsClaim` (`null`: groups are not used),
   `enabled`, `redirectUri` (`<PUBLIC_URL>/oauth/providers/{key}/callback`, to register with the
-  provider), `people` (how many have signed in with it), `lastSignInAt`, `version`, `createdAt`,
+  provider), `signOutOfProvider` (I4a, D379: signing out of the engine signs the person out of the
+  provider too; off by default; turning it on reads the discovery document for an
+  `end_session_endpoint`, `422 SIGN_IN_PROVIDER_UNREACHABLE` with `kind: sign-out` without one),
+  `signedOutUri` (`<PUBLIC_URL>/oauth/providers/{key}/signed-out`, to register as the provider's
+  post-logout redirect address), `people` (how many have signed in with it), `lastSignInAt`, `version`, `createdAt`,
   `updatedAt`. Saving an enabled provider, or enabling one or changing an enabled one's issuer, reads
   its discovery document (whose `issuer` must equal the configured one exactly) and keys first:
   `422 SIGN_IN_PROVIDER_UNREACHABLE` with `details.reason` and `kind` (`unreachable`, `issuer`,
@@ -6173,7 +6298,10 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
 - **Local sign-in** (delivered, I3, D365): `GET /sign-in-providers/local` (`enabled`, `keptPeople`,
   `version`, `updatedAt`); `PATCH /sign-in-providers/local {expectedVersion, enabled}`. Turning it
   off is `409 NO_WORKING_PROVIDER` until an enabled provider has signed someone in; while off, only
-  the people who keep local sign-in use a password. Clients are not affected.
+  the people who keep local sign-in use a password. Clients are not affected. _Delivered by I4b
+  (D388):_ `secondFactorRequired` (read, and written with `expectedVersion`; `enabled` is then
+  optional): a password alone signs nobody in; a person without an app sets one up on the sign-in
+  page first. Provider sign-ins are never asked.
 
 The first administrator is created on the server with `python -m app.cli.create_admin` (D235). Every
 security change is audited with its actor.
@@ -6200,9 +6328,19 @@ security change is audited with its actor.
     `unreachable`, `provider`, `exchange`, `token`, `issuer`, `audience`, `nonce`, `deactivated`)
     and `detail`; a person made at a provider sign-in is `user` `created` with `provider`, and a
     provider group made or a membership changed at a sign-in is `group` `created`, `member-added`,
-    `member-removed` with `provider`, each by the person signing in;
+    `member-removed` with `provider`, each by the person signing in; a provider identity moved is
+    `user` `identity-linked` on the person it moved to (`fromUserId`, `fromUsername`, `providers`,
+    `groups`; about both people) with an `updated` (`active`) on the one deactivated, and one
+    removed is `identity-unlinked` (`provider`, `subject`); `localKept` changed is `updated` with
+    `changedFields` `localKept`; an authenticator app turned on is `user` `second-factor-added`, new
+    recovery codes `recovery-codes-created` (`count`), a factor removed `second-factor-removed`
+    (`by`: `self` or `administrator`), a passkey `passkey-added`, `passkey-renamed` (`name`) or
+    `passkey-removed` (`name`, `by`); a passkey sign-in is `sign-in` `succeeded` with
+    `method: passkey`; a wrong code is `sign-in` `failed` with `reason: code`;
+    the requirement changed is `sign-in-provider` `updated` on `local` with
+    `changedFields: ["secondFactorRequired"]`;
   - `sign-in-provider`: `created`, `updated` (`changedFields` and the new `name`, `issuer`,
-    `groupsClaim`, `enabled`; never the secret), `deleted`; local sign-in turned on or off is
+    `groupsClaim`, `enabled`, `signOutOfProvider`; never the secret), `deleted`; local sign-in turned on or off is
     `updated` on `local` (`enabled`).
   Grants given at startup or by the CLI's `--role` (the first administrator's) are not events; the
   person's creation is. Nothing expires them yet (TODO).

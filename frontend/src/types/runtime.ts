@@ -206,6 +206,33 @@ export interface AuditEventItem {
   occurredAt: string;
   /** Who made it (0.12 Z4); null for a change from before sign-in. */
   actor: Actor | null;
+  /** What kind of change (0.12 RH1, D391). */
+  kind?: HistoryKind;
+  /** Each value it changed, with the one before (D389, D390); none where the entry kept names only. */
+  values?: HistoryValue[];
+  /** A relationship's other record, read from this record (D392). */
+  related?: HistoryRelated;
+}
+
+export type HistoryKind = "values" | "relationships" | "structure";
+
+export interface HistoryValue {
+  /** `name`, `parent`, an attribute type's key or a relation type's. */
+  field: string;
+  kind: "name" | "parent" | "attribute" | "relation";
+  from: unknown;
+  to: unknown;
+  /** False where the record's previous entry kept names only: the value before was not recorded. */
+  fromKnown: boolean;
+}
+
+export interface HistoryRelated {
+  relationTypeKey: string | null;
+  direction: "outgoing" | "incoming";
+  objectId?: string;
+  /** Its current name; absent for a record no longer in live data. */
+  name?: string;
+  objectTypeKey?: string;
 }
 
 export interface AuditEventPage {

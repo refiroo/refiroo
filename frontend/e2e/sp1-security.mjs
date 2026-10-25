@@ -187,12 +187,23 @@ async function walk(configuration) {
     await groupDialog.getByLabel("Name", { exact: true }).fill("Curators");
     await groupDialog.getByRole("button", { name: "Create group" }).click();
     await page.getByRole("heading", { level: 2, name: "Curators" }).waitFor();
-    await page.getByRole("button", { name: "Add a member" }).click();
-    const memberDialog = page.getByRole("dialog", { name: "Add a member to Curators" });
-    await memberDialog.getByRole("combobox", { name: "Person" }).fill(lena.name);
-    await page.getByRole("option", { name: new RegExp(lena.name) }).click();
-    await memberDialog.getByRole("button", { name: "Add to the group" }).click();
+    // 0.12 SP1b: people searched and ticked, or pasted as a list; added together.
+    await page.getByRole("button", { name: "Add members" }).click();
+    const memberDialog = page.getByRole("dialog", { name: "Add members to Curators" });
+    await memberDialog.getByLabel("Search people").fill(lena.name);
+    await memberDialog.getByRole("checkbox", { name: `Add ${lena.name}` }).check();
+    await memberDialog.getByRole("tab", { name: "Paste a list" }).click();
+    await memberDialog
+      .getByLabel("Usernames or e-mail addresses")
+      .fill(`${lena.username.toUpperCase()}\nnobody-${tag}@example.org`);
+    await memberDialog.getByRole("button", { name: "Check 2 lines" }).click();
+    const checkedLines = memberDialog.getByRole("list", { name: "Lines checked" });
+    await checkedLines.getByText("Added to the people to add").waitFor();
+    await checkedLines.getByText("No person with this username or e-mail").waitFor();
+    await axe(page, `${tag}-add-members`);
+    await memberDialog.getByRole("button", { name: "Add 1 member" }).click();
     await page.getByRole("group", { name: "Members" }).getByText(lena.username).waitFor();
+    checks.push(`${tag}: a member added from a search and a pasted list (an unknown line said so), together`);
     await page.getByRole("button", { name: "Grant", exact: true }).click();
     dialog = page.getByRole("dialog", { name: "Grant Curators access" });
     await dialog.getByRole("button", { name: /Workspace$/ }).click();
@@ -222,7 +233,8 @@ async function walk(configuration) {
     checks.push(`${tag}: the person's page names both roles, one through the group; the list names their roles`);
 
     // 5b. Their recent activity (0.12 Z4, D319): what was done to them and by them, each by whom.
-    const activity = page.getByRole("list", { name: `${lena.name}'s recent activity` });
+    // Grouped by day since 0.12 RA1: the name is the group's, a list under each day's heading.
+    const activity = page.getByRole("group", { name: `${lena.name}'s recent activity` });
     const [administrator] = (await api(`/users?q=${encodeURIComponent(harnessIdentity.person.username)}`)).items;
     const admin = administrator.name;
     await activity.getByText("Added to Curators").waitFor();
@@ -249,6 +261,9 @@ async function walk(configuration) {
       `${uiUrl}/apps/${record.applicationKey}/objects/${recordType.key}/${record.id}?workspaceKey=default`,
     );
     const history = page.locator(".history-panel");
+    // Since 0.12 RH1 a line names who made the change; opened, it says "by …" with the link.
+    const byClient = history.getByRole("button", { name: /\(client\)/ }).first();
+    await byClient.click();
     await history
       .getByText(/by .+ \(client\)/)
       .first()

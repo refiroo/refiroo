@@ -8,7 +8,7 @@
  * is kept to be explained until the selection or the list changes.
  */
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   emptySelection,
   isSelected,
@@ -41,13 +41,15 @@ export function useRecordSelection(listKey: string, rows: readonly SelectableRow
       listKey,
       selection: next(previous.listKey === listKey ? previous.selection : emptySelection),
     }));
+  // Changes only with the selection, so a table's checkboxes draw again only then (0.12 LS1, D373).
+  const selected = useCallback((id: string) => isSelected(selection, id), [selection]);
 
   return {
     selection,
     count: selectedCount(selection),
     refusedTotal: current.refusedTotal,
     loaded: loadedState(selection, rows),
-    isSelected: (id: string) => isSelected(selection, id),
+    isSelected: selected,
     toggle: (row: SelectableRow, extend: boolean) =>
       change((previous) => (extend ? range(previous, rows, row) : toggle(previous, row))),
     // The loaded rows are refused over `maxItems` as all matching is: a list reads on in the

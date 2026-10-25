@@ -48,6 +48,10 @@ class OidcProvider:
     client_secret: str = field(default_factory=lambda: secrets.token_urlsafe(24))
     port: int = 0
     misbehave: str | None = None
+    # False: the discovery document names no sign-out address (I4a).
+    end_session: bool = True
+    # What the sign-out endpoint was asked, newest last (I4a).
+    logouts: list[dict[str, str]] = field(default_factory=list)
     _codes: dict[str, _Code] = field(default_factory=dict)
     _server: ThreadingHTTPServer | None = None
 
@@ -98,6 +102,23 @@ class OidcProvider:
 
     # -- what the handler answers --------------------------------------------------------------
 
+    def sign_out(self, logout_url: str) -> str:
+        """Answer the sign-out request at ``logout_url``: the address the provider sends the browser
+        to afterwards (the request's ``post_logout_redirect_uri`` with its ``state``)."""
+        response = httpx.get(logout_url, follow_redirects=False)
+        assert response.status_code == 302, response.text
+        return response.headers["location"]
+
+    def logout(self, query: dict[str, str]) -> str:
+        """RP-Initiated Logout 1.0: remember the request, send the browser on."""
+        self.logouts.append(query)
+        target = query.get("post_logout_redirect_uri")
+        if not target:
+            return f"{self.issuer}/signed-out"
+        if not query.get("state"):
+            return target
+        return f"{target}{'&' if '?' in target else '?'}{urlencode({'state': query['state']})}"
+
     def discovery(self) -> dict[str, Any]:
         return {
             "issuer": self.issuer,
@@ -110,6 +131,7 @@ class OidcProvider:
             "token_endpoint_auth_methods_supported": ["client_secret_basic", "client_secret_post"],
             "code_challenge_methods_supported": ["S256"],
             "scopes_supported": ["openid", "profile", "email"],
+            **({"end_session_endpoint": f"{self.issuer}/logout"} if self.end_session else {}),
         }
 
     def jwks(self) -> dict[str, Any]:
@@ -188,6 +210,13 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(200, self.owner.discovery())
         if parts.path == "/jwks":
             return self._json(200, self.owner.jwks())
+        if parts.path == "/logout":
+            query = {k: v[0] for k, v in parse_qs(parts.query).items()}
+            self.send_response(302)
+            self.send_header("Location", self.owner.logout(query))
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return None
         if parts.path == "/authorize":
             return self._page({k: v[0] for k, v in parse_qs(parts.query).items()})
         self._json(404, {"error": "not_found"})

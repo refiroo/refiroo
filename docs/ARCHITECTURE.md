@@ -1043,6 +1043,43 @@ one-time code whose session records the provider's key in `signed_in_with`. Prov
 the local sign-in switch are in `engine/identity/providers.py`, the client secret sealed like the
 signing keys. While local sign-in is off, the password check accepts only `users.local_kept`.
 
+**Signing out of a provider** (I4a): the app signs out by navigating to `GET /oauth/sign-out`, since
+only a navigation can take the browser to the provider. The engine ends the session from its
+refresh cookie (`engine/identity/provider_sign_in.py`) and, when the session's provider has
+`sign_out_of_provider` and the session held the provider's ID token, redirects to the provider's
+`end_session_endpoint` with `id_token_hint` and the provider's `signed-out` address; the return
+redirects to the address the browser left from, kept in a short cookie and checked against the
+browser's origins. The ID token reaches the session sealed (`SECRETS_ENCRYPTION_KEY`) through the
+sign-in's one-time code (`authorization_codes.provider_id_token`, `user_sessions.provider_id_token`)
+and is cleared when the session ends. Moving a provider identity onto another person
+(`engine/identity/links.py`) is two updates, `user_identities` and the provider-group memberships,
+and the other person's deactivation, in one transaction.
+
+**A second factor** (I4b): `engine/identity/second_factor.py`. The secret of an authenticator app is
+sealed (`user_second_factors`, with the last time step accepted, so a code works once), its recovery
+codes are HMAC-SHA-256 hashes under `SECRETS_ENCRYPTION_KEY` (`user_recovery_codes`; a leaked table
+cannot be searched offline), and `segno` supplies the QR code's modules, which
+the module draws as an inline SVG, so the sign-in page needs no script. A right password does not
+end the sign-in when `required_step` finds a second factor or the requirement: `sign_in_steps` keeps
+the sign-in (a token's hash, the stage `code`, `setup` or `codes`, the browser's request; five
+minutes, used once) and the page's form carries only the token; `/oauth/second-factor` finishes it.
+The password's own success is not logged and does not clear the account's count of failures until
+the whole sign-in is done (`sign_in.complete`), so codes after a known password are slowed like
+passwords (D271). Provider sign-ins never reach it.
+
+**Passkeys** (I4c): `engine/identity/passkeys.py` on `webauthn` (py_webauthn). The relying party is
+`PUBLIC_URL`'s host and origin, so both ceremonies run on the engine's own pages: **Add a passkey**
+(`/oauth/passkeys/new`, the person's session read from the `oauth_refresh` cookie without renewing it)
+and the sign-in page. The browser's calls need script, which is one file of the engine's own,
+`management/passkey.js`, served at `/oauth/passkey.js`; `sign_in_pages` adds `script-src 'self'` and
+the `<script src>` only to a page that offers a passkey, and the script decides nothing: it converts
+the options and answers and posts them to the ceremony endpoints, which verify. A ceremony's
+challenge lives in `sign_in_steps` (stage `passkey-add`, `passkey-in`, or a password's `code` step
+for the second step; `user_id` is empty while a passkey alone is used before anyone is known), so any
+process finishes it. User verification is required and the credential discoverable, so a passkey
+alone is possession and the device's own check. `user_passkeys` holds the credential ID, the public
+key and the signature counter, never a private key.
+
 ### Workspace migrations (0.11 V1)
 
 A migration (`engine/model/migrations.py`) is a background job of one workspace naming a target

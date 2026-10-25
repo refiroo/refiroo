@@ -463,6 +463,8 @@ function AppContent({
   );
   const hasDetail = activeRoute.kind === "detail";
   const inspector = hasDetail && Boolean(collection) && activeRoute.fullPage === false;
+  // A table view's page is fitted to the window and only its rows scroll (0.12 LS1, D371).
+  const fillPage = activeRoute.kind === "list" && !problem && collectionView?.type === "table";
   // The change set's or publication's own bar sits in the shell's data-context band once loaded.
   const contextActions =
     data.loadingError || contextLoading ? undefined : data.changeSet ? (
@@ -504,6 +506,7 @@ function AppContent({
       application={application}
       activeRoute={activeRoute}
       nothingCurrent={Boolean(problem)}
+      fill={fillPage}
       refreshToken={refreshToken}
       onChanged={() => setRefreshToken((value) => value + 1)}
       onNavigate={navigate}
@@ -656,6 +659,7 @@ function AppContent({
                     onExport={onExport}
                     onImport={onImport}
                     bulkSelection={bulkSelection}
+                    fill={fillPage}
                     onQueryChange={(query: CollectionQueryState) =>
                       navigate(
                         activeRoute.kind === "detail"

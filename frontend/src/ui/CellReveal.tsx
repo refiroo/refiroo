@@ -10,8 +10,18 @@
  * the cell whole.
  */
 
-import { useCallback, useEffect, useState, type FocusEvent, type MouseEvent, type PointerEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FocusEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
+import { recentlyScrolled, watchScrolling } from "@/lib/scrollActivity";
 
 type Reveal = { cell: HTMLElement; text: string; left: number; top: number; above: boolean; width: number };
 
@@ -61,21 +71,101 @@ function placeFor(cell: HTMLElement, text: string): Reveal {
   return { cell, text, left, top: above ? box.top - 4 : box.bottom + 4, above, width };
 }
 
+interface RevealStore {
+  get: () => Reveal | undefined;
+  set: (reveal: Reveal | undefined) => void;
+  subscribe: (listener: () => void) => () => void;
+}
+
+function revealStore(): RevealStore {
+  let current: Reveal | undefined;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    set: (reveal) => {
+      if (reveal === current) return;
+      current = reveal;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+/**
+ * The cell reveal's handlers for a table body and the box they show. The box keeps its state in a
+ * store of its own, drawn by its own component, so showing and closing it draws no row of the
+ * table (0.12 LS1, D373). Rows moving under a still pointer while the list scrolls show nothing;
+ * the pointer's own movement does.
+ */
 export function useCellReveal() {
-  const [reveal, setReveal] = useState<Reveal>();
-  const close = useCallback(() => setReveal(undefined), []);
+  const [store] = useState(revealStore);
+  // The cell the pointer last pointed at: a move within it measures nothing again.
+  const pointed = useRef<HTMLElement | null>(null);
+  useEffect(watchScrolling, []);
+  const handlers = useMemo(() => {
+    const close = () => store.set(undefined);
+    const show = (cell: HTMLElement | null) => {
+      // A cell being edited in place holds its own form, which says everything already.
+      if (!cell || cell.querySelector("form") || !isCut(cell)) return false;
+      const text = visibleText(cell);
+      if (!text) return false;
+      store.set(placeFor(cell, text));
+      return true;
+    };
+    const cellOf = (target: EventTarget | null) =>
+      (target as HTMLElement | null)?.closest?.<HTMLElement>("td[data-reveal]") ?? null;
+    const point = (event: PointerEvent<HTMLElement>) => {
+      if (event.pointerType !== "mouse") return;
+      if (recentlyScrolled()) {
+        pointed.current = null;
+        return close();
+      }
+      const cell = cellOf(event.target);
+      if (cell === pointed.current) return;
+      pointed.current = cell;
+      if (!cell) return close();
+      if (cell !== store.get()?.cell && !show(cell)) close();
+    };
+    return {
+      onPointerOver: point,
+      onPointerMove: point,
+      onPointerLeave: (event: PointerEvent<HTMLElement>) => {
+        if (event.pointerType !== "mouse") return;
+        pointed.current = null;
+        close();
+      },
+      onFocus: (event: FocusEvent<HTMLElement>) => {
+        const cell = cellOf(event.target);
+        if (cell && !show(cell)) close();
+      },
+      onBlur: close,
+      // A long press on a touch screen opens the context menu; on a cut-off cell it reveals instead.
+      onContextMenu: (event: MouseEvent<HTMLElement>) => {
+        const cell = cellOf(event.target);
+        if (cell && show(cell)) event.preventDefault();
+      },
+      onPointerUp: (event: PointerEvent<HTMLElement>) => {
+        if (event.pointerType === "mouse") return;
+        const cell = cellOf(event.target);
+        if (!cell || (event.target as HTMLElement).closest(INTERACTIVE)) return;
+        if (store.get()?.cell === cell) close();
+        else show(cell);
+      },
+    };
+  }, [store]);
 
-  const show = useCallback((cell: HTMLElement | null) => {
-    // A cell being edited in place holds its own form, which says everything already.
-    if (!cell || cell.querySelector("form") || !isCut(cell)) return false;
-    const text = visibleText(cell);
-    if (!text) return false;
-    setReveal(placeFor(cell, text));
-    return true;
-  }, []);
+  return { handlers, overlay: <RevealBox store={store} /> };
+}
 
+/** The box below a cut-off cell; Escape, scrolling, resizing and a press elsewhere close it. */
+function RevealBox({ store }: { store: RevealStore }) {
+  const reveal = useSyncExternalStore(store.subscribe, store.get, store.get);
   useEffect(() => {
     if (!reveal) return;
+    const close = () => store.set(undefined);
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && close();
     const onPress = (event: Event) => {
       if (!reveal.cell.contains(event.target as Node)) close();
@@ -90,53 +180,16 @@ export function useCellReveal() {
       window.removeEventListener("resize", close);
       document.removeEventListener("pointerdown", onPress);
     };
-  }, [reveal, close]);
-
-  const cellOf = (target: EventTarget | null) =>
-    (target as HTMLElement | null)?.closest?.<HTMLElement>("td[data-reveal]") ?? null;
-
-  /** Event handlers for the table body: the cells that may reveal carry `data-reveal`. */
-  const handlers = {
-    onPointerOver: (event: PointerEvent<HTMLElement>) => {
-      if (event.pointerType !== "mouse") return;
-      const cell = cellOf(event.target);
-      if (!cell) return close();
-      if (cell !== reveal?.cell && !show(cell)) close();
-    },
-    onPointerLeave: (event: PointerEvent<HTMLElement>) => {
-      if (event.pointerType === "mouse") close();
-    },
-    onFocus: (event: FocusEvent<HTMLElement>) => {
-      const cell = cellOf(event.target);
-      if (cell && !show(cell)) close();
-    },
-    onBlur: close,
-    // A long press on a touch screen opens the context menu; on a cut-off cell it reveals instead.
-    onContextMenu: (event: MouseEvent<HTMLElement>) => {
-      const cell = cellOf(event.target);
-      if (cell && show(cell)) event.preventDefault();
-    },
-    onPointerUp: (event: PointerEvent<HTMLElement>) => {
-      if (event.pointerType === "mouse") return;
-      const cell = cellOf(event.target);
-      if (!cell || (event.target as HTMLElement).closest(INTERACTIVE)) return;
-      if (reveal?.cell === cell) close();
-      else show(cell);
-    },
-  };
-
-  const overlay =
-    reveal &&
-    createPortal(
-      <div
-        className={`cell-reveal${reveal.above ? " cell-reveal-above" : ""}`}
-        aria-hidden="true"
-        style={{ left: reveal.left, top: reveal.top, width: reveal.width }}
-      >
-        {reveal.text}
-      </div>,
-      document.body,
-    );
-
-  return { handlers, overlay };
+  }, [reveal, store]);
+  if (!reveal) return null;
+  return createPortal(
+    <div
+      className={`cell-reveal${reveal.above ? " cell-reveal-above" : ""}`}
+      aria-hidden="true"
+      style={{ left: reveal.left, top: reveal.top, width: reveal.width }}
+    >
+      {reveal.text}
+    </div>,
+    document.body,
+  );
 }

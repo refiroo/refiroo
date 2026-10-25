@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useCellReveal } from "@/ui/CellReveal";
 
 /** Makes an element report a content width wider (or not) than its box, as a cut-off cell does. */
@@ -44,6 +44,8 @@ function Table() {
 }
 
 const box = () => document.querySelector(".cell-reveal");
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("a cut-off cell's whole value (CellReveal)", () => {
   it("shows the whole value on hover, wrapped, and only for a cell the column cuts", () => {
@@ -94,5 +96,18 @@ describe("a cut-off cell's whole value (CellReveal)", () => {
     widths(screen.getByTestId("labelled"), 600, 200);
     fireEvent.pointerOver(screen.getByTestId("labelled"), { pointerType: "mouse" });
     expect(box()?.textContent).toBe("Codelist, Master value, System group");
+  });
+
+  it("shows nothing for a cell passing under a still pointer while the list scrolls (0.12 LS1, D373)", () => {
+    render(<Table />);
+    widths(screen.getByTestId("cut"), 600, 200);
+    fireEvent.scroll(window);
+    fireEvent.pointerOver(screen.getByTestId("cut"), { pointerType: "mouse" });
+    expect(box()).toBeNull();
+    // Once the list is still, the pointer's own movement shows it.
+    const later = performance.now() + 1000;
+    vi.spyOn(performance, "now").mockReturnValue(later);
+    fireEvent.pointerMove(screen.getByTestId("cut"), { pointerType: "mouse" });
+    expect(box()?.textContent).toBe("Codelist, Master value, System, System group, Language, Translation group");
   });
 });

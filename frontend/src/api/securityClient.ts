@@ -6,6 +6,7 @@
 
 import { request } from "@/api/client";
 import type {
+  PasskeyPage,
   ActionGroup,
   Client,
   ClientPage,
@@ -17,11 +18,13 @@ import type {
   GrantPage,
   Group,
   GroupMemberPage,
+  GroupMembersResult,
   GroupPage,
   LocalSignIn,
   PasswordResetLink,
   Role,
   RolePage,
+  SecurityEvent,
   SecurityEventPage,
   SignInProvider,
   SignInProviderCreate,
@@ -62,16 +65,42 @@ export const security = {
     request<User>("/api/v1/users", json("POST", body)),
   updateUser: (
     userId: string,
-    body: { expectedVersion: number; name?: string; email?: string | null; active?: boolean },
+    body: { expectedVersion: number; name?: string; email?: string | null; active?: boolean; localKept?: boolean },
   ) => request<User>(`/api/v1/users/${id(userId)}`, json("PATCH", body)),
+  /** Move the provider identities and provider-group memberships of `fromUserId` onto this person;
+   * the other person is deactivated (I4a, D377, D378). */
+  linkIdentity: (userId: string, body: { expectedVersion: number; fromUserId: string }) =>
+    request<User>(`/api/v1/users/${id(userId)}/identities`, json("POST", body)),
+  /** An administrator removes a person's second factor, for one who lost the phone and the codes
+   * (I4b, D387). */
+  removeSecondFactor: (userId: string) =>
+    request<void>(`/api/v1/users/${id(userId)}/second-factor`, { method: "DELETE" }),
+  /** A person's passkeys, as they named them (I4c, D394); an administrator removes one for someone
+   * who lost the device. */
+  userPasskeys: (userId: string, cursor?: string) =>
+    request<PasskeyPage>(`/api/v1/users/${id(userId)}/passkeys${query({ cursor, pageSize: 100 })}`),
+  removeUserPasskey: (userId: string, passkeyId: string) =>
+    request<void>(`/api/v1/users/${id(userId)}/passkeys/${id(passkeyId)}`, { method: "DELETE" }),
+  unlinkIdentity: (userId: string, providerKey: string) =>
+    request<void>(`/api/v1/users/${id(userId)}/identities/${id(providerKey)}`, { method: "DELETE" }),
   /** A new one-time link; it replaces an earlier one (D272). */
   passwordLink: (userId: string) =>
     request<PasswordResetLink>(`/api/v1/users/${id(userId)}/password-reset`, { method: "POST" }),
   signOutEverywhere: (userId: string) => request<void>(`/api/v1/users/${id(userId)}/sessions`, { method: "DELETE" }),
   /** Security events newest first: those a person or client made or that are about them (0.12 Z4,
    * D317, D319). */
-  securityEvents: (principalId: string, cursor?: string, pageSize = 20) =>
-    request<SecurityEventPage>(`/api/v1/security-events${query({ principalId, cursor, pageSize })}`),
+  /** What was done to or by a principal, newest first; `aggregateTypes` keeps those kinds (0.12 RA1). */
+  securityEvents: (
+    principalId: string,
+    cursor?: string,
+    pageSize = 20,
+    aggregateTypes: readonly SecurityEvent["aggregateType"][] = [],
+  ) =>
+    request<SecurityEventPage>(
+      `/api/v1/security-events${query({ principalId, cursor, pageSize })}${aggregateTypes
+        .map((type) => `&aggregateType=${encodeURIComponent(type)}`)
+        .join("")}`,
+    ),
   /** A person's grants, direct and through their groups (D299). */
   userGrants: (userId: string, cursor?: string) =>
     request<GrantPage>(`/api/v1/users/${id(userId)}/grants${query({ cursor, pageSize: 100 })}`),
@@ -91,6 +120,12 @@ export const security = {
     request<GroupMemberPage>(`/api/v1/groups/${id(groupId)}/members${query({ cursor, pageSize: 100 })}`),
   addMember: (groupId: string, userId: string) =>
     request<unknown>(`/api/v1/groups/${id(groupId)}/members`, json("POST", { userId })),
+  /** Several people at once, by ID or by usernames and e-mail addresses; `dryRun` changes nothing (SP1b). */
+  addMembers: (groupId: string, body: { userIds?: string[]; identifiers?: string[]; dryRun?: boolean }) =>
+    request<GroupMembersResult>(`/api/v1/groups/${id(groupId)}/members/batch`, json("POST", body)),
+  /** Several people taken out at once (SP1b, D402). */
+  removeMembers: (groupId: string, userIds: string[]) =>
+    request<GroupMembersResult>(`/api/v1/groups/${id(groupId)}/members/removal`, json("POST", { userIds })),
   removeMember: (groupId: string, userId: string) =>
     request<void>(`/api/v1/groups/${id(groupId)}/members/${id(userId)}`, { method: "DELETE" }),
 
@@ -144,7 +179,7 @@ export const security = {
   deleteSignInProvider: (key: string) => request<void>(`/api/v1/sign-in-providers/${id(key)}`, { method: "DELETE" }),
   localSignIn: () => request<LocalSignIn>("/api/v1/sign-in-providers/local"),
   /** Off only once a provider has signed someone in (`409 NO_WORKING_PROVIDER`, D365). */
-  setLocalSignIn: (body: { expectedVersion: number; enabled: boolean }) =>
+  setLocalSignIn: (body: { expectedVersion: number; enabled?: boolean; secondFactorRequired?: boolean }) =>
     request<LocalSignIn>("/api/v1/sign-in-providers/local", json("PATCH", body)),
 
   /** The catalogue every role is made of. */

@@ -28,11 +28,12 @@ import { RouteLink } from "@/ui/RouteLink";
 import { SearchField } from "@/ui/SearchField";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
+import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
 import { GrantsSection } from "./GrantsSection";
-import { PickDialog } from "./PickDialog";
+import { AddMembersDialog } from "./AddMembersDialog";
 
 type GroupsRoute = Extract<SettingsRoute, { page: "groups" }>;
 
@@ -297,38 +298,86 @@ function GroupMembers({
 }) {
   const feed = useCursorFeed((cursor) => security.members(group.id, cursor), [group.id]);
   const [adding, setAdding] = useState(false);
+  // The members ticked for removal together (0.12 SP1b, D402); a reload drops those who left.
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const addRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
 
-  async function remove(member: GroupMember) {
+  async function remove(members: GroupMember[]) {
     setError("");
+    setPending(true);
     try {
-      await security.removeMember(group.id, member.id);
-      feed.setItems((items) => items.filter((item) => item.id !== member.id));
+      const result = await security.removeMembers(
+        group.id,
+        members.map((member) => member.id),
+      );
+      const gone = new Set(
+        result.items.flatMap((item) => (item.outcome === "removed" && item.member ? [item.member.id] : [])),
+      );
+      feed.setItems((items) => items.filter((item) => !gone.has(item.id)));
+      setTicked((current) => new Set([...current].filter((id) => !gone.has(id))));
       onChanged();
-      toast(`${member.name} left ${group.name}.`);
+      toast(
+        gone.size === 1
+          ? `${members.find((member) => gone.has(member.id))?.name ?? "One person"} left ${group.name}.`
+          : `${gone.size} people left ${group.name}.`,
+      );
     } catch (cause) {
       setError(errorMessage(cause));
+    } finally {
+      setPending(false);
     }
   }
 
   const seen = !!group.source;
+  const shownTicked = feed.items.filter((member) => ticked.has(member.id));
+  const all = feed.items.length > 0 && shownTicked.length === feed.items.length;
+  const toggle = (id: string) =>
+    setTicked((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   return (
     <Section
       title={seen ? "Members seen" : "Members"}
       actions={
         !seen && (
           <button ref={addRef} type="button" className="secondary" onClick={() => setAdding(true)}>
-            <Icon name="plus" /> Add a member
+            <Icon name="plus" /> Add members
           </button>
         )
       }
     >
       {error && (
-        <Notice tone="error" title="The member was not removed">
+        <Notice tone="error" title="Nobody was removed">
           {error}
         </Notice>
+      )}
+      {!seen && shownTicked.length > 0 && (
+        <div className="selection-bar" role="group" aria-label="Selected members">
+          <div className="selection-bar-row">
+            <strong className="selection-count">
+              {shownTicked.length} {shownTicked.length === 1 ? "member" : "members"} selected
+            </strong>
+            <div className="selection-actions">
+              <button
+                type="button"
+                className="ghost danger-action"
+                disabled={pending}
+                onClick={() => void remove(shownTicked)}
+              >
+                Remove {shownTicked.length} from the group
+              </button>
+            </div>
+            <button type="button" className="ghost selection-clear" onClick={() => setTicked(new Set())}>
+              Clear
+            </button>
+          </div>
+        </div>
       )}
       {feed.error ? (
         <InlineError message={feed.error} onRetry={feed.retry} />
@@ -342,18 +391,47 @@ function GroupMembers({
           columns={
             seen
               ? ["Person", "Username", "Status", "Last seen in this group"]
-              : ["Person", "Username", "Status", { hidden: "Actions" }]
+              : [
+                  {
+                    key: "select",
+                    content: (
+                      <SelectionCheckbox
+                        label="Select every member shown"
+                        state={all ? "all" : shownTicked.length ? "some" : "none"}
+                        onSelect={() => setTicked(all ? new Set() : new Set(feed.items.map((member) => member.id)))}
+                      />
+                    ),
+                  },
+                  "Person",
+                  "Username",
+                  "Status",
+                  { hidden: "Actions" },
+                ]
           }
         >
           {feed.items.map((member) => {
             const route: SettingsRoute = { kind: "settings", page: "people", userId: member.id };
+            const name = (
+              <RouteLink href={routePath(route)} onNavigate={() => onNavigate(route)}>
+                {member.name}
+              </RouteLink>
+            );
             return (
-              <tr key={member.id}>
-                <th scope="row">
-                  <RouteLink href={routePath(route)} onNavigate={() => onNavigate(route)}>
-                    {member.name}
-                  </RouteLink>
-                </th>
+              <tr key={member.id} className={ticked.has(member.id) ? "checked-row" : undefined}>
+                {seen ? (
+                  <th scope="row">{name}</th>
+                ) : (
+                  <>
+                    <td className="selection-column">
+                      <SelectionCheckbox
+                        label={`Select ${member.name}`}
+                        state={ticked.has(member.id) ? "all" : "none"}
+                        onSelect={() => toggle(member.id)}
+                      />
+                    </td>
+                    <th scope="row">{name}</th>
+                  </>
+                )}
                 <td data-label="Username">{member.username}</td>
                 <td data-label="Status">{member.active ? "Active" : "Deactivated"}</td>
                 {seen ? (
@@ -365,8 +443,9 @@ function GroupMembers({
                     <button
                       type="button"
                       className="ghost"
+                      disabled={pending}
                       aria-label={`Remove ${member.name} from ${group.name}`}
-                      onClick={() => void remove(member)}
+                      onClick={() => void remove([member])}
                     >
                       Remove
                     </button>
@@ -383,21 +462,21 @@ function GroupMembers({
         </button>
       )}
       {adding && (
-        <PickDialog
-          title={`Add a member to ${group.name}`}
-          label="Person"
-          kinds={["user"]}
-          confirmLabel="Add to the group"
+        <AddMembersDialog
+          group={group}
           onClose={() => {
             setAdding(false);
             addRef.current?.focus();
           }}
-          onPicked={async (person) => {
-            await security.addMember(group.id, person.id);
+          onAdded={(result) => {
             setAdding(false);
             feed.reload();
             onChanged();
-            toast(`${person.name} is now in ${group.name}.`);
+            const left = result.items.filter((item) => item.outcome === "deactivated").length;
+            toast(
+              `${result.changed} ${result.changed === 1 ? "person" : "people"} added to ${group.name}.` +
+                (left ? ` ${left} deactivated ${left === 1 ? "person was" : "people were"} left out.` : ""),
+            );
             addRef.current?.focus();
           }}
         />

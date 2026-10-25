@@ -128,6 +128,12 @@ RULES = {
     ("provider_sign_ins", "provider_id"): ("sign_in_providers", "CASCADE"),
     ("user_groups", "provider_id"): ("sign_in_providers", "CASCADE"),
     ("authorization_codes", "session_id"): ("user_sessions", "SET NULL"),
+    # A person's second factor, recovery codes, passkeys and the sign-ins waiting for their second
+    # step go with them (0.12 I4b, I4c, D383–D394).
+    ("user_second_factors", "user_id"): ("users", "CASCADE"),
+    ("user_recovery_codes", "user_id"): ("users", "CASCADE"),
+    ("user_passkeys", "user_id"): ("users", "CASCADE"),
+    ("sign_in_steps", "user_id"): ("users", "CASCADE"),
     # A draft's history goes with its draft (0.10 A2, D4).
     ("model_draft_operations", "draft_id"): ("model_drafts", "CASCADE"),
     ("model_draft_proposals", "draft_id"): ("model_drafts", "CASCADE"),

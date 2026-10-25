@@ -49,6 +49,8 @@
   align-items: center;
   gap: var(--space-4);
   padding: 22px;
+  border-color: var(--home-continue-border);
+  background: var(--home-continue-surface);
   color: var(--text-primary);
   text-decoration: none;
 }
@@ -112,6 +114,7 @@
 }
 .home-tile {
   display: grid;
+  text-decoration: none;
   place-items: center;
   flex: none;
   width: 64px;

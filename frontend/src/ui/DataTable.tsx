@@ -14,7 +14,10 @@
  * Until then the widths stay as the first rows laid them out: the window holds different rows as it
  * scrolls, and a table laid out by its content moved its columns, and with them the rows' heights
  * and the rows under the reader, at every page (reported 2026-10-19). They are measured again when
- * the columns, the density or the table's room change. Cells still wrap.
+ * the columns, the density or the table's room change. Cells still wrap, except in a table of
+ * `oneLine` rows (a record list, 0.12 LS1, D375): once its columns are laid out, each cell keeps to
+ * one line and ends in an ellipsis, so every row is as tall as the first and nothing is corrected
+ * while the list scrolls.
  *
  * The resize handles are not inside the header cells (UA7): a header's name is its content, and a
  * handle there added "Resize … column" to it. They stand in one layer before the table, sticky
@@ -23,6 +26,7 @@
 
 import {
   memo,
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
@@ -33,6 +37,7 @@ import {
   type Ref,
 } from "react";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
+import { recentlyScrolled } from "@/lib/scrollActivity";
 import type { Hue } from "@/model/hues";
 import { useCellReveal } from "@/ui/CellReveal";
 import { EmptyState } from "@/ui/EmptyState";
@@ -77,6 +82,8 @@ export function DataTable<Row>({
   emptyIcon,
   emptyAction,
   whole = false,
+  oneLine = false,
+  fill = false,
 }: {
   columns: DataColumn<Row>[];
   /** The column that names a row; it stays on narrow screens. Defaults to the first. */
@@ -121,6 +128,10 @@ export function DataTable<Row>({
    * footer, which serve a list that pages.
    */
   whole?: boolean;
+  /** Each cell on one line once the columns are laid out (see above). */
+  oneLine?: boolean;
+  /** The list fills its page, which does not scroll (`ScrollWindow`'s `fill`, 0.12 LS1, D372). */
+  fill?: boolean;
 }) {
   const [allColumns, setAllColumns] = useState(false);
   // A cut-off cell shows its whole value on hover, focus or a long press (ui/CellReveal).
@@ -129,11 +140,14 @@ export function DataTable<Row>({
   const resizers = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState<{ height: number; ends: Record<string, number> }>({ height: 0, ends: {} });
   const identity = identityColumn ?? columns[0]?.key;
-  const mobileColumns = [identity, ...columns.map((column) => column.key).filter((key) => key !== identity)].slice(
-    0,
-    3,
+  const mobileKey = [identity, ...columns.map((column) => column.key).filter((key) => key !== identity)]
+    .slice(0, 3)
+    .join("\n");
+  // Given to every row, so it changes only with the columns: a new one drew every row again.
+  const secondary = useCallback(
+    (key: string) => (!mobileKey.split("\n").includes(key) ? "mobile-secondary-column" : undefined),
+    [mobileKey],
   );
-  const secondary = (key: string) => (!mobileColumns.includes(key) ? "mobile-secondary-column" : undefined);
   const sized = columns.some((column) => columnWidths[column.key] !== undefined);
   const columnCount = columns.length + Number(Boolean(actions)) + Number(Boolean(selection));
 
@@ -190,11 +204,19 @@ export function DataTable<Row>({
   const [hoverable] = useState(canHover);
   const rowOf = (target: EventTarget | null) =>
     target instanceof Element ? target.closest<HTMLElement>("tr[data-row-key]")?.dataset.rowKey : undefined;
+  // Rows moving under a still pointer while the list scrolls are not hovered: each would draw its
+  // edit icons; the pointer's own movement points at a row again (0.12 LS1, D373).
+  const hover = (event: React.PointerEvent<HTMLElement>) =>
+    active.setHovered(recentlyScrolled() ? undefined : rowOf(event.target));
   const bodyHandlers = {
     ...reveal.handlers,
     onPointerOver: (event: React.PointerEvent<HTMLElement>) => {
       reveal.handlers.onPointerOver(event);
-      active.setHovered(rowOf(event.target));
+      hover(event);
+    },
+    onPointerMove: (event: React.PointerEvent<HTMLElement>) => {
+      reveal.handlers.onPointerMove(event);
+      hover(event);
     },
     onPointerLeave: (event: React.PointerEvent<HTMLElement>) => {
       reveal.handlers.onPointerLeave(event);
@@ -280,6 +302,7 @@ export function DataTable<Row>({
         pageSize={pageSize}
         seekLabel={seekLabel}
         onAnchorChange={onAnchorChange}
+        fill={fill}
         {...(whole ? { edgeMarkers: "partial" as const, footer: false } : {})}
         className={`table-wrap object-table${compact ? " density-compact" : ""}${allColumns ? " show-all-columns" : ""}`}
       >
@@ -309,7 +332,12 @@ export function DataTable<Row>({
             <table
               ref={table}
               className={
-                sized ? `sized-columns${actions ? " sized-columns-fill" : ""}` : shown ? "frozen-columns" : undefined
+                [
+                  sized ? `sized-columns${actions ? " sized-columns-fill" : ""}` : shown ? "frozen-columns" : "",
+                  oneLine && (sized || shown) ? "one-line-rows" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
               }
               style={
                 shown
@@ -461,7 +489,9 @@ export function DataTable<Row>({
  * Memoised (0.11 X6): scrolling changes the range `ScrollWindow` draws without drawing the table
  * again, so a row already on the page gets the very same props and is skipped; only rows entering
  * the range are drawn. Drawing every row in range at each step made scrolling lag (the user,
- * 2026-10-19). When the table itself draws again, its functions are new and every row follows.
+ * 2026-10-19). The table's own functions to the rows are stable, and what the caller gives
+ * (`ui/ObjectTable`) changes only with what the rows show, so the table drawing again (a cell's
+ * whole value shown, a page arriving) draws no row that is already on the page (0.12 LS1, D373).
  */
 const DataRow = memo(DataRowContent) as typeof DataRowContent;
 

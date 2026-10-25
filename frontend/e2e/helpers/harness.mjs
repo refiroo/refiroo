@@ -119,10 +119,12 @@ async function freePort() {
  *   Provide a prepared model and database (from `cloneDatabase`) instead of the starter model and records.
  * @param {{width: number, height: number}} [options.viewport] - Browser viewport; 1440×900 by default.
  * @param {Record<string, string>} [options.backendEnv] - Further backend settings, such as a capability turned on.
+ * @param {string} [options.host] - The host the browser reaches the servers by, 127.0.0.1 by default;
+ *   `localhost` where a passkey is made (WebAuthn takes no IP address as its relying party, 0.12 I4c).
  * @returns {Promise<{page, browser, apiUrl, uiUrl, output, records, cleanup}>}
  */
 export async function bootHarness(options = {}) {
-  const { modelAdmin = true, workspaceAdmin = true, transformModel, prepare, viewport, backendEnv = {} } = options;
+  const { modelAdmin = true, workspaceAdmin = true, transformModel, prepare, viewport, backendEnv = {}, host = "127.0.0.1" } = options;
   const started = performance.now();
   // Setup phase durations in milliseconds, separated from the runner's own checks (WP-13B).
   const timings = {};
@@ -154,8 +156,8 @@ export async function bootHarness(options = {}) {
 
   const apiPort = await freePort();
   const uiPort = await freePort();
-  const apiUrl = `http://127.0.0.1:${apiPort}`;
-  const uiUrl = `http://127.0.0.1:${uiPort}`;
+  const apiUrl = `http://${host}:${apiPort}`;
+  const uiUrl = `http://${host}:${uiPort}`;
   // The harness client's access token, sent with the runners' own API calls (0.12 I1, D263); the
   // pages sign in as the harness person instead (I2, D274).
   let authorization = "";
@@ -193,7 +195,7 @@ export async function bootHarness(options = {}) {
   try {
     const backend = start(
       resolve(root, "backend/.venv/bin/python"),
-      ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(apiPort)],
+      ["-m", "uvicorn", "app.main:app", "--host", host, "--port", String(apiPort)],
       resolve(root, "backend"),
       {
         DATABASE_URL: database.databaseUrl,
@@ -217,7 +219,7 @@ export async function bootHarness(options = {}) {
 
     const ui = start(
       process.execPath,
-      ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"],
+      ["node_modules/vite/bin/vite.js", "--host", host, "--port", String(uiPort), "--strictPort"],
       frontend,
       { VITE_API_URL: apiUrl },
     );

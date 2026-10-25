@@ -2667,6 +2667,26 @@ packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
   "Keeps local sign-in", and hides New person and the password link while local sign-in is off;
   Account names the provider. The engine's sign-in page gains "Continue with *name*" and, with local
   sign-in off, only the buttons and the local administrator's link.
+- _Built by I4a (2026-10-25)_ from the "I4 as planned" boards: a person's page gains **Sign-in** (a
+  row per provider with **Unlink…**, the password, and **Keeps local sign-in** as a switch with a
+  confirmation), **Link to an existing person…** on a person made at a provider sign-in (a dialog
+  picking the person and saying what moves and who is deactivated); a provider's page gains
+  **Signing out** (the setting and the second address to register). Signing out of the app is a
+  navigation (D380).
+- _Built by I4b (2026-10-25)_ from the "I4 as planned" boards: Account gains **Second factor**
+  (**Set up an authenticator app**, the QR code, the key with Copy, a code and Confirm; the recovery
+  codes shown once with Copy all, Download as text and **I have kept them**; once on, **New recovery
+  codes…** and **Remove…**, each asking for a code, Remove not offered while the instance requires
+  it); Sign-in › Local accounts gains **Require a second factor with a password** with a
+  confirmation; a person's page lists "Second factor: authenticator app" with **Remove second
+  factor…**; the engine's sign-in page gains the code step, the recovery code step, the set-up and
+  the recovery codes.
+- _Built by I4c (2026-10-25)_ from the "I4 as planned" boards: Account gains **Passkeys** (**Add a
+  passkey**, which opens the engine's own page for the browser's prompt and returns; each passkey
+  by its name, when added and last used, with **Rename** and **Remove…**) before **Authenticator
+  app**; a person's page lists each passkey with **Remove passkey…**; the engine's sign-in page offers
+  **Sign in with a passkey** above the password and, as the second step, **Use a passkey** beside the
+  app's code ("Confirm it is you"); Account names a session "Signed in with a passkey".
 
 U-D11 holds: each Security entry appears in the navigation only when its page is built.
 

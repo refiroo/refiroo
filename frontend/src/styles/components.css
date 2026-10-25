@@ -891,6 +891,19 @@ th[aria-sort] {
   .object-table table.frozen-columns td {
     overflow-wrap: anywhere;
   }
+  /* A record list's rows on one line once its columns are laid out (0.12 LS1, D375): every row as
+     tall as the first, a cut value ending in an ellipsis and shown whole by ui/CellReveal. An open
+     editor still takes the room it needs (td:has(.cell-editor)). */
+  .object-table table.one-line-rows td {
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .object-table table.one-line-rows td:has(.cell-editor) {
+    overflow: visible;
+    white-space: normal;
+  }
   .object-table table.sized-columns {
     table-layout: fixed;
     width: var(--table-width);
@@ -1662,6 +1675,172 @@ tr:focus-within .icon-button.icon-button-quiet {
   width: auto;
   margin: 0 16px 14px;
 }
+/* A record's history (0.12 RH1, D393): the kind and who above, the changes under a heading for each
+   day, one line each, opened for the values; the paging below. */
+.history-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 12px 16px 8px;
+}
+.history-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.history-by {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.history-by select {
+  max-width: 180px;
+  min-height: 30px;
+}
+.history-kinds {
+  padding: 0 16px 12px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.history-day {
+  margin: 0;
+  padding: 10px 16px 6px;
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--surface-sunken);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.history-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.history-lines > li {
+  border-bottom: 1px solid var(--border-faint);
+}
+.history-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 0;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.history-line {
+  cursor: pointer;
+}
+button.history-line:hover {
+  background: var(--state-hover);
+}
+.history-line-marker {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hue-marker, var(--action-primary));
+}
+.history-line-marker[data-tone="relationships"] {
+  background: var(--hue-1-marker, var(--context-live-marker));
+}
+.history-line-marker[data-tone="structure"] {
+  background: var(--hue-3-marker, var(--context-publication-marker));
+}
+.history-line-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+}
+.history-line-text strong {
+  font-weight: 600;
+}
+.history-line-summary,
+.history-line-after {
+  color: var(--text-tertiary);
+}
+.history-line time {
+  flex: none;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.history-line-chevron {
+  flex: none;
+  width: 14px;
+  color: var(--text-tertiary);
+}
+.history-line-details {
+  padding: 0 16px 12px 34px;
+  font-size: var(--text-sm);
+}
+.history-values {
+  width: 100%;
+  border-collapse: collapse;
+}
+.history-values th {
+  width: 30%;
+  padding: 4px 8px 4px 0;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-align: left;
+  vertical-align: top;
+}
+.history-values td {
+  padding: 4px 6px 4px 0;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+.history-value-before {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+.history-value-before em {
+  text-decoration: none;
+}
+.history-value-after {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.history-named,
+.history-meta {
+  margin: 6px 0 0;
+  color: var(--text-tertiary);
+}
+.history-paging {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: 10px 16px;
+}
+.history-paging:empty {
+  display: none;
+}
+.history-count {
+  flex: 1;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.history-paging .history-more {
+  margin: 0;
+}
+/* A person's recent activity reads as a record's history does (0.12 RA1). */
+.activity-kinds {
+  margin-bottom: var(--space-3);
+}
 
 /* Inspector presentation, retained for the split record view. */
 .record-workspace.has-inspector {
@@ -1901,6 +2080,7 @@ tr:focus-within .icon-button.icon-button-quiet {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 var(--space-3);
+  align-items: start;
 }
 @media (max-width: 560px) {
   .dialog-pair {
@@ -1914,7 +2094,6 @@ tr:focus-within .icon-button.icon-button-quiet {
   padding: 16px 22px 0;
   color: var(--text-secondary);
   font-size: 14px;
-  align-items: start;
   line-height: 1.5;
 }
 /* A body that holds its own actions ends the dialog, so it keeps the dialog's bottom margin. */
@@ -4797,4 +4976,114 @@ form.install-dialog .dialog-actions {
 }
 .settings-page > .breadcrumbs {
   margin-bottom: var(--space-1);
+}
+
+/* Several people added to a group at once (0.12 SP1b, D401): a search with a ticked list, or a
+   pasted list checked; the people to add gather as chips under either. */
+.add-members {
+  display: grid;
+  gap: var(--space-4);
+}
+.add-members-tab {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+}
+.add-members-found-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.add-members-list,
+.add-members-checked ul {
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  list-style: none;
+}
+.add-members-list li + li,
+.add-members-checked li + li {
+  border-top: 1px solid var(--border-faint);
+}
+.add-members-person,
+.add-members-checked li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 6px 12px;
+}
+.add-members-person {
+  cursor: pointer;
+}
+.add-members-person:hover {
+  background: var(--state-hover);
+}
+.add-members-person.is-blocked {
+  cursor: default;
+  opacity: 0.75;
+}
+.add-members-person-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.add-members-person-text span {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.add-members-paste {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+.add-members-paste textarea {
+  font: inherit;
+  font-weight: 400;
+  resize: vertical;
+}
+.add-members-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+.add-members-checked .is-found .add-members-mark {
+  background: var(--status-success-surface);
+  color: var(--status-success-text);
+}
+.add-members-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 96px;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.add-members-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 2px 2px 10px;
+  border-radius: 999px;
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.add-members-chips .icon-button.icon-button-quiet {
+  width: 24px;
+  min-height: 24px;
+  color: inherit;
 }

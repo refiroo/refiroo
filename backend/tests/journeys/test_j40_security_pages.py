@@ -83,6 +83,58 @@ def test_a_persons_grants_include_their_groups(world):
     refused(world.api.get("/users/no-such-person/grants"), 404, "USER_NOT_FOUND")
 
 
+@pytest.mark.journey("J40.4")
+def test_several_people_join_and_leave_a_group_at_once(world):
+    """Given a group with one member, three people (one deactivated, one with an e-mail address).
+    When a pasted list of usernames and an e-mail address, in other cases, is checked, then each
+    line says whom it names and whether they would be added, and nothing changes. When three are
+    added by ID, the active two join (each with its security event) and the deactivated one is left
+    out; when two are taken out with an unknown ID, both leave and the ID is not found (0.12 SP1b,
+    D401, D402)."""
+    group = ok(world.api.post("/groups", {"name": "Catalogue stewards"}), 201)
+    kept = _user(world, "kept-sp1b")
+    ok(world.api.post(f"/groups/{group['id']}/members", {"userId": kept["id"]}), 201)
+    ivo = _user(world, "ivo-sp1b")
+    body = {"username": "jun-sp1b", "name": "Jun", "email": "jun.sp1b@example.org"}
+    jun = ok(world.api.post("/users", body), 201)
+    old = _user(world, "old-sp1b")
+    ok(world.api.patch(f"/users/{old['id']}", {"expectedVersion": old["version"], "active": False}))
+    batch = f"/groups/{group['id']}/members/batch"
+
+    lines = ["IVO-SP1B", "Jun.SP1b@example.org", "nobody@example.org", "kept-sp1b", " "]
+    checked = ok(world.api.post(batch, {"identifiers": lines, "dryRun": True}))
+    assert [(item["input"], item["outcome"]) for item in checked["items"]] == [
+        ("IVO-SP1B", "toAdd"),
+        ("Jun.SP1b@example.org", "toAdd"),
+        ("nobody@example.org", "notFound"),
+        ("kept-sp1b", "alreadyMember"),
+    ]
+    assert checked["items"][1]["member"]["id"] == jun["id"]
+    assert checked["items"][2]["member"] is None
+    assert checked["changed"] == 0
+    members = f"/groups/{group['id']}/members"
+    assert [item["id"] for item in ok(world.api.get(members))["items"]] == [kept["id"]]
+
+    added = ok(world.api.post(batch, {"userIds": [ivo["id"], jun["id"], old["id"]]}))
+    assert [item["outcome"] for item in added["items"]] == ["added", "added", "deactivated"]
+    assert added["changed"] == 2
+    assert {item["id"] for item in ok(world.api.get(members))["items"]} == {
+        kept["id"],
+        ivo["id"],
+        jun["id"],
+    }
+    events = ok(world.api.get("/security-events", principalId=group["id"]))["items"]
+    joined = {event["details"]["userId"] for event in events if event["action"] == "member-added"}
+    assert {ivo["id"], jun["id"]} <= joined and old["id"] not in joined
+
+    removal = f"/groups/{group['id']}/members/removal"
+    gone = ok(world.api.post(removal, {"userIds": [ivo["id"], jun["id"], "no-such-person"]}))
+    assert [item["outcome"] for item in gone["items"]] == ["removed", "removed", "notFound"]
+    assert gone["changed"] == 2
+    assert [item["id"] for item in ok(world.api.get(members))["items"]] == [kept["id"]]
+    refused(world.api.post(removal, {"userIds": []}), 422, "REQUEST_VALIDATION_ERROR")
+
+
 @pytest.mark.journey("J40")
 def test_groups_and_clients_are_found_by_name(world):
     """Given two groups and two clients. When groups and clients are searched by name, then the

@@ -6,6 +6,8 @@ import {
   consumerApiSentence,
   grantHeld,
   grantSentence,
+  identityNames,
+  linkSentence,
   localSignInLine,
   personSignInLine,
   providerUseLine,
@@ -13,6 +15,7 @@ import {
   signingKeyState,
   staleNote,
   turnOffSentence,
+  unlinkSentence,
   userRoleLine,
 } from "./securityText";
 
@@ -319,5 +322,45 @@ describe("the Clients page's words (SP2)", () => {
     expect(
       securityEventTitle(event("sign-in-provider", "entra", "updated", { changedFields: ["enabled"], enabled: false })),
     ).toBe("Sign-in provider entra disabled");
+    expect(
+      securityEventTitle(event("user", "u", "identity-linked", { providers: ["entra"], fromUsername: "pat.p" })),
+    ).toBe("Sign-in with entra linked from pat.p");
+    expect(securityEventTitle(event("user", "u", "updated", { changedFields: ["localKept"], localKept: false }))).toBe(
+      "No longer keeps local sign-in",
+    );
+    expect(securityEventTitle(event("user", "u", "passkey-added", { name: "Laptop" }))).toBe("Passkey added: Laptop");
+    expect(securityEventTitle(event("user", "u", "passkey-removed", { name: "Laptop", by: "administrator" }))).toBe(
+      "Passkey removed: Laptop by an administrator",
+    );
+    expect(securityEventTitle(event("sign-in", "u", "succeeded", { method: "passkey", address: "10.0.0.1" }))).toBe(
+      "Signed in with a passkey from 10.0.0.1",
+    );
+    expect(securityEventTitle(event("user", "u", "identity-unlinked", { provider: "entra" }))).toBe(
+      "Sign-in with entra unlinked",
+    );
+  });
+});
+
+describe("linking a provider sign-in to an existing person (I4a, D377, D378)", () => {
+  const made = {
+    name: "Pat Provider",
+    identities: [
+      { provider: { key: "entra", name: "Northfield Entra ID" }, subject: "s-1" },
+      { provider: { key: "entra", name: "Northfield Entra ID" }, subject: "s-2" },
+    ],
+  };
+
+  it("names each provider once", () => {
+    expect(identityNames(made)).toBe("Northfield Entra ID");
+  });
+
+  it("says what moves and who is deactivated", () => {
+    expect(linkSentence(made, "Pat Smith")).toBe(
+      "Pat Smith will sign in with Northfield Entra ID from now on, keeping their roles and history, and the groups Northfield Entra ID names. Pat Provider, made at the first sign-in, is deactivated; what they changed keeps their name.",
+    );
+  });
+
+  it("says what unlinking does", () => {
+    expect(unlinkSentence("Pat Smith", "Northfield Entra ID")).toMatch(/makes a new person, whom you can link again/);
   });
 });

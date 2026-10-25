@@ -5,9 +5,20 @@ The caller's own routes are for anyone signed in; the rest need Security adminis
 instance (Z1).
 """
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Query, Request, Response
 
-from ...engine.identity import keys, providers, resets, security_events, sessions
+from ...engine.identity import (
+    keys,
+    links,
+    passkeys,
+    providers,
+    resets,
+    second_factor,
+    security_events,
+    sessions,
+)
 from ...engine.identity.clients import (
     add_secret,
     client_page,
@@ -22,14 +33,19 @@ from ...models.commands import (
     ClientCreate,
     ClientSecretCreate,
     ClientUpdate,
+    IdentityLink,
     LocalSignInUpdate,
+    PasskeyRemoval,
+    PasskeyRename,
     PasswordChange,
+    SecondFactorCode,
     SigningKeyRotation,
     SignInProviderCreate,
     SignInProviderUpdate,
     UserCreate,
     UserUpdate,
 )
+from ...models.database import User
 from ..access import (
     INSTANCE,
     SIGNED_IN,
@@ -45,7 +61,12 @@ from ..schemas.identity import (
     ClientWithSecret,
     LocalSignInResponse,
     MeResponse,
+    MySecondFactorResponse,
+    PasskeyPage,
+    PasskeyResponse,
     PasswordResetLinkResponse,
+    RecoveryCodesResponse,
+    SecondFactorEnrolment,
     SecurityAggregate,
     SecurityEventPage,
     SessionPage,
@@ -122,6 +143,185 @@ def post_my_password(
     return Response(status_code=204)
 
 
+def _caller(principal: CurrentPrincipal, session: DbSession) -> User:
+    """The signed-in person, as a row (a client has no second factor: ``403 NOT_A_PERSON``)."""
+    return load_user(session, _person(principal))
+
+
+def _address(request: Request) -> str | None:
+    return request.client.host if request.client else None
+
+
+def _factor_state(session: DbSession, user: User) -> MySecondFactorResponse:
+    found = second_factor.summary(session, user)
+    return MySecondFactorResponse(
+        enabled=found is not None,
+        confirmedAt=found.confirmed_at if found else None,
+        recoveryCodesLeft=found.recovery_left if found else 0,
+        passkeys=passkeys.counts(session, [user.id]).get(user.id, 0),
+        required=providers.local_state(session).second_factor_required,
+    )
+
+
+@router.get("/me/second-factor", response_model=MySecondFactorResponse)
+@requires("signed-in", at=SIGNED_IN)
+def get_my_second_factor(principal: CurrentPrincipal, session: DbSession) -> MySecondFactorResponse:
+    """Whether the caller has an authenticator app and how many recovery codes are left, and whether
+    the instance requires one with a password (0.12 I4b)."""
+    return _factor_state(session, _caller(principal, session))
+
+
+@router.post("/me/second-factor", response_model=SecondFactorEnrolment, status_code=201)
+@requires("signed-in", at=SIGNED_IN)
+def post_my_second_factor(
+    request: Request, principal: CurrentPrincipal, session: DbSession
+) -> SecondFactorEnrolment:
+    """Start setting up an authenticator app: a new secret, answered once as a key, an
+    ``otpauth://`` address and a QR code drawn as an SVG (D386); a secret not yet confirmed is
+    replaced. ``409 SECOND_FACTOR_EXISTS`` when one is set up. It works once confirmed."""
+    user = _caller(principal, session)
+    made = second_factor.begin(
+        session,
+        request.app.state.identity_settings,
+        user,
+        second_factor.product_name(session, "RDM Engine"),
+        datetime.now(UTC),
+    )
+    return SecondFactorEnrolment(secret=made.secret, otpauthUri=made.uri, qrSvg=made.svg)
+
+
+@router.post("/me/second-factor/confirmation", response_model=RecoveryCodesResponse)
+@requires("signed-in", at=SIGNED_IN)
+def post_my_second_factor_confirmation(
+    payload: SecondFactorCode, request: Request, principal: CurrentPrincipal, session: DbSession
+) -> RecoveryCodesResponse:
+    """Confirm the app with a code it shows: the second factor is on and ten recovery codes are
+    answered, once (D385). ``422 CODE_INCORRECT``, ``404 SECOND_FACTOR_NOT_FOUND`` without a secret
+    made, ``429 SIGN_IN_SLOWED`` after repeated wrong codes (D271)."""
+    codes = second_factor.confirm(
+        session,
+        request.app.state.identity_settings,
+        _caller(principal, session),
+        payload.code,
+        now=datetime.now(UTC),
+        address=_address(request),
+    )
+    return RecoveryCodesResponse(recoveryCodes=codes)
+
+
+@router.post("/me/second-factor/recovery-codes", response_model=RecoveryCodesResponse)
+@requires("signed-in", at=SIGNED_IN)
+def post_my_recovery_codes(
+    payload: SecondFactorCode, request: Request, principal: CurrentPrincipal, session: DbSession
+) -> RecoveryCodesResponse:
+    """Ten new recovery codes, answered once; the old ones stop working. The body's ``code`` is one
+    from the app or an unused recovery code."""
+    codes = second_factor.new_recovery_codes(
+        session,
+        request.app.state.identity_settings,
+        _caller(principal, session),
+        payload.code,
+        now=datetime.now(UTC),
+        address=_address(request),
+    )
+    return RecoveryCodesResponse(recoveryCodes=codes)
+
+
+@router.delete("/me/second-factor", status_code=204)
+@requires("signed-in", at=SIGNED_IN)
+def delete_my_second_factor(
+    payload: SecondFactorCode, request: Request, principal: CurrentPrincipal, session: DbSession
+) -> Response:
+    """Remove the caller's second factor with a code from the app or a recovery code; refused
+    while the instance requires one (``409 SECOND_FACTOR_REQUIRED``)."""
+    second_factor.remove(
+        session,
+        request.app.state.identity_settings,
+        _caller(principal, session),
+        payload.code,
+        now=datetime.now(UTC),
+        address=_address(request),
+    )
+    return Response(status_code=204)
+
+
+@router.get("/me/passkeys", response_model=PasskeyPage)
+@requires("signed-in", at=SIGNED_IN)
+def list_my_passkeys(
+    principal: CurrentPrincipal,
+    session: DbSession,
+    paging: PageQuery,
+    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+) -> PasskeyPage:
+    """The caller's passkeys in the order they were made, by the name they gave (0.12 I4c, D394);
+    never the credential. A passkey is added on the engine's own page, `/oauth/passkeys/new`."""
+    user = _caller(principal, session)
+    return present.passkey_page(
+        passkeys.passkey_page(session, user, page=paging, page_size=page_size)
+    )
+
+
+@router.patch("/me/passkeys/{passkey_id}", response_model=PasskeyResponse)
+@requires("signed-in", at=SIGNED_IN)
+def patch_my_passkey(
+    passkey_id: str, payload: PasskeyRename, principal: CurrentPrincipal, session: DbSession
+) -> PasskeyResponse:
+    """Rename one of the caller's passkeys. `404 PASSKEY_NOT_FOUND` for another person's."""
+    user = _caller(principal, session)
+    return present.passkey_response(passkeys.rename(session, user, passkey_id, payload.name))
+
+
+@router.delete("/me/passkeys/{passkey_id}", status_code=204)
+@requires("signed-in", at=SIGNED_IN)
+def delete_my_passkey(
+    passkey_id: str,
+    request: Request,
+    principal: CurrentPrincipal,
+    session: DbSession,
+    payload: PasskeyRemoval | None = None,
+) -> Response:
+    """Remove one of the caller's passkeys. The body's ``proof`` is their password, or a code from
+    the app or a recovery code (`422 PROOF_REQUIRED`, `422 CODE_INCORRECT`, `429 SIGN_IN_SLOWED`),
+    so a stolen session cannot strip a person's passkeys; their last one is refused while the
+    instance requires a second factor and they have no authenticator app
+    (`409 SECOND_FACTOR_REQUIRED`)."""
+    user = _caller(principal, session)
+    second_factor.prove(
+        session,
+        request.app.state.identity_settings,
+        user,
+        payload.proof if payload else None,
+        now=datetime.now(UTC),
+        address=_address(request),
+    )
+    passkeys.remove(session, user, passkey_id, by="self")
+    return Response(status_code=204)
+
+
+@router.get("/users/{user_id}/passkeys", response_model=PasskeyPage)
+@requires("security.manage", at=INSTANCE)
+def list_user_passkeys(
+    user_id: str,
+    session: DbSession,
+    paging: PageQuery,
+    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+) -> PasskeyPage:
+    """A person's passkeys, as they named them (D394); never the credential."""
+    user = load_user(session, user_id)
+    return present.passkey_page(
+        passkeys.passkey_page(session, user, page=paging, page_size=page_size)
+    )
+
+
+@router.delete("/users/{user_id}/passkeys/{passkey_id}", status_code=204)
+@requires("security.manage", at=INSTANCE)
+def delete_user_passkey(user_id: str, passkey_id: str, session: DbSession) -> Response:
+    """Remove a person's passkey, for someone who lost the device (D387, D394); a security event
+    records it."""
+    passkeys.remove(session, load_user(session, user_id), passkey_id, by="administrator")
+    return Response(status_code=204)
+
+
 @router.get("/users", response_model=UserPage)
 @requires("security.manage", at=INSTANCE)
 def list_users(
@@ -157,7 +357,9 @@ def get_user(user_id: str, session: DbSession) -> UserResponse:
 def patch_user(user_id: str, payload: UserUpdate, session: DbSession) -> UserResponse:
     """Change a person's name or e-mail, or deactivate them with ``active: false``: their tokens are
     refused from the next request and their sessions end. A person is never deleted (D237).
-    ``localKept`` says whether they sign in with a password while local sign-in is off (D365)."""
+    ``localKept`` says whether they sign in with a password while local sign-in is off (D365); while
+    it is off, the last active person who keeps it can neither lose it nor be deactivated
+    (``409 LAST_LOCAL_ADMINISTRATOR``, D381)."""
     return present.user_response(session, update_user(session, user_id, payload))
 
 
@@ -174,6 +376,36 @@ def post_password_reset(
     (``409 LOCAL_SIGN_IN_OFF``, D365)."""
     url, expires_at = resets.create_link(session, request.app.state.identity_settings, user_id)
     return PasswordResetLinkResponse(url=url, expiresAt=expires_at)
+
+
+@router.post("/users/{user_id}/identities", response_model=UserResponse)
+@requires("security.manage", at=INSTANCE)
+def post_user_identities(user_id: str, payload: IdentityLink, session: DbSession) -> UserResponse:
+    """Move the provider identities and provider-group memberships of the person ``fromUserId`` (the
+    one a provider sign-in made) onto this person, and deactivate that person; their sessions end.
+    Refused `409 PERSON_HAS_ACCESS` when they have a password, direct roles or local groups,
+    `409 IDENTITY_PROVIDER_TAKEN` when this person already signs in with one of those providers,
+    `409 NO_IDENTITY_TO_LINK` when they have none (D377, D378)."""
+    return present.user_response(session, links.link(session, user_id, payload))
+
+
+@router.delete("/users/{user_id}/identities/{provider}", status_code=204)
+@requires("security.manage", at=INSTANCE)
+def delete_user_identity(user_id: str, provider: str, session: DbSession) -> Response:
+    """Undo a link: remove the person's identity at a provider, their memberships in its groups and
+    the sessions it started. The next sign-in with that provider makes a new person."""
+    links.unlink(session, user_id, provider)
+    return Response(status_code=204)
+
+
+@router.delete("/users/{user_id}/second-factor", status_code=204)
+@requires("security.manage", at=INSTANCE)
+def delete_user_second_factor(user_id: str, session: DbSession) -> Response:
+    """Remove a person's second factor and recovery codes, for someone who lost the phone and the
+    codes (D387); a security event records it, and they set one up again at their next sign-in
+    when the instance requires it. ``404 SECOND_FACTOR_NOT_FOUND`` when they have none."""
+    second_factor.remove_for(session, load_user(session, user_id))
+    return Response(status_code=204)
 
 
 @router.delete("/users/{user_id}/sessions", status_code=204)
@@ -292,11 +524,6 @@ def list_security_events(
     )
 
 
-def _redirect_uri(request: Request):
-    settings = request.app.state.identity_settings
-    return lambda key: providers.redirect_uri(settings, key)
-
-
 @router.get("/sign-in-providers", response_model=SignInProviderPage)
 @requires("security.manage", at=INSTANCE)
 def list_sign_in_providers(
@@ -309,7 +536,7 @@ def list_sign_in_providers(
     return present.sign_in_provider_page(
         session,
         providers.provider_page(session, page=paging, page_size=page_size),
-        _redirect_uri(request),
+        request.app.state.identity_settings,
     )
 
 
@@ -323,9 +550,7 @@ def post_sign_in_provider(
     (``422 SIGN_IN_PROVIDER_UNREACHABLE`` with the reason). The key is fixed
     (``409 SIGN_IN_PROVIDER_KEY_TAKEN``); register ``redirectUri`` with the provider."""
     provider = providers.create_provider(session, request.app.state.identity_settings, payload)
-    return present.sign_in_provider_response(
-        session, provider, _redirect_uri(request)(provider.key)
-    )
+    return present.sign_in_provider_response(session, provider, request.app.state.identity_settings)
 
 
 @router.get("/sign-in-providers/local", response_model=LocalSignInResponse)
@@ -338,9 +563,12 @@ def get_local_sign_in(session: DbSession) -> LocalSignInResponse:
 @router.patch("/sign-in-providers/local", response_model=LocalSignInResponse)
 @requires("security.manage", at=INSTANCE)
 def patch_local_sign_in(payload: LocalSignInUpdate, session: DbSession) -> LocalSignInResponse:
-    """Turn local sign-in off or on. Off only once an enabled provider has signed someone in
-    (``409 NO_WORKING_PROVIDER``); then only the people who keep it (made on the server by
-    ``create_admin``) sign in with a password, and clients are not affected (D365)."""
+    """Turn local sign-in off or on, and require a second factor with a password or not. Off only
+    once an enabled provider has signed someone in (``409 NO_WORKING_PROVIDER``); then only the
+    people who keep it (made on the server by ``create_admin``) sign in with a password, and clients
+    are not affected (D365). With ``secondFactorRequired`` a person with a password but no
+    authenticator app sets one up on the sign-in page before their session starts; a provider's
+    sign-ins are never asked (D388)."""
     return present.local_sign_in_response(session, providers.set_local(session, payload))
 
 
@@ -348,7 +576,7 @@ def patch_local_sign_in(payload: LocalSignInUpdate, session: DbSession) -> Local
 @requires("security.manage", at=INSTANCE)
 def get_sign_in_provider(key: str, request: Request, session: DbSession) -> SignInProviderResponse:
     return present.sign_in_provider_response(
-        session, providers.load_provider(session, key), _redirect_uri(request)(key)
+        session, providers.load_provider(session, key), request.app.state.identity_settings
     )
 
 
@@ -360,10 +588,8 @@ def patch_sign_in_provider(
     """Change a provider's settings; a new ``clientSecret`` replaces the saved one. Enabling it, or
     changing an enabled one's issuer, reads it first. Disabling it ends the sessions it started
     (D367)."""
-    provider = providers.update_provider(
-        session, request.app.state.identity_settings, key, payload
-    )
-    return present.sign_in_provider_response(session, provider, _redirect_uri(request)(key))
+    provider = providers.update_provider(session, request.app.state.identity_settings, key, payload)
+    return present.sign_in_provider_response(session, provider, request.app.state.identity_settings)
 
 
 @router.delete("/sign-in-providers/{key}", status_code=204)

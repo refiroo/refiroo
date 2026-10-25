@@ -670,6 +670,11 @@ class SignInProviderCreate(BaseModel):
     clientSecret: str = Field(min_length=1, max_length=2000, description="Write-only")
     groupsClaim: str | None = Field(default=None, max_length=200)
     enabled: bool = True
+    signOutOfProvider: bool = Field(
+        default=False,
+        description="Signing out of the engine signs the person out of the provider too; needs "
+        "the provider's end_session_endpoint (0.12 I4a, D379)",
+    )
 
 
 class SignInProviderUpdate(BaseModel):
@@ -682,21 +687,119 @@ class SignInProviderUpdate(BaseModel):
     clientSecret: str | None = Field(default=None, min_length=1, max_length=2000)
     groupsClaim: str | None = Field(default=None, max_length=200)
     enabled: bool | None = None
+    signOutOfProvider: bool | None = None
 
 
-class LocalSignInUpdate(BaseModel):
-    """Local sign-in on or off (D365)."""
+class IdentityLink(BaseModel):
+    """Move the provider identities of the person ``fromUserId`` onto this person (0.12 I4a, D377,
+    D378); ``expectedVersion`` is this person's."""
 
     model_config = ConfigDict(extra="forbid")
 
     expectedVersion: int = Field(ge=1)
-    enabled: bool
+    fromUserId: str = Field(min_length=1, max_length=36)
+
+
+class LocalSignInUpdate(BaseModel):
+    """Local sign-in on or off (D365), and whether a password needs a second factor (0.12 I4b,
+    D388)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    enabled: bool | None = None
+    secondFactorRequired: bool | None = None
+
+
+class PasskeyRegistration(BaseModel):
+    """What the engine's Add a passkey page posts: the ceremony's token, the credential the browser
+    created and the name the person gave it (0.12 I4c)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ceremony: str = Field(min_length=1, max_length=128)
+    credential: dict[str, Any]
+    name: str | None = Field(default=None, max_length=100)
+
+
+class PasskeyAuthenticationStart(BaseModel):
+    """What the sign-in page's script posts to start a passkey sign-in: a password step's token, or
+    the browser's authorization request for a passkey alone (0.12 I4c)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    step: str | None = Field(default=None, max_length=128)
+    response_type: str | None = Field(default=None, max_length=64)
+    client_id: str | None = Field(default=None, max_length=64)
+    redirect_uri: str | None = Field(default=None, max_length=2000)
+    code_challenge: str | None = Field(default=None, max_length=128)
+    code_challenge_method: str | None = Field(default=None, max_length=16)
+    state: str | None = Field(default=None, max_length=2000)
+
+    def request_fields(self) -> dict[str, str | None]:
+        return self.model_dump(exclude={"step"})
+
+
+class PasskeyAuthentication(BaseModel):
+    """The credential the browser used, with the ceremony's token (0.12 I4c)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ceremony: str = Field(min_length=1, max_length=128)
+    credential: dict[str, Any]
+
+
+class PasskeyRename(BaseModel):
+    """A passkey's name, as the person tells their passkeys apart (0.12 I4c, D394)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=100)
+
+
+class PasskeyRemoval(BaseModel):
+    """What proves it is the person before one of their passkeys is removed: their password, or a
+    code from the authenticator app or a recovery code. Omitted only by a person with neither."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    proof: str | None = Field(default=None, max_length=1024)
+
+
+class SecondFactorCode(BaseModel):
+    """A code from the authenticator app, or a recovery code (0.12 I4b)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(min_length=1, max_length=40)
 
 
 class GroupMemberAdd(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     userId: str
+
+
+class GroupMembersAdd(BaseModel):
+    """Several people added to a group at once (0.12 SP1b, D401): by their IDs, or by usernames or
+    e-mail addresses as pasted, in any case; ``dryRun`` answers what would happen and changes
+    nothing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    userIds: list[str] = Field(default_factory=list, max_length=500)
+    identifiers: list[Annotated[str, Field(max_length=320)]] = Field(
+        default_factory=list, max_length=500
+    )
+    dryRun: bool = False
+
+
+class GroupMembersRemove(BaseModel):
+    """Several people taken out of a group at once (0.12 SP1b, D402)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    userIds: list[str] = Field(min_length=1, max_length=500)
 
 
 class GrantPrincipal(BaseModel):

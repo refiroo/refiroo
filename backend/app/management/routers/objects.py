@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Query, Request, Response, status
 from sqlalchemy.orm import Session
@@ -848,7 +848,19 @@ def get_object_history(
     paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
     change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    kind: Literal["values", "relationships", "structure"] | None = Query(
+        default=None,
+        description="Only one kind of change: values, relationships, or structure (a parent or "
+        "type change) (0.12 RH1, D391)",
+    ),
+    actor_id: str | None = Query(
+        default=None,
+        alias="actorId",
+        description="Only the changes of one person or client, by ID, or `engine` (0.12 RH1)",
+    ),
 ) -> AuditEventPage:
+    """A record's history, newest first: each entry with its kind, the values it changed with
+    the value before, and a relationship's other record (0.12 RH1, D389–D392)."""
     if change_set_id:
         snapshot = resolve_change_set_snapshot(session, change_set_id)
         get_object_type(snapshot.model, object_type_key)
@@ -863,8 +875,12 @@ def get_object_history(
             workspace_key=context.workspace_key,
             page=paging,
             page_size=page_size,
+            kind=kind,
+            actor_id=actor_id,
         )
-        return audit_event_page(session, events, history_origin(session, item.object_id, events.items))
+        return audit_event_page(
+            session, events, history_origin(session, item.object_id, events.items), item.object_id
+        )
     snapshot = resolve_record_snapshot(session, object_id)
     get_object_type(snapshot.model, object_type_key)
     item = load_object(session, object_id, object_type_key)
@@ -875,5 +891,9 @@ def get_object_history(
         workspace_key=item.workspace_key,
         page=paging,
         page_size=page_size,
+        kind=kind,
+        actor_id=actor_id,
     )
-    return audit_event_page(session, events, history_origin(session, item.id, events.items))
+    return audit_event_page(
+        session, events, history_origin(session, item.id, events.items), item.id
+    )

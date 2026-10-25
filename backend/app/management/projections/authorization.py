@@ -24,8 +24,10 @@ from ..schemas.authorization import (
     GrantResponse,
     GrantRoleResponse,
     GrantScopeResponse,
+    GroupMemberOutcome,
     GroupMemberPage,
     GroupMemberResponse,
+    GroupMembersResult,
     GroupPage,
     GroupResponse,
     GroupSourceResponse,
@@ -122,6 +124,21 @@ def member_response(user: User, seen_at: datetime | None = None) -> GroupMemberR
         name=user.name,
         active=user.active,
         seenAt=seen_at,
+    )
+
+
+def members_result(outcomes: list[administration.MemberOutcome]) -> GroupMembersResult:
+    """Each input's outcome of several people added or removed (0.12 SP1b)."""
+    return GroupMembersResult(
+        items=[
+            GroupMemberOutcome(
+                input=item.input,
+                outcome=item.outcome,
+                member=member_response(item.user) if item.user is not None else None,
+            )
+            for item in outcomes
+        ],
+        changed=sum(item.outcome in ("added", "removed") for item in outcomes),
     )
 
 

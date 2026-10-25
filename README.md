@@ -88,23 +88,29 @@ brew install postgresql@17
 scripts/postgres.sh start     # prints DATABASE_URL
 ```
 
-Backend (Python 3.14):
+Backend (Python 3.14) and frontend (Node 22), installed once:
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
-export DATABASE_URL=postgresql+psycopg://postgres@localhost:54320/rdm
-uvicorn app.main:app --reload
+(cd backend && python3.14 -m venv .venv && .venv/bin/pip install -e '.[dev]')
+(cd frontend && npm install)
+scripts/dev.sh settings                        # .dev/settings.env: the database and a new secrets key
+scripts/dev.sh admin admin "Your Name"         # the first administrator; asks for a password
 ```
 
-Frontend (Node 22):
+Then the engine and the frontend, each in its own terminal, and open http://localhost:5173:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+scripts/dev.sh engine
+scripts/dev.sh frontend
+```
+
+From a phone or another computer on the same network, over https (a browser signs in only on a
+secure page), after `scripts/dev.sh cert` once ([mkcert](https://github.com/FiloSottile/mkcert)
+needed; the command says how a phone trusts the certificate):
+
+```bash
+scripts/dev.sh engine --network
+scripts/dev.sh frontend --network               # prints the address to open, on every device
 ```
 
 Settings, capability flags, upgrades and backups are in [OPERATIONS.md](docs/OPERATIONS.md). How to

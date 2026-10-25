@@ -234,24 +234,30 @@ function WorkspaceCard({
     : undefined;
   const open = workspace.openChangeSets;
   const anything = workspace.ownChangeSets > 0 || (open ?? 0) > 0;
+  // The workspace itself: its start, the first application's default view (D339).
+  const workspacePath = `/?workspaceKey=${encodeURIComponent(workspace.key)}`;
+  const openWorkspace = () =>
+    openIn(workspace.key, workspacePath, onNavigate, (model) =>
+      model.applications.length ? defaultRoute(model, workspace.key) : undefined,
+    );
   return (
     <li className="account-panel home-card">
       <div className="home-card-head">
-        <span className="home-tile" data-hue={workspaceHue(workspace.key)} aria-hidden="true">
+        {/* The tile opens the workspace too (0.12 HM1a); the name's link is the one keyboard and
+            screen reader users meet, so the tile is out of the tab order and hidden from them. */}
+        <RouteLink
+          className="home-tile"
+          data-hue={workspaceHue(workspace.key)}
+          aria-hidden="true"
+          tabIndex={-1}
+          href={workspacePath}
+          onNavigate={openWorkspace}
+        >
           {tileLetters(workspace.label)}
-        </span>
+        </RouteLink>
         <div className="home-card-title">
           <h3>
-            {/* The workspace itself: its start, the first application's default view (D339). */}
-            <RouteLink
-              className="home-card-link"
-              href={`/?workspaceKey=${encodeURIComponent(workspace.key)}`}
-              onNavigate={() =>
-                openIn(workspace.key, `/?workspaceKey=${encodeURIComponent(workspace.key)}`, onNavigate, (model) =>
-                  model.applications.length ? defaultRoute(model, workspace.key) : undefined,
-                )
-              }
-            >
+            <RouteLink className="home-card-link" href={workspacePath} onNavigate={openWorkspace}>
               {workspace.label}
             </RouteLink>
             {workspace.isDefault && <span className="account-pill">Default</span>}

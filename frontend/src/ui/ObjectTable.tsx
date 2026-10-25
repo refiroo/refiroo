@@ -5,12 +5,18 @@
  * a `selection`, a leading checkbox column selects records for a bulk action (0.9 K1). Given
  * `renderCell`, each cell's content passes through it, which edits cells in place
  * (`features/objects/useCellEditing`, 0.10 A9).
+ *
+ * What it gives the rows changes only with what they show (0.12 LS1, D373): the columns with the
+ * shown fields, the current record and `renderCell`; the checkboxes with the selection; the actions
+ * with `renderActions` and the open menu. The handlers are read through a ref, so a caller drawn
+ * again with new handlers draws no row, and a page arriving in the background draws only its own.
+ * Its cells keep to one line once the columns are laid out (`DataTable`'s `oneLine`, D375).
  */
 
-import { useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import type { EngineModel, ObjectItem } from "@/types";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
-import { DataTable } from "@/ui/DataTable";
+import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { FieldValue } from "@/ui/FieldValue";
 import { SelectionCheckbox } from "@/ui/SelectionCheckbox";
 import { attributeName } from "@/model/fields";
@@ -49,6 +55,7 @@ export function ObjectTable({
   columnWidths = {},
   onColumnWidths,
   renderCell,
+  fill = false,
 }: {
   compact?: boolean;
   identityColumn?: string;
@@ -81,12 +88,19 @@ export function ObjectTable({
   onColumnWidths?: (widths: Record<string, number>) => void;
   /** Wraps a cell's content, given its row and column: the cell's in-place editing (A9). */
   renderCell?: (item: ObjectItem, column: string, shown: ReactNode) => ReactNode;
+  /** The table fills its page, which does not scroll (0.12 LS1, D371). */
+  fill?: boolean;
 }) {
   const [menuId, setMenuId] = useState<string>();
   const identity = identityColumn ?? (columns.includes("name") ? "name" : columns.includes("id") ? "id" : columns[0]);
-  return (
-    <DataTable<ObjectItem>
-      columns={columns.map((column) => ({
+  const handlers = useRef({ onOpen, selection });
+  useLayoutEffect(() => {
+    handlers.current = { onOpen, selection };
+  });
+  const columnsKey = columns.join("\n");
+  const tableColumns = useMemo<DataColumn<ObjectItem>[]>(
+    () =>
+      (columnsKey ? columnsKey.split("\n") : []).map((column) => ({
         key: column,
         label: attributeName(model, column),
         cell: (item) => {
@@ -97,7 +111,7 @@ export function ObjectTable({
                 data-record-id={item.id}
                 data-row-focus
                 aria-current={selectedId === item.id ? "true" : undefined}
-                onClick={() => onOpen(item)}
+                onClick={() => handlers.current.onOpen(item)}
               >
                 <FieldValue item={item} field={column} model={model} />
               </button>
@@ -106,69 +120,92 @@ export function ObjectTable({
             );
           return renderCell ? renderCell(item, column, shown) : shown;
         },
-      }))}
-      identityColumn={identity}
-      list={list}
-      rowKey={(item) => item.id}
-      rowHue={(item) => objectTypeHue(model, item.objectTypeKey)}
-      rowAttributes={(item) => ({
-        className: `clickable-row${selectedId === item.id ? " selected-record" : ""}${
-          selection?.isSelected(item.id) ? " checked-row" : ""
-        }`,
-        onClick: (event) => {
-          // The identity button is the keyboard path; the row is a larger pointer target.
-          const target = event.target as HTMLElement;
-          // A cell's open editor is a form; a click in it is the editor's.
-          if (target.closest("button, a, input, select, textarea, form, [role='menu']")) return;
-          if (window.getSelection()?.toString()) return;
-          onOpen(item);
-        },
-        ...(renderActions
-          ? {
-              onContextMenu: (event) => {
+      })),
+    [columnsKey, model, identity, selectedId, renderCell],
+  );
+  const rowHue = useCallback((item: ObjectItem) => objectTypeHue(model, item.objectTypeKey), [model]);
+  const isSelected = selection?.isSelected;
+  const hasActions = Boolean(renderActions);
+  const rowAttributes = useCallback(
+    (item: ObjectItem): HTMLAttributes<HTMLTableRowElement> => ({
+      className: `clickable-row${selectedId === item.id ? " selected-record" : ""}${
+        isSelected?.(item.id) ? " checked-row" : ""
+      }`,
+      onClick: (event) => {
+        // The identity button is the keyboard path; the row is a larger pointer target.
+        const target = event.target as HTMLElement;
+        // A cell's open editor is a form; a click in it is the editor's.
+        if (target.closest("button, a, input, select, textarea, form, [role='menu']")) return;
+        if (window.getSelection()?.toString()) return;
+        handlers.current.onOpen(item);
+      },
+      ...(hasActions
+        ? {
+            onContextMenu: (event) => {
+              event.preventDefault();
+              setMenuId(item.id);
+            },
+            onKeyDown: (event) => {
+              if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
                 event.preventDefault();
                 setMenuId(item.id);
-              },
-              onKeyDown: (event) => {
-                if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
-                  event.preventDefault();
-                  setMenuId(item.id);
-                }
-              },
-            }
-          : {}),
-      })}
-      selection={
-        selection && {
-          width: 44,
-          header: (
-            <SelectionCheckbox
-              label={`Select the ${noun[1]} shown`}
-              state={selection.loaded}
-              onSelect={() => selection.onToggleLoaded()}
-            />
-          ),
-          cell: (item) => (
-            <SelectionCheckbox
-              label={`Select ${item.name}`}
-              state={selection.isSelected(item.id) ? "all" : "none"}
-              onSelect={(extend) => selection.onToggle(item, extend)}
-              gridColumn="selection"
-            />
-          ),
-        }
-      }
-      actions={
-        renderActions && {
-          header: <span className="visually-hidden">Record actions</span>,
-          width: 48,
-          cell: (item) =>
-            renderActions(item, {
-              isOpen: menuId === item.id,
-              onOpenChange: (open) => setMenuId(open ? item.id : undefined),
-            }),
-        }
-      }
+              }
+            },
+          }
+        : {}),
+    }),
+    [selectedId, isSelected, hasActions],
+  );
+  const selectable = Boolean(selection);
+  const loaded = selection?.loaded;
+  const plural = noun[1];
+  const checkboxes = useMemo(
+    () =>
+      selectable
+        ? {
+            width: 44,
+            header: (
+              <SelectionCheckbox
+                label={`Select the ${plural} shown`}
+                state={loaded ?? "none"}
+                onSelect={() => handlers.current.selection?.onToggleLoaded()}
+              />
+            ),
+            cell: (item: ObjectItem) => (
+              <SelectionCheckbox
+                label={`Select ${item.name}`}
+                state={isSelected?.(item.id) ? "all" : "none"}
+                onSelect={(extend) => handlers.current.selection?.onToggle(item, extend)}
+                gridColumn="selection"
+              />
+            ),
+          }
+        : undefined,
+    [selectable, loaded, isSelected, plural],
+  );
+  const actions = useMemo(
+    () =>
+      renderActions && {
+        header: <span className="visually-hidden">Record actions</span>,
+        width: 48,
+        cell: (item: ObjectItem) =>
+          renderActions(item, {
+            isOpen: menuId === item.id,
+            onOpenChange: (open) => setMenuId(open ? item.id : undefined),
+          }),
+      },
+    [renderActions, menuId],
+  );
+  return (
+    <DataTable<ObjectItem>
+      columns={tableColumns}
+      identityColumn={identity}
+      list={list}
+      rowKey={rowKey}
+      rowHue={rowHue}
+      rowAttributes={rowAttributes}
+      selection={checkboxes}
+      actions={actions}
       sorting={sorting}
       columnWidths={columnWidths}
       onColumnWidths={onColumnWidths}
@@ -181,6 +218,10 @@ export function ObjectTable({
       emptyMessage={emptyMessage}
       emptyIcon={emptyIcon}
       emptyAction={emptyAction}
+      oneLine
+      fill={fill}
     />
   );
 }
+
+const rowKey = (item: ObjectItem) => item.id;

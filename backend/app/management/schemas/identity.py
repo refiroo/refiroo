@@ -81,6 +81,29 @@ class UserIdentityResponse(BaseModel):
     subject: str
 
 
+class SecondFactorSummary(BaseModel):
+    """A person's authenticator app, as an administrator reads it (0.12 I4b)."""
+
+    method: Literal["authenticator-app"]
+    confirmedAt: datetime
+    recoveryCodesLeft: int
+
+
+class PasskeyResponse(BaseModel):
+    """A passkey by the name its person gave it; never the credential (0.12 I4c, D394)."""
+
+    id: str
+    name: str
+    createdAt: datetime
+    lastUsedAt: datetime | None = Field(
+        description="When it last signed the person in; null if never"
+    )
+
+
+class PasskeyPage(CollectionPage[PasskeyResponse]):
+    """A person's passkeys in the order they were made (ADR-030)."""
+
+
 class UserResponse(BaseModel):
     id: str
     username: str
@@ -104,6 +127,11 @@ class UserResponse(BaseModel):
         description="Signs in with a password while local sign-in is off: an administrator made "
         "on the server (D365)"
     )
+    secondFactor: SecondFactorSummary | None = Field(
+        description="The authenticator app they sign in with after their password; null without "
+        "one (0.12 I4b, D383)"
+    )
+    passkeys: int = Field(description="How many passkeys they have (0.12 I4c, D389)")
 
 
 class UserPage(CollectionPage[UserResponse]):
@@ -218,7 +246,13 @@ class SignInProviderResponse(BaseModel):
         description="The ID token claim holding the person's groups; null: groups are not used"
     )
     enabled: bool
+    signOutOfProvider: bool = Field(
+        description="Signing out of the engine signs the person out of the provider too (I4a)"
+    )
     redirectUri: str = Field(description="The address to register with the provider")
+    signedOutUri: str = Field(
+        description="The address to register for returning from the provider's sign-out (I4a)"
+    )
     people: int = Field(description="How many people have signed in with it")
     lastSignInAt: datetime | None
     version: int
@@ -230,11 +264,42 @@ class SignInProviderPage(CollectionPage[SignInProviderResponse]):
     """Sign-in providers in the order they were created (ADR-030)."""
 
 
+class MySecondFactorResponse(BaseModel):
+    """The caller's second factor (0.12 I4b)."""
+
+    enabled: bool = Field(description="An authenticator app is set up and confirmed")
+    confirmedAt: datetime | None
+    recoveryCodesLeft: int
+    passkeys: int = Field(description="How many passkeys the caller has (0.12 I4c)")
+    required: bool = Field(
+        description="The instance requires a second factor with a password: the last one cannot "
+        "be removed"
+    )
+
+
+class SecondFactorEnrolment(BaseModel):
+    """What the caller needs to set an authenticator app up, answered once (D386)."""
+
+    secret: str = Field(description="The key to type into the app, base32")
+    otpauthUri: str = Field(description="The address a QR code carries (the Key URI Format)")
+    qrSvg: str = Field(description="The QR code as an inline SVG, ready to show")
+
+
+class RecoveryCodesResponse(BaseModel):
+    """Ten one-time recovery codes, answered once (D385)."""
+
+    recoveryCodes: list[str]
+
+
 class LocalSignInResponse(BaseModel):
     """Whether people sign in with a password (D365)."""
 
     enabled: bool = Field(
         description="False: only the people who keep local sign-in use a password"
+    )
+    secondFactorRequired: bool = Field(
+        description="A password alone does not sign anyone in: they set up an authenticator app on "
+        "the sign-in page when they have none (0.12 I4b, D388)"
     )
     keptPeople: int = Field(
         description="Active people who keep local sign-in while it is off (made on the server)"

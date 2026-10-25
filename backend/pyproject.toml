@@ -13,6 +13,8 @@ dependencies = [
   "sqlalchemy>=2.0,<3",
   "psycopg[binary]>=3.2,<4",
   "pyjwt>=2.10,<3",
+  "webauthn>=2.7,<3",
+  "segno>=1.6,<2",
   "uvicorn[standard]>=0.34,<1",
 ]
 
@@ -39,6 +41,7 @@ include = ["app*"]
 [tool.setuptools.package-data]
 "app.migrations" = ["script.py.mako"]
 "app.management.reference" = ["scalar/standalone.js", "scalar/LICENSE"]
+"app.management" = ["passkey.js"]
 
 [tool.ruff]
 line-length = 100

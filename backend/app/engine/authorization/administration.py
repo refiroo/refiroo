@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Select, delete, exists, func, or_, select, union_all
+from sqlalchemy import Select, delete, exists, func, insert, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -507,6 +507,152 @@ def remove_member(session: Session, public_id: str, user_id: str) -> None:
         )  # fmt: skip
 
     _changing(session, change, guard=True)
+
+
+@dataclass(frozen=True)
+class MemberOutcome:
+    """One input of several people added or removed: what it did, and whom it names."""
+
+    input: str
+    outcome: str
+    user: User | None
+
+
+def _inputs(values: list[str]) -> list[str]:
+    """The inputs as sent, trimmed, each once, in order."""
+    return list(dict.fromkeys(value.strip() for value in values if value.strip()))
+
+
+def _people(session: Session, user_ids: list[str], identifiers: list[str]) -> dict[str, User]:
+    """Who each input names, read in one query: an ID exactly, a username or an e-mail address
+    in any case (0.12 SP1b, D401)."""
+    lowered = {value.lower() for value in identifiers}
+    if not user_ids and not lowered:
+        return {}
+    users = session.scalars(
+        select(User).where(
+            or_(
+                User.public_id.in_(user_ids),
+                func.lower(User.username).in_(lowered),
+                func.lower(User.email).in_(lowered),
+            )
+        )
+    ).all()
+    by_id = {user.public_id: user for user in users}
+    by_name = {user.username.lower(): user for user in users}
+    by_email = {user.email.lower(): user for user in users if user.email}
+    found = {value: by_id[value] for value in user_ids if value in by_id}
+    for value in identifiers:
+        user = by_name.get(value.lower()) or by_email.get(value.lower())
+        if user is not None:
+            found[value] = user
+    return found
+
+
+def add_members(
+    session: Session,
+    public_id: str,
+    *,
+    user_ids: list[str],
+    identifiers: list[str],
+    dry_run: bool,
+) -> list[MemberOutcome]:
+    """Add several people to a group in one transaction (0.12 SP1b, D401): those already in it,
+    deactivated or named by nobody are answered and left out, the rest added, each with its
+    security event. ``dry_run`` answers the same and changes nothing."""
+
+    def change() -> list[MemberOutcome]:
+        group = load_group(session, public_id, for_update=not dry_run)
+        _managed_by_provider(group)
+        ids, names = _inputs(user_ids), _inputs(identifiers)
+        found = _people(session, ids, names)
+        members = set(
+            session.scalars(
+                select(UserGroupMember.user_id).where(
+                    UserGroupMember.group_id == group.id,
+                    UserGroupMember.user_id.in_([user.id for user in found.values()]),
+                )
+            )
+        )
+        adding: dict[int, User] = {}
+        outcomes = []
+        for value in [*ids, *names]:
+            user = found.get(value)
+            if user is None:
+                outcome = "notFound"
+            elif user.id in members:
+                outcome = "alreadyMember"
+            elif not user.active:
+                outcome = "deactivated"
+            else:
+                adding[user.id] = user
+                outcome = "toAdd" if dry_run else "added"
+            outcomes.append(MemberOutcome(value, outcome, user))
+        if adding and not dry_run:
+            session.execute(
+                insert(UserGroupMember),
+                [{"group_id": group.id, "user_id": user_id} for user_id in adding],
+            )
+            for user in adding.values():
+                security_events.record(
+                    session, "group", group.public_id, "member-added",
+                    about=[group.public_id, user.public_id],
+                    details={"groupName": group.name, "userId": user.public_id},
+                )  # fmt: skip
+        return outcomes
+
+    if dry_run:
+        try:
+            return change()
+        finally:
+            session.rollback()
+    return _changing(session, change)
+
+
+def remove_members(session: Session, public_id: str, user_ids: list[str]) -> list[MemberOutcome]:
+    """Take several people out of a group in one transaction (0.12 SP1b, D402); refused whole
+    where it leaves no Security administrator (D283)."""
+
+    def change() -> list[MemberOutcome]:
+        group = load_group(session, public_id, for_update=True)
+        _managed_by_provider(group)
+        ids = _inputs(user_ids)
+        found = _people(session, ids, [])
+        members = set(
+            session.scalars(
+                select(UserGroupMember.user_id).where(
+                    UserGroupMember.group_id == group.id,
+                    UserGroupMember.user_id.in_([user.id for user in found.values()]),
+                )
+            )
+        )
+        removing = {user.id: user for user in found.values() if user.id in members}
+        if removing:
+            session.execute(
+                delete(UserGroupMember).where(
+                    UserGroupMember.group_id == group.id, UserGroupMember.user_id.in_(removing)
+                )
+            )
+            for user in removing.values():
+                security_events.record(
+                    session, "group", group.public_id, "member-removed",
+                    about=[group.public_id, user.public_id],
+                    details={"groupName": group.name, "userId": user.public_id},
+                )  # fmt: skip
+        return [
+            MemberOutcome(
+                value,
+                "notFound"
+                if found.get(value) is None
+                else "removed"
+                if found[value].id in removing
+                else "notMember",
+                found.get(value),
+            )
+            for value in ids
+        ]
+
+    return _changing(session, change, guard=True)
 
 
 # --- grants ---------------------------------------------------------------------------------------

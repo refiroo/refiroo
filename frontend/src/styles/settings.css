@@ -2411,3 +2411,70 @@ tr.openable-row:hover > * {
 .security-settings-form .dialog-pair {
   row-gap: var(--space-3);
 }
+/* ui/Switch: a setting that takes effect when flipped (0.12 I4a). */
+.switch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border-control);
+  border-radius: 999px;
+  background: var(--surface-fill);
+  cursor: pointer;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transition: transform 120ms ease;
+}
+.switch[aria-checked="true"] {
+  border-color: var(--action-primary);
+  background: var(--state-selected);
+}
+.switch[aria-checked="true"]::after {
+  background: var(--action-primary);
+  transform: translateX(16px);
+}
+.switch:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+/* Settings › Account › Second factor (0.12 I4b). */
+.account-second-factor {
+  align-items: flex-start;
+}
+.second-factor-setup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: flex-start;
+}
+.second-factor-qr {
+  flex: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: #fff;
+}
+.second-factor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.second-factor-codes {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  gap: var(--space-2) var(--space-6);
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  list-style: none;
+}

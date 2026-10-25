@@ -13,6 +13,7 @@ libraries parse (D250); the pages explain theirs on the page.
 import base64
 import binascii
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 from urllib.parse import unquote, urlencode, urlsplit
 
@@ -23,22 +24,31 @@ from sqlalchemy.orm import Session
 
 from ...engine.identity import (
     keys,
+    passkeys,
     provider_sign_in,
     providers,
     resets,
+    second_factor,
     sessions,
     sign_in,
     tokens,
 )
 from ...engine.identity.clients import authenticate_client
 from ...engine.identity.settings import IdentitySettings
-from ...engine.model.registry import resolve_model_snapshot
 from ...errors import ApiError
-from ...models.database import SignInProvider
+from ...models.commands import (
+    PasskeyAuthentication,
+    PasskeyAuthenticationStart,
+    PasskeyRegistration,
+)
+from ...models.database import SignInProvider, User
 from .. import sign_in_pages as pages
 from ..dependencies import DbSession, started
 
 router = APIRouter(tags=["oauth"])
+
+# The engine's one script (I4c, D390), served at /oauth/passkey.js.
+PASSKEY_SCRIPT = Path(__file__).resolve().parent.parent / "passkey.js"
 
 GRANT_TYPES = ["authorization_code", "refresh_token", "client_credentials"]
 AUTH_METHODS = ["client_secret_basic", "client_secret_post", "none"]
@@ -49,6 +59,8 @@ _COOKIE_PATH = "/oauth"
 # redirect back is a navigation from another site.
 PROVIDER_COOKIE = "oauth_provider"
 _PROVIDER_PATH = "/oauth/providers"
+# Where signing out of a provider returns the browser to once the provider sends it back (I4a).
+SIGNED_OUT_COOKIE = "oauth_signed_out"
 # Token responses are never cached (RFC 6749 §5.1).
 _NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache"}
 # The fields of an authorization request the sign-in form carries back.
@@ -112,10 +124,7 @@ def json_web_keys(session: DbSession) -> dict[str, object]:
 
 def _product(session: Session) -> str:
     """The name the pages carry: the default workspace's product, as the app's top bar shows it."""
-    try:
-        return resolve_model_snapshot(session, None).model.product.name
-    except ApiError:
-        return "Sign in"
+    return second_factor.product_name(session, "Sign in")
 
 
 def _origins(settings: IdentitySettings) -> tuple[str, ...]:
@@ -198,7 +207,10 @@ def authorize_page(
         ended=session_ended == "ended",
         providers=_buttons(session, checked),
         local=local_on,
-        local_link=None if local_on or local == "1" else _query("/oauth/authorize", checked, local="1"),
+        local_link=None
+        if local_on or local == "1"
+        else _query("/oauth/authorize", checked, local="1"),
+        passkey=passkeys.any_exist(session),
     )
 
 
@@ -272,7 +284,7 @@ def authorize_form(
     now = datetime.now(UTC)
     local_on = providers.local_enabled(session)
     outcome = sign_in.check_password(
-        session, username, password, _address(request), now, kept_only=not local_on
+        session, username, password, _address(request), now, kept_only=not local_on, finish=False
     )
     if isinstance(outcome, sign_in.Refused):
         slowed = outcome.reason == "slowed"
@@ -287,16 +299,156 @@ def authorize_form(
             status=429 if slowed else 401,
             providers=_buttons(session, checked),
             local=local_on,
+            passkey=passkeys.any_exist(session),
         )
+    stage = second_factor.required_step(session, outcome)
+    if stage is None:
+        sign_in.complete(session, outcome, username, _address(request))
+        session.commit()
+        return _issue(session, checked, outcome, now)
+    token = second_factor.open_step(session, outcome, checked, stage, now)
+    return _factor_page(
+        session,
+        settings,
+        checked,
+        outcome,
+        token,
+        stage,
+        now=now,
+        product=_product(session),
+        fresh=True,
+    )
+
+
+def _issue(session: Session, checked: dict[str, str], user: User, now: datetime) -> Response:
+    """The browser's one-time code for a sign-in with a password that is whole."""
     code = sign_in.issue_code(
         session,
-        outcome,
+        user,
         redirect_uri=checked["redirect_uri"],
         code_challenge=checked["code_challenge"],
         signed_in_with="password",
         now=now,
     )
     return _redirect(checked["redirect_uri"], code=code, state=checked.get("state"))
+
+
+def _factor_page(
+    session: Session,
+    settings: IdentitySettings,
+    checked: dict[str, str],
+    user: User,
+    token: str,
+    stage: str,
+    *,
+    now: datetime,
+    product: str,
+    recovery: bool = False,
+    wrong: bool = False,
+    wait_seconds: int = 0,
+    fresh: bool = False,
+) -> Response:
+    """The page of a sign-in's second step: the code, or the set-up that the requirement asks of a
+    person without a second factor (I4b, D388)."""
+    status = 429 if wait_seconds else 401 if wrong else 200
+    common = {"issuer": settings.issuer, "redirect_origins": _origins(settings)}
+    if stage == "setup":
+        made = second_factor.begin(session, settings, user, product, now, restart=fresh)
+        return pages.second_factor_setup(
+            product, token, secret=made.secret, svg=made.svg, wrong=wrong,
+            wait_seconds=wait_seconds, status=status, **common,
+        )  # fmt: skip
+    return pages.second_factor_code(
+        product, token, user.username, start_again=_query("/oauth/authorize", checked),
+        recovery=recovery, wrong=wrong, wait_seconds=wait_seconds, status=status,
+        app=second_factor.summary(session, user) is not None,
+        passkey=passkeys.has_any(session, user), **common,
+    )  # fmt: skip
+
+
+@router.post("/oauth/second-factor", dependencies=_STARTED, include_in_schema=False)
+def second_factor_form(
+    request: Request,
+    session: DbSession,
+    step: Annotated[str, Form(max_length=128)] = "",
+    code: Annotated[str, Form(max_length=64)] = "",
+    recovery: Annotated[str, Form(max_length=64)] = "",
+    view: Annotated[str | None, Form(max_length=16)] = None,
+    carry_on: Annotated[str | None, Form(alias="continue", max_length=8)] = None,
+) -> Response:
+    """The second step of a sign-in with a password (I4b, D388): the code from the authenticator
+    app or a recovery code; or, when the instance requires a second factor and the person has none,
+    the set-up (a code to confirm, then the recovery codes before **Continue**). A wrong code is
+    counted like a wrong password (D271). The step's token, from the password page, is the only
+    state; it lasts five minutes and is used once."""
+    settings = _settings(request)
+    product = _product(session)
+    origins = _origins(settings)
+    if _foreign(request, settings):
+        return pages.problem(
+            product,
+            "This sign-in was sent from another site. Open the application and sign in there.",
+            issuer=settings.issuer,
+            redirect_origins=origins,
+            status=403,
+        )
+    now = datetime.now(UTC)
+    loaded = second_factor.load_step(session, step, now)
+    if loaded is None:
+        return pages.problem(
+            product,
+            "This sign-in took longer than five minutes, or was already used. Open the application "
+            "and sign in again.",
+            issuer=settings.issuer,
+            redirect_origins=origins,
+            status=410,
+        )
+    row, user = loaded
+    checked = _authorization_request(session, settings, dict(row.request))
+    if isinstance(checked, Response):
+        return checked
+    address = _address(request)
+
+    def again(*, recovering: bool = False, **more: bool | int) -> Response:
+        return _factor_page(
+            session, settings, checked, user, step, row.stage, now=now, product=product,
+            recovery=recovering, **more,
+        )  # fmt: skip
+
+    def done() -> Response:
+        second_factor.finish_step(session, row, user, address, now)
+        session.commit()
+        return _issue(session, checked, user, now)
+
+    if row.stage == "codes":
+        return done()
+    typed = recovery.strip() or code.strip()
+    recovering = bool(recovery.strip()) or (view == "recovery" and not code.strip())
+    if not typed:
+        return again(recovering=recovering)
+    try:
+        if row.stage == "setup":
+            codes = second_factor.confirm(
+                session, settings, user, typed, now=now, address=address, api=False
+            )
+        else:
+            second_factor.check(
+                session, settings, user, typed, now=now, address=address,
+                kind="recovery" if recovering else "app",
+            )  # fmt: skip
+    except second_factor.CodeRefused as refused:
+        return again(
+            recovering=recovering,
+            wrong=refused.reason == "wrong",
+            wait_seconds=refused.wait_seconds,
+        )
+    if row.stage == "setup":
+        second_factor.advance(row, "codes", now)
+        session.commit()
+        return pages.recovery_codes(
+            product, step, codes, issuer=settings.issuer, redirect_origins=origins
+        )
+    return done()
 
 
 # ---------------------------------------------------------------------------------------------
@@ -405,7 +557,7 @@ def provider_callback(
         return provider
     now = datetime.now(UTC)
     try:
-        user, browser_request = provider_sign_in.finish(
+        user, browser_request, id_token = provider_sign_in.finish(
             session,
             settings,
             provider,
@@ -429,6 +581,7 @@ def provider_callback(
         code_challenge=checked["code_challenge"],
         signed_in_with=provider.key,
         now=now,
+        provider_id_token=id_token,
     )
     response = _redirect(checked["redirect_uri"], code=issued, state=checked.get("state"))
     response.delete_cookie(
@@ -436,6 +589,232 @@ def provider_callback(
         samesite="lax",
     )  # fmt: skip
     return response
+
+
+def _return_address(settings: IdentitySettings, requested: str | None) -> str:
+    """Where signing out ends: the application's address when it is one of the browser's origins,
+    else the first origin's front page (never another site, so the endpoint cannot be used to
+    redirect anywhere)."""
+    origins = _origins(settings)
+    if requested:
+        parts = urlsplit(requested)
+        if f"{parts.scheme}://{parts.netloc}" in origins:
+            return requested
+    return f"{origins[0]}/" if origins else settings.issuer
+
+
+@router.get("/oauth/sign-out", dependencies=_STARTED, include_in_schema=False)
+def sign_out(
+    request: Request,
+    session: DbSession,
+    return_to: Annotated[str | None, Query(alias="return", max_length=2000)] = None,
+) -> Response:
+    """Sign out by navigation: the session ends from the browser's cookie, which is cleared, and
+    the browser goes back to the application, or first to the provider's sign-out address when the
+    provider that started the session signs people out too (I4a, D380)."""
+    settings = _settings(request)
+    target = _return_address(settings, return_to)
+    presented = request.cookies.get(REFRESH_COOKIE)
+    provider_url = provider_sign_in.sign_out(session, settings, presented) if presented else None
+    response = RedirectResponse(provider_url or target, status_code=303, headers=_NO_STORE)
+    if provider_url:
+        response.set_cookie(
+            SIGNED_OUT_COOKIE, target, max_age=600, path=_PROVIDER_PATH,
+            secure=settings.secure_cookies, httponly=True, samesite="lax",
+        )  # fmt: skip
+    _clear_refresh_cookie(response, settings)
+    return response
+
+
+@router.get("/oauth/providers/{key}/signed-out", dependencies=_STARTED, include_in_schema=False)
+def provider_signed_out(key: str, request: Request, state: str | None = None) -> Response:
+    """Where a provider returns the browser after signing the person out: back to the application
+    sign-out started from."""
+    # The address is registered per provider and the provider echoes the ``state`` it was sent;
+    # the cookie holds where this browser goes.
+    del key, state
+    settings = _settings(request)
+    response = RedirectResponse(
+        _return_address(settings, request.cookies.get(SIGNED_OUT_COOKIE)),
+        status_code=303,
+        headers=_NO_STORE,
+    )
+    response.delete_cookie(
+        SIGNED_OUT_COOKIE, path=_PROVIDER_PATH, secure=settings.secure_cookies, httponly=True,
+        samesite="lax",
+    )  # fmt: skip
+    return response
+
+
+# ---------------------------------------------------------------------------------------------
+# Passkeys (I4c): the engine's own pages and the one script they load
+
+
+@router.get("/oauth/passkey.js", include_in_schema=False)
+def passkey_script() -> Response:
+    """The engine's one script (D390): it asks the browser for a passkey and posts the answer to the
+    endpoints below. The pages that offer a passkey allow this file and nothing else."""
+    return Response(
+        PASSKEY_SCRIPT.read_text(encoding="utf-8"),
+        media_type="text/javascript",
+        headers={"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+def _passkey_error(message: str, status: int, wait_seconds: int = 0) -> JSONResponse:
+    headers = {"Retry-After": str(wait_seconds)} if wait_seconds else None
+    return JSONResponse(
+        {"error": message}, status_code=status, headers={**_NO_STORE, **(headers or {})}
+    )
+
+
+def _cookie_user(request: Request, session: Session) -> User | None:
+    """The person whose session the browser's cookie holds, which only ``/oauth`` reads (D234)."""
+    token = request.cookies.get(REFRESH_COOKIE)
+    return sessions.user_of_refresh_token(session, token, datetime.now(UTC)) if token else None
+
+
+@router.get("/oauth/passkeys/new", dependencies=_STARTED, include_in_schema=False)
+def passkey_add_page(
+    request: Request,
+    session: DbSession,
+    return_to: Annotated[str | None, Query(alias="return", max_length=2000)] = None,
+) -> Response:
+    """Add a passkey (D392): the page asks the person's name for it and runs the browser's prompt.
+    It serves a person with a session in this browser; ``return`` is where it goes afterwards, an
+    address at one of the browser's origins."""
+    settings = _settings(request)
+    user = _cookie_user(request, session)
+    if user is None:
+        return pages.problem(
+            _product(session),
+            "Sign in to the application first, then add a passkey from Account.",
+            issuer=settings.issuer,
+            redirect_origins=_origins(settings),
+            status=401,
+        )
+    return pages.passkey_add(
+        _product(session),
+        user.username,
+        _return_address(settings, return_to),
+        issuer=settings.issuer,
+        redirect_origins=_origins(settings),
+    )
+
+
+def _ceremony_guard(request: Request, settings: IdentitySettings) -> JSONResponse | None:
+    """A passkey ceremony posted from another site is refused, as a forged sign-in is (D275)."""
+    if _foreign(request, settings):
+        return _passkey_error("This was sent from another site.", 403)
+    return None
+
+
+@router.post("/oauth/passkeys/registration/options", dependencies=_STARTED, include_in_schema=False)
+def passkey_registration_options(request: Request, session: DbSession) -> Response:
+    """The browser's options for creating a passkey of the person this browser is signed in as; the
+    answer is ``{ceremony, options}``."""
+    settings = _settings(request)
+    if refused := _ceremony_guard(request, settings):
+        return refused
+    user = _cookie_user(request, session)
+    if user is None:
+        return _passkey_error("Sign in to the application first.", 401)
+    try:
+        token, options = passkeys.begin_registration(
+            session, settings, user, _product(session), datetime.now(UTC)
+        )
+    except ApiError as failure:
+        return _passkey_error(failure.message, failure.status_code)
+    return JSONResponse({"ceremony": token, "options": options}, headers=_NO_STORE)
+
+
+@router.post("/oauth/passkeys/registration/verify", dependencies=_STARTED, include_in_schema=False)
+def passkey_registration_verify(
+    payload: PasskeyRegistration, request: Request, session: DbSession
+) -> Response:
+    """Check what the browser created and keep it as the person's passkey."""
+    settings = _settings(request)
+    if refused := _ceremony_guard(request, settings):
+        return refused
+    user = _cookie_user(request, session)
+    if user is None:
+        return _passkey_error("Sign in to the application first.", 401)
+    try:
+        passkey = passkeys.finish_registration(
+            session, settings, user, payload.ceremony, payload.credential, payload.name,
+            datetime.now(UTC),
+        )  # fmt: skip
+    except passkeys.PasskeyRefused as failure:
+        return _passkey_error(failure.message, failure.status)
+    return JSONResponse({"id": passkey.public_id, "name": passkey.name}, headers=_NO_STORE)
+
+
+@router.post(
+    "/oauth/passkeys/authentication/options", dependencies=_STARTED, include_in_schema=False
+)
+def passkey_authentication_options(
+    payload: PasskeyAuthenticationStart, request: Request, session: DbSession
+) -> Response:
+    """The browser's options for signing in with a passkey: for the second step of a password
+    sign-in (``step``, the token its page carries) or alone (the browser's authorization request).
+    The answer is ``{ceremony, options}``."""
+    settings = _settings(request)
+    if refused := _ceremony_guard(request, settings):
+        return refused
+    now = datetime.now(UTC)
+    try:
+        if payload.step:
+            loaded = second_factor.load_step(session, payload.step, now)
+            if loaded is None or loaded[0].stage != "code":
+                return _passkey_error(
+                    "This sign-in took too long, or was already used. Start again.", 410
+                )
+            _, options = passkeys.begin_authentication(session, settings, now, step=loaded)
+            return JSONResponse({"ceremony": payload.step, "options": options}, headers=_NO_STORE)
+        checked = _authorization_request(session, settings, payload.request_fields())
+        if isinstance(checked, Response):
+            return _passkey_error("This sign-in request is not one the engine serves.", 400)
+        token, options = passkeys.begin_authentication(session, settings, now, request=checked)
+    except passkeys.PasskeyRefused as failure:
+        return _passkey_error(failure.message, failure.status, failure.wait_seconds)
+    return JSONResponse({"ceremony": token, "options": options}, headers=_NO_STORE)
+
+
+@router.post(
+    "/oauth/passkeys/authentication/verify", dependencies=_STARTED, include_in_schema=False
+)
+def passkey_authentication_verify(
+    payload: PasskeyAuthentication, request: Request, session: DbSession
+) -> Response:
+    """Check the browser's answer. A passkey that signs the person in ends as the password form
+    does: the answer is ``{redirect}``, the browser's address with a one-time code and its
+    ``state``. A wrong one is ``401``, counted like a wrong password (D271)."""
+    settings = _settings(request)
+    if refused := _ceremony_guard(request, settings):
+        return refused
+    now = datetime.now(UTC)
+    try:
+        second = second_factor.load_step(session, payload.ceremony, now)
+        done = passkeys.finish_authentication(
+            session, settings, payload.ceremony, payload.credential,
+            second_step=second if second and second[0].stage == "code" else None,
+            address=_address(request), now=now,
+        )  # fmt: skip
+    except passkeys.PasskeyRefused as failure:
+        return _passkey_error(failure.message, failure.status, failure.wait_seconds)
+    checked = _authorization_request(session, settings, done.request)
+    if isinstance(checked, Response):
+        return _passkey_error("This sign-in request is not one the engine serves.", 400)
+    code = sign_in.issue_code(
+        session,
+        done.user,
+        redirect_uri=checked["redirect_uri"],
+        code_challenge=checked["code_challenge"],
+        signed_in_with="password" if done.second_step else "passkey",
+        now=now,
+    )
+    query = urlencode({"code": code, **({"state": checked["state"]} if "state" in checked else {})})
+    return JSONResponse({"redirect": f"{checked['redirect_uri']}?{query}"}, headers=_NO_STORE)
 
 
 # ---------------------------------------------------------------------------------------------

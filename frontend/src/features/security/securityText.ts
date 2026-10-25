@@ -79,6 +79,22 @@ export function personSignInLine(user: Pick<User, "identities" | "hasPassword" |
   return last ? `Last signed in ${last}` : "Never signed in";
 }
 
+/** The providers a person signs in with, by name: "Northfield Entra ID" or "A and B". */
+export function identityNames(user: Pick<User, "identities">): string {
+  return [...new Set(user.identities.map((identity) => identity.provider.name))].join(" and ");
+}
+
+/** What linking a provider sign-in to an existing person does (I4a, D377, D378). */
+export function linkSentence(from: Pick<User, "name" | "identities">, to: string): string {
+  const names = identityNames(from);
+  return `${to} will sign in with ${names} from now on, keeping their roles and history, and the groups ${names} names. ${from.name}, made at the first sign-in, is deactivated; what they changed keeps their name.`;
+}
+
+/** What unlinking a provider does (I4a). */
+export function unlinkSentence(person: string, provider: string): string {
+  return `${person} no longer signs in with ${provider}: the groups it gave them are removed and the sessions it started end. Signing in with ${provider} again makes a new person, whom you can link again.`;
+}
+
 /** Local accounts' line on Sign-in (D365). */
 export function localSignInLine(local: Pick<LocalSignIn, "enabled" | "keptPeople">): string {
   if (local.enabled) return "On · people sign in with a username and password";
@@ -225,6 +241,10 @@ const USER_ACTIONS: Record<string, string> = {
   "password-set": "Password set from a one-time link",
   "password-changed": "Password changed",
   "signed-out-everywhere": "Signed out everywhere",
+  "second-factor-added": "Authenticator app set up",
+  "second-factor-removed": "Second factor removed",
+  "recovery-codes-created": "New recovery codes made",
+  "passkey-renamed": "A passkey was renamed",
 };
 
 /** A security event in a line, for a person's recent activity (0.12 Z4, D319): what happened, never
@@ -238,13 +258,19 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
     case "sign-in": {
       const provider = text(details.provider);
       const way = provider ? ` with ${provider}` : "";
-      if (event.action === "succeeded") return `Signed in${way}${from}`;
+      if (event.action === "succeeded")
+        return `Signed in${details.method === "passkey" ? " with a passkey" : way}${from}`;
       const reason = text(details.reason);
       return `Sign-in${way} failed${reason ? ` (${reason})` : ""}${from}`;
     }
     case "sign-in-provider":
-      if (event.aggregateId === "local")
+      if (event.aggregateId === "local") {
+        if (changed.includes("secondFactorRequired"))
+          return details.secondFactorRequired
+            ? "A second factor required with a password"
+            : "A second factor no longer required with a password";
         return details.enabled ? "Local sign-in turned on" : "Local sign-in turned off";
+      }
       if (event.action === "updated" && changed.includes("enabled"))
         return `Sign-in provider ${event.aggregateId} ${details.enabled ? "enabled" : "disabled"}`;
       return `Sign-in provider ${event.aggregateId} ${event.action}`;
@@ -259,10 +285,20 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
     case "user":
       if (event.action === "updated") {
         if (changed.includes("active")) return details.active ? "Restored" : "Deactivated";
+        if (changed.length === 1 && changed[0] === "localKept")
+          return details.localKept ? "Keeps local sign-in" : "No longer keeps local sign-in";
         return changed.length ? `Changed ${changed.join(", ")}` : "Details saved";
       }
       if (event.action === "created" && details.provider)
         return `Person created at their first sign-in with ${text(details.provider)}`;
+      if (event.action === "identity-linked") {
+        const providers = Array.isArray(details.providers) ? (details.providers as string[]).join(", ") : "";
+        return `Sign-in with ${providers || "a provider"} linked from ${text(details.fromUsername) || "another person"}`;
+      }
+      if (event.action === "passkey-added") return `Passkey added: ${text(details.name)}`;
+      if (event.action === "passkey-removed")
+        return `Passkey removed: ${text(details.name)}${details.by === "administrator" ? " by an administrator" : ""}`;
+      if (event.action === "identity-unlinked") return `Sign-in with ${text(details.provider)} unlinked`;
       return USER_ACTIONS[event.action] ?? event.action;
     case "client": {
       if (event.action === "created") return "Client created";

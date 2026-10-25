@@ -39,3 +39,26 @@ export function formatServerAgo(value: string, now: Date = new Date()): string {
   if (hours < 24 && sameDay(date, now)) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
   return formatServerDayTime(value, now);
 }
+
+/** The day an entry falls on, as its group's heading: "Today", "Yesterday", then the date. */
+export function dayLabel(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.valueOf())) return iso;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (sameDay(date, now)) return "Today";
+  if (sameDay(date, yesterday)) return "Yesterday";
+  return date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+/** Entries in runs of the same day, newest first as they come. */
+export function byDay<T extends { occurredAt: string }>(entries: readonly T[], now: Date = new Date()) {
+  const days: { day: string; entries: T[] }[] = [];
+  for (const entry of entries) {
+    const day = dayLabel(entry.occurredAt, now);
+    const last = days[days.length - 1];
+    if (last?.day === day) last.entries.push(entry);
+    else days.push({ day, entries: [entry] });
+  }
+  return days;
+}

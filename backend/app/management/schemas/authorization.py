@@ -92,6 +92,25 @@ class GroupMemberPage(CollectionPage[GroupMemberResponse]):
     """A group's members in the order they were created (ADR-030)."""
 
 
+class GroupMemberOutcome(BaseModel):
+    """What adding or removing one of several people did, or would do (0.12 SP1b, D401, D402)."""
+
+    input: str = Field(description="The person's ID, or the username or e-mail address as sent")
+    outcome: Literal[
+        "added", "toAdd", "alreadyMember", "deactivated", "notFound", "removed", "notMember"
+    ]
+    member: GroupMemberResponse | None = Field(
+        default=None, description="The person the input names; null where nobody has it"
+    )
+
+
+class GroupMembersResult(BaseModel):
+    """Each input's outcome, in the order sent, and how many people were added or removed."""
+
+    items: list[GroupMemberOutcome]
+    changed: int
+
+
 class GrantPrincipalResponse(BaseModel):
     kind: Literal["user", "client", "group"]
     id: str

@@ -133,6 +133,22 @@ export interface User {
   identities: { provider: SignInProviderRef; subject: string }[];
   /** Signs in with a password while local sign-in is off (D365). */
   localKept: boolean;
+  /** The authenticator app they sign in with after their password; null without one (I4b). */
+  secondFactor: { method: "authenticator-app"; confirmedAt: string; recoveryCodesLeft: number } | null;
+  /** How many passkeys they have (I4c). */
+  passkeys: number;
+}
+
+/** A passkey by the name its person gave it; never the credential (0.12 I4c, D394). */
+export interface Passkey {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface PasskeyPage extends PageNavigation {
+  items: Passkey[];
 }
 
 export interface UserPage extends PageNavigation {
@@ -169,6 +185,20 @@ export interface GroupMember {
   active: boolean;
   /** A provider group's member: when a sign-in last named them in it. */
   seenAt?: string | null;
+}
+
+/** What adding or removing one of several people did, or would do (0.12 SP1b, D401, D402). */
+export interface GroupMemberOutcome {
+  /** The person's ID, or the username or e-mail address as sent. */
+  input: string;
+  outcome: "added" | "toAdd" | "alreadyMember" | "deactivated" | "notFound" | "removed" | "notMember";
+  member: GroupMember | null;
+}
+
+export interface GroupMembersResult {
+  items: GroupMemberOutcome[];
+  /** How many people were added or removed. */
+  changed: number;
 }
 
 export interface GroupMemberPage extends PageNavigation {
@@ -281,8 +311,12 @@ export interface SignInProvider {
   clientSecretSet: boolean;
   groupsClaim: string | null;
   enabled: boolean;
+  /** Signing out of the engine signs the person out of the provider too (I4a, D379). */
+  signOutOfProvider: boolean;
   /** The address to register with the provider. */
   redirectUri: string;
+  /** The address to register for returning from the provider's sign-out (I4a). */
+  signedOutUri: string;
   people: number;
   lastSignInAt: string | null;
   version: number;
@@ -302,14 +336,35 @@ export interface SignInProviderCreate {
   clientSecret: string;
   groupsClaim?: string | null;
   enabled?: boolean;
+  signOutOfProvider?: boolean;
 }
 
 /** Whether people sign in with a password (D365). */
 export interface LocalSignIn {
   enabled: boolean;
+  /** A password needs an authenticator app; set up on the sign-in page when there is none (I4b). */
+  secondFactorRequired: boolean;
   keptPeople: number;
   version: number;
   updatedAt: string;
+}
+
+/** The caller's second factor (0.12 I4b). */
+export interface MySecondFactor {
+  enabled: boolean;
+  confirmedAt: string | null;
+  recoveryCodesLeft: number;
+  /** How many passkeys the caller has (I4c). */
+  passkeys: number;
+  /** The instance requires one with a password: the last one cannot be removed. */
+  required: boolean;
+}
+
+/** What setting an authenticator app up needs, answered once (D386). */
+export interface SecondFactorEnrolment {
+  secret: string;
+  otpauthUri: string;
+  qrSvg: string;
 }
 
 /** What the caller holds in one workspace: the roles that apply there and their action groups. */
