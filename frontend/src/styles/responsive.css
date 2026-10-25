@@ -138,6 +138,23 @@
     flex: 1 1 auto;
     padding-bottom: var(--space-3);
   }
+  /* On a phone the header, toolbar and tabs take most of the screen, so a card fitted to what is
+     left had no height for rows and nothing scrolled (reported 2026-10-25). Here the page scrolls
+     as any other and the rows keep a window of their own height, as in a list nested in a page. */
+  .app-shell.app-shell-fill {
+    height: auto;
+    min-height: 100dvh;
+  }
+  .workspace-main.fill-main {
+    overflow-y: visible;
+  }
+  .fill-main .collection-page > .collection-surface {
+    min-height: 0;
+  }
+  .app-shell-fill .scroll-window-fill .scroll-window-viewport {
+    flex: none;
+    max-height: max(320px, var(--window-height));
+  }
   .data-context-switch {
     margin-left: 0;
   }
