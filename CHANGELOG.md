@@ -6,6 +6,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (development)
+
+- **The API reference can call the engine in development.** `scripts/dev.sh engine` allows the
+  engine's own addresses (`localhost:8000`, `127.0.0.1:8000`; with `--network` also its https address)
+  in `CORS_ORIGINS`, so Scalar's `Try it` and token request are not refused as `400 Disallowed CORS
+  origin`. A `CORS_ORIGINS` already in the environment is kept.
+
 ### Fixed (0.12 D412)
 
 - **The API reference shows the consumer APIs.** A consumer API's `openapi.json` needs no token, like

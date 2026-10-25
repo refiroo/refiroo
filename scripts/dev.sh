@@ -91,6 +91,10 @@ DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres@localhost:54320/rdm}
 # key cannot be read with another.
 SECRETS_ENCRYPTION_KEY=$key
 
+# Browser origins allowed to call the engine (plain 'engine' only; --network sets its own). The
+# default is the frontend and the engine's own addresses, so the API reference at /docs can call it.
+#CORS_ORIGINS=http://localhost:5173,http://localhost:8000,http://127.0.0.1:8000
+
 # Capabilities, off by default; remove the # to switch one on.
 #MODEL_ADMIN_MUTATIONS_ENABLED=true
 #WORKSPACE_ADMIN_MUTATIONS_ENABLED=true
@@ -154,12 +158,18 @@ engine() {
   if [[ "${1:-}" == "--network" ]]; then
     network
     export PUBLIC_URL="https://$NETWORK_ADDRESS:$ENGINE_PORT"
-    export CORS_ORIGINS="https://$NETWORK_ADDRESS:$FRONTEND_PORT"
+    # The frontend under every name this computer reaches it by (the network address for the phone,
+    # localhost here), and the engine itself likewise: its API reference at /docs (Scalar) calls it
+    # from the page's own origin, whichever name opened it.
+    export CORS_ORIGINS="https://$NETWORK_ADDRESS:$FRONTEND_PORT,https://localhost:$FRONTEND_PORT,https://127.0.0.1:$FRONTEND_PORT,$PUBLIC_URL,https://localhost:$ENGINE_PORT,https://127.0.0.1:$ENGINE_PORT"
     say "Engine at $PUBLIC_URL (PUBLIC_URL), for pages at $CORS_ORIGINS (CORS_ORIGINS)."
     exec .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port "$ENGINE_PORT" \
       --ssl-certfile "$CERTS/cert.pem" --ssl-keyfile "$CERTS/key.pem"
   fi
-  say "Engine at http://localhost:$ENGINE_PORT."
+  # The frontend, and the engine itself (also as 127.0.0.1): its API reference at /docs (Scalar)
+  # calls it from there. A CORS_ORIGINS already in the environment is left as it is.
+  export CORS_ORIGINS="${CORS_ORIGINS:-http://localhost:$FRONTEND_PORT,http://localhost:$ENGINE_PORT,http://127.0.0.1:$ENGINE_PORT}"
+  say "Engine at http://localhost:$ENGINE_PORT, for pages at $CORS_ORIGINS (CORS_ORIGINS)."
   exec .venv/bin/uvicorn app.main:app --reload --port "$ENGINE_PORT"
 }
 
@@ -171,8 +181,8 @@ frontend() {
     network
     export VITE_API_URL="https://$NETWORK_ADDRESS:$ENGINE_PORT"
     export DEV_HTTPS_CERT="$CERTS/cert.pem" DEV_HTTPS_KEY="$CERTS/key.pem"
-    say "Open https://$NETWORK_ADDRESS:$FRONTEND_PORT on every device, this computer too (not localhost:"
-    say "the engine accepts this address only); it calls $VITE_API_URL."
+    say "Open https://$NETWORK_ADDRESS:$FRONTEND_PORT on the phone; this computer may use it or"
+    say "https://localhost:$FRONTEND_PORT. Both call $VITE_API_URL."
     exec npx vite --host --port "$FRONTEND_PORT" --strictPort
   fi
   exec npx vite --port "$FRONTEND_PORT" --strictPort
