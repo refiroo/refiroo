@@ -582,6 +582,16 @@ class ClientSecretCreate(BaseModel):
     overlapHours: int = Field(default=24, ge=0, le=MAX_OVERLAP_HOURS)
 
 
+class ConsumerSubscriptionRotate(BaseModel):
+    """A new signing key, shown once; the previous one keeps signing beside it for ``overlapHours``
+    (0: it stops with the next delivery), as a client's secret does (0.12 K1, D238)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    overlapHours: int = Field(default=24, ge=0, le=MAX_OVERLAP_HOURS)
+
+
 class PasswordChange(BaseModel):
     """A signed-in person's new password, with the current one (I2, J39.6)."""
 

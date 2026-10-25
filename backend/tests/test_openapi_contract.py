@@ -530,6 +530,7 @@ def test_base_0_9_c11_c12_enabled_openapi_exposes_the_subscriptions_api(monkeypa
     } == {
         "/api/v1/consumer-subscriptions": frozenset({"get", "post"}),
         "/api/v1/consumer-subscriptions/{subscription_id}": frozenset({"get", "patch", "delete"}),
+        "/api/v1/consumer-subscriptions/{subscription_id}/rotate-secret": frozenset({"post"}),
         "/api/v1/consumer-subscriptions/{subscription_id}/suspend": frozenset({"post"}),
         "/api/v1/consumer-subscriptions/{subscription_id}/resume": frozenset({"post"}),
         # U5a: the delivery log.

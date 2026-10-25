@@ -906,9 +906,15 @@ The audit log is the ordered source of the change feed and of consumer events (A
   be deleted (the foreign key restricts; the catalogue refuses first). The acknowledged position and
   ordinal say where delivery continues; positions are checked as the pull feed's
   (`reads/consumer_events.check_after`). A signing key is sealed (`common/sealing.py`, AES-256-GCM,
-  the subscription's ID as associated data) under `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, which the
-  database never holds. Subscription changes write no audit entry: the audit log is the outbox of
-  data changes.
+  the subscription's ID as associated data) under `SECRETS_ENCRYPTION_KEY`, which the
+  database never holds. A rotation (`subscriptions.rotate_secret`, 0.12 K1) seals a new key and moves
+  the old one to `previous_signing_key` with the end of its overlap; `signing_secrets` is every key
+  signing at a moment (the current, then the previous one until the overlap ends) and `delivery.headers`
+  signs with each, so the dispatcher and a manual resend sign alike and a retry is signed with the keys
+  in play at its attempt. Subscription changes write no audit entry: the audit log is the outbox of
+  data changes. `engine/identity/resealing.py` re-seals every sealed column (each kind names its
+  table, its context and the identity a refusal shows) under a new key in one transaction, after
+  opening them all; `cli/reseal_secrets` is its command.
 - **Webhook dispatcher** (`engine/events/dispatcher.py`, `delivery.py`, `webhook_client.py`, 0.9
   C12). A third thread in the API process, built only with `CONSUMER_SUBSCRIPTIONS_ENABLED` and
   started where the model is served. Once a second it claims up to four active subscriptions that
@@ -931,7 +937,7 @@ The audit log is the ordered source of the change feed and of consumer events (A
   state never changes `version`. The client (`webhook_client.post`, standard library) resolves the
   host once, refuses link-local and unexpected loopback addresses, connects to the checked address
   with the host name for TLS, follows no redirect and reads at most 4 KiB of the answer. The
-  signing key is unsealed for each send and not kept.
+  signing keys are unsealed for each send and not kept.
 - **Delivery log** (`engine/events/delivery_log.py`, 0.9 U5a). The dispatcher writes it as it
   works, each step a fixed number of statements: when a batch is committed as pending, its
   `consumer_webhook_requests` row (`queued`) with its events, as the pull feed has them, in

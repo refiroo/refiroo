@@ -67,6 +67,8 @@ button.button{display:flex;align-items:center;justify-content:center;gap:8px}
 .qr code{display:block;margin-top:6px;color:var(--text-primary);overflow-wrap:break-word}
 .codes{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;padding:12px;border-radius:8px;
 background:var(--surface-sunken)}
+.welcome{margin:-12px 0 0;max-width:400px;text-align:center;color:var(--text-secondary)}
+.welcome strong{display:block;font-size:16px;font-weight:600;color:var(--text-primary)}
 @media (max-width:480px){body{justify-content:flex-start;background:var(--surface-raised);padding-top:48px}
 main{border:0;padding:0}}
 """
@@ -80,6 +82,12 @@ def _mark(product: str) -> str:
         '<img class="wordmark" src="/brand/refiroo-wordmark.png" alt="refiroo" height="20">'
         + instance
     )
+
+
+_WELCOME = (
+    '<p class="welcome"><strong>Reference data that stays in step.</strong>'
+    "Every code, category and mapping, kept tidy so everything else can trust it.</p>"
+)
 
 
 def _origin(url: str) -> str:
@@ -114,6 +122,7 @@ def _page(
     status: int = 200,
     headers: dict[str, str] | None = None,
     script: bool = False,
+    welcome: bool = False,
 ) -> HTMLResponse:
     loaded = '<script src="/oauth/passkey.js" defer></script>' if script else ""
     html = (
@@ -123,6 +132,7 @@ def _page(
         '<link rel="icon" href="/brand/favicon.png">'
         f"<style>{_STYLE}</style></head><body>"
         f'<header class="brand">{_mark(product)}</header>'
+        f"{_WELCOME if welcome else ''}"
         f"<main>{body}</main>{loaded}</body></html>"
     )
     return HTMLResponse(
@@ -206,6 +216,7 @@ def sign_in(
             issuer=issuer,
             redirect_origins=redirect_origins,
             status=status,
+            welcome=True,
         )
     notes = []
     if ended:
@@ -276,6 +287,7 @@ def sign_in(
         status=status,
         headers=headers,
         script=passkey,
+        welcome=True,
     )
 
 

@@ -351,6 +351,13 @@ person holding Security administration (D303).
 | I4c-3 | The sign-in page's **Sign in with a passkey** and the second step's **Use a passkey** | `/oauth/authorize`, `/oauth/second-factor` | I2's page, I4b-4 | — | **B** (offered only once someone has a passkey; no code field for a person with only passkeys) | **C** (the button disabled while the browser prompts) | **B** (the session returns to the application) | **B** (a note: cancelled, not confirmed, not known here) | — | — | **B** (390px, dark) | **B** (buttons by keyboard) | `i4-sign-in --part c`, `test_j39_passkeys` |
 | I4c-4 | A person's passkey rows | `/settings/people/{id}` | I4a-1 | **C** (as SP1) | **B** (no row without a passkey) | **C** (buttons disabled) | **B** (the confirmation naming the person and the passkey; the row gone) | **C** (as worded) | — | **C** | **B** | **B** | `i4-sign-in --part c` |
 
+### Surfaces changed in 0.12 K1
+
+| # | Surface | Route | Reference pattern | Loading | Empty | Pending | Success | Error | Conflict | Retry | Narrow | Keyboard | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| K1-1 | A webhook's **Rotate key…** (the shared `RotateOverlapDialog`, as SP2-2's) | `/settings/webhooks/{id}` | SP2-2 | — | — | **C** (buttons disabled, "Making…") | **B** (the overlap chosen, 24 hours first; "Previous key signs until" in the facts) | **C** (as worded in the dialog) | **C** (the page reloads and says it changed) | — | **B** (390px, no sideways scroll) | **B** (focus, Enter, Escape; focus returns to the button) | `u5-webhooks`, `RotateOverlapDialog.test`, `WebhooksPage.test` |
+| K1-2 | The **new signing key** shown once | the same page | SP2-2's shown-once dialog | — | — | — | **B** (the key with Copy, how long the old key signs, or that it stopped now) | — | — | — | **B** (390px) | **B** | `u5-webhooks` |
+
 ### Surfaces changed in 0.12 Z5
 
 What a person may do, from the "Z5 as planned" boards: the data-context band (ADR-040) says it;

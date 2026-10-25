@@ -67,8 +67,10 @@ class SubscriptionDelivery(BaseModel):
 
 class SubscriptionResponse(BaseModel):
     """A subscription. ``contractVersion`` is the version it was accepted under; delivery continues
-    after ``acknowledgedThrough``. ``signingSecret`` is in the create answer only (C-D12): keep it,
-    no read returns it again."""
+    after ``acknowledgedThrough``. ``signingSecret`` is in the create and rotate answers only (C-D12):
+    keep it, no read returns it again. ``previousSigningKeyExpiresAt`` is the end of the overlap
+    after a rotation, while deliveries are signed with both keys (0.12 K1, D238); ``null`` when no
+    overlap is running."""
 
     id: str
     name: str
@@ -88,6 +90,7 @@ class SubscriptionResponse(BaseModel):
     acknowledgedThrough: int
     delivery: SubscriptionDelivery
     signingKeyCreatedAt: datetime
+    previousSigningKeyExpiresAt: datetime | None
     version: int
     createdAt: datetime
     updatedAt: datetime

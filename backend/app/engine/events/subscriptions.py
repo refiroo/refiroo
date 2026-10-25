@@ -10,7 +10,8 @@ is active. A subscription records the contract version it was accepted under (C-
 
 A new subscription starts after the workspace's feed head, or after an earlier position still kept
 (C-D97). Its signing key is 32 random bytes, answered once and stored sealed with the deployment key
-(C-D96, C-D12). A subscription is ``active`` or ``suspended`` with a reason (C-D98); a resume checks
+(C-D96, C-D12); a rotation makes a new one and keeps the previous one signing beside it for an
+overlap (0.12 K1, D238). A subscription is ``active`` or ``suspended`` with a reason (C-D98); a resume checks
 again and, after events it had not acknowledged expired, is refused unless it resets to the feed's
 head (C-D93 revised, C-D110). Every change claims the version read. The dispatcher (C12) delivers;
 an edit drops the batch it is retrying and a resume clears its failures, so the next attempt is at
@@ -21,7 +22,7 @@ import base64
 import secrets
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -29,10 +30,11 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session, object_session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
-from ...common.sealing import seal
+from ...common.sealing import seal, unseal
 from ...errors import ApiError, api_error
 from ...models.commands import (
     ConsumerSubscriptionCreate,
+    ConsumerSubscriptionRotate,
     ConsumerSubscriptionUpdate,
 )
 from ...models.database import ConsumerSubscription, OAuthClient, User, Workspace
@@ -132,6 +134,27 @@ def secret_text(key: bytes) -> str:
     return SECRET_PREFIX + base64.urlsafe_b64encode(key).decode().rstrip("=")
 
 
+def context(public_id: str) -> bytes:
+    """What a subscription's sealed signing keys are bound to: its public ID."""
+    return public_id.encode()
+
+
+def signing_secrets(
+    settings: SubscriptionSettings, subscription: ConsumerSubscription, now: datetime
+) -> list[str]:
+    """The keys a request to the subscription at ``now`` is signed with: the current one, then the
+    previous one until its overlap ends (0.12 K1, D238)."""
+    bound = context(subscription.public_id)
+    keys = [unseal(settings.encryption_key, subscription.signing_key, bound)]
+    if (
+        subscription.previous_signing_key is not None
+        and subscription.previous_signing_key_expires_at is not None
+        and subscription.previous_signing_key_expires_at > now
+    ):
+        keys.append(unseal(settings.encryption_key, subscription.previous_signing_key, bound))
+    return [secret_text(key) for key in keys]
+
+
 def _secret() -> tuple[str, bytes]:
     key = secrets.token_bytes(32)
     return secret_text(key), key
@@ -192,7 +215,7 @@ def create_subscription(
         status=ACTIVE,
         acknowledged_position=start,
         acknowledged_ordinal=AFTER_POSITION,
-        signing_key=seal(settings.encryption_key, key, public_id.encode()),
+        signing_key=seal(settings.encryption_key, key, context(public_id)),
         signing_key_created_at=now,
         version=1,
         created_at=now,
@@ -356,6 +379,32 @@ def resume_subscription(
         clear_delivery(subscription)
         _touch(subscription)
         return subscription
+
+    return _changing(session, change)
+
+
+def rotate_secret(
+    session: Session, public_id: str, payload: ConsumerSubscriptionRotate, settings: SubscriptionSettings
+) -> tuple[ConsumerSubscription, str]:
+    """A new signing key, answered once. The one it replaces signs beside it for ``overlapHours``
+    (0: not at all), so a receiver switches without missing a delivery; a key still in its overlap
+    from an earlier rotation stops at once. Allowed on a suspended subscription, and a batch being
+    retried is kept: its next attempt is signed with the keys in play then."""
+
+    def change() -> tuple[ConsumerSubscription, str]:
+        subscription = _claimed(session, public_id, payload.expectedVersion)
+        secret, key = _secret()
+        now = datetime.now(UTC)
+        if payload.overlapHours:
+            subscription.previous_signing_key = subscription.signing_key
+            subscription.previous_signing_key_expires_at = now + timedelta(hours=payload.overlapHours)
+        else:
+            subscription.previous_signing_key = None
+            subscription.previous_signing_key_expires_at = None
+        subscription.signing_key = seal(settings.encryption_key, key, context(subscription.public_id))
+        subscription.signing_key_created_at = now
+        _touch(subscription)
+        return subscription, secret
 
     return _changing(session, change)
 

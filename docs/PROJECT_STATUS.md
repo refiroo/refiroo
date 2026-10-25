@@ -114,7 +114,11 @@ D383–D388 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i4b-record-2026-10-25), m
 `20261106_01`). **I4c, passkeys, is delivered (2026-10-25)**, D389–D394
 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i4c-record-2026-10-25), migration `20261107_01`); I4
 is complete. A sign-in against a real provider the user
-names waits for its registration, before E1. Next: K1, C1 and E1 above the cut line, then A1–A3, L1,
+names waits for its registration, before E1. **K1, webhook signing-key rotation, is delivered
+(2026-10-25)**, D413 and D414: a webhook's key rotated with an overlap, both signatures in
+`RDM-Signature` meanwhile, Rotate key… on its page, and `python -m app.cli.reseal_secrets` for a new
+`SECRETS_ENCRYPTION_KEY` ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#k1-record-2026-10-25), migration
+`20261108_01`). Next: C1 and E1 above the cut line, then A1–A3, L1,
 L2 and R.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)

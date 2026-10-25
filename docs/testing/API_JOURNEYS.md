@@ -202,7 +202,7 @@ each moves into the tables above with its package. Every existing route gains `4
 | `GET/POST /me/second-factor`, `POST /me/second-factor/confirmation`, `POST /me/second-factor/recovery-codes`, `DELETE /me/second-factor`, `DELETE /users/{id}/second-factor`, `POST /oauth/second-factor` | J39.9 | I4b |
 | `GET /me/passkeys`, `PATCH/DELETE /me/passkeys/{id}`, `GET /users/{id}/passkeys`, `DELETE /users/{id}/passkeys/{id}`, `GET /oauth/passkeys/new`, `GET /oauth/passkey.js`, `POST /oauth/passkeys/{registration,authentication}/{options,verify}` | J39.10 | I4c |
 | `GET /system/configuration` (`GET /system` narrowed) | J31, J31.2 | I1 |
-| `POST /consumer-subscriptions/{id}/rotate-secret` (`overlapHours`) | J43.3, J43.4 | K1 |
+| `POST /consumer-subscriptions/{id}/rotate-secret` (`overlapHours`; the answer's `signingSecret`, `previousSigningKeyExpiresAt` on every read; `RDM-Signature` a list) | J43.3, J43.4 | K1 (delivered 2026-10-25, `test_j43_webhook_key`) |
 | `POST/DELETE /change-sets/{id}/submission`, `POST /change-sets/{id}/decisions`, `GET /workspaces/{key}/publication-requests`, `GET/PUT /workspaces/{key}/approval-policy` | J42, J42.1–J42.4, J42.6 | A1, A3 |
 | `GET /me/notifications`, `POST /me/notifications/read`, `GET /me/notifications/events` | J42.5 | A2 |
 
@@ -212,7 +212,7 @@ Codes: `AUTHENTICATION_REQUIRED`, `TOKEN_INVALID` (J39, J41.5, J43.2), `FORBIDDE
 the OAuth endpoints' `invalid_request`, `invalid_grant`, `invalid_client`, `unsupported_grant_type`.
 Settings: `SECRETS_ENCRYPTION_KEY` (replaces `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, J43.5), the token
 and session lifetimes (J39.2), `python -m app.cli.create_admin` (J40) and the re-sealing command
-(J43.5).
+(`python -m app.cli.reseal_secrets`, `NEW_SECRETS_ENCRYPTION_KEY`, `--check`; J43.5).
 
 ## Error codes
 

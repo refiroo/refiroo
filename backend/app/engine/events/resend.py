@@ -18,11 +18,10 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...common.sealing import unseal
 from ...errors import api_error
 from ...models.database import ConsumerSubscription, ConsumerWebhookRequest
 from . import delivery, delivery_log
-from .subscriptions import SubscriptionSettings, secret_text
+from .subscriptions import SubscriptionSettings, signing_secrets
 from .webhook_client import post
 
 REDELIVERY_HEADER = "RDM-Redelivery"
@@ -90,12 +89,12 @@ def resend_event(
     delivery_log.log_request(session, subscription.sequence_id, new_id, [event], now, resend_of=original.delivery_id)
     started = delivery_log.start_attempt(session, subscription.sequence_id, new_id, data, now)
     url = subscription.url
-    secret = secret_text(unseal(settings.encryption_key, subscription.signing_key, subscription.public_id.encode()))
+    secrets = signing_secrets(settings, subscription, now)
     # No transaction is open while the receiver answers.
     session.commit()
 
     headers = {
-        **delivery.headers(new_id, secret, int(now.timestamp()), data, content_type),
+        **delivery.headers(new_id, secrets, int(now.timestamp()), data, content_type),
         REDELIVERY_HEADER: "manual",
     }
     clock = time.monotonic()

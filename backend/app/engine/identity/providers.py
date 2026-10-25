@@ -30,12 +30,12 @@ RESERVED_KEYS = (LOCAL, "password", "passkey")
 _KEYS = (integer_key("sequenceId", SignInProvider.id, "id"),)
 
 
-def _context(key: str) -> bytes:
+def context(key: str) -> bytes:
     return b"sign-in-provider:" + key.encode()
 
 
 def client_secret(settings: IdentitySettings, provider: SignInProvider) -> str:
-    return unseal(settings.encryption_key, provider.client_secret, _context(provider.key)).decode()
+    return unseal(settings.encryption_key, provider.client_secret, context(provider.key)).decode()
 
 
 def redirect_uri(settings: IdentitySettings, key: str) -> str:
@@ -168,7 +168,7 @@ def create_provider(
             issuer=issuer,
             client_id=payload.clientId,
             client_secret=seal(
-                settings.encryption_key, payload.clientSecret.encode(), _context(payload.key)
+                settings.encryption_key, payload.clientSecret.encode(), context(payload.key)
             ),
             groups_claim=_groups_claim(payload.groupsClaim),
             enabled=payload.enabled,
@@ -226,7 +226,7 @@ def update_provider(
             provider.client_id = payload.clientId
         if payload.clientSecret is not None:
             provider.client_secret = seal(
-                settings.encryption_key, payload.clientSecret.encode(), _context(provider.key)
+                settings.encryption_key, payload.clientSecret.encode(), context(provider.key)
             )
         if "groupsClaim" in fields:
             provider.groups_claim = _groups_claim(payload.groupsClaim)

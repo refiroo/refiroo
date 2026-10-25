@@ -2170,7 +2170,7 @@ roles, consumer APIs and creator, and each secret its last four characters (J41.
 **Actor:** security administrator, integration administrator. **Channel:** UI (Settings › Security
 › Signing keys, a webhook's page), API. **Stories:** US-S01. **Status:** designed (0.12 P0);
 delivered by I1 and K1. I1 (2026-10-23): J43.1 (rotated on request, and on its own after
-`TOKEN_SIGNING_KEY_DAYS`) and J43.2.
+`TOKEN_SIGNING_KEY_DAYS`) and J43.2. K1 (2026-10-25): J43.3, J43.4 and J43.5.
 
 1. Rotate a key, on a schedule or at once.
 2. Callers and receivers carry on without a gap, or, after a leak, the old key stops working at once.
@@ -2182,13 +2182,15 @@ delivered by I1 and K1. I1 (2026-10-23): J43.1 (rotated on request, and on its o
 - **J43.2 The token key rotated now**: tokens of the old key are refused at once; people renew from
   their session unseen and clients obtain a new token.
 - **J43.3 A webhook key rotated with an overlap**: deliveries carry both signatures during the
-  overlap, then only the new one; the old key stops verifying.
+  overlap, then only the new one; the old key stops verifying. From the webhook's page (**Rotate
+  key…**, the overlap chosen, the new key shown once) or the API.
 - **J43.4 A webhook key rotated at once**: overlap 0; the old key stops verifying with the next
-  delivery.
+  delivery, a retry of a waiting batch included.
 - **J43.5 Re-sealing**: every sealed secret re-sealed under a new `SECRETS_ENCRYPTION_KEY` by a CLI
-  command; the engine starts and signs as before.
+  command, all or none, with a check that changes nothing; the engine starts and signs as before.
 
-**Refusals:** `401 TOKEN_INVALID` (`unknownKey`), `404 SUBSCRIPTION_NOT_FOUND`.
+**Refusals:** `401 TOKEN_INVALID` (`unknownKey`), `404 SUBSCRIPTION_NOT_FOUND`, `409 VERSION_CONFLICT`,
+`403 FORBIDDEN`; the re-sealing command refuses with its reason and changes nothing.
 
 ### J44 — See who changed what
 

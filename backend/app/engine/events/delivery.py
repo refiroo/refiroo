@@ -13,8 +13,10 @@ attributes come from the subscription and the event alone, so a retry writes the
 ``data`` is the RDM JSON event unchanged (C-D126).
 
 A request is signed with the subscription's ``signingSecret`` as the HMAC-SHA256 key, over
-``"{RDM-Timestamp}.{body}"``, and sent as ``RDM-Signature: sha256=<hex>`` (C-D12). The body is the
-compact JSON's UTF-8 bytes, with values written as the API writes them.
+``"{RDM-Timestamp}.{body}"``, and sent as ``RDM-Signature: sha256=<hex>`` (C-D12). During the overlap
+after a rotation it is signed with the new key and the previous one, and the header lists both,
+``sha256=<new>,sha256=<previous>``; a receiver accepts the request when any of them verifies (0.12 K1,
+D238). The body is the compact JSON's UTF-8 bytes, with values written as the API writes them.
 """
 
 import hashlib
@@ -139,11 +141,15 @@ def sign(secret: str, timestamp: int, body: bytes) -> str:
     return f"sha256={digest.hexdigest()}"
 
 
-def headers(delivery_id: str, secret: str, timestamp: int, body: bytes, content_type: str = RDM_JSON) -> dict[str, str]:
+def headers(
+    delivery_id: str, secrets: Sequence[str], timestamp: int, body: bytes, content_type: str = RDM_JSON
+) -> dict[str, str]:
+    """A request's headers, signed with each of ``secrets``: the current key first, then the previous
+    one while it still signs."""
     return {
         "Content-Type": content_type,
         "User-Agent": USER_AGENT,
         "RDM-Delivery-Id": delivery_id,
         "RDM-Timestamp": str(timestamp),
-        "RDM-Signature": sign(secret, timestamp, body),
+        "RDM-Signature": ",".join(sign(secret, timestamp, body) for secret in secrets),
     }

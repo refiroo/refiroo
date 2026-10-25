@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import { formatServerTime } from "@/lib/dates";
+import { formatServerDayTime, formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { routePath } from "@/routing/routes";
 import type {
@@ -31,6 +31,7 @@ import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { RotateOverlapDialog } from "@/ui/RotateOverlapDialog";
 import { RouteLink } from "@/ui/RouteLink";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { ShownOnceDialog } from "@/ui/ShownOnceDialog";
@@ -251,7 +252,9 @@ function Subscriptions({
           }}
         />
       )}
-      {created?.signingSecret && <SigningKeyDialog subscription={created} onClose={() => setCreated(undefined)} />}
+      {created?.signingSecret && (
+        <SigningKeyDialog url={created.url} secret={created.signingSecret} onClose={() => setCreated(undefined)} />
+      )}
     </>
   );
 }
@@ -289,22 +292,39 @@ function Breakable({ text }: { text: string }) {
   ));
 }
 
-/** The signing key, once: no read returns it again. */
-function SigningKeyDialog({ subscription, onClose }: { subscription: Subscription; onClose: () => void }) {
+/** The signing key, once: no read returns it again; after a rotation, with how long the old one signs. */
+function SigningKeyDialog({
+  url,
+  secret,
+  rotation,
+  onClose,
+}: {
+  url: string;
+  secret: string;
+  rotation?: { endsAt: string | null };
+  onClose: () => void;
+}) {
   return (
     <ShownOnceDialog
-      title="Keep the signing key"
-      eyebrow="Webhook created"
+      title={rotation ? "Keep the new signing key" : "Keep the signing key"}
+      eyebrow={rotation ? "Signing key rotated" : "Webhook created"}
       label="Signing key"
-      value={subscription.signingSecret ?? ""}
+      value={secret}
       confirmLabel="I have stored the key"
       onClose={onClose}
     >
       {{
         before: (
           <p>
-            Every delivery to <code>{subscription.url}</code> is signed with this key (<code>RDM-Signature</code>).
-            Store it with the receiver now: it is not shown again.
+            Every delivery to <code>{url}</code> is signed with this key (<code>RDM-Signature</code>). Store it with the
+            receiver now: it is not shown again.
+          </p>
+        ),
+        after: rotation && (
+          <p className="admin-hint">
+            {rotation.endsAt
+              ? `Until ${formatServerDayTime(rotation.endsAt)} each delivery lists two signatures, this key's first and the old key's, and the receiver accepts it when either verifies. Then only this key signs.`
+              : "The old key stopped signing now: the receiver refuses deliveries until it has this key, and the engine retries them meanwhile."}
           </p>
         ),
       }}
@@ -337,6 +357,8 @@ function SubscriptionDetail({
   const [loadToken, setLoadToken] = useState(0);
   const [editing, setEditing] = useState(false);
   const [resuming, setResuming] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const [rotated, setRotated] = useState<{ secret: string; endsAt: string | null }>();
   const [deleting, setDeleting] = useState(false);
   const [pending, setPending] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -345,6 +367,7 @@ function SubscriptionDetail({
   // A webhook's owner links to their Security page for whoever may open it (D353).
   const securityAdmin = useHeldAnywhere()?.some((group) => group.key === "security-admin");
   const editRef = useRef<HTMLButtonElement>(null);
+  const rotateRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -385,6 +408,7 @@ function SubscriptionDetail({
       if (isApiError(cause, "VERSION_CONFLICT")) {
         setDeleting(false);
         setResuming(false);
+        setRotating(false);
         await reload().catch(() => undefined);
         setConflict(
           "This subscription changed while the page was open. It is shown as it is now; review it and choose again.",
@@ -473,6 +497,14 @@ function SubscriptionDetail({
     { term: "Content", value: CONTENT[subscription.payload] },
     { term: "Format", value: FORMAT[subscription.format] },
     { term: "Signing key created", value: formatServerTime(subscription.signingKeyCreatedAt) },
+    ...(subscription.previousSigningKeyExpiresAt
+      ? [
+          {
+            term: "Previous key signs until",
+            value: formatServerTime(subscription.previousSigningKeyExpiresAt),
+          },
+        ]
+      : []),
     { term: "Created", value: formatServerTime(subscription.createdAt) },
     {
       term: "Created by",
@@ -505,7 +537,7 @@ function SubscriptionDetail({
           {conflict}
         </Notice>
       )}
-      {actionError && !resuming && !deleting && (
+      {actionError && !resuming && !deleting && !rotating && (
         <Notice tone="error" title="The action could not be completed">
           {actionError}
         </Notice>
@@ -541,6 +573,17 @@ function SubscriptionDetail({
             Resume…
           </button>
         )}
+        <button
+          ref={rotateRef}
+          className="secondary"
+          disabled={pending}
+          onClick={() => {
+            setActionError("");
+            setRotating(true);
+          }}
+        >
+          Rotate key…
+        </button>
         <button
           className="danger-ghost"
           disabled={pending}
@@ -637,6 +680,47 @@ function SubscriptionDetail({
             setConflict(
               "This subscription changed while the page was open. It is shown as it is now; review it and choose again.",
             );
+          }}
+        />
+      )}
+      {rotating && (
+        <RotateOverlapDialog
+          title={`Rotate the signing key of ${subscription.name}`}
+          eyebrow="Webhook"
+          lead="A new key is made and shown once. Until the receiver switches to it, every delivery is also signed with the current key, so none is missed, for:"
+          stopNowHint="For a key that leaked: deliveries are signed with the new key alone, and the receiver refuses them until it has it."
+          submitLabel="Make a new key"
+          pendingLabel="Making…"
+          errorTitle="No new key was made"
+          pending={pending}
+          error={actionError}
+          onClose={() => {
+            setRotating(false);
+            setActionError("");
+            rotateRef.current?.focus();
+          }}
+          onRotate={(overlapHours) =>
+            void write(async () => {
+              const { signingSecret, ...kept } = await api.rotateSubscriptionSecret(
+                subscription.id,
+                subscription.version,
+                overlapHours,
+              );
+              setRotating(false);
+              stored(kept, "Signing key rotated.");
+              setRotated({ secret: signingSecret ?? "", endsAt: kept.previousSigningKeyExpiresAt });
+            })
+          }
+        />
+      )}
+      {rotated && (
+        <SigningKeyDialog
+          url={subscription.url}
+          secret={rotated.secret}
+          rotation={{ endsAt: rotated.endsAt }}
+          onClose={() => {
+            setRotated(undefined);
+            rotateRef.current?.focus();
           }}
         />
       )}

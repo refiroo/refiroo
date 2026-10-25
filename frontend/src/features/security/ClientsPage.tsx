@@ -17,7 +17,6 @@ import { routePath } from "@/routing/routes";
 import type { Client, ClientWithSecret, RouteState, SettingsRoute } from "@/types";
 import { ActorName } from "@/ui/ActorName";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
-import { Choice } from "@/ui/Choice";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { CopyValue } from "@/ui/CopyValue";
 import { FormField } from "@/ui/FormField";
@@ -25,6 +24,7 @@ import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { RotateOverlapDialog } from "@/ui/RotateOverlapDialog";
 import { RouteLink } from "@/ui/RouteLink";
 import { SearchField } from "@/ui/SearchField";
 import { Section } from "@/ui/Section";
@@ -464,8 +464,14 @@ function ClientDetail({
         />
       )}
       {dialog === "rotate" && (
-        <RotateDialog
-          client={client}
+        <RotateOverlapDialog
+          title={`Rotate the secret of ${client.name}`}
+          eyebrow="Security"
+          lead="A new secret is made and shown once. Until the system using this client switches to it, the current secret keeps working for:"
+          stopNowHint="For a secret that leaked: the system using it is refused until it has the new one."
+          submitLabel="Make a new secret"
+          pendingLabel="Making…"
+          errorTitle="No new secret was made"
           pending={pending}
           error={actionError}
           onClose={() => {
@@ -560,75 +566,6 @@ function Secrets({ client, pending, onEnd }: { client: Client; pending: boolean;
         </SettingsTable>
       )}
     </Section>
-  );
-}
-
-// How long the current secret keeps working after a rotation (D352), in hours.
-const OVERLAPS: [string, string, string][] = [
-  ["1", "1 hour", ""],
-  ["24", "24 hours", "The usual choice."],
-  ["168", "7 days", "The longest overlap."],
-  ["0", "Stop it now", "For a secret that leaked: the system using it is refused until it has the new one."],
-];
-
-function RotateDialog({
-  client,
-  pending,
-  error,
-  onClose,
-  onRotate,
-}: {
-  client: Client;
-  pending: boolean;
-  error: string;
-  onClose: () => void;
-  onRotate: (overlapHours: number) => void;
-}) {
-  const [overlap, setOverlap] = useState("24");
-  const hint = OVERLAPS.find(([value]) => value === overlap)?.[2];
-  return (
-    <Modal
-      title={`Rotate the secret of ${client.name}`}
-      eyebrow="Security"
-      size="compact"
-      busy={pending}
-      onClose={onClose}
-    >
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          onRotate(Number(overlap));
-        }}
-      >
-        <p>
-          A new secret is made and shown once. Until the system using this client switches to it, the current secret
-          keeps working for:
-        </p>
-        <fieldset className="form-field rotate-overlap">
-          <legend className="visually-hidden">How long the current secret keeps working</legend>
-          <Choice
-            name="rotate-overlap"
-            value={overlap}
-            options={OVERLAPS.map(([value, label]) => [value, label] as [string, string])}
-            onChange={setOverlap}
-          />
-          {hint && <p className="admin-hint">{hint}</p>}
-        </fieldset>
-        {error && (
-          <Notice tone="error" title="No new secret was made">
-            {error}
-          </Notice>
-        )}
-        <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={pending} onClick={onClose}>
-            Cancel
-          </button>
-          <button className="primary" disabled={pending}>
-            {pending ? "Making…" : "Make a new secret"}
-          </button>
-        </div>
-      </form>
-    </Modal>
   );
 }
 

@@ -1135,7 +1135,10 @@ or a few chosen from a searchable list) and any filters (added one at a time, th
 tags), and how requests are made (one event per request or batched, with the object or the
 notification only, RDM JSON or CloudEvents 1.0), and shows the signing key once. Each webhook's page has two tabs. **Configuration** shows
 whether it is delivering, retrying or paused, the reason and what fixes it, and edits, pauses,
-resumes (from the first change not taken, or from now on) and deletes it. **Deliveries** lists
+resumes (from the first change not taken, or from now on), **rotates its signing key** and deletes it.
+**Rotate key…** makes a new key and shows it once; for the time chosen (24 hours unless changed, up to
+7 days) each delivery is signed with both keys and the receiver accepts either, so it can switch
+without missing one, and **Stop it now** is for a key that leaked. **Deliveries** lists
 every change sent or being sent, newest first, with its status, attempts, the receiver's answer and
 when it went; opening one shows each attempt with how long it took, the request exactly as sent and
 the receiver's answer, as formatted JSON, and can send it again by hand, as it was sent, whatever
@@ -1313,7 +1316,7 @@ operations. Nine roles come predefined (Reader, Contributor, Data steward, Data 
 administrators and operator); a custom role is made from scratch or copied from another. A role is
 granted to a person, a system or a group of people, for the whole instance or one workspace, and a
 workspace grant may narrow what may be changed to some applications or record types. The grant
-dialog makes several grants at once: roles ticked in a list in several workspaces or the whole
+dialog makes several grants at once: roles ticked as cards in several workspaces or the whole
 instance, consumer APIs ticked in a grid of APIs by workspaces, with what is already held shown and
 not granted again. A narrowed
 grant allows writing the records of the applications and types it names, live, in a change set, in
@@ -1393,7 +1396,7 @@ administrator to People). The workspace selector lists only workspaces the perso
 Settings lists only the pages of groups they hold somewhere. The engine still checks everything; a
 refusal (a role changed meanwhile) is shown as worded and the page follows at once.
 
-Limits: a webhook's signing key is rotated with K1; a
+Limits: a
 client's secret overlap other than an hour, a day or a week, or none, is set through the API;
 secrets made before 0.12 SP2 show no last four characters; a Contributor's change set waits for someone to notice it until
 approvals (A1–A3); an import into a narrowed grant is offered before its file is read, so rows of

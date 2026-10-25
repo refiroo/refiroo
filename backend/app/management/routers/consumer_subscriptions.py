@@ -18,6 +18,7 @@ from ...engine.events.subscriptions import (
     load_subscription,
     owners,
     resume_subscription,
+    rotate_secret,
     subscription_page,
     suspend_subscription,
     update_subscription,
@@ -25,6 +26,7 @@ from ...engine.events.subscriptions import (
 from ...models.commands import (
     ConsumerSubscriptionCreate,
     ConsumerSubscriptionResume,
+    ConsumerSubscriptionRotate,
     ConsumerSubscriptionUpdate,
     ConsumerSubscriptionVersion,
     DeliveryResend,
@@ -156,6 +158,20 @@ def resume(
         session,
         resume_subscription(session, subscription_id, payload.expectedVersion, payload.reset, _settings(request)),
     )
+
+
+@router.post("/consumer-subscriptions/{subscription_id}/rotate-secret", response_model=SubscriptionResponse)
+@requires("subscriptions.manage", at=SUBSCRIPTION_PATH)
+def rotate(
+    subscription_id: str, payload: ConsumerSubscriptionRotate, request: Request, session: DbSession
+) -> SubscriptionResponse:
+    """Make a new signing key and answer it once in ``signingSecret``. For ``overlapHours`` (24 by
+    default, 0 to 168) every delivery is signed with both keys, ``RDM-Signature:
+    sha256=<new>,sha256=<previous>``, so a receiver can switch without missing one; afterwards, or
+    at once with 0 (a leaked key), only the new key signs and the previous one stops verifying. Works
+    on a suspended subscription; delivery is not interrupted."""
+    subscription, secret = rotate_secret(session, subscription_id, payload, _settings(request))
+    return _answer(session, subscription, secret)
 
 
 @router.delete("/consumer-subscriptions/{subscription_id}", status_code=204)

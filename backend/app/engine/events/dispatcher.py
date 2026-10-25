@@ -43,7 +43,6 @@ from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ...common.outage import OutageLog
-from ...common.sealing import unseal
 from ...models.database import (
     ConsumerEvent,
     ConsumerEventCheckpoint,
@@ -64,7 +63,7 @@ from .subscription_rules import (
     SUSPENDED,
     definition_of,
 )
-from .subscriptions import SubscriptionSettings, clear_delivery, expired_details, secret_text
+from .subscriptions import SubscriptionSettings, clear_delivery, expired_details, signing_secrets
 from .webhook_client import Answer, post
 
 logger = logging.getLogger(__name__)
@@ -223,12 +222,10 @@ class EventDispatcher:
             subscription.pending_position, subscription.pending_ordinal = batch.end
             delivery_log.open_batch(session, sequence_id, batch.delivery_id, batch.events, now)
             url = subscription.url
-            secret = secret_text(
-                unseal(self.settings.encryption_key, subscription.signing_key, subscription.public_id.encode())
-            )
+            secrets = signing_secrets(self.settings, subscription, now)
             session.commit()
 
-        answer = self._send(sequence_id, url, secret, batch, now)
+        answer = self._send(sequence_id, url, secrets, batch, now)
         return self._record(sequence_id, batch, answer, now)
 
     def _stopped_by(
@@ -314,7 +311,7 @@ class EventDispatcher:
 
     # --- sending and recording --------------------------------------------------------------------
 
-    def _send(self, sequence_id: int, url: str, secret: str, batch: _Batch, now: datetime) -> Answer:
+    def _send(self, sequence_id: int, url: str, secrets: list[str], batch: _Batch, now: datetime) -> Answer:
         """Send the batch's request, renewing the lease first; the receiver's answer."""
         # A round's clock may lag behind a long round's sends; a test's runs ahead.
         at = max(now, datetime.now(UTC))
@@ -325,7 +322,7 @@ class EventDispatcher:
         answer = post(
             url,
             data,
-            delivery.headers(batch.delivery_id, secret, timestamp, data, batch.content_type),
+            delivery.headers(batch.delivery_id, secrets, timestamp, data, batch.content_type),
             timeout=self.timeout_seconds,
         )
         elapsed = timedelta(seconds=time.monotonic() - clock)

@@ -6,13 +6,28 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 K1)
+
+- **A webhook's signing key can be rotated.** `POST /api/v1/consumer-subscriptions/{id}/rotate-secret`
+  `{expectedVersion, overlapHours}` (24 by default, 0 to 168) answers a new key once, as the create
+  does. For the overlap every delivery is signed with both keys, `RDM-Signature:
+  sha256=<new>,sha256=<previous>`, and a receiver accepts it when either verifies; afterwards only the
+  new key signs, and with 0 the old key stops with the next delivery, a retry of a waiting batch
+  included. A subscription names `previousSigningKeyExpiresAt` while an overlap runs. **Receivers must
+  accept a comma-separated list.** Settings › Integration › Webhooks has **Rotate key…**, with the
+  overlap choices of a client's secret (one shared dialog now), and shows the new key once.
+- **`python -m app.cli.reseal_secrets`** re-seals every sealed secret (token signing keys, webhook keys,
+  a provider's client secret, authenticator secrets and the provider ID tokens kept with a session)
+  under a new `SECRETS_ENCRYPTION_KEY`, all or none; `--check` proves every one opens. Migration
+  `20261108_01`.
+
 ### Changed (grant dialog)
 
 - **Grants are made in bulk, from a grid.** The grant dialog (a client's, person's or group's page,
   and a workspace's Access) now takes several things at once. Consumer APIs are ticked in a grid of
   APIs by workspaces (a row or column heading ticks the line, Shift extends a range; a workspace
-  whose model does not declare an API has no tick for it); roles are ticked in a scrolling list, in
-  several workspaces or the whole instance. What the holder already has is shown ticked and locked and is
+  whose model does not declare an API has no tick for it); roles are ticked as cards, in several
+  workspaces or the whole instance. What the holder already has is shown ticked and locked and is
   not sent again; a sentence says how many grants will be made. Each tick is one `POST
   /api/v1/grants`, so a refusal leaves the others made and its tick in place with the reason.
   Narrowing is offered when one role is granted in one workspace. A client's page opens on

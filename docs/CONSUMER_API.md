@@ -45,7 +45,8 @@ design, recorded now so 0.9 does not close it off:
   (default 24, from 0 to 168) answers the new key once. During the overlap every delivery carries
   both signatures, `RDM-Signature: sha256=<new>,sha256=<old>`, and a receiver accepts the request
   when any of them verifies; afterwards only the new one (D238). Receivers must accept a
-  comma-separated list from 0.12 on.
+  comma-separated list from 0.12 on. _Delivered by K1_; the route and its refusals are in
+  [API.md](API.md#webhook-signing-key-rotation-product-012-k1).
 - **Consumer events do not carry the actor** (D239); the management feed and history do.
 
 **Delivered by I1 (2026-10-23):** every consumer route, the index and the per-definition OpenAPI
@@ -760,7 +761,7 @@ GET    /api/v1/consumer-subscriptions/{id}
 PATCH  /api/v1/consumer-subscriptions/{id}                  (expectedVersion, like other updates)
 POST   /api/v1/consumer-subscriptions/{id}/suspend
 POST   /api/v1/consumer-subscriptions/{id}/resume           (reset, C-D93 revised; acknowledgeLoss until C12)
-POST   /api/v1/consumer-subscriptions/{id}/rotate-secret    (0.12)
+POST   /api/v1/consumer-subscriptions/{id}/rotate-secret    (expectedVersion, overlapHours; 0.12 K1)
 DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
 ```
 
@@ -803,8 +804,10 @@ DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=…
   earlier position still kept (`startAfter`, such as a publication's `eventSequence`), checked as
   the pull feed's `after`.
 - **The signing key** is 32 random bytes generated on create and returned once as `signingSecret`,
-  never by a read. It is stored sealed with AES-256-GCM under `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`,
-  a deployment secret kept outside the database (C-D96). Rotation (`rotate-secret`) arrives in 0.12.
+  never by a read. It is stored sealed with AES-256-GCM under `SECRETS_ENCRYPTION_KEY` (before 0.12,
+  `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`), a deployment secret kept outside the database (C-D96).
+  `rotate-secret` (0.12 K1) makes a new one, answered once; the previous one keeps signing beside it
+  for the overlap, then stops.
 - **Target hosts:** any host and port over HTTPS; plain HTTP only to `localhost`, `127.0.0.1` or
   `::1` (C-D101 revised). There is no host allowlist; the dispatcher refuses link-local addresses
   when it connects (C-D107).
@@ -871,7 +874,9 @@ A dispatcher in the API process delivers every active subscription while
   `User-Agent: rdm-engine`, `RDM-Delivery-Id` (the request's delivery ID, an RDM JSON body's
   `deliveryId`, the same on every retry of a batch), `RDM-Timestamp` (Unix seconds, new on
   every attempt) and `RDM-Signature: sha256=<hex>`, the HMAC-SHA256 of `"{RDM-Timestamp}.{body}"`
-  with the subscription's `signingSecret`, exactly as the create answered it, as the key. Receivers
+  with the subscription's `signingSecret`, exactly as the create answered it, as the key. During a
+  rotation's overlap (0.12 K1) the header lists both keys' signatures, `sha256=<new>,sha256=<previous>`,
+  and a receiver accepts the request when any of them verifies. Receivers
   verify the signature over the body bytes as received and reject stale timestamps to prevent
   replay (C-D12, revised 2026-10-05: signed from 0.9, since a forged event could otherwise plant
   data). Every request is signed, retries included.

@@ -237,6 +237,27 @@ factor (D383, [A second factor for local accounts](#a-second-factor-for-local-ac
 sign-in provider brings the organisation's own multi-factor sign-in (D225, [Signing in with the
 organisation's provider](#signing-in-with-the-organisations-provider)).
 
+### Changing `SECRETS_ENCRYPTION_KEY`
+
+The key seals what the engine must read back: token signing keys, webhook signing keys, a sign-in
+provider's client secret, authenticator secrets and the provider ID tokens kept with a session. To
+move to a new key (a suspected leak, or a policy), with the engine **stopped** (a running process would
+seal new values with the old key):
+
+1. Leave the current key in `SECRETS_ENCRYPTION_KEY`, make the new one with
+   `python -m app.cli.generate_key` and put it in `NEW_SECRETS_ENCRYPTION_KEY` (never as an argument,
+   which a shell keeps in its history).
+2. `python -m app.cli.reseal_secrets --check` proves every sealed value opens with the current key and
+   changes nothing.
+3. `python -m app.cli.reseal_secrets` re-seals every value in one transaction: all or none. If one does
+   not open (another key, damaged data) it names each by kind and identity, never by content, and
+   changes nothing. It refuses a new key equal to the current one. It prints what it re-sealed.
+4. Set `SECRETS_ENCRYPTION_KEY` to the new key everywhere, keep it beside the backups (a backup taken
+   before the re-sealing needs the old key), and start the engine.
+
+A re-sealing does not change any key's value, so receivers and tokens are unaffected; to change a
+webhook's or a token key itself, rotate it (above).
+
 ### Roles and grants
 
 A **role** is a set of action groups (Browse, Edit live, Work in change sets, Publish, Bulk and
@@ -732,8 +753,13 @@ A webhook URL may name any host and port. It must use HTTPS; plain HTTP is accep
 
 - **The key:** signing keys are stored sealed with `SECRETS_ENCRYPTION_KEY` (0.12 D253; before
   0.12, `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, which startup now refuses by name: rename it, keeping
-  its value). Changing the key makes every stored signing key unreadable until re-sealing arrives
-  (0.12 K1).
+  its value). Changing the key without re-sealing makes every stored secret unreadable; see
+  [Changing `SECRETS_ENCRYPTION_KEY`](#changing-secrets_encryption_key). **Rotating a webhook's key**
+  (0.12 K1): `POST /api/v1/consumer-subscriptions/{id}/rotate-secret` or **Rotate key…** on the
+  webhook's page; the receiver is given the new key from the answer or the dialog, and during the
+  overlap (24 hours by default, up to 7 days) it can verify with either. **0** is for a key that
+  leaked: the old one stops with the next delivery, and the receiver refuses what the engine sends
+  until it has the new one; the engine retries meanwhile.
 - **A model activation** that drops what a subscription names suspends it (`MODEL_CHANGED`); one
   that raises its consumer API's contract version suspends it until resumed
   (`CONTRACT_VERSION_CHANGED`). **Retiring a workspace** suspends its subscriptions
@@ -748,7 +774,8 @@ A webhook URL may name any host and port. It must use HTTPS; plain HTTP is accep
 - **What a receiver must do.** Accept `POST` requests of up to 1 MiB of JSON body, more for an
   unusually large single object (nginx's default `client_max_body_size` is exactly 1 MiB); answer
   `2xx` within 10 seconds once the request is stored; verify `RDM-Signature` (HMAC-SHA256 of
-  `"{RDM-Timestamp}.{body}"` with the subscription's `signingSecret`) and reject stale timestamps;
+  `"{RDM-Timestamp}.{body}"` with the subscription's `signingSecret`; during a key rotation the header
+  lists two signatures separated by a comma, and any one verifying is enough) and reject stale timestamps;
   deduplicate by `eventId`, since delivery is at least once. A redirect is not followed: give the
   final URL. The limits are reported in `GET /api/v1/capabilities` (`consumerSubscriptions.delivery`)
   and explained in [CONSUMER_API "Delivery"](CONSUMER_API.md#delivery).

@@ -154,7 +154,7 @@ class Settings(BaseModel):
                 for origin in env.get("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
             ),
             public_url=_public_url(env.get("PUBLIC_URL", "")),
-            secrets_encryption_key=_encryption_key(env.get("SECRETS_ENCRYPTION_KEY", "")),
+            secrets_encryption_key=encryption_key(env.get("SECRETS_ENCRYPTION_KEY", "")),
             access_token_minutes=_positive(env, "ACCESS_TOKEN_MINUTES", 60),
             token_signing_key_days=_positive(env, "TOKEN_SIGNING_KEY_DAYS", 30),
             session_idle_hours=_positive(env, "SESSION_IDLE_HOURS", 12),
@@ -307,7 +307,7 @@ def _public_url(raw: str) -> str:
     return value
 
 
-def _encryption_key(raw: str) -> bytes | None:
+def encryption_key(raw: str) -> bytes | None:
     """The 32-byte key written in URL-safe base64, or none when unset."""
     value = raw.strip()
     if not value:

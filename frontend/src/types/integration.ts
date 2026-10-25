@@ -547,6 +547,8 @@ export interface Subscription {
     } | null;
   };
   signingKeyCreatedAt: string;
+  /** The end of a rotation's overlap, while deliveries are signed with both keys (0.12 K1); null otherwise. */
+  previousSigningKeyExpiresAt: string | null;
   /** Who created it; null for a subscription from before 0.12 Z3 (D310). */
   owner?: { kind: "user" | "client"; id: string; name: string } | null;
   version: number;

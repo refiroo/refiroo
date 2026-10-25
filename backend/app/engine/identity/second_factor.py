@@ -87,8 +87,13 @@ def product_name(session: Session, fallback: str) -> str:
         return fallback
 
 
+def context(user_id: str) -> bytes:
+    """What a person's sealed secret is bound to: their public ID."""
+    return b"second-factor:" + user_id.encode()
+
+
 def _context(user: User) -> bytes:
-    return b"second-factor:" + user.public_id.encode()
+    return context(user.public_id)
 
 
 def _key(settings: IdentitySettings, user: User, row: UserSecondFactor) -> bytes:

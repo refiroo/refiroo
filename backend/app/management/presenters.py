@@ -4,7 +4,7 @@ These live beside the routers rather than inside one of them so no router has to
 router's internals.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -539,12 +539,21 @@ def subscription_response(
         acknowledgedThrough=item.acknowledged_position,
         delivery=_delivery(item),
         signingKeyCreatedAt=as_utc(item.signing_key_created_at),
+        previousSigningKeyExpiresAt=_overlap_end(item),
         version=item.version,
         createdAt=as_utc(item.created_at),
         updatedAt=as_utc(item.updated_at),
         owner=PrincipalResponse.model_validate(owner) if owner else None,
         signingSecret=secret,
     )
+
+
+def _overlap_end(item: ConsumerSubscription) -> datetime | None:
+    """The end of a rotation's overlap while it runs; none once the previous key stopped signing."""
+    ends = item.previous_signing_key_expires_at
+    if item.previous_signing_key is None or ends is None or as_utc(ends) <= datetime.now(UTC):
+        return None
+    return as_utc(ends)
 
 
 def _delivery(item: ConsumerSubscription) -> SubscriptionDelivery:

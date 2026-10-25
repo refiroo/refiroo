@@ -6,7 +6,8 @@
 // created through the API, and the page showing the batch being retried with the receiver's
 // answer; suspend and resume by keyboard, after which the batch arrives signed with the key the
 // page showed; a workspace refused deletion naming its webhook, linked to its page; delete; axe
-// light and dark; screenshots.
+// light and dark; screenshots. Since 0.12 K1: Rotate key… by keyboard, with an overlap and then at once, and the
+// signatures the receiver gets in each.
 import { createHmac } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -319,6 +320,110 @@ try {
   );
   await page.keyboard.press("Escape");
   await event.waitFor({ state: "detached" });
+
+  // 3b''. Rotate the signing key (0.12 K1): by keyboard with the default overlap, the new key shown once;
+  //      the next delivery lists two signatures and either key verifies it. Then "Stop it now": the
+  //      next delivery lists one, and only the newest key verifies it.
+  await page.goto(`${uiUrl}/settings/webhooks/${areas.id}`);
+  const signaturesOf = (item) => String(item.headers["rdm-signature"]).split(",");
+  const signedWith = (item, key) =>
+    signaturesOf(item).includes(
+      `sha256=${createHmac("sha256", key).update(`${item.headers["rdm-timestamp"]}.${item.body}`).digest("hex")}`,
+    );
+  const createArea = (name, code) =>
+    api("/batches", {
+      workspaceKey: "default",
+      policy: "atomic",
+      run: "inline",
+      items: [
+        {
+          op: "create",
+          applicationKey: "rdm-master",
+          objectTypeKey: "domain",
+          name,
+          attributes: [{ attributeTypeKey: "domain-code", value: code }],
+        },
+      ],
+    });
+  const rotateByKeyboard = async (choice) => {
+    await page.getByRole("button", { name: "Rotate key…" }).focus();
+    await page.keyboard.press("Enter");
+    const rotate = page.getByRole("dialog", { name: /^Rotate the signing key of / });
+    await rotate.waitFor();
+    if (choice) await rotate.getByText(choice, { exact: true }).click();
+    await shot(`u5-rotate-dialog-${choice ? "stop" : "default"}-wide`);
+    await rotate.getByRole("button", { name: "Make a new key" }).focus();
+    await page.keyboard.press("Enter");
+    const kept = page.getByRole("dialog", { name: "Keep the new signing key" });
+    await kept.waitFor();
+    const key = (await kept.locator(".copy-value code").innerText()).trim();
+    expect(/^rdmwh_[A-Za-z0-9_-]{43}$/.test(key), `rotated key ${key}`);
+    await shot(`u5-rotated-key-${choice ? "stop" : "default"}-wide`);
+    await kept.getByRole("button", { name: "I have stored the key" }).click();
+    await kept.waitFor({ state: "detached" });
+    return key;
+  };
+  const second = await rotateByKeyboard();
+  expect(second !== areas.secret, "the rotation answered the same key");
+  const overlapping = await api(`/consumer-subscriptions/${areas.id}`);
+  expect(
+    overlapping.previousSigningKeyExpiresAt !== null && !("signingSecret" in overlapping),
+    `after the rotation: ${JSON.stringify(overlapping).slice(0, 300)}`,
+  );
+  await detail.getByText("Previous key signs until").waitFor();
+  const sent = fromAreas().length;
+  await createArea("U5 Area Two", "U5-AREA-2");
+  await waitUntil(() => fromAreas().length > sent, "no delivery during the overlap");
+  const during = fromAreas()[sent];
+  expect(
+    signaturesOf(during).length === 2 && signedWith(during, second) && signedWith(during, areas.secret),
+    `during the overlap: ${during.headers["rdm-signature"]}`,
+  );
+  const third = await rotateByKeyboard("Stop it now");
+  expect(
+    (await api(`/consumer-subscriptions/${areas.id}`)).previousSigningKeyExpiresAt === null,
+    "an overlap of 0 still names an overlap",
+  );
+  await page.getByText("Previous key signs until").waitFor({ state: "detached" });
+  const sentAgain = fromAreas().length;
+  await createArea("U5 Area Three", "U5-AREA-3");
+  await waitUntil(() => fromAreas().length > sentAgain, "no delivery after the rotation at once");
+  const after = fromAreas()[sentAgain];
+  expect(
+    signaturesOf(after).length === 1 &&
+      signedWith(after, third) &&
+      !signedWith(after, second) &&
+      !signedWith(after, areas.secret),
+    `after the rotation at once: ${after.headers["rdm-signature"]}`,
+  );
+  checks.push(
+    "Rotate key… by keyboard: the new key shown once and the page naming when the old key stops; the next delivery lists two signatures that either key verifies; Stop it now, and the next delivery lists one that only the newest key verifies",
+  );
+
+  // The other configuration's webhook at 390px: the rotation dialog and the key shown once fit the
+  // phone, the second without a horizontal scroll, and Escape closes the first.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${uiUrl}/settings/webhooks/${created.rdm.id}`);
+  await page.getByRole("heading", { level: 2 }).first().waitFor();
+  await page.getByRole("button", { name: "Rotate key…" }).click();
+  const phoneRotate = page.getByRole("dialog", { name: /^Rotate the signing key of / });
+  await phoneRotate.waitFor();
+  expect((await overflow()) <= 0, "the rotation dialog scrolls horizontally at 390px");
+  await shot("u5-rotate-dialog-narrow");
+  await page.keyboard.press("Escape");
+  await phoneRotate.waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "Rotate key…" }).click();
+  await phoneRotate.getByRole("button", { name: "Make a new key" }).click();
+  const phoneKey = page.getByRole("dialog", { name: "Keep the new signing key" });
+  await phoneKey.waitFor();
+  expect((await overflow()) <= 0, "the new key's dialog scrolls horizontally at 390px");
+  await shot("u5-rotated-key-narrow");
+  await phoneKey.getByRole("button", { name: "I have stored the key" }).click();
+  await phoneKey.waitFor({ state: "detached" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  checks.push(
+    "390px, on the other configuration's webhook: Rotate key… opens and closes with Escape, then makes a key shown once, neither dialog scrolling the page sideways",
+  );
 
   // 3c. A CloudEvents webhook batching up to 10 (C17): two records created together arrive as one
   //     array of CloudEvents; its Deliveries list each event of that request, and an event opens

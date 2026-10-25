@@ -590,6 +590,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ expectedVersion }),
     }),
+  /** A new signing key in `signingSecret`, which no later read returns; the old one signs beside it for `overlapHours`. */
+  rotateSubscriptionSecret: (id: string, expectedVersion: number, overlapHours: number) =>
+    request<Subscription>(`/api/v1/consumer-subscriptions/${encodeURIComponent(id)}/rotate-secret`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion, overlapHours }),
+    }),
   resumeSubscription: (id: string, expectedVersion: number, reset = false) =>
     request<Subscription>(`/api/v1/consumer-subscriptions/${encodeURIComponent(id)}/resume`, {
       method: "POST",

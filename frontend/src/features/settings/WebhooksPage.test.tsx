@@ -73,6 +73,7 @@ const subscription = (id: string, overrides: Partial<Subscription> = {}): Subscr
   acknowledgedThrough: 120,
   delivery: { lastDeliveredAt: null, pending: null },
   signingKeyCreatedAt: "2026-10-07T08:00:00Z",
+  previousSigningKeyExpiresAt: null,
   version: 1,
   createdAt: "2026-10-07T08:00:00Z",
   updatedAt: "2026-10-07T08:00:00Z",
@@ -357,6 +358,49 @@ describe("Webhooks", () => {
     expect(api.resumeSubscription).toHaveBeenLastCalledWith("s", 4, true);
     dialog = screen.getByRole("heading", { name: "Receiver s" }).closest(".webhook-detail") as HTMLElement;
     expect(within(dialog).getByText("Active")).toBeInTheDocument();
+  });
+
+  it("rotates the signing key with an overlap, showing the new key once and who still signs", async () => {
+    vi.mocked(api.subscription).mockResolvedValue(subscription("s", { version: 2 }));
+    vi.mocked(api.rotateSubscriptionSecret).mockResolvedValue(
+      subscription("s", {
+        version: 3,
+        signingSecret: "rdmwh_newkey",
+        previousSigningKeyExpiresAt: "2099-10-08T08:00:00Z",
+      }),
+    );
+    renderPage("s");
+    fireEvent.click(await screen.findByRole("button", { name: "Rotate key…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Rotate the signing key of Receiver s" });
+    expect(within(dialog).getByRole("radio", { name: "24 hours" })).toBeChecked();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Make a new key" }));
+    await waitFor(() => expect(api.rotateSubscriptionSecret).toHaveBeenCalledWith("s", 2, 24));
+    const shown = await screen.findByRole("dialog", { name: "Keep the new signing key" });
+    expect(shown).toHaveTextContent("rdmwh_newkey");
+    expect(shown).toHaveTextContent("lists two signatures");
+    fireEvent.click(within(shown).getByRole("button", { name: "I have stored the key" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    const page = screen.getByRole("heading", { name: "Receiver s" }).closest(".webhook-detail") as HTMLElement;
+    expect(page).toHaveTextContent("Previous key signs until");
+    expect(page).not.toHaveTextContent("rdmwh_newkey");
+  });
+
+  it("rotates a leaked key at once and says the old key stopped", async () => {
+    vi.mocked(api.subscription).mockResolvedValue(subscription("s", { version: 2 }));
+    vi.mocked(api.rotateSubscriptionSecret)
+      .mockRejectedValueOnce(new ApiError(500, "INTERNAL_ERROR", "The key could not be made"))
+      .mockResolvedValueOnce(subscription("s", { version: 3, signingSecret: "rdmwh_fresh" }));
+    renderPage("s");
+    fireEvent.click(await screen.findByRole("button", { name: "Rotate key…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Rotate the signing key of Receiver s" });
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Stop it now" }));
+    expect(dialog).toHaveTextContent("For a key that leaked");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Make a new key" }));
+    expect(await within(dialog).findByText("The key could not be made")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Make a new key" }));
+    await waitFor(() => expect(api.rotateSubscriptionSecret).toHaveBeenLastCalledWith("s", 2, 0));
+    const shown = await screen.findByRole("dialog", { name: "Keep the new signing key" });
+    expect(shown).toHaveTextContent("The old key stopped signing now");
   });
 
   it("edits only what changed, and a stale suspend reloads and says so", async () => {

@@ -3616,7 +3616,7 @@ GET /api/consumer/{consumerApi}/v{contractVersion}/events?workspace=…&event=�
 
 Where a consumer API's events are delivered as webhooks. The routes are served only when
 `CONSUMER_SUBSCRIPTIONS_ENABLED=true` (off by default; otherwise `404`, reads included), which also
-requires `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` ([OPERATIONS](OPERATIONS.md)). Subscriptions are
+requires `SECRETS_ENCRYPTION_KEY` ([OPERATIONS](OPERATIONS.md)). Subscriptions are
 deployment data, not part of a model release. [Delivery](#webhook-delivery-base-09-c12) is C12's.
 
 | Route | Answer |
@@ -3627,6 +3627,7 @@ deployment data, not part of a model release. [Delivery](#webhook-delivery-base-
 | `PATCH /api/v1/consumer-subscriptions/{id}` | the edited subscription |
 | `POST /api/v1/consumer-subscriptions/{id}/suspend` | the subscription, `suspended` (`SUSPENDED_BY_USER`) |
 | `POST /api/v1/consumer-subscriptions/{id}/resume` | the subscription, `active` |
+| `POST /api/v1/consumer-subscriptions/{id}/rotate-secret` `{expectedVersion, overlapHours}` | the subscription with a new `signingSecret`, once ([below](#webhook-signing-key-rotation-product-012-k1)) |
 | `DELETE /api/v1/consumer-subscriptions/{id}?expectedVersion=N` | `204` |
 | `GET /api/v1/consumer-subscriptions/{id}/deliveries` (`status`, paging) | what it delivered, newest first ([below](#the-delivery-log-base-09-u5a)) |
 | `GET /api/v1/consumer-subscriptions/{id}/deliveries/{deliveryId}` | one request with its body and attempts |
@@ -3654,7 +3655,7 @@ and `reset` (default false).
                   "details": { "errors": [{ "code": "UNKNOWN_EVENT", "message": "…", "pointer": "/events/0" }] } },
   "acknowledgedThrough": 184100,
   "delivery": { "lastDeliveredAt": "…", "pending": null },
-  "signingKeyCreatedAt": "…", "version": 3, "createdAt": "…", "updatedAt": "…"
+  "signingKeyCreatedAt": "…", "previousSigningKeyExpiresAt": null, "version": 3, "createdAt": "…", "updatedAt": "…"
 }
 ```
 
@@ -3665,7 +3666,7 @@ and `reset` (default false).
   listed loopback host (`localhost`, `127.0.0.1`, `::1`); the workspace exists and is active.
 - **The signing key** is answered once, as `signingSecret` (`rdmwh_` and 43 base64url characters),
   and never by a read; keep it to verify deliveries (C12). It is stored sealed with the deployment
-  key.
+  key. [Rotating it](#webhook-signing-key-rotation-product-012-k1) answers a new one the same way.
 - **Start.** Delivery continues after `acknowledgedThrough`: the workspace's feed head at create, or
   `startAfter`, refused as the pull feed's `after` is (`410 EVENTS_EXPIRED` with `publication`,
   `409 EVENT_POSITION_AHEAD`).
@@ -3756,6 +3757,27 @@ alone (C-D131). Rows and details carry `resendOf` (`null` for the dispatcher's r
 | 404 | `EVENT_NOT_IN_DELIVERY` | the event was not sent in that request |
 | 409 | `DELIVERY_NOT_SENT` | the request was never sent (`queued`), so nothing can be repeated |
 
+### Webhook signing-key rotation (Product 0.12 K1)
+
+`POST /api/v1/consumer-subscriptions/{id}/rotate-secret` with `{"expectedVersion": 3, "overlapHours":
+24}` (`overlapHours` 0 to 168, 24 by default) makes a new signing key and answers the subscription
+with it in `signingSecret`, once, as the create does. It needs Integration administration in the
+subscription's workspace, like every change to a subscription, and works on a suspended one.
+
+- **During the overlap** every request is signed with the new key and the previous one:
+  `RDM-Signature: sha256=<new>,sha256=<previous>`, new first. A receiver verifies each entry and
+  accepts the request when any matches, so it can switch keys at its own pace. The subscription reads
+  `previousSigningKeyExpiresAt` while the overlap runs, `null` otherwise.
+- **After it, or at once with `overlapHours: 0`,** only the new key signs: the previous key no longer
+  verifies anything sent from then on. The batch being retried is signed again for each attempt with
+  the keys in play at that attempt, so a rotation at once also reaches a retry already waiting.
+- **Rotating again inside an overlap** ends the earlier key's at once: at most two keys sign.
+- A rotation changes `version` and `signingKeyCreatedAt`, not what is delivered or where delivery
+  continues. `409 VERSION_CONFLICT` for a stale `expectedVersion`; `404 SUBSCRIPTION_NOT_FOUND`;
+  `422` for an overlap outside 0 to 168.
+- **Receivers** must accept a comma-separated list from 0.12 on; a receiver that compares the whole
+  header to one value refuses every delivery during an overlap.
+
 ### Webhook delivery (Base 0.9 C12)
 
 While `CONSUMER_SUBSCRIPTIONS_ENABLED` is on, every active subscription's events are POSTed to its
@@ -3810,7 +3832,7 @@ of them (`application/cloudevents-batch+json; charset=utf-8`), also when a batch
 | `RDM-Delivery-Id` | the request's delivery ID (an RDM JSON body's `deliveryId`); the same on every retry of a batch |
 | `RDM-Timestamp` | Unix seconds, new on every attempt |
 | `RDM-Redelivery` | `manual` on a resend by hand (U5a); absent otherwise |
-| `RDM-Signature` | `sha256=` and the lowercase hex HMAC-SHA256 of `"{RDM-Timestamp}.{body}"`, keyed with the `signingSecret` exactly as the create answered it; it covers a CloudEvent's attributes too |
+| `RDM-Signature` | `sha256=` and the lowercase hex HMAC-SHA256 of `"{RDM-Timestamp}.{body}"`, keyed with the `signingSecret` exactly as the create answered it; it covers a CloudEvent's attributes too. **A comma-separated list** (0.12 K1): during a rotation's overlap `sha256=<new>,sha256=<previous>`, otherwise one; the request is genuine when any of them verifies |
 
 **The receiver's answer:** any `2xx` acknowledges. Anything else fails the attempt: another status, a
 redirect (not followed), no answer within 10 s, a connection or TLS failure, or a refused address
@@ -6401,8 +6423,9 @@ Change-set publication only (D232, ADR-045):
 - `GET /jobs/{jobId}/events` and `GET /jobs/{jobId}/output` are unchanged on the API; the browser
   reads both with `fetch` and the `Authorization` header (D247).
 - `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` is replaced by `SECRETS_ENCRYPTION_KEY` (D253).
-- `POST /consumer-subscriptions/{id}/rotate-secret` (K1); `RDM-Signature` becomes a comma-separated
-  list of `sha256=<hex>` during an overlap (D238).
+- _Delivered by K1 (D238, D413):_ `POST /consumer-subscriptions/{id}/rotate-secret`; `RDM-Signature`
+  is a comma-separated list of `sha256=<hex>` during an overlap; a subscription reads
+  `previousSigningKeyExpiresAt`.
 - Each operation in the OpenAPI document gains `security` and the action and groups it declares
   (Z1, D256); this table then gives way to the document.
 - _Delivered by Z4 (D313, D315):_ `actor` on a record's history, a feed entry (`GET

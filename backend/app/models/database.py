@@ -1404,6 +1404,12 @@ class ConsumerSubscription(Base):
     acknowledged_ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     signing_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     signing_key_created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    # The key a rotation replaced, sealed like ``signing_key``, signing beside it until the overlap
+    # ends (0.12 K1, D238); empty for a subscription never rotated.
+    previous_signing_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    previous_signing_key_expires_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(), nullable=True
+    )
     # Delivery (C12): which process delivers it until when (C-D106); the batch being sent or
     # retried, by its delivery ID and the event key it ends at (C-D111); the failed attempts of that
     # batch (C-D103); the last acknowledgement. None of it changes ``version`` (C-D108).

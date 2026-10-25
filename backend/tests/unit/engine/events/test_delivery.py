@@ -126,9 +126,16 @@ def test_the_signature_is_an_hmac_of_the_timestamp_and_the_body_with_the_secret(
     body = b'{"deliveryId":"d"}'
     expected = hmac.new(b"rdmwh_secret", b"1791281643." + body, hashlib.sha256).hexdigest()
     assert delivery.sign("rdmwh_secret", 1791281643, body) == f"sha256={expected}"
-    headers = delivery.headers("d", "rdmwh_secret", 1791281643, body)
+    headers = delivery.headers("d", ["rdmwh_secret"], 1791281643, body)
     assert headers["RDM-Delivery-Id"] == "d" and headers["RDM-Timestamp"] == "1791281643"
     assert headers["RDM-Signature"] == f"sha256={expected}"
     assert delivery.sign("rdmwh_other", 1791281643, body) != headers["RDM-Signature"]
     assert headers["Content-Type"] == "application/json"
-    assert delivery.headers("d", "k", 1, body, delivery.CLOUDEVENT)["Content-Type"] == delivery.CLOUDEVENT
+    assert delivery.headers("d", ["k"], 1, body, delivery.CLOUDEVENT)["Content-Type"] == delivery.CLOUDEVENT
+
+
+def test_during_a_rotations_overlap_the_signature_lists_the_new_key_first_then_the_previous():
+    body = b'{"deliveryId":"d"}'
+    new, previous = delivery.sign("rdmwh_new", 1, body), delivery.sign("rdmwh_previous", 1, body)
+    headers = delivery.headers("d", ["rdmwh_new", "rdmwh_previous"], 1, body)
+    assert headers["RDM-Signature"] == f"{new},{previous}" and new != previous

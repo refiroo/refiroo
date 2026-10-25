@@ -33,7 +33,7 @@ _private_keys: dict[str, ec.EllipticCurvePrivateKey] = {}
 _public_keys: dict[str, ec.EllipticCurvePublicKey] = {}
 
 
-def _context(kid: str) -> bytes:
+def context(kid: str) -> bytes:
     return b"token-signing-key:" + kid.encode()
 
 
@@ -57,7 +57,7 @@ def _new_key(settings: IdentitySettings, now: datetime) -> TokenSigningKey:
     _private_keys[kid] = private
     return TokenSigningKey(
         kid=kid,
-        private_key=seal(settings.encryption_key, der, _context(kid)),
+        private_key=seal(settings.encryption_key, der, context(kid)),
         public_jwk={
             "kty": "EC",
             "crv": "P-256",
@@ -129,7 +129,7 @@ def signing_key(
 def _private_key(settings: IdentitySettings, key: TokenSigningKey) -> ec.EllipticCurvePrivateKey:
     cached = _private_keys.get(key.kid)
     if cached is None:
-        der = unseal(settings.encryption_key, key.private_key, _context(key.kid))
+        der = unseal(settings.encryption_key, key.private_key, context(key.kid))
         loaded = serialization.load_der_private_key(der, password=None)
         assert isinstance(loaded, ec.EllipticCurvePrivateKey)
         cached = _private_keys[key.kid] = loaded

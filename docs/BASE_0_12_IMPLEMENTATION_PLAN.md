@@ -185,7 +185,7 @@ sign-in page, the account menu, Settings › Security and the approval flow, sho
 one approval.
 
 **Track I — identity:** I1 the issuer, users and clients, every route authenticated; I2 the browser's
-sign-in; I3 a sign-in provider.
+sign-in; I3 a sign-in provider; I5 the application's own sign-in screen.
 
 **Track Z — authorization:** Z1 roles, groups and grants enforced at the route; Z2 record types at the
 write unit, and jobs, moves and the feed; Z3 the consumer APIs per client; Z4 audit identity; Z5 the
@@ -1661,6 +1661,33 @@ engine that someone signed out or left; an identity linked before the person's f
   `PasskeysPanel.test`. **OpenAPI lock:** the hash is now of the whole working tree, RH1's history
   changes included (the earlier I4-only hash could not be re-derived), so the test passes in the
   shared checkout.
+
+#### I5: A sign-in screen in the application
+
+**Needs:** I4 (retrofitted into 0.12 on the user's request, 2026-10-25). _Asked by the user,
+2026-10-25,_ after the engine's sign-in page was branded: "we can offer the current for external
+applications to sign in using web, but can we just build a signing page with an additional oauth
+endpoint just for the signing page? (covering all the signing options of course)", and "they have to
+use the same code, so no double coding any rule".
+
+**Scope:** the application signs a person in on a screen of its own, which follows the saved theme and
+the application's components and carries the refiroo welcome words, instead of leaving for the
+engine's HTML page. The engine's `/oauth/authorize` pages stay unchanged for outside OAuth clients.
+The screen covers every way in: a password, the second factor (code or recovery code), a passkey, a
+sign-in provider's button, and the pages a reset link opens. The token flow is unchanged (code flow
+with PKCE, `/oauth/token`, the `oauth_refresh` cookie).
+
+**The rule of the package (D415):** every rule lives once. The checks now in
+`management/routers/oauth.py` that are mixed with rendering (the client and redirect-address checks,
+PKCE, the password check, the rate limits, the second-factor and recovery-code handling, the
+provider state, the security events) move into engine functions that return an outcome (signed in,
+second factor needed, wrong credentials, wait N seconds, ...). The HTML routes and the new JSON
+routes are both thin: read the input, call the function, present the outcome. Nothing is copied.
+
+**Plan to write when it starts:** the list of what in `oauth.py` mixes rules and rendering; the JSON
+endpoints (D416); the sign-in screen and its mock-up, shown with the plan for one approval; the
+journeys J39 and I2 run unchanged against the HTML pages and extended to the JSON path; the test
+that both paths refuse an unregistered client, a foreign redirect address and a wrong PKCE verifier.
 
 ### Track Z — Authorization
 
@@ -4353,6 +4380,11 @@ have their assigned work packages". **Planned, awaiting the user's approval** of
 | D410 | How Track DP is tried | **Recommended:** DP1 by the browser runner of the sign-in (I2) through the Vite proxy at the laptop's network address; DP2 and DP3 by one deployment runner that builds the images and runs the installation from empty, once per package, each run announced (Docker builds load the laptop). Why: the questions are about reaching the installation, which only a real build answers. Cost: a runner of its own, run before R |
 | D411 | A phone in development | _Revised 2026-10-25 after the user's iPhone try:_ **Recommended:** **accepted by the user, 2026-10-25, and delivered as DP1a:** `scripts/dev.sh` runs the developer instance, and with `--network` both servers over https on the computer's network address with an mkcert certificate (`scripts/dev.sh cert` finds the address on macOS and Linux and makes it), so another developer after the GitHub release runs one with a few commands; plain `vite --host` is not enough, because a page on `http://<address>` is not a secure page, and the sign-in (PKCE's `crypto.subtle`) and passkeys need one. On an insecure page the application says so instead of "The engine cannot be reached" (it said that on the iPhone). Why: the user's setup stays the two servers they run, with one documented switch. Cost: a one-time certificate per laptop; the phone accepts its warning or trusts the certificate |
 | D412 | Consumer OpenAPI documents need no token (**narrows D266**) | _Reported by the user, 2026-10-25:_ `/docs` listed the three consumer sources and each answered `401`, because Scalar loads them from the browser with no header. **Decided by the user (2026-10-25):** each definition's `openapi.json` is public, like the management `/openapi.json`; the index and the data routes keep their tokens. Why: the document is the contract, with no data, and a client needs it before it has a token. Cost: the shape of a workspace's consumer contracts is readable without signing in; `?workspace=` still answers `404` for a workspace that does not exist |
+| D413 | How a webhook key rotates | **Recommended (decided under the approved plan, 2026-10-25):** the previous key signs for the overlap and a second rotation inside it ends the earlier key's at once, so at most two keys sign; a suspended subscription may be rotated; a batch being retried is kept and signed again at each attempt with the keys in play then, so an overlap of 0 reaches a retry already waiting; a rotation is not a security event (subscription changes write no audit entry, C11). Why: the receiver's two-key window stays small, and a leaked key is closed for a failing receiver too. Cost: a receiver still on the old key after a rotation at once refuses everything until it has the new one, and the engine retries for 24 hours |
+| D414 | Re-sealing the engine's secrets | **Recommended (decided under the approved plan, 2026-10-25):** `python -m app.cli.reseal_secrets` takes the current key from `SECRETS_ENCRYPTION_KEY` and the new one from `NEW_SECRETS_ENCRYPTION_KEY` (never an argument); it opens every sealed value first and writes none unless all open, in one transaction, and names a failure by kind and identity; `--check` only opens; the engine is stopped meanwhile. It covers every sealed column: token signing keys, webhook keys (current and previous), a provider's client secret, authenticator secrets and the provider ID tokens kept with a session and a sign-in. Why: the plan named webhook keys under a setting D253 had replaced; a partial re-sealing would leave values the new key cannot open. Cost: a stopped engine for the run, and a backup taken before it needs the old key |
+| D415 | One implementation of every sign-in rule | **Asked by the user, 2026-10-25:** the JSON sign-in routes and the HTML pages use the same code; no rule is written twice. **Recommended:** the rules move out of the routes into engine functions that return outcomes; both kinds of route only translate input and present the outcome. Why: a fix or a new rule reaches both paths, and the JSON path cannot become a way round a check. Cost: `oauth.py` is reworked before the screen is built, and its journeys prove nothing changed for outside clients |
+| D416 | The application's sign-in endpoints | **Recommended:** JSON routes beside the HTML ones (for example under `/oauth/sign-in/...`), included in the API reference, answering with the next step or the error; passkey ceremonies, which already answer in JSON, are shared. Providers keep their redirects (`/oauth/providers/{key}/start` and the callback). Why: the application draws the screens and reads "wrong password" or "wait 40 seconds" as data. Cost: a second, documented contract to keep stable (L2) |
+| D417 | The engine's HTML pages | **Recommended:** they stay for outside applications that sign people in on the web, with the welcome words and branding already on them. Why: an outside client cannot use the application's screen. Cost: two presentations of one flow, kept thin by D415 |
 
 ### K1: Webhook signing-key rotation
 
@@ -4363,6 +4395,67 @@ once; during an overlap window (D238) deliveries carry both signatures in `RDM-S
 only the new one, so a rotated key stops verifying (the exit gate). The re-sealing of every key under
 a new `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (C-D96's format byte) as a CLI command. "Rotate key" on
 the webhook's page.
+
+##### K1 record (2026-10-25)
+
+**Delivered 2026-10-25.** D413 and D414 were decided by recommendation under the approved plan (the
+user may reopen them).
+
+- **Migration** `20261108_01_webhook_key_rotation`: `consumer_subscriptions.previous_signing_key` and
+  `previous_signing_key_expires_at`.
+- **Engine:** `subscriptions.rotate_secret` (claims the version, seals a new key, moves the current one
+  to the previous column with the end of its overlap, or drops it with an overlap of 0) and
+  `signing_secrets` (the keys signing at a moment); `delivery.headers` signs with each and joins the
+  signatures with a comma; the dispatcher and a manual resend both call `signing_secrets`.
+  `engine/identity/resealing.py` and `python -m app.cli.reseal_secrets` (D414).
+- **API:** `POST /consumer-subscriptions/{id}/rotate-secret`, `previousSigningKeyExpiresAt` on a
+  subscription. The OpenAPI lock holds the default configuration, where the subscription routes are off,
+  so it did not move; the route inventory test lists the new route.
+- **Frontend:** **Rotate key…** on a webhook's page, the new key shown once with how long the old one
+  signs, "Previous key signs until" in its facts. The client's rotation dialog became the shared
+  `ui/RotateOverlapDialog`, which both pages use. **Runner** `u5-webhooks` gains the rotation, with
+  both signatures checked at the receiver and a 390px check.
+- **Documents:** API.md (a section of its own), CONSUMER_API, OPERATIONS (Changing
+  `SECRETS_ENCRYPTION_KEY`), ARCHITECTURE, USER_JOURNEYS (J43.3–J43.5), API_JOURNEYS,
+  CURRENT_FUNCTIONALITY, UI_ACCEPTANCE (K1-1, K1-2), EXECUTION_GUIDE, CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **The re-sealing takes `SECRETS_ENCRYPTION_KEY`, not `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`:** D253
+  replaced that setting in I1, and the sealed values are no longer only webhook keys. The command covers
+  every sealed column (D414).
+- **The tests were written after the code,** not seen failing first; they exercise it through the API
+  and the real command.
+
+**Checks:**
+
+- `test_j43_webhook_key.py`: 8 passed (4 cases x 2 configurations): the overlap with both signatures and
+  then one, a second rotation ending the first key's overlap, an overlap of 0 reaching a waiting retry
+  and a suspended subscription, refusals (`VERSION_CONFLICT`, `SUBSCRIPTION_NOT_FOUND`, `422`,
+  `FORBIDDEN` for a Reader), and the re-sealing command run for real (wrong key, same key, missing key,
+  `--check`, success, signing keys opening under the new key, none under the old). Unit
+  `test_delivery`: the list of signatures.
+- **The groups the guide selects for the boundary** (`feed or startup or contract`, parallel): 488 passed
+  and one failed, `test_api_journeys::test_every_error_code_is_listed` for `NOT_FOUND`, which
+  `management/operator_assets.py` raises since the branding commit `68dfc8a` and API_JOURNEYS does not list:
+  not K1's. Its serial part selects nothing. Also the unit tests for `engine/events` and
+  `engine/identity` and the `test_j39_*` identity journeys: 34 passed, `test_startup` (head
+  `20261108_01`) and `test_schema_drift`.
+- Vitest: `WebhooksPage.test` (two new cases), `RotateOverlapDialog.test` and `src/features/security`;
+  lint 0 errors (its 8 warnings are older), `prettier`, `tsc`, build.
+- **Runner `u5-webhooks`:** passed, 21 checks, axe 0 violations on its eight scans; the rotate and key
+  dialogs inspected at 1440px and 390px.
+
+**Not verified:**
+
+- **The Clients page's rotation in a browser.** `sp2-clients` stops at the grant dialog, which U9 changed
+  ("A consumer API" is now "Consumer APIs", and the steps after it differ too), before it reaches the
+  rotation; it needs maintaining on its own (U9's runner pass). The client's rotation now runs on the
+  shared dialog, covered by `RotateOverlapDialog.test` and, for the dialog itself, by `u5-webhooks`.
+- **A smoke start against the development database:** the migration was applied by the tests' databases;
+  the user's `uvicorn --reload` server upgrades theirs when it reloads.
+
+**What the user cannot do yet:** try the API console with their token (C1).
 
 ### C1: The "try it" console authenticated
 
@@ -4473,7 +4566,8 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | **Delivered 2026-10-25.** Settings › Security: clients and their access, signing keys (sign-in providers moved to I3, D357) |
 | 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | **Delivered 2026-10-25.** OpenID Connect providers and their groups; Settings › Security › Sign-in |
 | 11a | [I4](#i4-a-provider-identity-linked-signing-out-of-the-provider-a-second-factor) | I3 | Planned 2026-10-25 (D382): I4a linking, provider sign-out, the local sign-in switch; I4b an authenticator app for local accounts; I4c passkeys |
-| 12 | [K1](#k1-webhook-signing-key-rotation) | Z1 | Signing-key rotation with overlap; re-sealing |
+| 11b | [I5](#i5-a-sign-in-screen-in-the-application) | I4 | Planned 2026-10-25 (D415–D417): the application's own sign-in screen over JSON sign-in routes; every rule once, shared with the engine's HTML pages |
+| 12 | [K1](#k1-webhook-signing-key-rotation) | Z1 | **Delivered 2026-10-25.** Signing-key rotation with overlap, Rotate key… on a webhook's page; re-sealing as `python -m app.cli.reseal_secrets` |
 | 13 | [C1](#c1-the-try-it-console-authenticated) | I2 | The console with the person's token |
 | 12z | [DP1a](#track-dp--deployment) | — | **Delivered 2026-10-25.** `scripts/dev.sh`: a developer instance, on this computer or over https on the network |
 | 13a | [DP1](#track-dp--deployment) | DP1a | One address for the application and the engine; a phone in development (planned, D404, D411) |
