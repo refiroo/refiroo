@@ -111,19 +111,23 @@ def _started(request: Request) -> None:
     require_started(request.app.state.maintenance)
 
 
-# The routes that describe the consumer APIs rather than serve their data: the index and each
-# definition's OpenAPI document. They take a management token too, so the browser, holding one,
-# shows them (D266); what they reveal the management API's model reads show already.
-DESCRIBING = {PREFIX, f"{PREFIX}/{{consumer_api}}/v{{contract_version}}/openapi.json"}
+# The routes that describe the consumer APIs rather than serve their data. The index takes a
+# management token too, so the browser, holding one, shows it (D266). Each definition's OpenAPI
+# document needs no token at all (D412), like the management API's: it is the contract a client
+# needs before it can ask for one, and the API reference page (``/docs``) loads it unauthenticated.
+OPENAPI_DOCUMENT = f"{PREFIX}/{{consumer_api}}/v{{contract_version}}/openapi.json"
+DESCRIBING = {PREFIX}
 
 
 def _authenticated(request: Request, session: DbSession) -> None:
-    """Every consumer route needs a ``consumer`` token (0.12 I1, D260), the describing routes a
-    ``consumer`` or ``management`` one (D266). After the token, the workspace (its own ``404``),
-    then the grant (0.12 Z3, D307–D309): a ``consumer`` token reads ``{consumerApi}`` only with a
+    """Every consumer route needs a ``consumer`` token (0.12 I1, D260), the index a
+    ``consumer`` or ``management`` one (D266), an OpenAPI document none (D412). After the token,
+    the workspace (its own ``404``), then the grant (0.12 Z3, D307–D309): a ``consumer`` token reads ``{consumerApi}`` only with a
     grant of it in the workspace; a ``management`` token reads the describing routes with Browse
     there, as the model reads do. The index filters what it lists itself (``request.state``)."""
     route = request.scope.get("route")
+    if getattr(route, "path", None) == OPENAPI_DOCUMENT:
+        return
     describing = getattr(route, "path", None) in DESCRIBING
     principal = authenticate(
         session,

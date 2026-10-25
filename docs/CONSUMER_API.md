@@ -24,11 +24,13 @@ design, recorded now so 0.9 does not close it off:
 [API.md § Security](API.md#security-product-012-designed)), delivered by Z3 and K1:
 
 - **Every consumer route needs a token** with audience `consumer`, obtained with the client
-  credentials grant at `POST /oauth/token` with `scope=consumer` (D260). The index (`GET /api/consumer`) and the per-definition
-  OpenAPI document need one too, since they reveal a workspace's model, and take a `management` token
-  as well (D266): they describe contracts the management API's model reads show anyway, and the
-  browser, holding one token, shows them; the data routes take only `consumer`. The index lists only
-  the consumer APIs the caller is granted (Z3).
+  credentials grant at `POST /oauth/token` with `scope=consumer` (D260). The index (`GET /api/consumer`) needs one too, since
+  it reveals a workspace's model, and takes a `management` token as well (D266): it describes
+  contracts the management API's model reads show anyway, and the browser, holding one token, shows
+  it; the data routes take only `consumer`. The index lists only the consumer APIs the caller is
+  granted (Z3). **The per-definition OpenAPI document needs no token** (D412), like the management
+  API's `/openapi.json`: it is the contract, with no data, and a client needs it before it can ask
+  for a token; the API reference page at `/docs` loads it so.
 - **A client reads a consumer API in a workspace only with a grant of that consumer API there**
   (a grant naming `consumerApi` and the workspace instead of a role), because one key may mean
   different contracts in two workspaces (ADR-042). A person may hold the same grant.

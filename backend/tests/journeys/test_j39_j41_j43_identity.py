@@ -245,8 +245,12 @@ def test_a_token_for_the_other_api_is_refused(world):
     _invalid(anonymous.get("/api/v1/workspaces", headers=consumer), "audience")
     assert ok(anonymous.get("/api/consumer", headers=consumer))["items"] == [entry]
     base = f"/api/consumer/{entry['consumerApi']}/v{entry['contractVersion']}"
-    for token in (consumer, management):
+    for token in (consumer, management, {}):
         assert anonymous.get(f"{base}/openapi.json", headers=token).status_code == 200
+    # The document is the contract, not data (D412): open, but only for a workspace that exists, and
+    # the index that lists what a caller may read still needs a token.
+    refused(anonymous.get(f"{base}/openapi.json?workspace=nowhere"), 404, "WORKSPACE_NOT_FOUND")
+    assert anonymous.get("/api/consumer").status_code == 401
     _invalid(anonymous.get(f"{base}/publications", headers=management), "audience")
     assert anonymous.get(f"{base}/publications", headers=consumer).status_code == 200
     assert anonymous.get("/api/v1/workspaces", headers=management).status_code == 200

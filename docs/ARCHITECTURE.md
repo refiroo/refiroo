@@ -991,7 +991,7 @@ A request's path through the checks:
 3. **The consumer check** (`consumer/router.py`, `_authenticated`, Z3, D306–D309): after the
    token, the workspace the request reads is resolved (its own `404`); a `consumer` token then
    needs a grant of the path's consumer API there, and a `management` token, accepted only on the
-   index and the OpenAPI documents (D266), needs Browse there. Both run before the definition is
+   index (D266), needs Browse there. A consumer API's OpenAPI document needs no token (D412). Both run before the definition is
    resolved. The index lists a consumer caller's granted APIs only.
 4. **The route check** (`management/access.py`): every operation declares `requires(action,
    at=…)`; the declaration names where the workspace comes from (the path, the query's context, a

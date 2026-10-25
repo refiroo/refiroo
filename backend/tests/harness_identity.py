@@ -120,8 +120,8 @@ def request_token(
 
 def audience(path: str) -> str:
     """The audience a request's path needs: the consumer routes take a ``consumer`` token; the
-    routes describing them (the index, each OpenAPI document) are read with the ``management`` one,
-    as the browser reads them, which lists every API (D266, D308)."""
+    index and the OpenAPI documents are read with the ``management`` one, as the browser reads
+    them, which lists every API (D266, D308); the documents need none (D412)."""
     describing = path.rstrip("/") == "/api/consumer" or path.endswith("/openapi.json")
     return "consumer" if path.startswith("/api/consumer") and not describing else "management"
 

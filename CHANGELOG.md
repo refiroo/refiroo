@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (0.12 D412)
+
+- **The API reference shows the consumer APIs.** A consumer API's `openapi.json` needs no token, like
+  the management API's, so `/docs` and the link on Settings › API reference load it instead of
+  answering `401`. The consumer index and the data routes still need a token.
+
 ### Changed (branding)
 
 - **The application is named refiroo.** The interface shows the refiroo mark in the top bar, the

@@ -6440,9 +6440,9 @@ Where an operation's workspace comes from (`x-action-scope`):
 | `the move's target and source workspaces` | `copy-move` in the target and `browse` in the source (D286) |
 
 The consumer routes (`/api/consumer`) need a token with audience `consumer` and a grant of the
-consumer API in the workspace read (Z3, D306–D309); the index and each consumer OpenAPI document also
-take a `management` token with Browse there (D266, D308). `/docs`, its script and `/openapi.json`
-need none.
+consumer API in the workspace read (Z3, D306–D309); the index also takes a `management` token with
+Browse there (D266, D308). `/docs`, its script, `/openapi.json` and each consumer API's
+`openapi.json` need none (D412).
 
 Subscriptions (`/consumer-subscriptions`) read `owner` (`kind`, `id`, `name`), the person or client
 that created one, `null` for one from before Z3, and the list takes `ownerId=` (Z3, D310); owning
