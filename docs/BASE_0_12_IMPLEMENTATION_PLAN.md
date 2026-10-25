@@ -4448,10 +4448,10 @@ user may reopen them).
 
 **Not verified:**
 
-- **The Clients page's rotation in a browser.** `sp2-clients` stops at the grant dialog, which U9 changed
-  ("A consumer API" is now "Consumer APIs", and the steps after it differ too), before it reaches the
-  rotation; it needs maintaining on its own (U9's runner pass). The client's rotation now runs on the
-  shared dialog, covered by `RotateOverlapDialog.test` and, for the dialog itself, by `u5-webhooks`.
+- **The Clients page's rotation in a browser** was unverified when K1 was delivered, because `sp2-clients`
+  had drifted from U9's grant dialog. It was brought up to date afterwards (the grid's ticks, one Grant
+  for both consumer APIs, Roles by card, the narrowing) and passes, rotation included. `sp1-security`
+  drives the older Role dropdown too and has not been run.
 - **A smoke start against the development database:** the migration was applied by the tests' databases;
   the user's `uvicorn --reload` server upgrades theirs when it reloads.
 

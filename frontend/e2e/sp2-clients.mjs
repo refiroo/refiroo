@@ -75,7 +75,12 @@ try {
     const response = await fetch(`${apiUrl}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: secret, scope }),
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: clientId,
+        client_secret: secret,
+        scope,
+      }),
     });
     return { status: response.status, body: await response.json() };
   };
@@ -125,40 +130,41 @@ try {
 
   // 3. Access from its page: a consumer API of each workspace's model, and Reader in the default.
   const access = page.getByRole("group", { name: "Access" });
-  for (const [workspace, consumerApi] of [
+  // The client's dialog opens on Consumer APIs (U9): one tick in the grid for each API of each
+  // workspace's model, then one Grant for both.
+  const pairs = [
     [defaultWorkspace, firstApi],
     [SECOND, secondApi],
-  ]) {
-    await page.getByRole("button", { name: "Grant", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "Grant catalogue-sync access" });
-    await dialog.getByText("A consumer API", { exact: true }).click();
-    await dialog.getByRole("button", { name: /Workspace$/ }).click();
-    await page.getByRole("option", { name: new RegExp(`^${workspace.label}`) }).click();
-    await dialog.getByRole("button", { name: /Consumer API$/ }).waitFor();
-    if (!(await dialog.getByText(`read the ${consumerApi.name} consumer API in ${workspace.label}`).count())) {
-      await dialog.getByRole("button", { name: /Consumer API$/ }).click();
-      await page.getByRole("option", { name: new RegExp(`^${consumerApi.name}`) }).click();
-    }
-    await dialog.getByText(`catalogue-sync will read the ${consumerApi.name} consumer API in ${workspace.label}.`).waitFor();
-    if (workspace.key === SECOND.key) {
-      await shot(page, "grant-consumer-api");
-      await axe(page, "grant-dialog");
-    }
-    await dialog.getByRole("button", { name: "Grant", exact: true }).click();
-    await dialog.waitFor({ state: "detached" });
-    await access.getByRole("row", { name: new RegExp(`${workspace.label}.*Consumer API: ${consumerApi.name}`) }).waitFor();
-  }
+  ];
   await page.getByRole("button", { name: "Grant", exact: true }).click();
   let dialog = page.getByRole("dialog", { name: "Grant catalogue-sync access" });
-  await dialog.getByRole("button", { name: /Workspace$/ }).click();
-  await page.getByRole("option", { name: new RegExp(`^${defaultWorkspace.label}`) }).click();
+  for (const [workspace, consumerApi] of pairs) {
+    await dialog.getByRole("checkbox", { name: `${consumerApi.name} in ${workspace.label}`, exact: true }).click();
+  }
+  await dialog.getByText("2 grants will be made", { exact: false }).waitFor();
+  await shot(page, "grant-consumer-api");
+  await axe(page, "grant-dialog");
+  await dialog.getByRole("button", { name: "Grant 2", exact: true }).click();
+  await dialog.waitFor({ state: "detached" });
+  for (const [workspace, consumerApi] of pairs) {
+    await access
+      .getByRole("row", { name: new RegExp(`${workspace.label}.*Consumer API: ${consumerApi.name}`) })
+      .waitFor();
+  }
+  await page.getByRole("button", { name: "Grant", exact: true }).click();
+  dialog = page.getByRole("dialog", { name: "Grant catalogue-sync access" });
+  await dialog.getByText("Roles", { exact: true }).click();
+  await dialog.getByRole("checkbox", { name: "Reader", exact: true }).check();
+  // The default workspace is chosen already (the first the dialog lists).
   await dialog.getByText(`catalogue-sync will read everything in ${defaultWorkspace.label}.`).waitFor();
   await dialog.getByRole("button", { name: "Grant", exact: true }).click();
   await access.getByRole("row", { name: new RegExp(`${defaultWorkspace.label}.*Reader`) }).waitFor();
   const entry = page.getByRole("navigation", { name: "Clients" }).getByRole("button", { name: /catalogue-sync/ });
   await entry.getByText(new RegExp(`${firstApi.key} · ${defaultWorkspace.label}`)).waitFor();
   await entry.getByText(/Reader · /).waitFor();
-  checks.push(`a consumer API granted in each workspace's model and Reader, from the client's page; the list names them`);
+  checks.push(
+    `a consumer API granted in each workspace's model and Reader, from the client's page; the list names them`,
+  );
 
   // 4. Rotate by keyboard with a one-hour overlap; both secrets by their last four characters; end
   // the older.
@@ -181,7 +187,9 @@ try {
   await secrets.getByRole("row", { name: new RegExp(`…${secret.slice(-4)}`) }).waitFor({ state: "detached" });
   expect((await token(client.id, secret)).status !== 200, "the ended secret no longer obtains a token");
   expect((await token(client.id, second)).status === 200, "the new secret obtains a token");
-  checks.push("a rotation by keyboard with a one-hour overlap, both secrets by their last four characters; the older ended");
+  checks.push(
+    "a rotation by keyboard with a one-hour overlap, both secrets by their last four characters; the older ended",
+  );
 
   // 5. Rename, deactivate and restore.
   await page.getByRole("button", { name: "Rename…" }).click();
@@ -243,7 +251,11 @@ try {
   // 8. A person holding only Security administrator: the grant dialog offers the narrowing and the
   // consumer APIs (D355).
   const created = await api("/users", { username: "mei-sp2", name: "Mei Sp2" });
-  await api("/grants", { principal: { kind: "user", id: created.id }, role: "security-admin", scope: { instance: true } });
+  await api("/grants", {
+    principal: { kind: "user", id: created.id },
+    role: "security-admin",
+    scope: { instance: true },
+  });
   const { url } = await api(`/users/${created.id}/password-reset`, {}, "POST");
   const theirs = await signedOutContext({ viewport: { width: 1440, height: 900 } });
   const mei = await theirs.newPage();
@@ -262,16 +274,20 @@ try {
   await mei.getByRole("heading", { level: 2, name: "catalogue-sync-2" }).waitFor();
   await mei.getByRole("button", { name: "Grant", exact: true }).click();
   dialog = mei.getByRole("dialog", { name: "Grant catalogue-sync-2 access" });
-  await dialog.getByRole("button", { name: /Role$/ }).click();
-  await mei.getByRole("option", { name: /^Data steward/ }).click();
-  await dialog.getByRole("button", { name: /Workspace$/ }).click();
+  await dialog.getByText("Roles", { exact: true }).click();
+  await dialog.getByRole("checkbox", { name: "Data steward", exact: true }).check();
+  // The first workspace is chosen already; swap it for the second.
+  await dialog.getByRole("button", { name: "Add workspace" }).click();
   await mei.getByRole("option", { name: new RegExp(`^${SECOND.label}`) }).click();
+  await mei.getByRole("option", { name: new RegExp(`^${defaultWorkspace.label}`) }).click();
+  await mei.getByRole("button", { name: "Done" }).click();
   await dialog.getByText("Only these applications and record types").click();
-  await dialog.getByRole("button", { name: "Add" }).click();
+  await dialog.getByRole("button", { name: "Add", exact: true }).click();
   await mei.getByRole("option").first().waitFor();
   await mei.getByRole("button", { name: "Done" }).click();
-  await dialog.getByText("A consumer API", { exact: true }).click();
-  await dialog.getByText(`read the ${secondApi.name} consumer API in ${SECOND.label}`).waitFor();
+  await dialog.getByText("Consumer APIs", { exact: true }).click();
+  // Already granted to this client in step 3, so the cell is shown ticked and locked.
+  await dialog.getByRole("checkbox", { name: `${secondApi.name} in ${SECOND.label}: already granted` }).waitFor();
   expect(!(await dialog.getByText(/Browse/).count()), "no Browse refusal in the dialog");
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await theirs.close();
@@ -285,7 +301,10 @@ try {
   await keys.getByText("Signing", { exact: true }).waitFor();
   await keys.getByText(/^Verifying until /).waitFor();
   await page.getByRole("button", { name: "Retire the current key now" }).click();
-  await page.getByRole("alertdialog", { name: "Retire the current key now?" }).getByText(/fetches a new token/).waitFor();
+  await page
+    .getByRole("alertdialog", { name: "Retire the current key now?" })
+    .getByText(/fetches a new token/)
+    .waitFor();
   await axe(page, "retire-confirmation");
   await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
   await shot(page, "signing-keys");
