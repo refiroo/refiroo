@@ -1270,8 +1270,10 @@ Evidence: [feed contract](../API.md#change-feed-base-09-f1-f2),
 **User outcome:** A person signs in once and works for the day; a system calls the API with its own
 credentials; nobody reaches the data without either.
 
-Opening the application without a session leads to the engine's sign-in page, which names the
-instance's product and asks for a username and password; signing in returns to the page asked for.
+Opening the application without a session shows its own sign-in screen (0.12 I5), which follows the
+saved theme, names the instance's product beside the refiroo mark and says what refiroo is for, and
+asks for a username and password, a passkey or a provider's button (the engine's own page stays for
+outside web applications); signing in returns to the page asked for.
 The session renews itself while the person works and ends after a day without use or two weeks in
 all. A wrong username or password is refused without saying which was wrong; after repeated failures
 each attempt waits longer, up to fifteen minutes, but the account is never locked. The account menu

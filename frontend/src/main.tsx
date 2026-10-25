@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "@/app/App";
 import { API_URL } from "@/api/address";
 import { startSession } from "@/api/session";
+import { SignInScreen } from "@/features/sign-in/SignInScreen";
 import { ErrorBoundary } from "@/ui/ErrorBoundary";
 import "@fontsource-variable/instrument-sans/wght.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
@@ -10,7 +11,7 @@ import "./styles.css";
 
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
-/** While the session starts (0.12 I2): signing in, or the engine out of reach with a retry. */
+/** While the session starts (0.12 I2): the engine out of reach with a retry. */
 function Starting({ unreachable }: { unreachable?: boolean }) {
   return (
     <main className="session-start" aria-busy={!unreachable}>
@@ -35,7 +36,15 @@ function Starting({ unreachable }: { unreachable?: boolean }) {
 async function start() {
   root.render(<Starting />);
   try {
-    await startSession();
+    if ((await startSession()) === "sign-in") {
+      // The application's own screen (0.12 I5); the engine decides each step.
+      root.render(
+        <React.StrictMode>
+          <SignInScreen />
+        </React.StrictMode>,
+      );
+      return;
+    }
   } catch {
     root.render(<Starting unreachable />);
     return;

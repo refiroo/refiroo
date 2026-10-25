@@ -55,7 +55,7 @@ async function signInThroughProvider(c, person, landing = "/settings/account") {
   const page = await outside.newPage();
   page.setDefaultTimeout(15000);
   await page.goto(`${c.uiUrl}${landing}`);
-  await page.getByRole("link", { name: "Continue with Harness ID" }).click();
+  await page.getByRole("button", { name: "Continue with Harness ID" }).click();
   await page.getByRole("heading", { name: "Harness provider" }).waitFor();
   for (const [label, value] of [
     ["Subject", person.sub],
@@ -364,7 +364,10 @@ async function partB(c) {
   await setup.page.getByLabel("Code from the app").fill(totp(noaSecret));
   await setup.page.getByRole("button", { name: "Confirm and continue" }).click();
   await setup.page.getByRole("heading", { level: 1, name: "Keep your recovery codes" }).waitFor();
-  expect((await setup.page.locator(".codes span").count()) === 10, `${tag}: ten recovery codes on the sign-in page`);
+  expect(
+    (await setup.page.locator(".sign-in-codes span").count()) === 10,
+    `${tag}: ten recovery codes on the sign-in page`,
+  );
   await shot(setup.page, "setup-codes");
   await axe(setup.page, `${tag}-setup-codes`);
   await setup.page.getByRole("button", { name: "I have kept them; continue" }).click();

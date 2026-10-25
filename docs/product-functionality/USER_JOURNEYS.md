@@ -2002,8 +2002,8 @@ turned off with the administrators made on the server keeping it. I4a (2026-10-2
 link of J40.13. I4b (2026-10-25): J39.9, a second factor for a password. I4c (2026-10-25): J39.10, passkeys.
 C1 (2026-10-26): J39.11, the API reference signed in.
 
-1. Open the application; the engine's sign-in page asks for a username and password, or offers the
-   organisation's sign-in provider.
+1. Open the application; its own sign-in screen (in the saved theme, with the refiroo mark) asks for a
+   username and password, or offers a passkey or the organisation's sign-in provider.
 2. Sign in and return to the page asked for; work for the day without signing in again.
 3. Sign out, from the account menu.
 

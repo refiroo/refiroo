@@ -1,6 +1,6 @@
 // 0.12 I2 browser evidence: signing in from the browser against a real backend, on two models (the
 // starter, and the starter under another product name), at 1440px and 390px, light and dark. A
-// record page opened signed out leads to the engine's sign-in page; a wrong password is refused
+// record page opened signed out leads to the application's sign-in screen; a wrong password is refused
 // without saying which part; the right one, typed by keyboard, returns to that page. The account
 // menu names the person and leads to Account, where the password is changed. A session ended by an
 // administrator sends the person to the sign-in page, which says so, and back to the same page.
@@ -57,30 +57,45 @@ async function walk(configuration) {
     const onSignInPage = (page) => page.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
     const record = `${uiUrl}${configuration.record}`;
 
-    // 1. Signed out: the record page leads to the engine's sign-in page, the product named.
+    // 1. Signed out: the record page leads to the application's sign-in screen, the product named.
     const context = await signedOutContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
     page.setDefaultTimeout(15000);
     page.on("pageerror", (error) => failures.push(`${tag}: ${error.message}`));
     await page.goto(record);
     await onSignInPage(page);
+    await page.getByLabel("Username").waitFor();
+    expect(page.url().startsWith(uiUrl), `${tag}: the sign-in screen is the application's own: ${page.url()}`);
     expect(
-      page.url().startsWith(`${apiUrl}/oauth/authorize?`),
-      `${tag}: the sign-in page is the engine's: ${page.url()}`,
+      await page.getByText("Reference data that stays in step.").isVisible(),
+      `${tag}: the screen carries the welcome words`,
     );
-    expect(
-      await page.getByText(product, { exact: true }).isVisible(),
-      `${tag}: the product's name ${product} is shown`,
-    );
-    const focused = (id) =>
+    // A model's own product name stands beside the refiroo mark; the default names show the mark alone.
+    expect(await page.getByAltText("refiroo").isVisible(), `${tag}: the refiroo mark is shown`);
+    if (configuration.product) {
+      expect(
+        await page.getByText(product, { exact: true }).isVisible(),
+        `${tag}: the product's name ${product} is shown`,
+      );
+    }
+    const focused = (label) =>
       page
-        .waitForFunction((wanted) => document.activeElement?.id === wanted, id, { timeout: 3000 })
+        .waitForFunction(
+          (text) => {
+            const wanted = [...document.querySelectorAll("input")].find(
+              (i) => i.labels?.[0]?.textContent?.trim() === text,
+            );
+            return !!wanted && document.activeElement === wanted;
+          },
+          label,
+          { timeout: 3000 },
+        )
         .then(() => true)
         .catch(() => false);
-    expect(await focused("username"), `${tag}: the username has focus`);
+    expect(await focused("Username"), `${tag}: the username has focus`);
     await shot(page, "sign-in-light");
     await axe(page, `${tag}-sign-in-light`);
-    checks.push(`${tag}: a signed-out record page leads to the engine's sign-in page`);
+    checks.push(`${tag}: a signed-out record page leads to the application's sign-in screen`);
 
     // 2. A wrong password by keyboard: refused without saying which part; the username kept.
     await page.keyboard.type(person.username);
@@ -96,7 +111,7 @@ async function walk(configuration) {
         throw error;
       });
     expect((await page.getByLabel("Username").inputValue()) === person.username, `${tag}: the username is kept`);
-    expect(await focused("password"), `${tag}: the password has focus after a refusal`);
+    expect(await focused("Password"), `${tag}: the password has focus after a refusal`);
     await shot(page, "sign-in-wrong");
     checks.push(`${tag}: a wrong password is refused without saying which part`);
 
@@ -218,7 +233,10 @@ async function walk(configuration) {
       `${tag}: the narrowing is named by the type's name: ${rows.join(" | ")}`,
     );
     await rhea.getByRole("button", { name: "Account" }).click();
-    await rhea.getByRole("dialog", { name: "Account" }).getByText(/^Reader and Contributor in /).waitFor();
+    await rhea
+      .getByRole("dialog", { name: "Account" })
+      .getByText(/^Reader and Contributor in /)
+      .waitFor();
     await shot(rhea, "reader-menu");
     await rhea.keyboard.press("Escape");
     await shot(rhea, "reader-account");

@@ -5813,6 +5813,18 @@ Outside `/api/v1`, needing no token:
   endpoints below, `code_challenge_methods_supported: ["S256"]`, the grant types.
 - `GET /oauth/jwks`: the public keys that verify access tokens, each with its `kid`; every process
   serves the same set (keys live in the database, sealed, D253).
+- `GET /oauth/sign-in/options`, `POST /oauth/sign-in/password`, `POST /oauth/sign-in/second-factor`
+  (I5, D416; not in the OpenAPI document, like the pages): the same sign-in as the page below, in
+  JSON, for the browser application's own sign-in screen. The authorization request is the page's
+  (six fields, checked by the same code: `400` with `unknown_client`, `unsupported_response_type` or
+  `invalid_request`). `options` answers `{product, local, passkey, providers[{key, name, start}]}`.
+  `password` takes `{request, username, password}` and answers `{status: "signed_in", redirect}`, or
+  `{status: "second_factor", step, stage: "code"|"setup", app, passkey, username, setup?}`, or `401
+  wrong_credentials`, or `429 slowed` with `waitSeconds` (and `Retry-After`). `second-factor` takes
+  `{step, code?, recovery?}` and answers `signed_in`, `{status: "recovery_codes", codes}` (send the
+  step again with no code to go on), `401 wrong_code`, `429 slowed`, `410 step_gone`. A post whose
+  `Origin` is neither the engine's nor one of `CORS_ORIGINS` is `403 foreign_origin`. Errors carry
+  `{error, message}`, the message being the page's own wording.
 - `GET /oauth/authorize`, `POST /oauth/authorize`: the engine's sign-in page and its form (I2). The
   authorization code flow with PKCE, `code_challenge_method=S256` only, for the browser's built-in
   public client `client_id=browser` (no secret); its `redirect_uri` is `<origin>/signed-in` for an

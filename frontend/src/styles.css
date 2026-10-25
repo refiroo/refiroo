@@ -6,5 +6,6 @@
 @import "./styles/components.css";
 @import "./styles/settings.css";
 @import "./styles/home.css";
+@import "./styles/sign-in.css";
 @import "./styles/model-editor.css";
 @import "./styles/responsive.css";

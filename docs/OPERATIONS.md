@@ -334,11 +334,16 @@ at the instance (`409 LAST_SECURITY_ADMINISTRATOR`). If every such person is los
 
 ### Signing in from the browser
 
-The browser application signs a person in on the engine's own page, `/oauth/authorize`, with the
-authorization code flow and PKCE (0.12 I2, D234): opening the application without a session leads
-there, and signing in returns to the page asked for. The page shows the default workspace's product
-name, cannot be framed and runs no script, except where it offers a passkey: then only the engine's
-own `/oauth/passkey.js` (a policy of `script-src 'self'`, nothing inline, D390). The access token stays in the page's memory; the
+The browser application signs a person in on a screen of its own (0.12 I5) with the authorization
+code flow and PKCE (0.12 I2, D234): opening the application without a session shows it, and signing
+in returns to the page asked for. The engine decides every step through `/oauth/sign-in/options`,
+`/oauth/sign-in/password` and `/oauth/sign-in/second-factor` (and the passkey ceremonies under
+`/oauth/passkeys`); the screen only shows what it answers, and **accepts a post from the origins in
+`CORS_ORIGINS`**, which is why the application's address must be listed there. The engine's own page,
+`/oauth/authorize`, stays for outside web applications: it shows the default workspace's product name,
+cannot be framed and runs no script, except where it offers a passkey: then only the engine's own
+`/oauth/passkey.js` (a policy of `script-src 'self'`, nothing inline, D390). Both are the same code
+(`engine/identity/browser_sign_in.py`). The access token stays in the page's memory; the
 session is held in an `HttpOnly`, `SameSite=Strict` cookie named `oauth_refresh`, scoped to `/oauth`,
 which the browser renews unseen while the person works. Each renewal replaces the cookie's token; a
 token presented a second time ends the session, since only a copy can do that.

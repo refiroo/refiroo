@@ -1026,10 +1026,21 @@ A request's path through the checks:
 The deployment capability flags stay outside both (ADR-031): an unregistered route never reaches
 them.
 
+**One implementation of the browser's sign-in** (I5, D415): the rules (is this authorization request
+one the engine serves, what a password leads to, what a second step accepts) are
+`engine/identity/browser_sign_in.py`, returning outcomes. Two presentations call them and only
+translate: the engine's HTML pages (`management/routers/oauth.py`, HTML from
+`management/sign_in_pages.py`), kept for outside web clients, and the JSON routes of the application's
+own sign-in screen (`management/routers/oauth_app.py`: `/oauth/sign-in/options`, `/password`,
+`/second-factor`, with the passkey ceremonies and a provider's redirects shared). Both end with the
+same one-time code at an address of the application, which exchanges it with its PKCE verifier. The
+JSON routes are left out of the OpenAPI document, like the pages.
+
 **How a person gets a token** (I2): the browser application, before it renders, renews its session
-from the `HttpOnly` refresh cookie (`api/session.ts`), or goes to the engine's sign-in page
-(`management/routers/oauth.py`, HTML from `management/sign_in_pages.py`) with a PKCE challenge. The
-page checks the password (`engine/identity/sign_in.py`, slowed per account and address) and
+from the `HttpOnly` refresh cookie (`api/session.ts`), or shows its own sign-in screen
+(`features/sign-in/SignInScreen.tsx`, I5) with a PKCE challenge; the engine's page
+(`management/routers/oauth.py`, HTML from `management/sign_in_pages.py`) serves the same request for
+outside clients. The sign-in checks the password (`engine/identity/sign_in.py`, slowed per account and address) and
 redirects back with a one-time code; the code and its verifier start a session
 (`engine/identity/sessions.py`) whose refresh tokens are each used once. The access token lives in
 the page's memory; tabs renew one at a time under a Web Lock, and a `401` renews once and repeats the

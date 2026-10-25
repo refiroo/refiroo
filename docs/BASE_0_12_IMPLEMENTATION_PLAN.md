@@ -185,14 +185,14 @@ sign-in page, the account menu, Settings › Security and the approval flow, sho
 one approval.
 
 **Track I — identity:** I1 the issuer, users and clients, every route authenticated; I2 the browser's
-sign-in; I3 a sign-in provider; I5 the application's own sign-in screen.
+sign-in; I3 a sign-in provider; I5 the application's own sign-in screen; I6 forgotten passwords on that screen.
 
 **Track Z — authorization:** Z1 roles, groups and grants enforced at the route; Z2 record types at the
 write unit, and jobs, moves and the feed; Z3 the consumer APIs per client; Z4 audit identity; Z5 the
 interface follows permissions; Z6 one person's changes across workspaces.
 
 **Track SP — the Security pages:** SP1 people, groups and roles; SP2 OAuth clients and their access.
-**K1** signing-key rotation. **C1** the "try it" console. **E1** the security checkpoint.
+SP3 a new person's link by mail. **Track M — mail:** M1 sending mail; M2 inbox notifications by mail (after the cut line). **K1** signing-key rotation. **C1** the "try it" console. **E1** the security checkpoint.
 
 **Track A — approvals (if D232 is accepted), after the cut line:** A1 a publication request and its
 approval; A2 the inbox; A3 the approval policy per workspace in the interface.
@@ -1688,6 +1688,70 @@ routes are both thin: read the input, call the function, present the outcome. No
 endpoints (D416); the sign-in screen and its mock-up, shown with the plan for one approval; the
 journeys J39 and I2 run unchanged against the HTML pages and extended to the JSON path; the test
 that both paths refuse an unregistered client, a foreign redirect address and a wrong PKCE verifier.
+
+##### I5 record (2026-10-26)
+
+**Delivered 2026-10-26** on the user's "yes deliver the i5", without a separate detailed plan or mock-up
+(the screen reuses the sign-in pages' layout and the application's tokens; the user may reopen
+D415–D417).
+
+- **One implementation (D415):** `engine/identity/browser_sign_in.py` holds `check_request`,
+  `password_step` and `second_factor_step`, returning outcomes (`SignedIn`, `NeedsSecondFactor`,
+  `AskAgain`, `RecoveryCodes`, `StepGone`, `RequestRefused`). `routers/oauth.py`'s form routes call them
+  and render pages; the new `routers/oauth_app.py` calls the same and answers JSON. The journeys of the
+  pages ran unchanged afterwards (`test_j39_sign_in`, `_provider_sign_in`, `_passkeys`, `_second_factor`).
+- **Routes (D416, revised):** `GET /oauth/sign-in/options`, `POST /oauth/sign-in/password`,
+  `POST /oauth/sign-in/second-factor`; **left out of the OpenAPI document** like the pages, so the
+  lock did not move (documented in API.md). The passkey ceremony routes are shared; their errors now
+  carry `waitSeconds`. The sign-in rules accept a post from `CORS_ORIGINS` as well as from the
+  engine's own origin. A provider's failed sign-in links back to the application.
+- **Frontend:** `features/sign-in/SignInScreen.tsx` (password, passkey, providers, code, recovery code,
+  set-up and recovery codes, the administrators' link), `api/signInClient.ts`, `lib/passkeySignIn.ts`;
+  `api/session.ts` returns `"sign-in"` from `startSession` and `prepareSignIn()` makes the PKCE request
+  (the return address and "session ended" kept across the reload); `main.tsx` shows the screen.
+  The engine's words are shown as they come (no wording kept twice).
+- **Tests:** `test_j39_app_sign_in.py` (4 cases x 2 configurations): password right, wrong and slowed,
+  refusals shared with the pages (client, address, response type, PKCE, foreign origin), the second step
+  (code, recovery code once, step used twice), the set-up and recovery codes. Vitest:
+  `SignInScreen.test` (9), `session.test` (updated). **Runner `i2-sign-in` passed** (28 checks, axe 0
+  violations, 390px and dark). `i3` and `i4` runners updated to the screen (buttons for links, the codes'
+  class, labels, the QR's name and the key's id).
+
+**Where it differs from the plan:** no separate plan or mock-up step; the password-reset page and "Add a
+passkey" are still the engine's pages (below).
+
+**Not verified:**
+
+- **Passkeys in a browser.** `i4` part C fails at HEAD too, before my change, at "Create passkey" on the
+  engine's page (the virtual authenticator answers `NotAllowedError`); the screen's passkey ceremony
+  (`lib/passkeySignIn.ts`) is covered by unit tests with the ceremony mocked and the engine side by
+  `test_j39_passkeys`, not by a real prompt.
+- **`i3` after its provider group's Grant step** (the U9 grant dialog changed; the same stale step as
+  `sp2-clients`), so the screen with local sign-in off, in the browser, was not run; it is covered by
+  `SignInScreen.test`.
+- **`hm1-home`, `sp1-security`, `sp2-clients`, `z5-permissions`** sign in through the same labels and were
+  not re-run.
+
+**What the user cannot do yet:** set a first password from a reset link, or add a passkey, without leaving
+for the engine's page; the light/dark theme of those two pages follows the system only.
+
+#### I6: Forgotten passwords on the sign-in screen
+
+**Needs:** I5, M1. _Added by the user, 2026-10-26,_ with the mail packages: "every part to their track
+… these shall be small."
+
+**Scope:** a person who forgot their password asks for a new one on the application's sign-in screen
+and sets it on a page of the application. JSON routes beside I5's: `POST /oauth/sign-in/reset-request`
+(a username or an e-mail address) answers the same `202` whether or not such a person exists and sends
+the link only to a person with a local password and an address (D420); `GET /oauth/sign-in/reset?token=`
+(who the link is for, the password rule, or `410` when used, replaced or expired) and
+`POST /oauth/sign-in/reset` (`{token, password, repeat}`). The rules are the engine's
+(`engine/identity/resets.py`, as `/oauth/password` uses them, D415): the new route only presents them,
+and the sessions end as they do now. The sign-in screen shows **Forgotten your password?** where mail is
+set up and local sign-in is on; two small pages (`/reset-password`: ask; set) and a "password set,
+sign in" end. A link made by an administrator or sent by mail opens the application's page
+(D422); the engine's `/oauth/password` stays for links already made. Requests are slowed per address and
+per account like sign-ins (D271) and are not security events unless a link is used.
 
 ### Track Z — Authorization
 
@@ -4335,6 +4399,38 @@ off (I3); rotate a webhook's signing key (K1); try the API console with their to
 approve publications (Track A); choose a secret overlap other than 1 hour, 24 hours, 7 days or none
 except through the API.
 
+#### SP3: A new person's link by mail
+
+**Needs:** M1, SP1. **Scope:** with mail set up and an address on the person, **New person** and **Reset
+password** send the one-time link by mail (`POST /users/{id}/password-reset` takes `send: true`, answering
+`409 MAIL_NOT_SET_UP` or `409 NO_EMAIL` when it cannot) and still offer showing it once, which stays the
+way when no mail is set up (D304). The dialog says where it was sent. Activation and a reset made by an
+administrator are the same link and mail (D418).
+
+### Track M — Mail (added by the user, 2026-10-26)
+
+_Small packages, each in its own track's terms:_ M1 is the engine's mail capability; I6 and SP3 use it
+in the tracks they belong to; M2 uses it for the inbox.
+
+#### M1: Sending mail
+
+**Needs:** I1. **Scope:** an SMTP connection set on a Settings page (Mail, under Integration): host,
+port, TLS or STARTTLS, user name and password (sealed under `SECRETS_ENCRYPTION_KEY`, never shown, and
+covered by `reseal_secrets`), the from address, and the address the application is reached at, which
+the links point to (D422); `GET/PUT /mail-settings` and `POST /mail-settings/test {to}` (a test
+message, the refusal named: connection, TLS, login, the address). Mail goes through an outbox
+(`mail_outbox`) sent by the background worker with retries and a growing delay, the way webhook
+deliveries are, so a slow mail server never holds a request (D419); a message left unsent after 24
+hours is marked failed and visible on the Mail page. Plain-text templates for the activation link, the
+reset link and the test; the page of a failed message shows the reason. A fake SMTP server in the
+tests. Without settings no mail is sent and nothing else changes.
+
+#### M2: Inbox notifications by mail
+
+**Needs:** M1, A2 (after the cut line). **Scope:** a person may receive an e-mail when something lands in
+their inbox (`mail.enabled` per person, off by default, on Account); the message names the kind of
+event and links to the inbox, and carries no record content (D239, D421).
+
 ### Track DP — Deployment
 
 _Added by the user, 2026-10-25,_ after "The engine cannot be reached … http://localhost:8000" on a
@@ -4383,8 +4479,13 @@ have their assigned work packages". **Planned, awaiting the user's approval** of
 | D413 | How a webhook key rotates | **Recommended (decided under the approved plan, 2026-10-25):** the previous key signs for the overlap and a second rotation inside it ends the earlier key's at once, so at most two keys sign; a suspended subscription may be rotated; a batch being retried is kept and signed again at each attempt with the keys in play then, so an overlap of 0 reaches a retry already waiting; a rotation is not a security event (subscription changes write no audit entry, C11). Why: the receiver's two-key window stays small, and a leaked key is closed for a failing receiver too. Cost: a receiver still on the old key after a rotation at once refuses everything until it has the new one, and the engine retries for 24 hours |
 | D414 | Re-sealing the engine's secrets | **Recommended (decided under the approved plan, 2026-10-25):** `python -m app.cli.reseal_secrets` takes the current key from `SECRETS_ENCRYPTION_KEY` and the new one from `NEW_SECRETS_ENCRYPTION_KEY` (never an argument); it opens every sealed value first and writes none unless all open, in one transaction, and names a failure by kind and identity; `--check` only opens; the engine is stopped meanwhile. It covers every sealed column: token signing keys, webhook keys (current and previous), a provider's client secret, authenticator secrets and the provider ID tokens kept with a session and a sign-in. Why: the plan named webhook keys under a setting D253 had replaced; a partial re-sealing would leave values the new key cannot open. Cost: a stopped engine for the run, and a backup taken before it needs the old key |
 | D415 | One implementation of every sign-in rule | **Asked by the user, 2026-10-25:** the JSON sign-in routes and the HTML pages use the same code; no rule is written twice. **Recommended:** the rules move out of the routes into engine functions that return outcomes; both kinds of route only translate input and present the outcome. Why: a fix or a new rule reaches both paths, and the JSON path cannot become a way round a check. Cost: `oauth.py` is reworked before the screen is built, and its journeys prove nothing changed for outside clients |
-| D416 | The application's sign-in endpoints | **Recommended:** JSON routes beside the HTML ones (for example under `/oauth/sign-in/...`), included in the API reference, answering with the next step or the error; passkey ceremonies, which already answer in JSON, are shared. Providers keep their redirects (`/oauth/providers/{key}/start` and the callback). Why: the application draws the screens and reads "wrong password" or "wait 40 seconds" as data. Cost: a second, documented contract to keep stable (L2) |
+| D416 | The application's sign-in endpoints | **Recommended:** JSON routes beside the HTML ones (`/oauth/sign-in/...`), documented in API.md and left out of the OpenAPI document like the pages, answering with the next step or the error; passkey ceremonies, which already answer in JSON, are shared. Providers keep their redirects (`/oauth/providers/{key}/start` and the callback). Why: the application draws the screens and reads "wrong password" or "wait 40 seconds" as data. Cost: a second, documented contract to keep stable (L2) |
 | D417 | The engine's HTML pages | **Recommended:** they stay for outside applications that sign people in on the web, with the welcome words and branding already on them. Why: an outside client cannot use the application's screen. Cost: two presentations of one flow, kept thin by D415 |
+| D418 | Mail in 0.12 (**revises D233 and D395 in part**) | **Asked by the user, 2026-10-26.** **Recommended:** the engine may send e-mail, for the one-time links of a new person and of a password reset (M1, I6, SP3), and later for inbox notifications (M2); **still no codes by e-mail or SMS** (D395's reason stands: a code sent by mail is only as strong as the mailbox, and it needs the reset flow's safeguards, not a new sign-in way). Why: an administrator no longer copies links by hand, and a person can recover their own password. Cost: an organisation sets up a mail server, a from address and SPF/DKIM for its domain, and an e-mail address becomes a way to reach an account, so it is protected by D420 |
+| D419 | How mail is sent | **Recommended:** SMTP only, set on a Settings page, the password sealed; messages wait in an outbox and the background worker sends them, retrying with a growing delay for 24 hours, so a request never waits for the mail server. Why: every organisation has an SMTP relay; no provider library or account; the same pattern as webhook deliveries. Cost: no mail API of a provider (a later package may add one); mail is not instant when the server is down |
+| D420 | Who may reset by mail, and what they are told | **Recommended:** the screen asks for a username or e-mail address and always answers the same ("if there is such an account, a link was sent"); a link is sent only to a person with a local password, a kept local sign-in and an address; a person who signs in through a provider receives nothing; asking is slowed per address and per account and a link is used once, replacing earlier ones, and ends the person's sessions. A second factor is **not** skipped: the person still needs it at their next sign-in. Why: nobody learns which accounts exist, and a stolen mailbox alone cannot open an account that has a second factor. Cost: a person whose address is wrong or missing asks an administrator, as today |
+| D421 | What a mail contains | **Recommended:** the product's name, the person's name, the link and how long it lasts, one sentence on ignoring it; never a password, a code or record content. Notification mail (M2) names the kind of event and links to the inbox. Why: mail travels and sits in mailboxes. Cost: the reader opens the application for the detail |
+| D422 | Where the application is reached | **Recommended:** one setting on the Mail page, the application's address (default: the first `CORS_ORIGINS` entry); links in mail and the reset links an administrator makes point to the application's reset page; the engine's `/oauth/password` keeps working for links made before. Why: the page is part of the application and follows its theme (I5), and the engine cannot guess the address people use. Cost: one more setting, checked by the test message |
 
 ### K1: Webhook signing-key rotation
 
@@ -4464,9 +4565,36 @@ user may reopen them).
 **Scope:** `/docs` sends requests with the signed-in person's token (D240); a client's token can be
 pasted for testing a client's view. `/docs/oauth2-redirect` stays 404.
 
+##### C1 record (2026-10-26)
+
+**Delivered 2026-10-26** under D240, with no new decision. What was built:
+
+- **Engine:** `POST /oauth/console-token` (`management/routers/oauth_console.py`, outside the OpenAPI
+  document, under `/oauth` where the refresh cookie is readable): the person's open session is found
+  from the cookie by `sessions.open_session_of_refresh_token` **without renewing it** (so it never
+  uses a refresh token the application's tabs hold, D269) and a `management` token bound to that
+  session is issued; `401 not_signed_in`, and `403 access_denied` when `Origin` is not the address the
+  request reached.
+- **The page:** `/docs` still renders the same configuration call; a second script asks for the token
+  and hands it to Scalar for both schemes the documents declare (`engineOAuth`, `oauth2`) through
+  `updateConfiguration`, with an `onBeforeRequest` hook that renews it in its last minute only when the
+  request carries it, so a pasted token is never replaced.
+- **Journey J39.11** (4 cases, two configurations): the person's token and an unchanged cookie, the
+  person's own permissions, no session or signed out, another site. Runner `v1-api-reference`
+  extended: the console sends the person's token (200), a pasted client token is the one sent, a
+  browser with no session gets 401; the runner was also repaired for the OAuth section now first on
+  the page (it had waited for a model operation and sent unauthenticated since I1).
+
+**Exercised:** `test_j39_api_reference` (8), `test_api_reference`, `test_j20_discover`,
+`test_boundaries`, `test_openapi_contract` (43 passed together), `ruff`; `v1-api-reference` at 1440px
+and 390px, passed (axe findings are Scalar's own markup, as before).
+
+**Not verified:** the renewal in the token's last minute in a browser (the hook's shape was read from
+a live request, the renewal path was not run); the console's appearance was not compared in dark mode.
+
 ### E1: Security checkpoint
 
-**Needs:** Z1–Z5, I1–I4, SP1, SP2, K1, C1 (I4 by D382).
+**Needs:** Z1–Z5, I1–I6, M1, SP1–SP3, K1, C1 (I4 by D382). _I5, I6, M1 and SP3 added 2026-10-26: the checkpoint also covers that a reset request answers the same for a known and an unknown person, is slowed, reaches only a person with a local password, and that no mail carries a secret._
 
 **Scope:** the exit gate composed: a sweep that calls every operation in the catalogue as each
 predefined role and as a client without grants and checks allowed or refused against the catalogue
@@ -4565,35 +4693,11 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | **Delivered 2026-10-24.** Settings › Security: people, groups, roles, grants |
 | 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | **Delivered 2026-10-25.** Settings › Security: clients and their access, signing keys (sign-in providers moved to I3, D357) |
 | 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | **Delivered 2026-10-25.** OpenID Connect providers and their groups; Settings › Security › Sign-in |
-##### C1 record (2026-10-26)
-
-**Delivered 2026-10-26** under D240, with no new decision. What was built:
-
-- **Engine:** `POST /oauth/console-token` (`management/routers/oauth_console.py`, outside the OpenAPI
-  document, under `/oauth` where the refresh cookie is readable): the person's open session is found
-  from the cookie by `sessions.open_session_of_refresh_token` **without renewing it** (so it never
-  uses a refresh token the application's tabs hold, D269) and a `management` token bound to that
-  session is issued; `401 not_signed_in`, and `403 access_denied` when `Origin` is not the address the
-  request reached.
-- **The page:** `/docs` still renders the same configuration call; a second script asks for the token
-  and hands it to Scalar for both schemes the documents declare (`engineOAuth`, `oauth2`) through
-  `updateConfiguration`, with an `onBeforeRequest` hook that renews it in its last minute only when the
-  request carries it, so a pasted token is never replaced.
-- **Journey J39.11** (4 cases, two configurations): the person's token and an unchanged cookie, the
-  person's own permissions, no session or signed out, another site. Runner `v1-api-reference`
-  extended: the console sends the person's token (200), a pasted client token is the one sent, a
-  browser with no session gets 401; the runner was also repaired for the OAuth section now first on
-  the page (it had waited for a model operation and sent unauthenticated since I1).
-
-**Exercised:** `test_j39_api_reference` (8), `test_api_reference`, `test_j20_discover`,
-`test_boundaries`, `test_openapi_contract` (43 passed together), `ruff`; `v1-api-reference` at 1440px
-and 390px, passed (axe findings are Scalar's own markup, as before).
-
-**Not verified:** the renewal in the token's last minute in a browser (the hook's shape was read from
-a live request, the renewal path was not run); the console's appearance was not compared in dark mode.
-
 | 11a | [I4](#i4-a-provider-identity-linked-signing-out-of-the-provider-a-second-factor) | I3 | Planned 2026-10-25 (D382): I4a linking, provider sign-out, the local sign-in switch; I4b an authenticator app for local accounts; I4c passkeys |
-| 11b | [I5](#i5-a-sign-in-screen-in-the-application) | I4 | Planned 2026-10-25 (D415–D417): the application's own sign-in screen over JSON sign-in routes; every rule once, shared with the engine's HTML pages |
+| 11b | [I5](#i5-a-sign-in-screen-in-the-application) | I4 | **Delivered 2026-10-26** (D415–D417): the application's own sign-in screen over JSON sign-in routes; every rule once, shared with the engine's HTML pages |
+| 11c | [M1](#m1-sending-mail) | I1 | Planned 2026-10-26 (D418, D419, D421, D422): SMTP settings and a Mail page, the outbox with retries, templates, a test message |
+| 11d | [SP3](#sp3-a-new-persons-link-by-mail) | M1, SP1 | Planned 2026-10-26: New person and Reset password send the link by mail |
+| 11e | [I6](#i6-forgotten-passwords-on-the-sign-in-screen) | I5, M1 | Planned 2026-10-26 (D420, D422): Forgotten your password? on the sign-in screen, the reset pages in the application |
 | 12 | [K1](#k1-webhook-signing-key-rotation) | Z1 | **Delivered 2026-10-25.** Signing-key rotation with overlap, Rotate key… on a webhook's page; re-sealing as `python -m app.cli.reseal_secrets` |
 | 13 | [C1](#c1-the-try-it-console-authenticated) | I2 | **Delivered 2026-10-26.** The console with the person's token |
 | 12z | [DP1a](#track-dp--deployment) | — | **Delivered 2026-10-25.** `scripts/dev.sh`: a developer instance, on this computer or over https on the network |
@@ -4604,6 +4708,7 @@ a live request, the renewal path was not run); the console's appearance was not 
 | — | _cut line_ | | _If R is out of reach, 0.12.0 releases here and Track A follows in 0.12.x_ |
 | 15 | [A1](#a1-a-publication-request-and-its-approval) | Z1, Z4 | Submit, approve or send back, self-approval, four-eyes policy |
 | 16 | [A2](#a2-the-inbox) | A1, I2 | The inbox; webhook events per step |
+| 16a | [M2](#m2-inbox-notifications-by-mail) | M1, A2 | Planned 2026-10-26 (D418, D421): e-mail for inbox notifications, per person, off by default
 | 17 | [A3](#a3-approvals-in-the-interface) | A2, Z5 | Approvals on the change-set review |
 | 18 | [L1](#l1-licensing-and-policies) | — | Licensing and policies (filler, any time) |
 | 19 | [L2](#l2-the-compatibility-commitment) | E1 (A3 if delivered), the project's name | The compatibility commitment, now including the authentication contracts |

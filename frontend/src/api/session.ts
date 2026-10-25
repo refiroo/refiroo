@@ -1,20 +1,22 @@
 /**
- * The person's session in this browser (0.12 I2, ADR-043, D234). The engine signs the person in on
- * its own page with the authorization code flow and PKCE; the access token lives here, in memory
+ * The person's session in this browser (0.12 I2, ADR-043, D234). The person signs in on the
+ * application's own screen (0.12 I5) with the authorization code flow and PKCE, the engine checking
+ * every step; the access token lives here, in memory
  * only, and is renewed through the session's refresh token, an `HttpOnly` cookie this code never
  * sees. Renewals run one tab at a time under a Web Lock (D269): each refresh token is used once,
  * and two tabs presenting the same one would end the session. A request refused with `401` is sent
- * again once after a renewal; when the session cannot be renewed the person goes to the sign-in
- * page and comes back to the same address.
+ * again once after a renewal; when the session cannot be renewed the sign-in screen is shown and the
+ * person comes back to the same address.
  */
 
 import { API_URL } from "@/api/address";
 
 const CLIENT_ID = "browser";
 const PENDING_KEY = "rdm.signIn";
+const RETURN_KEY = "rdm.signInReturn";
 const RENEW_LOCK = "oauth-renew";
 
-/** Leaving for the engine's sign-in page; tests observe it. */
+/** Leaving for another address (a provider's sign-in, the end of a sign-in); tests observe it. */
 export const browserNavigation = { go: (url: string) => window.location.assign(url) };
 
 /** Where a sign-in returns to, at the app's origin (D267). */
@@ -48,28 +50,80 @@ async function challengeOf(verifier: string): Promise<string> {
 
 const here = () => `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
+interface SignInReturn {
+  returnTo: string;
+  ended: boolean;
+}
+
+function keepReturn(value: SignInReturn) {
+  try {
+    window.sessionStorage.setItem(RETURN_KEY, JSON.stringify(value));
+  } catch {
+    // Without session storage the person still signs in; they return to the start page.
+  }
+}
+
+function hasReturn(): boolean {
+  try {
+    return window.sessionStorage.getItem(RETURN_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function takeReturn(): SignInReturn | undefined {
+  try {
+    const stored = window.sessionStorage.getItem(RETURN_KEY);
+    window.sessionStorage.removeItem(RETURN_KEY);
+    return stored ? (JSON.parse(stored) as SignInReturn) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The authorization request the engine checks at every step of a sign-in. */
+export interface SignInRequest {
+  response_type: string;
+  client_id: string;
+  redirect_uri: string;
+  code_challenge: string;
+  code_challenge_method: string;
+  state: string;
+}
+
 /**
- * Go to the engine's sign-in page; the person comes back to `returnTo`. `ended` says on that page
- * that their session ended (D270: without naming the page).
+ * A new sign-in for the screen to carry out: a PKCE verifier kept for the exchange and the request
+ * the engine checks. `ended` says the person's session ended (D270: without naming the page).
  */
-export async function signIn(returnTo = here(), ended = false): Promise<never> {
+export async function prepareSignIn(): Promise<{ request: SignInRequest; ended: boolean }> {
+  const kept = takeReturn();
   const verifier = randomText(48);
-  const pending: PendingSignIn = { verifier, state: randomText(24), returnTo };
+  const pending: PendingSignIn = { verifier, state: randomText(24), returnTo: kept?.returnTo ?? "/" };
   try {
     window.sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
   } catch {
     // Without session storage the person still signs in; they return to the start page.
   }
-  const query = new URLSearchParams({
-    response_type: "code",
-    client_id: CLIENT_ID,
-    redirect_uri: redirectUri(),
-    code_challenge: await challengeOf(verifier),
-    code_challenge_method: "S256",
-    state: pending.state,
-  });
-  if (ended) query.set("session", "ended");
-  browserNavigation.go(`${API_URL}/oauth/authorize?${query}`);
+  if (kept) keepReturn(kept);
+  return {
+    ended: !!kept?.ended,
+    request: {
+      response_type: "code",
+      client_id: CLIENT_ID,
+      redirect_uri: redirectUri(),
+      code_challenge: await challengeOf(verifier),
+      code_challenge_method: "S256",
+      state: pending.state,
+    },
+  };
+}
+
+/**
+ * Show the sign-in screen again at `returnTo` after the session ended; the person comes back there.
+ */
+export function signIn(returnTo = here(), ended = false): Promise<never> {
+  keepReturn({ returnTo, ended });
+  browserNavigation.go(returnTo);
   // The page is leaving; nothing after this should run.
   return new Promise<never>(() => undefined);
 }
@@ -132,18 +186,19 @@ export function renew(): Promise<string | undefined> {
 
 /**
  * Start the session before the app renders: finish a sign-in that has just returned, or renew the
- * one this browser holds; without either, go to the sign-in page. Rejects when the engine cannot be
- * reached.
+ * one this browser holds; without either the sign-in screen is needed, and the address asked for is
+ * kept to return to. Rejects when the engine cannot be reached.
  */
-export async function startSession(): Promise<void> {
+export async function startSession(): Promise<"signed-in" | "sign-in"> {
   active = true;
   if (window.location.pathname === "/signed-in") {
     accessToken = await finishSignIn();
-    if (accessToken) return;
+    if (accessToken) return "signed-in";
     window.history.replaceState(null, "", "/");
   }
-  if (await renew()) return;
-  await signIn();
+  if (await renew()) return "signed-in";
+  if (!hasReturn()) keepReturn({ returnTo: here(), ended: false });
+  return "sign-in";
 }
 
 /** `fetch` with the access token; a `401` renews the session once and sends the request again. */

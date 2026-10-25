@@ -90,9 +90,9 @@ async function walk(configuration) {
     visitor.setDefaultTimeout(15000);
     await visitor.goto(`${uiUrl}/settings/account`);
     await visitor.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
-    expect((await visitor.title()).includes(product), `${tag}: the sign-in page names ${product}`);
+    expect((await visitor.title()).includes("refiroo"), `${tag}: the sign-in screen is refiroo's`);
     await visitor.getByLabel("Password").waitFor();
-    await visitor.getByRole("link", { name: "Continue with Harness ID" }).click();
+    await visitor.getByRole("button", { name: "Continue with Harness ID" }).click();
     await visitor.getByRole("heading", { name: "Harness provider" }).waitFor();
     for (const [label, value] of [
       ["Subject", pat.sub],
@@ -168,11 +168,11 @@ async function walk(configuration) {
     const door = await locked.newPage();
     door.setDefaultTimeout(15000);
     await door.goto(`${uiUrl}/settings/about`);
-    await door.getByRole("link", { name: "Continue with Harness ID" }).waitFor();
+    await door.getByRole("button", { name: "Continue with Harness ID" }).waitFor();
     expect(!(await door.getByLabel("Password").count()), `${tag}: no password form while local sign-in is off`);
     await shot(door, "sign-in-local-off");
     await axe(door, `${tag}-sign-in-local-off`);
-    await door.getByRole("link", { name: "Sign in with a local administrator account" }).click();
+    await door.getByRole("button", { name: "Sign in with a local administrator account" }).click();
     await door.getByLabel("Username").fill(harnessIdentity.person.username);
     await door.getByLabel("Password").fill(harnessIdentity.person.password);
     await door.getByRole("button", { name: "Sign in" }).click();
@@ -198,7 +198,7 @@ async function walk(configuration) {
     const darkOut = await signedOutContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
     const nightDoor = await darkOut.newPage();
     await nightDoor.goto(`${uiUrl}/settings/about`);
-    await nightDoor.getByRole("link", { name: "Continue with Harness ID" }).waitFor();
+    await nightDoor.getByRole("button", { name: "Continue with Harness ID" }).waitFor();
     await shot(nightDoor, "sign-in-dark");
     await axe(nightDoor, `${tag}-sign-in-dark`);
     await darkOut.close();
@@ -213,7 +213,7 @@ async function walk(configuration) {
     const narrowOut = await signedOutContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
     const phoneDoor = await narrowOut.newPage();
     await phoneDoor.goto(`${uiUrl}/settings/about`);
-    await phoneDoor.getByRole("link", { name: "Continue with Harness ID" }).waitFor();
+    await phoneDoor.getByRole("button", { name: "Continue with Harness ID" }).waitFor();
     expect((await overflow(phoneDoor)) <= 0, `${tag}: the sign-in page scrolls sideways at 390px`);
     await shot(phoneDoor, "sign-in-narrow");
     await narrowOut.close();

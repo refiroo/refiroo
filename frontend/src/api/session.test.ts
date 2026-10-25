@@ -48,33 +48,44 @@ describe("the browser's session (0.12 I2)", () => {
     expect(new Headers(fetchMock.mock.calls[1][1].headers).get("Authorization")).toBe("Bearer first");
   });
 
-  it("without a session goes to the sign-in page with a PKCE challenge and comes back where it was", async () => {
+  it("without a session asks for the sign-in screen with a PKCE challenge and comes back where it was", async () => {
     const session = await load();
     const go = vi.spyOn(session.browserNavigation, "go").mockImplementation(() => undefined);
     fetchMock.mockResolvedValueOnce(refused());
-    void session.startSession();
-    await vi.waitFor(() => expect(go).toHaveBeenCalledTimes(1));
-    const address = new URL(go.mock.calls[0][0]);
-    expect(address.origin + address.pathname).toBe(`${API}/oauth/authorize`);
-    const query = address.searchParams;
-    expect(query.get("client_id")).toBe("browser");
-    expect(query.get("redirect_uri")).toBe(`${window.location.origin}/signed-in`);
-    expect(query.get("code_challenge_method")).toBe("S256");
-    expect(query.get("code_challenge")).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(await session.startSession()).toBe("sign-in");
+    expect(go).not.toHaveBeenCalled();
+
+    // The screen prepares its sign-in: the request the engine checks, the verifier kept for the exchange.
+    const { request, ended } = await session.prepareSignIn();
+    expect(ended).toBe(false);
+    expect(request.client_id).toBe("browser");
+    expect(request.redirect_uri).toBe(`${window.location.origin}/signed-in`);
+    expect(request.code_challenge_method).toBe("S256");
+    expect(request.code_challenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
     const pending = JSON.parse(window.sessionStorage.getItem("rdm.signIn")!);
-    expect(pending.state).toBe(query.get("state"));
+    expect(pending.state).toBe(request.state);
     expect(pending.returnTo).toBe("/w/default/records?view=table");
 
-    // The sign-in page returns with the code: it is exchanged with the verifier, and the address restored.
+    // The engine returns the browser with the code: it is exchanged with the verifier, and the address restored.
     const finishing = await load();
     window.history.replaceState(null, "", `/signed-in?code=c1&state=${pending.state}`);
     fetchMock.mockResolvedValueOnce(tokenAnswer("signed-in"));
-    await finishing.startSession();
+    expect(await finishing.startSession()).toBe("signed-in");
     const form = formOf(fetchMock.mock.calls[1][1]);
     expect(form.get("grant_type")).toBe("authorization_code");
     expect(form.get("code")).toBe("c1");
     expect(form.get("code_verifier")).toBe(pending.verifier);
     expect(window.location.pathname + window.location.search).toBe("/w/default/records?view=table");
+  });
+
+  it("keeps the return address through a restarted screen", async () => {
+    const session = await load();
+    fetchMock.mockResolvedValueOnce(refused());
+    await session.startSession();
+    await session.prepareSignIn();
+    const again = await session.prepareSignIn();
+    expect(again.request.state).toBe(JSON.parse(window.sessionStorage.getItem("rdm.signIn")!).state);
+    expect(JSON.parse(window.sessionStorage.getItem("rdm.signIn")!).returnTo).toBe("/w/default/records?view=table");
   });
 
   it("renews once for requests refused together, under the lock, and sends them again", async () => {
@@ -99,7 +110,7 @@ describe("the browser's session (0.12 I2)", () => {
     expect(request).toHaveBeenCalledWith("oauth-renew", expect.any(Function));
   });
 
-  it("sends a person whose session has ended to the sign-in page, saying so", async () => {
+  it("shows the sign-in screen again to a person whose session has ended, saying so", async () => {
     const session = await load();
     const go = vi.spyOn(session.browserNavigation, "go").mockImplementation(() => undefined);
     fetchMock.mockResolvedValueOnce(tokenAnswer("first"));
@@ -109,10 +120,16 @@ describe("the browser's session (0.12 I2)", () => {
     );
     void session.authorizedFetch(`${API}/api/v1/me`);
     await vi.waitFor(() => expect(go).toHaveBeenCalledTimes(1));
-    expect(new URL(go.mock.calls[0][0]).searchParams.get("session")).toBe("ended");
+    expect(go.mock.calls[0][0]).toBe("/w/default/records?view=table");
+    // The page loads again, finds no session, and the screen says why.
+    const reloaded = await load();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValueOnce(refused());
+    expect(await reloaded.startSession()).toBe("sign-in");
+    expect((await reloaded.prepareSignIn()).ended).toBe(true);
   });
 
-  it("reports an engine out of reach instead of leaving for the sign-in page", async () => {
+  it("reports an engine out of reach instead of showing the sign-in screen", async () => {
     const session = await load();
     const go = vi.spyOn(session.browserNavigation, "go");
     fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));

@@ -63,6 +63,7 @@ from .management.routers import (
     model_releases,
     moves,
     oauth,
+    oauth_app,
     oauth_console,
     objects,
     queries,
@@ -439,6 +440,7 @@ def create_app() -> FastAPI:
     application.include_router(brand_router())
     # The OAuth endpoints need no token (D245); every management router below needs one.
     application.include_router(oauth.router)
+    application.include_router(oauth_app.router)
     application.include_router(oauth_console.router)
     application.include_router(identity.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(authorization.router, dependencies=MANAGEMENT_DEPENDENCIES)

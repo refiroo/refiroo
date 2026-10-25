@@ -750,6 +750,43 @@ class PasskeyAuthenticationStart(BaseModel):
         return self.model_dump(exclude={"step"})
 
 
+class BrowserRequest(BaseModel):
+    """The browser's authorization request, as the application's sign-in screen carries it (0.12 I5)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    response_type: str | None = Field(default=None, max_length=64)
+    client_id: str | None = Field(default=None, max_length=64)
+    redirect_uri: str | None = Field(default=None, max_length=2000)
+    code_challenge: str | None = Field(default=None, max_length=128)
+    code_challenge_method: str | None = Field(default=None, max_length=16)
+    state: str | None = Field(default=None, max_length=2000)
+
+    def fields(self) -> dict[str, str | None]:
+        return self.model_dump()
+
+
+class AppPasswordSignIn(BaseModel):
+    """A username and password posted by the application's sign-in screen (0.12 I5)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request: BrowserRequest
+    username: str = Field(default="", max_length=320)
+    password: str = Field(default="", max_length=1024)
+
+
+class AppSecondFactor(BaseModel):
+    """The second step of a password sign-in from the application's screen: a code or a recovery
+    code, or neither to go on after the recovery codes were shown (0.12 I5)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    step: str = Field(max_length=128)
+    code: str = Field(default="", max_length=64)
+    recovery: str = Field(default="", max_length=64)
+
+
 class PasskeyAuthentication(BaseModel):
     """The credential the browser used, with the ceremony's token (0.12 I4c)."""
 

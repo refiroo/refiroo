@@ -6,6 +6,23 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 I5)
+
+- **The application signs people in on a screen of its own.** The sign-in screen is part of the
+  application, so it follows the saved light or dark theme, carries the refiroo mark and a line about
+  what refiroo is for, and covers every way in: a passkey, a password, a sign-in provider's button,
+  the authenticator app's code or a recovery code, the set-up when a second factor is required (with
+  the recovery codes shown once), and the administrators' link when local sign-in is off. It asks the
+  engine through new JSON routes, `GET /oauth/sign-in/options`, `POST /oauth/sign-in/password` and
+  `POST /oauth/sign-in/second-factor`; the passkey ceremonies are the existing ones. The token flow is
+  unchanged (code flow with PKCE, `/oauth/token`, the refresh cookie).
+- **Every sign-in rule is in one place.** The checks of an authorization request, of a password and
+  of a second step moved out of the routes into `engine/identity/browser_sign_in.py`; the engine's own
+  HTML pages (`/oauth/authorize`, kept for outside web clients, now with the welcome words too) and the
+  new JSON routes only read their input and present the outcome. A post from one of the application's
+  own origins (`CORS_ORIGINS`) is accepted by both kinds of route and the passkey ceremonies; one from
+  another site is refused. A failed provider sign-in's **Try again** returns to the application.
+
 ### Added (0.12 C1)
 
 - **The API reference's "try it" console is signed in.** `/docs` asks the engine, with the session's

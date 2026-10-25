@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...engine.identity import (
+    browser_sign_in,
     keys,
     passkeys,
     provider_sign_in,
@@ -63,15 +64,7 @@ _PROVIDER_PATH = "/oauth/providers"
 SIGNED_OUT_COOKIE = "oauth_signed_out"
 # Token responses are never cached (RFC 6749 §5.1).
 _NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache"}
-# The fields of an authorization request the sign-in form carries back.
-_REQUEST_FIELDS = (
-    "response_type",
-    "client_id",
-    "redirect_uri",
-    "code_challenge",
-    "code_challenge_method",
-    "state",
-)
+_REQUEST_FIELDS = browser_sign_in.REQUEST_FIELDS
 
 
 def _settings(request: Request) -> IdentitySettings:
@@ -143,11 +136,17 @@ def _authorization_request(
 ) -> dict[str, str] | Response:
     """The authorization request's fields when the page may serve it; otherwise its answer: an
     explanation for an unknown client or address, which is never redirected to (RFC 6749 §4.1.2.1),
-    or a redirect carrying the error."""
-    redirect_uri = fields.get("redirect_uri") or ""
-    if fields.get("client_id") != sign_in.BROWSER_CLIENT_ID or (
-        redirect_uri not in settings.redirect_uris()
-    ):
+    or a redirect carrying the error. The rules are ``browser_sign_in.check_request`` (D415)."""
+    checked = browser_sign_in.check_request(settings, fields)
+    if not isinstance(checked, browser_sign_in.RequestRefused):
+        return checked
+    return _refusal(session, settings, checked)
+
+
+def _refusal(
+    session: Session, settings: IdentitySettings, checked: browser_sign_in.RequestRefused
+) -> Response:
+    if checked.kind == "unknown_client":
         return pages.problem(
             _product(session),
             "The application that sent you here is not one this engine signs people in to. "
@@ -155,19 +154,12 @@ def _authorization_request(
             issuer=settings.issuer,
             redirect_origins=_origins(settings),
         )
-    state = fields.get("state")
-    if fields.get("response_type") != "code":
-        return _redirect(redirect_uri, error="unsupported_response_type", state=state)
-    if fields.get("code_challenge_method") != "S256" or not sign_in.valid_challenge(
-        fields.get("code_challenge")
-    ):
-        return _redirect(
-            redirect_uri,
-            error="invalid_request",
-            error_description="A PKCE code_challenge with code_challenge_method=S256 is required",
-            state=state,
-        )
-    return {name: value for name in _REQUEST_FIELDS if (value := fields.get(name)) is not None}
+    return _redirect(
+        checked.redirect_uri,
+        error=checked.error,
+        error_description=checked.description,
+        state=checked.state,
+    )
 
 
 @router.get("/oauth/authorize", dependencies=_STARTED, include_in_schema=False)
@@ -228,7 +220,8 @@ def _buttons(session: Session, fields: dict[str, str]) -> tuple[tuple[str, str],
 
 def _foreign(request: Request, settings: IdentitySettings) -> bool:
     """A form posted from a page that is not the engine's: a forged sign-in (D275). The engine's
-    page is at ``PUBLIC_URL``, or at the address this request reached it by."""
+    page is at ``PUBLIC_URL``, or at the address this request reached it by; the application's own
+    sign-in screen (I5) posts from one of the browser origins."""
     origin = request.headers.get("origin")
     if origin is None:
         return False
@@ -237,6 +230,7 @@ def _foreign(request: Request, settings: IdentitySettings) -> bool:
     return origin not in (
         f"{issuer.scheme}://{issuer.netloc}",
         f"{own.scheme}://{own.netloc}",
+        *_origins(settings),
     )
 
 
@@ -282,9 +276,8 @@ def authorize_form(
             status=403,
         )
     now = datetime.now(UTC)
-    local_on = providers.local_enabled(session)
-    outcome = sign_in.check_password(
-        session, username, password, _address(request), now, kept_only=not local_on, finish=False
+    outcome = browser_sign_in.password_step(
+        session, checked, username, password, _address(request), now
     )
     if isinstance(outcome, sign_in.Refused):
         slowed = outcome.reason == "slowed"
@@ -298,39 +291,28 @@ def authorize_form(
             wait_seconds=outcome.wait_seconds,
             status=429 if slowed else 401,
             providers=_buttons(session, checked),
-            local=local_on,
+            local=providers.local_enabled(session),
             passkey=passkeys.any_exist(session),
         )
-    stage = second_factor.required_step(session, outcome)
-    if stage is None:
-        sign_in.complete(session, outcome, username, _address(request))
-        session.commit()
-        return _issue(session, checked, outcome, now)
-    token = second_factor.open_step(session, outcome, checked, stage, now)
+    if isinstance(outcome, browser_sign_in.SignedIn):
+        return _issued(outcome)
     return _factor_page(
         session,
         settings,
         checked,
-        outcome,
-        token,
-        stage,
+        outcome.user,
+        outcome.token,
+        outcome.stage,
         now=now,
         product=_product(session),
         fresh=True,
     )
 
 
-def _issue(session: Session, checked: dict[str, str], user: User, now: datetime) -> Response:
-    """The browser's one-time code for a sign-in with a password that is whole."""
-    code = sign_in.issue_code(
-        session,
-        user,
-        redirect_uri=checked["redirect_uri"],
-        code_challenge=checked["code_challenge"],
-        signed_in_with="password",
-        now=now,
-    )
-    return _redirect(checked["redirect_uri"], code=code, state=checked.get("state"))
+def _issued(signed_in: browser_sign_in.SignedIn) -> Response:
+    """The browser's one-time code for a sign-in that is whole."""
+    request = signed_in.request
+    return _redirect(request["redirect_uri"], code=signed_in.code, state=request.get("state"))
 
 
 def _factor_page(
@@ -393,8 +375,10 @@ def second_factor_form(
             status=403,
         )
     now = datetime.now(UTC)
-    loaded = second_factor.load_step(session, step, now)
-    if loaded is None:
+    outcome = browser_sign_in.second_factor_step(
+        session, settings, step, code, recovery, view=view, address=_address(request), now=now
+    )
+    if isinstance(outcome, browser_sign_in.StepGone):
         return pages.problem(
             product,
             "This sign-in took longer than five minutes, or was already used. Open the application "
@@ -403,52 +387,19 @@ def second_factor_form(
             redirect_origins=origins,
             status=410,
         )
-    row, user = loaded
-    checked = _authorization_request(session, settings, dict(row.request))
-    if isinstance(checked, Response):
-        return checked
-    address = _address(request)
-
-    def again(*, recovering: bool = False, **more: bool | int) -> Response:
-        return _factor_page(
-            session, settings, checked, user, step, row.stage, now=now, product=product,
-            recovery=recovering, **more,
-        )  # fmt: skip
-
-    def done() -> Response:
-        second_factor.finish_step(session, row, user, address, now)
-        session.commit()
-        return _issue(session, checked, user, now)
-
-    if row.stage == "codes":
-        return done()
-    typed = recovery.strip() or code.strip()
-    recovering = bool(recovery.strip()) or (view == "recovery" and not code.strip())
-    if not typed:
-        return again(recovering=recovering)
-    try:
-        if row.stage == "setup":
-            codes = second_factor.confirm(
-                session, settings, user, typed, now=now, address=address, api=False
-            )
-        else:
-            second_factor.check(
-                session, settings, user, typed, now=now, address=address,
-                kind="recovery" if recovering else "app",
-            )  # fmt: skip
-    except second_factor.CodeRefused as refused:
-        return again(
-            recovering=recovering,
-            wrong=refused.reason == "wrong",
-            wait_seconds=refused.wait_seconds,
-        )
-    if row.stage == "setup":
-        second_factor.advance(row, "codes", now)
-        session.commit()
+    if isinstance(outcome, browser_sign_in.RequestRefused):
+        return _refusal(session, settings, outcome)
+    if isinstance(outcome, browser_sign_in.RecoveryCodes):
         return pages.recovery_codes(
-            product, step, codes, issuer=settings.issuer, redirect_origins=origins
+            product, step, outcome.codes, issuer=settings.issuer, redirect_origins=origins
         )
-    return done()
+    if isinstance(outcome, browser_sign_in.SignedIn):
+        return _issued(outcome)
+    return _factor_page(
+        session, settings, outcome.request, outcome.user, step, outcome.stage, now=now,
+        product=product, recovery=outcome.recovering, wrong=outcome.wrong,
+        wait_seconds=outcome.wait_seconds,
+    )  # fmt: skip
 
 
 # ---------------------------------------------------------------------------------------------
@@ -474,7 +425,14 @@ def _provider_problem(
     provider: SignInProvider,
     failed: provider_sign_in.SignInFailed,
 ) -> Response:
-    retry = _query("/oauth/authorize", failed.request) if failed.request else None
+    # Back to the application, whose sign-in screen starts again (I5); without one, the engine's page.
+    retry = None
+    if failed.request:
+        retry = (
+            settings.browser_origins[0]
+            if settings.browser_origins
+            else _query("/oauth/authorize", failed.request)
+        )
     response = pages.provider_problem(
         _product(session),
         provider.name,
@@ -663,9 +621,10 @@ def passkey_script() -> Response:
 
 def _passkey_error(message: str, status: int, wait_seconds: int = 0) -> JSONResponse:
     headers = {"Retry-After": str(wait_seconds)} if wait_seconds else None
-    return JSONResponse(
-        {"error": message}, status_code=status, headers={**_NO_STORE, **(headers or {})}
-    )
+    body: dict[str, object] = {"error": message}
+    if wait_seconds:
+        body["waitSeconds"] = wait_seconds
+    return JSONResponse(body, status_code=status, headers={**_NO_STORE, **(headers or {})})
 
 
 def _cookie_user(request: Request, session: Session) -> User | None:
