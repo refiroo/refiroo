@@ -6,6 +6,18 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (grant dialog)
+
+- **Grants are made in bulk, from a grid.** The grant dialog (a client's, person's or group's page,
+  and a workspace's Access) now takes several things at once. Consumer APIs are ticked in a grid of
+  APIs by workspaces (a row or column heading ticks the line, Shift extends a range; a workspace
+  whose model does not declare an API has no tick for it); roles are ticked in a scrolling list, in
+  several workspaces or the whole instance. What the holder already has is shown ticked and locked and is
+  not sent again; a sentence says how many grants will be made. Each tick is one `POST
+  /api/v1/grants`, so a refusal leaves the others made and its tick in place with the reason.
+  Narrowing is offered when one role is granted in one workspace. A client's page opens on
+  Consumer APIs.
+
 ### Fixed (development)
 
 - **The API reference can call the engine in development.** `scripts/dev.sh engine` allows the

@@ -1312,7 +1312,10 @@ authoring and release, workspace, integration and security administration, the c
 operations. Nine roles come predefined (Reader, Contributor, Data steward, Data owner, and the
 administrators and operator); a custom role is made from scratch or copied from another. A role is
 granted to a person, a system or a group of people, for the whole instance or one workspace, and a
-workspace grant may narrow what may be changed to some applications or record types. A narrowed
+workspace grant may narrow what may be changed to some applications or record types. The grant
+dialog makes several grants at once: roles ticked in a list in several workspaces or the whole
+instance, consumer APIs ticked in a grid of APIs by workspaces, with what is already held shown and
+not granted again. A narrowed
 grant allows writing the records of the applications and types it names, live, in a change set, in
 a batch or an import, by publishing a change set, by moving records into the workspace, or by
 changing a record's type; a relationship may be written when either of its records may. A batch,

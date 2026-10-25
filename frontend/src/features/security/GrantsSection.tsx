@@ -204,9 +204,15 @@ export function GrantsSection({
             setGranting(false);
             grantRef.current?.focus();
           }}
-          onGranted={(grant) => {
+          onGranted={(grants) => {
             setGranting(false);
-            toast(`${grant.principal.name} now holds ${grantHeld(grant)} ${place(grant)}.`);
+            const [first] = grants;
+            if (first)
+              toast(
+                grants.length === 1
+                  ? `${first.principal.name} now holds ${grantHeld(first)} ${place(first)}.`
+                  : `${first.principal.name} now holds ${grants.length} more grants.`,
+              );
             feed.reload();
             onChanged?.();
             grantRef.current?.focus();
