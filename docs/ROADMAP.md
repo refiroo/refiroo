@@ -612,6 +612,34 @@ refuses and what a real exchange looks like; a person tells the two type palette
 - No management operation is on the V-D6 gap list, and every error code has a catalogue entry.
 - Both palettes keep the contrast test in light and dark and are approved by the user on the real app.
 
+## Product release 0.15 — Interface language
+
+_Created 2026-10-26 by the user._ Planned before 1.0 for now, like 0.14; independent of the other
+releases. Plan: [BASE_0_15_IMPLEMENTATION_PLAN](BASE_0_15_IMPLEMENTATION_PLAN.md).
+
+### Product outcome
+
+A person chooses a language in Settings › Appearance and the whole browser interface reads in it,
+including the engine's error messages the interface can meet; English and German ship.
+
+### Delivery scope
+
+- A translation library, catalogues per area and language, the language setting, and dates and numbers
+  in the chosen language (LG1)
+- The engine's error codes and validation problems shown as translated text, with the backend's message
+  as the fallback (LG2)
+- The interface converted area by area; the repetitive conversion and the German first draft are done
+  by the low-cost model Haiku, the design, the checks and the review by the primary agent (LG3–LG6)
+- The German catalogue reviewed by other language models (LG7, D429, D430)
+- Not included: the backend, a model's own names and labels, the pages the engine serves
+
+### Exit gate
+
+- No literal interface text remains outside the catalogues (the lint rule's list is empty).
+- Every German key exists in English and the reverse; placeholders match.
+- The browser runners, the accessibility and visual gates pass in English unchanged, and the visual gate
+  passes in German at 1440px and 390px in light and dark.
+
 ## Product release 1.0 — Self-service model authoring and extensions
 
 ### Product outcome
