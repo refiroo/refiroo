@@ -101,6 +101,16 @@ class _EngineHandler(logging.StreamHandler):
     """The handler ``configure_logging`` installs, told apart from any other on the root logger."""
 
 
+class _UvicornName(logging.Filter):
+    """uvicorn writes its start and stop lines (INFO) to a logger named ``uvicorn.error``, which reads
+    like a failure. They are written as ``uvicorn``."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.name == "uvicorn.error":
+            record.name = "uvicorn"
+        return True
+
+
 def configure_logging(log_format: LogFormat, level: LogLevel) -> None:
     """Write the engine's and uvicorn's records in ``log_format`` from ``level`` up. uvicorn's own
     access line is turned off: the engine writes one per request (``RequestObservation``)."""
@@ -108,6 +118,7 @@ def configure_logging(log_format: LogFormat, level: LogLevel) -> None:
     for handler in [h for h in root.handlers if isinstance(h, _EngineHandler)]:
         root.removeHandler(handler)
     handler = _EngineHandler(sys.stderr)
+    handler.addFilter(_UvicornName())
     handler.setFormatter(JsonFormatter() if log_format == "json" else TextFormatter())
     root.addHandler(handler)
     logging.getLogger(_ENGINE_LOGGER).setLevel(level)
