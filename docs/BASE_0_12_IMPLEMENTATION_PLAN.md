@@ -2258,6 +2258,269 @@ for Z1's to Z5's; a failure it finds from them is fixed in Z6 and named in its r
 _Amended by HM1 (2026-10-25):_ Z6 also adds "Your recent changes" to the home page (D335), from
 the same read for the signed-in person.
 
+##### Z6 plan (2026-10-25)
+
+**Planned 2026-10-25; accepted by the user the same day** ("yes"), with the full backend suite run at its end. Checked against the code at `56903d2`
+(HM1 committed) with Z4's plan and record, D249, D316, D319, D323 and D335, and against the
+development database (read only).
+
+**What the check found:**
+
+- **The actor is on every entry since Z4** (`actor_kind`, `actor_user_id`, `actor_client_id`), with
+  a partial index on each ID alone, so a person's entries newest first would sort all of them for
+  every page; a batch of 16,000 records is 16,000 entries.
+- **Only live changes know their workspace.** `workspace_key` is set where an entry takes a feed
+  position (`records/audit._place_in_feed`): live records and relationships, publishing and
+  withdrawing. Change-set work (`change-set-object`, `relation` with `changes.changeSetId`, the
+  `change-set` lifecycle) names its change set but no workspace, and a published or discarded change
+  set is deleted, so after publishing nothing in the row says where the work was. A workspace's
+  model activation (`workspace_model`) has the key only inside `changes`. Model drafts, release
+  installs and the activations from before 0.11 (`model_runtime_state`) belong to no workspace.
+- **Only live entries know what they changed.** `feed_subject` (record type, a relationship's type
+  and ends) is filled for feed entries only; a change-set entry has the record's ID and its values,
+  not its type.
+- **On the development database** (49,496 entries): every change-set entry (54 lifecycle, 16,213
+  record, 13,300 relationship) can be placed from its change set, the publication entry naming it, or
+  its lifecycle entries naming `workspaceKey`; 4,557 live entries from 2026-10-02, before the feed,
+  name neither and stay unplaced.
+- **Deleting a workspace clears `workspace_key`** on its entries (`workspaces/catalogue`, 0.9 D208);
+  they stay as history belonging to no workspace.
+- **`mapping` `transition` entries** summarise a relation set's change; each relationship it changed
+  is its own entry.
+- **The interface:** `ui/Timeline` (record history, Recent activity), `ui/ActorName`,
+  `useCursorFeed` with Load more, the person's page in Security › People, Home's sections
+  (`features/home`). Settings and Home open without a workspace model.
+- **Reference patterns:** Home's page frame and sections; `Timeline` with Load more; the change
+  sets list's filters (`ui/SearchField` and selects).
+
+**Mock-up:** [security mock-ups canvas](https://claude.ai/artifact/CiHGaobpx8jsqaNZvmfXXo), row "Z6
+as planned": a person's Changes page at 1440px (filters; dark and "nothing you can read" in Tweaks),
+the ways to it (a person's page, a name in a record's history), Home's Your recent changes, and the
+Changes page at 390px.
+
+**What is built:**
+
+1. **Migration** `20261102_01`: `feed_subject` renamed `subject`; every entry that belongs to a
+   workspace records `workspace_key`, with or without a feed position (change-set work, a
+   workspace's model activation); a record or relationship entry inside a change set records its
+   `subject` as live entries do. Filled in SQL for existing entries (D341). Indexes
+   `(actor_user_id, occurred_at, sequence_id)` and `(actor_client_id, occurred_at, sequence_id)`
+   replace the two single-column ones (D347).
+2. **Writers:** `record_audit_event(s)` take the workspace for an entry outside the feed
+   (`ChangeSetWrites`, the change-set lifecycle, restructurings, type changes, pinning, change-set
+   migrations, the per-workspace activation); `subject` is filled for change-set records and
+   relationships.
+3. **The read** `engine/reads/changes.py` and `GET /changes` (D340, D342, D343, D344): data and model
+   changes newest first, cursor paged (50, up to 500), filtered by `actorId`, `workspaceKey`, `kind`
+   (`record`, `relationship`, `change-set`, `publication`, `model`, any of), `from` and `until`, and
+   always by what the caller may see. Each entry: `id`, `occurredAt`, `kind`, `action`, `workspace`
+   (key and label, or `null`), `changeSet` (ID and name while it is open, or `null` live),
+   `subject` (what it changed, named as it is now), `changedFields`, `attributes` (key and name),
+   `cause`, `actor`. Names and labels are resolved for the page in one statement per kind, type and
+   attribute names from each workspace's own model. Action `changes.read`, open to anyone signed
+   in.
+4. **The page** (D345), `features/changes/`, route `/changes?actorId=…` outside any workspace, as
+   Home is: "*Name*'s changes" ("Your changes" for oneself) with the person's or client's name and
+   kind; filters Workspace (those the caller reads), What, Period (Any time, Last 24 hours, Last 7
+   days, Last 30 days); entries as a `Timeline` grouped by day, 50 at a time with Load more; each
+   entry's title links to what it changed while it exists (the record in its workspace or in its
+   change set, the change set's review, the publication, the draft, the release).
+5. **Ways to it** (D345, D323): a person's page in Security › People, "See changes" (shown only when
+   the caller holds Browse somewhere or Model authoring at the instance); a person's or client's
+   name in a record's history (`ActorName` as a link there); Home's Your recent changes.
+6. **Home** (D346): Your recent changes under Your change sets, the caller's latest five, shown only
+   when there is one, with "See all your changes".
+7. **Documents:** API.md (`GET /changes`, `subject`, the paged-collections inventory),
+   ARCHITECTURE (an entry's workspace and subject), USER_JOURNEYS (J44.7–J44.11) and API_JOURNEYS,
+   CURRENT_FUNCTIONALITY, SETTINGS_AND_UI_PLAN (Changes, Home), UI_ACCEPTANCE (the page's state
+   row), EXECUTION_GUIDE (the new runner), CHANGELOG, PROJECT_STATUS.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D340 | The route | **Recommended:** one general read, `GET /changes`, of data and model changes across workspaces, with `actorId` (a person's or client's public ID) as one filter beside `workspaceKey`, `kind`, `from` and `until`; security events stay at `/security-events` (D319). Home reads it with the caller's own ID. Why: "what did this client change", "what changed in the workspaces I read since Monday" and "what did I change" are the same read with different filters, and an integrator's audit export needs the unfiltered one; a route per principal would be one case of it. Cost: one route and one action; `actorId` names who made a change (not who it is about, as `principalId` does on security events) |
+| D341 | Where an entry was made | **Recommended:** every entry that belongs to a workspace records it, not only those in the feed: change-set work and a workspace's model activation gain `workspace_key` without a feed position, and a change-set record or relationship entry records its `subject` (type; a relationship's type and ends) as live ones do; `feed_subject` is renamed `subject` since it no longer belongs to the feed alone. Existing entries are filled in the migration from the change set, the publication entry naming it, or the change set's lifecycle entries; those from before the feed stay without (4,557 on the development database). Why: after a publish the change set is gone and nothing else says where its work was; filtering by workspace must be a column, not a join through rows that are deleted. Cost: one migration over the audit table (49,496 rows here, statements per kind); the feed, the deriver and the retention floor read `feed_position` and are unchanged |
+| D342 | Who sees which entry | **Recommended:** D249's rule: an entry in a workspace with Browse there; model administration outside workspaces (drafts, release installs, activations from before 0.11) with Model authoring at the instance; an entry of a deleted workspace or one never placed only with Browse at the instance. Security events never; relation-set `transition` summaries left out (each relationship is its own entry). A Security administrator without data roles reads an empty list (D230), not a refusal. Why: every list filters so; Browse already shows who made each change in history (D316). Cost: anyone with Browse in a workspace sees everyone's changes there, as history already shows |
+| D343 | What an entry says | **Recommended:** its kind and action, its workspace (label), its change set (name while open), what it changed named as it is now (a record's type and name, a relationship's type and both ends' names, a change set's name, a publication's number, a draft's name, a release's name and version), the fields and attributes it changed by name (from that workspace's model), the cause and the actor; never values. A record since deleted keeps its type and reads "a record since removed". Why: a line someone can read without opening each entry, across models that differ; values stay in a record's history and the feed's rule (names, not values) holds. Cost: names as they are now, not as they were then |
+| D344 | The time filter | **Recommended:** `from` and `until` (instants, `from` included, `until` not), alone or together; the page offers Any time, Last 24 hours, Last 7 days and Last 30 days. Why: the API takes any range an integrator needs; four periods cover what a person asks. Cost: no date picker on the page |
+| D345 | The view's place | **Recommended:** a page of its own outside any workspace, `/changes?actorId=…`, like Home: the person's or client's name, the filters, a timeline grouped by day with Load more, each title linking to what it changed while it exists. Reached from a person's page in Security › People ("See changes", shown only to a caller who would see something, D323), from a name in a record's history, and from Home. A client's page links to it when SP2 builds one. Why: data people find it from history and Home, where a Settings page would not be theirs; a Security administrator without data roles would see nothing there (D230). Cost: one route kind; `ActorName` gains a link form, used in record history only |
+| D346 | Home's Your recent changes | **Recommended:** the caller's five latest entries, under Your change sets, shown only when there is one (D335), with "See all your changes". Why: HM1's amendment; five keeps Home short. Cost: one more read on Home |
+| D347 | Speed of a person's page | **Recommended:** indexes on `(actor, occurred_at, sequence_id)` for people and clients, replacing the single-column ones, so a page is an index range whatever the person's total; the workspace and kind filters apply within it. Timed once on a copy of the development database for its busiest actor, and in the journey at 200 and 2,000 entries. Why: a batch writes an entry per record. Cost: two indexes rebuilt in the migration |
+
+**Journey test cases** (`tests/journeys/test_j44_changes.py`, J44.7–J44.11, on two configurations,
+workspaces A and B on different models, people and clients made and granted through the API; written
+first and seen failing):
+
+1. **J44.7, one person's changes:** given P (Data steward in A and B) changes a record live in A,
+   creates a change set in B, changes a record and a relationship in it and publishes it, and Q
+   changes a record in A, when the harness (Browse at the instance) reads `/changes?actorId=P`, then
+   it lists, newest first, the publication and the entries it applied (B, cause the publication),
+   the relationship and the record changed in the change set (B, with its change set), the change
+   set's creation (B) and the live change (A), each with its workspace's label, the record's type
+   and name from its own model and actor P; nothing of Q's.
+2. **J44.8, what the caller may see:** given R with Browse in A only, S a Security administrator
+   with no data role, and M with Model authoring at the instance only, and P also changed a model
+   draft, when each reads `/changes?actorId=P`, then R sees only A's entries, S an empty list
+   (`200`), M only the draft's entry; the harness sees all.
+3. **J44.9, filters and pages:** given J44.7's entries, `workspaceKey=B`, `kind=record` and a
+   `from`/`until` range each keep only theirs; pages of two continue without repeats or gaps; an
+   unknown `kind` is refused with `400 VALIDATION_ERROR` naming it.
+4. **J44.10, a client:** given client C (Editor in A) submits a batch changing two records, when C
+   reads `/changes?actorId=<C>`, then both entries name C with the job as cause.
+5. **J44.11, after things go:** given P's record in A is deleted and A is deleted later, when the
+   harness reads `/changes?actorId=P`, then the earlier entries read `workspace: null` and the
+   record as removed, and R (Browse in A, which no longer exists) no longer sees them.
+
+Unit tests: the migration's placement statements on rows of each kind (a change set open,
+published, discarded, never placed); the read's visibility condition for the four kinds of caller.
+Vitest: an entry's title and line for each kind, the period's `from`, the `/changes` route.
+
+**Browser** (a new runner `z6-changes`, on two models; reference patterns: Home's frame,
+`Timeline`): from a record's history, the name opens that person's changes; the workspace, what and
+period filters narrow the list and Load more continues; an entry opens its record in its own
+workspace; Home shows Your recent changes and "See all your changes" opens the caller's own; a
+Security administrator's person page shows "See changes" only when they hold Browse. Keyboard from
+the filters through Load more; 390px; axe; screenshots at 1440px light and dark and at 390px,
+inspected against the boards.
+
+**Checks:** the new journey module and J44's; the journeys whose entries gain a workspace or
+subject (history J01/J02, change sets J05–J07, J26 the feed and J30 consumer events, which must not
+change); `test_openapi_contract` with the lock diffed, `test_api_journeys`, `test_paging_contract`,
+`test_boundaries`, `test_schema_drift`, `test_foreign_keys`; the `startup` group (a migration) and a
+smoke start on a copy of the development database with the placement counts compared before and
+after; Ruff on the changed files. Frontend: Vitest for `src/features/changes`, `src/features/home`,
+`src/features/security`, `src/ui`, `src/routing`; format, lint, build; the runners `z6-changes`,
+`hm1-home`, `sp1-security`. **Then the full backend suite**, which closes Track Z (the user,
+2026-10-24): about 11 minutes with `-n 6` (0.11's R: 10 min 51 s), plus its serial part; approving
+this plan is the go-ahead for that one run. A failure it finds from Z1–Z5 is fixed in Z6 and named
+in its record.
+
+**Composable domains (ADR-032):** the audit and provenance door is touched: entries gain where they
+were made and what they changed, beside the actor and cause, never instead; values stay out of the
+audit read; identity, attribute storage, bulk APIs, the `match` declaration and mapping coverage are
+unchanged.
+
+**What the user will still not be able to do after Z6:** see what waits for their approval (A3); open
+a client's changes from a client's page (SP2; from a record's history until then); see the values a
+change wrote in the cross-workspace list (a record's history has them); export the list to a file
+(not planned); see model-to-model mapping operations in it (they are in the mapping's own history,
+not the audit).
+
+##### Z6 record (2026-10-25)
+
+**Delivered 2026-10-25.** What was built is the plan's list, items 1–7:
+
+- **Migration** `20261102_01`: `feed_subject` renamed `subject`; existing entries placed in SQL
+  (`_PLACES`, `_ACTIVATIONS`) and change-set records and relationships named (`_RECORD_SUBJECTS`,
+  `_RELATION_SUBJECTS`); the actor indexes `(actor_*_id, occurred_at, sequence_id)`.
+- **Engine:** `record_audit_event(s)` take `feed=False` for an entry in a workspace without a feed
+  position; `ChangeSetWrites` records with its workspace and keeps the subject it was dropping; a
+  `before_flush` hook in `records/audit.py` (`_place_entries`) places every other ORM-inserted entry
+  from its change set or a workspace activation's `workspaceKey`, one statement per flush; the two
+  raw inserts (`records/deletion.py`, `model/migrations.py`) name the workspace and subject; the
+  change-set record writers outside the write unit (attribute patches, restructurings, type changes)
+  and the batch lookup's change-set entries name their subject. `reads/changes.py` (`visible`,
+  `change_page`) and the action `changes.read`.
+- **API:** `GET /changes` (`routers/changes.py`, `projections/changes.py`, `schemas/changes.py`);
+  `presenters.actor_response` made public for it. OpenAPI lock re-baselined, diffed against
+  `56903d2`: the route and its eight schemas, nothing else; the paged-collections inventory 58 → 59.
+- **Browser:** `features/changes/` (`ChangesPage`, `changeText`), the `changes` route, Home's Your
+  recent changes, "See changes" on a person's page, a name in a record's history linking
+  (`ActorName`'s `onOpenChanges`, passed only by the record page), `Timeline` titles that may be
+  links; styles in `home.css` on existing tokens.
+- **Documents:** API.md, ARCHITECTURE, OPERATIONS, PRODUCT, CURRENT_FUNCTIONALITY (F11),
+  USER_JOURNEYS (J44.7–J44.11), API_JOURNEYS, SETTINGS_AND_UI_PLAN, UI_ACCEPTANCE (Z6-1, Z6-2),
+  EXECUTION_GUIDE (`z6-changes`), ROADMAP, TODO, CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan, decided by recommendation:**
+
+- **The time filter is `since`/`until`, not `from`/`until`** (D344): `from` is already every paged
+  collection's (`from=end`, ADR-030); the first journey run refused `from=<instant>` as a paging value.
+- **An unknown `kind` is `422 REQUEST_VALIDATION_ERROR`**, the engine's refusal for every query
+  parameter out of its values, not the `400 VALIDATION_ERROR` the plan's J44.9 wrote; J44.9 asserts
+  the engine's code. The plan's wording was the error, not the behaviour.
+- **A change set keeps its name once published or discarded** (D343 said "while it is open"): the
+  name comes from the change set while open, else from its last lifecycle entry naming one, so a
+  publication's and its applied entries' change set still reads by name. `changeSet.open` says
+  whether it can still be opened.
+- **`subject.applicationKey`** added: a record's link needs its application.
+- **The Changes page draws the timeline's markers**, not the boards' kind tiles (the plan said
+  "a `Timeline`"); Home's Your recent changes has the tiles, in type-hue slots and status surfaces.
+- **The workspace filter's options** are the workspaces the reader may browse (`GET /me/workspaces`),
+  and its address parameter is `workspace=`, so the router never opens that workspace's model.
+- **A name links only in a record's history**; the editors' histories, activations and Recent
+  activity keep it plain (D345).
+
+**Found on the way and fixed:**
+
+- **The migration missed 30,250 entries' subjects** on the development database: the ORM wrote "no
+  subject" as JSON `null`, not SQL `NULL`. The migration's unit test caught it; both statements now
+  take either.
+- **Load more with a period chosen replaced the list with an error:** each request computed a new
+  `since`, so the next page's cursor no longer matched its filters (`z6-changes` step 4). The period's
+  start is fixed when it is chosen (`useMemo`); the runner's keyboard step pages under a period.
+
+**Found, not Z6's (TODO):** on a copy of the development database started with another deployment
+key, the engine starts but `POST /oauth/token` fails as `500 INTERNAL_ERROR` (`SealError`), not an
+actionable refusal (I1's signing keys).
+
+**Older tests changed by Z6's planned behaviour:** `test_startup.HEAD` (`20261102_01`), the OpenAPI
+lock and the paged count, `test_api_journeys`' inventory (API_JOURNEYS), `feed_subject` renamed in
+`unit/engine/events/test_plan.py` and `volume_fixture.py`.
+
+**Checks:**
+
+- **Journeys:** J44.7–J44.11 (`test_j44_changes.py`, 5 cases × 2 configurations) seen failing (10 of
+  10 on the missing route), then passing. Selected journeys whose entries gained a workspace or
+  subject: J01, J02, J04, J05, J06, J07, J11, J15, J17, J26, J30, J37, J44 — 386 passed (2 min 12 s).
+- **Unit:** the migration's placement and subject statements (open, published, discarded, never
+  placed, a key created again), `visible` for four callers; `tests/unit/engine/records`, `events`,
+  `reads`, `migrations` — 83 passed. The `startup` group: 192 passed.
+- **Contract:** `test_openapi_contract`, `test_api_journeys`, `test_paging_contract`,
+  `test_boundaries`, `test_schema_drift`, `test_foreign_keys`, `test_layout` — passed.
+- **Ruff** check on `app/` and `tests/`; format on the new files and on the changed files that were
+  formatted before (the others keep their formatting, only Z6's lines changed).
+- **Smoke start on a copy of the development database** (`rdm` copied to a scratch database, then
+  dropped): upgraded `20261101_01` → `20261102_01`, `/health` ok. Entries with a workspace 14,424 →
+  44,644 of 49,496 (the 30,220 the plan measured); unplaced: the 4,557 entries from before the feed
+  and 24 relation-set summaries; 7,864 change-set entries keep no subject (their records were only
+  in discarded change sets) and read "a record since removed". Started with a scratch key, so the
+  copy's signing keys were replaced on it to issue tokens (see the TODO above).
+- **Timing (D347), on that copy:** a client changed 200 records, then 2,000 by batch; `GET /changes`
+  for it, best of five: first page 15 ms at 200 entries, 11 ms at 2,200, page 31 12 ms; everyone's
+  first page over 51,000 entries 10 ms; filtered by kind and workspace 11 ms.
+- **Frontend:** Vitest `src/features/changes`, `src/features/home`, `src/features/security`,
+  `src/ui`, `src/routing`, `src/app`, `src/features/objects/panels` — 33 files, 284 tests passed;
+  Prettier on the changed files, lint (0 errors, the 8 listed warnings), build.
+- **Browser:** `z6-changes` 12 checks on two models, axe 0 on the Changes page (a Reader, dark,
+  390px) and on Home; `hm1-home` 11 checks; `sp1-security` 46 checks on two models. Screenshots
+  inspected against the boards: Home's Your recent changes at 1440px, a Reader's view of Ana's
+  changes, Your changes in dark with the filters, the page at 390px with the filters stacked and a
+  16px gutter.
+- **Full backend suite** (Track Z's, the user, 2026-10-24; stands for Z1–Z5's): `-n 6`, 6,348
+  passed and 5 failed in **13 min 9 s, over the 11-minute ceiling** (TODO); the serial part, 5
+  passed. The five, each named:
+  - `test_batch_statements` live creates and upserts (36 > 35, 50 > 49 statements per chunk), the
+    same on `56903d2`: Z4's `requestedBy` names a job's requester in the batch's response, one
+    statement per chunk whatever it holds. The budgets gained one, as I1's did; 14 passed.
+  - `test_consumer_xref_volume` (28 statements → 23 between sizes), the same on `56903d2`, and
+    `test_consumer_event_volume` (only in the full run): since Z3 (D266) the consumer index takes the
+    management token, so `volume_app`'s warm-up no longer obtained the consumer token and the first
+    consumer read measured paid for it. `volume_app` asks for the consumer token directly; the 23
+    modules using the volume fixture, 255 passed.
+  - `test_build07_wp6::test_selected_capture_keeps_active_identity_and_snapshot_retry`: failed only
+    under the full run's load, passed alone and in its group (`model_admin`, 387 passed); its message
+    was not kept. A flake, cause not found (TODO).
+
+**Composable domains (ADR-032):** the audit and provenance door, as planned: entries gain where
+they were made and what they changed, beside the actor and cause; values stay out of the read.
+
+**What the user will still not be able to do after Z6:** see what waits for their approval (A3); open
+a client's changes from a client's page (SP2; from a name in a record's history until then); see the
+values a change wrote in the list (a record's history has them); export the list (not planned); see
+model-to-model mapping operations in it (the mapping's own history has them).
+
 ### HM1: A home page after sign-in
 
 **Needs:** Z5. _Added by the user, 2026-10-25,_ choosing a personal home page over workspace icons
@@ -2832,7 +3095,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 6 | [Z3](#z3-consumer-apis-per-client) | Z1 | Consumer APIs per client and workspace |
 | 7 | [Z4](#z4-audit-identity) | Z1 | **Delivered 2026-10-24.** The actor beside `cause` everywhere; security events |
 | 8 | [Z5](#z5-the-interface-follows-the-callers-permissions) | Z2, I2 | **Delivered 2026-10-24.** The interface follows permissions; Reader and Contributor |
-| 8a | [Z6](#z6-one-persons-changes-across-workspaces) | Z4, Z5 | One person's or client's changes across workspaces, filtered to what the caller may browse |
+| 8a | [Z6](#z6-one-persons-changes-across-workspaces) | Z4, Z5 | **Delivered 2026-10-25.** One person's or client's changes across workspaces, filtered to what the caller may browse |
 | 8b | [HM1](#hm1-a-home-page-after-sign-in) | Z5 | **Delivered 2026-10-25.** A home page after sign-in: workspaces as cards, what waits for the person, Continue where you left off |
 | 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | **Delivered 2026-10-24.** Settings › Security: people, groups, roles, grants |
 | 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | Settings › Security: clients and their access; sign-in providers |

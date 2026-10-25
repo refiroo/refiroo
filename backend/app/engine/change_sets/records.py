@@ -36,6 +36,7 @@ from ..records.deletion import (
     deletion_preview_changed,
     require_deletion_preview,
 )
+from ..records.feed import object_subject
 from ..records.refusals import CHANGE_SET
 from ..records.relation_set_versions import (
     SetClaim,
@@ -245,6 +246,7 @@ def decide_new_change_set_object(
                 **(audit_changes or {}),
             },
             (record.object_id,),
+            object_subject(record),
         )
     )
     return record
@@ -358,6 +360,7 @@ def decide_change_set_object_update(
                 **(audit_changes or {}),
             },
             (record.object_id,),
+            object_subject(record),
         )
     )
     return record
@@ -779,6 +782,7 @@ def patch_change_set_attribute(
         version=row.version,
         changes={"attributes": {key: value}, "changeSetId": change_set.id},
         object_ids=[row.object_id],
+        subject=object_subject(row),
     )
     session.commit()
     return row
@@ -833,6 +837,7 @@ def delete_change_set_attribute(
         version=row.version,
         changes={"attributes": {key: None}, "changeSetId": change_set.id},
         object_ids=[row.object_id],
+        subject=object_subject(row),
     )
     session.commit()
     return row

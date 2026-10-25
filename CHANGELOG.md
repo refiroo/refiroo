@@ -6,6 +6,20 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 Z6, one person's changes across workspaces)
+
+- **Changes** (D340–D347): everything a person or client changed, across the workspaces the reader
+  may browse, newest first and grouped by day: records and relationships, live or in a change set,
+  change sets, publications and model drafts and releases, each naming its workspace, change set and
+  what it changed with its type from that workspace's own model, narrowed by workspace, kind and
+  period; each title opens what it changed while it exists. A name in a record's history opens it,
+  as does "See changes" on a person's page; Home shows **Your recent changes**, the five latest.
+- `GET /api/v1/changes` (`actorId`, `workspaceKey`, `kind`, `since`, `until`, paged), filtered to
+  what the caller may see; a Security administrator without data roles reads an empty list.
+- Every audit entry that belongs to a workspace now names it, also a change set's work, and a change
+  set's records and relationships name what they changed; the upgrade places existing entries from
+  their change sets (migration `20261102_01`).
+
 ### Added (0.12 HM1, a home page after sign-in)
 
 - **Home** (D331–D339): signing in, the bare address and the product name open a home page: a

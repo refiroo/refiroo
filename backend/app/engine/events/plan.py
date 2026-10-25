@@ -69,7 +69,7 @@ class FeedChange:
         own entry and a withdrawal, which change no object."""
         if event.aggregate_type not in ("object", "relation") or event.feed_position is None:
             return None
-        subject = event.feed_subject or {}
+        subject = event.subject or {}
         fields, keys = changed_names(event)
         if event.aggregate_type == "relation":
             return cls(

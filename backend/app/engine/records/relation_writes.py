@@ -73,7 +73,7 @@ def _staged(lookup: BatchLookup) -> str | None:
 def audit_relation(
     lookup: BatchLookup, relation: Any, action: str, version: int, changes: dict[str, Any]
 ) -> None:
-    """A relation's audit entry: in a change set it names the change set, live its feed subject."""
+    """A relation's audit entry, naming its type and ends; in a change set also the change set."""
     change_set_id = _staged(lookup)
     lookup.audit(
         AuditEntry(
@@ -83,9 +83,7 @@ def audit_relation(
             version,
             {**changes, "changeSetId": change_set_id} if change_set_id else changes,
             (relation.from_object_id, relation.to_object_id),
-            None
-            if change_set_id
-            else relation_subject(
+            relation_subject(
                 relation.relation_type_key, relation.from_object_id, relation.to_object_id
             ),
         )

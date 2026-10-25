@@ -217,11 +217,11 @@ _LIVE_AUDIT = text(
     ), inserted AS (
         INSERT INTO audit_events (event_id, aggregate_type, aggregate_id, action, version,
             changes, occurred_at, cause_kind, cause_id, workspace_key, feed_position,
-            model_release_id, feed_subject, actor_kind, actor_user_id, actor_client_id)
+            model_release_id, subject, actor_kind, actor_user_id, actor_client_id)
         SELECT gen_random_uuid()::text, aggregate_type, id, 'deleted', version, changes,
             CAST(:now AS timestamptz), CAST(:cause_kind AS varchar), CAST(:cause_id AS varchar),
-            CASE WHEN feed THEN CAST(:workspace AS varchar) END, position,
-            CASE WHEN feed THEN CAST(:release AS integer) END, CASE WHEN feed THEN subject END,
+            CAST(:workspace AS varchar), position,
+            CASE WHEN feed THEN CAST(:release AS integer) END, subject,
             CAST(:actor_kind AS varchar), CAST(:actor_user_id AS integer),
             CAST(:actor_client_id AS integer)
         FROM placed ORDER BY item, rank, id COLLATE "C"
@@ -237,18 +237,22 @@ _LIVE_AUDIT = text(
     """
 )
 
-# A change set's deletions are audited per record, as its creates and updates are; they change no
-# live data, so they take no feed position.
+# A change set's deletions are audited per record, as its creates and updates are; they belong to
+# the workspace but change no live data, so they take no feed position (0.12 Z6, D341).
 _CHANGE_SET_AUDIT = text(
     """
     WITH inserted AS (
         INSERT INTO audit_events (event_id, aggregate_type, aggregate_id, action, version,
-            changes, occurred_at, cause_kind, cause_id, actor_kind, actor_user_id, actor_client_id)
+            changes, occurred_at, cause_kind, cause_id, workspace_key, subject, actor_kind,
+            actor_user_id, actor_client_id)
         SELECT gen_random_uuid()::text, 'change-set-object', o.object_id, 'deleted',
             o.version + 1,
             json_build_object('changeSetId', CAST(:change_set AS varchar),
                 'objectTypeKey', o.object_type_key, 'cascadeRootObjectId', root.object_id),
             CAST(:now AS timestamptz), CAST(:cause_kind AS varchar), CAST(:cause_id AS varchar),
+            CAST(:workspace AS varchar),
+            json_build_object('objectTypeKey', o.object_type_key,
+                'applicationKey', o.application_key, 'parentObjectId', o.parent_object_id),
             CAST(:actor_kind AS varchar), CAST(:actor_user_id AS integer),
             CAST(:actor_client_id AS integer)
         FROM deletion_objects o JOIN deletion_roots root ON root.item = o.item
@@ -542,6 +546,7 @@ class ChangeSetScope(DeletionScope):
             _CHANGE_SET_AUDIT,
             {
                 "change_set": self.change_set_id,
+                "workspace": self.workspace_key,
                 "now": now,
                 "cause_kind": cause_kind,
                 "cause_id": cause_id,

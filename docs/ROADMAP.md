@@ -559,7 +559,8 @@ to a proven identity.
   already on their 0.9 page (U8, U-D3, [SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md))
 - Audit identity: changes record the authenticated actor
 - _Added 2026-10-24 by the user:_ one person's or client's changes across workspaces in one place,
-  filtered to the workspaces the reader may browse ([Z6](BASE_0_12_IMPLEMENTATION_PLAN.md#z6-one-persons-changes-across-workspaces))
+  filtered to the workspaces the reader may browse ([Z6](BASE_0_12_IMPLEMENTATION_PLAN.md#z6-one-persons-changes-across-workspaces));
+  _delivered 2026-10-25_
 - Protected model and workspace administration, replacing the default-enabled workspace mutation
   posture; deployment capability flags stay as defence in depth (ADR-031)
 - Authentication in the API reference "try it" console

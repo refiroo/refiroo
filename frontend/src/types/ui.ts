@@ -5,7 +5,7 @@
  * declarative model the engine serves, and no backend response carries them.
  */
 
-import type { ChangeKind } from "@/types/runtime";
+import type { ChangeEntryKind, ChangeKind } from "@/types/runtime";
 
 export type ObjectSort = string;
 
@@ -87,11 +87,29 @@ export type RouteState =
       publicationId?: string;
     }
   | HomeRoute
+  | ChangesRoute
   | SettingsRoute;
 
 /** The home page after sign-in (0.12 HM1, D331): the bare address, outside any workspace. */
 export interface HomeRoute {
   kind: "home";
+}
+
+/** How far back a person's changes are shown (0.12 Z6, D344); none is any time. */
+export type ChangePeriod = "day" | "week" | "month";
+
+/**
+ * One person's or client's changes across workspaces (0.12 Z6, D345), outside any workspace as
+ * Home is. The filters are the page's: a workspace, a kind of change and a period. `actorName` is
+ * the name the link knew, shown until the first page names the actor; it is not in the address.
+ */
+export interface ChangesRoute {
+  kind: "changes";
+  actorId: string;
+  actorName?: string;
+  inWorkspace?: string;
+  what?: ChangeEntryKind;
+  period?: ChangePeriod;
 }
 
 /**
@@ -189,4 +207,4 @@ export type ConsumerApiTab = "types" | "fields" | "operations" | "filters" | "sc
 export type SettingsPage = SettingsRoute["page"];
 
 /** Every route that is neither a settings page nor home: an application's data, in a workspace. */
-export type ApplicationRoute = Exclude<RouteState, SettingsRoute | HomeRoute>;
+export type ApplicationRoute = Exclude<RouteState, SettingsRoute | HomeRoute | ChangesRoute>;

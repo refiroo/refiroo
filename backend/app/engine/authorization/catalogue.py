@@ -129,6 +129,11 @@ ACTIONS: dict[str, Action] = {
             "signed-in", (), "Anything a signed-in caller may read about themselves or the engine"
         ),
         Action("workspaces.list", (), "List the workspaces the caller holds a role in (D288)"),
+        Action(
+            "changes.read",
+            (),
+            "Read the data and model changes the caller may see, across workspaces (Z6, D342)",
+        ),
         Action("model.read", ("browse",), "Read a workspace's model", doing="Reading the model"),
         Action("workspace.read", ("browse",), "Read a workspace", doing="Reading the workspace"),
         Action(

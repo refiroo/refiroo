@@ -329,6 +329,16 @@ The home page, from the "HM1 as planned" boards, on the Account page's panels, p
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | HM1-1 | **Home** | `/` after sign-in, the bare address, the product name | `ShellFrame`, `TopBar` without applications; the Account page's panels | **C** (skeleton while the cards load) | **B** (cards on two models, the publisher's and a Reader's counts, Continue, Your change sets; no workspace: Z5-4's text under the instance's name; no Continue before anything was opened) | — | **B** (a workspace's name, an application, a count, Continue and a change set each open their page) | — | — | **C** (an inline error with Retry; a card whose model cannot be served says so) | **B** (390px, no page scroll) | **B** (Tab reaches Continue and each card's links; Enter opens) | `hm1-home` (axe light, dark, 390px; screenshots), `home.test`, `routes.test` |
 
+### Surfaces changed in 0.12 Z6
+
+A person's Changes page and Home's Your recent changes, from the "Z6 as planned" boards, on Home's
+frame and the record history's timeline.
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Z6-1 | **Changes** | `/changes?actorId=…` from a name in a record's history, "See changes" on a person's page, "See all your changes" on Home | `ShellFrame`, `TopBar` without applications; Home's panels; `ui/Timeline` | **C** (skeleton) | **B** (a person's and a client's changes on two models, grouped by day; a reader sees only the workspaces they browse; empty: "No change matches these filters" or no changes in the workspaces you can read) | **C** (Load more disabled while it loads) | **B** (an entry opens its record, a change set its review; the filters narrow and stay in the address) | — (an unknown filter in the address is ignored) | — | **C** (an inline error with Retry) | **B** (390px, the filters stacked, no page scroll) | **B** (Tab from the filters through the titles to Load more; Enter loads) | `z6-changes` (axe light, dark, 390px; screenshots), `changes.test` |
+| Z6-2 | **Your recent changes** on Home | Home | HM1-1's rows | **C** (shown once loaded) | **B** (the five latest across two workspaces; absent when there is none, D335) | — | **B** (an entry opens what it changed; See all opens Your changes) | — | — | **C** (absent on a failed read, as the section is optional) | **B** (390px) | **B** | `z6-changes`, `hm1-home` |
+
 ## 3. Selected focused browser checks
 
 Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,

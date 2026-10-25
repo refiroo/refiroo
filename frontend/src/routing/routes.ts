@@ -10,6 +10,9 @@ import type {
   ChangeKind,
   EditorSelection,
   EngineModel,
+  ChangeEntryKind,
+  ChangePeriod,
+  ChangesRoute,
   HomeRoute,
   MoveAddress,
   MoveChoice,
@@ -99,12 +102,39 @@ export function isSettingsRoute(route: RouteState): route is SettingsRoute {
   return route.kind === "settings";
 }
 
-/** An application's data in a workspace: neither a settings page nor home. */
+/** An application's data in a workspace: neither a settings page, home nor someone's changes. */
 export function isApplicationRoute(route: RouteState): route is ApplicationRoute {
-  return route.kind !== "settings" && route.kind !== "home";
+  return route.kind !== "settings" && route.kind !== "home" && route.kind !== "changes";
 }
 
 export const HOME: HomeRoute = { kind: "home" };
+
+const CHANGE_ENTRY_KINDS: readonly ChangeEntryKind[] = ["record", "relationship", "change-set", "publication", "model"];
+const PERIODS: readonly ChangePeriod[] = ["day", "week", "month"];
+
+/** One person's or client's changes from `/changes?actorId=…` (0.12 Z6, D345). */
+function changesRoute(parts: string[], query: URLSearchParams): ChangesRoute | undefined {
+  const actorId = query.get("actorId")?.trim();
+  if (parts.length !== 1 || parts[0] !== "changes" || !actorId) return undefined;
+  const what = query.get("kind") as ChangeEntryKind | null;
+  const period = query.get("period") as ChangePeriod | null;
+  const inWorkspace = query.get("workspace")?.trim();
+  return {
+    kind: "changes",
+    actorId,
+    ...(inWorkspace ? { inWorkspace } : {}),
+    ...(what && CHANGE_ENTRY_KINDS.includes(what) ? { what } : {}),
+    ...(period && PERIODS.includes(period) ? { period } : {}),
+  };
+}
+
+function changesPath(route: ChangesRoute) {
+  const query = new URLSearchParams({ actorId: route.actorId });
+  if (route.inWorkspace) query.set("workspace", route.inWorkspace);
+  if (route.what) query.set("kind", route.what);
+  if (route.period) query.set("period", route.period);
+  return `/changes?${query}`;
+}
 
 /**
  * A settings page from its path below `/settings`, or from an address the settings area replaced:
@@ -325,6 +355,8 @@ export function parseRoute(
   const query = new URLSearchParams(location.search);
   // The bare address is home (0.12 HM1, D331); naming a workspace still opens it.
   if (!parts.length && !query.get("workspaceKey")?.trim()) return HOME;
+  const changes = changesRoute(parts, query);
+  if (changes) return changes;
   const workspaceKey = query.get("workspaceKey")?.trim() || defaultWorkspaceKey;
   const changeSetId = query.get("changeSetId")?.trim() || undefined;
   const publicationId = changeSetId ? undefined : query.get("publicationId")?.trim() || undefined;
@@ -467,6 +499,7 @@ export function addressWorkspaceKey(fallback: string, location: Pick<Location, "
 
 export function routePath(route: RouteState) {
   if (route.kind === "home") return "/";
+  if (route.kind === "changes") return changesPath(route);
   if (route.kind === "settings") return settingsPath(route);
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });

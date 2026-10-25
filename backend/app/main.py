@@ -49,6 +49,7 @@ from .management.routers import (
     attributes,
     authorization,
     change_sets,
+    changes,
     consumer_subscriptions,
     identity,
     imports,
@@ -445,6 +446,7 @@ def create_app() -> FastAPI:
     if workspace_mutations_enabled:
         application.include_router(workspaces.admin_router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(change_sets.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(changes.router, dependencies=MANAGEMENT_DEPENDENCIES)
     if mutations_enabled:
         application.include_router(model_management.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(objects.router, dependencies=MANAGEMENT_DEPENDENCIES)

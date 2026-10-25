@@ -32,7 +32,9 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { ShownOnceDialog } from "@/ui/ShownOnceDialog";
 import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
+import { readsChanges } from "@/features/changes/changeText";
 import { GrantsSection, useWorkspaceLabels } from "./GrantsSection";
+import { useHeldAnywhere } from "./permissions";
 import { PickDialog } from "./PickDialog";
 import { securityEventTitle, userRoleLine } from "./securityText";
 
@@ -362,6 +364,7 @@ function PersonDetail({
   const [conflict, setConflict] = useState("");
   const editRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
+  const held = useHeldAnywhere();
 
   useEffect(() => {
     let current = true;
@@ -409,6 +412,8 @@ function PersonDetail({
   if (loadError) return <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />;
   if (!user) return <div className="panel-state">Loading person…</div>;
 
+  // What they changed in the workspaces this administrator reads (0.12 Z6, D345).
+  const changes: RouteState = { kind: "changes", actorId: user.id, actorName: user.name };
   const signedIn = !user.hasPassword
     ? "Has not set a password yet"
     : user.lastSignInAt
@@ -454,6 +459,11 @@ function PersonDetail({
         <button ref={editRef} className="secondary" disabled={pending} onClick={() => setEditing(true)}>
           Edit…
         </button>
+        {readsChanges(held) && (
+          <RouteLink className="secondary" href={routePath(changes)} onNavigate={() => onNavigate(changes)}>
+            See changes
+          </RouteLink>
+        )}
         {user.active && (
           <button
             className="secondary"

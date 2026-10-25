@@ -2639,6 +2639,13 @@ packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
   button-like counts of open change sets, and their change sets across workspaces. The no-workspace
   page is Home's empty state, under the instance's product name (D338).
 
+- _Built by Z6 (2026-10-25)_ from the "Z6 as planned" boards: a person's or client's **Changes**
+  page outside any workspace (`/changes?actorId=…`, D345), their changes across workspaces as a
+  timeline grouped by day with filters for workspace, kind and period; reached from a name in a
+  record's history, "See changes" on a person's page in Security › People (only for an
+  administrator who reads data, D323) and **Your recent changes** on Home, the five latest with "See
+  all your changes" (D346). Recent activity on a person's page stays their security events (D319).
+
 U-D11 holds: each Security entry appears in the navigation only when its page is built.
 
 ## Decisions

@@ -5739,7 +5739,8 @@ in change sets for `mode: move`. **Delivered by SP1 (2026-10-24):** a person's `
 workspace grant of a role held only at the instance refused. **Delivered by Z5 (2026-10-24):**
 `holding` on `GET /workspaces`, `GET /me/action-groups`, and `createdBy` on a workspace's change
 sets. **Delivered by HM1 (2026-10-25):** `GET /me/workspaces`, `GET /me/change-sets` and `product`
-on `GET /system`. The rest is designed; each part moves into "delivered" with its package (I3, Z3, SP2, K1, C1,
+on `GET /system`. **Delivered by Z6 (2026-10-25):** `GET /changes`, a person's or client's changes
+across workspaces. The rest is designed; each part moves into "delivered" with its package (I3, Z3, SP2, K1, C1,
 A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
@@ -6133,6 +6134,30 @@ security change is audited with its actor.
     attempt refused while slowed (D271) is a log line only.
   Grants given at startup or by the CLI's `--role` (the first administrator's) are not events; the
   person's creation is. Nothing expires them yet (TODO).
+- **Changes across workspaces** (delivered, Z6, D340–D344): `GET /changes` (action `changes.read`,
+  any signed-in caller) reads the data and model changes the caller may see, newest first
+  (`occurredAt`, then the entry's sequence), cursor paged (`pageSize` up to 500, 50 by default).
+  Filters, together: `actorId` (a person's or client's public ID: the changes they made; an ID no
+  principal has lists none), `workspaceKey`, `kind` (repeatable: `record`, `relationship`,
+  `change-set`, `publication`, `model`; another value is `422 REQUEST_VALIDATION_ERROR`), `since`
+  (included) and `until` (not included), instants; `from` stays the paging's (`from=end`). Always
+  filtered as every list is (D342): an entry in a workspace with Browse there; model administration
+  outside workspaces (drafts, release installs, activations from before 0.11) with Model authoring
+  at the instance; an entry of a deleted workspace, or one never placed, only with Browse at the
+  instance. A Security administrator without data roles reads an empty list. Security events are
+  not in it, nor a relation set's `transition` summaries (each relationship is its own entry). Each
+  entry: `id`, `occurredAt`, `kind`, `action` (a record's `created`, `updated`, `deleted`,
+  `reclassified`; a relationship's `created`, `updated`, `deleted`; a change set's `created`,
+  `renamed`, `validated`, `discarded`, `derived`, `model-release-changed`; a publication's
+  `published`, `withdrawn`; a draft's `created`, `updated`, `deleted`, a release's `installed`,
+  `activated`; readers ignore others), `workspace` (`key`, `label`, or `null`), `changeSet` (the one
+  it was made in, or a publication published: `id`, `name` as last named, `open`), `subject` (what
+  it changed, named as it is now: `id`, and as they apply `name`, `number` (a publication's),
+  `applicationKey`, `objectTypeKey`, `objectTypeName`, `relationTypeKey`, `relationTypeName`,
+  `fromObject` and `toObject` (`id`, `name`), `removed` for a record or relationship gone from where
+  it was), `changedFields`, `attributes` (`key`, `name` from the workspace's model), `cause` (`kind`
+  `user` for a single write, `job` or `publication` with its `id`) and `actor` (as on history).
+  Names come from each entry's own workspace's model; values never (a record's history has them).
 
 ### Approvals (Track A)
 

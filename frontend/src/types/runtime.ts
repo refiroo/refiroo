@@ -245,6 +245,46 @@ export interface OwnChangeSetPage extends PageNavigation {
   items: OwnChangeSet[];
 }
 
+/** What a change was made to (0.12 Z6, D343). */
+export type ChangeEntryKind = "record" | "relationship" | "change-set" | "publication" | "model";
+
+/** What an entry changed, named as it is now; fields are present where they apply to its kind. */
+export interface ChangeSubject {
+  id: string;
+  name?: string | null;
+  number?: number;
+  applicationKey?: string;
+  objectTypeKey?: string;
+  objectTypeName?: string;
+  relationTypeKey?: string;
+  relationTypeName?: string;
+  fromObject?: { id: string; name: string | null };
+  toObject?: { id: string; name: string | null };
+  /** A record or relationship gone from where it was. */
+  removed?: boolean;
+}
+
+/** One data or model change across workspaces (`GET /changes`, 0.12 Z6, D340). */
+export interface ChangeEntry {
+  id: string;
+  occurredAt: string;
+  kind: ChangeEntryKind;
+  action: string;
+  /** Null for model administration outside workspaces and a deleted workspace's entries. */
+  workspace: { key: string; label: string } | null;
+  /** The change set it was made in, or a publication published; `open` while it can be opened. */
+  changeSet: { id: string; name: string | null; open: boolean } | null;
+  subject: ChangeSubject;
+  changedFields: string[];
+  attributes: { key: string; name: string }[];
+  cause: { kind: string; id?: string };
+  actor: Actor | null;
+}
+
+export interface ChangeEntryPage extends PageNavigation {
+  items: ChangeEntry[];
+}
+
 /** An application of a workspace's model, as the home page links it. */
 export interface WorkspaceApplication {
   key: string;

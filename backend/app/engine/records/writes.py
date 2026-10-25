@@ -669,12 +669,16 @@ class ChangeSetWrites(_Permits):
         )
 
     def record(self, **event: Any) -> AuditEvent:
-        """Audit a change set edit; it changes no live data, so it takes no feed position."""
-        event.pop("subject", None)
-        return record_audit_event(self.session, **event)
+        """Audit a change set edit: it belongs to the workspace but changes no live data, so it
+        takes no feed position (0.12 Z6, D341)."""
+        return record_audit_event(
+            self.session, workspace_key=self.workspace_key, feed=False, **event
+        )
 
     def record_all(self, entries: list[AuditEntry]) -> list[AuditEvent]:
-        return record_audit_events(self.session, entries)
+        return record_audit_events(
+            self.session, entries, workspace_key=self.workspace_key, feed=False
+        )
 
     def claim(
         self,

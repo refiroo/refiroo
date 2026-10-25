@@ -21,7 +21,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F08 | Maintain relationships and mappings | Validated | Available | Mapping grid lens |
 | F09 | Maintain translations and coverage | Validated | Available | Relation matrix lens |
 | F10 | Preview and confirm dependent deletion | Validated | Available | |
-| F11 | Inspect record history | Validated | Available | Changes from before 0.12 name nobody |
+| F11 | Inspect record history | Validated | Available | Changes from before 0.12 name nobody; one person's changes across workspaces since 0.12 Z6 |
 | F12 | Prepare a change set | Validated | Available | From live data or a publication |
 | F13 | Review, validate and publish a change set | Validated | Available | |
 | F14 | Browse publications and withdraw one | Validated | Available | |
@@ -378,12 +378,29 @@ does not expose whole model documents. A change set names who created it and a c
 made it; a publication who published it and who withdrew it; a job who asked for it, on its page and
 in the jobs list; and each step in the model editor's history who applied it.
 
+Everything one person or system changed can be read in one place: a name in a record's history
+opens their **Changes** page, as does "See changes" on a person's page in Settings › Security (for
+an administrator who also reads data) and "See all your changes" under **Your recent changes** on
+Home, which shows one's five latest. The page lists their changes across workspaces, newest first and
+grouped by day: records and relationships, live or in a change set, change sets, publications and
+model drafts and releases, each naming its workspace, its change set and what it changed by its
+name now, with its type from that workspace's own model. It narrows by workspace, kind and period
+(24 hours, 7 or 30 days), and each title opens what it changed while it exists. A reader sees only
+the changes in workspaces they may browse, and model administration with Model authoring. The API
+reads the same list for anyone or everyone (`GET /changes`).
+
 Limits: changes recorded before 0.12 name nobody and read "Before sign-in". Consumer events name no
 one; the management feed does. The move editor shows no history list; its operations name their
-author through the API.
+author through the API. The Changes page shows no values (a record's history does), cannot be
+exported, and leaves out model-to-model mapping operations; changes from before 0.9's feed name no
+workspace and show only to someone who reads every workspace. A client's page arrives with 0.12
+SP2; a client's changes open from its name in a history until then.
 
 Evidence: [history panel](../../frontend/src/features/objects/panels/HistoryPanel.tsx),
-[audit](../../backend/app/engine/records/audit.py).
+[audit](../../backend/app/engine/records/audit.py),
+[changes page](../../frontend/src/features/changes/ChangesPage.tsx),
+[the read](../../backend/app/engine/reads/changes.py),
+[Z6 runner](../../frontend/e2e/z6-changes.mjs).
 
 ## F12 — Prepare a change set
 

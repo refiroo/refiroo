@@ -296,7 +296,8 @@ def runtime_state_response(item: WorkspaceRuntimeState) -> WorkspaceRuntimeState
     )
 
 
-def _actor(actor: dict[str, str] | None) -> ActorResponse | None:
+def actor_response(actor: dict[str, str] | None) -> ActorResponse | None:
+    """An actor as it reads (0.12 Z4, D313): a principal, the engine, or null before Z4."""
     return ActorResponse.model_validate(actor) if actor else None
 
 
@@ -325,7 +326,7 @@ def _audit_response(
             if event.cause_kind
             else None
         ),
-        actor=_actor(actor),
+        actor=actor_response(actor),
     )
 
 
@@ -351,7 +352,7 @@ _FEED_ACTIONS = {"publication-withdrawn": "withdrawn"}
 def _feed_entry(
     event: AuditEvent, releases: dict[int, str], actor: dict[str, str] | None
 ) -> FeedEntry:
-    subject = event.feed_subject or {}
+    subject = event.subject or {}
     changes = event.changes if isinstance(event.changes, dict) else {}
     if event.aggregate_type in ("publication", "workspace"):
         kind, changed_fields, attribute_type_keys = "publication", [], []
@@ -377,7 +378,7 @@ def _feed_entry(
         changedFields=changed_fields,
         attributeTypeKeys=attribute_type_keys,
         cause=FeedCause(kind=event.cause_kind or "user", id=event.cause_id),
-        actor=_actor(actor),
+        actor=actor_response(actor),
         modelReleaseId=releases.get(event.model_release_id),
     )
 

@@ -11,16 +11,27 @@ import { errorMessage } from "@/api/errors";
 import { TopBar } from "@/app/TopBar";
 import { ShellFrame } from "@/app/ShellFrame";
 import { useMe } from "@/app/useMe";
+import { ChangeTitle } from "@/features/changes/ChangesPage";
+import { changeWhere } from "@/features/changes/changeText";
 import { useHeldAnywhere } from "@/features/security/permissions";
 import { formatServerAgo } from "@/lib/dates";
 import { emptyModel } from "@/model/emptyModel";
 import { applicationFor } from "@/model/lookup";
 import { workspaceModel } from "@/model/workspaceModels";
-import { changeReviewFor, defaultRoute, parseRoute, viewRoute } from "@/routing/routes";
+import { changeReviewFor, defaultRoute, parseRoute, routePath, viewRoute } from "@/routing/routes";
 import type { Hue } from "@/model/hues";
-import type { EngineModel, Grant, OwnChangeSet, OwnWorkspace, RouteState, WorkspaceApplication } from "@/types";
+import type {
+  ChangeEntry,
+  ChangeEntryKind,
+  EngineModel,
+  Grant,
+  OwnChangeSet,
+  OwnWorkspace,
+  RouteState,
+  WorkspaceApplication,
+} from "@/types";
 import { HueTile } from "@/ui/HueTile";
-import { Icon } from "@/ui/Icon";
+import { Icon, type IconName } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { RouteLink } from "@/ui/RouteLink";
 import { Skeleton } from "@/ui/Skeleton";
@@ -144,6 +155,7 @@ export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate
               </ul>
             </section>
             <OwnChangeSets workspaces={workspaces} onNavigate={onNavigate} />
+            <RecentChanges personId={me.id} workspaces={workspaces} onNavigate={onNavigate} />
           </>
         )}
       </div>
@@ -384,6 +396,76 @@ function OwnChangeSets({ workspaces, onNavigate }: { workspaces: OwnWorkspace[];
             </button>
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+const KIND_ICONS: Record<ChangeEntryKind, IconName> = {
+  record: "document",
+  relationship: "link",
+  "change-set": "pencil",
+  publication: "check",
+  model: "model",
+};
+
+/**
+ * The person's five latest changes across workspaces, shown only when there is one (0.12 Z6, D346),
+ * with a way to all of them on their Changes page.
+ */
+function RecentChanges({
+  personId,
+  workspaces,
+  onNavigate,
+}: {
+  personId: string;
+  workspaces: OwnWorkspace[];
+  onNavigate: Navigate;
+}) {
+  const [items, setItems] = useState<ChangeEntry[]>();
+  useEffect(() => {
+    let active = true;
+    api.changes({ actorId: personId, pageSize: 5 }).then(
+      (page) => active && setItems(page.items),
+      () => active && setItems([]),
+    );
+    return () => {
+      active = false;
+    };
+  }, [personId]);
+  if (!items?.length) return null;
+  const firstApplication = new Map(workspaces.map((item) => [item.key, item.applications[0]?.key]));
+  const all: RouteState = { kind: "changes", actorId: personId };
+  return (
+    <section className="home-section" aria-labelledby="home-recent-changes">
+      <div className="home-section-head">
+        <h2 id="home-recent-changes">Your recent changes</h2>
+        <RouteLink className="home-see-all" href={routePath(all)} onNavigate={() => onNavigate(all)}>
+          See all your changes
+          <Icon name="chevron-right" size={16} />
+        </RouteLink>
+      </div>
+      <div className="account-panel">
+        <ul className="account-list">
+          {items.map((entry) => (
+            <li key={entry.id} className="account-row home-change">
+              <span className="home-change-tile" data-kind={entry.kind} aria-hidden="true">
+                <Icon name={KIND_ICONS[entry.kind]} />
+              </span>
+              <span className="account-row-text">
+                <span className="account-row-title">
+                  <ChangeTitle
+                    entry={entry}
+                    application={entry.workspace ? firstApplication.get(entry.workspace.key) : undefined}
+                    onNavigate={onNavigate}
+                  />
+                </span>
+                <span className="account-muted">{changeWhere(entry).join(" · ")}</span>
+              </span>
+              <span className="account-muted home-change-set-when">{formatServerAgo(entry.occurredAt)}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

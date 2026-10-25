@@ -764,15 +764,15 @@ WITH placed AS (
 ), inserted AS (
     INSERT INTO audit_events (event_id, aggregate_type, aggregate_id, action, version, changes,
         occurred_at, cause_kind, cause_id, workspace_key, feed_position, model_release_id,
-        feed_subject, actor_kind, actor_user_id, actor_client_id)
+        subject, actor_kind, actor_user_id, actor_client_id)
     SELECT gen_random_uuid()::text, aggregate_type, id, action, version, changes,
         CAST(:now AS timestamptz), 'job', CAST(:job_id AS varchar),
-        CASE WHEN feed THEN CAST(:workspace AS varchar) END, position,
-        CASE WHEN feed THEN CAST(:release AS integer) END, CASE WHEN feed THEN subject END,
+        CAST(:workspace AS varchar), position,
+        CASE WHEN feed THEN CAST(:release AS integer) END, subject,
         CAST(:actor_kind AS varchar), CAST(:actor_user_id AS integer),
         CAST(:actor_client_id AS integer)
     FROM placed ORDER BY rank, id COLLATE "C"
-    RETURNING sequence_id, aggregate_type, aggregate_id, feed_subject
+    RETURNING sequence_id, aggregate_type, aggregate_id, subject
 )
 INSERT INTO audit_event_subjects (audit_event_id, object_id)
 SELECT sequence_id, aggregate_id FROM inserted WHERE aggregate_type = 'object'

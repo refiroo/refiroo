@@ -2,7 +2,7 @@ import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { attributeName } from "@/model/fields";
 import type { Hue } from "@/model/hues";
-import type { AuditEventItem, EngineModel } from "@/types";
+import type { AuditEventItem, EngineModel, RouteState } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { ActorName } from "@/ui/ActorName";
 import { Card } from "@/ui/Card";
@@ -14,6 +14,7 @@ export function HistoryPanel({
   objectId,
   hue,
   refreshToken = 0,
+  onOpenChanges,
 }: {
   /** Resolves attribute keys to their model names; keys are shown when absent. */
   model?: EngineModel;
@@ -22,6 +23,8 @@ export function HistoryPanel({
   /** The record type's hue (`model/hues`), which colours the timeline's markers. */
   hue?: Hue;
   refreshToken?: number;
+  /** Opens a person's or client's changes from their name (0.12 Z6); names stay text without it. */
+  onOpenChanges?: (route: RouteState) => void;
 }) {
   // The page's client: in the model editor's preview it answers an empty record's history itself.
   const api = useDataApi();
@@ -48,7 +51,7 @@ export function HistoryPanel({
             after: (
               <>
                 {" "}
-                · <ActorName actor={item.actor} /> · version {item.version}
+                · <ActorName actor={item.actor} onOpenChanges={onOpenChanges} /> · version {item.version}
               </>
             ),
           }))}

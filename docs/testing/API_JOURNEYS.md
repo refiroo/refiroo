@@ -51,6 +51,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/health/
 | Delivered in 0.12 Z4: `GET /security-events` (`principalId`, `aggregateType`, paging; D317, D318); `actor` on a record's history, a feed entry and a release's activation, `createdBy` on a change set, `publishedBy` and `withdrawnBy` on a publication, `requestedBy` on a job and `author` on a draft's and a mapping's operations (D313, D315) | J44.1–J44.6, J40.11 |
 | Delivered in 0.12 Z5: `GET /workspaces` (`holding`, the workspaces where the caller holds an action group, D327), `GET /me/action-groups` (every group held, at the instance or in which workspaces, D328), `GET /workspaces/{key}/change-sets` (`createdBy`, D325) | J40.12 |
 | Delivered in 0.12 HM1: `GET /me/workspaces` (the workspaces where the caller holds Browse, with their applications, `ownChangeSets` and `openChangeSets`; D332), `GET /me/change-sets` (the caller's open change sets across workspaces with `workspaceLabel` and `changeCount`; D333) | J45.1–J45.4 |
+| Delivered in 0.12 Z6: `GET /changes` (`actorId`, `workspaceKey`, `kind`, `since`, `until`, paging; data and model changes across workspaces, each with its workspace, change set, subject, cause and actor, filtered to what the caller may see; D340–D344) | J44.7–J44.11 |
 | `GET /system/processes`, `GET /system/readiness` (paging; 0.11 O1) | J12.13 |
 | `GET /system/summary` (0.11 O2) | J12.13, J12.14 |
 | `GET /system/backup-rehearsals` (paging; 0.11 O2) and `python -m app.cli.restore_check` | J12.16, J12.17 |

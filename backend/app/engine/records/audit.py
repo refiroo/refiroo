@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ...common.encoding import to_jsonable
 from ...common.pagination import Page, PageRequest, datetime_key, integer_key, paginate_statement
-from ...models.database import AuditEvent, AuditEventSubject
+from ...models.database import AuditEvent, AuditEventSubject, ChangeSet
 from ..authorization.writes import requester_of
 from ..identity.principals import columns
 from .feed import take_positions
@@ -81,6 +81,46 @@ def _name_actors(session: Session, _context: Any, _instances: Any) -> None:
             setattr(item, column, value)
 
 
+def change_set_of(aggregate_type: str, aggregate_id: str, changes: Any) -> str | None:
+    """The change set an entry was made in: its own aggregate, or the one its changes name."""
+    if aggregate_type == "change-set":
+        return aggregate_id
+    named = changes.get("changeSetId") if isinstance(changes, dict) else None
+    return named if isinstance(named, str) else None
+
+
+@orm_event.listens_for(Session, "before_flush")
+def _place_entries(session: Session, _context: Any, _instances: Any) -> None:
+    """Every entry the ORM inserts that belongs to a workspace names it (0.12 Z6, D341): one made
+    in a change set its change set's, a workspace's model activation the one its changes name. One
+    statement per flush for the change sets; the raw inserts name it themselves."""
+    unplaced = [
+        item for item in session.new if isinstance(item, AuditEvent) and item.workspace_key is None
+    ]
+    if not unplaced:
+        return
+    wanted = {
+        item: change_set_of(item.aggregate_type, item.aggregate_id, item.changes)
+        for item in unplaced
+    }
+    found = {item.id: item.workspace_key for item in session.new if isinstance(item, ChangeSet)}
+    ids = {change_set for change_set in wanted.values() if change_set is not None} - set(found)
+    if ids:
+        found.update(
+            session.execute(
+                select(ChangeSet.id, ChangeSet.workspace_key).where(ChangeSet.id.in_(ids))
+            )
+            .tuples()
+            .all()
+        )
+    for item, change_set in wanted.items():
+        named = item.changes.get("workspaceKey") if isinstance(item.changes, dict) else None
+        if change_set is not None:
+            item.workspace_key = found.get(change_set) or named
+        elif item.aggregate_type == "workspace_model":
+            item.workspace_key = named
+
+
 @dataclass(frozen=True)
 class AuditEntry:
     """One audit event a decided write records, with its subjects (0.9.0-alpha.1 PG3b) and, for a
@@ -110,11 +150,17 @@ def _place_in_feed(session: Session, workspace_key: str, events: Sequence[AuditE
 
 
 def record_audit_events(
-    session: Session, entries: Sequence[AuditEntry], *, workspace_key: str | None = None
+    session: Session,
+    entries: Sequence[AuditEntry],
+    *,
+    workspace_key: str | None = None,
+    feed: bool = True,
 ) -> list[AuditEvent]:
     """Record decided writes' events in order, per record as ever (PG-D16): the events in
     multi-row inserts whose sequence numbers come back for their subjects. With
-    ``workspace_key`` they change its live data and take feed positions (``LiveWrites.record_all``).
+    ``workspace_key`` they belong to that workspace (0.12 Z6, D341) and, unless ``feed`` is off
+    (a change set's edits), change its live data and take feed positions
+    (``LiveWrites.record_all``).
     """
     if not entries or session.info.get(_TRIAL):
         return []
@@ -128,11 +174,12 @@ def record_audit_events(
             changes=to_jsonable(entry.changes),
             cause_kind=cause_kind,
             cause_id=cause_id,
-            feed_subject=entry.subject if workspace_key is not None and entry.feed else None,
+            workspace_key=workspace_key,
+            subject=entry.subject,
         )
         for entry in entries
     ]
-    if workspace_key is not None:
+    if workspace_key is not None and feed:
         _place_in_feed(
             session,
             workspace_key,
@@ -159,9 +206,12 @@ def record_audit_event(
     object_ids: Iterable[str],
     workspace_key: str | None = None,
     subject: dict[str, Any] | None = None,
+    feed: bool = True,
 ) -> AuditEvent:
-    """Record one event; with ``workspace_key`` it changes that workspace's live data and takes
-    its next feed position (``LiveWrites.record``, publishing and withdrawal)."""
+    """Record one event; with ``workspace_key`` it belongs to that workspace and, unless ``feed``
+    is off, changes its live data and takes its next feed position (``LiveWrites.record``,
+    publishing and withdrawal). ``subject`` names the record or relationship it changed. An entry
+    given no workspace is placed from its change set when it names one (``_place_entries``)."""
     cause_kind, cause_id = session.info.get(_CAUSE, (None, None))
     event = AuditEvent(
         aggregate_type=aggregate_type,
@@ -171,9 +221,10 @@ def record_audit_event(
         changes=to_jsonable(changes),
         cause_kind=cause_kind,
         cause_id=cause_id,
-        feed_subject=subject if workspace_key is not None else None,
+        workspace_key=workspace_key,
+        subject=subject,
     )
-    if workspace_key is not None:
+    if workspace_key is not None and feed:
         _place_in_feed(session, workspace_key, [event])
     session.add(event)
     session.flush()

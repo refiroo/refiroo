@@ -139,7 +139,7 @@ def test_a_feed_entry_is_read_by_name():
         version=2,
         changes={"name": {"from": "a", "to": "b"}, "parentObjectId": {"from": "q", "to": "p"}},
         feed_position=3,
-        feed_subject={"objectTypeKey": k("R")},
+        subject={"objectTypeKey": k("R")},
     )
     change = FeedChange.of(live)
     assert (change.names, change.moved, change.parent_id, change.previous_parent_id) == (
@@ -155,7 +155,7 @@ def test_a_feed_entry_is_read_by_name():
         version=2,
         changes={"changedFields": ["attributes"], "attributeTypeKeys": [k("R.n")]},
         feed_position=4,
-        feed_subject={"objectTypeKey": k("R"), "parentObjectId": "p"},
+        subject={"objectTypeKey": k("R"), "parentObjectId": "p"},
     )
     assert FeedChange.of(published).names == frozenset({k("R.n")})
     withdrawal = AuditEvent(aggregate_type="workspace", aggregate_id="w", action="publication-withdrawn", feed_position=5)

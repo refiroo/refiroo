@@ -55,11 +55,12 @@ CONTEXTS = ("live", "change set")
 # Relationship items with the citation binding's candidates on both ends, measured 2026-10-10 at 35
 # and 42 live, 38 and 45 in the change set (0.9 K7): one statement per restricted end and chunk.
 # Every budget gained one in 0.12 I1: the request's token lookup (its key and principal in one
-# statement), whatever the chunk holds.
-BUDGET = {("live", "creates"): 35, ("live", "upserts"): 49, ("change set", "creates"): 47,
-          ("change set", "upserts"): 53, ("live", "relations"): 45, ("change set", "relations"): 48,
-          ("live", "deletes"): 51, ("change set", "deletes"): 67, ("live", "apart"): 41,
-          ("change set", "apart"): 46}
+# statement), whatever the chunk holds. And one in 0.12 Z4: the job's response names its requester
+# (`requestedBy`, one statement per kind of principal), found by Z6's full run.
+BUDGET = {("live", "creates"): 36, ("live", "upserts"): 50, ("change set", "creates"): 48,
+          ("change set", "upserts"): 54, ("live", "relations"): 46, ("change set", "relations"): 49,
+          ("live", "deletes"): 52, ("change set", "deletes"): 68, ("live", "apart"): 42,
+          ("change set", "apart"): 47}
 # How far apart the counts may be: IN lists past 500 values, UPDATE statements per set of columns.
 # A relationship item names two or three records, so 500 of them pass 500 values more often.
 ALLOWANCE = {"creates": 4, "upserts": 4, "relations": 8, "deletes": 4, "apart": 8}

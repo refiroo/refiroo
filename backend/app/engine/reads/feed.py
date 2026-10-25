@@ -134,7 +134,7 @@ def read_feed(
             )
         )
     if object_type_keys:
-        subject = AuditEvent.feed_subject
+        subject = AuditEvent.subject
         statement = statement.where(
             AuditEvent.aggregate_type == "object",
             or_(

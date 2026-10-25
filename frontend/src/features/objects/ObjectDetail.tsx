@@ -15,6 +15,7 @@ import type {
   ObjectItem,
   PanelDefinition,
   RelationsPanelDefinition,
+  RouteState,
 } from "@/types";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ObjectDeleteDialog } from "@/features/objects/ObjectDeleteDialog";
@@ -54,6 +55,7 @@ export function ObjectDetail({
   onChanged = () => undefined,
   onTypeChanged,
   onPropose,
+  onOpenChanges,
 }: {
   model: EngineModel;
   application: ApplicationDefinition;
@@ -61,6 +63,8 @@ export function ObjectDetail({
   objectId: string;
   workspaceKey: string;
   onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string, action?: "edit" | "delete") => void;
+  /** Opens the changes of a person or client named in the record's history (0.12 Z6, D345). */
+  onOpenChanges?: (route: RouteState) => void;
   onBack: () => void;
   showBackToList?: boolean;
   inspector?: boolean;
@@ -421,6 +425,7 @@ export function ObjectDetail({
               objectId={objectId}
               hue={hue}
               refreshToken={historyRefresh}
+              onOpenChanges={onOpenChanges}
             />
           )}
         </div>

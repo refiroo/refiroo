@@ -226,6 +226,22 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
+## Found in 0.12 Z6 (2026-10-25), not Z6's
+
+- [ ] **A wrong `SECRETS_ENCRYPTION_KEY` fails as `500 INTERNAL_ERROR`:** on a copy of the
+  development database started with another key, the engine starts and answers `/health`, but
+  `POST /oauth/token` fails with `SealError: The deployment key does not open the sealed value` and
+  an internal error. AGENTS.md's error-handling rule asks for an actionable refusal: startup (or the
+  token endpoint) should say the deployment key does not open the stored signing keys, and how to
+  recover (the right key, or rotate the keys). Found while smoke-starting Z6's migration.
+- [ ] **The full backend suite is over its ceiling:** 13 min 9 s with `-n 6` (6,353 cases) against
+  the 11 minutes AGENTS.md sets (0.11's R: 10 min 51 s). The tests over 10 s are listed in the run's
+  summary (the largest: J38.3's copy, 28 s each configuration; change-set position reads, 28 s).
+  A defect of the harness or the tests, for the next package.
+- [ ] **Flake under full load:** `test_build07_wp6::test_selected_capture_keeps_active_identity_and_
+  snapshot_retry` failed once in Z6's full `-n 6` run and passed alone and in its group; its
+  message was not kept. Cause not found.
+
 ## Found in 0.12 Z5 (2026-10-24), not Z5's
 
 - [ ] **A record's live history lists its change-set edits:** `GET /objects/{type}/{id}/history`

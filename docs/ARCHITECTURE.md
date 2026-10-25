@@ -287,9 +287,14 @@ readable and refuse every runtime write. Workspace administration is a deploymen
   ORM inserts, and the raw inserts take `audit_actor_of` (0.12 Z4). Names are read through
   `identity/principals`, one statement per kind for a page. Security events (people, groups, roles,
   grants, clients, keys, sign-ins) are entries outside every workspace whose subjects are the
-  principals they concern (`identity/security_events`). An entry that changes live data has its
-  workspace's `feed_position`, the model release
-  it ran under and `feed_subject` (the type, or relation type and ends, the feed names).
+  principals they concern (`identity/security_events`). Every entry that belongs to a workspace
+  names it in `workspace_key`, live or made in one of its change sets (a flush hook places an entry
+  from its change set or a workspace activation's `workspaceKey`; the raw inserts name it), and a
+  record's or relationship's entry names what it changed in `subject` (the type, or relation type
+  and ends; 0.12 Z6). An entry that changes live data also has its workspace's `feed_position` and
+  the model release it ran under. `reads/changes.py` reads the entries across workspaces, newest
+  first on the actor's `(actor, occurred_at, sequence_id)` index, filtered to what the caller may
+  browse (`GET /changes`).
 
 Live records, values and relations are the authority for current data (ADR-026, ADR-027). Records have
 no lifecycle of their own; model-defined availability is ordinary data.
@@ -826,8 +831,9 @@ The audit log is the ordered source of the change feed and of consumer events (A
   `workspaces.feed_position`, incremented under the workspace row lock the live write unit already
   holds (`records/feed.py`).
 - **Recording.** The write unit records the audit entries: `LiveWrites.record`/`record_all` give
-  them positions, and `ChangeSetWrites` records the same calls without any. So a change-set edit
-  can never take one.
+  them positions, and `ChangeSetWrites` records the same calls with the workspace but without a
+  position (`feed=False`). So a change-set edit can never take one; the feed and the deriver read
+  positions, never `workspace_key` alone.
 - **Publishing.** A publish compares each authored row with live (`publish.publish_entries`). It
   records what changed, with the publication as cause, then its `published` entry, whose position
   is the publication's.

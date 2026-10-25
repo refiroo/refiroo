@@ -3,7 +3,8 @@ import { formatServerTime } from "@/lib/dates";
 
 export interface TimelineEntry {
   key: string;
-  title: string;
+  /** What happened; a link where the change's subject can be opened (0.12 Z6). */
+  title: ReactNode;
   summary?: string;
   /** When it happened, shown relative to now within a week. */
   at: string;
@@ -11,8 +12,8 @@ export interface TimelineEntry {
   after?: ReactNode;
 }
 
-/** Changes newest first, each with a marker, a title, a summary and when: a record's history and a
- * person's recent activity (0.12 Z4). */
+/** Changes newest first, each with a marker, a title, a summary and when: a record's history, a
+ * person's recent activity (0.12 Z4) and a person's changes across workspaces (0.12 Z6). */
 export function Timeline({ entries, label }: { entries: readonly TimelineEntry[]; label?: string }) {
   return (
     <ol className="history-timeline" aria-label={label}>

@@ -2158,12 +2158,16 @@ delivered by I1 and K1. I1 (2026-10-23): J43.1 (rotated on request, and on its o
 ### J44 — See who changed what
 
 **Actor:** data owner, steward, model administrator; integrator. **Channel:** UI (a record's
-history, a change set, a publication, a job, the model and move editors' history), API (the same
-reads and the feed). **Stories:** US-S01. **Status:** delivered by 0.12 Z4 (2026-10-24).
+history, a change set, a publication, a job, the model and move editors' history; a person's or
+client's Changes page; Home's Your recent changes), API (the same reads, the feed and
+`GET /changes`). **Stories:** US-S01. **Status:** delivered by 0.12 Z4 (2026-10-24); J44.7–J44.11 by
+0.12 Z6 (2026-10-25).
 
 1. Open a record's history, the feed, a change set, a publication, a job or an editor's history.
 2. Each change names who made it: a person or a client, as they are named now; the engine for its
    own changes; nobody for a change from before sign-in.
+3. Open a person's changes (from their page, a name in a record's history, or Home for one's own):
+   everything they changed in the workspaces the reader may see, newest first.
 
 **Variants:**
 
@@ -2177,6 +2181,15 @@ reads and the feed). **Stories:** US-S01. **Status:** delivered by 0.12 Z4 (2026
   names who made it.
 - **J44.5 Names as they are now**: a renamed or deactivated person is read by their current name.
 - **J44.6 Before sign-in**: a change recorded before 0.12 names nobody.
+- **J44.7 One person's changes** (0.12 Z6): everything one person or client changed, across
+  workspaces on different models, newest first, each with its workspace, its change set, what it
+  changed as it is named now and its cause.
+- **J44.8 Only what the caller may see**: Browse in an entry's workspace, Model authoring at the
+  instance for model administration; a Security administrator without data roles sees none.
+- **J44.9 Filters and pages**: by workspace, kind and time; cursor pages without repeats or gaps.
+- **J44.10 A client's changes**: a client reads its own, a job's named as its cause.
+- **J44.11 After things go**: a deleted record reads as removed; a deleted workspace's entries
+  belong to no workspace and only an instance-wide reader sees them.
 
 **Refusals:** none of its own; each read refuses as before.
 

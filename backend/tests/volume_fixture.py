@@ -801,7 +801,7 @@ def _seed_feed(engine: Engine, shape: VolumeShape, release_id: int) -> None:
                 """
                 INSERT INTO audit_events (event_id, aggregate_type, aggregate_id, action, version,
                     changes, occurred_at, workspace_key, feed_position, model_release_id,
-                    feed_subject)
+                    subject)
                 SELECT md5('feed-' || i)::uuid::text, 'object', md5('object-' || i)::uuid::text,
                     'updated', 2, '{"name": {"before": "a", "after": "b"}}',
                     timestamptz '2025-01-01 00:00:00+00' + i * interval '1 second',
@@ -1321,7 +1321,7 @@ def volume_app(directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, Volum
     """A test client over a clone of the volume seed at ``shape`` (built once, ``tests/seeds.py``)."""
     # Imported here: the baseline script must set its database before the app is imported.
     import seeds
-    from harness_identity import TestClient
+    from harness_identity import TestClient, token
 
     from app.main import create_app
 
@@ -1340,10 +1340,11 @@ def volume_app(directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, Volum
             app.state.run_consumer_dispatcher = False
             app.state.run_process_heartbeat = False
             with TestClient(app) as client:
-                # The harness obtains its tokens, one for each API, on a first request (0.12 I1); no
-                # budget counts them.
+                # The harness obtains its tokens, one for each API, before anything is counted (0.12
+                # I1); no budget counts them. The consumer index takes the management token since
+                # Z3 (D266), so the consumer token is asked for directly (found by Z6's full run).
                 client.get("/api/v1/workspaces")
-                client.get("/api/consumer")
+                token(client.post, "consumer")
                 yield client, VolumeDataset.from_payload(payload["dataset"])
     finally:
         seeds.drop(url.database)

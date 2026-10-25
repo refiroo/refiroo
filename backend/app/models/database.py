@@ -1196,14 +1196,19 @@ class AuditEvent(Base):
         CheckConstraint(
             "num_nonnulls(actor_user_id, actor_client_id) <= 1", name="ck_audit_events_actor_one"
         ),
+        # One person's or client's changes newest first (0.12 Z6, D347).
         Index(
             "ix_audit_events_actor_user",
             "actor_user_id",
+            "occurred_at",
+            "sequence_id",
             postgresql_where=text("actor_user_id IS NOT NULL"),
         ),
         Index(
             "ix_audit_events_actor_client",
             "actor_client_id",
+            "occurred_at",
+            "sequence_id",
             postgresql_where=text("actor_client_id IS NOT NULL"),
         ),
         CheckConstraint(
@@ -1246,9 +1251,10 @@ class AuditEvent(Base):
     actor_client_id: Mapped[int | None] = mapped_column(
         ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
     )
-    # A change to live data takes the next position of its workspace's feed (Base 0.9 F1); other
-    # entries have none. ``feed_subject`` names what the entry changed (object or relation type,
-    # relation ends), kept here since a later delete leaves nothing to look it up by.
+    # The workspace an entry belongs to, live or in one of its change sets (0.12 Z6, D341); a
+    # change to live data also takes the next position of its feed (Base 0.9 F1), other entries
+    # have none. ``subject`` names what a record or relationship entry changed (record type,
+    # relation type and ends), kept here since a later delete leaves nothing to look it up by.
     workspace_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
     feed_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
     model_release_id: Mapped[int | None] = mapped_column(
@@ -1259,7 +1265,7 @@ class AuditEvent(Base):
         ),
         nullable=True,
     )
-    feed_subject: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    subject: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class AuditEventSubject(Base):

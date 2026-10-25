@@ -55,6 +55,7 @@ from ..records import rules
 from ..records.attributes import validate_attributes, validate_object_attribute_rules
 from ..records.audit import record_audit_event
 from ..records.context import ChangeSetLookup
+from ..records.feed import object_subject
 from ..records.refusals import CHANGE_SET
 from ..records.values import stored_json_value
 from ..records.writes import ChangeSetWrites
@@ -1924,6 +1925,7 @@ def _remove_object(
             "relationIds": sorted(relation.relation_id for relation in incident),
         },
         object_ids=[row.object_id],
+        subject=object_subject(row),
     )
     session.flush()
 
@@ -1969,4 +1971,5 @@ def _move_object(
             "parent": {"before": record.before_parent, "after": parent_object_id},
         },
         object_ids=[row.object_id],
+        subject=object_subject(row),
     )

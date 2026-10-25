@@ -1,4 +1,6 @@
 import type {
+  ChangeEntryKind,
+  ChangeEntryPage,
   MappingInference,
   MappingOperation,
   MappingProposal,
@@ -474,6 +476,26 @@ export const api = {
     const query = new URLSearchParams({ pageSize: "20" });
     if (cursor) query.set("cursor", cursor);
     return request<OwnChangeSetPage>(`/api/v1/me/change-sets?${query}`);
+  },
+  /**
+   * A page of the data and model changes the caller may see, newest first (0.12 Z6, D340): one
+   * person's or client's with `actorId`, narrowed by workspace, kind and time (`since` included).
+   */
+  changes: (filter: {
+    actorId?: string;
+    workspaceKey?: string;
+    kinds?: ChangeEntryKind[];
+    since?: string;
+    cursor?: string;
+    pageSize?: number;
+  }) => {
+    const query = new URLSearchParams({ pageSize: String(filter.pageSize ?? 50) });
+    if (filter.actorId) query.set("actorId", filter.actorId);
+    if (filter.workspaceKey) query.set("workspaceKey", filter.workspaceKey);
+    filter.kinds?.forEach((kind) => query.append("kind", kind));
+    if (filter.since) query.set("since", filter.since);
+    if (filter.cursor) query.set("cursor", filter.cursor);
+    return request<ChangeEntryPage>(`/api/v1/changes?${query}`);
   },
   /** Where the person is signed in: every open session (a person has a handful). */
   mySessions: () => allPages<SignInSession>("/api/v1/me/sessions"),

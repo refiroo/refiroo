@@ -54,6 +54,7 @@
     "test:browser:security": "node e2e/sp1-security.mjs",
     "test:browser:permissions": "node e2e/z5-permissions.mjs",
     "test:browser:home": "node e2e/hm1-home.mjs",
+    "test:browser:changes": "node e2e/z6-changes.mjs",
     "test:browser:operations": "node e2e/operations-o2.mjs",
     "test:browser:integration": "node e2e/u4-integration.mjs",
     "test:browser:webhooks": "node e2e/u5-webhooks.mjs",

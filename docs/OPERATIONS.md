@@ -263,7 +263,11 @@ slowed stays a log line (`sign_in_failed`). Read them with `GET /api/v1/security
 (`principalId=`, `aggregateType=`) as a Security administrator, or with a client holding that role
 for a log tool. They never hold a password, secret, link or key, and **nothing expires them yet**:
 the table grows with sign-ins, bounded per account and address by the growing delay (TODO, after
-0.12).
+0.12). **One person's changes** (0.12 Z6): `GET /api/v1/changes?actorId=` lists everything a
+person or client changed across the workspaces the caller may read, newest first; without `actorId`
+it is every change the caller may read, for an audit export (`since`, `until`). The upgrade to Z6
+places existing entries in their workspaces from their change sets; entries recorded before the
+feed (0.9) name no workspace and only a caller with Browse at the instance reads them.
 
 **Locked out:** the engine refuses to remove the last active person holding Security administration
 at the instance (`409 LAST_SECURITY_ADMINISTRATOR`). If every such person is lost anyway, run

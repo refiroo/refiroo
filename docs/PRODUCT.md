@@ -127,6 +127,13 @@ can complete the task in the application; "API" means another system can.
   and its applications, what waits for you in each (your open change sets; every open change set
   where you publish), your change sets across workspaces, and a link back to where you left off.
 
+### See what someone changed — browser and API
+
+- From a name in a record's history, a person's page or your own home page, see everything that
+  person or system changed across the workspaces you may read, newest first: records and
+  relationships, change sets, publications and the model, each with its workspace and what it
+  changed, narrowed by workspace, kind and period. Home lists your five latest changes.
+
 ### Check and set up the deployment — browser and API
 
 - In **Settings** (the gear in the top bar), see what the deployment runs (engine version, schema

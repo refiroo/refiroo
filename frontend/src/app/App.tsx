@@ -24,6 +24,7 @@ import { permissionLine } from "@/features/security/permissionText";
 import { useMe } from "./useMe";
 import { NoWorkspace } from "./NoWorkspace";
 import { HomePage } from "@/features/home/HomePage";
+import { ChangesPage } from "@/features/changes/ChangesPage";
 import { continueAddressFor, rememberContinueAddress } from "@/features/home/continueAddress";
 import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
 import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
@@ -68,6 +69,9 @@ export default function App() {
           ) : route.kind === "home" ? (
             // Home spans the workspaces the person may browse, each on its own model (0.12 HM1).
             <HomePage model={model} onNavigate={router.navigate} />
+          ) : route.kind === "changes" ? (
+            // One person's changes span workspaces too, each named from its own model (0.12 Z6).
+            <ChangesPage model={model} route={route} onNavigate={router.navigate} />
           ) : (
             <WorkspaceDataProvider
               key={`${route.workspaceKey}:${routeChangeSetId(route) ?? routePublicationId(route) ?? "live"}`}
@@ -725,6 +729,7 @@ function AppContent({
                     refreshToken={collectionWrites}
                     onChanged={() => setRefreshToken((value) => value + 1)}
                     onOpen={openObjectById}
+                    onOpenChanges={navigate}
                     onTypeChanged={(objectTypeKey) => navigate({ ...activeRoute, objectTypeKey }, true)}
                     showBackToList={activeRoute.collectionOrigin !== null}
                     onBack={backToCollection}

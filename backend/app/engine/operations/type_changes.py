@@ -49,6 +49,7 @@ from ..records import rules
 from ..records.attributes import validate_attributes, validate_object_attribute_rules
 from ..records.audit import record_audit_event
 from ..records.context import ChangeSetLookup
+from ..records.feed import object_subject
 from ..records.refusals import CHANGE_SET
 from ..records.relation_set_versions import increment_set_versions
 from ..records.values import WIDENINGS, stored_json_value
@@ -364,6 +365,7 @@ def change_object_type(
         version=row.version,
         changes=event_changes,
         object_ids=[row.object_id, *(state.other_object_id for state in lost_states)],
+        subject=object_subject(row, old_type.key),
     )
     session.flush()
     return TypeChangeResult(

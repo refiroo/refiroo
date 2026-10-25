@@ -78,7 +78,17 @@ workspaces as cards on their own models, what waits for them, Continue where the
 their change sets across workspaces; `GET /me/workspaces`, `GET /me/change-sets` and the instance's
 product on `GET /system` ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#hm1-record-2026-10-25)). Its
 journeys, J31, the contract tests, the touched Vitest folders and the runners `hm1-home`,
-`z5-permissions`, `w4-workspace-admin` and `u3-settings` passed. Next: Z6.
+`z5-permissions`, `w4-workspace-admin` and `u3-settings` passed. **Z6, one person's changes across
+workspaces, is delivered (2026-10-25)**, D340–D347, which closes Track Z: `GET /changes` reads the
+data and model changes the caller may see, by person or client, workspace, kind and time; every
+audit entry of a workspace now names it, also a change set's work (migration `20261102_01` places
+the existing ones); a person's or client's Changes page, opened from a name in a record's history,
+a person's page and Home's Your recent changes ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#z6-record-2026-10-25)).
+Its journeys and those whose entries changed, the unit and contract tests, a smoke start and timing
+on a copy of the development database, the touched Vitest folders and the runners `z6-changes`,
+`hm1-home` and `sp1-security` passed. The full backend suite ran: of its five failures, three from
+Z3 and Z4's test budgets and harness are fixed, one fails only under its load (TODO), and it took
+13 min 9 s, over its ceiling (TODO). Next: SP2, I3, K1, C1 and E1 above the cut line, then A1–A3, L1, L2 and R.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 
