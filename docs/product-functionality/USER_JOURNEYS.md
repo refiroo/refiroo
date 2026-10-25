@@ -2000,6 +2000,7 @@ and password, J39.1–J39.6; the provider's button and J39.7 are I3. I3 (2026-10
 the API and the UI (Settings › Security › Sign-in, the sign-in page's button), and local sign-in
 turned off with the administrators made on the server keeping it. I4a (2026-10-25): J39.8, and the
 link of J40.13. I4b (2026-10-25): J39.9, a second factor for a password. I4c (2026-10-25): J39.10, passkeys.
+C1 (2026-10-26): J39.11, the API reference signed in.
 
 1. Open the application; the engine's sign-in page asks for a username and password, or offers the
    organisation's sign-in provider.
@@ -2037,6 +2038,12 @@ link of J40.13. I4b (2026-10-25): J39.9, a second factor for a password. I4c (20
   signing out takes the browser through the provider's sign-out and back to the sign-in page; with it
   off, or for a person who signed in with a password, straight back; the setting needs the
   provider's sign-out address (0.12 I4a).
+- **J39.11 Try the API as yourself**: a person signed in at the browser opens the API reference at
+  `/docs`; its "try it" console is already holding their token, so a request is answered or refused
+  as the application would answer it, with no second sign-in; the token is renewed in the console's
+  last minute, never by using the session's refresh cookie, so the application's tabs keep their
+  session; a token pasted over theirs, a client's, is sent as it is; with no session, after signing
+  out, or from another site there is no token and the console starts empty (0.12 C1, D240).
 
 **Refusals:** `401 AUTHENTICATION_REQUIRED`, `401 TOKEN_INVALID` (`expired`, `revoked`), the token
 endpoint's `invalid_grant`, `422 PASSWORD_REJECTED`, `422 PASSWORD_INCORRECT`, `404

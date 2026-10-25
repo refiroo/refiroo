@@ -1,7 +1,9 @@
 // Base 0.9 V1 browser evidence: the Scalar API reference at /docs, served by a real backend with no
 // network. Every request that leaves the engine's origin is aborted and fails the runner, so the page,
 // its bundled script and the management OpenAPI source must all come from the engine itself. V2: the
-// starter is started with one consumer API, whose document is the page's second source.
+// starter is started with one consumer API, whose document is the page's second source. C1 (0.12): the
+// console is signed in as the person signed in at the browser, a client's token pasted over it is sent as
+// it is, and a browser with no session starts with none.
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -11,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
-import { watchPageErrors } from "./helpers/harness.mjs";
+import { harnessToken, signInContext, watchPageErrors } from "./helpers/harness.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const checks = [];
@@ -61,6 +63,11 @@ try {
         RDM_MODEL_PATH: modelPath,
         RDM_API_REFERENCE_SCRIPT: "bundled",
         WEB_CONCURRENCY: "1",
+        // The engine's address as the browser reaches it, the token issuer, and where a sign-in may
+        // return to: the harness person signs in at this address (0.12 I2).
+        PUBLIC_URL: apiUrl,
+        CORS_ORIGINS: apiUrl,
+        ...database.payload.harness.settings,
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -78,11 +85,22 @@ try {
     ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}),
   });
   const openapi = await (await fetch(`${apiUrl}/openapi.json`)).json();
+  // An operation of the management document and the console's way in to it.
+  const operation = `#management/tag/${openapi.paths["/api/v1/capabilities"].get.tags[0]}/GET/api/v1/capabilities`;
+  const sendCapabilities = async (page) => {
+    await page.goto(`${apiUrl}/docs${operation}`);
+    await page.getByRole("heading", { name: openapi.info.title, level: 1 }).waitFor();
+    await page.locator(`[id="${operation.slice(1)}"]`).getByRole("button", { name: /Test Request/ }).click();
+  };
   const consumerUrl = "/api/consumer/codes/v1/openapi.json";
   const consumer = await (await fetch(`${apiUrl}${consumerUrl}`)).json();
 
   for (const [label, viewport] of [["wide", { width: 1440, height: 900 }], ["narrow", { width: 390, height: 844 }]]) {
-    const context = await browser.newContext({ viewport });
+    const context = await signInContext(await browser.newContext({ viewport }), {
+      apiUrl,
+      uiUrl: apiUrl,
+      person: database.payload.harness.person,
+    });
     const blocked = [];
     const loaded = [];
     await context.route("**/*", (route) => {
@@ -103,9 +121,9 @@ try {
     await page.goto(`${apiUrl}/docs`);
     await page.getByRole("heading", { name: openapi.info.title, level: 1 }).waitFor();
     // An operation from the management document, found by its path in the first section's list of
-    // operations (the model's), proves the source was read; later sections are drawn as the reader
-    // scrolls, so 0.11's added areas moved /api/v1/workspace-models out of reach.
-    await page.getByText("/api/v1/capabilities", { exact: true }).locator("visible=true").first().waitFor();
+    // operations (the OAuth endpoints'), proves the source was read; later sections are drawn as the
+    // reader scrolls.
+    await page.getByText("/oauth/jwks", { exact: true }).locator("visible=true").first().waitFor();
     await page.waitForLoadState("networkidle");
     expect(await page.title() === "refiroo API reference", `${label}: title ${await page.title()}`);
     expect(loaded.includes("/docs/scalar/standalone.js"), `${label}: bundled script not loaded: ${loaded}`);
@@ -130,7 +148,7 @@ try {
     `${label}: sources ${JSON.stringify(sources)}`);
     await page.goto(`${apiUrl}/docs?api=${sources[1].slug}`);
     await page.getByRole("heading", { name: consumer.info.title, level: 1 }).waitFor();
-    await page.getByText("/api/consumer/codes/v1/lists/codelists").first().waitFor();
+    await page.getByText(/\/api\/consumer\/codes\/v1\//).first().waitFor({ state: "attached" });
     await page.waitForLoadState("networkidle");
     expect(loaded.includes(consumerUrl), `${label}: consumer source not loaded: ${loaded}`);
     await page.screenshot({ path: resolve(output, `v2-consumer-source-${label}.png`) });
@@ -151,18 +169,45 @@ try {
       await writeFile(resolve(output, `axe-${label}.txt`), formatViolations(result.violations));
     }
     if (label === "wide") {
-      // The "try it" console sends its request to the engine itself.
-      await page.getByRole("button", { name: /Test Request/ }).first().click();
+      // The "try it" console sends its request to the engine itself, as the person signed in (C1).
+      const asked = [];
+      page.on("request", (request) => {
+        if (request.url() === `${apiUrl}/api/v1/capabilities`) asked.push(request.headers().authorization);
+      });
+      await sendCapabilities(page);
       const sent = page.waitForResponse((response) => response.url() === `${apiUrl}/api/v1/capabilities`);
       await page.getByRole("button", { name: /^Send get request to \/api\/v1\/capabilities/ }).click();
       const response = await sent;
       expect(response.status() === 200, `try it: /api/v1/capabilities answered ${response.status()}`);
-      await page.keyboard.press("Escape");
+      expect(/^Bearer ey/.test(asked[0] ?? ""), `try it: the request carried ${asked[0]}`);
       expect(blocked.length === 0, `${label}: the console's request left the engine: ${blocked.join(", ")}`);
-      checks.push("try it: GET /api/v1/capabilities sent from the console to the engine, 200");
+      checks.push("try it: GET /api/v1/capabilities sent from the console to the engine as the signed-in person, 200 with their token");
+
+      // A client's token pasted over the person's is sent as it is, and shows the client's view.
+      const clientToken = (await harnessToken(apiUrl, database.payload.harness)).replace(/^Bearer /, "");
+      const token = page.getByRole("textbox", { name: "Access Token" }).last();
+      await token.fill(clientToken);
+      const again = page.waitForResponse((reply) => reply.url() === `${apiUrl}/api/v1/capabilities`);
+      await page.getByRole("button", { name: /^Send get request to \/api\/v1\/capabilities/ }).click();
+      await again;
+      expect(asked[1] === `Bearer ${clientToken}`, `pasted token: the request carried ${asked[1]}`);
+      checks.push("try it: a client's token pasted over the person's is the one sent");
+      await page.keyboard.press("Escape");
     }
     await context.close();
   }
+
+  // A browser with no session starts with no token: the same request is refused, the page still works.
+  const anonymous = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const bare = await anonymous.newPage();
+  bare.setDefaultTimeout(15000);
+  await sendCapabilities(bare);
+  const refusal = bare.waitForResponse((response) => response.url() === `${apiUrl}/api/v1/capabilities`);
+  await bare.getByRole("button", { name: /^Send get request to \/api\/v1\/capabilities/ }).click();
+  const refused = await refusal;
+  expect(refused.status() === 401, `no session: /api/v1/capabilities answered ${refused.status()}`);
+  await anonymous.close();
+  checks.push("no session: the console starts with no token and the engine answers 401");
 
   // Swagger UI and ReDoc are gone.
   for (const path of ["/redoc", "/docs/oauth2-redirect"]) {

@@ -63,9 +63,54 @@ _PAGE = """<!doctype html>
     </header>
     <div id="rdm-api-reference"></div>
     <script src="{script}"{integrity}></script>
-    <script>Scalar.createApiReference("#rdm-api-reference", {configuration});</script>
+    <script>window.rdmReference = Scalar.createApiReference("#rdm-api-reference", {configuration});</script>
+    <script>{sign_in_script}</script>
   </body>
 </html>
+"""
+
+
+# Signs the console in as the person signed in at this browser (0.12 C1, D240): the engine answers
+# their token from the session cookie, and the console is given it for both kinds of document (the
+# management API's scheme and the consumer APIs'). Without a session the console is as before, empty,
+# for a client's token to be pasted. A request that goes out carrying this token in its last minute
+# renews it first; a token pasted over it is never touched.
+_SIGN_IN = """
+(function () {
+  var reference = window.rdmReference;
+  var schemes = ["engineOAuth", "oauth2"];
+  var token = null;
+  var expiresAt = 0;
+  function ask() {
+    return fetch(__ROOT__ + "/oauth/console-token", { method: "POST", credentials: "same-origin" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .catch(function () { return null; });
+  }
+  function give(answer) {
+    token = answer.access_token;
+    expiresAt = Date.now() + answer.expires_in * 1000;
+    var securitySchemes = {};
+    schemes.forEach(function (name) {
+      securitySchemes[name] = { flows: { clientCredentials: { token: token } } };
+    });
+    reference.updateConfiguration(Object.assign({}, reference.getConfiguration(), {
+      authentication: { preferredSecurityScheme: schemes[0], securitySchemes: securitySchemes },
+      onBeforeRequest: beforeRequest,
+    }));
+  }
+  function beforeRequest(context) {
+    var ours = (context.requestBuilder.security || []).filter(function (item) {
+      return item.value === token;
+    });
+    if (!ours.length || Date.now() < expiresAt - 60000) return;
+    return ask().then(function (answer) {
+      if (!answer) return;
+      give(answer);
+      ours.forEach(function (item) { item.value = answer.access_token; });
+    });
+  }
+  ask().then(function (answer) { if (answer) give(answer); });
+})();
 """
 
 
@@ -159,4 +204,5 @@ def render_page(script: ApiReferenceScript, root_path: str, sources: list[dict])
         integrity=integrity,
         # JSON is a JavaScript literal; escaping "<" keeps a value from closing the script element.
         configuration=json.dumps(configuration).replace("<", "\\u003c"),
+        sign_in_script=_SIGN_IN.replace("__ROOT__", json.dumps(root_path).replace("<", "\\u003c")),
     )

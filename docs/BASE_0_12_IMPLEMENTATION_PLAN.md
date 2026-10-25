@@ -4455,7 +4455,7 @@ user may reopen them).
 - **A smoke start against the development database:** the migration was applied by the tests' databases;
   the user's `uvicorn --reload` server upgrades theirs when it reloads.
 
-**What the user cannot do yet:** try the API console with their token (C1).
+**What the user cannot do yet:** nothing from this package; C1 followed (2026-10-26).
 
 ### C1: The "try it" console authenticated
 
@@ -4565,10 +4565,37 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | **Delivered 2026-10-24.** Settings › Security: people, groups, roles, grants |
 | 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | **Delivered 2026-10-25.** Settings › Security: clients and their access, signing keys (sign-in providers moved to I3, D357) |
 | 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | **Delivered 2026-10-25.** OpenID Connect providers and their groups; Settings › Security › Sign-in |
+##### C1 record (2026-10-26)
+
+**Delivered 2026-10-26** under D240, with no new decision. What was built:
+
+- **Engine:** `POST /oauth/console-token` (`management/routers/oauth_console.py`, outside the OpenAPI
+  document, under `/oauth` where the refresh cookie is readable): the person's open session is found
+  from the cookie by `sessions.open_session_of_refresh_token` **without renewing it** (so it never
+  uses a refresh token the application's tabs hold, D269) and a `management` token bound to that
+  session is issued; `401 not_signed_in`, and `403 access_denied` when `Origin` is not the address the
+  request reached.
+- **The page:** `/docs` still renders the same configuration call; a second script asks for the token
+  and hands it to Scalar for both schemes the documents declare (`engineOAuth`, `oauth2`) through
+  `updateConfiguration`, with an `onBeforeRequest` hook that renews it in its last minute only when the
+  request carries it, so a pasted token is never replaced.
+- **Journey J39.11** (4 cases, two configurations): the person's token and an unchanged cookie, the
+  person's own permissions, no session or signed out, another site. Runner `v1-api-reference`
+  extended: the console sends the person's token (200), a pasted client token is the one sent, a
+  browser with no session gets 401; the runner was also repaired for the OAuth section now first on
+  the page (it had waited for a model operation and sent unauthenticated since I1).
+
+**Exercised:** `test_j39_api_reference` (8), `test_api_reference`, `test_j20_discover`,
+`test_boundaries`, `test_openapi_contract` (43 passed together), `ruff`; `v1-api-reference` at 1440px
+and 390px, passed (axe findings are Scalar's own markup, as before).
+
+**Not verified:** the renewal in the token's last minute in a browser (the hook's shape was read from
+a live request, the renewal path was not run); the console's appearance was not compared in dark mode.
+
 | 11a | [I4](#i4-a-provider-identity-linked-signing-out-of-the-provider-a-second-factor) | I3 | Planned 2026-10-25 (D382): I4a linking, provider sign-out, the local sign-in switch; I4b an authenticator app for local accounts; I4c passkeys |
 | 11b | [I5](#i5-a-sign-in-screen-in-the-application) | I4 | Planned 2026-10-25 (D415–D417): the application's own sign-in screen over JSON sign-in routes; every rule once, shared with the engine's HTML pages |
 | 12 | [K1](#k1-webhook-signing-key-rotation) | Z1 | **Delivered 2026-10-25.** Signing-key rotation with overlap, Rotate key… on a webhook's page; re-sealing as `python -m app.cli.reseal_secrets` |
-| 13 | [C1](#c1-the-try-it-console-authenticated) | I2 | The console with the person's token |
+| 13 | [C1](#c1-the-try-it-console-authenticated) | I2 | **Delivered 2026-10-26.** The console with the person's token |
 | 12z | [DP1a](#track-dp--deployment) | — | **Delivered 2026-10-25.** `scripts/dev.sh`: a developer instance, on this computer or over https on the network |
 | 13a | [DP1](#track-dp--deployment) | DP1a | One address for the application and the engine; a phone in development (planned, D404, D411) |
 | 13b | [DP2](#track-dp--deployment) | DP1 | The `web` and engine images, `compose.yml` as the reference installation, HTTPS, secrets (planned, D405–D409) |

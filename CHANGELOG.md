@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 C1)
+
+- **The API reference's "try it" console is signed in.** `/docs` asks the engine, with the session's
+  cookie, for the token of the person signed in at the browser (`POST /oauth/console-token`, answered
+  `{access_token, expires_in}`, `401 not_signed_in` without a session, `403` from another site) and
+  gives it to the console for the management API and the consumer APIs, so a request is answered or
+  refused as the application would answer it. The cookie is read without renewing it, so the
+  application's own tabs keep their session; the console renews its token in the token's last minute.
+  A client's token pasted over it is sent as it is. The page itself stays open and holds no token.
+
 ### Added (0.12 K1)
 
 - **A webhook's signing key can be rotated.** `POST /api/v1/consumer-subscriptions/{id}/rotate-secret`

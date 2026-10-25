@@ -195,10 +195,13 @@ def end_by_refresh_token(session: Session, refresh_token: str, reason: EndReason
     return held
 
 
-def user_of_refresh_token(session: Session, refresh_token: str, now: datetime) -> User | None:
-    """The person whose open session holds this refresh token (the browser's cookie), without
-    renewing it: the engine's own pages know who is signed in (the passkey page, I4c). None when
-    the token is unknown or used, or its session or person is no longer open."""
+def open_session_of_refresh_token(
+    session: Session, refresh_token: str, now: datetime
+) -> tuple[UserSession, User] | None:
+    """The open session and person this refresh token (the browser's cookie) belongs to, without
+    renewing it: the engine's own pages know who is signed in (the passkey page, I4c; the API
+    reference, C1). None when the token is unknown or used, or its session or person is no longer
+    open."""
     row = session.execute(
         select(SessionRefreshToken, UserSession, User)
         .join(UserSession, UserSession.id == SessionRefreshToken.session_id)
@@ -208,7 +211,16 @@ def user_of_refresh_token(session: Session, refresh_token: str, now: datetime) -
     if row is None:
         return None
     token, user_session, user = row
-    return user if token.used_at is None and is_open(user_session, now) and user.active else None
+    if token.used_at is None and is_open(user_session, now) and user.active:
+        return user_session, user
+    return None
+
+
+def user_of_refresh_token(session: Session, refresh_token: str, now: datetime) -> User | None:
+    """The person whose open session holds this refresh token; see
+    ``open_session_of_refresh_token``."""
+    held = open_session_of_refresh_token(session, refresh_token, now)
+    return held[1] if held else None
 
 
 def _user_id(session: Session, public_id: str) -> int:

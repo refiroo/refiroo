@@ -1233,7 +1233,8 @@ the active model declares, each labelled with its name and contract version and 
 page's source menu. A model release that adds, removes or re-versions a consumer API shows on the next
 page load. Settings › Integration › **API reference** lists the same sources with their versions,
 each linked to its source on the page and to its OpenAPI document. The script is bundled, so the page works without internet access and loads nothing from
-elsewhere; a setting loads it from a CDN instead. Its "try it" console calls the engine that served it.
+elsewhere; a setting loads it from a CDN instead. Its "try it" console calls the engine that served it as the person signed in at the browser, so a
+request is answered or refused as the application would; a client's token can be pasted over theirs.
 
 Evidence: [API reference page](../API.md#api-reference-page-base-09-v1-v2),
 [reference module](../../backend/app/management/reference/__init__.py).

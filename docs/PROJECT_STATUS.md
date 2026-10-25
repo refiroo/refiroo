@@ -118,8 +118,10 @@ names waits for its registration, before E1. **K1, webhook signing-key rotation,
 (2026-10-25)**, D413 and D414: a webhook's key rotated with an overlap, both signatures in
 `RDM-Signature` meanwhile, Rotate key… on its page, and `python -m app.cli.reseal_secrets` for a new
 `SECRETS_ENCRYPTION_KEY` ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#k1-record-2026-10-25), migration
-`20261108_01`). Next: C1 and E1 above the cut line, then A1–A3, L1,
-L2 and R.
+`20261108_01`). **C1, the "try it" console authenticated, is delivered (2026-10-26)**: `/docs`
+holds the signed-in person's token, a client's token may be pasted
+([record](BASE_0_12_IMPLEMENTATION_PLAN.md#c1-record-2026-10-26)). Next: E1 above the cut line, then
+A1–A3, L1, L2 and R.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 

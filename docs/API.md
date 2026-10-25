@@ -660,8 +660,13 @@ The Scalar standalone script is pinned (1.72.2) and bundled with the engine, ser
 the bundled file's integrity hash, so the browser refuses any other bytes. The default is `bundled`,
 and any other value stops startup with a message naming the setting. The page turns off Scalar's web
 fonts, telemetry, hosted agent, MCP generator, developer toolbar and hosted-client link, so nothing it
-loads leaves the engine. Its "try it" console sends requests to the engine that served the page,
-unauthenticated like the management API until 0.12.
+loads leaves the engine. Its "try it" console sends requests to the engine that served the page, as
+the person signed in at the browser (0.12 C1, D240): the page asks `POST /oauth/console-token` (not in
+the OpenAPI document; the session's `oauth_refresh` cookie, read without renewing it, from the
+engine's own address only) and answers `{access_token, expires_in}` for the `management` audience;
+`401 not_signed_in` without a session, `403 access_denied` from another site. The console renews the
+token in its last minute; a token pasted over it, such as a client's, is sent as it is. Without a
+session the console starts empty.
 
 Neither route is in the OpenAPI document, so the page does not affect the [OpenAPI lock](#openapi-lock).
 
