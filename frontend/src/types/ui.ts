@@ -132,6 +132,9 @@ export type SettingsRoute =
   | { kind: "settings"; page: "people"; userId?: string }
   | { kind: "settings"; page: "groups"; groupId?: string }
   | { kind: "settings"; page: "roles" }
+  /** Security › Clients, or one client's page; Signing keys (0.12 SP2). */
+  | { kind: "settings"; page: "clients"; clientId?: string }
+  | { kind: "settings"; page: "signing-keys" }
   | {
       kind: "settings";
       page: "webhooks";

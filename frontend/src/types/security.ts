@@ -93,7 +93,9 @@ export interface GrantPage extends PageNavigation {
 /** What a grant names: a principal, a role and where (0.12 Z1). */
 export interface GrantCreate {
   principal: { kind: "user" | "client" | "group"; id: string };
-  role: string;
+  /** A role, or instead a consumer API read in one workspace (0.12 Z3, D306). */
+  role?: string;
+  consumerApi?: string;
   scope: { instance: true } | { workspaceKey: string; applications?: string[]; recordTypes?: string[] };
 }
 
@@ -194,6 +196,63 @@ export interface ClientSummary {
 
 export interface ClientSummaryPage extends PageNavigation {
   items: ClientSummary[];
+}
+
+/** One of a client's valid secrets, never its value after it was answered (0.12 I1, SP2). */
+export interface ClientSecret {
+  id: string;
+  createdAt: string;
+  /** The end of its overlap after a rotation; null while it has no end. */
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  /** Its last four characters; null for a secret made before SP2 (D350). */
+  hint: string | null;
+}
+
+/** An OAuth client as Settings › Security › Clients shows it (0.12 I1, SP2). */
+export interface Client extends ClientSummary {
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  /** When it last obtained a token. */
+  lastUsedAt: string | null;
+  secrets: ClientSecret[];
+  roles: UserRole[];
+  /** The consumer APIs it is granted, by key, with their workspaces (D348). */
+  consumerApis: { key: string; workspaces: { key: string; label: string }[] }[];
+  /** Null when made on the server or before Z4 (D349). */
+  createdBy: Principal | null;
+}
+
+/** A client with the secret just made, answered this once. */
+export interface ClientWithSecret extends Client {
+  secretId: string;
+  secret: string;
+}
+
+export interface ClientPage extends PageNavigation {
+  items: Client[];
+}
+
+/** What a grant in a workspace can name, from its model (0.12 SP2, D355). */
+export interface GrantOptions {
+  applications: { key: string; name: string }[];
+  recordTypes: { key: string; name: string }[];
+  consumerApis: { key: string; name: string }[];
+}
+
+/** A token signing key, without its private half (0.12 I1). */
+export interface SigningKey {
+  kid: string;
+  state: "current" | "verifying" | "retired";
+  createdAt: string;
+  rotatedAt: string | null;
+  /** When it stops verifying: in the future while verifying. */
+  retiredAt: string | null;
+}
+
+export interface SigningKeyPage extends PageNavigation {
+  items: SigningKey[];
 }
 
 /** What the caller holds in one workspace: the roles that apply there and their action groups. */

@@ -4,7 +4,8 @@
  * what a grant allows. Roles, workspaces, applications and record types are named as data.
  */
 
-import type { ActionGroup, Grant, SecurityEvent, UserRole } from "@/types";
+import { formatServerAgo, formatServerDayTime } from "@/lib/dates";
+import type { ActionGroup, Client, Grant, SecurityEvent, SigningKey, UserRole } from "@/types";
 
 /** "Data steward · Herbarium; Reader · Field stations", "Security administrator", "No roles yet". */
 export function userRoleLine(roles: readonly UserRole[]): string {
@@ -18,6 +19,45 @@ export function userRoleLine(roles: readonly UserRole[]): string {
     return `${role.name} · ${where}`;
   });
   return parts.length > 2 ? `${parts.slice(0, 2).join("; ")}; and ${parts.length - 2} more` : parts.join("; ");
+}
+
+/**
+ * A client's access in the Clients list (SP2, D348): its consumer APIs by key with their
+ * workspaces, then its roles as a person's line says them; "No access yet" with neither.
+ */
+export function clientAccessLine(client: Pick<Client, "roles" | "consumerApis">): string {
+  const apis = client.consumerApis.map((api) => {
+    const where =
+      api.workspaces.length > 2
+        ? `${api.workspaces.length} workspaces`
+        : api.workspaces.map((workspace) => workspace.label).join(", ");
+    return `${api.key} · ${where}`;
+  });
+  const roles = client.roles.length ? [userRoleLine(client.roles)] : [];
+  const parts = [...apis, ...roles];
+  if (!parts.length) return "No access yet";
+  return apis.length > 2
+    ? `${[...apis.slice(0, 2), ...roles].join("; ")}; and ${apis.length - 2} more APIs`
+    : parts.join("; ");
+}
+
+/** A client's second line: when it last obtained a token, or that it is deactivated. */
+export function clientUseLine(client: Pick<Client, "active" | "lastUsedAt">, now: Date = new Date()): string {
+  if (!client.active) return "Deactivated";
+  return client.lastUsedAt ? `Last token ${formatServerAgo(client.lastUsedAt, now)}` : "No token yet";
+}
+
+/** What a consumer API grant allows (D354). */
+export function consumerApiSentence(who: string, api: string, where: string): string {
+  return `${who} will read the ${api} consumer API in ${where}. It changes nothing and opens nothing on the management API.`;
+}
+
+/** A token signing key's state as Signing keys shows it (D356). */
+export function signingKeyState(key: SigningKey, now: Date = new Date()): string {
+  if (key.state === "current") return "Signing";
+  if (key.state === "verifying")
+    return key.retiredAt ? `Verifying until ${formatServerDayTime(key.retiredAt, now)}` : "Verifying";
+  return "Retired";
 }
 
 /** What a grant gives: its role's name, or "Consumer API: Name" for a consumer API grant (Z3). */
@@ -159,10 +199,20 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
         return changed.length ? `Changed ${changed.join(", ")}` : "Details saved";
       }
       return USER_ACTIONS[event.action] ?? event.action;
-    case "client":
-      if (event.action === "secret-added") return "New client secret";
-      if (event.action === "secret-removed") return "Client secret stopped";
+    case "client": {
+      if (event.action === "created") return "Client created";
+      if (event.action === "secret-added") {
+        const hours = typeof details.overlapHours === "number" ? details.overlapHours : undefined;
+        if (hours === 0) return "New secret made; the earlier ones stopped at once";
+        return hours
+          ? `New secret made; the earlier one works ${hours} more hour${hours === 1 ? "" : "s"}`
+          : "New secret made";
+      }
+      if (event.action === "secret-removed") return "A secret was ended";
+      if (event.action === "updated" && changed.includes("active")) return details.active ? "Restored" : "Deactivated";
+      if (event.action === "updated" && changed.includes("name")) return `Renamed to ${text(details.name)}`;
       return `Client ${text(details.name)} ${event.action}`.replace(/\s+/g, " ");
+    }
     case "role":
       return `Role ${text(details.name)} ${event.action}`;
     case "token-signing-key":

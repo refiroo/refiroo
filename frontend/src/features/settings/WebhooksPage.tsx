@@ -40,6 +40,7 @@ import { Tabs } from "@/ui/Tabs";
 import { useToast } from "@/ui/Toast";
 import { count } from "./limits";
 import { useCapabilities } from "./useSystem";
+import { useHeldAnywhere } from "@/features/security/permissions";
 import { WebhookDeliveries } from "./WebhookDeliveries";
 import { WebhookDialog } from "./WebhookDialog";
 import { subscribable, useConsumerDefinitions } from "./consumerDefinitions";
@@ -256,6 +257,29 @@ function Subscriptions({
 }
 
 /** An address that wraps only after a slash or a dot, never inside a word. */
+/** Who created a webhook (0.12 Z3, D310; SP2, D353): a link to their Security page, or the name. */
+function WebhookOwner({
+  owner,
+  linked,
+  onNavigate,
+}: {
+  owner: Subscription["owner"];
+  linked: boolean;
+  onNavigate: (route: RouteState) => void;
+}) {
+  if (!owner) return <>—</>;
+  if (!linked) return <>{owner.name}</>;
+  const route: RouteState =
+    owner.kind === "user"
+      ? { kind: "settings", page: "people", userId: owner.id }
+      : { kind: "settings", page: "clients", clientId: owner.id };
+  return (
+    <RouteLink href={routePath(route)} onNavigate={() => onNavigate(route)}>
+      {owner.name}
+    </RouteLink>
+  );
+}
+
 function Breakable({ text }: { text: string }) {
   return text.split(/(?<=[/.])/).map((part, index) => (
     <span key={index}>
@@ -318,6 +342,8 @@ function SubscriptionDetail({
   const [actionError, setActionError] = useState("");
   const [conflict, setConflict] = useState("");
   const toast = useToast();
+  // A webhook's owner links to their Security page for whoever may open it (D353).
+  const securityAdmin = useHeldAnywhere()?.some((group) => group.key === "security-admin");
   const editRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -448,6 +474,10 @@ function SubscriptionDetail({
     { term: "Format", value: FORMAT[subscription.format] },
     { term: "Signing key created", value: formatServerTime(subscription.signingKeyCreatedAt) },
     { term: "Created", value: formatServerTime(subscription.createdAt) },
+    {
+      term: "Created by",
+      value: <WebhookOwner owner={subscription.owner} linked={!!securityAdmin} onNavigate={onNavigate} />,
+    },
     { term: "Last changed", value: formatServerTime(subscription.updatedAt) },
     { term: "ID", value: <CopyValue label="Subscription ID" value={subscription.id} labelled={false} /> },
   ];

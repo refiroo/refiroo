@@ -6,6 +6,37 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 SP2, clients and their access)
+
+- **Settings › Security › Clients** (D348–D357): the systems that call the API, each with its
+  consumer APIs and roles and when it last obtained a token; a new client's ID and secret shown
+  once; a client's page with who created it, Rename, Deactivate and Restore, **Rotate secret**
+  keeping the current secret working for 1 hour, 24 hours or 7 days, or stopping it at once,
+  secrets told apart by their last four characters and the previous one ended early, its access,
+  the webhooks it created, its recent activity and its changes.
+- The grant dialog grants **a consumer API** as well as a role, from a client, a person, a group or
+  a workspace's Access; its button reads **Grant**.
+- **Settings › Security › Signing keys**: the token signing keys and their state; start a new key,
+  or retire the current one at once after a leak.
+- A webhook's page names who created it.
+- `roles`, `consumerApis` and `createdBy` on every read of a client, `hint` (the last four
+  characters) on each of its secrets (migration `20261103_01`), and
+  `GET /api/v1/workspaces/{workspaceKey}/grant-options`.
+
+### Fixed (0.12 SP2)
+
+- A person holding only Security administrator could not narrow a grant: the grant dialog read the
+  workspace's model, which needs Browse; it now reads `grant-options`.
+- A segmented choice in the grant dialog was drawn taller than its options (the dialog's label rule
+  reached its labels).
+
+### Added (0.12 TV1, a record's parent in its list)
+
+- A table view's **Columns…** and **Filters…** in the model editor's layout editor offer the
+  record's relationships, the ones to its parent first (D358–D360): a list of records under a parent
+  can show which parent each belongs to and be filtered by it. The engine has listed and filtered
+  by relationships since 0.9; only the model file could choose them until now.
+
 ### Added (0.12 Z6, one person's changes across workspaces)
 
 - **Changes** (D340–D347): everything a person or client changed, across the workspaces the reader

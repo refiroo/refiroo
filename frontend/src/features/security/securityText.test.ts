@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { ActionGroup, Grant, SecurityEvent, UserRole } from "@/types";
-import { grantHeld, grantSentence, securityEventTitle, staleNote, userRoleLine } from "./securityText";
+import {
+  clientAccessLine,
+  clientUseLine,
+  consumerApiSentence,
+  grantHeld,
+  grantSentence,
+  securityEventTitle,
+  signingKeyState,
+  staleNote,
+  userRoleLine,
+} from "./securityText";
 
 const group = (
   key: string,
@@ -161,5 +171,87 @@ describe("securityEventTitle", () => {
     );
     expect(securityEventTitle(event("user", "password-link-created"))).toBe("One-time password link made");
     expect(securityEventTitle(event("token-signing-key", "rotated"))).toBe("Token signing key rotated");
+  });
+});
+
+describe("the Clients page's words (SP2)", () => {
+  const workspaces = (...labels: string[]) => labels.map((label) => ({ key: label.toLowerCase(), label }));
+  const reader = { key: "reader", name: "Reader", instance: false, workspaces: workspaces("Herbarium") };
+
+  it("names a client's consumer APIs, then its roles (D348)", () => {
+    expect(
+      clientAccessLine({
+        consumerApis: [{ key: "specimen-catalogue", workspaces: workspaces("Herbarium", "Field stations") }],
+        roles: [reader],
+      }),
+    ).toBe("specimen-catalogue · Herbarium, Field stations; Reader · Herbarium");
+    expect(
+      clientAccessLine({
+        consumerApis: [],
+        roles: [{ key: "operator", name: "Operator", instance: true, workspaces: [] }],
+      }),
+    ).toBe("Operator");
+    expect(clientAccessLine({ consumerApis: [], roles: [] })).toBe("No access yet");
+    expect(
+      clientAccessLine({
+        consumerApis: [{ key: "a", workspaces: workspaces("One", "Two", "Three") }],
+        roles: [],
+      }),
+    ).toBe("a · 3 workspaces");
+    expect(
+      clientAccessLine({
+        consumerApis: ["a", "b", "c", "d"].map((key) => ({ key, workspaces: workspaces("W") })),
+        roles: [reader],
+      }),
+    ).toBe("a · W; b · W; Reader · Herbarium; and 2 more APIs");
+  });
+
+  it("says when a client last obtained a token", () => {
+    const now = new Date("2026-10-25T10:15:00Z");
+    expect(clientUseLine({ active: true, lastUsedAt: "2026-10-25T10:11:00Z" }, now)).toBe("Last token 4 minutes ago");
+    expect(clientUseLine({ active: true, lastUsedAt: null }, now)).toBe("No token yet");
+    expect(clientUseLine({ active: false, lastUsedAt: "2026-10-25T10:11:00Z" }, now)).toBe("Deactivated");
+  });
+
+  it("says what a consumer API grant allows (D354)", () => {
+    expect(consumerApiSentence("catalogue-sync", "Specimen catalogue", "Field stations")).toBe(
+      "catalogue-sync will read the Specimen catalogue consumer API in Field stations. It changes nothing and opens nothing on the management API.",
+    );
+  });
+
+  it("names a signing key's state (D356)", () => {
+    const key = { kid: "k", createdAt: "2026-10-01T03:00:00Z", rotatedAt: null, retiredAt: null };
+    expect(signingKeyState({ ...key, state: "current" })).toBe("Signing");
+    expect(signingKeyState({ ...key, state: "retired", retiredAt: "2026-10-01T04:00:00Z" })).toBe("Retired");
+    const verifying = signingKeyState(
+      { ...key, state: "verifying", retiredAt: "2026-10-25T11:15:00Z" },
+      new Date("2026-10-25T10:15:00Z"),
+    );
+    expect(verifying).toMatch(/^Verifying until today, /);
+  });
+
+  it("titles a client's security events", () => {
+    const client = (action: string, details: Record<string, unknown> = {}): SecurityEvent => ({
+      id: action,
+      aggregateType: "client",
+      aggregateId: "c1",
+      action,
+      version: 1,
+      occurredAt: "2026-10-25T10:15:00Z",
+      actor: null,
+      details,
+    });
+    expect(securityEventTitle(client("created", { name: "Sync" }))).toBe("Client created");
+    expect(securityEventTitle(client("secret-added", { overlapHours: 24 }))).toBe(
+      "New secret made; the earlier one works 24 more hours",
+    );
+    expect(securityEventTitle(client("secret-added", { overlapHours: 0 }))).toBe(
+      "New secret made; the earlier ones stopped at once",
+    );
+    expect(securityEventTitle(client("secret-removed"))).toBe("A secret was ended");
+    expect(securityEventTitle(client("updated", { changedFields: ["active"], active: true }))).toBe("Restored");
+    expect(securityEventTitle(client("updated", { changedFields: ["name"], name: "Sync 2" }))).toBe(
+      "Renamed to Sync 2",
+    );
   });
 });

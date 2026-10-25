@@ -642,6 +642,11 @@ td:has(> .row-problems) {
 .dialog form.dialog-form .theme-choice label.selected {
   color: var(--text-primary);
 }
+/* The same for a choice in any other dialog's form (the grant dialog, Rotate secret). */
+.dialog form .theme-choice label {
+  display: inline-flex;
+  margin: 0;
+}
 .webhook-secret {
   overflow-wrap: anywhere;
 }
@@ -2224,6 +2229,18 @@ tr.openable-row:hover > * {
 .grant-action {
   text-align: right;
 }
+/* Clients (SP2): a list entry's second line, and the client ID beside its label. */
+.security-entry-use {
+  display: block;
+}
+.security-client-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .grant-stale {
   display: block;
   margin-top: 2px;
@@ -2234,14 +2251,18 @@ tr.openable-row:hover > * {
   display: grid;
   gap: var(--space-4);
 }
+.grant-what,
 .grant-where,
-.grant-narrowing {
+.grant-narrowing,
+.rotate-overlap {
   display: grid;
   gap: var(--space-2);
   min-width: 0;
 }
+.grant-what > .theme-choice,
 .grant-where > .theme-choice,
-.grant-narrowing > .theme-choice {
+.grant-narrowing > .theme-choice,
+.rotate-overlap > .theme-choice {
   justify-self: start;
   max-width: 100%;
 }

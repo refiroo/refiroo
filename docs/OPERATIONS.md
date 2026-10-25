@@ -224,8 +224,17 @@ Operator, Security administrator); custom ones are made from scratch or copied
 narrowing what may be changed to applications and record types (`/api/v1/grants`). Reading a
 workspace is never narrowed: data some readers must not see belongs in a workspace of its own.
 `GET /api/v1/workspaces/{key}/access` lists who can do what there. A change to a grant, role, group
-or membership applies on the next request on every process. Until the Security pages (SP1), these
-are API calls made with a Security administrator's token. The deployment flags still decide which
+or membership applies on the next request on every process. Settings › Security makes each of
+these a page (People, Groups, Roles, Clients, and a workspace's Access).
+
+**Clients and signing keys on a page** (0.12 SP2): Settings › Security › Clients creates a client and
+shows its ID and secret once; **Rotate secret** makes a new one and keeps the current one working
+for 1 hour, 24 hours (the default) or 7 days, or stops it at once for a leaked secret; the Secrets
+table tells them apart by their last four characters, and **End now** stops the previous one before
+its overlap ends. Settings › Security › Signing keys lists the token signing keys; **Start a new
+key** rotates now (the previous key verifies its tokens until they expire), and **Retire the
+current key now** refuses its tokens at once: sessions renew on their own, and each client is
+refused once and fetches a new token with its unchanged secret. The deployment flags still decide which
 operations exist at all; a role decides who may use them.
 
 **Upgrading to 0.12 Z1** grants every person and client that existed before it the first

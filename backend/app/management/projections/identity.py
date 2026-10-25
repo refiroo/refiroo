@@ -6,10 +6,15 @@ from sqlalchemy.orm import Session
 
 from ...common.pagination import Page
 from ...common.time import as_utc
-from ...engine.authorization.administration import HeldRole, held_roles
+from ...engine.authorization.administration import (
+    HeldRole,
+    client_consumer_apis,
+    client_roles,
+    held_roles,
+)
 from ...engine.identity import keys
 from ...engine.identity.authentication import Principal
-from ...engine.identity.clients import secrets_of
+from ...engine.identity.clients import creators, secrets_of
 from ...engine.identity.principals import actors
 from ...models.database import (
     AuditEvent,
@@ -19,7 +24,9 @@ from ...models.database import (
     User,
     UserSession,
 )
+from ..schemas.common import PrincipalResponse
 from ..schemas.identity import (
+    ClientConsumerApi,
     ClientPage,
     ClientResponse,
     ClientSecretInfo,
@@ -85,18 +92,20 @@ def user_response(
         createdAt=user.created_at,
         updatedAt=user.updated_at,
         lastSignInAt=user.last_sign_in_at,
-        roles=[
-            UserRole(
-                key=role.key,
-                name=role.name,
-                instance=role.instance,
-                workspaces=[
-                    UserRoleWorkspace(key=key, label=label) for key, label in role.workspaces
-                ],
-            )
-            for role in roles
-        ],
+        roles=_roles(roles),
     )
+
+
+def _roles(roles: list[HeldRole]) -> list[UserRole]:
+    return [
+        UserRole(
+            key=role.key,
+            name=role.name,
+            instance=role.instance,
+            workspaces=[UserRoleWorkspace(key=key, label=label) for key, label in role.workspaces],
+        )
+        for role in roles
+    ]
 
 
 def user_page(session: Session, page: Page[User]) -> UserPage:
@@ -113,20 +122,46 @@ def _secret(secret: OAuthClientSecret) -> ClientSecretInfo:
         createdAt=secret.created_at,
         expiresAt=secret.expires_at,
         lastUsedAt=secret.last_used_at,
+        hint=secret.hint,
     )
+
+
+def _client_responses(session: Session, clients: list[OAuthClient]) -> list[ClientResponse]:
+    """Clients with their access and creator, in one statement each for the page (D348, D349)."""
+    ids = [client.id for client in clients]
+    roles = client_roles(session, ids)
+    apis = client_consumer_apis(session, ids)
+    made_by = creators(session, [client.public_id for client in clients])
+    return [
+        ClientResponse(
+            id=client.public_id,
+            name=client.name,
+            active=client.active,
+            version=client.version,
+            createdAt=client.created_at,
+            updatedAt=client.updated_at,
+            lastUsedAt=client.last_used_at,
+            secrets=[_secret(secret) for secret in secrets_of(session, client)],
+            roles=_roles(roles.get(client.id, [])),
+            consumerApis=[
+                ClientConsumerApi(
+                    key=key,
+                    workspaces=[UserRoleWorkspace(key=w, label=label) for w, label in workspaces],
+                )
+                for key, workspaces in apis.get(client.id, [])
+            ],
+            createdBy=(
+                PrincipalResponse(**made_by[client.public_id])
+                if made_by.get(client.public_id)
+                else None
+            ),
+        )
+        for client in clients
+    ]
 
 
 def client_response(session: Session, client: OAuthClient) -> ClientResponse:
-    return ClientResponse(
-        id=client.public_id,
-        name=client.name,
-        active=client.active,
-        version=client.version,
-        createdAt=client.created_at,
-        updatedAt=client.updated_at,
-        lastUsedAt=client.last_used_at,
-        secrets=[_secret(secret) for secret in secrets_of(session, client)],
-    )
+    return _client_responses(session, [client])[0]
 
 
 def client_with_secret(
@@ -138,9 +173,7 @@ def client_with_secret(
 
 
 def client_page(session: Session, page: Page[OAuthClient]) -> ClientPage:
-    return ClientPage(
-        items=[client_response(session, client) for client in page.items], **page.links()
-    )
+    return ClientPage(items=_client_responses(session, list(page.items)), **page.links())
 
 
 def signing_key_response(key: TokenSigningKey) -> SigningKeyResponse:

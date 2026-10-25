@@ -3074,6 +3074,220 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | D233 | How approvals notify | **Recommended:** an inbox in the engine (API and top bar) and webhook events for each step; **no e-mail** in 0.12. Why: API first: an organisation routes the events to its e-mail, Teams or Slack with its own tooling; sending mail needs SMTP settings, templates, bounces and unsubscribes. Cost: without integration work, a person learns of a request only when they open the app |
 | D234 | How the browser holds its session | **Recommended:** authorization code with PKCE; the access token (short-lived: an hour, D251 as amended 2026-10-23) in memory, the refresh token in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie that only the token endpoint reads. Why: the current OAuth guidance for browser applications; a script injected into the page cannot read the refresh token, and the engine still issues one token format for all clients. Cost: the frontend and engine must share a site (one origin or a same-site subdomain), which OPERATIONS states |
 | D235 | Is there a way to switch authentication off? | **Recommended:** **no**. Development and tests use real tokens; the first administrator comes from a CLI command on the server. Why: a switch that disables security is eventually left on in production, and ADR-031 already says "a switch cannot guard itself". Cost: the harness changes in I1 (one fixture), and the local dev server needs a sign-in once |
+##### SP2 plan (2026-10-25)
+
+**Planned 2026-10-25; accepted by the user the same day** ("its good"): D348–D357, the test cases and the "SP2 as
+planned" boards ([security mock-ups canvas](https://claude.ai/artifact/CiHGaobpx8jsqaNZvmfXXo), the
+ninth row: a client, Rotate secret, granting a consumer API, Signing keys, a client at 390px).
+Checked against the code at `56903d2` with Z6 in the working tree, the approved Clients board, U8
+and the settings table (Clients; Signing keys, "I1, SP2"), J41 and Z3's and Z4's notes left for
+SP2's client pages.
+
+**What the check found:**
+
+- **Every client write exists** (I1): create (the secret answered once), rename, deactivate and
+  restore (`active`), a new secret with an overlap of 0 to 168 hours, ending a secret; `lastUsedAt`
+  on the client and each secret; `q` on the list (SP1); a client's grants at
+  `GET /grants?principalId=` (clients belong to no group, so these are all of them); its security
+  events at `/security-events?principalId=` (Z4); its changes at `/changes?actorId=` (Z6); the
+  webhooks it created at `/consumer-subscriptions?ownerId=` (Z3); token signing keys and their
+  rotation (I1).
+- **Three things the board shows are not answered:** the list's line ("specimen-catalogue in
+  Herbarium", "Reader in Herbarium"): `GET /clients` carries no access; **"created by Mei Sato"**:
+  a client stores no creator, though its `created` security event names the actor (Z4); a secret's
+  **last four characters** ("…a91F"): only the hash is stored.
+- **A Security administrator cannot fill the grant dialog.** It reads the workspace's model for the
+  narrowing (`GET /model`, which needs Browse), and SP2's consumer API choice would read the
+  consumer index, which also needs Browse with a management token (D308). Security administrator
+  holds only Security administration (D230), so a person holding just that role sees the dialog's
+  model read refused. SP1 did not meet it because the harness person holds every role (D282).
+- **The grant dialog grants roles only** (Z3 item 8); Access, a person's and a group's grants
+  already list and remove consumer API grants.
+- **Webhooks names no owner** (Z3 left it for these pages).
+- **Reference patterns in the code:** `PeoplePage` (the catalogue beside the entry, Active and
+  Deactivated filters with counts, the header's actions, Recent activity on `ui/Timeline`),
+  `GrantsSection` and `GrantDialog`, `ui/ShownOnceDialog` (the password link, Webhooks' signing
+  key), `ConfirmDialog`, `useHoldsGroup` (D303, D328).
+
+**What is built:**
+
+1. **API** (`security-admin` at the instance, documented in API.md):
+   - `GET /clients` and `GET /clients/{id}` gain `roles` (D298's shape: the role, `instance: true`
+     or the workspaces) and `consumerApis` (each API's key with the workspaces it is granted in),
+     one statement per page, and `createdBy` (the actor of the client's `created` security event;
+     `null` when made on the server or before Z4) (D348, D349).
+   - Each secret gains `hint`, its last four characters, stored when it is made; `null` for secrets
+     made before SP2. Migration `20261103_01_client_secret_hints` adds the column (D350).
+   - `GET /workspaces/{workspaceKey}/grant-options`: the applications, record types and consumer
+     APIs the workspace's model declares, by key and name (D355).
+   OpenAPI lock re-baselined from a diff.
+2. **Settings › Security › Clients** (`/settings/clients[/{id}]`), as the board and the "SP2 as
+   planned" row: the catalogue beside the client, search, Active and Deactivated with counts, each
+   row the name, the access line and the last token (D348); **New client** (a name), then the client
+   ID and secret in the shown-once dialog ("afterwards only its last four characters are kept"); the
+   client: name, client ID with Copy, created by and when, Active or Deactivated, the last token;
+   **Rename**, **Rotate secret** (D352), **Deactivate** or **Restore** (a confirmation saying its
+   tokens are refused from the next request), **See changes** (Z6's page, shown only to a caller
+   who would see something, D323); **Secrets** (the last four characters, created, valid until,
+   last used; **End now** on a secret with an end, D351); **Access** (where, grant, narrowing,
+   Remove, **Grant**); **Webhooks it created** (D353); **Recent activity** (its security events,
+   as a person's, Z4).
+3. **Rotate secret** (D352): the overlap chosen from 1 hour, 24 hours (the default), 7 days or
+   "Stop it now", then the new secret shown once with when the previous one stops.
+4. **The grant dialog grants a consumer API** (D354): "What": a role or a consumer API, from every
+   place it opens (Access, a person, a group, a client); a consumer API is granted in one workspace,
+   chosen from those the workspace's model declares, never narrowed, with its sentence. The
+   section's button reads **Grant** in all four places. The dialog reads its choices from
+   `grant-options` (D355), so a Security administrator without Browse can use it.
+5. **Settings › Security › Signing keys** (`/settings/signing-keys`, D356): what the keys do in a
+   paragraph; the keys newest first with Load more (key ID, Signing / Verifying until *time* /
+   Retired, created, replaced, retired); **Start a new key** and **Retire the current key now** (a
+   confirmation saying what happens to sessions and clients, D254).
+6. **Webhooks** names a subscription's owner ("Created by *name*", a link to the person's or
+   client's page for a Security administrator) (D353).
+7. **Who sees them:** Clients and Signing keys in the Security group, for holders of Security
+   administration (D303, D328).
+8. **Left out** (U-D11): Sign-in and provider groups (I3); webhook key rotation (K1) (D357).
+9. **Documents:** API.md (the three additions, `hint`), SETTINGS_AND_UI_PLAN (U8, the settings
+   table), USER_JOURNEYS (J41's UI channel) and API_JOURNEYS, CURRENT_FUNCTIONALITY, OPERATIONS
+   (rotating a client secret and a signing key from the page), UI_ACCEPTANCE (SP2 state rows),
+   EXECUTION_GUIDE (the new runner), CHANGELOG, PROJECT_STATUS.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D348 | A client's access in the list | **Recommended:** client reads answer `roles` (D298's shape) and `consumerApis` (`[{key, workspaces: [{key, label}]}]`), computed in one statement per page; the list's line reads "specimen-catalogue · Herbarium, Field stations; Reader · Herbarium", "Operator" (an instance role), "No access yet", and a second line "Last token 4 min ago", "No token yet" or "Deactivated". Why: the approved board; a client is found by what it does, and an integrator listing clients needs the same. Consumer APIs by key, because a key's name comes from each workspace's model (ADR-042). Cost: every client read joins grants |
+| D349 | Who created a client | **Recommended:** `createdBy` on client reads, the actor of the client's `created` security event (a person or client), `null` when made by `create_client` on the server or before Z4; no new column. Why: the board names the creator, and the event already records it (Z4); a column would hold the same fact twice. Cost: one join per page |
+| D350 | Telling a client's secrets apart (**a migration**) | **Recommended:** each secret stores and answers `hint`, its last four characters, shown as "…a91F"; secrets made before SP2 answer `null` and show "—". Why: during an overlap two secrets are valid, and whoever runs the system must know which one it holds before ending the other; the approved board's dialog promises it. Four of 43 characters (24 of 256 bits) leave the rest unguessable. Cost: a column and its migration |
+| D351 | Ending a secret | **Recommended:** **End now** is offered on a secret that has an end (the previous one during an overlap); the newest secret is replaced by rotating with "Stop it now". The API keeps ending any secret. Why: ending the only secret leaves the client unable to sign in with nothing to show for it; rotating ends it and hands over a new one in one step. Cost: none |
+| D352 | Rotate secret | **Recommended:** a dialog choosing how long the current secret keeps working: 1 hour, 24 hours (default), 7 days, or "Stop it now" (0, for a leaked secret); then the new one in the shown-once dialog with the time the previous one stops. Why: the board's dialog states the overlap; four choices cover the API's 0–168 hours without a number field. Cost: other overlaps are API-only |
+| D353 | Webhooks and their owner | **Recommended:** a client's page lists **Webhooks it created** (name with a link, workspace, consumer API, state) only to a caller holding Integration administration somewhere, as the route lists those in the caller's workspaces; a webhook's page says "Created by *name*", linked to the person's or client's page for a Security administrator, "—" when it has no owner (before Z3). Why: Z3 left the owner for these pages; D323 hides what the caller cannot open. Cost: a Security administrator without Integration administration sees no webhooks on a client |
+| D354 | Granting a consumer API on a page | **Recommended:** the one grant dialog gains "What: A role / A consumer API" wherever it opens; a consumer API asks for a workspace (never the whole instance) and the API from that workspace's model, has no narrowing, and says "*who* may read the *name* consumer API in *workspace*. It changes nothing and opens nothing on the management API." The sections' button reads **Grant** (was "Grant a role"); the client's section is **Access**, a person's and a group's stay **Roles**. Why: D306 grants consumer APIs to clients, people and groups alike, and one dialog keeps one design (U-D14). Cost: SP1's button label changes, and its runner with it |
+| D355 | What the grant dialog reads (**a route added; fixes SP1's dialog for a Security administrator**) | **Recommended:** `GET /workspaces/{workspaceKey}/grant-options` with Security administration at the instance: the workspace's model's applications, record types and consumer APIs, each key and name; `404 WORKSPACE_NOT_FOUND` for an unknown workspace. Why: a Security administrator holds no data (D230), so `GET /model` and the consumer index refuse them; granting must not need Browse. Cost: one route that reveals the model's names to Security administrators, who already grant by them |
+| D356 | Signing keys on a page | **Recommended:** Settings › Security › Signing keys lists the keys newest first, states read as Signing, "Verifying until *retiredAt*" and Retired; **Start a new key** (rotation with `immediate: false`, said in a toast) and **Retire the current key now** (`immediate: true`, after a confirmation: tokens it signed are refused from the next request, sessions renew, clients are refused once and fetch a new token). Why: the settings table gives the page to SP2; D254 says nobody has to act on a rotation, which the page repeats. Cost: none beyond the page |
+| D357 | What SP2 leaves out | **Recommended:** Sign-in and provider groups wait for I3, which builds their page (the queue's "sign-in providers" on SP2's line moves to I3's); webhook key rotation is K1. Why: U-D11, nothing is listed before it works. Cost: none |
+
+**Journey test cases** (`tests/journeys/test_j41_client_pages.py`, on two configurations; written
+first and seen failing; the harness client acting as Security administrator):
+
+1. **J41, a client's access in its reads:** given a client granted Reader in workspace A, Operator
+   at the instance and a consumer API of each workspace's model in A and B, and a second client with
+   nothing, when `GET /clients` and `GET /clients/{id}` are read, then the first lists Reader in A,
+   Operator with `instance: true`, and the API in A and B, the second empty lists, and both name the
+   caller as `createdBy`; `q` and `active` still narrow the list.
+2. **J41.3, telling secrets apart:** given a new client, its secret answered once, when the client
+   is read, then its secret's `hint` is the secret's last four characters; after a new secret with a
+   one-hour overlap, both are listed with their own hints and the older with `expiresAt`; neither
+   value is answered again.
+3. **J41, what a grant is made from:** given two workspaces on different models,
+   `GET /workspaces/{key}/grant-options` answers each model's applications, record types and
+   consumer APIs (the same keys and names `GET /model` shows there); a person holding only Security
+   administrator reads it and grants a client one of those consumer APIs; an unknown workspace
+   answers `404 WORKSPACE_NOT_FOUND`; a person without Security administration `403 FORBIDDEN`.
+
+Unit tests (Vitest): the client's access line (D348's wording), the consumer API grant sentence,
+the signing key's state. Startup: the migration's bootstrap, upgrade from `20261102_01`, restart,
+interrupted-migration and lifespan checks, and a smoke start on a copy of the development database.
+
+**Browser** (a new runner `sp2-clients`, on two models; reference pattern: Security › People):
+create a client and copy its ID and secret; obtain a token with them and see the last token on the
+page; grant it a consumer API in a workspace of each model from its page and Reader in one; rotate
+with a one-hour overlap and see both secrets by their last four characters; end the older; rename,
+deactivate and restore; the workspace's Access shows the consumer API grant; as a person holding
+only Security administrator, the grant dialog offers the narrowing and the consumer APIs; Signing
+keys: start a new key and see two keys' states; Webhooks names the owner. Keyboard only through New
+client, Rotate secret and the grant dialog; 390px (Clients, a client, Signing keys); axe;
+screenshots of Clients, the rotation dialog, the grant dialog and Signing keys at 1440px light and
+dark and a client at 390px, inspected against the boards.
+
+**Checks:** the new journey module, `test_j39_j41_j43_identity.py` and `test_j40_security_pages.py`;
+`test_openapi_contract` with the lock diffed; `test_api_journeys`; `test_boundaries`; the startup
+and migration groups the execution guide selects for a migration; Ruff on the changed files; Vitest
+for `src/features/security`, `src/features/settings`, `src/routing`, `src/ui`; format, lint, build;
+the runners `sp2-clients`, `sp1-security` (the dialog and its button), `u5-webhooks` (the owner) and
+`u3-settings` (the navigation).
+
+**Composable domains (ADR-032):** the identity door is touched by reads (a client's access and
+creator) and a secret's hint; no value source, audit row, `cause`, bulk API or `match` declaration
+changes.
+
+**What the user will still not be able to do after SP2:** sign in with a provider, see provider
+groups or turn local sign-in off (I3); rotate a webhook's signing key (K1); try the API console
+with their token (C1); submit and approve publications (Track A).
+
+##### SP2 record (2026-10-25)
+
+**Delivered 2026-10-25.** What was built is the plan's list, items 1–9:
+
+- **API:** `roles`, `consumerApis` and `createdBy` on every read of a client, from one statement per
+  page each (`administration.client_roles`, which shares SP1's aggregation with `held_roles`,
+  `client_consumer_apis`, `clients.creators` over the `created` security events; D348, D349); a
+  secret's `hint` stored when made (migration `20261103_01_client_secret_hints`, D350);
+  `GET /workspaces/{workspaceKey}/grant-options` (`administration.grant_options`, D355). OpenAPI
+  lock re-baselined: the document with SP2's additions removed hashes to Z6's lock exactly.
+- **Frontend** `features/security/`: `ClientsPage` (the catalogue, New client, the client's page,
+  `RotateDialog`, `Secrets`, `ClientWebhooks`), `SigningKeysPage`, `RecentActivity` (extracted from
+  `PeoplePage`, used by both), the grant dialog's "What" and its reads from `grant-options`,
+  `GrantsSection`'s one **Grant** button and its link to a client's page; the client's words in
+  `securityText`; the owner on a webhook's page; routes `/settings/clients[/{id}]` and
+  `/settings/signing-keys`; Clients and Signing keys in the Security group.
+- **Documents:** API.md, USER_JOURNEYS (J40, J41), API_JOURNEYS, CURRENT_FUNCTIONALITY (F26, F27,
+  F11), OPERATIONS, SETTINGS_AND_UI_PLAN (U8 and the settings table), UI_ACCEPTANCE (SP2-1 to
+  SP2-4), EXECUTION_GUIDE (the runner and a selection row for the Security pages), CHANGELOG,
+  PROJECT_STATUS, the queue (Sign-in on I3's line).
+
+**Where it differs from the plan:**
+
+- **A list line that follows a grant:** the runner found the client's access line unchanged after a
+  grant on its page; `GrantsSection` now tells its page when a grant is made or removed, and the
+  client is read again.
+- **Found by the screenshots and fixed:** "Created by by …" (the actor component says "by" itself),
+  and the grant dialog's segmented choice drawn taller than its options, because the dialog-wide
+  `.dialog form label` rule reached its labels; one rule now keeps every choice in a dialog form as
+  drawn, which also fixes SP1's "Where".
+- **The webhook in the runner** is created by the client itself with Integration administrator, on a
+  consumer API with an event added to the starter as `u5-webhooks` does, since the starter's own
+  consumer API declares none.
+- **The journey cases were seen failing first** (6 of 6: the missing `roles`, `hint` and route),
+  then passed.
+
+**Checks** (single process for the runners):
+
+- `tests/journeys/test_j41_client_pages.py`: 6 passed (3 cases × 2 configurations), seen failing
+  first; with `test_j39_j41_j43_identity.py`, `test_j40_security_pages.py`,
+  `test_j41_consumer_grants.py`, `test_openapi_contract.py`, `test_api_journeys.py`,
+  `test_boundaries.py`, `test_startup.py`, `test_schema_drift.py`, `test_foreign_keys.py`: 83
+  passed after API_JOURNEYS gained the route (22 s). Ruff check on `app/` and the new module; Ruff
+  format on the files SP2 wrote (three files it edited keep older unformatted lines outside its
+  hunks, left as they are).
+- **Migration:** clean bootstrap and restart (`test_startup`, head `20261103_01`), the schema
+  against the ORM (`test_schema_drift`); the development database upgraded from `20261102_01` by
+  the running `--reload` server when the file was saved, which still answers. One `ADD COLUMN` in
+  one transaction; no upgrade test (pre-1.0).
+- Vitest: `src/features/security`, `src/features/settings`, `src/routing`, `src/ui`, `src/app`,
+  `src/features/workspaces`: 41 files, 362 passed (`securityText.test`: the access line, the last
+  token, the consumer API sentence, a key's state, a client's events; `routes.test`: the two
+  routes). `format`, `lint` (0 errors; the 8 warnings in untouched files), `build`.
+- **Browser:** `sp2-clients` on two models: 17 checks, axe 0 violations on the secret dialog, the
+  grant dialog, Rotate secret, a client (light and dark), Signing keys and the retirement's
+  confirmation; `sp1-security` on two models (the renamed button and dialog), `u5-webhooks`: 19
+  checks (the owner line), `u3-settings`: 10 checks (the navigation). Screenshots inspected against
+  the boards: a client at 1440px light and dark and at 390px, the grant dialog, Rotate secret,
+  Signing keys.
+
+**Not run:** the full backend and frontend suites and the other browser runners (R); the
+accessibility and visual gates (R).
+
+**Shared working tree:** another session is working on TV1 (the model editor's layout files, a
+CHANGELOG entry, D358–D360) in the same checkout; SP2's hunks are separate from it, and Z6 is still
+uncommitted beneath both.
+
+**What the user cannot do yet:** sign in with a provider, see provider groups or turn local sign-in
+off (I3); rotate a webhook's signing key (K1); try the API console with their token (C1); submit and
+approve publications (Track A); choose a secret overlap other than 1 hour, 24 hours, 7 days or none
+except through the API.
+
 | D236 | Whose permissions a job runs with | **Recommended:** its requester's, checked at submission, at confirmation and when it runs; a requester deactivated or losing the right makes the job fail with the reason. Why: a job is the bulk path the exit gate names; a job queued before a permission was removed must not keep it. Cost: one check per job step |
 | D237 | People in the audit | **Recommended:** the audit stores the principal's ID; names are resolved when read. Users and clients are deactivated, never deleted, so history always resolves; a person's name and e-mail can be anonymised in one place. Why: a name copied into every audit row could not be erased, and a deleted user would leave unexplained IDs. Cost: a join when history is read |
 | D238 | The webhook key's overlap window | **Recommended:** both signatures sent for 24 hours after a rotation by default, set per rotation from 0 (immediate) to 7 days. Why: receivers switch keys without missing deliveries; 0 covers a leaked key. Cost: a contract change: `RDM-Signature` carries one `sha256=<hex>` today and becomes a comma-separated list, which receivers must accept (CONSUMER_API, before L2 commits the header) |
@@ -3098,8 +3312,8 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 8a | [Z6](#z6-one-persons-changes-across-workspaces) | Z4, Z5 | **Delivered 2026-10-25.** One person's or client's changes across workspaces, filtered to what the caller may browse |
 | 8b | [HM1](#hm1-a-home-page-after-sign-in) | Z5 | **Delivered 2026-10-25.** A home page after sign-in: workspaces as cards, what waits for the person, Continue where you left off |
 | 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | **Delivered 2026-10-24.** Settings › Security: people, groups, roles, grants |
-| 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | Settings › Security: clients and their access; sign-in providers |
-| 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | OpenID Connect providers and their groups |
+| 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | **Delivered 2026-10-25.** Settings › Security: clients and their access, signing keys (sign-in providers moved to I3, D357) |
+| 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | OpenID Connect providers and their groups; Settings › Security › Sign-in |
 | 12 | [K1](#k1-webhook-signing-key-rotation) | Z1 | Signing-key rotation with overlap; re-sealing |
 | 13 | [C1](#c1-the-try-it-console-authenticated) | I2 | The console with the person's token |
 | 14 | [E1](#e1-security-checkpoint) | all above | The exit gate composed; independent security review |

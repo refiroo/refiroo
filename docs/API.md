@@ -5740,7 +5740,9 @@ workspace grant of a role held only at the instance refused. **Delivered by Z5 (
 `holding` on `GET /workspaces`, `GET /me/action-groups`, and `createdBy` on a workspace's change
 sets. **Delivered by HM1 (2026-10-25):** `GET /me/workspaces`, `GET /me/change-sets` and `product`
 on `GET /system`. **Delivered by Z6 (2026-10-25):** `GET /changes`, a person's or client's changes
-across workspaces. The rest is designed; each part moves into "delivered" with its package (I3, Z3, SP2, K1, C1,
+across workspaces. **Delivered by SP2 (2026-10-25):** a client's `roles`, `consumerApis` and
+`createdBy`, a secret's `hint`, and `GET /workspaces/{workspaceKey}/grant-options`. The rest is
+designed; each part moves into "delivered" with its package (I3, K1, C1,
 A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
@@ -6088,6 +6090,11 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   a workspace grant of a role none of whose action groups can be held in a workspace (each
   `grantableAt: instance`, such as Security administrator) is `422 GRANT_SCOPE_INVALID` naming the
   role in `details.role`: it would allow nothing; such a role is granted at the instance.
+- **What a grant can name:** `GET /workspaces/{workspaceKey}/grant-options` (delivered, SP2,
+  D355), with Security administration at the instance: the applications, record types and consumer
+  APIs the workspace's model declares, each `{key, name}`, so a Security administrator without
+  Browse there can narrow a grant and grant a consumer API; an unknown workspace is
+  `404 WORKSPACE_NOT_FOUND`.
 - **Who can do what here:** `GET /workspaces/{workspaceKey}/access`: every grant that applies in the
   workspace, direct, through a group or from the instance; readable with `security-admin`
   (delivered, Z1: the grants made in the workspace or at the instance, a group's named as the
@@ -6101,7 +6108,13 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   `POST /clients` and `POST /clients/{id}/secrets` (`{expectedVersion, overlapHours}`, 24 by default,
   0 to 168; 0 stops the other secrets at once) answer the client with `secretId` and `secret`, this
   once. Missing ones are `404 CLIENT_NOT_FOUND` and `404 CLIENT_SECRET_NOT_FOUND`. _Delivered by
-  SP1 (D300):_ `GET /clients` takes `q` (a case-insensitive part of the name).
+  SP1 (D300):_ `GET /clients` takes `q` (a case-insensitive part of the name). _Delivered by SP2
+  (D348–D350):_ every read of a client answers `roles` (each role it holds, with `instance: true` or
+  the workspaces by key and label; a client belongs to no group), `consumerApis` (each consumer API
+  it is granted, by key, with its workspaces) and `createdBy` (the person or client that created it,
+  from its `created` security event; `null` when made on the server or before Z4), computed in one
+  statement per page; each secret answers `hint`, its last four characters, stored when it is made
+  (`null` for a secret made before SP2) so secrets are told apart during an overlap.
 - **Token signing keys:** `GET /token-signing-keys` (`kid`, created, retired, never the key),
   `POST /token-signing-keys/rotation` `{immediate: true|false}`. _Delivered by I1:_ newest first,
   each with `kid`, `state` (`current`, `verifying` while its tokens may still be valid, `retired`),

@@ -716,6 +716,27 @@ def grant_page(
     return replace(page_of_rows, items=[_grant_row(row) for row in page_of_rows.items])
 
 
+@dataclass(frozen=True)
+class GrantOptions:
+    """What a grant in a workspace can name, from the workspace's model, each as (key, name)."""
+
+    applications: tuple[tuple[str, str], ...]
+    record_types: tuple[tuple[str, str], ...]
+    consumer_apis: tuple[tuple[str, str], ...]
+
+
+def grant_options(session: Session, workspace_key: str) -> GrantOptions:
+    """The applications, record types and consumer APIs a grant in the workspace can name, read
+    for a Security administrator, who holds no data (D355, D230)."""
+    load_workspace(session, workspace_key)
+    model = resolve_model_snapshot(session, workspace_key).model
+    return GrantOptions(
+        applications=tuple((item.key, item.name) for item in model.applications),
+        record_types=tuple((item.key, item.name) for item in model.objectTypes),
+        consumer_apis=tuple((item.key, item.name) for item in model.consumerApis or ()),
+    )
+
+
 def access_page(
     session: Session, workspace_key: str, *, page: PageRequest, page_size: int
 ) -> Page[GrantRow]:
@@ -793,39 +814,77 @@ def held_roles(session: Session, user_ids: list[int]) -> dict[int, list[HeldRole
     """The roles each of ``user_ids`` holds, in one statement for a page of people (D298)."""
     if not user_ids:
         return {}
-    direct = select(Grant.user_id.label("user_id"), Grant.role_id, Grant.workspace_key).where(
+    direct = select(Grant.user_id.label("holder"), Grant.role_id, Grant.workspace_key).where(
         Grant.user_id.in_(user_ids)
     )
     through = (
-        select(UserGroupMember.user_id.label("user_id"), Grant.role_id, Grant.workspace_key)
+        select(UserGroupMember.user_id.label("holder"), Grant.role_id, Grant.workspace_key)
         .join(Grant, Grant.group_id == UserGroupMember.group_id)
         .where(UserGroupMember.user_id.in_(user_ids))
     )
-    held = union_all(direct, through).subquery()
+    return _held(session, union_all(direct, through).subquery())
+
+
+def client_roles(session: Session, client_ids: list[int]) -> dict[int, list[HeldRole]]:
+    """The roles each of ``client_ids`` holds, in one statement for a page of clients (D348); a
+    client belongs to no group, so its grants are all of them."""
+    if not client_ids:
+        return {}
+    held = select(Grant.client_id.label("holder"), Grant.role_id, Grant.workspace_key).where(
+        Grant.client_id.in_(client_ids), Grant.role_id.is_not(None)
+    )
+    return _held(session, held.subquery())
+
+
+def _held(session: Session, held: Any) -> dict[int, list[HeldRole]]:
+    """Roles by holder from ``held`` (holder, role ID, workspace key), predefined roles first."""
     rows = session.execute(
-        select(held.c.user_id, Role.key, Role.name, held.c.workspace_key, Workspace.label)
+        select(held.c.holder, Role.key, Role.name, held.c.workspace_key, Workspace.label)
         .distinct()
         .join(Role, Role.id == held.c.role_id)
         .outerjoin(Workspace, Workspace.key == held.c.workspace_key)
-        .order_by(held.c.user_id, Role.key, Workspace.label)
+        .order_by(held.c.holder, Role.key, Workspace.label)
     ).all()
     found: dict[int, dict[str, tuple[str, bool, list[tuple[str, str]]]]] = {}
-    for user_id, key, name, workspace_key, label in rows:
-        _, instance, workspaces = found.setdefault(user_id, {}).get(key, (name, False, []))
+    for holder, key, name, workspace_key, label in rows:
+        _, instance, workspaces = found.setdefault(holder, {}).get(key, (name, False, []))
         if workspace_key is None:
             instance = True
         else:
             workspaces.append((workspace_key, label))
-        found[user_id][key] = (name, instance, workspaces)
+        found[holder][key] = (name, instance, workspaces)
     order = {key: index for index, key in enumerate(PREDEFINED_ROLES)}
     return {
-        user_id: [
+        holder: [
             HeldRole(key, name, instance, () if instance else tuple(workspaces))
             for key, (name, instance, workspaces) in sorted(
                 roles.items(), key=lambda item: (order.get(item[0], len(order)), item[1][0])
             )
         ]
-        for user_id, roles in found.items()
+        for holder, roles in found.items()
+    }
+
+
+def client_consumer_apis(
+    session: Session, client_ids: list[int]
+) -> dict[int, list[tuple[str, tuple[tuple[str, str], ...]]]]:
+    """The consumer APIs each of ``client_ids`` is granted, each with the workspaces (key, label)
+    it is granted in, in one statement for a page of clients (D348)."""
+    if not client_ids:
+        return {}
+    rows = session.execute(
+        select(Grant.client_id, Grant.consumer_api, Grant.workspace_key, Workspace.label)
+        .distinct()
+        .join(Workspace, Workspace.key == Grant.workspace_key)
+        .where(Grant.client_id.in_(client_ids), Grant.consumer_api.is_not(None))
+        .order_by(Grant.client_id, Grant.consumer_api, Workspace.label)
+    ).all()
+    found: dict[int, dict[str, list[tuple[str, str]]]] = {}
+    for client_id, api, workspace_key, label in rows:
+        found.setdefault(client_id, {}).setdefault(api, []).append((workspace_key, label))
+    return {
+        client_id: [(api, tuple(workspaces)) for api, workspaces in apis.items()]
+        for client_id, apis in found.items()
     }
 
 

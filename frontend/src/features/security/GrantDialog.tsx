@@ -1,7 +1,10 @@
 /**
- * Grant a role (0.12 SP1, U8): one dialog for a workspace's Access, a person's page and a group's
- * page. From Access it asks who (a person, group or client); from a person or group it asks where
- * (the whole instance or one workspace). The role is chosen with its action groups named; a
+ * Grant a role or a consumer API (0.12 SP1, SP2, U8): one dialog for a workspace's Access and a
+ * person's, group's or client's page. From Access it asks who (a person, group or client); from a
+ * principal it asks where (the whole instance or one workspace). A consumer API is granted in one
+ * workspace, chosen from those its model declares, and never narrowed (D306, D354). The choices
+ * come from the workspace's grant options, which a Security administrator reads without Browse
+ * (D355). The role is chosen with its action groups named; a
  * workspace grant of a role with narrowable groups may narrow what they may change to applications
  * and record types of that workspace's model, and reading is never narrowed (D243). A role held only
  * at the instance offers only the whole instance (D302). A sentence says what the grant allows.
@@ -11,7 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { security } from "@/api/securityClient";
-import type { ActionGroup, EngineModel, Grant, GrantCreate, Role, Workspace } from "@/types";
+import type { ActionGroup, Grant, GrantCreate, GrantOptions, Role, Workspace } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { Modal } from "@/ui/Modal";
 import { MultiSelect } from "@/ui/MultiSelect";
@@ -19,7 +22,7 @@ import { Notice } from "@/ui/Notice";
 import { SelectField } from "@/ui/Selection";
 import { Skeleton } from "@/ui/Skeleton";
 import { PrincipalPicker, type PickedPrincipal } from "./PrincipalPicker";
-import { grantSentence, instanceOnly } from "./securityText";
+import { consumerApiSentence, grantSentence, instanceOnly } from "./securityText";
 
 export function GrantDialog({
   who,
@@ -27,7 +30,7 @@ export function GrantDialog({
   onClose,
   onGranted,
 }: {
-  /** The person or group the page is about; without it the dialog asks who. */
+  /** The person, group or client the page is about; without it the dialog asks who. */
   who?: PickedPrincipal;
   /** The workspace the page is about; without it the dialog asks where. */
   workspace?: { key: string; label: string };
@@ -39,12 +42,14 @@ export function GrantDialog({
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
   const [loadError, setLoadError] = useState("");
   const [principal, setPrincipal] = useState<PickedPrincipal | undefined>(who);
+  const [what, setWhat] = useState<"role" | "consumer-api">("role");
+  const [apiKey, setApiKey] = useState("");
   const [roleKey, setRoleKey] = useState("reader");
   const [whereKind, setWhereKind] = useState<"workspace" | "instance">("workspace");
   const [workspaceKey, setWorkspaceKey] = useState(workspace?.key ?? "");
   const [narrow, setNarrow] = useState<"everything" | "some">("everything");
   const [narrowedTo, setNarrowedTo] = useState<string[]>([]);
-  const [model, setModel] = useState<EngineModel>();
+  const [options, setOptions] = useState<GrantOptions>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
@@ -69,15 +74,25 @@ export function GrantDialog({
   const role = roles?.find((item) => item.key === roleKey);
   const groups = useMemo(() => role?.actionGroups ?? [], [role]);
   const onlyInstance = !!catalogue && groups.length > 0 && instanceOnly(groups, catalogue).length === groups.length;
-  const instance = !workspace && (whereKind === "instance" || onlyInstance);
-  const narrowable = !instance && !!catalogue?.some((group) => groups.includes(group.key) && group.narrowable);
+  const consumer = what === "consumer-api";
+  // A consumer API is always granted in one workspace (D306).
+  const instance = !workspace && !consumer && (whereKind === "instance" || onlyInstance);
+  const narrowable =
+    !instance && !consumer && !!catalogue?.some((group) => groups.includes(group.key) && group.narrowable);
 
-  // The chosen workspace's model, for the applications and record types a grant may narrow to.
+  // What the chosen workspace's model offers: applications and record types to narrow to, and
+  // consumer APIs to grant (D355).
   useEffect(() => {
     if (instance || !workspaceKey) return;
     let active = true;
-    api.model({ workspaceKey }).then(
-      (loaded) => active && setModel(loaded),
+    security.grantOptions(workspaceKey).then(
+      (loaded) => {
+        if (!active) return;
+        setOptions(loaded);
+        setApiKey((current) =>
+          loaded.consumerApis.some((item) => item.key === current) ? current : (loaded.consumerApis[0]?.key ?? ""),
+        );
+      },
       (cause) => active && setError(errorMessage(cause)),
     );
     return () => {
@@ -87,22 +102,26 @@ export function GrantDialog({
 
   const narrowOptions = useMemo(
     () =>
-      model
+      options
         ? [
-            ...model.applications.map((item) => ({
+            ...options.applications.map((item) => ({
               id: `a:${item.key}`,
               label: item.name,
               description: "Application",
             })),
-            ...model.objectTypes.map((item) => ({ id: `t:${item.key}`, label: item.name, description: "Record type" })),
+            ...options.recordTypes.map((item) => ({
+              id: `t:${item.key}`,
+              label: item.name,
+              description: "Record type",
+            })),
           ]
         : [],
-    [model],
+    [options],
   );
 
   if (loadError)
     return (
-      <Modal title="Grant a role" eyebrow="Security" onClose={onClose}>
+      <Modal title="Grant access" eyebrow="Security" onClose={onClose}>
         <div className="dialog-body">
           <Notice tone="error" title="The roles could not be read">
             {loadError}
@@ -115,14 +134,32 @@ export function GrantDialog({
     workspace?.label ?? workspaces?.find((item) => item.key === workspaceKey)?.label ?? workspaceKey;
   const narrowing = narrowable && narrow === "some" ? narrowedTo : [];
   const narrowedNames = narrowOptions.filter((option) => narrowing.includes(option.id)).map((option) => option.label);
-  const title = who ? `Grant ${who.name} a role` : `Grant a role in ${workspace?.label ?? ""}`;
-  const ready =
-    !!principal && !!role && (instance || !!workspaceKey) && !(narrow === "some" && narrowable && !narrowing.length);
+  const title = who ? `Grant ${who.name} access` : `Grant access in ${workspace?.label ?? ""}`;
+  const chosenApi = options?.consumerApis.find((item) => item.key === apiKey);
+  const ready = consumer
+    ? !!principal && !!workspaceKey && !!chosenApi
+    : !!principal && !!role && (instance || !!workspaceKey) && !(narrow === "some" && narrowable && !narrowing.length);
 
   async function grant() {
-    if (!principal || !role) return;
+    if (!principal || (!consumer && !role)) return;
     setPending(true);
     setError("");
+    if (consumer) {
+      try {
+        onGranted(
+          await security.createGrant({
+            principal: { kind: principal.kind, id: principal.id },
+            consumerApi: apiKey,
+            scope: { workspaceKey },
+          }),
+        );
+      } catch (cause) {
+        setError(errorMessage(cause));
+      } finally {
+        setPending(false);
+      }
+      return;
+    }
     const scope: GrantCreate["scope"] = instance
       ? { instance: true }
       : {
@@ -132,7 +169,7 @@ export function GrantDialog({
         };
     try {
       onGranted(
-        await security.createGrant({ principal: { kind: principal.kind, id: principal.id }, role: role.key, scope }),
+        await security.createGrant({ principal: { kind: principal.kind, id: principal.id }, role: role!.key, scope }),
       );
     } catch (cause) {
       setError(errorMessage(cause));
@@ -163,28 +200,75 @@ export function GrantDialog({
               onPick={setPrincipal}
             />
           )}
-          <SelectField
-            label="Role"
-            value={roleKey}
-            options={roles
-              // In a named workspace, a role held only at the instance is not offered (D302).
-              .filter(
-                (item) =>
-                  !workspace ||
-                  !item.actionGroups.length ||
-                  instanceOnly(item.actionGroups, catalogue).length < item.actionGroups.length,
-              )
-              .map((item) => ({
-                id: item.key,
-                label: item.name,
-                description: catalogue
-                  .filter((group) => item.actionGroups.includes(group.key))
-                  .map((group) => group.name)
-                  .join(", "),
-              }))}
-            onChange={setRoleKey}
-          />
-          {!workspace && (
+          <fieldset className="form-field grant-what">
+            <legend>What</legend>
+            <Choice
+              name="grant-what"
+              value={what}
+              options={[
+                ["role", "A role"],
+                ["consumer-api", "A consumer API"],
+              ]}
+              onChange={setWhat}
+            />
+            <p className="admin-hint">
+              {consumer
+                ? "Lets them read that consumer API in one workspace. It opens nothing on the management API."
+                : "Lets them use the management API and the interface, as the role's action groups say."}
+            </p>
+          </fieldset>
+          {!consumer && (
+            <SelectField
+              label="Role"
+              value={roleKey}
+              options={roles
+                // In a named workspace, a role held only at the instance is not offered (D302).
+                .filter(
+                  (item) =>
+                    !workspace ||
+                    !item.actionGroups.length ||
+                    instanceOnly(item.actionGroups, catalogue).length < item.actionGroups.length,
+                )
+                .map((item) => ({
+                  id: item.key,
+                  label: item.name,
+                  description: catalogue
+                    .filter((group) => item.actionGroups.includes(group.key))
+                    .map((group) => group.name)
+                    .join(", "),
+                }))}
+              onChange={setRoleKey}
+            />
+          )}
+          {!workspace && consumer && (
+            <SelectField
+              label="Workspace"
+              value={workspaceKey}
+              options={(workspaces ?? []).map((item) => ({ id: item.key, label: item.label, description: item.key }))}
+              onChange={(key) => {
+                setWorkspaceKey(key);
+                setOptions(undefined);
+              }}
+            />
+          )}
+          {consumer &&
+            (!options ? (
+              <Skeleton label="Loading the workspace's consumer APIs" lines={1} />
+            ) : options.consumerApis.length ? (
+              <SelectField
+                label="Consumer API"
+                value={apiKey}
+                options={options.consumerApis.map((item) => ({
+                  id: item.key,
+                  label: item.name,
+                  description: item.key,
+                }))}
+                onChange={setApiKey}
+              />
+            ) : (
+              <p className="admin-hint">{workspaceLabel}’s model declares no consumer API.</p>
+            ))}
+          {!workspace && !consumer && (
             <fieldset className="form-field grant-where">
               <legend>Where</legend>
               <Choice
@@ -214,7 +298,7 @@ export function GrantDialog({
                   onChange={(key) => {
                     setWorkspaceKey(key);
                     setNarrowedTo([]);
-                    setModel(undefined);
+                    setOptions(undefined);
                   }}
                 />
               )}
@@ -233,7 +317,7 @@ export function GrantDialog({
                 onChange={setNarrow}
               />
               {narrow === "some" &&
-                (model ? (
+                (options ? (
                   <MultiSelect
                     label="Applications and record types"
                     options={narrowOptions}
@@ -248,7 +332,12 @@ export function GrantDialog({
               <p className="admin-hint">Reading is never narrowed: they read the whole workspace.</p>
             </fieldset>
           )}
-          {role && principal && (
+          {consumer && chosenApi && principal && (
+            <p className="grant-sentence" role="status">
+              {consumerApiSentence(principal.name, chosenApi.name, workspaceLabel)}
+            </p>
+          )}
+          {!consumer && role && principal && (
             <p className="grant-sentence" role="status">
               {grantSentence({
                 who: principal.name,
@@ -260,7 +349,7 @@ export function GrantDialog({
             </p>
           )}
           {error && (
-            <Notice tone="error" title="The role was not granted">
+            <Notice tone="error" title="Nothing was granted">
               {error}
             </Notice>
           )}

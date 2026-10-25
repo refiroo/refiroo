@@ -23,6 +23,8 @@ from ..paging import PageQuery
 from ..projections import authorization as present
 from ..schemas.authorization import (
     ActionGroupList,
+    GrantOption,
+    GrantOptionsResponse,
     GrantPage,
     GrantResponse,
     GroupMemberPage,
@@ -253,6 +255,23 @@ def list_user_grants(
     return present.grant_page(
         session,
         administration.user_grant_page(session, user_id, page=paging, page_size=page_size),
+    )
+
+
+@router.get("/workspaces/{workspace_key}/grant-options", response_model=GrantOptionsResponse)
+@requires("security.manage", at=INSTANCE)
+def get_grant_options(workspace_key: str, session: DbSession) -> GrantOptionsResponse:
+    """What a grant in the workspace can name: the applications, record types and consumer APIs
+    of its model, by key and name, without Browse there (D355)."""
+    found = administration.grant_options(session, workspace_key)
+
+    def listed(items: tuple[tuple[str, str], ...]) -> list[GrantOption]:
+        return [GrantOption(key=key, name=name) for key, name in items]
+
+    return GrantOptionsResponse(
+        applications=listed(found.applications),
+        recordTypes=listed(found.record_types),
+        consumerApis=listed(found.consumer_apis),
     )
 
 

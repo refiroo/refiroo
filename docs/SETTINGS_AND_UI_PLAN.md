@@ -92,9 +92,9 @@ becomes a select at the top of the page.
 | Security | People | List and detail: create, a one-time reset link, deactivate, sign out everywhere, last sign-in; roles by workspace with their narrowing and where they come from; groups; recent activity | `/users`, `/users/{id}/grants`, `/grants`, `/security-events` | 0.12 SP1 (built 2026-10-24); recent activity 0.12 Z4 (built 2026-10-24) |
 | Security | Groups | Local and provider groups; members (a provider group's as seen at sign-in); roles | `/groups`, `/grants` | 0.12 SP1 (built 2026-10-24, local groups; provider groups with I3) |
 | Security | Roles | The matrix of roles and action groups; predefined read-only; a custom role created, copied, edited | `/roles`, `/action-groups` | 0.12 SP1 (built 2026-10-24) |
-| Security | Clients | List and detail: create (secret shown once), rotate with an overlap, end a secret, deactivate; management roles and consumer API grants per workspace; last use | `/clients`, `/grants` | 0.12 SP2 |
+| Security | Clients | List and detail: create (secret shown once), rotate with an overlap, end a secret, deactivate; management roles and consumer API grants per workspace; last use; webhooks it created; recent activity | `/clients`, `/grants`, `/workspaces/{key}/grant-options`, `/security-events` | 0.12 SP2 (built 2026-10-25) |
 | Security | Sign-in | Sign-in providers; local accounts on or off | `/sign-in-providers` | 0.12 I3 |
-| Security | Signing keys | Token signing keys by age; rotate now | `/token-signing-keys` | 0.12 I1, SP2 |
+| Security | Signing keys | Token signing keys by age; rotate now | `/token-signing-keys` | 0.12 I1, SP2 (built 2026-10-25) |
 | Administration | Workspaces › a workspace › Access | Who can do what here, the grant dialog (who, role, narrowing of writes); Approvals tab with the four-eyes policy (Track A) | `/workspaces/{key}/access`, `/grants`, `/approval-policy` | 0.12 SP1 (built 2026-10-24, a section of the workspace's page), A3 |
 
 ### `GET /api/v1/system` (U3)
@@ -2645,6 +2645,16 @@ packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
   record's history, "See changes" on a person's page in Security › People (only for an
   administrator who reads data, D323) and **Your recent changes** on Home, the five latest with "See
   all your changes" (D346). Recent activity on a person's page stays their security events (D319).
+
+- _Built by SP2 (2026-10-25)_ from the approved Clients board and the "SP2 as planned" row:
+  **Clients** in the Security group, the catalogue beside the client, each with its access line and
+  last token (D348); a new client's ID and secret in the shown-once dialog; a client's page with who
+  created it (D349), Rename, **Rotate secret** choosing the overlap (D352), Deactivate or Restore,
+  See changes, **Secrets** by their last four characters with End now on the previous one (D350,
+  D351), **Access** with one **Grant** button whose dialog asks for a role or a consumer API (D354)
+  and reads the workspace's `grant-options` (D355), **Webhooks it created** for a webhook
+  administrator, and Recent activity; a webhook's page names its creator (D353); **Signing keys**
+  with Start a new key and Retire the current key now (D356). Sign-in waits for I3 (D357).
 
 U-D11 holds: each Security entry appears in the navigation only when its page is built.
 

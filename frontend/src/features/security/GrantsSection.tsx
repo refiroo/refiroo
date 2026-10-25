@@ -1,7 +1,7 @@
 /**
- * The grants a page is about, as a ruled table with "Grant a role" (0.12 SP1): a person's (where,
- * role, narrowing, through a group or directly), a group's (where, role, narrowing) and a
- * workspace's Access (who, kind, role, narrowing, from this workspace or the whole instance). A
+ * The grants a page is about, as a ruled table with "Grant" (0.12 SP1, SP2): a person's (where,
+ * role, narrowing, through a group or directly), a group's or client's (where, role or consumer
+ * API, narrowing) and a workspace's Access (who, kind, role, narrowing, from this workspace or the whole instance). A
  * grant made to the page's subject is removed here; one reaching it through a group links to the
  * group, and an instance grant on Access to its holder. A stale narrowing is said (D296).
  */
@@ -36,10 +36,10 @@ export function useWorkspaceLabels(): ReadonlyMap<string, string> {
   return new Map(data?.items.map((workspace) => [workspace.key, workspace.label]));
 }
 
-function principalRoute(principal: Grant["principal"]): SettingsRoute | undefined {
+function principalRoute(principal: Grant["principal"]): SettingsRoute {
   if (principal.kind === "user") return { kind: "settings", page: "people", userId: principal.id };
   if (principal.kind === "group") return { kind: "settings", page: "groups", groupId: principal.id };
-  return undefined;
+  return { kind: "settings", page: "clients", clientId: principal.id };
 }
 
 export function GrantsSection({
@@ -51,6 +51,7 @@ export function GrantsSection({
   onNavigate,
   headingLevel = 2,
   className,
+  onChanged,
 }: {
   /** Whose grants these are, or the workspace whose access they are. */
   subject: { principal: PickedPrincipal } | { workspace: { key: string; label: string } };
@@ -61,6 +62,8 @@ export function GrantsSection({
   onNavigate: (route: RouteState) => void;
   headingLevel?: 2 | 3;
   className?: string;
+  /** After a grant is made or removed here, for a page whose other parts name the access. */
+  onChanged?: () => void;
 }) {
   const feed = useCursorFeed(load, deps);
   const labels = useWorkspaceLabels();
@@ -83,6 +86,7 @@ export function GrantsSection({
     try {
       await security.deleteGrant(grant.id);
       feed.setItems((items) => items.filter((item) => item.id !== grant.id));
+      onChanged?.();
       toast(`${grant.principal.name} no longer holds ${grantHeld(grant)} ${place(grant)}.`);
     } catch (cause) {
       setError(errorMessage(cause));
@@ -93,20 +97,20 @@ export function GrantsSection({
 
   function holder(grant: Grant) {
     const route = principalRoute(grant.principal);
-    return route ? (
+    return (
       <RouteLink href={routePath(route)} onNavigate={() => onNavigate(route)}>
         {grant.principal.name}
       </RouteLink>
-    ) : (
-      grant.principal.name
     );
   }
 
+  // A client's grants are mostly consumer APIs, so its column names what is granted (D354).
+  const held = principal?.kind === "client" ? "Grant" : "Role";
   const columns = workspace
     ? ["Who", "Kind", "Role", "Narrowed to (writes)", "From", { hidden: "Actions" }]
     : principal?.kind === "user"
       ? ["Where", "Role", "Narrowed to (writes)", "Through", { hidden: "Actions" }]
-      : ["Where", "Role", "Narrowed to (writes)", { hidden: "Actions" }];
+      : ["Where", held, "Narrowed to (writes)", { hidden: "Actions" }];
 
   return (
     <Section
@@ -116,7 +120,7 @@ export function GrantsSection({
       className={className}
       actions={
         <button ref={grantRef} type="button" className="secondary" onClick={() => setGranting(true)}>
-          <Icon name="plus" /> Grant a role
+          <Icon name="plus" /> Grant
         </button>
       }
     >
@@ -131,7 +135,11 @@ export function GrantsSection({
         <p className="admin-hint">Loading roles…</p>
       ) : !feed.items.length ? (
         <p className="admin-hint">
-          {workspace ? "No one has a role in this workspace yet." : "No roles yet. Grant one to give access."}
+          {workspace
+            ? "No one has a role in this workspace yet."
+            : principal?.kind === "client"
+              ? "No access yet. Grant a role or a consumer API."
+              : "No roles yet. Grant one to give access."}
         </p>
       ) : (
         <SettingsTable label={title} columns={columns}>
@@ -170,7 +178,7 @@ export function GrantsSection({
             ) : (
               <tr key={grant.id}>
                 <th scope="row">{grantWhere(grant, labels)}</th>
-                <td data-label="Role">{grantHeld(grant)}</td>
+                <td data-label={held}>{grantHeld(grant)}</td>
                 {narrowed}
                 {principal?.kind === "user" && (
                   <td data-label="Through">
@@ -200,6 +208,7 @@ export function GrantsSection({
             setGranting(false);
             toast(`${grant.principal.name} now holds ${grantHeld(grant)} ${place(grant)}.`);
             feed.reload();
+            onChanged?.();
             grantRef.current?.focus();
           }}
         />

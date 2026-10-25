@@ -2037,7 +2037,9 @@ files kept to their uploader and their workspace. SP1 (2026-10-24): the UI chann
 Security › People, Groups and Roles and a workspace's Access, shown to Security administrators; a
 person's roles in the people list and their grants through groups, groups and clients found by
 name, and a role held only at the instance refused in a workspace, through the API. Z5 (2026-10-24):
-J40.12, the interface following the person's permissions (J40.1–J40.3's UI channel).
+J40.12, the interface following the person's permissions (J40.1–J40.3's UI channel). SP2
+(2026-10-25): consumer API grants on a page (the grant dialog's "What"), and the grant dialog usable
+by a Security administrator without Browse (`grant-options`).
 
 1. Create a person; they set a password through a one-time link.
 2. Grant them a role in a workspace, directly or through a group, optionally narrowing what they may
@@ -2085,7 +2087,11 @@ the main flow through the API (any active client may use every route until Z1), 
 the first client from `create_client`. Z1 (2026-10-23): a client does what its roles allow, granted
 like a person's (step 2 for the management API; `create_client --role`). Z3 (2026-10-24): J41.2,
 a consumer API granted in a workspace (step 2 for the consumer APIs) through the API; the index
-lists only what is granted, and a subscription names the client or person that created it.
+lists only what is granted, and a subscription names the client or person that created it. SP2
+(2026-10-25): the UI channel: Settings › Security › Clients (create with the ID and secret shown
+once, rotate with a chosen overlap, end the previous secret, rename, deactivate and restore, its
+access, the webhooks it created, its recent activity) and Signing keys; a client's reads name its
+roles, consumer APIs and creator, and each secret its last four characters (J41.3), through the API.
 
 1. A security administrator creates a client and copies its secret, shown once.
 2. Grant it a role on the management API or a consumer API in a workspace.

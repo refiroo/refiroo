@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from .common import ActorResponse, CollectionPage
+from .common import ActorResponse, CollectionPage, PrincipalResponse
 
 
 class MeResponse(BaseModel):
@@ -93,6 +93,17 @@ class ClientSecretInfo(BaseModel):
     createdAt: datetime
     expiresAt: datetime | None = Field(description="The end of its overlap after a rotation")
     lastUsedAt: datetime | None
+    hint: str | None = Field(
+        description="Its last four characters, to tell secrets apart; null for a secret made "
+        "before 0.12 SP2 (D350)"
+    )
+
+
+class ClientConsumerApi(BaseModel):
+    """A consumer API a client is granted, by key: its name comes from each workspace's model."""
+
+    key: str
+    workspaces: list[UserRoleWorkspace] = Field(description="The workspaces it is granted in")
 
 
 class ClientResponse(BaseModel):
@@ -104,6 +115,15 @@ class ClientResponse(BaseModel):
     updatedAt: datetime
     lastUsedAt: datetime | None = Field(description="When the client last obtained a token")
     secrets: list[ClientSecretInfo]
+    roles: list[UserRole] = Field(
+        description="The roles the client holds and where; a client belongs to no group (D348)"
+    )
+    consumerApis: list[ClientConsumerApi] = Field(
+        description="The consumer APIs the client is granted, each with its workspaces (D348)"
+    )
+    createdBy: PrincipalResponse | None = Field(
+        description="Who created it; null when made on the server or before 0.12 Z4 (D349)"
+    )
 
 
 class ClientWithSecret(ClientResponse):

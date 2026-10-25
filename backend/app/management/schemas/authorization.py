@@ -191,3 +191,16 @@ class HeldAnywhere(BaseModel):
 
 class HeldAnywhereList(BaseModel):
     items: list[HeldAnywhere] = Field(description="In the catalogue's order")
+
+
+class GrantOption(BaseModel):
+    key: str
+    name: str
+
+
+class GrantOptionsResponse(BaseModel):
+    """What a grant in a workspace can name, from the workspace's model (0.12 SP2, D355)."""
+
+    applications: list[GrantOption] = Field(description="Applications a grant may narrow to")
+    recordTypes: list[GrantOption] = Field(description="Record types a grant may narrow to")
+    consumerApis: list[GrantOption] = Field(description="Consumer APIs a grant may name")

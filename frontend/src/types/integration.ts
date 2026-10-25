@@ -547,6 +547,8 @@ export interface Subscription {
     } | null;
   };
   signingKeyCreatedAt: string;
+  /** Who created it; null for a subscription from before 0.12 Z3 (D310). */
+  owner?: { kind: "user" | "client"; id: string; name: string } | null;
   version: number;
   createdAt: string;
   updatedAt: string;

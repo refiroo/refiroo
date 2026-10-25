@@ -17,11 +17,12 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import ApiError, api_error
 from ...models.commands import ClientCreate, ClientSecretCreate, ClientUpdate
-from ...models.database import OAuthClient, OAuthClientSecret
+from ...models.database import AuditEvent, OAuthClient, OAuthClientSecret
 from ..authorization.administration import grant_roles
 from ..reads.object_query import name_contains
 from . import security_events
 from .passwords import hash_secret, verify_secret
+from .principals import actors
 
 _KEYS = (integer_key("sequenceId", OAuthClient.id, "id"),)
 
@@ -91,7 +92,11 @@ def create_client(
         client = OAuthClient(name=payload.name, active=True)
         session.add(client)
         session.flush()
-        session.add(OAuthClientSecret(client_id=client.id, secret_hash=hash_secret(secret)))
+        session.add(
+            OAuthClientSecret(
+                client_id=client.id, secret_hash=hash_secret(secret), hint=secret[-4:]
+            )
+        )
         if roles:
             grant_roles(session, "client", client.id, roles)
         session.flush()
@@ -141,7 +146,9 @@ def add_secret(
             )
             .values(expires_at=ends)
         )
-        added = OAuthClientSecret(client_id=client.id, secret_hash=hash_secret(secret))
+        added = OAuthClientSecret(
+            client_id=client.id, secret_hash=hash_secret(secret), hint=secret[-4:]
+        )
         session.add(added)
         _touch(client)
         session.flush()
@@ -180,6 +187,28 @@ def remove_secret(session: Session, public_id: str, secret_id: str) -> OAuthClie
         return client
 
     return _changing(session, change)
+
+
+def creators(session: Session, public_ids: list[str]) -> dict[str, dict[str, str] | None]:
+    """Who created each client, from its ``created`` security event (D349): a person or client, or
+    None when made on the server (``create_client``) or before Z4."""
+    if not public_ids:
+        return {}
+    events = list(
+        session.scalars(
+            select(AuditEvent).where(
+                AuditEvent.aggregate_type == "client",
+                AuditEvent.action == "created",
+                AuditEvent.aggregate_id.in_(public_ids),
+            )
+        )
+    )
+    named = actors(session, events)
+    found: dict[str, dict[str, str] | None] = {}
+    for event in events:
+        actor = named[event.sequence_id]
+        found[event.aggregate_id] = actor if actor and actor.get("kind") != "engine" else None
+    return found
 
 
 def authenticate_client(session: Session, client_id: str, secret: str) -> OAuthClient | None:

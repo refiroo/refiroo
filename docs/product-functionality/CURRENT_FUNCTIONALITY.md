@@ -37,7 +37,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account | Available | 0.12 I1, I2 |
-| F27 | Control who can do what | Settings › Security (People, Groups, Roles), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5 |
+| F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
 (`frontend/e2e/`). The acceptance runs are recorded in the release plans.
@@ -393,8 +393,7 @@ Limits: changes recorded before 0.12 name nobody and read "Before sign-in". Cons
 one; the management feed does. The move editor shows no history list; its operations name their
 author through the API. The Changes page shows no values (a record's history does), cannot be
 exported, and leaves out model-to-model mapping operations; changes from before 0.9's feed name no
-workspace and show only to someone who reads every workspace. A client's page arrives with 0.12
-SP2; a client's changes open from its name in a history until then.
+workspace and show only to someone who reads every workspace.
 
 Evidence: [history panel](../../frontend/src/features/objects/panels/HistoryPanel.tsx),
 [audit](../../backend/app/engine/records/audit.py),
@@ -642,7 +641,8 @@ choose (or an empty record for a new type). The page's buttons and fields are sh
 the preview changes no data. **Edit layout** opens the layout editor over the whole editor, with
 **Back to the model editor**: move panels up and down or between the main column and the side, hide
 or show them, rename them and choose their columns and sort; move fields, group them into new field
-groups and add missing ones; choose a table's columns, filters and default sort. Every change is a
+groups and add missing ones; choose a table's columns, filters and default sort, among them the
+record's relationships, its parent's first, so a list shows and filters by each record's parent. Every change is a
 step with undo and redo; each has a menu that works by keyboard, and with a mouse it can be dragged.
 A type the model gives no detail page of its own can be given one in a step. After install and
 activate, the record screen shows the same layout. A draft with errors is not previewed until they
@@ -1266,9 +1266,8 @@ are signed in, signing out one browser or all of them. An administrator signs a 
 deactivates them (their access ends at once) or makes a one-time link that sets their password, for a
 new person or a forgotten password. Systems obtain tokens with a client's credentials (F16).
 
-Limits: no sign-in provider (single sign-on) until 0.12 I3. What a person may do is F27. The
-administration pages for people and clients come with the
-Security pages; until then they are API calls. Local accounts have a password only; multi-factor
+Limits: no sign-in provider (single sign-on) until 0.12 I3. What a person may do is F27; people,
+clients and signing keys are managed in Settings › Security (F27). Local accounts have a password only; multi-factor
 sign-in comes with a sign-in provider.
 
 Evidence: [authentication contract](../API.md#authentication), [OPERATIONS](../OPERATIONS.md#signing-in-from-the-browser),
@@ -1330,6 +1329,19 @@ Access lists such a grant as "Consumer API: *name*" and removes it like any othe
 API's OpenAPI document tells a generated client how to obtain its token. A webhook subscription names
 the person or client that created it; administrators manage it as before.
 
+**Clients** in Settings › Security lists the systems that call the API, each with what it may use
+(its consumer APIs and where, its roles) and when it last obtained a token, searched by name and
+shown active or deactivated. A new client's ID and secret are shown once. A client's page says who
+created it, renames it, deactivates or restores it, and **rotates its secret**: a new one is shown
+once, and the current one keeps working for an hour, a day or a week so the system switches without
+a gap, or stops at once for a leaked secret; secrets are told apart by their last four characters,
+and the previous one can be ended early. Its **Access** grants it a role or a consumer API through
+the same dialog, which now asks what to grant: a role, or a consumer API of the chosen workspace's
+own model. The page lists the webhooks it created (for someone who administers webhooks), its
+recent activity and, for someone who reads data, its changes. A webhook's page names who created
+it. **Signing keys** lists the keys access tokens are signed with, which change every 30 days on
+their own; a new key can be started at once, and the current one retired at once after a leak.
+
 The interface offers each person only what their roles allow in the workspace open, and a piece of
 work only when they can finish it: nothing is shown disabled. A Reader sees records, relationships,
 trees and matrices with no way to change them, and the band at the top says "You can read this
@@ -1347,11 +1359,12 @@ administrator to People). The workspace selector lists only workspaces the perso
 Settings lists only the pages of groups they hold somewhere. The engine still checks everything; a
 refusal (a role changed meanwhile) is shown as worded and the page follows at once.
 
-Limits: consumer API grants are made through the API until the clients page arrives (SP2), which
-also shows a subscription's owner; clients are managed through the API until SP2; groups from a
-sign-in provider come with I3; a Contributor's change set waits for someone to notice it until
+Limits: groups from a sign-in provider come with I3; a webhook's signing key is rotated with K1; a
+client's secret overlap other than an hour, a day or a week, or none, is set through the API;
+secrets made before 0.12 SP2 show no last four characters; a Contributor's change set waits for someone to notice it until
 approvals (A1–A3); an import into a narrowed grant is offered before its file is read, so rows of
 other types are refused in its preview.
 
 Evidence: [authorization contract](../API.md#authorization), [OPERATIONS](../OPERATIONS.md#roles-and-grants),
-[catalogue](../../backend/app/engine/authorization/catalogue.py), [route check](../../backend/app/management/access.py).
+[catalogue](../../backend/app/engine/authorization/catalogue.py), [route check](../../backend/app/management/access.py),
+[Clients page](../../frontend/src/features/security/ClientsPage.tsx), [SP2 runner](../../frontend/e2e/sp2-clients.mjs).

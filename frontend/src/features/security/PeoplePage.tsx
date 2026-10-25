@@ -16,7 +16,6 @@ import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { routePath } from "@/routing/routes";
 import type { Group, PasswordResetLink, RouteState, SettingsRoute, User } from "@/types";
-import { ActorName } from "@/ui/ActorName";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { FormField } from "@/ui/FormField";
@@ -27,16 +26,16 @@ import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { SearchField } from "@/ui/SearchField";
 import { Section } from "@/ui/Section";
-import { Timeline } from "@/ui/Timeline";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { ShownOnceDialog } from "@/ui/ShownOnceDialog";
 import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
 import { readsChanges } from "@/features/changes/changeText";
-import { GrantsSection, useWorkspaceLabels } from "./GrantsSection";
+import { GrantsSection } from "./GrantsSection";
 import { useHeldAnywhere } from "./permissions";
 import { PickDialog } from "./PickDialog";
-import { securityEventTitle, userRoleLine } from "./securityText";
+import { RecentActivity } from "./RecentActivity";
+import { userRoleLine } from "./securityText";
 
 type PeopleRoute = Extract<SettingsRoute, { page: "people" }>;
 
@@ -506,7 +505,7 @@ function PersonDetail({
         onNavigate={onNavigate}
       />
       <PersonGroups user={user} onNavigate={onNavigate} />
-      <RecentActivity user={user} />
+      <RecentActivity principal={user} />
       {editing && (
         <EditPersonDialog
           user={user}
@@ -680,42 +679,6 @@ function EditPersonDialog({
 }
 
 /** The person's groups, each linked, with Remove and "Add to a group" (D300). */
-/** What was done to or by the person in Security, newest first (0.12 Z4, D319): their record
- * changes stay in the workspaces' history, since a Security administrator holds no data. */
-function RecentActivity({ user }: { user: User }) {
-  const feed = useCursorFeed((cursor) => security.securityEvents(user.id, cursor), [user.id, user.version]);
-  const labels = useWorkspaceLabels();
-  return (
-    <Section title="Recent activity">
-      {feed.error ? (
-        <InlineError message={feed.error} onRetry={feed.retry} />
-      ) : !feed.items.length ? (
-        <p className="admin-hint">{feed.loading ? "Loading activity…" : "No activity recorded yet."}</p>
-      ) : (
-        <Timeline
-          label={`${user.name}'s recent activity`}
-          entries={feed.items.map((event) => ({
-            key: event.id,
-            title: securityEventTitle(event, labels),
-            at: event.occurredAt,
-            after: event.actor && (
-              <>
-                {" "}
-                · <ActorName actor={event.actor} />
-              </>
-            ),
-          }))}
-        />
-      )}
-      {feed.hasMore && !feed.error && (
-        <button type="button" className="load-more inline history-more" disabled={feed.loading} onClick={feed.loadMore}>
-          {feed.loading ? "Loading…" : "Load more"}
-        </button>
-      )}
-    </Section>
-  );
-}
-
 function PersonGroups({ user, onNavigate }: { user: User; onNavigate: (route: RouteState) => void }) {
   const feed = useCursorFeed((cursor) => security.groups({ memberId: user.id, cursor, pageSize: 100 }), [user.id]);
   const [adding, setAdding] = useState(false);

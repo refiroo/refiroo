@@ -88,7 +88,18 @@ Its journeys and those whose entries changed, the unit and contract tests, a smo
 on a copy of the development database, the touched Vitest folders and the runners `z6-changes`,
 `hm1-home` and `sp1-security` passed. The full backend suite ran: of its five failures, three from
 Z3 and Z4's test budgets and harness are fixed, one fails only under its load (TODO), and it took
-13 min 9 s, over its ceiling (TODO). Next: SP2, I3, K1, C1 and E1 above the cut line, then A1–A3, L1, L2 and R.
+13 min 9 s, over its ceiling (TODO). **SP2, clients and their access, is delivered (2026-10-25)**,
+D348–D357: Settings › Security › Clients (the ID and secret shown once, rotation with a chosen
+overlap, secrets told apart by their last four characters, the previous one ended early, rename,
+deactivate and restore, its access, the webhooks it created, its recent activity) and Signing keys;
+the grant dialog grants a consumer API and reads `GET /workspaces/{key}/grant-options`, so a Security
+administrator without Browse can use it; a client's reads name its roles, consumer APIs and creator
+(migration `20261103_01`) ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#sp2-record-2026-10-25)). Its
+journeys, the identity, security-page and consumer-grant journeys, the contract, startup and
+foreign-key tests, the touched Vitest folders and the runners `sp2-clients`, `sp1-security`,
+`u5-webhooks` and `u3-settings` passed; the development database upgraded through the running
+server. Sign-in providers stay with I3. Next: I3, K1, C1 and E1 above the cut line, then A1–A3, L1,
+L2 and R.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 

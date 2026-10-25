@@ -244,10 +244,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (OwnChangeSetPage, OwnChangeSetResponse), and product on GET /system (InstanceProduct, D338).
     # Diffed against 56f090d, nothing else changed. Re-baselined for 0.12 Z6 (D340, D343): GET
     # /changes (ChangePage, ChangeEntry, ChangeWorkspace, ChangeSetRef, ChangeSubject, ChangeObject,
-    # ChangeAttribute, ChangeCause). Diffed against 56903d2, nothing else changed.
+    # ChangeAttribute, ChangeCause). Diffed against 56903d2, nothing else changed. Re-baselined for
+    # 0.12 SP2 (D348–D350, D355): a client's roles, consumerApis (ClientConsumerApi) and createdBy,
+    # a secret's hint, and GET /workspaces/{workspace_key}/grant-options (GrantOptionsResponse,
+    # GrantOption). Diffed against Z6's lock, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "b6eee446439ca6c43ddef54099c50279b04ac0547d229994947cb97996e29e24"
+        "886676bfd53430437b4193d78dc82d567eab8e1463a6e85c4e13419a2b6319cd"
     )
 
 

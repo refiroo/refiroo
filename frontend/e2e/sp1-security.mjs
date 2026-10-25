@@ -105,10 +105,10 @@ async function walk(configuration) {
     // dialog, Escape returns to its button.
     await page.reload();
     await page.getByRole("heading", { level: 2, name: lena.name }).waitFor();
-    const grantButton = page.getByRole("button", { name: "Grant a role" });
+    const grantButton = page.getByRole("button", { name: "Grant", exact: true });
     await grantButton.focus();
     await page.keyboard.press("Enter");
-    let dialog = page.getByRole("dialog", { name: `Grant ${lena.name} a role` });
+    let dialog = page.getByRole("dialog", { name: `Grant ${lena.name} access` });
     await dialog.getByText("Where").waitFor();
     await page.keyboard.press("Tab");
     expect(
@@ -133,10 +133,10 @@ async function walk(configuration) {
             }),
         )
         .catch(() => false),
-      `${tag}: Escape returns to Grant a role`,
+      `${tag}: Escape returns to Grant`,
     );
     await grantButton.click();
-    dialog = page.getByRole("dialog", { name: `Grant ${lena.name} a role` });
+    dialog = page.getByRole("dialog", { name: `Grant ${lena.name} access` });
     await dialog.getByRole("button", { name: /Role$/ }).click();
     await page.getByRole("option", { name: /^Data steward/ }).click();
     await dialog.getByText("Only these applications and record types").click();
@@ -193,8 +193,8 @@ async function walk(configuration) {
     await page.getByRole("option", { name: new RegExp(lena.name) }).click();
     await memberDialog.getByRole("button", { name: "Add to the group" }).click();
     await page.getByRole("group", { name: "Members" }).getByText(lena.username).waitFor();
-    await page.getByRole("button", { name: "Grant a role" }).click();
-    dialog = page.getByRole("dialog", { name: "Grant Curators a role" });
+    await page.getByRole("button", { name: "Grant", exact: true }).click();
+    dialog = page.getByRole("dialog", { name: "Grant Curators access" });
     await dialog.getByRole("button", { name: /Workspace$/ }).click();
     await page.getByRole("option", { name: new RegExp(SECOND.label) }).click();
     await dialog.getByText(`Curators will read everything in ${SECOND.label}.`).waitFor();

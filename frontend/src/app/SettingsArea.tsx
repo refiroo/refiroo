@@ -19,6 +19,8 @@ import { WebhooksPage } from "@/features/settings/WebhooksPage";
 import { GroupsPage } from "@/features/security/GroupsPage";
 import { PeoplePage } from "@/features/security/PeoplePage";
 import { RolesPage } from "@/features/security/RolesPage";
+import { ClientsPage } from "@/features/security/ClientsPage";
+import { SigningKeysPage } from "@/features/security/SigningKeysPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
 import { ModelEditor } from "@/features/model-editor/ModelEditor";
 import { workspaceModel } from "@/model/workspaceModels";
@@ -128,6 +130,10 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         <GroupsPage route={route} onNavigate={(next) => navigate(next)} />
       ) : route.page === "roles" ? (
         <RolesPage />
+      ) : route.page === "clients" ? (
+        <ClientsPage route={route} onNavigate={(next) => navigate(next)} />
+      ) : route.page === "signing-keys" ? (
+        <SigningKeysPage />
       ) : route.page === "api-reference" ? (
         <ApiReferencePage />
       ) : route.page === "workspaces" ? (

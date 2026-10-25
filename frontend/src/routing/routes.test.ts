@@ -71,6 +71,9 @@ describe("routes", () => {
     ["/settings/people/u-1", { kind: "settings", page: "people", userId: "u-1" }],
     ["/settings/groups/g-1", { kind: "settings", page: "groups", groupId: "g-1" }],
     ["/settings/roles", { kind: "settings", page: "roles" }],
+    ["/settings/clients", { kind: "settings", page: "clients" }],
+    ["/settings/clients/c-1", { kind: "settings", page: "clients", clientId: "c-1" }],
+    ["/settings/signing-keys", { kind: "settings", page: "signing-keys" }],
     ["/settings/webhooks", { kind: "settings", page: "webhooks" }],
     ["/settings/webhooks/6f1c-2a", { kind: "settings", page: "webhooks", subscriptionId: "6f1c-2a" }],
     [

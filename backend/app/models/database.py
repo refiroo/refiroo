@@ -2070,6 +2070,8 @@ class OAuthClientSecret(Base):
         ForeignKey("oauth_clients.id", ondelete="CASCADE"), nullable=False
     )
     secret_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    # The secret's last four characters, to tell secrets apart (SP2, D350); None before SP2.
+    hint: Mapped[str | None] = mapped_column(String(4), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
