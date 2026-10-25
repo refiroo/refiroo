@@ -174,6 +174,7 @@ Checked against the code at `272a9c0`:
 | — | A sign-in provider (OIDC) and its groups | I3 |
 | — | The interface follows the caller's permissions; read-only and minimal editing (idea 5) | Z5 |
 | — | Approvals and the inbox (idea 3, D232) | A1–A3 |
+| — | A record's parent as a list column and filter (the user, 2026-10-25) | TV1 |
 | — | The security exit gate composed; independent review (AGENTS.md) | E1 |
 
 ## Tracks overview
@@ -952,6 +953,172 @@ the user by issuer and subject, takes the provider's groups as **provider groups
 its own token. Local accounts can be switched off once a provider works, with the first
 administrator kept as the way back (OPERATIONS). Tested against a minimal provider in the harness;
 one sign-in against a real provider the user names (Microsoft Entra ID, Google, Keycloak) before E1.
+
+##### I3 plan (2026-10-25)
+
+**Planned 2026-10-25, waiting for the user's acceptance:** D361–D370, the test cases and the "I3 as
+planned" boards ([security mock-ups canvas](https://claude.ai/artifact/CiHGaobpx8jsqaNZvmfXXo), the
+tenth row: Settings › Security › Sign-in, a provider group, the sign-in page with local sign-in off,
+Sign-in at 390px). Checked against the code at `9c702d7` with TV1 in the working tree, the approved
+sign-in and Groups boards (the provider's button, "From Northfield Entra ID", "Members seen"),
+API.md § Security (sign-in providers, provider groups' `source`), J39.7, D224, D225, D229 and D253.
+
+**What the check found:**
+
+- **The sign-in already has a place for a provider:** an authorization code and a session record
+  `signed_in_with` (`password` today), `/me` answers `signedInWith`, and `issue_code` takes it as a
+  parameter; the browser's side of the flow (PKCE with the engine, the refresh cookie) needs nothing
+  new. A provider sign-in ends where the password form ends: `issue_code` and the redirect.
+- **Nothing stores a provider, an identity or a provider group:** `users` has no issuer or subject,
+  `user_groups` no source, and no table holds a provider's settings. API.md designs the routes
+  (`/sign-in-providers`, `PATCH /sign-in-providers/local`) and a group's `source: {provider, name}`.
+- **The engine has no HTTP client for the provider:** `httpx` is a development dependency only;
+  `engine/events/webhook_client.py` speaks HTTP with the standard library and checks the address
+  before connecting. `pyjwt` and `cryptography` are installed and verify RS256 and ES256.
+- **"The administrator created by the CLI" is not recorded:** `create_admin` makes a person like any
+  other; only its `created` security event, which names no actor, tells the two apart.
+- **The approved boards** show the button on the sign-in page ("Continue with Northfield Entra ID")
+  and a provider group ("From Northfield Entra ID", the claim, "Members seen" with when each was seen,
+  membership changed in the provider). **No board shows Settings › Security › Sign-in**, nor the
+  sign-in page with local sign-in off; the "I3 as planned" row draws both.
+- **Microsoft Entra ID sends groups as object IDs** (GUIDs) unless configured otherwise, so a group's
+  claim value is not a name a person can read; the approved board's "herbarium-staff" needs a name of
+  its own (D364).
+- **Reference patterns:** `ClientsPage` (the catalogue beside the entry, `CopyValue`),
+  `SigningKeysPage` (a paragraph saying what the page does), `ConfirmDialog`, `GroupsPage`,
+  `useHoldsGroup` (D303, D328); the harness's own servers in `test_j30_delivery.py` (a receiver on a
+  loopback port).
+
+**What is built:**
+
+1. **Migration** `20261104_01_sign_in_providers`: `sign_in_providers` (key, name, issuer, client
+   ID, the client secret sealed with `SECRETS_ENCRYPTION_KEY`, groups claim, enabled, version, last
+   sign-in); `local_sign_in` (one row: enabled, version); `user_identities` (person, provider,
+   subject; unique per provider and subject); `provider_sign_ins` (a pending sign-in: the state's
+   hash, the browser binding's hash, nonce, the provider's PKCE verifier, the browser's own
+   authorization request, expiry, used); `user_groups.provider_id` and `claim_value` (unique per
+   provider); `user_group_members.seen_at`; `users.local_kept` (D365), set for every person whose
+   `created` event names no actor.
+2. **Engine** `engine/identity/providers.py` (settings, the discovery check, the secret sealed),
+   `provider_client.py` (D362), `provider_sign_in.py` (start, callback, the ID token checked, the
+   person found or created, the provider groups, D361, D363, D364), and the local switch (D365).
+3. **Pages** (open, outside the API, D361): `GET /oauth/providers/{key}/start` with the browser's
+   authorization request, redirecting to the provider; `GET /oauth/providers/{key}/callback`, ending
+   with the same `303` and one-time code the password form gives, or the engine's page explaining why
+   not (D368). The sign-in page lists each enabled provider as **Continue with *name*** below the
+   form; with local sign-in off, only the buttons and **Sign in with a local administrator account**
+   (D365).
+4. **API** (`security-admin` at the instance, cursor-paged list, writes with `expectedVersion`):
+   `GET|POST /sign-in-providers`, `GET|PATCH|DELETE /sign-in-providers/{key}` (`key`, `name`,
+   `issuer`, `clientId`, `clientSecret` write-only and answered as `clientSecretSet`, `groupsClaim`,
+   `enabled`, `redirectUri`, `lastSignInAt`, `people`: how many have signed in with it, D366);
+   `GET|PATCH /sign-in-providers/local` (`enabled`, `keptPeople`, D365). A group answers `source`
+   (`{provider: {key, name}, claimValue}`, `null` for a local group) and `POST /groups` takes it to
+   make a provider group ahead (D364); a provider group's member reads `seenAt`. A person answers
+   `identities` (`[{provider: {key, name}, subject}]`) and `localKept`. Refusals:
+   `404 SIGN_IN_PROVIDER_NOT_FOUND`, `409 SIGN_IN_PROVIDER_KEY_TAKEN`,
+   `422 SIGN_IN_PROVIDER_UNREACHABLE` (with the reason), `409 SIGN_IN_PROVIDER_IN_USE`,
+   `409 NO_WORKING_PROVIDER`, `409 LOCAL_SIGN_IN_OFF`, `409 GROUP_FROM_PROVIDER`. OpenAPI lock
+   re-baselined from a diff.
+5. **Settings › Security › Sign-in** (`/settings/sign-in[/{key}]`), as the "I3 as planned" board:
+   what the page does in a paragraph; the catalogue with **Local accounts** first (On or Off, the
+   kept administrators counted) and each provider (Enabled or Disabled, people, last sign-in);
+   **New provider** (name, key, issuer, client ID, client secret, groups claim); a provider: the
+   **address to register** with Copy, its settings edited in place (the secret "Saved · type a new
+   one to replace it"), **Disable** or **Enable**, **Delete** when nobody signed in with it; Local
+   accounts: **Turn off** (a confirmation naming who can still use a password) or **Turn on**.
+6. **Groups:** provider groups under "From *provider*" in the catalogue; a provider group as the
+   approved board, with its claim value, **Rename**, no Add a member or Remove, "Members seen" with
+   when; **New group** offers "From a sign-in provider" (the provider and the claim value) (D364).
+7. **People:** a person's page says "Signs in with *provider*" (or "Signs in with a password", and
+   "Keeps local sign-in" for a kept administrator); while local sign-in is off, **New person** and
+   **Send a password link** are hidden for people who could not use them (D365). **Account** names
+   the provider the session came from ("Signed in with Northfield Entra ID").
+8. **The harness provider** (D369) and a seeded provider in neither seed: the journeys and the runner
+   configure it through the API or the page.
+9. **Documents:** API.md (the delivered parts), OPERATIONS (registering the engine with a provider:
+   Entra ID, Google, Keycloak; the groups claim and Entra ID's object IDs and overage; turning local
+   sign-in off and the way back with `create_admin`; leavers, D367), ARCHITECTURE (the provider
+   sign-in), DECISIONS (ADR-043's consequences: a provider person), SETTINGS_AND_UI_PLAN (U8, the
+   settings table), USER_JOURNEYS (J39.7, J40's provider groups) and API_JOURNEYS,
+   CURRENT_FUNCTIONALITY, UI_ACCEPTANCE (I3 state rows), EXECUTION_GUIDE (the runner), CHANGELOG,
+   PROJECT_STATUS.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D361 | How the engine signs a person in through a provider | **Recommended:** the engine is the provider's confidential client and uses the authorization code flow with PKCE (`S256`) and a nonce. The sign-in page's button opens `/oauth/providers/{key}/start` carrying the browser's own authorization request; the engine keeps a pending sign-in in the database (the state's hash, nonce, verifier, the browser's request; 10 minutes, used once) and binds it to the browser with an `HttpOnly`, `SameSite=Lax` cookie on `/oauth/providers`; the provider returns to `/oauth/providers/{key}/callback`, where the engine exchanges the code with the client secret, checks the ID token (signature against the provider's published keys, RS256, PS256 or ES256 only; `iss`, `aud`, `azp`, `exp`, `iat`, `nonce`) and ends as the password form ends: a one-time code to the browser. Why: the browser's token flow stays the one I2 built; the database holds the pending sign-in so any process can finish it; the cookie stops someone from signing a victim in to the attacker's account (login CSRF); `Lax` is needed because the provider's redirect is a cross-site navigation. The userinfo endpoint is not read: the ID token holds what is needed. Cost: one table and a second cookie |
+| D362 | How the engine reaches the provider | **Recommended:** a small client on the standard library beside `webhook_client.py`, sharing its address check (link-local refused); `https` required unless the issuer names a loopback host (the harness); 10 seconds per call; the discovery document and the keys cached per process for an hour, the keys fetched again once when a token names an unknown `kid`. Why: no new runtime dependency (`httpx` is development-only); the webhook client already proves the pattern; the key refetch follows a provider's key rotation without waiting for the cache. Cost: a client of our own to keep |
+| D363 | Who a provider's person is | **Recommended:** found by the provider and the token's `sub` (`user_identities`), never matched to an existing person by e-mail or username. At the first sign-in a person is created: name from `name`, e-mail from `email`, username from `preferred_username`, else `email`, else `<provider key>-<sub>`, with `-2`, `-3` added when taken; no password. Name and e-mail are refreshed from the token at each sign-in. A deactivated person is refused. Reads of a person answer `identities`. Why: an e-mail claim does not prove ownership with every provider (Entra ID lets some be set by the user), and matching on it is a known way to take over an account; `sub` is the provider's stable identifier. Cost: someone who already has a local account becomes a second person at their first provider sign-in; an administrator grants the new one and deactivates the old (OPERATIONS). Linking an identity to an existing person is left out (D370) |
+| D364 | Provider groups (D229) | **Recommended:** a provider group is a row of `user_groups` with its provider and **claim value**; its name starts as the claim value and can be renamed, the claim value cannot. It is created when a sign-in first names it, or ahead of anyone's sign-in with `POST /groups {name, source: {provider, claimValue}}`, so roles can be granted before people arrive. At each sign-in the person's memberships in that provider's groups become exactly the claim's values (`seen_at` updated, groups no longer named left); adding or removing members through the API is refused (`409 GROUP_FROM_PROVIDER`). A provider without a groups claim uses no groups; a token without the claim means no groups. A sign-in that removes the last Security administrator's group is not refused (D283): the provider is where membership is decided. Why: membership lives in the organisation's directory (D229); Entra ID's claim values are object IDs, which need a readable name; granting ahead lets an administrator prepare access before go-live. Cost: membership is as fresh as each person's last sign-in, which the board's "Members seen" says |
+| D365 | Turning local sign-in off | **Recommended:** `PATCH /sign-in-providers/local {enabled: false}` is refused with `409 NO_WORKING_PROVIDER` unless an enabled provider has signed someone in. While off, the sign-in page shows the providers' buttons and a small link, **Sign in with a local administrator account**, which opens the form; the form accepts only people who **keep local sign-in** (`localKept`): those made by `create_admin`, and those the migration finds were made on the server. A password link for anyone else is refused with `409 LOCAL_SIGN_IN_OFF`, and the page hides New person and Send a password link. Clients are unaffected. Why: the scope's "the first administrator kept as the way back"; `create_admin` on the server stays the way back when every provider fails (OPERATIONS); requiring a provider that has worked stops an administrator from locking everyone out. Cost: one column and a one-row table; a kept administrator still signs in with a password only (D225) |
+| D366 | A provider's settings | **Recommended:** a provider has a `key` (fixed, in its addresses), a `name` (the button reads "Continue with *name*"), `issuer`, `clientId`, `clientSecret` (sealed with `SECRETS_ENCRYPTION_KEY`, D253; never answered, `clientSecretSet` instead), `groupsClaim` (empty by default) and `enabled`; it answers `redirectUri` (`<PUBLIC_URL>/oauth/providers/{key}/callback`) to register with the provider. Saving an enabled provider fetches its discovery document and keys and refuses `422 SIGN_IN_PROVIDER_UNREACHABLE` with the reason (no answer, TLS, an issuer that differs, no code flow, no keys); a disabled one saves without the check. The scopes asked are `openid profile email`. Delete only when nobody has signed in with it (`409 SIGN_IN_PROVIDER_IN_USE`); otherwise disable. Why: a mistyped issuer is found when it is saved, not when people cannot sign in; the key in the address must not change under a registration. Cost: an enabled provider cannot be saved while it is unreachable |
+| D367 | Sessions, leavers and signing out | **Recommended:** a session started through a provider renews as any session (12 hours idle, 14 days at most, D251); disabling or deleting the provider ends its sessions; signing out of the engine does not sign the person out of the provider. A person removed in the provider keeps an open session until it ends, an administrator deactivates them or signs them out everywhere. Why: asking the provider at every renewal would put it in every request path and make an outage sign everyone out. Cost: a leaver's open session lasts until its idle end; OPERATIONS says to deactivate leavers in the engine too, or shorten `SESSION_IDLE_HOURS` |
+| D368 | When a provider sign-in fails, and the audit | **Recommended:** a sign-in that cannot finish (a state unknown, used, expired or from another browser; the provider's `error`; the code exchange or the ID token refused; a deactivated person; a disabled provider) shows the engine's page: "*name* could not sign you in", a plain reason and **Try again**, never a redirect carrying details. Each is a `sign-in` `failed` security event with `provider` and `reason`; a success is `succeeded` with `provider`; a person made at sign-in is `user` `created` with `provider`; memberships a sign-in changes are `group` `member-added` and `member-removed` with `provider`; a provider's changes are `sign-in-provider` `created`, `updated`, `deleted`, and the switch `local-sign-in` `updated`. Provider sign-ins are not slowed (D271): the provider does its own. Why: the person sees what happened; the administrator finds why in Recent activity. Cost: none |
+| D369 | The harness provider and the real try | **Recommended:** `tests/support/oidc_provider.py`, a minimal OpenID Connect provider (discovery, keys, an authorize page where the test chooses the subject, name, e-mail and groups, a token endpoint checking the secret and PKCE) on a loopback port, run in a thread by the journeys and as a script by the browser runner; it can be told to misbehave (another issuer, a wrong nonce or audience, an error). The real provider's sign-in is tried before E1 with the provider the user names and reported in E1. Why: D224's cost; the same provider serves both channels. Cost: a test server to keep |
+| D370 | What I3 leaves out | **Recommended:** SAML and LDAP (D224); signing out of the provider; linking a provider identity to an existing person; claims beyond name, e-mail, username and groups, and the userinfo endpoint; Entra ID's group overage (more than 200 groups, the claim replaced by a link), which OPERATIONS explains how to avoid (groups assigned to the application). Why: each is its own design, and none blocks signing in. Cost: as listed, in the record's "cannot do yet" |
+
+**Journey test cases** (`tests/journeys/test_j39_provider_sign_in.py`, on two configurations;
+written first and seen failing; the harness provider, the harness client acting as Security
+administrator through the API, the browser's flow followed with a plain HTTP client keeping its
+cookies):
+
+1. **J39.7, a first and a second sign-in:** given a provider with the groups claim, when a person
+   the engine has never seen signs in through it with groups `g1` and `g2`, then they reach the
+   browser's address with a code that gives a session, `/me` answers `signedInWith` the provider's
+   key, the person exists with the provider's identity and no password, and two provider groups
+   exist with them as members; when they sign in again with `g2` only and a new name, then the same
+   person is found, renamed, and a member of `g2` only.
+2. **J40, a provider group granted ahead:** given a provider group made ahead for `staff` and granted
+   Reader in workspace A, when a person signs in with `staff`, then they read A's records and are
+   refused a live write with `403`; signed in again without `staff`, their next read of A is
+   refused; adding a member to the group through the API answers `409 GROUP_FROM_PROVIDER`.
+3. **J39.7, refused sign-ins:** the callback with an unknown state, with a used state, and with
+   another browser's cookie each shows the page without a code; the provider answering another
+   issuer, a wrong nonce or another audience is refused; a deactivated person is refused; a disabled
+   provider's start is refused. Each refusal is a `sign-in` `failed` security event with its reason.
+4. **J39, local sign-in off:** turning it off with no working provider answers
+   `409 NO_WORKING_PROVIDER`; after a provider sign-in it is turned off; then a local person's
+   password is refused on the form, a person made by `create_admin` signs in, a password link for
+   the local person answers `409 LOCAL_SIGN_IN_OFF`, and the sign-in page lists the provider and the
+   administrator's link; turned on again, the local person signs in.
+5. **J40, a provider's settings:** an enabled provider with an issuer nobody answers is refused
+   `422 SIGN_IN_PROVIDER_UNREACHABLE`; a provider read never answers its secret; deleting a provider
+   someone signed in with answers `409 SIGN_IN_PROVIDER_IN_USE`; disabling it ends that person's
+   session (their next request `401`).
+
+Unit tests: the ID token checks (each claim, algorithms refused), username derivation, the discovery
+check's reasons; Vitest: the provider's state line, the local switch's confirmation sentence.
+Startup: the migration's bootstrap, upgrade from `20261103_01`, restart, interrupted-migration and
+lifespan checks, and a smoke start on a copy of the development database.
+
+**Browser** (a new runner `i3-sign-in-providers`, on two models, with the harness provider; reference
+pattern: Security › Clients): add the provider on Sign-in by keyboard and copy its address; sign out,
+sign in through the provider choosing two groups, back to the page asked for; as the harness person,
+see the person ("Signs in with …") and the two provider groups, rename one and grant it Reader;
+turn local sign-in off (the confirmation), see the sign-in page with the button and the
+administrator's link only, sign in with the kept administrator, turn it on. Keyboard only through New
+provider and the local switch; 390px (Sign-in, the sign-in page); axe; screenshots of Sign-in, a
+provider group and the sign-in page with local off at 1440px light and dark and Sign-in at 390px,
+inspected against the boards.
+
+**Checks:** the new journey module, `test_j39_j41_j43_identity.py`, `test_j40_security_pages.py`,
+`test_j40_authorization.py`; `test_openapi_contract` with the lock diffed; `test_api_journeys`;
+`test_boundaries`; the startup and migration groups the execution guide selects for a migration;
+Ruff on the changed files; Vitest for `src/features/security`, `src/features/settings`,
+`src/routing`; format, lint, build; the runners `i3-sign-in-providers`, `i2-sign-in` (the page's
+form unchanged with no provider), `sp1-security` (Groups) and `u3-settings` (the navigation).
+
+**Composable domains (ADR-032):** none of the doors is touched: the identity door is a record's
+identity, and I3 changes people's; no attribute storage, audit row of data, `cause`, bulk API or
+`match` declaration changes.
+
+**What the user will still not be able to do after I3:** link a provider identity to an existing
+person (D370); sign out of the provider from the engine; use a second factor with a local account
+(D225); sign in with a real provider until they register the engine with one (the try before E1);
+rotate a webhook's signing key (K1); try the API console with their token (C1); submit and approve
+publications (Track A).
 
 ### Track Z — Authorization
 
@@ -2736,6 +2903,91 @@ work in" does not fit a Reader).
 what waits for their approval (A3); pin a record or view to Home (not planned); have Continue follow
 them to another browser (D334).
 
+### TV1: A record's parent in its list
+
+**Needs:** 0.9 K5 and K6 (delivered). _Added by the user, 2026-10-25,_ during SP2's delivery: "on the
+collections table views, when its possible to add filter, I miss the filter about the parent and also
+maybe adding the parent in a column in the table view, so it is filterable"; after the check below,
+"we can start with your proposal … add this to 0.12 to track and build this up on the same go".
+
+**Scope:** a table view's Columns… and Filters… in the layout editor offer the listed type's
+relationships, so a list of records under a parent shows which parent each belongs to and is
+filtered by it.
+
+##### TV1 plan (2026-10-25)
+
+**Planned and accepted 2026-10-25** in the user's words above, the proposal being the per-relationship
+choice (D358, D359); D360 is recorded as recommended. Checked against the code at `20bfd27`.
+
+**What the check found:**
+
+- **The engine already serves it.** A table view's `columns` and `filterFields` take
+  `related:<key>`, a relation type's key read from the `from` end or its reverse key read from the
+  `to` end (0.9 K5, D140; K6, D153–D158). The model validates them
+  (`validation/application_rules.py`: a filter names the relationship alone, a sort only a column
+  whose row holds one), the list expands them, and the filter bar offers "is any of / has none /
+  has any". A parent is a relation type marked `parentOf`, named in the child's
+  `behavior.parentRelationTypeKeys`.
+- **Nothing in the interface chooses them.** The layout editor's Columns… and Filters… for a table
+  view offer the name and the type's attributes only (`model-editor/layout.ts`, `viewChoices`); a
+  relationship column or filter could be written only in the model file.
+- **A type may have more than one parent relationship** (a record under a parent of another type, or
+  under one of its own type), so one relationship's column is empty for records under the other.
+
+**What is built:** `viewChoices` adds every relationship the type takes part in, read from its side,
+as `related:<key>` (from the `from` end) or `related:<reverseKey>` (from the `to` end), the ones in
+`parentRelationTypeKeys` first, labelled as every relationship column is: the relationship's name in
+that direction. Columns… and Filters… both read it; the engine, the list and the filter bar are
+unchanged.
+
+```text
+Columns of <view>                       The list after Apply
+  [x] Name                                Name ↑   Code   Active   Belongs to <parent type>
+  [x] Code
+  [x] Active                            ＋ Filter → Belongs to <parent type> → is any of …
+  [ ] Belongs to <parent type>   ← parents first
+  [ ] Has parent <same type>
+  [ ] <other relationships>
+```
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D358 | What Columns… and Filters… offer | **Accepted:** the name, the type's attributes, then each relationship the type takes part in, read from its side, the relationships to a parent first. Why: the engine lists and filters by any relationship; a parent is the one people asked for, so it comes first. Cost: a longer list of choices on a type with many relationships |
+| D359 | One column per parent relationship, or one "Parent" column | **Accepted:** one per relationship, headed by the relationship's name read from the record ("Belongs to …"), as every relationship column already is; renaming the reverse name in the model changes the header. Why: no engine change; a filter picks records of one type. Cost: a type with two parent relationships needs two columns, each empty for records under the other. One "Parent" column across them is new engine work (a read and a filter across relation types), left until it is asked for |
+| D360 | Sorting by the parent | **Recommended:** not in TV1. The default sort chooser picks among the view's sort fields and has no way to add one; making a single-record relationship column a sort field (the engine allows it, D145) is a small later step. Cost: a list cannot be sorted by its parent from the interface yet (the model file can) |
+
+**Test cases:** unit (`layout.test.ts`): a child type's Columns… and Filters… offer its parent
+relationship before its other one, labelled by name, and choosing it inserts `related:<reverseKey>`.
+Browser (`authoring-a4b`, both designer models): a type under a parent given its parent as a column
+and a filter from Columns… and Filters…, the draft holding both, then installed and activated.
+
+##### TV1 record (2026-10-25)
+
+**Delivered 2026-10-25.** Everything in the plan.
+
+**What was built:** `relatedChoices` beside `viewChoices` (`frontend/src/features/model-editor/layout.ts`);
+the unit case in `layout.test.ts`; a step in `e2e/authoring-a4b-preview-layout.mjs` (`childView`
+picks the first table view of a type under a parent, read from the model). Documents:
+CURRENT_FUNCTIONALITY (the layout editor), EXECUTION_GUIDE (the `authoring-a4b` row), CHANGELOG.
+
+**Checks:**
+
+- **Vitest:** `src/features/model-editor`, `src/model`: 19 files, 216 tests passed.
+- **Frontend:** format and lint on the changed files clean; typecheck clean; build passed.
+- **Browser:** `authoring-a4b` 31 checks (29 before, plus the new step on both models), the drafts
+  with the parent column and filter installed and activated; the screenshot of the codelist-shaped
+  starter type's layout inspected: "Belongs to …" among the column frames and in the preview's
+  table header.
+- **Not run:** backend tests (no backend change); other runners.
+
+**Composable domains (ADR-032):** no door is touched.
+
+**What the user will still not be able to do after TV1:** sort a list by its parent from the
+interface (D360, the model file until then); show one "Parent" column for a type with several parent
+relationships (D359, not planned).
+
 ### Track SP — The Security pages (U8)
 
 #### SP1: People, groups and roles
@@ -2988,92 +3240,6 @@ rest of the interface hide what a person may not do (Z5).
 overlap, deactivate it; its roles on the management API and its consumer API grants per workspace;
 last use. Sign-in providers (I3) on Settings › Security › Sign-in.
 
-### K1: Webhook signing-key rotation
-
-**Needs:** Z1.
-
-**Scope:** `POST /api/v1/consumer-subscriptions/{id}/rotate-secret` (CONSUMER_API): a new key shown
-once; during an overlap window (D238) deliveries carry both signatures in `RDM-Signature`, after it
-only the new one, so a rotated key stops verifying (the exit gate). The re-sealing of every key under
-a new `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (C-D96's format byte) as a CLI command. "Rotate key" on
-the webhook's page.
-
-### C1: The "try it" console authenticated
-
-**Needs:** I2.
-
-**Scope:** `/docs` sends requests with the signed-in person's token (D240); a client's token can be
-pasted for testing a client's view. `/docs/oauth2-redirect` stays 404.
-
-### E1: Security checkpoint
-
-**Needs:** Z1–Z5, I1–I3, SP1, SP2, K1, C1.
-
-**Scope:** the exit gate composed: a sweep that calls every operation in the catalogue as each
-predefined role and as a client without grants and checks allowed or refused against the catalogue
-(generated from the declarations, so a new route is covered by adding it); a reader refused on every
-write path including bulk, jobs, imports, moves, feed and consumer routes (SC-13, US-S01); an editor
-narrowed to one record type refused on the others through every path; tokens expired, revoked,
-signed by a retired key or for another audience refused. **An independent security review** of the
-changes (AGENTS.md), with its findings fixed or recorded before R. The real sign-in provider try (I3)
-is reported here.
-
-### Track A — Approvals (if D232 is accepted), after the cut line
-
-#### A1: A publication request and its approval
-
-**Needs:** Z1, Z4.
-
-**Scope:** a change set gains states: open → **submitted** (its content frozen; an edit withdraws the
-submission) → **approved** or **sent back** with a comment → published. The approval is bound to the
-change set's version and the workspace's active publication, as a job confirmation is bound to the
-reviewed versions; publication re-validates as today. Who must ask: a person holding Work in change
-sets without Publish. Who approves: Approve publications; with "own", a person approves their own
-request in the same step as publishing, which is today's single click (the user's idea). A workspace
-policy "a second person approves" (four-eyes) removes "own" in that workspace. API first: submit,
-approve, send back, withdraw, list requests. Audit records each step with its actor. Each decision is
-stored as its own row (who, when, the version, the outcome, the comment), not as one "approved by"
-field, so several approvers or ordered stages can be added later without a contract change (D242).
-
-#### A2: The inbox
-
-**Needs:** A1, I2.
-
-**Scope:** per-principal notifications in the database (a request to approve; a decision on one's
-request; a job one started finished, replacing the tab-only toasts of J1u), `GET /me/notifications`
-cursor-paged with read and unread, a live stream over the existing `pg_notify`/SSE path, and an inbox
-in the top bar. Approval requests are also consumer webhook events (`change-set.submitted`,
-`change-set.approved`, `change-set.sent-back`) so an organisation routes them to e-mail or chat
-itself (D233).
-
-#### A3: Approvals in the interface
-
-**Needs:** A2, Z5; the mock-up approved in P0.
-
-**Scope:** "Submit for publication" for a Contributor, "Approve and publish" and "Send back" on the
-change-set review for an approver, the request's state and comments in the change set's header, the
-four-eyes policy on Settings › Workspaces. Smoke on a real Contributor → Steward round trip.
-_Amended by HM1 (2026-10-25):_ A3 also adds "Waiting for your approval" to the home page (D335).
-
-## Decisions
-
-**Accepted by the user on 2026-10-22**, each as recommended (D232: yes, Track A after the cut
-line). Each is explained in plain words: what is decided, why the recommendation, and what it costs.
-
-| # | Question | Recommendation |
-| --- | --- | --- |
-| D224 | Where people's identities come from | **Recommended:** local accounts **and** OpenID Connect sign-in providers (I3), the engine issuing its own token either way (C-D1). Why: an organisation already has a directory (Entra ID, Google, Okta, Keycloak) and expects its people to sign in with it, its MFA and its leavers' process; local accounts are still needed for the first administrator, small installations and a way back when the provider fails. SAML and LDAP are left out: most providers speak OIDC, and SAML adds a second protocol to keep secure. Cost: I3 as a package, a minimal provider in the test harness |
-| D225 | Multi-factor authentication | **Recommended:** left to the sign-in provider in 0.12; local accounts have password only, which OPERATIONS states with the advice to use a provider in production. TOTP for local accounts in TODO for after 1.0. Why: MFA is what the organisation's provider already does well; building TOTP, recovery codes and resets is a package of its own. Cost: an installation with local accounts only has no second factor |
-| D226 | Where permissions live in a request | **Recommended:** the token proves **who** (subject, client, expiry, a coarse audience: management or consumer); **what** they may do is looked up on the server per request from a cache invalidated across processes when a grant changes. Why: a role removed takes effect on the next request, not when a token expires; tokens stay small however many workspaces a person works in. Cost: one cached lookup per request; the cache invalidation (reusing N1's signal) |
-| D227 | How roles are made | **Recommended:** the user's idea as stated: **action groups** named after journeys (P0's table) → **roles** made of action groups → **grants** of a role to a user, group or client at a scope. Predefined roles are read-only; a custom role is created from scratch or copied from one. Why: an administrator thinks in jobs ("may publish"), not in 157 routes; a new route joins an existing group without touching any role. Cost: the catalogue's upkeep, checked by the contract test |
-| D228 | Scopes of a grant | _Narrowed by D243 (2026-10-23): reads are per workspace only._ **Recommended:** the instance or one workspace; within a workspace optionally narrowed to applications and record types **for writes**; reads are per workspace (and application). Why: SC-13 asks that "a permitted editor can edit only the assigned scope"; hiding a record type from a reader would need every list, query, relation column, feed, export and lookup filtered, with no user need recorded (ARCHITECTURE: record-level and finer rules only on demonstrated need). Workspaces are already the governed scope (ADR-031). Cost: data that must be hidden from some readers goes in its own workspace |
-| D229 | Groups | **Recommended:** local groups managed in the engine, plus **provider groups** taken from a sign-in provider's claim at each sign-in; both hold grants the same way; no nested groups. Why: the user's idea 1, and in an organisation with a directory, membership is managed there and only the grant lives in the engine. Cost: a provider group's members are only known after they sign in once |
-| D230 | The predefined roles | **Recommended**, named after the PRODUCT personas and common governance practice: **Reader** (Browse), **Contributor** (Browse, Work in change sets: proposes, cannot publish, D231), **Editor / Data steward** (Browse, Edit live, Work in change sets, Publish, Bulk and import), **Data owner** (Steward's groups plus Approve publications with own, Feed, Copy and move), **Model administrator** (Model authoring, Model release), **Workspace administrator**, **Integration administrator** (Integration administration, Feed), **Operator** (Operations), **Security administrator** (Security administration only, no data). For clients: **Consumer** (consumer API grants only) and any role above. Why: covers ideas 4 and 5 with names people recognise, and separates security administration from data so no single default role does everything. Cost: names to agree; nine roles to keep true in the catalogue |
-| D231 | Editing live as its own permission | **Recommended:** Edit live and Work in change sets are separate action groups. Why: it is what makes the Contributor of idea 5 possible: a person who can change things only by proposing them. With today's behaviour (a correction is live when saved) the Editor keeps live editing. Cost: Z2 checks the two separately on every write path |
-| D232 | Approvals in 0.12 | **The user decides; conflicts with the roadmap (1.0) and PRODUCT.md's rule.** Recommended: **yes, change-set publication only, as Track A after the cut line**, with self-approval for those whose role allows it and a per-workspace four-eyes policy. Why: with D231, a Contributor's change set otherwise waits for someone to notice it; approval needs identity and roles, which 0.12 brings, and its smallest useful flow (submit, review, approve or send back with a comment, notify, audit; REAL_WORLD_RESEARCH) is small once they exist. No one is forced into it: the default roles publish as today, which keeps ADR-026. Approvals of model activation and rollback stay in 1.0's protected publishing. Cost: Track A (three packages); if 0.12 must ship sooner, the cut line releases without it and it follows in 0.12.x |
-| D233 | How approvals notify | **Recommended:** an inbox in the engine (API and top bar) and webhook events for each step; **no e-mail** in 0.12. Why: API first: an organisation routes the events to its e-mail, Teams or Slack with its own tooling; sending mail needs SMTP settings, templates, bounces and unsubscribes. Cost: without integration work, a person learns of a request only when they open the app |
-| D234 | How the browser holds its session | **Recommended:** authorization code with PKCE; the access token (short-lived: an hour, D251 as amended 2026-10-23) in memory, the refresh token in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie that only the token endpoint reads. Why: the current OAuth guidance for browser applications; a script injected into the page cannot read the refresh token, and the engine still issues one token format for all clients. Cost: the frontend and engine must share a site (one origin or a same-site subdomain), which OPERATIONS states |
-| D235 | Is there a way to switch authentication off? | **Recommended:** **no**. Development and tests use real tokens; the first administrator comes from a CLI command on the server. Why: a switch that disables security is eventually left on in production, and ADR-031 already says "a switch cannot guard itself". Cost: the harness changes in I1 (one fixture), and the local dev server needs a sign-in once |
 ##### SP2 plan (2026-10-25)
 
 **Planned 2026-10-25; accepted by the user the same day** ("its good"): D348–D357, the test cases and the "SP2 as
@@ -3288,6 +3454,92 @@ off (I3); rotate a webhook's signing key (K1); try the API console with their to
 approve publications (Track A); choose a secret overlap other than 1 hour, 24 hours, 7 days or none
 except through the API.
 
+### K1: Webhook signing-key rotation
+
+**Needs:** Z1.
+
+**Scope:** `POST /api/v1/consumer-subscriptions/{id}/rotate-secret` (CONSUMER_API): a new key shown
+once; during an overlap window (D238) deliveries carry both signatures in `RDM-Signature`, after it
+only the new one, so a rotated key stops verifying (the exit gate). The re-sealing of every key under
+a new `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` (C-D96's format byte) as a CLI command. "Rotate key" on
+the webhook's page.
+
+### C1: The "try it" console authenticated
+
+**Needs:** I2.
+
+**Scope:** `/docs` sends requests with the signed-in person's token (D240); a client's token can be
+pasted for testing a client's view. `/docs/oauth2-redirect` stays 404.
+
+### E1: Security checkpoint
+
+**Needs:** Z1–Z5, I1–I3, SP1, SP2, K1, C1.
+
+**Scope:** the exit gate composed: a sweep that calls every operation in the catalogue as each
+predefined role and as a client without grants and checks allowed or refused against the catalogue
+(generated from the declarations, so a new route is covered by adding it); a reader refused on every
+write path including bulk, jobs, imports, moves, feed and consumer routes (SC-13, US-S01); an editor
+narrowed to one record type refused on the others through every path; tokens expired, revoked,
+signed by a retired key or for another audience refused. **An independent security review** of the
+changes (AGENTS.md), with its findings fixed or recorded before R. The real sign-in provider try (I3)
+is reported here.
+
+### Track A — Approvals (if D232 is accepted), after the cut line
+
+#### A1: A publication request and its approval
+
+**Needs:** Z1, Z4.
+
+**Scope:** a change set gains states: open → **submitted** (its content frozen; an edit withdraws the
+submission) → **approved** or **sent back** with a comment → published. The approval is bound to the
+change set's version and the workspace's active publication, as a job confirmation is bound to the
+reviewed versions; publication re-validates as today. Who must ask: a person holding Work in change
+sets without Publish. Who approves: Approve publications; with "own", a person approves their own
+request in the same step as publishing, which is today's single click (the user's idea). A workspace
+policy "a second person approves" (four-eyes) removes "own" in that workspace. API first: submit,
+approve, send back, withdraw, list requests. Audit records each step with its actor. Each decision is
+stored as its own row (who, when, the version, the outcome, the comment), not as one "approved by"
+field, so several approvers or ordered stages can be added later without a contract change (D242).
+
+#### A2: The inbox
+
+**Needs:** A1, I2.
+
+**Scope:** per-principal notifications in the database (a request to approve; a decision on one's
+request; a job one started finished, replacing the tab-only toasts of J1u), `GET /me/notifications`
+cursor-paged with read and unread, a live stream over the existing `pg_notify`/SSE path, and an inbox
+in the top bar. Approval requests are also consumer webhook events (`change-set.submitted`,
+`change-set.approved`, `change-set.sent-back`) so an organisation routes them to e-mail or chat
+itself (D233).
+
+#### A3: Approvals in the interface
+
+**Needs:** A2, Z5; the mock-up approved in P0.
+
+**Scope:** "Submit for publication" for a Contributor, "Approve and publish" and "Send back" on the
+change-set review for an approver, the request's state and comments in the change set's header, the
+four-eyes policy on Settings › Workspaces. Smoke on a real Contributor → Steward round trip.
+_Amended by HM1 (2026-10-25):_ A3 also adds "Waiting for your approval" to the home page (D335).
+
+## Decisions
+
+**Accepted by the user on 2026-10-22**, each as recommended (D232: yes, Track A after the cut
+line). Each is explained in plain words: what is decided, why the recommendation, and what it costs.
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D224 | Where people's identities come from | **Recommended:** local accounts **and** OpenID Connect sign-in providers (I3), the engine issuing its own token either way (C-D1). Why: an organisation already has a directory (Entra ID, Google, Okta, Keycloak) and expects its people to sign in with it, its MFA and its leavers' process; local accounts are still needed for the first administrator, small installations and a way back when the provider fails. SAML and LDAP are left out: most providers speak OIDC, and SAML adds a second protocol to keep secure. Cost: I3 as a package, a minimal provider in the test harness |
+| D225 | Multi-factor authentication | **Recommended:** left to the sign-in provider in 0.12; local accounts have password only, which OPERATIONS states with the advice to use a provider in production. TOTP for local accounts in TODO for after 1.0. Why: MFA is what the organisation's provider already does well; building TOTP, recovery codes and resets is a package of its own. Cost: an installation with local accounts only has no second factor |
+| D226 | Where permissions live in a request | **Recommended:** the token proves **who** (subject, client, expiry, a coarse audience: management or consumer); **what** they may do is looked up on the server per request from a cache invalidated across processes when a grant changes. Why: a role removed takes effect on the next request, not when a token expires; tokens stay small however many workspaces a person works in. Cost: one cached lookup per request; the cache invalidation (reusing N1's signal) |
+| D227 | How roles are made | **Recommended:** the user's idea as stated: **action groups** named after journeys (P0's table) → **roles** made of action groups → **grants** of a role to a user, group or client at a scope. Predefined roles are read-only; a custom role is created from scratch or copied from one. Why: an administrator thinks in jobs ("may publish"), not in 157 routes; a new route joins an existing group without touching any role. Cost: the catalogue's upkeep, checked by the contract test |
+| D228 | Scopes of a grant | _Narrowed by D243 (2026-10-23): reads are per workspace only._ **Recommended:** the instance or one workspace; within a workspace optionally narrowed to applications and record types **for writes**; reads are per workspace (and application). Why: SC-13 asks that "a permitted editor can edit only the assigned scope"; hiding a record type from a reader would need every list, query, relation column, feed, export and lookup filtered, with no user need recorded (ARCHITECTURE: record-level and finer rules only on demonstrated need). Workspaces are already the governed scope (ADR-031). Cost: data that must be hidden from some readers goes in its own workspace |
+| D229 | Groups | **Recommended:** local groups managed in the engine, plus **provider groups** taken from a sign-in provider's claim at each sign-in; both hold grants the same way; no nested groups. Why: the user's idea 1, and in an organisation with a directory, membership is managed there and only the grant lives in the engine. Cost: a provider group's members are only known after they sign in once |
+| D230 | The predefined roles | **Recommended**, named after the PRODUCT personas and common governance practice: **Reader** (Browse), **Contributor** (Browse, Work in change sets: proposes, cannot publish, D231), **Editor / Data steward** (Browse, Edit live, Work in change sets, Publish, Bulk and import), **Data owner** (Steward's groups plus Approve publications with own, Feed, Copy and move), **Model administrator** (Model authoring, Model release), **Workspace administrator**, **Integration administrator** (Integration administration, Feed), **Operator** (Operations), **Security administrator** (Security administration only, no data). For clients: **Consumer** (consumer API grants only) and any role above. Why: covers ideas 4 and 5 with names people recognise, and separates security administration from data so no single default role does everything. Cost: names to agree; nine roles to keep true in the catalogue |
+| D231 | Editing live as its own permission | **Recommended:** Edit live and Work in change sets are separate action groups. Why: it is what makes the Contributor of idea 5 possible: a person who can change things only by proposing them. With today's behaviour (a correction is live when saved) the Editor keeps live editing. Cost: Z2 checks the two separately on every write path |
+| D232 | Approvals in 0.12 | **The user decides; conflicts with the roadmap (1.0) and PRODUCT.md's rule.** Recommended: **yes, change-set publication only, as Track A after the cut line**, with self-approval for those whose role allows it and a per-workspace four-eyes policy. Why: with D231, a Contributor's change set otherwise waits for someone to notice it; approval needs identity and roles, which 0.12 brings, and its smallest useful flow (submit, review, approve or send back with a comment, notify, audit; REAL_WORLD_RESEARCH) is small once they exist. No one is forced into it: the default roles publish as today, which keeps ADR-026. Approvals of model activation and rollback stay in 1.0's protected publishing. Cost: Track A (three packages); if 0.12 must ship sooner, the cut line releases without it and it follows in 0.12.x |
+| D233 | How approvals notify | **Recommended:** an inbox in the engine (API and top bar) and webhook events for each step; **no e-mail** in 0.12. Why: API first: an organisation routes the events to its e-mail, Teams or Slack with its own tooling; sending mail needs SMTP settings, templates, bounces and unsubscribes. Cost: without integration work, a person learns of a request only when they open the app |
+| D234 | How the browser holds its session | **Recommended:** authorization code with PKCE; the access token (short-lived: an hour, D251 as amended 2026-10-23) in memory, the refresh token in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie that only the token endpoint reads. Why: the current OAuth guidance for browser applications; a script injected into the page cannot read the refresh token, and the engine still issues one token format for all clients. Cost: the frontend and engine must share a site (one origin or a same-site subdomain), which OPERATIONS states |
+| D235 | Is there a way to switch authentication off? | **Recommended:** **no**. Development and tests use real tokens; the first administrator comes from a CLI command on the server. Why: a switch that disables security is eventually left on in production, and ADR-031 already says "a switch cannot guard itself". Cost: the harness changes in I1 (one fixture), and the local dev server needs a sign-in once |
 | D236 | Whose permissions a job runs with | **Recommended:** its requester's, checked at submission, at confirmation and when it runs; a requester deactivated or losing the right makes the job fail with the reason. Why: a job is the bulk path the exit gate names; a job queued before a permission was removed must not keep it. Cost: one check per job step |
 | D237 | People in the audit | **Recommended:** the audit stores the principal's ID; names are resolved when read. Users and clients are deactivated, never deleted, so history always resolves; a person's name and e-mail can be anonymised in one place. Why: a name copied into every audit row could not be erased, and a deleted user would leave unexplained IDs. Cost: a join when history is read |
 | D238 | The webhook key's overlap window | **Recommended:** both signatures sent for 24 hours after a rotation by default, set per rotation from 0 (immediate) to 7 days. Why: receivers switch keys without missing deliveries; 0 covers a leaked key. Cost: a contract change: `RDM-Signature` carries one `sha256=<hex>` today and becomes a comma-separated list, which receivers must accept (CONSUMER_API, before L2 commits the header) |
@@ -3311,6 +3563,7 @@ except through the API.
 | 8 | [Z5](#z5-the-interface-follows-the-callers-permissions) | Z2, I2 | **Delivered 2026-10-24.** The interface follows permissions; Reader and Contributor |
 | 8a | [Z6](#z6-one-persons-changes-across-workspaces) | Z4, Z5 | **Delivered 2026-10-25.** One person's or client's changes across workspaces, filtered to what the caller may browse |
 | 8b | [HM1](#hm1-a-home-page-after-sign-in) | Z5 | **Delivered 2026-10-25.** A home page after sign-in: workspaces as cards, what waits for the person, Continue where you left off |
+| 8c | [TV1](#tv1-a-records-parent-in-its-list) | — | **Delivered 2026-10-25.** A table view's Columns… and Filters… offer the record's relationships, its parent's first |
 | 9 | [SP1](#sp1-people-groups-and-roles) | Z1, I2 | **Delivered 2026-10-24.** Settings › Security: people, groups, roles, grants |
 | 10 | [SP2](#sp2-oauth-clients-and-their-access) | Z3, SP1 | **Delivered 2026-10-25.** Settings › Security: clients and their access, signing keys (sign-in providers moved to I3, D357) |
 | 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | OpenID Connect providers and their groups; Settings › Security › Sign-in |
@@ -3334,6 +3587,7 @@ Authz:           I1 ─ Z1 ─┬─ Z2 ─ Z5 (needs I2) ─┬─ Z6 (needs Z4
                           ├─ Z4
                           ├─ SP1 (needs I2) ─ SP2
                           └─ K1
+Lists:      TV1 (on 0.9 K5/K6; any time)
 Console:              I2 ─ C1
 Gate:       everything above ─ E1 ── cut line ── A1 ─ A2 ─ A3
 Public:     L1 (filler) ; E1/A3 + the name ─ L2 ─ R

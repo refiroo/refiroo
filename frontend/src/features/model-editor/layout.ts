@@ -8,6 +8,7 @@
  */
 
 import { attributeName } from "@/model/fields";
+import { objectTypeFor, RELATED_FIELD_PREFIX } from "@/model/lookup";
 import type { DetailViewDefinition, DraftOperation, EngineModel, PanelDefinition, TableViewDefinition } from "@/types";
 import { keyFromLabel } from "@/features/model-editor/outline";
 import type { FieldValues, OperationField, OperationSpec } from "@/features/model-editor/operations";
@@ -350,10 +351,37 @@ const viewTarget = (place: LayoutPlace, view: TableViewDefinition) => ({
   view: view.key,
 });
 
-/** The fields a table view may list: the name and the type's attributes, with what it lists now. */
+/**
+ * The relationships a type's records hold, as `related:` fields read from their side (0.12 TV1,
+ * D358): the ones to a parent first, then the others in the model's order.
+ */
+function relatedChoices(model: EngineModel, objectTypeKey: string): string[] {
+  const parents = objectTypeFor(model, objectTypeKey)?.behavior?.parentRelationTypeKeys ?? [];
+  const fields = model.objectTypeRelations.flatMap((binding) => {
+    const type = model.relationTypes.find((item) => item.key === binding.relationTypeKey);
+    if (!type) return [];
+    return [
+      ...(binding.fromObjectTypeKey === objectTypeKey ? [{ key: type.key, parent: false }] : []),
+      ...(binding.toObjectTypeKey === objectTypeKey && type.reverseKey
+        ? [{ key: type.reverseKey, parent: parents.includes(type.key) }]
+        : []),
+    ];
+  });
+  const ordered = [...fields.filter((item) => item.parent), ...fields.filter((item) => !item.parent)];
+  return [...new Set(ordered.map((item) => `${RELATED_FIELD_PREFIX}${item.key}`))];
+}
+
+/** The fields a table view may list: the name, the type's attributes and relationships, with what it lists now. */
 function viewChoices(model: EngineModel, view: TableViewDefinition, current: readonly string[]) {
   const type = model.objectTypes.find((item) => item.key === view.objectTypeKey);
-  return [...new Set([...current, "name", ...(type?.attributes.map((item) => item.attributeTypeKey) ?? [])])];
+  return [
+    ...new Set([
+      ...current,
+      "name",
+      ...(type?.attributes.map((item) => item.attributeTypeKey) ?? []),
+      ...relatedChoices(model, view.objectTypeKey),
+    ]),
+  ];
 }
 
 export function tableColumnsSpec(model: EngineModel, place: LayoutPlace, view: TableViewDefinition): OperationSpec {

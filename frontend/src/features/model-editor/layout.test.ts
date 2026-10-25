@@ -8,6 +8,8 @@ import {
   movePanel,
   newFieldGroupSpec,
   panelToRegion,
+  tableColumnsSpec,
+  tableFiltersSpec,
   tableSortSpec,
 } from "@/features/model-editor/layout";
 import type { DetailViewDefinition, EngineModel, PanelDefinition, TableViewDefinition } from "@/types";
@@ -151,6 +153,63 @@ describe("layout operations", () => {
       ),
     ).toEqual([
       { kind: "setViewProperty", applicationKey: "catalogue", view: "items", property: "defaultSort", value: "-code" },
+    ]);
+  });
+
+  it("offers a table view the relationships its records hold, the one to their parent first (D358)", () => {
+    const related = {
+      attributeTypes: [{ key: "code", name: "Code" }],
+      objectTypes: [
+        { key: "group", attributes: [] },
+        { key: "item", attributes: [{ attributeTypeKey: "code", order: 0 }] },
+        { key: "tag", attributes: [] },
+        {
+          key: "entry",
+          attributes: [],
+          behavior: { parentRelationTypeKeys: ["group-contains-entry"] },
+        },
+      ],
+      relationTypes: [
+        { key: "entry-tagged", name: "Tagged", reverseKey: "tag-of", reverseName: "Tag of" },
+        { key: "group-contains-entry", name: "Contains entry", reverseKey: "entry-in-group", reverseName: "In group" },
+      ],
+      objectTypeRelations: [
+        { relationTypeKey: "entry-tagged", fromObjectTypeKey: "entry", toObjectTypeKey: "tag" },
+        { relationTypeKey: "group-contains-entry", fromObjectTypeKey: "group", toObjectTypeKey: "entry" },
+      ],
+    } as unknown as EngineModel;
+    const view = {
+      key: "entries",
+      name: "Entries",
+      type: "table",
+      objectTypeKey: "entry",
+      config: { columns: ["name"], filterFields: ["name"], sortFields: ["name"], defaultSort: "name", pageSize: 20 },
+    } as TableViewDefinition;
+    const choices = (operation: ReturnType<typeof tableColumnsSpec>) =>
+      operation
+        .fields?.(undefined as never, undefined as never)
+        .flatMap((field) => (field.type === "checkboxes" ? field.options : []));
+    const offered = [
+      { value: "name", label: "Name" },
+      { value: "related:entry-in-group", label: "In group" },
+      { value: "related:entry-tagged", label: "Tagged" },
+    ];
+    expect(choices(tableColumnsSpec(related, place, view))).toEqual(offered);
+    expect(choices(tableFiltersSpec(related, place, view))).toEqual(offered);
+    expect(
+      tableFiltersSpec(related, place, view).build(
+        { filters: ["name", "related:entry-in-group"] },
+        undefined as never,
+        undefined as never,
+      ),
+    ).toEqual([
+      {
+        kind: "insertViewItem",
+        applicationKey: "catalogue",
+        view: "entries",
+        list: "filterFields",
+        item: "related:entry-in-group",
+      },
     ]);
   });
 });

@@ -50,6 +50,23 @@ function startingPoint(model) {
   throw new Error("the model has no top-level type with attributes");
 }
 
+/** A table view of a type under a parent, and that parent's relationship as its `related:` field (TV1). */
+function childView(model) {
+  for (const view of model.applications.flatMap((application) => application.views ?? [])) {
+    if (view.type !== "table") continue;
+    const type = model.objectTypes.find((item) => item.key === view.objectTypeKey);
+    const [parentKey] = type?.behavior?.parentRelationTypeKeys ?? [];
+    const relation = model.relationTypes.find((item) => item.key === parentKey);
+    if (relation)
+      return {
+        view,
+        parentField: `related:${relation.reverseKey}`,
+        parentName: relation.reverseName || relation.name,
+      };
+  }
+  throw new Error("the model has no table view of a type under a parent");
+}
+
 const SAMPLE = {
   text: "A4b",
   longText: "A4b",
@@ -312,6 +329,37 @@ async function journey(label, source) {
     await settled();
     await shot("table-layout-1440");
     checks.push(`${label}: the table's columns moved and removed by their menus, and its default sort set descending`);
+
+    // 0.12 TV1 (D358): a type under a parent lists and filters by it, chosen in Columns… and Filters….
+    {
+      const { view, parentField, parentName } = childView(model);
+      await page.goto(
+        `${harness.uiUrl}/settings/model/drafts/${draft.id}/editor?show=type&key=${view.objectTypeKey}&mode=layout`,
+      );
+      await layout.getByRole("tab", { name: "Table" }).click();
+      const viewColumns = layout.getByRole("list", { name: `Columns of ${view.name}` });
+      await viewColumns.waitFor();
+      for (const [button, list] of [
+        ["Columns…", "columns"],
+        ["Filters…", "filterFields"],
+      ]) {
+        await layout.getByRole("button", { name: button, exact: true }).click();
+        await dialog().getByRole("checkbox", { name: parentName, exact: true }).check();
+        await dialog().getByRole("button", { name: "Apply", exact: true }).click();
+        await dialog().waitFor({ state: "hidden" });
+        await settled();
+        const drafted = await harness.api(`/model-drafts/${draft.id}/model`);
+        const config = drafted.model.applications
+          .flatMap((item) => item.views)
+          .find((item) => item.key === view.key).config;
+        assert.ok(config[list].includes(parentField), `${list} holds ${parentField}`);
+      }
+      await viewColumns.locator(".layout-frame-title").filter({ hasText: parentName }).waitFor();
+      await shot("parent-column-1440");
+      checks.push(
+        `${label}: a type under a parent gets its parent as a column and a filter from Columns… and Filters…`,
+      );
+    }
 
     // Back to the model editor; a new type previews an empty record (no records yet).
     await layout.getByRole("button", { name: "Back to the model editor" }).click();
