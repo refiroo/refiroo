@@ -42,6 +42,7 @@ import type { ApiError } from "@/api/errors";
 import { JobNotificationsProvider, useJobEnded, useJobNotifications } from "@/features/jobs/JobNotifications";
 import { ExportDialog, type ExportStart } from "@/features/jobs/ExportDialog";
 import { ImportDialog, type ImportStart } from "@/features/jobs/ImportDialog";
+import { BrandMascot } from "@/ui/ProductMark";
 import { useCapabilities } from "@/features/settings/useSystem";
 
 export default function App() {
@@ -50,7 +51,13 @@ export default function App() {
   // The workspace shown last, kept above the per-workspace content so a switch can say what changed.
   const shownWorkspaceRef = useRef<Workspace | undefined>(undefined);
   const product = useLoadInstanceProduct(router.defaultWorkspaceKey);
-  if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
+  if (!model || !route)
+    return (
+      <div className="center-message">
+        <BrandMascot />
+        {error || "Loading the model…"}
+      </div>
+    );
   // Nothing to browse (0.12 Z5, D326): Settings open; the application's place says so.
   if (router.noWorkspace && !isSettingsRoute(route))
     return (
@@ -218,7 +225,13 @@ function AppContent({
     rememberContinueAddress(me.id, continueAddressFor(model, route, workspace.label, changeSetName));
   }, [me, model, route, workspace, changeSetName]);
 
-  if (!model) return <div className="center-message">{error || "Loading the model…"}</div>;
+  if (!model)
+    return (
+      <div className="center-message">
+        <BrandMascot />
+        {error || "Loading the model…"}
+      </div>
+    );
   const requested = applicationFor(model, route.applicationKey);
   const application = requested ?? model.applications[0];
   const activeRoute: ApplicationRoute =

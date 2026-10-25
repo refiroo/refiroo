@@ -37,6 +37,7 @@ from .engine.model.workspace_models import workspaces_running
 from .engine.processes.heartbeat import ProcessHeartbeat
 from .errors import ApiError
 from .management.access import MANAGEMENT_DEPENDENCIES
+from .management.brand_assets import brand_router
 from .management.errors import (
     api_error_handler,
     http_error_handler,
@@ -241,9 +242,9 @@ def create_app() -> FastAPI:
     mutations_enabled = settings.model_admin_mutations_enabled
     workspace_mutations_enabled = settings.workspace_admin_mutations_enabled
     application = FastAPI(
-        title="RDM Engine API",
+        title="refiroo API",
         version=ENGINE_VERSION,
-        description="API-first, model-driven reference data management engine.",
+        description="The API of refiroo, an application built on the RDM engine: API-first, model-driven reference data management.",
         lifespan=lifespan,
         # Every route accepts only the query parameters it declares (D-3).
         dependencies=[Depends(refuse_unknown_parameters)],
@@ -434,6 +435,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     application.include_router(api_reference_router(settings.api_reference_script))
+    application.include_router(brand_router())
     # The OAuth endpoints need no token (D245); every management router below needs one.
     application.include_router(oauth.router)
     application.include_router(identity.router, dependencies=MANAGEMENT_DEPENDENCIES)

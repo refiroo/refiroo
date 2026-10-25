@@ -15,6 +15,7 @@ import { routePath } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, RouteState } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
+import { ProductMark } from "@/ui/ProductMark";
 import { RouteLink } from "@/ui/RouteLink";
 import { AccountMenu } from "./SettingsMenu";
 import { useInstanceProduct } from "./instanceProduct";
@@ -69,9 +70,13 @@ export function TopBar({
   const product = useInstanceProduct(model.product);
   return (
     <header className="global-header">
-      <button className="product-mark" onClick={() => onHome()} aria-label={`${product.name} home`}>
-        <span>{product.name.slice(0, 1)}</span>
-        <strong>{product.name}</strong>
+      <button
+        className="product-mark"
+        onClick={() => onHome()}
+        aria-label={`${product.name} home`}
+        title={product.description}
+      >
+        <ProductMark name={product.name} />
       </button>
       <nav className="application-nav" aria-label="Applications">
         <ApplicationButtons

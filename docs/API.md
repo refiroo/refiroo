@@ -1,5 +1,7 @@
 # API principles and contract
 
+This is the API of **refiroo**, the application (see [OPERATORING.md](OPERATORING.md)); the API reference page at `/docs` carries the same name and mark.
+
 ## Entity identifiers
 
 Model metadata and runtime graph entities exposed by the API carry a stable public `id`. IDs are

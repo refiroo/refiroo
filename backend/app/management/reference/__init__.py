@@ -11,6 +11,7 @@ document, so the OpenAPI locks do not change with the page.
 """
 
 import json
+from html import escape
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode
@@ -30,9 +31,7 @@ SCALAR_VERSION = "1.72.2"
 SCALAR_SCRIPT = Path(__file__).resolve().parent / "scalar" / "standalone.js"
 # Subresource integrity of the bundled script; the CDN serves the same bytes for the pinned version.
 SCALAR_INTEGRITY = "sha384-mc6GgHVwdYe1ZSU5XmJBa2pe6QzCRDSd0Pk8TqiqM7iiAOFMKtpBTOOa2RZDHkYN"
-SCALAR_CDN_URL = (
-    f"https://cdn.jsdelivr.net/npm/@scalar/api-reference@{SCALAR_VERSION}/dist/browser/standalone.js"
-)
+SCALAR_CDN_URL = f"https://cdn.jsdelivr.net/npm/@scalar/api-reference@{SCALAR_VERSION}/dist/browser/standalone.js"
 BUNDLED_SCRIPT_PATH = "/docs/scalar/standalone.js"
 
 # The mount point is not "api-reference": the Scalar script mounts a second, unconfigured instance
@@ -42,9 +41,26 @@ _PAGE = """<!doctype html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>RDM Engine API reference</title>
+    <title>refiroo API reference</title>
+    <link rel="icon" href="{root_path}/brand/favicon.png" />
+    <style>
+      .brand-header {{ position: fixed; inset: 0 0 auto 0; z-index: 100; height: 48px; display: flex;
+        align-items: center; gap: 10px; padding: 0 16px; box-sizing: border-box;
+        background: #fff; border-bottom: 1px solid #e4e2dc; font: 600 14px system-ui, sans-serif; color: #1d1c1a; }}
+      .brand-header img {{ display: block; height: 32px; width: auto; }}
+      .brand-header img.wordmark {{ height: 16px; }}
+      @media (prefers-color-scheme: dark) {{
+        .brand-header {{ background: #18181b; border-bottom-color: #2c2c31; color: #ececee; }}
+        .brand-header img.wordmark {{ filter: brightness(0) invert(.93); }}
+      }}
+    </style>
   </head>
   <body>
+    <header class="brand-header">
+      <img src="{root_path}/brand/refiroo-mascot.png" alt="" />
+      <img class="wordmark" src="{root_path}/brand/refiroo-wordmark.png" alt="refiroo" />
+      <span>API reference</span>
+    </header>
     <div id="rdm-api-reference"></div>
     <script src="{script}"{integrity}></script>
     <script>Scalar.createApiReference("#rdm-api-reference", {configuration});</script>
@@ -124,13 +140,21 @@ OFFLINE_OPTIONS: dict = {
 }
 
 
+# Scalar leaves room under the page's fixed refiroo header for this height.
+HEADER_CSS = ":root { --scalar-custom-header-height: 48px; }"
+
+
 def render_page(script: ApiReferenceScript, root_path: str, sources: list[dict]) -> str:
-    configuration = {**OFFLINE_OPTIONS, "sources": sources}
+    configuration = {**OFFLINE_OPTIONS, "customCss": HEADER_CSS, "sources": sources}
     if script == "cdn":
-        source, integrity = SCALAR_CDN_URL, f' integrity="{SCALAR_INTEGRITY}" crossorigin="anonymous"'
+        source, integrity = (
+            SCALAR_CDN_URL,
+            f' integrity="{SCALAR_INTEGRITY}" crossorigin="anonymous"',
+        )
     else:
         source, integrity = f"{root_path}{BUNDLED_SCRIPT_PATH}", ""
     return _PAGE.format(
+        root_path=escape(root_path),
         script=source,
         integrity=integrity,
         # JSON is a JavaScript literal; escaping "<" keeps a value from closing the script element.

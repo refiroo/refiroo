@@ -107,7 +107,7 @@ try {
     // scrolls, so 0.11's added areas moved /api/v1/workspace-models out of reach.
     await page.getByText("/api/v1/capabilities", { exact: true }).locator("visible=true").first().waitFor();
     await page.waitForLoadState("networkidle");
-    expect(await page.title() === "RDM Engine API reference", `${label}: title ${await page.title()}`);
+    expect(await page.title() === "refiroo API reference", `${label}: title ${await page.title()}`);
     expect(loaded.includes("/docs/scalar/standalone.js"), `${label}: bundled script not loaded: ${loaded}`);
     expect(loaded.includes("/openapi.json"), `${label}: management source not loaded: ${loaded}`);
     // Scalar's hosted services are switched off: no agent, MCP generator, toolbar or hosted client.

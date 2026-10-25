@@ -1,5 +1,10 @@
 # Instructions for coding agents
 
+The application is named **refiroo** (lower case). It is an RDM engine and has an engine inside it:
+write "refiroo" for the application, a person's view of it and anything user-facing, and "the engine"
+or "the RDM engine" in technical text. Do not rename code, packages or settings by search and replace.
+Names and logo files are in `docs/BRANDING.md`.
+
 ## Read first
 
 Use the smallest authoritative context that covers the requested change:

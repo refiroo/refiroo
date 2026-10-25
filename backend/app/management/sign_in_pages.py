@@ -13,6 +13,8 @@ from urllib.parse import urlsplit
 
 from fastapi.responses import HTMLResponse
 
+from .brand_assets import is_default_product_name
+
 _STYLE = """
 :root{--surface-sunken:#f6f5f2;--surface-raised:#fff;--text-primary:#1d1c1a;--text-secondary:#55524c;
 --text-tertiary:#69655e;--text-on-action:#fff;--border-subtle:#e4e2dc;--border-control:#8a867d;
@@ -28,6 +30,9 @@ body{margin:0;min-height:100vh;background:var(--surface-sunken);color:var(--text
 font:14px/1.45 "Instrument Sans Variable","Instrument Sans",ui-sans-serif,system-ui,sans-serif;
 display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px 16px}
 .brand{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:600}
+.brand img{display:block;height:36px;width:auto}.brand img.wordmark{height:20px}
+.brand strong{padding-left:12px;border-left:1px solid var(--border-subtle);font-weight:600}
+@media (prefers-color-scheme:dark){.brand img.wordmark{filter:brightness(0) invert(.93)}}
 main{width:100%;max-width:400px;background:var(--surface-raised);border:1px solid var(--border-subtle);
 border-radius:12px;padding:32px;display:flex;flex-direction:column;gap:18px}
 h1{margin:0;font-size:22px;font-weight:600}
@@ -66,12 +71,15 @@ background:var(--surface-sunken)}
 main{border:0;padding:0}}
 """
 
-_MARK = (
-    '<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="2" y="2" '
-    'width="24" height="24" rx="6" fill="none" stroke="currentColor" stroke-width="2"></rect>'
-    '<path d="M9 10h10M9 14h10M9 18h6" stroke="currentColor" stroke-width="2" '
-    'stroke-linecap="round"></path></svg>'
-)
+
+def _mark(product: str) -> str:
+    """The refiroo mascot and wordmark; a model's own product name stands beside them."""
+    instance = "" if is_default_product_name(product) else f"<strong>{escape(product)}</strong>"
+    return (
+        '<img src="/brand/refiroo-mascot.png" alt="" width="36" height="36">'
+        '<img class="wordmark" src="/brand/refiroo-wordmark.png" alt="refiroo" height="20">'
+        + instance
+    )
 
 
 def _origin(url: str) -> str:
@@ -111,8 +119,10 @@ def _page(
     html = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>{escape(title)} · {escape(product)}</title><style>{_STYLE}</style></head><body>"
-        f'<header class="brand">{_MARK}<span>{escape(product)}</span></header>'
+        f"<title>{escape(title)} · refiroo</title>"
+        '<link rel="icon" href="/brand/favicon.png">'
+        f"<style>{_STYLE}</style></head><body>"
+        f'<header class="brand">{_mark(product)}</header>'
         f"<main>{body}</main>{loaded}</body></html>"
     )
     return HTMLResponse(

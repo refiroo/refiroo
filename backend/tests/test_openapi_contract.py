@@ -276,10 +276,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # and its description. This hash is of the
     # whole working tree, RH1's history changes (HistoryRelated, HistoryValue, kind and actorId)
     # included, so the lock passes in the shared checkout; the earlier hash of I4's files alone
-    # could not be re-derived.
+    # could not be re-derived. Re-baselined for the refiroo name: only the document's title and
+    # description changed (verified by restoring the old two, which reproduces the earlier hash).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "c771d33f5ecc46cab4532d621ee89271c10709a0c6f7b1fd3b632e32235e007b"
+        "b4be71e99636ce2d5883869bb90c6d0307df0f9c6903aac8d8a9cc03f4ccc9ef"
     )
 
 
@@ -334,8 +335,13 @@ def test_paging_openapi_inventory():
         "/api/v1/import-profiles",
         "/api/v1/relations/held",
     } <= paged
-    objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
-    relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
+    objects = {
+        item["name"]
+        for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]
+    }
+    relations = {
+        item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]
+    }
     assert "topLevel" in objects and {"search", "sort"} <= relations
     # 0.9 Q3: the model-aware query pages the same way, with its page selection in the body.
     query = document["paths"]["/api/v1/workspaces/{workspace_key}/queries/objects"]["post"]
@@ -343,17 +349,23 @@ def test_paging_openapi_inventory():
     assert {"cursor", "from", "position", "includeTotal", "pageSize"} <= set(
         document["components"]["schemas"][body]["properties"]
     )
-    page = query["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+    page = query["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].rsplit(
+        "/", 1
+    )[-1]
     properties = document["components"]["schemas"][page]["properties"]
     assert next(iter(properties)) == "items"
     assert {"nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"} <= set(properties)
     # 0.9 B1: an inline batch answers with the first page of its outcomes, continued on
     # GET /jobs/{id}/items.
     batch = document["paths"]["/api/v1/batches"]["post"]
-    page = batch["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+    page = batch["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].rsplit(
+        "/", 1
+    )[-1]
     properties = document["components"]["schemas"][page]["properties"]
     assert next(iter(properties)) == "items"
-    assert {"job", "nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"} <= set(properties)
+    assert {"job", "nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"} <= set(
+        properties
+    )
 
 
 def test_wp6_openapi_removes_rejected_object_lifecycle_and_direct_writes():
@@ -409,7 +421,13 @@ def test_wp8_openapi_inventory_locks_workspace_lifecycle_and_record_crud():
         for path in paths
         if any(
             old in path
-            for old in ("workspace-draft", "workspace-revision", "/drafts", "/revisions", "/retirement")
+            for old in (
+                "workspace-draft",
+                "workspace-revision",
+                "/drafts",
+                "/revisions",
+                "/retirement",
+            )
         )
         or (path.startswith("/api/v1/change-sets") and path.endswith("/activation"))
     ]
@@ -479,9 +497,15 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         "/api/v1/model-drafts/{draft_id}/model": frozenset({"get"}),
         "/api/v1/model-drafts/{draft_id}/profile": frozenset({"get"}),
         "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}": frozenset({"get"}),
-        "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json": frozenset({"get"}),
-        "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json": frozenset({"get"}),
-        "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json": frozenset({"get"}),
+        "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/schema.json": frozenset(
+            {"get"}
+        ),
+        "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/example.json": frozenset(
+            {"get"}
+        ),
+        "/api/v1/model-drafts/{draft_id}/consumer-apis/{consumer_api}/openapi.json": frozenset(
+            {"get"}
+        ),
         # 0.10 A3: a draft's dry run and the rows behind it (D65–D67).
         "/api/v1/model-drafts/{draft_id}/dry-run": frozenset({"get", "post"}),
         "/api/v1/model-drafts/{draft_id}/dry-run/rows": frozenset({"get"}),
@@ -510,25 +534,40 @@ def test_base_0_9_c11_c12_enabled_openapi_exposes_the_subscriptions_api(monkeypa
         "/api/v1/consumer-subscriptions/{subscription_id}/resume": frozenset({"post"}),
         # U5a: the delivery log.
         "/api/v1/consumer-subscriptions/{subscription_id}/deliveries": frozenset({"get"}),
-        "/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}": frozenset({"get"}),
+        "/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}": frozenset(
+            {"get"}
+        ),
         # U5a revision: resending an event by hand (C-D129).
-        "/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}/resend": frozenset({"post"}),
+        "/api/v1/consumer-subscriptions/{subscription_id}/deliveries/{delivery_id}/resend": frozenset(
+            {"post"}
+        ),
     }
     components = schema["components"]["schemas"]
     response = components["SubscriptionResponse"]
     assert "signingSecret" not in response["required"]
     # U5a: a subscription is named, on create and in every answer (C-D115).
-    assert "name" in response["required"] and "name" in components["ConsumerSubscriptionCreate"]["required"]
+    assert (
+        "name" in response["required"]
+        and "name" in components["ConsumerSubscriptionCreate"]["required"]
+    )
     # C12: the delivery state, the reasons the dispatcher sets, and resume's reset (C-D108, C-D110).
     assert "delivery" in response["required"]
     assert set(components["SubscriptionDelivery"]["properties"]) == {"lastDeliveredAt", "pending"}
     assert set(components["DeliveryError"]["properties"]["kind"]["enum"]) == {
-        "status", "redirect", "timeout", "connection", "tls", "address"
+        "status",
+        "redirect",
+        "timeout",
+        "connection",
+        "tls",
+        "address",
     }
     reasons = set(components["SubscriptionSuspension"]["properties"]["reason"]["enum"])
     assert {"DELIVERY_FAILED", "FILTER_MATCHES_NOTHING", "EVENTS_EXPIRED"} <= reasons
     assert "HOST_NOT_ALLOWED" not in reasons
-    assert set(components["ConsumerSubscriptionResume"]["properties"]) == {"expectedVersion", "reset"}
+    assert set(components["ConsumerSubscriptionResume"]["properties"]) == {
+        "expectedVersion",
+        "reset",
+    }
 
 
 def test_wp4_mapping_query_inventory_and_required_context():
@@ -547,7 +586,9 @@ def test_wp4_mapping_query_inventory_and_required_context():
         parameters = {row["name"]: row for row in operation["parameters"]}
         assert parameters["applicationKey"]["required"] == (name != "targets")
         assert parameters["viewKey"]["required"] == (name != "targets")
-        assert "changeSetId" in parameters and "publicationId" in parameters and "cursor" in parameters
+        assert (
+            "changeSetId" in parameters and "publicationId" in parameters and "cursor" in parameters
+        )
         size = parameters["pageSize"]["schema"]
         bounds = next((row for row in size.get("anyOf", []) if row.get("type") == "integer"), size)
         assert bounds["minimum"] == 1 and bounds["maximum"] == 100

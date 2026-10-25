@@ -56,19 +56,72 @@ html {
   padding: 0;
   font-size: var(--text-lg);
 }
-.product-mark > span {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  background: var(--text-primary);
-  color: var(--surface-app);
-  font-size: var(--text-sm);
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-mascot {
+  display: block;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+.brand-wordmark {
+  display: block;
+  width: auto;
+  height: 18px;
+}
+.brand-instance {
+  margin-inline-start: var(--space-2);
+  padding-inline-start: var(--space-3);
+  border-inline-start: 1px solid var(--border-subtle);
+  font-size: var(--text-md);
   font-weight: 600;
 }
-.product-mark strong {
+.brand-mascot-large {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+.center-message {
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-3);
+}
+.about-brand {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 640px;
+  color: var(--text-secondary);
+}
+.about-brand p,
+.about-brand ul {
+  margin: 0;
+}
+.about-brand .about-tagline {
+  color: var(--text-primary);
+  font-size: var(--text-lg);
   font-weight: 600;
+}
+.about-points {
+  display: grid;
+  gap: var(--space-2);
+  padding-inline-start: var(--space-5);
+}
+.about-points strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+/* The wordmark is navy ink on transparent; on a dark surface it is drawn light. */
+:root[data-theme="dark"] .brand-wordmark {
+  filter: brightness(0) invert(0.93);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand-wordmark {
+    filter: brightness(0) invert(0.93);
+  }
 }
 /* The tabs start 36px after the product name (ADR-040); the header's gap gives the first 20. */
 .application-nav {

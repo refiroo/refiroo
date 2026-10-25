@@ -1,6 +1,6 @@
 # Operations
 
-How to configure, run, upgrade and recover RDM Engine. The design reasons behind these rules are in
+How to configure, run, upgrade and recover refiroo (the application; the engine inside it is the RDM engine, see [BRANDING.md](BRANDING.md)). The design reasons behind these rules are in
 [ARCHITECTURE.md](ARCHITECTURE.md); the API contracts are in [API.md](API.md).
 
 The engine is pre-production until 0.11 (production hardening) and 0.12 (authentication). Every API

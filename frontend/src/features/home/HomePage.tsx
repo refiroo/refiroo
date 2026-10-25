@@ -34,6 +34,7 @@ import { HueTile } from "@/ui/HueTile";
 import { Icon, type IconName } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { RouteLink } from "@/ui/RouteLink";
+import { BrandMascot } from "@/ui/ProductMark";
 import { Skeleton } from "@/ui/Skeleton";
 import { continueLines, readContinueAddress, type ContinueAddress } from "./continueAddress";
 import {
@@ -122,6 +123,7 @@ export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate
           <>
             <div className="home-top">
               <section className="account-panel home-welcome" aria-labelledby="home-title">
+                <BrandMascot size={56} />
                 <p className="home-eyebrow">Home</p>
                 <h1 id="home-title">{greeting(me.name, new Date().getHours())}</h1>
                 <p className="home-summary">{summary(workspaces)}</p>

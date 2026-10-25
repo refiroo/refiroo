@@ -1,6 +1,6 @@
 # Architecture
 
-How RDM Engine is built and why. This document describes the system as it is now; when each part
+How refiroo is built and why. refiroo is the application; "the engine" in this document is the runtime inside it (see [BRANDING.md](BRANDING.md)). This document describes the system as it is now; when each part
 was delivered is in the [changelog](../CHANGELOG.md), the reasoning behind decisions in
 [DECISIONS.md](DECISIONS.md), the API contracts in [API.md](API.md), the model language in
 [APPLICATION_MODEL.md](APPLICATION_MODEL.md) and configuration and running the engine in

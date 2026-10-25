@@ -84,7 +84,9 @@ def test_the_cdn_setting_loads_the_pinned_version_under_its_integrity(monkeypatc
     client = _client(monkeypatch, " CDN ")
 
     page = client.get("/docs").text
-    assert SCALAR_CDN_URL.endswith(f"@scalar/api-reference@{SCALAR_VERSION}/dist/browser/standalone.js")
+    assert SCALAR_CDN_URL.endswith(
+        f"@scalar/api-reference@{SCALAR_VERSION}/dist/browser/standalone.js"
+    )
     assert (
         f'<script src="{SCALAR_CDN_URL}" integrity="{SCALAR_INTEGRITY}" crossorigin="anonymous">'
         in page
@@ -120,3 +122,15 @@ def test_swagger_ui_and_redoc_are_gone_and_the_page_is_outside_the_openapi_docum
         assert response.json()["error"]["code"] == "HTTP_ERROR"
     paths = app.openapi()["paths"]
     assert not [path for path in paths if path.startswith("/docs")]
+
+
+def test_docs_page_carries_the_refiroo_mark_from_the_engine(monkeypatch):
+    client = _client(monkeypatch, None)
+
+    page = client.get("/docs")
+    assert "<title>refiroo API reference</title>" in page.text
+    assert "/brand/refiroo-mascot.png" in page.text and "/brand/favicon.png" in page.text
+    for name in ("favicon.png", "refiroo-mascot.png", "refiroo-wordmark.png"):
+        image = client.get(f"/brand/{name}")
+        assert image.status_code == 200 and image.headers["content-type"] == "image/png"
+    assert client.get("/brand/secret.png").status_code == 404

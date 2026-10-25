@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import type { EngineModel, RouteState } from "@/types";
 import { listedNames } from "@/features/security/permissionText";
+import { BrandMascot } from "@/ui/ProductMark";
 import { ShellFrame } from "./ShellFrame";
 import { TopBar } from "./TopBar";
 import { useHoldsGroup } from "./useMe";
@@ -52,6 +53,7 @@ export function NoWorkspace({ model, onNavigate }: { model: EngineModel; onNavig
       main={{ className: "no-workspace" }}
     >
       <section className="no-workspace-page" aria-labelledby="no-workspace-title">
+        <BrandMascot />
         <h1 id="no-workspace-title">There is no workspace you can open yet</h1>
         {roles && <p>{noWorkspaceText(roles, securityAdmin)}</p>}
         <div className="no-workspace-actions">

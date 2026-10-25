@@ -4,10 +4,12 @@
  * migration revision is the operator's, on Deployment (0.12 D246).
  */
 
+import { API_URL } from "@/api/address";
 import { formatServerTime } from "@/lib/dates";
 import type { SettingsRoute } from "@/types";
 import { DescriptionList } from "@/ui/DescriptionList";
 import { InlineError } from "@/ui/InlineError";
+import { ProductMark } from "@/ui/ProductMark";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
@@ -25,6 +27,37 @@ export function AboutPage({ onNavigate }: { onNavigate: (route: SettingsRoute) =
         <Skeleton label="Loading what this deployment runs" lines={6} />
       ) : (
         <>
+          <Section title="refiroo">
+            <div className="about-brand">
+              <ProductMark name="refiroo" />
+              <p className="about-tagline">Reference data that stays in step.</p>
+              <p>
+                refiroo is where your organisation keeps the lists everything else depends on: codes, categories,
+                translations and the way one system&rsquo;s value maps to another&rsquo;s. You describe a domain once in
+                a model and refiroo gives it screens, an API, validation, history and search. Corrections go live when
+                saved, bigger changes are prepared in a change set and published together, and every record remembers
+                who changed it and when.
+              </p>
+              <ul className="about-points">
+                <li>
+                  <strong>Shape it to your domain.</strong> Another domain is another model, not another product.
+                </li>
+                <li>
+                  <strong>Connect, don&rsquo;t copy.</strong> Hierarchies, relationships and mappings keep their
+                  meaning.
+                </li>
+                <li>
+                  <strong>One API for everything.</strong> What the browser does, your integrations can do.
+                </li>
+              </ul>
+              <p className="about-links">
+                Read more: the <a href={`${API_URL}/docs`}>API reference</a>, and in the repository{" "}
+                <code>README.md</code>, <code>docs/PRODUCT.md</code> (what it does),{" "}
+                <code>docs/MODEL_AUTHORING.md</code> (writing a model) and <code>docs/API.md</code> (the contracts).
+                Under the hood refiroo runs on the RDM engine, shown below.
+              </p>
+            </div>
+          </Section>
           <Section title="Engine">
             <DescriptionList
               items={[

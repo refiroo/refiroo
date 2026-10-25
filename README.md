@@ -1,6 +1,12 @@
-# RDM Engine
+<p align="center"><img src="logos/refiroo-lockup.png" alt="refiroo" width="360"></p>
 
-RDM Engine is an API-first, model-driven platform for reference data. Applications, object types,
+# refiroo
+
+> **refiroo** is the name of the application. It is an RDM (reference data management) engine, and it
+> has an engine inside it, so the technical documents say "the engine" or "the RDM engine" and the
+> repository is `rdm-engine`. See [docs/BRANDING.md](docs/BRANDING.md).
+
+refiroo is an API-first, model-driven platform for reference data. Applications, object types,
 global attribute types, relation types, allowed object-type relationships and UI views are described
 by a versioned JSON model rather than hardcoded into the product.
 
@@ -120,6 +126,7 @@ run the tests is in the [test execution guide](docs/testing/EXECUTION_GUIDE.md).
 
 | Document | Read it for |
 | --- | --- |
+| [BRANDING.md](docs/BRANDING.md) | The name refiroo, how it relates to "the engine", and the logo files |
 | [PRODUCT.md](docs/PRODUCT.md) | What the product does, for whom, and what is planned |
 | [Product functionality](docs/product-functionality/README.md) | Capability catalogue, user stories, journeys and acceptance scenarios |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the engine is built and why |

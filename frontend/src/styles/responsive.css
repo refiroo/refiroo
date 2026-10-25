@@ -72,7 +72,7 @@
     grid-area: mark;
     min-height: 52px;
   }
-  .product-mark strong,
+  .brand-instance,
   .topbar-spacer {
     display: none;
   }

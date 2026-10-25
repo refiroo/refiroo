@@ -1,6 +1,6 @@
 # Product overview
 
-RDM Engine lets a team define and run its own reference-data applications without building separate
+refiroo (the application; see [BRANDING.md](BRANDING.md)) lets a team define and run its own reference-data applications without building separate
 software for each one. A model describes the kinds of records, their fields, how they connect and how
 they are shown; the engine supplies the screens, the API, validation, history and search.
 

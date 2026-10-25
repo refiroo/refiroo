@@ -41,7 +41,7 @@ include = ["app*"]
 [tool.setuptools.package-data]
 "app.migrations" = ["script.py.mako"]
 "app.management.reference" = ["scalar/standalone.js", "scalar/LICENSE"]
-"app.management" = ["passkey.js"]
+"app.management" = ["passkey.js", "brand/*.png"]
 
 [tool.ruff]
 line-length = 100

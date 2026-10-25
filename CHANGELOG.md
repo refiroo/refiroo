@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (branding)
+
+- **The application is named refiroo.** The interface shows the refiroo mark in the top bar, the
+  loading and empty screens, Home and Settings › About, with the title and favicon in the browser;
+  the sign-in pages and the API reference at `/docs` (and the OpenAPI title) carry the same name and
+  mark, served from `/operator/<file>`. The logos are in `logos/`, renamed by what they are; the
+  interface and the engine keep resized copies. Naming rules and files: `docs/OPERATORING.md`.
+
 ### Fixed (0.12 I4 review)
 
 - **Removing a passkey asks for the password again** (or a code from the app or a recovery code):
