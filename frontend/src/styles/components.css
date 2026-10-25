@@ -1895,7 +1895,8 @@ tr:focus-within .icon-button.icon-button-quiet {
 .compact-dialog {
   width: min(520px, 100%);
 }
-/* Two short fields side by side in a dialog form; one above the other on a phone. */
+/* Two short fields side by side in a dialog form; one above the other on a phone. Top-aligned, so
+   one field's help text does not stretch the other's input (0.12 I3). */
 .dialog-pair {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1913,6 +1914,7 @@ tr:focus-within .icon-button.icon-button-quiet {
   padding: 16px 22px 0;
   color: var(--text-secondary);
   font-size: 14px;
+  align-items: start;
   line-height: 1.5;
 }
 /* A body that holds its own actions ends the dialog, so it keeps the dialog's bottom margin. */

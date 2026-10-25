@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import api_error
 from ...models.database import PasswordResetLink, User, UserSession
-from . import security_events, sessions
+from . import providers, security_events, sessions
 from .passwords import check_password, digest, hash_secret, new_token, verify_secret
 from .settings import IdentitySettings
 from .users import load_user
@@ -26,8 +26,9 @@ def create_link(
     session: Session, settings: IdentitySettings, user_public_id: str
 ) -> tuple[str, datetime]:
     """A one-time link that sets this person's password, replacing any earlier one; answered once.
-    Commits."""
+    Refused while local sign-in is off for a person who does not keep it (I3, D365). Commits."""
     user = load_user(session, user_public_id, for_update=True)
+    providers.refuse_while_off(session, user)
     now = datetime.now(UTC)
     session.execute(delete(PasswordResetLink).where(PasswordResetLink.user_id == user.id))
     token = new_token()

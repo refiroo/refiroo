@@ -66,7 +66,7 @@ function Profile({ me }: { me: Me }) {
           {me.signedInWith && (
             <span className="account-pill success">
               <span className="account-dot" aria-hidden="true" />
-              {SIGNED_IN_WITH[me.signedInWith] ?? `Signed in with ${me.signedInWith}`}
+              {SIGNED_IN_WITH[me.signedInWith] ?? `Signed in with ${me.signInProvider?.name ?? me.signedInWith}`}
             </span>
           )}
           {me.lastSignInAt && <span className="account-pill">Since {formatServerDayTime(me.lastSignInAt)}</span>}

@@ -2,8 +2,9 @@
 
 Outside ``/api/v1`` and needing no token (D245): the server's metadata (RFC 8414), the public keys
 that verify its tokens, the token endpoint, the sign-in page and its form, revocation, and the page
-a password-reset link opens. Clients obtain tokens with their credentials (I1); the browser signs a
-person in with the authorization code flow and PKCE (I2), its session held in an ``HttpOnly``,
+a password-reset link opens, and a sign-in provider's start and return (I3). Clients obtain tokens
+with their credentials (I1); the browser signs a person in with the authorization code flow and
+PKCE (I2), with a password or through a provider (I3), its session held in an ``HttpOnly``,
 ``SameSite=Strict`` refresh cookie that only ``/oauth`` reads (D234). Errors of the token and
 revocation endpoints are in RFC 6749's shape, ``{"error", "error_description"}``, which OAuth client
 libraries parse (D250); the pages explain theirs on the page.
@@ -17,13 +18,23 @@ from urllib.parse import unquote, urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, Form, Header, Query, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...engine.identity import keys, resets, sessions, sign_in, tokens
+from ...engine.identity import (
+    keys,
+    provider_sign_in,
+    providers,
+    resets,
+    sessions,
+    sign_in,
+    tokens,
+)
 from ...engine.identity.clients import authenticate_client
 from ...engine.identity.settings import IdentitySettings
 from ...engine.model.registry import resolve_model_snapshot
 from ...errors import ApiError
+from ...models.database import SignInProvider
 from .. import sign_in_pages as pages
 from ..dependencies import DbSession, started
 
@@ -34,6 +45,10 @@ AUTH_METHODS = ["client_secret_basic", "client_secret_post", "none"]
 # The browser's refresh token: read only by the token and revocation endpoints (D234).
 REFRESH_COOKIE = "oauth_refresh"
 _COOKIE_PATH = "/oauth"
+# A provider sign-in's binding to the browser that started it (I3, D361): Lax, since the provider's
+# redirect back is a navigation from another site.
+PROVIDER_COOKIE = "oauth_provider"
+_PROVIDER_PATH = "/oauth/providers"
 # Token responses are never cached (RFC 6749 §5.1).
 _NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache"}
 # The fields of an authorization request the sign-in form carries back.
@@ -157,9 +172,11 @@ def authorize_page(
     code_challenge_method: str | None = None,
     state: str | None = None,
     session_ended: Annotated[str | None, Query(alias="session")] = None,
+    local: str | None = None,
 ) -> Response:
     """The engine's sign-in page for the browser (the authorization code flow with PKCE ``S256``).
-    ``session=ended`` adds that the person's session ended."""
+    ``session=ended`` adds that the person's session ended; ``local=1`` shows the password form
+    while local sign-in is off (D365)."""
     settings = _settings(request)
     fields = {
         "response_type": response_type,
@@ -172,12 +189,28 @@ def authorize_page(
     checked = _authorization_request(session, settings, fields)
     if isinstance(checked, Response):
         return checked
+    local_on = providers.local_enabled(session)
     return pages.sign_in(
         _product(session),
         checked,
         issuer=settings.issuer,
         redirect_origins=_origins(settings),
         ended=session_ended == "ended",
+        providers=_buttons(session, checked),
+        local=local_on,
+        local_link=None if local_on or local == "1" else _query("/oauth/authorize", checked, local="1"),
+    )
+
+
+def _query(path: str, fields: dict[str, str], **more: str) -> str:
+    return f"{path}?{urlencode({**fields, **more})}"
+
+
+def _buttons(session: Session, fields: dict[str, str]) -> tuple[tuple[str, str], ...]:
+    """The enabled providers' buttons, each starting a sign-in with the browser's request (I3)."""
+    return tuple(
+        (provider.name, _query(f"{_PROVIDER_PATH}/{provider.key}/start", fields))
+        for provider in providers.enabled_providers(session)
     )
 
 
@@ -237,7 +270,10 @@ def authorize_form(
             status=403,
         )
     now = datetime.now(UTC)
-    outcome = sign_in.check_password(session, username, password, _address(request), now)
+    local_on = providers.local_enabled(session)
+    outcome = sign_in.check_password(
+        session, username, password, _address(request), now, kept_only=not local_on
+    )
     if isinstance(outcome, sign_in.Refused):
         slowed = outcome.reason == "slowed"
         return pages.sign_in(
@@ -249,6 +285,8 @@ def authorize_form(
             wrong=not slowed,
             wait_seconds=outcome.wait_seconds,
             status=429 if slowed else 401,
+            providers=_buttons(session, checked),
+            local=local_on,
         )
     code = sign_in.issue_code(
         session,
@@ -259,6 +297,145 @@ def authorize_form(
         now=now,
     )
     return _redirect(checked["redirect_uri"], code=code, state=checked.get("state"))
+
+
+# ---------------------------------------------------------------------------------------------
+# A sign-in provider (I3)
+
+
+def _provider(session: Session, settings: IdentitySettings, key: str) -> SignInProvider | Response:
+    provider = session.scalar(select(SignInProvider).where(SignInProvider.key == key))
+    if provider is None:
+        return pages.problem(
+            _product(session),
+            "There is no such sign-in provider. Open the application and sign in from its page.",
+            issuer=settings.issuer,
+            redirect_origins=_origins(settings),
+            status=404,
+        )
+    return provider
+
+
+def _provider_problem(
+    session: Session,
+    settings: IdentitySettings,
+    provider: SignInProvider,
+    failed: provider_sign_in.SignInFailed,
+) -> Response:
+    retry = _query("/oauth/authorize", failed.request) if failed.request else None
+    response = pages.provider_problem(
+        _product(session),
+        provider.name,
+        failed.message,
+        retry_url=retry,
+        issuer=settings.issuer,
+        redirect_origins=_origins(settings),
+        status=403 if failed.reason in ("disabled", "deactivated") else 400,
+    )
+    response.delete_cookie(
+        PROVIDER_COOKIE, path=_PROVIDER_PATH, secure=settings.secure_cookies, httponly=True,
+        samesite="lax",
+    )  # fmt: skip
+    return response
+
+
+@router.get("/oauth/providers/{key}/start", dependencies=_STARTED, include_in_schema=False)
+def provider_start(
+    key: str,
+    request: Request,
+    session: DbSession,
+    response_type: str | None = None,
+    client_id: str | None = None,
+    redirect_uri: str | None = None,
+    code_challenge: str | None = None,
+    code_challenge_method: str | None = None,
+    state: str | None = None,
+) -> Response:
+    """The sign-in page's "Continue with" button: the browser's authorization request is kept and
+    the browser sent to the provider (D361)."""
+    settings = _settings(request)
+    fields = {
+        "response_type": response_type,
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "code_challenge": code_challenge,
+        "code_challenge_method": code_challenge_method,
+        "state": state,
+    }
+    checked = _authorization_request(session, settings, fields)
+    if isinstance(checked, Response):
+        return checked
+    provider = _provider(session, settings, key)
+    if isinstance(provider, Response):
+        return provider
+    try:
+        started = provider_sign_in.start(
+            session, settings, provider, checked, address=_address(request), now=datetime.now(UTC)
+        )
+    except provider_sign_in.SignInFailed as failed:
+        return _provider_problem(session, settings, provider, failed)
+    response = RedirectResponse(started.url, status_code=303, headers=_NO_STORE)
+    response.set_cookie(
+        PROVIDER_COOKIE,
+        started.browser_token,
+        max_age=provider_sign_in.SIGN_IN_MINUTES * 60,
+        path=_PROVIDER_PATH,
+        secure=settings.secure_cookies,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
+
+
+@router.get("/oauth/providers/{key}/callback", dependencies=_STARTED, include_in_schema=False)
+def provider_callback(
+    key: str,
+    request: Request,
+    session: DbSession,
+    state: str | None = None,
+    code: str | None = None,
+    error: str | None = None,
+    error_description: str | None = None,
+) -> Response:
+    """Where the provider returns the browser: the answer checked, the person found or created, and
+    the browser sent back with a one-time code as the password form does (D361, D368)."""
+    settings = _settings(request)
+    provider = _provider(session, settings, key)
+    if isinstance(provider, Response):
+        return provider
+    now = datetime.now(UTC)
+    try:
+        user, browser_request = provider_sign_in.finish(
+            session,
+            settings,
+            provider,
+            state=state,
+            code=code,
+            error=(error or "")[:200] or None,
+            error_description=(error_description or "")[:300] or None,
+            browser_token=request.cookies.get(PROVIDER_COOKIE),
+            address=_address(request),
+            now=now,
+        )
+    except provider_sign_in.SignInFailed as failed:
+        return _provider_problem(session, settings, provider, failed)
+    checked = _authorization_request(session, settings, browser_request)
+    if isinstance(checked, Response):
+        return checked
+    issued = sign_in.issue_code(
+        session,
+        user,
+        redirect_uri=checked["redirect_uri"],
+        code_challenge=checked["code_challenge"],
+        signed_in_with=provider.key,
+        now=now,
+    )
+    response = _redirect(checked["redirect_uri"], code=issued, state=checked.get("state"))
+    response.delete_cookie(
+        PROVIDER_COOKIE, path=_PROVIDER_PATH, secure=settings.secure_cookies, httponly=True,
+        samesite="lax",
+    )  # fmt: skip
+    return response
 
 
 # ---------------------------------------------------------------------------------------------

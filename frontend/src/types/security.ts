@@ -10,8 +10,17 @@ export interface Me {
   username: string | null;
   email: string | null;
   lastSignInAt: string | null;
+  /** `password`, or a sign-in provider's key (0.12 I3). */
   signedInWith: string | null;
+  /** The provider this session came from; null for a password. */
+  signInProvider?: SignInProviderRef | null;
   sessionId: string | null;
+}
+
+/** A sign-in provider as other reads name it (0.12 I3). */
+export interface SignInProviderRef {
+  key: string;
+  name: string;
 }
 
 /** A person or a client as a read names them now (0.12 Z4, D237). */
@@ -27,7 +36,7 @@ export type Actor = Principal | { kind: "engine" };
 /** A change to access, or a sign-in (0.12 Z4, D317, D318); `details` never holds a secret. */
 export interface SecurityEvent {
   id: string;
-  aggregateType: "user" | "group" | "role" | "grant" | "client" | "token-signing-key" | "sign-in";
+  aggregateType: "user" | "group" | "role" | "grant" | "client" | "token-signing-key" | "sign-in" | "sign-in-provider";
   aggregateId: string;
   action: string;
   version: number;
@@ -120,6 +129,10 @@ export interface User {
   updatedAt: string;
   lastSignInAt: string | null;
   roles: UserRole[];
+  /** The sign-in providers the person signs in with (0.12 I3, D363). */
+  identities: { provider: SignInProviderRef; subject: string }[];
+  /** Signs in with a password while local sign-in is off (D365). */
+  localKept: boolean;
 }
 
 export interface UserPage extends PageNavigation {
@@ -132,11 +145,13 @@ export interface PasswordResetLink {
   expiresAt: string;
 }
 
-/** A local group of people (0.12 Z1). */
+/** A group of people (0.12 Z1): local, or from a sign-in provider (I3, D364). */
 export interface Group {
   id: string;
   name: string;
   description: string | null;
+  /** A provider group's provider and claim value; its members come from sign-ins. */
+  source: { provider: SignInProviderRef; claimValue: string } | null;
   members: number;
   version: number;
   createdAt: string;
@@ -152,6 +167,8 @@ export interface GroupMember {
   username: string;
   name: string;
   active: boolean;
+  /** A provider group's member: when a sign-in last named them in it. */
+  seenAt?: string | null;
 }
 
 export interface GroupMemberPage extends PageNavigation {
@@ -253,6 +270,46 @@ export interface SigningKey {
 
 export interface SigningKeyPage extends PageNavigation {
   items: SigningKey[];
+}
+
+/** An OpenID Connect provider people sign in with (0.12 I3, D366); never its secret. */
+export interface SignInProvider {
+  key: string;
+  name: string;
+  issuer: string;
+  clientId: string;
+  clientSecretSet: boolean;
+  groupsClaim: string | null;
+  enabled: boolean;
+  /** The address to register with the provider. */
+  redirectUri: string;
+  people: number;
+  lastSignInAt: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SignInProviderPage extends PageNavigation {
+  items: SignInProvider[];
+}
+
+export interface SignInProviderCreate {
+  key: string;
+  name: string;
+  issuer: string;
+  clientId: string;
+  clientSecret: string;
+  groupsClaim?: string | null;
+  enabled?: boolean;
+}
+
+/** Whether people sign in with a password (D365). */
+export interface LocalSignIn {
+  enabled: boolean;
+  keptPeople: number;
+  version: number;
+  updatedAt: string;
 }
 
 /** What the caller holds in one workspace: the roles that apply there and their action groups. */

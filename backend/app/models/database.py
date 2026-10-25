@@ -59,7 +59,16 @@ class UTCDateTime(TypeDecorator[datetime]):
 
 
 # The audit entries that are security events (0.12 Z4, D317, D318): outside every workspace.
-SECURITY_AGGREGATES = ("user", "group", "role", "grant", "client", "token-signing-key", "sign-in")
+SECURITY_AGGREGATES = (
+    "user",
+    "group",
+    "role",
+    "grant",
+    "client",
+    "token-signing-key",
+    "sign-in",
+    "sign-in-provider",
+)
 SECURITY_AGGREGATES_SQL = ", ".join(f"'{item}'" for item in SECURITY_AGGREGATES)
 
 
@@ -2004,7 +2013,8 @@ class User(Base):
 
     Deactivated, never deleted, so history always resolves who acted (D237). ``password_hash`` is
     an Argon2id PHC string, or none for a person who has not set a password (D252); the username is
-    unique ignoring case.
+    unique ignoring case. ``local_kept``: the person signs in with a password while local sign-in is
+    off, the way back made on the server (I3, D365).
     """
 
     __tablename__ = "users"
@@ -2029,6 +2039,93 @@ class User(Base):
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     last_sign_in_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    local_kept: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class SignInProvider(Base):
+    """An OpenID Connect provider people sign in with (Product 0.12 I3, D361, D366).
+
+    ``key`` is fixed: it is in the address registered with the provider. The client secret is
+    sealed with ``SECRETS_ENCRYPTION_KEY`` (D253) and never answered. A provider somebody signed in
+    with is disabled, not deleted (``user_identities`` refuses it).
+    """
+
+    __tablename__ = "sign_in_providers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    issuer: Mapped[str] = mapped_column(Text, nullable=False)
+    client_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    client_secret: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    groups_claim: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    last_sign_in_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class LocalSignIn(Base):
+    """Whether people sign in with a password: one row (I3, D365)."""
+
+    __tablename__ = "local_sign_in"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_local_sign_in_one_row"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class UserIdentity(Base):
+    """A person as a provider knows them: the provider and the ID token's ``sub`` (I3, D363)."""
+
+    __tablename__ = "user_identities"
+    __table_args__ = (
+        UniqueConstraint("provider_id", "subject", name="ux_user_identities_provider_subject"),
+        Index("ix_user_identities_user", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    provider_id: Mapped[int] = mapped_column(
+        ForeignKey("sign_in_providers.id", ondelete="RESTRICT"), nullable=False
+    )
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    last_sign_in_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+
+class ProviderSignIn(Base):
+    """A sign-in between the engine's redirect to the provider and its return (I3, D361).
+
+    Stored as the state's and the browser binding's SHA-256, with the nonce, the PKCE verifier the
+    engine sends the provider and the browser's own authorization request; used once, within
+    ``expires_at``.
+    """
+
+    __tablename__ = "provider_sign_ins"
+    __table_args__ = (Index("ix_provider_sign_ins_expires", "expires_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_id: Mapped[int] = mapped_column(
+        ForeignKey("sign_in_providers.id", ondelete="CASCADE"), nullable=False
+    )
+    state_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    browser_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    nonce: Mapped[str] = mapped_column(String(64), nullable=False)
+    verifier: Mapped[str] = mapped_column(String(128), nullable=False)
+    request: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class OAuthClient(Base):
@@ -2238,11 +2335,23 @@ class RoleActionGroup(Base):
 
 
 class UserGroup(Base):
-    """A local group of people; a grant to it applies to its members (Z1, D229)."""
+    """A group of people; a grant to it applies to its members (Z1, D229).
+
+    A provider group (I3, D364) names its provider and the groups claim's value; its members are
+    those the provider named at their last sign-in.
+    """
 
     __tablename__ = "user_groups"
     __table_args__ = (
         Index("ux_user_groups_name", func.lower(literal_column("name")), unique=True),
+        CheckConstraint("(provider_id IS NULL) = (claim_value IS NULL)", name="ck_user_groups_source"),
+        Index(
+            "ux_user_groups_provider_claim",
+            "provider_id",
+            "claim_value",
+            unique=True,
+            postgresql_where=text("provider_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -2251,6 +2360,10 @@ class UserGroup(Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    provider_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sign_in_providers.id", ondelete="CASCADE"), nullable=True
+    )
+    claim_value: Mapped[str | None] = mapped_column(String(200), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
@@ -2273,6 +2386,8 @@ class UserGroupMember(Base):
     added_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
+    # A provider group's member: when a sign-in last named them in it (I3, D364).
+    seen_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class Grant(Base):

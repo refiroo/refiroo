@@ -174,6 +174,7 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
   if (page === "people") return kind ? { kind: "settings", page, userId: kind } : { kind: "settings", page };
   if (page === "groups") return kind ? { kind: "settings", page, groupId: kind } : { kind: "settings", page };
   if (page === "clients") return kind ? { kind: "settings", page, clientId: kind } : { kind: "settings", page };
+  if (page === "sign-in") return kind ? { kind: "settings", page, providerKey: kind } : { kind: "settings", page };
   if (page === "moves")
     return kind ? { kind: "settings", page, ...moveAddress(kind, query) } : { kind: "settings", page };
   // Import profiles were "Imports" until 2026-10-14; the old address opens the same page.
@@ -306,6 +307,8 @@ function settingsPath(route: SettingsRoute) {
   if (route.page === "people" && route.userId) return `/settings/people/${encodeURIComponent(route.userId)}`;
   if (route.page === "groups" && route.groupId) return `/settings/groups/${encodeURIComponent(route.groupId)}`;
   if (route.page === "clients" && route.clientId) return `/settings/clients/${encodeURIComponent(route.clientId)}`;
+  if (route.page === "sign-in" && route.providerKey)
+    return `/settings/sign-in/${encodeURIComponent(route.providerKey)}`;
   if (route.page === "moves" && route.move) return movePath(route.move);
   if (route.page === "import-profiles" && route.profileKey)
     return `/settings/import-profiles/${encodeURIComponent(route.profileKey)}`;

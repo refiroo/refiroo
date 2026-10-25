@@ -5741,9 +5741,11 @@ workspace grant of a role held only at the instance refused. **Delivered by Z5 (
 sets. **Delivered by HM1 (2026-10-25):** `GET /me/workspaces`, `GET /me/change-sets` and `product`
 on `GET /system`. **Delivered by Z6 (2026-10-25):** `GET /changes`, a person's or client's changes
 across workspaces. **Delivered by SP2 (2026-10-25):** a client's `roles`, `consumerApis` and
-`createdBy`, a secret's `hint`, and `GET /workspaces/{workspaceKey}/grant-options`. The rest is
-designed; each part moves into "delivered" with its package (I3, K1, C1,
-A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
+`createdBy`, a secret's `hint`, and `GET /workspaces/{workspaceKey}/grant-options`. **Delivered by
+I3 (2026-10-25):** sign-in providers (`/sign-in-providers`) and local sign-in on or off, a provider's
+start and return pages, provider groups (a group's `source`), a person's `identities` and
+`localKept`, and `signInProvider` on `/me`. The rest is designed; each part moves into "delivered"
+with its package (K1, C1, A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
 ### Authentication
@@ -5768,7 +5770,28 @@ Outside `/api/v1`, needing no token:
   failures are slowed it answers `429` with `Retry-After` and the wait on the page (D271). A form
   posted from another origin is refused (`403`). `session=ended` adds "Your session ended" (D270).
   The pages are HTML outside the OpenAPI document, with a policy allowing no script and no framing
-  (D275). A sign-in provider's button leads through that provider and back (I3).
+  (D275). Each enabled sign-in provider is a **Continue with *name*** button below the form (I3).
+  While local sign-in is off (D365) the page shows only the buttons and a link, **Sign in with a
+  local administrator account**, to the same request with `local=1`, where the form is shown and
+  accepts only the people who keep local sign-in; anyone else's right password is refused as a wrong
+  one.
+- `GET /oauth/providers/{key}/start` (I3, D361): the button's address, carrying the browser's
+  authorization request, which is checked as on the sign-in page. The engine keeps the sign-in (ten
+  minutes, used once), sets the `oauth_provider` cookie (`HttpOnly`, `SameSite=Lax`, path
+  `/oauth/providers`) binding it to this browser, and redirects (`303`) to the provider's
+  authorization endpoint with `response_type=code`, `scope=openid profile email`, a `state`, a
+  `nonce` and its own PKCE `S256` challenge. A disabled provider, or one that cannot be reached,
+  shows the page explaining it (`403`, `400`); an unknown key `404`.
+- `GET /oauth/providers/{key}/callback` (I3, D361, D368): where the provider returns the browser,
+  the address to register with it (`redirectUri`). The engine exchanges the code with the client
+  secret (`client_secret_basic`, or `client_secret_post` when the provider offers only that), checks
+  the ID token (signature against the provider's keys, RS256, PS256 or ES256; `iss`, `aud`, `azp`,
+  `exp`, `iat`, `nonce`), finds the person by the provider and `sub` or creates them (D363), sets
+  their memberships in the provider's groups (D364), and redirects (`303`) to the browser's
+  `redirect_uri` with a one-time code and its `state`, as the form does; the session's
+  `signedInWith` is the provider's key. A sign-in that cannot finish shows "*name* could not sign
+  you in" with the reason and **Try again** (`400`; `403` for a deactivated person or a disabled
+  provider) and is a `sign-in` `failed` security event; nothing is redirected.
 - `GET /oauth/password?token=`, `POST /oauth/password` (I2): the page a password-reset link opens
   (D272): a new password, typed twice, under the rules below. A used, replaced or expired link answers
   `410` on the page.
@@ -5836,7 +5859,8 @@ sign-in page says how long to wait. Passwords and client secrets are hashed with
 
 - `GET /api/v1/me` (delivered, I1, I2): the principal: `id`, `kind` (`user` or `client`), `name`,
   `username` and `email` (a person; `null` for a client), `lastSignInAt` (a person's last sign-in, or
-  when a client last obtained a token), `signedInWith` (`password`, or a provider's key with I3) and
+  when a client last obtained a token), `signedInWith` (`password`, or a provider's key, I3),
+  `signInProvider` (that provider's `key` and `name`; `null` for a password or a client) and
   `sessionId` (a person's session; `null` for a client).
 - `GET /api/v1/me/permissions?workspaceKey=` (delivered, Z1): the workspace (`workspaceKey`,
   `workspaceLabel`; the default workspace when absent), the `roles` that apply there, and the
@@ -6031,10 +6055,23 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   (`key`, `label`, by label); predefined roles first in the catalogue's order, then custom ones by
   name. `GET /users/{id}/grants` (cursor-paged, D299) answers the person's grants as `GET /grants`
   does, those made to them and those of their groups, a group's grant naming the group as its
-  `principal`; an unknown person is `404 USER_NOT_FOUND`.
+  `principal`; an unknown person is `404 USER_NOT_FOUND`. _Delivered by I3:_ every read of a person
+  answers `identities` (`[{provider: {key, name}, subject}]`, the providers they sign in with, D363)
+  and `localKept` (they sign in with a password while local sign-in is off: made by `create_admin`,
+  or before 0.12 Z4; D365), which `PATCH /users/{id}` changes. A person made at a provider sign-in
+  has no password; a password link for someone who does not keep local sign-in, while it is off, is
+  `409 LOCAL_SIGN_IN_OFF`.
 - **Groups:** `GET|POST /groups`, `GET|PATCH|DELETE /groups/{id}`, `GET|POST /groups/{id}/members`,
-  `DELETE /groups/{id}/members/{userId}`. A provider group (`source: {provider, name}`) is created on
-  first sight at a sign-in and its membership is the provider's; only its grants change here (D229).
+  `DELETE /groups/{id}/members/{userId}`. _Delivered by I3 (provider groups, D229, D364):_ a group
+  reads `source` (`{provider: {key, name}, claimValue}`; `null` for a local group). A provider group
+  is created when a sign-in's groups claim first names its value (named after it, or "*value*
+  (*provider*)" when that name is taken), or ahead of anyone's sign-in with `POST /groups {name,
+  source: {provider, claimValue}}` (`404 SIGN_IN_PROVIDER_NOT_FOUND`, `409 GROUP_CLAIM_TAKEN` when
+  the value has a group). At each sign-in the person's memberships in that provider's groups become
+  exactly those the claim names; adding or removing its members here is
+  `409 GROUP_FROM_PROVIDER`, and a sign-in that takes the last Security administrator out of one is
+  not refused. Its members read `seenAt`, when a sign-in last named them in it. It is renamed,
+  granted and deleted like any group; deleting its provider deletes it.
   _Delivered by Z1 (local groups):_ a group reads `id`, `name` (unique ignoring case,
   `409 GROUP_NAME_TAKEN`), `description`, `members` (a count), `version`, `createdAt`, `updatedAt`;
   `PATCH` takes `expectedVersion`; a member reads `id`, `username`, `name`, `active`; adding one
@@ -6119,10 +6156,24 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   `POST /token-signing-keys/rotation` `{immediate: true|false}`. _Delivered by I1:_ newest first,
   each with `kid`, `state` (`current`, `verifying` while its tokens may still be valid, `retired`),
   `createdAt`, `rotatedAt`, `retiredAt`; the rotation answers `201` with the new key.
-- **Sign-in providers** (I3): `GET|POST /sign-in-providers`, `GET|PATCH|DELETE
-  /sign-in-providers/{key}` `{issuer, clientId, clientSecret (write-only), groupsClaim, enabled}`;
-  `PATCH /sign-in-providers/local {enabled: false}` turns local sign-in off, except for the
-  administrator created by the CLI (OPERATIONS).
+- **Sign-in providers** (delivered, I3, D366): `GET /sign-in-providers` (cursor-paged, as created),
+  `POST /sign-in-providers`, `GET|PATCH|DELETE /sign-in-providers/{key}`. A provider reads `key`
+  (`^[a-z][a-z0-9-]{0,62}$`, fixed, not `local`; `409 SIGN_IN_PROVIDER_KEY_TAKEN`), `name` (the
+  button's), `issuer`, `clientId`, `clientSecretSet` (the secret, `clientSecret` on writes, is sealed
+  with `SECRETS_ENCRYPTION_KEY` and never answered), `groupsClaim` (`null`: groups are not used),
+  `enabled`, `redirectUri` (`<PUBLIC_URL>/oauth/providers/{key}/callback`, to register with the
+  provider), `people` (how many have signed in with it), `lastSignInAt`, `version`, `createdAt`,
+  `updatedAt`. Saving an enabled provider, or enabling one or changing an enabled one's issuer, reads
+  its discovery document (whose `issuer` must equal the configured one exactly) and keys first:
+  `422 SIGN_IN_PROVIDER_UNREACHABLE` with `details.reason` and `kind` (`unreachable`, `issuer`,
+  `address`: plain `http` only to a loopback host). `PATCH` takes `expectedVersion`; disabling ends
+  the sessions it started (D367). `DELETE` (`204`) is refused with `409 SIGN_IN_PROVIDER_IN_USE`
+  once someone has signed in with it, and deletes the groups made for it. Unknown: `404
+  SIGN_IN_PROVIDER_NOT_FOUND`.
+- **Local sign-in** (delivered, I3, D365): `GET /sign-in-providers/local` (`enabled`, `keptPeople`,
+  `version`, `updatedAt`); `PATCH /sign-in-providers/local {expectedVersion, enabled}`. Turning it
+  off is `409 NO_WORKING_PROVIDER` until an enabled provider has signed someone in; while off, only
+  the people who keep local sign-in use a password. Clients are not affected.
 
 The first administrator is created on the server with `python -m app.cli.create_admin` (D235). Every
 security change is audited with its actor.
@@ -6131,8 +6182,8 @@ security change is audited with its actor.
   instance), newest first and cursor paged, `principalId=` (those a person or client made or that
   are about them; a group's ID, those about the group) and `aggregateType=` (repeatable). Each
   reads `id`, `aggregateType` (`user`, `group`, `role`, `grant`, `client`, `token-signing-key`,
-  `sign-in`), `aggregateId` (the public ID, a role's key, a key's `kid`, for a sign-in the person's
-  ID or `unknown`), `action`, `version`, `occurredAt`, `actor` (as on history; a failed sign-in names
+  `sign-in`, `sign-in-provider`), `aggregateId` (the public ID, a role's key, a key's `kid`, a
+  provider's key or `local`, for a sign-in the person's ID or `unknown`), `action`, `version`, `occurredAt`, `actor` (as on history; a failed sign-in names
   nobody) and `details`, which holds what changed and never a password, secret, link or key:
   - `user`: `created` (`username`, `name`, `roles`), `updated` (`changedFields`, `name`, `active`),
     `password-link-created` (`expiresAt`), `password-set` (through a link), `password-changed`,
@@ -6144,7 +6195,15 @@ security change is audited with its actor.
   - `client`: `created`, `updated`, `secret-added` (`secretId`, `overlapHours`), `secret-removed`;
     `token-signing-key`: `rotated` (`previousKid`, `immediate`; by the engine when due);
   - `sign-in`: `succeeded`, and `failed` once the password was checked (`username`, `address`); an
-    attempt refused while slowed (D271) is a log line only.
+    attempt refused while slowed (D271) is a log line only. Through a provider (I3, D368): with
+    `provider`, and for a failure `reason` (`unknown`, `used`, `expired`, `browser`, `disabled`,
+    `unreachable`, `provider`, `exchange`, `token`, `issuer`, `audience`, `nonce`, `deactivated`)
+    and `detail`; a person made at a provider sign-in is `user` `created` with `provider`, and a
+    provider group made or a membership changed at a sign-in is `group` `created`, `member-added`,
+    `member-removed` with `provider`, each by the person signing in;
+  - `sign-in-provider`: `created`, `updated` (`changedFields` and the new `name`, `issuer`,
+    `groupsClaim`, `enabled`; never the secret), `deleted`; local sign-in turned on or off is
+    `updated` on `local` (`enabled`).
   Grants given at startup or by the CLI's `--role` (the first administrator's) are not events; the
   person's creation is. Nothing expires them yet (TODO).
 - **Changes across workspaces** (delivered, Z6, D340–D344): `GET /changes` (action `changes.read`,

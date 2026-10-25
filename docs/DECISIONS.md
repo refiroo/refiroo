@@ -1734,6 +1734,11 @@ the consumer APIs alike (ROADMAP), with no API keys and no credential in a URL (
 - An installation with local accounts only has no second factor; OPERATIONS advises a provider in
   production.
 - A stolen access token works for up to an hour while its holder stays active.
+- A person signing in through a provider is found by the provider and the token's subject, never by
+  e-mail, and created at their first sign-in (0.12 I3, D363); someone with a local account becomes
+  a second person. A provider's groups are groups of the engine whose membership each sign-in sets
+  (D364). Local sign-in can be turned off once a provider works, the administrators made on the
+  server keeping it as the way back (D365).
 
 ## ADR-044 — Authorization: action groups, roles and grants
 

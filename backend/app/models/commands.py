@@ -549,6 +549,11 @@ class UserUpdate(BaseModel):
     name: PrincipalName | None = None
     email: Email | None = None
     active: bool | None = None
+    localKept: bool | None = Field(
+        default=None,
+        description="Whether the person keeps signing in with a password while local sign-in is "
+        "off (0.12 I3, D365)",
+    )
 
 
 class ClientCreate(BaseModel):
@@ -622,11 +627,24 @@ class RoleUpdate(BaseModel):
     actionGroups: list[ActionGroupKey] | None = None
 
 
+class GroupSource(BaseModel):
+    """A provider group: the provider's key and the groups claim's value it stands for (I3, D364)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=1, max_length=64)
+    claimValue: str = Field(min_length=1, max_length=200)
+
+
 class GroupCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: PrincipalName
     description: Description | None = None
+    source: GroupSource | None = Field(
+        default=None,
+        description="Made ahead for a provider's group, whose members come from sign-ins (D364)",
+    )
 
 
 class GroupUpdate(BaseModel):
@@ -635,6 +653,44 @@ class GroupUpdate(BaseModel):
     expectedVersion: int = Field(ge=1)
     name: PrincipalName | None = None
     description: Description | None = None
+
+
+ProviderKey = Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]{0,62}$")]
+
+
+class SignInProviderCreate(BaseModel):
+    """An OpenID Connect provider (0.12 I3, D366); an enabled one is checked when saved."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: ProviderKey = Field(description="In the provider's addresses; fixed once saved")
+    name: PrincipalName = Field(description='The sign-in button reads "Continue with *name*"')
+    issuer: str = Field(min_length=1, max_length=2000)
+    clientId: str = Field(min_length=1, max_length=255)
+    clientSecret: str = Field(min_length=1, max_length=2000, description="Write-only")
+    groupsClaim: str | None = Field(default=None, max_length=200)
+    enabled: bool = True
+
+
+class SignInProviderUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    name: PrincipalName | None = None
+    issuer: str | None = Field(default=None, min_length=1, max_length=2000)
+    clientId: str | None = Field(default=None, min_length=1, max_length=255)
+    clientSecret: str | None = Field(default=None, min_length=1, max_length=2000)
+    groupsClaim: str | None = Field(default=None, max_length=200)
+    enabled: bool | None = None
+
+
+class LocalSignInUpdate(BaseModel):
+    """Local sign-in on or off (D365)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    enabled: bool
 
 
 class GroupMemberAdd(BaseModel):

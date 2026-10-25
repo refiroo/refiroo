@@ -208,8 +208,9 @@ keys and their state, never a private key.
 
 **Setting up:** set `SECRETS_ENCRYPTION_KEY` (`python -m app.cli.generate_key`) and, outside local
 development, `PUBLIC_URL` and `CORS_ORIGINS`; then create the first client and administrator with the
-commands above. Local accounts have a password only; a sign-in provider (I3) brings the
-organisation's multi-factor sign-in (D225).
+commands above. Local accounts have a password only; a sign-in provider brings the organisation's
+multi-factor sign-in (D225, [Signing in with the organisation's
+provider](#signing-in-with-the-organisations-provider)).
 
 ### Roles and grants
 
@@ -314,6 +315,59 @@ token presented a second time ends the session, since only a copy can do that.
   (`sign_in_failed`, with the username and address). Behind a proxy, the address is the proxy's
   unless uvicorn trusts it to forward the caller's (`--forwarded-allow-ips` with
   `--proxy-headers`); without that, every person shares the proxy's address and its count of 20.
+
+### Signing in with the organisation's provider
+
+People can sign in with an OpenID Connect provider (0.12 I3, D224): Microsoft Entra ID, Google,
+Keycloak, Okta and others. There is one generic kind, nothing vendor-specific, and the provider
+brings its own multi-factor sign-in (D225). The engine still starts its own session; the provider
+only proves who the person is.
+
+1. **Register the engine with the provider** as a web application with a client secret. Add a
+   new provider on Settings › Security › Sign-in (or `POST /api/v1/sign-in-providers`) with a key,
+   then register its **redirect address**, `<PUBLIC_URL>/oauth/providers/<key>/callback`, which
+   the provider's page shows with Copy. The engine asks for `openid profile email`.
+2. **Enter the issuer exactly as the provider states it** in its discovery document
+   (`<issuer>/.well-known/openid-configuration`). Entra ID: `https://login.microsoftonline.com/
+   <tenant ID>/v2.0`; Google: `https://accounts.google.com`; Keycloak: `https://<host>/realms/
+   <realm>`. Saving an enabled provider reads that document and the provider's keys, and refuses
+   with the reason when it cannot (another issuer, no answer, TLS). The engine must reach the
+   provider over `https`; plain `http` only to a loopback host. A link-local address is refused,
+   as for webhooks.
+3. **Groups (optional).** Name the ID token claim holding the person's groups, usually `groups`.
+   Each value becomes a provider group on Settings › Security › Groups when a sign-in first names
+   it, or make the group ahead with **New group › From a sign-in provider** and grant its roles
+   before go-live. Entra ID sends each group's **object ID**, not its name: configure the
+   application's token to include groups ("groups assigned to the application" keeps the list
+   short) and rename the engine's group to something readable. With more than 200 groups Entra ID
+   replaces the claim with a link the engine does not follow (an "overage"); the person then has no
+   provider groups, so assign only the groups that matter to the application. Keycloak needs a
+   "Group Membership" mapper on the client; Google sends no groups.
+
+**Who a person is.** The engine finds a person by the provider and the token's subject (`sub`),
+never by e-mail (D363). At their first sign-in a person is created with the token's name, e-mail
+and username (`preferred_username`, else `email`, numbered when taken) and no roles; their groups
+grant what they may do. Name and e-mail follow the provider at each sign-in. Someone who already had
+a local account becomes a second person: grant the new one and deactivate the old.
+
+**Turning local sign-in off** (D365): on Settings › Security › Sign-in › Local accounts, once an
+enabled provider has signed someone in. Passwords then stop working, except for the people who
+**keep local sign-in**: those made on the server with `create_admin`, and those made before 0.12 Z4
+(the upgrade marks them; `PATCH /api/v1/users/{id}` with `localKept` changes it). They sign in
+through **Sign in with a local administrator account** on the sign-in page. If every provider fails
+and nobody who keeps local sign-in is available, run `python -m app.cli.create_admin` on the server:
+the new administrator keeps it. Clients are not affected.
+
+**Leavers** (D367). A session started through a provider renews like any other; the engine does not
+ask the provider again until the next sign-in. Someone removed in the provider keeps an open session
+until it lapses (`SESSION_IDLE_HOURS`, at most `SESSION_DAYS`), so deactivate leavers in the engine
+too, or shorten `SESSION_IDLE_HOURS`. Disabling a provider ends every session it started. Signing
+out of the engine does not sign the person out of the provider.
+
+**When a sign-in fails**, the person sees "*provider* could not sign you in" with the reason, and the
+Security events record it (`sign-in` `failed` with `reason` and `detail`), for example `issuer` or
+`nonce` (the token was not for this sign-in), `exchange` (the provider refused the code: check the
+secret and the redirect address), `browser` (started in another browser) or `deactivated`.
 
 ## Database
 

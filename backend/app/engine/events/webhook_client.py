@@ -80,6 +80,21 @@ def post(
     resolve: Resolver = socket.getaddrinfo,
 ) -> Answer:
     """POST ``body`` to ``url``; the receiver's answer, or why there was none."""
+    return exchange("POST", url, body, request_headers, timeout=timeout, resolve=resolve)
+
+
+def exchange(
+    method: str,
+    url: str,
+    body: bytes | None,
+    request_headers: Mapping[str, str],
+    *,
+    timeout: float,
+    read_bytes: int = READ_BYTES,
+    resolve: Resolver = socket.getaddrinfo,
+) -> Answer:
+    """One request to an address checked before connecting, as a webhook's (a sign-in provider's
+    discovery, keys and token exchange read more of the answer, 0.12 I3, D362)."""
     parts = urlsplit(url)
     host = parts.hostname or ""
     https = parts.scheme == "https"
@@ -122,16 +137,17 @@ def post(
         connection = http.client.HTTPConnection(host, port)
         connection.sock = sock
         sock.settimeout(remaining())
-        connection.putrequest("POST", target, skip_host=True, skip_accept_encoding=True)
+        connection.putrequest(method, target, skip_host=True, skip_accept_encoding=True)
         connection.putheader("Host", _host_header(host, port, https))
         for name, value in request_headers.items():
             connection.putheader(name, value)
-        connection.putheader("Content-Length", str(len(body)))
+        if body is not None:
+            connection.putheader("Content-Length", str(len(body)))
         connection.endheaders(body)
         sock.settimeout(remaining())
         response = connection.getresponse()
         sock.settimeout(remaining())
-        text = response.read(READ_BYTES).decode("utf-8", "replace")
+        text = response.read(read_bytes).decode("utf-8", "replace")
         status = response.status
         if 200 <= status < 300:
             return Answer(status, None, text)

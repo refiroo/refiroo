@@ -98,7 +98,17 @@ administrator without Browse can use it; a client's reads name its roles, consum
 journeys, the identity, security-page and consumer-grant journeys, the contract, startup and
 foreign-key tests, the touched Vitest folders and the runners `sp2-clients`, `sp1-security`,
 `u5-webhooks` and `u3-settings` passed; the development database upgraded through the running
-server. Sign-in providers stay with I3. Next: I3, K1, C1 and E1 above the cut line, then A1–A3, L1,
+server. **I3, a sign-in provider, is delivered (2026-10-25)**, D361–D370: OpenID Connect providers
+on Settings › Security › Sign-in (checked when saved, the address to register shown), the sign-in
+page's "Continue with" button, a person found by the provider and subject or created at their first
+sign-in, provider groups under their provider with members seen, made ahead and granted like any
+group, and local sign-in turned off with the administrators made on the server keeping it
+(migration `20261104_01`) ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i3-record-2026-10-25)). Its
+journeys against the harness's minimal provider, the identity, security-page and authorization
+journeys, the unit, contract, startup and foreign-key tests, the touched Vitest folders and the
+runners `i3-sign-in-providers`, `i2-sign-in`, `sp1-security` and `u3-settings` passed; the
+development database upgraded through the running server. A sign-in against a real provider the user
+names waits for its registration, before E1. Next: K1, C1 and E1 above the cut line, then A1–A3, L1,
 L2 and R.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)

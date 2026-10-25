@@ -36,7 +36,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
 | F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
-| F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account | Available | 0.12 I1, I2 |
+| F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups | 0.12 I1, I2, I3 |
 | F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
@@ -118,6 +118,12 @@ the view, and one sort at a time from a column header or the Sort menu. Lists of
 continuously in both directions, show their total and jump to a page, a value, the start or the end.
 Search, filters, sort and position live in the page address, so a link or a reload returns to the same
 place. The same works in live data, in a change set and in a publication.
+
+A collection's table page fits the window: the window itself does not scroll, the rows do, and the
+table's header and its footer (the range, Go to, the page, start and end) stay in view, the card
+reaching the window's bottom however few records it holds, beside the rail, which scrolls on its own
+(0.12 LS1). Once the columns are laid out, each row keeps to one line; a value the column cuts ends
+in an ellipsis and shows whole on hover, focus or a long press.
 
 Filters cover text equality, contains and starts-with, numeric and date comparisons, booleans, null
 checks and the difference between a missing optional field and a stored null. Each active filter is
@@ -1266,11 +1272,23 @@ are signed in, signing out one browser or all of them. An administrator signs a 
 deactivates them (their access ends at once) or makes a one-time link that sets their password, for a
 new person or a forgotten password. Systems obtain tokens with a client's credentials (F16).
 
-Limits: no sign-in provider (single sign-on) until 0.12 I3. What a person may do is F27; people,
-clients and signing keys are managed in Settings › Security (F27). Local accounts have a password only; multi-factor
-sign-in comes with a sign-in provider.
+The organisation's sign-in provider (OpenID Connect: Entra ID, Google, Keycloak and others) is added
+on Settings › Security › Sign-in, with the address to register there shown to copy; the sign-in page
+then offers "Continue with" it, and the provider's own multi-factor sign-in applies. A person signing
+in through it for the first time is created with their name and e-mail from the provider, and the
+provider's groups become groups of the engine, listed under the provider, whose membership each
+sign-in updates; roles granted to such a group, even before anyone in it has signed in, apply to its
+members. Once a provider works, local sign-in can be turned off: only the administrators made on the
+server keep a password, as the way back.
+
+Limits: someone who already has a local account becomes a second person at their first provider
+sign-in (no linking); signing out of the engine does not sign out of the provider, and someone
+removed in the provider keeps an open session until it lapses unless deactivated here. What a person
+may do is F27; people, clients and signing keys are managed in Settings › Security (F27). Local
+accounts have a password only; multi-factor sign-in comes with a sign-in provider.
 
 Evidence: [authentication contract](../API.md#authentication), [OPERATIONS](../OPERATIONS.md#signing-in-from-the-browser),
+[provider sign-in](../../backend/app/engine/identity/provider_sign_in.py),
 [sign-in](../../backend/app/engine/identity/sign_in.py), [sessions](../../backend/app/engine/identity/sessions.py),
 [browser session](../../frontend/src/api/session.ts).
 

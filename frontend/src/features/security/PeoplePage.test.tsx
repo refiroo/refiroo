@@ -10,6 +10,7 @@ vi.mock("@/api/securityClient", () => ({
     users: vi.fn(async () => ({ items: [], nextCursor: null, totalCount: 0 })),
     createUser: vi.fn(),
     passwordLink: vi.fn(),
+    localSignIn: vi.fn(async () => ({ enabled: true, keptPeople: 1, version: 1, updatedAt: "" })),
   },
 }));
 

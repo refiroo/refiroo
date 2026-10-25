@@ -1,4 +1,4 @@
-"""The engine's own pages: signing in and setting a password (Product 0.12 I2, U8, D275).
+"""The engine's own pages: signing in and setting a password (Product 0.12 I2, I3, U8, D275).
 
 Plain HTML built here with every value escaped: no template library and no script, so nothing on
 the page can read a password. The colours are the app's tokens (``frontend/src/styles/tokens.css``),
@@ -36,6 +36,12 @@ background:var(--surface-raised);color:var(--text-primary);font:inherit}
 input[aria-invalid=true]{border-color:var(--err-m)}
 button{height:40px;width:100%;border-radius:6px;border:1px solid var(--action);background:var(--action);
 color:var(--text-on-action);font:inherit;font-weight:500;cursor:pointer}
+a.button{display:flex;align-items:center;justify-content:center;height:40px;border-radius:6px;
+border:1px solid var(--border-control);background:var(--surface-raised);color:var(--text-primary);
+font-weight:500;text-decoration:none}
+a.button.primary{background:var(--action);border-color:var(--action);color:var(--text-on-action)}
+.or{display:flex;align-items:center;gap:10px;color:var(--text-tertiary);font-size:12px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--border-subtle)}
 input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .note{margin:0;padding:10px 12px;border-radius:8px;font-size:13px}
 .note.info{background:var(--action-soft)}.note.error{background:var(--err-s);color:var(--err-t)}
@@ -128,8 +134,34 @@ def sign_in(
     wrong: bool = False,
     wait_seconds: int = 0,
     status: int = 200,
+    providers: tuple[tuple[str, str], ...] = (),
+    local: bool = True,
+    local_link: str | None = None,
 ) -> HTMLResponse:
-    """The sign-in page: the authorization request's fields travel in the form, hidden."""
+    """The sign-in page: the authorization request's fields travel in the form, hidden. Each of
+    ``providers`` (name, start address) is a "Continue with" button below the form (I3). With local
+    sign-in off the page shows the buttons and a link to ``local_link``, where the form is shown
+    with ``local`` false for the administrators who keep it (D365)."""
+    buttons = "".join(
+        f'<a class="button" href="{escape(url)}">Continue with {escape(name)}</a>'
+        for name, url in providers
+    )
+    if local_link is not None:
+        ended_note = (
+            _note("info", "Your session ended. Sign in again to return to where you were.")
+            if ended
+            else ""
+        )
+        body = (
+            "<h1>Sign in</h1>"
+            + ended_note
+            + buttons.replace('class="button"', 'class="button primary"')
+            + f'<p class="aside"><a href="{escape(local_link)}">Sign in with a local administrator '
+            + "account</a></p>"
+        )
+        return _page(
+            "Sign in", product, body, issuer=issuer, redirect_origins=redirect_origins, status=status
+        )
     notes = []
     if ended:
         notes.append(
@@ -166,8 +198,19 @@ def sign_in(
         + (" autofocus" if username else "")
         + "></div>"
         + '<button type="submit">Sign in</button></form>'
-        + '<p class="aside">Forgotten your password? Ask a security administrator for a reset '
-        + "link.</p>"
+        + (
+            ""
+            if local
+            else '<p class="aside">Only administrators made on the server sign in with a password '
+            "here.</p>"
+        )
+        + (f'<p class="or">or</p>{buttons}' if buttons else "")
+        + (
+            '<p class="aside">Forgotten your password? Ask a security administrator for a reset '
+            "link.</p>"
+            if local
+            else ""
+        )
     )
     headers = {"Retry-After": str(wait_seconds)} if wait_seconds else None
     return _page(
@@ -193,6 +236,24 @@ def problem(
         issuer=issuer,
         redirect_origins=redirect_origins,
         status=status,
+    )
+
+
+def provider_problem(
+    product: str,
+    provider_name: str,
+    text: str,
+    *,
+    retry_url: str | None,
+    issuer: str,
+    redirect_origins: tuple[str, ...],
+    status: int = 400,
+) -> HTMLResponse:
+    """A provider sign-in that cannot finish, with the reason and a way to start again (D368)."""
+    retry = f'<a class="button primary" href="{escape(retry_url)}">Try again</a>' if retry_url else ""
+    body = f"<h1>{escape(provider_name)} could not sign you in</h1>" + _note("error", text) + retry
+    return _page(
+        "Sign in", product, body, issuer=issuer, redirect_origins=redirect_origins, status=status
     )
 
 

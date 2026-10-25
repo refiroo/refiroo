@@ -54,9 +54,11 @@ def create_user(
     password: str | None = None,
     min_length: int = DEFAULT_MIN_LENGTH,
     roles: tuple[str, ...] = (),
+    local_kept: bool = False,
 ) -> User:
     """A person; with ``password`` (``create_admin``), checked against the rules first; with
-    ``roles``, holding them at the instance (the first administrator's, D282)."""
+    ``roles``, holding them at the instance (the first administrator's, D282); with
+    ``local_kept``, signing in with a password while local sign-in is off (I3, D365)."""
     if password is not None:
         check_password(password, payload.username, min_length)
 
@@ -72,6 +74,7 @@ def create_user(
             email=payload.email,
             password_hash=hash_secret(password) if password is not None else None,
             active=True,
+            local_kept=local_kept,
         )
         session.add(user)
         session.flush()
@@ -101,6 +104,8 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
             user.name = payload.name
         if "email" in fields:
             user.email = payload.email
+        if "localKept" in fields and payload.localKept is not None:
+            user.local_kept = payload.localKept
         now = datetime.now(UTC)
         if "active" in fields and payload.active is not None:
             if user.active and not payload.active:
@@ -116,7 +121,9 @@ def update_user(session: Session, public_id: str, payload: UserUpdate) -> User:
         security_events.record(
             session, "user", user.public_id, "updated", about=[user.public_id],
             version=user.version,
-            details=security_events.changed(changed, name=user.name, active=user.active),
+            details=security_events.changed(
+                changed, name=user.name, active=user.active, localKept=user.local_kept
+            ),
         )  # fmt: skip
         return user
 

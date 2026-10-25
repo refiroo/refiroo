@@ -106,15 +106,23 @@ class Refused:
 
 
 def check_password(
-    session: Session, username: str, password: str, address: str | None, now: datetime
+    session: Session,
+    username: str,
+    password: str,
+    address: str | None,
+    now: datetime,
+    *,
+    kept_only: bool = False,
 ) -> User | Refused:
     """The active person these credentials belong to, or why not. A failure is counted and logged;
-    a success clears the account's count. Commits."""
+    a success clears the account's count. With ``kept_only`` (local sign-in off, I3, D365) a person
+    who does not keep local sign-in is refused as a wrong password is. Commits."""
     wait = seconds_to_wait(session, username, address, now)
     if wait > 0:
         return Refused("slowed", wait)
     user = session.scalar(select(User).where(func.lower(User.username) == username.strip().lower()))
-    stored = user.password_hash if user is not None and user.active else None
+    usable = user is not None and user.active and (user.local_kept or not kept_only)
+    stored = user.password_hash if usable else None
     matches = verify_secret(password, stored or _absent_hash())
     if user is None or stored is None or not matches:
         _record_failure(session, username, address, now)

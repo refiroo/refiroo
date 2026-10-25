@@ -48,6 +48,7 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
       { page: "groups", label: "Groups", requires: ["security-admin"] },
       { page: "roles", label: "Roles", requires: ["security-admin"] },
       { page: "clients", label: "Clients", requires: ["security-admin"] },
+      { page: "sign-in", label: "Sign-in", requires: ["security-admin"] },
       { page: "signing-keys", label: "Signing keys", requires: ["security-admin"] },
     ],
   },

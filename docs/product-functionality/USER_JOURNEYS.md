@@ -1995,7 +1995,9 @@ applications and record types as data.
 **Actor:** any person. **Channel:** UI (the sign-in page, the account menu, the account page), API.
 **Stories:** US-S01. **Status:** designed (0.12 P0); delivered by I1, I2 and I3. I1 (2026-10-23):
 the refusals without a token or with one not issued here. I2 (2026-10-23): steps 1–3 with a username
-and password, J39.1–J39.6; the provider's button and J39.7 are I3.
+and password, J39.1–J39.6; the provider's button and J39.7 are I3. I3 (2026-10-25): J39.7 through
+the API and the UI (Settings › Security › Sign-in, the sign-in page's button), and local sign-in
+turned off with the administrators made on the server keeping it.
 
 1. Open the application; the engine's sign-in page asks for a username and password, or offers the
    organisation's sign-in provider.
@@ -2039,7 +2041,8 @@ person's roles in the people list and their grants through groups, groups and cl
 name, and a role held only at the instance refused in a workspace, through the API. Z5 (2026-10-24):
 J40.12, the interface following the person's permissions (J40.1–J40.3's UI channel). SP2
 (2026-10-25): consumer API grants on a page (the grant dialog's "What"), and the grant dialog usable
-by a Security administrator without Browse (`grant-options`).
+by a Security administrator without Browse (`grant-options`). I3 (2026-10-25): provider groups,
+made at a sign-in or ahead of it and granted like any group, their membership set by each sign-in.
 
 1. Create a person; they set a password through a one-time link.
 2. Grant them a role in a workspace, directly or through a group, optionally narrowing what they may

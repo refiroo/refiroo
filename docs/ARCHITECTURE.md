@@ -1030,6 +1030,19 @@ the page's memory; tabs renew one at a time under a Web Lock, and a `401` renews
 request. The job stream and downloads are read with `fetch`, since `EventSource` and links cannot send
 the header.
 
+**Through a sign-in provider** (I3): the page's "Continue with" button opens
+`/oauth/providers/{key}/start` with the browser's own request. `engine/identity/provider_sign_in.py`
+keeps the sign-in in `provider_sign_ins` (the state's and a browser cookie's hashes, the nonce, the
+engine's PKCE verifier and the browser's request), so any process finishes it, and sends the browser
+to the provider. Its return to `/oauth/providers/{key}/callback` exchanges the code, checks the ID
+token (`engine/identity/provider_client.py`, which reaches the provider through the webhook client's
+checked connection and keeps its discovery document and keys for an hour), finds the person by
+`user_identities` (provider and `sub`) or creates them, sets their memberships in the provider's
+groups (`user_groups` with a provider and claim value), and ends as the password form does: a
+one-time code whose session records the provider's key in `signed_in_with`. Providers' settings and
+the local sign-in switch are in `engine/identity/providers.py`, the client secret sealed like the
+signing keys. While local sign-in is off, the password check accepts only `users.local_kept`.
+
 ### Workspace migrations (0.11 V1)
 
 A migration (`engine/model/migrations.py`) is a background job of one workspace naming a target

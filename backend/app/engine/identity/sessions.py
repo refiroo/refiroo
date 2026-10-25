@@ -4,7 +4,8 @@ A session starts when the browser exchanges a sign-in's code and is renewed with
 held in an ``HttpOnly`` cookie. Each refresh token is used once: renewing answers a new one, and a
 used one presented again ends the session, since only a copy can present it twice. A session ends
 after ``SESSION_IDLE_HOURS`` without a renewal or ``SESSION_DAYS`` in all, when signed out, and
-when the person is deactivated or their password is changed or reset. Its access tokens carry
+when the person is deactivated or their password is changed or reset, and when the sign-in provider
+that started it is disabled (I3, D367). Its access tokens carry
 ``sid`` and are refused from the next request once it has ended.
 """
 
@@ -32,6 +33,7 @@ EndReason = Literal[
     "deactivated",
     "passwordChanged",
     "passwordReset",
+    "providerDisabled",
 ]
 
 _KEYS = (integer_key("sequenceId", UserSession.id, "id"),)

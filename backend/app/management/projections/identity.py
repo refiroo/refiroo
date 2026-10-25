@@ -1,5 +1,7 @@
-"""People, clients and signing keys as the API answers them (Product 0.12 I1)."""
+"""People, clients, signing keys and sign-in providers as the API answers them (Product 0.12 I1,
+I3)."""
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -12,14 +14,16 @@ from ...engine.authorization.administration import (
     client_roles,
     held_roles,
 )
-from ...engine.identity import keys
+from ...engine.identity import keys, providers
 from ...engine.identity.authentication import Principal
 from ...engine.identity.clients import creators, secrets_of
 from ...engine.identity.principals import actors
 from ...models.database import (
     AuditEvent,
+    LocalSignIn,
     OAuthClient,
     OAuthClientSecret,
+    SignInProvider,
     TokenSigningKey,
     User,
     UserSession,
@@ -31,6 +35,7 @@ from ..schemas.identity import (
     ClientResponse,
     ClientSecretInfo,
     ClientWithSecret,
+    LocalSignInResponse,
     MeResponse,
     SecurityEventPage,
     SecurityEventResponse,
@@ -38,6 +43,10 @@ from ..schemas.identity import (
     SessionResponse,
     SigningKeyPage,
     SigningKeyResponse,
+    SignInProviderPage,
+    SignInProviderRef,
+    SignInProviderResponse,
+    UserIdentityResponse,
     UserPage,
     UserResponse,
     UserRole,
@@ -45,7 +54,13 @@ from ..schemas.identity import (
 )
 
 
-def me_response(principal: Principal) -> MeResponse:
+def me_response(session: Session, principal: Principal) -> MeResponse:
+    provider = None
+    if principal.signed_in_with not in (None, "password"):
+        found = providers.names(session, keys=[principal.signed_in_with]).get(
+            principal.signed_in_with
+        )
+        provider = SignInProviderRef(key=found[0], name=found[1]) if found else None
     return MeResponse(
         id=principal.id,
         kind=principal.kind,
@@ -54,6 +69,7 @@ def me_response(principal: Principal) -> MeResponse:
         email=principal.email,
         lastSignInAt=principal.last_sign_in_at,
         signedInWith=principal.signed_in_with,
+        signInProvider=provider,
         sessionId=principal.session_id,
     )
 
@@ -77,10 +93,15 @@ def session_page(page: Page[UserSession], current: str | None) -> SessionPage:
 
 
 def user_response(
-    session: Session, user: User, roles: list[HeldRole] | None = None
+    session: Session,
+    user: User,
+    roles: list[HeldRole] | None = None,
+    identities: list[tuple[str, str, str]] | None = None,
 ) -> UserResponse:
     if roles is None:
         roles = held_roles(session, [user.id]).get(user.id, [])
+    if identities is None:
+        identities = providers.identities(session, [user.id]).get(user.id, [])
     return UserResponse(
         id=user.public_id,
         username=user.username,
@@ -93,6 +114,11 @@ def user_response(
         updatedAt=user.updated_at,
         lastSignInAt=user.last_sign_in_at,
         roles=_roles(roles),
+        identities=[
+            UserIdentityResponse(provider=SignInProviderRef(key=key, name=name), subject=subject)
+            for key, name, subject in identities
+        ],
+        localKept=user.local_kept,
     )
 
 
@@ -109,9 +135,13 @@ def _roles(roles: list[HeldRole]) -> list[UserRole]:
 
 
 def user_page(session: Session, page: Page[User]) -> UserPage:
-    roles = held_roles(session, [user.id for user in page.items])
+    ids = [user.id for user in page.items]
+    roles, identities = held_roles(session, ids), providers.identities(session, ids)
     return UserPage(
-        items=[user_response(session, user, roles.get(user.id, [])) for user in page.items],
+        items=[
+            user_response(session, user, roles.get(user.id, []), identities.get(user.id, []))
+            for user in page.items
+        ],
         **page.links(),
     )
 
@@ -213,4 +243,50 @@ def security_event_page(session: Session, page: Page[AuditEvent]) -> SecurityEve
             for event in page.items
         ],
         **page.links(),
+    )
+
+
+def sign_in_provider_response(
+    session: Session, provider: SignInProvider, redirect_uri: str, people: int | None = None
+) -> SignInProviderResponse:
+    if people is None:
+        people = providers.people(session, [provider.id]).get(provider.id, 0)
+    return SignInProviderResponse(
+        key=provider.key,
+        name=provider.name,
+        issuer=provider.issuer,
+        clientId=provider.client_id,
+        clientSecretSet=bool(provider.client_secret),
+        groupsClaim=provider.groups_claim,
+        enabled=provider.enabled,
+        redirectUri=redirect_uri,
+        people=people,
+        lastSignInAt=provider.last_sign_in_at,
+        version=provider.version,
+        createdAt=provider.created_at,
+        updatedAt=provider.updated_at,
+    )
+
+
+def sign_in_provider_page(
+    session: Session, page: Page[SignInProvider], redirect_uri: Callable[[str], str]
+) -> SignInProviderPage:
+    people = providers.people(session, [provider.id for provider in page.items])
+    return SignInProviderPage(
+        items=[
+            sign_in_provider_response(
+                session, provider, redirect_uri(provider.key), people.get(provider.id, 0)
+            )
+            for provider in page.items
+        ],
+        **page.links(),
+    )
+
+
+def local_sign_in_response(session: Session, state: LocalSignIn) -> LocalSignInResponse:
+    return LocalSignInResponse(
+        enabled=state.enabled,
+        keptPeople=providers.kept_people(session),
+        version=state.version,
+        updatedAt=state.updated_at,
     )

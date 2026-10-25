@@ -4,8 +4,18 @@
  * what a grant allows. Roles, workspaces, applications and record types are named as data.
  */
 
-import { formatServerAgo, formatServerDayTime } from "@/lib/dates";
-import type { ActionGroup, Client, Grant, SecurityEvent, SigningKey, UserRole } from "@/types";
+import { formatServerAgo, formatServerDayTime, formatServerTime } from "@/lib/dates";
+import type {
+  ActionGroup,
+  Client,
+  Grant,
+  LocalSignIn,
+  SecurityEvent,
+  SignInProvider,
+  SigningKey,
+  User,
+  UserRole,
+} from "@/types";
 
 /** "Data steward · Herbarium; Reader · Field stations", "Security administrator", "No roles yet". */
 export function userRoleLine(roles: readonly UserRole[]): string {
@@ -45,6 +55,48 @@ export function clientAccessLine(client: Pick<Client, "roles" | "consumerApis">)
 export function clientUseLine(client: Pick<Client, "active" | "lastUsedAt">, now: Date = new Date()): string {
   if (!client.active) return "Deactivated";
   return client.lastUsedAt ? `Last token ${formatServerAgo(client.lastUsedAt, now)}` : "No token yet";
+}
+
+/** A sign-in provider's line on Sign-in (I3): "42 people · last sign-in 4 min ago". */
+export function providerUseLine(
+  provider: Pick<SignInProvider, "people" | "lastSignInAt">,
+  now: Date = new Date(),
+): string {
+  if (!provider.lastSignInAt) return "Nobody has signed in yet";
+  const people = `${provider.people} ${provider.people === 1 ? "person" : "people"}`;
+  return `${people} · last sign-in ${formatServerAgo(provider.lastSignInAt, now)}`;
+}
+
+/** How a person signs in, on their page (I3): "Signs in with Northfield Entra ID · last signed
+ * in …", "Has not set a password yet", "Last signed in …", "Never signed in". */
+export function personSignInLine(user: Pick<User, "identities" | "hasPassword" | "lastSignInAt">): string {
+  const last = user.lastSignInAt ? formatServerTime(user.lastSignInAt) : undefined;
+  if (user.identities.length) {
+    const names = [...new Set(user.identities.map((identity) => identity.provider.name))].join(" and ");
+    return `Signs in with ${names}${last ? ` · last signed in ${last}` : ""}`;
+  }
+  if (!user.hasPassword) return "Has not set a password yet";
+  return last ? `Last signed in ${last}` : "Never signed in";
+}
+
+/** Local accounts' line on Sign-in (D365). */
+export function localSignInLine(local: Pick<LocalSignIn, "enabled" | "keptPeople">): string {
+  if (local.enabled) return "On · people sign in with a username and password";
+  return `Off · ${administrators(local.keptPeople)} ${local.keptPeople === 1 ? "keeps" : "keep"} a password`;
+}
+
+function administrators(count: number): string {
+  return `${count} administrator${count === 1 ? "" : "s"}`;
+}
+
+/** What turning local sign-in off does (D365), naming the providers people continue with. */
+export function turnOffSentence(providers: readonly string[], keptPeople: number): string {
+  const names =
+    providers.length > 1 ? `${providers.slice(0, -1).join(", ")} or ${providers.at(-1)}` : (providers[0] ?? "");
+  const kept = keptPeople
+    ? `except for the ${administrators(keptPeople)} made on the server, who ${keptPeople === 1 ? "keeps" : "keep"} local sign-in as the way back`
+    : "and nobody keeps local sign-in: make an administrator on the server with create_admin first";
+  return `People sign in with ${names} only. Passwords stop working, ${kept}. Clients are not affected.`;
 }
 
 /** What a consumer API grant allows (D354). */
@@ -183,8 +235,19 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
   const from = address ? ` from ${address}` : "";
   const changed = Array.isArray(details.changedFields) ? (details.changedFields as string[]) : [];
   switch (event.aggregateType) {
-    case "sign-in":
-      return event.action === "succeeded" ? `Signed in${from}` : `Sign-in failed${from}`;
+    case "sign-in": {
+      const provider = text(details.provider);
+      const way = provider ? ` with ${provider}` : "";
+      if (event.action === "succeeded") return `Signed in${way}${from}`;
+      const reason = text(details.reason);
+      return `Sign-in${way} failed${reason ? ` (${reason})` : ""}${from}`;
+    }
+    case "sign-in-provider":
+      if (event.aggregateId === "local")
+        return details.enabled ? "Local sign-in turned on" : "Local sign-in turned off";
+      if (event.action === "updated" && changed.includes("enabled"))
+        return `Sign-in provider ${event.aggregateId} ${details.enabled ? "enabled" : "disabled"}`;
+      return `Sign-in provider ${event.aggregateId} ${event.action}`;
     case "grant":
       return `${event.action === "created" ? "Granted" : "Grant removed:"} ${grantEventWords(details, labels)}`;
     case "group": {
@@ -198,6 +261,8 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
         if (changed.includes("active")) return details.active ? "Restored" : "Deactivated";
         return changed.length ? `Changed ${changed.join(", ")}` : "Details saved";
       }
+      if (event.action === "created" && details.provider)
+        return `Person created at their first sign-in with ${text(details.provider)}`;
       return USER_ACTIONS[event.action] ?? event.action;
     case "client": {
       if (event.action === "created") return "Client created";

@@ -6,6 +6,32 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 I3, a sign-in provider)
+
+- **Sign in with the organisation's provider** (D361–D370): an OpenID Connect provider (Entra ID,
+  Google, Keycloak and others) added on **Settings › Security › Sign-in** with its issuer, client ID,
+  secret and groups claim, checked when saved, with the address to register shown to copy; the
+  sign-in page offers **Continue with *name***. A person signing in through it the first time is
+  created from the provider's name and e-mail and found by the provider's subject afterwards, never
+  by e-mail; sessions record the provider.
+- **Provider groups**: the provider's groups become groups listed under it, their members set at
+  each sign-in ("Members seen"), renamed and granted like any group, and made ahead of anyone's
+  sign-in with **New group › From a sign-in provider**.
+- **Local sign-in can be turned off** once a provider has signed someone in; the administrators
+  made on the server with `create_admin` keep a password as the way back, through a link on the
+  sign-in page. A person's page says how they sign in; Account names the provider.
+- API: `GET|POST /sign-in-providers`, `GET|PATCH|DELETE /sign-in-providers/{key}`,
+  `GET|PATCH /sign-in-providers/local`; a group's `source` and `POST /groups` with one; a member's
+  `seenAt`; a person's `identities` and `localKept`; `signInProvider` on `/me`; the security events'
+  `sign-in-provider` aggregate. Migration `20261104_01_sign_in_providers`; people made before 0.12 Z4
+  keep local sign-in.
+
+### Fixed (0.12 I3)
+
+- A group's page kept its old name after Rename until it was opened again.
+- Two fields side by side in a dialog no longer push one input down when only the other has help
+  text.
+
 ### Added (0.12 SP2, clients and their access)
 
 - **Settings › Security › Clients** (D348–D357): the systems that call the API, each with its

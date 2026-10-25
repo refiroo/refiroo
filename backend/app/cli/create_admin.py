@@ -63,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
                 password=password,
                 min_length=get_settings().password_min_length,
                 roles=FIRST_ADMINISTRATOR_ROLES,
+                local_kept=True,
             )
             user_id = user.public_id
     except DatabaseStartupError as exc:

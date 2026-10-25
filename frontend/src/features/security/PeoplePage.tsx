@@ -35,7 +35,7 @@ import { GrantsSection } from "./GrantsSection";
 import { useHeldAnywhere } from "./permissions";
 import { PickDialog } from "./PickDialog";
 import { RecentActivity } from "./RecentActivity";
-import { userRoleLine } from "./securityText";
+import { personSignInLine, userRoleLine } from "./securityText";
 
 type PeopleRoute = Extract<SettingsRoute, { page: "people" }>;
 
@@ -51,6 +51,19 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
   const q = useDebouncedValue(search.trim());
   const feed = useCursorFeed((cursor) => security.users({ q, active, cursor }), [q, active]);
   const [countToken, setCountToken] = useState(0);
+  // While local sign-in is off, a new person or a password is of no use (I3, D365).
+  const [localOn, setLocalOn] = useState(true);
+
+  useEffect(() => {
+    let current = true;
+    security.localSignIn().then(
+      (local) => current && setLocalOn(local.enabled),
+      () => undefined,
+    );
+    return () => {
+      current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let current = true;
@@ -127,9 +140,11 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
       title="People"
       description="The people who sign in, the roles they hold and the groups they are in. A person is deactivated, never deleted, so their history keeps their name."
       actions={
-        <button ref={newButtonRef} className="primary" onClick={() => setCreating(true)}>
-          <Icon name="plus" /> New person
-        </button>
+        localOn && (
+          <button ref={newButtonRef} className="primary" onClick={() => setCreating(true)}>
+            <Icon name="plus" /> New person
+          </button>
+        )
       }
     >
       <CatalogueLayout
@@ -142,6 +157,7 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
           <PersonDetail
             key={route.userId}
             userId={route.userId}
+            localOn={localOn}
             onNavigate={onNavigate}
             onChanged={changed}
             onLink={(user, made) => setLink({ user, link: made, created: false })}
@@ -344,11 +360,13 @@ function NewPersonDialog({
 
 function PersonDetail({
   userId,
+  localOn,
   onNavigate,
   onChanged,
   onLink,
 }: {
   userId: string;
+  localOn: boolean;
   onNavigate: (route: RouteState) => void;
   onChanged: (user: User) => void;
   onLink: (user: User, link: PasswordResetLink) => void;
@@ -413,11 +431,8 @@ function PersonDetail({
 
   // What they changed in the workspaces this administrator reads (0.12 Z6, D345).
   const changes: RouteState = { kind: "changes", actorId: user.id, actorName: user.name };
-  const signedIn = !user.hasPassword
-    ? "Has not set a password yet"
-    : user.lastSignInAt
-      ? `Last signed in ${formatServerTime(user.lastSignInAt)}`
-      : "Never signed in";
+  const signedIn = personSignInLine(user);
+  const passwords = user.localKept || localOn;
 
   return (
     <div className="model-editor-stack security-detail">
@@ -438,9 +453,14 @@ function PersonDetail({
             ) : (
               <StatusPill tone="neutral">Deactivated</StatusPill>
             )}
-            <StatusPill tone={user.hasPassword ? "neutral" : "warning"} marker={false}>
+            <StatusPill tone={user.hasPassword || user.identities.length ? "neutral" : "warning"} marker={false}>
               {signedIn}
             </StatusPill>
+            {user.localKept && (
+              <StatusPill tone="neutral" marker={false}>
+                Keeps local sign-in
+              </StatusPill>
+            )}
           </div>
         </div>
       </header>
@@ -463,7 +483,7 @@ function PersonDetail({
             See changes
           </RouteLink>
         )}
-        {user.active && (
+        {user.active && passwords && (
           <button
             className="secondary"
             disabled={pending}

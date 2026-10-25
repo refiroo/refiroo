@@ -1,5 +1,6 @@
 """Action groups, roles, groups, grants and permissions as the API answers them (Product 0.12 Z1)."""
 
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -10,6 +11,7 @@ from ...engine.authorization import administration
 from ...engine.authorization.administration import GrantRow
 from ...engine.authorization.catalogue import ACTIONS, GROUPS
 from ...engine.authorization.permissions import Permissions
+from ...engine.identity import providers
 from ...engine.model.registry import resolve_model_snapshot
 from ...models.database import Grant, Role, User, UserGroup, Workspace
 from ..schemas.authorization import (
@@ -26,6 +28,7 @@ from ..schemas.authorization import (
     GroupMemberResponse,
     GroupPage,
     GroupResponse,
+    GroupSourceResponse,
     HeldAnywhere,
     HeldAnywhereList,
     HeldGroup,
@@ -36,6 +39,7 @@ from ..schemas.authorization import (
     RolePage,
     RoleResponse,
 )
+from ..schemas.identity import SignInProviderRef
 
 
 def action_groups(document: dict[str, Any]) -> ActionGroupList:
@@ -89,10 +93,17 @@ def role_page(session: Session, page: Page[Role]) -> RolePage:
 
 
 def group_response(session: Session, group: UserGroup) -> GroupResponse:
+    source = None
+    if group.provider_id is not None and group.claim_value is not None:
+        key, name = providers.names(session, ids=[group.provider_id])[group.provider_id]
+        source = GroupSourceResponse(
+            provider=SignInProviderRef(key=key, name=name), claimValue=group.claim_value
+        )
     return GroupResponse(
         id=group.public_id,
         name=group.name,
         description=group.description,
+        source=source,
         members=administration.member_count(session, group),
         version=group.version,
         createdAt=group.created_at,
@@ -104,14 +115,21 @@ def group_page(session: Session, page: Page[UserGroup]) -> GroupPage:
     return GroupPage(items=[group_response(session, group) for group in page.items], **page.links())
 
 
-def member_response(user: User) -> GroupMemberResponse:
+def member_response(user: User, seen_at: datetime | None = None) -> GroupMemberResponse:
     return GroupMemberResponse(
-        id=user.public_id, username=user.username, name=user.name, active=user.active
+        id=user.public_id,
+        username=user.username,
+        name=user.name,
+        active=user.active,
+        seenAt=seen_at,
     )
 
 
-def member_page(page: Page[User]) -> GroupMemberPage:
-    return GroupMemberPage(items=[member_response(user) for user in page.items], **page.links())
+def member_page(session: Session, group: UserGroup, page: Page[User]) -> GroupMemberPage:
+    seen = administration.seen(session, group, [user.id for user in page.items])
+    return GroupMemberPage(
+        items=[member_response(user, seen.get(user.id)) for user in page.items], **page.links()
+    )
 
 
 def _model_names(session: Session, workspace_key: str, kind: str) -> dict[str, str]:

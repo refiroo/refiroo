@@ -247,10 +247,17 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # ChangeAttribute, ChangeCause). Diffed against 56903d2, nothing else changed. Re-baselined for
     # 0.12 SP2 (D348–D350, D355): a client's roles, consumerApis (ClientConsumerApi) and createdBy,
     # a secret's hint, and GET /workspaces/{workspace_key}/grant-options (GrantOptionsResponse,
-    # GrantOption). Diffed against Z6's lock, nothing else changed.
+    # GrantOption). Diffed against Z6's lock, nothing else changed. Re-baselined for 0.12 I3
+    # (D363–D366): the sign-in providers and local sign-in (/sign-in-providers, its local entry and
+    # {key}: SignInProviderCreate, SignInProviderUpdate, SignInProviderResponse, SignInProviderPage,
+    # LocalSignInUpdate, LocalSignInResponse), a group's source (GroupSource, GroupSourceResponse)
+    # and a member's seenAt, a person's identities (UserIdentityResponse) and localKept, signInProvider
+    # on /me (SignInProviderRef), sign-in-provider among the security events' aggregates, and the
+    # descriptions of POST /groups, POST /groups/{group_id}/members, GET /me, PATCH /users/{user_id}
+    # and POST /users/{user_id}/password-reset. Diffed against a11f71e, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "886676bfd53430437b4193d78dc82d567eab8e1463a6e85c4e13419a2b6319cd"
+        "d7ba025ac881078c0eb32fa52a1500af37b008ef1152f19f217b0cf9c6270785"
     )
 
 
@@ -295,8 +302,8 @@ def test_paging_openapi_inventory():
     # people, clients and token signing keys; 0.12 I2 a person's sessions; 0.12 Z1 the roles, groups,
     # a group's members, grants, a workspace's access and the caller's grants; 0.12 SP1 a person's
     # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets; 0.12
-    # Z6 the changes across workspaces.
-    assert seekable <= paged and len(paged) == 59
+    # Z6 the changes across workspaces; 0.12 I3 the sign-in providers.
+    assert seekable <= paged and len(paged) == 60
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

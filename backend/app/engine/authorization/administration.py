@@ -30,6 +30,7 @@ from ...models.database import (
     OAuthClient,
     Role,
     RoleActionGroup,
+    SignInProvider,
     User,
     UserGroup,
     UserGroupMember,
@@ -316,16 +317,61 @@ def _group_name(session: Session, name: str, other: int | None = None) -> None:
         raise api_error(409, "GROUP_NAME_TAKEN", f"Another group is named '{name}'")
 
 
+def free_group_name(session: Session, wanted: str, alternative: str) -> str:
+    """A name no group has: ``wanted``, else ``alternative``, else ``alternative`` numbered; for a
+    provider group named after its claim value (I3, D364)."""
+    for candidate in (wanted, alternative):
+        if session.scalar(
+            select(UserGroup.id).where(func.lower(UserGroup.name) == candidate[:200].lower())
+        ) is None:
+            return candidate[:200]
+    number = 2
+    while True:
+        candidate = f"{alternative[:190]} {number}"
+        if session.scalar(
+            select(UserGroup.id).where(func.lower(UserGroup.name) == candidate.lower())
+        ) is None:
+            return candidate
+        number += 1
+
+
 def create_group(session: Session, payload: GroupCreate) -> UserGroup:
+    """A local group, or with ``source`` a provider group made ahead of its members' sign-ins so
+    its roles are ready (I3, D364)."""
+
     def change() -> UserGroup:
         _group_name(session, payload.name)
         group = UserGroup(name=payload.name, description=payload.description)
+        details: dict[str, Any] = {"name": group.name}
+        if payload.source is not None:
+            provider = session.scalar(
+                select(SignInProvider).where(SignInProvider.key == payload.source.provider)
+            )
+            if provider is None:
+                raise api_error(
+                    404,
+                    "SIGN_IN_PROVIDER_NOT_FOUND",
+                    f"Sign-in provider '{payload.source.provider}' not found",
+                )
+            claimed = session.scalar(
+                select(UserGroup.name).where(
+                    UserGroup.provider_id == provider.id,
+                    UserGroup.claim_value == payload.source.claimValue,
+                )
+            )
+            if claimed is not None:
+                raise api_error(
+                    409,
+                    "GROUP_CLAIM_TAKEN",
+                    f"The group '{claimed}' already stands for '{payload.source.claimValue}'",
+                )
+            group.provider_id, group.claim_value = provider.id, payload.source.claimValue
+            details |= {"provider": provider.key, "claimValue": group.claim_value}
         session.add(group)
         session.flush()
         security_events.record(
-            session, "group", group.public_id, "created", about=[group.public_id],
-            details={"name": group.name},
-        )  # fmt: skip
+            session, "group", group.public_id, "created", about=[group.public_id], details=details
+        )
         return group
 
     return _changing(session, change)
@@ -372,6 +418,28 @@ def delete_group(session: Session, public_id: str) -> None:
     _changing(session, change, guard=True)
 
 
+def seen(session: Session, group: UserGroup, user_ids: list[int]) -> dict[int, datetime | None]:
+    """When a sign-in last named each member in a provider group (D364)."""
+    if group.provider_id is None or not user_ids:
+        return {}
+    rows = session.execute(
+        select(UserGroupMember.user_id, UserGroupMember.seen_at).where(
+            UserGroupMember.group_id == group.id, UserGroupMember.user_id.in_(user_ids)
+        )
+    )
+    return dict(rows.tuples().all())
+
+
+def _managed_by_provider(group: UserGroup) -> None:
+    if group.provider_id is not None:
+        raise api_error(
+            409,
+            "GROUP_FROM_PROVIDER",
+            f"The members of '{group.name}' come from its sign-in provider at each sign-in; change "
+            "membership there",
+        )
+
+
 def member_page(
     session: Session, public_id: str, *, page: PageRequest, page_size: int
 ) -> Page[User]:
@@ -403,6 +471,7 @@ def _user(session: Session, public_id: str) -> User:
 def add_member(session: Session, public_id: str, user_id: str) -> User:
     def change() -> User:
         group = load_group(session, public_id, for_update=True)
+        _managed_by_provider(group)
         user = _user(session, user_id)
         member = session.get(UserGroupMember, (group.id, user.id))
         if member is None:
@@ -420,6 +489,7 @@ def add_member(session: Session, public_id: str, user_id: str) -> User:
 def remove_member(session: Session, public_id: str, user_id: str) -> None:
     def change() -> None:
         group = load_group(session, public_id, for_update=True)
+        _managed_by_provider(group)
         user = _user(session, user_id)
         removed = session.execute(
             delete(UserGroupMember).where(

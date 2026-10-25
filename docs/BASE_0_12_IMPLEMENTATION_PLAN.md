@@ -956,7 +956,7 @@ one sign-in against a real provider the user names (Microsoft Entra ID, Google, 
 
 ##### I3 plan (2026-10-25)
 
-**Planned 2026-10-25, waiting for the user's acceptance:** D361–D370, the test cases and the "I3 as
+**Planned 2026-10-25; accepted by the user the same day** ("you can go ahead with the above"): D361–D370, the test cases and the "I3 as
 planned" boards ([security mock-ups canvas](https://claude.ai/artifact/CiHGaobpx8jsqaNZvmfXXo), the
 tenth row: Settings › Security › Sign-in, a provider group, the sign-in page with local sign-in off,
 Sign-in at 390px). Checked against the code at `9c702d7` with TV1 in the working tree, the approved
@@ -1119,6 +1119,103 @@ person (D370); sign out of the provider from the engine; use a second factor wit
 (D225); sign in with a real provider until they register the engine with one (the try before E1);
 rotate a webhook's signing key (K1); try the API console with their token (C1); submit and approve
 publications (Track A).
+
+##### I3 record (2026-10-25)
+
+**Delivered 2026-10-25.** What was built is the plan's list, items 1–9:
+
+- **Migration** `20261104_01_sign_in_providers`: `sign_in_providers`, `local_sign_in` (one row),
+  `user_identities`, `provider_sign_ins`, a group's `provider_id` and `claim_value`, a member's
+  `seen_at`, `users.local_kept`, and the security events' index taking the new aggregate.
+- **Engine** `engine/identity/`: `providers.py` (settings, the secret sealed, the discovery check,
+  the local switch, D365, D366), `provider_client.py` (discovery, keys, the code exchange, the ID
+  token's checks, D361, D362), `provider_sign_in.py` (start, finish, the person, the provider
+  groups, D363, D364, D368); `create_admin` marks its person as keeping local sign-in; the password
+  check accepts only them while local sign-in is off.
+- **Pages and API** as items 3 and 4; `signInProvider` on `/me` for Account. OpenAPI lock
+  re-baselined from a diff against `a11f71e` holding only I3's additions.
+- **Frontend:** `SignInPage` (Local accounts and the providers, New provider, a provider's address
+  and settings, the local switch), provider groups on `GroupsPage`, a person's sign-in line and the
+  password actions hidden while local sign-in is off on `PeoplePage`, the provider on Account; route
+  `/settings/sign-in[/{key}]`; Sign-in in the Security group.
+- **Harness:** `tests/oidc_provider.py`, run in a thread by the journeys and as a script by the
+  runner `i3-sign-in-providers`.
+- **Documents:** API.md, OPERATIONS (registering with a provider, the groups claim and Entra ID's
+  object IDs and overage, local sign-in off and the way back, leavers), ARCHITECTURE, DECISIONS
+  (ADR-043's consequences), SETTINGS_AND_UI_PLAN, USER_JOURNEYS (J39.7, J40), API_JOURNEYS,
+  CURRENT_FUNCTIONALITY (F26), UI_ACCEPTANCE (I3-1 to I3-3), EXECUTION_GUIDE, CHANGELOG,
+  PROJECT_STATUS, the queue.
+
+**Where it differs from the plan:**
+
+- **One security aggregate:** a provider's changes and the local switch are both `sign-in-provider`
+  events, the switch on `local`, instead of a separate `local-sign-in` aggregate; one name keeps the
+  security events' index to one more value.
+- **Who keeps local sign-in, widened:** people made before Z4 have no `created` event, so the
+  plan's rule ("created on the server") missed the first administrator of an existing instance;
+  the migration also keeps everyone without a `created` event, and `PATCH /users/{id}` takes
+  `localKept` to change it. On the development database the running server had applied the first
+  version of the migration, so the same update was run there by hand: `krisztian`, `user1` and
+  `user2` keep local sign-in.
+- **A code added:** `409 GROUP_CLAIM_TAKEN` when a group is made ahead for a claim value that has
+  one.
+- **Deleting a provider** nobody signed in with deletes the groups made ahead for it, with their
+  grants (said in the confirmation).
+- **Shared HTTP client:** the webhook client's `post` became `exchange`, which the provider client
+  calls with a larger read limit, so both keep the one address check (D362).
+- **No "Recent activity" link on a provider's page:** security events filter by a person or client,
+  not a provider; the provider's events are found on Security events by aggregate (U-D11).
+- **The runner's kept administrator** is the harness person marked through `localKept`; the journey
+  uses a person made by `create_admin`.
+- **Found by the runner and fixed:** a group's page kept its old name after Rename (SP1's dialog
+  updated only the list); the provider's settings form used the browser's own inputs until it joined
+  the shared field look; the paired fields stacked without a gap at 390px; the provider group's note
+  moved above Roles, as the board has it.
+- **Asked by the user during the delivery:** Client ID and Client secret on one line, aligned, in
+  the New provider dialog. They already shared a row; the secret's help text stretched the row and
+  pushed the Client ID's input down. `dialog-pair` now aligns its fields at the top, for every dialog
+  using it. The user also asked whether providers are built in: there is one generic OpenID Connect
+  kind and no vendor presets (OPERATIONS names each vendor's issuer).
+- **The journey cases were seen failing first** (10 of 10: no routes), then passed.
+
+**Checks:**
+
+- `tests/journeys/test_j39_provider_sign_in.py`: 10 passed (5 cases × 2 configurations), seen
+  failing first; with `test_j39_j41_j43_identity.py`, `test_j39_sign_in.py`,
+  `test_j40_security_pages.py`, `test_j40_authorization.py`, `test_openapi_contract.py`,
+  `test_api_journeys.py`, `test_boundaries.py`, `test_startup.py`, `test_schema_drift.py`,
+  `test_foreign_keys.py`: 121 passed; after the migration's widened rule, the startup, schema,
+  foreign-key and provider journeys again: 27 passed. Unit `tests/unit/engine/identity` and
+  `tests/unit/engine/events` with `test_j30_delivery.py` (the shared HTTP client): 131 passed,
+  `test_provider_client.py` among them (the ID token's claims and algorithms, the groups claim, the
+  username, the discovery check's reasons). Ruff check and format on the files I3 wrote.
+- **Migration:** clean bootstrap and restart (`test_startup`, head `20261104_01`), the schema against
+  the ORM; the development database upgraded by the running `--reload` server, which still answers.
+- Vitest: `src/features/security`, `src/features/settings`, `src/routing`, `src/ui`, `src/app`,
+  `src/features/workspaces`: 42 files, 373 passed (`securityText.test`: the provider and local lines,
+  the turn-off sentence, a person's sign-in line, the events' titles; `SignInPage.test`: the key from
+  a name, the groups' sections; `routes.test`: the route). `format`, `lint` (0 errors; the 8 warnings
+  in untouched files), `build`.
+- **Browser:** `i3-sign-in-providers` on two models: 24 checks, axe 0 violations on New provider, a
+  provider (light and dark), a provider group, the turn-off confirmation and the sign-in page with
+  local sign-in off (light and dark); `i2-sign-in` 28 checks (the form unchanged without a provider),
+  `sp1-security` 46 checks (Groups), `u3-settings` 10 checks (the navigation). Screenshots inspected
+  against the boards: New provider, a provider at 1440px light and dark and at 390px, a provider
+  group, the sign-in page with local sign-in off.
+
+**Not run:** the full backend and frontend suites and the other browser runners (R); the
+accessibility and visual gates (R); a sign-in against a real provider, which needs the engine
+registered there (before E1, D369).
+
+**Shared working tree:** other sessions are working on HM1a and LS1 (the collection's scrolling,
+D371–D375) in the same checkout, touching CHANGELOG, this plan and shared style sheets
+(`base.css`, `components.css`, `settings.css`); I3's hunks are separate from theirs.
+
+**What the user cannot do yet:** link a provider identity to an existing person (D370); sign out of
+the provider from the engine; use a second factor with a local account (D225); sign in with a real
+provider until they register the engine there (the try before E1); clear `localKept` on a page (API
+only); rotate a webhook's signing key (K1); try the API console with their token (C1); submit and
+approve publications (Track A).
 
 ### Track Z — Authorization
 

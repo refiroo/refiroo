@@ -90,10 +90,10 @@ becomes a select at the top of the page.
 | Integration | API reference | Links to `/docs`, one per source, with its version | `GET /api/consumer` | U4 (0.9) |
 | General | Account | The person, their password, where they are signed in (sign out one or everywhere), what they can do per workspace (until Z1 "Everything", then their roles) | `/me`, `/me/sessions`, `/me/password`, `/me/permissions` | 0.12 I2 (built 2026-10-23), Z1 |
 | Security | People | List and detail: create, a one-time reset link, deactivate, sign out everywhere, last sign-in; roles by workspace with their narrowing and where they come from; groups; recent activity | `/users`, `/users/{id}/grants`, `/grants`, `/security-events` | 0.12 SP1 (built 2026-10-24); recent activity 0.12 Z4 (built 2026-10-24) |
-| Security | Groups | Local and provider groups; members (a provider group's as seen at sign-in); roles | `/groups`, `/grants` | 0.12 SP1 (built 2026-10-24, local groups; provider groups with I3) |
+| Security | Groups | Local and provider groups; members (a provider group's as seen at sign-in); roles | `/groups`, `/grants` | 0.12 SP1 (built 2026-10-24, local groups), I3 (built 2026-10-25, provider groups) |
 | Security | Roles | The matrix of roles and action groups; predefined read-only; a custom role created, copied, edited | `/roles`, `/action-groups` | 0.12 SP1 (built 2026-10-24) |
 | Security | Clients | List and detail: create (secret shown once), rotate with an overlap, end a secret, deactivate; management roles and consumer API grants per workspace; last use; webhooks it created; recent activity | `/clients`, `/grants`, `/workspaces/{key}/grant-options`, `/security-events` | 0.12 SP2 (built 2026-10-25) |
-| Security | Sign-in | Sign-in providers; local accounts on or off | `/sign-in-providers` | 0.12 I3 |
+| Security | Sign-in | Sign-in providers; local accounts on or off | `/sign-in-providers` | 0.12 I3 (built 2026-10-25) |
 | Security | Signing keys | Token signing keys by age; rotate now | `/token-signing-keys` | 0.12 I1, SP2 (built 2026-10-25) |
 | Administration | Workspaces › a workspace › Access | Who can do what here, the grant dialog (who, role, narrowing of writes); Approvals tab with the four-eyes policy (Track A) | `/workspaces/{key}/access`, `/grants`, `/approval-policy` | 0.12 SP1 (built 2026-10-24, a section of the workspace's page), A3 |
 
@@ -2655,6 +2655,18 @@ packages build on those shapes: I2 (sign-in, account), SP1, SP2, I3, Z5, A3.
   and reads the workspace's `grant-options` (D355), **Webhooks it created** for a webhook
   administrator, and Recent activity; a webhook's page names its creator (D353); **Signing keys**
   with Start a new key and Retire the current key now (D356). Sign-in waits for I3 (D357).
+- _Built by I3 (2026-10-25)_ from the "I3 as planned" boards: **Sign-in** in the Security group,
+  Local accounts first (On or Off, **Turn off** with a confirmation naming who keeps a password, only
+  once a provider has signed someone in; **Turn on**) beside the providers (Enabled or Disabled,
+  people and last sign-in); **New provider** (name, key from the name, issuer, client ID, secret,
+  groups claim, offered now); a provider's page with the **address to register** and Copy, its
+  settings edited in place (the secret "Saved · type a new one to replace it"), **Disable** or
+  **Enable**, **Delete** while nobody has signed in with it (D365, D366). Groups lists provider
+  groups under "From *provider*" with the claim value, members seen and when, no member edits, and
+  New group's "From a sign-in provider" (D364); a person's page says "Signs in with *provider*" and
+  "Keeps local sign-in", and hides New person and the password link while local sign-in is off;
+  Account names the provider. The engine's sign-in page gains "Continue with *name*" and, with local
+  sign-in off, only the buttons and the local administrator's link.
 
 U-D11 holds: each Security entry appears in the navigation only when its page is built.
 

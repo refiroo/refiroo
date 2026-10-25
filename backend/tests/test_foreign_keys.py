@@ -120,6 +120,13 @@ RULES = {
     ("authorization_codes", "user_id"): ("users", "CASCADE"),
     ("password_reset_links", "user_id"): ("users", "CASCADE"),
     ("session_refresh_tokens", "session_id"): ("user_sessions", "CASCADE"),
+    # A person's provider identities go with them; a provider somebody signed in with is disabled,
+    # never deleted, while its pending sign-ins and the groups made for it go with it (0.12 I3,
+    # D363, D364, D366).
+    ("user_identities", "user_id"): ("users", "CASCADE"),
+    ("user_identities", "provider_id"): ("sign_in_providers", "RESTRICT"),
+    ("provider_sign_ins", "provider_id"): ("sign_in_providers", "CASCADE"),
+    ("user_groups", "provider_id"): ("sign_in_providers", "CASCADE"),
     ("authorization_codes", "session_id"): ("user_sessions", "SET NULL"),
     # A draft's history goes with its draft (0.10 A2, D4).
     ("model_draft_operations", "draft_id"): ("model_drafts", "CASCADE"),

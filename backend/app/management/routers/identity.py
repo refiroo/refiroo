@@ -1,4 +1,5 @@
-"""The caller, people, OAuth clients and token signing keys (Product 0.12 I1, I2, API.md § Security).
+"""The caller, people, OAuth clients, token signing keys and sign-in providers (Product 0.12 I1, I2,
+I3, API.md § Security).
 
 The caller's own routes are for anyone signed in; the rest need Security administration at the
 instance (Z1).
@@ -6,7 +7,7 @@ instance (Z1).
 
 from fastapi import APIRouter, Query, Request, Response
 
-from ...engine.identity import keys, resets, security_events, sessions
+from ...engine.identity import keys, providers, resets, security_events, sessions
 from ...engine.identity.clients import (
     add_secret,
     client_page,
@@ -21,8 +22,11 @@ from ...models.commands import (
     ClientCreate,
     ClientSecretCreate,
     ClientUpdate,
+    LocalSignInUpdate,
     PasswordChange,
     SigningKeyRotation,
+    SignInProviderCreate,
+    SignInProviderUpdate,
     UserCreate,
     UserUpdate,
 )
@@ -39,6 +43,7 @@ from ..schemas.identity import (
     ClientPage,
     ClientResponse,
     ClientWithSecret,
+    LocalSignInResponse,
     MeResponse,
     PasswordResetLinkResponse,
     SecurityAggregate,
@@ -46,6 +51,8 @@ from ..schemas.identity import (
     SessionPage,
     SigningKeyPage,
     SigningKeyResponse,
+    SignInProviderPage,
+    SignInProviderResponse,
     UserPage,
     UserResponse,
 )
@@ -55,9 +62,9 @@ router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["securit
 
 @router.get("/me", response_model=MeResponse)
 @requires("signed-in", at=SIGNED_IN)
-def get_me(principal: CurrentPrincipal) -> MeResponse:
-    """Who the request's token belongs to: a person or a client."""
-    return present.me_response(principal)
+def get_me(principal: CurrentPrincipal, session: DbSession) -> MeResponse:
+    """Who the request's token belongs to: a person or a client; for a person, how they signed in."""
+    return present.me_response(session, principal)
 
 
 def _person(principal: CurrentPrincipal) -> str:
@@ -149,7 +156,8 @@ def get_user(user_id: str, session: DbSession) -> UserResponse:
 @requires("security.manage", at=INSTANCE)
 def patch_user(user_id: str, payload: UserUpdate, session: DbSession) -> UserResponse:
     """Change a person's name or e-mail, or deactivate them with ``active: false``: their tokens are
-    refused from the next request and their sessions end. A person is never deleted (D237)."""
+    refused from the next request and their sessions end. A person is never deleted (D237).
+    ``localKept`` says whether they sign in with a password while local sign-in is off (D365)."""
     return present.user_response(session, update_user(session, user_id, payload))
 
 
@@ -161,7 +169,9 @@ def post_password_reset(
     user_id: str, request: Request, session: DbSession
 ) -> PasswordResetLinkResponse:
     """A one-time link that sets the person's password, answered this once and valid for
-    ``PASSWORD_RESET_HOURS``; it replaces any earlier link. Using it ends their sessions (D272)."""
+    ``PASSWORD_RESET_HOURS``; it replaces any earlier link. Using it ends their sessions (D272).
+    While local sign-in is off, refused for a person who does not keep it
+    (``409 LOCAL_SIGN_IN_OFF``, D365)."""
     url, expires_at = resets.create_link(session, request.app.state.identity_settings, user_id)
     return PasswordResetLinkResponse(url=url, expiresAt=expires_at)
 
@@ -280,3 +290,86 @@ def list_security_events(
             page_size=page_size,
         ),
     )
+
+
+def _redirect_uri(request: Request):
+    settings = request.app.state.identity_settings
+    return lambda key: providers.redirect_uri(settings, key)
+
+
+@router.get("/sign-in-providers", response_model=SignInProviderPage)
+@requires("security.manage", at=INSTANCE)
+def list_sign_in_providers(
+    request: Request,
+    session: DbSession,
+    paging: PageQuery,
+    page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
+) -> SignInProviderPage:
+    """The OpenID Connect providers people sign in with, as created (0.12 I3); never a secret."""
+    return present.sign_in_provider_page(
+        session,
+        providers.provider_page(session, page=paging, page_size=page_size),
+        _redirect_uri(request),
+    )
+
+
+@router.post("/sign-in-providers", response_model=SignInProviderResponse, status_code=201)
+@requires("security.manage", at=INSTANCE)
+def post_sign_in_provider(
+    payload: SignInProviderCreate, request: Request, session: DbSession
+) -> SignInProviderResponse:
+    """A provider; its client secret is sealed and never answered (D366). An enabled one is read
+    first: its discovery document must name this issuer and it must publish keys
+    (``422 SIGN_IN_PROVIDER_UNREACHABLE`` with the reason). The key is fixed
+    (``409 SIGN_IN_PROVIDER_KEY_TAKEN``); register ``redirectUri`` with the provider."""
+    provider = providers.create_provider(session, request.app.state.identity_settings, payload)
+    return present.sign_in_provider_response(
+        session, provider, _redirect_uri(request)(provider.key)
+    )
+
+
+@router.get("/sign-in-providers/local", response_model=LocalSignInResponse)
+@requires("security.manage", at=INSTANCE)
+def get_local_sign_in(session: DbSession) -> LocalSignInResponse:
+    """Whether people sign in with a password, and how many keep it while it is off (D365)."""
+    return present.local_sign_in_response(session, providers.local_state(session))
+
+
+@router.patch("/sign-in-providers/local", response_model=LocalSignInResponse)
+@requires("security.manage", at=INSTANCE)
+def patch_local_sign_in(payload: LocalSignInUpdate, session: DbSession) -> LocalSignInResponse:
+    """Turn local sign-in off or on. Off only once an enabled provider has signed someone in
+    (``409 NO_WORKING_PROVIDER``); then only the people who keep it (made on the server by
+    ``create_admin``) sign in with a password, and clients are not affected (D365)."""
+    return present.local_sign_in_response(session, providers.set_local(session, payload))
+
+
+@router.get("/sign-in-providers/{key}", response_model=SignInProviderResponse)
+@requires("security.manage", at=INSTANCE)
+def get_sign_in_provider(key: str, request: Request, session: DbSession) -> SignInProviderResponse:
+    return present.sign_in_provider_response(
+        session, providers.load_provider(session, key), _redirect_uri(request)(key)
+    )
+
+
+@router.patch("/sign-in-providers/{key}", response_model=SignInProviderResponse)
+@requires("security.manage", at=INSTANCE)
+def patch_sign_in_provider(
+    key: str, payload: SignInProviderUpdate, request: Request, session: DbSession
+) -> SignInProviderResponse:
+    """Change a provider's settings; a new ``clientSecret`` replaces the saved one. Enabling it, or
+    changing an enabled one's issuer, reads it first. Disabling it ends the sessions it started
+    (D367)."""
+    provider = providers.update_provider(
+        session, request.app.state.identity_settings, key, payload
+    )
+    return present.sign_in_provider_response(session, provider, _redirect_uri(request)(key))
+
+
+@router.delete("/sign-in-providers/{key}", status_code=204)
+@requires("security.manage", at=INSTANCE)
+def delete_sign_in_provider(key: str, session: DbSession) -> Response:
+    """Delete a provider nobody has signed in with, and the groups made for it; otherwise disable
+    it (``409 SIGN_IN_PROVIDER_IN_USE``)."""
+    providers.delete_provider(session, key)
+    return Response(status_code=204)

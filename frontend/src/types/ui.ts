@@ -134,6 +134,7 @@ export type SettingsRoute =
   | { kind: "settings"; page: "roles" }
   /** Security › Clients, or one client's page; Signing keys (0.12 SP2). */
   | { kind: "settings"; page: "clients"; clientId?: string }
+  | { kind: "settings"; page: "sign-in"; providerKey?: string }
   | { kind: "settings"; page: "signing-keys" }
   | {
       kind: "settings";

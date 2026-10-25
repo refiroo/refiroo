@@ -1,19 +1,24 @@
 /**
  * Settings › Security › Groups (0.12 SP1, U8): local groups beside the selected one, searched by
  * name (D300). A group's page renames or deletes it, lists the roles granted to it (they apply to
- * every member) and its members, with Add a member and Remove. Groups from a sign-in provider come
- * with I3. Deleting a group, or removing a member, that would leave no active Security
- * administrator is refused by the engine (`LAST_SECURITY_ADMINISTRATOR`), shown as worded.
+ * every member) and its members, with Add a member and Remove. A group from a sign-in provider (I3,
+ * D364) is listed under its provider; its members are those the provider named at their last
+ * sign-in ("Members seen"), changed in the provider, never here, and New group can make one ahead of
+ * anyone's sign-in so its roles are ready. Deleting a group, or removing a member, that would leave
+ * no active Security administrator is refused by the engine (`LAST_SECURITY_ADMINISTRATOR`), shown
+ * as worded.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { errorMessage, isApiError, refusalMessage } from "@/api/errors";
 import { security } from "@/api/securityClient";
+import { formatServerDayTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { routePath } from "@/routing/routes";
-import type { Group, GroupMember, RouteState, SettingsRoute } from "@/types";
+import type { Group, GroupMember, RouteState, SettingsRoute, SignInProvider } from "@/types";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
+import { Choice } from "@/ui/Choice";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
@@ -24,6 +29,7 @@ import { SearchField } from "@/ui/SearchField";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsTable } from "@/ui/SettingsTable";
+import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
 import { GrantsSection } from "./GrantsSection";
 import { PickDialog } from "./PickDialog";
@@ -34,9 +40,27 @@ const GROUPS: GroupsRoute = { kind: "settings", page: "groups" };
 
 const members = (count: number) => `${count} member${count === 1 ? "" : "s"}`;
 
+/** A group's count: a provider group's are only those seen at a sign-in (D364). */
+const memberLine = (group: Group) =>
+  group.source ? (group.members ? `${group.members} seen` : "Nobody seen yet") : members(group.members);
+
+/** The loaded groups, local first, then each provider's under its name, in the order loaded. */
+export function groupsBySource(groups: readonly Group[]): { label: string; groups: Group[] }[] {
+  const sections = new Map<string, { label: string; groups: Group[] }>();
+  sections.set("", { label: "Local", groups: [] });
+  for (const group of groups) {
+    const key = group.source?.provider.key ?? "";
+    if (!sections.has(key)) sections.set(key, { label: `From ${group.source?.provider.name}`, groups: [] });
+    sections.get(key)?.groups.push(group);
+  }
+  return [...sections.values()].filter((section) => section.groups.length);
+}
+
 export function GroupsPage({ route, onNavigate }: { route: GroupsRoute; onNavigate: (route: RouteState) => void }) {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Group | "new">();
+  // Read the open group again after a rename, so its page shows the new name (I3: SP1 kept the old).
+  const [renamed, setRenamed] = useState(0);
   const newButtonRef = useRef<HTMLButtonElement>(null);
   const q = useDebouncedValue(search.trim());
   const feed = useCursorFeed((cursor) => security.groups({ q, cursor }), [q]);
@@ -49,15 +73,20 @@ export function GroupsPage({ route, onNavigate }: { route: GroupsRoute; onNaviga
     <nav className="model-catalogue security-catalogue" aria-label="Groups">
       <section>
         <SearchField label="Search groups" placeholder="Group name" value={search} onChange={setSearch} clearOnEscape />
-        {feed.items.map((group) => (
-          <CatalogueEntry
-            key={group.id}
-            icon="users"
-            title={group.name}
-            subtitle={group.description ? `${members(group.members)} · ${group.description}` : members(group.members)}
-            current={route.groupId === group.id}
-            onSelect={() => onNavigate({ ...GROUPS, groupId: group.id })}
-          />
+        {groupsBySource(feed.items).map((section, _, sections) => (
+          <Fragment key={section.label}>
+            {(sections.length > 1 || section.groups[0].source) && <h2 className="nav-label">{section.label}</h2>}
+            {section.groups.map((group) => (
+              <CatalogueEntry
+                key={group.id}
+                icon="users"
+                title={group.name}
+                subtitle={group.description ? `${memberLine(group)} · ${group.description}` : memberLine(group)}
+                current={route.groupId === group.id}
+                onSelect={() => onNavigate({ ...GROUPS, groupId: group.id })}
+              />
+            ))}
+          </Fragment>
         ))}
         {feed.loading && !feed.items.length && <p className="explorer-empty">Loading groups…</p>}
         {!feed.loading && !feed.error && !feed.items.length && (
@@ -96,7 +125,7 @@ export function GroupsPage({ route, onNavigate }: { route: GroupsRoute; onNaviga
       >
         {route.groupId ? (
           <GroupDetail
-            key={route.groupId}
+            key={`${route.groupId}:${renamed}`}
             groupId={route.groupId}
             onNavigate={onNavigate}
             onRename={(group) => setEditing(group)}
@@ -126,6 +155,7 @@ export function GroupsPage({ route, onNavigate }: { route: GroupsRoute; onNaviga
               toast(`The group ${group.name} was created. Add members and grant it a role.`);
             } else {
               changed(group);
+              setRenamed((count) => count + 1);
               toast("Saved.");
             }
           }}
@@ -198,7 +228,17 @@ function GroupDetail({
         <div>
           <p className="eyebrow">Group</p>
           <h2>{group.name}</h2>
-          <p>{group.description ? `${group.description} · ${members(group.members)}` : members(group.members)}</p>
+          <p>{group.description ? `${group.description} · ${memberLine(group)}` : memberLine(group)}</p>
+          {group.source && (
+            <div className="security-pills">
+              <StatusPill tone="neutral" marker={false}>
+                From {group.source.provider.name}
+              </StatusPill>
+              <StatusPill tone="neutral" marker={false}>
+                Claim value <span className="mono">{group.source.claimValue}</span>
+              </StatusPill>
+            </div>
+          )}
         </div>
       </header>
       <div className="model-actions">
@@ -209,6 +249,13 @@ function GroupDetail({
           Delete group
         </button>
       </div>
+      {group.source && (
+        <Notice tone="info" title="Members come from the sign-in provider">
+          They are updated each time a person signs in with {group.source.provider.name}. Someone in this group who has
+          not signed in since it was named is not listed yet. Change membership in {group.source.provider.name}; grant
+          roles here.
+        </Notice>
+      )}
       <GrantsSection
         subject={{ principal: { kind: "group", id: group.id, name: group.name } }}
         description="A role granted to the group applies to every member."
@@ -266,13 +313,16 @@ function GroupMembers({
     }
   }
 
+  const seen = !!group.source;
   return (
     <Section
-      title="Members"
+      title={seen ? "Members seen" : "Members"}
       actions={
-        <button ref={addRef} type="button" className="secondary" onClick={() => setAdding(true)}>
-          <Icon name="plus" /> Add a member
-        </button>
+        !seen && (
+          <button ref={addRef} type="button" className="secondary" onClick={() => setAdding(true)}>
+            <Icon name="plus" /> Add a member
+          </button>
+        )
       }
     >
       {error && (
@@ -283,9 +333,18 @@ function GroupMembers({
       {feed.error ? (
         <InlineError message={feed.error} onRetry={feed.retry} />
       ) : !feed.items.length ? (
-        <p className="admin-hint">{feed.loading ? "Loading members…" : "No members yet."}</p>
+        <p className="admin-hint">
+          {feed.loading ? "Loading members…" : seen ? "Nobody in this group has signed in yet." : "No members yet."}
+        </p>
       ) : (
-        <SettingsTable label="Members" columns={["Person", "Username", "Status", { hidden: "Actions" }]}>
+        <SettingsTable
+          label="Members"
+          columns={
+            seen
+              ? ["Person", "Username", "Status", "Last seen in this group"]
+              : ["Person", "Username", "Status", { hidden: "Actions" }]
+          }
+        >
           {feed.items.map((member) => {
             const route: SettingsRoute = { kind: "settings", page: "people", userId: member.id };
             return (
@@ -297,16 +356,22 @@ function GroupMembers({
                 </th>
                 <td data-label="Username">{member.username}</td>
                 <td data-label="Status">{member.active ? "Active" : "Deactivated"}</td>
-                <td className="grant-action">
-                  <button
-                    type="button"
-                    className="ghost"
-                    aria-label={`Remove ${member.name} from ${group.name}`}
-                    onClick={() => void remove(member)}
-                  >
-                    Remove
-                  </button>
-                </td>
+                {seen ? (
+                  <td data-label="Last seen in this group">
+                    {member.seenAt ? formatServerDayTime(member.seenAt) : "—"}
+                  </td>
+                ) : (
+                  <td className="grant-action">
+                    <button
+                      type="button"
+                      className="ghost"
+                      aria-label={`Remove ${member.name} from ${group.name}`}
+                      onClick={() => void remove(member)}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -352,9 +417,32 @@ function GroupDialog({
 }) {
   const [name, setName] = useState(group?.name ?? "");
   const [description, setDescription] = useState(group?.description ?? "");
+  const [source, setSource] = useState<"local" | "provider">("local");
+  const [providers, setProviders] = useState<SignInProvider[]>([]);
+  const [provider, setProvider] = useState("");
+  const [claimValue, setClaimValue] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const fromProvider = source === "provider";
   const changed = name.trim() !== (group?.name ?? "") || description.trim() !== (group?.description ?? "");
+
+  // A new group can stand for a provider's group; offered only when a provider uses groups (D364).
+  useEffect(() => {
+    if (group) return;
+    let current = true;
+    security.signInProviders().then(
+      (page) => {
+        if (!current) return;
+        const usable = page.items.filter((item) => item.groupsClaim);
+        setProviders(usable);
+        setProvider((chosen) => chosen || (usable[0]?.key ?? ""));
+      },
+      () => undefined,
+    );
+    return () => {
+      current = false;
+    };
+  }, [group]);
 
   async function save() {
     setPending(true);
@@ -374,6 +462,7 @@ function GroupDialog({
           await security.createGroup({
             name: name.trim(),
             ...(description.trim() ? { description: description.trim() } : {}),
+            ...(fromProvider ? { source: { provider, claimValue: claimValue.trim() } } : {}),
           }),
           true,
         );
@@ -411,6 +500,50 @@ function GroupDialog({
           Description (optional)
           <input maxLength={2000} value={description} onChange={(event) => setDescription(event.target.value)} />
         </label>
+        {!group && providers.length > 0 && (
+          <fieldset className="form-field">
+            <legend>Members</legend>
+            <Choice
+              name="group-source"
+              value={source}
+              options={[
+                ["local", "Added here"],
+                ["provider", "From a sign-in provider"],
+              ]}
+              onChange={setSource}
+            />
+          </fieldset>
+        )}
+        {fromProvider && (
+          <div className="dialog-pair">
+            <label>
+              Provider
+              <select value={provider} onChange={(event) => setProvider(event.target.value)}>
+                {providers.map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Claim value
+              <input
+                className="mono"
+                required
+                maxLength={200}
+                value={claimValue}
+                onChange={(event) => setClaimValue(event.target.value)}
+              />
+            </label>
+          </div>
+        )}
+        {fromProvider && (
+          <p className="admin-hint">
+            The value the provider's groups claim holds for this group (Entra ID sends the group's object ID). Made
+            ahead, its roles are ready before anyone in it signs in.
+          </p>
+        )}
         {error && (
           <Notice tone="error" title="Not saved">
             {error}
@@ -420,7 +553,10 @@ function GroupDialog({
           <button type="button" className="secondary" disabled={pending} onClick={onClose}>
             Cancel
           </button>
-          <button className="primary" disabled={pending || !changed || !name.trim()}>
+          <button
+            className="primary"
+            disabled={pending || !changed || !name.trim() || (fromProvider && !claimValue.trim())}
+          >
             {pending ? "Saving…" : group ? "Save" : "Create group"}
           </button>
         </div>

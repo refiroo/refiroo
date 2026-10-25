@@ -6,9 +6,13 @@ import {
   consumerApiSentence,
   grantHeld,
   grantSentence,
+  localSignInLine,
+  personSignInLine,
+  providerUseLine,
   securityEventTitle,
   signingKeyState,
   staleNote,
+  turnOffSentence,
   userRoleLine,
 } from "./securityText";
 
@@ -253,5 +257,67 @@ describe("the Clients page's words (SP2)", () => {
     expect(securityEventTitle(client("updated", { changedFields: ["name"], name: "Sync 2" }))).toBe(
       "Renamed to Sync 2",
     );
+  });
+
+  it("says how people sign in (0.12 I3)", () => {
+    const now = new Date("2026-10-25T10:15:00Z");
+    expect(providerUseLine({ people: 0, lastSignInAt: null }, now)).toBe("Nobody has signed in yet");
+    expect(providerUseLine({ people: 1, lastSignInAt: "2026-10-25T10:11:00Z" }, now)).toMatch(
+      /^1 person · last sign-in /,
+    );
+    expect(providerUseLine({ people: 42, lastSignInAt: "2026-10-25T10:11:00Z" }, now)).toMatch(/^42 people · /);
+    expect(localSignInLine({ enabled: true, keptPeople: 1 })).toBe("On · people sign in with a username and password");
+    expect(localSignInLine({ enabled: false, keptPeople: 1 })).toBe("Off · 1 administrator keeps a password");
+    expect(localSignInLine({ enabled: false, keptPeople: 2 })).toBe("Off · 2 administrators keep a password");
+    expect(turnOffSentence(["Northfield Entra ID"], 1)).toBe(
+      "People sign in with Northfield Entra ID only. Passwords stop working, except for the 1 administrator made on the server, who keeps local sign-in as the way back. Clients are not affected.",
+    );
+    expect(turnOffSentence(["A", "B", "C"], 2)).toMatch(
+      /^People sign in with A, B or C only\. .*2 administrators .* keep local/,
+    );
+    expect(turnOffSentence(["A"], 0)).toMatch(/nobody keeps local sign-in: make an administrator on the server/);
+    const person = { identities: [], hasPassword: true, lastSignInAt: null };
+    expect(personSignInLine(person)).toBe("Never signed in");
+    expect(personSignInLine({ ...person, hasPassword: false })).toBe("Has not set a password yet");
+    const provided = {
+      ...person,
+      hasPassword: false,
+      identities: [{ provider: { key: "entra", name: "Northfield Entra ID" }, subject: "s" }],
+    };
+    expect(personSignInLine(provided)).toBe("Signs in with Northfield Entra ID");
+  });
+
+  it("titles provider sign-ins and the providers' changes", () => {
+    const event = (
+      aggregateType: SecurityEvent["aggregateType"],
+      aggregateId: string,
+      action: string,
+      details: Record<string, unknown>,
+    ): SecurityEvent => ({
+      id: action,
+      aggregateType,
+      aggregateId,
+      action,
+      version: 1,
+      occurredAt: "2026-10-25T10:15:00Z",
+      actor: null,
+      details,
+    });
+    expect(securityEventTitle(event("sign-in", "u", "succeeded", { provider: "entra", address: "10.0.0.1" }))).toBe(
+      "Signed in with entra from 10.0.0.1",
+    );
+    expect(securityEventTitle(event("sign-in", "u", "failed", { provider: "entra", reason: "nonce" }))).toBe(
+      "Sign-in with entra failed (nonce)",
+    );
+    expect(securityEventTitle(event("sign-in", "u", "failed", {}))).toBe("Sign-in failed");
+    expect(securityEventTitle(event("user", "u", "created", { provider: "entra" }))).toBe(
+      "Person created at their first sign-in with entra",
+    );
+    expect(securityEventTitle(event("sign-in-provider", "local", "updated", { enabled: false }))).toBe(
+      "Local sign-in turned off",
+    );
+    expect(
+      securityEventTitle(event("sign-in-provider", "entra", "updated", { changedFields: ["enabled"], enabled: false })),
+    ).toBe("Sign-in provider entra disabled");
   });
 });

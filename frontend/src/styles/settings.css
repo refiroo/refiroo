@@ -2393,3 +2393,21 @@ tr.openable-row:hover > * {
     text-align: left;
   }
 }
+/* Settings › Security › Sign-in (0.12 I3): a provider's settings edited in place. */
+.security-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 720px;
+}
+.security-settings-form .form-field,
+.security-settings-form .dialog-pair > .form-field + .form-field {
+  margin: 0;
+}
+.security-settings-form input:not([type="checkbox"]):not([type="radio"]) {
+  display: block;
+  width: 100%;
+}
+.security-settings-form .dialog-pair {
+  row-gap: var(--space-3);
+}

@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .common import CollectionPage
+from .identity import SignInProviderRef
 
 
 class OperationRef(BaseModel):
@@ -53,10 +54,20 @@ class RolePage(CollectionPage[RoleResponse]):
     """Roles: the predefined ones first, then custom ones as created (ADR-030)."""
 
 
+class GroupSourceResponse(BaseModel):
+    """A provider group's provider and the groups claim's value it stands for (0.12 I3, D364)."""
+
+    provider: SignInProviderRef
+    claimValue: str
+
+
 class GroupResponse(BaseModel):
     id: str
     name: str
     description: str | None
+    source: GroupSourceResponse | None = Field(
+        description="A provider group's source; its members come from sign-ins. Null: local"
+    )
     members: int
     version: int
     createdAt: datetime
@@ -72,6 +83,9 @@ class GroupMemberResponse(BaseModel):
     username: str
     name: str
     active: bool
+    seenAt: datetime | None = Field(
+        default=None, description="A provider group's member: when a sign-in last named them in it"
+    )
 
 
 class GroupMemberPage(CollectionPage[GroupMemberResponse]):

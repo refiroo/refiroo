@@ -18,10 +18,14 @@ import type {
   Group,
   GroupMemberPage,
   GroupPage,
+  LocalSignIn,
   PasswordResetLink,
   Role,
   RolePage,
   SecurityEventPage,
+  SignInProvider,
+  SignInProviderCreate,
+  SignInProviderPage,
   SigningKey,
   SigningKeyPage,
   SubscriptionPage,
@@ -77,7 +81,9 @@ export const security = {
       `/api/v1/groups${query({ q: options.q, memberId: options.memberId, cursor: options.cursor, pageSize: options.pageSize ?? 50 })}`,
     ),
   group: (groupId: string) => request<Group>(`/api/v1/groups/${id(groupId)}`),
-  createGroup: (body: { name: string; description?: string }) => request<Group>("/api/v1/groups", json("POST", body)),
+  /** A local group, or with `source` a provider group made ahead of its members' sign-ins (I3, D364). */
+  createGroup: (body: { name: string; description?: string; source?: { provider: string; claimValue: string } }) =>
+    request<Group>("/api/v1/groups", json("POST", body)),
   updateGroup: (groupId: string, body: { expectedVersion: number; name?: string; description?: string | null }) =>
     request<Group>(`/api/v1/groups/${id(groupId)}`, json("PATCH", body)),
   deleteGroup: (groupId: string) => request<void>(`/api/v1/groups/${id(groupId)}`, { method: "DELETE" }),
@@ -125,6 +131,21 @@ export const security = {
   /** A new key; `immediate` retires the current one at once instead of after its tokens expire. */
   rotateSigningKey: (immediate: boolean) =>
     request<SigningKey>("/api/v1/token-signing-keys/rotation", json("POST", { immediate })),
+
+  /** Sign-in providers as created (I3, D366). */
+  signInProviders: (cursor?: string) =>
+    request<SignInProviderPage>(`/api/v1/sign-in-providers${query({ cursor, pageSize: 100 })}`),
+  signInProvider: (key: string) => request<SignInProvider>(`/api/v1/sign-in-providers/${id(key)}`),
+  /** An enabled provider is read when saved (`422 SIGN_IN_PROVIDER_UNREACHABLE` with the reason). */
+  createSignInProvider: (body: SignInProviderCreate) =>
+    request<SignInProvider>("/api/v1/sign-in-providers", json("POST", body)),
+  updateSignInProvider: (key: string, body: { expectedVersion: number } & Partial<Omit<SignInProviderCreate, "key">>) =>
+    request<SignInProvider>(`/api/v1/sign-in-providers/${id(key)}`, json("PATCH", body)),
+  deleteSignInProvider: (key: string) => request<void>(`/api/v1/sign-in-providers/${id(key)}`, { method: "DELETE" }),
+  localSignIn: () => request<LocalSignIn>("/api/v1/sign-in-providers/local"),
+  /** Off only once a provider has signed someone in (`409 NO_WORKING_PROVIDER`, D365). */
+  setLocalSignIn: (body: { expectedVersion: number; enabled: boolean }) =>
+    request<LocalSignIn>("/api/v1/sign-in-providers/local", json("PATCH", body)),
 
   /** The catalogue every role is made of. */
   actionGroups: () => request<{ items: ActionGroup[] }>("/api/v1/action-groups").then((list) => list.items),

@@ -146,7 +146,9 @@ def list_groups(
 @router.post("/groups", response_model=GroupResponse, status_code=201)
 @requires("security.manage", at=INSTANCE)
 def post_group(payload: GroupCreate, session: DbSession) -> GroupResponse:
-    """A local group of people; a grant to it applies to its members (D229)."""
+    """A local group of people; a grant to it applies to its members (D229). With ``source``, a
+    provider group made ahead of its members' sign-ins (``409 GROUP_CLAIM_TAKEN`` when the claim
+    value has a group already, I3, D364)."""
     return present.group_response(session, administration.create_group(session, payload))
 
 
@@ -176,7 +178,9 @@ def list_group_members(
     group_id: str, session: DbSession, paging: PageQuery, page_size: int = _PAGE_SIZE
 ) -> GroupMemberPage:
     return present.member_page(
-        administration.member_page(session, group_id, page=paging, page_size=page_size)
+        session,
+        administration.load_group(session, group_id),
+        administration.member_page(session, group_id, page=paging, page_size=page_size),
     )
 
 
@@ -185,7 +189,8 @@ def list_group_members(
 def post_group_member(
     group_id: str, payload: GroupMemberAdd, session: DbSession
 ) -> GroupMemberResponse:
-    """Add a person to the group; adding one already in it changes nothing."""
+    """Add a person to the group; adding one already in it changes nothing. A provider group's
+    members come from sign-ins (``409 GROUP_FROM_PROVIDER``)."""
     return present.member_response(administration.add_member(session, group_id, payload.userId))
 
 

@@ -1,4 +1,5 @@
-"""The caller, people, OAuth clients and token signing keys (Product 0.12 I1, API.md § Security)."""
+"""The caller, people, OAuth clients, token signing keys and sign-in providers (Product 0.12 I1,
+I3, API.md § Security)."""
 
 from datetime import datetime
 from typing import Any, Literal
@@ -6,6 +7,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from .common import ActorResponse, CollectionPage, PrincipalResponse
+
+
+class SignInProviderRef(BaseModel):
+    key: str
+    name: str
 
 
 class MeResponse(BaseModel):
@@ -20,7 +26,11 @@ class MeResponse(BaseModel):
         description="A person's last sign-in, or when a client last obtained a token"
     )
     signedInWith: str | None = Field(
-        description="How a person signed in to this session: `password`; null for a client"
+        description="How a person signed in to this session: `password`, or a sign-in provider's "
+        "key (I3); null for a client"
+    )
+    signInProvider: SignInProviderRef | None = Field(
+        default=None, description="The sign-in provider of this session; null for a password"
     )
     sessionId: str | None = Field(description="A person's session; null for a client")
 
@@ -64,6 +74,13 @@ class UserRole(BaseModel):
     )
 
 
+class UserIdentityResponse(BaseModel):
+    """How a sign-in provider knows the person: the provider and the ID token's subject (D363)."""
+
+    provider: SignInProviderRef
+    subject: str
+
+
 class UserResponse(BaseModel):
     id: str
     username: str
@@ -79,6 +96,13 @@ class UserResponse(BaseModel):
     lastSignInAt: datetime | None
     roles: list[UserRole] = Field(
         description="The roles the person holds, directly or through a group, and where (D298)"
+    )
+    identities: list[UserIdentityResponse] = Field(
+        description="The sign-in providers the person signs in with (0.12 I3, D363)"
+    )
+    localKept: bool = Field(
+        description="Signs in with a password while local sign-in is off: an administrator made "
+        "on the server (D365)"
     )
 
 
@@ -155,14 +179,15 @@ class SigningKeyPage(CollectionPage[SigningKeyResponse]):
 
 
 SecurityAggregate = Literal[
-    "user", "group", "role", "grant", "client", "token-signing-key", "sign-in"
+    "user", "group", "role", "grant", "client", "token-signing-key", "sign-in", "sign-in-provider"
 ]
 
 
 class SecurityEventResponse(BaseModel):
     """A change to access, or a sign-in (0.12 Z4, D317, D318). ``aggregateId`` is the person's,
-    group's or client's public ID, the role's key, the grant's ID, the key's ``kid`` or, for a
-    sign-in, the person's ID (``unknown`` for a username nobody has). ``details`` holds what changed
+    group's or client's public ID, the role's key, the grant's ID, the key's ``kid``, a sign-in
+    provider's key (``local`` for local sign-in) or, for a sign-in, the person's ID (``unknown``
+    for a username nobody has). ``details`` holds what changed
     (``changedFields`` and the new values for an update; the principal, role and scope for a grant;
     the username and address for a sign-in), never a password, secret, link or key. ``actor`` is
     who made it; a failed sign-in names nobody."""
@@ -179,3 +204,40 @@ class SecurityEventResponse(BaseModel):
 
 class SecurityEventPage(CollectionPage[SecurityEventResponse]):
     """Security events, newest first (ADR-030)."""
+
+
+class SignInProviderResponse(BaseModel):
+    """An OpenID Connect provider people sign in with (0.12 I3, D366); never its secret."""
+
+    key: str = Field(description="In the provider's addresses; fixed")
+    name: str = Field(description='The sign-in button reads "Continue with *name*"')
+    issuer: str
+    clientId: str
+    clientSecretSet: bool = Field(description="The client secret is saved; it is never answered")
+    groupsClaim: str | None = Field(
+        description="The ID token claim holding the person's groups; null: groups are not used"
+    )
+    enabled: bool
+    redirectUri: str = Field(description="The address to register with the provider")
+    people: int = Field(description="How many people have signed in with it")
+    lastSignInAt: datetime | None
+    version: int
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class SignInProviderPage(CollectionPage[SignInProviderResponse]):
+    """Sign-in providers in the order they were created (ADR-030)."""
+
+
+class LocalSignInResponse(BaseModel):
+    """Whether people sign in with a password (D365)."""
+
+    enabled: bool = Field(
+        description="False: only the people who keep local sign-in use a password"
+    )
+    keptPeople: int = Field(
+        description="Active people who keep local sign-in while it is off (made on the server)"
+    )
+    version: int
+    updatedAt: datetime

@@ -74,6 +74,8 @@ describe("routes", () => {
     ["/settings/clients", { kind: "settings", page: "clients" }],
     ["/settings/clients/c-1", { kind: "settings", page: "clients", clientId: "c-1" }],
     ["/settings/signing-keys", { kind: "settings", page: "signing-keys" }],
+    ["/settings/sign-in", { kind: "settings", page: "sign-in" }],
+    ["/settings/sign-in/entra", { kind: "settings", page: "sign-in", providerKey: "entra" }],
     ["/settings/webhooks", { kind: "settings", page: "webhooks" }],
     ["/settings/webhooks/6f1c-2a", { kind: "settings", page: "webhooks", subscriptionId: "6f1c-2a" }],
     [
