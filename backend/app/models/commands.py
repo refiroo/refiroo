@@ -457,7 +457,9 @@ class ConsumerSubscriptionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: SubscriptionName
-    consumerApi: str = Field(min_length=1, max_length=160)
+    # ``workspace`` delivers the workspace's change-set events (A2) and names no consumer API.
+    source: Literal["consumerApi", "workspace"] = "consumerApi"
+    consumerApi: str | None = Field(default=None, min_length=1, max_length=160)
     workspaceKey: str | None = Field(default=None, min_length=1, max_length=160)
     events: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(
         min_length=1, max_length=100
@@ -468,6 +470,18 @@ class ConsumerSubscriptionCreate(BaseModel):
     payload: SubscriptionPayload = "full"
     format: SubscriptionFormat = "rdm"
     startAfter: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def require_source_fields(self) -> ConsumerSubscriptionCreate:
+        if self.source == "consumerApi":
+            if self.consumerApi is None:
+                raise ValueError("'consumerApi' is required for the source 'consumerApi'")
+        else:
+            if self.consumerApi is not None:
+                raise ValueError("'consumerApi' does not apply to the source 'workspace'")
+            if self.filters or "payload" in self.model_fields_set:
+                raise ValueError("'filters' and 'payload' do not apply to the source 'workspace'")
+        return self
 
 
 class ConsumerSubscriptionUpdate(BaseModel):

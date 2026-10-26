@@ -43,6 +43,8 @@ import type {
   WorkspaceReadiness,
   BackupRehearsalPage,
   Me,
+  NotificationPage,
+  NotificationsReadResult,
   SignInSession,
   MySecondFactor,
   Passkey,
@@ -151,6 +153,9 @@ export const jobOutputUrl = (jobId: string) => `${API_URL}/api/v1/jobs/${encodeU
 
 /** A job's server-sent event stream (0.9 J1u): the job now and after each change, until it ends. */
 export const jobEventsUrl = (jobId: string) => `${API_URL}/api/v1/jobs/${encodeURIComponent(jobId)}/events`;
+
+/** The signed-in person's inbox stream (0.12 A2): the unread count and each new notice. */
+export const notificationEventsUrl = () => `${API_URL}/api/v1/me/notifications/events`;
 
 export async function request<T>(
   path: string,
@@ -473,6 +478,18 @@ export const api = {
   myActionGroups: () => request<HeldAnywhereList>("/api/v1/me/action-groups"),
   /** The caller's grants, direct and through their groups, every page (a caller has a handful). */
   myGrants: () => allPages<Grant>("/api/v1/me/grants"),
+  /** A page of the caller's inbox, newest first, with the count of all their unread notices (0.12 A2). */
+  notifications: (cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: "20" });
+    if (cursor) query.set("cursor", cursor);
+    return request<NotificationPage>(`/api/v1/me/notifications?${query}`);
+  },
+  /** Mark notices read, by ID or all of them; idempotent. */
+  markNotificationsRead: (selection: { ids: string[] } | { all: true }) =>
+    request<NotificationsReadResult>("/api/v1/me/notifications/read", {
+      method: "POST",
+      body: JSON.stringify(selection),
+    }),
   /** The workspaces the caller may browse, with what waits there, every page (0.12 HM1, D332). */
   myWorkspaces: () => allPages<OwnWorkspace>("/api/v1/me/workspaces"),
   /** A page of the caller's open change sets across workspaces, newest change first (D333). */

@@ -65,6 +65,7 @@ from .management.routers import (
     model_mappings,
     model_releases,
     moves,
+    notifications,
     oauth,
     oauth_app,
     oauth_console,
@@ -458,6 +459,7 @@ def create_app() -> FastAPI:
     application.include_router(oauth_console.router)
     application.include_router(identity.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(mail.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(notifications.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(authorization.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(model.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(system.router, dependencies=MANAGEMENT_DEPENDENCIES)

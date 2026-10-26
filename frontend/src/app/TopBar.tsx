@@ -10,6 +10,7 @@
  * chooses the application; from Settings the product mark goes home.
  */
 
+import { InboxButton } from "@/features/inbox/InboxButton";
 import { applicationHue } from "@/model/hues";
 import { routePath } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, RouteState } from "@/types";
@@ -87,6 +88,7 @@ export function TopBar({
       </nav>
       <div className="topbar-spacer" />
       <div className="topbar-actions">
+        <InboxButton applicationKey={currentApplicationKey ?? model.applications[0]?.key} onNavigate={onNavigate} />
         <RouteLink
           className="topbar-icon-button topbar-settings"
           href={routePath(SETTINGS)}

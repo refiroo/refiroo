@@ -297,9 +297,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # ApprovalPolicy* schemas, `submission` on ChangeSetResponse, `approval-policy` among a security
     # event's aggregate types, and the description of POST /change-sets/{id}/publication; nothing
     # else changed.
+    # Re-baselined for 0.12 A2: GET /me/notifications, POST /me/notifications/read and GET
+    # /me/notifications/events with the Notification* schemas, and on the consumer subscriptions
+    # `source` (create and answer) with `consumerApi` optional in the create and nullable in the
+    # answer; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "c70f75699049e1079e82150c45100635503068c8634e53da767ed476394824e4"
+        "6fafcd1a5fde1f2308b1c10215c7730b46f3b7c1307ba6b1261cdc97d556776d"
     )
 
 
@@ -345,8 +349,8 @@ def test_paging_openapi_inventory():
     # a group's members, grants, a workspace's access and the caller's grants; 0.12 SP1 a person's
     # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets; 0.12
     # Z6 the changes across workspaces; 0.12 I3 the sign-in providers; 0.12 I4c a person's passkeys,
-    # their own and an administrator's; 0.12 M1 the mail outbox; 0.12 A1 the publication requests.
-    assert seekable <= paged and len(paged) == 64
+    # their own and an administrator's; 0.12 M1 the mail outbox; 0.12 A1 the publication requests; 0.12 A2 the inbox.
+    assert seekable <= paged and len(paged) == 65
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

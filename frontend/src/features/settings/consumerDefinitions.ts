@@ -8,7 +8,13 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import type { ConsumerApiDefinition, EngineModel } from "@/types";
+import type { ConsumerApiDefinition, EngineModel, Subscription } from "@/types";
+
+/** Where a subscription's events come from: its consumer API, or the workspace's own change-set events. */
+export const sourceName = (subscription: Subscription, definition?: ConsumerApiDefinition) =>
+  subscription.source === "workspace" || subscription.consumerApi === null
+    ? "Workspace events"
+    : (definition?.name ?? subscription.consumerApi);
 
 const reads = new Map<string, Promise<ConsumerApiDefinition>>();
 

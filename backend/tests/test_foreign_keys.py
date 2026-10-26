@@ -112,6 +112,11 @@ RULES = {
     # A workspace's approval policy and publication requests go with the workspace; a request's
     # decisions go with it. A request names its people and its publication, never deleted (0.12 A1).
     ("approval_policies", "workspace_key"): ("workspaces", "CASCADE"),
+    ("notifications", "user_id"): ("users", "CASCADE"),
+    ("notifications", "client_id"): ("oauth_clients", "CASCADE"),
+    ("notifications", "workspace_key"): ("workspaces", "CASCADE"),
+    ("workspace_event_heads", "workspace_key"): ("workspaces", "CASCADE"),
+    ("workspace_events", "workspace_key"): ("workspaces", "CASCADE"),
     ("change_set_submissions", "workspace_key"): ("workspaces", "CASCADE"),
     ("change_set_submissions", "submitted_by_user_id"): ("users", "RESTRICT"),
     ("change_set_submissions", "submitted_by_client_id"): ("oauth_clients", "RESTRICT"),

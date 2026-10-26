@@ -6,6 +6,23 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 A2, the inbox and workspace events)
+
+- **An inbox for people and clients (J42.5).** `GET /me/notifications` (`unread`, cursor-paged, with `unreadCount`),
+  `POST /me/notifications/read` (`ids` or `all`) and a live stream, `GET /me/notifications/events` (`unread` and
+  `notification` server-sent events, woken by PostgreSQL `NOTIFY` on the job stream's listener). A submitted request
+  reaches every active person or client holding Approve publications in the workspace except the submitter; an approval
+  or send-back reaches the submitter; a background batch, import, export, migration or move a person started reaches
+  them when it completes, fails or waits for confirmation (a trigger on `jobs`, so every path is covered). Ending a
+  request marks its "waiting" notices read. Notices older than 90 days are deleted. Migration `20261111_01`.
+- **Workspace events for webhooks (D428–D431).** A subscription with `source: "workspace"` delivers
+  `change-set.submitted`, `change-set.approved` and `change-set.sent-back` with the same signing, retry, log, resend,
+  rotation and formats as record events (CloudEvents type `rdm.change-set.approved`). Events name the people (kind, id,
+  name; no e-mail) and are numbered per workspace without gaps. Subscriptions read `source`; `consumerApi` is `null`
+  for this source.
+- **The interface:** a bell with the unread count in the top bar opens the inbox panel; Webhooks lists a workspace-events
+  subscription as "Workspace events".
+
 ### Added (0.12 A1, a publication request and its approval)
 
 - **Submit, approve or send back (J42).** `POST /change-sets/{id}/submission` submits a validated change set for

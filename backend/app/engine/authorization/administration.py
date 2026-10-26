@@ -104,6 +104,35 @@ def security_administrators(session: Session) -> int:
     )
 
 
+def holders_of(session: Session, group_key: str, workspace_key: str) -> list[tuple[str, int]]:
+    """The active people and clients who hold ``group_key`` in ``workspace_key``, by an instance
+    grant or one of that workspace, directly or (for a person) through a group, as ``(kind, row
+    ID)`` pairs, people first (A2: who is told of a request waiting for approval)."""
+    held = (
+        Grant.role_id.in_(_holding_roles(group_key))
+        & (Grant.workspace_key.is_(None) | (Grant.workspace_key == workspace_key))
+    )
+    people = select(Grant.user_id).where(held, Grant.user_id.is_not(None)).union(
+        select(UserGroupMember.user_id)
+        .join(Grant, Grant.group_id == UserGroupMember.group_id)
+        .where(held)
+    )
+    clients = select(Grant.client_id).where(held, Grant.client_id.is_not(None))
+    return [
+        ("user", row_id)
+        for row_id in session.scalars(
+            select(User.id).where(User.active.is_(True), User.id.in_(people)).order_by(User.id)
+        )
+    ] + [
+        ("client", row_id)
+        for row_id in session.scalars(
+            select(OAuthClient.id)
+            .where(OAuthClient.active.is_(True), OAuthClient.id.in_(clients))
+            .order_by(OAuthClient.id)
+        )
+    ]
+
+
 # --- roles ----------------------------------------------------------------------------------------
 
 

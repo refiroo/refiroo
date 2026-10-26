@@ -14,4 +14,5 @@ export type * from "@/types/moves";
 export type * from "@/types/operations";
 export type * from "@/types/mail";
 export type * from "@/types/security";
+export type * from "@/types/inbox";
 export type * from "@/types/ui";

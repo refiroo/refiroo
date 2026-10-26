@@ -79,13 +79,22 @@ def events_source(consumer_api: str, contract_version: int, workspace_key: str) 
     return f"/api/consumer/{consumer_api}/v{contract_version}/events?workspace={quote(workspace_key, safe='')}"
 
 
+def workspace_events_source(workspace_key: str) -> str:
+    """A CloudEvent's ``source`` for a workspace's change-set events (A2): the relative path of the
+    workspace's publication requests."""
+    return f"/api/v1/workspaces/{quote(workspace_key, safe='')}/publication-requests"
+
+
 def cloudevent(event: Mapping[str, Any], source: str, subscription_id: str) -> dict[str, Any]:
-    """The RDM JSON ``event`` as a structured CloudEvent (C-D126)."""
+    """The RDM JSON ``event`` as a structured CloudEvent (C-D126). A workspace event's type is its
+    key alone (``rdm.change-set.submitted``); a consumer event's adds the change."""
     return {
         "specversion": "1.0",
         "id": event["eventId"],
         "source": source,
-        "type": f"rdm.{event['event']}.{event['change']}",
+        "type": f"rdm.{event['event']}"
+        if event.get("scope") == "workspace"
+        else f"rdm.{event['event']}.{event['change']}",
         "subject": f"{event['objectType']}/{event['id']}",
         "time": event["occurredAt"],
         "datacontenttype": "application/json",

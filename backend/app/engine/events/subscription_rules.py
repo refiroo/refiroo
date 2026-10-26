@@ -27,6 +27,7 @@ from ...models.database import ConsumerSubscription
 from ...models.schema import ConsumerApiDefinition, EngineModel, ProjectionParameter
 from ..model.consumer_definitions import consumer_api as declared_api
 from ..model.validation.consumer_api_rules import RESERVED_PARAMETERS
+from . import workspace_events
 
 ACTIVE, SUSPENDED = "active", "suspended"
 SUSPENDED_BY_USER = "SUSPENDED_BY_USER"
@@ -151,6 +152,8 @@ def suspend_left_behind(session: Session, model: EngineModel, workspace_key: str
         .where(
             ConsumerSubscription.status == ACTIVE,
             ConsumerSubscription.workspace_key == workspace_key,
+            # A model release declares no workspace events (A2).
+            ConsumerSubscription.consumer_api != workspace_events.SOURCE,
         )
         .with_for_update()
     ):

@@ -74,7 +74,10 @@ class SubscriptionResponse(BaseModel):
 
     id: str
     name: str
-    consumerApi: str
+    # ``consumerApi``: record events of a consumer API the model declares; ``workspace``: the
+    # workspace's change-set events (A2), whose ``consumerApi`` is null and contract version 1.
+    source: Literal["consumerApi", "workspace"]
+    consumerApi: str | None
     contractVersion: int
     workspaceKey: str
     events: list[str]

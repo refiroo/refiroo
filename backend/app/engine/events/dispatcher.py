@@ -48,13 +48,14 @@ from ...models.database import (
     ConsumerEventCheckpoint,
     ConsumerSubscription,
     Workspace,
+    WorkspaceEvent,
 )
 from ...models.schema import ConsumerApiDefinition, EngineModel
 from ..model.registry import resolve_model_snapshot
 from ..reads.consumer_events import EventsRequest, EventWindow, event_page, event_window
 from ..reads.consumer_parameters import unmatched_values
 from ..reads.consumer_source import ConsumerSource
-from . import delivery, delivery_log
+from . import delivery, delivery_log, workspace_events
 from .subscription_rules import (
     ACTIVE,
     DELIVERY_FAILED,
@@ -63,7 +64,13 @@ from .subscription_rules import (
     SUSPENDED,
     definition_of,
 )
-from .subscriptions import SubscriptionSettings, clear_delivery, expired_details, signing_secrets
+from .subscriptions import (
+    SubscriptionSettings,
+    clear_delivery,
+    expired_details,
+    is_workspace_source,
+    signing_secrets,
+)
 from .webhook_client import Answer, post
 
 logger = logging.getLogger(__name__)
@@ -89,6 +96,15 @@ class _Batch:
     events: list[dict[str, Any]]
     body: Any
     content_type: str
+
+
+@dataclass(frozen=True)
+class _Prepared:
+    """A stored batch and where and how it is sent: the receiver's URL and the keys that sign it."""
+
+    batch: _Batch
+    url: str
+    secrets: list[str]
 
 
 class EventDispatcher:
@@ -138,13 +154,22 @@ class EventDispatcher:
             )
             .correlate(subscription)
         )
+        waiting_workspace = (
+            exists()
+            .where(
+                subscription.consumer_api == workspace_events.SOURCE,
+                WorkspaceEvent.workspace_key == subscription.workspace_key,
+                WorkspaceEvent.position > subscription.acknowledged_position,
+            )
+            .correlate(subscription)
+        )
         due = (
             select(subscription.sequence_id)
             .where(
                 subscription.status == ACTIVE,
                 or_(subscription.next_attempt_at.is_(None), subscription.next_attempt_at <= now),
                 or_(subscription.lease_owner.is_(None), subscription.lease_expires_at < now),
-                or_(subscription.pending_position.is_not(None), waiting),
+                or_(subscription.pending_position.is_not(None), waiting, waiting_workspace),
             )
             .order_by(subscription.lease_expires_at.asc().nulls_first(), subscription.sequence_id)
             .limit(self.senders)
@@ -201,32 +226,101 @@ class EventDispatcher:
             )
             if subscription is None or subscription.status != ACTIVE:
                 return False
-            model = resolve_model_snapshot(session, subscription.workspace_key).model
-            definition = definition_of(model, subscription.consumer_api)
-            # A release that no longer serves it suspended it when it was activated (C-D99).
-            if definition is None or definition.contractVersion != subscription.contract_version:
-                return False
-            workspace = session.scalar(select(Workspace).where(Workspace.key == subscription.workspace_key))
-            if workspace is None or workspace.status != "active":
-                return False
-            window = event_window(session, workspace.key, self.settings.retention_days)
-            stopped = self._stopped_by(session, subscription, model, definition, workspace, window)
-            if stopped is not None:
-                reason, message, details = stopped
-                return self._suspend(session, sequence_id, reason, message, details, now)
-            batch = self._next_batch(session, subscription, model, definition, workspace)
-            if not isinstance(batch, _Batch):
-                session.commit()
-                return batch
-            subscription.pending_delivery_id = batch.delivery_id
-            subscription.pending_position, subscription.pending_ordinal = batch.end
-            delivery_log.open_batch(session, sequence_id, batch.delivery_id, batch.events, now)
-            url = subscription.url
-            secrets = signing_secrets(self.settings, subscription, now)
-            session.commit()
+            prepare = self._prepare_workspace if is_workspace_source(subscription) else self._prepare_events
+            prepared = prepare(session, sequence_id, subscription, now)
+            if not isinstance(prepared, _Prepared):
+                return prepared
+        answer = self._send(sequence_id, prepared.url, prepared.secrets, prepared.batch, now)
+        return self._record(sequence_id, prepared.batch, answer, now)
 
-        answer = self._send(sequence_id, url, secrets, batch, now)
-        return self._record(sequence_id, batch, answer, now)
+    def _store(
+        self, session: Session, sequence_id: int, subscription: ConsumerSubscription, batch: _Batch, now: datetime
+    ) -> _Prepared:
+        """Store the batch as pending, before it is sent, and log its request; commits."""
+        subscription.pending_delivery_id = batch.delivery_id
+        subscription.pending_position, subscription.pending_ordinal = batch.end
+        delivery_log.open_batch(session, sequence_id, batch.delivery_id, batch.events, now)
+        prepared = _Prepared(batch, subscription.url, signing_secrets(self.settings, subscription, now))
+        session.commit()
+        return prepared
+
+    def _prepare_events(
+        self, session: Session, sequence_id: int, subscription: ConsumerSubscription, now: datetime
+    ) -> _Prepared | bool:
+        """The step of a consumer API's subscription up to a stored batch."""
+        model = resolve_model_snapshot(session, subscription.workspace_key).model
+        definition = definition_of(model, subscription.consumer_api)
+        # A release that no longer serves it suspended it when it was activated (C-D99).
+        if definition is None or definition.contractVersion != subscription.contract_version:
+            return False
+        workspace = session.scalar(select(Workspace).where(Workspace.key == subscription.workspace_key))
+        if workspace is None or workspace.status != "active":
+            return False
+        window = event_window(session, workspace.key, self.settings.retention_days)
+        stopped = self._stopped_by(session, subscription, model, definition, workspace, window)
+        if stopped is not None:
+            reason, message, details = stopped
+            return self._suspend(session, sequence_id, reason, message, details, now)
+        batch = self._next_batch(session, subscription, model, definition, workspace)
+        if not isinstance(batch, _Batch):
+            session.commit()
+            return batch
+        return self._store(session, sequence_id, subscription, batch, now)
+
+    def _prepare_workspace(
+        self, session: Session, sequence_id: int, subscription: ConsumerSubscription, now: datetime
+    ) -> _Prepared | bool:
+        """The step of a workspace-source subscription (A2) up to a stored batch."""
+        workspace = session.scalar(select(Workspace).where(Workspace.key == subscription.workspace_key))
+        if workspace is None or workspace.status != "active":
+            return False
+        earliest = workspace_events.earliest(session, workspace.key)
+        if subscription.acknowledged_position < earliest - 1:
+            details = {"fromPosition": subscription.acknowledged_position + 1, "toPosition": earliest - 1}
+            return self._suspend(
+                session,
+                sequence_id,
+                EVENTS_EXPIRED,
+                f"Workspace events from position {details['fromPosition']} to {details['toPosition']} "
+                "expired before they were delivered. Resume with reset to continue after the head",
+                details,
+                now,
+            )
+        batch = self._next_workspace_batch(session, subscription)
+        if not isinstance(batch, _Batch):
+            session.commit()
+            return batch
+        return self._store(session, sequence_id, subscription, batch, now)
+
+    def _next_workspace_batch(self, session: Session, subscription: ConsumerSubscription) -> _Batch | bool:
+        """The next batch of workspace events the subscription takes, or, when none follows, whether
+        the acknowledged position moved past those it leaves out."""
+        after = subscription.acknowledged_position
+        through = subscription.pending_position
+        taken = workspace_events.events_after(
+            session,
+            subscription.workspace_key,
+            after,
+            keys=subscription.event_keys,
+            limit=subscription.max_events_per_batch,
+            through=through,
+        )
+        if not taken:
+            head = through if through is not None else workspace_events.head(session, subscription.workspace_key)
+            moved = head > after
+            if moved:
+                subscription.acknowledged_position, subscription.acknowledged_ordinal = head, 0
+            if through is not None:
+                clear_delivery(subscription)
+                moved = True
+            return moved
+        delivery_id = subscription.pending_delivery_id or str(uuid.uuid4())
+        written = request_format(subscription)
+        events = [row.payload for row in taken]
+        count = written.fitting(events)
+        events = events[:count]
+        end = (taken[count - 1].position, 0)
+        return _Batch(delivery_id, end, events, written.body(delivery_id, events), written.content_type)
 
     def _stopped_by(
         self,
@@ -447,6 +541,7 @@ class EventDispatcher:
             return
         with self.session_factory() as session:
             removed = delivery_log.prune(session, now, self.settings.log_retention_days)
+            removed += workspace_events.prune(session, now, self.settings.retention_days)
             session.commit()
         self._pruned_at = now
         if removed:
@@ -521,6 +616,17 @@ def _acknowledge(subscription: ConsumerSubscription, through: Key) -> bool:
 
 def request_format(subscription: ConsumerSubscription) -> delivery.RequestFormat:
     """How the subscription's requests are written (C17)."""
+    if is_workspace_source(subscription):
+        return delivery.RequestFormat(
+            format=subscription.format,
+            batched=subscription.max_events_per_batch > 1,
+            envelope={
+                "subscriptionId": subscription.public_id,
+                "source": "workspace",
+                "workspaceKey": subscription.workspace_key,
+            },
+            source=delivery.workspace_events_source(subscription.workspace_key),
+        )
     return delivery.RequestFormat(
         format=subscription.format,
         batched=subscription.max_events_per_batch > 1,

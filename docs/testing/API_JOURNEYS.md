@@ -210,13 +210,14 @@ each moves into the tables above with its package. Every existing route gains `4
 | `POST /consumer-subscriptions/{id}/rotate-secret` (`overlapHours`; the answer's `signingSecret`, `previousSigningKeyExpiresAt` on every read; `RDM-Signature` a list) | J43.3, J43.4 | K1 (delivered 2026-10-25, `test_j43_webhook_key`) |
 | `GET/PUT/DELETE /mail-settings`, `POST /mail-settings/test`, `GET /mail-outbox`, `POST /mail-outbox/{id}/stop` | J46.1–J46.6, J46.9 | M1 |
 | `POST/DELETE /change-sets/{id}/submission`, `POST /change-sets/{id}/decisions`, `GET /workspaces/{key}/publication-requests`, `GET/PUT /workspaces/{key}/approval-policy`; `submission` on a change set's read; the query parameter `withdrawSubmission=true` on any write to a change set | J42, J42.1–J42.4, J42.6, J40 | A1 (delivered 2026-10-26, `test_j42_approvals`), A3 |
-| `GET /me/notifications`, `POST /me/notifications/read`, `GET /me/notifications/events` | J42.5 | A2 |
+| `GET /me/notifications` (`unread`, paging; `unreadCount`), `POST /me/notifications/read` (`ids` or `all`), `GET /me/notifications/events` (server-sent `unread` and `notification`); a job, a request and a decision reach the inbox | J42.5 | A2 (delivered 2026-10-26, `test_j42_inbox`), A3 |
+| `POST /consumer-subscriptions` with `source: "workspace"` (no `consumerApi`; events `change-set.submitted`, `change-set.approved`, `change-set.sent-back`); `source` on a subscription's read | J42.5 | A2 (`test_j42_inbox`) |
 
 Codes: `AUTHENTICATION_REQUIRED`, `TOKEN_INVALID` (J39, J41.5, J43.2), `FORBIDDEN` (J40, J41.2),
 `PASSWORD_REJECTED` (J39.6), `ROLE_PREDEFINED`, `ROLE_IN_USE` (J40.5),
 `LAST_SECURITY_ADMINISTRATOR` (J40.8), `CHANGE_SET_SUBMITTED` (J42.2), `APPROVAL_REQUIRED` (J42.3, J42.4),
 `CHANGE_SET_INVALID`, `NOT_SUBMITTED` (J42.2), `COMMENT_REQUIRED` (J42.1), `PUBLICATION_CONFLICT` (J42.6),
-`APPROVAL_POLICY_INVALID` (J42.4);
+`APPROVAL_POLICY_INVALID` (J42.4), `NOT_SUPPORTED_BY_SOURCE` (J42.5: filters or payload edited into a subscription to workspace events);
 the OAuth endpoints' `invalid_request`, `invalid_grant`, `invalid_client`, `unsupported_grant_type`.
 Settings: `SECRETS_ENCRYPTION_KEY` (replaces `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, J43.5), the token
 and session lifetimes (J39.2), `python -m app.cli.create_admin` (J40) and the re-sealing command

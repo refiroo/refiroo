@@ -722,6 +722,85 @@ class ChangeSetDecision(Base):
     )
 
 
+class Notification(Base):
+    """A notice in a person's or client's inbox (0.12 A2, D233): a request waiting for their
+    approval, a decision on theirs, a job they started that finished. ``details`` holds what a
+    client words the notice from (names, the comment, the job's kind and state); it is read as it
+    was when the notice was made. Triggers send the stream its wake-up and delete notices older
+    than 90 days (revision ``20261111_01``)."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (
+        CheckConstraint("num_nonnulls(user_id, client_id) = 1", name="ck_notifications_one_principal"),
+        Index("ix_notifications_user", "user_id", "sequence_id"),
+        Index("ix_notifications_client", "client_id", "sequence_id"),
+        Index(
+            "ix_notifications_unread_user", "user_id", "sequence_id", postgresql_where=text("read_at IS NULL")
+        ),
+        Index(
+            "ix_notifications_unread_client",
+            "client_id",
+            "sequence_id",
+            postgresql_where=text("read_at IS NULL"),
+        ),
+        Index("ix_notifications_subject", "subject_kind", "subject_id"),
+        Index("ix_notifications_created", "created_at"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="CASCADE"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="CASCADE"), nullable=False
+    )
+    subject_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    read_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class WorkspaceEventHead(Base):
+    """How far a workspace's events are numbered (0.12 A2): the position of the newest one."""
+
+    __tablename__ = "workspace_event_heads"
+
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class WorkspaceEvent(Base):
+    """A change-set event of a workspace (0.12 A2, D233): ``change-set.submitted``,
+    ``change-set.approved`` or ``change-set.sent-back``, delivered to subscriptions with the
+    workspace source. ``payload`` is the event as sent; ``position`` numbers a workspace's events
+    without gaps."""
+
+    __tablename__ = "workspace_events"
+    __table_args__ = (
+        UniqueConstraint("workspace_key", "position", name="uq_workspace_event_order"),
+        Index("ix_workspace_events_occurred", "occurred_at"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="CASCADE"), nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    change_set_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+
 class RecordOrigin(Base):
     """Where a record a move created came from (0.11 X3, D23, D132): the record copied, in its
     workspace. No foreign keys: written when the move loads its change set, kept when that change

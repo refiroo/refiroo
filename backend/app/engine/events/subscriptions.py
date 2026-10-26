@@ -46,7 +46,7 @@ from ..reads.consumer_events import AFTER_POSITION, EventWindow, check_after, ev
 from ..reads.consumer_parameters import unmatched_values
 from ..reads.consumer_source import ConsumerSource
 from ..workspaces.catalogue import load_workspace_runtime_state
-from . import delivery_log
+from . import delivery_log, workspace_events
 from .subscription_rules import (
     ACTIVE,
     SUSPENDED,
@@ -129,6 +129,56 @@ def _findings(
     return findings, workspace
 
 
+def is_workspace_source(subscription: ConsumerSubscription) -> bool:
+    """Whether the subscription delivers the workspace's change-set events (A2), not a consumer
+    API's."""
+    return subscription.consumer_api == workspace_events.SOURCE
+
+
+def _workspace_findings(
+    session: Session, events: Sequence[str], workspace_key: str | None, url: str
+) -> tuple[list[ApiError], Workspace | None]:
+    """The checks of a workspace-source subscription: its events are the workspace's, the workspace
+    is active and the URL passes the allowlist."""
+    findings = [
+        api_error(
+            400,
+            "UNKNOWN_EVENT",
+            f"Workspace events are {', '.join(workspace_events.EVENT_KEYS)}; there is no event '{key}'",
+            {"events": [key], "pointer": f"/events/{index}"},
+        )
+        for index, key in enumerate(events)
+        if key not in workspace_events.EVENT_KEYS
+    ]
+    resolved = _workspace(session, workspace_key)
+    workspace = resolved if isinstance(resolved, Workspace) else None
+    if workspace is None:
+        assert isinstance(resolved, ApiError)
+        findings.append(resolved)
+    url_refusal = check_webhook_url(url)
+    if url_refusal is not None:
+        findings.append(url_refusal)
+    return findings, workspace
+
+
+def _check_workspace_position(session: Session, workspace_key: str, position: int, pointer: str) -> None:
+    head, earliest = workspace_events.head(session, workspace_key), workspace_events.earliest(session, workspace_key)
+    if position > head:
+        raise api_error(
+            409,
+            "EVENT_POSITION_AHEAD",
+            f"Position {position} is past the workspace events' head, {head}",
+            {"headPosition": head, "pointer": pointer},
+        )
+    if position < earliest - 1:
+        raise api_error(
+            410,
+            "EVENTS_EXPIRED",
+            f"Position {position} has expired: workspace events are kept from position {earliest} on",
+            {"earliestPosition": earliest, "headPosition": head, "pointer": pointer},
+        )
+
+
 def secret_text(key: bytes) -> str:
     """The signing key as ``signingSecret`` shows it, and as a receiver uses it to verify."""
     return SECRET_PREFIX + base64.urlsafe_b64encode(key).decode().rstrip("=")
@@ -184,30 +234,44 @@ def create_subscription(
 ) -> tuple[ConsumerSubscription, str]:
     """The new subscription and its signing key, which no later read returns; ``creator`` is the
     person or client that owns it (0.12 Z3, D310)."""
-    model = _model_of(session, payload.workspaceKey)
-    asked = Asked(payload.consumerApi, list(dict.fromkeys(payload.events)), listed(payload.filters))
-    findings, workspace = _findings(session, model, asked, payload.workspaceKey, payload.url, settings)
-    if findings:
-        raise findings[0]
-    assert workspace is not None
-    definition = definition_of(model, asked.consumer_api)
-    assert definition is not None
-    window = event_window(session, workspace.key, settings.retention_days)
-    start = window.feed_head
-    if payload.startAfter is not None:
-        check_after(window, payload.startAfter, "/startAfter")
-        start = payload.startAfter
+    events = list(dict.fromkeys(payload.events))
+    if payload.source == "workspace":
+        findings, workspace = _workspace_findings(session, events, payload.workspaceKey, payload.url)
+        if findings:
+            raise findings[0]
+        assert workspace is not None
+        start = workspace_events.head(session, workspace.key)
+        if payload.startAfter is not None:
+            _check_workspace_position(session, workspace.key, payload.startAfter, "/startAfter")
+            start = payload.startAfter
+        consumer_api, contract_version, filters = workspace_events.SOURCE, 1, {}
+    else:
+        assert payload.consumerApi is not None
+        model = _model_of(session, payload.workspaceKey)
+        asked = Asked(payload.consumerApi, events, listed(payload.filters))
+        findings, workspace = _findings(session, model, asked, payload.workspaceKey, payload.url, settings)
+        if findings:
+            raise findings[0]
+        assert workspace is not None
+        definition = definition_of(model, asked.consumer_api)
+        assert definition is not None
+        window = event_window(session, workspace.key, settings.retention_days)
+        start = window.feed_head
+        if payload.startAfter is not None:
+            check_after(window, payload.startAfter, "/startAfter")
+            start = payload.startAfter
+        consumer_api, contract_version, filters = definition.key, definition.contractVersion, dict(asked.filters)
     public_id = str(uuid4())
     secret, key = _secret()
     now = datetime.now(UTC)
     subscription = ConsumerSubscription(
         public_id=public_id,
         name=payload.name,
-        consumer_api=definition.key,
-        contract_version=definition.contractVersion,
+        consumer_api=consumer_api,
+        contract_version=contract_version,
         workspace_key=workspace.key,
-        event_keys=list(asked.event_keys),
-        filters=dict(asked.filters),
+        event_keys=events,
+        filters=filters,
         url=payload.url,
         max_events_per_batch=payload.maxEventsPerBatch,
         payload=payload.payload,
@@ -271,14 +335,24 @@ def update_subscription(
 
     def change() -> ConsumerSubscription:
         subscription = _claimed(session, public_id, payload.expectedVersion)
-        model = resolve_model_snapshot(session, subscription.workspace_key).model
         events = list(dict.fromkeys(payload.events)) if payload.events is not None else subscription.event_keys
         filters = listed(payload.filters) if payload.filters is not None else subscription.filters
         url = payload.url if payload.url is not None else subscription.url
-        asked = Asked(subscription.consumer_api, events, filters)
-        findings, _workspace_found = _findings(
-            session, model, asked, subscription.workspace_key, url, settings
-        )
+        if is_workspace_source(subscription):
+            if payload.filters or "payload" in payload.model_fields_set:
+                raise api_error(
+                    400,
+                    "NOT_SUPPORTED_BY_SOURCE",
+                    "Filters and payload do not apply to a subscription to workspace events",
+                    {"pointer": "/filters" if payload.filters else "/payload"},
+                )
+            findings, _workspace_found = _workspace_findings(session, events, subscription.workspace_key, url)
+        else:
+            model = resolve_model_snapshot(session, subscription.workspace_key).model
+            asked = Asked(subscription.consumer_api, events, filters)
+            findings, _workspace_found = _findings(
+                session, model, asked, subscription.workspace_key, url, settings
+            )
         # The workspace is not edited; a retired one is the suspension's business, not the edit's.
         findings = [f for f in findings if f.code != "WORKSPACE_NOT_FOUND"]
         if findings:
@@ -343,11 +417,17 @@ def resume_subscription(
             raise api_error(
                 409, "SUBSCRIPTION_NOT_SUSPENDED", f"Subscription '{public_id}' is not suspended"
             )
-        model = resolve_model_snapshot(session, subscription.workspace_key).model
-        asked = Asked(subscription.consumer_api, subscription.event_keys, subscription.filters)
-        findings, _workspace_found = _findings(
-            session, model, asked, subscription.workspace_key, subscription.url, settings
-        )
+        if is_workspace_source(subscription):
+            findings, _workspace_found = _workspace_findings(
+                session, subscription.event_keys, subscription.workspace_key, subscription.url
+            )
+            model = None
+        else:
+            model = resolve_model_snapshot(session, subscription.workspace_key).model
+            asked = Asked(subscription.consumer_api, subscription.event_keys, subscription.filters)
+            findings, _workspace_found = _findings(
+                session, model, asked, subscription.workspace_key, subscription.url, settings
+            )
         if findings:
             raise api_error(
                 409,
@@ -355,6 +435,9 @@ def resume_subscription(
                 "The subscription cannot be served as it is: edit what the details list, then resume",
                 {"errors": [finding_body(error) for error in findings]},
             )
+        if model is None:
+            _resume_workspace_events(session, subscription, reset)
+            return subscription
         window = event_window(session, subscription.workspace_key, settings.retention_days)
         if reset:
             subscription.acknowledged_position = window.feed_head
@@ -381,6 +464,30 @@ def resume_subscription(
         return subscription
 
     return _changing(session, change)
+
+
+def _resume_workspace_events(session: Session, subscription: ConsumerSubscription, reset: bool) -> None:
+    """Resume a workspace-source subscription: from the first event not acknowledged, or after the
+    head with ``reset``; refused when events it had not acknowledged expired."""
+    key = subscription.workspace_key
+    earliest, head = workspace_events.earliest(session, key), workspace_events.head(session, key)
+    if reset:
+        subscription.acknowledged_position, subscription.acknowledged_ordinal = head, 0
+    elif subscription.acknowledged_position < earliest - 1:
+        raise api_error(
+            409,
+            "EVENTS_EXPIRED",
+            f"Workspace events from position {subscription.acknowledged_position + 1} to {earliest - 1} "
+            "expired before they were delivered. Resume with reset to start after the head",
+            {"fromPosition": subscription.acknowledged_position + 1, "toPosition": earliest - 1},
+        )
+    subscription.status = ACTIVE
+    subscription.suspension_reason = None
+    subscription.suspension_message = None
+    subscription.suspension_details = None
+    subscription.suspended_at = None
+    clear_delivery(subscription)
+    _touch(subscription)
 
 
 def rotate_secret(

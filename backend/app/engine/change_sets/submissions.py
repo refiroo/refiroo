@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from ...errors import api_error
 from ...models.database import ChangeSet, ChangeSetSubmission
 from ..workspaces.workspace_audit import record_submission_event
+from .announcements import WITHDRAWN as ANNOUNCE_WITHDRAWN
+from .announcements import announce
 
 # The request's ``withdrawSubmission=true``, set on its session by the API tier (the engine imports
 # no web framework).
@@ -54,6 +56,7 @@ def withdraw(session: Session, submission: ChangeSetSubmission, version: int) ->
         version=version,
         changes={"submissionId": submission.id},
     )
+    announce(session, submission, ANNOUNCE_WITHDRAWN, version=version)
 
 
 def freeze(session: Session, change_set: ChangeSet) -> None:

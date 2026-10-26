@@ -406,6 +406,15 @@ Not exercised in a browser: a message **waiting** (its Next try line); the outbo
 the login field of a saved server with its password (the journeys cover the login). The rows the page
 lists were written into the run's database, since no route queues mail yet.
 
+### Surfaces added in 0.12 A2
+
+The inbox: a bell in the one top bar and the panel it opens. Appearance and keyboard behaviour are
+covered by the component tests (`InboxButton.test`); the browser runner was not run in the A2 package.
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A2-1 | **Inbox**: bell with unread count, panel with notices, mark read, live stream | The bell in the top bar on every page; a notice opens its job page or change set review | `TopBar`'s icon buttons; `ui/ControlPopover` (the account menu's popover) | — (Skeleton in the panel; component test) | — (component test: the three change-set kinds and the job kinds worded; "Nothing waiting for you."; Show older) | — | — (component test: a notice or Mark all read marks read and the count follows the stream) | — | — | — (component test: an inline error with Retry) | — (390px sheet in CSS, not viewed) | — (component test: Enter opens, Escape returns focus to the bell) | — browser runner not run in A2 package; `InboxButton.test` |
+
 ## 3. Selected focused browser checks
 
 Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,

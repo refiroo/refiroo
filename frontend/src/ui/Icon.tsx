@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Bell,
   Eye,
   EyeOff,
   UsersRound,
@@ -94,6 +95,7 @@ const icons = {
   mapping: GitCompareArrows,
   matrix: Grid3x3,
   gear: Settings,
+  bell: Bell,
   menu: Menu,
   model: Blocks,
   workspace: LayoutGrid,

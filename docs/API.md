@@ -3632,7 +3632,7 @@ deployment data, not part of a model release. [Delivery](#webhook-delivery-base-
 
 | Route | Answer |
 |---|---|
-| `POST /api/v1/consumer-subscriptions` | `201`, the subscription with `signingSecret` |
+| `POST /api/v1/consumer-subscriptions` | `201`, the subscription with `signingSecret`. `source` (default `consumerApi`) or `workspace` (A2, D428): then no `consumerApi`, `filters` or `payload` (`422`); `events` are `change-set.submitted`, `change-set.approved`, `change-set.sent-back` (`400 UNKNOWN_EVENT` otherwise); `startAfter` is a position of the workspace's events. A subscription reads `source`, and `consumerApi` is `null`, `contractVersion` 1 for the workspace source; an edit that puts filters or a payload into it is `400 NOT_SUPPORTED_BY_SOURCE`. Events are signed, batched, retried, logged, resent and rotated as record events; an event reads `eventId`, `scope: "workspace"`, `event`, `change` (`submitted`, `approved`, `sentBack`), `objectType: "change-set"`, `id` (the change set), `position`, `occurredAt`, `workspaceKey`, `submissionId`, `changeSet` (`id`, `name`, `version`), `submitter` and `decider` (`kind`, `id`, `name`; no e-mail, D429), `comment`, `publicationId`. Positions are per workspace without gaps; events are kept for the feed retention, and a subscription that missed expired ones is suspended `EVENTS_EXPIRED`. A model release never suspends it |
 | `GET /api/v1/consumer-subscriptions` (`consumerApi`, `workspaceKey`, `status`, paging) | the subscriptions, newest first (ADR-030) |
 | `GET /api/v1/consumer-subscriptions/{id}` | the subscription |
 | `PATCH /api/v1/consumer-subscriptions/{id}` | the edited subscription |
@@ -6050,9 +6050,21 @@ a success clears the username's count (D271). Passwords and client secrets are h
 - `POST /api/v1/me/password` `{currentPassword, newPassword}` (delivered, I2): `204`; a wrong current
   password is `422 PASSWORD_INCORRECT`, a new one the rules refuse `422 PASSWORD_REJECTED`; ends every
   other session.
-- `GET /api/v1/me/notifications` (Track A, A2): cursor-paged, `unread=true|false`;
-  `POST /api/v1/me/notifications/read` `{ids}` or `{all: true}`; a live stream at
-  `GET /api/v1/me/notifications/events` (`text/event-stream`, read with `fetch`, D247).
+- `GET /api/v1/me/notifications` (delivered, A2): the caller's notices, newest first, cursor-paged, with
+  `unread=true|false` and `unreadCount` (all unread, whatever the page). For a person or a client. A notice reads `id`,
+  `kind`, `workspaceKey`, `subject` (`{kind: "change-set" | "job", id}`), `details`, `read`, `readAt`, `createdAt`.
+  Kinds: `change-set.submitted` (waiting for your approval; to every active person or client holding Approve
+  publications in the workspace except the submitter), `change-set.approved` and `change-set.sent-back` (a decision on
+  your request; not to the person who decided it), `job.completed`, `job.failed`, `job.awaiting-confirmation` (a
+  background batch, import, export, migration or move you started). `details`: for a change set `changeSetName` (as it
+  was), `version`, `comment`, `actor` (the submitter, or the decider) and `publicationId`; for a job `jobKind`, `state`.
+  Withdrawing, approving or sending back marks the change set's unread "waiting" notices read. Notices older than 90
+  days are deleted.
+- `POST /api/v1/me/notifications/read` `{ids}` or `{all: true}` (neither or both: `422`): `{marked, unreadCount}`;
+  another's or an unknown ID is left alone; idempotent.
+- `GET /api/v1/me/notifications/events` (`text/event-stream`, read with `fetch`, D247): `event: unread`
+  `{unreadCount}` at once and after every change, `event: notification` with each new notice as the list answers it;
+  a comment every 15 s keeps it open. Nothing is polled.
 
 ### Authorization
 
@@ -6548,7 +6560,8 @@ Change-set publication only (D232, ADR-045):
 - Audit: `change-set.submitted`, `.withdrawn`, `.approved` and `.sent-back` (aggregate
   `change-set`, the change set's ID, with the actor) in the workspace's history; they take no feed
   position.
-- Webhook events `change-set.submitted`, `change-set.approved`, `change-set.sent-back` (A2, D233).
+- Webhook events `change-set.submitted`, `change-set.approved`, `change-set.sent-back` (A2, D233): a subscription
+  with `source: "workspace"` (below) delivers them; and each step reaches the [inbox](#me).
 
 **Refusals:** `409 CHANGE_SET_SUBMITTED`, `409 CHANGE_SET_INVALID`, `409 NOT_SUBMITTED`,
 `409 APPROVAL_REQUIRED`, `403 FORBIDDEN` with `details.reason: "ownApproval"` under four-eyes,

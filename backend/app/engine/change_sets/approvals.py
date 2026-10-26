@@ -26,6 +26,10 @@ from ..model.registry import resolve_model_snapshot
 from ..workspaces.catalogue import load_workspace
 from ..workspaces.workspace_audit import record_submission_event
 from .access import change_set_model, load_change_set
+from .announcements import APPROVED as ANNOUNCE_APPROVED
+from .announcements import SENT_BACK as ANNOUNCE_SENT_BACK
+from .announcements import SUBMITTED as ANNOUNCE_SUBMITTED
+from .announcements import announce
 from .publish import apply_publication
 from .submissions import APPROVED, SENT_BACK, SUBMITTED, open_submission, withdraw
 from .validation import validate_change_set
@@ -155,6 +159,7 @@ def submit(
         version=change_set.version,
         changes={"submissionId": submission.id, "name": change_set.name},
     )
+    announce(session, submission, ANNOUNCE_SUBMITTED, version=change_set.version)
     session.commit()
     return submission
 
@@ -238,6 +243,15 @@ def _approved(
             "publicationId": publication.id,
         },
     )
+    announce(
+        session,
+        submission,
+        ANNOUNCE_APPROVED,
+        version=version,
+        decider=requester_of(session),
+        comment=comment,
+        publication_id=publication.id,
+    )
 
 
 def decide(
@@ -285,6 +299,14 @@ def decide(
             action="sent-back",
             version=change_set.version,
             changes={"submissionId": submission.id, "decisionId": decision.id},
+        )
+        announce(
+            session,
+            submission,
+            ANNOUNCE_SENT_BACK,
+            version=change_set.version,
+            decider=requester_of(session),
+            comment=comment,
         )
         session.commit()
         return change_set

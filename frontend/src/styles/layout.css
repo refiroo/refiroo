@@ -196,6 +196,123 @@ html {
   outline: 2px solid var(--focus-color);
   outline-offset: 1px;
 }
+/* The inbox bell (0.12 A2): the unread count sits on its corner; on a phone the panel is a sheet. */
+.inbox-button {
+  position: relative;
+}
+.inbox-badge {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--action-primary);
+  color: var(--text-on-action);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.inbox-popover {
+  width: min(360px, calc(100vw - 24px));
+}
+.inbox-panel {
+  display: grid;
+  gap: 8px;
+}
+.inbox-panel header {
+  padding-bottom: 4px;
+}
+.inbox-list {
+  display: grid;
+  margin: 0 -8px;
+  padding: 0;
+  list-style: none;
+}
+.inbox-list li + li {
+  border-top: 1px solid var(--border-faint);
+}
+.inbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+.inbox-item:hover {
+  background: var(--surface-hover);
+}
+.inbox-item:focus-visible,
+.inbox-item[data-focus-visible] {
+  outline: 2px solid var(--focus-color);
+  outline-offset: -2px;
+}
+.inbox-dot {
+  flex: none;
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border: 1.5px solid var(--border-strong, var(--text-tertiary));
+  border-radius: 50%;
+}
+.inbox-dot[data-unread] {
+  border-color: var(--action-primary);
+  background: var(--action-primary);
+}
+.inbox-item:not([data-read]) {
+  background: var(--state-selected);
+}
+.inbox-item:not([data-read]) .inbox-text strong {
+  color: var(--state-selected-text);
+}
+.inbox-item:not([data-read]):hover {
+  background: color-mix(in srgb, var(--action-primary) 12%, var(--surface-raised));
+}
+.inbox-text {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.inbox-text strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.inbox-item[data-read] .inbox-text strong {
+  font-weight: 500;
+}
+.inbox-text small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+.inbox-time {
+  flex: none;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.inbox-empty {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+@media (max-width: 390px) {
+  .inbox-popover {
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: 0 0 10px 10px;
+  }
+}
 /* The Settings icon reaches the bar's rule so that, current, it carries the tabs' ink underline in
    its own place and width: opening Settings moves nothing in the bar (the user, 2026-10-15). */
 .topbar-settings {

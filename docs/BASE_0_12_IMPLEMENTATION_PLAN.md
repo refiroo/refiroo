@@ -4886,6 +4886,38 @@ in the top bar. Approval requests are also consumer webhook events (`change-set.
 `change-set.approved`, `change-set.sent-back`) so an organisation routes them to e-mail or chat
 itself (D233).
 
+##### A2 record (2026-10-26)
+
+**Delivered 2026-10-26.** D428, D429 and the inbox mock-up (D430) were asked and approved by the user; D431 is by
+recommendation.
+
+| # | Decision |
+| --- | --- |
+| D428 | **Approved.** Change-set events are a *workspace event source* of the existing subscription resource (`source: "workspace"`), not a separate webhook kind: one table (`workspace_events`) written in the step's transaction, numbered per workspace by a head row taken last (no lock-order cycle), delivered by the same dispatcher, signing, retry, log, resend and rotation. Cost: one branch in the dispatcher; `consumer_api` holds the reserved `$workspace` |
+| D429 | **Approved (amends D239 for these events).** Events carry `submitter` and `decider` as kind, id, name; no e-mail |
+| D430 | **Approved.** The inbox is a top-bar bell with an unread count opening a panel (a full-width sheet at 390px); recipients as in API.md |
+| D431 | **Recommended, recorded.** The tab that started a job keeps its toast; the inbox keeps the notice for a closed tab. Job notices come from a trigger on `jobs` for background batches, imports, exports, migrations and moves; an inline batch makes none |
+
+- **Built:** migration `20261111_01` (`notifications`, `workspace_events`, `workspace_event_heads`, the triggers);
+  `engine/notifications/inbox.py`, `engine/events/workspace_events.py`, `engine/change_sets/announcements.py` (called by
+  submit, withdraw, approve and send back); the dispatcher's workspace branch; the job listener also listens on
+  `rdm_notifications`; routes in `management/routers/notifications.py`; `holders_of` in `authorization/administration.py`.
+  The frontend (`features/inbox`, the top bar, Webhooks tolerating a null `consumerApi`) was written by a Sonnet agent.
+- **Beyond the plan:** clients have inboxes too (a process tool drives approvals with a client, D242); ending a request
+  marks its waiting notices read; notices expire after 90 days; a direct publication that records an approval announces
+  `approved` without a `submitted` event.
+- **Exercised:** `test_j42_inbox` (10 cases on two configurations: inbox for submit, send back, withdraw, mark read,
+  paging, a background job, signed ordered workspace events, a CloudEvents subscription taking one event, edit, suspend and
+  resume, and the live stream over HTTP); `feed`, `contract` and `startup` groups after updating the OpenAPI lock, the
+  paged-collection count (65), the foreign-key table, the head revision and API_JOURNEYS; the J42 approvals, J47 sweep, J24
+  job stream and background job, J43 key rotation and J30 subscriptions journeys. Frontend: 10 inbox tests, the Webhooks
+  page test, `npm run lint` (0 errors), `npm run build`.
+- **Not exercised:** the inbox in a real browser at 1440px and 390px, axe and visual inspection (no browser runner was added:
+  appearance is unverified); the migration's downgrade and an interrupted run; the heartbeat does not list the inbox (it
+  shares the job listener's thread).
+- **What the user cannot do yet:** create or edit a workspace-events subscription in the interface (API only); approve from
+  the interface (A3); mail for notices (M2).
+
 #### A3: Approvals in the interface
 
 **Needs:** A2, Z5; the mock-up approved in P0.

@@ -514,7 +514,9 @@ export interface SubscriptionFinding {
 export interface Subscription {
   id: string;
   name: string;
-  consumerApi: string;
+  /** `workspace`: the workspace's change-set events, which name no consumer API (0.12 A2). */
+  source: "consumerApi" | "workspace";
+  consumerApi: string | null;
   contractVersion: number;
   workspaceKey: string;
   events: string[];

@@ -44,7 +44,7 @@ import { useCapabilities } from "./useSystem";
 import { useHeldAnywhere } from "@/features/security/permissions";
 import { WebhookDeliveries } from "./WebhookDeliveries";
 import { WebhookDialog } from "./WebhookDialog";
-import { subscribable, useConsumerDefinitions } from "./consumerDefinitions";
+import { sourceName, subscribable, useConsumerDefinitions } from "./consumerDefinitions";
 import {
   CONTENT,
   FIX,
@@ -458,7 +458,7 @@ function SubscriptionDetail({
       term: "Consumer API",
       value: (
         <RouteLink href={routePath(consumerApisRoute)} onNavigate={() => onNavigate(consumerApisRoute)}>
-          {definition?.name ?? subscription.consumerApi} · v{subscription.contractVersion}
+          {sourceName(subscription, definition)} · v{subscription.contractVersion}
         </RouteLink>
       ),
     },
@@ -520,7 +520,7 @@ function SubscriptionDetail({
         <div>
           <h2>{subscription.name}</h2>
           <p>
-            <Breakable text={urlName(subscription.url)} /> · {definition?.name ?? subscription.consumerApi} ·{" "}
+            <Breakable text={urlName(subscription.url)} /> · {sourceName(subscription, definition)} ·{" "}
             {subscription.workspaceKey}
           </p>
         </div>

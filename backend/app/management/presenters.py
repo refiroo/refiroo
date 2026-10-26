@@ -14,6 +14,7 @@ from ..common.pagination import Page
 from ..common.time import as_utc
 from ..engine.authorization.requesters import requester
 from ..engine.events import delivery_log
+from ..engine.events.subscriptions import is_workspace_source
 from ..engine.identity.principals import actors, named
 from ..engine.imports.profiles import StoredProfile
 from ..engine.jobs.store import release_public_ids
@@ -518,7 +519,8 @@ def subscription_response(
     return SubscriptionResponse(
         id=item.public_id,
         name=item.name,
-        consumerApi=item.consumer_api,
+        source="workspace" if is_workspace_source(item) else "consumerApi",
+        consumerApi=None if is_workspace_source(item) else item.consumer_api,
         contractVersion=item.contract_version,
         workspaceKey=item.workspace_key,
         events=list(item.event_keys),

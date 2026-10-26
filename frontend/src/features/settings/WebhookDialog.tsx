@@ -30,7 +30,7 @@ import { MultiSelect, type PickOption } from "@/ui/MultiSelect";
 import { Notice } from "@/ui/Notice";
 import { SearchMenu } from "@/ui/SearchMenu";
 import { TokenField } from "@/ui/TokenField";
-import { subscribable } from "./consumerDefinitions";
+import { sourceName, subscribable } from "./consumerDefinitions";
 import { CONTENT, FORMAT, eventDeclaration } from "./webhookText";
 
 /** The batch size offered when an operator first chooses to batch. */
@@ -91,7 +91,7 @@ function draftOf(subscription: Subscription, definition?: ConsumerApiDefinition)
   const declared = declaredEvents(definition);
   return {
     name: subscription.name,
-    consumerApi: subscription.consumerApi,
+    consumerApi: subscription.consumerApi ?? "",
     workspaceKey: subscription.workspaceKey,
     allEvents: declared.length > 0 && sameList([...declared].sort(), [...subscription.events].sort()),
     events: subscription.events,
@@ -289,7 +289,7 @@ export function WebhookDialog({
           <h3 id="dialog-form-source">Source</h3>
           {editing ? (
             <p className="admin-hint">
-              {definition ? `${definition.name} · v${subscription.contractVersion}` : subscription.consumerApi},
+              {definition ? `${definition.name} · v${subscription.contractVersion}` : sourceName(subscription)},
               workspace <code>{subscription.workspaceKey}</code>. The consumer API and the workspace are not edited:
               delete the subscription and create another to change them.
             </p>

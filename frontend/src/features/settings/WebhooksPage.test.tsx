@@ -59,6 +59,7 @@ const definitions: Record<string, ConsumerApiDefinition> = {
 const subscription = (id: string, overrides: Partial<Subscription> = {}): Subscription => ({
   id,
   name: `Receiver ${id}`,
+  source: "consumerApi",
   consumerApi: "codes",
   contractVersion: 2,
   workspaceKey: "default",
@@ -181,6 +182,18 @@ describe("Webhooks", () => {
     ).toBeInTheDocument();
     expect(within(catalogue).getByRole("button", { name: /Receiver b.*Retrying/ })).toBeInTheDocument();
     expect(within(catalogue).getByRole("button", { name: /Receiver c.*Suspended/ })).toBeInTheDocument();
+  });
+
+  it("names a workspace-events subscription, which has no consumer API, without failing", async () => {
+    vi.mocked(api.subscriptions).mockResolvedValue({
+      items: [subscription("w", { source: "workspace", consumerApi: null, contractVersion: 1 })],
+      nextCursor: null,
+    });
+    renderPage("w");
+    vi.mocked(api.subscription).mockResolvedValue(
+      subscription("w", { source: "workspace", consumerApi: null, contractVersion: 1 }),
+    );
+    expect((await screen.findAllByText(/Workspace events/)).length).toBeGreaterThan(0);
   });
 
   it("creates a named webhook with chosen events and an added filter, and shows its signing key once", async () => {

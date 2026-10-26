@@ -1852,6 +1852,8 @@ mandatory review step, because a data owner's daily correction must stay live wh
 
 - Track A: three packages after 0.12's cut line; if 0.12 must ship sooner they follow in 0.12.x.
 - A person learns of a request only in the app unless the organisation routes the events.
+- _Delivered by A2 (D428–D431, 2026-10-26):_ a per-principal inbox (people and clients) and a workspace event source
+  for webhook subscriptions; events name the submitter and decider (kind, id, name), the one amendment of D239.
 - _Delivered by A1 (D424–D427, 2026-10-26):_ the group **Approve publications** (`approve`, not
   narrowable) joins the Data owner role; a workspace policy (`requireApproval`, `secondPerson`) and a
   row per submission and per decision; a submitted change set refuses writes unless the request
