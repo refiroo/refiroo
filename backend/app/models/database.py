@@ -69,6 +69,7 @@ SECURITY_AGGREGATES = (
     "sign-in",
     "sign-in-provider",
     "mail-settings",
+    "approval-policy",
 )
 SECURITY_AGGREGATES_SQL = ", ".join(f"'{item}'" for item in SECURITY_AGGREGATES)
 
@@ -608,6 +609,116 @@ class ChangeSet(Base):
     )
     created_by_client_id: Mapped[int | None] = mapped_column(
         ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
+
+
+class ApprovalPolicy(Base):
+    """A workspace's approval policy (0.12 A1, D425): absent means both flags off. ``second_person``
+    needs ``require_approval``."""
+
+    __tablename__ = "approval_policies"
+    __table_args__ = (
+        CheckConstraint(
+            "NOT second_person OR require_approval", name="ck_approval_policies_second_person"
+        ),
+    )
+
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="CASCADE"), primary_key=True
+    )
+    require_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    second_person: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class ChangeSetSubmission(Base):
+    """A change set submitted for publication (0.12 A1, D427): one row per submission.
+
+    ``change_set_id`` is no foreign key: an approved change set is deleted by its publication and
+    the request stays as history, with the change set's name as it was. ``state`` is ``submitted``
+    until it is withdrawn, approved or sent back; a change set is submitted while its latest
+    submission is.
+    """
+
+    __tablename__ = "change_set_submissions"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('submitted', 'withdrawn', 'approved', 'sentBack')",
+            name="ck_change_set_submissions_state",
+        ),
+        CheckConstraint(
+            "num_nonnulls(submitted_by_user_id, submitted_by_client_id) <= 1",
+            name="ck_change_set_submissions_submitted_by_one",
+        ),
+        Index("ix_change_set_submissions_change_set", "change_set_id", "sequence_id"),
+        Index("ix_change_set_submissions_workspace", "workspace_key", "sequence_id"),
+        # A change set is submitted at most once at a time.
+        Index(
+            "uq_change_set_submissions_open",
+            "change_set_id",
+            unique=True,
+            postgresql_where=text("state = 'submitted'"),
+        ),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="CASCADE"), nullable=False
+    )
+    change_set_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    change_set_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    version_submitted: Mapped[int] = mapped_column(Integer, nullable=False)
+    submitted_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    submitted_by_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    submitted_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="submitted")
+    # The publication an approval made.
+    publication_id: Mapped[str | None] = mapped_column(
+        ForeignKey("publications.id", ondelete="RESTRICT"), nullable=True
+    )
+
+
+class ChangeSetDecision(Base):
+    """One decision on a submission (0.12 A1, D427, D242): who, when, the change set's version,
+    the outcome (``approve`` or ``sendBack``) and the comment."""
+
+    __tablename__ = "change_set_decisions"
+    __table_args__ = (
+        CheckConstraint("outcome IN ('approve', 'sendBack')", name="ck_change_set_decisions_outcome"),
+        CheckConstraint(
+            "num_nonnulls(decided_by_user_id, decided_by_client_id) <= 1",
+            name="ck_change_set_decisions_decided_by_one",
+        ),
+        Index("ix_change_set_decisions_submission", "submission_sequence_id", "sequence_id"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
+    submission_sequence_id: Mapped[int] = mapped_column(
+        ForeignKey("change_set_submissions.sequence_id", ondelete="CASCADE"), nullable=False
+    )
+    decided_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    decided_by_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
 
 

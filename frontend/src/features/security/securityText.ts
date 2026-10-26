@@ -291,6 +291,8 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
       const words = changed.map((field) => MAIL_FIELDS[field] ?? field);
       return words.length ? `Mail settings changed: ${words.join(", ")}` : "Mail settings saved";
     }
+    case "approval-policy":
+      return `Approval policy of workspace ${event.aggregateId} changed`;
     case "grant":
       return `${event.action === "created" ? "Granted" : "Grant removed:"} ${grantEventWords(details, labels)}`;
     case "group": {

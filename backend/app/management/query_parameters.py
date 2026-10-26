@@ -17,6 +17,9 @@ from fastapi.routing import APIRoute
 from ..errors import api_error
 
 FIELD_FILTER_PREFIX = "filter."
+# Accepted on every route: a write to a submitted change set withdraws its submission (A1, D426);
+# ``access.authorized`` reads it.
+UNIVERSAL_PARAMETERS = frozenset({"withdrawSubmission"})
 _KNOWN: dict[int, tuple[frozenset[str], bool]] = {}
 
 
@@ -46,7 +49,9 @@ def refuse_after_authorization(request: Request) -> None:
         {
             name
             for name in request.query_params
-            if name not in known and not (filters and name.startswith(FIELD_FILTER_PREFIX))
+            if name not in known
+            and name not in UNIVERSAL_PARAMETERS
+            and not (filters and name.startswith(FIELD_FILTER_PREFIX))
         }
     )
     if unknown:

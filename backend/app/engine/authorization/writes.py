@@ -25,6 +25,7 @@ WRITE_GROUPS = frozenset(
         "edit-live",
         "change-sets",
         "publish",
+        "approve",
         "bulk",
         "copy-move",
         "model-release",

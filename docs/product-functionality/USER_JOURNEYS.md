@@ -2151,7 +2151,7 @@ roles, consumer APIs and creator, and each secret its last four characters (J41.
 ### J42 — Propose and approve a change
 
 **Actor:** contributor and data owner. **Channel:** UI (the change set's review, the inbox), API.
-**Stories:** US-S01. **Status:** designed (0.12 P0); delivered by A1, A2, A3 (after the cut line).
+**Stories:** US-S01. **Status:** the API delivered by A1 (2026-10-26, `test_j42_approvals`); A2 (the inbox, J42.5) and A3 (the interface) remain.
 
 1. A Contributor prepares a change set and submits it for publication.
 2. An approver is notified, reviews it and approves, which publishes it, or sends it back with a
@@ -2170,7 +2170,7 @@ roles, consumer APIs and creator, and each secret its last four characters (J41.
   publication refuses the stale approval.
 
 **Refusals:** `409 CHANGE_SET_SUBMITTED`, `409 APPROVAL_REQUIRED`, `403 FORBIDDEN` (`ownApproval`),
-`409 VERSION_CONFLICT`.
+`409 VERSION_CONFLICT`, `409 PUBLICATION_CONFLICT`, `409 NOT_SUBMITTED`, `422 COMMENT_REQUIRED`.
 
 ### J43 — Rotate a key
 

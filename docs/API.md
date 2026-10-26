@@ -6071,7 +6071,7 @@ D278).
 | Edit live | `edit-live` | Record, value, relation and relationship-set writes without a change set | Workspace, narrowed to applications and record types |
 | Work in change sets | `change-sets` | Create, rename, discard, validate and restructure change sets, move them onto a release; the same writes inside them; submit for publication (Track A) | Workspace, narrowed alike |
 | Publish | `publish` | Publish a change set; withdraw a publication | Workspace, narrowed alike (the change set's record types) |
-| Approve publications | `approve` | Approve or send back another's request; with `own`, one's own (Track A) | Workspace |
+| Approve publications | `approve` | Decide a submitted change set: approve it, which publishes it, or send it back; and publish directly where the workspace requires an approval (A1, D424). Whoever holds it may decide their own request unless the workspace's policy requires a second person | Workspace, not narrowed |
 | Bulk and import | `bulk` | Batches, imports, import profiles and their checks, source files | Workspace, narrowed alike |
 | Copy and move | `copy-move` | Model-to-model mappings and moves | Workspace (Browse on the source, and Work in change sets there for `mode: move`; written in the target, narrowed alike) |
 | Model authoring | `model-authoring` | Model drafts and everything on them; reading releases | Instance |
@@ -6116,7 +6116,7 @@ Rules the catalogue applies:
 | Reader | `reader` | `browse` |
 | Contributor | `contributor` | `browse`, `change-sets` |
 | Data steward | `steward` | `browse`, `edit-live`, `change-sets`, `publish`, `bulk` |
-| Data owner | `owner` | the steward's, `feed`, `copy-move` (`approve` with `own` joins with A1, D280) |
+| Data owner | `owner` | the steward's, `approve`, `feed`, `copy-move` (`approve` since A1, D280) |
 | Model administrator | `model-admin` | `model-authoring`, `model-release` |
 | Workspace administrator | `workspace-admin` | `workspace-admin` |
 | Integration administrator | `integration-admin` | `integration-admin`, `feed` |
@@ -6391,8 +6391,8 @@ security change is audited with its actor.
   instance), newest first and cursor paged, `principalId=` (those a person or client made or that
   are about them; a group's ID, those about the group) and `aggregateType=` (repeatable). Each
   reads `id`, `aggregateType` (`user`, `group`, `role`, `grant`, `client`, `token-signing-key`,
-  `sign-in`, `sign-in-provider`), `aggregateId` (the public ID, a role's key, a key's `kid`, a
-  provider's key or `local`, for a sign-in the person's ID or `unknown`), `action`, `version`, `occurredAt`, `actor` (as on history; a failed sign-in names
+  `sign-in`, `sign-in-provider`, `mail-settings`, `approval-policy`), `aggregateId` (the public ID, a role's key, a key's `kid`, a
+  provider's key or `local`, a workspace's key for its approval policy, for a sign-in the person's ID or `unknown`), `action`, `version`, `occurredAt`, `actor` (as on history; a failed sign-in names
   nobody) and `details`, which holds what changed and never a password, secret, link or key:
   - `user`: `created` (`username`, `name`, `roles`), `updated` (`changedFields`, `name`, `active`),
     `password-link-created` (`expiresAt`), `password-set` (through a link), `password-changed`,
@@ -6504,25 +6504,56 @@ reading `Not sent within 24 hours. Last error: …`.
 
 ### Approvals (Track A)
 
+_Delivered by A1 (2026-10-26; D424–D427; the inbox and webhook events are A2, the interface A3)._
 Change-set publication only (D232, ADR-045):
 
-- `POST /change-sets/{changeSetId}/submission` `{expectedChangeSetVersion, comment?}` (`change-sets`):
-  the change set is **submitted**; an edit to it withdraws the submission
-  (`DELETE …/submission` withdraws it explicitly).
-- `POST /change-sets/{changeSetId}/decisions` `{outcome: "approve" | "sendBack", comment,
-  expectedChangeSetVersion}` (`approve`): one row per decision (who, when, version, outcome,
-  comment, D242). `approve` publishes in the same request, bound to the version and the workspace's
-  active publication, as `POST …/publication` does; `sendBack` needs a comment.
-- Publishing a change set directly needs `publish` and, where the workspace's policy asks, an
-  approval: a holder of `approve` with `own` approves and publishes their own in one step.
-- `GET /workspaces/{workspaceKey}/publication-requests` (`state`), cursor-paged.
-- `GET|PUT /workspaces/{workspaceKey}/approval-policy` `{requireApproval: bool, secondPerson: bool}`
-  (`workspace-admin`); `secondPerson` removes `own` in that workspace (four-eyes).
+- `POST /change-sets/{changeSetId}/submission` `{expectedChangeSetVersion, comment?}`
+  (`change-sets.submit`, Work in change sets): `201` with the **publication request**. The change set
+  must validate (`409 CHANGE_SET_INVALID`, `details.diagnostics`), be at that version (`409
+  VERSION_CONFLICT`) and not be submitted already (`409 CHANGE_SET_SUBMITTED`). Submitting is no
+  edit: the change set's version does not change.
+- `DELETE /change-sets/{changeSetId}/submission` (`change-sets.submit`) withdraws it: the person who
+  submitted it, or a holder of `approve` (`403 FORBIDDEN`, `details.reason: "notSubmitter"`
+  otherwise); `409 NOT_SUBMITTED` if it is not submitted. `204`.
+- **A submitted change set is frozen.** Any write to it (a record, a relationship, a value, a rename, a
+  restructuring, a batch or import into it, a discard) is refused `409 CHANGE_SET_SUBMITTED` unless
+  the request carries the query parameter **`withdrawSubmission=true`** (accepted on every
+  request, read once by the change set's version claim), which withdraws the submission in the same
+  transaction as the write. A publication's own claim is no edit. A change set read gains
+  `submission`: its latest publication request whatever its state, or `null` if never submitted.
+- `POST /change-sets/{changeSetId}/decisions` `{outcome: "approve" | "sendBack", comment?,
+  expectedChangeSetVersion, expectedActivePublicationId?}` (`change-sets.decide`, Approve
+  publications): one row per decision (who, when, version, outcome, comment, D242). The change set
+  must be submitted (`409 NOT_SUBMITTED`) and at the reviewed version (`409 VERSION_CONFLICT`).
+  `approve` publishes in the same transaction, bound to the version and to the workspace's active
+  publication as `POST …/publication` is (`409 PUBLICATION_CONFLICT` if the active publication is
+  no longer the one given; nothing is recorded), and answers the publication. `sendBack` needs a
+  comment (`422 COMMENT_REQUIRED`), returns the change set to open and answers it. Under
+  `secondPerson` the submitter is refused `403 FORBIDDEN`, `details.reason: "ownApproval"`.
+- `GET /workspaces/{workspaceKey}/publication-requests?state=submitted|withdrawn|approved|sentBack`
+  (`change-sets.read`), cursor-paged, newest first: `id`, `changeSetId`, `changeSetName` (as when
+  submitted: an approved change set no longer exists), `version` (submitted), `state`, `submitter`,
+  `comment`, `submittedAt`, `publicationId` (set by an approval) and `decisions` (`id`, `outcome`,
+  `version`, `comment`, `decidedAt`, `decider`).
+- `GET|PUT /workspaces/{workspaceKey}/approval-policy` `{requireApproval, secondPerson,
+  expectedVersion}` (read: `change-sets.read`; write: `approval-policy.write`, Workspace
+  administration): both off and `version` 0 until set. `secondPerson` needs `requireApproval`
+  (`422 APPROVAL_POLICY_INVALID`); a stale `expectedVersion` is `409 VERSION_CONFLICT`. A change is a
+  security event (`approval-policy`).
+- **Publishing directly** (`POST …/publication`, `publish`) is unchanged while `requireApproval` is
+  off, except that a request still open for the change set closes as approved by that publication.
+  With `requireApproval`, a caller holding `publish` and `approve` publishes in one step and the
+  engine records their approval (an approved request with their decision); with `secondPerson`, or
+  without `approve`, it is `409 APPROVAL_REQUIRED` and nothing is published.
+- Audit: `change-set.submitted`, `.withdrawn`, `.approved` and `.sent-back` (aggregate
+  `change-set`, the change set's ID, with the actor) in the workspace's history; they take no feed
+  position.
 - Webhook events `change-set.submitted`, `change-set.approved`, `change-set.sent-back` (A2, D233).
 
-**Refusals:** `409 CHANGE_SET_SUBMITTED` (an edit while submitted needs `withdraw: true`),
+**Refusals:** `409 CHANGE_SET_SUBMITTED`, `409 CHANGE_SET_INVALID`, `409 NOT_SUBMITTED`,
 `409 APPROVAL_REQUIRED`, `403 FORBIDDEN` with `details.reason: "ownApproval"` under four-eyes,
-`409 VERSION_CONFLICT` when the change set changed after the reviewed version.
+`409 VERSION_CONFLICT` when the change set changed after the reviewed version, `409
+PUBLICATION_CONFLICT`, `422 COMMENT_REQUIRED`, `422 APPROVAL_POLICY_INVALID`.
 
 ### Changes to existing routes
 

@@ -27,6 +27,7 @@ from ..engine.authorization.catalogue import ACTIONS, group_names
 from ..engine.authorization.permissions import Permissions, permissions_of
 from ..engine.authorization.requesters import job_group, requester
 from ..engine.authorization.writes import Writer, set_writer
+from ..engine.change_sets.submissions import allow_withdrawal
 from ..engine.events.subscriptions import load_subscription
 from ..engine.identity.authentication import Principal
 from ..engine.jobs.store import load_job
@@ -395,6 +396,9 @@ def _allowed(
         session,
         Writer(permissions, check.groups, action.key, principal=(principal.kind, principal.row_id)),
     )
+    # ``withdrawSubmission=true`` on any request lets a write to a submitted change set withdraw its
+    # submission instead of being refused (0.12 A1, D426); the write unit decides it.
+    allow_withdrawal(session, request.query_params.get("withdrawSubmission", "").lower() == "true")
     if not check.groups:
         return permissions
     if check.anywhere:

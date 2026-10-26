@@ -136,7 +136,11 @@ sign-in against Keycloak (which found and fixed the provider callback's `iss` de
 independent review of the 0.12 changes whose findings are all fixed or accepted
 ([record](SECURITY_REVIEW_0_12.md)), among them deletions skipping the narrowing check (high), source
 files and the import profile check across workspaces, the forwarded address behind a balancer, a 500 on
-a binary body and a 503 on a NUL byte. 0.12 is released complete: next A1–A3, M2, L1, L2 and R (no cut
+a binary body and a 503 on a NUL byte. **A1, a publication request and its approval, is delivered
+(2026-10-26)**, D424–D427: Approve publications (Data owner), submit, withdraw, approve (which publishes) or send
+back with a comment, a per-workspace policy (`requireApproval`, `secondPerson`), a submitted change set frozen
+unless a write carries `withdrawSubmission=true`; the API only ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#a1-record-2026-10-26),
+migration `20261110_01`). 0.12 is released complete: next A2, A3, M2, L1, L2 and R (no cut
 line, the user, 2026-10-26).
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)

@@ -45,7 +45,8 @@ export interface SecurityEvent {
     | "token-signing-key"
     | "sign-in"
     | "sign-in-provider"
-    | "mail-settings";
+    | "mail-settings"
+    | "approval-policy";
   aggregateId: string;
   action: string;
   version: number;

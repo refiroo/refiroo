@@ -44,6 +44,7 @@ from ...models.database import (
 )
 from ...models.schema import EngineModel
 from ..authorization.writes import allowance, refuse_types
+from ..change_sets import submissions
 from ..indexes import matrix_states, unique_values
 from ..model import expected_release
 from .audit import AuditEntry, record_audit_event, record_audit_events
@@ -686,17 +687,22 @@ class ChangeSetWrites(_Permits):
         *,
         conflict_code: str = "CHANGE_SET_VERSION_CONFLICT",
         conflict_message: str = "Change set version has changed",
+        publishing: bool = False,
     ) -> None:
         """Claim the change set's version for this write.
 
         While a job holds the claim (``hold_claim``), the job's items are parts of one write and
-        claim nothing more.
+        claim nothing more. A submitted change set refuses the write, or has its submission
+        withdrawn when the request said so (A1, D426); a publication's own claim (``publishing``)
+        is no edit and is never refused for it.
         """
         if self.change_set_id in self.session.info.get(_HELD_CLAIMS, ()):
             return
         change_set = self.change_set
         if change_set.version != expected:
             raise api_error(409, conflict_code, conflict_message)
+        if not publishing:
+            submissions.freeze(self.session, change_set)
         # The conditional update is the claim and the version bump in one statement, before any
         # candidate write is flushed.
         with self.session.no_autoflush:

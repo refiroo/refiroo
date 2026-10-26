@@ -683,7 +683,7 @@ def apply_publication(
         )
     if change_set.waits_for_change_set_id is not None:
         _require_copy_published(session, change_set)
-    writes.claim(expected_change_set_version)
+    writes.claim(expected_change_set_version, publishing=True)
     live = LiveWrites(session, change_set.workspace_key)
     live.permit_publication(change_set.id)
     if workspace.active_publication_id != expected_active_publication_id:

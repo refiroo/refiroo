@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
+from .approvals import PublicationRequestResponse
 from .common import CollectionPage, PrincipalResponse
 from .records import AttributeOutput, ObjectPathPart
 from .workspaces import MigrationTypeMapping
@@ -67,6 +68,8 @@ class ChangeSetResponse(BaseModel):
     updatedAt: datetime
     # Who created it (0.12 Z4, D315); null for one from before Z4.
     createdBy: PrincipalResponse | None
+    # Its latest publication request, whatever its state (0.12 A1); null when never submitted.
+    submission: PublicationRequestResponse | None = None
 
 
 class ChangeSetPage(CollectionPage[ChangeSetResponse]):

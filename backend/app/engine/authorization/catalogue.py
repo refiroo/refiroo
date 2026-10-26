@@ -3,7 +3,8 @@
 
 An administrator grants roles; a role is a set of action groups named after journeys (D227); every
 route declares one action, and an action names the groups that allow it. A new route joins an
-existing action or group without touching any role. "Approve publications" joins with A1 (D280).
+existing action or group without touching any role. "Approve publications" joined with A1 (D280,
+D424).
 """
 
 from dataclasses import dataclass
@@ -55,6 +56,12 @@ GROUPS: dict[str, ActionGroup] = {
             "Publish a change set; withdraw a publication",
             "workspace",
             narrowable=True,
+        ),
+        ActionGroup(
+            "approve",
+            "Approve publications",
+            "Decide a submitted change set: approve it, which publishes it, or send it back",
+            "workspace",
         ),
         ActionGroup(
             "bulk",
@@ -171,6 +178,24 @@ ACTIONS: dict[str, Action] = {
             doing="Publishing a change set",
         ),
         Action(
+            "change-sets.submit",
+            ("change-sets",),
+            "Submit a change set for publication, or withdraw its submission",
+            doing="Submitting a change set",
+        ),
+        Action(
+            "change-sets.decide",
+            ("approve",),
+            "Approve a submitted change set, which publishes it, or send it back",
+            doing="Deciding on a change set",
+        ),
+        Action(
+            "approval-policy.write",
+            ("workspace-admin",),
+            "Change a workspace's approval policy",
+            doing="Changing the approval policy",
+        ),
+        Action(
             "publications.withdraw",
             ("publish",),
             "Withdraw a publication",
@@ -279,7 +304,16 @@ PREDEFINED_ROLES: dict[str, tuple[str, ...]] = {
     "reader": ("browse",),
     "contributor": ("browse", "change-sets"),
     "steward": ("browse", "edit-live", "change-sets", "publish", "bulk"),
-    "owner": ("browse", "edit-live", "change-sets", "publish", "bulk", "feed", "copy-move"),
+    "owner": (
+        "browse",
+        "edit-live",
+        "change-sets",
+        "publish",
+        "approve",
+        "bulk",
+        "feed",
+        "copy-move",
+    ),
     "model-admin": ("model-authoring", "model-release"),
     "workspace-admin": ("workspace-admin",),
     "integration-admin": ("integration-admin", "feed"),

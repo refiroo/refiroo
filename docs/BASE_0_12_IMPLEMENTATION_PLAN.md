@@ -4772,6 +4772,109 @@ approve, send back, withdraw, list requests. Audit records each step with its ac
 stored as its own row (who, when, the version, the outcome, the comment), not as one "approved by"
 field, so several approvers or ordered stages can be added later without a contract change (D242).
 
+##### A1 plan (2026-10-26)
+
+**Built on the user's request to deliver A1 (2026-10-26); the decisions below are by recommendation and
+recorded, not asked.** Checked against the code at `8c4a25a`: `ChangeSetWrites.claim` is the one place
+every change-set write bumps the version; `publish_change_set` already binds to the change set's
+version and the active publication; `Grant` has no qualifier, so "own" cannot be a flag on a grant.
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D424 | What "own" is | **Recommended:** a new action group **Approve publications** (`approve`, workspace reach, not narrowable); whoever holds it may decide any request, including one they submitted, unless the workspace's `secondPerson` policy is on. Why: grants have no qualifier and a second group for "own" would be a right that does nothing different; four-eyes is already the switch that removes it. The Data owner role gains `approve` (D280). Cost: a custom role cannot approve others' requests but not its own except through the policy |
+| D425 | Policy | **Recommended:** `approval_policies` row per workspace (absent = both false): `requireApproval` (a direct publication needs an approval) and `secondPerson` (a request is decided by someone other than who submitted it; needs `requireApproval`, else `422 APPROVAL_POLICY_INVALID`). With `requireApproval`, `POST …/publication` publishes only for a caller holding `publish` **and** `approve` while `secondPerson` is off (the approval is recorded as their own decision, one step); otherwise `409 APPROVAL_REQUIRED`. Why: keeps today's single click for owners, and a default workspace is unchanged (ADR-045). Cost: none |
+| D426 | Frozen or withdrawn by an edit | **Recommended:** both, as API.md says: while submitted, any write to the change set is refused `409 CHANGE_SET_SUBMITTED` unless the request carries the query parameter `withdrawSubmission=true`, which withdraws the submission in the same transaction as the write (decided once in `ChangeSetWrites.claim`, so every path is covered). Why: a silent withdrawal would surprise a Contributor mid-review; one explicit flag keeps the API honest. Cost: the flag on write routes, documented once |
+| D427 | State and decisions | **Recommended:** `change_set_submissions` (one row per submission: change set, version submitted, submitter, comment, submitted at, `state` `submitted`/`withdrawn`/`approved`/`sentBack`) and `change_set_decisions` (one row per decision: submission, decider, outcome, version, comment, decided at). The change set's state is derived: submitted when its latest submission is `submitted`. Why: D242, several approvers later without a contract change. Cost: two tables |
+
+**Behaviour:**
+
+- `POST /change-sets/{id}/submission` `{expectedChangeSetVersion, comment?}` (`change-sets`, so a
+  Contributor): `201`, `409 VERSION_CONFLICT` for a stale version, `409 CHANGE_SET_SUBMITTED` if already
+  submitted; a change set not valid (the validate step's diagnostics) is refused `409 CHANGE_SET_INVALID`.
+  `DELETE …/submission` withdraws (the submitter, or anyone holding `approve`).
+- `POST /change-sets/{id}/decisions` `{outcome, comment?, expectedChangeSetVersion,
+  expectedActivePublicationId?}` (`approve`): needs a submitted change set at that version
+  (`409 NOT_SUBMITTED`); `approve` publishes in the same transaction as `POST …/publication` does and
+  answers the publication; `sendBack` needs a comment (`422 COMMENT_REQUIRED`) and returns the change set
+  to open. Under `secondPerson` the submitter is refused `403 FORBIDDEN` with `details.reason:
+  "ownApproval"`. A changed version is `409 VERSION_CONFLICT`; a changed active publication is
+  `409 PUBLICATION_CONFLICT` (the publication's existing code) and nothing is recorded.
+- `GET /workspaces/{key}/publication-requests?state=` (`change-sets.read`), cursor-paged, newest first:
+  each with the change set, submitter, comment, state and its decisions.
+- `GET|PUT /workspaces/{key}/approval-policy` (read: `change-sets.read`; write: `workspace-admin`),
+  with `expectedVersion` on PUT.
+- A change set's read gains `submission` (state, submitter, comment, version) so clients see its state.
+- Audit: `change-set.submitted`, `.withdrawn`, `.approved`, `.sent-back` with the actor, in the workspace's
+  history; `approval-policy.changed` as a security event. Webhook events and the inbox are A2.
+
+**Journey cases (J42; given/when/then, run on two model configurations, through the API):**
+
+1. **J42** A Contributor edits a change set, submits it; an approver approves; the publication exists,
+   live data changed, the request lists as `approved` with one decision row (decider, version, comment).
+2. **J42** A Contributor (no `publish`) cannot publish directly (`403 FORBIDDEN`) or approve (`403`); a
+   Reader cannot submit (`403`).
+3. **J42.1** An approver sends back without a comment: `422 COMMENT_REQUIRED`; with one: the change set
+   is open again, the Contributor sees the comment, edits and submits again; the request list shows both.
+4. **J42.2** A submitted change set refuses an edit with `409 CHANGE_SET_SUBMITTED`; the same edit with
+   `withdrawSubmission=true` succeeds and withdraws; an approval of the version submitted earlier is
+   `409 VERSION_CONFLICT` / `NOT_SUBMITTED`; submitting the new version works.
+5. **J42.3** With `requireApproval`, an owner (`publish` + `approve`) publishes their own change set with
+   one `POST …/publication`, which records their approval; a steward (`publish` only) gets `409
+   APPROVAL_REQUIRED`; with the policy off a steward publishes as today.
+6. **J42.4** With `secondPerson`, the submitter approving their own request is `403 FORBIDDEN`
+   (`ownApproval`) and the owner's direct publication is `409 APPROVAL_REQUIRED`; another approver
+   succeeds. `secondPerson` without `requireApproval` is `422 APPROVAL_POLICY_INVALID`.
+7. **J42.6** A live edit publishes meanwhile, changing the active publication: the approval with the old
+   `expectedActivePublicationId` is `409 PUBLICATION_CONFLICT`, nothing is recorded, the request is still
+   submitted.
+8. **J40** The policy is read by a Reader and changed only by a workspace administrator; the Data owner
+   predefined role holds `approve`, the Steward does not.
+
+**API.md** (the routes above and the `withdrawSubmission` flag), **ADR-045**'s consequences, the action
+group in `docs/API.md § Security`, `USER_JOURNEYS`/`API_JOURNEYS` for the cases and PRODUCT's persona
+note are updated. **Doors (ADR-032):** audit/history only (new event kinds, no change to the feed).
+
+##### A1 record (2026-10-26)
+
+**Delivered 2026-10-26**, D424–D427 as approved; the API only (the inbox is A2, the interface A3). The eight
+approved journey cases of `test_j42_approvals.py` (J42, J42.1–J42.4, J42.6, J40) were written before the code, run on
+two configurations and pass unchanged.
+
+- **Catalogue:** group `approve` ("Approve publications", workspace, not narrowable) in the Data owner role only;
+  actions `change-sets.submit` (Work in change sets), `change-sets.decide` (`approve`), `approval-policy.write`
+  (`workspace-admin`); `approve` joins the write groups so a decision's publication passes the write unit. Predefined
+  roles live in code, so no data migration.
+- **Schema (`20261110_01`):** `approval_policies`, `change_set_submissions` (a partial unique index allows one
+  `submitted` row per change set), `change_set_decisions`; security events gain the aggregate `approval-policy`.
+- **Engine:** `change_sets/approvals.py` (policy, submit, withdraw, decide, direct publication under the policy) and
+  `change_sets/submissions.py` (the freeze). The freeze is decided once in `ChangeSetWrites.claim`; a publication's
+  own claim passes `publishing=True`. `withdrawSubmission=true` is read from the request by the route check
+  (`management/access.authorized`) onto the session and accepted on every route by `query_parameters`.
+- **API:** routes and schemas as API.md § Approvals; `submission` on a change set's read, batched for lists.
+- **Docs:** API.md, ADR-045, USER_JOURNEYS (J42), API_JOURNEYS, CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **A request keeps no foreign key to its change set.** An approval deletes the change set, and the request list
+  shows approved requests, so the row keeps the change set's ID and its name as submitted.
+- **`409 PUBLICATION_CONFLICT`** is new for a decision (the journey case names it); the existing direct publication
+  still answers `WORKSPACE_ACTIVE_PUBLICATION_CONFLICT` and `CHANGE_SET_VERSION_CONFLICT`. A decision's stale version is
+  `VERSION_CONFLICT`, as the submission's.
+- **The flag is not a declared parameter,** so the OpenAPI document does not list it on every operation; API.md
+  documents it once.
+- **Beyond the plan:** a direct publication of a change set with an open request closes it as approved (the publisher's
+  decision), with the policy off too; under `secondPerson` the submitter may not send back their own request either
+  (withdraw is theirs); a decision's `sendBack` answers the change set, `approve` the publication.
+- **Existing tests touched:** the startup head revision, the foreign-key rule table, the J47 narrowing table (the two
+  submission routes write no record), the OpenAPI lock and the paged-collection count, and API_JOURNEYS' code list.
+
+**Exercised:** `test_j42_approvals` (16 cases), the `contract`, `startup` and `change_sets` groups, J40 and J47 (the
+sweep of every operation by every predefined role), the migration upgraded from `20261109_01`, downgraded and upgraded
+again on a scratch database. **Not exercised:** the `records`, `mapping`, `matrix`, `feed` and `jobs` groups and the
+serial parts (the change set write path was covered by `change_sets`); concurrency between an approval and an edit
+(locks follow the existing order: workspace, change set, then the submission row); a submission of a very large change
+set (validation is the publish's whole-graph check, once per submit).
+
 #### A2: The inbox
 
 **Needs:** A1, I2.
@@ -4857,7 +4960,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 13d | [DP4](#track-dp--deployment) | DP2 | **Delivered 2026-10-26.** Automatic HTTPS for a public installation, as an overlay |
 | 14 | [E1](#e1-security-checkpoint) | all above | **Delivered 2026-10-26.** The exit gate composed; independent security review ([record](SECURITY_REVIEW_0_12.md), [plan](testing/E1_SECURITY_CHECKPOINT_PLAN.md)) |
 | — | _cut line_ | | _Was: if R is out of reach, 0.12.0 releases here and Track A follows in 0.12.x._ **Not used (the user, 2026-10-26): 0.12 is released complete, Track A, M2 and L1–L2 included; E1 is the gate before them.** |
-| 15 | [A1](#a1-a-publication-request-and-its-approval) | Z1, Z4 | Submit, approve or send back, self-approval, four-eyes policy |
+| 15 | [A1](#a1-a-publication-request-and-its-approval) | Z1, Z4 | **Delivered 2026-10-26** (D424–D427). Submit, approve or send back, self-approval, four-eyes policy; the API |
 | 16 | [A2](#a2-the-inbox) | A1, I2 | The inbox; webhook events per step |
 | 16a | [M2](#m2-inbox-notifications-by-mail) | M1, A2 | Planned 2026-10-26 (D418, D421): e-mail for inbox notifications, per person, off by default
 | 17 | [A3](#a3-approvals-in-the-interface) | A2, Z5 | Approvals on the change-set review |

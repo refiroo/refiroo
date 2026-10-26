@@ -238,6 +238,10 @@ for _test, _routes in {
         "patch /change-sets/{change_set_id}/model-release",
         "post /change-sets/{change_set_id}/validation",
     ],
+    _NO_RECORD + ": a change set is submitted for publication and its submission withdrawn": [
+        "post /change-sets/{change_set_id}/submission",
+        "delete /change-sets/{change_set_id}/submission",
+    ],
     _NO_RECORD + ": an import profile holds a column layout": [
         "get /import-profiles",
         "post /import-profiles",

@@ -1852,3 +1852,8 @@ mandatory review step, because a data owner's daily correction must stay live wh
 
 - Track A: three packages after 0.12's cut line; if 0.12 must ship sooner they follow in 0.12.x.
 - A person learns of a request only in the app unless the organisation routes the events.
+- _Delivered by A1 (D424–D427, 2026-10-26):_ the group **Approve publications** (`approve`, not
+  narrowable) joins the Data owner role; a workspace policy (`requireApproval`, `secondPerson`) and a
+  row per submission and per decision; a submitted change set refuses writes unless the request
+  carries `withdrawSubmission=true`. An approved change set is deleted by its publication, so a
+  request keeps no foreign key to it.

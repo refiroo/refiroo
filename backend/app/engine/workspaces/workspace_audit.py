@@ -190,3 +190,28 @@ def record_publication_withdrawn(
         object_ids=(),
         workspace_key=publication.workspace_key,
     )
+
+
+def record_submission_event(
+    session: Session,
+    *,
+    submission: Any,
+    action: str,
+    version: int,
+    changes: dict[str, Any],
+) -> None:
+    """Record a step of a publication request (0.12 A1): ``submitted``, ``withdrawn``, ``approved``
+    or ``sent-back``, on the change set's aggregate in the workspace's history, with the actor as
+    for every entry. A change set's step takes no feed position. The change set may be gone (an
+    approval deletes it), so the workspace is the submission's."""
+    record_audit_event(
+        session,
+        aggregate_type=_AGGREGATE_TYPE,
+        aggregate_id=submission.change_set_id,
+        action=action,
+        version=version,
+        changes={"workspaceKey": submission.workspace_key, **changes},
+        object_ids=(),
+        workspace_key=submission.workspace_key,
+        feed=False,
+    )

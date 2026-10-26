@@ -109,6 +109,16 @@ RULES = {
     ("publications", "published_by_client_id"): ("oauth_clients", "RESTRICT"),
     ("publications", "withdrawn_by_user_id"): ("users", "RESTRICT"),
     ("publications", "withdrawn_by_client_id"): ("oauth_clients", "RESTRICT"),
+    # A workspace's approval policy and publication requests go with the workspace; a request's
+    # decisions go with it. A request names its people and its publication, never deleted (0.12 A1).
+    ("approval_policies", "workspace_key"): ("workspaces", "CASCADE"),
+    ("change_set_submissions", "workspace_key"): ("workspaces", "CASCADE"),
+    ("change_set_submissions", "submitted_by_user_id"): ("users", "RESTRICT"),
+    ("change_set_submissions", "submitted_by_client_id"): ("oauth_clients", "RESTRICT"),
+    ("change_set_submissions", "publication_id"): ("publications", "RESTRICT"),
+    ("change_set_decisions", "submission_sequence_id"): ("change_set_submissions", "CASCADE"),
+    ("change_set_decisions", "decided_by_user_id"): ("users", "RESTRICT"),
+    ("change_set_decisions", "decided_by_client_id"): ("oauth_clients", "RESTRICT"),
     ("model_draft_operations", "author_user_id"): ("users", "RESTRICT"),
     ("model_draft_operations", "author_client_id"): ("oauth_clients", "RESTRICT"),
     ("model_mapping_operations", "author_user_id"): ("users", "RESTRICT"),

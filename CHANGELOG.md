@@ -6,6 +6,24 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 A1, a publication request and its approval)
+
+- **Submit, approve or send back (J42).** `POST /change-sets/{id}/submission` submits a validated change set for
+  publication (`DELETE` withdraws it); `POST /change-sets/{id}/decisions` approves it, which publishes it in the same
+  transaction bound to the reviewed version and the active publication, or sends it back with a required comment;
+  `GET /workspaces/{key}/publication-requests` lists the requests with their decisions, cursor-paged. A change set's
+  read gains `submission`. Each submission and each decision is a row of its own (`change_set_submissions`,
+  `change_set_decisions`, migration `20261110_01`); audit events `change-set.submitted`, `.withdrawn`, `.approved` and
+  `.sent-back` name the actor.
+- **Approve publications (D424).** A new action group, held by the Data owner role, not narrowable.
+- **A workspace's approval policy (D425).** `GET|PUT /workspaces/{key}/approval-policy`: `requireApproval` makes a
+  direct publication need an approval (a holder of Publish and Approve publishes in one step and the approval is
+  recorded; anyone else gets `409 APPROVAL_REQUIRED`), `secondPerson` keeps the submitter from deciding their own
+  request (`403 FORBIDDEN`, `details.reason: "ownApproval"`). A change is a security event (`approval-policy`).
+- **A submitted change set is frozen (D426).** Any write to it is refused `409 CHANGE_SET_SUBMITTED` unless the request
+  carries `withdrawSubmission=true`, which withdraws the submission in the same transaction. The inbox and webhook
+  events are A2, the interface A3.
+
 ### Fixed (0.12 E1, security review)
 
 - **A profile's check is made in a workspace (F5, low).** `GET` and `POST /import-profiles/{key}/check`, and the

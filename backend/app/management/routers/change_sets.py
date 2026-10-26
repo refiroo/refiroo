@@ -11,6 +11,7 @@ from ...common.pagination import (
 )
 from ...db import begin_snapshot_read
 from ...engine.authorization.visibility import in_workspaces
+from ...engine.change_sets import approvals
 from ...engine.change_sets.access import effective_change_set_membership
 from ...engine.change_sets.lifecycle import create_change_set, discard_change_set, update_change_set
 from ...engine.change_sets.pinning import (
@@ -18,7 +19,7 @@ from ...engine.change_sets.pinning import (
     selected_change_set_release,
     set_change_set_model_release,
 )
-from ...engine.change_sets.publish import publish_change_set, withdraw_publication
+from ...engine.change_sets.publish import withdraw_publication
 from ...engine.change_sets.validation import validate_change_set
 from ...engine.identity.principals import named, named_by, ref
 from ...engine.model.change_set_migrations import submit_change_set_migration
@@ -52,7 +53,7 @@ from ...engine.reads.snapshot_reads import change_set_context
 from ...engine.workspaces.catalogue import load_workspace
 from ...engine.workspaces.workspace_audit import record_change_set_validated
 from ...errors import ApiError, api_error
-from ...models.database import ChangeSet, ModelRelease, Publication, Workspace
+from ...models.database import ChangeSet, ChangeSetSubmission, ModelRelease, Publication, Workspace
 from ..access import (
     CHANGE_SET_PATH,
     PUBLICATION_PATH,
@@ -65,7 +66,17 @@ from ..access import (
 from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..presenters import job_responses, snapshot_attributes
+from ..projections.approvals import request_responses, submission_responses
 from ..projections.home import created_by
+from ..schemas.approvals import (
+    ApprovalPolicyResponse,
+    ApprovalPolicyUpdate,
+    DecisionCreate,
+    PublicationRequestPage,
+    PublicationRequestResponse,
+    RequestState,
+    SubmissionCreate,
+)
 from ..schemas.change_sets import (
     ChangeKind,
     ChangeSetCreate,
@@ -107,7 +118,11 @@ router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["change-
 migration_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["change-sets"])
 
 
-def _change_set_response(session, item: ChangeSet) -> ChangeSetResponse:
+def _change_set_response(
+    session, item: ChangeSet, submissions: dict[str, PublicationRequestResponse] | None = None
+) -> ChangeSetResponse:
+    if submissions is None:
+        submissions = submission_responses(session, [item.id])
     release = session.get(ModelRelease, item.model_release_id)
     source = (
         "currentLive"
@@ -129,6 +144,7 @@ def _change_set_response(session, item: ChangeSet) -> ChangeSetResponse:
         createdAt=item.created_at,
         updatedAt=item.updated_at,
         createdBy=named(session, ref(item.created_by_user_id, item.created_by_client_id)),
+        submission=submissions.get(item.id),
     )
 
 
@@ -184,8 +200,9 @@ def list_change_sets(
         sort=("createdAt", "id"),
         message="Change set cursor is invalid",
     )
+    submissions = submission_responses(session, [x.id for x in page.items])
     return ChangeSetPage(
-        items=[_change_set_response(session, x) for x in page.items], **page.links()
+        items=[_change_set_response(session, x, submissions) for x in page.items], **page.links()
     )
 
 
@@ -225,10 +242,11 @@ def list_own_change_sets(
             select(Workspace.key, Workspace.label).where(Workspace.key.in_(keys))
         )
     }
+    submissions = submission_responses(session, [item.id for item in page.items])
     return OwnChangeSetPage(
         items=[
             OwnChangeSetResponse(
-                **_change_set_response(session, item).model_dump(),
+                **_change_set_response(session, item, submissions).model_dump(),
                 workspaceLabel=labels[item.workspace_key],
                 changeCount=count_changes(session, change_set_context(session, item.id)),
             )
@@ -359,6 +377,7 @@ def delete_change_set(
     discard_change_set(session, change_set_id, expected_version)
 
 
+_REQUEST_STATE = Query(default=None, description="Only requests in this state")
 _KIND = Query(
     default=None,
     description="Only these kinds (repeatable): added, changed or removed; every kind when omitted",
@@ -649,18 +668,157 @@ def post_change_set_publication(
     change_set_id: str,
     payload: ChangeSetPublishRequest,
     session: DbSession,
+    permissions: CurrentPermissions,
 ) -> PublicationResponse:
-    change_set, change_set_model = pinned_model(session, change_set_id)
-    snapshot = resolve_model_snapshot(session, change_set.workspace_key)
-    publication = publish_change_set(
+    """Publish a change set. Where the workspace's policy requires approval, only a holder of
+    Approve publications may, in one step, unless a second person is required: `409
+    APPROVAL_REQUIRED` otherwise (0.12 A1, D425)."""
+    publication = approvals.publish_directly(
         session,
         change_set_id,
-        change_set_model,
-        snapshot.release_db_id,
-        payload.expectedChangeSetVersion,
-        str(payload.expectedActivePublicationId) if payload.expectedActivePublicationId else None,
+        permissions,
+        expected_version=payload.expectedChangeSetVersion,
+        expected_active_publication_id=(
+            str(payload.expectedActivePublicationId)
+            if payload.expectedActivePublicationId
+            else None
+        ),
     )
     return _publication_response(session, publication)
+
+
+@router.post(
+    "/change-sets/{change_set_id}/submission",
+    response_model=PublicationRequestResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+@requires("change-sets.submit", at=CHANGE_SET_PATH)
+def post_change_set_submission(
+    change_set_id: str, payload: SubmissionCreate, session: DbSession
+) -> PublicationRequestResponse:
+    """Submit a change set for publication (0.12 A1). The change set is then frozen: an edit is
+    refused `409 CHANGE_SET_SUBMITTED` unless the request carries `withdrawSubmission=true`, which
+    withdraws the submission. Refused: `409 VERSION_CONFLICT`, `409 CHANGE_SET_SUBMITTED`, `409
+    CHANGE_SET_INVALID`."""
+    submission = approvals.submit(
+        session, change_set_id, payload.expectedChangeSetVersion, payload.comment
+    )
+    return request_responses(session, [submission])[0]
+
+
+@router.delete("/change-sets/{change_set_id}/submission", status_code=status.HTTP_204_NO_CONTENT)
+@requires("change-sets.submit", at=CHANGE_SET_PATH)
+def delete_change_set_submission(
+    change_set_id: str, session: DbSession, permissions: CurrentPermissions
+) -> None:
+    """Withdraw a submission: the person who submitted it, or a holder of Approve publications.
+    `409 NOT_SUBMITTED` when the change set is not submitted."""
+    approvals.withdraw_submission(session, change_set_id, permissions)
+
+
+@router.post(
+    "/change-sets/{change_set_id}/decisions",
+    response_model=PublicationResponse | ChangeSetResponse,
+)
+@requires("change-sets.decide", at=CHANGE_SET_PATH)
+def post_change_set_decision(
+    change_set_id: str, payload: DecisionCreate, session: DbSession
+) -> PublicationResponse | ChangeSetResponse:
+    """Decide a submitted change set (0.12 A1). `approve` publishes it in the same transaction,
+    bound to `expectedChangeSetVersion` and `expectedActivePublicationId` as `POST
+    …/publication` is, and answers the publication; `sendBack` needs a comment and answers the
+    change set, open again. Refused: `422 COMMENT_REQUIRED`, `409 NOT_SUBMITTED`, `403 FORBIDDEN`
+    (`details.reason: "ownApproval"` under a second-person policy), `409 VERSION_CONFLICT`, `409
+    PUBLICATION_CONFLICT`."""
+    result = approvals.decide(
+        session,
+        change_set_id,
+        outcome=payload.outcome,
+        comment=payload.comment,
+        expected_version=payload.expectedChangeSetVersion,
+        expected_active_publication_id=(
+            str(payload.expectedActivePublicationId)
+            if payload.expectedActivePublicationId
+            else None
+        ),
+    )
+    if isinstance(result, Publication):
+        return _publication_response(session, result)
+    return _change_set_response(session, result)
+
+
+@router.get(
+    "/workspaces/{workspace_key}/publication-requests", response_model=PublicationRequestPage
+)
+@requires("change-sets.read", at=WORKSPACE_PATH)
+def list_publication_requests(
+    workspace_key: str,
+    session: DbSession,
+    paging: PageQuery,
+    state: RequestState | None = _REQUEST_STATE,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> PublicationRequestPage:
+    """Publication requests, newest first, each with its decisions (0.12 A1)."""
+    load_workspace(session, workspace_key)
+    statement = select(ChangeSetSubmission).where(
+        ChangeSetSubmission.workspace_key == workspace_key
+    )
+    if state is not None:
+        statement = statement.where(ChangeSetSubmission.state == state)
+    page = paginate_statement(
+        session,
+        statement,
+        keys=(
+            integer_key(
+                "sequenceId", ChangeSetSubmission.sequence_id, "sequence_id", descending=True
+            ),
+        ),
+        scope="publication-requests",
+        filters={"workspaceKey": workspace_key, "state": state},
+        page=paging,
+        page_size=page_size,
+        message="Publication request cursor is invalid",
+    )
+    return PublicationRequestPage(
+        items=request_responses(session, list(page.items)), **page.links()
+    )
+
+
+@router.get("/workspaces/{workspace_key}/approval-policy", response_model=ApprovalPolicyResponse)
+@requires("change-sets.read", at=WORKSPACE_PATH)
+def get_approval_policy(workspace_key: str, session: DbSession) -> ApprovalPolicyResponse:
+    """Whether publishing needs an approval and a second person to give it; both off, version 0,
+    until a policy is set (0.12 A1, D425)."""
+    load_workspace(session, workspace_key)
+    row = approvals.load_policy(session, workspace_key)
+    return ApprovalPolicyResponse(
+        workspaceKey=workspace_key,
+        requireApproval=row.require_approval if row else False,
+        secondPerson=row.second_person if row else False,
+        version=row.version if row else 0,
+    )
+
+
+@router.put("/workspaces/{workspace_key}/approval-policy", response_model=ApprovalPolicyResponse)
+@requires("approval-policy.write", at=WORKSPACE_PATH)
+def put_approval_policy(
+    workspace_key: str, payload: ApprovalPolicyUpdate, session: DbSession
+) -> ApprovalPolicyResponse:
+    """Set the workspace's approval policy (0.12 A1). `secondPerson` needs `requireApproval`
+    (`422 APPROVAL_POLICY_INVALID`); a stale `expectedVersion` is `409 VERSION_CONFLICT`."""
+    require, second, version = approvals.write_policy(
+        session,
+        workspace_key,
+        payload.requireApproval,
+        payload.secondPerson,
+        payload.expectedVersion,
+    )
+    return ApprovalPolicyResponse(
+        workspaceKey=workspace_key,
+        requireApproval=require,
+        secondPerson=second,
+        version=version,
+    )
 
 
 @router.get("/workspaces/{workspace_key}/publications", response_model=PublicationPage)

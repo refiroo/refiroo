@@ -291,9 +291,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # x-action-scope becomes "the query's workspace" (was "any scope"), and their descriptions
     # name the workspace. Verified by restoring the three changed app files, which reproduces the
     # previous hash.
+    # Re-baselined for 0.12 A1: POST/DELETE /change-sets/{id}/submission, POST
+    # /change-sets/{id}/decisions, GET /workspaces/{key}/publication-requests and GET/PUT
+    # /workspaces/{key}/approval-policy with the PublicationRequest*, Decision*, Submission* and
+    # ApprovalPolicy* schemas, `submission` on ChangeSetResponse, `approval-policy` among a security
+    # event's aggregate types, and the description of POST /change-sets/{id}/publication; nothing
+    # else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "096013a28abd80716b6a579ed89536d466219b16dcdaf039752936e19ff38c3d"
+        "c70f75699049e1079e82150c45100635503068c8634e53da767ed476394824e4"
     )
 
 
@@ -339,8 +345,8 @@ def test_paging_openapi_inventory():
     # a group's members, grants, a workspace's access and the caller's grants; 0.12 SP1 a person's
     # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets; 0.12
     # Z6 the changes across workspaces; 0.12 I3 the sign-in providers; 0.12 I4c a person's passkeys,
-    # their own and an administrator's; 0.12 M1 the mail outbox.
-    assert seekable <= paged and len(paged) == 63
+    # their own and an administrator's; 0.12 M1 the mail outbox; 0.12 A1 the publication requests.
+    assert seekable <= paged and len(paged) == 64
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",
