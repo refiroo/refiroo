@@ -6,6 +6,21 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 E1 prep, a real sign-in provider try)
+
+- **A runner that signs in against a real provider.** `npm run test:browser:real-provider` (heavy, Docker, run before E1
+  and at R) starts a pinned Keycloak with the realm in `backend/tests/keycloak/refiroo-realm.json` and walks ten sign-in
+  cases on two models: register, first sign-in, groups, a wrong password, groups changed at the provider, signing out of
+  the provider, local sign-in off and a rotated key.
+
+### Fixed (0.12 E1 prep, provider sign-in callback)
+
+- **Signing in through a real provider works.** Providers such as Keycloak return the browser with parameters of their
+  own (`session_state`, `iss`); the callback refused them as unknown (`422 UNKNOWN_PARAMETER`) and no session started.
+  `GET /oauth/providers/{key}/callback` now ignores extra parameters, and an `iss` it is given (RFC 9207) must equal
+  the provider's configured issuer, else the sign-in is refused like any other unconfirmed answer (a `sign-in` `failed`
+  event with reason `issuer`). Other routes still refuse unknown parameters.
+
 ### Added (0.12 M1)
 
 - **A waiting message can be stopped.** Settings › Mail › Messages shows Stop sending on a message still being

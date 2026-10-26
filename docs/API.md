@@ -5867,7 +5867,7 @@ Outside `/api/v1`, needing no token:
   `exp`, `iat`, `nonce`), finds the person by the provider and `sub` or creates them (D363), sets
   their memberships in the provider's groups (D364), and redirects (`303`) to the browser's
   `redirect_uri` with a one-time code and its `state`, as the form does; the session's
-  `signedInWith` is the provider's key. A sign-in that cannot finish shows "*name* could not sign
+  `signedInWith` is the provider's key. Parameters the provider adds of its own (`session_state`, ...) are ignored; an `iss` (RFC 9207) must equal the provider's issuer, else the sign-in is refused (reason `issuer`). A sign-in that cannot finish shows "*name* could not sign
   you in" with the reason and **Try again** (`400`; `403` for a deactivated person or a disabled
   provider) and is a `sign-in` `failed` security event; nothing is redirected.
 - `POST /oauth/second-factor` (I4b, D388): the sign-in page's second step, a form post carrying the

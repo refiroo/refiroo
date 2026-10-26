@@ -45,6 +45,7 @@ from ...models.commands import (
 from ...models.database import SignInProvider, User
 from .. import sign_in_pages as pages
 from ..dependencies import DbSession, started
+from ..query_parameters import reads_own_parameters
 
 router = APIRouter(tags=["oauth"])
 
@@ -498,6 +499,7 @@ def provider_start(
 
 
 @router.get("/oauth/providers/{key}/callback", dependencies=_STARTED, include_in_schema=False)
+@reads_own_parameters
 def provider_callback(
     key: str,
     request: Request,
@@ -506,9 +508,12 @@ def provider_callback(
     code: str | None = None,
     error: str | None = None,
     error_description: str | None = None,
+    iss: str | None = None,
 ) -> Response:
     """Where the provider returns the browser: the answer checked, the person found or created, and
-    the browser sent back with a one-time code as the password form does (D361, D368)."""
+    the browser sent back with a one-time code as the password form does (D361, D368). Providers
+    add parameters of their own (``session_state``, ``iss``, ...); the extra ones are ignored and
+    ``iss``, when present, is checked (RFC 9207)."""
     settings = _settings(request)
     provider = _provider(session, settings, key)
     if isinstance(provider, Response):
@@ -523,6 +528,7 @@ def provider_callback(
             code=code,
             error=(error or "")[:200] or None,
             error_description=(error_description or "")[:300] or None,
+            issuer=iss,
             browser_token=request.cookies.get(PROVIDER_COOKIE),
             address=_address(request),
             now=now,

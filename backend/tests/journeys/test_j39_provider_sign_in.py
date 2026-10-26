@@ -243,6 +243,26 @@ def test_provider_sign_ins_that_cannot_finish(world, idp):
 
 
 @pytest.mark.journey("J39")
+def test_a_provider_that_names_its_issuer_on_the_way_back(world, idp):
+    """Given a provider whose redirect carries `iss` and a `session_state` (as Keycloak's does).
+    When a person signs in through it, then the extra parameters are ignored and a session starts;
+    when the redirect's `iss` is another provider's, then the engine's page refuses it with no
+    code, no person is created, and a `sign-in` `failed` event says `issuer`."""
+    _provider(world, idp)
+    idp.send_extra_parameters = True
+    token = _signed_in(world, idp, **PAT)
+    me = ok(world.api.client.get("/api/v1/me", headers=_bearer(token)))
+    assert me["signedInWith"] == "harness"
+
+    idp.misbehave = "redirect-issuer"
+    _cannot(_through(_browser(world), idp, sub="p-2", name="Quinn", email="q@example.org")[0],
+            "could not confirm")  # fmt: skip
+    idp.misbehave = None
+    assert [u["name"] for u in ok(world.api.get("/users", q="Quinn"))["items"]] == []
+    assert [e["details"]["reason"] for e in _failures(world)] == ["issuer"]
+
+
+@pytest.mark.journey("J39")
 def test_local_sign_in_off(world, idp):
     """Turning local sign-in off with no working provider answers `409 NO_WORKING_PROVIDER`; after
     a provider sign-in it is turned off; then a local person's password is refused, a person made

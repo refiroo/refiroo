@@ -56,6 +56,7 @@ from ..engine.reads.consumer_source import PUBLICATION_SCOPE, ConsumerSource
 from ..engine.reads.consumer_xref import read_xref, xref_terms
 from ..engine.workspaces.catalogue import resolve_workspace
 from ..errors import ApiError, api_error
+from ..management.query_parameters import reads_own_parameters
 from ..models.database import Publication, Workspace
 from ..models.schema import ConsumerApiDefinition, EngineModel
 from .etag import entity_tag, none_match
@@ -164,13 +165,6 @@ router = APIRouter(
     prefix=PREFIX, tags=["consumer"], include_in_schema=False,
     dependencies=[Depends(_started), Depends(_authenticated)],
 )
-
-
-def reads_own_parameters[F](endpoint: F) -> F:
-    """Mark a route that checks its query parameters itself, against its definition: the app-wide
-    unknown-parameter check (``management/query_parameters``) leaves it alone."""
-    endpoint.reads_own_parameters = True  # type: ignore[attr-defined]
-    return endpoint
 
 
 @dataclass(frozen=True)

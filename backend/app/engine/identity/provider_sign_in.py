@@ -149,6 +149,7 @@ def finish(
     browser_token: str | None,
     address: str | None,
     now: datetime,
+    issuer: str | None = None,
 ) -> tuple[User, dict[str, str], bytes | None]:
     """The person the provider signed in, the browser's request and, when the provider signs people
     out too (I4a), its ID token sealed for the session; or ``SignInFailed``. Commits."""
@@ -187,6 +188,13 @@ def finish(
             f"{provider.name} answered: {said or 'no code'}. Try again, or ask whoever manages "
             f"{provider.name} whether you may use this application.",
             detail=said,
+        )
+    if issuer is not None and issuer != provider.issuer:
+        # RFC 9207: the answer names the provider it came from; another one is a mix-up attempt.
+        raise fail(
+            "issuer",
+            _UNCONFIRMED.format(name=provider.name),
+            detail=f"the redirect named issuer {issuer[:200]!r}",
         )
     try:
         discovery = provider_client.discover(provider.issuer)

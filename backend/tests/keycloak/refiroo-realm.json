@@ -1,0 +1,86 @@
+{
+  "realm": "refiroo",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "bruteForceProtected": false,
+  "groups": [
+    { "name": "finance", "path": "/finance" },
+    { "name": "audit", "path": "/audit" }
+  ],
+  "clients": [
+    {
+      "clientId": "refiroo-engine",
+      "name": "refiroo engine",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "__CLIENT_SECRET__",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["__ENGINE_URL__/oauth/providers/keycloak/callback"],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__ENGINE_URL__/oauth/providers/keycloak/signed-out"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "ada",
+      "enabled": true,
+      "email": "ada@refiroo.test",
+      "emailVerified": true,
+      "firstName": "Ada",
+      "lastName": "Lövelace",
+      "groups": ["/finance", "/audit"],
+      "credentials": [
+        { "type": "password", "value": "try-password-ada", "temporary": false }
+      ]
+    },
+    {
+      "username": "bo",
+      "enabled": true,
+      "email": "bo@refiroo.test",
+      "emailVerified": true,
+      "firstName": "Bo",
+      "lastName": "Berg",
+      "groups": ["/finance"],
+      "credentials": [
+        { "type": "password", "value": "try-password-bo", "temporary": false }
+      ]
+    },
+    {
+      "username": "cy",
+      "enabled": true,
+      "email": "cy@refiroo.test",
+      "emailVerified": true,
+      "firstName": "Cy",
+      "lastName": "Case",
+      "credentials": [
+        { "type": "password", "value": "try-password-cy", "temporary": false }
+      ]
+    }
+  ]
+}

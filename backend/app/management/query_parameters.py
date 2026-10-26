@@ -26,6 +26,13 @@ def accepts_field_filters[F: Callable[..., Any]](endpoint: F) -> F:
     return endpoint
 
 
+def reads_own_parameters[F](endpoint: F) -> F:
+    """Mark a route that checks its query parameters itself (a consumer route against its
+    definition, the provider callback against what it needs): this check leaves it alone."""
+    endpoint.reads_own_parameters = True  # type: ignore[attr-defined]
+    return endpoint
+
+
 def refuse_unknown_parameters(request: Request) -> None:
     route = request.scope.get("route")
     if not isinstance(route, APIRoute) or getattr(route.endpoint, "reads_own_parameters", False):

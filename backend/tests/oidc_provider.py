@@ -4,7 +4,8 @@ It serves its discovery document, its keys (one RS256 key made at start), an aut
 the test or the person at the browser chooses who signs in (subject, name, e-mail, username and
 groups), and a token endpoint that checks the client's secret and the PKCE verifier and answers an
 ID token. ``misbehave`` makes the next tokens wrong in one way (another issuer, a wrong nonce,
-another audience) or the authorize step answer ``access_denied``.
+another audience), the authorize step answer ``access_denied``, or the redirect carry another
+provider's ``iss`` (``redirect-issuer``).
 
 The journeys run it in a thread (``OidcProvider``); the browser runner runs it as a script:
 
@@ -48,6 +49,9 @@ class OidcProvider:
     client_secret: str = field(default_factory=lambda: secrets.token_urlsafe(24))
     port: int = 0
     misbehave: str | None = None
+    # True: the redirect back carries ``iss`` (RFC 9207) and a ``session_state``, as Keycloak's
+    # does; ``misbehave = "redirect-issuer"`` makes that ``iss`` another provider's.
+    send_extra_parameters: bool = False
     # False: the discovery document names no sign-out address (I4a).
     end_session: bool = True
     # What the sign-out endpoint was asked, newest last (I4a).
@@ -151,7 +155,13 @@ class OidcProvider:
         self._codes[code] = _Code(
             form["client_id"], redirect, form.get("code_challenge", ""), form.get("nonce"), claims
         )
-        return f"{redirect}?{urlencode({'code': code, 'state': state})}"
+        answer = {"code": code, "state": state}
+        if self.send_extra_parameters or self.misbehave == "redirect-issuer":
+            answer["session_state"] = secrets.token_urlsafe(12)
+            answer["iss"] = (
+                f"{self.issuer}/other" if self.misbehave == "redirect-issuer" else self.issuer
+            )
+        return f"{redirect}?{urlencode(answer)}"
 
     def token(self, form: dict[str, str], authorization: str | None) -> tuple[int, dict[str, Any]]:
         client_id, secret = form.get("client_id"), form.get("client_secret")
