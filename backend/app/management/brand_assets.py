@@ -14,13 +14,6 @@ from ..errors import ApiError
 BRAND_DIR = Path(__file__).resolve().parent / "brand"
 BRAND_FILES = ("favicon.png", "refiroo-mascot.png", "refiroo-wordmark.png")
 
-# The names `refiroo` replaces: a model that still names its product so shows the mark alone.
-DEFAULT_PRODUCT_NAMES = ("refiroo", "rdm engine")
-
-
-def is_default_product_name(name: str) -> bool:
-    return name.strip().lower() in DEFAULT_PRODUCT_NAMES
-
 
 def brand_router() -> APIRouter:
     router = APIRouter(include_in_schema=False)

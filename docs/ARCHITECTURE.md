@@ -1109,7 +1109,7 @@ dispatcher are: it leases due messages with `FOR UPDATE SKIP LOCKED`, retries wi
 and shares one server-wide failure (connection, TLS, login) among the messages it holds instead of
 waiting out a timeout for each. A person's one-time link is the first producer (SP3, `links.py`): `resets.create_link` makes the link, and
 `before_commit` queues the message in the same transaction, after `check` has refused a missing address
-without replacing the earlier link. `links.request_reset` is the second (I6): the asks are counted under `reset-` kinds of
+without replacing the earlier link. Every message names the product through `templates.product` (the model's own name, refiroo for a default one), so no caller words it. `links.request_reset` is the second (I6): the asks are counted under `reset-` kinds of
 `sign_in_failures` (`sign_in.seconds_to_wait`/`record_failure` take a scope), whatever the typed name matches,
 before any account is looked up, so the answer reveals nothing. No other route queues mail; the test message is the one thing sent from a
 request, because its answer is the point. `resealing.py` covers the password and the queued text.

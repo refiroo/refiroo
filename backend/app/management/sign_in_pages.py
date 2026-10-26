@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 from fastapi.responses import HTMLResponse
 
-from .brand_assets import is_default_product_name
+from ..common.brand import is_default_product_name
 
 _STYLE = """
 :root{--surface-sunken:#f6f5f2;--surface-raised:#fff;--text-primary:#1d1c1a;--text-secondary:#55524c;

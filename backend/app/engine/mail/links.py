@@ -19,7 +19,7 @@ from . import settings as mail_settings
 
 
 def create_and_send(
-    session: Session, settings: IdentitySettings, user_public_id: str, product: str
+    session: Session, settings: IdentitySettings, user_public_id: str
 ) -> tuple[str, datetime, str]:
     """Make the person's link and queue it for their address: ``(link, expires, address)``. A
     person with no password is welcomed, one with a password is told a new one was asked for.
@@ -37,7 +37,7 @@ def create_and_send(
 
     def queue(user: User, url: str, has_password: bool) -> None:
         make = templates.password_reset if has_password else templates.activation
-        message = make(product, user.name, url, settings.password_reset_hours)
+        message = make(templates.product(session), user.name, url, settings.password_reset_hours)
         outbox.enqueue(session, settings, user.email, message)
         sent_to.append(user.email)
 
@@ -57,7 +57,6 @@ def request_reset(
     settings: IdentitySettings,
     identifier: str,
     address: str | None,
-    product: str,
     now: datetime,
 ) -> int:
     """A person who forgot their password asks for a link by username or e-mail address (D420).
@@ -82,7 +81,7 @@ def request_reset(
     ).all()
     for public_id in people:
         try:
-            create_and_send(session, settings, public_id, product)
+            create_and_send(session, settings, public_id)
         except ApiError:
             # No address, or local sign-in off for them: nothing is sent and nothing is said.
             session.rollback()

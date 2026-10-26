@@ -249,7 +249,6 @@ def reset_request(payload: AppResetRequest, request: Request, session: DbSession
             settings,
             payload.identifier,
             oauth._address(request),
-            oauth._product(session),
             datetime.now(UTC),
         )
     except ApiError as refusal:

@@ -7,6 +7,11 @@ travels and sits in mailboxes.
 
 from dataclasses import dataclass
 
+from sqlalchemy.orm import Session
+
+from ...common.brand import is_default_product_name
+from ..identity.second_factor import product_name
+
 # What a message calls the product when no model names one.
 PRODUCT = "refiroo"
 
@@ -16,6 +21,14 @@ TEST = "test"
 KINDS = (ACTIVATION, PASSWORD_RESET, TEST)
 
 IGNORE = "If you did not expect this message, ignore it; nothing changes."
+
+
+def product(session: Session) -> str:
+    """What every message calls the product: the name the default workspace's model gives it, and
+    ``refiroo`` where the model keeps a default name. One answer for every message, whatever
+    caused it."""
+    name = product_name(session, PRODUCT)
+    return PRODUCT if is_default_product_name(name) else name
 
 
 @dataclass(frozen=True)

@@ -63,7 +63,9 @@ def post_mail_test(payload: MailTest, request: Request, session: DbSession) -> M
     identity = _identity(request)
     row = settings.require(session)
     connection = settings.connection(identity, row)
-    rendered = templates.test_message(templates.PRODUCT, settings.application_url(identity, row))
+    rendered = templates.test_message(
+        templates.product(session), settings.application_url(identity, row)
+    )
     session.rollback()
     try:
         smtp.deliver(

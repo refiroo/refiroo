@@ -199,3 +199,29 @@ def test_the_new_password_meets_the_rules_and_a_replaced_link_is_gone(world, smt
     assert foreign.status_code == 403 and foreign.json()["error"] == "foreign_origin"
     assert ok(browser.get(PAGE, params={"token": second}, headers=APP))["username"] == "ada"
     assert ok(post(SET_TO, SET_TO))["status"] == "password_set"
+
+
+@pytest.mark.journey("J46.8")
+def test_a_reset_reads_the_same_whoever_asked_for_it(world, smtp):  # noqa: F811
+    """Given a person with a password. When an administrator mails their link and when they ask on
+    the sign-in screen, then both messages are the same message (subject and text, apart from the
+    link) and name the product as the test message does (the model's name, or refiroo for a default one)."""
+    _save(world, smtp)
+    ada = _with_password(world, "ada", "ada@example.org")
+    ok(world.api.post(f"/users/{ada['id']}/password-reset", {"send": True}), 201)
+    _ask(_browser(world), "ada")
+    ok(world.api.post("/mail-settings/test", {"to": "ada@example.org"}))
+    send_mail(world)
+    test, by_administrator, by_person = smtp.messages[-3:]  # the test message goes at once
+    assert test["Subject"].endswith("test message"), [m["Subject"] for m in smtp.messages]
+
+    def text(mail) -> str:
+        return "\n".join(
+            "<link>" if "token=" in line else line for line in mail.get_content().splitlines()
+        )
+
+    assert by_administrator["Subject"] == by_person["Subject"]
+    assert text(by_administrator) == text(by_person)
+    # The name is the model's own, or refiroo where it keeps a default name; the same in all three.
+    product = test["Subject"].removesuffix(": test message")
+    assert product in by_person["Subject"] and product in by_administrator["Subject"]

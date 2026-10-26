@@ -6,6 +6,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (0.12 M1, I6)
+
+- **Every message names the product the same way.** A reset asked for on the sign-in screen said "RDM Engine"
+  (the model's product name) while one mailed from People said "refiroo" (a constant), and the test message
+  used the constant. `templates.product` is now the one place: the model's own name, or refiroo where the
+  model keeps a default name; callers no longer pass a name. The list of default names moved to
+  `common/operator.py`, used by the sign-in pages too.
+
 ### Added (0.12 I6)
 
 - **A forgotten password is asked for on the sign-in screen.** Where mail is set up and local sign-in is
