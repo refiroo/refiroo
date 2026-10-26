@@ -29,6 +29,7 @@ from ...engine.identity.clients import (
 )
 from ...engine.identity.users import create_user, load_user, update_user, user_page
 from ...engine.mail import links as mail_links
+from ...engine.mail import settings as mail_settings
 from ...engine.mail.templates import PRODUCT
 from ...errors import api_error
 from ...models.commands import (
@@ -386,7 +387,8 @@ def post_password_reset(
     if payload is not None and payload.send:
         url, expires_at, sent_to = mail_links.create_and_send(session, identity, user_id, PRODUCT)
         return PasswordResetLinkResponse(url=url, expiresAt=expires_at, sentTo=sent_to)
-    url, expires_at = resets.create_link(session, identity, user_id)
+    base = mail_settings.reset_link_base(session, identity)
+    url, expires_at = resets.create_link(session, identity, user_id, base=base)
     return PasswordResetLinkResponse(url=url, expiresAt=expires_at)
 
 

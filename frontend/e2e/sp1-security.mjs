@@ -83,7 +83,7 @@ async function walk(configuration) {
     await create.getByRole("button", { name: "Create and make a password link" }).click();
     const shown = page.getByRole("dialog", { name: "Pass on the password link" });
     const link = await shown.locator("code").innerText();
-    expect(link.includes("/oauth/password?token="), `${tag}: the link is the engine's password page: ${link}`);
+    expect(link.includes("/reset-password?token="), `${tag}: the link opens the application's reset page: ${link}`);
     await shot(page, "link-shown-once");
     await axe(page, `${tag}-link-dialog`);
     await shown.getByRole("button", { name: "I have copied it" }).click();

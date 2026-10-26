@@ -1281,7 +1281,9 @@ each attempt waits longer, up to fifteen minutes, but the account is never locke
 names the person and leads to Settings › Account, where they change their password and see where they
 are signed in, signing out one browser or all of them. An administrator signs a person out everywhere,
 deactivates them (their access ends at once) or makes a one-time link that sets their password, for a
-new person or a forgotten password. Systems obtain tokens with a client's credentials (F16).
+new person or a forgotten password. Where mail is set up the sign-in screen offers Forgotten your
+password?: the person types their username or e-mail address, is told the same whoever they name, and
+receives a link to choose a new password only if they have a local password and an address. Systems obtain tokens with a client's credentials (F16).
 
 The organisation's sign-in provider (OpenID Connect: Entra ID, Google, Keycloak and others) is added
 on Settings › Security › Sign-in, with the address to register there shown to copy; the sign-in page

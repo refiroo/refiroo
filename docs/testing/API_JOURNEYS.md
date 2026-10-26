@@ -192,6 +192,7 @@ each moves into the tables above with its package. Every existing route gains `4
 | `GET /.well-known/oauth-authorization-server`, `GET /oauth/jwks` | J39, J41, J43.1 | I1 |
 | `GET/POST /oauth/authorize` (the sign-in page; PKCE `S256`) | J39, J39.1, J39.5, J39.7 | I2, I3 |
 | `GET /oauth/sign-in/options`, `POST /oauth/sign-in/password`, `POST /oauth/sign-in/second-factor` (the application's sign-in screen; the same rules, JSON) | J39 (`test_j39_app_sign_in`) | I5 |
+| `POST /oauth/sign-in/reset-request`, `GET`/`POST /oauth/sign-in/reset` (a forgotten password; `options.reset`) | J46.8 (`test_j46_reset_by_mail`) | I6 |
 | `POST /oauth/token` (`authorization_code`, `refresh_token`, `client_credentials`), `POST /oauth/revoke` | J39.2, J39.3, J41, J41.3, J41.4 | I1, I2 |
 | `GET/DELETE /me/sessions`, `DELETE /me/sessions/{id}`, `POST /me/password` | J39.3, J39.6 | I2 |
 | `GET/POST /users`, `GET/PATCH /users/{id}`, `POST /users/{id}/password-reset` (`send`, SP3), `DELETE /users/{id}/sessions`, `GET /users/{id}/grants` | J40, J39.3, J39.4, J46.7 | I1, SP1 |

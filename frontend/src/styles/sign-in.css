@@ -62,6 +62,10 @@
 .sign-in-card button.link-button {
   width: auto;
 }
+.sign-in-card a {
+  color: var(--link);
+  font-size: 13px;
+}
 .sign-in-aside {
   margin: 0;
   color: var(--text-secondary);

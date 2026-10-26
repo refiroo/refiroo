@@ -361,8 +361,12 @@ token presented a second time ends the session, since only a copy can do that.
 - **A first password** for a person created through the API: `POST /api/v1/users/{id}/password-reset`
   answers a one-time link, valid `PASSWORD_RESET_HOURS`, to pass on to the person. With `{"send": true}`, mail set up
   ([Sending mail](#sending-mail)) and an address on the person, the link is also mailed (SP3, D418); People does
-  this by itself when it can. It opens the engine's page that sets the password; a newer link replaces an older one, and
-  using it ends the person's sessions. The same link resets a forgotten password.
+  this by itself when it can. It opens the application's `/reset-password` page (the Mail page's application address, else the
+  first `CORS_ORIGINS` entry; the engine's `/oauth/password` when neither is known, and for links made
+  earlier); a newer link replaces an older one, and using it ends the person's sessions. With mail set up
+  a person who forgot their password asks for the same link themselves on the sign-in screen (I6): by
+  username or e-mail address, answered the same whoever is named, slowed per name and per address, sent
+  only to an active person with a local password and an address. Without mail they ask an administrator.
 - **Failed sign-ins are slowed, never locked** (D271): after 5 failures for one username, or 20 from
   one address, each attempt waits 1 second, doubling to at most 15 minutes, and the page says how
   long. A success clears the username's count; counts lapse after 24 hours. Each failure is logged

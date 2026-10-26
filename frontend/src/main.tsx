@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "@/app/App";
 import { API_URL } from "@/api/address";
 import { startSession } from "@/api/session";
+import { ResetPasswordScreen } from "@/features/sign-in/ResetPasswordScreen";
 import { SignInScreen } from "@/features/sign-in/SignInScreen";
 import { ErrorBoundary } from "@/ui/ErrorBoundary";
 import "@fontsource-variable/instrument-sans/wght.css";
@@ -34,6 +35,15 @@ function Starting({ unreachable }: { unreachable?: boolean }) {
 }
 
 async function start() {
+  if (window.location.pathname === "/reset-password") {
+    // Asking for a new password, or choosing it with a link (0.12 I6): the person has no session.
+    root.render(
+      <React.StrictMode>
+        <ResetPasswordScreen />
+      </React.StrictMode>,
+    );
+    return;
+  }
   root.render(<Starting />);
   try {
     if ((await startSession()) === "sign-in") {

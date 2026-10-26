@@ -785,6 +785,25 @@ class AppPasswordSignIn(BaseModel):
     password: str = Field(default="", max_length=1024)
 
 
+class AppResetRequest(BaseModel):
+    """A forgotten password asked for on the application's sign-in screen: the username or the
+    e-mail address (0.12 I6, D420)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    identifier: str = Field(min_length=1, max_length=320)
+
+
+class AppPasswordReset(BaseModel):
+    """The new password a mailed or made link sets, typed twice (0.12 I6)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(max_length=128)
+    password: str = Field(default="", max_length=1024)
+    repeat: str = Field(default="", max_length=1024)
+
+
 class AppSecondFactor(BaseModel):
     """The second step of a password sign-in from the application's screen: a code or a recovery
     code, or neither to go on after the recovery codes were shown (0.12 I5)."""

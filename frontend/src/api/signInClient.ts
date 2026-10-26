@@ -14,6 +14,8 @@ export interface SignInOptions {
   /** Whether a password is accepted (off once the organisation signs in with a provider, D365). */
   local: boolean;
   passkey: boolean;
+  /** A forgotten password can be asked for here: mail is set up and local sign-in is on (I6). */
+  reset: boolean;
   providers: { key: string; name: string; start: string }[];
 }
 
@@ -88,4 +90,53 @@ export async function signInSecondFactor(step: string, fields: { code?: string; 
   return answer(
     await call("/oauth/sign-in/second-factor", { method: "POST", body: JSON.stringify({ step, ...fields }) }),
   );
+}
+
+/** What a refusal of the reset steps carries: the engine's own words, never kept twice. */
+export interface ResetRefused {
+  ok: false;
+  error: string;
+  message: string;
+  waitSeconds: number;
+}
+
+/** What the reset page needs; with a token, who the link is for and the password rule. */
+export type ResetPage =
+  | { ok: true; product: string; available: boolean }
+  | { ok: true; product: string; username: string; minLength: number }
+  | ResetRefused;
+
+function refusal({ body }: { body: Body }): ResetRefused {
+  return {
+    ok: false,
+    error: body.error ?? "unexpected",
+    message: body.message ?? "The engine did not accept that.",
+    waitSeconds: body.waitSeconds ?? 0,
+  };
+}
+
+export async function resetPage(token = ""): Promise<ResetPage> {
+  const result = await call(`/oauth/sign-in/reset${token ? `?${new URLSearchParams({ token })}` : ""}`);
+  if (result.status === 200) return { ok: true, ...(result.body as { product: string; available: boolean }) };
+  return refusal(result);
+}
+
+/** Ask for a link by username or e-mail address; the same answer whoever is named (D420). */
+export async function requestReset(identifier: string): Promise<{ ok: true; message: string } | ResetRefused> {
+  const result = await call("/oauth/sign-in/reset-request", { method: "POST", body: JSON.stringify({ identifier }) });
+  if (result.status === 202) return { ok: true, message: result.body.message ?? "" };
+  return refusal(result);
+}
+
+export async function setPasswordWithLink(
+  token: string,
+  password: string,
+  repeat: string,
+): Promise<{ ok: true } | ResetRefused> {
+  const result = await call("/oauth/sign-in/reset", {
+    method: "POST",
+    body: JSON.stringify({ token, password, repeat }),
+  });
+  if (result.status === 200) return { ok: true };
+  return refusal(result);
 }

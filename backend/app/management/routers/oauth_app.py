@@ -12,11 +12,26 @@ the passkey ceremonies are the routes of ``oauth.py``, which already answer in J
 from datetime import UTC, datetime
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import JSONResponse
 
-from ...engine.identity import browser_sign_in, passkeys, providers, second_factor, sign_in
-from ...models.commands import AppPasswordSignIn, AppSecondFactor
+from ...engine.identity import (
+    browser_sign_in,
+    passkeys,
+    providers,
+    resets,
+    second_factor,
+    sign_in,
+)
+from ...engine.mail import links as mail_links
+from ...engine.mail import settings as mail_settings
+from ...errors import ApiError
+from ...models.commands import (
+    AppPasswordReset,
+    AppPasswordSignIn,
+    AppResetRequest,
+    AppSecondFactor,
+)
 from .. import sign_in_pages as pages
 from ..dependencies import DbSession
 from . import oauth
@@ -94,6 +109,7 @@ def options(
         {
             "product": oauth._product(session),
             "local": providers.local_enabled(session),
+            "reset": providers.local_enabled(session) and mail_settings.load(session) is not None,
             "passkey": passkeys.any_exist(session),
             "providers": [
                 {"key": provider.key, "name": provider.name, "start": path}
@@ -204,3 +220,111 @@ def second_factor_step(payload: AppSecondFactor, request: Request, session: DbSe
             "That code is not right, or was already used. Wait for the next one and try again.",
         )
     return _problem(422, "code_required", "Type a code.")
+
+
+# ---------------------------------------------------------------------------------------------
+# A forgotten password (Product 0.12 I6, D420, D422)
+
+
+def _link_gone() -> JSONResponse:
+    return _problem(
+        410,
+        "link_gone",
+        "This link has been used, replaced by a newer one, or has expired. Ask for a new one.",
+    )
+
+
+@router.post("/reset-request", status_code=202)
+def reset_request(payload: AppResetRequest, request: Request, session: DbSession) -> Response:
+    """Ask for a link to a new password with a username or an e-mail address. The answer is the
+    same ``202`` whether or not such a person exists or can be written to; ``429 slowed`` counts
+    the asks per name and per address (D271) and says nothing of any account; ``409
+    mail_not_set_up`` when the engine cannot send mail at all."""
+    settings = oauth._settings(request)
+    if forged := _forged(request, settings):
+        return forged
+    try:
+        wait = mail_links.request_reset(
+            session,
+            settings,
+            payload.identifier,
+            oauth._address(request),
+            oauth._product(session),
+            datetime.now(UTC),
+        )
+    except ApiError as refusal:
+        if refusal.code != "MAIL_NOT_SET_UP":
+            raise
+        return _problem(
+            409,
+            "mail_not_set_up",
+            "A password cannot be asked for by e-mail here. Ask a security administrator for a "
+            "reset link.",
+        )
+    if wait:
+        return _problem(
+            429,
+            "slowed",
+            "Too many requests for this account or from this address. You can try again in "
+            f"{pages.wait_text(wait)}.",
+            wait,
+        )
+    return JSONResponse(
+        {
+            "status": "requested",
+            "message": "If there is an account with that username or address that can be reset "
+            "by e-mail, a link was sent to it.",
+        },
+        status_code=202,
+        headers=_NO_STORE,
+    )
+
+
+@router.get("/reset")
+def reset_page(
+    request: Request, session: DbSession, token: str = Query("", max_length=128)
+) -> Response:
+    """What the reset page needs. Without a token: the product's name and whether a password can
+    be asked for by e-mail (``available``). With one: who it is for and the password rule, or
+    ``410 link_gone`` when it is used, replaced, expired or unknown."""
+    product = oauth._product(session)
+    if not token:
+        return JSONResponse(
+            {"product": product, "available": mail_settings.load(session) is not None},
+            headers=_NO_STORE,
+        )
+    user = resets.link_user(session, token)
+    if user is None:
+        return _link_gone()
+    return JSONResponse(
+        {
+            "product": product,
+            "username": user.username,
+            "minLength": oauth._settings(request).password_min_length,
+        },
+        headers=_NO_STORE,
+    )
+
+
+@router.post("/reset")
+def reset_password(payload: AppPasswordReset, request: Request, session: DbSession) -> Response:
+    """Set the password a valid link names, under the engine's rules (the same as
+    ``/oauth/password``); the person's sessions end. ``410 link_gone`` for a link used, replaced,
+    expired or unknown; ``422`` ``passwords_differ`` or ``password_rejected`` (with the rule that
+    failed) leave the link as it was."""
+    settings = oauth._settings(request)
+    if forged := _forged(request, settings):
+        return forged
+    if not payload.token or resets.link_user(session, payload.token) is None:
+        return _link_gone()
+    if payload.password != payload.repeat:
+        return _problem(
+            422, "passwords_differ", "The two passwords differ. Type the same one twice."
+        )
+    try:
+        used = resets.use_link(session, settings, payload.token, payload.password)
+    except ApiError as refusal:
+        return _problem(422, "password_rejected", refusal.message)
+    if not used:
+        return _link_gone()
+    return JSONResponse({"status": "password_set"}, headers=_NO_STORE)

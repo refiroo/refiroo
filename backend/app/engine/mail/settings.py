@@ -60,6 +60,15 @@ def application_url(identity: IdentitySettings, row: MailSettings | None) -> str
     return identity.browser_origins[0].rstrip("/") if identity.browser_origins else identity.issuer
 
 
+def reset_link_base(session: Session, identity: IdentitySettings) -> str:
+    """The address a password link is built on: the application's reset page, or the engine's own
+    page when no address of the application is known (I6, D422)."""
+    row = load(session)
+    if (row is None or not row.application_url) and not identity.browser_origins:
+        return f"{identity.issuer}/oauth/password"
+    return f"{application_url(identity, row)}/reset-password"
+
+
 def uses_default_address(row: MailSettings | None) -> bool:
     return row is None or not row.application_url
 

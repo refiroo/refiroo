@@ -5825,7 +5825,18 @@ Outside `/api/v1`, needing no token:
   `{step, code?, recovery?}` and answers `signed_in`, `{status: "recovery_codes", codes}` (send the
   step again with no code to go on), `401 wrong_code`, `429 slowed`, `410 step_gone`. A post whose
   `Origin` is neither the engine's nor one of `CORS_ORIGINS` is `403 foreign_origin`. Errors carry
-  `{error, message}`, the message being the page's own wording.
+  `{error, message}`, the message being the page's own wording. `options` also answers `reset` (mail is
+  set up and local sign-in is on).
+- `POST /oauth/sign-in/reset-request`, `GET /oauth/sign-in/reset`, `POST /oauth/sign-in/reset` (I6,
+  D420; not in the OpenAPI document): a forgotten password. `reset-request {identifier}` (a username or
+  an e-mail address) answers `202 {status: "requested", message}` whether or not anyone matches; only an
+  active person with a local password, a kept local sign-in and an address is written to, one link each.
+  Asks are counted per typed name and per address (3 free, then 1 s doubling to 15 minutes, D271) and
+  refused `429 slowed` with `waitSeconds`; `409 mail_not_set_up` when mail is not set up. `GET reset`
+  without a token answers `{product, available}`; with one `{product, username, minLength}` or `410
+  link_gone` (used, replaced, expired or unknown). `POST reset {token, password, repeat}` answers
+  `{status: "password_set"}` and ends the person's sessions, or `410 link_gone`, `422 passwords_differ`,
+  `422 password_rejected` (the rule that failed; the link stays valid), `403 foreign_origin`.
 - `GET /oauth/authorize`, `POST /oauth/authorize`: the engine's sign-in page and its form (I2). The
   authorization code flow with PKCE, `code_challenge_method=S256` only, for the browser's built-in
   public client `client_id=browser` (no secret); its `redirect_uri` is `<origin>/signed-in` for an

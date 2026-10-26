@@ -6,6 +6,20 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 I6)
+
+- **A forgotten password is asked for on the sign-in screen.** Where mail is set up and local sign-in is
+  on, the screen links to `/reset-password`: the person types a username or e-mail address and is told
+  the same whoever they name. A link to the application's reset page is mailed only to an active person
+  with a local password and an address; asking is slowed per name and per address (3 free asks, then
+  doubling to 15 minutes) whatever the name matches. The link names the person, works once, is replaced
+  by a newer one, and sets a password under the engine's rules; the person's sessions end. New JSON
+  routes beside I5's (`POST /oauth/sign-in/reset-request`, `GET`/`POST /oauth/sign-in/reset`), not in the
+  OpenAPI document; `options` gains `reset`.
+- Links an administrator makes and links in mail now open the application's reset page (the Mail page's
+  application address, else the first `CORS_ORIGINS` entry); with neither known they open the engine's
+  `/oauth/password`, which still works for links made before.
+
 ### Added (0.12 SP3)
 
 - **A new person's link is mailed.** `POST /users/{id}/password-reset` takes `send: true`: with mail set

@@ -23,7 +23,7 @@ import { PasskeyError, signInWithPasskey } from "@/lib/passkeySignIn";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
 import { Notice } from "@/ui/Notice";
-import { ProductMark } from "@/ui/ProductMark";
+import { SignInFrame } from "./SignInFrame";
 
 type View =
   | { kind: "start" }
@@ -162,174 +162,172 @@ export function SignInScreen() {
         : "Sign in";
 
   return (
-    <main className="sign-in-screen" aria-busy={leaving || (!options && !loadError)}>
-      <header className="sign-in-brand">
-        {/* The name comes with the options, so the default one is never shown first and swapped. */}
-        {options || loadError ? <ProductMark name={product} /> : <span className="sign-in-mark-space" />}
-        <p className="sign-in-welcome">
-          <strong>Reference data that stays in step.</strong>
-          Every code, category and mapping, kept tidy so everything else can trust it.
-        </p>
-      </header>
-      <div className="sign-in-card">
-        <h1>{title}</h1>
-        {loadError ? (
-          <>
-            <Notice tone="error" title="Signing in is not possible right now">
-              {loadError}
-            </Notice>
-            <button
-              type="button"
-              className="primary"
-              onClick={() => {
-                setLoadError("");
-                setAttempt((count) => count + 1);
-              }}
-            >
-              Try again
-            </button>
-          </>
-        ) : !options ? (
-          <p className="sign-in-aside">Loading…</p>
-        ) : (
-          <>
-            {ended && view.kind === "start" && (
-              <Notice tone="info">Your session ended. Sign in again to return to where you were.</Notice>
-            )}
-            {message && <Notice tone={message.startsWith("Too many") ? "warning" : "error"}>{message}</Notice>}
-            {view.kind === "start" && request && (
-              <>
-                {options.passkey && (
-                  <>
+    <SignInFrame
+      product={product}
+      named={!!options || !!loadError}
+      busy={leaving || (!options && !loadError)}
+      title={title}
+    >
+      {loadError ? (
+        <>
+          <Notice tone="error" title="Signing in is not possible right now">
+            {loadError}
+          </Notice>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => {
+              setLoadError("");
+              setAttempt((count) => count + 1);
+            }}
+          >
+            Try again
+          </button>
+        </>
+      ) : !options ? (
+        <p className="sign-in-aside">Loading…</p>
+      ) : (
+        <>
+          {ended && view.kind === "start" && (
+            <Notice tone="info">Your session ended. Sign in again to return to where you were.</Notice>
+          )}
+          {message && <Notice tone={message.startsWith("Too many") ? "warning" : "error"}>{message}</Notice>}
+          {view.kind === "start" && request && (
+            <>
+              {options.passkey && (
+                <>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={pending || leaving}
+                    onClick={() => void passkey({ request })}
+                  >
+                    <Icon name="lock" /> Sign in with a passkey
+                  </button>
+                  {(options.local || showLocal) && <p className="sign-in-or">or with a password</p>}
+                </>
+              )}
+              {(options.local || showLocal) && (
+                <form className="sign-in-form" noValidate onSubmit={submitPassword}>
+                  <FormField label="Username">
+                    {(control) => (
+                      <input
+                        {...control}
+                        autoFocus={!options.passkey}
+                        required
+                        autoComplete="username"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        value={username}
+                        onChange={(event) => setUsername(event.target.value)}
+                      />
+                    )}
+                  </FormField>
+                  <FormField label="Password">
+                    {(control) => (
+                      <input
+                        {...control}
+                        ref={passwordRef}
+                        required
+                        type="password"
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                      />
+                    )}
+                  </FormField>
+                  <button type="submit" className="primary" disabled={pending || leaving || !username || !password}>
+                    {pending ? "Signing in…" : "Sign in"}
+                  </button>
+                </form>
+              )}
+              {options.providers.length > 0 && (
+                <>
+                  {(options.local || showLocal || options.passkey) && <p className="sign-in-or">or</p>}
+                  {options.providers.map((provider) => (
                     <button
+                      key={provider.key}
                       type="button"
-                      className="primary"
-                      disabled={pending || leaving}
-                      onClick={() => void passkey({ request })}
+                      className={options.local || showLocal ? undefined : "primary"}
+                      disabled={leaving}
+                      onClick={() => {
+                        setLeaving(true);
+                        browserNavigation.go(`${API_URL}${provider.start}`);
+                      }}
                     >
-                      <Icon name="lock" /> Sign in with a passkey
+                      Continue with {provider.name}
                     </button>
-                    {(options.local || showLocal) && <p className="sign-in-or">or with a password</p>}
-                  </>
-                )}
-                {(options.local || showLocal) && (
-                  <form className="sign-in-form" noValidate onSubmit={submitPassword}>
-                    <FormField label="Username">
-                      {(control) => (
-                        <input
-                          {...control}
-                          autoFocus={!options.passkey}
-                          required
-                          autoComplete="username"
-                          autoCapitalize="none"
-                          spellCheck={false}
-                          value={username}
-                          onChange={(event) => setUsername(event.target.value)}
-                        />
-                      )}
-                    </FormField>
-                    <FormField label="Password">
-                      {(control) => (
-                        <input
-                          {...control}
-                          ref={passwordRef}
-                          required
-                          type="password"
-                          autoComplete="current-password"
-                          value={password}
-                          onChange={(event) => setPassword(event.target.value)}
-                        />
-                      )}
-                    </FormField>
-                    <button type="submit" className="primary" disabled={pending || leaving || !username || !password}>
-                      {pending ? "Signing in…" : "Sign in"}
-                    </button>
-                  </form>
-                )}
-                {options.providers.length > 0 && (
-                  <>
-                    {(options.local || showLocal || options.passkey) && <p className="sign-in-or">or</p>}
-                    {options.providers.map((provider) => (
-                      <button
-                        key={provider.key}
-                        type="button"
-                        className={options.local || showLocal ? undefined : "primary"}
-                        disabled={leaving}
-                        onClick={() => {
-                          setLeaving(true);
-                          browserNavigation.go(`${API_URL}${provider.start}`);
-                        }}
-                      >
-                        Continue with {provider.name}
-                      </button>
-                    ))}
-                  </>
-                )}
-                {!options.local && !showLocal && (
-                  <p className="sign-in-aside">
-                    <button type="button" className="link-button" onClick={() => setShowLocal(true)}>
-                      Sign in with a local administrator account
-                    </button>
-                  </p>
-                )}
-                {options.local && (
-                  <p className="sign-in-aside">
-                    Forgotten your password? Ask a security administrator for a reset link.
-                  </p>
-                )}
-                {!options.local && showLocal && (
-                  <p className="sign-in-aside">Only administrators made on the server sign in with a password here.</p>
-                )}
-              </>
-            )}
-            {view.kind === "second" && (
-              <SecondStepView
-                step={view.step}
-                recovery={view.recovery}
-                product={product}
-                code={code}
-                pending={pending || leaving}
-                onCode={setCode}
-                onSubmit={(event) => submitCode(event, view.step, view.recovery)}
-                onPasskey={() => void passkey({ step: view.step.step })}
-                onRecovery={(on) => {
-                  setView({ ...view, recovery: on });
-                  setMessage("");
-                  setCode("");
-                }}
-                onStartAgain={() => {
-                  setView({ kind: "start" });
-                  setMessage("");
-                  setCode("");
-                  setPassword("");
-                }}
-              />
-            )}
-            {view.kind === "codes" && (
-              <>
-                <p className="sign-in-aside">
-                  If you lose your phone, each code signs you in once. They are shown only now: save them in a password
-                  manager or print them.
-                </p>
-                <div className="sign-in-codes mono">
-                  {view.codes.map((item) => (
-                    <span key={item}>{item}</span>
                   ))}
-                </div>
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={pending || leaving}
-                  onClick={() => void run(() => signInSecondFactor(view.step.step))}
-                >
-                  I have kept them; continue
-                </button>
-              </>
-            )}
-          </>
-        )}
-      </div>
-    </main>
+                </>
+              )}
+              {!options.local && !showLocal && (
+                <p className="sign-in-aside">
+                  <button type="button" className="link-button" onClick={() => setShowLocal(true)}>
+                    Sign in with a local administrator account
+                  </button>
+                </p>
+              )}
+              {options.local && (
+                <p className="sign-in-aside">
+                  {options.reset ? (
+                    <a href="/reset-password">Forgotten your password?</a>
+                  ) : (
+                    "Forgotten your password? Ask a security administrator for a reset link."
+                  )}
+                </p>
+              )}
+              {!options.local && showLocal && (
+                <p className="sign-in-aside">Only administrators made on the server sign in with a password here.</p>
+              )}
+            </>
+          )}
+          {view.kind === "second" && (
+            <SecondStepView
+              step={view.step}
+              recovery={view.recovery}
+              product={product}
+              code={code}
+              pending={pending || leaving}
+              onCode={setCode}
+              onSubmit={(event) => submitCode(event, view.step, view.recovery)}
+              onPasskey={() => void passkey({ step: view.step.step })}
+              onRecovery={(on) => {
+                setView({ ...view, recovery: on });
+                setMessage("");
+                setCode("");
+              }}
+              onStartAgain={() => {
+                setView({ kind: "start" });
+                setMessage("");
+                setCode("");
+                setPassword("");
+              }}
+            />
+          )}
+          {view.kind === "codes" && (
+            <>
+              <p className="sign-in-aside">
+                If you lose your phone, each code signs you in once. They are shown only now: save them in a password
+                manager or print them.
+              </p>
+              <div className="sign-in-codes mono">
+                {view.codes.map((item) => (
+                  <span key={item}>{item}</span>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="primary"
+                disabled={pending || leaving}
+                onClick={() => void run(() => signInSecondFactor(view.step.step))}
+              >
+                I have kept them; continue
+              </button>
+            </>
+          )}
+        </>
+      )}
+    </SignInFrame>
   );
 }
 

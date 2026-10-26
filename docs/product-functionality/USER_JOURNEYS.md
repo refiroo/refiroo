@@ -2300,6 +2300,14 @@ delivered by 0.12 M1 (2026-10-26); a new person's link and an administrator's re
   password, a new-password message for one with a password); the answer names the address and still
   holds the link, shown once. Without mail or without an address it is refused and the earlier link
   keeps working; without `send` nothing is queued.
+- **J46.8 A forgotten password** (0.12 I6): on the sign-in screen a person asks for a new password with
+  their username or e-mail address and is told the same whoever they name. With mail set up, a link to
+  the application's reset page is mailed only to an active person who has a local password and an
+  address; no one else is written to and nothing shows who exists. Asking is slowed per name and per
+  address, whatever the name matches, and sign-in is not. The link says who it is for, works once, is
+  replaced by a newer one, and sets a password that meets the engine's rules; the person's sessions end
+  and they sign in with the new password (a second factor is still asked for). Where mail is not set up
+  the screen does not offer it and the ask is refused.
 
 **Refusals:** `403 FORBIDDEN`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
 MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_SEND_FAILED` (`details.kind`).

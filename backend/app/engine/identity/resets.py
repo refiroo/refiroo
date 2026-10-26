@@ -28,13 +28,16 @@ def create_link(
     settings: IdentitySettings,
     user_public_id: str,
     *,
+    base: str | None = None,
     check: Callable[[User], None] | None = None,
     before_commit: Callable[[User, str, bool], None] | None = None,
 ) -> tuple[str, datetime]:
     """A one-time link that sets this person's password, replacing any earlier one; answered once.
     Refused while local sign-in is off for a person who does not keep it (I3, D365). ``check``
     may refuse before the earlier link is replaced; ``before_commit`` gets the person, the link
-    and whether the link was sent (SP3: it queues the mail), so both commit together. Commits."""
+    and whether the link was sent (SP3: it queues the mail), so both commit together. ``base`` is
+    the address the token is added to (``mail.settings.reset_link_base``, I6); without it the link
+    opens the engine's own page. Commits."""
     user = load_user(session, user_public_id, for_update=True)
     providers.refuse_while_off(session, user)
     if check is not None:
@@ -53,7 +56,8 @@ def create_link(
         session, "user", user.public_id, "password-link-created", about=[user.public_id],
         details={"expiresAt": expires_at.isoformat(), "sent": before_commit is not None},
     )  # fmt: skip
-    url = f"{settings.issuer}/oauth/password?token={token}"
+    page = base or f"{settings.issuer}/oauth/password"
+    url = f"{page}?token={token}"
     if before_commit is not None:
         before_commit(user, url, user.password_hash is not None)
     session.commit()

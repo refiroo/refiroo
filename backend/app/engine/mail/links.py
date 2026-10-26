@@ -1,4 +1,4 @@
-"""A person's one-time password link, mailed (Product 0.12 SP3, D418).
+"""A person's one-time password link, mailed (Product 0.12 SP3, I6, D418, D420).
 
 The link is made and its message queued in one transaction, so a person is never told of a link that
 was not made, nor a link made for a message that was not queued. Mail not set up, or no address on
@@ -7,11 +7,12 @@ the person, is refused before the earlier link is replaced.
 
 from datetime import datetime
 
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from ...errors import api_error
+from ...errors import ApiError, api_error
 from ...models.database import User
-from ..identity import resets
+from ..identity import resets, sign_in
 from ..identity.settings import IdentitySettings
 from . import outbox, templates
 from . import settings as mail_settings
@@ -41,6 +42,48 @@ def create_and_send(
         sent_to.append(user.email)
 
     url, expires_at = resets.create_link(
-        session, settings, user_public_id, check=check, before_commit=queue
+        session,
+        settings,
+        user_public_id,
+        base=mail_settings.reset_link_base(session, settings),
+        check=check,
+        before_commit=queue,
     )
     return url, expires_at, sent_to[0]
+
+
+def request_reset(
+    session: Session,
+    settings: IdentitySettings,
+    identifier: str,
+    address: str | None,
+    product: str,
+    now: datetime,
+) -> int:
+    """A person who forgot their password asks for a link by username or e-mail address (D420).
+    Returns the seconds still to wait, 0 when the request was taken. Taking it says nothing about
+    whether anyone was written to: the ask is counted against the typed name and the address
+    (slowed like sign-ins, D271) whatever it matches, and a link is sent only to an active person
+    with a local password, a kept local sign-in and an address, one link each. ``409
+    MAIL_NOT_SET_UP`` when mail is not set up (it says nothing of any account). Commits."""
+    mail_settings.require(session)
+    wait = sign_in.seconds_to_wait(session, identifier, address, now, sign_in.RESET)
+    if wait > 0:
+        return wait
+    sign_in.record_failure(session, identifier, address, now, sign_in.RESET)
+    session.commit()
+    typed = identifier.strip().lower()
+    people = session.scalars(
+        select(User.public_id).where(
+            User.active.is_(True),
+            User.password_hash.is_not(None),
+            or_(func.lower(User.username) == typed, func.lower(User.email) == typed),
+        )
+    ).all()
+    for public_id in people:
+        try:
+            create_and_send(session, settings, public_id, product)
+        except ApiError:
+            # No address, or local sign-in off for them: nothing is sent and nothing is said.
+            session.rollback()
+    return 0

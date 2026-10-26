@@ -38,7 +38,7 @@ vi.mock("@/lib/passkeySignIn", () => ({
 
 const { SignInScreen, refusalText, waitText } = await import("./SignInScreen");
 
-const OPTIONS: SignInOptions = { product: "refiroo", local: true, passkey: false, providers: [] };
+const OPTIONS: SignInOptions = { product: "refiroo", local: true, passkey: false, reset: false, providers: [] };
 const SECOND: SecondStep = {
   status: "second_factor",
   step: "tok",
@@ -118,6 +118,18 @@ describe("the application's sign-in screen (0.12 I5)", () => {
     expect(go).toHaveBeenCalledWith("http://localhost:8000/oauth/providers/entra/start?state=s");
     fireEvent.click(screen.getByRole("button", { name: "Sign in with a local administrator account" }));
     expect(await screen.findByLabelText("Username")).toBeInTheDocument();
+  });
+
+  it("links to the reset page only where a forgotten password can be asked for by e-mail", async () => {
+    const first = open({ reset: true });
+    expect((await screen.findByRole("link", { name: "Forgotten your password?" })).getAttribute("href")).toBe(
+      "/reset-password",
+    );
+    first.unmount();
+    open({ reset: false });
+    await screen.findByLabelText("Username");
+    expect(screen.queryByRole("link", { name: "Forgotten your password?" })).toBeNull();
+    expect(screen.getByText(/Ask a security administrator for a reset link/)).toBeTruthy();
   });
 
   it("asks for the code after the password, refuses a wrong one and signs in with a right one", async () => {

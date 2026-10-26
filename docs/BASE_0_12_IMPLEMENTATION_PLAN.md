@@ -1753,6 +1753,38 @@ sign in" end. A link made by an administrator or sent by mail opens the applicat
 (D422); the engine's `/oauth/password` stays for links already made. Requests are slowed per address and
 per account like sign-ins (D271) and are not security events unless a link is used.
 
+##### I6 record (2026-10-26)
+
+**Delivered 2026-10-26** on the user's "deliver build 0.12 i6", without a separate mock-up: the pages use
+I5's frame and styles.
+
+- **Engine:** `mail/links.request_reset` (counts the ask under `reset-` kinds, then writes to each active
+  person with a local password and an address whom the typed name matches, one link each; errors from one
+  person are swallowed so the answer never differs); `sign_in` counting takes a scope; `resets.create_link`
+  takes the address to build the link on and `mail.settings.reset_link_base` gives it (the application's
+  `/reset-password`, or the engine's page when no application address is known).
+- **Routes:** `POST /oauth/sign-in/reset-request`, `GET`/`POST /oauth/sign-in/reset` in `oauth_app.py`;
+  `options.reset`. Left out of the OpenAPI document, so the lock did not move.
+- **Frontend:** `SignInFrame` (extracted from `SignInScreen`, so the operator and card exist once),
+  `ResetPasswordScreen` (ask; choose), `signInClient` calls; `main.tsx` shows the pages at `/reset-password`
+  before any session starts. **Runner** `i6-reset` (22 checks, axe 0 violations).
+- **Tests:** `test_j46_reset_by_mail` (5 cases x 2 configurations, J46.8); Vitest `ResetPasswordScreen.test` (6),
+  `SignInScreen.test` (+1).
+
+**Where it differs from the plan:** a request is a security event only through the link it makes
+(`password-link-created`, as SP3's), never for a name nobody holds. `GET /oauth/sign-in/reset` without a token
+is added (the ask page needs the product's name and whether mail is set up). The tests were written after
+the code, not before.
+
+**Not verified:** local sign-in off with a kept administrator asking (the options hide the link; the route's
+refusal is the engine's `LOCAL_SIGN_IN_OFF`, swallowed, not run); a real mail server; dark theme; a second factor
+after a reset (unchanged code, not re-run); timing equality of a known and an unknown name (a known one writes a
+link before answering; the mail itself is sent in the background); production hosting must serve
+`/reset-password` as it does `/signed-in`.
+
+**What the user cannot do yet:** add a passkey without leaving for the engine's page; receive inbox notices (M2);
+send a failed message again.
+
 ### Track Z — Authorization
 
 #### Z1: Roles, groups and grants at the route
@@ -4813,7 +4845,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 11b | [I5](#i5-a-sign-in-screen-in-the-application) | I4 | **Delivered 2026-10-26** (D415–D417): the application's own sign-in screen over JSON sign-in routes; every rule once, shared with the engine's HTML pages |
 | 11c | [M1](#m1-sending-mail) | I1 | **Delivered 2026-10-26** (D418, D419, D421–D423): SMTP settings and a Mail page, the outbox with retries, templates, a test message |
 | 11d | [SP3](#sp3-a-new-persons-link-by-mail) | M1, SP1 | Delivered 2026-10-26: New person and Reset password send the link by mail |
-| 11e | [I6](#i6-forgotten-passwords-on-the-sign-in-screen) | I5, M1 | Planned 2026-10-26 (D420, D422): Forgotten your password? on the sign-in screen, the reset pages in the application |
+| 11e | [I6](#i6-forgotten-passwords-on-the-sign-in-screen) | I5, M1 | **Delivered 2026-10-26** (D420, D422): Forgotten your password? on the sign-in screen, the reset pages in the application |
 | 12 | [K1](#k1-webhook-signing-key-rotation) | Z1 | **Delivered 2026-10-25.** Signing-key rotation with overlap, Rotate key… on a webhook's page; re-sealing as `python -m app.cli.reseal_secrets` |
 | 13 | [C1](#c1-the-try-it-console-authenticated) | I2 | **Delivered 2026-10-26.** The console with the person's token |
 | 12z | [DP1a](#track-dp--deployment) | — | **Delivered 2026-10-25.** `scripts/dev.sh`: a developer instance, on this computer or over https on the network |

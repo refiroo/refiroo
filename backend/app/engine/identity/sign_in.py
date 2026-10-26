@@ -31,7 +31,14 @@ logger = logging.getLogger(__name__)
 BROWSER_CLIENT_ID = "browser"
 CODE_SECONDS = 60
 # Failures that cost nothing, per account and per address, before each attempt waits (D271).
-FREE_FAILURES: dict[str, int] = {"account": 5, "address": 20}
+# A request for a reset link counts like a failure, under kinds of its own (I6, D420).
+FREE_FAILURES: dict[str, int] = {
+    "account": 5,
+    "address": 20,
+    "reset-account": 3,
+    "reset-address": 20,
+}
+RESET = "reset-"
 LONGEST_WAIT_SECONDS = 15 * 60
 # Counts lapse after this long without a failure.
 FAILURES_LAPSE = timedelta(hours=24)
@@ -56,20 +63,23 @@ def wait_after(failures: int, kind: str) -> int:
     return min(2 ** (beyond - 1), LONGEST_WAIT_SECONDS)
 
 
-def _keys(username: str, address: str | None) -> list[tuple[str, str]]:
-    """What a failure is counted against: the account, when one is known, and the address."""
-    keys = [("account", username.strip().casefold()[:320])] if username.strip() else []
+def _keys(username: str, address: str | None, scope: str = "") -> list[tuple[str, str]]:
+    """What a failure is counted against: the account, when one is known, and the address. A
+    ``scope`` (``RESET``) counts something else against the same two with kinds of its own."""
+    keys = [(f"{scope}account", username.strip().casefold()[:320])] if username.strip() else []
     if address:
-        keys.append(("address", address[:320]))
+        keys.append((f"{scope}address", address[:320]))
     return keys
 
 
-def seconds_to_wait(session: Session, username: str, address: str | None, now: datetime) -> int:
+def seconds_to_wait(
+    session: Session, username: str, address: str | None, now: datetime, scope: str = ""
+) -> int:
     """How long the next attempt for this account or from this address must wait; 0 when it may
     go ahead."""
     rows = session.scalars(
         select(SignInFailure).where(
-            tuple_(SignInFailure.kind, SignInFailure.key).in_(_keys(username, address))
+            tuple_(SignInFailure.kind, SignInFailure.key).in_(_keys(username, address, scope))
         )
     ).all()
     longest = 0
@@ -81,9 +91,11 @@ def seconds_to_wait(session: Session, username: str, address: str | None, now: d
     return longest
 
 
-def record_failure(session: Session, username: str, address: str | None, now: datetime) -> None:
+def record_failure(
+    session: Session, username: str, address: str | None, now: datetime, scope: str = ""
+) -> None:
     """Count a failed attempt against the account and the address (D271)."""
-    for kind, key in _keys(username, address):
+    for kind, key in _keys(username, address, scope):
         statement = insert(SignInFailure).values(kind=kind, key=key, count=1, last_failure_at=now)
         session.execute(
             statement.on_conflict_do_update(
