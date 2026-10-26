@@ -78,7 +78,9 @@ Every route accepts only the query parameters it documents. Any other, a misspel
 example, is `422 UNKNOWN_PARAMETER` naming each in `details.parameters` (and the first in
 `details.path`, `/query/<name>`), so a client never silently gets another answer than it asked for
 (decided 2026-10-02, H4c D-3). The per-type object list and the cross-type lookup also take the
-`filter.<field>.<operator>` family.
+`filter.<field>.<operator>` family. A route that needs a token checks it after the caller is known:
+no token is `401`, a caller without the right `403`, and only then an unknown parameter `422` (0.12
+E1); the routes that need none refuse it first.
 
 ## Collection paging
 
@@ -666,7 +668,11 @@ the OpenAPI document; the session's `oauth_refresh` cookie, read without renewin
 engine's own address only) and answers `{access_token, expires_in}` for the `management` audience;
 `401 not_signed_in` without a session, `403 access_denied` from another site. The console renews the
 token in its last minute; a token pasted over it, such as a client's, is sent as it is. Without a
-session the console starts empty.
+session the console starts empty. Because the page can mint that token, it carries a
+`Content-Security-Policy` (0.12 E1): scripts only from the engine (the bundled file, or the pinned CDN
+host with `RDM_API_REFERENCE_SCRIPT=cdn`) and the page's own two inline scripts, each named by its hash;
+no `unsafe-eval`; requests only to the engine; no plugins, no framing (`X-Frame-Options: DENY`), no form
+posts. A script a model author put in a description therefore does not run. Styles may be inline.
 
 Neither route is in the OpenAPI document, so the page does not affect the [OpenAPI lock](#openapi-lock).
 
@@ -5831,8 +5837,9 @@ Outside `/api/v1`, needing no token:
   D420; not in the OpenAPI document): a forgotten password. `reset-request {identifier}` (a username or
   an e-mail address) answers `202 {status: "requested", message}` whether or not anyone matches; only an
   active person with a local password, a kept local sign-in and an address is written to, one link each.
-  Asks are counted per typed name and per address (3 free, then 1 s doubling to 15 minutes, D271) and
-  refused `429 slowed` with `waitSeconds`; `409 mail_not_set_up` when mail is not set up. `GET reset`
+  Asks are counted per typed name (the first 3 cost nothing) and per address (the first 20), counted apart
+  from failed sign-ins; from the next, an ask is refused `429 slowed` with `waitSeconds` until 1 s after
+  the last one, then 2 s, 4 s and so on up to 15 minutes (D271); `409 mail_not_set_up` when mail is not set up. `GET reset`
   without a token answers `{product, available}`; with one `{product, username, minLength}` or `410
   link_gone` (used, replaced, expired or unknown). `POST reset {token, password, repeat}` answers
   `{status: "password_set"}` and ends the person's sessions, or `410 link_gone`, `422 passwords_differ`,
@@ -5946,7 +5953,7 @@ principal's ID), `aud` (`management` or `consumer`), `exp`, `iat`, `jti`, `princ
 (D226). Lifetime one hour for people and clients (D251), a setting.
 
 **Sessions** (people only): a refresh token, opaque and stored hashed, held in an `HttpOnly`,
-`Secure`, `SameSite=Strict` cookie scoped to `/oauth/token` and `/oauth/revoke` (D234). Each use
+`Secure`, `SameSite=Strict` cookie named `oauth_refresh` scoped to the path `/oauth` (D234), so the browser sends it to `/oauth/token`, `/oauth/revoke` and the other `/oauth` routes. Each use
 rotates it; presenting a used one ends the session. A session ends after 12 idle hours or 14 days
 (settings). Clients have no refresh token; they ask for a new access token with their credentials.
 
@@ -5957,12 +5964,13 @@ TOKEN_INVALID` obtains a new token as OAuth libraries do.
 
 **Routes that need no token** (D245): `/health` (status only, for probes), `/health/live`,
 `/openapi.json`, `/docs` and its bundled script (the page signs in through the browser's session,
-C1), and the OAuth endpoints above. Every other route, including `/metrics` (a scraper uses a client
-holding Operator) and the consumer API index and per-definition OpenAPI, needs a token.
+C1), each consumer API's own `…/openapi.json` (D412) and the OAuth endpoints above. Every other
+route, including `/metrics` (a scraper uses a client holding Operator) and the consumer API index,
+needs a token.
 
 **Every request** with a token is checked for its signature and `kid`, `exp`, `aud` (the management
 API takes `management`, the consumer routes `consumer`, and the two routes describing the consumer
-APIs, the index and each OpenAPI document, either, D266), that the principal is active and, for a
+APIs, the index, either, D266; each definition's OpenAPI document needs no token, D412), that the principal is active and, for a
 person, that `sid` is not signed out. The last two are looked up with the permissions (D226, D251),
 so a deactivation or "sign out everywhere" applies on the next request.
 
@@ -5976,8 +5984,13 @@ signature, the issuer or a required claim does not verify); both with `WWW-Authe
 **Local passwords** (D252): 15 to 128 characters (`PASSWORD_MIN_LENGTH`, lowered only on a
 development machine, D276), no composition rules; refused when equal to the
 username or in a built-in list of the most common (`422 PASSWORD_REJECTED`, `details.reason`).
-Failed sign-ins are slowed per account and per address with a growing delay, never locked; the
-sign-in page says how long to wait. Passwords and client secrets are hashed with Argon2id.
+Failed sign-ins are counted per account (the username, case folded) and per address. The first 5
+failures for a username and the first 20 from an address cost nothing; after that an attempt is refused
+(`429` on the sign-in page, which says how long to wait) until 1 s after the last failure, then 2 s, 4 s
+and so on up to 15 minutes. Nothing is ever locked, but the wait is the account's own, not the
+caller's: anyone who knows a username can keep it slowed by failing against it, and while it runs even
+the right password is not checked. A refused attempt is not counted, counts lapse after 24 hours and
+a success clears the username's count (D271). Passwords and client secrets are hashed with Argon2id.
 
 ### The caller
 
@@ -6124,7 +6137,9 @@ applies to the group the write is made under: Edit live for a live write, Work i
 write in a change set and a restructuring (the type a record leaves and the one it takes), Bulk and
 import for batches and imports, Publish for a publication (every record type the change set holds,
 and the types live records it replaces or deletes had), Copy and move for what a move loads into
-its target. A migration and a withdrawal are not narrowed. A write refused for its record types
+its target. A deletion is a write of every record it removes (a cascade's too) and of the relationships
+it removes, in a live delete, a change set, a batch or import item and a row missing from a file; a
+batch item is refused on its own, as a create is. A migration and a withdrawal are not narrowed. A write refused for its record types
 adds `details.recordTypes`, the types refused:
 
 ```json
@@ -6341,7 +6356,12 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   `end_session_endpoint`, `422 SIGN_IN_PROVIDER_UNREACHABLE` with `kind: sign-out` without one),
   `signedOutUri` (`<PUBLIC_URL>/oauth/providers/{key}/signed-out`, to register as the provider's
   post-logout redirect address), `people` (how many have signed in with it), `lastSignInAt`, `version`, `createdAt`,
-  `updatedAt`. Saving an enabled provider, or enabling one or changing an enabled one's issuer, reads
+  `updatedAt`. Changing the `issuer` does not carry the saved secret to the new provider: a `PATCH` that
+  changes it must send `clientSecret` too (`422 SIGN_IN_PROVIDER_SECRET_REQUIRED`, `details.field`
+  `clientSecret`); with the issuer as saved the secret is kept. Once anyone is linked through the provider
+  (`people` above 0) the issuer cannot change at all, because people are matched by provider and the
+  token's `sub` and another issuer's subjects could sign in as them: `409 SIGN_IN_PROVIDER_IN_USE`, add a
+  new provider instead. Saving an enabled provider, or enabling one or changing an enabled one's issuer, reads
   its discovery document (whose `issuer` must equal the configured one exactly) and keys first:
   `422 SIGN_IN_PROVIDER_UNREACHABLE` with `details.reason` and `kind` (`unreachable`, `issuer`,
   `address`: plain `http` only to a loopback host). `PATCH` takes `expectedVersion`; disabling ends
@@ -6437,8 +6457,10 @@ where one-time links go. Nothing is sent without saved settings.
 - `PUT /mail-settings`: replaces the settings: `host`, `port`, `security`, `username`, `password`,
   `fromAddress`, `applicationUrl` and `expectedVersion` (absent for the first save; a stale or
   missing one is `409 VERSION_CONFLICT` with `currentVersion`, 0 when nothing is saved). `password`
-  is sealed with `SECRETS_ENCRYPTION_KEY` and never answered; omitted, the saved one is kept; a
-  `username` of null removes the login and the password. `security: none` with a user name is `422
+  is sealed with `SECRETS_ENCRYPTION_KEY` and never answered; omitted, the saved one is kept while the
+  `host` and `port` stay as saved, but when either changes it is not carried to the new server: the save
+  is `422 MAIL_PASSWORD_REQUIRED` with `details.field` `password` unless a password is sent in the same
+  request; a `username` of null removes the login and the password. `security: none` with a user name is `422
   MAIL_INSECURE_LOGIN` (a login is only sent over TLS or STARTTLS); a user name with no password
   saved or sent is `422 MAIL_PASSWORD_REQUIRED`. `applicationUrl` is an http or https address with no
   query or fragment (a trailing `/` is dropped). Nothing is sent: saving a change is a security event

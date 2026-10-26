@@ -110,6 +110,32 @@ async function signedIn(browser, viewport, tag) {
   await context.close();
 }
 
+// A failed password sign-in at `base`, carrying `forwarded` as X-Forwarded-For when given. The sign-in
+// throttle then records the address the engine saw (D271), which is what the checks below read.
+async function failedSignIn(base, username, forwarded) {
+  const body = new URLSearchParams({
+    username,
+    password: "wrong",
+    response_type: "code",
+    client_id: "browser",
+    redirect_uri: `${publicUrl}/signed-in`,
+    code_challenge: "x".repeat(43),
+    code_challenge_method: "S256",
+    state: "s",
+  });
+  const response = await fetch(`${base}/oauth/authorize`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", ...(forwarded ? { "X-Forwarded-For": forwarded } : {}) },
+    body,
+  });
+  expect(response.status === 401, `a wrong password answered ${response.status}, not 401`);
+}
+const throttleAddresses = () =>
+  spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", "exec", "-T", "database", "psql", "-U", "rdm", "-d", "rdm", "-Atc", "select key from sign_in_failures where kind='address' order by key"], { cwd: root, encoding: "utf8" })
+    .stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+const clearThrottle = () =>
+  spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", "exec", "-T", "database", "psql", "-U", "rdm", "-d", "rdm", "-Atc", "delete from sign_in_failures"], { cwd: root, encoding: "utf8" });
+
 async function cleanup() {
   spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", "down", "-v", "--rmi", "local"], { cwd: root, encoding: "utf8" });
   rmSync(work, { recursive: true, force: true });
@@ -148,6 +174,9 @@ try {
   expect(!/engine-1.*0\.0\.0\.0|database-1.*0\.0\.0\.0/.test(published), `the engine or the database is published:\n${published}`);
   const spoof = await fetched("/health", { headers: { "X-Forwarded-For": "6.6.6.6" } });
   expect(spoof.status === 200, "a forged forwarded address broke a request");
+  const appPage = await fetched("/settings/account");
+  expect(appPage.headers.get("content-security-policy") === "frame-ancestors 'none'", `the application page's CSP is ${appPage.headers.get("content-security-policy")}`);
+  expect(appPage.headers.get("x-frame-options") === "DENY", `the application page's X-Frame-Options is ${appPage.headers.get("x-frame-options")}`);
   checks.push("public paths answer at the address, /metrics is 404, HTTP redirects to PUBLIC_URL, the engine and database are not published");
 
   // 5. Signed in from a desktop and a phone-sized browser, at the network address.
@@ -156,9 +185,12 @@ try {
   await signedIn(browser, { width: 390, height: 844 }, "phone");
   checks.push(`signed in, reloaded and opened an application at ${publicUrl}, desktop and 390px, with every request on that one address`);
 
-  // 6. A forged forwarded address is not what the sign-in throttle counts.
-  const failureAddresses = spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", "exec", "-T", "database", "psql", "-U", "rdm", "-d", "rdm", "-Atc", "select count(*) from sign_in_failures where kind='address' and key='6.6.6.6'"], { cwd: root, encoding: "utf8" });
-  expect(failureAddresses.stdout.trim() === "0", "the throttle counted a forged address");
+  // 6. A forged forwarded address is not what the sign-in throttle counts: a wrong password carrying
+  // X-Forwarded-For is recorded under the address nginx saw, never under the forged one.
+  await failedSignIn(publicUrl, "ada", "6.6.6.6");
+  const seen = throttleAddresses();
+  expect(seen.length > 0 && !seen.includes("6.6.6.6"), `the throttle counted a forged address (${seen})`);
+  checks.push(`a forged X-Forwarded-For was not the throttle's address (counted: ${seen})`);
 
   // 7. A restart keeps the data: the same administrator signs in again.
   must(compose(["restart"]), "docker compose restart");
@@ -184,7 +216,34 @@ try {
   expect((await fetch(`${plain}/metrics`)).status === 404, "WEB_TLS=proxy: /metrics is reachable");
   const balancer = await (await fetch(`${plain}/.well-known/oauth-authorization-server`, { headers: { "X-Forwarded-Proto": "https" } })).json();
   expect(balancer.issuer === publicUrl, `WEB_TLS=proxy: the issuer is ${balancer.issuer}`);
+  expect((await fetch(`${plain}/settings/account`)).headers.get("x-frame-options") === "DENY", "WEB_TLS=proxy: the application page can be framed");
+  expect((await fetch(`${plain}/settings/account`)).headers.get("content-security-policy") === "frame-ancestors 'none'", "WEB_TLS=proxy: no frame-ancestors");
   checks.push("WEB_TLS=proxy served plain HTTP with no certificate, /metrics kept inside and the issuer unchanged");
+
+  // 9b. With WEB_TRUSTED_PROXIES empty nobody is trusted: the forged address is ignored and the caller
+  // is the address web is connected from (learned here, since it depends on how Docker publishes ports).
+  clearThrottle();
+  await failedSignIn(plain, "ada", "7.7.7.7");
+  const untrusted = throttleAddresses();
+  expect(untrusted.length === 1 && untrusted[0] !== "7.7.7.7", `WEB_TLS=proxy, no trusted proxies: the throttle counted ${untrusted}, not the connecting address`);
+  const connecting = untrusted[0];
+  checks.push(`WEB_TLS=proxy with WEB_TRUSTED_PROXIES empty ignored a forged X-Forwarded-For (counted ${connecting})`);
+
+  // 9c. With the connecting address listed, the address X-Forwarded-For names is the caller's.
+  env = writeEnv("proxy-trusted.env", { WEB_TLS: "proxy", WEB_TRUSTED_PROXIES: `${connecting}/${connecting.includes(":") ? 128 : 32}`, WEB_CERTS_DIR: emptyCerts, POSTGRES_PASSWORD: env.values.POSTGRES_PASSWORD, SECRETS_ENCRYPTION_KEY: env.values.SECRETS_ENCRYPTION_KEY, RDM_CURSOR_SIGNING_KEY: env.values.RDM_CURSOR_SIGNING_KEY });
+  must(compose(["up", "-d"]), "docker compose up (proxy, trusted)");
+  await healthy("web");
+  clearThrottle();
+  // The balancer appends the address it saw; a client's own earlier entry is not believed.
+  await failedSignIn(plain, "ada", "9.9.9.9, 7.7.7.7");
+  const trusted = throttleAddresses();
+  expect(trusted.length === 1 && trusted[0] === "7.7.7.7", `WEB_TLS=proxy, balancer trusted: the throttle counted ${trusted}, not the address the balancer named (7.7.7.7)`);
+  checks.push(`WEB_TLS=proxy with ${connecting} in WEB_TRUSTED_PROXIES took the caller from X-Forwarded-For (the last untrusted entry)`);
+
+  // 9d. A malformed WEB_TRUSTED_PROXIES stops web at start and says which entry.
+  const bad = spawnSync("docker", ["run", "--rm", "-e", `PUBLIC_URL=${publicUrl}`, "-e", "WEB_TLS=proxy", "-e", "WEB_TRUSTED_PROXIES=10.0.0.0/8,bogus", webImage], { encoding: "utf8" });
+  expect(bad.status !== 0 && /WEB_TRUSTED_PROXIES has 'bogus'/.test(bad.stderr), `web started with a malformed WEB_TRUSTED_PROXIES or did not say why (${bad.status}): ${bad.stderr.slice(0, 200)}`);
+  checks.push("web refused a malformed WEB_TRUSTED_PROXIES entry, naming it");
 } catch (error) {
   failures.push(String(error.message ?? error));
 } finally {

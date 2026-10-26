@@ -41,6 +41,7 @@ from test_j46_reset_by_mail import SET_TO, _ask, _outbox, _with_password
 from test_j47_security_sweep import CONSUMER, app_routes, operations
 from test_openapi_contract import OPEN_OPERATIONS
 
+from app.common.outage import unavailable_counts
 from app.engine.authorization.catalogue import GROUPS
 from app.engine.identity import keys
 
@@ -172,6 +173,9 @@ def test_a_reader_is_refused_on_every_write_path_and_nothing_changes(world):
 # narrowed refusal on its write path, or the reason it writes no record. The records and
 # relationships are one write unit (D281): a route is mapped to the path its writes take.
 _LIVE = "test_a_narrowed_live_write"
+# A deletion goes through the deletion path, not the write unit's `remove_records`: live, with its
+# cascade, in a batch or import and in a change set, each with its own case beside this one.
+_DELETE = "test_a_narrowed_live_delete"
 _BATCH = "test_a_narrowed_batch_and_import"
 _RELATE = "test_a_narrowed_relationship"
 _PUBLISH = "test_a_narrowed_change_set_and_publication"
@@ -187,11 +191,11 @@ for _test, _routes in {
     _LIVE: [
         "post /objects",
         "patch /objects/{object_type_key}/{object_id}",
-        "delete /objects/{object_type_key}/{object_id}",
         "post /objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
         "patch /objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
         "delete /objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}",
     ],
+    _DELETE: ["delete /objects/{object_type_key}/{object_id}"],
     _RELATE: [
         "post /relations",
         "patch /relations/{relation_id}",
@@ -830,18 +834,13 @@ def test_every_route_outside_the_document_answers_as_its_class_says(world):
 
 
 # The two junk kinds below are not in the case above, which would otherwise stop at them; each is a
-# defect found by it (E1 findings F3 and F4, reported, not fixed here). Remove the marker when fixed.
+# defect it found and 0.12 E1 fixed (findings F3 and F4).
 def _json_operations(app) -> list[tuple[str, str]]:
     declared, _ = operations(app)
     return [(op.method, op.path) for op in declared if op.body == "json"]
 
 
 @pytest.mark.journey("J47.7")
-@pytest.mark.xfail(
-    strict=True,
-    reason="F3: a body that is not UTF-8, sent with a content type other than JSON, is `500` "
-    "(management/errors.py::validation_error_handler cannot encode the rejected input)",
-)
 def test_a_binary_body_is_refused_with_422_never_500(world):
     """When every operation that reads a JSON body, and every JSON route outside the document, is
     sent bytes that are not UTF-8 as `application/octet-stream`, then each answers a `4xx` in the
@@ -849,7 +848,7 @@ def test_a_binary_body_is_refused_with_422_never_500(world):
     app = world.api.client.app
     as_caller = TestClient(app, raise_server_exceptions=False)
     bare = TestClient(app, authenticated=False, raise_server_exceptions=False)
-    problems = []
+    problems, validated = [], 0
     attempts = [
         (as_caller, method, re.sub(r"{\w+}", str(uuid4()), path), {})
         for method, path in _json_operations(app)
@@ -867,16 +866,17 @@ def test_a_binary_body_is_refused_with_422_never_500(world):
         )
         if response.status_code >= 500:
             problems.append(f"{method.upper()} {path}: {response.status_code}")
+        elif response.status_code == 422:
+            # The usual shape, without the undecodable bytes echoed.
+            error = response.json()["error"]
+            validated += error["code"] == "REQUEST_VALIDATION_ERROR"
+            if "\\ufffd" in response.text or "\ufffd" in response.text:
+                problems.append(f"{method.upper()} {path}: echoes the body")
+    assert validated > 50, validated
     assert not problems, f"{len(problems)} of {len(attempts)}\n" + "\n".join(problems[:10])
 
 
 @pytest.mark.journey("J47.7")
-@pytest.mark.xfail(
-    strict=True,
-    reason="F4: a NUL byte in a path parameter or a query value reaches PostgreSQL and answers `503 "
-    "DATABASE_UNAVAILABLE` (common/outage.py reads a driver error with no SQLSTATE as an unreachable "
-    "database), counted as an outage",
-)
 def test_a_nul_byte_in_an_address_is_refused_with_4xx_never_503(world):
     """When the first path parameter of every operation that has one, and a name filter, carry a NUL
     byte, then each answers a `4xx` (`404` for an ID nobody has), not `503 DATABASE_UNAVAILABLE`."""
@@ -884,6 +884,7 @@ def test_a_nul_byte_in_an_address_is_refused_with_4xx_never_503(world):
     caller = TestClient(app, raise_server_exceptions=False)
     declared, _ = operations(app)
     problems, calls = [], 0
+    outages = unavailable_counts()
     for op in declared:
         if op.method != "get" or "{" not in op.path:
             continue
@@ -896,8 +897,21 @@ def test_a_nul_byte_in_an_address_is_refused_with_4xx_never_503(world):
         calls += 1
         if caller.get(path).status_code >= 500:
             problems.append(f"GET {path}")
+    # The same character in a JSON string a route stores: a client's name, a workspace's key.
+    for path, body in (
+        ("/api/v1/clients", {"name": "Nul \u0000 name"}),
+        ("/api/v1/workspaces", {"key": "nul\u0000key", "name": "Nul"}),
+    ):
+        calls += 1
+        response = caller.post(path, json=body)
+        if not 400 <= response.status_code < 500:
+            problems.append(f"POST {path}: {response.status_code}")
+        else:
+            assert response.json()["error"]["code"] != "DATABASE_UNAVAILABLE"
     assert calls > 50
     assert not problems, f"{len(problems)} of {calls}\n" + "\n".join(problems[:10])
+    # A value the database never saw is not an outage: nothing counted.
+    assert unavailable_counts() == outages
 
 
 # --- J47.9 ------------------------------------------------------------------------------------------

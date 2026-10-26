@@ -80,6 +80,43 @@ def test_docs_serves_the_bundled_script_with_the_management_source(monkeypatch):
     assert (SCALAR_SCRIPT.parent / "LICENSE").read_text().startswith("MIT License")
 
 
+def _directives(policy: str) -> dict[str, list[str]]:
+    parts = [part.strip().split() for part in policy.split(";") if part.strip()]
+    return {part[0]: part[1:] for part in parts}
+
+
+def test_the_page_runs_only_the_scripts_it_ships_and_cannot_be_framed(monkeypatch):
+    """The page can mint a management token from the session cookie, so a script that got into it
+    (from a description a model author wrote) must not run: scripts are the bundled file and the
+    page's own two, named by hash; nothing is evaluated; the page reaches only the engine (0.12
+    E1, C10)."""
+    client = _client(monkeypatch, None)
+
+    response = client.get("/docs")
+    policy = _directives(response.headers["content-security-policy"])
+    scripts = re.findall(r"<script>(.*?)</script>", response.text, flags=re.DOTALL)
+    assert len(scripts) == 2
+    hashes = [
+        "'sha256-" + base64.b64encode(hashlib.sha256(text.encode()).digest()).decode() + "'"
+        for text in scripts
+    ]
+    assert policy["script-src"] == ["'self'", *hashes]
+    assert policy["connect-src"] == ["'self'"]
+    assert policy["object-src"] == ["'none'"] and policy["frame-ancestors"] == ["'none'"]
+    assert policy["default-src"] == ["'none'"] and policy["base-uri"] == ["'none'"]
+    assert response.headers["x-frame-options"] == "DENY"
+    # The script-bearing sources are never opened up, whatever styles and images ask for.
+    assert not any("unsafe" in word for word in policy["script-src"] + policy["connect-src"])
+
+
+def test_the_cdn_setting_names_the_pinned_host_in_its_policy(monkeypatch):
+    client = _client(monkeypatch, "cdn")
+
+    policy = _directives(client.get("/docs").headers["content-security-policy"])
+    assert "https://cdn.jsdelivr.net" in policy["script-src"]
+    assert "'self'" in policy["script-src"]
+
+
 def test_the_cdn_setting_loads_the_pinned_version_under_its_integrity(monkeypatch):
     client = _client(monkeypatch, " CDN ")
 

@@ -53,6 +53,7 @@ from ...common.cursors import decode_cursor, encode_cursor
 from ...errors import ApiError, api_error
 from ...models.database import AuditEvent, ChangeSet, ObjectRelation, RdmObject
 from ...models.schema import EngineModel
+from ..authorization.writes import allowance, refuse_types
 from ..indexes import matrix_states
 from ..reads.snapshot_reads import (
     change_set_context,
@@ -84,7 +85,8 @@ CREATE INDEX IF NOT EXISTS deletion_objects_item ON deletion_objects (item);
 CREATE TEMPORARY TABLE IF NOT EXISTS deletion_relations (
     relation_id varchar(36) PRIMARY KEY, item integer NOT NULL, relation_type_key text,
     from_object_id varchar(36), to_object_id varchar(36), attributes json, version integer,
-    from_type text, to_type text, from_item integer, to_item integer, from_workspace text,
+    from_type text, to_type text, from_application text, to_application text,
+    from_item integer, to_item integer, from_workspace text,
     to_workspace text, containment boolean NOT NULL
 ) ON COMMIT DROP;
 """
@@ -126,6 +128,8 @@ _RELATIONS = table(
     column("version", Integer),
     column("from_type", String),
     column("to_type", String),
+    column("from_application", String),
+    column("to_application", String),
     column("from_item", Integer),
     column("to_item", Integer),
     column("from_workspace", String),
@@ -293,7 +297,9 @@ _CHANGE_SET_SETS = text(_SETS.format(conflict="ON CONFLICT ON CONSTRAINT uq_rela
 
 _LIVE_REMOVAL = (
     text("DELETE FROM object_relations WHERE id IN (SELECT relation_id FROM deletion_relations)"),
-    text("DELETE FROM attribute_values WHERE object_id IN (SELECT object_id FROM deletion_objects)"),
+    text(
+        "DELETE FROM attribute_values WHERE object_id IN (SELECT object_id FROM deletion_objects)"
+    ),
     # The parent key is RESTRICT: the closure's records are detached from each other first.
     text(
         "UPDATE objects SET parent_object_id = NULL WHERE parent_object_id IS NOT NULL"
@@ -482,7 +488,9 @@ class LiveScope(DeletionScope):
                 **audit_actor_of(session),
             },
         )
-        session.execute(_LIVE_SETS, {"workspace": self.workspace_key, "change_set": None, "now": now})
+        session.execute(
+            _LIVE_SETS, {"workspace": self.workspace_key, "change_set": None, "now": now}
+        )
         if matrix_states.has_built(session, "live", self.workspace_key):
             _note_matrix(session, None)
         for statement in _LIVE_REMOVAL:
@@ -589,6 +597,7 @@ def delete_records(
     while live:
         rows = _decide(scope, live)
         results = {row.item: _verdict(scope, row, previewing) for row in rows}
+        _refuse_unpermitted(scope, rows, results)
         failing = sorted(item for item, result in results.items() if result.error is not None)
         if not failing:
             break
@@ -619,11 +628,17 @@ def delete_records(
 def _decide(scope: DeletionScope, deletions: list[Deletion]) -> list[_Row]:
     """Fill the run's tables for ``deletions`` and read each item's summary."""
     session = scope.session
-    session.execute(text("TRUNCATE deletion_roots, deletion_reach, deletion_objects, deletion_relations"))
+    session.execute(
+        text("TRUNCATE deletion_roots, deletion_reach, deletion_objects, deletion_relations")
+    )
     session.execute(
         insert(_ROOTS),
         [
-            {"item": item.item, "object_id": item.object_id, "object_type_key": item.object_type_key}
+            {
+                "item": item.item,
+                "object_id": item.object_id,
+                "object_type_key": item.object_type_key,
+            }
             for item in deletions
         ],
     )
@@ -637,6 +652,52 @@ def _decide(scope: DeletionScope, deletions: list[Deletion]) -> list[_Row]:
         row.by_type = dict(row.by_type or {})
         rows.append(row)
     return rows
+
+
+def _refuse_unpermitted(
+    scope: DeletionScope, rows: list[_Row], results: dict[int, Deleted]
+) -> None:
+    """The write unit's narrowing check (D291) over each item's records and relationships: a
+    writer whose grants do not name a deleted record's type, or either end of a deleted
+    relationship, is refused ``403 FORBIDDEN`` before anything is written, ahead of the other
+    verdicts so that a refusal reveals no impact. A record another item deletes is that item's."""
+    session = scope.session
+    mine = [row.item for row in rows if row.owner == row.item and not row.offside]
+    if not mine:
+        return
+    try:
+        if allowance(session, scope.workspace_key).everything:
+            return
+    except ApiError as error:
+        results.update({item: Deleted(item, error=error) for item in mine})
+        return
+    records: dict[int, set[tuple[str, str]]] = {item: set() for item in mine}
+    relations: dict[int, set[tuple[tuple[str, str], tuple[str, str]]]] = {
+        item: set() for item in mine
+    }
+    for item, application, type_key in session.execute(
+        select(_OBJECTS.c.item, _OBJECTS.c.application_key, _OBJECTS.c.object_type_key)
+        .where(_OBJECTS.c.item.in_(mine))
+        .distinct()
+    ):
+        records[item].add((application, type_key))
+    for item, from_app, from_type, to_app, to_type in session.execute(
+        select(
+            _RELATIONS.c.item,
+            _RELATIONS.c.from_application,
+            _RELATIONS.c.from_type,
+            _RELATIONS.c.to_application,
+            _RELATIONS.c.to_type,
+        )
+        .where(_RELATIONS.c.item.in_(mine))
+        .distinct()
+    ):
+        relations[item].add(((from_app, from_type), (to_app, to_type)))
+    for item in mine:
+        try:
+            refuse_types(session, scope.workspace_key, records[item], relations[item])
+        except ApiError as error:
+            results[item] = Deleted(item, error=error)
 
 
 def _verdict(scope: DeletionScope, row: _Row, previewing: bool) -> Deleted:
@@ -818,6 +879,8 @@ def _incident(scope: DeletionScope) -> Any:
             relation.c.version,
             source.c.object_type_key,
             target.c.object_type_key,
+            source.c.application_key,
+            target.c.application_key,
             near_from.c.item,
             near_to.c.item,
             source.c.workspace_key,
@@ -853,6 +916,8 @@ def _incident(scope: DeletionScope) -> Any:
             "version",
             "from_type",
             "to_type",
+            "from_application",
+            "to_application",
             "from_item",
             "to_item",
             "from_workspace",
@@ -867,7 +932,9 @@ def _note_matrix(session: Session, change_set_id: str | None) -> None:
     """The stored matrix states follow the records and relationships removed (ADR-033)."""
     removed = [row for (row,) in session.execute(select(_OBJECTS.c.object_id))]
     relations = session.execute(
-        select(_RELATIONS.c.relation_type_key, _RELATIONS.c.from_object_id, _RELATIONS.c.to_object_id)
+        select(
+            _RELATIONS.c.relation_type_key, _RELATIONS.c.from_object_id, _RELATIONS.c.to_object_id
+        )
     ).all()
     matrix_states.note_removed(session, removed, relations, change_set_id)
 
@@ -930,7 +997,9 @@ def _offside(scope: DeletionScope, row: _Row) -> ApiError:
             ),
             select(
                 _RELATIONS.c.to_object_id, _RELATIONS.c.to_workspace, _RELATIONS.c.relation_id
-            ).where(_RELATIONS.c.item == row.item, _RELATIONS.c.to_workspace != scope.workspace_key),
+            ).where(
+                _RELATIONS.c.item == row.item, _RELATIONS.c.to_workspace != scope.workspace_key
+            ),
         )
         .limit(1)
     ).first()

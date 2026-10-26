@@ -59,6 +59,9 @@ services:
     environment:
       PUBLIC_URL: ${PUBLIC_URL}
       WEB_TLS: ${WEB_TLS:-files}
+      # With WEB_TLS=proxy: the load balancer's address range. Empty trusts nobody, so every caller
+      # is the address web is connected from (docs/OPERATIONS.md, Deploying).
+      WEB_TRUSTED_PROXIES: ${WEB_TRUSTED_PROXIES:-}
       ENGINE_UPSTREAM: http://engine:8000
     ports:
       - "${WEB_HTTP_PORT:-80}:8080"

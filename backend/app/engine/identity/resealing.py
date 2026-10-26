@@ -18,7 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import Select, literal, select, update
+from sqlalchemy import Select, func, literal, select, update
 from sqlalchemy.orm import Session
 
 from ...common.sealing import SealError, seal, unseal
@@ -30,6 +30,7 @@ from ...models.database import (
     SignInProvider,
     TokenSigningKey,
     User,
+    UserRecoveryCode,
     UserSecondFactor,
     UserSession,
 )
@@ -150,6 +151,20 @@ SEALED = (
         mail_outbox.body_context,
     ),
 )
+
+
+def people_with_recovery_codes(session: Session) -> int:
+    """How many people hold a recovery code not yet used. Recovery codes are stored as an HMAC keyed
+    with ``SECRETS_ENCRYPTION_KEY`` itself, not sealed, so ``reseal`` cannot carry them over: under a
+    new key none of them is found, and these people must make new ones (0.12 E1, C7)."""
+    return (
+        session.scalar(
+            select(func.count(func.distinct(UserRecoveryCode.user_id))).where(
+                UserRecoveryCode.used_at.is_(None)
+            )
+        )
+        or 0
+    )
 
 
 class ResealRefused(Exception):

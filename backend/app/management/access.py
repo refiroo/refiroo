@@ -35,6 +35,7 @@ from ..engine.workspaces.catalogue import load_workspace
 from ..errors import api_error
 from ..models.database import ChangeSet, ObjectRelation, Publication, RdmObject
 from .dependencies import CurrentPrincipal, DbSession, expect_model_release, started
+from .query_parameters import refuse_after_authorization
 
 
 @dataclass(frozen=True)
@@ -362,7 +363,19 @@ def authorized(
     body: Annotated[dict[str, Any] | None, Depends(request_body)],
 ) -> Permissions:
     """Allow the request or refuse it with ``403 FORBIDDEN``; the caller's permissions stay on the
-    request for the handlers that filter lists (D249, D288)."""
+    request for the handlers that filter lists (D249, D288). Only then are the query parameters
+    checked: no token is ``401``, no right ``403``, an unknown parameter ``422`` (0.12 E1, F1)."""
+    permissions = _allowed(request, principal, session, body)
+    refuse_after_authorization(request)
+    return permissions
+
+
+def _allowed(
+    request: Request,
+    principal: Principal,
+    session: Session,
+    body: dict[str, Any] | None,
+) -> Permissions:
     permissions = caller_permissions(principal, session)
     request.state.permissions = permissions
     requirement = requirement_of(request)

@@ -330,3 +330,81 @@ def test_a_providers_settings(world, idp):
     ok(world.api.patch("/sign-in-providers/harness",
                        {"expectedVersion": provider["version"], "enabled": False}))  # fmt: skip
     refused(world.api.client.get("/api/v1/me", headers=_bearer(token)), 401, "TOKEN_INVALID")
+
+
+@pytest.mark.journey("J40")
+def test_a_new_issuer_needs_the_secret_sent_again(world, idp):
+    """Given a provider nobody has signed in with, when its issuer changes and no client secret is
+    sent, then it is refused naming the secret and nothing changes; with a secret the new provider's
+    sign-in works; an unchanged issuer keeps the saved secret (0.12 E1, C6)."""
+    provider = _provider(world, idp)
+    with OidcProvider() as other:
+        sent = {"expectedVersion": provider["version"], "issuer": other.issuer}
+        error = refused(
+            world.api.patch("/sign-in-providers/harness", sent),
+            422,
+            "SIGN_IN_PROVIDER_SECRET_REQUIRED",
+        )
+        assert error["details"] == {"field": "clientSecret"}
+        unchanged = ok(world.api.get("/sign-in-providers/harness"))
+        assert unchanged["issuer"] == idp.issuer and unchanged["version"] == provider["version"]
+
+        renamed = ok(
+            world.api.patch(
+                "/sign-in-providers/harness",
+                {"expectedVersion": provider["version"], "issuer": idp.issuer, "name": "Renamed"},
+            )
+        )
+        assert renamed["name"] == "Renamed" and renamed["clientSecretSet"] is True
+        _signed_in(world, idp, **PAT)
+
+    with OidcProvider() as other:
+        # A person is linked through "harness" now: a provider nobody signed in with is changed.
+        fresh = _provider(world, other, key="second")
+        with OidcProvider() as third:
+            moved = ok(
+                world.api.patch(
+                    "/sign-in-providers/second",
+                    {
+                        "expectedVersion": fresh["version"],
+                        "issuer": third.issuer,
+                        "clientId": third.client_id,
+                        "clientSecret": third.client_secret,
+                    },
+                )
+            )
+            assert moved["issuer"] == third.issuer and moved["clientSecretSet"] is True
+            assert _signed_in(
+                world, third, key="second", sub="p-2", name="Quinn", email="q@example.org"
+            )
+
+
+@pytest.mark.journey("J40")
+def test_an_issuer_is_not_changed_while_people_are_linked_through_the_provider(world, idp):
+    """Given a person who signed in through a provider, when its issuer changes (even with a new
+    secret), then it is `409 SIGN_IN_PROVIDER_IN_USE` telling the administrator to add a new provider,
+    and the person still signs in; other settings still change (0.12 E1, C6)."""
+    provider = _provider(world, idp)
+    _signed_in(world, idp, **PAT)
+    with OidcProvider() as other:
+        error = refused(
+            world.api.patch(
+                "/sign-in-providers/harness",
+                {
+                    "expectedVersion": provider["version"],
+                    "issuer": other.issuer,
+                    "clientSecret": other.client_secret,
+                },
+            ),
+            409,
+            "SIGN_IN_PROVIDER_IN_USE",
+        )
+        assert "new provider" in error["message"]
+    current = ok(world.api.get("/sign-in-providers/harness"))
+    assert current["issuer"] == idp.issuer and current["version"] == provider["version"]
+    ok(
+        world.api.patch(
+            "/sign-in-providers/harness", {"expectedVersion": provider["version"], "name": "New"}
+        )
+    )
+    _signed_in(world, idp, **PAT)

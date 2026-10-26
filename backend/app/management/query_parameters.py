@@ -26,14 +26,18 @@ def accepts_field_filters[F: Callable[..., Any]](endpoint: F) -> F:
     return endpoint
 
 
-def reads_own_parameters[F](endpoint: F) -> F:
-    """Mark a route that checks its query parameters itself (a consumer route against its
-    definition, the provider callback against what it needs): this check leaves it alone."""
-    endpoint.reads_own_parameters = True  # type: ignore[attr-defined]
-    return endpoint
-
-
 def refuse_unknown_parameters(request: Request) -> None:
+    """The application-wide dependency: refuse a query parameter the route does not declare. A
+    route that needs a token (it declares an action) is left to :func:`refuse_after_authorization`,
+    which ``authorized`` calls once the caller is known, so ``401`` and ``403`` come before ``422
+    UNKNOWN_PARAMETER`` (0.12 E1, F1); the other routes are checked here, first."""
+    route = request.scope.get("route")
+    if isinstance(route, APIRoute) and getattr(route.endpoint, "requirement", None) is not None:
+        return
+    refuse_after_authorization(request)
+
+
+def refuse_after_authorization(request: Request) -> None:
     route = request.scope.get("route")
     if not isinstance(route, APIRoute) or getattr(route.endpoint, "reads_own_parameters", False):
         return

@@ -10,7 +10,10 @@ instead, held to the bundled file's bytes by its integrity hash. The routes stay
 document, so the OpenAPI locks do not change with the page.
 """
 
+import base64
+import hashlib
 import json
+import re
 from html import escape
 from pathlib import Path
 from typing import Annotated
@@ -138,7 +141,8 @@ def api_reference_router(script: ApiReferenceScript) -> APIRouter:
             },
             *consumer_sources(session, root_path, workspace),
         ]
-        return HTMLResponse(render_page(script, root_path, sources))
+        page = render_page(script, root_path, sources)
+        return HTMLResponse(page, headers=page_headers(script, page))
 
     @router.get(BUNDLED_SCRIPT_PATH)
     def bundled_script() -> FileResponse:
@@ -206,3 +210,37 @@ def render_page(script: ApiReferenceScript, root_path: str, sources: list[dict])
         configuration=json.dumps(configuration).replace("<", "\\u003c"),
         sign_in_script=_SIGN_IN.replace("__ROOT__", json.dumps(root_path).replace("<", "\\u003c")),
     )
+
+
+def page_headers(script: ApiReferenceScript, page: str) -> dict[str, str]:
+    """The page's security headers (0.12 E1, C10). The page can ask ``/oauth/console-token`` for a
+    management token from the browser's session cookie, so what runs in it is restricted to the
+    engine's own: the bundled script (or the pinned CDN file, under its integrity hash) and the
+    page's own two inline scripts, each named by its hash, so a script that got into the page
+    through a description a model author wrote does not run. Nothing is evaluated, nothing is
+    embedded, and the page reaches only the engine. Styles may be inline (Scalar writes its own)."""
+    hashes = [
+        "'sha256-" + base64.b64encode(hashlib.sha256(text.encode()).digest()).decode() + "'"
+        for text in re.findall(r"<script>(.*?)</script>", page, flags=re.DOTALL)
+    ]
+    sources = ["'self'", *(["https://cdn.jsdelivr.net"] if script == "cdn" else []), *hashes]
+    policy = "; ".join(
+        [
+            "default-src 'none'",
+            f"script-src {' '.join(sources)}",
+            "connect-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "object-src 'none'",
+            "frame-ancestors 'none'",
+            "base-uri 'none'",
+            "form-action 'none'",
+        ]
+    )
+    return {
+        "Content-Security-Policy": policy,
+        "X-Frame-Options": "DENY",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "same-origin",
+    }

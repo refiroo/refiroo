@@ -11,6 +11,12 @@ services:
     volumes: !reset []
     environment:
       WEB_TLS: proxy
+      # Only Caddy reaches web (it is not published), from the private ranges of the compose network,
+      # so its X-Forwarded-For is believed. Caddy replaces that header from clients it does not trust
+      # (not verified in Caddy's code; nginx's real_ip makes this safe only while Caddy appends the
+      # address it saw). If Caddy is changed to trust upstream proxies, list them in Caddy's
+      # trusted_proxies.
+      WEB_TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 
   caddy:
     image: caddy:2

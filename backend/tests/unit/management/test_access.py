@@ -90,3 +90,13 @@ def test_authentication_refuses_before_an_unknown_parameter_is_refused(probed):
     assert (
         _differences(probed, {"probeUnknown": "1"}, 401, "AUTHENTICATION_REQUIRED", anonymous) == []
     )
+
+
+def test_an_open_route_still_refuses_an_unknown_parameter(probed):
+    """The routes that need no token have no caller to check first: `422 UNKNOWN_PARAMETER`, as
+    before (0.12 E1, F1)."""
+    anonymous = _anonymous(probed[0])
+    for path in ("/health", "/health/live", "/oauth/jwks"):
+        response = anonymous.get(path, params={"probeUnknown": "1"})
+        assert response.status_code == 422, (path, response.status_code)
+        assert response.json()["error"]["code"] == "UNKNOWN_PARAMETER"

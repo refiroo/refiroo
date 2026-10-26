@@ -94,6 +94,22 @@ def save(session: Session, identity: IdentitySettings, payload: MailSettingsUpda
             "A login is not sent over an unencrypted connection: choose TLS or STARTTLS, or "
             "remove the user name",
         )
+    if (
+        row is not None
+        and row.password is not None
+        and username is not None
+        and payload.password is None
+        and (row.host, row.port) != (payload.host, payload.port)
+    ):
+        # The saved password was given for the old server: it is never carried to another one, where
+        # whoever runs that server would receive it (0.12 E1, C6).
+        session.rollback()
+        raise api_error(
+            422,
+            "MAIL_PASSWORD_REQUIRED",
+            "The password is not kept when the host or the port changes: send the password again",
+            {"field": "password"},
+        )
     keeps = row.password if row is not None and username is not None else None
     if username is not None and payload.password is None and keeps is None:
         session.rollback()

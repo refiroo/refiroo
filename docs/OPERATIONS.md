@@ -267,6 +267,14 @@ seal new values with the old key):
 A re-sealing does not change any key's value, so receivers and tokens are unaffected; to change a
 webhook's or a token key itself, rotate it (above).
 
+**Recovery codes do not survive a new key.** They are not sealed: each is stored as an HMAC keyed with
+`SECRETS_ENCRYPTION_KEY` itself, so the re-sealing cannot carry them over, and under the new key none
+of the existing ones is found. `--check` and the re-sealing both print how many people hold unused
+recovery codes ("voids the unused recovery codes of N people"): those people must make new ones on
+Account › Second factor (their authenticator app keeps working; it is re-sealed). Tell them before the
+change; a person who has lost the app as well must be helped by an administrator (the second factor
+removed on their page).
+
 ### Roles and grants
 
 A **role** is a set of action groups (Browse, Edit live, Work in change sets, Publish, Bulk and
@@ -377,9 +385,12 @@ token presented a second time ends the session, since only a copy can do that.
   a person who forgot their password asks for the same link themselves on the sign-in screen (I6): by
   username or e-mail address, answered the same whoever is named, slowed per name and per address, sent
   only to an active person with a local password and an address. Without mail they ask an administrator.
-- **Failed sign-ins are slowed, never locked** (D271): after 5 failures for one username, or 20 from
-  one address, each attempt waits 1 second, doubling to at most 15 minutes, and the page says how
-  long. A success clears the username's count; counts lapse after 24 hours. Each failure is logged
+- **Failed sign-ins are slowed, never locked** (D271): the first 5 failures for one username and the
+  first 20 from one address cost nothing; after that an attempt waits until 1 second after the last
+  failure, then 2, 4 and so on to at most 15 minutes, and the page says how long. This is the design
+  against password guessing, and its price is that anyone who knows a username can keep that person
+  slowed by failing against it (the right password is not checked while the wait runs). A success clears the username's count;
+  counts lapse after 24 hours. Each failure is logged
   (`sign_in_failed`, with the username and address). Behind a proxy, the address is the proxy's
   unless uvicorn trusts it to forward the caller's (`--forwarded-allow-ips` with
   `--proxy-headers`); without that, every person shares the proxy's address and its count of 20.
@@ -402,6 +413,10 @@ only proves who the person is.
    with the reason when it cannot (another issuer, no answer, TLS). The engine must reach the
    provider over `https`; plain `http` only to a loopback host. A link-local address is refused,
    as for webhooks.
+   The client secret stays write-only and is not carried to another provider: changing the issuer needs
+   the new provider's client secret in the same save, and once anyone has signed in with a provider its
+   issuer cannot change, because people are matched by the issuer's subjects (`409
+   SIGN_IN_PROVIDER_IN_USE`): add a new provider and link people to it instead.
 3. **Groups (optional).** Name the ID token claim holding the person's groups, usually `groups`.
    Each value becomes a provider group on Settings › Security › Groups when a sign-in first names
    it, or make the group ahead with **New group › From a sign-in provider** and grant its roles
@@ -510,6 +525,9 @@ password if the server asks for one, the address mail comes from, and the addres
 reached at, which the links point to (empty: the first `CORS_ORIGINS` entry, D422). Send a test
 message from the same page: it names what failed (the connection, TLS, the login, the address).
 
+- **A new server needs the password again.** The saved password is not carried to another server: a
+  change of the host or the port is refused (`MAIL_PASSWORD_REQUIRED`) unless the password is entered
+  in the same save (0.12 E1). Other changes keep it.
 - **The password is sealed** with `SECRETS_ENCRYPTION_KEY` and never shown; the text of a message
   waiting holds a one-time link, so it is sealed too and erased when the message is sent or fails.
   Both are covered by `reseal_secrets` ([above](#changing-secrets_encryption_key)).
@@ -900,8 +918,13 @@ explained in `.env.example`.
      they are. Renew by replacing the files and restarting `web`.
    - *A public name, certificates that renew themselves:* [Automatic HTTPS](#automatic-https-for-a-public-installation).
    - *A load balancer that ends HTTPS (`WEB_TLS=proxy`).* `web` serves plain HTTP on 8080 (publish it
-     as you like), needs no certificate and trusts the balancer's `X-Forwarded-For` and
-     `X-Forwarded-Proto`; keep it reachable only from the balancer.
+     as you like), needs no certificate and believes the balancer's `X-Forwarded-Proto`. It believes
+     `X-Forwarded-For` only from the addresses in `WEB_TRUSTED_PROXIES`: **list the balancer's own
+     address range there** (comma-separated addresses or ranges, for example `10.0.0.0/8,192.168.1.5`;
+     a malformed entry stops `web` at start with a message). The default is empty and trusts nobody, so
+     a client-sent `X-Forwarded-For` is ignored and every caller appears as the address `web` is
+     connected from, the balancer: the sign-in throttle then counts one address for everyone. Keep `web`
+     reachable only from the balancer.
 4. **Start it:** `docker compose up -d --build`. The engine creates and migrates the database at
    start; `docker compose ps` shows the three healthy.
 5. **Create the first administrator:** `docker compose run --rm engine python -m app.cli.create_admin
@@ -916,7 +939,10 @@ explained in `.env.example`.
 answers it 404, and monitoring reaches the engine's own port inside the Docker network
 ([Monitoring](#monitoring)). Nothing but `web` is published; keep it so, because the engine trusts the
 caller address `web` forwards (`FORWARDED_ALLOW_IPS=*`), which only `web` can set while the engine's
-port is closed. The sign-in throttle counts per address (D271).
+port is closed. `web` sends the engine one address, the caller's: the address it is connected from, or,
+behind a balancer (`WEB_TLS=proxy`), the one `X-Forwarded-For` names when the connection comes from
+`WEB_TRUSTED_PROXIES`; whatever else a caller sent is replaced. The sign-in throttle counts per
+address (D271).
 
 **Uploads.** `web` takes bodies up to `WEB_MAX_BODY` (256 MB); the engine's own limit is
 `IMPORT_MAX_BYTES` (200 MB). Raise both together.

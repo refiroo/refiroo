@@ -1,8 +1,12 @@
 # Plain HTTP behind a load balancer that ends HTTPS (WEB_TLS=proxy, 0.12 DP2, D407).
-# The load balancer in front is trusted: its forwarded address and scheme pass on, and its own address
-# is added. Keep this container reachable only from it.
-map $scheme $forwarded_for { default $proxy_add_x_forwarded_for; }
+# The caller is the address this container is connected from, unless that address is listed in
+# WEB_TRUSTED_PROXIES (the load balancer's own range): then X-Forwarded-For names the caller (the real_ip
+# module, 05-choose-mode.sh). The engine is sent that one address, whatever the request carried. The
+# load balancer's scheme (X-Forwarded-Proto) passes on. Keep this container reachable only from it.
+map $scheme $forwarded_for { default $remote_addr; }
 map $http_x_forwarded_proto $forwarded_proto { default $scheme; https https; }
+
+include /etc/nginx/conf.d/snippets/real-ip.inc;
 
 gzip on;
 gzip_types text/css application/javascript application/json image/svg+xml;

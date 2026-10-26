@@ -514,6 +514,151 @@ def test_a_narrowed_change_set_and_publication(world):
     assert live["items"] == []
 
 
+def _remove(world, structure: str, record: dict, **params):
+    return world.api.delete(
+        f"/objects/{world.key(structure)}/{record['id']}",
+        expectedVersion=record["version"],
+        **params,
+    )
+
+
+def _delete_item(record: dict, **extra) -> dict:
+    return {
+        "op": "delete",
+        "target": {"id": record["id"]},
+        "expectedVersion": record["version"],
+        **extra,
+    }
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures("H", "K")
+def test_a_narrowed_live_delete(world):
+    """Given the narrowed grant and records of both types. When the client deletes the record of
+    its type, then it is gone; deleting a record of the other type answers `403 FORBIDDEN` with
+    `recordTypes` naming it, and the record stays."""
+    k = world.key("K")
+    _, narrowed = _client(
+        world, "Deleter", ("steward", {"workspaceKey": W1, "recordTypes": [world.key("H")]})
+    )
+    own, other = world.made("H", "Mine"), world.made("K", "Not mine")
+    _narrowed(_remove(narrowed, "K", other), "records.write", ["edit-live"], W1, [k])
+    assert world.record("K", other["id"])["id"] == other["id"]
+    assert _remove(narrowed, "H", own).status_code == 204
+    refused(world.read("H", own["id"]), 404, "OBJECT_NOT_FOUND")
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures("R", "G", "D", "Bown")
+def test_a_narrowed_cascade_delete_reaches_only_permitted_types(world):
+    """Given a record of R owning a dependant of D, and a client narrowed to R only. When it
+    deletes the owner with the cascade and the confirmed preview, then `403 FORBIDDEN` names D and
+    nothing is deleted; a client narrowed to R and D deletes both."""
+    d_key = world.key("D")
+    owner = world.made("R", "Owner")
+    group = world.made("G", "Scope")
+    dependant = world.made(
+        "D",
+        "Dependant",
+        parent=world.dependant_parent(group["id"]),
+        relations=[world.owner("Bown", owner["id"])],
+    )
+    impact = refused(_remove(world, "R", owner), 409, "OBJECT_HAS_DEPENDANTS")["details"]
+    cascade = {"cascade": True, "deletionPreviewToken": impact["deletionPreviewToken"]}
+    _, narrowed = _client(
+        world, "One", ("steward", {"workspaceKey": W1, "recordTypes": [world.key("R")]})
+    )
+    error = refused(_remove(narrowed, "R", owner, **cascade), 403, "FORBIDDEN")
+    # The dependant's type, and its container's: the relationship that holds it there is removed too.
+    assert (
+        d_key in error["details"]["recordTypes"]
+        and world.key("R") not in error["details"]["recordTypes"]
+    )
+    assert error["details"]["action"] == "records.write" and error["details"]["groups"] == [
+        "edit-live"
+    ]
+    assert world.record("R", owner["id"])["id"] == owner["id"]
+    assert world.record("D", dependant["id"])["id"] == dependant["id"]
+
+    _, both = _client(
+        world, "Both", ("steward", {"workspaceKey": W1, "recordTypes": [world.key("R"), d_key]})
+    )
+    assert _remove(both, "R", owner, **cascade).status_code == 204
+    refused(world.read("D", dependant["id"]), 404, "OBJECT_NOT_FOUND")
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures("H", "K")
+def test_a_narrowed_batch_and_import_delete(world):
+    """Given the narrowed grant. When it sends a batch deleting records of both types, one by one,
+    then the permitted deletion applies and the other carries `403 FORBIDDEN` with `recordTypes`;
+    sent atomic, nothing applies. An import file whose lines delete records of the other type
+    reports each refused. The refused records stay."""
+    k = world.key("K")
+    _, narrowed = _client(
+        world, "Batch deleter", ("steward", {"workspaceKey": W1, "recordTypes": [world.key("H")]})
+    )
+    own, other = world.made("H", "Mine"), world.made("K", "Not mine")
+    items = [_delete_item(own), _delete_item(other)]
+    result = ok(_batch(narrowed, items))
+    assert [item["status"] for item in result["items"]] == ["applied", "rejected"]
+    error = result["items"][1]["error"]
+    assert error["code"] == "FORBIDDEN" and error["details"]["recordTypes"] == [k]
+    assert error["details"]["groups"] == ["bulk"]
+    refused(world.read("H", own["id"]), 404, "OBJECT_NOT_FOUND")
+    assert world.record("K", other["id"])["id"] == other["id"]
+
+    again, more = world.made("H", "Again"), world.made("K", "Not again")
+    atomic = ok(_batch(narrowed, [_delete_item(more), _delete_item(again)], policy="atomic"))
+    assert atomic["items"][0]["status"] == "rejected"
+    assert world.record("H", again["id"])["id"] == again["id"]
+    assert world.record("K", more["id"])["id"] == more["id"]
+
+    lines = json.dumps(_delete_item(more)) + "\n"
+    request = {"workspaceKey": W1, "policy": "independent", "stage": "execute"}
+    job = ok(
+        narrowed.api.upload(
+            "/imports",
+            {"file": ("rows.jsonl", lines.encode(), "application/x-ndjson")},
+            {"request": json.dumps(request)},
+        ),
+        202,
+    )
+    _run_jobs(world)
+    done = ok(narrowed.api.get(f"/jobs/{job['id']}"))
+    assert done["state"] == "completed" and done["counts"]["rejected"] == 1, done
+    outcomes = ok(narrowed.api.get(f"/jobs/{job['id']}/items"))["items"]
+    assert {
+        (item["error"]["code"], tuple(item["error"]["details"]["recordTypes"])) for item in outcomes
+    } == {("FORBIDDEN", (k,))}
+    assert world.record("K", more["id"])["id"] == more["id"]
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures("H", "K")
+def test_a_narrowed_delete_in_a_change_set(world):
+    """Given the narrowed grant and its change set. When it deletes a record of its type in the
+    change set, then the change set holds it no more; deleting a record of the other type answers
+    `403 FORBIDDEN` with `recordTypes` and the change set still holds it."""
+    k = world.key("K")
+    _, narrowed = _client(
+        world, "Proposer", ("steward", {"workspaceKey": W1, "recordTypes": [world.key("H")]})
+    )
+    own, other = world.made("H", "Mine"), world.made("K", "Not mine")
+    change_set = narrowed.change_set()
+
+    def params() -> dict:
+        return {
+            "changeSetId": change_set["id"],
+            "expectedChangeSetVersion": narrowed.current(change_set)["version"],
+        }
+
+    _narrowed(_remove(narrowed, "K", other, **params()), "records.write", ["change-sets"], W1, [k])
+    assert narrowed.record("K", other["id"], changeSetId=change_set["id"])["id"] == other["id"]
+    assert _remove(narrowed, "H", own, **params()).status_code == 204
+    refused(world.read("H", own["id"], changeSetId=change_set["id"]), 404, "OBJECT_NOT_FOUND")
+
+
 LADDER = ("L1", "L2", "L3", "L.only1", "L.extra")
 
 

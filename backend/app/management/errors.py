@@ -1,6 +1,7 @@
 """Exception handlers that render engine and framework errors as the API's error body."""
 
 import logging
+from typing import Any
 
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
@@ -9,7 +10,12 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..common.logs import current_request, request_id_from
-from ..common.outage import UNAVAILABLE_CAUSES, database_unavailable, note_unavailable
+from ..common.outage import (
+    UNAVAILABLE_CAUSES,
+    client_data_error,
+    database_unavailable,
+    note_unavailable,
+)
 from ..common.request_observation import REQUEST_ID_HEADER
 from ..errors import ApiError
 
@@ -37,10 +43,20 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
             "error": {
                 "code": "REQUEST_VALIDATION_ERROR",
                 "message": "Request validation failed",
-                "details": jsonable_encoder(exc.errors()),
+                "details": jsonable_encoder([_without_bytes(error) for error in exc.errors()]),
             }
         },
     )
+
+
+def _without_bytes(error: dict[str, Any]) -> dict[str, Any]:
+    """The error as it can be sent: the rejected ``input`` of a body that is not text (bytes that
+    are not UTF-8) is left out, never echoed or encoded (0.12 E1, F3)."""
+    return {
+        key: value
+        for key, value in error.items()
+        if not (key == "input" and isinstance(value, bytes | bytearray))
+    }
 
 
 async def http_error_handler(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -94,7 +110,36 @@ def _database_unavailable(request: Request, exc: Exception) -> JSONResponse | No
     )
 
 
+def _refused_value(request: Request, exc: Exception) -> JSONResponse | None:
+    """``422 REQUEST_VALIDATION_ERROR`` for a value the driver refused before the database saw it
+    (a NUL character in a name, a key or an address; 0.12 E1, F4): the caller's mistake, in the
+    usual shape, with no database condition counted."""
+    if not client_data_error(exc):
+        return None
+    logger.debug("The refused value of %s %s", request.method, request.url.path, exc_info=exc)
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": {
+                "code": "REQUEST_VALIDATION_ERROR",
+                "message": "Request validation failed",
+                "details": [
+                    {
+                        "type": "value_error",
+                        "loc": [],
+                        "msg": "A text cannot contain the NUL character (U+0000)",
+                    }
+                ],
+            }
+        },
+        headers=_request_id_header(),
+    )
+
+
 async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    refused = _refused_value(request, exc)
+    if refused is not None:
+        return refused
     unavailable = _database_unavailable(request, exc)
     if unavailable is not None:
         return unavailable

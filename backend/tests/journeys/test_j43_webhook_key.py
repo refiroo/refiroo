@@ -25,6 +25,8 @@ from sqlalchemy.pool import NullPool
 from test_j30_consumer_events import LEDGER, _activate, _workspace
 from test_j30_delivery import Receiver, _read, _subscribe
 from test_j30_subscriptions import PATH, SUBSCRIPTIONS
+from test_j39_second_factor import _set_up
+from test_j39_sign_in import _browser, _person, _sign_in
 
 from app.common.sealing import unseal
 
@@ -296,6 +298,32 @@ def test_every_sealed_secret_is_resealed_under_a_new_key_or_none_is(world, recei
     back = _reseal(world, key=new, new=old)
     assert back.returncode == 0, back.stderr
     assert _reseal(world, "--check").returncode == 0
+
+
+@pytest.mark.journey("J43.5")
+def test_resealing_says_whose_recovery_codes_the_new_key_voids(world):
+    """Given two people with an authenticator app and ten recovery codes each and a third with
+    neither. When the re-sealing command checks and then re-seals, it says plainly that recovery
+    codes are keyed with the key itself, so the new key voids those of 2 people, who must make new
+    ones; with nobody holding codes it says that nobody loses any (0.12 E1, C7)."""
+    clean = _reseal(world, "--check")
+    assert clean.returncode == 0, clean.stderr
+    assert "no recovery code is lost" in clean.stdout
+    for name in ("mei", "ola"):
+        _person(world, name)
+        _set_up(world, _sign_in(_browser(world), name))
+    _person(world, "kit")
+    checked = _reseal(world, "--check")
+    assert checked.returncode == 0, checked.stderr
+    assert "voids the unused recovery codes of 2 people" in checked.stdout
+    assert "make new ones" in checked.stdout
+    old, new = os.environ["SECRETS_ENCRYPTION_KEY"], _new_key()
+    done = _reseal(world, new=new)
+    assert done.returncode == 0, done.stderr
+    assert "voids the unused recovery codes of 2 people" in done.stdout
+    assert "make new ones" in done.stdout
+    # Back to the key the journey's engine runs with.
+    assert _reseal(world, key=new, new=old).returncode == 0
 
 
 def _text(key: bytes) -> str:

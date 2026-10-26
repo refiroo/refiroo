@@ -204,6 +204,16 @@ def update_provider(
     current = load_provider(session, key)
     issuer = payload.issuer.strip() if payload.issuer is not None else current.issuer
     enabled = payload.enabled if payload.enabled is not None else current.enabled
+    if issuer != current.issuer and payload.clientSecret is None:
+        # The saved secret was given to the old provider and is never carried to another one, which
+        # would receive it at the token endpoint (0.12 E1, C6).
+        raise api_error(
+            422,
+            "SIGN_IN_PROVIDER_SECRET_REQUIRED",
+            "The client secret is not kept when the issuer changes: send the new provider's "
+            "clientSecret",
+            {"field": "clientSecret"},
+        )
     if enabled and ({"issuer", "enabled"} & fields):
         _check(issuer)
     sign_out = (
@@ -219,6 +229,17 @@ def update_provider(
         if provider.version != payload.expectedVersion:
             raise _stale("Sign-in provider", provider.version)
         now = datetime.now(UTC)
+        if issuer != provider.issuer and session.scalar(
+            select(exists().where(UserIdentity.provider_id == provider.id))
+        ):
+            # People are matched by provider and the token's subject: another issuer's subjects
+            # could sign in as them (0.12 E1, C6).
+            raise api_error(
+                409,
+                "SIGN_IN_PROVIDER_IN_USE",
+                f"People have signed in with '{provider.name}', so its issuer cannot change: "
+                "add a new provider instead",
+            )
         if payload.name is not None:
             provider.name = payload.name
         provider.issuer = issuer

@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ...common.route_markers import reads_own_parameters
 from ...engine.identity import (
     browser_sign_in,
     keys,
@@ -45,7 +46,6 @@ from ...models.commands import (
 from ...models.database import SignInProvider, User
 from .. import sign_in_pages as pages
 from ..dependencies import DbSession, started
-from ..query_parameters import reads_own_parameters
 
 router = APIRouter(tags=["oauth"])
 

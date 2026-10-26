@@ -190,6 +190,45 @@ def test_a_test_message_names_what_failed(world, smtp, monkeypatch):
     assert failed()["kind"] == "connection"
 
 
+@pytest.mark.journey("J46.1")
+def test_a_new_host_or_port_needs_the_password_sent_again(world, smtp):
+    """Given saved settings with a login, when the host or the port changes and no password is sent,
+    then it is refused naming the password and nothing changes; with a password it is saved; with the
+    host and port unchanged the saved password is kept (0.12 E1, C6)."""
+    _save(world, smtp)
+    for change in ({"port": smtp.port + 1}, {"host": "localhost"}):
+        error = refused(
+            world.api.put(
+                "/mail-settings",
+                {**_settings(smtp, **change), "expectedVersion": 1, "password": None},
+            ),
+            422,
+            "MAIL_PASSWORD_REQUIRED",
+        )
+        assert error["details"] == {"field": "password"}
+        assert "password" in error["message"]
+    unchanged = ok(world.api.get("/mail-settings"))
+    assert unchanged["version"] == 1 and unchanged["host"] == "127.0.0.1"
+    assert unchanged["port"] == smtp.port and unchanged["passwordSet"] is True
+
+    moved = ok(
+        world.api.put("/mail-settings", {**_settings(smtp, host="localhost"), "expectedVersion": 1})
+    )
+    assert moved["host"] == "localhost" and moved["version"] == 2 and moved["passwordSet"] is True
+
+    kept = ok(
+        world.api.put(
+            "/mail-settings",
+            {
+                **_settings(smtp, host="localhost", fromAddress="b@example.org"),
+                "expectedVersion": 2,
+                "password": None,
+            },
+        )
+    )
+    assert kept["version"] == 3 and kept["passwordSet"] is True
+
+
 @pytest.mark.journey("J46.2")
 def test_a_login_is_refused_over_an_unencrypted_connection(world, smtp):
     """When the administrator saves a user name with an unencrypted connection, then it is refused

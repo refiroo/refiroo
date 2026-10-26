@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from ..common.cursors import decode_cursor, signed_scope
 from ..common.pagination import PageRequest, paginate_sequence
+from ..common.route_markers import reads_own_parameters
 from ..db import SessionLocal
 from ..engine.authorization.permissions import permissions_of
 from ..engine.identity.authentication import authenticate, require_started
@@ -56,7 +57,6 @@ from ..engine.reads.consumer_source import PUBLICATION_SCOPE, ConsumerSource
 from ..engine.reads.consumer_xref import read_xref, xref_terms
 from ..engine.workspaces.catalogue import resolve_workspace
 from ..errors import ApiError, api_error
-from ..management.query_parameters import reads_own_parameters
 from ..models.database import Publication, Workspace
 from ..models.schema import ConsumerApiDefinition, EngineModel
 from .etag import entity_tag, none_match

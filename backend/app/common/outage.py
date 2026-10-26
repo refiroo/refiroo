@@ -47,9 +47,19 @@ def database_unreachable(exc: BaseException) -> bool:
         return _unreachable_state(exc.sqlstate)
     if not isinstance(exc, DBAPIError):
         return False
+    if client_data_error(exc):
+        return False
     if exc.connection_invalidated:
         return True
     return _unreachable_state(getattr(exc.orig, "sqlstate", None))
+
+
+def client_data_error(exc: BaseException) -> bool:
+    """Whether the driver refused a value before sending it, which the caller supplied: a text with
+    a NUL character (``PostgreSQL text fields cannot contain NUL``), a ``DataError`` with no
+    SQLSTATE since the server never saw the statement. Not a database condition (0.12 E1, F4)."""
+    cause = exc.orig if isinstance(exc, DBAPIError) else exc
+    return isinstance(cause, psycopg.DataError) and cause.sqlstate is None
 
 
 def database_unavailable(exc: BaseException) -> Unavailable | None:

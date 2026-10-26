@@ -7,7 +7,8 @@ Stop the engine first. The current key is ``SECRETS_ENCRYPTION_KEY`` in the envi
 value is opened with the current key before any is written; if one does not open, nothing changes
 and the command names it. On success set ``SECRETS_ENCRYPTION_KEY`` to the new key, keep it beside
 the backups, and start the engine. ``--check`` only proves that every value opens with the current
-key.
+key. Recovery codes are keyed with the key itself and cannot be re-sealed: both modes say how many
+people hold unused ones, who must make new ones after a key change (0.12 E1, C7).
 """
 
 import argparse
@@ -16,7 +17,7 @@ import sys
 
 from ..config import encryption_key, get_settings
 from ..db import DatabaseStartupError, SessionLocal, create_database
-from ..engine.identity.resealing import ResealRefused, reseal
+from ..engine.identity.resealing import ResealRefused, people_with_recovery_codes, reseal
 
 NEW_KEY = "NEW_SECRETS_ENCRYPTION_KEY"
 
@@ -50,6 +51,7 @@ def main(argv: list[str] | None = None) -> int:
         create_database()
         with SessionLocal() as session:
             counts = reseal(session, old_key, new_key or old_key, check_only=arguments.check)
+            voided = people_with_recovery_codes(session)
     except DatabaseStartupError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -57,11 +59,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Not re-sealed: {exc}.", file=sys.stderr)
         return 1
     total = sum(counts.values())
+    if voided:
+        people = f"{voided} person" if voided == 1 else f"{voided} people"
+        verb = "A new key voids" if arguments.check else "The new key voids"
+        voiding = (
+            f"{verb} the unused recovery codes of {people}: they are keyed with "
+            "SECRETS_ENCRYPTION_KEY itself and cannot be carried over, so each of them must make new "
+            "ones (Account, second factor) after the key changes."
+        )
+    else:
+        voiding = "No one has an unused recovery code, so no recovery code is lost with a new key."
     detail = ", ".join(f"{count} {kind}" for kind, count in counts.items()) or "nothing sealed yet"
     if arguments.check:
         print(f"Every sealed value opens with the current key ({total}: {detail}).")
+        print(voiding)
     else:
         print(f"Re-sealed {total} value(s): {detail}.")
+        print(voiding)
         print(
             "Set SECRETS_ENCRYPTION_KEY to the new key before starting the engine.", file=sys.stderr
         )

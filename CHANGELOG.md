@@ -6,6 +6,42 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (0.12 E1, security review)
+
+- **A deletion honours a grant narrowed to record types (C1, high).** `DELETE /objects/{type}/{id}` (with a cascade
+  too), a `delete` item in a batch or import, the rows an import deletes for being missing from a file, and a delete
+  in a change set skipped the narrowing check: a Data steward narrowed to one type could delete records of another.
+  The one deletion path (`records/deletion.py`) now checks the distinct record types of everything it removes, cascade
+  victims included, and the ends of the relationships it removes, before anything is written; a refusal is `403
+  FORBIDDEN` with `details.recordTypes` as for every narrowed write, ahead of the impact or the preview, and a batch
+  item is refused on its own (an atomic batch applies nothing). Journey cases in J40 for a live, cascading, batch and
+  import, and change set delete; the narrowing table of J47 maps the delete route to them.
+- **Unauthenticated and unauthorized calls are refused before an unknown parameter (F1, low).** On a route that needs a
+  token the order is now `401`, `403`, then `422 UNKNOWN_PARAMETER`; the open routes still refuse it first.
+- **A request body that is not UTF-8 is `422`, not `500` (F3).** The rejected bytes are left out of the error's
+  `details`.
+- **A NUL character in a name, a key or an address is `422 REQUEST_VALIDATION_ERROR`, not `503 DATABASE_UNAVAILABLE`
+  (F4).** The driver refuses such a text before the database sees it; that is no database condition and no longer counts
+  as an outage in the process report. A database that cannot be reached still answers `503`.
+- **Behind a load balancer (`WEB_TLS=proxy`) a caller cannot choose the address the engine sees (C3, medium).**
+  `web` believes `X-Forwarded-For` only from the addresses in the new `WEB_TRUSTED_PROXIES` (default empty: nobody),
+  and sends the engine the one address it settled on. List the balancer's range, or every caller counts as the
+  balancer. `compose.acme.yml` lists the private ranges for Caddy. A malformed entry stops `web` with a message.
+  The deployment runner proves a forged address is ignored, and honoured from a listed balancer.
+- **The application page cannot be framed (C5).** `Content-Security-Policy: frame-ancestors 'none'` and
+  `X-Frame-Options: DENY` on every response of `web`.
+- **A secret is not carried to another server or provider (C6).** Saving mail with a new host or port, or a sign-in
+  provider with a new issuer, needs the password or client secret in the same request (`422 MAIL_PASSWORD_REQUIRED`;
+  new `422 SIGN_IN_PROVIDER_SECRET_REQUIRED`). The issuer of a provider anyone has signed in with cannot change
+  (`409 SIGN_IN_PROVIDER_IN_USE`: add a new provider).
+- **Changing `SECRETS_ENCRYPTION_KEY` says what it voids (C7).** Recovery codes are keyed with the key itself;
+  `reseal_secrets` (and `--check`) now print how many people hold unused ones, who must make new ones.
+- **The API reference page has a content security policy (C10).** Only the engine's scripts and the page's own two
+  run, nothing is evaluated, requests go only to the engine, the page cannot be framed.
+- **Documentation corrected (C4, C9).** The refresh cookie's path is `/oauth`; each consumer API's OpenAPI document
+  needs no token; the sign-in slowing is stated as the code does it (5 free failures per username, 20 per address, 3
+  and 20 for reset asks), and that anyone knowing a username can keep it slowed.
+
 ### Added (0.12 E1, the security sweep)
 
 - **The security model is checked against its catalogue.** Journey J47: every operation of the OpenAPI document that
@@ -27,7 +63,7 @@ All notable changes to this project are documented in this file. The format foll
   person (a real sign-in) holding each of five roles and requires every answer to equal a client's with the same role.
   J47.9: a reset by mail keeps the second factor; the new password alone gets the code step and no session. Two defects
   found are recorded as strict expected failures (F3: a body that is not UTF-8 is `500`; F4: a NUL byte in an address is
-  `503 DATABASE_UNAVAILABLE`); no engine code changed.
+  `503 DATABASE_UNAVAILABLE`), fixed below; the sweep itself changed no engine code.
 
 ### Added (0.12 E1 prep, a real sign-in provider try)
 

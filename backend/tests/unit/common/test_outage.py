@@ -6,11 +6,16 @@ import time
 import psycopg
 import pytest
 from psycopg import errors as psycopg_errors
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DataError, OperationalError
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 
 from app.common import outage as outage_module
-from app.common.outage import OutageLog, database_unavailable, database_unreachable
+from app.common.outage import (
+    OutageLog,
+    client_data_error,
+    database_unavailable,
+    database_unreachable,
+)
 
 
 class _Driver(Exception):
@@ -42,6 +47,23 @@ def _database(sqlstate=None, invalidated=False):
 )
 def test_an_unreachable_database_is_told_apart_from_a_failing_statement(error, unreachable):
     assert database_unreachable(error) is unreachable
+
+
+def test_a_value_the_driver_refused_is_not_an_outage():
+    """A NUL character in a text never reaches the server: the driver's `DataError` has no
+    SQLSTATE, which must not read as an unreachable database (0.12 E1, F4). The same error from
+    the server (it has a SQLSTATE) and a lost connection are told apart."""
+    refused = psycopg.DataError("PostgreSQL text fields cannot contain NUL (0x00) bytes")
+    wrapped = DataError("INSERT", {}, refused)
+    for error in (refused, wrapped):
+        assert client_data_error(error) is True
+        assert database_unavailable(error) is None
+    assert database_unreachable(wrapped) is False
+    from_server = psycopg_errors.InvalidTextRepresentation("invalid input syntax")
+    assert client_data_error(from_server) is False
+    assert client_data_error(_database()) is False
+    assert database_unavailable(_database()) == "unreachable"
+    assert database_unavailable(psycopg.OperationalError("connection refused")) == "unreachable"
 
 
 @pytest.mark.parametrize(
