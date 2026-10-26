@@ -50,8 +50,8 @@ export function DeploymentPage() {
       description="How this deployment is configured. The values come from the engine's environment and change only when it restarts; they cannot be edited here."
     >
       <p className="settings-note">
-        This browser application calls the API at <code>{API_URL}</code>, set by <code>VITE_API_URL</code> when the
-        frontend is built.
+        This browser application calls the API at <code>{API_URL}</code>: the address it is opened at, which forwards
+        the engine&apos;s paths, unless <code>VITE_API_URL</code> names an engine elsewhere when the frontend is built.
       </p>
       {failure ? (
         <InlineError

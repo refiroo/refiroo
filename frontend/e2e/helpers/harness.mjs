@@ -119,12 +119,15 @@ async function freePort() {
  *   Provide a prepared model and database (from `cloneDatabase`) instead of the starter model and records.
  * @param {{width: number, height: number}} [options.viewport] - Browser viewport; 1440×900 by default.
  * @param {Record<string, string>} [options.backendEnv] - Further backend settings, such as a capability turned on.
+ * @param {boolean} [options.oneAddress] - The application and the engine on one address (0.12 DP1, D404):
+ *   no `VITE_API_URL`; the Vite server forwards the engine's paths to the engine, and `PUBLIC_URL` is the
+ *   application's address. The runner's own calls still reach the engine directly.
  * @param {string} [options.host] - The host the browser reaches the servers by, 127.0.0.1 by default;
  *   `localhost` where a passkey is made (WebAuthn takes no IP address as its relying party, 0.12 I4c).
  * @returns {Promise<{page, browser, apiUrl, uiUrl, output, records, cleanup}>}
  */
 export async function bootHarness(options = {}) {
-  const { modelAdmin = true, workspaceAdmin = true, transformModel, prepare, viewport, backendEnv = {}, host = "127.0.0.1" } = options;
+  const { modelAdmin = true, workspaceAdmin = true, transformModel, prepare, viewport, backendEnv = {}, host = "127.0.0.1", oneAddress = false } = options;
   const started = performance.now();
   // Setup phase durations in milliseconds, separated from the runner's own checks (WP-13B).
   const timings = {};
@@ -202,7 +205,7 @@ export async function bootHarness(options = {}) {
         RDM_MODEL_PATH: modelPath,
         CORS_ORIGINS: uiUrl,
         // The engine's address as the browser reaches it: the token issuer and its pages (0.12 I1, I2).
-        PUBLIC_URL: apiUrl,
+        PUBLIC_URL: oneAddress ? uiUrl : apiUrl,
         MODEL_ADMIN_MUTATIONS_ENABLED: String(modelAdmin),
         WORKSPACE_ADMIN_MUTATIONS_ENABLED: String(workspaceAdmin),
         WEB_CONCURRENCY: "1",
@@ -221,7 +224,7 @@ export async function bootHarness(options = {}) {
       process.execPath,
       ["node_modules/vite/bin/vite.js", "--host", host, "--port", String(uiPort), "--strictPort"],
       frontend,
-      { VITE_API_URL: apiUrl },
+      oneAddress ? { ENGINE_URL: apiUrl } : { VITE_API_URL: apiUrl },
     );
     await ready(uiUrl, ui);
     phase = mark("viteReady", phase);

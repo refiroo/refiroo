@@ -151,6 +151,16 @@ All notable changes to this project are documented in this file. The format foll
 - **Open passkey sign-ins are capped** (2000 waiting at once, then `429` with `Retry-After`), so the
   open options endpoint cannot fill the database.
 
+### Changed (0.12 DP1, one address for the application and the engine)
+
+- The application calls the engine on the address the page was opened at (D404); `VITE_API_URL`
+  still names an engine on another address. The Vite dev server forwards `/api`, `/oauth`,
+  `/.well-known`, `/docs`, `/openapi.json` and `/health` to the engine (`ENGINE_URL`), so a phone on
+  the network needs only the frontend's address. `PUBLIC_URL` is that address: `scripts/dev.sh engine`
+  sets it, and trusts the forwarded caller address from this computer.
+- Browser runner `test:browser:one-address`: signing in, a reload and signing out through the page's
+  address with no request to the engine's own port, on two models and at 390px.
+
 ### Added (0.12 DP1a, a developer instance on the network)
 
 - `scripts/dev.sh` runs a developer instance in two terminals: `settings` (the database and a secrets

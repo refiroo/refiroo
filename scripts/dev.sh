@@ -8,12 +8,14 @@
 #   scripts/dev.sh admin <username> "<name>"
 #                                      create the first administrator (asks for a password)
 #   scripts/dev.sh engine              run the engine on http://localhost:8000
-#   scripts/dev.sh frontend            run the frontend on http://localhost:5173
+#   scripts/dev.sh frontend            run the frontend on http://localhost:5173, which forwards the
+#                                      engine's paths: open this address, not the engine's
 #
 #   scripts/dev.sh cert                find this computer's address on the network and make a
 #                                      certificate for it with mkcert (once, and again when the
 #                                      address changes); says how a phone trusts it
-#   scripts/dev.sh engine --network    run the engine on https://<address>:8000
+#   scripts/dev.sh engine --network    run the engine on https://<address>:8000 (PUBLIC_URL is the
+#                                      frontend's address)
 #   scripts/dev.sh frontend --network  run the frontend on https://<address>:5173; open that
 #                                      address on the phone, and on this computer too
 #   scripts/dev.sh address             print the address the network commands use
@@ -157,20 +159,26 @@ engine() {
   cd "$ROOT/backend"
   if [[ "${1:-}" == "--network" ]]; then
     network
-    export PUBLIC_URL="https://$NETWORK_ADDRESS:$ENGINE_PORT"
+    # People open the frontend's address, which forwards the engine's paths (DP1, D404): that is the
+    # address the engine's tokens, passkeys and provider callbacks name.
+    export PUBLIC_URL="https://$NETWORK_ADDRESS:$FRONTEND_PORT"
     # The frontend under every name this computer reaches it by (the network address for the phone,
     # localhost here), and the engine itself likewise: its API reference at /docs (Scalar) calls it
     # from the page's own origin, whichever name opened it.
-    export CORS_ORIGINS="https://$NETWORK_ADDRESS:$FRONTEND_PORT,https://localhost:$FRONTEND_PORT,https://127.0.0.1:$FRONTEND_PORT,$PUBLIC_URL,https://localhost:$ENGINE_PORT,https://127.0.0.1:$ENGINE_PORT"
-    say "Engine at $PUBLIC_URL (PUBLIC_URL), for pages at $CORS_ORIGINS (CORS_ORIGINS)."
+    export CORS_ORIGINS="$PUBLIC_URL,https://localhost:$FRONTEND_PORT,https://127.0.0.1:$FRONTEND_PORT,https://$NETWORK_ADDRESS:$ENGINE_PORT,https://localhost:$ENGINE_PORT,https://127.0.0.1:$ENGINE_PORT"
+    say "Engine at https://$NETWORK_ADDRESS:$ENGINE_PORT, reached through $PUBLIC_URL (PUBLIC_URL), for pages at $CORS_ORIGINS (CORS_ORIGINS)."
     exec .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port "$ENGINE_PORT" \
+      --proxy-headers --forwarded-allow-ips 127.0.0.1,::1 \
       --ssl-certfile "$CERTS/cert.pem" --ssl-keyfile "$CERTS/key.pem"
   fi
   # The frontend, and the engine itself (also as 127.0.0.1): its API reference at /docs (Scalar)
   # calls it from there. A CORS_ORIGINS already in the environment is left as it is.
   export CORS_ORIGINS="${CORS_ORIGINS:-http://localhost:$FRONTEND_PORT,http://localhost:$ENGINE_PORT,http://127.0.0.1:$ENGINE_PORT}"
-  say "Engine at http://localhost:$ENGINE_PORT, for pages at $CORS_ORIGINS (CORS_ORIGINS)."
-  exec .venv/bin/uvicorn app.main:app --reload --port "$ENGINE_PORT"
+  # People open the frontend's address, which forwards the engine's paths (DP1, D404).
+  export PUBLIC_URL="${PUBLIC_URL:-http://localhost:$FRONTEND_PORT}"
+  say "Engine at http://localhost:$ENGINE_PORT, reached through $PUBLIC_URL (PUBLIC_URL), for pages at $CORS_ORIGINS (CORS_ORIGINS)."
+  exec .venv/bin/uvicorn app.main:app --reload --port "$ENGINE_PORT" \
+    --proxy-headers --forwarded-allow-ips 127.0.0.1,::1
 }
 
 frontend() {
@@ -179,12 +187,15 @@ frontend() {
   free "$FRONTEND_PORT"
   if [[ "${1:-}" == "--network" ]]; then
     network
-    export VITE_API_URL="https://$NETWORK_ADDRESS:$ENGINE_PORT"
+    # The engine's paths are forwarded to the engine on this computer (DP1, D404), so the page calls
+    # its own address and no VITE_API_URL is set.
+    export ENGINE_URL="https://localhost:$ENGINE_PORT"
     export DEV_HTTPS_CERT="$CERTS/cert.pem" DEV_HTTPS_KEY="$CERTS/key.pem"
-    say "Open https://$NETWORK_ADDRESS:$FRONTEND_PORT on the phone; this computer may use it or"
-    say "https://localhost:$FRONTEND_PORT. Both call $VITE_API_URL."
+    say "Open https://$NETWORK_ADDRESS:$FRONTEND_PORT on the phone and on this computer: the engine's"
+    say "paths are forwarded to $ENGINE_URL."
     exec npx vite --host --port "$FRONTEND_PORT" --strictPort
   fi
+  export ENGINE_URL="http://localhost:$ENGINE_PORT"
   exec npx vite --port "$FRONTEND_PORT" --strictPort
 }
 
@@ -203,5 +214,5 @@ case "${1:-}" in
   engine) shift; engine "$@" ;;
   frontend) shift; frontend "$@" ;;
   admin) shift; admin "$@" ;;
-  *) sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

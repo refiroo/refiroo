@@ -22,13 +22,19 @@ only on a secure page, `https` or `localhost`, so another device needs https:
 | --- | --- |
 | `scripts/dev.sh cert` | Finds this computer's address on the network (the one its default route leaves from; `RDM_DEV_ADDRESS` overrides it), trusts mkcert's authority on this computer and makes a certificate for the address, `localhost` and `127.0.0.1` in `.dev/certs/`; again when the address changes |
 | On the phone, once | Trust mkcert's authority (`mkcert -CAROOT`/`rootCA.pem`): on an iPhone install the profile, then switch it on under Settings › General › About › Certificate Trust Settings; on Android install it as a CA certificate |
-| `scripts/dev.sh engine --network` | The engine on `https://<address>:8000` with `PUBLIC_URL=https://<address>:8000` and `CORS_ORIGINS=https://<address>:5173` plus the engine's own `https://<address>:8000`, `https://localhost:8000` and `https://127.0.0.1:8000`, so the API reference at `/docs` works under any of those names |
-| `scripts/dev.sh frontend --network` | The frontend on `https://<address>:5173` (`DEV_HTTPS_CERT` and `DEV_HTTPS_KEY` switch Vite to https) calling `VITE_API_URL=https://<address>:8000` |
+| `scripts/dev.sh engine --network` | The engine on `https://<address>:8000` with `PUBLIC_URL=https://<address>:5173` (the address people open) and `CORS_ORIGINS` listing the frontend's names and the engine's own `https://<address>:8000`, `https://localhost:8000` and `https://127.0.0.1:8000`, so the API reference at `/docs` works under any of those names; it trusts the forwarded caller address from this computer (`--proxy-headers`) |
+| `scripts/dev.sh frontend --network` | The frontend on `https://<address>:5173` (`DEV_HTTPS_CERT` and `DEV_HTTPS_KEY` switch Vite to https), forwarding the engine's paths to `https://localhost:8000` |
 
-Open `https://<address>:5173` on every device, this computer included: the page and the engine
-share the address, which the sign-in cookie needs (one site, below). Changing between the network
-and `localhost` changes the engine's `PUBLIC_URL`, so everyone signs in again. This is for
-development; an installation is served as [Deployment topologies](#deployment-topologies) says.
+**One address (0.12 DP1, D404).** The application calls the engine on the address the page was opened
+at, unless `VITE_API_URL` names an engine on another address when the frontend is built. The Vite dev
+server forwards the engine's paths to the engine at `ENGINE_URL` (default `http://localhost:8000`):
+`/api`, `/oauth`, `/.well-known`, `/docs`, `/openapi.json` and `/health`; `/metrics` is not forwarded,
+and `/brand` is the application's own. Open `http://localhost:5173` (or `https://<address>:5173` on
+every device, this computer included), never the engine's port: `PUBLIC_URL` is that address, the
+sign-in cookie is on it (one site, below) and passkeys are bound to its host. `scripts/dev.sh engine`
+sets `PUBLIC_URL=http://localhost:5173` unless it is already set. Changing between the network and
+`localhost` changes `PUBLIC_URL`, so everyone signs in again. This is for development; an
+installation is served as [Deployment topologies](#deployment-topologies) says.
 
 ## Settings
 
@@ -351,9 +357,11 @@ token presented a second time ends the session, since only a copy can do that.
 
 - **Serve over `https`.** The cookie is marked `Secure` when `PUBLIC_URL` is `https` (D268); over
   plain `http` it is not, which is for a development machine only.
-- **One site.** The application and the engine must share a site (the same registrable domain, for
-  example `rdm.example.org` and `api.rdm.example.org`, or one host on two ports in development), or
-  the browser does not send the cookie. The application's origin is in `CORS_ORIGINS`.
+- **One site.** By default the application calls the engine on its own address (a proxy or the dev
+  server forwards the engine's paths, D404), so there is one origin and nothing to set but
+  `PUBLIC_URL`, the address people open. With `VITE_API_URL` naming an engine elsewhere, the two must
+  share a site (the same registrable domain, for example `rdm.example.org` and `api.rdm.example.org`),
+  or the browser does not send the cookie. The application's origin is in `CORS_ORIGINS`.
 - **Sessions** end after `SESSION_IDLE_HOURS` without use or `SESSION_DAYS` in all, when the person
   signs out (the account menu), signs out everywhere (Settings › Account, or
   `DELETE /api/v1/users/{id}/sessions` by an administrator), changes or resets their password, or is
