@@ -12,12 +12,14 @@ import { formatServerDayTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { MailSecurity, MailSettings, MailStatus } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { EmptyState } from "@/ui/EmptyState";
 import { FormField } from "@/ui/FormField";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { SettingsTable } from "@/ui/SettingsTable";
+import { Skeleton } from "@/ui/Skeleton";
 import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
 import { failureTitle, MAIL_SECURITY, MESSAGE_STATE, messageKind, portFor } from "./mailText";
@@ -419,20 +421,20 @@ function MessagesSection({
             <option value="failed">Failed ({counts.failed})</option>
           </select>
         </label>
-        <button className="secondary" onClick={onRefresh}>
+        <button type="button" className="secondary" disabled={feed.loading} onClick={onRefresh}>
           Refresh
         </button>
       </div>
       {feed.error ? (
         <InlineError message={feed.error} onRetry={feed.retry} />
+      ) : feed.loading && !feed.items.length ? (
+        <Skeleton label="Loading messages" lines={5} />
       ) : !feed.items.length ? (
-        <p className="admin-hint">
-          {feed.loading
-            ? "Loading messages…"
-            : status
-              ? "No message is in this state."
-              : "No messages yet. A new person's link and a password reset appear here when they are sent."}
-        </p>
+        <EmptyState>
+          {status
+            ? "No message is in this state."
+            : "No messages yet. A new person's link and a password reset appear here when they are sent."}
+        </EmptyState>
       ) : (
         <SettingsTable label="Messages" columns={["To", "Message", "State", "Tries", "Last problem", "Queued"]}>
           {feed.items.map((message) => {
@@ -458,7 +460,7 @@ function MessagesSection({
           })}
         </SettingsTable>
       )}
-      {feed.hasMore && (
+      {feed.hasMore && !feed.error && (
         <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
           Load more messages
         </button>
