@@ -14,6 +14,7 @@ export function ShownOnceDialog({
   value,
   confirmLabel,
   children,
+  actions,
   onClose,
 }: {
   title: string;
@@ -24,6 +25,8 @@ export function ShownOnceDialog({
   confirmLabel: string;
   /** What the value is for and what to do with it; may follow the value with notes. */
   children: { before: ReactNode; after?: ReactNode };
+  /** A further button beside the confirming one (a link that can also be mailed). */
+  actions?: ReactNode;
   onClose: () => void;
 }) {
   return (
@@ -40,6 +43,7 @@ export function ShownOnceDialog({
         </p>
         {children.after}
         <div className="dialog-actions">
+          {actions}
           <button className="primary">{confirmLabel}</button>
         </div>
       </form>

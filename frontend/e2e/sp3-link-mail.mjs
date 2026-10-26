@@ -1,9 +1,10 @@
 // 0.12 SP3 browser evidence: Settings › Security › People mails a new person's link. Real backend,
 // harness SMTP server (helpers/smtp-server.mjs), two models, 1440px and 390px. Without mail set up
 // the dialog offers the link to pass on (Create and make a password link); with it saved, a person
-// with an address is created with "Create and mail a password link", the dialog says where the link
-// went and still shows it once, the server receives one message holding that same link, and Reset
-// password on the person mails a new-password message. A person with no address gets the link to pass
+// with an address is created with the same button, the dialog shows the link and offers "Mail it to
+// <address>"; pressed, the dialog says where the link went and shows the newer link once, the server
+// receives one message holding that link, and the person's one Make a password link button leads to the
+// same dialog. A person with no address gets the link to pass
 // on although mail is set up. Axe on each dialog; screenshots; no horizontal page scroll at 390px.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -91,7 +92,10 @@ async function walk(configuration) {
     );
     await page.goto(`${uiUrl}/settings/people`);
     await page.getByRole("heading", { level: 1, name: "People" }).waitFor();
-    shown = await newPerson(`bea-${tag}`, `Bea ${tag}`, `bea-${tag}@example.org`, "Create and mail a password link");
+    shown = await newPerson(`bea-${tag}`, `Bea ${tag}`, `bea-${tag}@example.org`, "Create and make a password link");
+    await shown.getByText(/sets a password with this link/).waitFor();
+    expect(smtp.messages.length === 0, `${tag}: nothing is sent until Mail it is pressed`);
+    await shown.getByRole("button", { name: `Mail it to bea-${tag}@example.org` }).click();
     await shown.getByText(new RegExp(`was mailed to bea-${tag}@example.org`)).waitFor();
     const link = await shown.locator("code").innerText();
     await shot(page, "link-mailed");
@@ -105,20 +109,26 @@ async function walk(configuration) {
     // 3. Reset password mails a new-password message.
     await page.getByRole("button", { name: "Make a password link" }).click();
     const again = page.getByRole("dialog", { name: "Pass on the password link" });
+    await again.getByRole("button", { name: /^Mail it to/ }).click();
     await again.getByText(/was mailed to/).waitFor();
     await again.getByRole("button", { name: "I have copied it" }).click();
     expect(await received(smtp, 2), `${tag}: the second message reached the server`);
-    checks.push(`${tag}: Make a password link on a person's page mails it too`);
+    checks.push(`${tag}: Make a password link, then Mail it, on a person's page mails it too`);
 
     // 4. A person with no address: the link to pass on although mail is set up.
     shown = await newPerson(`cy-${tag}`, `Cy ${tag}`, "", "Create and make a password link");
     await shown.getByText(/no e-mail address/).waitFor();
+    expect(
+      (await shown.getByRole("button", { name: /^Mail it to/ }).count()) === 0,
+      `${tag}: no Mail it without an address`,
+    );
     await shown.getByRole("button", { name: "I have copied it" }).click();
     checks.push(`${tag}: a person without an address gets the link to pass on`);
 
     // 5. 390px.
     await page.setViewportSize({ width: 390, height: 844 });
-    shown = await newPerson(`di-${tag}`, `Di ${tag}`, `di-${tag}@example.org`, "Create and mail a password link");
+    shown = await newPerson(`di-${tag}`, `Di ${tag}`, `di-${tag}@example.org`, "Create and make a password link");
+    await shown.getByRole("button", { name: /^Mail it to/ }).click();
     await shown.getByText(/was mailed to/).waitFor();
     await shot(page, "link-mailed-390");
     expect((await overflow(page)) <= 0, `${tag}: no horizontal scroll at 390px`);

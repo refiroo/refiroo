@@ -26,8 +26,9 @@ All notable changes to this project are documented in this file. The format foll
   up and an address on the person, the one-time link is queued as a message in the transaction that
   makes it (a welcome for a person with no password, a new-password message for one with a password) and
   the answer names `sentTo`, still holding the link once. `409 MAIL_NOT_SET_UP` and `409 NO_EMAIL` are
-  answered before the earlier link is replaced. Settings › Security › People asks for the mail by itself
-  when it can ("Create and mail a password link") and says where it went; otherwise it shows the link to
+  answered before the earlier link is replaced. The password-link dialog on People
+  (one button, as before) offers "Mail it to <address>" beside "I have copied it" when mail is set up and
+  the person has an address (a newer link is made and mailed, and shown in place of the first); otherwise it shows the link to
   pass on as before.
 
 ### Added (0.12 M1)

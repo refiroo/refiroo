@@ -4451,9 +4451,10 @@ dialog is SP1's, with sentences changed).
   mail router's own constant.
 - **API:** `POST /users/{id}/password-reset` takes an optional `{send}` body and answers `sentTo`; new code
   `409 NO_EMAIL`. The OpenAPI lock moved (the optional body, `PasswordResetRequest`, `sentTo`).
-- **Frontend:** `PeoplePage` reads whether mail is set up; with it and an address, New person says "Create and
-  mail a password link" and the dialog names the address and still shows the link once; a refusal that mail
-  cannot be sent falls back to the link to pass on. **Runner** `sp3-link-mail`.
+- **Frontend:** `PeoplePage` reads whether mail is set up; with it and an address, the link dialog offers "Mail it to
+  <address>" beside "I have copied it" (**revised 2026-10-26 on the user's word: one button on the page, the choice
+  in the dialog**; mailing makes a newer link, since only a link's digest is kept); a refusal that mail cannot be
+  sent leaves the link to pass on. **Runner** `sp3-link-mail`.
 - **Documents:** API.md, OPERATIONS, ARCHITECTURE, CURRENT_FUNCTIONALITY, USER_JOURNEYS (J46.7), API_JOURNEYS,
   UI_ACCEPTANCE (SP3-1), EXECUTION_GUIDE, CHANGELOG, PROJECT_STATUS.
 

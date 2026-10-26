@@ -70,26 +70,34 @@ describe("A new person's link by mail (0.12 SP3)", () => {
     return dialog;
   }
 
-  it("asks for the link to be mailed when mail is set up and says where it went", async () => {
-    vi.mocked(mail.settings).mockResolvedValue({ configured: true } as never);
-    vi.mocked(security.createUser).mockResolvedValue(user as never);
-    vi.mocked(security.passwordLink).mockResolvedValue({ ...link, sentTo: "ada@example.org" });
-    const dialog = await createAda();
-    fireEvent.click(await within(dialog).findByRole("button", { name: "Create and mail a password link" }));
-    expect(await screen.findByText(/The link was mailed to ada@example.org/)).toBeInTheDocument();
-    expect(security.passwordLink).toHaveBeenCalledWith("u1", true);
-  });
-
-  it("falls back to the link to pass on when the engine says mail cannot be sent", async () => {
+  it("shows the link, and the Mail it button sends a newer one to the address", async () => {
     vi.mocked(mail.settings).mockResolvedValue({ configured: true } as never);
     vi.mocked(security.createUser).mockResolvedValue(user as never);
     vi.mocked(security.passwordLink)
-      .mockRejectedValueOnce(new ApiError(409, "MAIL_NOT_SET_UP", "Mail is not set up"))
-      .mockResolvedValueOnce(link);
+      .mockResolvedValueOnce(link)
+      .mockResolvedValueOnce({ ...link, sentTo: "ada@example.org" });
     const dialog = await createAda();
-    fireEvent.click(await within(dialog).findByRole("button", { name: "Create and mail a password link" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create and make a password link" }));
     expect(await screen.findByText(/sets a password with this link/)).toBeInTheDocument();
-    expect(security.passwordLink).toHaveBeenLastCalledWith("u1");
+    expect(security.passwordLink).toHaveBeenCalledWith("u1");
+    fireEvent.click(await screen.findByRole("button", { name: "Mail it to ada@example.org" }));
+    expect(await screen.findByText(/The link was mailed to ada@example.org/)).toBeInTheDocument();
+    expect(security.passwordLink).toHaveBeenLastCalledWith("u1", true);
+    expect(screen.queryByRole("button", { name: /Mail it to/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "I have copied it" })).toBeInTheDocument();
+  });
+
+  it("says why the mail failed and keeps the link that was shown", async () => {
+    vi.mocked(mail.settings).mockResolvedValue({ configured: true } as never);
+    vi.mocked(security.createUser).mockResolvedValue(user as never);
+    vi.mocked(security.passwordLink)
+      .mockResolvedValueOnce(link)
+      .mockRejectedValueOnce(new ApiError(409, "MAIL_NOT_SET_UP", "Mail is not set up"));
+    const dialog = await createAda();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create and make a password link" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Mail it to ada@example.org" }));
+    expect(await screen.findByText(/Mail is not set up/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mail it to ada@example.org" })).toBeEnabled();
   });
 
   it("makes only a link to pass on when mail is not set up", async () => {
