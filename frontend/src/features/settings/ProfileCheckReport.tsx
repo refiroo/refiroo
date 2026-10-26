@@ -109,6 +109,7 @@ export function ProfileCheckReport({
               source={source}
               prefix={named(source)}
               profileKey={check.profileKey}
+              workspaceKey={check.workspaceKey}
               onOpen={onOpen}
             />
           ))}
@@ -292,11 +293,13 @@ function SourceValues({
   source,
   prefix,
   profileKey,
+  workspaceKey,
   onOpen,
 }: {
   source: CheckSource;
   prefix: string;
   profileKey: string;
+  workspaceKey: string;
   onOpen: (rows: CheckRows) => void;
 }) {
   const [shown, setShown] = useState<CheckNewValue[]>([]);
@@ -305,7 +308,7 @@ function SourceValues({
     let cancelled = false;
     if (at === null || !source.newValues) return;
     api
-      .profileCheckList<CheckNewValue>(profileKey, "new-values", { source: at, pageSize: 5 })
+      .profileCheckList<CheckNewValue>(profileKey, workspaceKey, "new-values", { source: at, pageSize: 5 })
       .then((page) => {
         if (!cancelled) setShown(page.items);
       })
@@ -315,7 +318,7 @@ function SourceValues({
     return () => {
       cancelled = true;
     };
-  }, [profileKey, at, source.newValues]);
+  }, [profileKey, workspaceKey, at, source.newValues]);
   if (at === null) return null;
   const visible = source.newValues ? shown : [];
   return (
@@ -392,10 +395,12 @@ const LIST_COLUMNS = {
 /** A list of the check, or the rows behind its dry run's refusals. */
 export function CheckRowsDialog({
   profileKey,
+  workspaceKey,
   rows,
   onClose,
 }: {
   profileKey: string;
+  workspaceKey: string;
   rows: CheckRows;
   onClose: () => void;
 }) {
@@ -413,21 +418,31 @@ export function CheckRowsDialog({
             name="check-rows"
             preview
             initialFilter="rejected"
-            deps={[profileKey, rows.source, rows.code]}
-            rows={(query) => api.profileCheckRows(profileKey, { ...query, code: rows.code })}
+            deps={[profileKey, workspaceKey, rows.source, rows.code]}
+            rows={(query) => api.profileCheckRows(profileKey, workspaceKey, { ...query, code: rows.code })}
           />
         ) : (
-          <CheckListTable profileKey={profileKey} list={rows.list} source={rows.source} />
+          <CheckListTable profileKey={profileKey} workspaceKey={workspaceKey} list={rows.list} source={rows.source} />
         )}
       </div>
     </Modal>
   );
 }
 
-function CheckListTable({ profileKey, list, source }: { profileKey: string; list: CheckList; source: number }) {
+function CheckListTable({
+  profileKey,
+  workspaceKey,
+  list,
+  source,
+}: {
+  profileKey: string;
+  workspaceKey: string;
+  list: CheckList;
+  source: number;
+}) {
   const window = useCursorWindow<CheckNewValue | CheckDrift | CheckMissingRecord>(
-    (selector) => api.profileCheckList(profileKey, list, { ...selector, source, pageSize: 100 }),
-    [profileKey, list, source],
+    (selector) => api.profileCheckList(profileKey, workspaceKey, list, { ...selector, source, pageSize: 100 }),
+    [profileKey, workspaceKey, list, source],
   );
   return (
     <DataTable

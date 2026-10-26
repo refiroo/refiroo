@@ -343,5 +343,5 @@ def test_a_profile_checks_its_newest_file_when_the_older_is_profiled_last(world)
         b.run_until_idle()
     slow.result(timeout=30)
     a.run_until_idle()
-    check = ok(world.api.get(f"/import-profiles/{profile_key}/check"))
+    check = ok(world.api.get(f"/import-profiles/{profile_key}/check", workspaceKey=workspace))
     assert (check["state"], check["sourceFileId"]) == ("completed", newer["id"]), check

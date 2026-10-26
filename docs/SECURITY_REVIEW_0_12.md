@@ -1,9 +1,6 @@
 # Security review of 0.12 (E1)
 
-**Status:** open — C2 awaiting the user's decision; everything else fixed or accepted. Phases A–C of
-[the E1 plan](testing/E1_SECURITY_CHECKPOINT_PLAN.md) are done (2026-10-26); Phase D (fixes) is done
-but for C2. E1 is delivered only when every finding below is fixed or accepted by the user, and a
-high-severity finding stops E1 until then (the user, 2026-10-26).
+**Status:** all findings fixed or accepted. E1's remaining items are the plan's closing checks: the B3 expiry unit test exists only at the verifier level; person and group consumer grants are not swept; passkey ceremonies are not exercised. A high-severity finding stops E1: none is open.
 
 What was examined: the generated sweep (`backend/tests/journeys/test_j47_*`), the composed cases, the
 deployment runner (`npm run test:deployment`), the real-provider try
@@ -27,7 +24,9 @@ behaviour behind nginx in a real browser.
 | ID | Severity | State | Finding |
 | --- | --- | --- | --- |
 | C1 | **High** | fixed (`test_a_narrowed_live_delete`, `test_a_narrowed_cascade_delete_reaches_only_permitted_types`, `test_a_narrowed_batch_and_import_delete`, `test_a_narrowed_delete_in_a_change_set`) | Deletions skip the narrowing check (below) |
-| C2 | Medium | open | Source files: Bulk anywhere reaches every model-draft file and can supersede files of other workspaces |
+| C2 | Medium | fixed for profile files (`test_a_profile_upload_needs_bulk_in_its_workspace`, `test_an_upload_supersedes_only_its_own_workspaces_file`, `test_an_instance_wide_bulk_holder_uploads_in_any_workspace`, `test_a_profiles_files_coexist_one_current_per_workspace`); draft files readable by any Bulk holder as documented: accepted by design (the user, 2026-10-26; changing it is a contract change: `source-files.manage` would need Model authoring for draft-owned files) | Source files: Bulk anywhere reaches every model-draft file and can supersede files of other workspaces |
+| F5 | Low | fixed (`test_a_profile_check_needs_bulk_in_its_workspace`, `test_a_profile_check_reads_only_its_workspaces_file`, `test_a_profile_check_must_name_its_workspace`) | `GET` and `POST /import-profiles/{key}/check` take no workspace: `current_file` (`engine/sources/profile_check.py`) picks the newest non-superseded file of the profile across workspaces, so a caller holding `import-profiles.manage` can check, or read the check of, another workspace's file. Fixed by the contract change the user approved (2026-10-26): the six check routes take a required `workspaceKey`, need Bulk there and read only that workspace's file and check. Found while fixing C2 |
+| F6 | Info | accepted | A profile file uploaded naming no workspace and one naming the default workspace are different scopes (both current). Found while fixing C2 |
 | C3 | Medium | fixed (`npm run test:deployment`, step 6 and 9b–9d: a forged `X-Forwarded-For` is not counted unless the connecting address is in `WEB_TRUSTED_PROXIES`; a bad entry stops `web`) | `WEB_TLS=proxy`: the caller chooses the address the engine sees |
 | F1 | Low | fixed (`test_authorization_refuses_before_an_unknown_parameter_is_refused`, `test_authentication_refuses_before_an_unknown_parameter_is_refused`, `test_an_open_route_still_refuses_an_unknown_parameter`) | The unknown-parameter check runs before authentication and authorization (`main.py:262`); two unit-probe cases pin it |
 | F3 | Medium | fixed (`test_a_binary_body_is_refused_with_422_never_500`) | A non-UTF-8 request body gives `500 INTERNAL_ERROR`, reachable without a token on the `/oauth` routes (`management/errors.py`, `jsonable_encoder(exc.errors())`); strict xfail |
@@ -110,4 +109,4 @@ migrations other than the authorization triggers; Caddy's `X-Forwarded-For` hand
 
 ## Hand try with the organisation's own provider
 
-Open (E1 plan decision 3): wanted after E1 or not, and which provider.
+Decided 2026-10-26: no further trial is required for E1. The Keycloak try (ten cases, two models, and the `iss` defect it found) covers the generic OpenID Connect behaviour. A hand try follows only when the organisation picks the provider it will deploy with (Entra ID: group object IDs and the 200-group overage; Google: no groups claim; Okta not tried).

@@ -279,7 +279,7 @@ export async function visitSpreadsheetSurfaces(visit) {
     });
     const profileKey = release.importProfile.key;
     await upload({ profileKey }, "catalogue-v2.xlsx", book("w1_next(rows=200)"));
-    await until(() => api(`/import-profiles/${profileKey}/check`), (found) => found.state === "completed", "W1′'s check");
+    await until(() => api(`/import-profiles/${profileKey}/check?workspaceKey=default`), (found) => found.state === "completed", "W1′'s check");
     await run([
       [
         "import-profile-check",

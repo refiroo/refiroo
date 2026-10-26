@@ -89,7 +89,7 @@ def store_source_file(
     session.execute(
         update(SourceFile)
         .where(
-            _same_owner(draft_id, profile_key),
+            *_same_owner(draft_id, profile_key, request.workspaceKey),
             SourceFile.id != source.id,
             SourceFile.superseded_at.is_(None),
         )
@@ -295,16 +295,21 @@ def expire_superseded(session: Session, now: datetime, retention_days: int) -> l
     caller removes from disk once it committed.
 
     First, a file with a newer one of the same owner is marked superseded when the newer arrived:
-    two uploads committed together each supersede only what was committed before (0.10 R-F9)."""
+    two uploads committed together each supersede only what was committed before (0.10 R-F9). A
+    profile's files are of one owner per workspace, as an upload supersedes them (0.12 E1, C2)."""
     session.execute(
         text(
             """
             UPDATE source_files f SET superseded_at = (
                 SELECT min(n.uploaded_at) FROM source_files n
-                WHERE n.id > f.id AND (n.draft_id = f.draft_id OR n.profile_key = f.profile_key))
+                WHERE n.id > f.id AND (n.draft_id = f.draft_id OR (
+                    n.profile_key = f.profile_key
+                    AND n.workspace_key IS NOT DISTINCT FROM f.workspace_key)))
             WHERE f.superseded_at IS NULL AND EXISTS (
                 SELECT 1 FROM source_files n
-                WHERE n.id > f.id AND (n.draft_id = f.draft_id OR n.profile_key = f.profile_key))
+                WHERE n.id > f.id AND (n.draft_id = f.draft_id OR (
+                    n.profile_key = f.profile_key
+                    AND n.workspace_key IS NOT DISTINCT FROM f.workspace_key)))
             """
         )
     )
@@ -327,7 +332,11 @@ def _owner(session: Session, request: SourceFileRequest) -> tuple[int | None, st
     return None, load_profile(session, owner.profileKey).key
 
 
-def _same_owner(draft_id: int | None, profile_key: str | None):
+def _same_owner(draft_id: int | None, profile_key: str | None, workspace_key: str | None):
+    """What a new file supersedes: its draft's files, or the profile's files of its own workspace
+    (a profile is instance-wide, its file current per workspace: 0.12 E1, C2)."""
     if draft_id is not None:
-        return SourceFile.draft_id == draft_id
-    return SourceFile.profile_key == profile_key
+        return (SourceFile.draft_id == draft_id,)
+    return SourceFile.profile_key == profile_key, SourceFile.workspace_key.is_not_distinct_from(
+        workspace_key
+    )

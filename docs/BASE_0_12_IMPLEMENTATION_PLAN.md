@@ -4855,8 +4855,8 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 13b | [DP2](#track-dp--deployment) | DP1 | **Delivered 2026-10-26.** The `web` and engine images, `compose.yml` as the reference installation, HTTPS, secrets (D405–D409) |
 | 13c | [DP3](#track-dp--deployment) | DP2 | **Delivered 2026-10-26.** OPERATIONS § Deploying and the deployment runner (D410) |
 | 13d | [DP4](#track-dp--deployment) | DP2 | **Delivered 2026-10-26.** Automatic HTTPS for a public installation, as an overlay |
-| 14 | [E1](#e1-security-checkpoint) | all above | The exit gate composed; independent security review |
-| — | _cut line_ | | _If R is out of reach, 0.12.0 releases here and Track A follows in 0.12.x_ |
+| 14 | [E1](#e1-security-checkpoint) | all above | **Delivered 2026-10-26.** The exit gate composed; independent security review ([record](SECURITY_REVIEW_0_12.md), [plan](testing/E1_SECURITY_CHECKPOINT_PLAN.md)) |
+| — | _cut line_ | | _Was: if R is out of reach, 0.12.0 releases here and Track A follows in 0.12.x._ **Not used (the user, 2026-10-26): 0.12 is released complete, Track A, M2 and L1–L2 included; E1 is the gate before them.** |
 | 15 | [A1](#a1-a-publication-request-and-its-approval) | Z1, Z4 | Submit, approve or send back, self-approval, four-eyes policy |
 | 16 | [A2](#a2-the-inbox) | A1, I2 | The inbox; webhook events per step |
 | 16a | [M2](#m2-inbox-notifications-by-mail) | M1, A2 | Planned 2026-10-26 (D418, D421): e-mail for inbox notifications, per person, off by default

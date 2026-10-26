@@ -97,7 +97,7 @@ def _next_version(world, workspace: str, profile_key: str) -> tuple[workbooks.W1
     source = _profiled(
         world, {"profileKey": profile_key}, "catalogue-v2.xlsx", following.content, workspaceKey=workspace
     )
-    check = ok(world.api.get(f"/import-profiles/{profile_key}/check"))
+    check = ok(world.api.get(f"/import-profiles/{profile_key}/check", workspaceKey=workspace))
     assert (check["state"], check["sourceFileId"]) == ("completed", source["id"]), check
     return following, check
 
@@ -141,7 +141,7 @@ def test_the_next_version_is_checked_before_anything_loads(world, monkeypatch):
         201,
     )
     _run_within(world, 60)
-    check = ok(world.api.get(f"/import-profiles/{profile_key}/check"))
+    check = ok(world.api.get(f"/import-profiles/{profile_key}/check", workspaceKey=workspace))
     assert check["state"] == "completed", check
 
     assert check["valid"] is True and check["problems"] == []
@@ -156,18 +156,18 @@ def test_the_next_version_is_checked_before_anything_loads(world, monkeypatch):
     assert (source["newValues"], source["drift"], source["missingRecords"]) == (1, 5, 2)
 
     path = f"/import-profiles/{profile_key}/check"
-    (new_value,) = _all(world, f"{path}/new-values")
+    (new_value,) = _all(world, f"{path}/new-values", workspaceKey=workspace)
     assert (new_value["column"], new_value["value"], new_value["created"]) == (book.header("T"), "Bamboo", True)
-    drift = _all(world, f"{path}/drift")
+    drift = _all(world, f"{path}/drift", workspaceKey=workspace)
     assert {item["name"] for item in drift} == {row["N"] for row in following.rows[:5]}
     assert all(item["recordName"] == item["name"].removesuffix(" (new)") for item in drift)
-    missing = _all(world, f"{path}/missing-records")
+    missing = _all(world, f"{path}/missing-records", workspaceKey=workspace)
     assert sorted(item["key"] for item in missing) == [row["K"] for row in book.rows[:2]]
 
     (figures,) = check["dryRun"]["sources"]
     assert figures["records"] | {"unchanged": 0} == {"created": 3, "updated": 5, "unchanged": 0, "deleted": 0}
     assert (figures["missingRecords"], figures["rejections"]) == (2, [])
-    rows = _all(world, f"{path}/rows", source=0, status="rejected")
+    rows = _all(world, f"{path}/rows", source=0, status="rejected", workspaceKey=workspace)
     assert rows == []
 
     assert _items(world, workspace) == len(book.rows)
@@ -200,10 +200,10 @@ def test_records_missing_from_the_next_version_are_kept_or_deleted_in_a_change_s
     following, check = _next_version(world, workspace, profile_key)
     _accept_rename(world, profile_key, book.header("Ln"), following.header("Ln"))
     source_id = check["sourceFileId"]
-    again = ok(world.api.post(f"/import-profiles/{profile_key}/check", {}), 202)
+    again = ok(world.api.post(f"/import-profiles/{profile_key}/check", {}, workspaceKey=workspace), 202)
     assert again["state"] == "checking" and again["jobId"] != check["jobId"]
     _run(world)
-    again = ok(world.api.get(f"/import-profiles/{profile_key}/check"))
+    again = ok(world.api.get(f"/import-profiles/{profile_key}/check", workspaceKey=workspace))
     assert again["state"] == "completed" and again["sources"][0]["columns"]["renamed"] == []
 
     kept = world.change_set(workspace, name="Keep missing")
@@ -269,7 +269,7 @@ def test_a_profile_a_newer_release_broke_is_listed_at_its_binding_and_refused(wo
     ok(world.activate_everywhere(world.install(model)["id"]))
 
     source = _profiled(world, {"profileKey": profile_key}, "catalogue.xlsx", book.content, workspaceKey=workspace)
-    check = ok(world.api.get(f"/import-profiles/{profile_key}/check"))
+    check = ok(world.api.get(f"/import-profiles/{profile_key}/check", workspaceKey=workspace))
     assert check["state"] == "completed" and check["valid"] is False
     stored = ok(world.api.get(f"/import-profiles/{profile_key}"))
     at = next(i for i, b in enumerate(stored["sources"][0]["columns"]) if b.get("attributeTypeKey") == "j34-supplier")
@@ -335,5 +335,5 @@ def test_the_next_version_of_an_inferred_workbook_is_checked_in_seconds(world):
     following = workbooks.w1_next(rows=200)
     ok(_upload(world, {"profileKey": profile_key}, "catalogue-v2.xlsx", following.content, workspaceKey=workspace), 201)
     _run_within(world, 20)
-    check = ok(world.api.get(f"/import-profiles/{profile_key}/check"))
+    check = ok(world.api.get(f"/import-profiles/{profile_key}/check", workspaceKey=workspace))
     assert check["state"] == "completed", check

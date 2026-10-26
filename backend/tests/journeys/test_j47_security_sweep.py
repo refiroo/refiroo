@@ -52,6 +52,7 @@ SWEEP_EXCEPTIONS = {
 _PATH_SCOPE = "the path's workspace"
 _PATH_SCOPES = (_PATH_SCOPE, "the change set, or the path's workspace")
 _QUERY_SCOPES = (
+    "the query's workspace",
     "the query's change set, publication or workspace",
     "the query's context, or the record's workspace",
     "the query's context, or the relationship's workspace",

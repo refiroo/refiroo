@@ -32,6 +32,7 @@ from ...models.imports import ImportProfileCreate, ImportProfileUpdate, ImportRe
 from ..access import (
     ANYWHERE,
     IMPORT_FORM,
+    WORKSPACE_QUERY,
     AuthorizedRoute,
     requires,
 )
@@ -214,27 +215,41 @@ def create_import(
 
 # --- a profile's check of its next file (0.10 A5c, D83) ------------------------------------------
 
+# A profile is instance-wide, its files are per workspace: a check is made in one (0.12 E1, F5).
+WorkspaceKey = Annotated[
+    str,
+    Query(
+        alias="workspaceKey",
+        description="The workspace whose file of the profile is checked; the caller needs Bulk there",
+    ),
+]
+
 
 @router.get("/import-profiles/{profile_key}/check", response_model=ProfileCheckResponse)
-@requires("import-profiles.manage", at=ANYWHERE)
-def get_profile_check(profile_key: str, session: DbSession) -> ProfileCheckResponse:
-    """The check of the profile's latest file (D83): ``checking``, then the columns new, missing
+@requires("import-profiles.manage", at=WORKSPACE_QUERY)
+def get_profile_check(
+    profile_key: str, session: DbSession, workspace_key: WorkspaceKey
+) -> ProfileCheckResponse:
+    """The check of the profile's latest file in the workspace ``workspaceKey`` (D83): ``checking``, then the columns new, missing
     and renamed, the profile against the active release, what the load would do and the counts of
     new values, drifting names and records missing from the file; ``404 PROFILE_CHECK_NOT_FOUND``
-    before the profile's first file is checked."""
-    return check_response(_check(session, profile_key))
+    before the profile's first file there is checked."""
+    return check_response(_check(session, profile_key, workspace_key))
 
 
 @write_router.post(
     "/import-profiles/{profile_key}/check", response_model=ProfileCheckResponse, status_code=202
 )
-@requires("import-profiles.manage", at=ANYWHERE)
-def run_profile_check(profile_key: str, request: Request, session: DbSession) -> JSONResponse:
-    """Check the profile's current file again, as after a change to the profile; a check still
-    running is cancelled. Refused: ``404 SOURCE_FILE_NOT_FOUND`` when the profile holds no file,
+@requires("import-profiles.manage", at=WORKSPACE_QUERY)
+def run_profile_check(
+    profile_key: str, request: Request, session: DbSession, workspace_key: WorkspaceKey
+) -> JSONResponse:
+    """Check the profile's current file in the workspace ``workspaceKey`` again, as after a change
+    to the profile; a check still running is cancelled. Refused: ``404 SOURCE_FILE_NOT_FOUND``
+    when the profile holds no file there,
     ``409 SOURCE_FILE_PROFILE_NOT_READY`` before it is profiled."""
     limits: BatchLimits = request.app.state.batch_limits
-    job = submit_check(session, profile_key, retention_days=limits.retention_days)
+    job = submit_check(session, profile_key, workspace_key, retention_days=limits.retention_days)
     worker = getattr(request.app.state, "job_worker", None)
     if worker is not None:
         worker.wake()
@@ -242,35 +257,45 @@ def run_profile_check(profile_key: str, request: Request, session: DbSession) ->
 
 
 @router.get("/import-profiles/{profile_key}/check/new-values", response_model=CheckNewValuePage)
-@requires("import-profiles.manage", at=ANYWHERE)
+@requires("import-profiles.manage", at=WORKSPACE_QUERY)
 def list_check_new_values(
     profile_key: str,
     session: DbSession,
     paging: PageQuery,
+    workspace_key: WorkspaceKey,
     source: int | None = Query(default=None, ge=0, description="A source, in load order"),
     page_size: int = Query(default=100, ge=1, le=1000, alias="pageSize"),
 ) -> CheckNewValuePage:
     """Values of match columns naming no record, each with its cells: created by the load or
     refused, in source, column and value order."""
     found = finding_page(
-        session, _check(session, profile_key), "newValues", source=source, page=paging,
+        session,
+        _check(session, profile_key, workspace_key),
+        "newValues",
+        source=source,
+        page=paging,
         page_size=page_size,
     )
     return CheckNewValuePage(items=[row.value for row in found.items], **found.links())
 
 
 @router.get("/import-profiles/{profile_key}/check/drift", response_model=CheckDriftPage)
-@requires("import-profiles.manage", at=ANYWHERE)
+@requires("import-profiles.manage", at=WORKSPACE_QUERY)
 def list_check_drift(
     profile_key: str,
     session: DbSession,
     paging: PageQuery,
+    workspace_key: WorkspaceKey,
     source: int | None = Query(default=None, ge=0, description="A source, in load order"),
     page_size: int = Query(default=100, ge=1, le=1000, alias="pageSize"),
 ) -> CheckDriftPage:
     """Rows whose key finds a record named otherwise, in source and row order."""
     found = finding_page(
-        session, _check(session, profile_key), "drift", source=source, page=paging,
+        session,
+        _check(session, profile_key, workspace_key),
+        "drift",
+        source=source,
+        page=paging,
         page_size=page_size,
     )
     return CheckDriftPage(items=[row.value for row in found.items], **found.links())
@@ -279,29 +304,35 @@ def list_check_drift(
 @router.get(
     "/import-profiles/{profile_key}/check/missing-records", response_model=CheckMissingRecordPage
 )
-@requires("import-profiles.manage", at=ANYWHERE)
+@requires("import-profiles.manage", at=WORKSPACE_QUERY)
 def list_check_missing_records(
     profile_key: str,
     session: DbSession,
     paging: PageQuery,
+    workspace_key: WorkspaceKey,
     source: int | None = Query(default=None, ge=0, description="A source, in load order"),
     page_size: int = Query(default=100, ge=1, le=1000, alias="pageSize"),
 ) -> CheckMissingRecordPage:
     """Records of a source's type no row names (D82), in source and name order: kept by a load,
     or deleted by one into a change set when the source says ``missing: delete``."""
     found = finding_page(
-        session, _check(session, profile_key), "missingRecords", source=source, page=paging,
+        session,
+        _check(session, profile_key, workspace_key),
+        "missingRecords",
+        source=source,
+        page=paging,
         page_size=page_size,
     )
     return CheckMissingRecordPage(items=[row.value for row in found.items], **found.links())
 
 
 @router.get("/import-profiles/{profile_key}/check/rows", response_model=JobRowPage)
-@requires("import-profiles.manage", at=ANYWHERE)
+@requires("import-profiles.manage", at=WORKSPACE_QUERY)
 def list_check_rows(
     profile_key: str,
     session: DbSession,
     paging: PageQuery,
+    workspace_key: WorkspaceKey,
     source: int | None = Query(default=None, ge=0, description="A source, in load order"),
     status: Literal["applied", "rejected", "unprocessed"] | None = Query(default=None),
     code: str | None = Query(default=None, description="Rows with an outcome refused this code"),
@@ -311,7 +342,7 @@ def list_check_rows(
     dry run's."""
     return job_row_page(
         session,
-        _check(session, profile_key),
+        _check(session, profile_key, workspace_key),
         status=status,
         page=paging,
         page_size=page_size,
@@ -320,13 +351,13 @@ def list_check_rows(
     )
 
 
-def _check(session: Session, profile_key: str) -> Job:
-    job = latest_check(session, profile_key)
+def _check(session: Session, profile_key: str, workspace_key: str) -> Job:
+    job = latest_check(session, profile_key, workspace_key)
     if job is None:
         raise api_error(
             404,
             "PROFILE_CHECK_NOT_FOUND",
-            f"Import profile '{profile_key}' has no checked file yet; upload one with "
-            "POST /source-files naming the profile as its owner",
+            f"Import profile '{profile_key}' has no checked file in workspace '{workspace_key}' "
+            "yet; upload one with POST /source-files naming the profile as its owner",
         )
     return job

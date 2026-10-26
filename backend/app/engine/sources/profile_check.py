@@ -99,16 +99,19 @@ def queue_check(session: Session, source: SourceFile, *, retention_days: int) ->
     )
 
 
-def submit_check(session: Session, profile_key: str, *, retention_days: int) -> Job:
-    """Check the profile's current file again; commits. ``404 SOURCE_FILE_NOT_FOUND`` when the
-    profile holds no file, ``409 SOURCE_FILE_PROFILE_NOT_READY`` before it is profiled."""
+def submit_check(
+    session: Session, profile_key: str, workspace_key: str, *, retention_days: int
+) -> Job:
+    """Check the profile's current file in a workspace again; commits. ``404
+    SOURCE_FILE_NOT_FOUND`` when the profile holds no file there, ``409 SOURCE_FILE_PROFILE_NOT_READY`` before it is profiled."""
     profile = load_profile(session, profile_key)
-    source = current_file(session, profile.key)
+    source = current_file(session, profile.key, workspace_key)
     if source is None:
         raise api_error(
             404,
             "SOURCE_FILE_NOT_FOUND",
-            f"Import profile '{profile.key}' holds no file; upload one with POST /source-files",
+            f"Import profile '{profile.key}' holds no file in workspace '{workspace_key}'; upload "
+            "one with POST /source-files",
         )
     state = profile_state(session, source)
     if state["state"] != "completed":
@@ -124,20 +127,31 @@ def submit_check(session: Session, profile_key: str, *, retention_days: int) -> 
     return job
 
 
-def current_file(session: Session, profile_key: str) -> SourceFile | None:
+def current_file(session: Session, profile_key: str, workspace_key: str) -> SourceFile | None:
+    """The profile's newest file not superseded in that workspace, never another's: a profile is
+    instance-wide, its files are not (0.12 E1, F5)."""
     return session.scalar(
         select(SourceFile)
-        .where(SourceFile.profile_key == profile_key, SourceFile.superseded_at.is_(None))
+        .where(
+            SourceFile.profile_key == profile_key,
+            SourceFile.workspace_key == workspace_key,
+            SourceFile.superseded_at.is_(None),
+        )
         .order_by(SourceFile.id.desc())
         .limit(1)
     )
 
 
-def latest_check(session: Session, profile_key: str) -> Job | None:
+def latest_check(session: Session, profile_key: str, workspace_key: str) -> Job | None:
+    """The latest check of the profile's file in that workspace (a check runs in its file's)."""
     load_profile(session, profile_key)
     return session.scalar(
         select(Job)
-        .where(Job.kind == KIND, job_parameter("profileKey") == profile_key)
+        .where(
+            Job.kind == KIND,
+            Job.workspace_key == workspace_key,
+            job_parameter("profileKey") == profile_key,
+        )
         .order_by(Job.sequence_id.desc())
         .limit(1)
     )

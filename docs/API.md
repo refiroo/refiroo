@@ -4246,7 +4246,11 @@ with the file and its profile's state:
 - A source file is a resource of its own (D5), stored in `JOB_FILE_DIR` as `{id}.upload`, limited by
   `IMPORT_MAX_BYTES`, deleted with its owner (its staged cells and profile with it). An upload
   supersedes the owner's earlier file: that one stays readable with `supersededAt`, and the job
-  retention sweep deletes it `JOB_RETENTION_DAYS` later.
+  retention sweep deletes it `JOB_RETENTION_DAYS` later. A profile is instance-wide but its files are
+  current per profile and workspace: an upload for a profile needs Bulk and import in the request's
+  `workspaceKey` (at the instance when it names none; an instance-wide grant satisfies it, a grant in
+  another workspace does not; else `403 FORBIDDEN`), and supersedes only the profile's earlier file of
+  that workspace, never another workspace's.
 - **Profiling** is a job of kind `profile` on the batch worker. It reads the file once and stages
   every filled cell in PostgreSQL (D66); every statistic is a set statement over the staged cells.
   `profile.state` is `queued` or `running`, then `completed` once stored, or the job's `failed` or
@@ -4620,10 +4624,14 @@ A proposal whose step was undone is `rejected`.
 
 **Delivered by A5c (2026-10-14).** A file uploaded to a stored profile (`POST /source-files` with
 `owner: {"profileKey"}`) is profiled, then checked by a job of kind `profileCheck` (D83), which
-writes nothing. `POST /import-profiles/{key}/check` (`202`, registered with
-`INTEGRATION_JOBS_ENABLED`) checks the profile's current file again, as after the profile changed;
-a check still running for the profile is cancelled. `GET /import-profiles/{key}/check` reads the
-latest:
+writes nothing. A profile is instance-wide but its files are not (one current file per workspace),
+so every check route takes a required `workspaceKey` query parameter and needs Bulk in that
+workspace (Bulk at the instance serves any); it reads only the profile's current file and checks in
+that workspace, never another's (`422 REQUEST_VALIDATION_ERROR` without it, `403 FORBIDDEN` naming
+`bulk` and the workspace). `POST /import-profiles/{key}/check?workspaceKey=…` (`202`, registered
+with `INTEGRATION_JOBS_ENABLED`) checks the profile's current file in that workspace again, as
+after the profile changed; a check still running for the profile and workspace is cancelled.
+`GET /import-profiles/{key}/check?workspaceKey=…` reads the latest:
 
 ```json
 { "jobId": "…", "state": "completed", "profileKey": "items", "profileVersion": 3,
@@ -4656,7 +4664,7 @@ latest:
   profile. A load of the file through the unchanged profile is still refused `IMPORT_FILE_MISMATCH`
   while a column it names is missing or renamed: the client updates the profile first.
 - Per source, the counts of three lists, each read by its own route (paged by position; `source` in
-  load order):
+  load order; each with the check's `workspaceKey`):
   - `GET …/check/new-values`: each value of a match column that names no record (`column`, `value`,
     `cells`, `created`: the load creates it, the column's `missing: "create"`, or refuses it);
   - `GET …/check/drift`: each row whose key finds a record named otherwise (`row`, `recordId`,
@@ -4665,9 +4673,9 @@ latest:
     `key`), kept or deleted by the load as the source's `missing` says.
 - `GET …/check/rows` (paged; `source`, `status`, `code`) lists the rows behind the summary's
   figures, as a dry run's rows route does.
-- Refusals: `404 PROFILE_CHECK_NOT_FOUND` before the profile's first file is checked, `404
-  IMPORT_PROFILE_NOT_FOUND`; `POST …/check` also `404 SOURCE_FILE_NOT_FOUND` (the profile holds no
-  file) and `409 SOURCE_FILE_PROFILE_NOT_READY`. A release activated while the check waits fails
+- Refusals: `404 PROFILE_CHECK_NOT_FOUND` before the profile's first file in the workspace is
+  checked, `404 IMPORT_PROFILE_NOT_FOUND`; `POST …/check` also `404 SOURCE_FILE_NOT_FOUND` (the
+  profile holds no file in the workspace, whatever another workspace holds) and `409 SOURCE_FILE_PROFILE_NOT_READY`. A release activated while the check waits fails
   it `MODEL_RELEASE_CHANGED`, as any job's.
 
 ## Workspace models (Product 0.11)

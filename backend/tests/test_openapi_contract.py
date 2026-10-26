@@ -285,9 +285,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (PasswordResetRequest: `send`) and answers `sentTo`; nothing else changed.
     # Re-baselined for 0.12 M1 (stop): POST /mail-outbox/{message_id}/stop. Diffed against the previous
     # lock, nothing else changed.
+    # Re-baselined for 0.12 E1 (F5): the profile check's six routes (GET|POST
+    # /import-profiles/{profile_key}/check and GET .../check/new-values, .../drift,
+    # .../missing-records, .../rows) take a required workspaceKey query parameter, their
+    # x-action-scope becomes "the query's workspace" (was "any scope"), and their descriptions
+    # name the workspace. Verified by restoring the three changed app files, which reproduces the
+    # previous hash.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "bf9bf81038448fcef4080ce7b17eb58106be7ae80574527f5d176dd09a56455b"
+        "096013a28abd80716b6a579ed89536d466219b16dcdaf039752936e19ff38c3d"
     )
 
 

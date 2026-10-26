@@ -213,19 +213,24 @@ function ProfileDetail({
   // a read answering after a newer one began is dropped. A late answer saying "checking" for a check
   // whose stream had ended left the page checking for good (0.10 R, found by the composed runner).
   const reads = useRef(0);
-  const readCheck = useCallback(async () => {
-    const read = ++reads.current;
-    try {
-      const found = await api.profileCheck(profileKey);
-      if (read !== reads.current) return;
-      setCheck(found);
-      setFollowing(found.state === "checking" ? found.jobId : undefined);
-    } catch (cause) {
-      if (read !== reads.current) return;
-      if (isApiError(cause, "PROFILE_CHECK_NOT_FOUND")) setCheck(null);
-      else throw cause;
-    }
-  }, [profileKey]);
+  // A profile is instance-wide, its files and checks are per workspace (0.12 E1, F5): the check is
+  // read in the workspace of the profile's latest file, the page's workspace without one.
+  const readCheck = useCallback(
+    async (workspaceKey: string) => {
+      const read = ++reads.current;
+      try {
+        const found = await api.profileCheck(profileKey, workspaceKey);
+        if (read !== reads.current) return;
+        setCheck(found);
+        setFollowing(found.state === "checking" ? found.jobId : undefined);
+      } catch (cause) {
+        if (read !== reads.current) return;
+        if (isApiError(cause, "PROFILE_CHECK_NOT_FOUND")) setCheck(null);
+        else throw cause;
+      }
+    },
+    [profileKey],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -239,7 +244,7 @@ function ProfileDetail({
           setFollowing(latest.profile.jobId ?? undefined);
           return;
         }
-        await readCheck();
+        await readCheck(latest?.workspaceKey ?? defaultWorkspace);
       })
       .catch((cause) => {
         if (!cancelled) setError(errorMessage(cause));
@@ -247,14 +252,18 @@ function ProfileDetail({
     return () => {
       cancelled = true;
     };
-  }, [profileKey, readCheck, attempt]);
+  }, [profileKey, defaultWorkspace, readCheck, attempt]);
 
   // The profiling job, then the check's: when one ends, read the file and the check again (the check
   // follows the profiling).
   useJobStream(following, (job) => {
     if (!isFinal(job)) return;
-    Promise.all([api.latestProfileFile(profileKey), readCheck()])
-      .then(([latest]) => setFile(latest ?? null))
+    api
+      .latestProfileFile(profileKey)
+      .then(async (latest) => {
+        setFile(latest ?? null);
+        await readCheck(latest?.workspaceKey ?? defaultWorkspace);
+      })
       .catch((cause) => setError(errorMessage(cause)));
   });
 
@@ -266,7 +275,7 @@ function ProfileDetail({
       const saved = await api.updateImportProfile(profile, sources);
       setProfile(saved);
       onChanged(saved);
-      const started = await api.runProfileCheck(profileKey);
+      const started = await api.runProfileCheck(profileKey, file?.workspaceKey ?? defaultWorkspace);
       reads.current += 1;
       setCheck(started);
       setFollowing(started.jobId);
@@ -467,7 +476,12 @@ function ProfileDetail({
         />
       )}
       {(dialog?.kind === "list" || dialog?.kind === "rows") && (
-        <CheckRowsDialog profileKey={profileKey} rows={dialog} onClose={() => setDialog(undefined)} />
+        <CheckRowsDialog
+          profileKey={profileKey}
+          workspaceKey={check?.workspaceKey ?? file?.workspaceKey ?? defaultWorkspace}
+          rows={dialog}
+          onClose={() => setDialog(undefined)}
+        />
       )}
     </div>
   );

@@ -185,6 +185,12 @@ ANYWHERE = Where("any scope", lambda context, groups: Check(groups, anywhere=Tru
 WORKSPACE_PATH = Where(
     "the path's workspace", lambda context, groups: Check(groups, (context.path("workspace_key"),))
 )
+WORKSPACE_QUERY = Where(
+    "the query's workspace",
+    lambda context, groups: Check(
+        groups, (context.query("workspaceKey") or context.default_workspace(),)
+    ),
+)
 CONTEXT = Where("the query's change set, publication or workspace", _context)
 CHANGE_SET_PATH = Where(
     "the change set's workspace",

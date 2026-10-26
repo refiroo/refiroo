@@ -402,7 +402,7 @@ async function journey(label, source) {
     await valuesPart.getByText("Bamboo", { exact: true }).waitFor();
     await valuesPart.getByText("5 records have another name than the live record").waitFor();
     // The changed material switches the item's material (D105): the check refuses no row.
-    const refusedRows = await api(`/import-profiles/${profileKey}/check/rows?status=rejected`);
+    const refusedRows = await api(`/import-profiles/${profileKey}/check/rows?workspaceKey=default&status=rejected`);
     assert.deepEqual(refusedRows.items, [], JSON.stringify(refusedRows.items));
     await page.getByRole("region", { name: "Profile against the active release" }).getByText("0 refused").waitFor();
     const recordsPart = page.getByRole("region", { name: "Records" });
@@ -430,7 +430,20 @@ async function journey(label, source) {
     await columnsPart.getByRole("button", { name: "Accept" }).click();
     await columnsPart.getByRole("button", { name: "Accept" }).waitFor({ state: "detached", timeout: 60_000 });
     await columnsPart.getByRole("button", { name: "Ignore" }).click();
-    await columnsPart.getByText(/The file has the columns the profile reads/).waitFor({ timeout: 60_000 });
+    // With several sources that text can already stand in another source's line, so wait for this
+    // profile's own settled re-check: the Ignore control is gone, no check is running and Load is enabled.
+    await columnsPart.getByRole("button", { name: "Ignore" }).waitFor({ state: "detached", timeout: 60_000 });
+    await columnsPart
+      .getByText(/The file has the columns the profile reads/)
+      .first()
+      .waitFor({ timeout: 60_000 });
+    await page
+      .getByRole("status")
+      .filter({ hasText: /^Checking / })
+      .waitFor({ state: "detached", timeout: 60_000 });
+    const loadButton = page.getByRole("button", { name: "Load into a change set…" });
+    await loadButton.waitFor();
+    await page.waitForFunction((button) => !button.disabled, await loadButton.elementHandle(), { timeout: 60_000 });
     checks.push(
       `${label}: Accept follows the rename and Ignore names the new column; the file is checked again each time`,
     );

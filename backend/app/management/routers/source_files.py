@@ -91,6 +91,7 @@ def _wake_worker(request: Request) -> None:
 def create_source_file(
     request: Request,
     session: DbSession,
+    permissions: CurrentPermissions,
     file: Annotated[UploadFile, File(description="The XLSX workbook or CSV file")],
     payload: Annotated[
         Json[SourceFileRequest],
@@ -109,6 +110,12 @@ def create_source_file(
     ``IMPORT_MAX_BYTES``, ``422 UNSUPPORTED_FILE_FORMAT`` for a file that is neither XLSX nor CSV,
     ``404`` for an unknown owner or workspace.
     """
+    # A profile is instance-wide but its file is not: the upload needs Bulk where it is made, so it
+    # supersedes no other workspace's file (0.12 E1, C2). A draft's file stays with Bulk anywhere.
+    if payload.owner.profileKey is not None and not permissions.allows(
+        "bulk", payload.workspaceKey
+    ):
+        raise forbidden("source-files.manage", ("bulk",), payload.workspaceKey)
     limits: BatchLimits = request.app.state.batch_limits
     upload = Upload.read(file.filename or "", file.file, limits.import_max_bytes)
     source = store_source_file(

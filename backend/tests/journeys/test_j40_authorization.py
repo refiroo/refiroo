@@ -8,11 +8,15 @@ process. Every case runs on two configurations through the public API.
 """
 
 import json
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from harness_identity import TestClient, request_token
 from processes import run
 from scenario import W1, W2, Api, World, ok, refused
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import NullPool
 from test_j39_sign_in import _person, _sign_in
 
 
@@ -804,6 +808,181 @@ def test_a_source_file_belongs_to_its_uploader_and_workspace(world):
     _forbidden(
         elsewhere.api.get(f"/source-files/{source['id']}"), "source-files.manage", ["bulk"], W1
     )
+
+
+def _upload(caller, profile_key: str, workspace: str, prefix: str):
+    from test_j36_workspace_resources import XLSX, _rows
+
+    return caller.api.upload(
+        "/source-files",
+        {"file": ("rows.xlsx", _rows(prefix), XLSX)},
+        {"request": json.dumps({"owner": {"profileKey": profile_key}, "workspaceKey": workspace})},
+    )
+
+
+def _current(world, profile_key: str) -> dict[str | None, str]:
+    """The profile's current file (not superseded) of each workspace, read as the harness."""
+    page = ok(world.api.get("/source-files", profileKey=profile_key, pageSize=200))
+    return {
+        item["workspaceKey"]: item["id"] for item in page["items"] if not item.get("supersededAt")
+    }
+
+
+@pytest.mark.journey("J40")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+def test_a_profile_upload_needs_bulk_in_its_workspace(world):
+    """Given a profile whose file the second workspace's owner uploaded, and a Data steward holding
+    Bulk only in the first. When the steward uploads for the profile naming the second workspace,
+    then it answers `403 FORBIDDEN` naming Bulk and the second workspace, and the owner's file stays
+    current and unchanged."""
+    from test_j36_workspace_resources import _profile
+
+    profile = ok(world.api.post("/import-profiles", _profile(world)), 201)
+    _, owner = _client(world, "Owner of two", ("steward", {"workspaceKey": W2}))
+    _, steward = _client(world, "Steward of one", ("steward", {"workspaceKey": W1}))
+    theirs = ok(_upload(owner, profile["key"], W2, "THEIRS"), 201)
+    before = ok(world.api.get(f"/source-files/{theirs['id']}"))
+
+    _forbidden(_upload(steward, profile["key"], W2, "OTHER"), "source-files.manage", ["bulk"], W2)
+
+    assert _current(world, profile["key"]) == {W2: theirs["id"]}
+    assert ok(world.api.get(f"/source-files/{theirs['id']}")) == before
+    assert len(ok(world.api.get("/source-files", profileKey=profile["key"]))["items"]) == 1
+
+
+@pytest.mark.journey("J40")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+def test_an_upload_supersedes_only_its_own_workspaces_file(world):
+    """Given files of one profile in both workspaces. When a steward holding Bulk in the first
+    uploads again there, then only the first workspace's earlier file is superseded: each
+    workspace has its own current file, also after the retention sweep."""
+    from test_j36_workspace_resources import _profile
+
+    from app.engine.sources.store import expire_superseded
+
+    profile = ok(world.api.post("/import-profiles", _profile(world)), 201)
+    _, owner = _client(world, "Owner of two", ("steward", {"workspaceKey": W2}))
+    _, steward = _client(world, "Steward of one", ("steward", {"workspaceKey": W1}))
+    first = ok(_upload(steward, profile["key"], W1, "ONE-A"), 201)
+    theirs = ok(_upload(owner, profile["key"], W2, "TWO-A"), 201)
+    assert _current(world, profile["key"]) == {W1: first["id"], W2: theirs["id"]}
+
+    second = ok(_upload(steward, profile["key"], W1, "ONE-B"), 201)
+    assert _current(world, profile["key"]) == {W1: second["id"], W2: theirs["id"]}
+    engine = create_engine(world.database, poolclass=NullPool)
+    with Session(engine) as session:
+        expired = expire_superseded(session, datetime.now(UTC) + timedelta(minutes=1), 0)
+        session.commit()
+    engine.dispose()
+    assert expired == [first["id"]]
+    assert _current(world, profile["key"]) == {W1: second["id"], W2: theirs["id"]}
+    ok(world.api.get(f"/source-files/{theirs['id']}"))
+
+
+@pytest.mark.journey("J40")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+def test_an_instance_wide_bulk_holder_uploads_in_any_workspace(world):
+    """Given a client holding Data steward at the instance. When it uploads a profile's file naming
+    either workspace, then both are accepted and each is current in its own workspace."""
+    from test_j36_workspace_resources import _profile
+
+    profile = ok(world.api.post("/import-profiles", _profile(world)), 201)
+    _, everywhere = _client(world, "Everywhere", ("steward", {"instance": True}))
+    one = ok(_upload(everywhere, profile["key"], W1, "ONE"), 201)
+    two = ok(_upload(everywhere, profile["key"], W2, "TWO"), 201)
+    assert _current(world, profile["key"]) == {W1: one["id"], W2: two["id"]}
+
+
+@pytest.mark.journey("J40")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+def test_a_profiles_files_coexist_one_current_per_workspace(world):
+    """Given a steward in each workspace. When both upload for the same profile, then neither
+    supersedes the other's file: each is current in its own workspace."""
+    from test_j36_workspace_resources import _profile
+
+    profile = ok(world.api.post("/import-profiles", _profile(world)), 201)
+    _, one = _client(world, "Steward one", ("steward", {"workspaceKey": W1}))
+    _, two = _client(world, "Steward two", ("steward", {"workspaceKey": W2}))
+    first = ok(_upload(one, profile["key"], W1, "ONE"), 201)
+    second = ok(_upload(two, profile["key"], W2, "TWO"), 201)
+    assert _current(world, profile["key"]) == {W1: first["id"], W2: second["id"]}
+
+
+def _checked_profile(world):
+    """A profile, a steward holding Bulk in the first workspace only and the owner of the second;
+    ``upload`` stores a file as one of them and runs the worker, which profiles it and checks it."""
+    from test_j36_workspace_resources import _profile
+
+    profile = ok(world.api.post("/import-profiles", _profile(world)), 201)
+    _, owner = _client(world, "Owner of two", ("steward", {"workspaceKey": W2}))
+    _, steward = _client(world, "Steward of one", ("steward", {"workspaceKey": W1}))
+
+    def upload(caller, workspace: str, prefix: str) -> str:
+        source = ok(_upload(caller, profile["key"], workspace, prefix), 201)
+        world.api.client.app.state.job_worker.run_until_idle()
+        return source["id"]
+
+    return profile["key"], steward, owner, upload
+
+
+@pytest.mark.journey("J40")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+def test_a_profile_check_needs_bulk_in_its_workspace(world):
+    """Given a profile whose file in the second workspace is checked, and a Data steward holding
+    Bulk only in the first. When the steward reads the check or asks for it again naming the second
+    workspace (and the findings and rows behind it), then each answers `403 FORBIDDEN` naming Bulk
+    and the second workspace, and the check the owner reads is unchanged."""
+    key, steward, owner, upload = _checked_profile(world)
+    theirs = upload(owner, W2, "TWO")
+    path = f"/import-profiles/{key}/check"
+    before = ok(owner.api.get(path, workspaceKey=W2))
+    assert before["sourceFileId"] == theirs
+
+    for suffix in ("", "/new-values", "/drift", "/missing-records", "/rows"):
+        _forbidden(
+            steward.api.get(path + suffix, workspaceKey=W2), "import-profiles.manage", ["bulk"], W2
+        )
+    _forbidden(steward.api.post(path, {}, workspaceKey=W2), "import-profiles.manage", ["bulk"], W2)
+    assert ok(owner.api.get(path, workspaceKey=W2)) == before
+
+
+@pytest.mark.journey("J40")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+def test_a_profile_check_reads_only_its_workspaces_file(world):
+    """Given a profile with a file in both workspaces. When each steward checks it in its own
+    workspace, then each check reads that workspace's file; when the first workspace's steward has
+    no file of its own there, the check answers no file and the second workspace's file is not
+    read, however recent."""
+    key, steward, owner, upload = _checked_profile(world)
+    path = f"/import-profiles/{key}/check"
+    theirs = upload(owner, W2, "TWO")
+
+    # (iv) a file in the second workspace only: the first has none, whichever route asks.
+    refused(steward.api.get(path, workspaceKey=W1), 404, "PROFILE_CHECK_NOT_FOUND")
+    refused(steward.api.post(path, {}, workspaceKey=W1), 404, "SOURCE_FILE_NOT_FOUND")
+
+    # (ii), (iii) a file in each: each check reads its own.
+    mine = upload(steward, W1, "ONE")
+    assert ok(steward.api.get(path, workspaceKey=W1))["sourceFileId"] == mine
+    assert ok(owner.api.get(path, workspaceKey=W2))["sourceFileId"] == theirs
+    again = ok(steward.api.post(path, {}, workspaceKey=W1), 202)
+    world.api.client.app.state.job_worker.run_until_idle()
+    assert again["sourceFileId"] == mine
+    assert ok(steward.api.get(path, workspaceKey=W1))["sourceFileId"] == mine
+    assert ok(owner.api.get(path, workspaceKey=W2))["sourceFileId"] == theirs
+
+
+@pytest.mark.journey("J40")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+def test_a_profile_check_must_name_its_workspace(world):
+    """When a check is read or asked for without `workspaceKey`, then it answers `422
+    REQUEST_VALIDATION_ERROR` naming the query parameter."""
+    key, steward, _, upload = _checked_profile(world)
+    upload(steward, W1, "ONE")
+    path = f"/import-profiles/{key}/check"
+    for response in (steward.api.get(path), steward.api.post(path, {})):
+        error = refused(response, 422, "REQUEST_VALIDATION_ERROR")
+        assert [item["loc"] for item in error["details"]] == [["query", "workspaceKey"]], error
 
 
 @pytest.mark.journey("J40")

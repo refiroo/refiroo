@@ -760,18 +760,25 @@ export const api = {
         expectedVersion: profile.version,
       }),
     }),
-  /** The check of a profile's latest file (0.10 A5c, D83). */
-  profileCheck: (key: string) => request<ProfileCheck>(`/api/v1/import-profiles/${encodeURIComponent(key)}/check`),
-  /** Check the profile's current file again, after the profile changed. */
-  runProfileCheck: (key: string) =>
-    request<ProfileCheck>(`/api/v1/import-profiles/${encodeURIComponent(key)}/check`, { method: "POST" }),
+  /** The check of a profile's latest file in a workspace (0.10 A5c, D83; the workspace 0.12 E1, F5). */
+  profileCheck: (key: string, workspaceKey: string) =>
+    request<ProfileCheck>(
+      `/api/v1/import-profiles/${encodeURIComponent(key)}/check?${new URLSearchParams({ workspaceKey })}`,
+    ),
+  /** Check the profile's current file in a workspace again, after the profile changed. */
+  runProfileCheck: (key: string, workspaceKey: string) =>
+    request<ProfileCheck>(
+      `/api/v1/import-profiles/${encodeURIComponent(key)}/check?${new URLSearchParams({ workspaceKey })}`,
+      { method: "POST" },
+    ),
   /** One of the check's lists, a page: new values, drifting names, records missing from the file. */
   profileCheckList: <Item extends CheckNewValue | CheckDrift | CheckMissingRecord>(
     key: string,
+    workspaceKey: string,
     list: "new-values" | "drift" | "missing-records",
     query: PageSelector & { source?: number; pageSize?: number },
   ) => {
-    const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });
+    const params = new URLSearchParams({ workspaceKey, pageSize: String(query.pageSize ?? 50) });
     if (query.source !== undefined) params.set("source", String(query.source));
     setPaging(params, query);
     return request<SourcePage<Item>>(`/api/v1/import-profiles/${encodeURIComponent(key)}/check/${list}?${params}`);
@@ -779,9 +786,10 @@ export const api = {
   /** The rows behind the check's figures, as a dry run's. */
   profileCheckRows: (
     key: string,
+    workspaceKey: string,
     query: PageSelector & { source?: number; status?: JobRow["status"]; code?: string; pageSize?: number },
   ) => {
-    const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 50) });
+    const params = new URLSearchParams({ workspaceKey, pageSize: String(query.pageSize ?? 50) });
     if (query.source !== undefined) params.set("source", String(query.source));
     if (query.status) params.set("status", query.status);
     if (query.code) params.set("code", query.code);

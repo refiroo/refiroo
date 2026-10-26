@@ -126,8 +126,18 @@ sealed), a test message names what failed, and an outbox sent by a thread in eac
 24 hours; nothing queues a link yet (SP3, I6, M2) ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#m1-record-2026-10-26),
 migration `20261109_01`). **SP3, a new person's link by mail, is delivered (2026-10-26)**: New person and
 Reset password mail the one-time link when mail is set up and the person has an address, and still show it
-once ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#sp3-record-2026-10-26)). **I6, a forgotten password on the sign-in screen, is delivered (2026-10-26)**: the screen asks by username or e-mail address, answers the same whoever is named, and mails a link to the application's reset page ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i6-record-2026-10-26)). Next: E1 above the cut line, then A1–A3, L1, L2
-and R.
+once ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#sp3-record-2026-10-26)). **I6, a forgotten password on the sign-in screen, is delivered (2026-10-26)**: the screen asks by username or e-mail address, answers the same whoever is named, and mails a link to the application's reset page ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#i6-record-2026-10-26)). **Track DP, deployment, is delivered (2026-10-26)**, D404–D411: one address for the application and the engine
+(DP1), the engine and web images and `compose.yml` as the reference installation (DP2), the deployment
+guide in OPERATIONS § Deploying and `npm run test:deployment` (DP3), automatic HTTPS as an overlay
+(DP4). **E1, the security checkpoint, is delivered (2026-10-26)**: a generated sweep of every operation
+by every predefined role, the consumer routes, the routes outside OpenAPI, person tokens and reset with a
+second factor ([J47](product-functionality/USER_JOURNEYS.md)); the deployment runner and a ten-case
+sign-in against Keycloak (which found and fixed the provider callback's `iss` defect); and an
+independent review of the 0.12 changes whose findings are all fixed or accepted
+([record](SECURITY_REVIEW_0_12.md)), among them deletions skipping the narrowing check (high), source
+files and the import profile check across workspaces, the forwarded address behind a balancer, a 500 on
+a binary body and a 503 on a NUL byte. 0.12 is released complete: next A1–A3, M2, L1, L2 and R (no cut
+line, the user, 2026-10-26).
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)
 

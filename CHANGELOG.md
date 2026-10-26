@@ -8,6 +8,22 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed (0.12 E1, security review)
 
+- **A profile's check is made in a workspace (F5, low).** `GET` and `POST /import-profiles/{key}/check`, and the
+  check's `new-values`, `drift`, `missing-records` and `rows` reads, took no workspace: they picked the profile's
+  newest file or check across workspaces, so a caller holding Bulk in one workspace could check, or read the check
+  of, another workspace's file. They now take a required `workspaceKey` and need Bulk there (declared as "the query's
+  workspace"; Bulk at the instance serves any); they read only the profile's current file and latest check in that
+  workspace, "no file" or "no check" when it has none, and `422` without the parameter. The action's groups are
+  unchanged; the OpenAPI lock is re-baselined for these six routes only. Settings › Import profiles reads the check in
+  the workspace of the profile's latest file.
+
+- **A profile's file is uploaded and current per workspace (C2, medium).** A Data steward holding Bulk in one workspace
+  could upload a file for an import profile naming another workspace, and the upload superseded (and the retention
+  sweep aged) the file that workspace's owner had made. `POST /source-files` for a profile now needs Bulk and import
+  in the request's `workspaceKey` before anything is stored (`403 FORBIDDEN` naming the action, `bulk` and the
+  workspace), and a profile's files are superseded and expired per profile and workspace. A model draft's files keep the documented rule (Bulk at any scope). The action's groups and the OpenAPI
+  document are unchanged.
+
 - **A deletion honours a grant narrowed to record types (C1, high).** `DELETE /objects/{type}/{id}` (with a cascade
   too), a `delete` item in a batch or import, the rows an import deletes for being missing from a file, and a delete
   in a change set skipped the narrowing check: a Data steward narrowed to one type could delete records of another.
