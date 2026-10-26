@@ -540,6 +540,14 @@ class UserCreate(BaseModel):
     email: Email | None = None
 
 
+class PasswordResetRequest(BaseModel):
+    """A one-time password link; with ``send`` it is also mailed to the person's address (SP3)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    send: bool = False
+
+
 class UserUpdate(BaseModel):
     """A change to a person with the version read; ``active: false`` deactivates (never deleted,
     D237) and ``active: true`` restores."""

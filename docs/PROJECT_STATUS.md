@@ -124,7 +124,9 @@ holds the signed-in person's token, a client's token may be pasted
 (2026-10-26)**, D418–D422 and D423: Settings › Integration › Mail holds the SMTP server (password
 sealed), a test message names what failed, and an outbox sent by a thread in each process retries for
 24 hours; nothing queues a link yet (SP3, I6, M2) ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#m1-record-2026-10-26),
-migration `20261109_01`). Next: SP3 and I6, which use it, E1 above the cut line, then A1–A3, L1, L2
+migration `20261109_01`). **SP3, a new person's link by mail, is delivered (2026-10-26)**: New person and
+Reset password mail the one-time link when mail is set up and the person has an address, and still show it
+once ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#sp3-record-2026-10-26)). Next: I6, which uses mail, E1 above the cut line, then A1–A3, L1, L2
 and R.
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)

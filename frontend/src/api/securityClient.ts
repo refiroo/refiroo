@@ -83,9 +83,12 @@ export const security = {
     request<void>(`/api/v1/users/${id(userId)}/passkeys/${id(passkeyId)}`, { method: "DELETE" }),
   unlinkIdentity: (userId: string, providerKey: string) =>
     request<void>(`/api/v1/users/${id(userId)}/identities/${id(providerKey)}`, { method: "DELETE" }),
-  /** A new one-time link; it replaces an earlier one (D272). */
-  passwordLink: (userId: string) =>
-    request<PasswordResetLink>(`/api/v1/users/${id(userId)}/password-reset`, { method: "POST" }),
+  /** A new one-time link; it replaces an earlier one (D272). With `send` it is also mailed to the person (SP3). */
+  passwordLink: (userId: string, send = false) =>
+    request<PasswordResetLink>(`/api/v1/users/${id(userId)}/password-reset`, {
+      method: "POST",
+      ...(send ? { body: JSON.stringify({ send: true }) } : {}),
+    }),
   signOutEverywhere: (userId: string) => request<void>(`/api/v1/users/${id(userId)}/sessions`, { method: "DELETE" }),
   /** Security events newest first: those a person or client made or that are about them (0.12 Z4,
    * D317, D319). */

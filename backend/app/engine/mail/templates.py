@@ -7,6 +7,9 @@ travels and sits in mailboxes.
 
 from dataclasses import dataclass
 
+# What a message calls the product when no model names one.
+PRODUCT = "refiroo"
+
 ACTIVATION = "activation"
 PASSWORD_RESET = "password-reset"
 TEST = "test"

@@ -359,8 +359,9 @@ token presented a second time ends the session, since only a copy can do that.
   `DELETE /api/v1/users/{id}/sessions` by an administrator), changes or resets their password, or is
   deactivated. Their access tokens are refused from the next request.
 - **A first password** for a person created through the API: `POST /api/v1/users/{id}/password-reset`
-  answers a one-time link, valid `PASSWORD_RESET_HOURS`, to pass on to the person (no e-mail is sent
-  yet: [Sending mail](#sending-mail) is set up, but nothing queues the link, D233, D418). It opens the engine's page that sets the password; a newer link replaces an older one, and
+  answers a one-time link, valid `PASSWORD_RESET_HOURS`, to pass on to the person. With `{"send": true}`, mail set up
+  ([Sending mail](#sending-mail)) and an address on the person, the link is also mailed (SP3, D418); People does
+  this by itself when it can. It opens the engine's page that sets the password; a newer link replaces an older one, and
   using it ends the person's sessions. The same link resets a forgotten password.
 - **Failed sign-ins are slowed, never locked** (D271): after 5 failures for one username, or 20 from
   one address, each attempt waits 1 second, doubling to at most 15 minutes, and the page says how

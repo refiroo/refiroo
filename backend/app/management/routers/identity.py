@@ -28,6 +28,8 @@ from ...engine.identity.clients import (
     update_client,
 )
 from ...engine.identity.users import create_user, load_user, update_user, user_page
+from ...engine.mail import links as mail_links
+from ...engine.mail.templates import PRODUCT
 from ...errors import api_error
 from ...models.commands import (
     ClientCreate,
@@ -38,6 +40,7 @@ from ...models.commands import (
     PasskeyRemoval,
     PasskeyRename,
     PasswordChange,
+    PasswordResetRequest,
     SecondFactorCode,
     SigningKeyRotation,
     SignInProviderCreate,
@@ -368,13 +371,22 @@ def patch_user(user_id: str, payload: UserUpdate, session: DbSession) -> UserRes
 )
 @requires("security.manage", at=INSTANCE)
 def post_password_reset(
-    user_id: str, request: Request, session: DbSession
+    user_id: str,
+    request: Request,
+    session: DbSession,
+    payload: PasswordResetRequest | None = None,
 ) -> PasswordResetLinkResponse:
     """A one-time link that sets the person's password, answered this once and valid for
     ``PASSWORD_RESET_HOURS``; it replaces any earlier link. Using it ends their sessions (D272).
+    With ``send: true`` it is also queued as mail to the person's address and ``sentTo`` names it
+    (SP3, D418); ``409 MAIL_NOT_SET_UP`` and ``409 NO_EMAIL`` leave the earlier link as it was.
     While local sign-in is off, refused for a person who does not keep it
     (``409 LOCAL_SIGN_IN_OFF``, D365)."""
-    url, expires_at = resets.create_link(session, request.app.state.identity_settings, user_id)
+    identity = request.app.state.identity_settings
+    if payload is not None and payload.send:
+        url, expires_at, sent_to = mail_links.create_and_send(session, identity, user_id, PRODUCT)
+        return PasswordResetLinkResponse(url=url, expiresAt=expires_at, sentTo=sent_to)
+    url, expires_at = resets.create_link(session, identity, user_id)
     return PasswordResetLinkResponse(url=url, expiresAt=expires_at)
 
 

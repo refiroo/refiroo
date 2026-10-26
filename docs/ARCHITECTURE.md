@@ -1107,7 +1107,9 @@ is finished. `sender.py` is a thread in each process, as the event deriver and t
 dispatcher are: it leases due messages with `FOR UPDATE SKIP LOCKED`, retries with a doubling delay
 (30 seconds to an hour), fails an address refused for good at once and anything else after 24 hours,
 and shares one server-wide failure (connection, TLS, login) among the messages it holds instead of
-waiting out a timeout for each. No route queues mail; the test message is the one thing sent from a
+waiting out a timeout for each. A person's one-time link is the first producer (SP3, `links.py`): `resets.create_link` makes the link, and
+`before_commit` queues the message in the same transaction, after `check` has refused a missing address
+without replacing the earlier link. No other route queues mail; the test message is the one thing sent from a
 request, because its answer is the point. `resealing.py` covers the password and the queued text.
 
 ### Workspace migrations (0.11 V1)

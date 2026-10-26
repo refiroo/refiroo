@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 SP3)
+
+- **A new person's link is mailed.** `POST /users/{id}/password-reset` takes `send: true`: with mail set
+  up and an address on the person, the one-time link is queued as a message in the transaction that
+  makes it (a welcome for a person with no password, a new-password message for one with a password) and
+  the answer names `sentTo`, still holding the link once. `409 MAIL_NOT_SET_UP` and `409 NO_EMAIL` are
+  answered before the earlier link is replaced. Settings › Security › People asks for the mail by itself
+  when it can ("Create and mail a password link") and says where it went; otherwise it shows the link to
+  pass on as before.
+
 ### Added (0.12 M1)
 
 - **The engine can send mail.** Settings › Integration › Mail (`GET`/`PUT`/`DELETE /mail-settings`)

@@ -6153,7 +6153,7 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
 
 - **Users:** `GET /users` (`q`, `active`), `POST /users` `{username, name, email}`, `GET /users/{id}`,
   `PATCH /users/{id}` (`name`, `email`, `active: false` to deactivate; never deleted, D237),
-  `POST /users/{id}/password-reset` (a one-time link, shown once), `DELETE /users/{id}/sessions`
+  `POST /users/{id}/password-reset` (a one-time link, shown once; `send` also mails it, SP3), `DELETE /users/{id}/sessions`
   (sign out everywhere), `GET /users/{id}/grants`. A user has no password until the link is used.
   _Delivered by I1:_ the list (`q` matches the username, name or e-mail; `active`; in creation
   order), create, read and `PATCH` (`expectedVersion`; `active: true` restores). A person reads
@@ -6446,7 +6446,11 @@ where one-time links go. Nothing is sent without saved settings.
   pending) and `finishedAt`. **Its text is never answered:** it holds a one-time link, is sealed while
   it waits and is erased when the message is sent or fails.
 
-No route queues a message: the engine's own code does, in the caller's transaction, refusing with
+`POST /users/{id}/password-reset` (SP3, D418) is the one route that causes a message: with `{"send": true}`
+it queues the link for the person's address in the transaction that makes it and answers `sentTo`, still
+answering the link once; a person with no password is welcomed (`activation`), one with a password is
+told a new one was asked for (`password-reset`). `409 MAIL_NOT_SET_UP` and `409 NO_EMAIL` are answered
+before the earlier link is replaced, so it keeps working. No other route queues a message: the engine's own code does, in the caller's transaction, refusing with
 `409 MAIL_NOT_SET_UP` when mail is not set up. A background thread (`mailSender` on a process's
 threads) sends them: a failed attempt is tried again after 30 seconds, then twice as long up to an
 hour; an address the server refuses for good fails at once; anything else fails after 24 hours,

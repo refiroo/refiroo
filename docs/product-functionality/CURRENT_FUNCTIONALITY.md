@@ -1341,8 +1341,8 @@ menu names the roles held in the workspace open.
 
 A security administrator manages all of it in Settings › Security. **People** lists everyone with
 the roles they hold, searched by name and shown active or deactivated; a person's page edits their
-name and e-mail, makes a one-time password link to pass on (shown once; the engine sends no
-e-mail), signs them out everywhere, deactivates or restores them, and lists their roles, directly
+name and e-mail, makes a one-time password link (shown once, and mailed to the person when mail is set up and they
+have an address), signs them out everywhere, deactivates or restores them, and lists their roles, directly
 or through a group, and their groups. **Groups** creates, renames and deletes groups, grants them
 roles and adds or removes members: several at once, searched and ticked or pasted as a list of
 usernames and e-mail addresses that is checked first (each line saying whom it names, or that

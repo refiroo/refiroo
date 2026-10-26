@@ -3,6 +3,7 @@ signed in, who gives the current one (Product 0.12 I2). Either way the password 
 and the person's other sessions end.
 """
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select
@@ -23,12 +24,21 @@ def _set(user: User, password: str, now: datetime) -> None:
 
 
 def create_link(
-    session: Session, settings: IdentitySettings, user_public_id: str
+    session: Session,
+    settings: IdentitySettings,
+    user_public_id: str,
+    *,
+    check: Callable[[User], None] | None = None,
+    before_commit: Callable[[User, str, bool], None] | None = None,
 ) -> tuple[str, datetime]:
     """A one-time link that sets this person's password, replacing any earlier one; answered once.
-    Refused while local sign-in is off for a person who does not keep it (I3, D365). Commits."""
+    Refused while local sign-in is off for a person who does not keep it (I3, D365). ``check``
+    may refuse before the earlier link is replaced; ``before_commit`` gets the person, the link
+    and whether the link was sent (SP3: it queues the mail), so both commit together. Commits."""
     user = load_user(session, user_public_id, for_update=True)
     providers.refuse_while_off(session, user)
+    if check is not None:
+        check(user)
     now = datetime.now(UTC)
     session.execute(delete(PasswordResetLink).where(PasswordResetLink.user_id == user.id))
     token = new_token()
@@ -41,10 +51,13 @@ def create_link(
     # The link itself is never recorded (D317).
     security_events.record(
         session, "user", user.public_id, "password-link-created", about=[user.public_id],
-        details={"expiresAt": expires_at.isoformat()},
+        details={"expiresAt": expires_at.isoformat(), "sent": before_commit is not None},
     )  # fmt: skip
+    url = f"{settings.issuer}/oauth/password?token={token}"
+    if before_commit is not None:
+        before_commit(user, url, user.password_hash is not None)
     session.commit()
-    return f"{settings.issuer}/oauth/password?token={token}", expires_at
+    return url, expires_at
 
 
 def link_user(session: Session, token: str) -> User | None:

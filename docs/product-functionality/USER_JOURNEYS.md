@@ -2269,7 +2269,7 @@ open). **Channel:** UI (the home page after sign-in, the bare address, the produ
 **Actor:** Security administrator; the engine itself (a new person's link, a reset, later inbox
 notices). **Channel:** UI (Settings › Mail, under Integration), API (`GET`/`PUT`/`DELETE
 /mail-settings`, `POST /mail-settings/test`, `GET /mail-outbox`). **Status:** the sending half
-delivered by 0.12 M1 (2026-10-26); the messages themselves arrive with SP3, I6 and M2.
+delivered by 0.12 M1 (2026-10-26); a new person's link and an administrator's reset are mailed by SP3; the rest arrive with I6 and M2.
 
 1. Open Mail and enter the organisation's SMTP server: host, port, how the connection is secured
    (TLS, STARTTLS or none), a user name and password if it asks for one, the address mail comes from
@@ -2295,8 +2295,13 @@ delivered by 0.12 M1 (2026-10-26); the messages themselves arrive with SP3, I6 a
   refused as not set up; removing the settings leaves waiting messages pending.
 - **J46.6 Who and what is kept safe**: only Security administration at the instance manages mail;
   the password and queued messages are re-sealed with the other secrets (J43.5).
+- **J46.7 A person's link by mail** (0.12 SP3): with mail set up and an address on the person, New
+  person and Reset password queue the one-time link as a message (a welcome for a person with no
+  password, a new-password message for one with a password); the answer names the address and still
+  holds the link, shown once. Without mail or without an address it is refused and the earlier link
+  keeps working; without `send` nothing is queued.
 
-**Refusals:** `403 FORBIDDEN`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `422
+**Refusals:** `403 FORBIDDEN`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
 MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_SEND_FAILED` (`details.kind`).
 
 ## Guardrails kept from 0.7

@@ -56,6 +56,9 @@ class PasswordResetLinkResponse(BaseModel):
 
     url: str = Field(description="The link to pass to the person; valid once")
     expiresAt: datetime
+    sentTo: str | None = Field(
+        default=None, description="The address the link was queued for, when asked with `send`"
+    )
 
 
 class UserRoleWorkspace(BaseModel):

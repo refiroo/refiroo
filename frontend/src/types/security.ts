@@ -168,6 +168,8 @@ export interface UserPage extends PageNavigation {
 export interface PasswordResetLink {
   url: string;
   expiresAt: string;
+  /** The address the link was also mailed to, when asked (SP3). */
+  sentTo?: string | null;
 }
 
 /** A group of people (0.12 Z1): local, or from a sign-in provider (I3, D364). */

@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { errorMessage, invalidFields, isApiError } from "@/api/errors";
+import { mail } from "@/api/mailClient";
 import { security } from "@/api/securityClient";
 import { initials } from "@/app/useMe";
 import { formatServerTime } from "@/lib/dates";
@@ -44,6 +45,20 @@ type PeopleRoute = Extract<SettingsRoute, { page: "people" }>;
 
 const PEOPLE: PeopleRoute = { kind: "settings", page: "people" };
 
+/**
+ * A new one-time link, mailed too when mail is set up and the person has an address (SP3, D418). Mail
+ * that turned out not to be possible leaves the link to pass on by hand, as before.
+ */
+async function makeLink(user: Pick<User, "id" | "email">, mailReady: boolean): Promise<PasswordResetLink> {
+  if (!mailReady || !user.email) return security.passwordLink(user.id);
+  try {
+    return await security.passwordLink(user.id, true);
+  } catch (cause) {
+    if (isApiError(cause, "MAIL_NOT_SET_UP") || isApiError(cause, "NO_EMAIL")) return security.passwordLink(user.id);
+    throw cause;
+  }
+}
+
 export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNavigate: (route: RouteState) => void }) {
   const [search, setSearch] = useState("");
   const [active, setActive] = useState(true);
@@ -58,9 +73,15 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
   const [localOn, setLocalOn] = useState(true);
   // With the requirement on, a person without a second factor sets one up at their next sign-in (I4b).
   const [required, setRequired] = useState(false);
+  // With mail set up, a link is also sent to a person who has an address (SP3).
+  const [mailReady, setMailReady] = useState(false);
 
   useEffect(() => {
     let current = true;
+    mail.settings().then(
+      (settings) => current && setMailReady(settings.configured),
+      () => undefined,
+    );
     security.localSignIn().then(
       (local) => {
         if (!current) return;
@@ -168,6 +189,7 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
             userId={route.userId}
             localOn={localOn}
             required={required}
+            mailReady={mailReady}
             onNavigate={onNavigate}
             onChanged={changed}
             onLink={(user, made) => setLink({ user, link: made, created: false })}
@@ -183,6 +205,7 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
       </CatalogueLayout>
       {creating && (
         <NewPersonDialog
+          mailReady={mailReady}
           onClose={() => {
             setCreating(false);
             newButtonRef.current?.focus();
@@ -223,10 +246,15 @@ function PasswordLinkDialog({
       onClose={onClose}
     >
       {{
-        before: (
+        before: link.sentTo ? (
           <p>
-            {user.name} sets a password with this link. Pass it on yourself, for example in a chat: the engine sends no
-            e-mail, and the link is not shown again.
+            The link was mailed to {link.sentTo}. It is shown here once more, in case the mail does not arrive: you can
+            pass it on yourself, and it is not shown again.
+          </p>
+        ) : (
+          <p>
+            {user.name} sets a password with this link. Pass it on yourself, for example in a chat
+            {user.email ? "" : " (the person has no e-mail address)"}: the link is not shown again.
           </p>
         ),
         after: (
@@ -255,9 +283,11 @@ function refusedFields(cause: unknown): Record<string, string> {
 }
 
 function NewPersonDialog({
+  mailReady,
   onClose,
   onCreated,
 }: {
+  mailReady: boolean;
   onClose: () => void;
   onCreated: (user: User, link: PasswordResetLink | undefined) => void;
 }) {
@@ -289,7 +319,7 @@ function NewPersonDialog({
       return;
     }
     // The person exists now; a link that fails is made again from their page.
-    const link = await security.passwordLink(user.id).catch(() => undefined);
+    const link = await makeLink(user, mailReady).catch(() => undefined);
     setPending(false);
     onCreated(user, link);
   }
@@ -365,7 +395,11 @@ function NewPersonDialog({
             Cancel
           </button>
           <button className="primary" disabled={pending || !username.trim() || !name.trim() || /\s/.test(username)}>
-            {pending ? "Creating…" : "Create and make a password link"}
+            {pending
+              ? "Creating…"
+              : mailReady && email.trim()
+                ? "Create and mail a password link"
+                : "Create and make a password link"}
           </button>
         </div>
       </form>
@@ -377,6 +411,7 @@ function PersonDetail({
   userId,
   localOn,
   required,
+  mailReady,
   onNavigate,
   onChanged,
   onLink,
@@ -385,6 +420,7 @@ function PersonDetail({
   userId: string;
   localOn: boolean;
   required: boolean;
+  mailReady: boolean;
   onNavigate: (route: RouteState) => void;
   onChanged: (user: User) => void;
   onLink: (user: User, link: PasswordResetLink) => void;
@@ -509,7 +545,7 @@ function PersonDetail({
           <button
             className="secondary"
             disabled={pending}
-            onClick={() => void write(async () => onLink(user, await security.passwordLink(user.id)))}
+            onClick={() => void write(async () => onLink(user, await makeLink(user, mailReady)))}
           >
             {user.hasPassword ? "Reset password" : "Make a password link"}
           </button>

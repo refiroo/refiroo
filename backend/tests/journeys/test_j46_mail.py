@@ -358,3 +358,90 @@ def test_the_mail_password_and_queued_mail_are_re_sealed_with_the_other_secrets(
             check_only=True,
         )
     assert counts["mail server password"] == 1 and counts["queued mail"] == 1
+
+
+def _person(world, username: str, email: str | None) -> dict:
+    return ok(
+        world.api.post("/users", {"username": username, "name": username.title(), "email": email}),
+        201,
+    )
+
+
+def _link_works(world, link: str) -> bool:
+    response = world.api.client.get(link.replace(world.api.client.base_url.host, "testserver"))
+    return response.status_code == 200
+
+
+def _token(link: str) -> str:
+    from urllib.parse import parse_qs, urlsplit
+
+    return parse_qs(urlsplit(link).query)["token"][0]
+
+
+@pytest.mark.journey("J46.7")
+def test_a_new_persons_link_is_mailed_and_still_shown_once(world, smtp):
+    """Given mail is set up and a person with an address and no password, when the administrator
+    makes their link with `send`, then the answer names the address and still holds the link, the
+    mail arrives once the sender has run, welcomes the person with that same link, and the link
+    sets a password; a person who has a password is told it is a new password instead."""
+    _save(world, smtp, applicationUrl="https://refiroo.example.org")
+    ada = _person(world, "ada", "ada@example.org")
+
+    made = ok(world.api.post(f"/users/{ada['id']}/password-reset", {"send": True}), 201)
+    assert made["sentTo"] == "ada@example.org" and made["url"] and made["expiresAt"]
+    assert smtp.messages == []
+    assert ok(world.api.get("/mail-settings"))["outbox"]["pending"] == 1
+
+    assert send_mail(world) == 1
+    [mail] = smtp.messages
+    text = mail.get_content()
+    assert mail["To"] == "ada@example.org" and "Your" in mail["Subject"]
+    assert "Hello Ada" in text and made["url"] in text
+
+    token = _token(made["url"])
+    browser = world.api.client
+    done = browser.post(
+        "/oauth/password",
+        data={"token": token, "password": "a-long-enough-pass-1", "repeat": "a-long-enough-pass-1"},
+    )
+    assert done.status_code == 200, done.text
+
+    again = ok(world.api.post(f"/users/{ada['id']}/password-reset", {"send": True}), 201)
+    send_mail(world)
+    assert smtp.messages[-1]["Subject"].startswith("Choose a new")
+    assert again["url"] in smtp.messages[-1].get_content()
+
+
+@pytest.mark.journey("J46.7")
+def test_without_send_nothing_is_queued(world, smtp):
+    """Given mail is set up, when a link is made without `send`, then it is answered once as
+    before, names no address, and no message is queued."""
+    _save(world, smtp)
+    ada = _person(world, "ada", "ada@example.org")
+    made = ok(world.api.post(f"/users/{ada['id']}/password-reset", {}), 201)
+    assert made["url"] and made["sentTo"] is None
+    assert ok(world.api.get("/mail-settings"))["outbox"] == {"pending": 0, "sent": 0, "failed": 0}
+
+
+@pytest.mark.journey("J46.7")
+def test_a_link_cannot_be_mailed_without_mail_or_an_address_and_the_earlier_link_stays(world, smtp):
+    """Given a person with a link, when the administrator asks to mail a new one without mail set
+    up, or for a person with no address, then it is refused by code and the earlier link still
+    works."""
+    ada = _person(world, "ada", "ada@example.org")
+    first = ok(world.api.post(f"/users/{ada['id']}/password-reset", {}), 201)
+
+    refused(
+        world.api.post(f"/users/{ada['id']}/password-reset", {"send": True}),
+        409,
+        "MAIL_NOT_SET_UP",
+    )
+    _save(world, smtp)
+    bob = _person(world, "bob", None)
+    bobs = ok(world.api.post(f"/users/{bob['id']}/password-reset", {}), 201)
+    refused(world.api.post(f"/users/{bob['id']}/password-reset", {"send": True}), 409, "NO_EMAIL")
+
+    for link in (first, bobs):
+        page = world.api.client.get("/oauth/password", params={"token": _token(link["url"])})
+        assert page.status_code == 200, page.text
+    assert ok(world.api.get("/mail-settings"))["outbox"] == {"pending": 0, "sent": 0, "failed": 0}

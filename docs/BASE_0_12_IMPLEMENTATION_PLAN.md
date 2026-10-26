@@ -4407,6 +4407,50 @@ password** send the one-time link by mail (`POST /users/{id}/password-reset` tak
 way when no mail is set up (D304). The dialog says where it was sent. Activation and a reset made by an
 administrator are the same link and mail (D418).
 
+##### SP3 record (2026-10-26)
+
+**Delivered 2026-10-26** on the user's "sp3 then", without a separate detailed plan or mock-up (the
+dialog is SP1's, with sentences changed).
+
+- **Engine:** `engine/mail/links.py` `create_and_send` over `resets.create_link`, which gained `check` (refuses
+  before the earlier link is replaced) and `before_commit` (queues the message in the same transaction); a
+  person with no password gets `activation`, one with a password `password-reset`. The security event
+  `password-link-created` says `sent`, never the address or the link. `templates.PRODUCT` replaces the
+  mail router's own constant.
+- **API:** `POST /users/{id}/password-reset` takes an optional `{send}` body and answers `sentTo`; new code
+  `409 NO_EMAIL`. The OpenAPI lock moved (the optional body, `PasswordResetRequest`, `sentTo`).
+- **Frontend:** `PeoplePage` reads whether mail is set up; with it and an address, New person says "Create and
+  mail a password link" and the dialog names the address and still shows the link once; a refusal that mail
+  cannot be sent falls back to the link to pass on. **Runner** `sp3-link-mail`.
+- **Documents:** API.md, OPERATIONS, ARCHITECTURE, CURRENT_FUNCTIONALITY, USER_JOURNEYS (J46.7), API_JOURNEYS,
+  UI_ACCEPTANCE (SP3-1), EXECUTION_GUIDE, CHANGELOG, PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **The link in the mail is the engine's** (`{issuer}/oauth/password?token=`), not the application's reset page:
+  that page is I6's (D422). Mail's application address is not used until I6 builds the page.
+- **Reset password on a person with no address, or with mail not set up, shows the link only**, with no button
+  that cannot finish (D323); the engine refuses a `send` that cannot finish.
+- **The tests (three journey cases, J46.7) were written before the code and seen failing** (`KeyError: sentTo`).
+
+**Checks:**
+
+- `test_j46_mail` (J46.7: 3 cases on two configurations; the M1 cases too), `test_j39_sign_in`,
+  `test_j39_provider_sign_in`, `test_j40_authorization`, `test_j39_j41_j43_identity`, `test_openapi_contract`,
+  `test_startup`, `test_boundaries` and the unit tests of `engine/identity` and `engine/mail`: 201 passed
+  together; `ruff check app/ tests/`.
+- Vitest `src/features/security`, `settings`, `app` (173 passed, 3 new in `PeoplePage.test`); lint 0 errors
+  (its 8 warnings are older), `tsc` and the build.
+- **Runner `sp3-link-mail`:** passed on two models, 14 checks, axe 0 violations on 4 scans; the mailed
+  dialog inspected at 1440px and 390px (light only).
+
+**Not verified:** a smoke start on the development database (no schema change in this package; the running
+`uvicorn --reload` server picked up the code); a real mail server; dark theme for the dialog; the visual and
+accessibility gates and baselines wait for R.
+
+**What the user cannot do yet:** have the application's own reset page open from the mail, or recover a
+forgotten password without an administrator (I6); receive inbox notices (M2); send a failed message again.
+
 ### Track M — Mail (added by the user, 2026-10-26)
 
 _Small packages, each in its own track's terms:_ M1 is the engine's mail capability; I6 and SP3 use it
@@ -4768,7 +4812,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 11a | [I4](#i4-a-provider-identity-linked-signing-out-of-the-provider-a-second-factor) | I3 | Planned 2026-10-25 (D382): I4a linking, provider sign-out, the local sign-in switch; I4b an authenticator app for local accounts; I4c passkeys |
 | 11b | [I5](#i5-a-sign-in-screen-in-the-application) | I4 | **Delivered 2026-10-26** (D415–D417): the application's own sign-in screen over JSON sign-in routes; every rule once, shared with the engine's HTML pages |
 | 11c | [M1](#m1-sending-mail) | I1 | **Delivered 2026-10-26** (D418, D419, D421–D423): SMTP settings and a Mail page, the outbox with retries, templates, a test message |
-| 11d | [SP3](#sp3-a-new-persons-link-by-mail) | M1, SP1 | Planned 2026-10-26: New person and Reset password send the link by mail |
+| 11d | [SP3](#sp3-a-new-persons-link-by-mail) | M1, SP1 | Delivered 2026-10-26: New person and Reset password send the link by mail |
 | 11e | [I6](#i6-forgotten-passwords-on-the-sign-in-screen) | I5, M1 | Planned 2026-10-26 (D420, D422): Forgotten your password? on the sign-in screen, the reset pages in the application |
 | 12 | [K1](#k1-webhook-signing-key-rotation) | Z1 | **Delivered 2026-10-25.** Signing-key rotation with overlap, Rotate key… on a webhook's page; re-sealing as `python -m app.cli.reseal_secrets` |
 | 13 | [C1](#c1-the-try-it-console-authenticated) | I2 | **Delivered 2026-10-26.** The console with the person's token |

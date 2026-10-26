@@ -19,9 +19,6 @@ from ..schemas.mail import MailMessagePage, MailSettingsResponse, MailTestRespon
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["mail"])
 
-# What the test message calls the product when no model names one.
-PRODUCT = "refiroo"
-
 
 def _identity(request: Request) -> IdentitySettings:
     return request.app.state.identity_settings
@@ -66,7 +63,7 @@ def post_mail_test(payload: MailTest, request: Request, session: DbSession) -> M
     identity = _identity(request)
     row = settings.require(session)
     connection = settings.connection(identity, row)
-    rendered = templates.test_message(PRODUCT, settings.application_url(identity, row))
+    rendered = templates.test_message(templates.PRODUCT, settings.application_url(identity, row))
     session.rollback()
     try:
         smtp.deliver(
