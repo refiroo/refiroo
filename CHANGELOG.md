@@ -151,6 +151,24 @@ All notable changes to this project are documented in this file. The format foll
 - **Open passkey sign-ins are capped** (2000 waiting at once, then `429` with `Retry-After`), so the
   open options endpoint cannot fill the database.
 
+### Added (0.12 DP4, automatic HTTPS for a public installation)
+
+- `compose.acme.yml` and `caddy/Caddyfile`: Caddy in front of `web` obtains and renews a Let's Encrypt
+  or ZeroSSL certificate for `PUBLIC_URL` with no certificate files; `web` runs as `WEB_TLS=proxy`
+  and is no longer published. Started with `docker compose -f compose.yml -f compose.acme.yml up -d`.
+
+### Added (0.12 DP2, images and a reference installation)
+
+- `compose.yml` is the reference installation (database, engine, web), read from an `.env` filled from
+  `.env.example`: `PUBLIC_URL`, the database password, `SECRETS_ENCRYPTION_KEY` and
+  `RDM_CURSOR_SIGNING_KEY` are required and never in an image. It replaces `docker-compose.yml`, which
+  no longer started the engine.
+- The **web image** (`frontend/Dockerfile`): the application built once, served by unprivileged nginx
+  with the engine's paths forwarded, HTTPS from the organisation's certificate files and plain HTTP
+  redirected to `PUBLIC_URL` (or `WEB_TLS=proxy` behind a load balancer), HSTS, `/metrics` kept inside.
+- The **engine image** runs as an unprivileged user behind the proxy (`--proxy-headers`), with a health
+  check and export files in a volume. A `.dockerignore` sends only what the images copy.
+
 ### Changed (0.12 DP1, one address for the application and the engine)
 
 - The application calls the engine on the address the page was opened at (D404); `VITE_API_URL`

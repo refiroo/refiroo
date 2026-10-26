@@ -1,0 +1,22 @@
+# Plain HTTP behind a load balancer that ends HTTPS (WEB_TLS=proxy, 0.12 DP2, D407).
+# The load balancer in front is trusted: its forwarded address and scheme pass on, and its own address
+# is added. Keep this container reachable only from it.
+map $scheme $forwarded_for { default $proxy_add_x_forwarded_for; }
+map $http_x_forwarded_proto $forwarded_proto { default $scheme; https https; }
+
+gzip on;
+gzip_types text/css application/javascript application/json image/svg+xml;
+client_max_body_size ${WEB_MAX_BODY};
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    location = /web-health {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    include /etc/nginx/conf.d/snippets/locations.inc;
+}

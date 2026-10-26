@@ -1,0 +1,15 @@
+# Both images build from the repository root; only what they copy is sent (0.12 DP2).
+*
+!backend/pyproject.toml
+!backend/app
+!model/rdm-starter.json
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/index.html
+!frontend/tsconfig.json
+!frontend/vite.config.ts
+!frontend/public
+!frontend/src
+!frontend/nginx
+**/__pycache__
+**/*.pyc

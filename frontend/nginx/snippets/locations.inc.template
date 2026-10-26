@@ -1,0 +1,33 @@
+# The engine's public paths are forwarded to the engine; everything else is the application
+# (0.12 DP2, D405, D406). /metrics is not public: monitoring reaches the engine's own port.
+location ~ ^/(api/|oauth/|\.well-known/|docs(/|$)|openapi\.json$|health(/|$)) {
+    proxy_pass ${ENGINE_UPSTREAM};
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $forwarded_for;
+    proxy_set_header X-Forwarded-Proto $forwarded_proto;
+    # Exports stream and a job's events stay open: nothing is held back, and a slow answer is allowed.
+    proxy_buffering off;
+    proxy_read_timeout 1h;
+    proxy_send_timeout 1h;
+    include /etc/nginx/conf.d/snippets/headers.inc;
+}
+
+location = /metrics {
+    return 404;
+}
+
+# Hashed files never change under their name.
+location /assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    include /etc/nginx/conf.d/snippets/headers.inc;
+    try_files $uri =404;
+}
+
+location / {
+    # The application's page is never cached, so a new release is picked up at once.
+    add_header Cache-Control "no-cache";
+    include /etc/nginx/conf.d/snippets/headers.inc;
+    try_files $uri /index.html;
+}

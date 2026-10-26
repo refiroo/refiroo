@@ -1,5 +1,7 @@
 .DS_Store
 .env
+# The reference installation's certificate and key (compose.yml)
+/certs/
 # The developer instance's settings and certificate (scripts/dev.sh)
 .dev/
 .idea/

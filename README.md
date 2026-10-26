@@ -71,19 +71,24 @@ unauthenticated until then.
 | Frontend tests | Vitest with jsdom and Testing Library |
 | Browser tests | Playwright (Chromium) runners in `frontend/e2e/`, axe-core accessibility gate, pixelmatch visual regression gate |
 | Code quality | Ruff (backend); ESLint with typescript-eslint and react-hooks, Prettier (frontend) |
-| Delivery | Docker and Docker Compose (`postgres:17-alpine`, `python:3.14-slim`, `node:22-alpine`), GitHub Actions CI |
+| Delivery | Docker and Docker Compose (`postgres:17-alpine`, `python:3.14-slim`, `node:22-alpine` building the application for `nginx-unprivileged`), GitHub Actions CI |
 
 ## Quick start
 
-### With Docker
+### With Docker (the reference installation)
+
+`compose.yml` runs the database, the engine and a web container that serves the application over
+HTTPS and forwards the engine's paths to the engine. Copy `.env.example` to `.env`, fill it in, put
+your certificate and key in `certs/` as `fullchain.pem` and `privkey.pem`, then:
 
 ```bash
-docker compose up --build
+docker compose up -d --build
+docker compose run --rm engine python -m app.cli.create_admin --username <name> --name "<Name>"
 ```
 
-- UI: http://localhost:5173
-- API reference: http://localhost:8000/docs
-- Model: http://localhost:8000/api/v1/model
+On a public name, add `-f compose.yml -f compose.acme.yml` for certificates that renew themselves.
+Open the address you set as `PUBLIC_URL`. The settings are explained in
+[docs/OPERATIONS.md](docs/OPERATIONS.md#the-reference-installation). To develop, use the next section.
 
 ### Without Docker
 

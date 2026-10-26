@@ -1,0 +1,37 @@
+# HTTPS ended here (WEB_TLS=files, 0.12 DP2, D407). Listens on 8080 and 8443; publish them as 80 and 443.
+# The engine is told the caller nginx saw: whatever a caller sent in these headers is replaced.
+map $scheme $forwarded_for { default $remote_addr; }
+map $scheme $forwarded_proto { default $scheme; }
+
+gzip on;
+gzip_types text/css application/javascript application/json image/svg+xml;
+client_max_body_size ${WEB_MAX_BODY};
+
+server {
+    listen 8080;
+    server_name _;
+
+    # The container's own health check.
+    location = /web-health {
+        access_log off;
+        return 200 "ok\n";
+    }
+    # Plain HTTP goes to the address people open, never to a name the request chose.
+    location / {
+        return 301 ${PUBLIC_URL}$request_uri;
+    }
+}
+
+server {
+    listen 8443 ssl;
+    http2 on;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    ssl_certificate /certs/fullchain.pem;
+    ssl_certificate_key /certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:ssl:10m;
+
+    include /etc/nginx/conf.d/snippets/locations.inc;
+}

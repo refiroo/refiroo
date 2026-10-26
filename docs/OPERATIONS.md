@@ -872,6 +872,57 @@ A webhook URL may name any host and port. It must use HTTPS; plain HTTP is accep
   subscriptions continue when it is turned on again, and those whose events expired meanwhile are
   suspended `EVENTS_EXPIRED`.
 
+## The reference installation
+
+`compose.yml` (0.12 DP2) is the installation the project tests and describes: three containers,
+of which only `web` is published.
+
+| Container | Image | What it does |
+| --- | --- | --- |
+| `database` | `postgres:17-alpine` | PostgreSQL with the ICU root collation, its data in the `database` volume |
+| `engine` | built from `backend/Dockerfile` | The engine under Uvicorn as an unprivileged user, one process, `--proxy-headers`, export files in the `job-files` volume; its health check is `/health/live` |
+| `web` | built from `frontend/Dockerfile` | nginx (unprivileged, 8080 and 8443, published as 80 and 443) serving the application built once for every installation, forwarding `/api`, `/oauth`, `/.well-known`, `/docs`, `/openapi.json` and `/health` to the engine; `/metrics` answers 404 (monitoring reaches the engine's own port inside the network) |
+
+Settings are read from `.env`, which you copy from `.env.example` (each setting has a sentence and the
+command that generates its value). **Keep `.env` beside your backups**: `SECRETS_ENCRYPTION_KEY`
+opens the stored keys, and the database password is set once, when the database is created. No secret
+is in an image or the repository.
+
+- **HTTPS (`WEB_TLS=files`, the default).** `web` ends HTTPS with your certificate and key mounted
+  from `./certs` as `fullchain.pem` and `privkey.pem` (read-only), answers plain HTTP with a redirect
+  to `PUBLIC_URL`, sends HSTS, and refuses to start, saying so, when the files are missing. Renew by
+  replacing the files and restarting `web`. Certificates are not requested automatically.
+- **A load balancer that ends HTTPS (`WEB_TLS=proxy`).** `web` serves plain HTTP on 8080 and trusts the
+  balancer's `X-Forwarded-For` and `X-Forwarded-Proto`; keep it reachable only from the balancer.
+- **The caller's address.** `web` replaces the forwarded address with the one it saw and the engine
+  trusts it (`FORWARDED_ALLOW_IPS=*`), which is safe only while the engine's port is not published, as in
+  `compose.yml`: the sign-in throttle counts per address (D271).
+- **Uploads.** `web` takes bodies up to `WEB_MAX_BODY` (256 MB); the engine's own limit is
+  `IMPORT_MAX_BYTES` (200 MB).
+- **The first administrator.** `docker compose run --rm engine python -m app.cli.create_admin
+  --username <name> --name "<Name>"` asks for the password.
+- **Upgrading** is [Upgrades](#upgrades) with `docker compose up -d --build`; the engine migrates the
+  database at start.
+
+### Automatic HTTPS for a public installation
+
+For an installation on a public name, `compose.acme.yml` (0.12 DP4) puts Caddy in front of `web`,
+which gets and renews a Let's Encrypt (or ZeroSSL) certificate for the host in `PUBLIC_URL` by itself
+and redirects HTTP to HTTPS. Point the name's DNS at the host, open ports 80 and 443 to the internet,
+set `PUBLIC_URL`, and start with both files:
+
+```bash
+docker compose -f compose.yml -f compose.acme.yml up -d --build
+```
+
+No certificate files and no `./certs` folder are needed; the overlay sets `WEB_TLS=proxy` and stops
+publishing `web`, so Caddy is the only way in. Caddy's configuration is `caddy/Caddyfile` (add
+`{ email you@example.org }` above the site to be told of an expiring certificate). The certificates
+and the account with the authority live in the `caddy-data` volume: keep it, because the authority
+limits how often a name may be issued. If the first certificate does not arrive, `docker compose
+logs caddy` says why (usually DNS not yet pointing here, or port 80 closed). **Not for a name only
+your network knows**: the authority cannot reach it, so use your own certificate files above.
+
 ## Deployment topologies
 
 The supported topology is one API process (the Docker image starts one Uvicorn process). Several
