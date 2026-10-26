@@ -136,6 +136,8 @@ export type SettingsRoute =
   | { kind: "settings"; page: "clients"; clientId?: string }
   | { kind: "settings"; page: "sign-in"; providerKey?: string }
   | { kind: "settings"; page: "signing-keys" }
+  /** Integration › Mail: the SMTP connection and the outbox (0.12 M1). */
+  | { kind: "settings"; page: "mail" }
   | {
       kind: "settings";
       page: "webhooks";

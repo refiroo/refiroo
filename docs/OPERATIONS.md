@@ -240,7 +240,8 @@ organisation's provider](#signing-in-with-the-organisations-provider)).
 ### Changing `SECRETS_ENCRYPTION_KEY`
 
 The key seals what the engine must read back: token signing keys, webhook signing keys, a sign-in
-provider's client secret, authenticator secrets and the provider ID tokens kept with a session. To
+provider's client secret, authenticator secrets, the provider ID tokens kept with a session, the mail
+server's password and the text of mail waiting to be sent. To
 move to a new key (a suspected leak, or a policy), with the engine **stopped** (a running process would
 seal new values with the old key):
 
@@ -358,8 +359,8 @@ token presented a second time ends the session, since only a copy can do that.
   `DELETE /api/v1/users/{id}/sessions` by an administrator), changes or resets their password, or is
   deactivated. Their access tokens are refused from the next request.
 - **A first password** for a person created through the API: `POST /api/v1/users/{id}/password-reset`
-  answers a one-time link, valid `PASSWORD_RESET_HOURS`, to pass on to the person (no e-mail is sent,
-  D233). It opens the engine's page that sets the password; a newer link replaces an older one, and
+  answers a one-time link, valid `PASSWORD_RESET_HOURS`, to pass on to the person (no e-mail is sent
+  yet: [Sending mail](#sending-mail) is set up, but nothing queues the link, D233, D418). It opens the engine's page that sets the password; a newer link replaces an older one, and
   using it ends the person's sessions. The same link resets a forgotten password.
 - **Failed sign-ins are slowed, never locked** (D271): after 5 failures for one username, or 20 from
   one address, each attempt waits 1 second, doubling to at most 15 minutes, and the page says how
@@ -482,6 +483,36 @@ Security events record it (`sign-in` `failed` with `reason` and `detail`), for e
 `nonce` (the token was not for this sign-in), `exchange` (the provider refused the code: check the
 secret and the redirect address), `browser` (started in another browser) or `deactivated`.
 
+### Sending mail
+
+The engine sends e-mail through the organisation's own SMTP server (0.12 M1, D418, D419): later
+packages use it for a new person's link and a password reset, and for inbox notices; never for a
+password or a code (D395). **Settings › Integration › Mail** (or `PUT /api/v1/mail-settings`, needing
+Security administration at the instance) takes the server, the port, how the connection is secured
+(**STARTTLS**, usually port 587, or **TLS**, usually 465; `none` only for a relay on a trusted
+network, and then without a login: the engine never sends a login unencrypted), a user name and
+password if the server asks for one, the address mail comes from, and the address the application is
+reached at, which the links point to (empty: the first `CORS_ORIGINS` entry, D422). Send a test
+message from the same page: it names what failed (the connection, TLS, the login, the address).
+
+- **The password is sealed** with `SECRETS_ENCRYPTION_KEY` and never shown; the text of a message
+  waiting holds a one-time link, so it is sealed too and erased when the message is sent or fails.
+  Both are covered by `reseal_secrets` ([above](#changing-secrets_encryption_key)).
+- **The server's certificate is verified** against the system's trusted certificates, hostname
+  included. A server with the organisation's own authority needs that authority installed on the
+  engine's host (or in `SSL_CERT_FILE` of the process); an untrusted certificate shows as `tls` in
+  the test message.
+- **Mail is sent in the background**, so a slow server never holds a request. A failed attempt is
+  tried again after 30 seconds, then after twice as long, at most an hour apart; an address the server
+  refuses for good fails at once; anything else fails after 24 hours with the last reason. The Mail
+  page lists the messages waiting, sent and failed, and `mailSender` appears among a process's
+  threads on Operations. Finished messages are kept for 30 days.
+- **Sender reputation is the organisation's:** the from address's domain needs SPF and DKIM for the
+  sending server, or mailboxes may file the messages as junk. The engine does neither.
+- **Several processes** each run a sender; leases keep them off the same message.
+- Removing the settings stops sending at once; messages still waiting fail after their 24 hours.
+  Each change to the settings is a security event.
+
 ## Database
 
 PostgreSQL 17 is the only supported database (since 0.9.0-alpha.1). The database's default collation
@@ -562,7 +593,7 @@ release's schema is outside this version's window; see [Startup checks](#startup
 restart it). A workspace that runs no release is `unavailable` with no process named.
 `GET /api/v1/system/processes` lists every process: its ID (`host:pid:random`, as a job's
 `leaseOwner` begins), version, start, last heartbeat, `live` or `silent`, `ready`, its threads
-(`jobWorker`, `exportWorker`, `jobListener`, `eventDeriver`, `webhookDispatcher`, `heartbeat`,
+(`jobWorker`, `exportWorker`, `jobListener`, `eventDeriver`, `webhookDispatcher`, `mailSender`, `heartbeat`,
 each `running`, `failing` with the reason and since when, or `off` when not started), its pool and
 its counters. Both page like every collection. `GET /api/v1/system/summary` gives the instance
 figures that `/metrics` counts when scraped (below) as JSON: processes live and silent, workspaces

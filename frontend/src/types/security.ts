@@ -36,7 +36,16 @@ export type Actor = Principal | { kind: "engine" };
 /** A change to access, or a sign-in (0.12 Z4, D317, D318); `details` never holds a secret. */
 export interface SecurityEvent {
   id: string;
-  aggregateType: "user" | "group" | "role" | "grant" | "client" | "token-signing-key" | "sign-in" | "sign-in-provider";
+  aggregateType:
+    | "user"
+    | "group"
+    | "role"
+    | "grant"
+    | "client"
+    | "token-signing-key"
+    | "sign-in"
+    | "sign-in-provider"
+    | "mail-settings";
   aggregateId: string;
   action: string;
   version: number;

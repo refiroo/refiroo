@@ -3,7 +3,8 @@
 The engine stores what it must read back sealed with AES-256-GCM (``common/sealing``), each value
 bound to what it belongs to: the token signing keys, the webhook signing keys (the current and the
 previous one of a rotation), a sign-in provider's client secret, a person's authenticator secret and
-the provider ID tokens kept while a sign-in is under way or open. ``reseal`` opens each with the old
+the provider ID tokens kept while a sign-in is under way or open, the mail server's password and
+the bodies of mail waiting to be sent. ``reseal`` opens each with the old
 key and seals it again with the new one, in one transaction: either every value is re-sealed or none
 is. Every value is opened first; if any does not open (another key, damaged data) nothing is
 written and the refusal names each one by kind and identity, never by content.
@@ -17,13 +18,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import Select, select, update
+from sqlalchemy import Select, literal, select, update
 from sqlalchemy.orm import Session
 
 from ...common.sealing import SealError, seal, unseal
 from ...models.database import (
     AuthorizationCode,
     ConsumerSubscription,
+    MailOutbox,
+    MailSettings,
     SignInProvider,
     TokenSigningKey,
     User,
@@ -31,6 +34,8 @@ from ...models.database import (
     UserSession,
 )
 from ..events import subscriptions
+from ..mail import outbox as mail_outbox
+from ..mail import settings as mail_settings
 from . import keys, providers, second_factor
 
 # How many values a refusal lists by name.
@@ -123,6 +128,26 @@ SEALED = (
             AuthorizationCode.signed_in_with,
         ).where(AuthorizationCode.provider_id_token.is_not(None)),
         providers.id_token_context,
+    ),
+    Sealed(
+        "mail server password",
+        MailSettings,
+        "id",
+        "password",
+        select(MailSettings.id, MailSettings.password, literal("password")).where(
+            MailSettings.password.is_not(None)
+        ),
+        mail_settings.password_context,
+    ),
+    Sealed(
+        "queued mail",
+        MailOutbox,
+        "id",
+        "body",
+        select(MailOutbox.id, MailOutbox.body, MailOutbox.public_id).where(
+            MailOutbox.body.is_not(None)
+        ),
+        mail_outbox.body_context,
     ),
 )
 

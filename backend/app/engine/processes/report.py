@@ -24,6 +24,7 @@ from ..events.worker import THREAD_NAME as DERIVER_THREAD
 from ..jobs.events import THREAD_NAME as LISTENER_THREAD
 from ..jobs.worker import EXPORT_THREAD_NAME
 from ..jobs.worker import THREAD_NAME as JOB_WORKER_THREAD
+from ..mail.sender import THREAD_NAME as MAIL_SENDER_THREAD
 from ..model.registry import UnavailableWorkspaceModel, model_registry
 
 HEARTBEAT_THREAD = "rdm-process-heartbeat"
@@ -34,6 +35,7 @@ THREADS: dict[str, str] = {
     LISTENER_THREAD: "jobListener",
     DERIVER_THREAD: "eventDeriver",
     DISPATCHER_THREAD: "webhookDispatcher",
+    MAIL_SENDER_THREAD: "mailSender",
     HEARTBEAT_THREAD: "heartbeat",
 }
 UnavailableReason = Literal["unsupportedSchema", "invalid", "notLoaded"]

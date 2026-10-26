@@ -20,6 +20,7 @@ export const THREAD_LABELS: Record<ProcessThread["name"], string> = {
   jobListener: "Job listener",
   eventDeriver: "Event deriver",
   webhookDispatcher: "Webhook dispatcher",
+  mailSender: "Mail sender",
   heartbeat: "Heartbeat",
 };
 

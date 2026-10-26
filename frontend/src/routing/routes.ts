@@ -151,6 +151,7 @@ const SINGLE_PAGES = [
   "api-reference",
   "roles",
   "signing-keys",
+  "mail",
 ] as const;
 const isSinglePage = (page: string): page is (typeof SINGLE_PAGES)[number] =>
   (SINGLE_PAGES as readonly string[]).includes(page);

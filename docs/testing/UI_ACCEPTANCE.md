@@ -388,6 +388,21 @@ frame and the record history's timeline.
 | Z6-1 | **Changes** | `/changes?actorId=…` from a name in a record's history, "See changes" on a person's page, "See all your changes" on Home | `ShellFrame`, `TopBar` without applications; Home's panels; `ui/Timeline` | **C** (skeleton) | **B** (a person's and a client's changes on two models, grouped by day; a reader sees only the workspaces they browse; empty: "No change matches these filters" or no changes in the workspaces you can read) | **C** (Load more disabled while it loads) | **B** (an entry opens its record, a change set its review; the filters narrow and stay in the address) | — (an unknown filter in the address is ignored) | — | **C** (an inline error with Retry) | **B** (390px, the filters stacked, no page scroll) | **B** (Tab from the filters through the titles to Load more; Enter loads) | `z6-changes` (axe light, dark, 390px; screenshots), `changes.test` |
 | Z6-2 | **Your recent changes** on Home | Home | HM1-1's rows | **C** (shown once loaded) | **B** (the five latest across two workspaces; absent when there is none, D335) | — | **B** (an entry opens what it changed; See all opens Your changes) | — | — | **C** (absent on a failed read, as the section is optional) | **B** (390px) | **B** | `z6-changes`, `hm1-home` |
 
+### Surfaces changed in 0.12 M1
+
+Settings › Integration › Mail, on the Settings layout (SP2-4's ruled sections and settings table) and
+the sign-in provider's settings form (I3-1: `security-settings-form`, `FormField`, `dialog-actions`).
+
+| # | Surface | Route | Reference pattern | Loading | Empty | Pending | Success | Error | Conflict | Retry | Narrow | Keyboard | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| M1-1 | **Mail server**: the SMTP form, Save, Cancel, Remove settings… | `/settings/mail` | I3-1's provider settings | **C** (Loading mail settings…) | **B** (not set up: the notice, the port at STARTTLS's, no test before a server is saved) | **C** (Saving…) | **B** (saved by Enter; the port followed the connection; the password a placeholder, never shown) | **B** (a login without encryption: the field's own message and Save disabled; the engine's refusal in a notice) | **C** (`VERSION_CONFLICT` reloads and says so) | **C** (InlineError, Retry) | **B** (390px, no sideways scroll) | **B** (every field, Save and the removal's confirmation by keyboard; Cancel focused first) | `m1-mail`, `MailPage.test` |
+| M1-2 | **Test message** and its result | `/settings/mail` | I3-1's form, `ui/Notice` | — | **B** (disabled until settings are saved) | **C** (Sending…) | **B** (the server accepted it for the address) | **B** (a refused address and an unreachable server each named, with the server's sentence) | — | — | **B** | **B** (typed and sent by Enter) | `m1-mail`, `MailPage.test` |
+| M1-3 | **Messages**: the outbox with a state filter and Refresh | `/settings/mail` | SP2-4's settings table, `StatusPill` | **C** (Loading messages…) | **B** (no messages yet; none in the chosen state) | — | **B** (a sent and a failed message, the failure's reason, the filter narrowing to Failed) | **C** (InlineError, Retry) | — | **C** | **B** (390px: the rows stack under their column names) | **B** (Refresh and the filter by keyboard) | `m1-mail`, `MailPage.test` |
+
+Not exercised in a browser: a message **waiting** (its Next try line); the outbox's paging (Load more);
+the login field of a saved server with its password (the journeys cover the login). The rows the page
+lists were written into the run's database, since no route queues mail yet.
+
 ## 3. Selected focused browser checks
 
 Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,

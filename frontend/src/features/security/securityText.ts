@@ -224,6 +224,17 @@ export function grantSentence({
   return sentence;
 }
 
+/** The mail settings' fields as a person names them, for a security event. */
+const MAIL_FIELDS: Record<string, string> = {
+  host: "server",
+  port: "port",
+  security: "connection security",
+  username: "user name",
+  password: "password",
+  fromAddress: "from address",
+  applicationUrl: "application address",
+};
+
 const text = (value: unknown) => (typeof value === "string" ? value : "");
 
 /** What a grant event names: "Data steward in Herbarium", "Consumer API: x in …", by the
@@ -274,6 +285,12 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
       if (event.action === "updated" && changed.includes("enabled"))
         return `Sign-in provider ${event.aggregateId} ${details.enabled ? "enabled" : "disabled"}`;
       return `Sign-in provider ${event.aggregateId} ${event.action}`;
+    case "mail-settings": {
+      if (event.action === "created") return "Mail set up";
+      if (event.action === "deleted") return "Mail settings removed";
+      const words = changed.map((field) => MAIL_FIELDS[field] ?? field);
+      return words.length ? `Mail settings changed: ${words.join(", ")}` : "Mail settings saved";
+    }
     case "grant":
       return `${event.action === "created" ? "Granted" : "Grant removed:"} ${grantEventWords(details, labels)}`;
     case "group": {

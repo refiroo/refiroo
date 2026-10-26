@@ -4425,6 +4425,77 @@ hours is marked failed and visible on the Mail page. Plain-text templates for th
 reset link and the test; the page of a failed message shows the reason. A fake SMTP server in the
 tests. Without settings no mail is sent and nothing else changes.
 
+##### M1 record (2026-10-26)
+
+**Delivered 2026-10-26** on the user's "can you deliver build 0.12 m1?", without a separate detailed plan
+or mock-up (the page reuses the sign-in provider's settings form, the settings table and the notice;
+the user may reopen D418–D423).
+
+- **Migration** `20261109_01_mail`: `mail_settings` (one row, absent until saved; the password sealed),
+  `mail_outbox` (the message, its sealed text, status, attempts, the last failure's sentence and kind, the
+  lease) and the aggregate `mail-settings` among the security events.
+- **Engine** (`engine/mail/`): `settings` (save with `expectedVersion`, remove, the application address
+  defaulting to the first browser origin), `smtp` (`smtplib`, the certificate verified, every failure a
+  `MailError` naming what failed and whether trying again can help), `templates` (activation, reset, test; D421),
+  `outbox` (`enqueue` in the caller's transaction, paging, counts, the retry delay) and `sender` (the thread: leases
+  with `FOR UPDATE SKIP LOCKED`, 30 seconds doubling to an hour, a permanent refusal fails at once, 24 hours
+  otherwise, a server-wide failure shared by the messages leased together, finished messages pruned after 30
+  days). `reseal_secrets` covers the password and the queued text. `mailSender` is among a process's threads.
+- **API:** `GET/PUT/DELETE /mail-settings`, `POST /mail-settings/test`, `GET /mail-outbox`, all under
+  `security.manage` (D423); the codes `MAIL_NOT_SET_UP`, `MAIL_INSECURE_LOGIN`, `MAIL_PASSWORD_REQUIRED`,
+  `MAIL_SEND_FAILED`. The OpenAPI lock moved (the new routes and schemas, the aggregate, the thread).
+- **Frontend:** Settings › Integration › **Mail** (`features/settings/MailPage.tsx`): the server form (the port
+  follows the connection, a login without encryption refused in the form), the test message with the failure
+  named, the outbox with a state filter. A `select` now takes the field treatment inside `security-settings-form`.
+  Security events name a mail change on the person's Recent activity. **Runner** `m1-mail`.
+- **Documents:** API.md § Mail, OPERATIONS § Sending mail (and the re-sealing list), ARCHITECTURE, USER_JOURNEYS
+  (J46), API_JOURNEYS, CURRENT_FUNCTIONALITY (F28), UI_ACCEPTANCE (M1-1 to M1-3), EXECUTION_GUIDE, CHANGELOG,
+  PROJECT_STATUS.
+
+**Where it differs from the plan:**
+
+- **A third connection choice, `none`,** beside TLS and STARTTLS, so a relay on a trusted network works; it
+  refuses a login (D423).
+- **No on/off switch; `DELETE /mail-settings` instead.** Removing the settings is how mail is turned off.
+- **The test message goes straight to the server,** not through the outbox, so the refusal can be named.
+- **No route queues a message;** `outbox.enqueue` is for the engine's own code (SP3, I6, M2). The journeys and the
+  browser runner queue or write rows from outside the API, and say so.
+- **The tests were written after the code,** not seen failing first (the cases failed at their first run on
+  missing routes); they go through the API against a real SMTP server with a certificate made for the run.
+
+**Checks:**
+
+- `test_j46_mail`: 18 passed (9 cases on two configurations): set up and prove with a test message arriving
+  (STARTTLS with a login, the certificate verified), replacing the settings and keeping the password, each
+  failure named (login, recipient, TLS in both ways, connection), a login refused unencrypted, a message sent
+  in the background and retried after 30 and 60 seconds with its text erased, given up at once and after 24
+  hours with the reason, no settings, who may, the re-sealing. Unit tests for the templates and the retry delay.
+- **The groups the guide selects for the boundary** (`startup or contract`, parallel): 271 passed and one failed,
+  `test_j12_run_the_service::test_an_unsupported_model_schema_is_upgraded_offline[example]`, which asserts the
+  log's records exactly and found one more, the event deriver's retry line of another application still
+  running in the worker; it passes alone (2 passed) and is not mail's. The serial part selects nothing.
+  Also `test_j43_webhook_key`, `test_j39_j41_j43_identity`, `test_j40_authorization` and the unit tests of
+  `engine/identity`, `engine/mail`, `engine/events` and `models`: 225 passed together with J46; `ruff check
+  app/ tests/`.
+- Vitest: `src/features/settings`, `security`, `routing`, `app` (236 passed); lint 0 errors (its 8 warnings are
+  older), `tsc` and the build.
+- **Runner `m1-mail`:** passed on two models, 28 checks, axe 0 violations on 14 scans; the changed screenshots
+  inspected at 1440px (light and dark) and 390px.
+
+**Not verified:**
+
+- **A smoke start against the development database:** the migration was applied by the tests' databases and the
+  runner's clones; the user's `uvicorn --reload` server upgrades theirs when it reloads. No side server was
+  started for it.
+- **TLS against a server with a certificate from an organisation's own authority** (the host must trust it;
+  OPERATIONS says so); a real mail server's behaviour (Microsoft 365, Gmail relay) was not tried.
+- **A message waiting** in the browser (its "Next try" line) and the outbox's Load more; the visual and
+  accessibility gates and the baselines wait for R.
+
+**What the user cannot do yet:** have a new person's link or a reset mailed (SP3, I6); receive inbox notices
+(M2); send a failed message again from the page; sign in again after forgetting a password without an
+administrator.
+
 #### M2: Inbox notifications by mail
 
 **Needs:** M1, A2 (after the cut line). **Scope:** a person may receive an e-mail when something lands in
@@ -4486,6 +4557,7 @@ have their assigned work packages". **Planned, awaiting the user's approval** of
 | D420 | Who may reset by mail, and what they are told | **Recommended:** the screen asks for a username or e-mail address and always answers the same ("if there is such an account, a link was sent"); a link is sent only to a person with a local password, a kept local sign-in and an address; a person who signs in through a provider receives nothing; asking is slowed per address and per account and a link is used once, replacing earlier ones, and ends the person's sessions. A second factor is **not** skipped: the person still needs it at their next sign-in. Why: nobody learns which accounts exist, and a stolen mailbox alone cannot open an account that has a second factor. Cost: a person whose address is wrong or missing asks an administrator, as today |
 | D421 | What a mail contains | **Recommended:** the product's name, the person's name, the link and how long it lasts, one sentence on ignoring it; never a password, a code or record content. Notification mail (M2) names the kind of event and links to the inbox. Why: mail travels and sits in mailboxes. Cost: the reader opens the application for the detail |
 | D422 | Where the application is reached | **Recommended:** one setting on the Mail page, the application's address (default: the first `CORS_ORIGINS` entry); links in mail and the reset links an administrator makes point to the application's reset page; the engine's `/oauth/password` keeps working for links made before. Why: the page is part of the application and follows its theme (I5), and the engine cannot guess the address people use. Cost: one more setting, checked by the test message |
+| D423 | Who manages mail | **Recommended (decided under the user's "deliver M1", 2026-10-26; the user may reopen it):** Security administration at the instance, the existing action `security.manage`, for every mail route. Why: the settings decide where one-time links of accounts are sent, so whoever can change them can take over an account; it is the group that already makes those links. Cost: an operator with only Operations cannot set mail up. Also decided with it: a login is refused over an unencrypted connection (`none` is for a relay on a trusted network and carries no login), the server's certificate is always verified (no switch to skip it), and the test message is sent at once, not through the outbox, since its answer is the point |
 
 ### K1: Webhook signing-key rotation
 
@@ -4695,7 +4767,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 11 | [I3](#i3-a-sign-in-provider) | I2, SP2 | **Delivered 2026-10-25.** OpenID Connect providers and their groups; Settings › Security › Sign-in |
 | 11a | [I4](#i4-a-provider-identity-linked-signing-out-of-the-provider-a-second-factor) | I3 | Planned 2026-10-25 (D382): I4a linking, provider sign-out, the local sign-in switch; I4b an authenticator app for local accounts; I4c passkeys |
 | 11b | [I5](#i5-a-sign-in-screen-in-the-application) | I4 | **Delivered 2026-10-26** (D415–D417): the application's own sign-in screen over JSON sign-in routes; every rule once, shared with the engine's HTML pages |
-| 11c | [M1](#m1-sending-mail) | I1 | Planned 2026-10-26 (D418, D419, D421, D422): SMTP settings and a Mail page, the outbox with retries, templates, a test message |
+| 11c | [M1](#m1-sending-mail) | I1 | **Delivered 2026-10-26** (D418, D419, D421–D423): SMTP settings and a Mail page, the outbox with retries, templates, a test message |
 | 11d | [SP3](#sp3-a-new-persons-link-by-mail) | M1, SP1 | Planned 2026-10-26: New person and Reset password send the link by mail |
 | 11e | [I6](#i6-forgotten-passwords-on-the-sign-in-screen) | I5, M1 | Planned 2026-10-26 (D420, D422): Forgotten your password? on the sign-in screen, the reset pages in the application |
 | 12 | [K1](#k1-webhook-signing-key-rotation) | Z1 | **Delivered 2026-10-25.** Signing-key rotation with overlap, Rotate key… on a webhook's page; re-sealing as `python -m app.cli.reseal_secrets` |

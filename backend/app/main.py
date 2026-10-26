@@ -29,6 +29,8 @@ from .engine.jobs.events import JobListener
 from .engine.jobs.files import JobFiles
 from .engine.jobs.inline import BatchLimits
 from .engine.jobs.worker import EXPORT_KINDS, EXPORT_THREAD_NAME, JobWorker, WorkerSettings
+from .engine.mail.sender import THREAD_NAME as MAIL_SENDER_THREAD
+from .engine.mail.sender import MailSender
 from .engine.model.bootstrap import bootstrap_model
 from .engine.model.compiler import SCHEMA_VERSIONS, after_window
 from .engine.model.loader import load_bootstrap_model
@@ -56,6 +58,7 @@ from .management.routers import (
     imports,
     inference,
     jobs,
+    mail,
     mapping,
     model,
     model_management,
@@ -200,6 +203,10 @@ async def lifespan(application: FastAPI):
         dispatcher = None
     if dispatcher is not None:
         dispatcher.start()
+    # The mail sender (0.12 M1): it needs no model, so it runs wherever the database does.
+    mail_sender = application.state.mail_sender if application.state.run_mail_sender else None
+    if mail_sender is not None:
+        mail_sender.start()
     # Each process reports itself to the others, ready or not (0.11 O1, D192).
     heartbeat = (
         application.state.process_heartbeat if application.state.run_process_heartbeat else None
@@ -213,6 +220,7 @@ async def lifespan(application: FastAPI):
                 (LISTENER_THREAD, listener),
                 (DERIVER_THREAD, deriver),
                 (DISPATCHER_THREAD, dispatcher),
+                (MAIL_SENDER_THREAD, mail_sender),
             )
             if thread is not None
         }
@@ -224,6 +232,8 @@ async def lifespan(application: FastAPI):
         if heartbeat is not None:
             application.state.running_heartbeat = None
             heartbeat.stop()
+        if mail_sender is not None:
+            mail_sender.stop()
         if dispatcher is not None:
             dispatcher.stop()
         if deriver is not None:
@@ -397,6 +407,10 @@ def create_app() -> FastAPI:
         else None
     )
     application.state.run_consumer_dispatcher = True
+    # The mail sender (0.12 M1): tests that send themselves set ``run_mail_sender`` to False before
+    # the application starts.
+    application.state.mail_sender = MailSender(SessionLocal, application.state.identity_settings)
+    application.state.run_mail_sender = True
     # The process heartbeat (0.11 O1): tests that report themselves set ``run_process_heartbeat``
     # to False before the application starts.
     application.state.process_heartbeat = ProcessHeartbeat(
@@ -443,6 +457,7 @@ def create_app() -> FastAPI:
     application.include_router(oauth_app.router)
     application.include_router(oauth_console.router)
     application.include_router(identity.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(mail.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(authorization.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(model.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(system.router, dependencies=MANAGEMENT_DEPENDENCIES)

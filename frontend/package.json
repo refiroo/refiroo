@@ -61,6 +61,7 @@
     "test:browser:operations": "node e2e/operations-o2.mjs",
     "test:browser:integration": "node e2e/u4-integration.mjs",
     "test:browser:webhooks": "node e2e/u5-webhooks.mjs",
+    "test:browser:mail": "node e2e/m1-mail.mjs",
     "test:browser:j1u": "node e2e/j1u-export.mjs",
     "test:browser:j4": "node e2e/j4-import.mjs",
     "test:browser:j6": "node e2e/j6-people-workbook.mjs",

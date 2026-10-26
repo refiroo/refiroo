@@ -207,7 +207,15 @@ class SigningKeyPage(CollectionPage[SigningKeyResponse]):
 
 
 SecurityAggregate = Literal[
-    "user", "group", "role", "grant", "client", "token-signing-key", "sign-in", "sign-in-provider"
+    "user",
+    "group",
+    "role",
+    "grant",
+    "client",
+    "token-signing-key",
+    "sign-in",
+    "sign-in-provider",
+    "mail-settings",
 ]
 
 

@@ -38,6 +38,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
 | F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
+| F28 | Send mail | Settings › Integration › Mail | The organisation's mail server saved with its password sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
 (`frontend/e2e/`). The acceptance runs are recorded in the release plans.
@@ -1408,3 +1409,33 @@ other types are refused in its preview.
 Evidence: [authorization contract](../API.md#authorization), [OPERATIONS](../OPERATIONS.md#roles-and-grants),
 [catalogue](../../backend/app/engine/authorization/catalogue.py), [route check](../../backend/app/management/access.py),
 [Clients page](../../frontend/src/features/security/ClientsPage.tsx), [SP2 runner](../../frontend/e2e/sp2-clients.mjs).
+
+## F28 — Send mail
+
+**User outcome:** An administrator connects refiroo to the organisation's mail server once, and knows
+it works before anyone depends on it.
+
+An administrator with Security administration opens Settings › Integration › **Mail** and enters the
+mail server: its name and port, how the connection is secured (STARTTLS or TLS; unencrypted only for a
+relay on a trusted network, and then without a login), a user name and password if it asks for one,
+the address mail comes from and the address people reach refiroo at, which the links in mail point to
+(empty: the first address refiroo is allowed to be reached at). The password is stored sealed and is
+never shown again. **Send test message** sends one to an address at once; if it cannot be sent, the
+page says what failed: the server could not be reached, the secure connection failed (a certificate
+the host does not trust included), the login was refused, or the server refused the address.
+
+Mail the application sends is never sent while someone waits: it goes into an outbox and is sent in
+the background. A message that fails is tried again after half a minute, then after longer waits up to
+an hour; an address the server refuses for good fails at once; anything else fails after a day. The
+**Messages** list on the same page shows what waits, was sent and failed, with the reason of each
+failure and when it was last tried; a message's text is never shown, and is erased once it is sent or
+has failed, since it holds a one-time link. Without saved settings nothing is sent, and everything
+else works as before. Each change to the settings is recorded as a security event.
+
+Limits: nothing sends a message yet: a new person's link, a password reset and inbox notices use mail
+in later packages; the page has no way to send a failed message again; there is no mail provider's
+API, only SMTP; the organisation sets up SPF and DKIM for the from address's domain.
+
+Evidence: [mail contract](../API.md#mail), [OPERATIONS](../OPERATIONS.md#sending-mail),
+[outbox](../../backend/app/engine/mail/outbox.py), [sender](../../backend/app/engine/mail/sender.py),
+[Mail page](../../frontend/src/features/settings/MailPage.tsx), [M1 runner](../../frontend/e2e/m1-mail.mjs).

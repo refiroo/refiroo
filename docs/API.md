@@ -322,7 +322,7 @@ report ([OPERATIONS § Monitoring](OPERATIONS.md#monitoring)). Behind no capabil
   `leaseOwner` begins), `host`, `pid`, `engineVersion`, `startedAt`, `heartbeatAt`, `state` (`live`,
   or `silent` after three heartbeats without one), `ready`, `threads` (each `{name, state, reason,
   since}`: `jobWorker`, `exportWorker`, `jobListener`, `eventDeriver`, `webhookDispatcher`,
-  `heartbeat`; `running`, `failing` or `off`), `pool` (`size`, `maxOverflow`, `inUse`),
+  `mailSender`, `heartbeat`; `running`, `failing` or `off`), `pool` (`size`, `maxOverflow`, `inUse`),
   `unavailableReleases` (each `{releaseId, schemaVersion, reason}`) and `counters` (`requests`,
   `serverErrors`, `databaseUnavailable` by reason). A stopped process leaves the list; one that died
   stays `silent` for a day.
@@ -5797,8 +5797,9 @@ identity onto another person (`/users/{id}/identities`), a provider's `signOutOf
 (2026-10-25):** passkeys (`/me/passkeys`, `/users/{id}/passkeys`, the engine's passkey pages and
 their ceremonies). **Delivered by I4b
 (2026-10-25):** a second factor for local accounts (`/me/second-factor`, the sign-in page's code
-step), a person's `secondFactor`, `secondFactorRequired` on local sign-in. The rest
-is designed; each part moves into "delivered" with its package (K1, C1, A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
+step), a person's `secondFactor`, `secondFactorRequired` on local sign-in. **Delivered by M1
+(2026-10-26):** the mail settings and outbox ([Mail](#mail)). The rest
+is designed; each part moves into "delivered" with its package (A1–A3). Field-level detail not fixed here is finished in that package's plan. No identifier new in
 0.12 carries the project's name.
 
 ### Authentication
@@ -6409,6 +6410,47 @@ security change is audited with its actor.
   it was), `changedFields`, `attributes` (`key`, `name` from the workspace's model), `cause` (`kind`
   `user` for a single write, `job` or `publication` with its `id`) and `actor` (as on history).
   Names come from each entry's own workspace's model; values never (a record's history has them).
+
+### Mail
+
+_Delivered by M1 (2026-10-26), D418–D423._ The engine sends e-mail through the organisation's SMTP
+server. Every route needs Security administration at the instance (`security.manage`): mail decides
+where one-time links go. Nothing is sent without saved settings.
+
+- `GET /mail-settings`: `configured`, `host`, `port`, `security` (`tls`, `starttls` or `none`),
+  `username`, `passwordSet` (the password is never answered), `fromAddress`, `applicationUrl` (where
+  the links in mail point: the saved address, else the first `CORS_ORIGINS` entry, D422) with
+  `applicationUrlIsDefault`, `outbox` (`pending`, `sent`, `failed`: finished messages are kept for 30
+  days), `version` and `updatedAt`. Before the first save `configured` is false, the connection
+  fields are null and `version` is null.
+- `PUT /mail-settings`: replaces the settings: `host`, `port`, `security`, `username`, `password`,
+  `fromAddress`, `applicationUrl` and `expectedVersion` (absent for the first save; a stale or
+  missing one is `409 VERSION_CONFLICT` with `currentVersion`, 0 when nothing is saved). `password`
+  is sealed with `SECRETS_ENCRYPTION_KEY` and never answered; omitted, the saved one is kept; a
+  `username` of null removes the login and the password. `security: none` with a user name is `422
+  MAIL_INSECURE_LOGIN` (a login is only sent over TLS or STARTTLS); a user name with no password
+  saved or sent is `422 MAIL_PASSWORD_REQUIRED`. `applicationUrl` is an http or https address with no
+  query or fragment (a trailing `/` is dropped). Nothing is sent: saving a change is a security event
+  (`mail-settings`, `changedFields`, never the password).
+- `DELETE /mail-settings`: removes the settings; `204`, or `409 MAIL_NOT_SET_UP`. Messages waiting stay
+  in the outbox and fail after 24 hours.
+- `POST /mail-settings/test {to}`: sends a test message at once through the saved settings and answers
+  `{sentTo}`. It shows the application address. A failure is `422 MAIL_SEND_FAILED`, `details.kind`
+  one of `connection`, `tls` (also a certificate the engine does not trust), `login`, `recipient`,
+  `sender` or `rejected`, and `details.reason` the sentence; `409 MAIL_NOT_SET_UP` with no settings.
+  The server's certificate is verified against the system's trusted certificates.
+- `GET /mail-outbox`: the messages, newest first, cursor paged, `status=` (`pending`, `sent`,
+  `failed`). A message reads `id`, `kind` (`activation`, `password-reset`, `notification`), `to`,
+  `subject`, `status`, `attempts`, `lastError` (the sentence of the last failure) and `lastErrorKind`
+  (the kinds above, or `not_set_up`, `unreadable`, `expired`), `createdAt`, `nextAttemptAt` (while
+  pending) and `finishedAt`. **Its text is never answered:** it holds a one-time link, is sealed while
+  it waits and is erased when the message is sent or fails.
+
+No route queues a message: the engine's own code does, in the caller's transaction, refusing with
+`409 MAIL_NOT_SET_UP` when mail is not set up. A background thread (`mailSender` on a process's
+threads) sends them: a failed attempt is tried again after 30 seconds, then twice as long up to an
+hour; an address the server refuses for good fails at once; anything else fails after 24 hours,
+reading `Not sent within 24 hours. Last error: …`.
 
 ### Approvals (Track A)
 

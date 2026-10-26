@@ -50,7 +50,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Workspace models | J36 run a workspace on a model of its own, J37 move a workspace to another release, J38 move data between workspaces whose models differ |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
-| Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key, J45 start from home |
+| Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key, J45 start from home, J46 send mail |
 
 ## Records and structure
 
@@ -2263,6 +2263,41 @@ open). **Channel:** UI (the home page after sign-in, the bare address, the produ
 - **J45.5 No workspace**: a person who may browse none sees the no-workspace text on the home page.
 
 **Refusals:** none of its own; both reads answer only what the caller may browse.
+
+### J46 — Send mail
+
+**Actor:** Security administrator; the engine itself (a new person's link, a reset, later inbox
+notices). **Channel:** UI (Settings › Mail, under Integration), API (`GET`/`PUT`/`DELETE
+/mail-settings`, `POST /mail-settings/test`, `GET /mail-outbox`). **Status:** the sending half
+delivered by 0.12 M1 (2026-10-26); the messages themselves arrive with SP3, I6 and M2.
+
+1. Open Mail and enter the organisation's SMTP server: host, port, how the connection is secured
+   (TLS, STARTTLS or none), a user name and password if it asks for one, the address mail comes from
+   and the address the application is reached at.
+2. Send a test message to an address; the page says it went, or what failed.
+3. Messages the engine queues are sent in the background; the page lists those waiting, sent and
+   failed, and a failed one says why.
+
+**Variants:**
+
+- **J46.1 Set up and prove**: the settings are saved with the password sealed and never answered,
+  the test message arrives from the saved address and shows where links will point; saving again
+  without a password keeps it; the change is a security event that never holds the password.
+- **J46.2 A refusal names what failed**: the connection, TLS (including a certificate the engine
+  does not trust), the login, the recipient; a login over an unencrypted connection is refused when
+  saved.
+- **J46.3 Sent in the background**: a queued message waits for the worker, never for a request; when
+  the server is down it is tried again after 30 seconds, then after twice as long, up to an hour; its
+  text is gone from the database once sent.
+- **J46.4 Given up**: an address the server refuses for good fails at once; anything else is tried
+  for 24 hours and then fails; the list of failed messages says why and no text is kept.
+- **J46.5 Without settings**: nothing is sent and nothing else changes; asking to queue mail is
+  refused as not set up; removing the settings leaves waiting messages pending.
+- **J46.6 Who and what is kept safe**: only Security administration at the instance manages mail;
+  the password and queued messages are re-sealed with the other secrets (J43.5).
+
+**Refusals:** `403 FORBIDDEN`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `422
+MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_SEND_FAILED` (`details.kind`).
 
 ## Guardrails kept from 0.7
 

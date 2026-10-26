@@ -214,7 +214,8 @@ button:not([class]):disabled {
 .inline-attribute-editor select,
 .page-jump input,
 .seek-jump input,
-.security-settings-form input:not([type="checkbox"]):not([type="radio"]) {
+.security-settings-form input:not([type="checkbox"]):not([type="radio"]),
+.security-settings-form select {
   min-height: var(--control-height);
   border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
@@ -239,7 +240,8 @@ button:not([class]):disabled {
 .inline-attribute-editor select:focus,
 .page-jump input:focus,
 .seek-jump input:focus,
-.security-settings-form input:focus {
+.security-settings-form input:focus,
+.security-settings-form select:focus {
   border-color: var(--action-primary);
   box-shadow: var(--focus-ring);
 }

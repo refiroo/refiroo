@@ -1097,6 +1097,19 @@ process finishes it. User verification is required and the credential discoverab
 alone is possession and the device's own check. `user_passkeys` holds the credential ID, the public
 key and the signature counter, never a private key.
 
+**Mail** (M1): `engine/mail/`. `settings.py` is the one saved SMTP connection (`mail_settings`, a row
+or none; the password sealed under `SECRETS_ENCRYPTION_KEY`, its saving a security event), `smtp.py`
+hands one message to the server (`smtplib`, the certificate verified, every failure a `MailError`
+naming what failed and whether trying again can help) and `templates.py` writes the plain-text
+messages (D421). A message is queued by `outbox.enqueue` in the caller's transaction, so a link made
+and its mail commit together, and its text is sealed (`mail_outbox.body`) and erased when the message
+is finished. `sender.py` is a thread in each process, as the event deriver and the webhook
+dispatcher are: it leases due messages with `FOR UPDATE SKIP LOCKED`, retries with a doubling delay
+(30 seconds to an hour), fails an address refused for good at once and anything else after 24 hours,
+and shares one server-wide failure (connection, TLS, login) among the messages it holds instead of
+waiting out a timeout for each. No route queues mail; the test message is the one thing sent from a
+request, because its answer is the point. `resealing.py` covers the password and the queued text.
+
 ### Workspace migrations (0.11 V1)
 
 A migration (`engine/model/migrations.py`) is a background job of one workspace naming a target

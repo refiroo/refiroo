@@ -5,6 +5,7 @@ item and its single-write route validate one shape.
 """
 
 from typing import Annotated, Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import (
     UUID4,
@@ -884,3 +885,54 @@ class GrantCreate(BaseModel):
         if (self.role is None) == (self.consumerApi is None):
             raise ValueError("A grant names either a role or a consumer API")
         return self
+
+
+# --- Mail (Product 0.12 M1, D419, D422) -------------------------------------------------------
+
+
+class MailSettingsUpdate(BaseModel):
+    """The SMTP connection mail is sent through, replacing what was saved.
+
+    ``expectedVersion`` is the saved version, absent when none is saved yet. ``password`` omitted
+    keeps the saved one; a ``username`` of null removes the login and with it the password.
+    ``applicationUrl`` null means the first browser origin (``CORS_ORIGINS``).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int | None = Field(default=None, ge=1)
+    host: str = Field(min_length=1, max_length=255, pattern=r"^[^\s/]+$")
+    port: int = Field(ge=1, le=65535)
+    security: Literal["tls", "starttls", "none"] = Field(
+        description="tls: encrypted from the first byte (usually port 465); starttls: upgraded "
+        "after greeting (587); none: unencrypted, for a relay on a trusted network, and refused "
+        "together with a login"
+    )
+    username: str | None = Field(default=None, min_length=1, max_length=255)
+    password: str | None = Field(
+        default=None, min_length=1, max_length=2000, description="Write-only"
+    )
+    fromAddress: Email
+    applicationUrl: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("applicationUrl")
+    @classmethod
+    def origin_of_the_application(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parts = urlsplit(value.strip())
+        if parts.scheme not in ("http", "https") or not parts.hostname:
+            raise ValueError(
+                "must be an http or https address, such as https://refiroo.example.org"
+            )
+        if parts.query or parts.fragment or parts.username or parts.password:
+            raise ValueError("must not carry a query, a fragment or a login")
+        return f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
+
+
+class MailTest(BaseModel):
+    """A test message to one address, sent at once through the saved settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    to: Email

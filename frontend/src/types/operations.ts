@@ -10,7 +10,8 @@ export type DatabaseReason = "poolExhausted" | "tooManyConnections" | "transacti
 export type UnavailableReason = "unsupportedSchema" | "invalid" | "notLoaded";
 
 export interface ProcessThread {
-  name: "jobWorker" | "exportWorker" | "jobListener" | "eventDeriver" | "webhookDispatcher" | "heartbeat";
+  name:
+    "jobWorker" | "exportWorker" | "jobListener" | "eventDeriver" | "webhookDispatcher" | "mailSender" | "heartbeat";
   state: "running" | "failing" | "off";
   reason?: DatabaseReason | null;
   since?: string | null;

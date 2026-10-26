@@ -6,6 +6,23 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 M1)
+
+- **The engine can send mail.** Settings › Integration › Mail (`GET`/`PUT`/`DELETE /mail-settings`)
+  holds the organisation's SMTP server: host, port, TLS, STARTTLS or none, an optional login whose
+  password is sealed with `SECRETS_ENCRYPTION_KEY` and never answered, the from address and the
+  address links point to. A login is refused over an unencrypted connection, and the server's
+  certificate is verified. `POST /mail-settings/test` sends a test message at once and, when it cannot,
+  answers `422 MAIL_SEND_FAILED` naming what failed (`connection`, `tls`, `login`, `recipient`,
+  `sender`, `rejected`). Every change to the settings is a security event (`mail-settings`).
+- **Mail is sent in the background.** Messages wait in an outbox (`mail_outbox`, migration
+  `20261109_01`) and a thread in each process sends them, trying again after 30 seconds and then twice as
+  long up to an hour, failing an address the server refuses for good at once and anything else after 24
+  hours. `GET /mail-outbox` lists them with the reason of a failure; a message's text, which holds a
+  one-time link, is sealed while it waits and erased when it is finished. `mailSender` is among a
+  process's threads. Plain-text templates exist for the activation link, the reset link and the test.
+  Nothing queues a link yet: SP3, I6 and M2 do. `reseal_secrets` covers the password and queued text.
+
 ### Added (0.12 I5)
 
 - **The application signs people in on a screen of its own.** The sign-in screen is part of the

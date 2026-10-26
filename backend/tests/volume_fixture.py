@@ -1339,6 +1339,7 @@ def volume_app(directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, Volum
             # Likewise the webhook dispatcher's, when subscriptions are on: a test runs it (C13).
             app.state.run_consumer_dispatcher = False
             app.state.run_process_heartbeat = False
+            app.state.run_mail_sender = False
             with TestClient(app) as client:
                 # The harness obtains its tokens, one for each API, before anything is counted (0.12
                 # I1); no budget counts them. The consumer index takes the management token since

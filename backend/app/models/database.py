@@ -68,6 +68,7 @@ SECURITY_AGGREGATES = (
     "token-signing-key",
     "sign-in",
     "sign-in-provider",
+    "mail-settings",
 )
 SECURITY_AGGREGATES_SQL = ", ".join(f"'{item}'" for item in SECURITY_AGGREGATES)
 
@@ -2092,6 +2093,77 @@ class LocalSignIn(Base):
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
+
+
+class MailSettings(Base):
+    """The SMTP connection the engine sends mail through: one row, absent until set (0.12 M1, D419).
+
+    The password is sealed with ``SECRETS_ENCRYPTION_KEY`` (D253) and never answered.
+    ``application_url`` is where the links in mail point (D422); empty, the first browser origin.
+    """
+
+    __tablename__ = "mail_settings"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_mail_settings_one_row"),
+        CheckConstraint(
+            "security IN ('tls', 'starttls', 'none')", name="ck_mail_settings_security"
+        ),
+        CheckConstraint(
+            "password IS NULL OR username IS NOT NULL", name="ck_mail_settings_password_user"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    host: Mapped[str] = mapped_column(String(255), nullable=False)
+    port: Mapped[int] = mapped_column(Integer, nullable=False)
+    security: Mapped[str] = mapped_column(String(16), nullable=False)
+    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    password: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    from_address: Mapped[str] = mapped_column(String(320), nullable=False)
+    application_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class MailOutbox(Base):
+    """A message waiting to be sent, sent or given up on (0.12 M1, D419).
+
+    ``body`` is sealed (it holds a one-time link) and emptied once the message is sent or failed.
+    ``lease_*`` is the sending process's claim, as a webhook subscription's is.
+    """
+
+    __tablename__ = "mail_outbox"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'sent', 'failed')", name="ck_mail_outbox_status"),
+        Index(
+            "ix_mail_outbox_due",
+            "next_attempt_at",
+            postgresql_where=text("status = 'pending'"),
+        ),
+        Index("ix_mail_outbox_created", "created_at", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    to_address: Mapped[str] = mapped_column(String(320), nullable=False)
+    subject: Mapped[str] = mapped_column(String(300), nullable=False)
+    body: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_error_kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    lease_owner: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class UserIdentity(Base):

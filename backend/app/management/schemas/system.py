@@ -66,7 +66,13 @@ class SystemConfiguration(BaseModel):
 
 class ProcessThread(BaseModel):
     name: Literal[
-        "jobWorker", "exportWorker", "jobListener", "eventDeriver", "webhookDispatcher", "heartbeat"
+        "jobWorker",
+        "exportWorker",
+        "jobListener",
+        "eventDeriver",
+        "webhookDispatcher",
+        "mailSender",
+        "heartbeat",
     ]
     state: Literal["running", "failing", "off"] = Field(
         description="off: not started in this process (its capability is off, or no workspace "

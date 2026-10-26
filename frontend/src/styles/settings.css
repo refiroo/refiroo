@@ -837,6 +837,12 @@ td:has(> .row-problems) {
   justify-content: space-between;
   gap: var(--space-3);
 }
+/* A filter and its refresh above a list on a settings page (Mail, 0.12 M1). */
+.settings-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
 .webhook-change {
   color: var(--text-tertiary);
 }
@@ -2513,7 +2519,8 @@ tr.openable-row:hover > * {
 .security-settings-form .dialog-pair > .form-field + .form-field {
   margin: 0;
 }
-.security-settings-form input:not([type="checkbox"]):not([type="radio"]) {
+.security-settings-form input:not([type="checkbox"]):not([type="radio"]),
+.security-settings-form select {
   display: block;
   width: 100%;
 }

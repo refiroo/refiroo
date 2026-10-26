@@ -517,6 +517,25 @@ def dispatch(world: World, now: datetime | None = None) -> int:
     return world.api.client.app.state.consumer_dispatcher.run_until_idle(now)
 
 
+def send_mail(world: World, now: datetime | None = None) -> int:
+    """Run the application's mail sender until nothing more is due at ``now`` (M1); the journey
+    application does not start its thread. ``now`` is the sender's clock."""
+    return world.api.client.app.state.mail_sender.run_until_idle(now)
+
+
+def queue_mail(world: World, to: str, message: Any, now: datetime | None = None) -> str:
+    """Queue ``message`` (a rendered template) the way the engine's own code does, since no route
+    queues mail in M1: the first producers are a new person's link (SP3) and a reset (I6). The
+    message's public ID."""
+    from app.engine.mail import outbox
+
+    app = world.api.client.app
+    with app.state.session_factory() as session:
+        row = outbox.enqueue(session, app.state.identity_settings, to, message, now=now)
+        session.commit()
+        return row.public_id
+
+
 def consumer_xref_typed(world: World, query: str, *, version: int = 1) -> Response:
     """XREF with ``query`` exactly as a client types it into the URL (C3b)."""
     return world.api.client.get(f"/api/consumer/{world.key('Capi')}/v{version}/xref?{query}")
@@ -792,6 +811,7 @@ def application(
             app.state.run_event_deriver = False
             app.state.run_consumer_dispatcher = False
             app.state.run_process_heartbeat = False
+            app.state.run_mail_sender = False
             with TestClient(app) as client:
                 yield World(configuration, Api(client), database)
     finally:

@@ -278,9 +278,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # included, so the lock passes in the shared checkout; the earlier hash of I4's files alone
     # could not be re-derived. Re-baselined for the refiroo name: only the document's title and
     # description changed (verified by restoring the old two, which reproduces the earlier hash).
+    # Re-baselined for 0.12 M1: GET/PUT/DELETE /mail-settings, POST /mail-settings/test and GET
+    # /mail-outbox (the Mail schemas), `mail-settings` among a security event's aggregate types and
+    # `mailSender` among a process's threads; diffed against C1's lock, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "b4be71e99636ce2d5883869bb90c6d0307df0f9c6903aac8d8a9cc03f4ccc9ef"
+        "73cf2d6558864cb9733297efb0d9b9fef80254e618fd8d3a99230f90eedb4cba"
     )
 
 
@@ -326,8 +329,8 @@ def test_paging_openapi_inventory():
     # a group's members, grants, a workspace's access and the caller's grants; 0.12 SP1 a person's
     # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets; 0.12
     # Z6 the changes across workspaces; 0.12 I3 the sign-in providers; 0.12 I4c a person's passkeys,
-    # their own and an administrator's.
-    assert seekable <= paged and len(paged) == 62
+    # their own and an administrator's; 0.12 M1 the mail outbox.
+    assert seekable <= paged and len(paged) == 63
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

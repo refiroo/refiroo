@@ -57,6 +57,7 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
     pages: [
       { page: "consumer-apis", label: "Consumer APIs", requires: ["browse"] },
       { page: "webhooks", label: "Webhooks", requires: ["integration-admin"] },
+      { page: "mail", label: "Mail", requires: ["security-admin"] },
       { page: "api-reference", label: "API reference" },
     ],
   },
