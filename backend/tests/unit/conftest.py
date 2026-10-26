@@ -20,6 +20,14 @@ import seeds
 from configurations import all_configurations
 from scenario import World, model_path, scenario_seed
 
+
+def pytest_configure(config: pytest.Config) -> None:
+    """The journey markers, for a unit test that imports a journey module's helpers (the probe of
+    ``management/access.py`` builds the world the sweep of J47 does)."""
+    config.addinivalue_line("markers", "structures(*names): see tests/journeys/conftest.py")
+    config.addinivalue_line("markers", "settings(**values): see tests/journeys/conftest.py")
+
+
 # Keys never drive the code these tests reach, so one configuration is enough (H4d); the journey
 # tests run each journey on two.
 CONFIGURATION = "generated-a"

@@ -50,7 +50,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Workspace models | J36 run a workspace on a model of its own, J37 move a workspace to another release, J38 move data between workspaces whose models differ |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
-| Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key, J45 start from home, J46 send mail |
+| Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key, J45 start from home, J46 send mail, J47 check the security model |
 
 ## Records and structure
 
@@ -2315,6 +2315,61 @@ delivered by 0.12 M1 (2026-10-26); a new person's link and an administrator's re
 
 **Refusals:** `403 FORBIDDEN`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
 MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_SEND_FAILED` (`details.kind`), `404 NOT_FOUND`, `409 MESSAGE_NOT_WAITING`, `409 MESSAGE_BEING_SENT`.
+
+### J47 — Check the security model
+
+**Actor:** the organisation's security reviewer, an integrator or a Security administrator who must
+know that the engine does what the permission catalogue says. **Channel:** API (every operation of
+the document; nothing is typed by hand, so a new route is covered the day it declares its action).
+**Status:** delivered by 0.12 E1 (2026-10-26) as a test; it builds no feature.
+
+1. Call every operation that declares an action as a caller holding each predefined role, as a caller
+   holding nothing, and as a caller with no token.
+2. Read the answers against the catalogue: a caller is allowed when the action names no group or a group
+   the caller holds where the request lands (a workspace grant never reaches an instance action), and
+   refused with `403 FORBIDDEN` naming the action otherwise; no token is `401` everywhere but the open
+   routes.
+3. Try the paths a sweep cannot express and the ways a token can be false.
+
+**Variants:**
+
+- **J47.1 Every operation, every role**: allowed and refused as the catalogue says, probed with a body
+  that cannot be valid so that an allowed call stops after authorization and changes nothing.
+- **J47.2 A Reader on every write path**: a live write, a change-set write, a publication, a batch, an
+  import, a move, a feed of another workspace, a subscription write and a consumer route without its
+  grant are each refused and nothing changed.
+- **J47.3 No new route escapes narrowing**: every operation whose action allows a group a grant can
+  narrow is named, with the test that proves its narrowed refusal or the reason it writes no record.
+- **J47.4 A false token runs nothing**: a token that is expired, altered, with `alg: none` or for the
+  other audience is `401` and the write it carried does not happen; a rotated secret does not end a
+  token already issued (documented: a token proves who, never what).
+- **J47.5 Reset and mail**: the ask reads the same for a known, an unknown, a provider-only and a
+  deactivated person; it is slowed per name and per address; mail goes only to a person with a local
+  password and an address, and no message holds a password, a code or a record's content apart from the
+  one link.
+- **J47.6 The consumer routes follow their grants**: every route each consumer API's own OpenAPI document
+  declares, and the index, is called by a client granted that API, one granted another, one holding only
+  Reader (with a `consumer` and a `management` token), one holding nothing and with no token. Only the
+  first reads (`200`); the others are `403 FORBIDDEN` naming the API and the workspace, `401
+  TOKEN_INVALID` (`audience`) for a `management` token on a data route, `401` without a token; the
+  index lists what the token may read and each OpenAPI document needs no token.
+- **J47.7 Every route outside the document is classified**: each route the OpenAPI document does not
+  list (the sign-in pages and JSON routes, the passkey ceremonies, the reset page, `/docs`, `/brand`,
+  `/openapi.json`, `/metrics`, the consumer routes) is open by design, needs a session, needs a token
+  or needs the operations role, and answers as that says with no credentials; junk input to any of them
+  is a structured `4xx` (never `5xx`, never a traceback) and changes no person, session, grant, link or
+  message.
+- **J47.8 A person is no stronger and no weaker than a client**: a person signed in through the public
+  sign-in, holding the same role as the client of J47.1 (Reader, Contributor, Data steward, Security
+  administrator or nothing), gets the same answer to every operation.
+- **J47.9 A reset does not skip the second factor**: a person with a password and an authenticator app
+  asks for a reset by mail, sets a new password through the mailed link and signs in with it; the engine
+  still asks for the code, no session exists before it is given, and the sessions open before the reset
+  are ended. A person who only signs in through a provider is answered like a stranger and nothing is
+  mailed.
+
+**Refusals:** `403 FORBIDDEN`, `401 AUTHENTICATION_REQUIRED`, `401 TOKEN_INVALID`, `429 slowed`, `410
+link_gone`, `403 foreign_origin`.
 
 ## Guardrails kept from 0.7
 

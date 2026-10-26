@@ -6,6 +6,29 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 E1, the security sweep)
+
+- **The security model is checked against its catalogue.** Journey J47: every operation of the OpenAPI document that
+  declares an action is called as a caller holding each of the nine predefined roles, as one holding nothing and with
+  no token, and must be allowed or refused as `catalogue.py` says (`403 FORBIDDEN` naming the action, `401` without a
+  token); the probes cannot change data. Composed cases: a Reader on every write path with the state read before and
+  after, a table naming the narrowing test of every route a grant can narrow, expired, altered, `alg: none` and HS256
+  tokens that run nothing, a rotated client secret, and the reset-by-mail ask (a provider-only person, slowing per
+  address, no password, code or record in any message). A unit probe shows authorization runs before body
+  validation for one operation of each scope kind. No feature changed.
+- **The sweep reaches what the first pass left out.** J47.6 calls every consumer route each API's own OpenAPI document
+  declares, and the index, as a client granted that API, one granted another, one granted it in another workspace, one
+  holding only Reader (with a `consumer` and a `management` token), one holding nothing and with no token, and reads the
+  answers against API.md and J41 (`403` naming the API and workspace, `401 audience`, the index filtered, the documents
+  open). J47.7 classifies every route outside the OpenAPI document (open by design, needs a session, needs the
+  operations role) and sends each nothing, a well-formed body with no credentials, a foreign origin and junk (not JSON,
+  wrong types, 70,000-character values, a cut-off deep document, forms, meaningless cookies, redirect and traversal
+  tries): never `5xx`, never a traceback, no person, session, grant, link, code or message changed. J47.8 makes a
+  person (a real sign-in) holding each of five roles and requires every answer to equal a client's with the same role.
+  J47.9: a reset by mail keeps the second factor; the new password alone gets the code step and no session. Two defects
+  found are recorded as strict expected failures (F3: a body that is not UTF-8 is `500`; F4: a NUL byte in an address is
+  `503 DATABASE_UNAVAILABLE`); no engine code changed.
+
 ### Added (0.12 E1 prep, a real sign-in provider try)
 
 - **A runner that signs in against a real provider.** `npm run test:browser:real-provider` (heavy, Docker, run before E1
