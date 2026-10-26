@@ -42,7 +42,16 @@ export interface MailSettingsUpdate {
 
 /** Why a message or a test failed, by what failed. */
 export type MailFailureKind =
-  "connection" | "tls" | "login" | "recipient" | "sender" | "rejected" | "not_set_up" | "unreadable" | "expired";
+  | "connection"
+  | "tls"
+  | "login"
+  | "recipient"
+  | "sender"
+  | "rejected"
+  | "not_set_up"
+  | "unreadable"
+  | "expired"
+  | "stopped";
 
 export interface MailMessage {
   id: string;

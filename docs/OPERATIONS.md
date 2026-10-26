@@ -515,6 +515,8 @@ message from the same page: it names what failed (the connection, TLS, the login
 - **Sender reputation is the organisation's:** the from address's domain needs SPF and DKIM for the
   sending server, or mailboxes may file the messages as junk. The engine does neither.
 - **Several processes** each run a sender; leases keep them off the same message.
+- A message still being retried can be stopped from the Messages list (Stop sending): it fails at once and is
+  not tried again. Its link keeps working until it expires.
 - Removing the settings stops sending at once; messages still waiting fail after their 24 hours.
   Each change to the settings is a security event.
 

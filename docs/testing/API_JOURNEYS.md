@@ -207,7 +207,7 @@ each moves into the tables above with its package. Every existing route gains `4
 | `GET /me/passkeys`, `PATCH/DELETE /me/passkeys/{id}`, `GET /users/{id}/passkeys`, `DELETE /users/{id}/passkeys/{id}`, `GET /oauth/passkeys/new`, `GET /oauth/passkey.js`, `POST /oauth/passkeys/{registration,authentication}/{options,verify}` | J39.10 | I4c |
 | `GET /system/configuration` (`GET /system` narrowed) | J31, J31.2 | I1 |
 | `POST /consumer-subscriptions/{id}/rotate-secret` (`overlapHours`; the answer's `signingSecret`, `previousSigningKeyExpiresAt` on every read; `RDM-Signature` a list) | J43.3, J43.4 | K1 (delivered 2026-10-25, `test_j43_webhook_key`) |
-| `GET/PUT/DELETE /mail-settings`, `POST /mail-settings/test`, `GET /mail-outbox` | J46.1–J46.6 | M1 |
+| `GET/PUT/DELETE /mail-settings`, `POST /mail-settings/test`, `GET /mail-outbox`, `POST /mail-outbox/{id}/stop` | J46.1–J46.6, J46.9 | M1 |
 | `POST/DELETE /change-sets/{id}/submission`, `POST /change-sets/{id}/decisions`, `GET /workspaces/{key}/publication-requests`, `GET/PUT /workspaces/{key}/approval-policy` | J42, J42.1–J42.4, J42.6 | A1, A3 |
 | `GET /me/notifications`, `POST /me/notifications/read`, `GET /me/notifications/events` | J42.5 | A2 |
 

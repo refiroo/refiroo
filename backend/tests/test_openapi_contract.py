@@ -283,9 +283,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # `mailSender` among a process's threads; diffed against C1's lock, nothing else changed.
     # Re-baselined for 0.12 SP3: POST /users/{id}/password-reset takes an optional body
     # (PasswordResetRequest: `send`) and answers `sentTo`; nothing else changed.
+    # Re-baselined for 0.12 M1 (stop): POST /mail-outbox/{message_id}/stop. Diffed against the previous
+    # lock, nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "52bd5e42ab673e5f967404573e5a8f0f6bedb3e3d0d68270371f6ee874e4899b"
+        "bf9bf81038448fcef4080ce7b17eb58106be7ae80574527f5d176dd09a56455b"
     )
 
 

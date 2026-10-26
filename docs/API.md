@@ -6453,9 +6453,14 @@ where one-time links go. Nothing is sent without saved settings.
 - `GET /mail-outbox`: the messages, newest first, cursor paged, `status=` (`pending`, `sent`,
   `failed`). A message reads `id`, `kind` (`activation`, `password-reset`, `notification`), `to`,
   `subject`, `status`, `attempts`, `lastError` (the sentence of the last failure) and `lastErrorKind`
-  (the kinds above, or `not_set_up`, `unreadable`, `expired`), `createdAt`, `nextAttemptAt` (while
+  (the kinds above, or `not_set_up`, `unreadable`, `expired`, `stopped`), `createdAt`, `nextAttemptAt` (while
   pending) and `finishedAt`. **Its text is never answered:** it holds a one-time link, is sealed while
   it waits and is erased when the message is sent or fails.
+- `POST /mail-outbox/{id}/stop` (Security administration at the instance): stop sending a message that
+  is still waiting for its next try. It fails at once (`lastError` "Stopped by an administrator",
+  `lastErrorKind` `stopped`) and its text is erased; the link in it works until it expires. `404
+  NOT_FOUND`; `409 MESSAGE_NOT_WAITING` once it is sent or failed; `409 MESSAGE_BEING_SENT` while a sender
+  holds it (try again).
 
 `POST /users/{id}/password-reset` (SP3, D418) is the one route that causes a message: with `{"send": true}`
 it queues the link for the person's address in the transaction that makes it and answers `sentTo`, still

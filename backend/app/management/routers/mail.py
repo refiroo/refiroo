@@ -15,7 +15,12 @@ from ..access import INSTANCE, AuthorizedRoute, requires
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..projections import mail as present
-from ..schemas.mail import MailMessagePage, MailSettingsResponse, MailTestResponse
+from ..schemas.mail import (
+    MailMessagePage,
+    MailMessageResponse,
+    MailSettingsResponse,
+    MailTestResponse,
+)
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["mail"])
 
@@ -76,6 +81,16 @@ def post_mail_test(payload: MailTest, request: Request, session: DbSession) -> M
             422, "MAIL_SEND_FAILED", str(error), {"kind": error.kind, "reason": str(error)}
         ) from None
     return MailTestResponse(sentTo=payload.to)
+
+
+@router.post("/mail-outbox/{message_id}/stop", response_model=MailMessageResponse)
+@requires("security.manage", at=INSTANCE)
+def post_stop_mail_message(message_id: str, session: DbSession) -> MailMessageResponse:
+    """Stop sending a message that is still waiting for its next try: it fails at once with
+    "Stopped by an administrator" and its text is erased. `404 NOT_FOUND`, `409
+    MESSAGE_NOT_WAITING` (sent or failed already), `409 MESSAGE_BEING_SENT` (a sender holds it:
+    try again)."""
+    return present.message_response(outbox.stop(session, message_id))
 
 
 @router.get("/mail-outbox", response_model=MailMessagePage)

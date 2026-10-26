@@ -41,6 +41,12 @@ rows = [
      "127.0.0.1:25 refused the address: 550 5.1.1 no such mailbox", "recipient"),
 ]
 with engine.begin() as connection:
+    # Still being tried: its next try is an hour away, so the sender leaves it alone.
+    connection.execute(sa.text(
+        "INSERT INTO mail_outbox (public_id, kind, to_address, subject, status, attempts, last_error, "
+        "last_error_kind, created_at, next_attempt_at) "
+        "VALUES (gen_random_uuid()::text, 'activation', 'waiting@example.org', 'Your account', 'pending', 2, "
+        "'The server could not be reached', 'connection', now() - interval '10 minutes', now() + interval '1 hour')"))
     for status, kind, to, subject, attempts, error, error_kind in rows:
         connection.execute(sa.text(
             "INSERT INTO mail_outbox (public_id, kind, to_address, subject, status, attempts, last_error, "
@@ -174,11 +180,39 @@ async function walk(configuration) {
     await failed.getByText(/550 5\.1\.1 no such mailbox/).waitFor();
     await shot(page, "messages");
     await axe(page, `${tag}-messages`);
+    expect(
+      (await page
+        .getByRole("row", { name: /grace@example\.org/ })
+        .getByRole("button")
+        .count()) === 0,
+      `${tag}: a sent message has nothing to stop`,
+    );
+    const waiting = page.getByRole("row", { name: /waiting@example\.org/ });
+    await waiting.getByText("Waiting", { exact: true }).waitFor();
+    await waiting.getByRole("button", { name: "Stop sending" }).click();
+    const stopDialog = page.getByRole("alertdialog", { name: "Stop sending this message?" });
+    await stopDialog.waitFor();
+    expect(
+      await stopDialog.getByRole("button", { name: "Keep trying" }).evaluate((el) => el === document.activeElement),
+      `${tag}: Keep trying has focus`,
+    );
+    await shot(page, "stop");
+    await axe(page, `${tag}-stop`);
+    await stopDialog.getByRole("button", { name: "Stop sending" }).click();
+    await page
+      .getByRole("row", { name: /waiting@example\.org/ })
+      .getByText("Stopped by an administrator")
+      .waitFor();
+    expect(
+      smtp.messages.every((m) => !m.includes("waiting@example.org")),
+      `${tag}: nothing was sent to it`,
+    );
+    checks.push(`${tag}: a waiting message was stopped after a confirmation; it shows failed with the reason`);
     await page.getByRole("combobox", { name: /^State/ }).selectOption("failed");
     await page.getByRole("row", { name: /grace@example\.org/ }).waitFor({ state: "detached" });
     await page.getByRole("row", { name: /gone@example\.org/ }).waitFor();
     const rows = await page.getByRole("row").allInnerTexts();
-    expect(rows.length === 2, `${tag}: only the failed message is listed, found ${JSON.stringify(rows)}`);
+    expect(rows.length === 3, `${tag}: only the failed messages are listed, found ${JSON.stringify(rows)}`);
     checks.push(`${tag}: the outbox lists a sent and a failed message; narrowed to Failed, with its reason`);
 
     // 5. Dark and a phone.

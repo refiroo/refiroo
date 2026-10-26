@@ -2308,9 +2308,13 @@ delivered by 0.12 M1 (2026-10-26); a new person's link and an administrator's re
   replaced by a newer one, and sets a password that meets the engine's rules; the person's sessions end
   and they sign in with the new password (a second factor is still asked for). Where mail is not set up
   the screen does not offer it and the ask is refused.
+- **J46.9 Stop a message** (0.12 M1): a message waiting for its next try can be stopped by Security
+  administration at the instance: it fails at once saying an administrator stopped it, its text is
+  erased and nothing more is sent. A message already sent or failed, one a sender holds at that moment,
+  and one that does not exist are refused by code.
 
 **Refusals:** `403 FORBIDDEN`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
-MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_SEND_FAILED` (`details.kind`).
+MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_SEND_FAILED` (`details.kind`), `404 NOT_FOUND`, `409 MESSAGE_NOT_WAITING`, `409 MESSAGE_BEING_SENT`.
 
 ## Guardrails kept from 0.7
 

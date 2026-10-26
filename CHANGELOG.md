@@ -6,6 +6,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 M1)
+
+- **A waiting message can be stopped.** Settings › Mail › Messages shows Stop sending on a message still being
+  retried; after a confirmation it fails at once ("Stopped by an administrator") and is not tried again.
+  `POST /mail-outbox/{id}/stop`; `409 MESSAGE_NOT_WAITING`, `409 MESSAGE_BEING_SENT`. The list also loads and
+  empties as the Jobs and deliveries lists do.
+
 ### Fixed (0.12 M1, I6)
 
 - **Every message names the product the same way.** A reset asked for on the sign-in screen said "RDM Engine"

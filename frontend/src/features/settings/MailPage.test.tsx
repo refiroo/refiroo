@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mail } from "@/api/mailClient";
 import { ApiError } from "@/api/errors";
@@ -7,7 +7,14 @@ import type { MailSettings } from "@/types";
 import { ToastProvider } from "@/ui/Toast";
 
 vi.mock("@/api/mailClient", () => ({
-  mail: { settings: vi.fn(), saveSettings: vi.fn(), removeSettings: vi.fn(), sendTest: vi.fn(), messages: vi.fn() },
+  mail: {
+    settings: vi.fn(),
+    saveSettings: vi.fn(),
+    removeSettings: vi.fn(),
+    sendTest: vi.fn(),
+    messages: vi.fn(),
+    stopMessage: vi.fn(),
+  },
 }));
 
 const empty: MailSettings = {
@@ -136,5 +143,64 @@ describe("Settings › Mail (0.12 M1)", () => {
     expect(screen.getByText("Failed")).toBeInTheDocument();
     expect(screen.getByText(/550 no such user/)).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Failed (1)" })).toBeInTheDocument();
+  });
+
+  describe("stopping a message that is still being tried", () => {
+    const waiting = {
+      id: "m2",
+      kind: "activation",
+      to: "bea@example.org",
+      subject: "Your account",
+      status: "pending",
+      attempts: 2,
+      lastError: "The server could not be reached",
+      lastErrorKind: "connection",
+      createdAt: "2026-10-26T10:00:00Z",
+      nextAttemptAt: "2026-10-26T10:05:00Z",
+      finishedAt: null,
+    };
+
+    function openWaiting() {
+      vi.mocked(mail.settings).mockResolvedValue({ ...saved, outbox: { pending: 1, sent: 0, failed: 0 } });
+      vi.mocked(mail.messages).mockResolvedValue({ items: [waiting], nextCursor: null } as never);
+      render(
+        <ToastProvider>
+          <MailPage />
+        </ToastProvider>,
+      );
+    }
+
+    it("asks first, then shows the message as failed and says why", async () => {
+      openWaiting();
+      const stopped = {
+        ...waiting,
+        status: "failed",
+        lastError: "Stopped by an administrator",
+        lastErrorKind: "stopped",
+        nextAttemptAt: null,
+        finishedAt: "2026-10-26T10:03:00Z",
+      };
+      vi.mocked(mail.stopMessage).mockImplementation(async () => {
+        // The list read again afterwards holds the message as the engine now has it.
+        vi.mocked(mail.messages).mockResolvedValue({ items: [stopped], nextCursor: null } as never);
+        return stopped as never;
+      });
+      fireEvent.click(await screen.findByRole("button", { name: "Stop sending" }));
+      expect(mail.stopMessage).not.toHaveBeenCalled();
+      const dialog = screen.getByRole("alertdialog");
+      expect(within(dialog).getByText(/will not be sent, now or on a later try/)).toBeInTheDocument();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Stop sending" }));
+      expect(await screen.findByText("Stopped by an administrator")).toBeInTheDocument();
+      expect(mail.stopMessage).toHaveBeenCalledWith("m2");
+      expect(screen.queryByRole("button", { name: "Stop sending" })).toBeNull();
+    });
+
+    it("keeps trying when the dialog is dismissed, and offers no stop for a finished message", async () => {
+      openWaiting();
+      fireEvent.click(await screen.findByRole("button", { name: "Stop sending" }));
+      fireEvent.click(screen.getByRole("button", { name: "Keep trying" }));
+      expect(mail.stopMessage).not.toHaveBeenCalled();
+      expect(screen.queryByText(/will not be sent/)).toBeNull();
+    });
   });
 });

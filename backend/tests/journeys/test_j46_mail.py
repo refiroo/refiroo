@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from scenario import ok, queue_mail, refused, send_mail
 from smtp_server import FakeSmtp
+from sqlalchemy import text
 from test_j40_authorization import _client
 
 from app.engine.identity.resealing import reseal
@@ -445,3 +446,49 @@ def test_a_link_cannot_be_mailed_without_mail_or_an_address_and_the_earlier_link
         page = world.api.client.get("/oauth/password", params={"token": _token(link["url"])})
         assert page.status_code == 200, page.text
     assert ok(world.api.get("/mail-settings"))["outbox"] == {"pending": 0, "sent": 0, "failed": 0}
+
+
+@pytest.mark.journey("J46.9")
+def test_an_administrator_stops_a_message_that_is_being_retried(world, smtp):
+    """Given a message waiting for its next try on a server that is down, when the administrator
+    stops it, then it fails at once saying so, its text is erased, and when the server is back
+    nothing is sent; a message already finished cannot be stopped, nor one that does not exist."""
+    _save(world, smtp)
+    start = datetime.now(UTC)
+    message_id = queue_mail(world, "ada@example.org", _reset_mail(), now=start)
+    smtp.down = True
+    assert send_mail(world, start) == 1
+
+    stopped = ok(world.api.post(f"/mail-outbox/{message_id}/stop", {}))
+    assert stopped["status"] == "failed" and stopped["lastError"] == "Stopped by an administrator"
+    assert stopped["lastErrorKind"] == "stopped" and stopped["nextAttemptAt"] is None
+    assert stopped["attempts"] == 1 and stopped["finishedAt"]
+    assert _database(world, "SELECT body FROM mail_outbox") == [(None,)]
+    assert ok(world.api.get("/mail-settings"))["outbox"] == {"pending": 0, "sent": 0, "failed": 1}
+
+    smtp.down = False
+    assert send_mail(world, start + timedelta(hours=1)) == 0
+    assert smtp.messages == []
+    refused(world.api.post(f"/mail-outbox/{message_id}/stop", {}), 409, "MESSAGE_NOT_WAITING")
+    refused(world.api.post("/mail-outbox/no-such-message/stop", {}), 404, "NOT_FOUND")
+
+
+@pytest.mark.journey("J46.9")
+def test_a_message_being_sent_cannot_be_stopped_and_only_security_administration_may(world, smtp):
+    """Given a message a sender holds, then stopping it is refused and the message is unchanged; a
+    person without Security administration at the instance is refused."""
+    _save(world, smtp)
+    message_id = queue_mail(world, "ada@example.org", _reset_mail())
+    with world.api.client.app.state.session_factory() as session:
+        session.execute(
+            text(
+                "UPDATE mail_outbox SET lease_owner = 'other', "
+                "lease_expires_at = now() + interval '5 minutes'"
+            )
+        )
+        session.commit()
+    refused(world.api.post(f"/mail-outbox/{message_id}/stop", {}), 409, "MESSAGE_BEING_SENT")
+    assert ok(world.api.get("/mail-settings"))["outbox"]["pending"] == 1
+    _, reader = _client(world, "Reads everything", ("reader", {"instance": True}))
+    denied = reader.api.client.post(f"/api/v1/mail-outbox/{message_id}/stop", json={})
+    assert refused(denied, 403, "FORBIDDEN")["details"]["action"] == "security.manage"

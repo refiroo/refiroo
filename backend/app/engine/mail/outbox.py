@@ -6,6 +6,7 @@ server. A message is retried with a growing delay and given up on after 24 hours
 holds a one-time link, is sealed and emptied once the message is finished.
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -14,11 +15,15 @@ from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, datetime_key, integer_key, paginate_statement
 from ...common.sealing import seal
+from ...errors import api_error
 from ...models.database import MailOutbox
 from ..identity.settings import IdentitySettings
 from . import settings as mail_settings
 from .templates import Rendered
 
+logger = logging.getLogger(__name__)
+
+STOPPED = "Stopped by an administrator"
 GIVE_UP_AFTER = timedelta(hours=24)
 RETAIN_FINISHED = timedelta(days=30)
 FIRST_DELAY_SECONDS = 30
@@ -86,6 +91,37 @@ def message_page(
         page_size=page_size,
         message="Mail outbox cursor is invalid",
     )
+
+
+def stop(session: Session, public_id: str, *, now: datetime | None = None) -> MailOutbox:
+    """Stop sending a message that is waiting: it fails now, saying an administrator stopped it, and
+    its sealed text is erased (the link in it works until it expires, as any unused link does).
+    ``404 NOT_FOUND`` for an unknown message, ``409 MESSAGE_NOT_WAITING`` once it is sent or failed,
+    ``409 MESSAGE_BEING_SENT`` while a sender holds it (try again in a moment). Commits."""
+    at = now or datetime.now(UTC)
+    message = session.scalar(
+        select(MailOutbox).where(MailOutbox.public_id == public_id).with_for_update()
+    )
+    if message is None:
+        session.rollback()
+        raise api_error(404, "NOT_FOUND", "There is no such message")
+    if message.status != "pending":
+        session.rollback()
+        raise api_error(
+            409, "MESSAGE_NOT_WAITING", f"The message is already {message.status}; nothing to stop"
+        )
+    if message.lease_owner is not None and message.lease_expires_at > at:
+        session.rollback()
+        raise api_error(
+            409, "MESSAGE_BEING_SENT", "The message is being sent just now; try again in a moment"
+        )
+    message.status, message.body, message.finished_at = "failed", None, at
+    message.lease_owner = message.lease_expires_at = None
+    message.last_error = STOPPED
+    message.last_error_kind = "stopped"
+    session.commit()
+    logger.info("A %s mail to %s was stopped by an administrator", message.kind, message.to_address)
+    return message
 
 
 def counts(session: Session) -> dict[str, int]:

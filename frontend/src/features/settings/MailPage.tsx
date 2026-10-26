@@ -10,7 +10,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { mail } from "@/api/mailClient";
 import { formatServerDayTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import type { MailSecurity, MailSettings, MailStatus } from "@/types";
+import type { MailMessage, MailSecurity, MailSettings, MailStatus } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { EmptyState } from "@/ui/EmptyState";
 import { FormField } from "@/ui/FormField";
@@ -405,6 +405,31 @@ function MessagesSection({
   const [status, setStatus] = useState<MailStatus | "">("");
   const feed = useCursorFeed((cursor) => mail.messages({ status: status || undefined, cursor }), [status, refresh]);
   const counts = settings.outbox;
+  const [stopping, setStopping] = useState<MailMessage>();
+  const [stopError, setStopError] = useState("");
+  const [stopPending, setStopPending] = useState(false);
+
+  async function stop() {
+    if (!stopping) return;
+    setStopPending(true);
+    setStopError("");
+    try {
+      const updated = await mail.stopMessage(stopping.id);
+      feed.setItems((items) => items.map((item) => (item.id === updated.id ? updated : item)));
+      setStopping(undefined);
+      onRefresh();
+    } catch (cause) {
+      if (isApiError(cause, "MESSAGE_NOT_WAITING")) {
+        // It was sent, or gave up, before the request reached it: show where it ended.
+        setStopping(undefined);
+        onRefresh();
+      } else {
+        setStopError(errorMessage(cause));
+      }
+    } finally {
+      setStopPending(false);
+    }
+  }
 
   return (
     <Section
@@ -436,7 +461,10 @@ function MessagesSection({
             : "No messages yet. A new person's link and a password reset appear here when they are sent."}
         </EmptyState>
       ) : (
-        <SettingsTable label="Messages" columns={["To", "Message", "State", "Tries", "Last problem", "Queued"]}>
+        <SettingsTable
+          label="Messages"
+          columns={["To", "Message", "State", "Tries", "Last problem", "Queued", "Actions"]}
+        >
           {feed.items.map((message) => {
             const state = MESSAGE_STATE[message.status];
             return (
@@ -455,6 +483,13 @@ function MessagesSection({
                 <td data-label="Tries">{message.attempts}</td>
                 <td data-label="Last problem">{message.lastError ?? "—"}</td>
                 <td data-label="Queued">{formatServerDayTime(message.createdAt)}</td>
+                <td data-label="Actions">
+                  {message.status === "pending" && (
+                    <button type="button" className="secondary" onClick={() => setStopping(message)}>
+                      Stop sending
+                    </button>
+                  )}
+                </td>
               </tr>
             );
           })}
@@ -464,6 +499,25 @@ function MessagesSection({
         <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
           Load more messages
         </button>
+      )}
+      {stopping && (
+        <ConfirmDialog
+          title="Stop sending this message?"
+          confirmLabel="Stop sending"
+          dismissLabel="Keep trying"
+          pending={stopPending}
+          error={stopError}
+          onCancel={() => {
+            setStopping(undefined);
+            setStopError("");
+          }}
+          onConfirm={() => void stop()}
+        >
+          <p>
+            The message to {stopping.to} will not be sent, now or on a later try. It is marked failed, and its text is
+            erased. The link in it keeps working until it expires; make a new link to send another.
+          </p>
+        </ConfirmDialog>
       )}
     </Section>
   );
