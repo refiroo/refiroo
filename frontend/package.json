@@ -64,6 +64,7 @@
     "test:browser:mail": "node e2e/m1-mail.mjs",
     "test:browser:reset": "node e2e/i6-reset.mjs",
     "test:browser:one-address": "node e2e/dp1-one-address.mjs",
+    "test:deployment": "node e2e/dp3-deployment.mjs",
     "test:browser:link-mail": "node e2e/sp3-link-mail.mjs",
     "test:browser:j1u": "node e2e/j1u-export.mjs",
     "test:browser:j4": "node e2e/j4-import.mjs",

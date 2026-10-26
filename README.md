@@ -88,7 +88,7 @@ docker compose run --rm engine python -m app.cli.create_admin --username <name> 
 
 On a public name, add `-f compose.yml -f compose.acme.yml` for certificates that renew themselves.
 Open the address you set as `PUBLIC_URL`. The settings are explained in
-[docs/OPERATIONS.md](docs/OPERATIONS.md#the-reference-installation). To develop, use the next section.
+[docs/OPERATIONS.md](docs/OPERATIONS.md#deploying). To develop, use the next section.
 
 ### Without Docker
 

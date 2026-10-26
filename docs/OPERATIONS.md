@@ -15,7 +15,9 @@ is unauthenticated today: run it only in a trusted environment or behind an acce
 A setting in your environment wins over the file. `scripts/dev.sh admin <username> "<name>"` makes
 the first administrator.
 
-**From a phone or another computer on the network.** A browser signs in (PKCE) and uses passkeys
+### From a phone on the same network
+
+A browser signs in (PKCE) and uses passkeys
 only on a secure page, `https` or `localhost`, so another device needs https:
 
 | Step | What it does |
@@ -872,37 +874,66 @@ A webhook URL may name any host and port. It must use HTTPS; plain HTTP is accep
   subscriptions continue when it is turned on again, and those whose events expired meanwhile are
   suspended `EVENTS_EXPIRED`.
 
-## The reference installation
+## Deploying
 
-`compose.yml` (0.12 DP2) is the installation the project tests and describes: three containers,
-of which only `web` is published.
+`compose.yml` is the installation the project tests and describes (0.12 DP2, DP3): three containers,
+of which only `web` is published. Deploying one is these steps, in this order; each setting is
+explained in `.env.example`.
 
 | Container | Image | What it does |
 | --- | --- | --- |
 | `database` | `postgres:17-alpine` | PostgreSQL with the ICU root collation, its data in the `database` volume |
 | `engine` | built from `backend/Dockerfile` | The engine under Uvicorn as an unprivileged user, one process, `--proxy-headers`, export files in the `job-files` volume; its health check is `/health/live` |
-| `web` | built from `frontend/Dockerfile` | nginx (unprivileged, 8080 and 8443, published as 80 and 443) serving the application built once for every installation, forwarding `/api`, `/oauth`, `/.well-known`, `/docs`, `/openapi.json` and `/health` to the engine; `/metrics` answers 404 (monitoring reaches the engine's own port inside the network) |
+| `web` | built from `frontend/Dockerfile` | nginx (unprivileged, 8080 and 8443, published as 80 and 443) serving the application built once for every installation and forwarding the engine's public paths to the engine |
 
-Settings are read from `.env`, which you copy from `.env.example` (each setting has a sentence and the
-command that generates its value). **Keep `.env` beside your backups**: `SECRETS_ENCRYPTION_KEY`
-opens the stored keys, and the database password is set once, when the database is created. No secret
-is in an image or the repository.
+1. **Choose the address people open** and make its DNS name reach the host. It is `PUBLIC_URL`: the
+   issuer of the engine's tokens, the address a sign-in provider returns to and the host passkeys are
+   bound to. Changing its host later signs everyone out and ends their passkeys.
+2. **Fill `.env`** from `.env.example`: `PUBLIC_URL`, then the three secrets with the commands the file
+   gives. **Keep `.env` beside your backups**: `SECRETS_ENCRYPTION_KEY` opens the stored keys, and
+   the database password is set once, when the database is created. No secret is in an image or the
+   repository. Capabilities and ports are in the same file (defaults commented).
+3. **Provide HTTPS**, one of three ways:
+   - *Your certificate (`WEB_TLS=files`, the default).* Put `fullchain.pem` and `privkey.pem` in
+     `./certs` (or the folder `WEB_CERTS_DIR` names). `web` ends HTTPS, answers plain HTTP with a
+     redirect to `PUBLIC_URL`, sends HSTS, and refuses to start, saying which files are missing, when
+     they are. Renew by replacing the files and restarting `web`.
+   - *A public name, certificates that renew themselves:* [Automatic HTTPS](#automatic-https-for-a-public-installation).
+   - *A load balancer that ends HTTPS (`WEB_TLS=proxy`).* `web` serves plain HTTP on 8080 (publish it
+     as you like), needs no certificate and trusts the balancer's `X-Forwarded-For` and
+     `X-Forwarded-Proto`; keep it reachable only from the balancer.
+4. **Start it:** `docker compose up -d --build`. The engine creates and migrates the database at
+   start; `docker compose ps` shows the three healthy.
+5. **Create the first administrator:** `docker compose run --rm engine python -m app.cli.create_admin
+   --username <name> --name "<Name>"` asks for the password. Everyone else is added in the application.
+6. **Register a sign-in provider** (optional): its redirect address is
+   `<PUBLIC_URL>/oauth/providers/<key>/callback`, see
+   [Signing in with the organisation's provider](#signing-in-with-the-organisations-provider).
+7. **Set up mail** (optional) on Settings › Integration › Mail; see [Sending mail](#sending-mail).
 
-- **HTTPS (`WEB_TLS=files`, the default).** `web` ends HTTPS with your certificate and key mounted
-  from `./certs` as `fullchain.pem` and `privkey.pem` (read-only), answers plain HTTP with a redirect
-  to `PUBLIC_URL`, sends HSTS, and refuses to start, saying so, when the files are missing. Renew by
-  replacing the files and restarting `web`. Certificates are not requested automatically.
-- **A load balancer that ends HTTPS (`WEB_TLS=proxy`).** `web` serves plain HTTP on 8080 and trusts the
-  balancer's `X-Forwarded-For` and `X-Forwarded-Proto`; keep it reachable only from the balancer.
-- **The caller's address.** `web` replaces the forwarded address with the one it saw and the engine
-  trusts it (`FORWARDED_ALLOW_IPS=*`), which is safe only while the engine's port is not published, as in
-  `compose.yml`: the sign-in throttle counts per address (D271).
-- **Uploads.** `web` takes bodies up to `WEB_MAX_BODY` (256 MB); the engine's own limit is
-  `IMPORT_MAX_BYTES` (200 MB).
-- **The first administrator.** `docker compose run --rm engine python -m app.cli.create_admin
-  --username <name> --name "<Name>"` asks for the password.
-- **Upgrading** is [Upgrades](#upgrades) with `docker compose up -d --build`; the engine migrates the
-  database at start.
+**What is public.** `web` forwards `/api`, `/oauth`, `/.well-known`, `/docs`, `/openapi.json` and
+`/health` to the engine and serves everything else as the application. `/metrics` is not public: `web`
+answers it 404, and monitoring reaches the engine's own port inside the Docker network
+([Monitoring](#monitoring)). Nothing but `web` is published; keep it so, because the engine trusts the
+caller address `web` forwards (`FORWARDED_ALLOW_IPS=*`), which only `web` can set while the engine's
+port is closed. The sign-in throttle counts per address (D271).
+
+**Uploads.** `web` takes bodies up to `WEB_MAX_BODY` (256 MB); the engine's own limit is
+`IMPORT_MAX_BYTES` (200 MB). Raise both together.
+
+**Upgrading** is [Upgrades](#upgrades) with `docker compose up -d --build` in step 4: back up first,
+and the engine migrates the database at start. **Backups** are [Backup and restore](#backup-and-restore)
+of the `database` volume (`pg_dump` from the `database` container) together with `.env`; the
+`job-files` volume holds export and import files only for as long as their jobs do.
+
+**Checking an installation.** `npm run test:deployment` in `frontend/` builds the images, starts the
+installation from empty at this computer's network address with a throwaway certificate, creates the
+administrator, signs in from a desktop and a phone-sized browser, restarts everything, tries `WEB_TLS=proxy`
+and removes everything it made. It runs Docker builds, so it is run once per package and at a release,
+announced.
+
+For development, including a phone on the same network, see [A developer instance](#a-developer-instance),
+which does not use these containers.
 
 ### Automatic HTTPS for a public installation
 

@@ -151,6 +151,17 @@ All notable changes to this project are documented in this file. The format foll
 - **Open passkey sign-ins are capped** (2000 waiting at once, then `429` with `Retry-After`), so the
   open options endpoint cannot fill the database.
 
+### Added (0.12 DP3, the deployment guide and its check)
+
+- OPERATIONS § **Deploying**: the topology, the steps in the order an operator needs them (address,
+  `.env`, HTTPS in three ways, start, first administrator, provider, mail), what is public and what is
+  kept inside, upgrading and backups; "From a phone on the same network" for development.
+- `WEB_CERTS_DIR` names the folder of the certificate and key (default `./certs`).
+- `npm run test:deployment` builds the images and starts the installation from empty at the computer's
+  network address, signs in from a desktop and a phone-sized browser, restarts, checks that `web`
+  refuses to start without a certificate and that `WEB_TLS=proxy` serves plain HTTP, then removes
+  everything it made.
+
 ### Added (0.12 DP4, automatic HTTPS for a public installation)
 
 - `compose.acme.yml` and `caddy/Caddyfile`: Caddy in front of `web` obtains and renews a Let's Encrypt
