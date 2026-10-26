@@ -6,6 +6,11 @@ palettes A and B (TODO since 2026-10-07). Planned before 1.0 for now; the user e
 release after 1.0 later. V-D2–V-D10 are decided by the user (2026-10-07); V-D1 (where the text lives)
 is open. The palette rework is not planned in detail yet.
 
+**Overlap with 0.13 (decided by the user 2026-10-26):** the documentation release 0.13 writes the guide and
+links to this release's `/docs` text (no double writing). The **error catalogue text (V-D5) is written in
+0.13's DOC2**, once, and V3 reuses that file: V3 keeps the per-operation error listing and the
+completeness check (V-D6) and drops the catalogue writing.
+
 **Target:** Product 0.14.0, [management API reference and UI refinements](ROADMAP.md#product-release-014--management-api-reference-and-ui-refinements).
 
 **Depends on:** Product 0.9.0 released (V2, the consumer contracts as reference sources; UA's type

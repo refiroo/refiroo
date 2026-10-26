@@ -1,9 +1,12 @@
 # Documentation plan
 
-**Status:** Draft, 2026-10-05. Started at the user's request: the engine needs very good user
-documentation, built up before 1.0. [DOC-D1–DOC-D3](#decisions) approved by the user on 2026-10-05;
-DOC-D4–DOC-D9 are recommendations awaiting approval. ROADMAP, TODO and AGENTS.md are not yet
-changed.
+**Status:** Draft, 2026-10-05; revised 2026-10-26. Started at the user's request: the engine needs very
+good user documentation. [DOC-D1–DOC-D3](#decisions) approved by the user on 2026-10-05; DOC-D4–DOC-D9
+are recommendations awaiting approval. _Revised 2026-10-26:_ the earlier foundation packages were never
+built, so the release 0.13 delivers the whole guide, and its inventory, packages and further decisions
+(DOC-D10–DOC-D20) are in [BASE_0_13_IMPLEMENTATION_PLAN](BASE_0_13_IMPLEMENTATION_PLAN.md). This
+document keeps the strategy: why, the readers, the principles, the points that must be stated clearly
+and the decisions DOC-D1–DOC-D9.
 
 ## Why
 
@@ -48,7 +51,8 @@ through:
 | **Model administrator** | Model workbench, then the 0.10 editor | Model a domain, release and activate it, change it safely |
 | **Integrator, management API** | REST | Load, upsert and synchronise data: batches, jobs, the change feed, queries, idempotency, concurrency |
 | **Integrator, consumer API** | REST | Declare a consumer API and read through it: lists, XREF, batch resolve, crosswalk, publications, caching, events |
-| **Operator** | Shell, environment | Install, configure, upgrade, back up, restore and observe |
+| **Operator** | Shell, environment | Install, deploy, configure, secure, upgrade, back up, restore and observe |
+| **Access administrator** (added 2026-10-26, since 0.12) | Browser (Settings › Security) | Give people and systems the access they need: people, groups, roles, grants, clients, keys, approvals |
 
 Contributors keep the current `docs/` (plans, design, decisions, testing). This plan does not change
 them, apart from [DOC-D3](#decisions).
@@ -62,7 +66,7 @@ them, apart from [DOC-D3](#decisions).
    works and why. *Reference* describes what exists, completely and precisely.
 3. **The magic is explained, not just listed.** Every distinctive behaviour gets an explanation page
    with a worked example on real data: what happens, why, and what it means for the reader's work.
-   [Explanations](#explanations-the-magic) lists them.
+   [the 0.13 plan](BASE_0_13_IMPLEMENTATION_PLAN.md#2-how-refiroo-works-concepts-and-architecture) lists them.
 4. **Every example runs.** Every request, response, model fragment and command in the guide is executed
    against the engine in a test group. A response shown in the guide is the response the engine gives
    (IDs and times normalised). A change that breaks an example fails the build, as a broken contract
@@ -81,83 +85,14 @@ them, apart from [DOC-D3](#decisions).
    from 3 characters, 10,000 matches, retention) is on the page of the task it limits, with the
    setting that changes it, and in one limits reference.
 
-## Information architecture
+## Information architecture, tutorials, explanations and reference
 
-The guide's top-level sections, with the pages each holds. "Seed" names an existing document the page
-starts from.
-
-### Start here
-
-- **What RDM Engine is.** The four things a team manages (the model, live data, change sets,
-  publications), what makes the engine different, and what it does not do. Seed: PRODUCT.md.
-- **Run it in five minutes.** Docker, open the browser, see the example applications. Seed: README
-  quick start.
-- **A tour of the example applications.** Seed: EXAMPLE_MODEL.md, PRODUCT_GUIDE.md.
-- **Which path is yours.** One line per reader, each leading to their tutorial.
-
-### Tutorials
-
-One per reader. Each one follows a single running example from start to finish, and runs as a test
-([DOC-D4](#decisions)):
-
-| # | Tutorial | Reader | Ends with |
-| --- | --- | --- | --- |
-| 1 | Your first correction, then your first publication | Data steward | A live edit, a change set reviewed and published, a conflict resolved, the history read |
-| 2 | Model your own domain | Model administrator | An empty model grown into an installed, active release with a hierarchy, a relationship and views; then a compatible change released |
-| 3 | Load and keep in sync | Integrator, management API | A file loaded as a batch, retried safely with an idempotency key, then the change feed followed from a position |
-| 4 | Publish a consumer API and translate codes | Integrator, consumer API | A consumer API declared in the model; a list paged; a code resolved by XREF, by batch and across systems; an extract pinned to a publication |
-| 5 | Upgrade and recover | Operator | An upgrade, a backup and a restore rehearsed |
-
-### How-to guides
-
-Task pages grouped by reader. The list is derived from the journeys ([USER_JOURNEYS](product-functionality/USER_JOURNEYS.md))
-and the capabilities F01–F25, one page per task a reader names. Examples:
-
-- *Steward:* fix a value someone else just changed; move a record and its subtree; map a system's
-  values; fill missing translations from the relation matrix; delete a record with dependants;
-  restructure a hierarchy; withdraw a publication.
-- *Model administrator:* add a field to a released type; declare an effective period; add a view;
-  read a release diff; know when a change needs a new contract version.
-- *Integrator:* upsert by a business key; replace a record's relationship set; run a background job
-  and resume it; recover from `410` on the feed; query with criteria and one relationship hop; read
-  data as of a date.
-- *Consumer integrator:* narrow a lookup with parameters; resolve a file of codes; cache with ETag;
-  extract a consistent snapshot; move to a new contract version.
-- *Operator:* every runbook in OPERATIONS.md; tune limits; turn capabilities off.
-
-### Explanations (the magic)
-
-Each page has a worked example on the running example's data:
-
-| Page | Explains |
-| --- | --- |
-| One engine, many applications | How a model becomes screens and APIs; why no code knows an application; what that guarantees |
-| Three kinds of change | Live edits, change sets and model releases: when to use each; why daily work needs no change set |
-| How a change set publishes | Base, overlay, merge onto live data that moved on; conflicts; what a publication holds |
-| History and time | Audit history, pinned reads, publications as frozen copies, effective periods and `asOf`, and how they differ |
-| Connections | Containment, recursive hierarchy, cross-reference, mapping, the relation matrix; cardinality and scope |
-| Concurrency without locks | Record versions, relation-set versions, conflicts, `unchanged`, why nothing is overwritten silently |
-| Identity | Object IDs, business keys, unique attributes, client-assigned IDs; why consumers read by object ID |
-| Model releases and contracts | Drafts, installation, activation, compatibility, the consumer contract version and what breaks it |
-| Consumer APIs | A declaration becomes an API: the shared object, roles, projections, parameters, lists |
-| How XREF scores | Own and promoted weights, exact before contains, ties, `scoresFrom`, crosswalk; a scored example worked by hand |
-| Consistency for consumers | Live versus pinned reads, `latest`, cursors that keep their publication, ETag |
-| The change feed | Positions in commit order, what an entry names, retention, recovery from a publication |
-| Jobs | Inline and background runs, failure policies, item outcomes, idempotency, resumption, cancellation |
-| Limits and why they exist | Each limit, what it protects and the setting that changes it |
-
-### Reference
-
-| Reference | Source |
-| --- | --- |
-| Management API | OpenAPI, served by Scalar; the descriptions improved ([DOC2](#doc2-generated-reference)) |
-| Each consumer API | Its generated OpenAPI document |
-| Model language | Generated from the schema (`models/schema.py`), with APPLICATION_MODEL's explanations as descriptions |
-| Error codes | Generated from the code: every code, its status, its meaning and what to do |
-| Settings | Generated from `app/config.py`: name, default, allowed values, effect |
-| Limits and capabilities | Generated from the settings and `GET /capabilities` |
-| Glossary | GLOSSARY.md |
-| Release notes and upgrade notes | CHANGELOG, written for readers; compatibility policy from 0.11 |
+_Moved 2026-10-26_ to [BASE_0_13_IMPLEMENTATION_PLAN](BASE_0_13_IMPLEMENTATION_PLAN.md#the-guide), which holds the full page
+inventory: Start here, How refiroo works (the concepts and the architecture), seven tutorials, Use
+refiroo, Model your domain, Integrate, Run refiroo (installation, deployment, configuration, operating),
+Administer access and security, Reference and About this release. The older plan covered operating,
+architecture and security only in part; the inventory now covers them in full. One home per fact: the
+inventory is not repeated here.
 
 ### The points that must be stated clearly
 
@@ -177,87 +112,29 @@ TODO's five points and those found since, each placed where its reader will meet
 Points like these keep arising: a decision says "state this clearly". From DOC1 on, such a
 requirement is recorded as a page entry here, not as a TODO note.
 
-## Timing: built up across releases, completed in a documentation release
+## Timing
 
-Two facts set the timing. Every API example changes in **0.12**, when every request gains
-authentication. The browser changes through **0.12**: the UI foundation and settings area (Track U),
-and the model editor in 0.10. Final tutorials and screenshots written now would be rewritten twice.
-But the concepts are stable today: live data, change sets, publications, the model, consumer APIs
-and the feed.
+_Revised 2026-10-26._ The plan of 2026-10-05 spread the work over three packages between 0.9 and 0.12
+and a documentation release. Those three (the foundation, the generated reference and the
+explanations) were not built, so **the release 0.13 delivers everything**: foundation, generated
+reference, concepts and architecture, tutorials, how-to guides, operating and security pages,
+screenshots, the fresh-reader check and publication. 0.12 is complete first, since every example needs
+authentication and the browser's final screens. The packages are DOC1–DOC12 in the
+[0.13 plan](BASE_0_13_IMPLEMENTATION_PLAN.md#packages). The rule "a package that changes
+user-visible behaviour updates its guide pages in the same change" starts when DOC1 lands, so it applies
+to 0.14, 0.15 and every later release.
 
-So the recommendation ([DOC-D1](#decisions)):
-
-- **Foundation and the stable layers now.** The site, the tested-examples harness, generated
-  reference and the explanation pages, as packages between releases.
-- **A rule from the foundation on.** A package that changes user-visible behaviour updates its guide
-  pages in the same change, as it already updates API.md. The step joins "How a package is delivered".
-- **A documentation release, 0.13, after 0.12 and before 1.0.** Tutorials and how-to guides in their
-  final form, with authentication; screenshots; a fresh-reader check; publishing. 1.0's exit gate
-  gains "the guide covers every 1.0 capability".
-
-## Packages
-
-Package IDs DOC1 onward. Every package uses the delivery steps of the release it lands in.
-
-#### DOC1: Foundation
-
-**When:** after 0.9.0 is released, before 0.10's editor work. **Scope:**
-- the location (DOC-D3) and the site generator, chosen by a short comparison against these criteria:
-  Markdown sources, offline build, served by the engine, search, versioning, accessible output,
-  maintained, permissive licence (DOC-D2);
-- served at `/guide` with a link from `/docs` and the UI's help entry (DOC-D2);
-- the style guide (principle 7) and a page template for each kind;
-- the `docs` test group: it extracts the guide's examples, runs them against the seeded example model
-  and compares the responses (DOC-D5), proven on one page;
-- a link and anchor check;
-- the AGENTS.md step: user-visible changes update their guide pages.
-
-**Exit:** one explanation page ("Three kinds of change") published at `/guide`, its examples running
-in the `docs` group.
-
-#### DOC2: Generated reference
-
-**When:** with 0.10. **Scope:** the error code, settings, limits and model language references
-generated from the code (DOC-D6). A check fails when a code, setting or schema field has no
-description. An audit of the management OpenAPI's descriptions: every operation, parameter and error
-code described, with an example where the shape is not obvious.
-
-#### DOC3: Explanations
-
-**When:** across 0.10 and 0.11, a few pages per gap in the queue. **Scope:** the explanation pages
-above, each with its worked example running in the `docs` group. The five points are written here
-first.
-
-#### DOC4–DOC8: Release 0.13, Documentation
-
-| Package | Scope |
-| --- | --- |
-| DOC4 Tutorials | The five tutorials on the running example, authenticated, each run end to end as a test |
-| DOC5 How-to guides | Every task page per reader, checked against the journey catalogue so no journey lacks a page |
-| DOC6 Screenshots | Generated by the browser runners from the running example, light and dark, so they stay current |
-| DOC7 Fresh-reader check | Each tutorial completed by a reader who has not used the engine; every point where they got stuck fixed and recorded (DOC-D8) |
-| DOC8 Publish | A public static build of the same sources, versioned per release (DOC-D7), and the README pointing to it |
-| R | Acceptance: the exit gate below |
-
-### Exit gate (0.13)
-
-- Every reader in [Readers](#readers) has a tutorial, and each tutorial runs green as a test.
-- Every journey in USER_JOURNEYS has a how-to page or is covered by a tutorial step.
-- Every capability has an explanation or reference entry; each of the five points is stated where
-  the table above places it.
-- Every example in the guide runs in the `docs` group; generated references have no undescribed entry.
-- A fresh reader completed each tutorial, and their findings were closed.
-- The guide is served offline by the engine and published as a site, with search, in light and dark,
-  and passes the accessibility gate.
+The 0.14 release writes the management API reference on `/docs` (Track V). The guide links to it and
+does not repeat it; the error catalogue has one owner ([DOC-D13](BASE_0_13_IMPLEMENTATION_PLAN.md#decisions)).
 
 ## Decisions
 
 | # | Question | Recommendation |
 | --- | --- | --- |
-| DOC-D1 | When is the documentation written? | **Approved 2026-10-05.** Foundation, generated reference and explanations from after 0.9 (DOC1–DOC3); a documentation release **0.13** after 0.12 for tutorials, how-tos, screenshots and the fresh-reader check; a "user-visible change updates the guide" rule from DOC1 on. Basis: 0.12 changes every API example and Track U and 0.10 change the browser, so writing earlier means rewriting; the concepts are stable now. Alternative: everything in 0.13, which leaves the rule-based upkeep unused for three releases and makes 0.13 large |
-| DOC-D2 | Where is it served? | **Approved 2026-10-05.** By the engine at `/guide`, offline, from the version it runs (as `/docs` serves the API reference). The same sources build a public site (DOC8). The generator is chosen in DOC1 against the criteria listed there. It has not been evaluated yet, so no tool is recommended here |
+| DOC-D1 | When is the documentation written? | **Approved 2026-10-05; revised 2026-10-26** (the foundation, generated reference and explanation packages were not built, so all of it is in 0.13: [DOC-D11](BASE_0_13_IMPLEMENTATION_PLAN.md#decisions)). Original text: Foundation, generated reference and explanations from after 0.9 (DOC1–DOC3); a documentation release **0.13** after 0.12 for tutorials, how-tos, screenshots and the fresh-reader check; a "user-visible change updates the guide" rule from DOC1 on. Basis: 0.12 changes every API example and Track U and 0.10 change the browser, so writing earlier means rewriting; the concepts are stable now. Alternative: everything in 0.13, which leaves the rule-based upkeep unused for three releases and makes 0.13 large |
+| DOC-D2 | Where is it served? | **Approved 2026-10-05.** By the engine at `/guide`, offline, from the version it runs (as `/docs` serves the API reference). The same sources build a public site (DOC12 in the 0.13 plan). The generator is chosen in DOC1 against the criteria in the 0.13 plan (DOC-D18). It has not been evaluated yet, so no tool is recommended here |
 | DOC-D3 | Where do the sources live? | **Approved 2026-10-05.** A new top-level `guide/` directory, so that `docs/` stays the builders' record and the two cannot be confused. PRODUCT.md's overview moves to the guide's "What RDM Engine is" (one home), and `docs/PRODUCT.md` links to it. CURRENT_FUNCTIONALITY stays as the planning catalogue |
-| DOC-D4 | The running example | The bundled example model (delivery methods, systems, translations; PRODUCT.md's "Collection" / "PICKUP" story), with the starter consumer API U4 adds. Tutorial 2 builds a second, small domain from an empty model (countries, regions, cities, the case C-D27 used), which shows that the engine is generic |
+| DOC-D4 | The running example | _Superseded by [DOC-D17](BASE_0_13_IMPLEMENTATION_PLAN.md#decisions)._ The bundled example model (delivery methods, systems, translations; PRODUCT.md's "Collection" / "PICKUP" story), with the starter consumer API U4 adds. Tutorial 2 builds a second, small domain from an empty model (countries, regions, cities, the case C-D27 used), which shows that the engine is generic |
 | DOC-D5 | Tested examples | A `docs` test group runs every request and command in the guide against the seeded example model, once per seed (seed once, reuse), and compares the response with the one shown, with IDs and times normalised. It is a check on the documentation, not a test programme. It reuses the journey harness |
 | DOC-D6 | Generated reference | Error codes, settings, limits and the model language generated from the code, each with a check that fails on an undescribed entry. The descriptions live beside the code (the code's own description field or docstring), so a new code cannot ship without one |
 | DOC-D7 | Versions | One guide per minor release. The engine serves its own; the public site keeps the latest release and the one before. Older versions stay in git |
@@ -265,6 +142,8 @@ first.
 | DOC-D9 | Language | English only before 1.0 |
 
 ## Not included
+
+_Revised 2026-10-26: the management API reference is not written here at all; it is 0.14 Track V's ([DOC-D12](BASE_0_13_IMPLEMENTATION_PLAN.md#decisions))._
 
 - Translating the guide.
 - Video.

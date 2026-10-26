@@ -7,7 +7,7 @@ optimistic concurrency, and keeps public collections cursor-paged.
 The release train is 0.6 for daily live operations and optional coordinated design, 0.7 for core mapping, 0.8 for the relation matrix
 (translations among its uses) and hierarchy editing, 0.9 for integration APIs, 0.10 for model authoring and spreadsheet onboarding (one editor for the
 model and the import mapping, ADR-035), 0.11 for production hardening and staged workspace model rollout,
-0.12 for security (authentication and authorization across the backend, frontend and APIs), and 1.0 for
+0.12 for security (authentication and authorization across the backend, frontend and APIs), 0.13 for the documentation, 0.14 for the management API reference, 0.15 for the interface language, and 1.0 for
 migration-class model changes, protected publishing and extensions.
 
 ## Current development baseline — Base 0.11 complete
@@ -587,11 +587,47 @@ Composable domains (ADR-032): audit identity touches the provenance door. The au
 recorded beside the existing `cause`, not in place of it, so a later value source stays additive; an
 OAuth client writing for a source system is the natural name of that source.
 
+## Product release 0.13 — Documentation
+
+_Created 2026-10-26 by the user._ After 0.12, before 1.0. Strategy: [DOCUMENTATION_PLAN](DOCUMENTATION_PLAN.md);
+plan: [BASE_0_13_IMPLEMENTATION_PLAN](BASE_0_13_IMPLEMENTATION_PLAN.md).
+
+### Product outcome
+
+A person who has never seen refiroo finds the page for their goal, follows it and gets the result it
+promises: an evaluator understands what the product is and how it is built, an operator installs,
+secures and runs an instance, an administrator gives people and systems access, an integrator loads and
+reads data, and a steward and a model administrator do their daily work.
+
+### Delivery scope
+
+- The foundation: the guide's sources in `guide/`, served offline by the engine at `/guide`, a `docs`
+  test group that runs every example, the writing rules and the AGENTS.md step "a user-visible change
+  updates its guide pages"
+- Generated references: settings, capabilities and limits, error codes, the model language, the command
+  line, roles and permissions, event types; each with a check that fails on an undescribed entry
+- A page for every capability, journey, setting, error code and command, checked by a coverage inventory
+- How refiroo works, with the architecture and the security overview; seven tutorials; how-to guides for
+  stewards, model administrators and both kinds of integrator
+- Running refiroo: requirements, installation, HTTPS, topologies, configuration, sign-in setup, secrets,
+  monitoring, upgrades, backup and restore, troubleshooting, a production checklist
+- Administering access and security: people, groups, roles, grants, clients, keys, approvals, audit
+- Screenshots from the browser runners; a fresh-reader check; a public static site per release
+- The management API reference is not written here: 0.14 writes it on `/docs` and the guide links to it
+
+### Exit gate
+
+- Every item in the coverage inventory is covered by a written page or a reasoned exclusion.
+- Every example runs in the `docs` group, or is marked as not run and rehearsed on a clean host.
+- Every tutorial was completed by a reader from outside the project, and their findings were closed.
+- The guide is served offline by the engine and published as a static site, with search, in light and
+  dark, and passes the accessibility gate.
+
 ## Product release 0.14 — Management API reference and UI refinements
 
 _Created 2026-10-10 by the user_ for the work left open when 0.9 closes. Planned before 1.0 for now;
 expected to move after 1.0 later. The documentation release 0.13 is planned in
-[DOCUMENTATION_PLAN](DOCUMENTATION_PLAN.md). Plan: [BASE_0_14_IMPLEMENTATION_PLAN](BASE_0_14_IMPLEMENTATION_PLAN.md).
+[DOCUMENTATION_PLAN](DOCUMENTATION_PLAN.md) and its [0.13 plan](BASE_0_13_IMPLEMENTATION_PLAN.md). Plan: [BASE_0_14_IMPLEMENTATION_PLAN](BASE_0_14_IMPLEMENTATION_PLAN.md).
 
 ### Product outcome
 

@@ -191,9 +191,10 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 - **Settings, integration administration and UI foundation (approved 2026-10-05).** U-D1–U-D6 taken
   in [SETTINGS_AND_UI_PLAN.md](SETTINGS_AND_UI_PLAN.md#decisions); U1 delivered, Direction B "Open"
   chosen (ADR-039). CN1 delivered (2026-10-05).
-- **User documentation is not scheduled in any release yet.** API.md, CONSUMER_API and
-  CURRENT_FUNCTIONALITY describe contracts and capabilities, but no guide for integrators or users
-  exists. When it is planned, it must state these points very clearly, as the user asked:
+- **User documentation is scheduled as release 0.13** ([plan](BASE_0_13_IMPLEMENTATION_PLAN.md); the
+  its table of points that must be stated clearly holds all of those below). API.md, CONSUMER_API
+  and CURRENT_FUNCTIONALITY describe contracts and capabilities; the guide does not exist yet. It must
+  state these points very clearly, as the user asked:
   - **Which records a relationship may choose (0.9 K7, 2026-10-10).** A binding's `candidates`, with
     examples of each kind of criterion (a name, a yes/no attribute, an ancestor's name), what the
     pickers then offer and say, why a record is not offered a relationship, that relationships made
