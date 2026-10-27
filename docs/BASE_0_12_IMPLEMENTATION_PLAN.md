@@ -4609,8 +4609,29 @@ in the Account page's existing panel style). D432 and D433 are by recommendation
   unverified); a real mail server's rendering of the message; two senders running at once against one notice
   (`FOR UPDATE SKIP LOCKED` is the guard, not exercised); the migration's downgrade and an interrupted run; the 24 hour
   limit (the tests do not move the clock past it).
-- **What the user cannot do, with no package planned:** choose which kinds of notice are mailed, or get a digest; mail for
+- **What the user cannot do, with no package planned:** get a digest; mail for
   a client; send a failed message again (also open since M1). Each waits for the user to decide whether it becomes a package.
+
+##### M2 follow-up: notification types (2026-10-27)
+
+**Delivered 2026-10-27**, asked by the user: a Notifications page with one setting per kind of notice. The route is
+extended, not added to (the user's decision).
+
+| # | Decision |
+| --- | --- |
+| D434 | **Decided by the user.** Types are chosen per person for e-mail only; the inbox keeps all notices (so do the notices and the webhook events). Why: the inbox is the record of what needs the person; mail is only a nudge they may want less of. Cost: a person who switches a kind off may miss it until they open the inbox |
+| D435 | **Recommended, recorded.** Everything is on by default; what is stored is the list of kinds switched off (`users.notice_mail_kinds_off`). Why: a person who already switched mail on keeps receiving every kind, and a kind added later reaches everyone until they switch it off. Cost: a kind the engine stops making stays in a person's list harmlessly |
+
+- **Built:** migration `20261113_01_notice_mail_kinds`; `engine/notifications/kinds.py` (the one list of kinds with a
+  label each; the mail sentence is the label with a full stop); `mailing.choose_kinds` and `queue_notices` leaving a
+  switched-off kind alone (unhandled, as for a person who switched mail off); `kinds` on the `NoticeMailResponse` and
+  `{enabled?, kinds?}` on the update (`422 UNKNOWN_NOTICE_KIND`); `features/settings/NotificationsPage.tsx` with the
+  Email panel moved from Account. The mail's last line now points to Settings › Notifications.
+- **Exercised:** `test_j46_inbox_mail` (four more cases: defaults and all kinds mailed, a kind switched off not mailed but
+  in the inbox, switched back on, refusals and choice before mail is set up), `tests/unit/engine/notifications/test_kinds`,
+  the OpenAPI lock, startup and contract groups; frontend component tests of the page.
+- **Not verified:** appearance, 390px and keyboard use in a real browser; the migration's downgrade; a job notice (the
+  journeys use the two change-set kinds a person receives).
 
 ### Track DP — Deployment
 

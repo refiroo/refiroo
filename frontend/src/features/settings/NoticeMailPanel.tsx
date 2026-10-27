@@ -1,11 +1,12 @@
 /**
- * Settings › Account › Email (0.12 M2, D432, D433): one switch, "Email me when something arrives in
- * my inbox", with the address the mail goes to. Off until the person switches it on. Where it cannot
- * work (mail is not set up, the person has no address, a client) the engine says so and the panel is
- * not shown at all: nothing here is disabled with a reason.
+ * Settings › Notifications › Email (0.12 M2, D432, D433; kinds D434, D435): the switch "Email me
+ * when something arrives in my inbox", with the address the mail goes to, and under it one switch for
+ * each kind of notice the engine makes (its list and its labels; nothing is listed here). Everything
+ * is on until switched off; a kind switched off stops the e-mail only. The page decides whether to
+ * show the panel at all: nothing here is disabled with a reason.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import type { NoticeMail } from "@/types";
@@ -14,28 +15,15 @@ import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { Switch } from "@/ui/Switch";
 
-export function NoticeMailPanel() {
-  const [state, setState] = useState<NoticeMail>();
+export function NoticeMailPanel({ state, onChange }: { state: NoticeMail; onChange: (next: NoticeMail) => void }) {
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState("");
 
-  useEffect(() => {
-    let active = true;
-    // A page that cannot read it simply does not offer it.
-    api
-      .myNoticeMail()
-      .then((loaded) => active && setState(loaded))
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function change(enabled: boolean) {
+  async function save(change: { enabled?: boolean; kinds?: Record<string, boolean> }) {
     setPending(true);
     setFailure("");
     try {
-      setState(await api.setMyNoticeMail(enabled));
+      onChange(await api.setMyNoticeMail(change));
     } catch (cause) {
       setFailure(errorMessage(cause));
     } finally {
@@ -43,8 +31,6 @@ export function NoticeMailPanel() {
     }
   }
 
-  // Where it is on, it stays shown so it can be switched off even if mail has since been removed.
-  if (!state || !(state.available || state.enabled)) return null;
   return (
     <Section title="Email">
       <div className="account-panel">
@@ -64,9 +50,29 @@ export function NoticeMailPanel() {
             label="Email me when something arrives in my inbox"
             checked={state.enabled}
             disabled={pending}
-            onChange={(enabled) => void change(enabled)}
+            onChange={(enabled) => void save({ enabled })}
           />
         </div>
+        <fieldset className="account-kinds" disabled={!state.enabled}>
+          <legend>Send me an email for</legend>
+          {state.kinds.map((item) => (
+            <div className="account-row" key={item.kind}>
+              <div className="account-row-text">
+                <span>{item.label}</span>
+              </div>
+              <Switch
+                label={item.label}
+                checked={item.enabled}
+                disabled={pending || !state.enabled}
+                onChange={(enabled) => void save({ kinds: { [item.kind]: enabled } })}
+              />
+            </div>
+          ))}
+          <p className="account-muted account-kinds-note">
+            A kind you switch off is not mailed. It still arrives in your inbox. These choices apply only while the
+            switch above is on.
+          </p>
+        </fieldset>
       </div>
     </Section>
   );

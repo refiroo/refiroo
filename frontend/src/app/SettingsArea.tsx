@@ -7,6 +7,7 @@
 import { AboutPage } from "@/features/settings/AboutPage";
 import { ApiReferencePage } from "@/features/settings/ApiReferencePage";
 import { AccountPage } from "@/features/settings/AccountPage";
+import { NotificationsPage } from "@/features/settings/NotificationsPage";
 import { AppearancePage } from "@/features/settings/AppearancePage";
 import { ConsumerApisPage } from "@/features/settings/ConsumerApisPage";
 import { DeploymentPage } from "@/features/settings/DeploymentPage";
@@ -109,6 +110,8 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         <AppearancePage />
       ) : route.page === "account" ? (
         <AccountPage />
+      ) : route.page === "notifications" ? (
+        <NotificationsPage />
       ) : route.page === "deployment" ? (
         <DeploymentPage />
       ) : route.page === "operations" ? (

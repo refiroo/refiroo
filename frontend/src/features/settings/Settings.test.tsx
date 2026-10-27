@@ -135,6 +135,7 @@ describe("SettingsShell", () => {
       "About",
       "Appearance",
       "Account",
+      "Notifications",
       "Workspaces",
       "Model",
       "Deployment",
@@ -161,7 +162,16 @@ describe("SettingsShell", () => {
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.textContent),
-    ).toEqual(["About", "Appearance", "Account", "Workspaces", "Jobs", "Consumer APIs", "API reference"]);
+    ).toEqual([
+      "About",
+      "Appearance",
+      "Account",
+      "Notifications",
+      "Workspaces",
+      "Jobs",
+      "Consumer APIs",
+      "API reference",
+    ]);
     expect(
       within(navigation)
         .getAllByRole("heading")

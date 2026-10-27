@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ...common.brand import is_default_product_name
 from ..identity.second_factor import product_name
+from ..notifications import kinds
 
 # What a message calls the product when no model names one.
 PRODUCT = "refiroo"
@@ -83,14 +84,7 @@ def test_message(product: str, application_url: str) -> Rendered:
 
 
 # What one inbox notice says, by its kind: the kind of event and nothing of what it is about (D432).
-_NOTICE_SENTENCES = {
-    "change-set.submitted": "A change set is waiting for your approval.",
-    "change-set.approved": "A change set you submitted was approved.",
-    "change-set.sent-back": "A change set you submitted was sent back.",
-    "job.completed": "A job you started has finished.",
-    "job.failed": "A job you started has failed.",
-    "job.awaiting-confirmation": "A job you started is waiting for your confirmation.",
-}
+_NOTICE_SENTENCES = {kind: f"{label}." for kind, label in kinds.LABELS.items()}
 _NOTICE_OTHER = "Something is waiting in your inbox."
 
 
@@ -104,5 +98,5 @@ def notice(product: str, notice_kind: str, application_url: str) -> Rendered:
         f"{sentence}\n\n"
         f"Open {product} to see it:\n\n{application_url}\n\n"
         "You get this message because you asked for mail when something arrives in your inbox. "
-        "Switch it off on Settings > Account.\n",
+        "Choose which messages you get, or switch them off, on Settings > Notifications.\n",
     )

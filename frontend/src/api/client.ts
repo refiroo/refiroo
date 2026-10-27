@@ -535,8 +535,11 @@ export const api = {
   /** Whether the caller is e-mailed for the notices in their inbox, and whether they can be (0.12 M2). */
   myNoticeMail: () => request<NoticeMail>("/api/v1/me/notification-mail"),
   /** Switch mail for the caller's inbox on or off; refused where mail is not set up or there is no address. */
-  setMyNoticeMail: (enabled: boolean) =>
-    request<NoticeMail>("/api/v1/me/notification-mail", { method: "PUT", body: JSON.stringify({ enabled }) }),
+  setMyNoticeMail: (change: boolean | { enabled?: boolean; kinds?: Record<string, boolean> }) =>
+    request<NoticeMail>("/api/v1/me/notification-mail", {
+      method: "PUT",
+      body: JSON.stringify(typeof change === "boolean" ? { enabled: change } : change),
+    }),
   /** The caller's second factor: whether an authenticator app is set up, its recovery codes left and
    * whether the instance requires one (0.12 I4b). */
   mySecondFactor: () => request<MySecondFactor>("/api/v1/me/second-factor"),

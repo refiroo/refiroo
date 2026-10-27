@@ -6,6 +6,38 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 M2 follow-up, notification types)
+
+- **Choose which notices are mailed (J46.10, D434, D435).** A new Settings › Notifications page holds the e-mail
+  switch (moved from Account) and one setting for each kind of notice (a change set waiting for your approval, yours
+  approved, yours sent back, a job of yours finished, failed or waiting for confirmation). Everything is on until
+  switched off; a kind switched off stops the e-mail only, the inbox, notices and workspace events are unchanged.
+  `GET`/`PUT /me/notification-mail` answer `kinds: [{kind, label, enabled}]` and `PUT` takes `{enabled?, kinds?}` (at
+  least one; an unknown kind is `422 UNKNOWN_NOTICE_KIND`). The mail's last line now points to Settings › Notifications.
+  Migration `20261113_01` (`users.notice_mail_kinds_off`); the one list of kinds is `engine/notifications/kinds.py`.
+
+### Changed (0.12 A3a, the workspace page in tabs)
+
+- **A workspace's page has tabs.** Settings › Workspaces › a workspace: the actions sit under the header, then
+  Overview (the facts and the workspace's applications as clickable cards), Access, Approval and Activity, each shown
+  only to someone who may use it (Activity needs Browse; it lists the workspace's changes, newest first, by day, from
+  `GET /changes`). The tab is in the address: `/settings/workspaces/{key}/{tab}`. Visited tabs stay loaded, so
+  switching keeps the page where it is; a workspace opens at once on Back (its last known state, read again
+  meanwhile); reading a workspace no longer counts its records to say whether it can be deleted.
+- **The workspace list is a dialog.** "Switch workspace" beside the workspace's name opens Active workspaces first
+  (the default on top), then Retired ones, each scrolling on to its next page, with search by label and key; the left
+  list is gone and the page uses the full width.
+- **The access list groups a principal's grants.** `GET /workspaces/{workspaceKey}/access` is ordered by principal
+  (people, groups, clients; then name and id), then by grant, so one principal's grants are adjacent.
+
+### Added (0.12 A3, approvals in the interface)
+
+- **Submit, decide and set the policy in the interface (J42).** The change-set bar offers "Submit for publication"
+  where direct publishing is not allowed, shows "Waiting for approval" with the request and "Withdraw request"; the
+  review has a Decision card ("Approve and publish", "Send back" with a required comment, the decisions so far);
+  Settings › Workspaces has an Approval section for the policy; Home lists "Waiting for your approval".
+- `GET|PUT …/approval-policy` also return `approverCount`, how many can approve in the workspace.
+
 ### Added (0.12 M2, inbox notices by mail)
 
 - **E-mail for inbox notices (J46.10, D432, D433).** A person with an address switches on "Email me when something

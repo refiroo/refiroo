@@ -6065,13 +6065,19 @@ a success clears the username's count (D271). Passwords and client secrets are h
 - `GET /api/v1/me/notifications/events` (`text/event-stream`, read with `fetch`, D247): `event: unread`
   `{unreadCount}` at once and after every change, `event: notification` with each new notice as the list answers it;
   a comment every 15 s keeps it open. Nothing is polled.
-- `GET /api/v1/me/notification-mail` and `PUT /api/v1/me/notification-mail` `{enabled}` (delivered, M2, D432):
-  whether the caller is e-mailed when a notice arrives in their inbox; for anyone signed in. Both answer
-  `{enabled, available, reason, email}`: `available` is false where it cannot work and `reason` says why
+- `GET /api/v1/me/notification-mail` and `PUT /api/v1/me/notification-mail` `{enabled?, kinds?}` (delivered, M2,
+  D432, D434): whether the caller is e-mailed when a notice arrives in their inbox, and which kinds of notice; for
+  anyone signed in. Both answer `{enabled, available, reason, email, kinds}`: `available` is false where it cannot work and `reason` says why
   (`mail-not-set-up`, `no-email`, `not-a-person` for a client, who has no mail); `email` is where it goes. It is off
   until switched on. Switching on is refused `409 MAIL_NOT_SET_UP` and `409 NO_EMAIL`, and `403 NOT_A_PERSON` for a
-  client; switching on again keeps the first time; switching off always works and repeats harmlessly. Neither is a
-  security event. See [Mail](#mail) for what is sent.
+  client (for any `PUT`); switching on again keeps the first time; switching off always works and repeats harmlessly.
+  `kinds` is always the full list, `[{kind, label, enabled}]` in the order to show it (`change-set.submitted`,
+  `change-set.approved`, `change-set.sent-back`, `job.completed`, `job.failed`, `job.awaiting-confirmation`), with
+  every kind on until switched off and listed even where mail is not `available`. `PUT` takes `enabled`, `kinds`
+  (`{<kind>: bool}`, changing only the kinds named) or both; a body with neither is `422`; an unknown kind is `422
+  UNKNOWN_NOTICE_KIND` naming it, and nothing changes. Kinds may be chosen while mail is off or not set up (they are the
+  person's preference). A kind switched off stops the e-mail only: the inbox, the notices and the workspace events
+  keep it (D434). Neither is a security event. See [Mail](#mail) for what is sent.
 
 ### Authorization
 
@@ -6523,7 +6529,7 @@ reading `Not sent within 24 hours. Last error: …`.
 
 **Inbox notices (M2, D432):** the sender also queues one `notice` message per inbox notice of a person who
 switched `PUT /me/notification-mail` on: a notice that is unread, made after they switched it on and under 24 hours
-old, for an active person with an address. The message names the kind of event and links to the application; it
+old, for an active person with an address and not of a kind they switched off. The message names the kind of event and links to the application; it
 carries no record, change-set, workspace or person content. Without saved mail settings notices wait and are mailed
 once mail is saved, while they are under 24 hours old.
 

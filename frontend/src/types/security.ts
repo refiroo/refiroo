@@ -368,6 +368,14 @@ export interface NoticeMail {
   available: boolean;
   reason: "mail-not-set-up" | "no-email" | "not-a-person" | null;
   email: string | null;
+  /** Every kind of notice with the engine's label, and whether it is mailed (D434). */
+  kinds: NoticeMailKind[];
+}
+
+export interface NoticeMailKind {
+  kind: string;
+  label: string;
+  enabled: boolean;
 }
 
 /** The caller's second factor (0.12 I4b). */

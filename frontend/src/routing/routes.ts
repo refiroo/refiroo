@@ -146,6 +146,7 @@ const SINGLE_PAGES = [
   "appearance",
   "account",
   "deployment",
+  "notifications",
   "operations",
   "consumer-apis",
   "api-reference",

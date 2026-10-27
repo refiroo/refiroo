@@ -60,6 +60,7 @@ describe("routes", () => {
   it.each<[string, RouteState]>([
     ["/settings/about", { kind: "settings", page: "about" }],
     ["/settings/appearance", { kind: "settings", page: "appearance" }],
+    ["/settings/notifications", { kind: "settings", page: "notifications" }],
     ["/settings/deployment", { kind: "settings", page: "deployment" }],
     ["/settings/operations", { kind: "settings", page: "operations" }],
     ["/settings/consumer-apis", { kind: "settings", page: "consumer-apis" }],

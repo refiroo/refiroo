@@ -304,9 +304,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.12 M2: GET and PUT /me/notification-mail with NoticeMailResponse and
     # NoticeMailUpdate, and the description of MailMessageResponse.kind (`test` and `notice`);
     # nothing else changed.
+    # Re-baselined for 0.12 A3: ApprovalPolicyResponse.approverCount; nothing else changed.
+    # Re-baselined for 0.12 M2 follow-up (notification types): NoticeMailResponse.kinds (with
+    # NoticeKindResponse) and NoticeMailUpdate takes optional `enabled` and `kinds`; the
+    # descriptions of GET and PUT /me/notification-mail; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "92a1e8466a20228f84df5a78fae9844e22cc067f93a7c6728aac3165b8ba35c8"
+        "92ee5ac852e1a2a3e586d8c7ce151e3567bb76a179a6237e221107805d28feff"
     )
 
 

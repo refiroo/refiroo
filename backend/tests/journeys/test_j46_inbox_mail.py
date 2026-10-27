@@ -53,7 +53,9 @@ def test_notice_mail_is_off_until_a_person_switches_it_on(world, smtp):  # noqa:
     is submitted for approval, then the approver has the notice and the sender mails no one."""
     _save(world, smtp, applicationUrl=APPLICATION)
     _, approver = _approver(world)
-    assert ok(approver.api.get(SWITCH)) == {
+    found = ok(approver.api.get(SWITCH))
+    found.pop("kinds")
+    assert found == {
         "enabled": False,
         "available": True,
         "reason": None,
@@ -82,7 +84,7 @@ def test_a_notice_is_mailed_naming_its_kind_and_nothing_of_the_change(world, smt
     assert mail["To"] == "olga@example.org" and mail["From"] == "refiroo@example.org"
     assert "something is waiting in your inbox" in mail["Subject"]
     assert "waiting for your approval" in text and APPLICATION in text
-    assert "Account" in text
+    assert "Settings > Notifications" in text
     for private in (SECRET_NAME, SECRET_COMMENT, "contributor", W1, "olga"):
         assert private not in text and private not in mail["Subject"]
     assert ok(world.api.get("/mail-settings"))["outbox"] == {"pending": 0, "sent": 1, "failed": 0}
@@ -133,7 +135,9 @@ def test_switching_on_is_refused_where_it_cannot_work_and_off_always_works(world
     refused(nobody.api.put(SWITCH, {"enabled": True}), 409, "NO_EMAIL")
 
     client = _submitter(world)
-    assert ok(client.api.get(SWITCH)) == {
+    found = ok(client.api.get(SWITCH))
+    assert len(found.pop("kinds")) == 6
+    assert found == {
         "enabled": False,
         "available": False,
         "reason": "not-a-person",
@@ -199,3 +203,127 @@ def test_a_notice_is_mailed_once_however_often_the_sender_runs(world, smtp):  # 
     _submit_one(world, submitter, "Another one", "Another comment")
     assert send_mail(world) == 1
     assert len(smtp.messages) == 2
+
+
+def _with_two_kinds(world, smtp):  # noqa: F811
+    """Pavel (who may approve) has a change set of his own that Olga decides, and a client's change
+    set to approve: so his inbox can hold ``change-set.approved`` and ``change-set.submitted``."""
+    _save(world, smtp, applicationUrl=APPLICATION)
+    _, olga = _approver(world)
+    _, pavel = _approver(world, "pavel", "pavel@example.org")
+    own = _proposal(world, pavel, "Pavel's own")
+    ok(_submit(pavel, own), 201)
+    return olga, pavel, own
+
+
+def _kinds(found: dict) -> dict[str, bool]:
+    return {item["kind"]: item["enabled"] for item in found["kinds"]}
+
+
+def _texts(smtp) -> list[str]:  # noqa: F811
+    return [mail.get_content() for mail in smtp.messages if mail["To"] == "pavel@example.org"]
+
+
+@pytest.mark.journey("J46.10")
+def test_every_kind_of_notice_is_mailed_by_default_once_mail_is_switched_on(world, smtp):  # noqa: F811
+    """Given an approver who has not chosen anything. When they read their notice mail setting,
+    then the six kinds of notice are listed with a label each and all on, even where mail is not
+    set up; when they switch mail on, a notice of each kind made afterwards is mailed."""
+    _, approver = _approver(world, "zoe", "zoe@example.org")
+    found = ok(approver.api.get(SWITCH))
+    assert found["available"] is False
+    assert list(_kinds(found).items()) == [
+        ("change-set.submitted", True),
+        ("change-set.approved", True),
+        ("change-set.sent-back", True),
+        ("job.completed", True),
+        ("job.failed", True),
+        ("job.awaiting-confirmation", True),
+    ]
+    assert found["kinds"][0]["label"] == "A change set is waiting for your approval"
+
+    olga, pavel, own = _with_two_kinds(world, smtp)
+    ok(pavel.api.put(SWITCH, {"enabled": True}))
+    assert all(_kinds(ok(pavel.api.get(SWITCH))).values())
+    ok(_decide(world, olga, pavel.current(own), "approve"))
+    _submit_one(world, _submitter(world))
+    assert send_mail(world) == 2
+    assert sorted("approved" in text or "approval" in text for text in _texts(smtp)) == [True, True]
+    assert any("was approved" in text for text in _texts(smtp))
+    assert any("waiting for your approval" in text for text in _texts(smtp))
+
+
+@pytest.mark.journey("J46.10")
+def test_a_kind_switched_off_is_not_mailed_but_stays_in_the_inbox(world, smtp):  # noqa: F811
+    """Given an approver mailed for everything. When they switch off the kind for a change set
+    waiting for approval, then a new one gives no mail and a decision on their own change set
+    still does; both notices are in the inbox, and the switch is not undone by another."""
+    olga, pavel, own = _with_two_kinds(world, smtp)
+    ok(pavel.api.put(SWITCH, {"enabled": True}))
+    changed = ok(pavel.api.put(SWITCH, {"kinds": {"change-set.submitted": False}}))
+    assert changed["enabled"] is True and _kinds(changed)["change-set.submitted"] is False
+    assert sum(_kinds(changed).values()) == 5
+    ok(pavel.api.put(SWITCH, {"kinds": {"job.failed": True}}))
+    assert _kinds(ok(pavel.api.get(SWITCH)))["change-set.submitted"] is False
+
+    _submit_one(world, _submitter(world))
+    ok(_decide(world, olga, pavel.current(own), "approve"))
+    assert send_mail(world) == 1
+    [text] = _texts(smtp)
+    assert "was approved" in text
+
+    kinds = {item["kind"] for item in ok(pavel.api.get("/me/notifications"))["items"]}
+    assert {"change-set.submitted", "change-set.approved"} <= kinds
+    unmailed = _database(
+        world,
+        "SELECT count(*) FROM notifications n JOIN users u ON u.id = n.user_id "
+        "WHERE u.username = 'pavel' AND n.mailed_at IS NULL",
+    )
+    assert unmailed[0][0] == 1
+
+
+@pytest.mark.journey("J46.10")
+def test_switching_a_kind_back_on_mails_the_notices_made_afterwards(world, smtp):  # noqa: F811
+    """Given a kind switched off and a notice of it made meanwhile. When the kind is switched back
+    on, then the sender mails the notice that was left alone (it is still unread and recent) and
+    one made afterwards."""
+    _, pavel, _ = _with_two_kinds(world, smtp)
+    ok(pavel.api.put(SWITCH, {"enabled": True, "kinds": {"change-set.submitted": False}}))
+    submitter = _submitter(world)
+    _submit_one(world, submitter, "While off")
+    assert send_mail(world) == 0 and smtp.messages == []
+
+    ok(pavel.api.put(SWITCH, {"kinds": {"change-set.submitted": True}}))
+    _submit_one(world, submitter, "After on")
+    assert send_mail(world) == 2
+    assert len(_texts(smtp)) == 2
+    assert all("waiting for your approval" in text for text in _texts(smtp))
+
+
+@pytest.mark.journey("J46.10")
+def test_choosing_kinds_is_refused_for_unknown_kinds_empty_bodies_and_clients(world, smtp):  # noqa: F811
+    """Given mail is not set up. When a person names an unknown kind, then it is
+    `422 UNKNOWN_NOTICE_KIND` naming it and nothing changes; an empty body is `422`; a client is
+    `403 NOT_A_PERSON` even for kinds; a person can still choose kinds before mail is set up or
+    while it is off, and the choice is kept when they switch on."""
+    _, approver = _approver(world)
+    error = refused(
+        approver.api.put(SWITCH, {"kinds": {"job.failed": False, "nonsense": False}}),
+        422,
+        "UNKNOWN_NOTICE_KIND",
+    )
+    assert "nonsense" in error["message"]
+    assert _kinds(ok(approver.api.get(SWITCH)))["job.failed"] is True
+    assert approver.api.put(SWITCH, {}).status_code == 422
+    assert approver.api.put(SWITCH, {"kinds": None}).status_code == 422
+    refused(
+        _submitter(world).api.put(SWITCH, {"kinds": {"job.failed": False}}), 403, "NOT_A_PERSON"
+    )
+
+    found = ok(approver.api.put(SWITCH, {"kinds": {"job.failed": False}}))
+    assert found["available"] is False and found["enabled"] is False
+    assert _kinds(found)["job.failed"] is False
+
+    _save(world, smtp, applicationUrl=APPLICATION)
+    ok(approver.api.put(SWITCH, {"enabled": True}))
+    assert _kinds(ok(approver.api.get(SWITCH)))["job.failed"] is False

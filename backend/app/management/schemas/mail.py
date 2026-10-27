@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .common import CollectionPage
 
@@ -69,6 +69,14 @@ class MailMessagePage(CollectionPage[MailMessageResponse]):
     """Messages, newest first (ADR-030)."""
 
 
+class NoticeKindResponse(BaseModel):
+    """One kind of inbox notice and whether the caller is mailed it."""
+
+    kind: str = Field(description="For example `change-set.submitted` or `job.failed`")
+    label: str = Field(description="What the notice says, in a plain sentence")
+    enabled: bool
+
+
 class NoticeMailResponse(BaseModel):
     """Whether the caller is mailed when something arrives in their inbox (0.12 M2). Off until the
     person switches it on. ``available`` is false where it cannot work, and ``reason`` says why:
@@ -79,7 +87,24 @@ class NoticeMailResponse(BaseModel):
     available: bool
     reason: Literal["mail-not-set-up", "no-email", "not-a-person"] | None
     email: str | None = Field(description="Where the mail goes; none without an address")
+    kinds: list[NoticeKindResponse] = Field(
+        description="Every kind of notice, in the order to show them, with whether the person is "
+        "mailed it. Everything is on until switched off; it is listed even where mail is not "
+        "`available`. Only the mail stops: the inbox keeps every notice"
+    )
 
 
 class NoticeMailUpdate(BaseModel):
-    enabled: bool
+    """Change the caller's notice mail: ``enabled`` switches it on or off, ``kinds`` switches the
+    named kinds on or off and leaves the others. Both are optional; at least one is needed."""
+
+    enabled: bool | None = None
+    kinds: dict[str, bool] | None = Field(
+        default=None, description="Kind -> whether to be mailed it; an unknown kind is refused"
+    )
+
+    @model_validator(mode="after")
+    def _something_to_change(self) -> NoticeMailUpdate:
+        if self.enabled is None and self.kinds is None:
+            raise ValueError("Send `enabled`, `kinds` or both")
+        return self

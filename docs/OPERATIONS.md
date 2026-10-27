@@ -541,7 +541,8 @@ message from the same page: it names what failed (the connection, TLS, the login
   page lists the messages waiting, sent and failed, and `mailSender` appears among a process's
   threads on Operations. Finished messages are kept for 30 days.
 - **Inbox notices are mailed by the same sender** (0.12 M2, D432), one message per notice, to people who switched
-  on "Email me when something arrives in my inbox" on Settings › Account (off by default; clients have no mail).
+  on "Email me when something arrives in my inbox" on Settings › Notifications (off by default; clients have no mail),
+  except for the kinds of notice they switched off there (D434).
   Only notices made after switching on are mailed, and only while they are under 24 hours old, so a long outage
   or mail not set up never sends a pile of old notices. A message names the kind of event and links to the
   application address above; it holds no record, change-set or person content. Messages of this kind show as

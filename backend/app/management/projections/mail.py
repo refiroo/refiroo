@@ -13,6 +13,7 @@ from ..schemas.mail import (
     MailMessagePage,
     MailMessageResponse,
     MailSettingsResponse,
+    NoticeKindResponse,
     NoticeMailResponse,
 )
 
@@ -63,4 +64,8 @@ def notice_mail_response(found: NoticeMail) -> NoticeMailResponse:
         available=found.reason is None,
         reason=found.reason,  # type: ignore[arg-type]
         email=found.email,
+        kinds=[
+            NoticeKindResponse(kind=kind, label=label, enabled=enabled)
+            for kind, label, enabled in found.kinds
+        ],
     )

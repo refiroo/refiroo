@@ -2315,7 +2315,7 @@ password by I6 and inbox notices by M2 (2026-10-27).
   erased and nothing more is sent. A message already sent or failed, one a sender holds at that moment,
   and one that does not exist are refused by code.
 - **J46.10 Inbox notices by mail** (0.12 M2): a person with an address switches on "Email me when
-  something arrives in my inbox" on Account (off until then; the switch is not offered where mail is
+  something arrives in my inbox" on Settings › Notifications (off until then; the switch is not offered where mail is
   not set up, the person has no address or the caller is a client). From then on each notice that
   arrives and is still unread is mailed once, within 24 hours, as a plain-text message that names the
   kind of event (a change set waits for approval, a decision on yours, a job of yours finished) and
@@ -2323,9 +2323,13 @@ password by I6 and inbox notices by M2 (2026-10-27).
   person's name. Notices from before switching on, ones already read, a client's and those of a person
   who switched it off are not mailed; while mail is not set up notices wait and are mailed once it is.
   Switching on without mail or an address is refused by code, a client is refused as not a person, and
-  switching off always works.
+  switching off always works. On the Notifications page the person also chooses, one setting per
+  kind of notice, which kinds are mailed (all are, until switched off): a kind switched off stops the
+  mail only, the notice still reaches the inbox, and notices of the kind made while it was off are
+  mailed if the kind is switched back on while they are still unread and under 24 hours old. The
+  choice can be made before mail is set up or while mail is off; an unknown kind is refused by code.
 
-**Refusals:** `403 FORBIDDEN`, `403 NOT_A_PERSON`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
+**Refusals:** `403 FORBIDDEN`, `403 NOT_A_PERSON`, `422 UNKNOWN_NOTICE_KIND`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
 MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_SEND_FAILED` (`details.kind`), `404 NOT_FOUND`, `409 MESSAGE_NOT_WAITING`, `409 MESSAGE_BEING_SENT`.
 
 ### J47 — Check the security model

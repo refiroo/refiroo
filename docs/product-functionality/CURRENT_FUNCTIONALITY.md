@@ -1434,15 +1434,19 @@ failure and when it was last tried; a message's text is never shown, and is eras
 has failed, since it holds a one-time link. Without saved settings nothing is sent, and everything
 else works as before. Each change to the settings is recorded as a security event.
 
-**Inbox notices by mail.** On Settings › Account a person who has an address can switch on "Email me when
-something arrives in my inbox" (off until then). Each notice that arrives afterwards is mailed once, within a
+**Inbox notices by mail.** On Settings › Notifications a person who has an address can switch on "Email me when
+something arrives in my inbox" (off until then) and, under it, choose which kinds of notice are mailed: one setting for
+each of a change set waiting for approval, one of theirs approved, one of theirs sent back, and a job of theirs that
+finished, failed or waits for confirmation (all on until they switch one off). A kind switched off stops the mail only;
+the notice still arrives in the inbox. Where nothing can be chosen (mail not set up, no address, a client) the page says
+so in a sentence. Each notice that arrives afterwards is mailed once, within a
 day, as a short plain-text message that says what kind of thing is waiting (a change set to approve, a decision
 on theirs, a job of theirs that finished) and links to refiroo; it never names a record, a change set or a person.
 The switch is not shown where it cannot work: mail not set up, no address on the person, or a client (which has
 an inbox but no mail). Notices from before switching on, ones already read and a client's are not mailed; while mail
 is not set up notices wait and are mailed once it is.
 
-Limits: the page has no way to send a failed message again; inbox mail has no choice of which kinds, no digest
+Limits: the page has no way to send a failed message again; inbox mail has no digest
 and no mail for clients; there is no mail provider's
 API, only SMTP; the organisation sets up SPF and DKIM for the from address's domain.
 

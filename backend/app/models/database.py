@@ -2246,6 +2246,10 @@ class User(Base):
     local_kept: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # When the person switched on mail for their inbox; none: off (0.12 M2, D432).
     notice_mail_since: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # The notice kinds the person does not want mailed; all others are (0.12 M2 follow-up, D435).
+    notice_mail_kinds_off: Mapped[list[str]] = mapped_column(
+        ARRAY(String(160)), nullable=False, default=list, server_default="{}"
+    )
 
 
 class SignInProvider(Base):

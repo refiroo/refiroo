@@ -7,13 +7,14 @@ unhandled (``mailed_at`` empty), made since the person switched it on and under 
 marks the notice handled in the same transaction, so a notice is mailed once. Without saved mail
 settings nothing is queued or marked: notices wait, and are mailed once mail is saved if they are
 still under 24 hours old. A notice of a person who switched it off, has no address or is inactive
-is left alone. Clients have no mail.
+is left alone. So is a notice of a kind the person switched off (``users.notice_mail_kinds_off``,
+D434): only the mail stops; the notice stays in the inbox and is unchanged. Clients have no mail.
 """
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import all_, select
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
@@ -21,6 +22,7 @@ from ...models.database import Notification, User
 from ..identity.settings import IdentitySettings
 from ..mail import outbox, templates
 from ..mail import settings as mail_settings
+from . import kinds
 
 # A notice older than this is no longer news: it is not mailed.
 MAIL_WITHIN = timedelta(hours=24)
@@ -38,19 +40,28 @@ class NoticeMail:
     enabled: bool
     reason: str | None
     email: str | None
+    # Every kind of notice with whether the person is mailed it (not switched off).
+    kinds: tuple[tuple[str, str, bool], ...] = ()
+
+
+def _kind_states(user: User | None) -> tuple[tuple[str, str, bool], ...]:
+    off = set(user.notice_mail_kinds_off or ()) if user else set()
+    return tuple((kind, label, kind not in off) for kind, label in kinds.NOTICE_KINDS)
 
 
 def state(session: Session, user: User | None) -> NoticeMail:
     """The setting of ``user`` (None: a client, who has no mail)."""
     if user is None:
-        return NoticeMail(False, NOT_A_PERSON, None)
+        return NoticeMail(False, NOT_A_PERSON, None, _kind_states(None))
     if mail_settings.load(session) is None:
         reason = MAIL_NOT_SET_UP
     elif not user.email:
         reason = NO_EMAIL
     else:
         reason = None
-    return NoticeMail(user.notice_mail_since is not None, reason, user.email or None)
+    return NoticeMail(
+        user.notice_mail_since is not None, reason, user.email or None, _kind_states(user)
+    )
 
 
 def switch(session: Session, user: User, enabled: bool, now: datetime) -> NoticeMail:
@@ -75,6 +86,25 @@ def switch(session: Session, user: User, enabled: bool, now: datetime) -> Notice
     return state(session, user)
 
 
+def choose_kinds(session: Session, user: User, chosen: dict[str, bool]) -> None:
+    """Switch the named kinds on or off for the person's mail; the others stay as they are. An
+    unknown kind is ``422 UNKNOWN_NOTICE_KIND`` and nothing changes. Does not commit. It may be
+    done while mail is off or unavailable: it is the person's preference."""
+    unknown = [kind for kind in chosen if kind not in kinds.LABELS]
+    if unknown:
+        raise api_error(
+            422,
+            "UNKNOWN_NOTICE_KIND",
+            f"Not a kind of notice: {', '.join(unknown)}",
+            {"kinds": unknown},
+        )
+    off = set(user.notice_mail_kinds_off or ())
+    for kind, on in chosen.items():
+        (off.discard if on else off.add)(kind)
+    # Stored in the order the kinds are listed, so a repeat changes nothing.
+    user.notice_mail_kinds_off = [kind for kind, _ in kinds.NOTICE_KINDS if kind in off]
+
+
 def queue_notices(
     session: Session, identity: IdentitySettings, now: datetime, *, batch: int = BATCH
 ) -> int:
@@ -94,6 +124,7 @@ def queue_notices(
             User.email != "",
             User.notice_mail_since.is_not(None),
             Notification.created_at >= User.notice_mail_since,
+            Notification.kind != all_(User.notice_mail_kinds_off),
         )
         .order_by(Notification.sequence_id)
         .limit(batch)

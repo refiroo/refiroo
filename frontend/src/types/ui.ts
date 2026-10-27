@@ -119,7 +119,15 @@ export interface ChangesRoute {
 export type SettingsRoute =
   | {
       kind: "settings";
-      page: "about" | "appearance" | "account" | "deployment" | "operations" | "consumer-apis" | "api-reference";
+      page:
+        | "about"
+        | "appearance"
+        | "account"
+        | "notifications"
+        | "deployment"
+        | "operations"
+        | "consumer-apis"
+        | "api-reference";
     }
   /** Jobs, or one job's page (0.9 J1u). */
   | { kind: "settings"; page: "jobs"; jobId?: string }
