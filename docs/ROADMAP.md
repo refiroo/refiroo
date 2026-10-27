@@ -7,7 +7,7 @@ optimistic concurrency, and keeps public collections cursor-paged.
 The release train is 0.6 for daily live operations and optional coordinated design, 0.7 for core mapping, 0.8 for the relation matrix
 (translations among its uses) and hierarchy editing, 0.9 for integration APIs, 0.10 for model authoring and spreadsheet onboarding (one editor for the
 model and the import mapping, ADR-035), 0.11 for production hardening and staged workspace model rollout,
-0.12 for security (authentication and authorization across the backend, frontend and APIs), 0.13 for the documentation, 0.14 for the management API reference, 0.15 for the interface language, and 1.0 for
+0.12 for security (authentication and authorization across the backend, frontend and APIs), 0.13 for the documentation, 0.14 for the management API reference, 0.15 for the interface language, 0.16 for AI integration (proposals, agent access, operations summaries), and 1.0 for
 migration-class model changes, protected publishing and extensions.
 
 ## Current development baseline — Base 0.11 complete
@@ -675,6 +675,47 @@ including the engine's error messages the interface can meet; English and German
 - Every German key exists in English and the reverse; placeholders match.
 - The browser runners, the accessibility and visual gates pass in English unchanged, and the visual gate
   passes in German at 1440px and 390px in light and dark.
+
+## Product release 0.16 — AI integration
+
+_Created 2026-10-27 by the user_ from a discussion of where AI fits the engine. Planned before 1.0 for
+now, like 0.14 and 0.15; the recommendations are for revision. Plan:
+[BASE_0_16_IMPLEMENTATION_PLAN](BASE_0_16_IMPLEMENTATION_PLAN.md).
+
+### Product outcome
+
+Stewards, administrators and AI assistants use AI where it helps and cannot make it decide. Machine
+proposals arrive as editable, marked steps and changes; an assistant reads reference data and prepares
+changes through the same authorization as any client; summaries of model changes, history and
+notifications sit beside the facts they cite. Nothing is sent anywhere unless an operator configures a
+provider, and nothing writes live data without a person.
+
+### Delivery scope
+
+- A proposal provider (the 0.10 inference assistant generalised): settings, a Claude and an
+  OpenAI-compatible adapter (which covers local models), send levels, a call record, a permission,
+  jobs, and provenance on proposed steps and changes (AP1)
+- Track P: target proposals for unmapped values, a widened model-authoring assistant and semantic
+  model-mapping candidates, draft values for empty fields (translations among them), dry-run triage
+  (AP2–AP5)
+- Track A: an MCP server in the engine under the existing tokens and roles, read tools generated from
+  the consumer API definitions, write tools that prepare a change set and submit it for approval (never approve), natural-language
+  search (AG1–AG4)
+- Track O: an impact summary of a model change, an account of what changed in a workspace, and
+  opt-in notification digests, each with its cited facts (AO1–AO3)
+- Instruction-driven tasks (AP6): a person attaches a workbook and writes what they want in loose
+  English; the assistant plans it from steps the engine already has, shows its reading and a dry run
+  of every row, and runs it into a change set on confirmation; the saved profile repeats it next month
+- Not included: a free-running agent, fine-tuning, a prompt editor, live writes by
+  an agent or a proposal
+
+### Exit gate
+
+- With no provider and MCP off, nothing AI appears and nothing leaves the instance.
+- No value above the configured send level reaches a provider; every accepted proposal is recorded as
+  machine-proposed with its approver.
+- No agent tool approves, publishes, withdraws, administers or deletes; every call is audited with its channel.
+- Every summary statement cites a fact that exists; a failing provider never fails a deterministic result.
 
 ## Product release 1.0 — Self-service model authoring and extensions
 
