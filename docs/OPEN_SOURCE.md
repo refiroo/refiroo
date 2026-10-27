@@ -5,12 +5,12 @@ supplied vendor package is discovery material and is not included in the reposit
 
 ## Licence decision
 
-No licence has been selected yet. Publishing a repository without a licence does not grant normal
-open-source reuse rights, so a licence must be chosen before the first public release.
-
-Apache License 2.0 is the practical default for a permissive infrastructure product because it includes
-an explicit patent grant. AGPL-3.0 is the alternative if hosted modifications should also remain open.
-The choice should reflect the intended adoption and commercial model.
+The licence is the GNU Affero General Public License, version 3 or later (`AGPL-3.0-or-later`). The
+root [`LICENSE`](../LICENSE) is the unmodified licence text. It was chosen so that modified versions run
+as a network service stay open, and so that the owner can still offer separate commercial licences.
+The licensing work that remains before the first public release (ownership record, contribution
+agreement, commercial and trademark notes, dependency notices, security policy) is in
+[LICENSING_TODO](LICENSING_TODO.md).
 
 ## Third-party code shipped with the engine
 
@@ -31,7 +31,7 @@ bundling them with software; the font files are not modified. To upgrade: change
 
 ## Before the first public release
 
-- Choose and add the licence.
+- Finish the licensing work in [LICENSING_TODO](LICENSING_TODO.md).
 - Replace STOPS-oriented seed terminology if the repository should be entirely generic.
 - Add contribution guidelines, a code of conduct and security reporting instructions.
 - Run dependency and secret scanning.
