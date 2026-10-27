@@ -39,3 +39,6 @@ var/job-files/
 
 # Test selection data (pytest-testmon, H4b)
 backend/.testmondata*
+
+# Files named for staying out of git, wherever they are
+*_not_to_git*
