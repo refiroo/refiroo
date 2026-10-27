@@ -2771,6 +2771,115 @@ tr.openable-row:hover > * {
   flex: 1;
   min-width: 0;
 }
+.entity-facts {
+  display: flex;
+  flex: none;
+  gap: 16px;
+}
+.entity-fact {
+  display: grid;
+  gap: 1px;
+  width: 168px;
+  min-width: 0;
+  text-align: left;
+}
+.entity-fact:last-child {
+  width: 88px;
+}
+.entity-fact-label {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.entity-fact-value {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--text-sm, 13px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entity-group-fact {
+  display: none;
+}
+.entity-status {
+  display: contents;
+}
+/* A group whose rows carry facts: one set of tracks for the heading and every row, so the columns
+   line up from row to row and group to group. Tile | text | one track per fact | status. */
+@media (min-width: 761px) {
+  .entity-group.has-facts .nav-label,
+  .entity-group.has-facts .entity-row {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) var(--fact-tracks) 12rem;
+    column-gap: 10px;
+    align-items: center;
+  }
+  .entity-group.has-facts .nav-label .entity-group-title {
+    grid-column: 1 / 3;
+  }
+  .entity-group.has-facts .entity-group-fact {
+    display: block;
+    min-width: 0;
+  }
+  .entity-group.has-facts .entity-facts {
+    display: contents;
+  }
+  .entity-group.has-facts .entity-fact {
+    display: block;
+    width: auto;
+  }
+  .entity-group.has-facts .entity-fact:last-child {
+    width: auto;
+  }
+  /* Kept for a screen reader: the heading shows the labels. */
+  .entity-group.has-facts .entity-fact-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  /* Always the last column, empty or not, so the facts never move; wraps when two pills appear. */
+  .entity-group.has-facts .entity-status {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: -2 / -1;
+    align-items: center;
+    gap: 4px 6px;
+    min-width: 0;
+  }
+}
+@media (max-width: 760px) {
+  .entity-row {
+    flex-wrap: wrap;
+  }
+  .entity-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+  }
+  .entity-facts {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding-left: 42px;
+  }
+  .entity-fact {
+    width: auto;
+    max-width: 100%;
+  }
+  .entity-fact:last-child {
+    width: auto;
+  }
+  .entity-fact-value {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
 .entity-tile {
   display: inline-grid;
   flex: none;

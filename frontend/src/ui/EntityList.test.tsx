@@ -32,6 +32,37 @@ describe("EntityList", () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
+  it("shows labelled facts that belong to the row's accessible name", () => {
+    show([
+      {
+        key: "a",
+        title: "Active",
+        count: 1,
+        rows: [
+          {
+            ...row("one", "One"),
+            facts: [
+              { label: "Model", value: "Starter" },
+              { label: "Release", value: "0.3.0", mono: true },
+            ],
+          },
+          row("two", "Two"),
+        ],
+      },
+    ]);
+    const first = screen.getByRole("button", { name: /One/ });
+    expect(first).toHaveAccessibleName(expect.stringContaining("Model: Starter, Release: 0.3.0"));
+    // The labels are shown once, in the group's heading, and stay in the row for a screen reader.
+    const heading = screen.getByRole("heading", { name: "Active · 1" });
+    expect(within(heading).getByText("Model")).toBeInTheDocument();
+    expect(within(heading).getByText("Release")).toBeInTheDocument();
+    expect(screen.getAllByText("Model")).toHaveLength(2);
+    expect(within(first).getByText("Starter")).toHaveAttribute("title", "Starter");
+    expect(within(first).getByText("0.3.0")).toHaveClass("mono");
+    expect(first.querySelector("button, a, dl")).toBeNull();
+    expect(screen.getByRole("button", { name: /Two/ }).querySelector(".entity-facts")).toBeNull();
+  });
+
   it("shows placeholders, an error with Retry, and the empty text once everything is settled", () => {
     const retry = vi.fn();
     show([

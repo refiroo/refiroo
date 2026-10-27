@@ -105,8 +105,10 @@ should be an additive change.
 
 ### Derived values
 
-`engine/records/attributes.apply_attribute_values` is the only write path for stored values and must stay
-so. Do not assume every displayed or exported value is stored; leave room for read-only values computed
+Stored values have three writers: `engine/records/attributes.apply_attribute_values` (one record),
+`LiveWrites` in `engine/records/writes.py` (bulk and import) and the change-set merge (`save_values`); a model
+migration rewrites them in SQL (checked 0.12 L2). A derived value must go through all of them; do not add a
+fourth. Do not assume every displayed or exported value is stored; leave room for read-only values computed
 from related records and declared in the model. Consumer API projections already compute values from
 related objects and are the nearest pattern.
 
@@ -148,9 +150,10 @@ later retired-ID redirect stays possible.
 
 ### Value types
 
-A new attribute value type should be an additive schema change: one registry entry, validation,
-conversion in `engine/records/values.py` and a renderer. Do not hard-code the list of value types
-outside those registries.
+A new attribute value type should be an additive change to the contracts. In the code it is not one entry: the
+list is repeated in about 25 places, the database's per-type value columns and the interface (counted in 0.12
+L2, [COMPATIBILITY](COMPATIBILITY.md#the-doors-kept-open)). Do not add more copies of the list; gather them
+when the first new type is built.
 A migration converts values by pairs of value types in the SQL function `rdm_convert_value`; a new
 type's pairs are added there by a database migration, and until they are, a value converting to or
 from the new type is reported as loss, never dropped (0.11 V4, D102). A model mapping refuses a pair

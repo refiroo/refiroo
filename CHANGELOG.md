@@ -28,6 +28,33 @@ All notable changes to this project are documented in this file. The format foll
   Workspaces marks the workspace "Cannot be opened" in its list and shows the same notice at the top of its
   Overview.
 
+### Changed (0.12, the Workspaces list)
+
+- **Settings › Workspaces lists each workspace's model and release in aligned columns**, labelled once per
+  group; the second line is the workspace's key. At a phone's width they stack under the name.
+
+### Added (0.12 L2, the compatibility commitment)
+
+- **[docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)** (D436–D440): from 0.12.0 the management API `/api/v1`, each
+  consumer API contract version, webhooks and events with the `RDM-*` headers, sign-in and tokens, the setting
+  names and the documented commands change only by addition; a breaking change comes beside the old version and
+  the old one is kept at least 12 months and two minor releases. Clients ignore unknown fields and values; four
+  extensions are reserved (a retired record's survivor, a value's source, computed values, new value types). Before
+  1.0 the schema language is the exception: each release reads the version it writes.
+- **Consumer API documents describe answers as open objects** (no `additionalProperties: false`), so a client
+  that validates against them accepts a field added later; requests stay closed.
+
+### Removed (0.12 L2a, the schema-language window cleaned)
+
+- **The window is schema 0.10 only (D439, D441).** Before 1.0 the window holds the one version a release
+  writes; 0.5 to 0.9 left it. `GET /system` answers `schemaLanguages: ["0.10"]`, every refusal names
+  `supportedSchemaVersions: ["0.10"]`, and `setRelease` accepts only `0.10`. Gone with them: the
+  per-version feature checks, the reader of 0.8-shaped consumer API definitions, and the offline schema 0.4
+  upgrade command (`python -m app.cli.model_schema_upgrade`).
+- **The example models are released as `0.10.0`** in schema 0.10 (`model/rdm-starter.json`,
+  `model/rdm-operators-timetables.json`); the 0.8 copy of the operators model is removed. A stored release of an
+  older schema is raised with `python -m app.cli.model_release_raise` or from the interface (UW1).
+
 ### Changed (0.12 L2a follow-up, a bootstrap release conflict no longer stops the start)
 
 - **Startup serves when the bootstrap model's release is stored with other content.** It logs one error (no

@@ -100,13 +100,13 @@ def _value(value_type: Any) -> dict[str, Any]:
     return dict(_TYPES.get(value_type, {}))
 
 
-def _object(properties: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
-    return {
-        "type": "object",
-        "properties": properties,
-        "required": list(properties) if required is None else required,
-        "additionalProperties": False,
-    }
+def _object(properties: dict[str, Any], required: list[str] | None = None, *, closed: bool = False) -> dict[str, Any]:
+    """An object schema. An answer's objects stay open, so a field added later is no breaking change
+    for a client that validates against the document (COMPATIBILITY, D440); a request's are closed."""
+    schema = {"type": "object", "properties": properties, "required": list(properties) if required is None else required}
+    if closed:
+        schema["additionalProperties"] = False
+    return schema
 
 
 class _Document:
@@ -471,6 +471,7 @@ class _Document:
                 },
             },
             ["items"],
+            closed=True,
         )
         schemas["ResolveOutcome"] = _object(
             {

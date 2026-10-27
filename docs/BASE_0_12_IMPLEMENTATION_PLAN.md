@@ -5085,7 +5085,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 16a | [M2](#m2-inbox-notifications-by-mail) | M1, A2 | **Delivered 2026-10-27** (D432, D433): e-mail for inbox notifications, per person, off by default
 | 17 | [A3](#a3-approvals-in-the-interface) | A2, Z5 | **Delivered 2026-10-27.** Submit, decide and the policy in the interface |
 | 18 | [L1](#l1-licensing-and-policies) | — | **Built 2026-10-27**, open: the maintainer's confirmations, counsel, the secret scan. Licensing and policies |
-| 19 | [L2](#l2-the-compatibility-commitment) | E1 (A3 if delivered), the project's name | The compatibility commitment, now including the authentication contracts |
+| 19 | [L2](#l2-the-compatibility-commitment) | E1 (A3 if delivered), the project's name | **Delivered 2026-10-27** with L2a (the window cleaned) and UW1 (a workspace that cannot be served). The compatibility commitment, now including the authentication contracts |
 | 20 | R | all above the cut | Build acceptance and the first public release |
 
 ```text
@@ -5282,6 +5282,18 @@ notice and dates; and a check that the four doors of COMPOSABLE_DOMAINS stay ope
 in D437 is found in a document; each door's evidence exists in the code at the commit; COMPATIBILITY's links
 and the schema table agree with `SCHEMA_VERSIONS` (a unit test already holds the window to the compiler; the
 table is checked against it by hand in R).
+
+#### L2 record (2026-10-27)
+
+**Delivered.** [COMPATIBILITY.md](COMPATIBILITY.md) as planned (D436–D438, D440 accepted; D439 changed by the
+user), linked from the README, API, CONSUMER_API and OPERATIONS; the doors checked against the code by reading it
+(all four open; two documented claims in COMPOSABLE_DOMAINS were untrue and are corrected: values have three
+writers, and the value-type list is repeated in about 25 places). Found and fixed: the consumer API documents
+closed every answer object (`additionalProperties: false`); answers are open now, requests stay closed (J25, J28/J29,
+J33, J20 and the consumer model tests: 159 passed). L2a: the window is 0.10 only; the example models released as
+`0.10.0`; the bootstrap conflict no longer stops the start and names `python -m app.cli.model_release_raise`;
+the interface's repair is UW1. The 0.12 R plan must carry COMPATIBILITY's release check (every OpenAPI-lock
+re-baseline since 0.11.0 marked additive or breaking).
 
 **L2a: the window cleaned (follows from D439, before R).** Removing a version is not only a constant:
 the compiler's per-version feature gates, the 0.8 consumer-API reading (`consumer_legacy.py`), the legacy

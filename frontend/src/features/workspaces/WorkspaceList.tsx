@@ -3,7 +3,6 @@ import { api } from "@/api/client";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { UnavailableBadge, unavailability } from "@/features/workspaces/UnavailableWorkspace";
-import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
 import type { Workspace } from "@/types";
 import { EntityList, type EntityGroup } from "@/ui/EntityList";
 import { StatusPill } from "@/ui/StatusPill";
@@ -68,7 +67,12 @@ export function WorkspaceList({ defaultKey, onOpen }: { defaultKey?: string; onO
     rows: items.map((workspace) => ({
       key: workspace.key,
       title: workspace.label,
-      subtitle: `${workspace.key} · ${workspaceModelLabel(workspace)}`,
+      subtitle: workspace.key,
+      subtitleMono: true,
+      facts: [
+        { label: "Model", value: workspace.model.releaseName },
+        { label: "Release", value: workspace.model.releaseVersion, mono: true },
+      ],
       icon: "workspace" as const,
       pill: (
         <>

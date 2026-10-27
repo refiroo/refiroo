@@ -1,6 +1,12 @@
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { Icon, type IconName } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
+
+export interface EntityFact {
+  label: string;
+  value: ReactNode;
+  mono?: boolean;
+}
 
 /** One line of a list: an item with a tile, a title, a pill and a second line. */
 export interface EntityRow {
@@ -8,6 +14,10 @@ export interface EntityRow {
   key: string;
   title: string;
   subtitle: string;
+  /** The subtitle is a code (a key): shown in the mono face. */
+  subtitleMono?: boolean;
+  /** Labelled facts shown as aligned columns at the row's end (under the text on a narrow screen). */
+  facts?: EntityFact[];
   icon: IconName;
   pill?: ReactNode;
   /** The row of the item shown elsewhere on the page. */
@@ -138,10 +148,27 @@ function EntityGroupSection({ group, label }: { group: EntityGroup; label: strin
     );
   }
   if (!rowCount) return null;
+  // Labels once per group, in the heading, above the same columns the rows use. A row keeps its
+  // labels for a screen reader and for a narrow screen, where the columns give way to a stack.
+  const factLabels = group.rows.find((row) => row.facts?.length)?.facts?.map((fact) => fact.label) ?? [];
+  const tracks = factLabels.length
+    ? `minmax(12rem, 18rem)${factLabels.length > 1 ? ` repeat(${factLabels.length - 1}, 7rem)` : ""}`
+    : undefined;
   return (
-    <section className="entity-group" aria-label={group.title}>
+    <section
+      className={`entity-group${tracks ? " has-facts" : ""}`}
+      aria-label={group.title}
+      style={tracks ? ({ "--fact-tracks": tracks } as CSSProperties) : undefined}
+    >
       <h3 className="nav-label">
-        {group.title} · {group.count}
+        <span className="entity-group-title">
+          {group.title} · {group.count}
+        </span>
+        {factLabels.map((label) => (
+          <span key={label} className="entity-group-fact" aria-hidden="true">
+            {label}
+          </span>
+        ))}
       </h3>
       {group.rows.map((row) => (
         <button
@@ -156,9 +183,34 @@ function EntityGroupSection({ group, label }: { group: EntityGroup; label: strin
           </span>
           <span className="catalogue-text">
             <strong>{row.title}</strong>
-            <small>{row.subtitle}</small>
+            <small className={row.subtitleMono ? "mono" : undefined}>{row.subtitle}</small>
           </span>
-          {row.pill}
+          {row.facts?.length ? (
+            // Spans, not a dl: a button may hold phrasing content only. The hidden colon and comma
+            // make a screen reader say "Model: Starter model, Release: 0.3.0".
+            <span className="entity-facts">
+              {row.facts.map((fact, at) => (
+                <span key={fact.label} className="entity-fact">
+                  {at > 0 && (
+                    <>
+                      <span className="visually-hidden">,</span>{" "}
+                    </>
+                  )}
+                  <span className="entity-fact-label">
+                    {fact.label}
+                    <span className="visually-hidden">: </span>
+                  </span>{" "}
+                  <span
+                    className={fact.mono ? "entity-fact-value mono" : "entity-fact-value"}
+                    title={typeof fact.value === "string" ? fact.value : undefined}
+                  >
+                    {fact.value}
+                  </span>
+                </span>
+              ))}
+            </span>
+          ) : null}
+          {tracks ? <span className="entity-status">{row.pill}</span> : row.pill}
         </button>
       ))}
       {group.error && <InlineError message={group.error} onRetry={group.onRetry ?? noRetry} />}

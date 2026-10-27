@@ -1,7 +1,8 @@
 # Operations
 
 How to configure, run, upgrade and recover refiroo (the application; the engine inside it is the RDM engine, see [BRANDING.md](BRANDING.md)). The design reasons behind these rules are in
-[ARCHITECTURE.md](ARCHITECTURE.md); the API contracts are in [API.md](API.md).
+[ARCHITECTURE.md](ARCHITECTURE.md); the API contracts are in [API.md](API.md). The setting names and the documented commands are committed from 0.12.0
+([COMPATIBILITY.md](COMPATIBILITY.md)).
 
 The engine is pre-production until 0.11 (production hardening) and 0.12 (authentication). Every API
 is unauthenticated today: run it only in a trusted environment or behind an access-control layer.

@@ -131,7 +131,9 @@ describe("WorkspaceAdmin", () => {
     const active = await screen.findByRole("region", { name: "Active" });
     const rows = within(active).getAllByRole("button");
     expect(rows.map((row) => row.querySelector("strong")?.textContent)).toEqual(["Default", "Retail"]);
-    expect(rows[0]).toHaveTextContent(/default · .*Default/);
+    expect(rows[0]).toHaveAccessibleName(/default.*Model: Starter model, Release: 0\.3\.0/i);
+    expect(within(rows[0]).getByText("default")).toHaveClass("mono");
+    expect(within(rows[0]).getByText("0.3.0")).toHaveClass("mono");
     expect(active).toHaveTextContent("Active · 2");
     const retired = screen.getByRole("region", { name: "Retired" });
     expect(retired).toHaveTextContent("Retired · 1");

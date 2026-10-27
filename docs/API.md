@@ -1,6 +1,6 @@
 # API principles and contract
 
-This is the API of **refiroo**, the application (see [OPERATORING.md](OPERATORING.md)); the API reference page at `/docs` carries the same name and mark.
+This is the API of **refiroo**, the application (see [OPERATORING.md](OPERATORING.md)); the API reference page at `/docs` carries the same name and mark. What of it is committed from 0.12.0, and how it changes, is in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ## Entity identifiers
 
