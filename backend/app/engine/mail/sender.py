@@ -1,6 +1,7 @@
 """The mail sender's thread (Product 0.12 M1, D419): sends what the outbox holds.
 
-Every couple of seconds it gives up on messages older than 24 hours, leases the ones that are due
+Every couple of seconds it queues the mail of due inbox notices (``notifications.mailing``, M2),
+gives up on messages older than 24 hours, leases the ones that are due
 and hands each to the SMTP server. A message that fails waits longer each time (30 seconds,
 doubling, at most an hour); one the server refuses for good (an address that does not exist) fails
 at once. When the whole server fails (it cannot be reached, TLS, the login), the other leased
@@ -25,6 +26,7 @@ from ...common.outage import OutageLog
 from ...common.sealing import SealError, unseal
 from ...models.database import MailOutbox
 from ..identity.settings import IdentitySettings
+from ..notifications import mailing
 from . import settings as mail_settings
 from .outbox import GIVE_UP_AFTER, RETAIN_FINISHED, body_context, retry_delay
 from .smtp import SERVER_WIDE, Connection, MailError, build, deliver
@@ -128,6 +130,8 @@ class MailSender:
         """Send what is due; how many messages were handled (sent, retried later or failed)."""
         at = now or datetime.now(UTC)
         self.expire(at)
+        with self.session_factory() as session:
+            mailing.queue_notices(session, self.identity, at)
         claimed = self.claim(at)
         if not claimed:
             return 0

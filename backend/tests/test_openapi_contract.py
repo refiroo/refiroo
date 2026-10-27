@@ -301,9 +301,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # /me/notifications/events with the Notification* schemas, and on the consumer subscriptions
     # `source` (create and answer) with `consumerApi` optional in the create and nullable in the
     # answer; nothing else changed.
+    # Re-baselined for 0.12 M2: GET and PUT /me/notification-mail with NoticeMailResponse and
+    # NoticeMailUpdate, and the description of MailMessageResponse.kind (`test` and `notice`);
+    # nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "6fafcd1a5fde1f2308b1c10215c7730b46f3b7c1307ba6b1261cdc97d556776d"
+        "92a1e8466a20228f84df5a78fae9844e22cc067f93a7c6728aac3165b8ba35c8"
     )
 
 

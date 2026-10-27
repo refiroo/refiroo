@@ -2266,10 +2266,12 @@ open). **Channel:** UI (the home page after sign-in, the bare address, the produ
 
 ### J46 — Send mail
 
-**Actor:** Security administrator; the engine itself (a new person's link, a reset, later inbox
-notices). **Channel:** UI (Settings › Mail, under Integration), API (`GET`/`PUT`/`DELETE
-/mail-settings`, `POST /mail-settings/test`, `GET /mail-outbox`). **Status:** the sending half
-delivered by 0.12 M1 (2026-10-26); a new person's link and an administrator's reset are mailed by SP3; the rest arrive with I6 and M2.
+**Actor:** Security administrator; the engine itself (a new person's link, a reset, inbox notices);
+any person, for their own inbox mail. **Channel:** UI (Settings › Mail, under Integration; Settings ›
+Account for the inbox switch), API (`GET`/`PUT`/`DELETE /mail-settings`, `POST /mail-settings/test`,
+`GET /mail-outbox`, `GET`/`PUT /me/notification-mail`). **Status:** the sending half delivered by 0.12
+M1 (2026-10-26); a new person's link and an administrator's reset are mailed by SP3, a forgotten
+password by I6 and inbox notices by M2 (2026-10-27).
 
 1. Open Mail and enter the organisation's SMTP server: host, port, how the connection is secured
    (TLS, STARTTLS or none), a user name and password if it asks for one, the address mail comes from
@@ -2312,8 +2314,18 @@ delivered by 0.12 M1 (2026-10-26); a new person's link and an administrator's re
   administration at the instance: it fails at once saying an administrator stopped it, its text is
   erased and nothing more is sent. A message already sent or failed, one a sender holds at that moment,
   and one that does not exist are refused by code.
+- **J46.10 Inbox notices by mail** (0.12 M2): a person with an address switches on "Email me when
+  something arrives in my inbox" on Account (off until then; the switch is not offered where mail is
+  not set up, the person has no address or the caller is a client). From then on each notice that
+  arrives and is still unread is mailed once, within 24 hours, as a plain-text message that names the
+  kind of event (a change set waits for approval, a decision on yours, a job of yours finished) and
+  links to the application; it never holds a record, a change set's name or comment, a workspace or a
+  person's name. Notices from before switching on, ones already read, a client's and those of a person
+  who switched it off are not mailed; while mail is not set up notices wait and are mailed once it is.
+  Switching on without mail or an address is refused by code, a client is refused as not a person, and
+  switching off always works.
 
-**Refusals:** `403 FORBIDDEN`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
+**Refusals:** `403 FORBIDDEN`, `403 NOT_A_PERSON`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
 MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_SEND_FAILED` (`details.kind`), `404 NOT_FOUND`, `409 MESSAGE_NOT_WAITING`, `409 MESSAGE_BEING_SENT`.
 
 ### J47 — Check the security model

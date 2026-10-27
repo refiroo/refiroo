@@ -6,8 +6,15 @@ from ...common.pagination import Page
 from ...common.time import as_utc
 from ...engine.identity.settings import IdentitySettings
 from ...engine.mail import outbox, settings
+from ...engine.notifications.mailing import NoticeMail
 from ...models.database import MailOutbox, MailSettings
-from ..schemas.mail import MailCounts, MailMessagePage, MailMessageResponse, MailSettingsResponse
+from ..schemas.mail import (
+    MailCounts,
+    MailMessagePage,
+    MailMessageResponse,
+    MailSettingsResponse,
+    NoticeMailResponse,
+)
 
 
 def settings_response(
@@ -48,3 +55,12 @@ def message_response(message: MailOutbox) -> MailMessageResponse:
 
 def message_page(page: Page[MailOutbox]) -> MailMessagePage:
     return MailMessagePage(items=[message_response(m) for m in page.items], **page.links())
+
+
+def notice_mail_response(found: NoticeMail) -> NoticeMailResponse:
+    return NoticeMailResponse(
+        enabled=found.enabled,
+        available=found.reason is None,
+        reason=found.reason,  # type: ignore[arg-type]
+        email=found.email,
+    )

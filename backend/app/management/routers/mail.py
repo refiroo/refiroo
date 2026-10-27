@@ -3,16 +3,19 @@
 Mail decides where one-time links go, so it needs Security administration at the instance (D423).
 """
 
+from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Query, Request, Response
 
 from ...engine.identity.settings import IdentitySettings
+from ...engine.identity.users import load_user
 from ...engine.mail import outbox, settings, smtp, templates
+from ...engine.notifications import mailing
 from ...errors import api_error
 from ...models.commands import MailSettingsUpdate, MailTest
-from ..access import INSTANCE, AuthorizedRoute, requires
-from ..dependencies import DbSession
+from ..access import INSTANCE, SIGNED_IN, AuthorizedRoute, requires
+from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..projections import mail as present
 from ..schemas.mail import (
@@ -20,6 +23,8 @@ from ..schemas.mail import (
     MailMessageResponse,
     MailSettingsResponse,
     MailTestResponse,
+    NoticeMailResponse,
+    NoticeMailUpdate,
 )
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["mail"])
@@ -105,4 +110,30 @@ def list_mail_outbox(
     a message is never answered."""
     return present.message_page(
         outbox.message_page(session, status=status, page=paging, page_size=page_size)
+    )
+
+
+@router.get("/me/notification-mail", response_model=NoticeMailResponse)
+@requires("signed-in", at=SIGNED_IN)
+def get_my_notification_mail(principal: CurrentPrincipal, session: DbSession) -> NoticeMailResponse:
+    """Whether the caller is mailed when something arrives in their inbox, and whether they can be
+    (`available`, else `reason`). A client has no mail: `available` is false."""
+    user = load_user(session, principal.id) if principal.kind == "user" else None
+    return present.notice_mail_response(mailing.state(session, user))
+
+
+@router.put("/me/notification-mail", response_model=NoticeMailResponse)
+@requires("signed-in", at=SIGNED_IN)
+def put_my_notification_mail(
+    payload: NoticeMailUpdate, principal: CurrentPrincipal, session: DbSession
+) -> NoticeMailResponse:
+    """Switch mail for the caller's inbox on or off. Switching on needs mail set up (`409
+    MAIL_NOT_SET_UP`) and an address on the person (`409 NO_EMAIL`); a client is refused (`403
+    NOT_A_PERSON`). Only notices made after switching on are mailed. Switching off always works and
+    repeats harmlessly; neither is a security event."""
+    if principal.kind != "user":
+        raise api_error(403, "NOT_A_PERSON", "Only a signed-in person can be sent mail")
+    user = load_user(session, principal.id, for_update=True)
+    return present.notice_mail_response(
+        mailing.switch(session, user, payload.enabled, datetime.now(UTC))
     )

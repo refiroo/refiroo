@@ -361,6 +361,15 @@ export interface LocalSignIn {
   updatedAt: string;
 }
 
+/** Whether the caller is e-mailed when something arrives in their inbox (0.12 M2). `available` is
+ * false where it cannot work: the switch is then not offered. */
+export interface NoticeMail {
+  enabled: boolean;
+  available: boolean;
+  reason: "mail-not-set-up" | "no-email" | "not-a-person" | null;
+  email: string | null;
+}
+
 /** The caller's second factor (0.12 I4b). */
 export interface MySecondFactor {
   enabled: boolean;

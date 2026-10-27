@@ -18,7 +18,8 @@ PRODUCT = "refiroo"
 ACTIVATION = "activation"
 PASSWORD_RESET = "password-reset"
 TEST = "test"
-KINDS = (ACTIVATION, PASSWORD_RESET, TEST)
+NOTICE = "notice"
+KINDS = (ACTIVATION, PASSWORD_RESET, TEST, NOTICE)
 
 IGNORE = "If you did not expect this message, ignore it; nothing changes."
 
@@ -78,4 +79,30 @@ def test_message(product: str, application_url: str) -> Rendered:
         f"This is a test message from {product}. Mail is set up and this address received it.\n\n"
         f"Links in the mail {product} sends point to:\n\n{application_url}\n\n"
         "If that address is wrong, change it on the Mail page.\n",
+    )
+
+
+# What one inbox notice says, by its kind: the kind of event and nothing of what it is about (D432).
+_NOTICE_SENTENCES = {
+    "change-set.submitted": "A change set is waiting for your approval.",
+    "change-set.approved": "A change set you submitted was approved.",
+    "change-set.sent-back": "A change set you submitted was sent back.",
+    "job.completed": "A job you started has finished.",
+    "job.failed": "A job you started has failed.",
+    "job.awaiting-confirmation": "A job you started is waiting for your confirmation.",
+}
+_NOTICE_OTHER = "Something is waiting in your inbox."
+
+
+def notice(product: str, notice_kind: str, application_url: str) -> Rendered:
+    """One inbox notice: names the kind of event and links to the application, and carries no
+    record, change set, workspace or person content (D239, D421, D432)."""
+    sentence = _NOTICE_SENTENCES.get(notice_kind, _NOTICE_OTHER)
+    return Rendered(
+        NOTICE,
+        f"{product}: something is waiting in your inbox",
+        f"{sentence}\n\n"
+        f"Open {product} to see it:\n\n{application_url}\n\n"
+        "You get this message because you asked for mail when something arrives in your inbox. "
+        "Switch it off on Settings > Account.\n",
     )

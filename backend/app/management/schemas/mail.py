@@ -48,7 +48,7 @@ class MailMessageResponse(BaseModel):
     """A message in the outbox. Its text is never answered: it holds a one-time link."""
 
     id: str
-    kind: str = Field(description="`activation`, `password-reset` or `notification`")
+    kind: str = Field(description="`activation`, `password-reset`, `test` or `notice`")
     to: str
     subject: str
     status: Literal["pending", "sent", "failed"]
@@ -67,3 +67,19 @@ class MailMessageResponse(BaseModel):
 
 class MailMessagePage(CollectionPage[MailMessageResponse]):
     """Messages, newest first (ADR-030)."""
+
+
+class NoticeMailResponse(BaseModel):
+    """Whether the caller is mailed when something arrives in their inbox (0.12 M2). Off until the
+    person switches it on. ``available`` is false where it cannot work, and ``reason`` says why:
+    `mail-not-set-up`, `no-email` (the person has no address) or `not-a-person` (a client has no
+    mail)."""
+
+    enabled: bool
+    available: bool
+    reason: Literal["mail-not-set-up", "no-email", "not-a-person"] | None
+    email: str | None = Field(description="Where the mail goes; none without an address")
+
+
+class NoticeMailUpdate(BaseModel):
+    enabled: bool

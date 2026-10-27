@@ -36,3 +36,22 @@ def test_the_test_message_shows_where_links_point_and_carries_no_link_of_its_own
     message = templates.test_message("refiroo", "https://refiroo.example.org")
     assert message.kind == templates.TEST
     assert "https://refiroo.example.org" in message.body and "token" not in message.body
+
+
+@pytest.mark.parametrize(
+    ("kind", "words"),
+    [
+        ("change-set.submitted", "waiting for your approval"),
+        ("change-set.approved", "was approved"),
+        ("change-set.sent-back", "was sent back"),
+        ("job.completed", "has finished"),
+        ("job.failed", "has failed"),
+        ("job.awaiting-confirmation", "waiting for your confirmation"),
+        ("something.new", "waiting in your inbox"),
+    ],
+)
+def test_a_notice_names_its_kind_and_the_link_and_nothing_else(kind, words):
+    message = templates.notice("refiroo", kind, "https://refiroo.example.org")
+    assert message.kind == templates.NOTICE and message.kind in templates.KINDS
+    assert words in message.body and "https://refiroo.example.org" in message.body
+    assert "Hello" not in message.body

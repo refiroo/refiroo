@@ -4579,6 +4579,39 @@ administrator.
 their inbox (`mail.enabled` per person, off by default, on Account); the message names the kind of
 event and links to the inbox, and carries no record content (D239, D421).
 
+##### M2 record (2026-10-27)
+
+**Delivered 2026-10-27** on the user's request to build M2, without a separate plan or mock-up (one switch row
+in the Account page's existing panel style). D432 and D433 are by recommendation, recorded.
+
+| # | Decision |
+| --- | --- |
+| D432 | **Recommended, recorded.** Notices are mailed one by one, off by default, by the mail sender; a notice names its kind only. Why: one message per notice needs no digest state, a person who turned it on learns of each thing as it happens, and a message that names no record, change set, workspace or person (D239, D421) can sit in a mailbox safely. Only notices made after switching on and under 24 hours old are mailed, so mail set up late or an outage never sends a pile of old news. Cost: a busy approver gets many messages; a per-kind choice or a digest is a later package |
+| D433 | **Recommended, recorded.** The switch is hidden where it cannot work (mail not set up, no address on the person, a client). Why: a switch that cannot be turned on teaches nothing; the engine still refuses by code for an integrator (`409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `403 NOT_A_PERSON`). Cost: a person with no address does not learn from the page that adding one enables it |
+
+- **Built:** migration `20261112_01_inbox_mail` (`users.notice_mail_since`, `notifications.mailed_at`, a partial index on
+  unread unhandled notices of people); `engine/notifications/mailing.py` (`queue_notices`, `state`, `switch`);
+  `templates.notice`; `MailSender.run_once` calls `queue_notices` before it claims, so the thread and the test helpers
+  drive it; `GET`/`PUT /me/notification-mail` in the mail router; `features/settings/NoticeMailPanel.tsx` on Account
+  (the existing `ui/Switch`). The OpenAPI lock moved (two routes, two schemas, the outbox `kind` description).
+- **Where it differs from the plan:** the plan wrote `mail.enabled`; the setting is a time (`notice_mail_since`, none:
+  off) so "made after switching on" needs no second column. Notices already read are not selected rather than marked
+  (a read notice never becomes unread, so marking it would only write rows). The message names no one, not even the
+  recipient. The outbox lists these messages with kind `notice`.
+- **Exercised:** `test_j46_inbox_mail` (6 cases on two configurations, through the API with an approver who signs in
+  as a person and a client submitter; the mail arrives at the harness SMTP server: off by default, one message naming
+  the kind with the link and none of the change set's name, comment or people, earlier/read/client notices not mailed,
+  refusals by code and switching off, a notice waiting while mail is not set up and mailed once it is, one notice mailed
+  once); `test_j46_mail`, `test_j42_inbox`, the OpenAPI lock, `test_api_journeys`, startup and boundaries; frontend:
+  `AccountPage.test` (switch on and off, hidden for each reason, a refusal shown), `npm run lint` (0 errors), `npm run
+  build`.
+- **Not verified:** the switch in a real browser (no browser runner was run: appearance, 390px and keyboard use are
+  unverified); a real mail server's rendering of the message; two senders running at once against one notice
+  (`FOR UPDATE SKIP LOCKED` is the guard, not exercised); the migration's downgrade and an interrupted run; the 24 hour
+  limit (the tests do not move the clock past it).
+- **What the user cannot do, with no package planned:** choose which kinds of notice are mailed, or get a digest; mail for
+  a client; send a failed message again (also open since M1). Each waits for the user to decide whether it becomes a package.
+
 ### Track DP — Deployment
 
 _Added by the user, 2026-10-25,_ after "The engine cannot be reached … http://localhost:8000" on a
@@ -4994,7 +5027,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | — | _cut line_ | | _Was: if R is out of reach, 0.12.0 releases here and Track A follows in 0.12.x._ **Not used (the user, 2026-10-26): 0.12 is released complete, Track A, M2 and L1–L2 included; E1 is the gate before them.** |
 | 15 | [A1](#a1-a-publication-request-and-its-approval) | Z1, Z4 | **Delivered 2026-10-26** (D424–D427). Submit, approve or send back, self-approval, four-eyes policy; the API |
 | 16 | [A2](#a2-the-inbox) | A1, I2 | The inbox; webhook events per step |
-| 16a | [M2](#m2-inbox-notifications-by-mail) | M1, A2 | Planned 2026-10-26 (D418, D421): e-mail for inbox notifications, per person, off by default
+| 16a | [M2](#m2-inbox-notifications-by-mail) | M1, A2 | **Delivered 2026-10-27** (D432, D433): e-mail for inbox notifications, per person, off by default
 | 17 | [A3](#a3-approvals-in-the-interface) | A2, Z5 | Approvals on the change-set review |
 | 18 | [L1](#l1-licensing-and-policies) | — | Licensing and policies (filler, any time) |
 | 19 | [L2](#l2-the-compatibility-commitment) | E1 (A3 if delivered), the project's name | The compatibility commitment, now including the authentication contracts |

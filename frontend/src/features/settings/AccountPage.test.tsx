@@ -15,6 +15,8 @@ vi.mock("@/api/client", () => ({
     endMySession: vi.fn(async () => undefined),
     endAllMySessions: vi.fn(async () => undefined),
     changePassword: vi.fn(),
+    myNoticeMail: vi.fn(),
+    setMyNoticeMail: vi.fn(),
     // Their own panels are tested in SecondFactorPanel.test and PasskeysPanel.test.
     myPasskeys: vi.fn(async () => []),
     mySecondFactor: vi.fn(async () => ({
@@ -88,6 +90,12 @@ describe("Settings › Account (0.12 I2)", () => {
     });
     vi.mocked(api.mySessions).mockResolvedValue([session("s1", true, firefox), session("s2", false, iphone)]);
     vi.mocked(api.myGrants).mockResolvedValue([]);
+    vi.mocked(api.myNoticeMail).mockResolvedValue({
+      enabled: false,
+      available: false,
+      reason: "mail-not-set-up",
+      email: "ana@example.org",
+    });
     vi.mocked(api.workspaces).mockResolvedValue({
       items: [
         { key: "default", label: "Default" },
@@ -180,5 +188,63 @@ describe("Settings › Account (0.12 I2)", () => {
     expect(await screen.findByText(/Your password is changed/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Change password" })).toBeInTheDocument();
+  });
+
+  describe("mail for the inbox (0.12 M2)", () => {
+    const available = { enabled: false, available: true, reason: null, email: "ana@example.org" } as const;
+    const label = "Email me when something arrives in my inbox";
+
+    it("switches it on and off, showing the address", async () => {
+      vi.mocked(api.myNoticeMail).mockResolvedValue(available);
+      vi.mocked(api.setMyNoticeMail).mockResolvedValueOnce({ ...available, enabled: true });
+      renderPage();
+      const toggle = await screen.findByRole("switch", { name: label });
+      expect(toggle).toHaveAttribute("aria-checked", "false");
+      expect(screen.getByText(/sent to ana@example.org/)).toBeInTheDocument();
+      fireEvent.click(toggle);
+      await waitFor(() => expect(api.setMyNoticeMail).toHaveBeenCalledWith(true));
+      await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "true"));
+
+      vi.mocked(api.setMyNoticeMail).mockResolvedValueOnce(available);
+      fireEvent.click(toggle);
+      await waitFor(() => expect(api.setMyNoticeMail).toHaveBeenLastCalledWith(false));
+      await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "false"));
+    });
+
+    it.each(["mail-not-set-up", "no-email", "not-a-person"] as const)(
+      "is not offered when it cannot work: %s",
+      async (reason) => {
+        vi.mocked(api.myNoticeMail).mockResolvedValue({ enabled: false, available: false, reason, email: null });
+        renderPage();
+        await screen.findByRole("region", { name: "You" });
+        await waitFor(() => expect(api.myNoticeMail).toHaveBeenCalled());
+        expect(screen.queryByRole("switch", { name: label })).not.toBeInTheDocument();
+        expect(screen.queryByText(label)).not.toBeInTheDocument();
+      },
+    );
+
+    it("stays shown while on, so it can be switched off after mail was removed", async () => {
+      vi.mocked(api.myNoticeMail).mockResolvedValue({
+        enabled: true,
+        available: false,
+        reason: "mail-not-set-up",
+        email: "ana@example.org",
+      });
+      renderPage();
+      expect(await screen.findByRole("switch", { name: label })).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("shows the engine's refusal and leaves the switch as it was", async () => {
+      vi.mocked(api.myNoticeMail).mockResolvedValue(available);
+      vi.mocked(api.setMyNoticeMail).mockRejectedValueOnce(
+        new ApiError(409, "MAIL_NOT_SET_UP", "Mail is not set up: an administrator saves the SMTP settings first"),
+      );
+      renderPage();
+      const toggle = await screen.findByRole("switch", { name: label });
+      fireEvent.click(toggle);
+      expect(await screen.findByText(/Mail is not set up/)).toBeInTheDocument();
+      expect(toggle).toHaveAttribute("aria-checked", "false");
+      expect(toggle).toBeEnabled();
+    });
   });
 });

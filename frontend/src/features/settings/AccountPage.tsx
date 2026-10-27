@@ -23,6 +23,7 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
 import { browserName, onPhone } from "./browserName";
+import { NoticeMailPanel } from "./NoticeMailPanel";
 import { PasskeysPanel } from "./PasskeysPanel";
 import { SecondFactorPanel } from "./SecondFactorPanel";
 import { useSettingsRead } from "./useSystem";
@@ -48,6 +49,7 @@ export function AccountPage() {
           {me.signedInWith === "password" && <PasswordPanel />}
           {(me.signedInWith === "password" || me.signedInWith === "passkey") && <PasskeysPanel />}
           {(me.signedInWith === "password" || me.signedInWith === "passkey") && <SecondFactorPanel />}
+          <NoticeMailPanel />
           <Sessions />
           <Permissions />
         </div>

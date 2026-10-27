@@ -6065,6 +6065,13 @@ a success clears the username's count (D271). Passwords and client secrets are h
 - `GET /api/v1/me/notifications/events` (`text/event-stream`, read with `fetch`, D247): `event: unread`
   `{unreadCount}` at once and after every change, `event: notification` with each new notice as the list answers it;
   a comment every 15 s keeps it open. Nothing is polled.
+- `GET /api/v1/me/notification-mail` and `PUT /api/v1/me/notification-mail` `{enabled}` (delivered, M2, D432):
+  whether the caller is e-mailed when a notice arrives in their inbox; for anyone signed in. Both answer
+  `{enabled, available, reason, email}`: `available` is false where it cannot work and `reason` says why
+  (`mail-not-set-up`, `no-email`, `not-a-person` for a client, who has no mail); `email` is where it goes. It is off
+  until switched on. Switching on is refused `409 MAIL_NOT_SET_UP` and `409 NO_EMAIL`, and `403 NOT_A_PERSON` for a
+  client; switching on again keeps the first time; switching off always works and repeats harmlessly. Neither is a
+  security event. See [Mail](#mail) for what is sent.
 
 ### Authorization
 
@@ -6493,7 +6500,7 @@ where one-time links go. Nothing is sent without saved settings.
   `sender` or `rejected`, and `details.reason` the sentence; `409 MAIL_NOT_SET_UP` with no settings.
   The server's certificate is verified against the system's trusted certificates.
 - `GET /mail-outbox`: the messages, newest first, cursor paged, `status=` (`pending`, `sent`,
-  `failed`). A message reads `id`, `kind` (`activation`, `password-reset`, `notification`), `to`,
+  `failed`). A message reads `id`, `kind` (`activation`, `password-reset`, `test`, `notice`), `to`,
   `subject`, `status`, `attempts`, `lastError` (the sentence of the last failure) and `lastErrorKind`
   (the kinds above, or `not_set_up`, `unreadable`, `expired`, `stopped`), `createdAt`, `nextAttemptAt` (while
   pending) and `finishedAt`. **Its text is never answered:** it holds a one-time link, is sealed while
@@ -6513,6 +6520,12 @@ before the earlier link is replaced, so it keeps working. No other route queues 
 threads) sends them: a failed attempt is tried again after 30 seconds, then twice as long up to an
 hour; an address the server refuses for good fails at once; anything else fails after 24 hours,
 reading `Not sent within 24 hours. Last error: …`.
+
+**Inbox notices (M2, D432):** the sender also queues one `notice` message per inbox notice of a person who
+switched `PUT /me/notification-mail` on: a notice that is unread, made after they switched it on and under 24 hours
+old, for an active person with an address. The message names the kind of event and links to the application; it
+carries no record, change-set, workspace or person content. Without saved mail settings notices wait and are mailed
+once mail is saved, while they are under 24 hours old.
 
 ### Approvals (Track A)
 

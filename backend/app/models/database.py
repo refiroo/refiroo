@@ -745,6 +745,11 @@ class Notification(Base):
         ),
         Index("ix_notifications_subject", "subject_kind", "subject_id"),
         Index("ix_notifications_created", "created_at"),
+        Index(
+            "ix_notifications_unmailed",
+            "sequence_id",
+            postgresql_where=text("mailed_at IS NULL AND read_at IS NULL AND user_id IS NOT NULL"),
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -764,6 +769,8 @@ class Notification(Base):
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     read_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # When the mail sender handled the notice (0.12 M2, D432): mailed, or passed over.
+    mailed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class WorkspaceEventHead(Base):
@@ -2237,6 +2244,8 @@ class User(Base):
     )
     last_sign_in_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     local_kept: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # When the person switched on mail for their inbox; none: off (0.12 M2, D432).
+    notice_mail_since: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class SignInProvider(Base):

@@ -1112,7 +1112,7 @@ waiting out a timeout for each. A person's one-time link is the first producer (
 without replacing the earlier link. Every message names the product through `templates.product` (the model's own name, refiroo for a default one), so no caller words it. `links.request_reset` is the second (I6): the asks are counted under `reset-` kinds of
 `sign_in_failures` (`sign_in.seconds_to_wait`/`record_failure` take a scope), whatever the typed name matches,
 before any account is looked up, so the answer reveals nothing. No other route queues mail; the test message is the one thing sent from a
-request, because its answer is the point. `resealing.py` covers the password and the queued text.
+request, because its answer is the point. `resealing.py` covers the password and the queued text. Inbox notices are the third producer (M2, D432): `notifications/mailing.py` `queue_notices`, which `MailSender.run_once` calls before it claims, enqueues one message per unread, unhandled notice of a person with `users.notice_mail_since` set and marks it `notifications.mailed_at` in one transaction, so a notice is mailed once.
 
 ### Workspace migrations (0.11 V1)
 

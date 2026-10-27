@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.12 M2, inbox notices by mail)
+
+- **E-mail for inbox notices (J46.10, D432, D433).** A person with an address switches on "Email me when something
+  arrives in my inbox" on Settings › Account (`GET`/`PUT /me/notification-mail`; off by default; the switch is not
+  shown where mail is not set up, the person has no address or the caller is a client). The mail sender then mails one
+  plain-text message per notice that is unread, made after switching on and under 24 hours old. A message names the
+  kind of event and links to the application; it holds no record, change-set, workspace or person content. Enabling is
+  refused `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL` and `403 NOT_A_PERSON`; switching off always works. Migration
+  `20261112_01` (`users.notice_mail_since`, `notifications.mailed_at`).
+
 ### Added (0.12 A2, the inbox and workspace events)
 
 - **An inbox for people and clients (J42.5).** `GET /me/notifications` (`unread`, cursor-paged, with `unreadCount`),

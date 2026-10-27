@@ -515,8 +515,8 @@ secret and the redirect address), `browser` (started in another browser) or `dea
 
 ### Sending mail
 
-The engine sends e-mail through the organisation's own SMTP server (0.12 M1, D418, D419): later
-packages use it for a new person's link and a password reset, and for inbox notices; never for a
+The engine sends e-mail through the organisation's own SMTP server (0.12 M1, D418, D419): it is
+used for a new person's link, a password reset and, when a person asks, inbox notices; never for a
 password or a code (D395). **Settings › Integration › Mail** (or `PUT /api/v1/mail-settings`, needing
 Security administration at the instance) takes the server, the port, how the connection is secured
 (**STARTTLS**, usually port 587, or **TLS**, usually 465; `none` only for a relay on a trusted
@@ -540,6 +540,12 @@ message from the same page: it names what failed (the connection, TLS, the login
   refuses for good fails at once; anything else fails after 24 hours with the last reason. The Mail
   page lists the messages waiting, sent and failed, and `mailSender` appears among a process's
   threads on Operations. Finished messages are kept for 30 days.
+- **Inbox notices are mailed by the same sender** (0.12 M2, D432), one message per notice, to people who switched
+  on "Email me when something arrives in my inbox" on Settings › Account (off by default; clients have no mail).
+  Only notices made after switching on are mailed, and only while they are under 24 hours old, so a long outage
+  or mail not set up never sends a pile of old notices. A message names the kind of event and links to the
+  application address above; it holds no record, change-set or person content. Messages of this kind show as
+  `notice` in the outbox.
 - **Sender reputation is the organisation's:** the from address's domain needs SPF and DKIM for the
   sending server, or mailboxes may file the messages as junk. The engine does neither.
 - **Several processes** each run a sender; leases keep them off the same message.
