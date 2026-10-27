@@ -8,7 +8,11 @@ import { ChangeSetActions } from "@/features/workspaces/ChangeSets";
 import { objectTypeHue } from "@/model/hues";
 import { changeReviewFor } from "@/routing/routes";
 import { testModel } from "@/test/fixtures";
+import { permissionsFixture } from "@/test/permissions";
 import type { ChangeSet, EngineModel, ObjectChange, RelationChange, RouteState } from "@/types";
+
+const signedIn = vi.hoisted(() => ({ id: "u-boss" }));
+vi.mock("@/app/useMe", () => ({ useMe: () => ({ id: signedIn.id, kind: "user", name: "Someone" }) }));
 
 type ReviewRoute = Extract<RouteState, { kind: "changeSetChanges" }>;
 
@@ -478,5 +482,92 @@ describe("Review changes on the change set bar", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Review changes" }));
     expect(onReview).toHaveBeenCalledOnce();
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("ChangeSetReview decision (0.12 A3)", () => {
+  const submitted: ChangeSet = {
+    ...changeSet,
+    submission: {
+      id: "req-1",
+      workspaceKey: "west",
+      changeSetId: "cs-1",
+      changeSetName: "Spring update",
+      version: 4,
+      state: "submitted",
+      submitter: { kind: "user", id: "u-ana", name: "Ana Varga" },
+      comment: "Ready",
+      submittedAt: "2026-10-26T08:00:00Z",
+      publicationId: null,
+      decisions: [],
+    },
+  };
+  function approver(personId: string, secondPerson = false) {
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      changeSet: submitted,
+      warning: "",
+      refresh: vi.fn().mockResolvedValue(submitted),
+      permissions: permissionsFixture("west", ["browse", "change-sets", "approve"]),
+    });
+    signedIn.id = personId;
+    vi.spyOn(api, "approvalPolicy").mockResolvedValue({
+      workspaceKey: "west",
+      requireApproval: true,
+      secondPerson,
+      version: 1,
+      approverCount: 1,
+    });
+  }
+
+  it("refuses to send back without a comment and approves with the submitted version", async () => {
+    approver("u-boss");
+    const decide = vi.spyOn(api, "decideChangeSet").mockResolvedValue({ publicationNumber: 7 } as never);
+    vi.spyOn(api, "latestPublication").mockResolvedValue({
+      items: [{ id: "pub-6", status: "active" } as never],
+      nextCursor: null,
+    });
+    const onDecided = vi.fn();
+    render(
+      <ChangeSetReview
+        model={model}
+        route={changeReviewFor("test-app", "west", "cs-1")}
+        onRouteChange={vi.fn()}
+        onAnchorChange={vi.fn()}
+        onOpenRecord={vi.fn()}
+        onBack={vi.fn()}
+        onDecided={onDecided}
+      />,
+    );
+    expect(await screen.findByRole("heading", { name: "Decision" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Send back" }));
+    expect(await screen.findByText("Say what needs to change.")).toBeVisible();
+    expect(decide).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Approve and publish" }));
+    await waitFor(() =>
+      expect(decide).toHaveBeenCalledWith("cs-1", {
+        outcome: "approve",
+        comment: undefined,
+        expectedChangeSetVersion: 4,
+        expectedActivePublicationId: "pub-6",
+      }),
+    );
+    await waitFor(() => expect(onDecided).toHaveBeenCalledWith(expect.stringContaining("Publication 7")));
+  });
+
+  it("gives the submitter no buttons under a second-person policy", async () => {
+    approver("u-ana", true);
+    render(
+      <ChangeSetReview
+        model={model}
+        route={changeReviewFor("test-app", "west", "cs-1")}
+        onRouteChange={vi.fn()}
+        onAnchorChange={vi.fn()}
+        onOpenRecord={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText("A second person must decide this request.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Approve and publish" })).not.toBeInTheDocument();
   });
 });

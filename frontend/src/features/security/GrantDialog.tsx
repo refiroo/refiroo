@@ -1,7 +1,7 @@
 /**
  * Grant roles or consumer APIs (0.12 SP1, SP2, U8, U9): one dialog for a workspace's Access and a
  * person's, group's or client's page. From Access it asks who (a person, group or client); from a
- * principal it asks where. Several things are granted at once: consumer APIs by ticking cells of a
+ * principal it asks where. Consumer APIs are offered only when the holder is a client. Several things are granted at once: consumer APIs by ticking cells of a
  * grid (APIs × workspaces), roles by ticking cards and choosing workspaces or the whole instance.
  * One tick is one grant; what the holder already has is shown and not sent again, and a failed one
  * stays ticked with its reason while the others are made. A consumer API is granted in a workspace,
@@ -68,9 +68,13 @@ export function GrantDialog({
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
   const [loadError, setLoadError] = useState("");
   const [principal, setPrincipal] = useState<PickedPrincipal | undefined>(who);
-  const [what, setWhat] = useState<"roles" | "apis">(who?.kind === "client" ? "apis" : "roles");
+  const [wanted, setWanted] = useState<"roles" | "apis">(who?.kind === "client" ? "apis" : "roles");
   const [held, setHeld] = useState<Grant[]>([]);
   const [options, setOptions] = useState<Record<string, GrantOptions | "error">>({});
+  // Only a client holds a consumer API (CONSUMER_API_CLIENTS_ONLY); for anyone else, or no one yet,
+  // the choice is hidden and only roles are granted.
+  const clientHolder = principal?.kind === "client";
+  const what: "roles" | "apis" = clientHolder ? wanted : "roles";
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   const [pickedRoles, setPickedRoles] = useState<string[]>([]);
   const [whereKind, setWhereKind] = useState<"workspace" | "instance">("workspace");
@@ -91,7 +95,9 @@ export function GrantDialog({
         setCatalogue(groups);
         if (workspacePage) {
           setWorkspaces(workspacePage.items);
-          setPlaceKeys((current) => (current.length ? current : workspacePage.items[0] ? [workspacePage.items[0].key] : []));
+          setPlaceKeys((current) =>
+            current.length ? current : workspacePage.items[0] ? [workspacePage.items[0].key] : [],
+          );
         }
       })
       .catch((cause) => active && setLoadError(errorMessage(cause)));
@@ -155,14 +161,24 @@ export function GrantDialog({
 
   const onlyOneRole = pickedRoles.length === 1 ? roles?.find((item) => item.key === pickedRoles[0]) : undefined;
   const narrowable =
-    !!narrowKey && !!onlyOneRole && !!catalogue?.some((group) => onlyOneRole.actionGroups.includes(group.key) && group.narrowable);
+    !!narrowKey &&
+    !!onlyOneRole &&
+    !!catalogue?.some((group) => onlyOneRole.actionGroups.includes(group.key) && group.narrowable);
   const narrowLoaded = narrowKey ? options[narrowKey] : undefined;
   const narrowOptions = useMemo(
     () =>
       narrowLoaded && narrowLoaded !== "error"
         ? [
-            ...narrowLoaded.applications.map((item) => ({ id: `a:${item.key}`, label: item.name, description: "Application" })),
-            ...narrowLoaded.recordTypes.map((item) => ({ id: `t:${item.key}`, label: item.name, description: "Record type" })),
+            ...narrowLoaded.applications.map((item) => ({
+              id: `a:${item.key}`,
+              label: item.name,
+              description: "Application",
+            })),
+            ...narrowLoaded.recordTypes.map((item) => ({
+              id: `t:${item.key}`,
+              label: item.name,
+              description: "Record type",
+            })),
           ]
         : [],
     [narrowLoaded],
@@ -205,7 +221,10 @@ export function GrantDialog({
         const where = labelOf("workspaceKey" in request.scope ? request.scope.workspaceKey : "");
         byApi.set(key, [...(byApi.get(key) ?? []), where]);
       }
-      return consumerPlanSentence(principal.name, [...byApi].map(([key, where]) => ({ api: apiName(key), where })));
+      return consumerPlanSentence(
+        principal.name,
+        [...byApi].map(([key, where]) => ({ api: apiName(key), where })),
+      );
     }
     if (pickedRoles.length === 1 && catalogue && onlyOneRole) {
       return grantSentence({
@@ -227,7 +246,9 @@ export function GrantDialog({
   })();
 
   const alreadyHeld =
-    !!principal && !requests.length && (what === "apis" ? false : pickedRoles.length > 0 && (instance || chosenPlaces.length > 0));
+    !!principal &&
+    !requests.length &&
+    (what === "apis" ? false : pickedRoles.length > 0 && (instance || chosenPlaces.length > 0));
 
   function finish() {
     if (made.length) onGranted(made);
@@ -254,7 +275,8 @@ export function GrantDialog({
     setTicked((current) => {
       const next = new Set(current);
       for (const grant of done)
-        if (grant.consumerApi && grant.scope.workspaceKey) next.delete(cellKey(grant.consumerApi.key, grant.scope.workspaceKey));
+        if (grant.consumerApi && grant.scope.workspaceKey)
+          next.delete(cellKey(grant.consumerApi.key, grant.scope.workspaceKey));
       return next;
     });
     setPending(false);
@@ -304,37 +326,40 @@ export function GrantDialog({
             <PrincipalPicker
               label="Who"
               kinds={["user", "group", "client"]}
-              description="A person, a group or a client, found by name."
+              description="A person, a group or a client, found by name. Only a client can be given a consumer API."
               onPick={(picked) => {
                 setPrincipal(picked);
                 setHeld([]);
+                // Consumer APIs are a client's alone: ticks made for a client go with it.
                 setTicked(new Set());
               }}
             />
           )}
-          <fieldset className="form-field grant-what">
-            <legend>What</legend>
-            <Choice
-              name="grant-what"
-              value={what}
-              options={[
-                ["apis", "Consumer APIs"],
-                ["roles", "Roles"],
-              ]}
-              onChange={setWhat}
-            />
-            <p className="admin-hint">
-              {what === "apis"
-                ? "Lets them read a consumer API in a workspace. It opens nothing on the management API."
-                : "Lets them use the management API and the interface, as each role’s action groups say."}
-            </p>
-          </fieldset>
+          {clientHolder && (
+            <fieldset className="form-field grant-what">
+              <legend>What</legend>
+              <Choice
+                name="grant-what"
+                value={what}
+                options={[
+                  ["apis", "Consumer APIs"],
+                  ["roles", "Roles"],
+                ]}
+                onChange={setWanted}
+              />
+              <p className="admin-hint">
+                {what === "apis"
+                  ? "Lets them read a consumer API in a workspace. It opens nothing on the management API."
+                  : "Lets them use the management API and the interface, as each role’s action groups say."}
+              </p>
+            </fieldset>
+          )}
 
           {what === "apis" ? (
             <div className="grant-pick">
               <p className="admin-hint">
-                Tick what they may read, one tick for one grant. A row or column heading ticks the whole line;
-                Shift extends a range. Ticked and grey is already granted.
+                Tick what they may read, one tick for one grant. A row or column heading ticks the whole line; Shift
+                extends a range. Ticked and grey is already granted.
               </p>
               <ConsumerApiGrid
                 workspaces={places}
@@ -365,7 +390,9 @@ export function GrantDialog({
                         const on = pickedRoles.includes(item.key);
                         const toggleRole = () =>
                           setPickedRoles((current) =>
-                            current.includes(item.key) ? current.filter((key) => key !== item.key) : [...current, item.key],
+                            current.includes(item.key)
+                              ? current.filter((key) => key !== item.key)
+                              : [...current, item.key],
                           );
                         const groupNames = catalogue
                           .filter((group) => item.actionGroups.includes(group.key))
@@ -471,9 +498,12 @@ export function GrantDialog({
                   <p className="admin-hint">Reading is never narrowed: they read the whole workspace.</p>
                 </fieldset>
               )}
-              {!narrowable && !instance && pickedRoles.length > 0 && (pickedRoles.length > 1 || chosenPlaces.length > 1) && (
-                <p className="admin-hint">Narrowing is offered when one role is granted in one workspace.</p>
-              )}
+              {!narrowable &&
+                !instance &&
+                pickedRoles.length > 0 &&
+                (pickedRoles.length > 1 || chosenPlaces.length > 1) && (
+                  <p className="admin-hint">Narrowing is offered when one role is granted in one workspace.</p>
+                )}
             </>
           )}
 
@@ -502,7 +532,13 @@ export function GrantDialog({
               {made.length ? "Close" : "Cancel"}
             </button>
             <button className="primary" disabled={pending || !requests.length}>
-              {pending ? "Granting…" : requests.length > 1 ? `Grant ${requests.length}` : failures.length ? "Try again" : "Grant"}
+              {pending
+                ? "Granting…"
+                : requests.length > 1
+                  ? `Grant ${requests.length}`
+                  : failures.length
+                    ? "Try again"
+                    : "Grant"}
             </button>
           </div>
         </form>

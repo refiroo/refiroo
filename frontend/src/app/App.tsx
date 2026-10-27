@@ -602,6 +602,12 @@ function AppContent({
                   changeSetId: activeRoute.changeSetId,
                 })
               }
+              onDecided={(result) => {
+                // The approved change set is gone, as after publishing from its bar.
+                toast(result);
+                navigate({ ...viewRoute(application, application.defaultView, activeRoute.workspaceKey) });
+                setRefreshToken((value) => value + 1);
+              }}
             />
           ) : activeRoute.kind === "changeSets" ? (
             <ChangeSets

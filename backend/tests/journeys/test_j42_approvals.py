@@ -264,6 +264,9 @@ def test_the_policy_is_read_by_a_reader_and_changed_by_a_workspace_administrator
     admin = _client(world, "Admin", ("workspace-admin", {"instance": True}))[1]
     policy = ok(actors["reader"].api.get(POLICY))
     assert (policy["requireApproval"], policy["secondPerson"]) == (False, False)
+    approvers = policy["approverCount"]
+    _actors(world, second_owner="owner")
+    assert ok(actors["reader"].api.get(POLICY))["approverCount"] == approvers + 1
     body = {"requireApproval": True, "secondPerson": False, "expectedVersion": policy["version"]}
     for name in ("reader", "steward", "owner"):
         refused(actors[name].api.put(POLICY, body), 403, "FORBIDDEN")

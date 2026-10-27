@@ -283,7 +283,10 @@ def workspace_page_items(session: Session, items: list[Workspace]) -> list[Works
 
 def workspace_detail_response(session: Session, item: Workspace) -> WorkspaceDetailResponse:
     blocker, _ = delete_blocker(
-        session, item.key, load_workspace_runtime_state(session).default_workspace_key
+        session,
+        item.key,
+        load_workspace_runtime_state(session).default_workspace_key,
+        with_counts=False,  # Only whether it is empty, not how much: no count over every object.
     )
     return WorkspaceDetailResponse(
         **workspace_response(item, load_assignment(session, item.key)).model_dump(),

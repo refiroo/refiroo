@@ -205,7 +205,8 @@ def test_granting_a_consumer_api(world):
     """`POST /grants` with `consumerApi` and a workspace answers `201` with `role: null` and
     `consumerApi`; A's access lists it and `GET /grants?consumerApi=` finds it; an instance scope or
     a narrowing is `422 GRANT_SCOPE_INVALID`; a key A's model lacks is `422 GRANT_SCOPE_UNKNOWN`;
-    both a role and a consumer API is `422`."""
+    both a role and a consumer API is `422`; a person or a group holder is
+    `422 CONSUMER_API_CLIENTS_ONLY`."""
     api = world.key("Capi")
     client = ok(world.api.post("/clients", {"name": "Catalogue sync"}), 201)
     grant = _grant(world, client, consumerApi=api)
@@ -240,6 +241,22 @@ def test_granting_a_consumer_api(world):
         422,
         "GRANT_SCOPE_UNKNOWN",
     )
+    person = ok(world.api.post("/users", {"username": "consumer.reader", "name": "Consumer Reader"}), 201)
+    group = ok(world.api.post("/groups", {"name": "Consumers"}), 201)
+    for kind, holder in (("user", person), ("group", group)):
+        error = refused(
+            world.api.post(
+                "/grants",
+                {
+                    "principal": {"kind": kind, "id": holder["id"]},
+                    "consumerApi": api,
+                    "scope": {"workspaceKey": W1},
+                },
+            ),
+            422,
+            "CONSUMER_API_CLIENTS_ONLY",
+        )
+        assert error["details"] == {"principalKind": kind}
     both = world.api.post(
         "/grants",
         {

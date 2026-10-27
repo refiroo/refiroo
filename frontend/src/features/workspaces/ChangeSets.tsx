@@ -3,9 +3,10 @@ import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useMe } from "@/app/useMe";
 import { allows } from "@/features/security/permissions";
 import { allowNavigation } from "@/routing/navigationGuard";
-import type { ChangeSet, ChangeSetValidation, ModelReleaseSummary } from "@/types";
+import type { ApprovalPolicy, ChangeSet, ChangeSetValidation, ModelReleaseSummary } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { StatusPill } from "@/ui/StatusPill";
 import { InlineError } from "@/ui/InlineError";
@@ -306,6 +307,28 @@ export function ChangeSetActions({
   // its release also needs Model release. Without permissions read (a test), every action.
   const works = !readOnly && allows(permissions, "change-sets");
   const publishes = works && allows(permissions, "publish");
+  const approves = allows(permissions, "approve");
+  // The workspace's approval policy (0.12 A3); a policy that cannot be read counts as off, and the
+  // engine refuses what the policy forbids.
+  const policyWorkspace = changeSet?.workspaceKey;
+  const [policy, setPolicy] = useState<ApprovalPolicy>();
+  useEffect(() => {
+    if (!policyWorkspace) return;
+    let active = true;
+    Promise.resolve()
+      .then(() => api.approvalPolicy(policyWorkspace))
+      .then(
+        (loaded) => active && setPolicy(loaded),
+        () => active && setPolicy(undefined),
+      );
+    return () => {
+      active = false;
+    };
+  }, [policyWorkspace]);
+  const me = useMe();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitComment, setSubmitComment] = useState("");
+  const [submitted, setSubmitted] = useState("");
   const migrates = canMigrate && publishes && allows(permissions, "model-release");
   const mismatchedWorkspace =
     changeSet && activeModelReleaseId && activeModelReleaseId !== changeSet.modelReleaseId
@@ -346,11 +369,27 @@ export function ChangeSetActions({
   const reload = refresh;
   const modelMismatch = Boolean(activeModelReleaseId && activeModelReleaseId !== current.modelReleaseId);
   const validationPassed = Boolean(validation?.result.valid && validation.version === current.version);
+  // Approval (0.12 A3): a submitted change set waits; publishing directly is refused when approval is
+  // required and this person cannot approve their own (or any) submission, so only Submit is offered.
+  const request = current.submission ?? null;
+  const waiting = request?.state === "submitted";
+  const directPublish = publishes && !(policy?.requireApproval && (policy.secondPerson || !approves));
+  const offersSubmit = works && !waiting && !directPublish;
+  const isSubmitter = Boolean(me && request?.submitter && request.submitter.id === me.id);
+  const withdraws = works && waiting && (isSubmitter || approves);
+  const sentBack =
+    request?.state === "sentBack"
+      ? [...request.decisions]
+          .filter((item) => item.outcome === "sendBack")
+          .sort((a, b) => a.decidedAt.localeCompare(b.decidedAt))
+          .pop()
+      : undefined;
   async function check() {
     setPending(true);
     setError("");
     setDiagnostics([]);
     setValidation(undefined);
+    setSubmitted("");
     try {
       const before = await reload();
       const result = await api.validateChangeSet(current.id);
@@ -358,11 +397,63 @@ export function ChangeSetActions({
       const after = await reload();
       if (before.version !== after.version)
         throw new Error("The change set changed during validation. Validate it again before publishing.");
-      setValidation({
+      const checked = {
         result,
         version: after.version,
         activePublicationId: publications.items[0]?.status === "active" ? publications.items[0].id : null,
-      });
+      };
+      setValidation(checked);
+      return checked;
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setPending(false);
+    }
+  }
+  /** Validates (as Validate change set does), then asks for the change set to be published (A3). */
+  async function submit() {
+    const checked = validationPassed && validation ? validation : await check();
+    // A failed or invalid validation is said under the bar, where Validate says it.
+    if (!checked?.result.valid) {
+      setSubmitting(false);
+      return;
+    }
+    setPending(true);
+    setError("");
+    setDiagnostics([]);
+    try {
+      await api.submitChangeSet(current.id, checked.version, submitComment.trim() || undefined);
+      setSubmitting(false);
+      setSubmitComment("");
+      setValidation(undefined);
+      setSubmitted("Submitted for publication. It waits for approval.");
+      await reload();
+    } catch (cause) {
+      setSubmitting(false);
+      setError(asSentence(cause));
+      if (isApiError(cause) && cause.details && typeof cause.details === "object") {
+        const details = cause.details as Record<string, unknown>;
+        if (Array.isArray(details.diagnostics)) setDiagnostics(details.diagnostics);
+      }
+      setValidation(undefined);
+      try {
+        await reload();
+      } catch (refreshCause) {
+        setError(`${asSentence(cause)} ${errorMessage(refreshCause)}`);
+      }
+    } finally {
+      setPending(false);
+    }
+  }
+  async function withdraw() {
+    setPending(true);
+    setError("");
+    setDiagnostics([]);
+    setSubmitted("");
+    try {
+      await api.withdrawSubmission(current.id);
+      await reload();
+      setSubmitted("Request withdrawn.");
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -487,21 +578,38 @@ export function ChangeSetActions({
             </span>
             {current.createdBy && <span>Created by {principalName(current.createdBy)}</span>}
           </span>
+          {waiting && request && (
+            <span className="change-set-bar-meta">
+              <StatusPill tone="warning">Waiting for approval</StatusPill>
+              <span>
+                Submitted by {request.submitter ? principalName(request.submitter) : "an unknown person"} · version{" "}
+                {request.version}
+              </span>
+              {request.comment && <span>“{request.comment}”</span>}
+              {works && <span>Withdraw the request to edit it.</span>}
+            </span>
+          )}
         </div>
         {(works || (onReview && !reviewing)) && (
           <div className="change-set-bar-actions">
             {/* A passed validation is said beside the buttons, so they do not move (the user, 2026-10-19). */}
-            {works && validationPassed && (
+            {submitted && <span role="status">{submitted}</span>}
+            {works && !waiting && validationPassed && (
               <span role="status">
                 <StatusPill tone="success">Change set validation passed</StatusPill>
               </span>
             )}
             {onReview && !reviewing && (
               <button className="secondary" onClick={onReview}>
-                Review changes
+                {waiting && approves ? "Review and decide" : "Review changes"}
               </button>
             )}
-            {works && (
+            {withdraws && (
+              <button className="secondary" disabled={pending} onClick={() => void withdraw()}>
+                Withdraw request
+              </button>
+            )}
+            {works && !waiting && (
               <>
                 <button
                   className="secondary"
@@ -511,7 +619,12 @@ export function ChangeSetActions({
                 >
                   Validate change set
                 </button>
-                {publishes && (
+                {offersSubmit && (
+                  <button className="primary" disabled={pending} onClick={() => setSubmitting(true)}>
+                    Submit for publication
+                  </button>
+                )}
+                {directPublish && (
                   <button
                     className="primary"
                     disabled={
@@ -552,6 +665,12 @@ export function ChangeSetActions({
         )}
       </section>
       <BelowContextBand>
+        {sentBack && (
+          <Notice tone="info">
+            Sent back{sentBack.decider ? ` by ${principalName(sentBack.decider)}` : ""}
+            {sentBack.comment ? `: ${sentBack.comment}` : "."}
+          </Notice>
+        )}
         {modelMismatch && (
           <Notice
             tone="info"
@@ -605,6 +724,45 @@ export function ChangeSetActions({
           />
         )}
       </BelowContextBand>
+      {submitting && (
+        <Modal
+          title="Submit for publication"
+          size="compact"
+          busy={pending}
+          dirty={Boolean(submitComment)}
+          onClose={() => setSubmitting(false)}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit();
+            }}
+          >
+            <p>
+              The change set is validated, then waits for someone who may approve it. It cannot be edited while it
+              waits.
+            </p>
+            <label>
+              Comment (optional)
+              <textarea
+                autoFocus
+                rows={3}
+                value={submitComment}
+                maxLength={2000}
+                onChange={(event) => setSubmitComment(event.target.value)}
+              />
+            </label>
+            <div className="dialog-actions">
+              <button type="button" className="secondary" disabled={pending} onClick={() => setSubmitting(false)}>
+                Cancel
+              </button>
+              <button type="submit" className="primary" disabled={pending}>
+                Submit
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
       {changingVersion && (
         <Modal
           title="Change model version"

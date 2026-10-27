@@ -17,7 +17,8 @@ export const roleKey = (role: string, where: string) => `${role}|${where}`;
 export function heldConsumerApis(grants: readonly Grant[]): Set<string> {
   const held = new Set<string>();
   for (const grant of grants)
-    if (grant.consumerApi && grant.scope.workspaceKey) held.add(cellKey(grant.consumerApi.key, grant.scope.workspaceKey));
+    if (grant.consumerApi && grant.scope.workspaceKey)
+      held.add(cellKey(grant.consumerApi.key, grant.scope.workspaceKey));
   return held;
 }
 

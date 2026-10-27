@@ -66,3 +66,8 @@ class ApprovalPolicyResponse(BaseModel):
     requireApproval: bool
     secondPerson: bool
     version: int
+    approverCount: int = Field(
+        description="The active people and clients who hold the `approve` action group in the "
+        "workspace, by an instance grant or a grant of that workspace, directly or (for a "
+        "person) through a group; a count, no names"
+    )

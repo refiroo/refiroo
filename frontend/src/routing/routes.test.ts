@@ -68,6 +68,10 @@ describe("routes", () => {
     ["/settings/api-reference", { kind: "settings", page: "api-reference" }],
     ["/settings/workspaces", { kind: "settings", page: "workspaces" }],
     ["/settings/workspaces/central-europe", { kind: "settings", page: "workspaces", workspaceKey: "central-europe" }],
+    [
+      "/settings/workspaces/central-europe/activity",
+      { kind: "settings", page: "workspaces", workspaceKey: "central-europe", workspaceTab: "activity" },
+    ],
     ["/settings/people", { kind: "settings", page: "people" }],
     ["/settings/people/u-1", { kind: "settings", page: "people", userId: "u-1" }],
     ["/settings/groups/g-1", { kind: "settings", page: "groups", groupId: "g-1" }],
@@ -101,6 +105,16 @@ describe("routes", () => {
     ],
     ["/settings/model", { kind: "settings", page: "model" }],
     ["/settings/model/models/a%20b", { kind: "settings", page: "model", modelKey: "a b" }],
+    ["/settings/model/models/a/releases", { kind: "settings", page: "model", modelKey: "a", modelTab: "releases" }],
+    ["/settings/model/models/a/structure", { kind: "settings", page: "model", modelKey: "a", modelTab: "structure" }],
+    [
+      "/settings/model/releases/r1?from=overview",
+      { kind: "settings", page: "model", releaseId: "r1", modelTab: "overview" },
+    ],
+    [
+      "/settings/model/drafts/d1?from=releases",
+      { kind: "settings", page: "model", draftId: "d1", modelTab: "releases" },
+    ],
     ["/settings/model/releases/release%2Fid", { kind: "settings", page: "model", releaseId: "release/id" }],
     ["/settings/model/drafts/d1", { kind: "settings", page: "model", draftId: "d1" }],
     ["/settings/model/migrations/j%201", { kind: "settings", page: "model", migrationJobId: "j 1" }],
@@ -143,6 +157,11 @@ describe("routes", () => {
     ["/settings", "/settings/about"],
     ["/settings/no-such-page", "/settings/about"],
     ["/models", "/settings/model"],
+    ["/settings/model/models/a/overview", "/settings/model/models/a"],
+    ["/settings/model/models/a/nothing", "/settings/model/models/a"],
+    ["/settings/model/releases/r1?from=releases", "/settings/model/releases/r1"],
+    ["/settings/model/drafts/d1?from=drafts", "/settings/model/drafts/d1"],
+    ["/settings/model/drafts/d1?from=nothing", "/settings/model/drafts/d1"],
     ["/models?releaseId=release%2Fid", "/settings/model/releases/release%2Fid"],
     ["/models?draftId=d1", "/settings/model/drafts/d1"],
     ["/models?releaseId=r1&draftId=d1", "/settings/model/drafts/d1"],
@@ -165,6 +184,16 @@ describe("routes", () => {
     ["/workspaces/central-europe", "/settings/workspaces/central-europe"],
   ])("reads %s as the settings page at %s, so the old address redirects (U3)", (path, canonical) => {
     expect(routePath(at(path))).toBe(canonical);
+  });
+
+  it("keeps a workspace's tab in its address; Overview is the address without one", () => {
+    const base = { kind: "settings", page: "workspaces", workspaceKey: "west" } as const;
+    expect(routePath({ ...base, workspaceTab: "access" })).toBe("/settings/workspaces/west/access");
+    expect(routePath({ ...base, workspaceTab: "overview" })).toBe("/settings/workspaces/west");
+    expect(routePath(base)).toBe("/settings/workspaces/west");
+    // The address "overview" and one naming no tab are the workspace's page.
+    expect(at("/settings/workspaces/west/overview")).toEqual(base);
+    expect(at("/settings/workspaces/west/nonsense")).toEqual(base);
   });
 
   it("round-trips a change set review with its tab, filters and anchor (P2b)", () => {

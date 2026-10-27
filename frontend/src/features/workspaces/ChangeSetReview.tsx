@@ -8,8 +8,15 @@
  */
 
 import { Card } from "@/ui/Card";
-import { useId, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useId, useState, type ReactNode, type Ref } from "react";
 import { api } from "@/api/client";
+import { errorMessage } from "@/api/errors";
+import { useMe } from "@/app/useMe";
+import { allows } from "@/features/security/permissions";
+import { principalName } from "@/ui/ActorName";
+import { formatServerAgo } from "@/lib/dates";
+import { Notice } from "@/ui/Notice";
+import type { ApprovalPolicy } from "@/types";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName } from "@/model/fields";
@@ -52,6 +59,7 @@ export function ChangeSetReview({
   onAnchorChange,
   onOpenRecord,
   onBack,
+  onDecided,
 }: {
   /** The change set's pinned model. */
   model: EngineModel;
@@ -61,6 +69,8 @@ export function ChangeSetReview({
   onAnchorChange: (anchor: string | undefined) => void;
   onOpenRecord: (change: ObjectChange) => void;
   onBack: () => void;
+  /** The request was approved and published: the change set is gone (0.12 A3). */
+  onDecided?: (message: string) => void;
 }) {
   const { changeSet } = useWorkspaceData();
   const records = route.tab === "records";
@@ -189,6 +199,7 @@ export function ChangeSetReview({
           </button>
         }
       />
+      <DecisionPanel onDecided={onDecided} />
       <Tabs
         label="Changes"
         selected={route.tab}
@@ -208,6 +219,149 @@ export function ChangeSetReview({
         ]}
       />
     </section>
+  );
+}
+
+/**
+ * The decision on a submitted change set (0.12 A3, D232): its request, a comment and the two
+ * outcomes, for someone who may approve; the history of decisions under it. Under a second-person
+ * policy the submitter decides nothing, and the panel says so.
+ */
+function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void }) {
+  const { changeSet, refresh, permissions } = useWorkspaceData();
+  const me = useMe();
+  const workspaceKey = changeSet?.workspaceKey;
+  const [policy, setPolicy] = useState<ApprovalPolicy>();
+  // The panel waits for the policy, so a submitter under a second-person policy never sees buttons flash.
+  const [policyRead, setPolicyRead] = useState(false);
+  useEffect(() => {
+    if (!workspaceKey) return;
+    let active = true;
+    Promise.resolve()
+      .then(() => api.approvalPolicy(workspaceKey))
+      .then(
+        (loaded) => active && (setPolicy(loaded), setPolicyRead(true)),
+        () => active && (setPolicy(undefined), setPolicyRead(true)),
+      );
+    return () => {
+      active = false;
+    };
+  }, [workspaceKey]);
+  const [comment, setComment] = useState("");
+  const [commentError, setCommentError] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [pending, setPending] = useState(false);
+  const request = changeSet?.submission ?? null;
+  if (!changeSet || !request) return null;
+  const decisions = request.decisions;
+  const history =
+    decisions.length > 0 ? (
+      <Card as="section" aria-label="Decisions on this request">
+        <h3>Decisions</h3>
+        <ul className="decision-history">
+          {decisions.map((item) => (
+            <li key={item.id}>
+              <strong>{item.outcome === "approve" ? "Approved" : "Sent back"}</strong>
+              {item.decider && ` by ${principalName(item.decider)}`} · {formatServerAgo(item.decidedAt)}
+              {item.comment && <> · {item.comment}</>}
+            </li>
+          ))}
+        </ul>
+      </Card>
+    ) : null;
+  const waiting = request.state === "submitted";
+  const approves = allows(permissions, "approve");
+  const own = Boolean(me && request.submitter && request.submitter.id === me.id);
+  const blocked = Boolean(policy?.secondPerson && own);
+  const current = changeSet;
+
+  async function decide(outcome: "approve" | "sendBack") {
+    if (outcome === "sendBack" && !comment.trim()) {
+      setCommentError("Say what needs to change.");
+      return;
+    }
+    setCommentError("");
+    setError("");
+    setMessage("");
+    setPending(true);
+    try {
+      if (outcome === "approve") {
+        const latest = await api.latestPublication(current.workspaceKey);
+        const publication = (await api.decideChangeSet(current.id, {
+          outcome,
+          comment: comment.trim() || undefined,
+          expectedChangeSetVersion: request!.version,
+          expectedActivePublicationId: latest.items[0]?.status === "active" ? latest.items[0].id : null,
+        })) as { publicationNumber: number };
+        onDecided?.(`Published as Publication ${publication.publicationNumber}. Reviewed changes are now live.`);
+      } else {
+        await api.decideChangeSet(current.id, {
+          outcome,
+          comment: comment.trim(),
+          expectedChangeSetVersion: request!.version,
+        });
+        setComment("");
+        setMessage(`Sent back to ${request!.submitter ? principalName(request!.submitter) : "the submitter"}.`);
+        await refresh?.();
+      }
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      {message && (
+        <p role="status" className="decision-message">
+          {message}
+        </p>
+      )}
+      {waiting && approves && policyRead && me && !blocked && (
+        <Card as="section" aria-labelledby="decision-title" className="decision-panel">
+          <h3 id="decision-title">Decision</h3>
+          <p>
+            Submitted by {request.submitter ? principalName(request.submitter) : "an unknown person"} · version{" "}
+            {request.version} · {formatServerAgo(request.submittedAt)}
+          </p>
+          {request.comment && <blockquote className="decision-request-comment">{request.comment}</blockquote>}
+          {error && <Notice tone="error">{error}</Notice>}
+          {current.version !== request.version ? (
+            <Notice tone="warning">
+              The change set changed after it was submitted (version {request.version}, now {current.version}). It
+              cannot be decided as submitted.
+            </Notice>
+          ) : null}
+          <label>
+            Comment
+            <textarea
+              rows={3}
+              value={comment}
+              maxLength={2000}
+              aria-invalid={commentError ? true : undefined}
+              aria-describedby="decision-comment-help"
+              onChange={(event) => setComment(event.target.value)}
+            />
+          </label>
+          <p id="decision-comment-help" className="muted-text">
+            Required to send back
+          </p>
+          {commentError && <p className="field-error">{commentError}</p>}
+          <div className="decision-actions">
+            <button type="button" className="secondary" disabled={pending} onClick={() => void decide("sendBack")}>
+              Send back
+            </button>
+            <button type="button" className="primary" disabled={pending} onClick={() => void decide("approve")}>
+              Approve and publish
+            </button>
+          </div>
+        </Card>
+      )}
+      {waiting && approves && policyRead && blocked && <p>A second person must decide this request.</p>}
+      {history}
+    </>
   );
 }
 

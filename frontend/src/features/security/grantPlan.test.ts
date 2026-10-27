@@ -34,19 +34,27 @@ describe("what a grant dialog's ticks come to (0.12 U9)", () => {
       grant({ role: { key: "reader", name: "Reader" }, scope: { workspaceKey: "pilot" } }),
       grant({ role: { key: "editor", name: "Editor" }, scope: { workspaceKey: "pilot", applications: ["a"] } }),
     ]);
-    const requests = roleRequests(client, ["reader", "editor"], ["default", "pilot"], { applications: [], recordTypes: [] }, held);
-    expect(requests.map((request) => `${request.role}@${"workspaceKey" in request.scope ? request.scope.workspaceKey : "*"}`)).toEqual([
-      "reader@default",
-      "editor@default",
-      "editor@pilot",
-    ]);
+    const requests = roleRequests(
+      client,
+      ["reader", "editor"],
+      ["default", "pilot"],
+      { applications: [], recordTypes: [] },
+      held,
+    );
+    expect(
+      requests.map(
+        (request) => `${request.role}@${"workspaceKey" in request.scope ? request.scope.workspaceKey : "*"}`,
+      ),
+    ).toEqual(["reader@default", "editor@default", "editor@pilot"]);
   });
 
   it("grants a role at the instance once", () => {
-    const held = heldRoles([grant({ role: { key: "reader", name: "Reader" }, scope: { instance: true, workspaceKey: null } })]);
-    expect(roleRequests(client, ["reader", "editor"], "instance", { applications: [], recordTypes: [] }, held)).toEqual([
-      { principal: client, role: "editor", scope: { instance: true } },
+    const held = heldRoles([
+      grant({ role: { key: "reader", name: "Reader" }, scope: { instance: true, workspaceKey: null } }),
     ]);
+    expect(roleRequests(client, ["reader", "editor"], "instance", { applications: [], recordTypes: [] }, held)).toEqual(
+      [{ principal: client, role: "editor", scope: { instance: true } }],
+    );
   });
 
   it("says what will be made in a sentence", () => {
@@ -58,7 +66,9 @@ describe("what a grant dialog's ticks come to (0.12 U9)", () => {
     ).toBe(
       "3 grants will be made: Test client reads RDM in default and pilot and Master data in default. It changes nothing and opens nothing on the management API.",
     );
-    expect(rolePlanSentence({ who: "Anna", roles: ["Reader", "Editor"], where: ["default", "pilot"], count: 3, skipped: 1 })).toBe(
+    expect(
+      rolePlanSentence({ who: "Anna", roles: ["Reader", "Editor"], where: ["default", "pilot"], count: 3, skipped: 1 }),
+    ).toBe(
       "3 grants will be made: Reader and Editor, each in default and pilot. Anna already holds one of them, so it is skipped.",
     );
   });

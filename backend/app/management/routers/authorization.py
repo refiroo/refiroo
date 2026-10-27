@@ -271,8 +271,8 @@ def post_grant(payload: GrantCreate, session: DbSession) -> GrantResponse:
     narrowing writes to applications and record types of its model (``422 GRANT_SCOPE_UNKNOWN``
     otherwise). A role whose every action group is held only at the instance is granted there
     (``422 GRANT_SCOPE_INVALID`` in a workspace, D302). Instead of ``role``, ``consumerApi`` grants
-    read of a consumer API the workspace's model declares, in one workspace and never narrowed
-    (D306). It applies from the principal's next request."""
+    read of a consumer API the workspace's model declares, in one workspace and never narrowed,
+    to a client only (``422 CONSUMER_API_CLIENTS_ONLY`` for a person or a group, D306). It applies from the principal's next request."""
     return present.grant_response(session, administration.create_grant(session, payload))
 
 

@@ -101,12 +101,8 @@ describe("ModelWorkbench", () => {
     vi.mocked(api.modelRelease).mockResolvedValue({ ...release, model });
     const overview = renderWorkbench({ kind: "settings", page: "model" });
     expect(await screen.findByText(/mutations are disabled/i)).toBeInTheDocument();
-    // The disabled group names the setting that controls it; the enabled group does not need to.
-    const status = await screen.findByRole("region", { name: "Deployment capabilities" });
-    expect(status).toHaveTextContent(/Model administration\s*Disabled/);
-    expect(status).toHaveTextContent("MODEL_ADMIN_MUTATIONS_ENABLED");
-    expect(status).toHaveTextContent(/Workspace administration\s*Enabled/);
-    expect(status).not.toHaveTextContent("WORKSPACE_ADMIN_MUTATIONS_ENABLED");
+    // The deployment's capability panel is no longer part of this page.
+    expect(screen.queryByRole("region", { name: "Deployment capabilities" })).not.toBeInTheDocument();
     overview.unmount();
     // A release opened in the page stays inspectable, with no draft actions.
     renderWorkbench({ kind: "settings", page: "model", releaseId: "r1" });
@@ -135,7 +131,7 @@ describe("ModelWorkbench", () => {
     expect(screen.getByText(/raw JSON remain available/)).toBeInTheDocument();
   });
 
-  it("lists the models, the default workspace's first, and shows its card without a selection (D50, 0.11 M6)", async () => {
+  it("opens on the list of models, grouped, searchable, and a row opens the model (D50, 0.11 M6)", async () => {
     const other = { ...release, id: "o1", key: "other", name: "Other", version: "2", assigned: false };
     vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [other, release], nextCursor: null });
@@ -145,31 +141,71 @@ describe("ModelWorkbench", () => {
     });
     mockWorkspaces();
     const onRouteChange = vi.fn();
+    render(
+      <ToastProvider>
+        <ModelWorkbench route={{ kind: "settings", page: "model" }} onRouteChange={onRouteChange} />
+      </ToastProvider>,
+    );
+
+    await screen.findByRole("region", { name: "Default workspace" });
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Switch model/ })).not.toBeInTheDocument();
+    const groups = screen.getAllByRole("region").map((group) => [
+      group.getAttribute("aria-label"),
+      within(group)
+        .getAllByRole("button")
+        .map((row) => row.querySelector("strong")?.textContent),
+    ]);
+    expect(groups).toEqual([
+      ["Default workspace", ["Test"]],
+      ["Not in use", ["Other"]],
+      ["Drafts without an installed model", ["Fresh"]],
+    ]);
+    expect(screen.getByRole("region", { name: "Default workspace" })).toHaveTextContent("Default workspace · 1");
+    const entries = Array.from(document.querySelectorAll<HTMLElement>("button.entity-row"));
+    expect(entries[0]).toHaveTextContent("Test");
+    expect(entries[0]).toHaveTextContent("test · 1 release");
+    expect(entries[0]).toHaveTextContent("Runs the default workspace");
+    expect(entries[2]).toHaveTextContent("Not installed yet · draft version 2");
+    // The search filters by name and key.
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search models" }), { target: { value: "oth" } });
+    expect(
+      Array.from(document.querySelectorAll("button.entity-row")).map((row) => row.querySelector("strong")?.textContent),
+    ).toEqual(["Other"]);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search models" }), { target: { value: "zzz" } });
+    expect(await screen.findByText("No model matches “zzz”")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search models" }), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /Other/ }));
+    expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", modelKey: "other" });
+  });
+
+  it("shows a model under the bar with a plain heading; Back and the trail return to the list", async () => {
+    vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
+    vi.mocked(api.modelDrafts).mockResolvedValue({ items: [], nextCursor: null });
+    mockWorkspaces();
+    const onRouteChange = vi.fn();
     const onOpenWorkspace = vi.fn();
     render(
       <ToastProvider>
         <ModelWorkbench
-          route={{ kind: "settings", page: "model" }}
+          route={{ kind: "settings", page: "model", modelKey: "test" }}
           onRouteChange={onRouteChange}
           onOpenWorkspace={onOpenWorkspace}
         />
       </ToastProvider>,
     );
-
-    // The default workspace's model first, then the rest, then a draft of a model not installed yet.
-    const catalogue = await screen.findByRole("navigation", { name: "Model catalogue" });
-    const entries = within(catalogue).getAllByRole("button");
-    expect(entries.map((entry) => entry.querySelector("strong")?.textContent)).toEqual(["Test", "Other", "Fresh"]);
-    expect(entries[0]).toHaveTextContent("1 · in DefaultDefault");
-    expect(entries[2]).toHaveTextContent("Not installed yet · draft version 2");
-    // Without a selection the card shows the default workspace's model.
     expect(await screen.findByRole("heading", { name: "Test", level: 2 })).toBeInTheDocument();
+    const trail = screen.getByRole("navigation", { name: "Where you are" });
+    expect(trail).toHaveTextContent("ModelsTest");
+    fireEvent.click(screen.getByRole("button", { name: "← All models" }));
+    expect(onRouteChange).toHaveBeenLastCalledWith({ kind: "settings", page: "model" });
+    fireEvent.click(within(trail).getByRole("button", { name: "Models" }));
+    expect(onRouteChange).toHaveBeenCalledTimes(2);
     const running = screen.getByRole("list", { name: "Workspaces running Test" });
     expect(within(running).getByRole("button", { name: "Change the model of Default" })).toBeInTheDocument();
     fireEvent.click(within(running).getByRole("link", { name: "Default" }));
     expect(onOpenWorkspace).toHaveBeenCalledWith("default");
-    fireEvent.click(entries[1]);
-    expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", modelKey: "other" });
   });
 
   it("shows a model's releases newest first with the workspaces running each, and its drafts (0.11 M6)", async () => {
@@ -184,7 +220,7 @@ describe("ModelWorkbench", () => {
     vi.mocked(api.modelDrafts).mockResolvedValue({ items: [{ ...draft, baseReleaseId: "old-2" }], nextCursor: null });
     mockWorkspaces();
     const onRouteChange = vi.fn();
-    renderWorkbench({ kind: "settings", page: "model", modelKey: "test" }, onRouteChange);
+    renderWorkbench({ kind: "settings", page: "model", modelKey: "test", modelTab: "releases" }, onRouteChange);
 
     const releases = await screen.findByRole("list", { name: "Releases of Test" });
     const rows = within(releases).getAllByRole("listitem");
@@ -192,9 +228,82 @@ describe("ModelWorkbench", () => {
     expect(rows[0]).toHaveTextContent("1Default");
     // A click anywhere on the line opens the release.
     fireEvent.click(rows[1].querySelector(".muted")!);
-    expect(onRouteChange).toHaveBeenCalledWith({ kind: "settings", page: "model", releaseId: "old-2" });
-    const drafts = screen.getByRole("list", { name: "Drafts of Test" });
-    expect(within(drafts).getByRole("listitem")).toHaveTextContent("Candidate1 release behindfrom 0.2");
+    expect(onRouteChange).toHaveBeenCalledWith({
+      kind: "settings",
+      page: "model",
+      releaseId: "old-2",
+      modelTab: "releases",
+    });
+    // The drafts are on their own tab, which the address names.
+    fireEvent.click(screen.getByRole("tab", { name: "Drafts (1)" }));
+    expect(onRouteChange).toHaveBeenCalledWith({
+      kind: "settings",
+      page: "model",
+      modelKey: "test",
+      modelTab: "drafts",
+    });
+  });
+
+  it("shows the tabs Overview, Releases, Drafts and Structure, Drafts only when there are some to manage", async () => {
+    vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
+    vi.mocked(api.modelDrafts).mockResolvedValue({ items: [], nextCursor: null });
+    mockWorkspaces();
+    const none = renderWorkbench({ kind: "settings", page: "model", modelKey: "test", modelTab: "drafts" });
+    const tabs = await screen.findAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Overview", "Releases (1)", "Structure"]);
+    // An unavailable tab in the address shows Overview.
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("list", { name: "Workspaces running Test" })).toBeInTheDocument();
+    none.unmount();
+
+    vi.mocked(api.modelDrafts).mockResolvedValue({ items: [draft], nextCursor: null });
+    renderWorkbench({ kind: "settings", page: "model", modelKey: "test", modelTab: "drafts" });
+    expect((await screen.findAllByRole("tab")).map((tab) => tab.textContent)).toEqual([
+      "Overview",
+      "Releases (1)",
+      "Drafts (1)",
+      "Structure",
+    ]);
+    expect(await screen.findByRole("list", { name: "Drafts of Test" })).toBeInTheDocument();
+  });
+
+  it("opens a release under a bar whose Back returns to the tab it was opened from", async () => {
+    vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
+    vi.mocked(api.modelDrafts).mockResolvedValue({ items: [draft], nextCursor: null });
+    mockWorkspaces();
+    vi.mocked(api.modelRelease).mockResolvedValue({ ...release, model });
+    const onRouteChange = vi.fn();
+    renderWorkbench({ kind: "settings", page: "model", releaseId: "r1", modelTab: "overview" }, onRouteChange);
+    const trail = await screen.findByRole("navigation", { name: "Where you are" });
+    expect(trail).toHaveTextContent("TestOverview1");
+    // The tabs are not shown while a release is open.
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "← Back to Overview" }));
+    expect(onRouteChange).toHaveBeenCalledWith({
+      kind: "settings",
+      page: "model",
+      modelKey: "test",
+      modelTab: "overview",
+    });
+  });
+
+  it("opens a draft under the same bar, and Back defaults to Drafts", async () => {
+    vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture({ manageModel: true }));
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
+    vi.mocked(api.modelDrafts).mockResolvedValue({ items: [draft], nextCursor: null });
+    mockWorkspaces();
+    const onRouteChange = vi.fn();
+    renderWorkbench({ kind: "settings", page: "model", draftId: "d1" }, onRouteChange);
+    expect(await screen.findByRole("navigation", { name: "Where you are" })).toHaveTextContent("TestDraftsCandidate");
+    fireEvent.click(screen.getByRole("button", { name: "← Back to Drafts" }));
+    expect(onRouteChange).toHaveBeenCalledWith({
+      kind: "settings",
+      page: "model",
+      modelKey: "test",
+      modelTab: "drafts",
+    });
   });
 });
 

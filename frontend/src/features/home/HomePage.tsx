@@ -27,12 +27,14 @@ import type {
   Grant,
   OwnChangeSet,
   OwnWorkspace,
+  PublicationRequest,
   RouteState,
   WorkspaceApplication,
 } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon, type IconName } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
+import { principalName } from "@/ui/ActorName";
 import { RouteLink } from "@/ui/RouteLink";
 import { BrandMascot } from "@/ui/ProductMark";
 import { Skeleton } from "@/ui/Skeleton";
@@ -156,6 +158,7 @@ export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate
                 ))}
               </ul>
             </section>
+            <WaitingApprovals personId={me.id} workspaces={workspaces} onNavigate={onNavigate} />
             <OwnChangeSets workspaces={workspaces} onNavigate={onNavigate} />
             <RecentChanges personId={me.id} workspaces={workspaces} onNavigate={onNavigate} />
           </>
@@ -314,6 +317,85 @@ function WorkspaceCard({
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * Requests waiting for the person's approval, across the workspaces where they may approve (0.12 A3,
+ * HM1 D335); shown only when there is one. Under a second-person policy their own do not count.
+ */
+export function WaitingApprovals({
+  personId,
+  workspaces,
+  onNavigate,
+}: {
+  personId: string;
+  workspaces: OwnWorkspace[];
+  onNavigate: Navigate;
+}) {
+  const [items, setItems] = useState<PublicationRequest[]>([]);
+  useEffect(() => {
+    let active = true;
+    Promise.all(
+      workspaces.map(async (workspace) => {
+        try {
+          const permissions = await api.myPermissions(workspace.key);
+          if (!permissions.actionGroups.some((group) => group.key === "approve")) return [];
+          const [page, policy] = await Promise.all([
+            api.publicationRequests(workspace.key, { state: "submitted" }),
+            api.approvalPolicy(workspace.key).catch(() => undefined),
+          ]);
+          return policy?.secondPerson ? page.items.filter((item) => item.submitter?.id !== personId) : page.items;
+        } catch {
+          return [];
+        }
+      }),
+    ).then((lists) => {
+      if (active) setItems(lists.flat().sort((left, right) => right.submittedAt.localeCompare(left.submittedAt)));
+    });
+    return () => {
+      active = false;
+    };
+  }, [personId, workspaces]);
+  if (!items.length) return null;
+  const firstApplication = new Map(workspaces.map((item) => [item.key, item.applications[0]?.key]));
+  const labels = new Map(workspaces.map((item) => [item.key, item.label]));
+  return (
+    <section className="home-section" aria-labelledby="home-approvals">
+      <div className="home-section-head">
+        <h2 id="home-approvals">Waiting for your approval</h2>
+        <span className="account-muted">Newest first</span>
+      </div>
+      <div className="account-panel">
+        <ul className="account-list">
+          {items.map((item) => {
+            const application = firstApplication.get(item.workspaceKey);
+            return (
+              <li key={item.id} className="account-row">
+                <span className="account-row-text">
+                  <span className="account-row-title">{item.changeSetName || "Untitled change set"}</span>
+                  <span className="account-muted">
+                    {labels.get(item.workspaceKey) ?? item.workspaceKey} · Submitted by{" "}
+                    {item.submitter ? principalName(item.submitter) : "an unknown person"}
+                  </span>
+                </span>
+                <span className="account-muted home-change-set-when">{formatServerAgo(item.submittedAt)}</span>
+                {application && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    aria-label={`Review ${item.changeSetName || "Untitled change set"}`}
+                    onClick={() => onNavigate(changeReviewFor(application, item.workspaceKey, item.changeSetId))}
+                  >
+                    Review
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
   );
 }
 

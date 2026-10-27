@@ -136,11 +136,11 @@ sign-in against Keycloak (which found and fixed the provider callback's `iss` de
 independent review of the 0.12 changes whose findings are all fixed or accepted
 ([record](SECURITY_REVIEW_0_12.md)), among them deletions skipping the narrowing check (high), source
 files and the import profile check across workspaces, the forwarded address behind a balancer, a 500 on
-a binary body and a 503 on a NUL byte. **M2, inbox notices by mail, is delivered (2026-10-27)**, D432 and D433: a person can switch on one e-mail per inbox notice on Settings › Account, naming the kind of event only ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#m2-record-2026-10-27)). **A2, the inbox and workspace events, is delivered (2026-10-26)**, D428–D431 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#a2-record-2026-10-26)). **A1, a publication request and its approval, is delivered
+a binary body and a 503 on a NUL byte. **A3, approvals in the interface, is delivered (2026-10-27)** ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#a3-record-2026-10-27)). **M2, inbox notices by mail, is delivered (2026-10-27)**, D432 and D433: a person can switch on one e-mail per inbox notice on Settings › Account, naming the kind of event only ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#m2-record-2026-10-27)). **A2, the inbox and workspace events, is delivered (2026-10-26)**, D428–D431 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#a2-record-2026-10-26)). **A1, a publication request and its approval, is delivered
 (2026-10-26)**, D424–D427: Approve publications (Data owner), submit, withdraw, approve (which publishes) or send
 back with a comment, a per-workspace policy (`requireApproval`, `secondPerson`), a submitted change set frozen
 unless a write carries `withdrawSubmission=true`; the API only ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#a1-record-2026-10-26),
-migration `20261110_01`). 0.12 is released complete: next A2, A3, M2, L1, L2 and R (no cut
+migration `20261110_01`). 0.12 is released complete: next L1, L2 and R (no cut
 line, the user, 2026-10-26).
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)

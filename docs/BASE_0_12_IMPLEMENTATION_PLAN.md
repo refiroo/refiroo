@@ -2474,6 +2474,8 @@ or see a subscription's owner in the interface (SP2; API calls until then); see 
 
 ##### Z3 record (2026-10-24)
 
+_Amended 2026-10-28 (the user):_ D306's holders are clients only; D307's cost sentence about a person who wants consumer access is void; grants of a consumer API to people and groups were removed by migration `20261114_01`.
+
 **Delivered 2026-10-24.** What was built is the plan's list, items 1–10:
 
 - **Migration** `20261031_01`: `grants.role_id` nullable, `grants.consumer_api`,
@@ -4981,6 +4983,38 @@ change-set review for an approver, the request's state and comments in the chang
 four-eyes policy on Settings › Workspaces. Smoke on a real Contributor → Steward round trip.
 _Amended by HM1 (2026-10-25):_ A3 also adds "Waiting for your approval" to the home page (D335).
 
+##### A3 record (2026-10-27)
+
+**Delivered 2026-10-27**; the frontend only, written by a Sonnet agent. The shapes follow the mock-ups approved in P0
+(SETTINGS_AND_UI_PLAN § U8); the decisions below were taken by recommendation, no question was open.
+
+- **Change set bar:** "Submit for publication" (with an optional comment, after the same validation as Publish) for a
+  person who may work in change sets but not publish, or whose policy refuses direct publishing
+  (`requireApproval` and `secondPerson`, or no Approve publications); Publish is then hidden, not disabled. A submitted
+  change set shows "Waiting for approval", the submitter, version and comment; "Withdraw request" (the submitter or an
+  approver) and "Review and decide". A sent-back request shows the approver's comment.
+- **Review:** a Decision card above the tabs for an approver: comment (required to send back), "Approve and publish"
+  (bound to the submitted version and the active publication), "Send back", the decisions so far; a submitter under
+  four-eyes sees "A second person must decide this request." At 480px and below the actions sit in a bar fixed at the
+  bottom.
+- **Settings › Workspaces:** an Approval section (the two policy switches, saved with the policy's version) for a
+  Workspace administrator in that workspace.
+- **Home:** "Waiting for your approval" lists submitted requests of the workspaces where the person approves (their
+  own left out under four-eyes); nothing is shown when empty.
+- **Differs from the plan / decided:** an edit does not withdraw the request in the interface: the person withdraws it
+  first (`withdrawSubmission=true` stays an API option); the interface offers no cross-workspace route, Home reads each
+  workspace the person may approve in.
+- **Exercised:** 10 new frontend cases (bar, review, workspace policy, Home) and the 94 tests of `workspaces` and
+  `home`; typecheck, eslint on the changed files and `npm run build`. **Not exercised:** a real Contributor → Steward
+  round trip in a browser, appearance at 1440px and 390px (including the fixed bottom bar), axe and the visual suite
+  (no browser runner here).
+- **A3a (2026-10-27), the workspace page in tabs** (the user's request after A3): Overview, Access, Approval and
+  Activity; the actions under the header; the model's applications as cards. Activity reads `GET /changes?workspaceKey=`
+  (Browse; newest first with actor and names), not the workspace feed, which pages forward only and names no actor. Not
+  exercised in a browser. Nothing links to the new tab addresses yet.
+- **What the user cannot do yet:** edit a submitted change set without withdrawing first; see all requests of a
+  workspace in one list (the API has it, the interface shows only what waits for the person).
+
 ## Decisions
 
 **Accepted by the user on 2026-10-22**, each as recommended (D232: yes, Track A after the cut
@@ -5049,7 +5083,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 15 | [A1](#a1-a-publication-request-and-its-approval) | Z1, Z4 | **Delivered 2026-10-26** (D424–D427). Submit, approve or send back, self-approval, four-eyes policy; the API |
 | 16 | [A2](#a2-the-inbox) | A1, I2 | The inbox; webhook events per step |
 | 16a | [M2](#m2-inbox-notifications-by-mail) | M1, A2 | **Delivered 2026-10-27** (D432, D433): e-mail for inbox notifications, per person, off by default
-| 17 | [A3](#a3-approvals-in-the-interface) | A2, Z5 | Approvals on the change-set review |
+| 17 | [A3](#a3-approvals-in-the-interface) | A2, Z5 | **Delivered 2026-10-27.** Submit, decide and the policy in the interface |
 | 18 | [L1](#l1-licensing-and-policies) | — | Licensing and policies (filler, any time) |
 | 19 | [L2](#l2-the-compatibility-commitment) | E1 (A3 if delivered), the project's name | The compatibility commitment, now including the authentication contracts |
 | 20 | R | all above the cut | Build acceptance and the first public release |

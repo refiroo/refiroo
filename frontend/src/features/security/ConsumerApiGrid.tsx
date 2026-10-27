@@ -156,8 +156,18 @@ export function ConsumerApiGrid({
               {workspaces.map((workspace, column) => {
                 const key = cellKey(api.key, workspace.key);
                 const loaded = options[workspace.key];
-                if (loaded === undefined) return <td key={workspace.key} className="grant-grid-note">…</td>;
-                if (loaded === "error") return <td key={workspace.key} className="grant-grid-note">unavailable</td>;
+                if (loaded === undefined)
+                  return (
+                    <td key={workspace.key} className="grant-grid-note">
+                      …
+                    </td>
+                  );
+                if (loaded === "error")
+                  return (
+                    <td key={workspace.key} className="grant-grid-note">
+                      unavailable
+                    </td>
+                  );
                 if (!declared(api.key, workspace.key))
                   return (
                     <td key={workspace.key} className="grant-grid-note">

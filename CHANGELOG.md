@@ -24,11 +24,30 @@ All notable changes to this project are documented in this file. The format foll
   `GET /changes`). The tab is in the address: `/settings/workspaces/{key}/{tab}`. Visited tabs stay loaded, so
   switching keeps the page where it is; a workspace opens at once on Back (its last known state, read again
   meanwhile); reading a workspace no longer counts its records to say whether it can be deleted.
-- **The workspace list is a dialog.** "Switch workspace" beside the workspace's name opens Active workspaces first
-  (the default on top), then Retired ones, each scrolling on to its next page, with search by label and key; the left
-  list is gone and the page uses the full width.
+- **Workspaces and Model open on a list.** Settings › Workspaces lists the workspaces (active first, the default on
+  top, then retired; search by label and key) and Settings › Model lists the models; opening one shows its page under a
+  bar "← All workspaces" / "← All models" with a trail. The switcher boxes and their dialogs are gone.
 - **The access list groups a principal's grants.** `GET /workspaces/{workspaceKey}/access` is ordered by principal
   (people, groups, clients; then name and id), then by grant, so one principal's grants are adjacent.
+
+### Changed (0.12 A3c, Settings › Model in tabs)
+
+- **The model page has tabs:** Overview, Releases, Drafts and Structure; the "Deployment capabilities" panel is gone (the
+  Deployment page has it). A release or draft opens as before, under a bar "← Back to Releases" and a trail that returns
+  to the tab it was opened from. The new Structure tab is a read-only list of a release's applications, object types,
+  attributes and relations, with a release picker.
+
+### Changed (0.12 A3b, Access and Activity of a workspace)
+
+- **A consumer API is granted to a client only:** a person or a group is refused `422 CONSUMER_API_CLIENTS_ONLY`; people read through the management API. Migration `20261114_01` removes such grants made earlier.
+- **Access is one line per person, group or client**, with its roles as coloured chips, a trash on hover (asking
+  first), a + to add a role, search and Role/Kind filters; at 390px each is a card. The people's and clients'
+  own pages keep their tables.
+- **Switching workspace is smoother:** the previous workspace stays on screen, dimmed, until the next one is read (a
+  row prefetches on hover); the dialog shows its last lists at once and refreshes them in place; a short tab no longer
+  sends the page back to the top; dialogs fade in.
+- **Activity has coloured marks:** the record type's tile, a Created/Changed/Removed pill, and one expandable line for
+  the records of one change set by one person on one day.
 
 ### Added (0.12 A3, approvals in the interface)
 

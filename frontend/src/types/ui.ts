@@ -33,6 +33,12 @@ export interface CollectionQueryState {
   anchor?: string;
 }
 
+/** A tab of one model's page in Settings › Model. */
+export type ModelTab = "overview" | "releases" | "drafts" | "structure";
+
+/** A tab of one workspace's page in Settings › Workspaces. */
+export type WorkspaceTab = "overview" | "access" | "approval" | "activity";
+
 export type RouteState =
   | ({
       kind: "list";
@@ -135,7 +141,8 @@ export type SettingsRoute =
   | { kind: "settings"; page: "moves"; move?: MoveAddress }
   /** Stored import profiles, or one profile's page with its next file's check (0.10 A5c, D85). */
   | { kind: "settings"; page: "import-profiles"; profileKey?: string }
-  | { kind: "settings"; page: "workspaces"; workspaceKey?: string }
+  /** The workspaces catalogue, one workspace's page, or one of its tabs (none is Overview). */
+  | { kind: "settings"; page: "workspaces"; workspaceKey?: string; workspaceTab?: WorkspaceTab }
   /** Security › People and Groups, or one person's or group's page; Roles (0.12 SP1). */
   | { kind: "settings"; page: "people"; userId?: string }
   | { kind: "settings"; page: "groups"; groupId?: string }
@@ -163,6 +170,11 @@ export type SettingsRoute =
       draftId?: string;
       /** A model's page, by its key: who runs it, its releases and its drafts (0.11 M6). */
       modelKey?: string;
+      /**
+       * The tab of the model's page (none is Overview). On an opened release or draft it is the tab
+       * the person came from, which Back returns to.
+       */
+      modelTab?: ModelTab;
       /** A workspace's migration to another release, by its job (0.11 V1). */
       migrationJobId?: string;
       /** The draft opened in the model editor (0.10 A4a, D7), with what its centre shows. */

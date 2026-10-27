@@ -1,33 +1,38 @@
 /**
- * Settings › Workspaces (Track U U3, U-D10 as revised 2026-10-06): the catalogue of every workspace,
- * including retired ones, beside the selected workspace, with create, rename, retire, reactivate,
- * set default and delete. Only a workspace nothing refers to can be deleted; the server says whether
- * it can, and why not, so the screen never guesses. Laid out like Settings › Model; below 760px the
- * catalogue and the selected workspace take turns. Completed writes are confirmed with a toast.
+ * Settings › Workspaces (Track U U3, U-D10 as revised 2026-10-28): the list, then one workspace at a time, with create, rename, retire, reactivate, set default and delete.
+ * The page opens with the list of every workspace, retired ones included (WorkspaceList); a workspace
+ * opens under a bar that leads back to the list. Only a
+ * workspace nothing refers to can be deleted; the server says whether it can, and why not, so the
+ * screen never guesses. Completed writes are confirmed with a toast.
  *
  * Every write carries the version it was based on. A conflict never retries silently: the current
  * state is reloaded and shown, and the user decides again. Change sets and publications stay inside
  * each workspace; this screen does not list them.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { security } from "@/api/securityClient";
 import { useHoldsGroup } from "@/app/useMe";
 import { holds, useWorkspacePermissions } from "@/features/security/permissions";
 import { GrantsSection } from "@/features/security/GrantsSection";
 import { errorMessage, isApiError } from "@/api/errors";
-import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
 import { formatServerTime } from "@/lib/dates";
+import { WorkspaceActivity } from "@/features/workspaces/WorkspaceActivity";
+import { applicationHue } from "@/model/hues";
+import { viewRoute, WORKSPACE_TABS } from "@/routing/routes";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type {
+  ApprovalPolicy,
   CapabilitiesResponse,
+  EngineModel,
   ModelReleaseSummary,
   RouteState,
   SettingsRoute,
   Workspace,
   WorkspaceDetail,
   WorkspaceRuntimeState,
+  WorkspaceTab,
 } from "@/types";
 import {
   installedReleases,
@@ -36,8 +41,13 @@ import {
   useNewWorkspaceIdentity,
 } from "@/features/workspaces/NewWorkspaceFields";
 import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
-import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
+import { Card } from "@/ui/Card";
+import { WorkspaceList, resetWorkspaceListCacheForTests } from "@/features/workspaces/WorkspaceList";
+import { TrailBar, TrailLink } from "@/ui/TrailBar";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { HueTile } from "@/ui/HueTile";
+import { Skeleton } from "@/ui/Skeleton";
+import { Tabs, type TabDefinition } from "@/ui/Tabs";
 import { urlName } from "@/features/settings/webhookText";
 import { routePath } from "@/routing/routes";
 import { Icon } from "@/ui/Icon";
@@ -54,6 +64,56 @@ import { useToast } from "@/ui/Toast";
 type WorkspacesRoute = Extract<SettingsRoute, { page: "workspaces" }>;
 
 const WORKSPACES: WorkspacesRoute = { kind: "settings", page: "workspaces" };
+
+/**
+ * What this screen last read, kept while the screen is closed: opening it again (Back from an
+ * application) shows it at once and reads it afresh in the background. A workspace's detail is
+ * replaced whenever it is read or written and dropped when it is deleted or the default changes
+ * (which changes why the others cannot be deleted). Capabilities belong to the deployment, not to a
+ * person.
+ */
+const lastRead: {
+  capabilities?: CapabilitiesResponse;
+  runtime?: WorkspaceRuntimeState;
+  details: Map<string, WorkspaceDetail>;
+  /** Each workspace's model as the Overview's applications read it. */
+  models: Map<string, EngineModel>;
+} = { details: new Map(), models: new Map() };
+/** Detail reads started before the page that uses them has mounted, used once. */
+const earlyReads = new Map<string, { at: number; read: Promise<WorkspaceDetail> }>();
+const EARLY_READ_MS = 5000;
+
+export function resetWorkspaceAdminCacheForTests() {
+  lastRead.capabilities = undefined;
+  lastRead.runtime = undefined;
+  lastRead.details.clear();
+  lastRead.models.clear();
+  resetWorkspaceListCacheForTests();
+  earlyReads.clear();
+}
+
+function readWorkspaceDetail(key: string): Promise<WorkspaceDetail> {
+  return api.workspace(key).then((item) => {
+    lastRead.details.set(key, item);
+    return item;
+  });
+}
+
+/** Start reading a workspace now, so the read runs beside the others the screen waits for. */
+function startWorkspaceRead(key: string) {
+  const early = earlyReads.get(key);
+  if (early && Date.now() - early.at < EARLY_READ_MS) return;
+  const read = readWorkspaceDetail(key);
+  read.catch(() => undefined);
+  earlyReads.set(key, { at: Date.now(), read });
+}
+
+/** The read started early for `key` if there is a recent one, otherwise a new read. */
+function takeWorkspaceRead(key: string): Promise<WorkspaceDetail> {
+  const early = earlyReads.get(key);
+  earlyReads.delete(key);
+  return early && Date.now() - early.at < EARLY_READ_MS ? early.read : readWorkspaceDetail(key);
+}
 
 export function WorkspaceAdmin({
   route,
@@ -72,21 +132,37 @@ export function WorkspaceAdmin({
   onOpenWorkspace: (workspaceKey: string) => void;
   onWorkspaceDeleted?: (workspaceKey: string) => void;
 }) {
-  const [capabilities, setCapabilities] = useState<CapabilitiesResponse>();
-  const [runtime, setRuntime] = useState<WorkspaceRuntimeState>();
+  const [capabilities, setCapabilities] = useState<CapabilitiesResponse | undefined>(lastRead.capabilities);
+  const [runtime, setRuntime] = useState<WorkspaceRuntimeState | undefined>(lastRead.runtime);
   const [loadError, setLoadError] = useState("");
   const toast = useToast();
   const [creating, setCreating] = useState(false);
   const newButtonRef = useRef<HTMLButtonElement>(null);
-  const feed = useCursorFeed((cursor) => api.workspaces({ status: "all", cursor, pageSize: 100 }), []);
+  // Details the page has read, by key: the default workspace's label for the pill and the create dialog.
+  const [seen, setSeen] = useState<Record<string, Workspace>>({});
+  const noteSeen = useCallback(
+    (workspace: Workspace) => setSeen((current) => ({ ...current, [workspace.key]: workspace })),
+    [],
+  );
 
   const [loadToken, setLoadToken] = useState(0);
+
+  // The selected workspace is read beside the capabilities and the runtime state, not after them.
+  const addressed = route.workspaceKey;
+  useEffect(() => {
+    if (!addressed) return;
+    startWorkspaceRead(addressed);
+    // A read the page never took is not kept for a later visit.
+    return () => void earlyReads.delete(addressed);
+  }, [addressed]);
 
   useEffect(() => {
     let active = true;
     Promise.all([api.capabilities(), api.workspaceRuntimeState()])
       .then(([caps, state]) => {
         if (!active) return;
+        lastRead.capabilities = caps;
+        lastRead.runtime = state;
         setCapabilities(caps);
         setRuntime(state);
       })
@@ -98,6 +174,7 @@ export function WorkspaceAdmin({
 
   const reloadRuntime = useCallback(async () => {
     const state = await api.workspaceRuntimeState();
+    lastRead.runtime = state;
     setRuntime(state);
     return state;
   }, []);
@@ -106,51 +183,22 @@ export function WorkspaceAdmin({
   const workspaceAdmin = useHoldsGroup("workspace-admin");
   const copiesAndMoves = useHoldsGroup("copy-move");
   const canManage = !!capabilities?.workspaceAdmin.manageWorkspaces && Boolean(workspaceAdmin);
-  // Without a selection in the address the default workspace is shown, as the screen always did.
-  const selectedKey = route.workspaceKey ?? runtime?.defaultWorkspaceKey;
-  const defaultWorkspace = feed.items.find((item) => item.key === runtime?.defaultWorkspaceKey);
+  // Without a selection in the address the list is shown.
+  const selectedKey = route.workspaceKey;
+  const defaultKey = runtime?.defaultWorkspaceKey;
+  const defaultWorkspace = defaultKey ? seen[defaultKey] : undefined;
 
-  function replaceItem(workspace: Workspace) {
-    feed.setItems((items) => items.map((item) => (item.key === workspace.key ? workspace : item)));
-  }
-
-  const catalogue = (
-    <nav className="model-catalogue" aria-label="Workspace catalogue">
-      <section>
-        <h2 className="nav-label">
-          Workspaces <span>{feed.items.length}</span>
-        </h2>
-        {feed.items.map((workspace) => (
-          <CatalogueEntry
-            key={workspace.key}
-            icon="workspace"
-            title={workspace.label}
-            subtitle={`${workspace.key} · ${workspaceModelLabel(workspace)}`}
-            current={selectedKey === workspace.key}
-            onSelect={() => onRouteChange({ ...WORKSPACES, workspaceKey: workspace.key })}
-            pill={
-              workspace.key === runtime?.defaultWorkspaceKey ? (
-                <StatusPill tone="success">Default</StatusPill>
-              ) : (
-                workspace.status === "retired" && <StatusPill tone="neutral">Retired</StatusPill>
-              )
-            }
-          />
-        ))}
-        {feed.loading && !feed.items.length && <p className="explorer-empty">Loading workspaces…</p>}
-        {feed.error && (
-          <div className="catalogue-error">
-            <InlineError message={feed.error} onRetry={feed.retry} />
-          </div>
-        )}
-        {feed.hasMore && (
-          <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-            Load more workspaces
-          </button>
-        )}
-      </section>
-    </nav>
-  );
+  // The selected workspace reports itself; the default is read here only when another is shown.
+  useEffect(() => {
+    if (!defaultKey || defaultKey === selectedKey || seen[defaultKey]) return;
+    let active = true;
+    readWorkspaceDetail(defaultKey)
+      .then((item) => active && noteSeen(item))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [defaultKey, selectedKey, seen, noteSeen]);
 
   return (
     <SettingsLayout
@@ -186,48 +234,54 @@ export function WorkspaceAdmin({
         />
       )}
       {!capabilities && !loadError && <div className="panel-state">Loading workspace catalogue…</div>}
-      {capabilities && <CapabilityStatus capabilities={capabilities} />}
-      <CatalogueLayout
-        catalogue={catalogue}
-        hasSelection={!!route.workspaceKey}
-        backLabel="All workspaces"
-        onBack={() => onRouteChange(WORKSPACES)}
-      >
-        {selectedKey && capabilities && runtime ? (
-          <WorkspaceDetail
-            key={selectedKey}
-            workspaceKey={selectedKey}
-            runtime={runtime}
-            canManage={canManage}
-            canMove={moveAbility(capabilities).canMove && Boolean(copiesAndMoves)}
-            onMove={(mappingKey, from, to) =>
-              onRouteChange({ kind: "settings", page: "moves", move: { mappingKey, from, to } })
-            }
-            onChanged={replaceItem}
-            onRuntimeChanged={(state) => {
-              setRuntime(state);
-              onDefaultChanged?.(state.defaultWorkspaceKey);
-            }}
-            reloadRuntime={reloadRuntime}
-            onOpen={onOpenWorkspace}
-            onNavigate={onNavigate}
-            onOpenSubscription={(subscriptionId) =>
-              onRouteChange({ kind: "settings", page: "webhooks", subscriptionId })
-            }
-            onDeleted={(workspace) => {
-              toast(`Workspace ${workspace.label} (${workspace.key}) was deleted. Its key can be used again.`);
-              feed.reload();
-              onRouteChange(WORKSPACES);
-              onWorkspaceDeleted?.(workspace.key);
-            }}
-          />
+      <Card as="section" flush className="model-detail">
+        {selectedKey ? (
+          capabilities && runtime ? (
+            <WorkspaceDetail
+              key={selectedKey}
+              workspaceKey={selectedKey}
+              runtime={runtime}
+              canManage={canManage}
+              tab={route.workspaceTab}
+              onTab={(workspaceTab) => onRouteChange({ ...WORKSPACES, workspaceKey: selectedKey, workspaceTab })}
+              canMove={moveAbility(capabilities).canMove && Boolean(copiesAndMoves)}
+              onMove={(mappingKey, from, to) =>
+                onRouteChange({ kind: "settings", page: "moves", move: { mappingKey, from, to } })
+              }
+              onChanged={noteSeen}
+              onBack={() => onRouteChange(WORKSPACES)}
+              onRuntimeChanged={(state) => {
+                lastRead.runtime = state;
+                lastRead.details.clear();
+                setRuntime(state);
+                onDefaultChanged?.(state.defaultWorkspaceKey);
+              }}
+              reloadRuntime={reloadRuntime}
+              onOpen={onOpenWorkspace}
+              onNavigate={onNavigate}
+              onOpenSubscription={(subscriptionId) =>
+                onRouteChange({ kind: "settings", page: "webhooks", subscriptionId })
+              }
+              onDeleted={(workspace) => {
+                lastRead.details.delete(workspace.key);
+                toast(`Workspace ${workspace.label} (${workspace.key}) was deleted. Its key can be used again.`);
+                onRouteChange(WORKSPACES);
+                onWorkspaceDeleted?.(workspace.key);
+              }}
+            />
+          ) : (
+            !loadError && <Skeleton label="Loading workspace" lines={3} />
+          )
         ) : (
-          !loadError && <div className="panel-state">Choose a workspace.</div>
+          <WorkspaceList
+            defaultKey={defaultKey}
+            onOpen={(workspaceKey) => onRouteChange({ ...WORKSPACES, workspaceKey })}
+          />
         )}
-      </CatalogueLayout>
+      </Card>
       {creating && (
         <CreateWorkspaceDialog
-          defaultWorkspace={feed.items.find((item) => item.key === runtime?.defaultWorkspaceKey)}
+          defaultWorkspace={defaultWorkspace}
           onClose={() => {
             setCreating(false);
             newButtonRef.current?.focus();
@@ -235,7 +289,6 @@ export function WorkspaceAdmin({
           onCreated={(workspace) => {
             setCreating(false);
             toast(`Workspace ${workspace.label} was created.`);
-            feed.reload();
             onRouteChange({ ...WORKSPACES, workspaceKey: workspace.key });
           }}
         />
@@ -248,9 +301,12 @@ function WorkspaceDetail({
   workspaceKey,
   runtime,
   canManage,
+  tab,
+  onTab,
   canMove,
   onMove,
   onChanged,
+  onBack,
   onRuntimeChanged,
   reloadRuntime,
   onOpen,
@@ -261,11 +317,17 @@ function WorkspaceDetail({
   workspaceKey: string;
   runtime: WorkspaceRuntimeState;
   canManage: boolean;
+  /** The selected tab from the address; one the person may not use opens Overview. */
+  tab?: WorkspaceTab;
+  onTab: (tab: WorkspaceTab) => void;
   /** Whether moves run here (0.11 X4, D146): background jobs and model administration. */
   canMove: boolean;
   /** A move from this workspace opened in the move editor. */
   onMove: (mappingKey: string, from: string, to: string) => void;
+  /** Told of every state the workspace is read or written in. */
   onChanged: (workspace: Workspace) => void;
+  /** Back to the list of workspaces (the bar over the workspace). */
+  onBack: () => void;
   onRuntimeChanged: (state: WorkspaceRuntimeState) => void;
   reloadRuntime: () => Promise<WorkspaceRuntimeState>;
   onOpen: (workspaceKey: string) => void;
@@ -275,8 +337,9 @@ function WorkspaceDetail({
 }) {
   const securityAdmin = useHoldsGroup("security-admin");
   // Opened only by someone who may browse it (Z5, D323).
-  const browses = holds(useWorkspacePermissions(workspaceKey), "browse");
-  const [workspace, setWorkspace] = useState<WorkspaceDetail>();
+  const permissions = useWorkspacePermissions(workspaceKey);
+  const browses = holds(permissions, "browse");
+  const [workspace, setWorkspace] = useState<WorkspaceDetail | undefined>(() => lastRead.details.get(workspaceKey));
   const [loadError, setLoadError] = useState("");
   const [loadToken, setLoadToken] = useState(0);
   const [renaming, setRenaming] = useState(false);
@@ -291,29 +354,34 @@ function WorkspaceDetail({
 
   useEffect(() => {
     let active = true;
-    api
-      .workspace(workspaceKey)
+    takeWorkspaceRead(workspaceKey)
       .then((item) => {
         if (!active) return;
         setWorkspace(item);
         setLoadError("");
       })
-      .catch((cause) => active && setLoadError(errorMessage(cause)));
+      .catch((cause) => {
+        lastRead.details.delete(workspaceKey);
+        if (active) setLoadError(errorMessage(cause));
+      });
     return () => {
       active = false;
     };
   }, [workspaceKey, loadToken]);
 
+  useEffect(() => {
+    if (workspace) onChanged(workspace);
+  }, [workspace, onChanged]);
+
   async function reloadWorkspace() {
-    const current = await api.workspace(workspaceKey);
+    const current = await readWorkspaceDetail(workspaceKey);
     setWorkspace(current);
-    onChanged(current);
     return current;
   }
 
   function stored(updated: WorkspaceDetail, text: string) {
+    lastRead.details.set(updated.key, updated);
     setWorkspace(updated);
-    onChanged(updated);
     toast(text);
   }
 
@@ -407,8 +475,28 @@ function WorkspaceDetail({
     }
   }
 
-  if (loadError) return <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />;
-  if (!workspace) return <div className="panel-state">Loading workspace…</div>;
+  const bar = (
+    <TrailBar
+      back={{ label: "← All workspaces", onClick: onBack }}
+      trail={[<TrailLink onClick={onBack}>Workspaces</TrailLink>, workspace?.label ?? workspaceKey]}
+    />
+  );
+  if (loadError)
+    return (
+      <>
+        {bar}
+        <div className="model-editor-stack">
+          <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />
+        </div>
+      </>
+    );
+  if (!workspace)
+    return (
+      <>
+        {bar}
+        <div className="panel-state">Loading workspace…</div>
+      </>
+    );
   const isDefault = runtime.defaultWorkspaceKey === workspace.key;
   const active = workspace.status === "active";
   const deleteBlockedHint =
@@ -420,20 +508,226 @@ function WorkspaceDetail({
           ? "This workspace has webhook subscriptions, so it cannot be deleted. Delete its webhook subscriptions first, or retire it."
           : undefined;
 
+  const available: Record<WorkspaceTab, boolean> = {
+    overview: true,
+    access: Boolean(securityAdmin),
+    approval: holds(permissions, "workspace-admin"),
+    activity: holds(permissions, "browse"),
+  };
+  const labels: Record<WorkspaceTab, string> = {
+    overview: "Overview",
+    access: "Access",
+    approval: "Approval",
+    activity: "Activity",
+  };
+  const content: Record<WorkspaceTab, ReactNode> = {
+    overview: (
+      <WorkspaceOverview
+        workspace={workspace}
+        browses={browses}
+        canManage={canManage}
+        isDefault={isDefault}
+        deleteBlockedHint={deleteBlockedHint}
+        onNavigate={onNavigate}
+        onOpenSubscription={onOpenSubscription}
+      />
+    ),
+    access: (
+      <GrantsSection
+        subject={{ workspace: { key: workspace.key, label: workspace.label } }}
+        title="Access"
+        description="Who can do what in this workspace: granted here, or for the whole instance; directly or through a group."
+        load={(cursor) => security.access(workspace.key, cursor)}
+        deps={[workspace.key]}
+        onNavigate={onNavigate}
+        headingLevel={3}
+        className="workspace-access"
+      />
+    ),
+    approval: <ApprovalSection key={workspace.key} workspaceKey={workspace.key} />,
+    activity: <WorkspaceActivity workspaceKey={workspace.key} onNavigate={onNavigate} />,
+  };
+  const tabs: TabDefinition[] = WORKSPACE_TABS.filter((item) => available[item]).map((item) => ({
+    id: item,
+    label: labels[item],
+    content: <div className="workspace-tab-panel">{content[item]}</div>,
+  }));
+  const selected = tab && available[tab] ? tab : "overview";
+
   return (
-    <div className="model-editor-stack">
-      <header className="model-detail-header">
-        <div>
-          <p className="eyebrow">Workspace</p>
-          <h2>{workspace.label}</h2>
-          <p>{workspace.key}</p>
+    <>
+      {bar}
+      <div className="model-editor-stack">
+        <header className="model-detail-header">
+          <div>
+            <p className="eyebrow">Workspace</p>
+            <h2>{workspace.label}</h2>
+            <p>{workspace.key}</p>
+          </div>
+          {isDefault ? (
+            <StatusPill tone="success">Default</StatusPill>
+          ) : (
+            <StatusPill tone="neutral">{active ? "Active" : "Retired"}</StatusPill>
+          )}
+        </header>
+        <div className="model-actions">
+          {browses && (
+            <button className="secondary" onClick={() => onOpen(workspace.key)}>
+              Open workspace
+            </button>
+          )}
+          {canMove && active && (
+            <button className="secondary" onClick={() => setMoving(true)}>
+              Copy or move data…
+            </button>
+          )}
+          {canManage && (
+            <>
+              <button ref={renameRef} className="secondary" disabled={pending} onClick={() => setRenaming(true)}>
+                Rename…
+              </button>
+              {active && !isDefault && (
+                <button className="secondary" disabled={pending} onClick={() => void makeDefault()}>
+                  Set as default
+                </button>
+              )}
+              {active ? (
+                <button
+                  className="danger-ghost"
+                  disabled={pending || isDefault}
+                  aria-describedby={isDefault ? "workspace-retire-hint" : undefined}
+                  onClick={() => {
+                    setActionError("");
+                    setRetiring(true);
+                  }}
+                >
+                  Retire…
+                </button>
+              ) : (
+                <button className="secondary" disabled={pending} onClick={() => void setStatus("active")}>
+                  Reactivate
+                </button>
+              )}
+              {workspace.deletable && (
+                <button
+                  className="danger-ghost"
+                  disabled={pending}
+                  onClick={() => {
+                    setActionError("");
+                    setDeleting(true);
+                  }}
+                >
+                  Delete…
+                </button>
+              )}
+            </>
+          )}
         </div>
-        {isDefault ? (
-          <StatusPill tone="success">Default</StatusPill>
-        ) : (
-          <StatusPill tone="neutral">{active ? "Active" : "Retired"}</StatusPill>
+        {conflict && (
+          <Notice tone="warning" title="Not saved" focusOnMount>
+            {conflict}
+          </Notice>
         )}
-      </header>
+        {actionError && !renaming && !retiring && !deleting && (
+          <Notice tone="error" title="The action could not be completed">
+            {actionError}
+          </Notice>
+        )}
+        <div className="workspace-tabs">
+          <Tabs
+            label="Workspace"
+            tabs={tabs}
+            selected={selected}
+            keepVisited
+            onChange={(id) => onTab(id as WorkspaceTab)}
+          />
+        </div>
+        {moving && (
+          <NewMoveDialog
+            source={workspace.key}
+            onClose={() => setMoving(false)}
+            onOpened={(mappingKey, from, to) => {
+              setMoving(false);
+              onMove(mappingKey, from, to);
+            }}
+          />
+        )}
+        {renaming && (
+          <RenameWorkspaceDialog
+            workspace={workspace}
+            onReload={reloadWorkspace}
+            onClose={() => {
+              setRenaming(false);
+              renameRef.current?.focus();
+            }}
+            onRenamed={(updated) => {
+              setRenaming(false);
+              stored(updated, "Workspace renamed.");
+            }}
+          />
+        )}
+        {retiring && (
+          <ConfirmDialog
+            title={`Retire ${workspace.label}?`}
+            confirmLabel="Retire workspace"
+            pending={pending}
+            error={actionError}
+            onCancel={() => {
+              setRetiring(false);
+              setActionError("");
+            }}
+            onConfirm={() => void setStatus("retired")}
+          >
+            <p>
+              The workspace becomes read only. Its live data, change sets, publications and history stay available, and
+              it can be reactivated later.
+            </p>
+          </ConfirmDialog>
+        )}
+        {deleting && (
+          <ConfirmDialog
+            title={`Delete ${workspace.label}?`}
+            confirmLabel="Delete workspace"
+            pending={pending}
+            error={actionError}
+            onCancel={() => {
+              setDeleting(false);
+              setActionError("");
+            }}
+            onConfirm={() => void remove()}
+          >
+            <p>
+              The workspace with key <strong>{workspace.key}</strong> is removed from the catalogue. It has no objects,
+              change sets or publications, so no data is lost, and the key can be created again.
+            </p>
+          </ConfirmDialog>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** The facts, the applications of the workspace's model and the hints that belong to the workspace. */
+function WorkspaceOverview({
+  workspace,
+  browses,
+  canManage,
+  isDefault,
+  deleteBlockedHint,
+  onNavigate,
+  onOpenSubscription,
+}: {
+  workspace: WorkspaceDetail;
+  browses: boolean;
+  canManage: boolean;
+  isDefault: boolean;
+  deleteBlockedHint: string | undefined;
+  onNavigate: (route: RouteState) => void;
+  onOpenSubscription: (subscriptionId: string) => void;
+}) {
+  const active = workspace.status === "active";
+  return (
+    <>
       <dl className="release-metadata">
         <div>
           <dt>Status</dt>
@@ -454,69 +748,7 @@ function WorkspaceDetail({
           <dd>{formatServerTime(workspace.updatedAt)}</dd>
         </div>
       </dl>
-      {conflict && (
-        <Notice tone="warning" title="Not saved" focusOnMount>
-          {conflict}
-        </Notice>
-      )}
-      {actionError && !renaming && !retiring && !deleting && (
-        <Notice tone="error" title="The action could not be completed">
-          {actionError}
-        </Notice>
-      )}
-      <div className="model-actions">
-        {browses && (
-          <button className="secondary" onClick={() => onOpen(workspace.key)}>
-            Open workspace
-          </button>
-        )}
-        {canMove && active && (
-          <button className="secondary" onClick={() => setMoving(true)}>
-            Copy or move data…
-          </button>
-        )}
-        {canManage && (
-          <>
-            <button ref={renameRef} className="secondary" disabled={pending} onClick={() => setRenaming(true)}>
-              Rename…
-            </button>
-            {active && !isDefault && (
-              <button className="secondary" disabled={pending} onClick={() => void makeDefault()}>
-                Set as default
-              </button>
-            )}
-            {active ? (
-              <button
-                className="danger-ghost"
-                disabled={pending || isDefault}
-                aria-describedby={isDefault ? "workspace-retire-hint" : undefined}
-                onClick={() => {
-                  setActionError("");
-                  setRetiring(true);
-                }}
-              >
-                Retire…
-              </button>
-            ) : (
-              <button className="secondary" disabled={pending} onClick={() => void setStatus("active")}>
-                Reactivate
-              </button>
-            )}
-            {workspace.deletable && (
-              <button
-                className="danger-ghost"
-                disabled={pending}
-                onClick={() => {
-                  setActionError("");
-                  setDeleting(true);
-                }}
-              >
-                Delete…
-              </button>
-            )}
-          </>
-        )}
-      </div>
+      {browses && <WorkspaceApplications workspaceKey={workspace.key} onNavigate={onNavigate} />}
       {canManage && isDefault && (
         <p id="workspace-retire-hint" className="admin-hint">
           The default workspace cannot be retired or deleted. Make another workspace the default first.
@@ -531,79 +763,201 @@ function WorkspaceDetail({
           ? "Change sets and publications belong to this workspace. Open it to work with them."
           : "A retired workspace keeps its live data, change sets and publications readable; changes are disabled."}
       </p>
-      {securityAdmin && (
-        <GrantsSection
-          subject={{ workspace: { key: workspace.key, label: workspace.label } }}
-          title="Access"
-          description="Who can do what in this workspace: granted here, or for the whole instance; directly or through a group."
-          load={(cursor) => security.access(workspace.key, cursor)}
-          deps={[workspace.key]}
-          onNavigate={onNavigate}
-          headingLevel={3}
-          className="workspace-access"
-        />
-      )}
-      {moving && (
-        <NewMoveDialog
-          source={workspace.key}
-          onClose={() => setMoving(false)}
-          onOpened={(mappingKey, from, to) => {
-            setMoving(false);
-            onMove(mappingKey, from, to);
+    </>
+  );
+}
+
+/** The workspace's applications, read from its own model, each opening in this workspace. */
+function WorkspaceApplications({
+  workspaceKey,
+  onNavigate,
+}: {
+  workspaceKey: string;
+  onNavigate: (route: RouteState) => void;
+}) {
+  const [model, setModel] = useState<EngineModel | undefined>(() => lastRead.models.get(workspaceKey));
+  const [error, setError] = useState("");
+  const [token, setToken] = useState(0);
+  useEffect(() => {
+    let active = true;
+    api.model({ workspaceKey }).then(
+      (loaded) => {
+        lastRead.models.set(workspaceKey, loaded);
+        if (!active) return;
+        setModel(loaded);
+        setError("");
+      },
+      (cause) => active && setError(errorMessage(cause)),
+    );
+    return () => {
+      active = false;
+    };
+  }, [workspaceKey, token]);
+  return (
+    <section className="workspace-applications" aria-label="Applications">
+      <h3>Applications{model ? ` · ${model.applications.length}` : ""}</h3>
+      {error ? (
+        <InlineError
+          message={error}
+          onRetry={() => {
+            setError("");
+            setToken((value) => value + 1);
           }}
         />
+      ) : !model ? (
+        <Skeleton label="Loading the applications" lines={2} />
+      ) : (
+        <ul className="workspace-app-list">
+          {model.applications.map((application) => {
+            const target = viewRoute(application, application.defaultView, workspaceKey);
+            const views = application.views.length;
+            return (
+              <li key={application.key}>
+                <RouteLink
+                  className="workspace-app-card"
+                  href={routePath(target)}
+                  onNavigate={() => onNavigate(target)}
+                >
+                  <HueTile hue={applicationHue(model, application.key)} icon={application.icon} size={40} />
+                  <span className="workspace-app-text">
+                    <strong>{application.name}</strong>
+                    <small>
+                      {views} declared {views === 1 ? "view" : "views"}
+                    </small>
+                  </span>
+                  <Icon name="chevron-right" />
+                </RouteLink>
+              </li>
+            );
+          })}
+        </ul>
       )}
-      {renaming && (
-        <RenameWorkspaceDialog
-          workspace={workspace}
-          onReload={reloadWorkspace}
-          onClose={() => {
-            setRenaming(false);
-            renameRef.current?.focus();
+    </section>
+  );
+}
+
+function approverLine(count: number): string {
+  if (count === 0)
+    return "Nobody can approve yet. Give someone the Data owner role (Approve publications) for this workspace.";
+  const who = count === 1 ? "1 person or client can" : `${count} people or clients can`;
+  return `${who} approve (Data owners hold Approve publications).`;
+}
+
+/** Whether changes need approval before they are published (0.12 A3, D232). */
+function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
+  const [policy, setPolicy] = useState<ApprovalPolicy>();
+  const [requireApproval, setRequireApproval] = useState(false);
+  const [secondPerson, setSecondPerson] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState("");
+  const [pending, setPending] = useState(false);
+  useEffect(() => {
+    let active = true;
+    Promise.resolve()
+      .then(() => api.approvalPolicy(workspaceKey))
+      .then(
+        (loaded) => {
+          if (!active) return;
+          setPolicy(loaded);
+          setRequireApproval(loaded.requireApproval);
+          setSecondPerson(loaded.secondPerson);
+          setLoadError("");
+        },
+        (cause) => active && setLoadError(errorMessage(cause)),
+      );
+    return () => {
+      active = false;
+    };
+  }, [workspaceKey]);
+  // A confirmation is news for a moment: tabs stay mounted (keepVisited), so it must go by itself.
+  useEffect(() => {
+    if (!saved) return;
+    const timer = window.setTimeout(() => setSaved(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [saved]);
+  async function save() {
+    if (!policy) return;
+    setPending(true);
+    setError("");
+    setSaved("");
+    try {
+      const updated = await api.setApprovalPolicy(workspaceKey, {
+        requireApproval,
+        secondPerson: requireApproval && secondPerson,
+        expectedVersion: policy.version,
+      });
+      setPolicy(updated);
+      setRequireApproval(updated.requireApproval);
+      setSecondPerson(updated.secondPerson);
+      setSaved("Approval policy saved.");
+    } catch (cause) {
+      setError(
+        isApiError(cause) && cause.code === "VERSION_CONFLICT"
+          ? "The policy changed meanwhile. Reload to see it."
+          : errorMessage(cause),
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+  // Never blocks saving: it tells the administrator that requests would wait.
+  const approverWarning =
+    !policy || !requireApproval
+      ? ""
+      : policy.approverCount === 0
+        ? "Nobody can approve, so every request will wait until someone is given the Data owner role."
+        : secondPerson && policy.approverCount < 2
+          ? "Only one person can approve, so their own change sets will wait until someone else is given the Data owner role."
+          : "";
+  return (
+    <section className="workspace-approval" aria-label="Approval">
+      <h3>Approval</h3>
+      <p className="admin-hint">
+        People holding Approve publications decide. Without this, people who may publish still do so directly.
+      </p>
+      {policy && <p className="admin-hint">{approverLine(policy.approverCount)}</p>}
+      {loadError && <Notice tone="error">{loadError}</Notice>}
+      {policy && (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
           }}
-          onRenamed={(updated) => {
-            setRenaming(false);
-            stored(updated, "Workspace renamed.");
-          }}
-        />
-      )}
-      {retiring && (
-        <ConfirmDialog
-          title={`Retire ${workspace.label}?`}
-          confirmLabel="Retire workspace"
-          pending={pending}
-          error={actionError}
-          onCancel={() => {
-            setRetiring(false);
-            setActionError("");
-          }}
-          onConfirm={() => void setStatus("retired")}
         >
-          <p>
-            The workspace becomes read only. Its live data, change sets, publications and history stay available, and it
-            can be reactivated later.
-          </p>
-        </ConfirmDialog>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={requireApproval}
+              onChange={(event) => {
+                setSaved("");
+                setRequireApproval(event.target.checked);
+                if (!event.target.checked) setSecondPerson(false);
+              }}
+            />
+            <span>Changes need approval before they are published</span>
+          </label>
+          <label className="checkbox workspace-approval-second">
+            <input
+              type="checkbox"
+              checked={secondPerson}
+              disabled={!requireApproval}
+              onChange={(event) => {
+                setSaved("");
+                setSecondPerson(event.target.checked);
+              }}
+            />
+            <span>The person who submitted a change set cannot approve it</span>
+          </label>
+          {approverWarning && <Notice tone="warning">{approverWarning}</Notice>}
+          {error && <Notice tone="error">{error}</Notice>}
+          {saved && <p role="status">{saved}</p>}
+          <button className="secondary" disabled={pending}>
+            Save approval policy
+          </button>
+        </form>
       )}
-      {deleting && (
-        <ConfirmDialog
-          title={`Delete ${workspace.label}?`}
-          confirmLabel="Delete workspace"
-          pending={pending}
-          error={actionError}
-          onCancel={() => {
-            setDeleting(false);
-            setActionError("");
-          }}
-          onConfirm={() => void remove()}
-        >
-          <p>
-            The workspace with key <strong>{workspace.key}</strong> is removed from the catalogue. It has no objects,
-            change sets or publications, so no data is lost, and the key can be created again.
-          </p>
-        </ConfirmDialog>
-      )}
-    </div>
+    </section>
   );
 }
 

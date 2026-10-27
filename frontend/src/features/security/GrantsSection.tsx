@@ -1,7 +1,7 @@
 /**
  * The grants a page is about, as a ruled table with "Grant" (0.12 SP1, SP2): a person's (where,
  * role, narrowing, through a group or directly), a group's or client's (where, role or consumer
- * API, narrowing) and a workspace's Access (who, kind, role, narrowing, from this workspace or the whole instance). A
+ * API, narrowing) and a workspace's Access as one line per principal with its roles as chips (AccessList). A
  * grant made to the page's subject is removed here; one reaching it through a group links to the
  * group, and an instance grant on Access to its holder. A stale narrowing is said (D296).
  */
@@ -20,12 +20,11 @@ import { RouteLink } from "@/ui/RouteLink";
 import { Section } from "@/ui/Section";
 import { SettingsTable } from "@/ui/SettingsTable";
 import { useToast } from "@/ui/Toast";
+import { AccessList } from "./AccessList";
 import { GrantDialog } from "./GrantDialog";
 import type { PickedPrincipal } from "./PrincipalPicker";
 import { grantHeld, grantNarrowing, grantWhere, staleNote } from "./securityText";
 import { useSettingsRead } from "@/features/settings/useSystem";
-
-const KIND: Record<Grant["principal"]["kind"], string> = { user: "Person", group: "Group", client: "Client" };
 
 /** Every workspace's label by key, retired ones included, for naming where a grant applies. */
 const allWorkspaces = () => api.workspaces({ status: "all", pageSize: 500 });
@@ -68,6 +67,8 @@ export function GrantsSection({
   const feed = useCursorFeed(load, deps);
   const labels = useWorkspaceLabels();
   const [granting, setGranting] = useState(false);
+  /** The principal a row's "+" opened the dialog for, and the button to return focus to. */
+  const [grantingFor, setGrantingFor] = useState<{ principal: PickedPrincipal; opener: HTMLElement }>();
   const [removing, setRemoving] = useState<string>();
   const [error, setError] = useState("");
   const grantRef = useRef<HTMLButtonElement>(null);
@@ -80,7 +81,7 @@ export function GrantsSection({
   /** A grant this page may remove: made to its subject, or made in its workspace. */
   const removable = (grant: Grant) => (principal ? grant.principal.id === principal.id : !grant.scope.instance);
 
-  async function remove(grant: Grant) {
+  async function remove(grant: Grant): Promise<boolean> {
     setRemoving(grant.id);
     setError("");
     try {
@@ -88,8 +89,10 @@ export function GrantsSection({
       feed.setItems((items) => items.filter((item) => item.id !== grant.id));
       onChanged?.();
       toast(`${grant.principal.name} no longer holds ${grantHeld(grant)} ${place(grant)}.`);
+      return true;
     } catch (cause) {
       setError(errorMessage(cause));
+      return false;
     } finally {
       setRemoving(undefined);
     }
@@ -106,9 +109,8 @@ export function GrantsSection({
 
   // A client's grants are mostly consumer APIs, so its column names what is granted (D354).
   const held = principal?.kind === "client" ? "Grant" : "Role";
-  const columns = workspace
-    ? ["Who", "Kind", "Role", "Narrowed to (writes)", "From", { hidden: "Actions" }]
-    : principal?.kind === "user"
+  const columns =
+    principal?.kind === "user"
       ? ["Where", "Role", "Narrowed to (writes)", "Through", { hidden: "Actions" }]
       : ["Where", held, "Narrowed to (writes)", { hidden: "Actions" }];
 
@@ -141,6 +143,17 @@ export function GrantsSection({
               ? "No access yet. Grant a role or a consumer API."
               : "No roles yet. Grant one to give access."}
         </p>
+      ) : workspace ? (
+        <AccessList
+          label={title}
+          grants={feed.items}
+          removing={removing}
+          hasMore={feed.hasMore}
+          onRemove={remove}
+          onAdd={(who, opener) => setGrantingFor({ principal: who, opener })}
+          onNavigate={onNavigate}
+          focusFallback={() => grantRef.current?.focus()}
+        />
       ) : (
         <SettingsTable label={title} columns={columns}>
           {feed.items.map((grant) => {
@@ -158,7 +171,7 @@ export function GrantsSection({
                     type="button"
                     className="ghost"
                     disabled={removing === grant.id}
-                    aria-label={`Remove ${grantHeld(grant)} ${workspace ? `from ${grant.principal.name}` : place(grant)}`}
+                    aria-label={`Remove ${grantHeld(grant)} ${place(grant)}`}
                     onClick={() => void remove(grant)}
                   >
                     Remove
@@ -166,16 +179,7 @@ export function GrantsSection({
                 ) : null}
               </td>
             );
-            return workspace ? (
-              <tr key={grant.id}>
-                <th scope="row">{holder(grant)}</th>
-                <td data-label="Kind">{KIND[grant.principal.kind]}</td>
-                <td data-label="Role">{grantHeld(grant)}</td>
-                {narrowed}
-                <td data-label="From">{grant.scope.instance ? "Whole instance" : "This workspace"}</td>
-                {action}
-              </tr>
-            ) : (
+            return (
               <tr key={grant.id}>
                 <th scope="row">{grantWhere(grant, labels)}</th>
                 <td data-label={held}>{grantHeld(grant)}</td>
@@ -196,16 +200,18 @@ export function GrantsSection({
           Load more roles
         </button>
       )}
-      {granting && (
+      {(granting || grantingFor) && (
         <GrantDialog
-          who={principal}
+          who={grantingFor?.principal ?? principal}
           workspace={workspace}
           onClose={() => {
             setGranting(false);
-            grantRef.current?.focus();
+            setGrantingFor(undefined);
+            (grantingFor?.opener ?? grantRef.current)?.focus();
           }}
           onGranted={(grants) => {
             setGranting(false);
+            setGrantingFor(undefined);
             const [first] = grants;
             if (first)
               toast(
@@ -215,7 +221,7 @@ export function GrantsSection({
               );
             feed.reload();
             onChanged?.();
-            grantRef.current?.focus();
+            (grantingFor?.opener ?? grantRef.current)?.focus();
           }}
         />
       )}

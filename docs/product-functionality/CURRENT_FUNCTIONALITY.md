@@ -90,6 +90,8 @@ is off the screen is read only and names the setting.
 Each workspace names the model and release it runs, in the selector and in Settings › Workspaces,
 and a new workspace starts on the default workspace's model or on another installed release chosen
 when it is created.
+Settings › Model opens on a list of models; a model's page has the tabs Overview, Releases, Drafts and Structure (a release's applications, object types, attributes and relations, read only); an opened release or draft has a way back to the tab it came from. Settings › Workspaces opens on a list of workspaces (active ones first, then retired, with search); a workspace's page has tabs: Overview (its facts and its applications, each opening in the workspace), Access,
+Approval and Activity (its changes, newest first, by day); a person sees the tabs they may use.
 
 **Home.** Signing in, the bare address and the product name in the top bar open the home page: a
 greeting with the person's roles and one sentence on what is open; **Continue where you left off**,
@@ -1365,7 +1367,7 @@ is grouped under a heading for each day, one line each, filtered by kind (signin
 groups, account) and shows the 10 newest, then 20 more, with Show fewer (0.12 RA1).
 
 A system reads a consumer API only where it is granted that API: a security administrator grants a
-client (or a person or group) one consumer API in one workspace, and the system then reads that API
+client (only a client: people read through the management API) one consumer API in one workspace, and the system then reads that API
 there and nothing else; another API, or the same API in another workspace, is refused, and the list
 of consumer APIs it gets names only those granted. No role opens the consumer APIs. A workspace's
 Access lists such a grant as "Consumer API: *name*" and removes it like any other. Each consumer
@@ -1404,8 +1406,7 @@ refusal (a role changed meanwhile) is shown as worded and the page follows at on
 
 Limits: a
 client's secret overlap other than an hour, a day or a week, or none, is set through the API;
-secrets made before 0.12 SP2 show no last four characters; a Contributor's change set waits for someone to notice it until
-approvals (A1–A3); an import into a narrowed grant is offered before its file is read, so rows of
+secrets made before 0.12 SP2 show no last four characters; a request is withdrawn to be edited (an edit does not withdraw it in the interface); an import into a narrowed grant is offered before its file is read, so rows of
 other types are refused in its preview.
 
 Evidence: [authorization contract](../API.md#authorization), [OPERATIONS](../OPERATIONS.md#roles-and-grants),

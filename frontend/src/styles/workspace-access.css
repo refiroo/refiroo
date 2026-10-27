@@ -1,0 +1,213 @@
+/* The workspace Access list, one line per principal (0.12); chips take the role kind's hue. */
+.access-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.access-search {
+  flex: 0 1 300px;
+}
+.access-filter {
+  min-width: 120px;
+}
+.access-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 0 auto;
+  padding: 0;
+  list-style: none;
+}
+.access-list,
+.access-chips {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.access-list {
+  border-top: 1px solid var(--border-subtle);
+}
+.access-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 300px) 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.access-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.access-who-text {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.access-who-text a {
+  font-weight: 600;
+}
+.access-kind {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+.access-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-fill);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.access-avatar[data-kind="group"] {
+  border-radius: 8px;
+  background: var(--hue-3-fill);
+  color: var(--hue-3-ink);
+}
+.access-avatar[data-kind="client"] {
+  border-radius: 8px;
+  background: var(--hue-2-fill);
+  color: var(--hue-2-ink);
+}
+.access-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.access-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--chip-marker, var(--border-subtle));
+  border-radius: 6px;
+  background: var(--chip-fill, var(--surface-fill));
+  color: var(--chip-ink, var(--text-secondary));
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.access-chip small {
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+.access-chip[data-hue="1"] {
+  --chip-fill: var(--hue-1-fill);
+  --chip-ink: var(--hue-1-ink);
+  --chip-marker: var(--hue-1-marker);
+}
+.access-chip[data-hue="2"] {
+  --chip-fill: var(--hue-2-fill);
+  --chip-ink: var(--hue-2-ink);
+  --chip-marker: var(--hue-2-marker);
+}
+.access-chip[data-hue="3"] {
+  --chip-fill: var(--hue-3-fill);
+  --chip-ink: var(--hue-3-ink);
+  --chip-marker: var(--hue-3-marker);
+}
+.access-chip[data-hue="4"] {
+  --chip-fill: var(--hue-4-fill);
+  --chip-ink: var(--hue-4-ink);
+  --chip-marker: var(--hue-4-marker);
+}
+.access-chip[data-hue="7"] {
+  --chip-fill: var(--hue-7-fill);
+  --chip-ink: var(--hue-7-ink);
+  --chip-marker: var(--hue-7-marker);
+}
+.access-chip[data-hue="8"] {
+  --chip-fill: var(--hue-8-fill);
+  --chip-ink: var(--hue-8-ink);
+  --chip-marker: var(--hue-8-marker);
+}
+.access-legend-chip {
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: var(--text-xs);
+}
+.access-chip-stale {
+  display: inline-flex;
+  color: var(--status-warning-text);
+}
+.access-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+}
+.access-chip:hover .access-chip-remove,
+.access-chip:focus-within .access-chip-remove,
+.access-chip-remove:focus-visible {
+  opacity: 0.8;
+}
+.access-chip-remove:hover:not(:disabled) {
+  opacity: 1;
+  background: var(--surface-hover);
+}
+.access-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  padding: 0;
+  border: 1px dashed var(--border-control);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.access-add:hover {
+  background: var(--surface-hover);
+}
+@media (hover: none), (max-width: 480px) {
+  .access-chip-remove {
+    opacity: 0.8;
+  }
+}
+@media (max-width: 480px) {
+  .access-search {
+    flex-basis: 100%;
+  }
+  .access-legend {
+    display: none;
+  }
+  .access-list {
+    display: grid;
+    gap: 10px;
+    border-top: 0;
+  }
+  .access-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--surface-raised);
+  }
+  .access-chip-remove {
+    width: 28px;
+    height: 28px;
+  }
+}

@@ -14,6 +14,9 @@ import type {
   EngineModel,
   ChangeSet,
   ChangeSetPage,
+  ApprovalPolicy,
+  PublicationRequest,
+  PublicationRequestPage,
   Publication,
   PublicationPage,
   ChangeSetValidation,
@@ -1068,6 +1071,49 @@ export const api = {
     request<Publication>(`/api/v1/change-sets/${encodeURIComponent(id)}/publication`, {
       method: "POST",
       body: JSON.stringify({ expectedChangeSetVersion, expectedActivePublicationId }),
+    }),
+  /** Asks for the change set to be published (0.12 A3); the change set must validate. */
+  submitChangeSet: (id: string, expectedChangeSetVersion: number, comment?: string) =>
+    request<PublicationRequest>(`/api/v1/change-sets/${encodeURIComponent(id)}/submission`, {
+      method: "POST",
+      body: JSON.stringify({ expectedChangeSetVersion, ...(comment ? { comment } : {}) }),
+    }),
+  withdrawSubmission: (id: string) =>
+    request<void>(`/api/v1/change-sets/${encodeURIComponent(id)}/submission`, { method: "DELETE" }),
+  /** Approving publishes (answers the Publication); sending back returns the change set to open. */
+  decideChangeSet: (
+    id: string,
+    decision: {
+      outcome: "approve" | "sendBack";
+      comment?: string;
+      expectedChangeSetVersion: number;
+      expectedActivePublicationId?: string | null;
+    },
+  ) =>
+    request<Publication | ChangeSet>(`/api/v1/change-sets/${encodeURIComponent(id)}/decisions`, {
+      method: "POST",
+      body: JSON.stringify(decision),
+    }),
+  publicationRequests: (
+    workspaceKey: string,
+    options: { state?: PublicationRequest["state"]; cursor?: string } = {},
+  ) => {
+    const query = new URLSearchParams({ pageSize: "50" });
+    if (options.state) query.set("state", options.state);
+    if (options.cursor) query.set("cursor", options.cursor);
+    return request<PublicationRequestPage>(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/publication-requests?${query}`,
+    );
+  },
+  approvalPolicy: (workspaceKey: string) =>
+    request<ApprovalPolicy>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/approval-policy`),
+  setApprovalPolicy: (
+    workspaceKey: string,
+    policy: { requireApproval: boolean; secondPerson: boolean; expectedVersion: number },
+  ) =>
+    request<ApprovalPolicy>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/approval-policy`, {
+      method: "PUT",
+      body: JSON.stringify(policy),
     }),
   setChangeSetModelRelease: (changeSetId: string, modelReleaseId: string, expectedChangeSetVersion: number) =>
     request<ChangeSet>(`/api/v1/change-sets/${encodeURIComponent(changeSetId)}/model-release`, {

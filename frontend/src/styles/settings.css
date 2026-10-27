@@ -2594,6 +2594,137 @@ tr.openable-row:hover > * {
   background: var(--surface-sunken);
   list-style: none;
 }
+
+/* A workspace's approval policy (0.12 A3). */
+.workspace-approval {
+  display: grid;
+  gap: var(--space-2);
+  /* The inset of the other tabs' sections, so its left edge is theirs. */
+  margin: 0 20px;
+}
+.workspace-approval h3,
+.workspace-approval p {
+  margin: 0;
+}
+.workspace-approval form {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+}
+.workspace-approval form .checkbox {
+  margin: 0;
+}
+.workspace-approval-second {
+  margin-left: var(--space-5);
+}
+
+/* One workspace's tabs, applications and activity. */
+.workspace-tabs .tab-list {
+  margin: 0 20px;
+}
+.workspace-tab-panel {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+.workspace-applications,
+.workspace-activity {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 20px;
+}
+.workspace-applications h3 {
+  margin: 0;
+}
+.workspace-app-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.workspace-app-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.workspace-app-card:hover {
+  border-color: var(--action-primary);
+}
+.workspace-app-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.workspace-app-text small {
+  color: var(--text-tertiary);
+}
+
+/* The list an administration page opens with (EntityList: Settings › Workspaces and Model). */
+.entity-list {
+  display: grid;
+  gap: 14px;
+  padding: 16px 20px 20px;
+}
+.entity-groups {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.entity-group {
+  display: grid;
+  gap: 2px;
+}
+.entity-group .nav-label {
+  margin: 0 10px 4px;
+  text-transform: uppercase;
+}
+.entity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+}
+.entity-row:hover {
+  background: var(--surface-fill);
+}
+.entity-row.active {
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+}
+.entity-row .catalogue-text {
+  flex: 1;
+  min-width: 0;
+}
+.entity-tile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--surface-fill);
+  color: var(--text-tertiary);
+}
+.entity-sentinel {
+  height: 1px;
+}
+.search-box.entity-search {
+  width: 100%;
+}
+
 /* Settings › Notifications: the kinds of notice under the e-mail switch (0.12 M2 follow-up). */
 .account-kinds {
   min-width: 0;
@@ -2615,4 +2746,79 @@ tr.openable-row:hover > * {
   margin: 0;
   padding: 10px 18px 14px;
   border-top: 1px solid var(--border-faint);
+}
+
+/* The list's placeholders (Settings › Workspaces). */
+.entity-skeleton {
+  display: grid;
+  gap: 2px;
+}
+.entity-row-skeleton {
+  border-radius: var(--radius-control);
+  background: linear-gradient(90deg, var(--surface-sunken), var(--surface-hover), var(--surface-sunken));
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+.dialog-backdrop,
+.dialog {
+  animation: dialog-fade-in 140ms ease-out;
+}
+@keyframes dialog-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.dialog {
+  animation-name: dialog-rise-in;
+}
+@keyframes dialog-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog-backdrop,
+  .dialog {
+    animation: none;
+    transition: none;
+  }
+}
+.workspace-applications .skeleton {
+  min-height: 72px;
+}
+
+/* The bar over an opened item in Settings (TrailBar): Back and where the person is. */
+.model-trail-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-faint);
+}
+.model-trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+.model-trail li + li::before {
+  content: "›";
+  margin-right: 6px;
+}
+.model-trail li[aria-current="page"] {
+  color: var(--text-primary);
+  font-weight: 600;
 }

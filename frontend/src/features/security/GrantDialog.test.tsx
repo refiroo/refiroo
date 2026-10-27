@@ -16,6 +16,27 @@ vi.mock("@/api/securityClient", () => ({
   },
 }));
 
+// The picker is replaced by buttons, so a test chooses the holder without a search.
+vi.mock("./PrincipalPicker", () => ({
+  PrincipalPicker: ({
+    onPick,
+  }: {
+    onPick: (principal: { kind: string; id: string; name: string } | undefined) => void;
+  }) => (
+    <div>
+      <button type="button" onClick={() => onPick({ kind: "user", id: "u1", name: "Anna" })}>
+        pick person
+      </button>
+      <button type="button" onClick={() => onPick({ kind: "group", id: "g1", name: "Editors" })}>
+        pick group
+      </button>
+      <button type="button" onClick={() => onPick({ kind: "client", id: "c1", name: "Test client" })}>
+        pick client
+      </button>
+    </div>
+  ),
+}));
+
 const client = { kind: "client" as const, id: "c1", name: "Test client" };
 const created = (consumerApi: string, workspaceKey: string) =>
   ({
@@ -58,7 +79,9 @@ describe("granting consumer APIs by ticking a grid (0.12 U9)", () => {
     render(<GrantDialog who={client} onClose={vi.fn()} onGranted={onGranted} />);
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(await within(dialog).findByLabelText("RDM in all workspaces"));
-    expect(within(dialog).getByText(/2 grants will be made: Test client reads RDM in Default and Pilot/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/2 grants will be made: Test client reads RDM in Default and Pilot/),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText("not in this model")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Grant 2" }));
     await waitFor(() => expect(onGranted).toHaveBeenCalled());
@@ -79,7 +102,8 @@ describe("granting consumer APIs by ticking a grid (0.12 U9)", () => {
 
   it("keeps a refused grant ticked with its reason while the others are made", async () => {
     vi.mocked(security.createGrant).mockImplementation(async (body) => {
-      if ("workspaceKey" in body.scope && body.scope.workspaceKey === "pilot") throw new Error("The model no longer declares it");
+      if ("workspaceKey" in body.scope && body.scope.workspaceKey === "pilot")
+        throw new Error("The model no longer declares it");
       return created(body.consumerApi ?? "", "default");
     });
     const onGranted = vi.fn();
@@ -94,5 +118,36 @@ describe("granting consumer APIs by ticking a grid (0.12 U9)", () => {
     fireEvent.click(within(dialog).getAllByRole("button", { name: "Close" }).at(-1)!);
     expect(onGranted).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("consumer APIs are a client's alone", () => {
+  const workspace = { key: "default", label: "Default" };
+
+  it("offers roles only until a client is chosen, and not for a person or a group", async () => {
+    render(<GrantDialog workspace={workspace} onClose={vi.fn()} onGranted={vi.fn()} />);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByText("Consumer APIs")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "pick person" }));
+    expect(within(dialog).queryByText("Consumer APIs")).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/RDM in/)).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "pick group" }));
+    expect(within(dialog).queryByText("Consumer APIs")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "pick client" }));
+    expect(await within(dialog).findByText("Consumer APIs")).toBeInTheDocument();
+  });
+
+  it("clears ticked consumer APIs when the holder changes from a client to a person", async () => {
+    render(<GrantDialog workspace={workspace} onClose={vi.fn()} onGranted={vi.fn()} />);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "pick client" }));
+    fireEvent.click(await within(dialog).findByLabelText("Consumer APIs"));
+    fireEvent.click(await within(dialog).findByLabelText("RDM in Default"));
+    expect(within(dialog).getByText(/1 grant will be made: Test client reads RDM/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "pick person" }));
+    expect(within(dialog).queryByText(/reads RDM/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Consumer APIs")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "pick client" }));
+    expect(within(dialog).queryByText(/reads RDM/)).not.toBeInTheDocument();
   });
 });

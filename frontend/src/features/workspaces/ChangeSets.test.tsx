@@ -2,9 +2,13 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
-import type { ModelReleaseSummary, ChangeSet } from "@/types";
+import type { ModelReleaseSummary, ChangeSet, PublicationRequest } from "@/types";
+import { permissionsFixture } from "@/test/permissions";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
 import { ChangeSetActions, ChangeSetDiagnostics, ChangeSets } from "@/features/workspaces/ChangeSets";
+
+// The real hook keeps the person for the page load, so a test would see the first one read.
+vi.mock("@/app/useMe", () => ({ useMe: () => ({ id: "u-ana", kind: "user", name: "Ana Varga" }) }));
 
 const activeRelease: ModelReleaseSummary = {
   id: "release-active",
@@ -344,5 +348,80 @@ describe("a change set moved onto the release its workspace runs (0.11 V3)", () 
     expect(await screen.findByRole("button", { name: "Move this change set to 0.7.0…" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /and publish…/ })).not.toBeInTheDocument();
     expect(await screen.findByText(/Moving West office needs model administration/)).toBeInTheDocument();
+  });
+});
+
+describe("approval in the change set bar (0.12 A3)", () => {
+  const request: PublicationRequest = {
+    id: "req-1",
+    workspaceKey: "west",
+    changeSetId: "change-set-1",
+    changeSetName: "Change set one",
+    version: 1,
+    state: "submitted",
+    submitter: { kind: "user", id: "u-ana", name: "Ana Varga" },
+    comment: "Ready for spring",
+    submittedAt: "2026-10-26T08:00:00Z",
+    publicationId: null,
+    decisions: [],
+  };
+  const policy = { workspaceKey: "west", requireApproval: false, secondPerson: false, version: 0, approverCount: 1 };
+  function show(
+    groups: string[],
+    changeSet: ChangeSet = baseChangeSet,
+    refresh = vi.fn().mockResolvedValue(changeSet),
+  ) {
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      changeSet,
+      activeModelReleaseId: changeSet.modelReleaseId,
+      warning: "",
+      refresh,
+      permissions: permissionsFixture("west", groups),
+    });
+    render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
+    return refresh;
+  }
+
+  it("lets a contributor validate and submit with a comment, and offers no Publish", async () => {
+    vi.spyOn(api, "approvalPolicy").mockResolvedValue(policy);
+    vi.spyOn(api, "validateChangeSet").mockResolvedValue({ valid: true, diagnostics: [] });
+    vi.spyOn(api, "latestPublication").mockResolvedValue({ items: [], nextCursor: null });
+    const submit = vi.spyOn(api, "submitChangeSet").mockResolvedValue(request);
+    show(["browse", "change-sets"]);
+    expect(screen.queryByRole("button", { name: "Publish change set" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Submit for publication" }));
+    fireEvent.change(screen.getByLabelText(/Comment/), { target: { value: "Ready for spring" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(submit).toHaveBeenCalledWith("change-set-1", 1, "Ready for spring"));
+    expect(api.validateChangeSet).toHaveBeenCalledWith("change-set-1");
+    expect(await screen.findByText("Submitted for publication. It waits for approval.")).toBeVisible();
+  });
+
+  it("shows a submitted change set as waiting, with Withdraw for its submitter", async () => {
+    vi.spyOn(api, "approvalPolicy").mockResolvedValue(policy);
+    const withdraw = vi.spyOn(api, "withdrawSubmission").mockResolvedValue(undefined);
+    const refresh = show(["browse", "change-sets"], { ...baseChangeSet, submission: request });
+    expect(screen.getByText("Waiting for approval")).toBeVisible();
+    expect(screen.getByText(/Submitted by Ana Varga · version 1/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Validate change set" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit for publication" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Withdraw request" }));
+    await waitFor(() => expect(withdraw).toHaveBeenCalledWith("change-set-1"));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("offers a publisher only Submit when a second person must approve", async () => {
+    vi.spyOn(api, "approvalPolicy").mockResolvedValue({ ...policy, requireApproval: true, secondPerson: true });
+    show(["browse", "change-sets", "publish", "approve"]);
+    expect(await screen.findByRole("button", { name: "Submit for publication" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Publish change set" })).not.toBeInTheDocument();
+  });
+
+  it("keeps Publish for a publisher when approval is off", async () => {
+    vi.spyOn(api, "approvalPolicy").mockResolvedValue(policy);
+    show(["browse", "change-sets", "publish"]);
+    expect(await screen.findByRole("button", { name: "Publish change set" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Submit for publication" })).not.toBeInTheDocument();
   });
 });

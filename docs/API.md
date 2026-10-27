@@ -6327,7 +6327,10 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   `scope: {"instance": true}` for the instance. A consumer API grant names `consumerApi` instead of
   `role` and a workspace (delivered, Z3, D306): never at the instance or narrowed (`422
   GRANT_SCOPE_INVALID`), a key the workspace's model declares (`422 GRANT_SCOPE_UNKNOWN` with
-  `consumerApi`), both or neither of `role` and `consumerApi` `422 REQUEST_VALIDATION_ERROR`; it
+  `consumerApi`), both or neither of `role` and `consumerApi` `422 REQUEST_VALIDATION_ERROR`; the holder is a client
+  only, a person or a group is `422 CONSUMER_API_CLIENTS_ONLY` with `details.principalKind` (people read
+  through the management API with Browse, and a group's members are people; checked before the ids are
+  resolved; migration `20261114_01` removed such grants made earlier); it
   reads `role: null` and `consumerApi` (`key`, `name`, the name `null` and the grant `stale: true`
   once the model no longer declares it), `GET /grants` takes `consumerApi=`, and what it opens is in
   CONSUMER_API ("Delivered by Z3"). A grant naming an application or record type the workspace's model no
@@ -6357,7 +6360,7 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
 - **Who can do what here:** `GET /workspaces/{workspaceKey}/access`: every grant that applies in the
   workspace, direct, through a group or from the instance; readable with `security-admin`
   (delivered, Z1: the grants made in the workspace or at the instance, a group's named as the
-  group).
+  group). Ordered by principal (kind, name), then by grant, so one principal's grants are adjacent.
 - **Clients:** `GET|POST /clients` (`POST` answers the secret once), `GET|PATCH /clients/{id}`
   (`active: false` deactivates), `POST /clients/{id}/secrets` `{overlapHours}` (a new secret, shown
   once; the previous one valid for the overlap), `DELETE /clients/{id}/secrets/{secretId}`;
@@ -6570,7 +6573,8 @@ Change-set publication only (D232, ADR-045):
   expectedVersion}` (read: `change-sets.read`; write: `approval-policy.write`, Workspace
   administration): both off and `version` 0 until set. `secondPerson` needs `requireApproval`
   (`422 APPROVAL_POLICY_INVALID`); a stale `expectedVersion` is `409 VERSION_CONFLICT`. A change is a
-  security event (`approval-policy`).
+  security event (`approval-policy`). The response also carries `approverCount`, the active people
+  and clients who hold `approve` in the workspace (a count, no names).
 - **Publishing directly** (`POST …/publication`, `publish`) is unchanged while `requireApproval` is
   off, except that a request still open for the change set closes as approved by that publication.
   With `requireApproval`, a caller holding `publish` and `approve` publishes in one step and the

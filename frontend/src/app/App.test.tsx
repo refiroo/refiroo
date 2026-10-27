@@ -323,29 +323,32 @@ describe("App", () => {
   });
 
   it("opens a workspace from Settings › Workspaces in the application last used", async () => {
-    vi.mocked(api.workspaces).mockResolvedValue({
-      items: [
-        {
-          key: "default",
-          label: "Default",
-          status: "active",
-          version: 1,
-          createdAt: "2026-09-05T00:00:00Z",
-          updatedAt: "2026-09-05T00:00:00Z",
-          model: testWorkspaceModel,
-        },
-        {
-          key: "west",
-          label: "west",
-          status: "active",
-          version: 1,
-          createdAt: "2026-09-05T00:00:00Z",
-          updatedAt: "2026-09-05T00:00:00Z",
-          model: testWorkspaceModel,
-        },
-      ],
+    vi.mocked(api.workspaces).mockImplementation(async (options) => ({
+      items:
+        options?.status === "retired"
+          ? []
+          : [
+              {
+                key: "default",
+                label: "Default",
+                status: "active",
+                version: 1,
+                createdAt: "2026-09-05T00:00:00Z",
+                updatedAt: "2026-09-05T00:00:00Z",
+                model: testWorkspaceModel,
+              },
+              {
+                key: "west",
+                label: "west",
+                status: "active",
+                version: 1,
+                createdAt: "2026-09-05T00:00:00Z",
+                updatedAt: "2026-09-05T00:00:00Z",
+                model: testWorkspaceModel,
+              },
+            ],
       nextCursor: null,
-    });
+    }));
     vi.mocked(api.workspace).mockImplementation(async (key) => ({
       key,
       label: key,
@@ -384,7 +387,10 @@ describe("App", () => {
       updatedAt: "2026-09-05T00:00:00Z",
       model: testWorkspaceModel,
     };
-    vi.mocked(api.workspaces).mockResolvedValue({ items: [west], nextCursor: null });
+    vi.mocked(api.workspaces).mockImplementation(async (options) => ({
+      items: options?.status === "retired" ? [] : [west],
+      nextCursor: null,
+    }));
     vi.mocked(api.workspace).mockImplementation(async (key) =>
       key === "west"
         ? { ...west, deletable: true, deleteBlockedBy: null }

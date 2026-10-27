@@ -33,7 +33,8 @@ design, recorded now so 0.9 does not close it off:
   for a token; the API reference page at `/docs` loads it so.
 - **A client reads a consumer API in a workspace only with a grant of that consumer API there**
   (a grant naming `consumerApi` and the workspace instead of a role), because one key may mean
-  different contracts in two workspaces (ADR-042). A person may hold the same grant.
+  different contracts in two workspaces (ADR-042). Only a client holds it: a person or a group is refused
+  (`422 CONSUMER_API_CLIENTS_ONLY`); people read through the management API.
 - **Refusals**, in this API's envelope: `401 AUTHENTICATION_REQUIRED`, `401 TOKEN_INVALID`
   (`details.reason`: `expired`, `revoked`, `audience`, `unknownKey`, `malformed`, `signature`), both with
   `WWW-Authenticate: Bearer`; `403 FORBIDDEN` with `details` `{consumerApi, workspaceKey}`.

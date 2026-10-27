@@ -310,7 +310,7 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # descriptions of GET and PUT /me/notification-mail; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "92ee5ac852e1a2a3e586d8c7ce151e3567bb76a179a6237e221107805d28feff"
+        "39791a5822e0e9c716bf0bb6aa6c2b5e9bd62c6961ff6c0dd5fa180c3419b515"
     )
 
 

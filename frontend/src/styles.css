@@ -5,6 +5,9 @@
 @import "./styles/layout.css";
 @import "./styles/components.css";
 @import "./styles/settings.css";
+@import "./styles/workspace-activity.css";
+@import "./styles/workspace-access.css";
+@import "./styles/model-structure.css";
 @import "./styles/home.css";
 @import "./styles/sign-in.css";
 @import "./styles/model-editor.css";

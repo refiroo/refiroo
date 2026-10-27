@@ -167,8 +167,10 @@ engine() {
     # from the page's own origin, whichever name opened it.
     export CORS_ORIGINS="$PUBLIC_URL,https://localhost:$FRONTEND_PORT,https://127.0.0.1:$FRONTEND_PORT,https://$NETWORK_ADDRESS:$ENGINE_PORT,https://localhost:$ENGINE_PORT,https://127.0.0.1:$ENGINE_PORT"
     say "Engine at https://$NETWORK_ADDRESS:$ENGINE_PORT, reached through $PUBLIC_URL (PUBLIC_URL), for pages at $CORS_ORIGINS (CORS_ORIGINS)."
+    # An open browser tab holds the inbox's live stream (A2), which never ends by itself: without a
+    # limit a reload waits for it forever, so connections still open after 2 seconds are closed.
     exec .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port "$ENGINE_PORT" \
-      --proxy-headers --forwarded-allow-ips 127.0.0.1,::1 \
+      --proxy-headers --forwarded-allow-ips 127.0.0.1,::1 --timeout-graceful-shutdown 2 \
       --ssl-certfile "$CERTS/cert.pem" --ssl-keyfile "$CERTS/key.pem"
   fi
   # The frontend, and the engine itself (also as 127.0.0.1): its API reference at /docs (Scalar)
@@ -177,8 +179,9 @@ engine() {
   # People open the frontend's address, which forwards the engine's paths (DP1, D404).
   export PUBLIC_URL="${PUBLIC_URL:-http://localhost:$FRONTEND_PORT}"
   say "Engine at http://localhost:$ENGINE_PORT, reached through $PUBLIC_URL (PUBLIC_URL), for pages at $CORS_ORIGINS (CORS_ORIGINS)."
+  # Open tabs hold the inbox's live stream (A2): connections still open after 2 seconds are closed on a reload.
   exec .venv/bin/uvicorn app.main:app --reload --port "$ENGINE_PORT" \
-    --proxy-headers --forwarded-allow-ips 127.0.0.1,::1
+    --proxy-headers --forwarded-allow-ips 127.0.0.1,::1 --timeout-graceful-shutdown 2
 }
 
 frontend() {

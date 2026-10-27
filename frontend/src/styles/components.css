@@ -4031,6 +4031,58 @@ body.tree-drag-refused * {
   text-underline-offset: 3px;
   cursor: pointer;
 }
+/* The decision on a submitted change set (0.12 A3). */
+.decision-panel {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.decision-panel h3,
+.decision-panel p {
+  margin: 0;
+}
+.decision-request-comment {
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border-subtle);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.decision-history {
+  margin: 0;
+  padding-left: var(--space-4);
+  overflow-wrap: anywhere;
+}
+.decision-message {
+  margin: 0 0 var(--space-3);
+}
+@media (max-width: 480px) {
+  /* The two outcomes stay in reach at the bottom of the viewport. */
+  .decision-panel {
+    padding-bottom: 0;
+  }
+  .decision-actions {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    padding: var(--space-3) 16px;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--surface-raised);
+  }
+  .decision-actions button {
+    flex: 1 1 0;
+  }
+  .change-review {
+    padding-bottom: 72px;
+  }
+}
 @media (max-width: 720px) {
   .change-review-note {
     flex: 1 1 100%;

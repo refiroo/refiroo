@@ -29,4 +29,4 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=6 \
 # Behind the web image or an organisation's proxy, the caller's address is the one the proxy forwards
 # (the sign-in throttle counts per address, D271). Uvicorn trusts forwarded addresses only from
 # FORWARDED_ALLOW_IPS (127.0.0.1 unless set): name the proxy's address there.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--timeout-graceful-shutdown", "10"]

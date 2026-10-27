@@ -2151,7 +2151,7 @@ roles, consumer APIs and creator, and each secret its last four characters (J41.
 ### J42 — Propose and approve a change
 
 **Actor:** contributor and data owner. **Channel:** UI (the change set's review, the inbox), API.
-**Stories:** US-S01. **Status:** the API delivered by A1 (2026-10-26, `test_j42_approvals`); J42.5 delivered by A2 (2026-10-26, `test_j42_inbox`); A3 (the interface for approving) remains.
+**Stories:** US-S01. **Status:** the API delivered by A1 (2026-10-26, `test_j42_approvals`); J42.5 delivered by A2 (2026-10-26, `test_j42_inbox`); A3 (2026-10-27) delivered the interface: submit and withdraw on the change-set bar, the decision on the review, the policy on Settings › Workspaces and Home.
 
 1. A Contributor prepares a change set and submits it for publication.
 2. An approver is notified, reviews it and approves, which publishes it, or sends it back with a

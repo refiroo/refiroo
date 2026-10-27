@@ -7,6 +7,7 @@ groups that would allow it and the workspace. A change applies on the next reque
 process. Every case runs on two configurations through the public API.
 """
 
+import itertools
 import json
 from datetime import UTC, datetime, timedelta
 
@@ -257,6 +258,29 @@ def test_who_can_do_what_here_and_the_last_security_administrator(world):
     assert (group["id"], "contributor", False) in seen
     assert (other["id"], "operator", True) in seen
     assert all(item["principal"]["id"] != elsewhere["id"] for item in access)
+
+    # One principal's grants are adjacent: people, groups, clients, each by name; paging agrees.
+    zed = ok(world.api.post("/users", {"username": "zed", "name": "Zed"}), 201)
+    amy = ok(world.api.post("/users", {"username": "amy", "name": "amy"}), 201)
+    for person, role in ((zed, "reader"), (amy, "reader"), (zed, "contributor"), (amy, "steward")):
+        _grant(world, "user", person["id"], role)
+    listing = f"/workspaces/{W1}/access"
+    everything = ok(world.api.get(listing, pageSize=500))["items"]
+    kinds = [item["principal"]["kind"] for item in everything]
+    assert kinds == sorted(kinds, key=("user", "group", "client").index)
+    runs = [item["principal"]["id"] for item in everything]
+    assert len(set(runs)) == len({key for key, _ in itertools.groupby(runs)})
+    order = [key for key, _ in itertools.groupby(runs)]
+    assert order.index(amy["id"]) < order.index(zed["id"])
+    assert runs.count(amy["id"]) == 2 and runs.count(zed["id"]) == 2
+    walked, cursor = [], None
+    while True:
+        page = ok(world.api.get(listing, pageSize=2, **({"cursor": cursor} if cursor else {})))
+        walked += [item["id"] for item in page["items"]]
+        cursor = page["nextCursor"]
+        if not cursor:
+            break
+    assert walked == [item["id"] for item in everything]
 
     # The harness person is the only person holding Security administration.
     [harness] = ok(world.api.get("/users", q="harness"))["items"]

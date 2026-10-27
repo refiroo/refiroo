@@ -13,10 +13,10 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Select, delete, exists, func, insert, or_, select, union_all
+from sqlalchemy import Select, case, delete, exists, func, insert, or_, select, union_all
 from sqlalchemy.orm import Session
 
-from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
+from ...common.pagination import Page, PageRequest, integer_key, paginate_statement, text_key
 from ...errors import ApiError, api_error
 from ...models.commands import (
     GrantCreate,
@@ -702,6 +702,42 @@ class GrantRow:
 _GRANT_KEYS = (integer_key("sequenceId", Grant.id, "grant_sequence"),)
 
 
+def _principal_kind_order(row: Any) -> int:
+    return 0 if row[2] is not None else 2 if row[3] is not None else 1
+
+
+# A workspace's access list, one principal's grants together: people, then groups, then clients,
+# each by name (case-insensitive) and id, and a principal's grants in creation order. The last key
+# is the grant, so the order is total.
+_ACCESS_KEYS = (
+    replace(
+        integer_key(
+            "principalKind",
+            case((Grant.user_id.is_not(None), 0), (Grant.client_id.is_not(None), 2), else_=1),
+            "grant_sequence",
+        ),
+        extract=lambda _session, row: _principal_kind_order(row),
+    ),
+    replace(
+        text_key(
+            "principalName",
+            func.lower(func.coalesce(User.name, UserGroup.name, OAuthClient.name)),
+            "grant_sequence",
+        ),
+        extract=lambda _session, row: (row[2] or row[3] or row[4]).name.lower(),
+    ),
+    replace(
+        integer_key(
+            "principalId",
+            func.coalesce(Grant.user_id, Grant.group_id, Grant.client_id),
+            "grant_sequence",
+        ),
+        extract=lambda _session, row: row[0].user_id or row[0].group_id or row[0].client_id,
+    ),
+    *_GRANT_KEYS,
+)
+
+
 def _grant_statement() -> Select[Any]:
     return (
         select(Grant, Role, User, OAuthClient, UserGroup, Grant.id.label("grant_sequence"))
@@ -827,6 +863,14 @@ def _create_consumer_api_grant(session: Session, payload: GrantCreate) -> GrantR
             "narrowed",
         )
     workspace_key = scope.workspaceKey
+    if payload.principal.kind != "client":
+        raise api_error(
+            422,
+            "CONSUMER_API_CLIENTS_ONLY",
+            "A consumer API is granted to a client: people read through the management API, and "
+            "a group's members are people",
+            {"principalKind": payload.principal.kind},
+        )
 
     def change() -> Grant:
         principal = _principal_ids(session, payload.principal.kind, payload.principal.id)
@@ -993,7 +1037,7 @@ def access_page(
     page_of_rows = paginate_statement(
         session,
         statement,
-        keys=_GRANT_KEYS,
+        keys=_ACCESS_KEYS,
         scope=f"access:{workspace_key}",
         filters={},
         page=page,

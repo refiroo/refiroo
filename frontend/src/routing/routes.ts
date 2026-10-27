@@ -19,6 +19,8 @@ import type {
   RouteState,
   SettingsRoute,
   ViewDefinition,
+  ModelTab,
+  WorkspaceTab,
 } from "@/types";
 import { DEFAULT_COLLECTION_QUERY, DEFAULT_WORKSPACE } from "@/model/defaults";
 import { applicationFor, objectTypeFor } from "@/model/lookup";
@@ -145,8 +147,8 @@ function changesPath(route: ChangesRoute) {
 const SINGLE_PAGES = [
   "appearance",
   "account",
-  "deployment",
   "notifications",
+  "deployment",
   "operations",
   "consumer-apis",
   "api-reference",
@@ -171,7 +173,13 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
   if (parts[0] !== "settings") return undefined;
   const [, page, kind, id] = parts;
   if (isSinglePage(page)) return { kind: "settings", page };
-  if (page === "workspaces") return kind ? { kind: "settings", page, workspaceKey: kind } : { kind: "settings", page };
+  if (page === "workspaces") {
+    if (!kind) return { kind: "settings", page };
+    const workspaceTab = WORKSPACE_TABS.find((item) => item === id && item !== "overview");
+    return workspaceTab
+      ? { kind: "settings", page, workspaceKey: kind, workspaceTab }
+      : { kind: "settings", page, workspaceKey: kind };
+  }
   if (page === "jobs") return kind ? { kind: "settings", page, jobId: kind } : { kind: "settings", page };
   if (page === "people") return kind ? { kind: "settings", page, userId: kind } : { kind: "settings", page };
   if (page === "groups") return kind ? { kind: "settings", page, groupId: kind } : { kind: "settings", page };
@@ -198,13 +206,18 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
     };
   }
   if (page === "model") {
-    if (kind === "releases" && id) return { kind: "settings", page, releaseId: id };
-    if (kind === "models" && id) return { kind: "settings", page, modelKey: id };
+    const from = modelTabIn(query.get("from"));
+    if (kind === "releases" && id)
+      return { kind: "settings", page, releaseId: id, ...(from ? { modelTab: from } : {}) };
+    if (kind === "models" && id) {
+      const modelTab = MODEL_TABS.find((item) => item === parts[4] && item !== "overview");
+      return { kind: "settings", page, modelKey: id, ...(modelTab ? { modelTab } : {}) };
+    }
     if (kind === "migrations" && id) return { kind: "settings", page, migrationJobId: id };
     if (kind === "drafts" && id && parts[4] === "editor") {
       return { kind: "settings", page, draftId: id, editor: editorSelection(query) };
     }
-    if (kind === "drafts" && id) return { kind: "settings", page, draftId: id };
+    if (kind === "drafts" && id) return { kind: "settings", page, draftId: id, ...(from ? { modelTab: from } : {}) };
     return { kind: "settings", page };
   }
   return { kind: "settings", page: "about" };
@@ -272,6 +285,11 @@ function movePath(move: MoveAddress) {
 }
 
 const EDITOR_ELEMENTS = ["type", "application", "relationType", "attributeType"] as const;
+export const MODEL_TABS: readonly ModelTab[] = ["overview", "releases", "drafts", "structure"];
+/** The tab Back returns to from an opened release or draft when the address names none. */
+const MODEL_BACK_TAB = { releaseId: "releases", draftId: "drafts" } as const;
+const modelTabIn = (value: string | null | undefined) => MODEL_TABS.find((item) => item === value);
+export const WORKSPACE_TABS: readonly WorkspaceTab[] = ["overview", "access", "approval", "activity"];
 const CONSUMER_API_TABS = ["types", "fields", "operations", "filters", "schema", "example"] as const;
 
 function editorSelection(query: URLSearchParams): EditorSelection {
@@ -296,8 +314,10 @@ function editorSelection(query: URLSearchParams): EditorSelection {
 const EDITOR_MODES = ["preview", "layout"] as const;
 
 function settingsPath(route: SettingsRoute) {
-  if (route.page === "workspaces" && route.workspaceKey)
-    return `/settings/workspaces/${encodeURIComponent(route.workspaceKey)}`;
+  if (route.page === "workspaces" && route.workspaceKey) {
+    const base = `/settings/workspaces/${encodeURIComponent(route.workspaceKey)}`;
+    return route.workspaceTab && route.workspaceTab !== "overview" ? `${base}/${route.workspaceTab}` : base;
+  }
   if (route.page === "webhooks" && route.subscriptionId) {
     const base = `/settings/webhooks/${encodeURIComponent(route.subscriptionId)}`;
     if (route.tab !== "deliveries") return base;
@@ -331,10 +351,17 @@ function settingsPath(route: SettingsRoute) {
           : "";
     return `${base}?show=${show}&key=${encodeURIComponent(route.editor.key)}${mode}`;
   }
-  if (route.page === "model" && route.draftId) return `/settings/model/drafts/${encodeURIComponent(route.draftId)}`;
+  // An opened release or draft keeps the tab it was opened from, unless that is where Back goes anyway.
+  const modelFrom = (back: ModelTab) =>
+    route.page === "model" && route.modelTab && route.modelTab !== back ? `?from=${route.modelTab}` : "";
+  if (route.page === "model" && route.draftId)
+    return `/settings/model/drafts/${encodeURIComponent(route.draftId)}${modelFrom(MODEL_BACK_TAB.draftId)}`;
   if (route.page === "model" && route.releaseId)
-    return `/settings/model/releases/${encodeURIComponent(route.releaseId)}`;
-  if (route.page === "model" && route.modelKey) return `/settings/model/models/${encodeURIComponent(route.modelKey)}`;
+    return `/settings/model/releases/${encodeURIComponent(route.releaseId)}${modelFrom(MODEL_BACK_TAB.releaseId)}`;
+  if (route.page === "model" && route.modelKey) {
+    const base = `/settings/model/models/${encodeURIComponent(route.modelKey)}`;
+    return route.modelTab && route.modelTab !== "overview" ? `${base}/${route.modelTab}` : base;
+  }
   if (route.page === "model" && route.migrationJobId)
     return `/settings/model/migrations/${encodeURIComponent(route.migrationJobId)}`;
   return `/settings/${route.page}`;

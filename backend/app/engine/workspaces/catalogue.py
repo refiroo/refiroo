@@ -231,25 +231,39 @@ def set_default_workspace(
 
 
 def delete_blocker(
-    session: Session, key: str, default_key: str
+    session: Session, key: str, default_key: str, *, with_counts: bool = True
 ) -> tuple[DeleteBlocker | None, dict[str, int]]:
-    """Return why ``key`` may not be deleted, in the order the refusals are reported (D27)."""
+    """Return why ``key`` may not be deleted, in the order the refusals are reported (D27).
+
+    The refusal of a delete reports how many objects and change sets remain (``with_counts``). A
+    read that only says whether the workspace is empty passes ``False``: it asks for one row of
+    each instead of counting every object, and the counts come back empty.
+    """
     if key == default_key:
         return "default", {}
     # Publications are withdrawn, never removed, so any row means the workspace was published.
     if session.scalar(select(Publication.id).where(Publication.workspace_key == key).limit(1)):
         return "published", {}
-    counts = {
-        "objectCount": session.scalar(
-            select(func.count()).select_from(RdmObject).where(RdmObject.workspace_key == key)
+    if with_counts:
+        counts = {
+            "objectCount": session.scalar(
+                select(func.count()).select_from(RdmObject).where(RdmObject.workspace_key == key)
+            )
+            or 0,
+            "changeSetCount": session.scalar(
+                select(func.count()).select_from(ChangeSet).where(ChangeSet.workspace_key == key)
+            )
+            or 0,
+        }
+        not_empty = bool(counts["objectCount"] or counts["changeSetCount"])
+    else:
+        counts = {}
+        has_object = select(RdmObject.id).where(RdmObject.workspace_key == key).limit(1)
+        has_change_set = select(ChangeSet.id).where(ChangeSet.workspace_key == key).limit(1)
+        not_empty = (
+            session.scalar(has_object) is not None or session.scalar(has_change_set) is not None
         )
-        or 0,
-        "changeSetCount": session.scalar(
-            select(func.count()).select_from(ChangeSet).where(ChangeSet.workspace_key == key)
-        )
-        or 0,
-    }
-    if counts["objectCount"] or counts["changeSetCount"]:
+    if not_empty:
         return "notEmpty", counts
     # A workspace change never removes another owner's configuration (C11, C-D99).
     if has_subscriptions(session, key):

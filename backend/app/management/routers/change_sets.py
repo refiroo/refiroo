@@ -10,6 +10,7 @@ from ...common.pagination import (
     text_key,
 )
 from ...db import begin_snapshot_read
+from ...engine.authorization.administration import holders_of
 from ...engine.authorization.visibility import in_workspaces
 from ...engine.change_sets import approvals
 from ...engine.change_sets.access import effective_change_set_membership
@@ -796,6 +797,7 @@ def get_approval_policy(workspace_key: str, session: DbSession) -> ApprovalPolic
         requireApproval=row.require_approval if row else False,
         secondPerson=row.second_person if row else False,
         version=row.version if row else 0,
+        approverCount=len(holders_of(session, "approve", workspace_key)),
     )
 
 
@@ -818,6 +820,7 @@ def put_approval_policy(
         requireApproval=require,
         secondPerson=second,
         version=version,
+        approverCount=len(holders_of(session, "approve", workspace_key)),
     )
 
 

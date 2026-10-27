@@ -254,6 +254,48 @@ export interface ChangeSet {
   updatedAt: string;
   /** Who created it (0.12 Z4); null for one from before sign-in. */
   createdBy: Principal | null;
+  /** Its latest publication request, whatever its state; null if never submitted (0.12 A1). */
+  submission?: PublicationRequest | null;
+}
+
+/** One decision on a publication request (0.12 A1, D242). */
+export interface PublicationDecision {
+  id: string;
+  outcome: "approve" | "sendBack";
+  version: number;
+  comment: string | null;
+  decidedAt: string;
+  decider: Principal | null;
+}
+
+/** A change set's request to be published (0.12 A1, D232). */
+export interface PublicationRequest {
+  id: string;
+  workspaceKey: string;
+  changeSetId: string;
+  changeSetName: string | null;
+  version: number;
+  state: "submitted" | "withdrawn" | "approved" | "sentBack";
+  submitter: Principal | null;
+  comment: string | null;
+  submittedAt: string;
+  publicationId: string | null;
+  decisions: PublicationDecision[];
+}
+
+export interface PublicationRequestPage {
+  items: PublicationRequest[];
+  nextCursor: string | null;
+}
+
+/** A workspace's approval policy (0.12 A1); both off and version 0 until set. */
+export interface ApprovalPolicy {
+  workspaceKey: string;
+  requireApproval: boolean;
+  secondPerson: boolean;
+  version: number;
+  /** Active people and clients holding Approve publications here; a count, no names. */
+  approverCount: number;
 }
 
 export interface ChangeSetPage {
