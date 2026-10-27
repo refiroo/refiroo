@@ -633,3 +633,47 @@ class ModelCompilationResponse(BaseModel):
     changes: list[ModelChangeResponse] = Field(default_factory=list)
     # Present when the draft is valid.
     consumerContracts: ModelConsumerContractsResponse | None = None
+
+
+class ModelReleaseRaisingRequest(BaseModel):
+    """Preview (`confirm: false`) or apply (`confirm: true`, with the hash the preview named)
+    raising a release to the schema this version reads (0.12 UW1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    confirm: bool
+    expectedModelHash: str | None = Field(
+        default=None,
+        min_length=1,
+        description="The `modelHash` the preview answered; required with `confirm: true`",
+    )
+
+    @model_validator(mode="after")
+    def _confirmation_names_the_preview(self) -> ModelReleaseRaisingRequest:
+        if self.confirm and self.expectedModelHash is None:
+            raise ValueError("expectedModelHash is required with confirm: true")
+        return self
+
+
+class ModelReleaseRaisingWorkspace(BaseModel):
+    key: str
+    label: str
+
+
+class ModelReleaseRaisingResponse(BaseModel):
+    applied: bool = Field(description="False for a preview, which changes nothing")
+    releaseId: str
+    releaseKey: str
+    releaseVersion: str
+    schemaFrom: str
+    schemaTo: str
+    consumerApisRewritten: int = Field(
+        description="Consumer API definitions rewritten from the old internal shape"
+    )
+    modelHash: str = Field(
+        description="The release's hash now: before the raising on a preview, the new one after "
+        "applying"
+    )
+    workspaces: list[ModelReleaseRaisingWorkspace] = Field(
+        description="The workspaces running the release, which are served again after applying"
+    )

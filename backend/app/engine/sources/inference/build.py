@@ -23,7 +23,6 @@ from .facts import Column, Table, Workbook
 from .patterns import DESCRIPTION_PATTERNS, LIST_PATTERNS, Finding, fold, shape_of
 
 # The schema language that declares navigation groups (0.10 N1, D1).
-NAVIGATION_SCHEMA = "0.10"
 # D91's thresholds.
 MATCH_SHARE = 0.5
 FIT_SHARE = 0.95
@@ -1745,17 +1744,13 @@ class Builder:
         title = finding.evidence.get("title")
         # The lists under a title of a sheet laid out for reading are grouped by it (0.10 A8a).
         label = readable(title) if title else f"{row.name if row else readable(finding.sheet)} lists"
-        older = _schema(self.model.get("schemaVersion")) < _schema(NAVIGATION_SCHEMA)
-        summary = f"Group the {len(collections)} lists the sheet {finding.sheet} adds in the sidebar as \"{label}\", folded" + (
-            f"; navigation groups raise the model's schema language to {NAVIGATION_SCHEMA}." if older else "."
-        )
+        summary = f"Group the {len(collections)} lists the sheet {finding.sheet} adds in the sidebar as \"{label}\", folded."
         anchor = "|".join(filter(None, ["navigationGroup", finding.sheet, title]))
         proposal = self._new("navigationGroup", finding.sheet, [], summary, finding.evidence, anchor)
         key = self.key(proposal, "group", "groups", label)
-        proposal.operations = [{"kind": "setRelease", "schemaVersion": NAVIGATION_SCHEMA}] if older else []
-        proposal.operations.append(
+        proposal.operations = [
             {"kind": "addNavigationGroup", "applicationKey": self.app, "key": key, "label": label, "collapsed": True, "collections": collections}
-        )
+        ]
         return proposal
 
 
@@ -1774,12 +1769,6 @@ def _yes_no(vocabulary: list[str]) -> dict[str, bool]:
     truthy = {"y", "yes", "x", "true", "1"}
     return {spelled: value in truthy for value in vocabulary for spelled in sorted({value, value.upper(), value.capitalize()})}
 
-
-def _schema(version: Any) -> tuple[int, ...]:
-    try:
-        return tuple(int(part) for part in str(version).split("."))
-    except ValueError:
-        return (0,)
 
 
 def _compatible(value_type: str) -> tuple[str, ...]:

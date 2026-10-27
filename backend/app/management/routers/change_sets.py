@@ -62,6 +62,7 @@ from ..access import (
     WORKSPACE_PATH,
     AuthorizedRoute,
     CurrentPermissions,
+    forbidden,
     requires,
 )
 from ..dependencies import CurrentPrincipal, DbSession
@@ -267,7 +268,12 @@ def post_change_set(
     workspace_key: str,
     payload: ChangeSetCreate,
     session: DbSession,
+    permissions: CurrentPermissions,
 ) -> ChangeSetResponse:
+    # Starting one is a steward's task; choosing a model version other than the workspace's own is
+    # a model-release one.
+    if payload.modelReleaseId and not permissions.allows("model-release", workspace_key):
+        raise forbidden("change-sets.model-release", ("model-release",), workspace_key)
     selected = (
         selected_change_set_release(session, str(payload.modelReleaseId))
         if payload.modelReleaseId

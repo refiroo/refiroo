@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
 import type { Workspace } from "@/types";
-import { testWorkspaceModel } from "@/test/fixtures";
+import { testWorkspaceModel, testAvailability } from "@/test/fixtures";
 
 vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();
@@ -19,6 +19,7 @@ const workspace = (key: string): Workspace => ({
   createdAt: "2026-10-15T00:00:00Z",
   updatedAt: "2026-10-15T00:00:00Z",
   model: testWorkspaceModel,
+  availability: testAvailability,
 });
 
 function Chooser({ withDefault }: { withDefault?: boolean }) {

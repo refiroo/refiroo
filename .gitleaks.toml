@@ -1,0 +1,18 @@
+# Secret scan configuration (0.12 L1). Run: gitleaks git . --redact
+# The six findings of the first full-history scan (367 commits, 2026-10-27) were all false positives.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "The standard example TOTP secret used as a mock value in a test"
+paths = ['''frontend/src/features/settings/SecondFactorPanel\.test\.tsx''']
+regexes = ['''JBSWY3DPEHPK3PXP4Q2M''']
+
+[[allowlists]]
+description = "Model keys and idempotency-key arguments in tests, not credentials"
+paths = [
+  '''backend/tests/journeys/test_j34_onboard\.py''',
+  '''backend/tests/unit/engine/jobs/test_inline\.py''',
+]
+regexes = ['''j34-[a-z-]+''', '''idempotency_key=key''']

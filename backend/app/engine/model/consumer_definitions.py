@@ -1,14 +1,14 @@
 """A model's consumer API definitions in the engine's internal form, expanded once (Base 0.9 C18).
 
-Every reader of a definition goes through :func:`consumer_apis` or :func:`consumer_api`: a schema 0.9
-model's definitions are expanded from what the author wrote (``consumer_expansion``), a schema 0.8
-model's are read as stored (``consumer_legacy``). Both give ``ConsumerApiDefinition``.
+Every reader of a definition goes through :func:`consumer_apis` or :func:`consumer_api`: the
+definitions are expanded from what the author wrote (``consumer_expansion``) into
+``ConsumerApiDefinition``.
 """
 
 from dataclasses import dataclass, field
 
 from ...common.json_pointer import pointer_segment
-from ...models.schema import ConsumerApiDefinition, ConsumerApiDocument, EngineModel
+from ...models.schema import ConsumerApiDefinition, EngineModel
 from .consumer_expansion import IDENTITY, PointerMap, expand
 
 
@@ -28,11 +28,8 @@ def compiled_consumer_apis(model: EngineModel) -> CompiledConsumerApis:
         definitions: list[ConsumerApiDefinition] = []
         pointers: dict[str, PointerMap] = {}
         for item in model.consumerApis or ():
-            if isinstance(item, ConsumerApiDocument):
-                definition, mapped = expand(model, item)
-                pointers.setdefault(item.key, mapped)
-            else:
-                definition = item
+            definition, mapped = expand(model, item)
+            pointers.setdefault(item.key, mapped)
             definitions.append(definition)
         compiled = CompiledConsumerApis(tuple(definitions), pointers)
         model._consumer_apis = compiled
@@ -49,7 +46,7 @@ def consumer_api(model: EngineModel, key: str) -> ConsumerApiDefinition | None:
 
 def authored_pointer(model: EngineModel, key: str, path: str) -> str:
     """``path`` within definition ``key`` (``/consumerApis/<key>…``) as the pointer of the node the
-    author wrote: itself for a schema 0.8 definition."""
+    author wrote."""
     prefix = f"/consumerApis/{pointer_segment(key)}"
     if path != prefix and not path.startswith(f"{prefix}/"):
         return path

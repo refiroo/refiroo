@@ -308,9 +308,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.12 M2 follow-up (notification types): NoticeMailResponse.kinds (with
     # NoticeKindResponse) and NoticeMailUpdate takes optional `enabled` and `kinds`; the
     # descriptions of GET and PUT /me/notification-mail; nothing else changed.
+    # Re-baselined for 0.12 L1: `info.license` (AGPL-3.0-or-later) and EngineInfo.license and
+    # .sourceCode (GET /system); nothing else changed.
+    # Re-baselined for 0.12 UW1: `availability` on WorkspaceResponse and WorkspaceDetailResponse
+    # (WorkspaceAvailable, WorkspaceUnavailable) and POST /model-releases/{releaseId}/raising with
+    # the ModelReleaseRaising* schemas; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "39791a5822e0e9c716bf0bb6aa6c2b5e9bd62c6961ff6c0dd5fa180c3419b515"
+        "12d6fec8a98c3b23a428158db0299599a201347cea872d4330943cc74a5cfc9d"
     )
 
 

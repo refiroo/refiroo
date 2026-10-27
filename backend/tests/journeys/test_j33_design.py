@@ -136,16 +136,10 @@ def test_a_collection_stands_in_one_group_and_group_keys_are_unique(world):
 
 @pytest.mark.journey("J33.9")
 @pytest.mark.structures("A1")
-def test_navigation_needs_schema_0_10_and_its_own_shape(world):
-    """Given A1's navigation in a schema 0.9 model, or a group with a member groups do not have.
-    When validated. Then the first is refused INVALID_MODEL at A1's navigation, the second at the
-    unknown member; the second, compiled as a draft, answers with no changes (the list present);
-    neither model installs."""
-    model, pointer = _grouped(world, version="0.9")
-    (diagnostic,) = _diagnostics(world, model)
-    assert diagnostic["code"] == "INVALID_MODEL", diagnostic
-    assert diagnostic["path"] == pointer
-
+def test_navigation_has_its_own_shape(world):
+    """Given a navigation group with a member groups do not have. When validated. Then it is refused
+    at the unknown member; compiled as a draft, it answers with no changes (the list present); the
+    model does not install."""
     model, _ = _grouped(world)
     _application(model, world.key("A1"))["navigation"]["groups"][0]["colour"] = "red"
     (diagnostic,) = _diagnostics(world, model)
@@ -169,38 +163,3 @@ def test_navigation_needs_schema_0_10_and_its_own_shape(world):
         "INVALID_MODEL",
     )
 
-
-@pytest.mark.journey("J33.9", "J08")
-@pytest.mark.structures("A1")
-def test_earlier_models_are_unchanged_by_schema_0_10(world):
-    """Given the configuration's schema 0.9 model, active. When it is compiled as a draft, and raised
-    to 0.10 without navigation and compiled against the active release. Then the first compiles to
-    the active release's hash, with no navigation member, and the second is valid and compatible,
-    installs and activates."""
-    active = world.workspace_model()["releaseId"]
-    release = ok(world.api.get(f"/model-releases/{active}"))
-    draft = ok(
-        world.api.post("/model-drafts", {"name": "Same", "model": world.configuration.model}), 201
-    )
-    compiled = ok(
-        world.api.post(
-            f"/model-drafts/{draft['id']}/compile", {"expectedVersion": draft["version"]}
-        )
-    )
-    assert compiled["modelHash"] == release["modelHash"]
-    assert all("navigation" not in item for item in compiled["model"]["applications"])
-
-    raised = copy.deepcopy(world.configuration.model)
-    raised["schemaVersion"] = "0.10"
-    raised["release"]["version"] += "-raised"
-    draft = ok(world.api.post("/model-drafts", {"name": "Raised", "model": raised}), 201)
-    compiled = ok(
-        world.api.post(
-            f"/model-drafts/{draft['id']}/compile", {"expectedVersion": draft["version"]}
-        )
-    )
-    assert compiled["valid"] is True
-    assert compiled["compatibility"]["classification"] == "compatible"
-    installed = _install(world, raised)
-    ok(world.activate(installed["id"]))
-    assert ok(world.api.get("/model"))["schemaVersion"] == "0.10"

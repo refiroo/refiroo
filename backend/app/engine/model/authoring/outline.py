@@ -34,7 +34,7 @@ from ....models.schema import (
     ObjectTypeRelationDefinition,
     RelationTypeDefinition,
 )
-from ..compiler import compile_authored_model
+from ..compiler import compile_model
 from ..consumer_contract import contract_diagnostics
 from ..consumer_expansion import public_name
 from ..diagnostics import ModelDiagnostic
@@ -52,7 +52,7 @@ def draft_outline(session: Session, draft: ModelDraft, active: EngineModel | Non
     base = base_release(session, draft)
     data = draft.model_json if isinstance(draft.model_json, dict) else {}
     outline = build_outline(data, base.model_json if base else None)
-    compiled = compile_authored_model(draft.model_json)
+    compiled = compile_model(draft.model_json)
     if compiled.valid and compiled.model is not None:
         found = contract_diagnostics(active, compiled.model) if active is not None else []
         for entry in outline["consumerApis"]:
@@ -76,7 +76,7 @@ def draft_model(draft: ModelDraft) -> dict[str, Any]:
     client that renders it before installing (0.10 A4b, D43); without a model when it does not
     compile. A read: nothing is written."""
     data = draft.model_json if isinstance(draft.model_json, dict) else {}
-    compiled = compile_authored_model(draft.model_json)
+    compiled = compile_model(draft.model_json)
     answer: dict[str, Any] = {
         "version": draft.version,
         "valid": compiled.valid,

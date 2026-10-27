@@ -140,7 +140,7 @@ a binary body and a 503 on a NUL byte. **A3, approvals in the interface, is deli
 (2026-10-26)**, D424–D427: Approve publications (Data owner), submit, withdraw, approve (which publishes) or send
 back with a comment, a per-workspace policy (`requireApproval`, `secondPerson`), a submitted change set frozen
 unless a write carries `withdrawSubmission=true`; the API only ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#a1-record-2026-10-26),
-migration `20261110_01`). 0.12 is released complete: next L1, L2 and R (no cut
+migration `20261110_01`). **L1, licensing and policies, is built (2026-10-27)**: the project is named refiroo (repository `refiroo/refiroo`); a running instance offers its licence and source (`SOURCE_CODE_URL`, J31.4); README licence section, CONTRIBUTING, SECURITY, TRADEMARKS, COMMERCIAL and a generated THIRD_PARTY_NOTICES; what stays the maintainer's or counsel's is in [LICENSING_TODO](LICENSING_TODO.md). 0.12 is released complete: next L2 and R (no cut
 line, the user, 2026-10-26).
 
 ## Current development baseline — Base 0.11 complete (2026-10-22)

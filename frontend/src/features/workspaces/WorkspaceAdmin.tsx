@@ -18,6 +18,7 @@ import { holds, useWorkspacePermissions } from "@/features/security/permissions"
 import { GrantsSection } from "@/features/security/GrantsSection";
 import { errorMessage, isApiError } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
+import { UnavailableWorkspace, unavailability } from "@/features/workspaces/UnavailableWorkspace";
 import { WorkspaceActivity } from "@/features/workspaces/WorkspaceActivity";
 import { applicationHue } from "@/model/hues";
 import { viewRoute, WORKSPACE_TABS } from "@/routing/routes";
@@ -530,6 +531,7 @@ function WorkspaceDetail({
         deleteBlockedHint={deleteBlockedHint}
         onNavigate={onNavigate}
         onOpenSubscription={onOpenSubscription}
+        onRaisedWorkspace={() => void reloadWorkspace().catch(() => undefined)}
       />
     ),
     access: (
@@ -716,6 +718,7 @@ function WorkspaceOverview({
   deleteBlockedHint,
   onNavigate,
   onOpenSubscription,
+  onRaisedWorkspace,
 }: {
   workspace: WorkspaceDetail;
   browses: boolean;
@@ -724,10 +727,25 @@ function WorkspaceOverview({
   deleteBlockedHint: string | undefined;
   onNavigate: (route: RouteState) => void;
   onOpenSubscription: (subscriptionId: string) => void;
+  /** The workspace was raised and is served again: read it afresh. */
+  onRaisedWorkspace: () => void;
 }) {
   const active = workspace.status === "active";
+  // Kept once raised, so the banner's "is back" notice stays after the workspace reads as served.
+  const [raised, setRaised] = useState(false);
   return (
     <>
+      {(unavailability(workspace) || raised) && (
+        <UnavailableWorkspace
+          workspace={workspace}
+          form="banner"
+          onNavigate={onNavigate}
+          onRaised={() => {
+            setRaised(true);
+            onRaisedWorkspace();
+          }}
+        />
+      )}
       <dl className="release-metadata">
         <div>
           <dt>Status</dt>

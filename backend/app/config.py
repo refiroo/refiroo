@@ -29,6 +29,11 @@ DEFAULT_JOB_FILE_DIR = PROJECT_ROOT / "var" / "job-files"
 DEFAULT_CORS_ORIGINS = "http://localhost:5173"
 # The engine's address as callers reach it: the token issuer (0.12 I1, D259).
 DEFAULT_PUBLIC_URL = "http://localhost:8000"
+# The licence the engine is offered under, as an SPDX identifier: ``GET /system`` and the API
+# document's ``info.license`` (0.12 L1, D219).
+ENGINE_LICENSE = "AGPL-3.0-or-later"
+# Where the source of the running version is, unless the operator names their own (AGPL section 13).
+DEFAULT_SOURCE_CODE_URL = f"https://github.com/refiroo/refiroo/tree/v{ENGINE_VERSION}"
 
 TRUTHY = {"1", "true", "yes", "on"}
 
@@ -66,6 +71,9 @@ class Settings(BaseModel):
     # The engine's address as callers reach it, the issuer of its tokens and the base of the
     # addresses its OAuth metadata names (0.12 I1, D259).
     public_url: str = DEFAULT_PUBLIC_URL
+    # Where the corresponding source of what runs here is offered to its users (AGPL section 13,
+    # 0.12 L1, D219); an operator running a modified version names their own.
+    source_code_url: str = DEFAULT_SOURCE_CODE_URL
     # Seals every secret the engine must read back: token signing keys, webhook signing keys
     # (D253, ADR-043). Required; startup refuses without it (``validate_secrets``).
     secrets_encryption_key: bytes | None = None
@@ -154,6 +162,7 @@ class Settings(BaseModel):
                 for origin in env.get("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
             ),
             public_url=_public_url(env.get("PUBLIC_URL", "")),
+            source_code_url=_source_code_url(env.get("SOURCE_CODE_URL", "")),
             secrets_encryption_key=encryption_key(env.get("SECRETS_ENCRYPTION_KEY", "")),
             access_token_minutes=_positive(env, "ACCESS_TOKEN_MINUTES", 60),
             token_signing_key_days=_positive(env, "TOKEN_SIGNING_KEY_DAYS", 30),
@@ -209,7 +218,9 @@ class Settings(BaseModel):
             consumer_subscriptions_enabled=(
                 env.get("CONSUMER_SUBSCRIPTIONS_ENABLED", "false").strip().lower() in TRUTHY
             ),
-            consumer_webhook_log_retention_days=_positive(env, "CONSUMER_WEBHOOK_LOG_RETENTION_DAYS", 7),
+            consumer_webhook_log_retention_days=_positive(
+                env, "CONSUMER_WEBHOOK_LOG_RETENTION_DAYS", 7
+            ),
         )
 
     def prepare_job_file_dir(self) -> None:
@@ -307,6 +318,20 @@ def _public_url(raw: str) -> str:
     return value
 
 
+def _source_code_url(raw: str) -> str:
+    """The address of the running version's source; an absolute http(s) URL, the project's tag of
+    this version when unset."""
+    value = raw.strip()
+    if not value:
+        return DEFAULT_SOURCE_CODE_URL
+    scheme, _, rest = value.partition("://")
+    if scheme not in ("http", "https") or not rest or any(c.isspace() for c in value):
+        raise RuntimeError(
+            f"SOURCE_CODE_URL must be an absolute http or https address, not {raw!r}"
+        )
+    return value
+
+
 def encryption_key(raw: str) -> bytes | None:
     """The 32-byte key written in URL-safe base64, or none when unset."""
     value = raw.strip()
@@ -379,6 +404,13 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "public_url",
         "runtime",
         "The engine's address as callers reach it; the issuer of its tokens",
+    ),
+    CatalogueEntry(
+        "SOURCE_CODE_URL",
+        "source_code_url",
+        "runtime",
+        "Where the source of the running version is offered to its users; the project's tag of this "
+        "version unless set (AGPL section 13)",
     ),
     CatalogueEntry(
         "SECRETS_ENCRYPTION_KEY",
@@ -498,9 +530,7 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
     CatalogueEntry(
         "JOB_CHUNK_ITEMS", "job_chunk_items", "limits", "Items one background chunk commits"
     ),
-    CatalogueEntry(
-        "IMPORT_MAX_BYTES", "import_max_bytes", "limits", "Bytes in an import's file"
-    ),
+    CatalogueEntry("IMPORT_MAX_BYTES", "import_max_bytes", "limits", "Bytes in an import's file"),
     CatalogueEntry(
         "JOB_PREVIEW_MAX_ITEMS",
         "job_preview_max_items",

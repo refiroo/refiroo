@@ -10,7 +10,7 @@ import { ControlPopover } from "@/ui/ControlPopover";
 import { Icon, type IconName } from "@/ui/Icon";
 import { RouteLink } from "@/ui/RouteLink";
 import { useThemePreference, type ThemePreference } from "@/lib/theme";
-import { initials, useMe, useRoleLine } from "./useMe";
+import { initials, useMe, useRoleLine, useSourceOffer } from "./useMe";
 
 export const THEMES: { value: ThemePreference; label: string; icon: IconName }[] = [
   { value: "system", label: "System", icon: "monitor" },
@@ -35,6 +35,7 @@ export function AccountMenu({
   const { theme, setTheme } = useThemePreference();
   const me = useMe();
   const roleLine = useRoleLine(workspaceKey);
+  const source = useSourceOffer();
   const avatar = me ? (
     <span className="account-avatar account-initials" aria-hidden="true">
       {initials(me.name)}
@@ -97,6 +98,14 @@ export function AccountMenu({
               Sign out
             </button>
           </div>
+          {source && (
+            <p className="settings-note account-source">
+              <a href={source.sourceCode} target="_blank" rel="noreferrer">
+                Source code
+              </a>{" "}
+              · {source.license}
+            </p>
+          )}
         </>
       )}
     </ControlPopover>

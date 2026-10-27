@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
-import { testModel, testWorkspaceModel } from "@/test/fixtures";
+import { testModel, testWorkspaceModel, testAvailability } from "@/test/fixtures";
 import type { EngineModel, Job } from "@/types";
 import { ExportDialog, type ExportStart } from "./ExportDialog";
 
@@ -107,6 +107,7 @@ describe("ExportDialog (0.9 J1u)", () => {
           createdAt: "",
           updatedAt: "",
           model: testWorkspaceModel,
+          availability: testAvailability,
         },
         {
           key: "west",
@@ -116,6 +117,7 @@ describe("ExportDialog (0.9 J1u)", () => {
           createdAt: "",
           updatedAt: "",
           model: testWorkspaceModel,
+          availability: testAvailability,
         },
       ],
       nextCursor: null,

@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from ...common.cursors import METADATA_CURSOR_MESSAGE
 from ...common.pagination import paginate_sequence
 from ...engine.events import delivery
-from ...engine.model.compiler import compile_authored_model
+from ...engine.model.compiler import compile_model
 from ...engine.model.consumer_definitions import consumer_api
 from ...engine.model.consumer_rendering import expanded_definition
 from ...engine.model.placements import model_placements
@@ -191,7 +191,7 @@ def get_consumer_api_definition(consumerApi: str, snapshot: RequestModelSnapshot
 )
 @requires("model.author", at=INSTANCE)
 def validate_model(payload: ModelDocumentRequest) -> ModelValidationResponse:
-    compiled = compile_authored_model(payload.model)
+    compiled = compile_model(payload.model)
     return ModelValidationResponse(
         valid=compiled.valid,
         diagnostics=[diagnostic_response(item) for item in compiled.diagnostics],

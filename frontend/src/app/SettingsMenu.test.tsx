@@ -17,6 +17,14 @@ vi.mock("@/api/client", () => ({
       signedInWith: "password",
       sessionId: "s1",
     })),
+    system: vi.fn(async () => ({
+      engine: {
+        version: "0.12.0",
+        managementApi: "v1",
+        license: "AGPL-3.0-or-later",
+        sourceCode: "https://github.com/refiroo/refiroo/tree/v0.12.0",
+      },
+    })),
     myPermissions: vi.fn(async (workspaceKey?: string) => ({
       workspaceKey: workspaceKey ?? "default",
       workspaceLabel: workspaceKey === "field" ? "Field stations" : "Herbarium",
@@ -94,6 +102,13 @@ describe("AccountMenu", () => {
     fireEvent.click(link);
     expect(onOpenAccount).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
+  });
+
+  it("offers the source and the licence from every page (AGPL section 13, 0.12 L1)", async () => {
+    openMenu();
+    const link = await screen.findByRole("link", { name: "Source code" });
+    expect(link).toHaveAttribute("href", "https://github.com/refiroo/refiroo/tree/v0.12.0");
+    expect(link.closest("p")).toHaveTextContent("AGPL-3.0-or-later");
   });
 
   it("links to all settings and closes when it is followed", async () => {

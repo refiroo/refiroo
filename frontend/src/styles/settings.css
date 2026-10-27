@@ -1162,6 +1162,69 @@ tr.openable-row:hover > * {
   max-width: 720px;
   margin: var(--space-6) auto;
 }
+/* A workspace the engine cannot serve (0.12 UW1): two cards side by side, stacked on a phone. */
+.unavailable-workspace {
+  max-width: 960px;
+}
+.unavailable-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+.unavailable-card p {
+  margin: 0 0 var(--space-3);
+}
+.unavailable-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.unavailable-others {
+  display: grid;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+.unavailable-others button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: start;
+}
+.unavailable-others button:hover {
+  background: var(--surface-sunken);
+}
+.unavailable-others span {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.unavailable-banner {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.unavailable-banner .notice {
+  margin: 0;
+}
+@media (max-width: 720px) {
+  .unavailable-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .unavailable-actions > button {
+    width: 100%;
+  }
+}
 .migration-reasons {
   margin: var(--space-2) 0 0;
   padding-left: 18px;

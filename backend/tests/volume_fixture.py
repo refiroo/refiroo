@@ -166,7 +166,7 @@ def volume_model() -> dict[str, Any]:
         }
 
     return {
-        "schemaVersion": "0.9",
+        "schemaVersion": "0.10",
         "release": {"key": "vol-model", "name": "Volume model", "version": "0.8.0-s1"},
         "product": {"name": "Volume fixture", "description": "Generated Track S model"},
         "attributeTypes": [

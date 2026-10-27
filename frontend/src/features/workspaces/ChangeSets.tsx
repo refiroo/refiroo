@@ -126,7 +126,13 @@ function CreateChangeSet({
 }) {
   const [name, setName] = useState("");
   const [selectedRelease, setSelectedRelease] = useState("");
-  const releases = useCursorFeed((cursor) => api.modelReleases({ cursor }), []);
+  // Another model version is Model release's choice; a steward starts from the workspace's own.
+  const { permissions } = useWorkspaceData();
+  const picksRelease = allows(permissions, "model-release");
+  const releases = useCursorFeed(
+    (cursor) => (picksRelease ? api.modelReleases({ cursor }) : Promise.resolve({ items: [], nextCursor: null })),
+    [picksRelease],
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [diagnostics, setDiagnostics] = useState<Array<Record<string, unknown>>>([]);

@@ -48,6 +48,7 @@ function workspace(key: string, label: string, releaseId: string): Workspace {
       version: 1,
       updatedAt: "2026-09-01T00:00:00Z",
     },
+    availability: { state: "available" },
   };
 }
 

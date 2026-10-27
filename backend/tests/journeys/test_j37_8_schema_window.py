@@ -1,10 +1,8 @@
-"""J37.8 — Schema versions side by side (USER_JOURNEYS.md, Base 0.11 V4, D97–D103).
+"""J37.8 — The schema-language window (USER_JOURNEYS.md, Base 0.11 V4, 0.12 L2a).
 
-Workspaces run releases of different schema versions in the window at once, each read under its own
-release; what moves data between them compares the releases' declarations, never their versions;
-a version outside the window is refused wherever it is named. Each test runs on one configuration
-``X`` (schema 0.9) beside ``Y``, the other generated configuration; a primed model (``X′``, ``Y′``)
-is the same model raised to schema 0.10 with a navigation group (D103). Naming no configuration key.
+Before 1.0 the window holds the one version a release writes (D439, D441). A version outside it is
+refused wherever it is named, and a stored release of one makes only its workspaces unavailable.
+Naming no configuration key.
 """
 
 import copy
@@ -12,23 +10,12 @@ import json
 from uuid import uuid4
 
 import pytest
-from scenario import W1, application, consumer_object, ok, refused, scenario_seed
+from scenario import application, ok, refused, scenario_seed
 from service import execute, serve
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import NullPool
 from test_j12_run_the_service import _clone, databases  # noqa: F401 (fixture)
 from test_j36_workspace_models import BOTH, _model, _on, _other
-from test_j37_workspace_migration import (
-    _confirm,
-    _previewed,
-    _probe,
-    _read,
-    _rows,
-    _run,
-    _value,
-    _workspace,
-    _x2,
-)
 
 from app.engine.model.compiler import SCHEMA_VERSIONS
 
@@ -43,16 +30,6 @@ def _after_newest(world=None):
     """A schema version after the newest in the window."""
     major, minor = SCHEMA_VERSIONS[-1].split(".")
     return f"{major}.{int(minor) + 1}"
-
-
-def _raised(world, model):
-    """``model`` raised to the newest schema with a navigation group on R's application."""
-    raised = copy.deepcopy(model)
-    raised["schemaVersion"] = NEWEST
-    raised["release"]["version"] += "-raised"
-    application_ = next(a for a in raised["applications"] if a["key"] == world.app("R"))
-    application_["navigation"] = {"groups": [{"key": "grouped", "label": "Grouped"}]}
-    return raised
 
 
 def _draft(world, model, **body):
@@ -72,136 +49,11 @@ def _operate(world, draft, *operations):
     return world.api.post(f"/model-drafts/{draft['id']}/operations", body)
 
 
-def _navigation_refusal(answer):
-    """The diagnostic of a navigation group in a document older than schema 0.10."""
-    assert answer["valid"] is False
-    [diagnostic] = [d for d in answer["diagnostics"] if d["path"].endswith("/navigation")]
-    assert NEWEST in diagnostic["message"]
-
-
 @pytest.mark.journey("J37.8")
-@pytest.mark.structures(*BOTH)
-def test_two_schema_versions_side_by_side(world):
-    """Given the default workspace on X (0.9) and a workspace on Y′ (0.10). When each reads its
-    model, creates and reads an R, publishes a change set and reads its record through the consumer
-    API. Then each answers under its own release and schema version, Y′'s with its navigation."""
-    other = _other(world)
-    y = other.install(_raised(other, other.configuration.model), name="Raised")
-    key = _on(world, y["id"])
-    x = _model(world)
-
-    for keys, workspace, release, schema in (
-        (world, W1, x["releaseId"], "0.9"),
-        (other, key, y["id"], NEWEST),
-    ):
-        response = world.api.get("/model", workspaceKey=workspace)
-        model = ok(response)
-        assert response.headers["X-Model-Release-Id"] == release
-        assert model["schemaVersion"] == schema
-        application_ = next(a for a in model["applications"] if a["key"] == keys.app("R"))
-        assert (application_.get("navigation") is not None) == (schema == NEWEST)
-
-        made = keys.made("R", f"Live in {workspace}", workspace=workspace)
-        assert keys.record("R", made["id"], workspaceKey=workspace)["objectTypeKey"] == keys.key(
-            "R"
-        )
-        change_set = keys.change_set(workspace)
-        assert change_set["modelReleaseId"] == release
-        staged = keys.made("R", f"Published in {workspace}", change_set=change_set)
-        keys.publish(change_set, workspace)
-        response = consumer_object(keys, staged["id"], workspace=workspace)
-        assert ok(response)[keys.key("Capi.name")] == f"Published in {workspace}"
-        assert response.headers["RDM-Workspace"] == workspace
-
-
-@pytest.mark.journey("J37.8")
-@pytest.mark.structures(*BOTH)
-def test_raising_the_schema_version_is_no_migration(world):
-    """Given the default workspace on X with a record. When X′ (X raised to 0.10) is activated, and
-    X again. Then neither needs a migration nor a contract version, and the record keeps its
-    version."""
-    x = _model(world)["releaseId"]
-    record = world.made("R", "Kept as it is")
-    raised = world.install(_raised(world, world.configuration.model), name="Raised")
-
-    ok(world.activate(raised["id"]))
-    assert _model(world)["releaseId"] == raised["id"]
-    assert world.record("R", record["id"])["version"] == record["version"]
-    ok(world.activate(x))
-    assert _model(world)["releaseId"] == x
-    assert world.record("R", record["id"])["version"] == record["version"]
-
-
-@pytest.mark.journey("J37.8")
-@pytest.mark.structures(*BOTH)
-def test_a_migration_across_versions_converts_by_declarations(world):
-    """Given a workspace on X1 (0.9) and X2′: X1 raised to 0.10 with the count an integer and the
-    note dropped. When the workspace is migrated to X2′. Then the preview lists exactly the two
-    conversions and the two losses those declarations cause, no item about the schema version; once
-    confirmed the workspace runs X2′ at 0.10 and its counts read as integers."""
-    key, made, _citation = _workspace(world)
-    k = _probe(world)
-    target = world.install(_raised(world, _x2(world, "count-integer", "drop-note")), name="Probe")
-
-    job = _previewed(world, key, target["id"])
-    assert job["migration"]["counts"] == {
-        "conversion": 2,
-        "reclassified": 0,
-        "loss": 2,
-        "refused": 0,
-    }
-    rows = _rows(world, job["id"])
-    assert {row["code"] for row in rows} == {
-        "VALUE_CONVERTED",
-        "VALUE_NOT_CONVERTIBLE",
-        "ATTRIBUTE_BINDING_IN_USE",
-    }
-    assert {(row["objectId"], row.get("attributeTypeKey")) for row in rows} == {
-        (made["twelve"]["id"], k.count),
-        (made["forty"]["id"], k.count),
-        (made["words"]["id"], k.count),
-        (made["twelve"]["id"], k.note),
-    }
-
-    ok(_confirm(world, job, acceptLoss=True), 202)
-    _run(world)
-    assert _model(world, key)["releaseId"] == target["id"]
-    assert ok(world.api.get("/model", workspaceKey=key))["schemaVersion"] == NEWEST
-    assert _value(_read(world, key, made["forty"]), k.count) == 40
-
-
-@pytest.mark.journey("J37.8")
-@pytest.mark.structures(*BOTH)
-def test_a_draft_on_an_older_version_raised_and_lowered(world):
-    """Given a draft based on X's release (0.9). When a navigation group is added, the draft raised
-    to 0.10, installed, and lowered to 0.9 again. Then the group is invalid at its path naming 0.10
-    until the draft is raised; raised, it installs; lowered with the group declared, it is invalid
-    at the navigation path again and does not install."""
-    base = _model(world)["releaseId"]
-    draft = _draft(world, copy.deepcopy(world.configuration.model), baseReleaseId=base)
-    group = {"kind": "addNavigationGroup", "applicationKey": world.app("R"), "label": "Grouped"}
-
-    _navigation_refusal(ok(_operate(world, draft, group)))
-    raised = ok(
-        _operate(
-            world,
-            draft,
-            {"kind": "setRelease", "schemaVersion": NEWEST, "version": f"{uuid4().hex[:6]}"},
-        )
-    )
-    assert raised["valid"] is True
-    installed = ok(_install(world, draft), 201)
-    assert installed["schemaVersion"] == NEWEST
-
-    _navigation_refusal(ok(_operate(world, draft, {"kind": "setRelease", "schemaVersion": "0.9"})))
-    refused(_install(world, draft), 422, "INVALID_MODEL")
-
-
-@pytest.mark.journey("J37.8")
-@pytest.mark.parametrize("version", ["0.4", "after-newest"])
+@pytest.mark.parametrize("version", ["0.9", "after-newest"])
 @pytest.mark.structures(*BOTH)
 def test_installation_outside_the_window_is_refused(world, version):
-    """Given a draft naming schema 0.4, or the version after the newest. When it is installed,
+    """Given a draft naming schema 0.9 (which left the window), or the version after the newest. When it is installed,
     validated and set to that version by an operation. Then installation is refused naming the
     version and the window, and installs nothing; validation is invalid at /schemaVersion; the
     operation is refused."""
@@ -274,7 +126,7 @@ def test_a_workspace_on_a_release_after_the_window(world):
 @pytest.mark.structures("R")
 def test_the_log_names_the_recovery_for_a_release_after_the_window(configuration, databases):  # noqa: F811
     """Given a database whose default workspace runs a release a later engine left at a schema after
-    the window (set in the database, as J12.6 sets 0.4). When the service starts. Then the log names
+    the window (set in the database). When the service starts. Then the log names
     the schema, the window and that a later RDM Engine is needed, and not the schema 0.4 command."""
     url = _clone(databases, scenario_seed(configuration))
     later = _after_newest()
@@ -309,5 +161,5 @@ def test_a_model_file_outside_the_window_refuses_to_start(configuration, databas
     ):
         pass
     message = str(refusal.value)
-    for phrase in ("RDM_MODEL_PATH", str(path), "schema 9.0", "0.5", NEWEST):
+    for phrase in ("RDM_MODEL_PATH", str(path), "schema 9.0", NEWEST):
         assert phrase in message, message

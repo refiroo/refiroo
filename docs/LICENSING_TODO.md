@@ -17,18 +17,18 @@ from the canonical license text and from the product roadmap.
 
 ### P0 — Explain the license and source offer in `README.md`
 
-- [ ] State clearly that the project is licensed under `AGPL-3.0-or-later` and link to the root
-  [`LICENSE`](../LICENSE).
-- [ ] Add a copyright holder and year that match the confirmed ownership record below.
-- [ ] Document where the corresponding source code for each released version can be obtained.
+- [x] State clearly that the project is licensed under `AGPL-3.0-or-later` and link to the root
+  [`LICENSE`](../LICENSE). _Done in 0.12 L1._
+- [x] Add a copyright holder and year that match the confirmed ownership record below. _Done (Krisztian Toth, 2026), pending the confirmation below._
+- [x] Document where the corresponding source code for each released version can be obtained.
   Keep release tags or source archives available for as long as the applicable AGPL obligations
-  require.
-- [ ] For an RDM Engine instance modified and made available over a network, provide users with a
+  require. _Done: the tag `v<version>` of github.com/refiroo/refiroo; the repository must exist and be public._
+- [x] For an RDM Engine instance modified and made available over a network, provide users with a
   conspicuous, working link or other practical route to the corresponding source for that running
   version, including modifications and required scripts/configuration that are part of the covered
-  work.
-- [ ] Review the README wording against the final deployment and distribution process so the
-  documented source offer is actually maintainable.
+  work. _Done: `SOURCE_CODE_URL`, `GET /system`, About and the account menu (D219)._
+- [x] Review the README wording against the final deployment and distribution process so the
+  documented source offer is actually maintainable. _Done._
 
 Acceptance criteria: a new user can identify the license, read the complete license text, find the
 source for a tagged release, and understand how to obtain corresponding source from a networked
@@ -36,22 +36,22 @@ modified deployment.
 
 ### P0 — Confirm copyright and intellectual-property ownership
 
-- [ ] Record the legal copyright holder(s) for existing source, documentation, model examples,
-  artwork, and other committed material.
+- [x] Record the legal copyright holder(s) for existing source, documentation, model examples,
+  artwork, and other committed material. _Krisztian Toth (OPEN_SOURCE)._
 - [ ] Confirm that no employer, former employer, client, contractor, or vendor retains rights that
   conflict with publication under AGPL or a future commercial license.
 - [ ] Inventory externally supplied code, generated files, copied snippets, fonts, icons, logos,
   and example data; remove or replace anything without permission or an appropriate license.
-- [ ] Decide whether future copyright notices use a personal legal name, a company name, or both,
-  and apply that convention consistently to new original files.
+- [x] Decide whether future copyright notices use a personal legal name, a company name, or both,
+  and apply that convention consistently to new original files. _Personal name, no per-file headers (D216, D222)._
 
 Acceptance criteria: there is a written ownership record, unresolved third-party ownership issues
 are tracked to a named owner, and the README/license notices use the confirmed holder.
 
 ### P0 — Establish contribution policy and commercial-relicensing rights
 
-- [ ] Add `CONTRIBUTING.md` covering acceptable contributions, coding and review expectations,
-  licensing under AGPL-3.0-or-later, copyright notices, and how to submit changes.
+- [x] Add `CONTRIBUTING.md` covering acceptable contributions, coding and review expectations,
+  licensing under AGPL-3.0-or-later, copyright notices, and how to submit changes. _Done._
 - [ ] Choose a contribution mechanism. If commercial relicensing of contributed code is intended,
   use a contributor license agreement (CLA) or equivalent written assignment/license that gives the
   project owner sufficient copyright and patent rights to offer those commercial terms.
@@ -67,10 +67,10 @@ before the required agreement is recorded.
 
 ### P1 — Publish a commercial licensing and support contact
 
-- [ ] Add a short `COMMERCIAL.md` (or an equivalent public page) stating that commercial licenses,
-  implementation assistance, support, training, and optional hosting are available.
-- [ ] Publish one maintained business contact route and state what response/support level is and is
-  not offered. Do not promise enterprise-grade availability that a solo maintainer cannot provide.
+- [x] Add a short `COMMERCIAL.md` (or an equivalent public page) stating that commercial licenses,
+  implementation assistance, support, training, and optional hosting are available. _Done._
+- [x] Publish one maintained business contact route and state what response/support level is and is
+  not offered. Do not promise enterprise-grade availability that a solo maintainer cannot provide. _Done: krisztian.toth@refiroo.org._
 - [ ] Prepare a per-customer commercial agreement covering license scope, permitted proprietary
   modifications, payment and renewal, support/maintenance boundaries, data responsibility,
   confidentiality, warranty disclaimers, and termination. Have counsel review the template.
@@ -83,10 +83,10 @@ rights granted by the AGPL community license.
 
 ### P1 — Separate the project trademark policy from copyright licensing
 
-- [ ] Identify the names, logos, domain names, and other marks intended to represent official RDM
-  Engine releases or services.
-- [ ] Add `TRADEMARKS.md` describing permitted nominative/descriptive use, attribution, and how a
-  modified or unofficial distribution must avoid implying endorsement.
+- [x] Identify the names, logos, domain names, and other marks intended to represent official RDM
+  Engine releases or services. _The name refiroo, the logo and the domains refiroo.com, .org and .dev (OPEN_SOURCE)._
+- [x] Add `TRADEMARKS.md` describing permitted nominative/descriptive use, attribution, and how a
+  modified or unofficial distribution must avoid implying endorsement. _Done._
 - [ ] Confirm ownership and registration strategy for the marks before using them as a commercial
   source of trust.
 
@@ -95,14 +95,14 @@ but the project can distinguish official builds and services from modified distr
 
 ### P0 — Audit dependency licenses and publish required notices
 
-- [ ] Generate an inventory of backend and frontend dependencies, bundled assets, generated output,
-  and build-time tools that are distributed with a release or required to reproduce it.
-- [ ] Verify each dependency's license and compatibility with AGPL-3.0-or-later, including any
-  attribution, notice, source-offer, patent, or redistribution requirements.
-- [ ] Resolve incompatible, missing, or unclear licenses before release; do not rely on package
-  metadata alone when an asset is copied into the repository.
-- [ ] Add `THIRD_PARTY_NOTICES.md` containing the notices and license texts required for the actual
-  release contents, and regenerate it as part of release preparation.
+- [x] Generate an inventory of backend and frontend dependencies, bundled assets, generated output,
+  and build-time tools that are distributed with a release or required to reproduce it. _Done: `scripts/third_party_notices.py`._
+- [x] Verify each dependency's license and compatibility with AGPL-3.0-or-later, including any
+  attribution, notice, source-offer, patent, or redistribution requirements. _Done by the script's allow-list._
+- [x] Resolve incompatible, missing, or unclear licenses before release; do not rely on package
+  metadata alone when an asset is copied into the repository. _No incompatible licence found in 0.12 L1; the script refuses one._
+- [x] Add `THIRD_PARTY_NOTICES.md` containing the notices and license texts required for the actual
+  release contents, and regenerate it as part of release preparation. _Done._
 - Recorded as they were added (to verify in the inventory): `openpyxl` (MIT), a backend runtime
   dependency since 0.9 J2 for reading imported workbooks (A-D10), and `python-multipart`
   (Apache-2.0), added in 0.9 J2 to read `multipart/form-data` uploads (D67). Both are permissive and
@@ -113,12 +113,12 @@ third-party item has a recorded license decision, and the shipped notices cover 
 
 ### P1 — Add a security reporting policy
 
-- [ ] Add `SECURITY.md` with a private vulnerability-reporting route, supported release policy,
-  expected acknowledgement timeline, and safe-disclosure guidance.
-- [ ] State what a solo maintainer can realistically support and how urgent production issues are
-  handled; avoid an implied 24/7 SLA unless separately contracted.
-- [ ] Document how security fixes and advisories will be credited, released, and communicated,
-  including any corresponding-source updates for AGPL network deployments.
+- [x] Add `SECURITY.md` with a private vulnerability-reporting route, supported release policy,
+  expected acknowledgement timeline, and safe-disclosure guidance. _Done; the address security@refiroo.org must exist._
+- [x] State what a solo maintainer can realistically support and how urgent production issues are
+  handled; avoid an implied 24/7 SLA unless separately contracted. _Done._
+- [x] Document how security fixes and advisories will be credited, released, and communicated,
+  including any corresponding-source updates for AGPL network deployments. _Done._
 
 Acceptance criteria: a researcher can report a vulnerability privately, knows what response to
 expect, and can find the supported-version and disclosure process without exposing the issue
@@ -136,6 +136,16 @@ publicly first.
 
 Acceptance criteria: the published community license remains recognizable and open-source
 compatible, and any commercial terms are separate, explicit, and reviewed before use.
+
+## Still open after 0.12 L1 (the maintainer's or counsel's)
+
+- Confirm that no employer, former employer or client holds rights in the work, and that the example model
+  and data are synthetic (the ownership record in [OPEN_SOURCE](OPEN_SOURCE.md)).
+- Counsel: review the contributor agreement, then open contributions (CONTRIBUTING says none are merged
+  before); the commercial agreement template; the trademark registration strategy.
+- Create the mailbox security@refiroo.org and the public repository, and turn on GitHub private
+  vulnerability reporting.
+- Run the secret scan of the whole history once (`gitleaks`) before the first push.
 
 ## Suggested order
 

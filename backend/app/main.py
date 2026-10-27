@@ -1,20 +1,24 @@
 import logging
 import os
-import shlex
-import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import Depends, FastAPI, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .cli.model_release_raise import release_raise_command
 from .common.logs import configure_logging
 from .common.request_observation import REQUEST_ID_HEADER, RequestObservation
-from .config import ENGINE_VERSION, Settings, describe_settings, get_settings, reload_settings
+from .config import (
+    ENGINE_LICENSE,
+    ENGINE_VERSION,
+    describe_settings,
+    get_settings,
+    reload_settings,
+)
 from .consumer import router as consumer_router
 from .db import DatabaseStartupError, SessionLocal, create_database, get_engine, libpq_url
 from .engine.events.dispatcher import THREAD_NAME as DISPATCHER_THREAD
@@ -31,8 +35,12 @@ from .engine.jobs.inline import BatchLimits
 from .engine.jobs.worker import EXPORT_KINDS, EXPORT_THREAD_NAME, JobWorker, WorkerSettings
 from .engine.mail.sender import THREAD_NAME as MAIL_SENDER_THREAD
 from .engine.mail.sender import MailSender
-from .engine.model.bootstrap import bootstrap_model
-from .engine.model.compiler import SCHEMA_VERSIONS, after_window
+from .engine.model.bootstrap import BootstrapReleaseConflict, bootstrap_model
+from .engine.model.compiler import (
+    SCHEMA_VERSIONS,
+    SUPPORTED_SCHEMA_VERSIONS,
+    after_window,
+)
 from .engine.model.loader import load_bootstrap_model
 from .engine.model.registry import model_registry
 from .engine.model.workspace_models import workspaces_running
@@ -78,22 +86,38 @@ from .management.routers import (
     workspaces,
 )
 from .management.schemas.common import ApiErrorResponse
+from .models.database import ModelRelease
 
 logger = logging.getLogger(__name__)
 
 
-def schema_upgrade_command(settings: Settings) -> str:
-    backend_path = Path(__file__).resolve().parents[1]
-    command = shlex.join(
-        [
-            sys.executable,
-            "-m",
-            "app.cli.model_schema_upgrade",
-            "--model",
-            str(settings.model_path.resolve()),
-        ]
+def _release_id(conflict: BootstrapReleaseConflict):
+    return select(ModelRelease.id).where(
+        ModelRelease.release_key == conflict.release_key,
+        ModelRelease.release_version == conflict.release_version,
     )
-    return f"cd {shlex.quote(str(backend_path))} && {command}"
+
+
+def _conflict_note(conflict: BootstrapReleaseConflict) -> str:
+    return (
+        f"The bootstrap model {conflict.release_key}@{conflict.release_version} was not installed "
+        "because the database holds another model with that release version."
+    )
+
+
+def _conflict_message(conflict: BootstrapReleaseConflict) -> str:
+    """The one line a bootstrap release conflict logs (the service starts and serves the rest)."""
+    if conflict.stored_schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        return (
+            f"{_conflict_note(conflict)} The stored release is of schema "
+            f"{conflict.stored_schema_version}, which has left the window "
+            f"({', '.join(SCHEMA_VERSIONS)}). Raise it in place, with all RDM Engine processes on "
+            f"this database stopped, then restart:\n  {release_raise_command()}"
+        )
+    return (
+        f"{_conflict_note(conflict)} The model file {get_settings().model_path} (RDM_MODEL_PATH) "
+        "changed without a new release version: raise release.version in that file and restart."
+    )
 
 
 def database_reachable() -> bool:
@@ -112,8 +136,14 @@ def database_reachable() -> bool:
 async def lifespan(application: FastAPI):
     loaded_model = load_bootstrap_model()
 
+    bootstrap_conflicts: list[BootstrapReleaseConflict] = []
+
     def startup_writes() -> None:
-        bootstrap_model(loaded_model)
+        try:
+            bootstrap_model(loaded_model)
+        except BootstrapReleaseConflict as conflict:
+            # The service starts anyway and serves what it can; the conflict is logged once below.
+            bootstrap_conflicts.append(conflict)
         # Processes starting together build the matrix states one at a time, each after the first
         # finding them built (0.11 O1: they collided on the build's unique key before).
         with SessionLocal() as session:
@@ -153,17 +183,26 @@ async def lifespan(application: FastAPI):
                     consequence,
                 )
             elif unavailable.unsupported_schema:
+                # Before 1.0 a schema leaves the window at every release and its releases are not
+                # carried forward (0.12 L2a, D439).
+                same = any(
+                    session.scalar(_release_id(conflict)) == unavailable.release_db_id
+                    for conflict in bootstrap_conflicts
+                )
                 logger.error(
                     "RDM Engine cannot serve workspaces %s: they run model release %s of schema "
-                    f"%s, but this version supports schema {', '.join(SCHEMA_VERSIONS)}.\n"
-                    "Stop all RDM Engine processes using this database, run this exact command in "
-                    "the same configured environment, then restart the API:\n  %s\n%s",
+                    f"%s, which has left the window; this version supports schema {', '.join(SCHEMA_VERSIONS)}.\n"
+                    "Raise the stored releases to the supported schema in place, with all RDM "
+                    "Engine processes on this database stopped, then restart:\n  %s\n%s%s",
                     workspaces,
                     unavailable.release_id,
                     unavailable.schema_version,
-                    schema_upgrade_command(get_settings()),
+                    release_raise_command(),
                     consequence,
+                    f"\n{_conflict_note(bootstrap_conflicts[0])}" if same else "",
                 )
+                if same:
+                    bootstrap_conflicts.clear()
             else:
                 logger.error(
                     "RDM Engine cannot serve workspaces %s: their model release %s is invalid "
@@ -173,6 +212,10 @@ async def lifespan(application: FastAPI):
                     len(unavailable.diagnostics),
                     consequence,
                 )
+    for conflict in bootstrap_conflicts:
+        # A conflict no unavailable workspace explains: the file changed without a new version, or
+        # the stored release is of a schema that left the window and no workspace runs it.
+        logger.error("%s", _conflict_message(conflict))
     # A process that can serve no workspace's model runs no jobs: each chunk would fail its job.
     worker = application.state.job_worker if application.state.run_job_worker else None
     exporter = application.state.export_worker if application.state.run_job_worker else None
@@ -257,6 +300,7 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title="refiroo API",
         version=ENGINE_VERSION,
+        license_info={"name": "GNU AGPL v3 or later", "identifier": ENGINE_LICENSE},
         description="The API of refiroo, an application built on the RDM engine: API-first, model-driven reference data management.",
         lifespan=lifespan,
         # Every route accepts only the query parameters it declares (D-3).

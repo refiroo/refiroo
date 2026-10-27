@@ -11,7 +11,6 @@ no rule depends on a key.
 import copy
 import json
 from collections.abc import Callable, Iterator
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -22,24 +21,15 @@ from workspace_model_support import DEFAULT_ACTIVATION, default_model
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
 from app.engine.model.bootstrap import ensure_bootstrap_release
-from app.engine.model.compiler import compile_authored_model, compile_model, parse_model
+from app.engine.model.compiler import compile_model, parse_model
 from app.engine.model.consumer_contract import contract_diagnostics, output_contract
 from app.engine.model.consumer_definitions import consumer_apis
-from app.engine.model.consumer_expansion import expand
-from app.engine.model.consumer_openapi import consumer_openapi
-from app.engine.model.consumer_rendering import expanded_definition
 from app.engine.model.registry import model_registry
 from app.main import create_app
-from app.models.schema import ConsumerApiDocument, EngineModel
+from app.models.schema import EngineModel
 
 Keys = Callable[[str], str]
 API = "/consumerApis/rdm"
-FIXTURES_08 = Path(__file__).parent / "fixtures" / "consumer_08"
-STARTER_08 = FIXTURES_08 / "rdm-starter-0.9.2.json"
-# The shipped models and their schema 0.8 originals, kept as C18 rewrote them (C-D138).
-# The example model left its 0.8 form in 0.9 K3a (a many-to-one binding, which 0.8 cannot say); its
-# conversion was proved equal when C18 made it.
-SHIPPED = [(MODEL_PATH, STARTER_08)]
 
 
 def definition(k: Keys) -> dict[str, Any]:
@@ -192,47 +182,6 @@ def test_definition_compiles_into_the_release_with_its_output_contract(base):
         "sameSystem": "related",
         "language": "projection",
     }
-
-
-@pytest.mark.parametrize(("shipped", "original"), SHIPPED, ids=["starter"])
-def test_the_shipped_models_rewritten_in_schema_0_9_are_the_same_definitions(shipped, original):
-    """C18's proof of no change: each shipped model's definitions and its 0.8 original's compile to
-    the same internal form, so every reader serves them alike, and each definition's OpenAPI
-    document is the same apart from the release it names. Expanding the expanded read of either
-    gives the definition back (C-D137)."""
-    rewritten = parse_model(json.loads(shipped.read_text()))
-    before = parse_model(json.loads(original.read_text()))
-    assert (rewritten.schemaVersion, before.schemaVersion) == ("0.9", "0.8")
-    assert consumer_apis(rewritten) == consumer_apis(before)
-
-    def document(model, definition):
-        built = consumer_openapi(model, definition, root_path="", resolve_max_items=1000, token_url="/oauth/token")
-        release = f"{model.release.name} {model.release.version}"
-        built["info"]["description"] = built["info"]["description"].replace(release, "<release>")
-        return built
-
-    for new, old in zip(consumer_apis(rewritten), consumer_apis(before), strict=True):
-        assert document(rewritten, new) == document(before, old), new.key
-        for model, definition in ((rewritten, new), (before, old)):
-            read = ConsumerApiDocument.model_validate(expanded_definition(model, definition))
-            assert expand(model, read)[0] == definition
-
-
-def test_schema_0_8_definitions_are_read_as_stored_and_never_written_again():
-    """C-D134: a stored 0.8 release compiles as it was, every operation offered; an author's 0.8
-    document that declares consumerApis is refused at /schemaVersion, naming schema 0.9."""
-    stored = json.loads(STARTER_08.read_text())
-    compiled = compile_model(stored)
-    assert compiled.valid, compiled.diagnostics
-    (served,) = consumer_apis(compiled.model)
-    assert all(served.offers(name) for name in ("objects", "xref", "resolve", "lists", "events"))
-    assert compiled.canonical_model == compile_model(compiled.canonical_model).canonical_model
-
-    refused = compile_authored_model(stored)
-    assert [(d.code, d.path) for d in refused.diagnostics] == [("UNSUPPORTED_SCHEMA_VERSION", "/schemaVersion")]
-    assert "schema 0.9" in refused.diagnostics[0].message
-    stored.pop("consumerApis")
-    assert compile_authored_model(stored).valid
 
 
 def test_events_round_trip_and_leave_definitions_without_them_unchanged(base):

@@ -4041,6 +4041,25 @@ body.tree-drag-refused * {
 .decision-panel p {
   margin: 0;
 }
+.decision-field {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 550;
+}
+.decision-field textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.45;
+}
+.decision-field small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 400;
+}
 .decision-request-comment {
   margin: 0;
   padding-left: var(--space-3);
@@ -4054,9 +4073,17 @@ body.tree-drag-refused * {
   gap: var(--space-2);
 }
 .decision-history {
+  display: grid;
+  gap: var(--space-3);
   margin: 0;
-  padding-left: var(--space-4);
+  padding: 0;
+  list-style: none;
   overflow-wrap: anywhere;
+}
+.decision-history .decision-request-comment {
+  margin-top: var(--space-2);
+  color: var(--text-primary);
+  white-space: pre-wrap;
 }
 .decision-message {
   margin: 0 0 var(--space-3);

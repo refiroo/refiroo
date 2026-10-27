@@ -1,5 +1,8 @@
+import shlex
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -9,8 +12,9 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from workspace_model_support import DEFAULT_ACTIVATION, default_model
 
+from app.cli.model_release_raise import release_raise_command
 from app.db import SessionLocal
-from app.engine.model.bootstrap import ensure_bootstrap_release
+from app.engine.model.bootstrap import BootstrapReleaseConflict, ensure_bootstrap_release
 from app.engine.model.diagnostics import ModelValidationError
 from app.engine.model.loader import load_bootstrap_model
 from app.engine.model.registry import ModelRegistry, model_registry
@@ -92,8 +96,10 @@ def test_bootstrap_rejects_same_release_identity_with_different_content():
                 session,
                 _model("0.4.0", product_name="Conflicting product content"),
             )
-        except RuntimeError as exc:
+        except BootstrapReleaseConflict as exc:
             assert "Bootstrap model release identity conflict" in str(exc)
+            assert (exc.release_key, exc.release_version) == (_model("0.4.0").release.key, "0.4.0")
+            assert exc.stored_schema_version == _model("0.4.0").schemaVersion
         else:
             raise AssertionError("Conflicting release identity must be rejected")
 
@@ -777,9 +783,7 @@ def test_concurrent_activation_allows_only_one_runtime_state_claim(monkeypatch):
         conflict = next(response for response in responses if response.status_code == 409)
         assert conflict.json()["error"]["code"] == "ACTIVATION_CONFLICT"
         winner = next(response for response in responses if response.status_code == 200).json()
-        assert (
-            client.get("/api/v1/model").headers["X-Model-Release-Id"] == winner["releaseId"]
-        )
+        assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == winner["releaseId"]
 
 
 def test_registry_refresh_failure_leaves_committed_activation_unready(monkeypatch):
@@ -907,7 +911,7 @@ def test_activation_rejects_a_historical_schema_release_without_mutation(monkeyp
             "details": {
                 "releaseId": historical_id,
                 "schemaVersion": "0.4",
-                "supportedSchemaVersions": ["0.5", "0.6", "0.7", "0.8", "0.9", "0.10"],
+                "supportedSchemaVersions": ["0.10"],
                 "operation": "activation",
             },
         }
@@ -1032,3 +1036,10 @@ def test_release_activation_history_includes_offline_schema_upgrades():
     assert item["kind"] == "schemaUpgraded"
     assert item["previousReleaseId"] == "legacy-release"
     assert item["runtimeVersion"] == 99
+
+
+def test_the_release_raise_command_is_pasteable_from_the_backend_directory():
+    command = release_raise_command()
+    backend, _, run = command.partition(" && ")
+    assert shlex.split(backend)[:1] == ["cd"] and Path(shlex.split(backend)[1]).is_dir()
+    assert shlex.split(run) == [sys.executable, "-m", "app.cli.model_release_raise"]

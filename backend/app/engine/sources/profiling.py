@@ -51,7 +51,7 @@ from ...models.database import (
 )
 from ...models.schema import EngineModel
 from ..imports.readers import CSV_SHEET, PROFILE_SHEET, open_tabular
-from ..model.compiler import compile_authored_model
+from ..model.compiler import compile_model
 from ..model.registry import resolve_model_snapshot
 from .inference.facts import main_block
 from .layout import Cell, heading, note_meaning, split
@@ -761,7 +761,7 @@ def _model_for(session: Session, source: SourceFile) -> EngineModel | None:
     if source.draft_id is not None:
         draft = session.get(ModelDraft, source.draft_id)
         if draft is not None:
-            compiled = compile_authored_model(draft.model_json)
+            compiled = compile_model(draft.model_json)
             if compiled.valid and compiled.model is not None:
                 return compiled.model
     return resolve_model_snapshot(session, source.workspace_key).model

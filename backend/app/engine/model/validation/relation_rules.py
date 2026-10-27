@@ -4,7 +4,6 @@ from ....common.json_pointer import pointer_segment, relation_path
 from ....models.schema import EngineModel, ObjectTypeRelationDefinition
 from ..candidates import CandidateCriterionError, check_candidate_criteria
 from ..diagnostics import ModelReferenceError
-from .fields import require_schema
 from .index import ModelIndex
 
 
@@ -63,7 +62,6 @@ def _check_many_to_one(
     ``to`` record is created with its relationship, not that every ``from`` record holds one."""
     if allowed.cardinality != "many-to-one":
         return
-    require_schema(model, "0.9", f"{path}/cardinality", "Cardinality 'many-to-one'")
     if allowed.required:
         raise ModelReferenceError(
             "INVALID_MODEL",
@@ -80,7 +78,6 @@ def _check_candidates(
     type, refused at the criterion's field, operator or value."""
     if allowed.candidates is None:
         return
-    require_schema(model, "0.9", f"{path}/candidates", "A binding's candidates")
     for end, type_key in (("from", allowed.fromObjectTypeKey), ("to", allowed.toObjectTypeKey)):
         object_type = model.object_type(type_key)
         assert object_type is not None

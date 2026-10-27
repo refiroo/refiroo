@@ -17,7 +17,12 @@ vi.mock("@/api/client", async (load) => {
 });
 
 const system = {
-  engine: { version: "0.9.0-alpha.1", managementApi: "v1" },
+  engine: {
+    version: "0.9.0-alpha.1",
+    managementApi: "v1",
+    license: "AGPL-3.0-or-later",
+    sourceCode: "https://github.com/refiroo/refiroo/tree/v0.9.0-alpha.1",
+  },
   schemaLanguages: ["0.8"],
   activeModelRelease: {
     id: "r1",

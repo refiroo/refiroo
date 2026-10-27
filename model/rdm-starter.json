@@ -1,9 +1,9 @@
 {
-  "schemaVersion": "0.9",
+  "schemaVersion": "0.10",
   "release": {
     "key": "rdm-starter",
     "name": "RDM Starter Model",
-    "version": "0.9.5"
+    "version": "0.10.0"
   },
   "product": {
     "name": "RDM Engine",

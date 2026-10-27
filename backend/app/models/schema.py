@@ -825,7 +825,7 @@ class ModelReleaseDefinition(ModelDefinition):
 class EngineModel(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
-    schemaVersion: Literal["0.5", "0.6", "0.7", "0.8", "0.9", "0.10"]
+    schemaVersion: Literal["0.10"]
     release: ModelReleaseDefinition
     product: ProductDefinition
     attributeTypes: tuple[AttributeTypeDefinition, ...]
@@ -833,9 +833,7 @@ class EngineModel(ModelDefinition):
     relationTypes: tuple[RelationTypeDefinition, ...]
     objectTypeRelations: tuple[ObjectTypeRelationDefinition, ...]
     applications: tuple[ApplicationDefinition, ...]
-    # Schema 0.9 (C18); a document of schema 0.8 is read by ``LegacyEngineModel``
-    # (engine/model/consumer_legacy.py). Omitted from the canonical document when absent, so earlier
-    # hashes hold.
+    # Omitted from the canonical document when absent.
     consumerApis: tuple[ConsumerApiDocument, ...] | None = _omitted()
     # The internal definitions, expanded once (engine/model/consumer_definitions.py).
     _consumer_apis: Any = None

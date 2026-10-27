@@ -19,7 +19,6 @@ from ...engine.model.authoring.outline import draft_model, draft_outline
 from ...engine.model.authoring.released import base_model, base_release
 from ...engine.model.compiler import (
     SCHEMA_VERSIONS,
-    compile_authored_model,
     compile_model,
 )
 from ...engine.model.diff import semantic_diff
@@ -557,7 +556,7 @@ def compile_model_draft(
 ) -> ModelCompilationResponse:
     draft = load_draft(session, draft_id)
     require_draft_version(draft, payload.expectedVersion)
-    compiled = compile_authored_model(draft.model_json)
+    compiled = compile_model(draft.model_json)
     if not compiled.valid or compiled.model is None:
         # `changes` is sent empty, not left out: an answer's lists are always present (a client read
         # its length and blanked the page, reported 2026-10-14).
@@ -629,7 +628,7 @@ def install_model_draft(
 ) -> ModelInstallationResponse:
     draft = load_draft_for_update(session, draft_id)
     require_draft_version(draft, payload.expectedVersion)
-    compiled = compile_authored_model(draft.model_json)
+    compiled = compile_model(draft.model_json)
     if compiled.unsupported_schema_version is not None:
         # A version outside the window is refused as activation refuses one (0.11 V4, D98).
         raise api_error(

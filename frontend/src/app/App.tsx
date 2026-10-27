@@ -208,6 +208,16 @@ function AppContent({
     720,
   );
 
+  // The change set was published or discarded while open: its page becomes the live data.
+  const changeSetGone = data.changeSetGone;
+  useEffect(() => {
+    if (!changeSetGone || !model) return;
+    const selected = applicationFor(model, route.applicationKey) ?? model.applications[0];
+    toast("This change set is no longer open. Showing live data.");
+    navigate({ ...viewRoute(selected, selected.defaultView, route.workspaceKey) });
+    setRefreshToken((value) => value + 1);
+  }, [changeSetGone, model, route, navigate, toast]);
+
   const previousPin = useRef(data.changeSet?.modelReleaseId);
   useEffect(() => {
     const pin = data.changeSet?.modelReleaseId;

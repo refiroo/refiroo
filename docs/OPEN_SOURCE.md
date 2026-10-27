@@ -3,14 +3,27 @@
 The project has intentionally independent source code, model terminology and interface design. The
 supplied vendor package is discovery material and is not included in the repository.
 
-## Licence decision
+## Licence and ownership record
 
 The licence is the GNU Affero General Public License, version 3 or later (`AGPL-3.0-or-later`). The
 root [`LICENSE`](../LICENSE) is the unmodified licence text. It was chosen so that modified versions run
 as a network service stay open, and so that the owner can still offer separate commercial licences.
-The licensing work that remains before the first public release (ownership record, contribution
-agreement, commercial and trademark notes, dependency notices, security policy) is in
-[LICENSING_TODO](LICENSING_TODO.md).
+
+**Ownership record (0.12 L1, D216).** Copyright holder of the code, documentation, example model and
+artwork: **Krisztian Toth** (personal name; the git history has one author). New files carry no
+per-file header (D222). The maintainer must confirm, and the confirmation is theirs alone, that no employer,
+former employer or client holds rights in the work and that the committed example model and data are
+synthetic; until it is recorded here, [LICENSING_TODO](LICENSING_TODO.md) keeps it open.
+
+**Project identity.** Name: refiroo. Domains: refiroo.com (the website), refiroo.org, refiroo.dev.
+Repository: <https://github.com/refiroo/refiroo> (the Python distribution and directories keep the name
+`rdm-engine`, [OPERATORING](OPERATORING.md)). Contact: krisztian.toth@refiroo.org; security reports:
+security@refiroo.org ([SECURITY.md](../SECURITY.md)).
+
+**Policies.** [CONTRIBUTING](../CONTRIBUTING.md) (no outside code until a counsel-reviewed contributor
+agreement exists, D217), [SECURITY](../SECURITY.md), [TRADEMARKS](../TRADEMARKS.md),
+[COMMERCIAL](../COMMERCIAL.md), [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md). The remaining licensing
+work is in [LICENSING_TODO](LICENSING_TODO.md).
 
 ## Third-party code shipped with the engine
 
@@ -33,8 +46,8 @@ bundling them with software; the font files are not modified. To upgrade: change
 
 - Finish the licensing work in [LICENSING_TODO](LICENSING_TODO.md).
 - Replace STOPS-oriented seed terminology if the repository should be entirely generic.
-- Add contribution guidelines, a code of conduct and security reporting instructions.
-- Run dependency and secret scanning.
+- Add a code of conduct (with the contributor agreement).
+- Run the secret scan over the whole history (`gitleaks`) once, before the first push.
 - Confirm that all committed examples are synthetic.
 - Establish semantic versioning and a public compatibility policy for the model language and API.
 

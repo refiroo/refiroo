@@ -23,7 +23,7 @@ from ..diagnostics import ModelReferenceError
 from ..related_columns import RELATED_FIELD_PREFIX, is_related_field, related_field_column
 from ..traversal import ancestor_type_keys, parent_type_keys
 from .detail_view_rules import check_details
-from .fields import check_fields, require_schema
+from .fields import check_fields
 from .index import ModelIndex
 
 
@@ -44,13 +44,10 @@ def check(model: EngineModel, index: ModelIndex) -> None:
             if isinstance(view, TableViewDefinition):
                 _check_table_view(model, application, view, view_path, index)
             elif isinstance(view, MappingGridViewDefinition):
-                require_schema(model, "0.6", f"{view_path}/type", "The mappingGrid view type")
                 _check_mapping_grid_view(application, view, view_path, model, index)
             elif isinstance(view, RelationMatrixViewDefinition):
-                require_schema(model, "0.7", f"{view_path}/type", "The relationMatrix view type")
                 _check_relation_matrix_view(application, view, view_path, model, index)
             elif isinstance(view, TreeViewDefinition):
-                require_schema(model, "0.7", f"{view_path}/type", "The tree view type")
                 _check_tree_view(application, view, view_path, model, index)
         check_details(model, application, application_path, index)
         if application.navigation is not None:
@@ -82,7 +79,6 @@ def _check_navigation(
 ) -> None:
     """Schema 0.10 navigation groups (0.10 N1): unique keys, each entry a collection of the
     application, a collection in at most one group. An empty group is valid (D27)."""
-    require_schema(model, "0.10", navigation_path, "An application's navigation")
     collections = set(collection_keys(application))
     group_of: dict[str, str] = {}
     keys: set[str] = set()

@@ -8,7 +8,7 @@ import { capabilitiesFixture } from "@/test/capabilities";
 import { resetPermissionsForTests } from "@/features/security/permissions";
 import { EVERY_GROUP, heldAnywhereFixture, permissionsFixture } from "@/test/permissions";
 import { security } from "@/api/securityClient";
-import { testModel, testWorkspaceModel } from "@/test/fixtures";
+import { testModel, testWorkspaceModel, testAvailability } from "@/test/fixtures";
 import { ToastProvider } from "@/ui/Toast";
 
 vi.mock("@/api/securityClient", () => ({ security: { access: vi.fn() } }));
@@ -26,6 +26,7 @@ const primary: WorkspaceDetail = {
   createdAt: time,
   updatedAt: time,
   model: testWorkspaceModel,
+  availability: testAvailability,
   deletable: false,
   deleteBlockedBy: "default",
 };
@@ -37,6 +38,7 @@ const retail: WorkspaceDetail = {
   createdAt: time,
   updatedAt: time,
   model: testWorkspaceModel,
+  availability: testAvailability,
   deletable: false,
   deleteBlockedBy: "published",
 };
@@ -48,6 +50,7 @@ const archive: WorkspaceDetail = {
   createdAt: time,
   updatedAt: time,
   model: testWorkspaceModel,
+  availability: testAvailability,
   deletable: false,
   deleteBlockedBy: "notEmpty",
 };
@@ -809,5 +812,44 @@ describe("WorkspaceAdmin keeps what it has read", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Retail" })).toBeInTheDocument();
     // One read serves the early start and the page that then mounts.
     expect(vi.mocked(api.workspace).mock.calls.filter(([key]) => key === "retail")).toHaveLength(1);
+  });
+
+  describe("a workspace the engine cannot serve (0.12 UW1)", () => {
+    const stuck: WorkspaceDetail = {
+      ...retail,
+      availability: {
+        state: "unavailable",
+        reason: "schemaLeftWindow",
+        releaseId: "release-old",
+        schemaVersion: "0.8",
+        supportedSchemaVersions: ["0.10"],
+        raisable: true,
+      },
+    };
+
+    it("marks it in the list with a badge that has text", async () => {
+      byKey.set("retail", stuck);
+      vi.mocked(api.workspaces).mockImplementation(async (options = {}) => ({
+        items: options.status === "retired" ? [] : [stuck, primary],
+        nextCursor: null,
+      }));
+      renderAdmin();
+      const active = await screen.findByRole("region", { name: "Active" });
+      expect(await within(active).findByRole("button", { name: /Retail.*Cannot be opened/ })).toBeInTheDocument();
+      expect(within(active).getByRole("button", { name: /Default/ })).not.toHaveTextContent("Cannot be opened");
+    });
+
+    it("puts the banner at the top of its Overview", async () => {
+      byKey.set("retail", stuck);
+      renderAdmin("retail");
+      expect(await screen.findByText("Retail cannot be opened")).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Review the change…" })).toBeInTheDocument();
+    });
+
+    it("shows no banner on a workspace that is served", async () => {
+      renderAdmin("retail");
+      expect(await screen.findByRole("heading", { level: 2, name: "Retail" })).toBeInTheDocument();
+      expect(screen.queryByText("Retail cannot be opened")).not.toBeInTheDocument();
+    });
   });
 });

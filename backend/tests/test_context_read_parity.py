@@ -135,7 +135,7 @@ def parity_model() -> dict[str, Any]:
         }
 
     return {
-        "schemaVersion": "0.6",
+        "schemaVersion": "0.10",
         "release": {"key": "par-model", "name": "Parity model", "version": "0.8.0-s2"},
         "product": {"name": "Parity fixture", "description": "Generated S2 parity model"},
         "attributeTypes": [

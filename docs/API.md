@@ -272,7 +272,10 @@ for an empty model, read it):
 
 ```json
 {
-  "engine": { "version": "0.9.0", "managementApi": "v1" },
+  "engine": {
+    "version": "0.9.0", "managementApi": "v1", "license": "AGPL-3.0-or-later",
+    "sourceCode": "https://github.com/refiroo/refiroo/tree/v0.9.0"
+  },
   "schemaLanguages": ["0.5", "0.6", "0.7", "0.8", "0.9", "0.10"],
   "activeModelRelease": {
     "id": "…", "key": "rdm-starter", "name": "RDM Starter Model", "version": "0.9.0",
@@ -281,6 +284,11 @@ for an empty model, read it):
   "product": { "name": "RDM Engine", "description": "A model-driven reference data management engine" }
 }
 ```
+
+`engine.license` is the SPDX identifier the engine is offered under (also the OpenAPI document's
+`info.license`), and `engine.sourceCode` is where the corresponding source of the running version is
+(0.12 L1, D219; AGPL section 13): the `SOURCE_CODE_URL` setting, by default the project's tag of the version.
+Settings › About and the account menu show both.
 
 `product` (0.12 HM1, D338) is the instance's name and description: the default workspace's model's
 `product`, which the top bar shows. A person who may browse no workspace cannot read that model, so
@@ -377,6 +385,7 @@ runs ([Workspace models](#workspace-models-product-011)).
 - `GET /api/v1/model-releases/{releaseId}?includeModel=false`
 - `GET /api/v1/model-releases/{releaseId}/diff?againstReleaseId=...&workspaceKey=...`
 - `GET /api/v1/model-releases/{releaseId}/activations?pageSize=...&cursor=...`
+- `POST /api/v1/model-releases/{releaseId}/raising` (0.12 UW1, below)
 - `GET /api/v1/workspaces/{workspaceKey}/model`, `GET /api/v1/workspace-models` and
   `POST /api/v1/workspaces/{workspaceKey}/model/activation`
   ([Workspace models](#workspace-models-product-011))
@@ -410,6 +419,45 @@ release of the candidate's model (D25).
 `model` is absent, rather than `null`, unless requested. Release list and detail are always readable;
 release installation and activation are mutation-gated.
 
+**Raising a release** (0.12 UW1). A release stored in a schema that left the window (older than the
+window's only version) cannot be served, and the workspaces running it answer `503
+MODEL_REGISTRY_UNAVAILABLE`. `POST /api/v1/model-releases/{releaseId}/raising` (action `model.install`,
+instance-wide) brings it up to the window's schema in place, as the offline command
+`python -m app.cli.model_release_raise` does: the schema version, the canonical document and the hash
+change, a `consumerApis` section of schema 0.8 or earlier is rewritten to the present syntax, and the
+release's `id`, `key` and `version` stay, so records, change sets and publications follow. A
+maintenance step of the releases before 1.0; it is not part of the compatibility commitment.
+
+```json
+{ "confirm": false }
+{ "confirm": true, "expectedModelHash": "<modelHash the preview answered>" }
+```
+
+```json
+{
+  "applied": false,
+  "releaseId": "6f57924d-...", "releaseKey": "rdm-starter", "releaseVersion": "0.9.0",
+  "schemaFrom": "0.9", "schemaTo": "0.10",
+  "consumerApisRewritten": 0,
+  "modelHash": "7c9d...",
+  "workspaces": [{ "key": "default", "label": "Default" }]
+}
+```
+
+`confirm: false` previews and changes nothing; `modelHash` is then the release's present hash.
+`confirm: true` rewrites the release under the installation lock, records a `schema_raised` audit
+event on it, and answers `applied: true` with the new `modelHash`; `workspaces` are the workspaces
+running the release, served again from the next request of every process (the registry reads a
+release's schema from its row on each request and keys what it parsed by the release's hash). The
+confirmation without `expectedModelHash` is `422 REQUEST_VALIDATION_ERROR`.
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `MODEL_RELEASE_NOT_FOUND` | no such release |
+| 422 | `RELEASE_NOT_RAISABLE` | the release's schema is in the window already, or is later than it; `details`: `schemaVersion`, `supportedSchemaVersions` |
+| 422 | `RELEASE_RAISE_REFUSED` | the raised document is invalid (`details.diagnostics`) or equals another release (`details.collidesWith`, a release ID); `details.reason` says which |
+| 409 | `MODEL_HASH_CHANGED` | `expectedModelHash` is no longer the release's hash; `details`: `expectedModelHash`, `currentModelHash`; preview again |
+
 Release activations read the recorded selections of one release as the active model, oldest first,
 from the existing audit trail. Each item names the release it replaced, so the first item identifies
 the predecessor the release was introduced over. It is an always-readable, cursor-paged standard
@@ -431,8 +479,8 @@ MODEL_RELEASE_NOT_FOUND`:
 }
 ```
 
-`kind` is `activated` for a guarded API activation and `schemaUpgraded` for the offline schema-upgrade
-selection. The initial bootstrap selection is not an audited activation, so a release first selected
+`kind` is `activated` for a guarded API activation and `schemaUpgraded` for the selection made by the
+offline schema-upgrade command of earlier versions (removed in 0.12 L2a; the rows it wrote stay readable). The initial bootstrap selection is not an audited activation, so a release first selected
 by bootstrap has no item for it; clients must not infer activation history from installation order.
 
 Metadata and release cursors are signed opaque tokens bound to their endpoint, ordering and effective
@@ -848,6 +896,14 @@ parent/child combinations. The relation type's own `id` identifies the type itse
 - `DELETE /api/v1/workspaces/{workspaceKey}?expectedVersion=N`
 - `GET /api/v1/workspace-runtime-state`
 - `PATCH /api/v1/workspace-runtime-state`
+
+Each workspace item and the detail read carry `availability` (0.12 UW1): `{"state": "available"}`, or
+`{"state": "unavailable", "reason": "schemaLeftWindow" | "schemaAfterWindow" | "invalidRelease",
+"releaseId", "schemaVersion", "supportedSchemaVersions", "raisable"}` when this version cannot serve
+the release the workspace runs. `schemaLeftWindow` is a schema older than the window,
+`schemaAfterWindow` a later engine's, and `invalidRelease` a release of a readable schema that does
+not validate; `raisable` says that [raising the release](#installed-releases) would give a valid
+document that equals no other release (only for `schemaLeftWindow`).
 
 Workspace keys are immutable and case-sensitive. Discovery defaults to active records and uses a
 filter-bound keyset cursor; detail reads include retired records. Updates claim the workspace version,

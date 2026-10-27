@@ -7,53 +7,6 @@ from typing import Any
 
 MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
 
-# The starter content release that each schema version shipped with.
-_STARTER_RELEASES = {"0.5": "0.6.0", "0.6": "0.7.0", "0.7": "0.8.0", "0.8": "0.9.2"}
-
-
-def starter_at_schema(schema_version: str, source: dict[str, Any] | None = None) -> dict[str, Any]:
-    """The starter (or ``source``) without the features ``schema_version`` predates.
-
-    Schema 0.9 wrote consumer API definitions in their present syntax, and a new 0.8 document may no
-    longer declare them (C18; ``tests/fixtures/consumer_08`` keeps the 0.8 starter as it was); it
-    also added relation columns (``related:<key>``, K5), the ``many-to-one`` cardinality (K3a) and a
-    binding's ``candidates`` (K7). Schema 0.8 added effective periods, 0.7 relations-panel sort options and the ``relationMatrix`` and
-    ``tree`` view types, and 0.6 the ``mappingGrid`` view type.
-    """
-    result = copy.deepcopy(source) if source is not None else json.loads(MODEL_PATH.read_text())
-    if schema_version in _STARTER_RELEASES:
-        result["release"]["version"] = _STARTER_RELEASES[schema_version]
-    result["schemaVersion"] = schema_version
-    if schema_version < "0.9":
-        result.pop("consumerApis", None)
-        without_relation_columns(result)
-        for binding in result.get("objectTypeRelations", []):
-            # Schema 0.9 added many-to-one (K3a) and candidates (K7); many-to-many allows the same.
-            binding.pop("candidates", None)
-            if binding.get("cardinality") == "many-to-one":
-                binding["cardinality"] = "many-to-many"
-    if schema_version < "0.8":
-        for object_type in result["objectTypes"]:
-            object_type.pop("effectivePeriod", None)
-    for application in result["applications"]:
-        if schema_version < "0.7":
-            for detail in application.get("details", []):
-                for panel in detail["panels"]:
-                    if panel["type"] == "relations":
-                        panel["config"].pop("sortFields", None)
-                        panel["config"].pop("defaultSort", None)
-            application["views"] = [
-                view
-                for view in application["views"]
-                if view["type"] not in {"relationMatrix", "tree"}
-            ]
-        if schema_version < "0.6":
-            application["views"] = [
-                view for view in application["views"] if view["type"] == "table"
-            ]
-    return result
-
-
 def without_relation_columns(model: dict[str, Any]) -> dict[str, Any]:
     """``model`` without its table views' ``related:<key>`` columns and filters (schema 0.9, K5,
     K6), in place."""

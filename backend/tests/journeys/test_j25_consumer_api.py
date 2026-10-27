@@ -6,11 +6,6 @@ import json
 import pytest
 from scenario import consumer_object, consumer_resolve, consumer_xref, ok, refused
 
-from app.db import SessionLocal
-from app.engine.model.bootstrap import ensure_bootstrap_release
-from app.engine.model.compiler import parse_model
-from app.engine.model.consumer_definitions import consumer_apis
-
 API = ("R", "R.u", "R.b", "R.dt", "K", "B1n")
 
 
@@ -523,60 +518,6 @@ def test_events_are_contract(world):
             name,
             compiled["consumerContracts"]["diagnostics"],
         )
-
-
-# --- schema 0.9 (C18) ----------------------------------------------------------------------------
-
-
-def _in_schema_0_8(world, suffix):
-    """The configuration's model in schema 0.8, its definitions in the 0.8 shape (the engine's
-    internal form written out), as a release stored before C18 holds them."""
-    model = copy.deepcopy(world.configuration.model)
-    model["schemaVersion"] = "0.8"
-    model["release"]["version"] += f"-{suffix}"
-    model["consumerApis"] = [
-        item.model_dump(mode="json") for item in consumer_apis(parse_model(world.configuration.model))
-    ]
-    # Schema 0.8 has no many-to-one (0.9 K3a) and no candidates (0.9 K7): such a binding is written
-    # as 0.8 could say it.
-    for binding in model["objectTypeRelations"]:
-        if binding["cardinality"] == "many-to-one":
-            binding["cardinality"] = "many-to-many"
-        binding.pop("candidates", None)
-    return model
-
-
-@pytest.mark.journey("J25.6")
-@pytest.mark.structures("Capi")
-def test_schema_0_8_is_refused_for_new_definitions(world):
-    """Given the configuration's definitions written in schema 0.8. When the document is validated,
-    compiled as a draft and installed. Then each is refused at /schemaVersion naming schema 0.9. The
-    same document without consumerApis installs, and a release stored in 0.8 before reads as
-    stored."""
-    legacy = _in_schema_0_8(world, "legacy")
-    validated = ok(world.api.post("/model-validations", {"model": legacy}))
-    assert validated["valid"] is False
-    ((code, path, message),) = [(d["code"], d["path"], d["message"]) for d in validated["diagnostics"]]
-    assert (code, path) == ("UNSUPPORTED_SCHEMA_VERSION", "/schemaVersion")
-    assert "schema 0.9" in message
-    draft, compiled = _compile(world, legacy)
-    assert compiled["valid"] is False
-    assert [(d["code"], d["path"]) for d in compiled["diagnostics"]] == [("UNSUPPORTED_SCHEMA_VERSION", "/schemaVersion")]
-    error = refused(_install(world, draft), 422, "INVALID_MODEL")
-    assert "UNSUPPORTED_SCHEMA_VERSION" in json.dumps(error["details"])
-
-    without = copy.deepcopy(legacy)
-    del without["consumerApis"]
-    without["release"]["version"] += "-without"
-    ok(_install(world, _compile(world, without)[0]), 201)
-
-    with SessionLocal() as session:
-        stored = ensure_bootstrap_release(session, parse_model(_in_schema_0_8(world, "stored")))
-        session.commit()
-        stored_id = stored.public_id
-    read = ok(world.api.get(f"/model-releases/{stored_id}", includeModel=True))
-    assert read["schemaVersion"] == "0.8"
-    assert _capi(read["model"], world) == _capi(_in_schema_0_8(world, "stored"), world)
 
 
 @pytest.mark.journey("J25.7")

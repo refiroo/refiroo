@@ -104,6 +104,7 @@ import type {
   ModelReleaseActivationPage,
   ModelReleaseDiff,
   ModelReleasePage,
+  ModelReleaseRaising,
   WorkspaceModel,
   WorkspaceModelActivation,
   ModelValidation,
@@ -1170,6 +1171,18 @@ export const api = {
     if (workspaceKey) params.set("workspaceKey", workspaceKey);
     return request<ModelReleaseDiff>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/diff?${params}`);
   },
+  /** Preview raising a release to the window's schema language; nothing changes (0.12 UW1, D444). */
+  previewModelReleaseRaising: (releaseId: string) =>
+    request<ModelReleaseRaising>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/raising`, {
+      method: "POST",
+      body: JSON.stringify({ confirm: false }),
+    }),
+  /** Raise the release in place; `expectedModelHash` is the preview's `modelHash`. */
+  raiseModelRelease: (releaseId: string, expectedModelHash: string) =>
+    request<ModelReleaseRaising>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/raising`, {
+      method: "POST",
+      body: JSON.stringify({ confirm: true, expectedModelHash }),
+    }),
   workspaceModel: (workspaceKey: string) =>
     request<WorkspaceModel>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/model`),
   validateModel: (model: Record<string, unknown>) =>

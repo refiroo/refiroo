@@ -12,7 +12,7 @@ from sqlalchemy import select
 from ...common.pagination import datetime_key, paginate_statement, text_key
 from ...common.prometheus import CONTENT_TYPE
 from ...common.time import as_utc
-from ...config import ENGINE_VERSION
+from ...config import ENGINE_LICENSE, ENGINE_VERSION, get_settings
 from ...engine.model.compiler import SCHEMA_VERSIONS
 from ...engine.model.registry import (
     ModelRegistryUnavailable,
@@ -62,7 +62,12 @@ def get_system(session: DbSession) -> SystemResponse:
     state = read_system_state(session)
     release = state.active_release
     return SystemResponse(
-        engine=EngineInfo(version=ENGINE_VERSION, managementApi="v1"),
+        engine=EngineInfo(
+            version=ENGINE_VERSION,
+            managementApi="v1",
+            license=ENGINE_LICENSE,
+            sourceCode=get_settings().source_code_url,
+        ),
         schemaLanguages=list(SCHEMA_VERSIONS),
         activeModelRelease=ActiveModelRelease(
             id=release.public_id,

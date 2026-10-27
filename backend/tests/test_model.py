@@ -3,15 +3,12 @@ from copy import deepcopy
 
 import pytest
 from harness_identity import TestClient
-from model_support import MODEL_PATH, starter_at_schema
-from sqlalchemy import func, select
+from model_support import MODEL_PATH
 
-from app.db import SessionLocal
 from app.engine.model.compiler import ModelValidationError, compile_model, parse_model
 from app.engine.model.diff import semantic_diff
 from app.engine.model.loader import load_model
 from app.main import create_app
-from app.models.database import ModelRelease
 from app.models.schema import EngineModel
 
 
@@ -34,8 +31,8 @@ def test_starter_model_is_valid():
     ]
     assert model.applications[0].details[0].panels[0].type == "children"
     assert model.applications[0].details[1].panels[0].type == "children"
-    assert model.schemaVersion == "0.9"
-    assert model.release.version == "0.9.5"
+    assert model.schemaVersion == "0.10"
+    assert model.release.version == "0.10.0"
     assert {view.type for app in model.applications for view in app.views} == {
         "table",
         "mappingGrid",
@@ -422,25 +419,6 @@ def test_minimum_must_not_exceed_maximum():
 # --- Schema 0.6: mappingGrid view contract ---
 
 
-def test_schema_05_model_still_parses_and_activates():
-    model = parse_model(starter_at_schema("0.5"))
-    assert model.schemaVersion == "0.5"
-
-
-def test_schema_06_mapping_grid_views_parse():
-    model = parse_model(starter_at_schema("0.6"))
-    assert model.schemaVersion == "0.6"
-    mapping_views = [
-        view for app in model.applications for view in app.views if view.type == "mappingGrid"
-    ]
-    assert len(mapping_views) == 2
-    system_view = next(v for v in mapping_views if v.key == "system-to-master-mapping")
-    assert system_view.config.relationTypeKey == "system-value-maps-to-master"
-    assert system_view.config.direction == "outgoing"
-    master_view = next(v for v in mapping_views if v.key == "master-to-system-mapping")
-    assert master_view.config.direction == "incoming"
-
-
 def _mapping_grid_source():
     source = load_model(MODEL_PATH).model_dump(mode="json")
     return source
@@ -551,53 +529,6 @@ def test_mapping_grid_reports_duplicate_candidate_fields_at_their_config_path():
     ]
 
 
-def test_schema_05_rejects_mapping_grid_with_the_view_type_path():
-    source = starter_at_schema("0.7", _mapping_grid_source())
-    source["schemaVersion"] = "0.5"
-    for application in source["applications"]:
-        application["views"] = [view for view in application["views"] if view["type"] != "tree"]
-    result = compile_model(source)
-    assert not result.valid
-    diagnostic = result.diagnostics[0]
-    assert diagnostic.path.endswith("/views/master-to-system-mapping/type")
-    assert diagnostic.code == "INVALID_MODEL"
-    assert "requires schema version 0.6" in diagnostic.message
-
-
-def test_schema_06_with_only_table_views_is_valid():
-    source = starter_at_schema("0.6")
-    for application in source["applications"]:
-        application["views"] = [view for view in application["views"] if view["type"] == "table"]
-    assert compile_model(source).valid
-
-
-def test_schema_05_mapping_grid_is_refused_by_validation_and_draft_installation(monkeypatch):
-    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
-    source = starter_at_schema("0.7", _mapping_grid_source())
-    source["schemaVersion"] = "0.5"
-    with TestClient(create_app()) as client:
-        with SessionLocal() as session:
-            before = session.scalar(select(func.count()).select_from(ModelRelease))
-        validation = client.post("/api/v1/model-validations", json={"model": source})
-        assert validation.status_code == 200
-        assert validation.json()["valid"] is False
-        assert validation.json()["diagnostics"][0]["path"].endswith("/type")
-        draft = client.post("/api/v1/model-drafts", json={"name": "Wrong schema", "model": source})
-        assert draft.status_code == 201
-        installation = client.post(
-            f"/api/v1/model-drafts/{draft.json()['id']}/installation",
-            json={"expectedVersion": 1},
-        )
-        assert installation.status_code == 422
-        assert installation.json()["error"]["code"] == "INVALID_MODEL"
-        with SessionLocal() as session:
-            assert session.scalar(select(func.count()).select_from(ModelRelease)) == before
-        deleted = client.delete(
-            f"/api/v1/model-drafts/{draft.json()['id']}", params={"expectedVersion": 1}
-        )
-        assert deleted.status_code == 204
-
-
 # --- Schema 0.7: relations panel sort options (Base 0.8 S4R2) ---
 
 _SYSTEM_PANEL = "/applications/rdm-master/details/domain/panels/system-representations/config"
@@ -632,34 +563,6 @@ def test_starter_relations_panels_declare_model_sort_options():
     assert sorts[("rdm-master", "codelist", "translations")] == translations
     # A panel over several related types declares no sort and lists by name.
     assert sorts[("rdm-translations", "translation", "targets")] == (None, None)
-
-
-def test_schema_06_refuses_panel_sort_options_at_the_field_path():
-    source = starter_at_schema("0.6")
-    _system_panel(source)["config"]["sortFields"] = ["name"]
-    _system_panel(source)["config"]["defaultSort"] = "name"
-    result = compile_model(source)
-    assert [(item.code, item.path) for item in result.diagnostics] == [
-        ("INVALID_MODEL", f"{_SYSTEM_PANEL}/sortFields")
-    ]
-    assert "requires schema version 0.7" in result.diagnostics[0].message
-
-    del _system_panel(source)["config"]["sortFields"]
-    assert compile_model(source).diagnostics[0].path == f"{_SYSTEM_PANEL}/defaultSort"
-
-
-def test_panels_without_sort_options_keep_their_canonical_form():
-    """0.5 and 0.6 releases hash as before: absent sort options are not serialized."""
-    result = compile_model(starter_at_schema("0.6"))
-    assert result.valid
-    panels = [
-        panel["config"]
-        for application in result.canonical_model["applications"]
-        for detail in application["details"]
-        for panel in detail["panels"]
-        if panel["type"] == "relations"
-    ]
-    assert panels and all("sortFields" not in c and "defaultSort" not in c for c in panels)
 
 
 def test_panel_descending_default_sort_is_valid():
@@ -749,7 +652,7 @@ def test_generated_volume_model_validates_with_its_relation_matrices_and_tree():
     from volume_fixture import volume_model
 
     source = volume_model()
-    assert source["schemaVersion"] == "0.9"
+    assert source["schemaVersion"] == "0.10"
     views = [view for application in source["applications"] for view in application["views"]]
     assert {view["config"]["direction"] for view in views if view["type"] == "relationMatrix"} == {
         "outgoing",
@@ -848,38 +751,6 @@ def test_starter_relation_matrices_are_installed_and_active():
     matrix = _matrix(served, "rdm-systems", "master-values-by-system")
     assert matrix["type"] == "relationMatrix"
     assert matrix["config"]["direction"] == "incoming"
-
-
-@pytest.mark.parametrize(
-    ("kept", "path", "feature"),
-    [
-        ("relationMatrix", _matrix_path("rdm-systems", "codelists-by-system"), "relationMatrix"),
-        ("tree", _matrix_path("rdm-master", "domain-hierarchy"), "tree"),
-    ],
-)
-def test_schema_06_refuses_each_07_view_type_at_its_type_path(kept, path, feature):
-    source = starter_at_schema("0.7")
-    source["schemaVersion"] = "0.6"
-    for application in source["applications"]:
-        application["views"] = [
-            view
-            for view in application["views"]
-            if view["type"] not in {"relationMatrix", "tree"} or view["type"] == kept
-        ]
-        for detail in application["details"]:
-            for panel in detail["panels"]:
-                panel["config"].pop("sortFields", None)
-                panel["config"].pop("defaultSort", None)
-    result = compile_model(source)
-    assert [(item.code, item.path) for item in result.diagnostics] == [
-        ("INVALID_MODEL", f"{path}/type")
-    ]
-    assert f"The {feature} view type requires schema version 0.7" in result.diagnostics[0].message
-
-
-@pytest.mark.parametrize("schema_version", ["0.5", "0.6"])
-def test_earlier_schema_starters_without_the_07_views_still_validate(schema_version):
-    assert compile_model(starter_at_schema(schema_version)).valid
 
 
 def _set(target, key, value):

@@ -51,6 +51,22 @@ export interface ExpandedRelations {
   nextCursor: string | null;
 }
 
+/**
+ * Whether the engine can serve a workspace (0.12 UW1, D443): the release is read, or why it is not
+ * (a schema language that left the window, a later engine's, an invalid release). `raisable` says
+ * whether the raising route can bring a release of a schema that left the window up to date.
+ */
+export type WorkspaceAvailability =
+  | { state: "available" }
+  | {
+      state: "unavailable";
+      reason: "schemaLeftWindow" | "schemaAfterWindow" | "invalidRelease";
+      releaseId: string;
+      schemaVersion: string;
+      supportedSchemaVersions: string[];
+      raisable: boolean;
+    };
+
 export interface Workspace {
   key: string;
   label: string;
@@ -60,6 +76,7 @@ export interface Workspace {
   updatedAt: string;
   /** The release the workspace runs (0.11 M1). */
   model: Omit<WorkspaceModel, "workspaceKey">;
+  availability: WorkspaceAvailability;
 }
 
 /** One workspace as a single-item read returns it; the paged list omits the deletion fields. */

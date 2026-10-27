@@ -44,7 +44,7 @@ from ...jobs.store import job_parameter, start_job
 from ...model.authoring import history
 from ...model.authoring.kinds import Applied
 from ...model.authoring.released import base_release, released_atoms
-from ...model.compiler import compile_authored_model
+from ...model.compiler import compile_model
 from ...model.diagnostics import ModelDiagnostic
 from ...model.drafts import load_draft, load_draft_for_update
 from ...model.registry import resolve_model_snapshot
@@ -92,7 +92,7 @@ def submit_inference(session: Session, draft_id: str, request: InferenceRequest,
     if source is None:
         raise api_error(404, "SOURCE_FILE_NOT_FOUND", f"Model draft '{draft_id}' has no source file")
     require_profile(session, source)
-    compiled = compile_authored_model(draft.model_json)
+    compiled = compile_model(draft.model_json)
     if not compiled.valid:
         raise InvalidDraft(compiled.diagnostics)
     applications = {a.get("key") for a in draft.model_json.get("applications") or []}

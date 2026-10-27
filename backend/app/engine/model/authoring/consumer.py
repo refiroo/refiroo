@@ -27,7 +27,6 @@ from .kinds import Applied, Context, Params, atom, kind
 
 # Output names the engine serves itself (CONSUMER_API "Output names").
 _RESERVED_OUTPUTS = {"objectType", "matchScore", "target", "parent", "path", "hierarchy"}
-_CONSUMER_SCHEMA = (0, 9)
 
 
 def _definitions(context: Context) -> list[dict[str, Any]]:
@@ -301,8 +300,6 @@ def add_consumer_api(context: Context, raw: dict[str, Any]) -> Applied:
     """A consumer API exposing ``exposes``, started by the server (D53), or, as
     ``removeConsumerApi``'s inverse, the stored ``definition``, at ``position``."""
     params = Params(raw, ("name", "key", "exposes", "position", "definition"))
-    if _schema(context.data.get("schemaVersion")) < _CONSUMER_SCHEMA:
-        raise Refusal("kind", "unsupportedSchemaVersion", "Consumer APIs need schema 0.9 or later; raise it with setRelease")
     taken = {item.get("key") for item in _definitions(context)}
     stored = params.optional("definition", dict)
     if stored is not None:
@@ -391,10 +388,3 @@ def _free(name: str, taken: set[str]) -> str:
     while f"{name}{number}" in taken:
         number += 1
     return f"{name}{number}"
-
-
-def _schema(version: Any) -> tuple[int, ...]:
-    try:
-        return tuple(int(part) for part in str(version).split("."))
-    except ValueError:
-        return (0,)

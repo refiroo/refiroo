@@ -8,12 +8,14 @@ from ...engine.identity.principals import actors
 from ...engine.model.compiler import SCHEMA_VERSIONS, compile_model
 from ...engine.model.diff import semantic_diff
 from ...engine.model.draft_compatibility import assess
+from ...engine.model.raising import raise_release
 from ...engine.model.registry import resolve_model_snapshot
 from ...engine.model.workspace_models import assigned_workspaces
 from ...errors import api_error
-from ...models.database import AuditEvent, ModelRelease, WorkspaceModel
+from ...models.database import AuditEvent, ModelRelease, Workspace, WorkspaceModel
 from ..access import (
     ANYWHERE,
+    INSTANCE,
     AuthorizedRoute,
     requires,
 )
@@ -30,6 +32,9 @@ from ..schemas.model import (
     ModelReleaseActivationResponse,
     ModelReleaseDiffResponse,
     ModelReleasePage,
+    ModelReleaseRaisingRequest,
+    ModelReleaseRaisingResponse,
+    ModelReleaseRaisingWorkspace,
     ModelReleaseResponse,
 )
 
@@ -174,9 +179,7 @@ def diff_model_release(
     releases = {
         release.public_id: release
         for release in session.scalars(
-            select(ModelRelease).where(
-                ModelRelease.public_id.in_([release_id, against_release_id])
-            )
+            select(ModelRelease).where(ModelRelease.public_id.in_([release_id, against_release_id]))
         )
     }
     candidate_release = releases.get(release_id)
@@ -236,6 +239,51 @@ def diff_model_release(
     )
 
 
+@router.post(
+    "/model-releases/{release_id}/raising",
+    response_model=ModelReleaseRaisingResponse,
+)
+@requires("model.install", at=INSTANCE)
+def raise_model_release(
+    release_id: str, payload: ModelReleaseRaisingRequest, session: DbSession
+) -> ModelReleaseRaisingResponse:
+    """Bring a release of a schema that left the window up to the schema this version reads, in
+    place (0.12 UW1): `{confirm: false}` previews and changes nothing; `{confirm: true,
+    expectedModelHash}` rewrites the release, and every process serves the workspaces running it
+    from its next request. Its id, key and version are unchanged, so records, change sets and
+    publications follow. A maintenance step of the releases before 1.0. `404
+    MODEL_RELEASE_NOT_FOUND`, `422 RELEASE_NOT_RAISABLE`, `422 RELEASE_RAISE_REFUSED`, `409
+    MODEL_HASH_CHANGED`."""
+    result = raise_release(
+        session,
+        release_id,
+        confirm=payload.confirm,
+        expected_model_hash=payload.expectedModelHash,
+    )
+    labels = dict(
+        session.execute(
+            select(Workspace.key, Workspace.label).where(Workspace.key.in_(result.workspaces))
+        )
+        .tuples()
+        .all()
+    )
+    if result.applied:
+        session.commit()
+    return ModelReleaseRaisingResponse(
+        applied=result.applied,
+        releaseId=result.release.public_id,
+        releaseKey=result.release.release_key,
+        releaseVersion=result.release.release_version,
+        schemaFrom=result.schema_from,
+        schemaTo=result.schema_to,
+        consumerApisRewritten=result.rewritten,
+        modelHash=result.model_hash,
+        workspaces=[
+            ModelReleaseRaisingWorkspace(key=key, label=labels[key]) for key in result.workspaces
+        ],
+    )
+
+
 def load_release(session: DbSession, release_id: str) -> ModelRelease:
     release = session.scalar(select(ModelRelease).where(ModelRelease.public_id == release_id))
     if release is None:
@@ -275,6 +323,4 @@ def build_release_response(
 
 
 def _release_not_found(release_id: str):
-    return api_error(
-        404, "MODEL_RELEASE_NOT_FOUND", f"Model release '{release_id}' not found"
-    )
+    return api_error(404, "MODEL_RELEASE_NOT_FOUND", f"Model release '{release_id}' not found")

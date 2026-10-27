@@ -53,7 +53,7 @@ def test_diff_unsupported_candidate_returns_422():
     assert body["code"] == "UNSUPPORTED_SCHEMA_VERSION"
     assert body["details"]["releaseId"] == historical_id
     assert body["details"]["schemaVersion"] == "0.4"
-    assert body["details"]["supportedSchemaVersions"] == ["0.5", "0.6", "0.7", "0.8", "0.9", "0.10"]
+    assert body["details"]["supportedSchemaVersions"] == ["0.10"]
     assert body["details"]["operation"] == "diff"
 
 
@@ -79,7 +79,7 @@ def test_diff_reports_schema_from_json_when_release_metadata_disagrees():
     with TestClient(app) as client:
         active_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
         historical_id = _install_historical(
-            schema_version="0.4", stored_schema_version="0.6"
+            schema_version="0.4", stored_schema_version="0.10"
         )
 
         response = client.get(
@@ -94,7 +94,7 @@ def test_diff_reports_schema_from_json_when_release_metadata_disagrees():
 def test_diff_corrupt_supported_schema_remains_500():
     with TestClient(app) as client:
         active_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
-        corrupt_id = _install_historical(schema_version="0.6", corrupt=True)
+        corrupt_id = _install_historical(schema_version="0.10", corrupt=True)
 
         response = client.get(
             f"/api/v1/model-releases/{corrupt_id}/diff",
@@ -150,7 +150,7 @@ def test_activation_unsupported_schema_retains_422(monkeypatch):
     assert error["details"] == {
         "releaseId": historical_id,
         "schemaVersion": "0.4",
-        "supportedSchemaVersions": ["0.5", "0.6", "0.7", "0.8", "0.9", "0.10"],
+        "supportedSchemaVersions": ["0.10"],
         "operation": "activation",
     }
 
@@ -160,7 +160,7 @@ def test_activation_reports_unsupported_schema_from_json_without_mutation(monkey
     with TestClient(create_app()) as client:
         active_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
         historical_id = _install_historical(
-            schema_version="0.4", stored_schema_version="0.6"
+            schema_version="0.4", stored_schema_version="0.10"
         )
         with SessionLocal() as session:
             state = default_model(session)

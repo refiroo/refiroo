@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { forgetWorkspaceModel } from "@/model/workspaceModels";
 import { ApiError } from "@/api/errors";
-import { codelistObject, domainObject, testModel, testWorkspaceModel } from "@/test/fixtures";
+import { codelistObject, domainObject, testModel, testWorkspaceModel, testAvailability } from "@/test/fixtures";
 import type { ApplicationDefinition } from "@/types";
 import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
 import { capabilitiesFixture } from "@/test/capabilities";
@@ -106,6 +106,7 @@ describe("App", () => {
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
       model: testWorkspaceModel,
+      availability: testAvailability,
       deletable: false,
     }));
     vi.mocked(api.workspaces).mockResolvedValue({ items: [], nextCursor: null });
@@ -289,7 +290,12 @@ describe("App", () => {
 
   it("opens Settings in the same top bar without workspace controls, and the application's tab comes back", async () => {
     vi.mocked(api.system).mockResolvedValue({
-      engine: { version: "0.9.0-alpha.1", managementApi: "v1" },
+      engine: {
+        version: "0.9.0-alpha.1",
+        managementApi: "v1",
+        license: "AGPL-3.0-or-later",
+        sourceCode: "https://github.com/refiroo/refiroo/tree/v0.9.0-alpha.1",
+      },
       schemaLanguages: ["0.7", "0.8"],
       activeModelRelease: {
         id: "r1",
@@ -336,6 +342,7 @@ describe("App", () => {
                 createdAt: "2026-09-05T00:00:00Z",
                 updatedAt: "2026-09-05T00:00:00Z",
                 model: testWorkspaceModel,
+                availability: testAvailability,
               },
               {
                 key: "west",
@@ -345,6 +352,7 @@ describe("App", () => {
                 createdAt: "2026-09-05T00:00:00Z",
                 updatedAt: "2026-09-05T00:00:00Z",
                 model: testWorkspaceModel,
+                availability: testAvailability,
               },
             ],
       nextCursor: null,
@@ -357,6 +365,7 @@ describe("App", () => {
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
       model: testWorkspaceModel,
+      availability: testAvailability,
       deletable: false,
       deleteBlockedBy: "notEmpty",
     }));
@@ -386,6 +395,7 @@ describe("App", () => {
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
       model: testWorkspaceModel,
+      availability: testAvailability,
     };
     vi.mocked(api.workspaces).mockImplementation(async (options) => ({
       items: options?.status === "retired" ? [] : [west],
@@ -439,6 +449,7 @@ describe("App", () => {
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
       model: testWorkspaceModel,
+      availability: testAvailability,
       deletable: false,
     });
     visit("/apps/test-app/views/domains?workspaceKey=archive");
@@ -459,6 +470,7 @@ describe("App", () => {
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
       model: testWorkspaceModel,
+      availability: testAvailability,
       deletable: false,
     });
     vi.mocked(api.object).mockResolvedValue({ ...domainObject, workspaceKey: "archive" });
@@ -530,6 +542,7 @@ describe("App", () => {
           createdAt: "2026-09-05T00:00:00Z",
           updatedAt: "2026-09-05T00:00:00Z",
           model: testWorkspaceModel,
+          availability: testAvailability,
         },
       ],
       nextCursor: null,
@@ -677,6 +690,7 @@ describe("App", () => {
           createdAt: "2026-09-05T00:00:00Z",
           updatedAt: "2026-09-05T00:00:00Z",
           model: testWorkspaceModel,
+          availability: testAvailability,
         },
       ],
       nextCursor: null,

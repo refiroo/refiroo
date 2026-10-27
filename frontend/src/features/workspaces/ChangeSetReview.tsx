@@ -72,7 +72,6 @@ export function ChangeSetReview({
   /** The request was approved and published: the change set is gone (0.12 A3). */
   onDecided?: (message: string) => void;
 }) {
-  const { changeSet } = useWorkspaceData();
   const records = route.tab === "records";
   // A type from the URL that the pinned model lacks is dropped rather than refused by the API.
   const types = records
@@ -187,12 +186,6 @@ export function ChangeSetReview({
       <PageHeader
         focusTitle
         title="Review changes"
-        description={
-          <>
-            What {changeSet?.name ? `“${changeSet.name}”` : "this change set"} adds, changes and removes compared with
-            its source. Nothing here is live until the change set is published.
-          </>
-        }
         actions={
           <button type="button" className="secondary" onClick={onBack}>
             Back to change set
@@ -264,7 +257,7 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
             <li key={item.id}>
               <strong>{item.outcome === "approve" ? "Approved" : "Sent back"}</strong>
               {item.decider && ` by ${principalName(item.decider)}`} · {formatServerAgo(item.decidedAt)}
-              {item.comment && <> · {item.comment}</>}
+              {item.comment && <blockquote className="decision-request-comment">{item.comment}</blockquote>}
             </li>
           ))}
         </ul>
@@ -334,9 +327,10 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
               cannot be decided as submitted.
             </Notice>
           ) : null}
-          <label>
+          <label className="decision-field">
             Comment
             <textarea
+              className="field-input"
               rows={3}
               value={comment}
               maxLength={2000}
@@ -344,10 +338,8 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
               aria-describedby="decision-comment-help"
               onChange={(event) => setComment(event.target.value)}
             />
+            <small id="decision-comment-help">Required to send back</small>
           </label>
-          <p id="decision-comment-help" className="muted-text">
-            Required to send back
-          </p>
           {commentError && <p className="field-error">{commentError}</p>}
           <div className="decision-actions">
             <button type="button" className="secondary" disabled={pending} onClick={() => void decide("sendBack")}>

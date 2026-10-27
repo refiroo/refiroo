@@ -1672,8 +1672,9 @@ multi-tenancy: hosting stays one instance per organisation.
   jobs and dry runs resolve their workspace, consumer API definitions, events and webhooks are per
   workspace, and a consumer API key may mean different contracts in two workspaces.
 - **A workspace whose release cannot be loaded is unavailable on its own;** the others serve.
-- **Schema versions 0.5–0.10 run side by side**, since every one compiles into the same internal
-  model; the window and its conversion rules are written down in 0.11 V4.
+- **Schema versions run side by side**, since every one compiles into the same internal model; the
+  window and its conversion rules were written down in 0.11 V4 (0.5–0.10). **Before 1.0 the window is
+  cleaned at every release (0.12 L2a, D439, D441, the user):** 0.12 holds 0.10 only.
 - **Data meets across models only through a move** (0.11 Track X): there are no relationships
   between workspaces, and a moved record is a counterpart whose origin is recorded.
 

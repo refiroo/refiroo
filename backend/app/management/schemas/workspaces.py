@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
@@ -96,6 +96,34 @@ class WorkspaceModelActivationResponse(WorkspaceAssignmentResponse):
     changeSetsLeftBehind: list[ChangeSetLeftBehind]
 
 
+class WorkspaceAvailable(BaseModel):
+    state: Literal["available"] = "available"
+
+
+class WorkspaceUnavailable(BaseModel):
+    """The workspace's model release cannot be served by this version, so its requests answer
+    ``503 MODEL_REGISTRY_UNAVAILABLE`` (0.12 UW1)."""
+
+    state: Literal["unavailable"] = "unavailable"
+    reason: Literal["schemaLeftWindow", "schemaAfterWindow", "invalidRelease"] = Field(
+        description="`schemaLeftWindow`: the release's schema is older than this version reads; "
+        "`schemaAfterWindow`: it is of a later version; `invalidRelease`: it is of a readable "
+        "schema but does not validate"
+    )
+    releaseId: str = Field(description="The release the workspace runs")
+    schemaVersion: str = Field(description="The release's schema")
+    supportedSchemaVersions: list[str] = Field(description="The schemas this version reads")
+    raisable: bool = Field(
+        description="`POST /model-releases/{releaseId}/raising` can bring the release up to date: "
+        "its schema left the window and the raised document is valid and equals no other release"
+    )
+
+
+WorkspaceAvailability = Annotated[
+    WorkspaceAvailable | WorkspaceUnavailable, Field(discriminator="state")
+]
+
+
 class WorkspaceResponse(BaseModel):
     key: str
     label: str
@@ -104,6 +132,9 @@ class WorkspaceResponse(BaseModel):
     createdAt: datetime
     updatedAt: datetime
     model: WorkspaceModelResponse
+    availability: WorkspaceAvailability = Field(
+        description="Whether this version can serve the workspace's model release"
+    )
 
 
 class WorkspaceDetailResponse(WorkspaceResponse):

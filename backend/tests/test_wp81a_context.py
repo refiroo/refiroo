@@ -506,7 +506,7 @@ def test_0_unsupported_pinned_change_set_model_is_explicit_and_never_uses_active
             "details": {
                 "modelReleaseId": body["error"]["details"]["modelReleaseId"],
                 "schemaVersion": "0.4",
-                "supportedSchemaVersions": ["0.5", "0.6", "0.7", "0.8", "0.9", "0.10"],
+                "supportedSchemaVersions": ["0.10"],
             },
         }
         historical = client.get(
@@ -539,9 +539,9 @@ def test_pinned_model_unavailable_and_invalid_are_structured_without_fallback():
                 release_key=f"invalid-pin-{uuid4().hex}",
                 release_name="Invalid pinned model",
                 release_version="1",
-                schema_version="0.5",
+                schema_version="0.10",
                 model_hash=uuid4().hex + uuid4().hex,
-                model_json={"schemaVersion": "0.5", "invalid": True},
+                model_json={"schemaVersion": "0.10", "invalid": True},
             )
             session.add(invalid_release)
             session.flush()

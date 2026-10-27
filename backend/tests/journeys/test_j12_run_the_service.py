@@ -6,23 +6,19 @@ the service state and the safe next step, never a traceback. J12.9 (carrying a S
 was dropped with PG4 (2026-10-03).
 """
 
-import hashlib
 import json
 import time
 from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
 import seeds
 from alembic.script import ScriptDirectory
-from model_support import starter_at_schema
-from scenario import W1, W2, W3, model_path, ok, scenario_seed
+from scenario import W1, ok, scenario_seed
 from service import command, execute, scalar, serve
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeout
 from test_j24_background_job import _unreachable
 
 from app.db import migration_config
-from app.engine.model.compiler import SUPPORTED_SCHEMA_VERSIONS
 
 HEAD = ScriptDirectory.from_config(migration_config()).get_current_head()
 LIMITED_ROLE = "rdm_journey_limited"
@@ -180,66 +176,75 @@ def test_missing_extensions_are_refused_until_they_are_installed(configuration, 
         execute(url, f"DROP OWNED BY {LIMITED_ROLE}")
 
 
-def _select_a_schema_04_release(configuration, url):
-    """The selected release as an engine before schema 0.5 stored it: the configuration's model
-    without the later features, at schema 0.4 and another version."""
-    legacy = starter_at_schema("0.5", configuration.model)
-    legacy["schemaVersion"] = "0.4"
-    legacy["release"]["version"] = "0.4.0-legacy"
+def _stale_bootstrap_release(configuration, url):
+    """The configuration's model as an earlier engine stored it: the release the service installs
+    keeps its key and version but is of schema 0.9, with other content."""
+    release = configuration.model["release"]
+    stale = {**configuration.model, "schemaVersion": "0.9"}
     execute(
         url,
-        "UPDATE model_releases SET schema_version = '0.4', release_version = :version, "
-        "model_json = CAST(:model AS json), model_hash = :hash WHERE id = (SELECT model_release_id "
-        "FROM workspace_models WHERE workspace_key = 'default')",
-        version="0.4.0-legacy",
-        model=json.dumps(legacy),
-        hash=hashlib.sha256(json.dumps(legacy).encode()).hexdigest(),
+        "UPDATE model_releases SET schema_version = '0.9', model_json = CAST(:model AS json), "
+        "model_hash = 'stale-hash' WHERE release_key = :key AND release_version = :version",
+        model=json.dumps(stale),
+        key=release["key"],
+        version=release["version"],
     )
+    return release
 
 
 @pytest.mark.journey("J12.6")
-@pytest.mark.structures("R")
-def test_an_unsupported_model_schema_is_upgraded_offline(configuration, databases, tmp_path):
-    """Given a database with records whose selected release has a schema this version does not read.
-    When the service starts; the upgrade command runs with a file that is not a model, then with the
-    model; and the service restarts. Then the start refuses, naming the selected and supported schemas
-    and the upgrade command; the failing command leaves the selection unchanged; the upgrade selects
-    a supported release in one step, recorded as a schema upgrade; the restart serves the records."""
+def test_a_stored_release_of_a_left_window_schema_is_raised_offline(configuration, databases):
+    """Given a database whose bootstrap model's release is stored in schema 0.9 with other content,
+    and workspaces running it. When the service starts; the raise command runs as a dry run and then
+    for real; and the service restarts. Then the start serves, logs one error naming the command and
+    no traceback, and the workspaces answer 503; the dry run changes nothing; the command rewrites the
+    release to the window's schema; the restart logs no error and serves the workspaces."""
     url = _clone(databases, scenario_seed(configuration))
-    _select_a_schema_04_release(configuration, url)
-    selected = "SELECT model_release_id FROM workspace_models WHERE workspace_key = 'default'"
-    before = scalar(url, selected)
+    release = _stale_bootstrap_release(configuration, url)
+    schema = "SELECT schema_version FROM model_releases WHERE release_key = :key"
     with serve(configuration, url) as service:
-        message = _refusal(
-            service,
-            "schema 0.4",
-            "app.cli.model_schema_upgrade --model",
-            state=("/health returns HTTP 503",),
-        )
-        for version in SUPPORTED_SCHEMA_VERSIONS:
-            assert version in message, message
+        assert service.client.get("/health").status_code in (200, 503)
+        [record] = service.errors()
+        message = record.getMessage()
+        assert "app.cli.model_release_raise" in message and "cd " in message, message
+        assert record.exc_info is None and "Traceback" not in message
+        assert service.client.get("/api/v1/model").status_code == 503
 
-    broken = tmp_path / "not-a-model.json"
-    broken.write_text("{}")
-    failed = command("app.cli.model_schema_upgrade", url, "--model", str(broken))
-    assert failed.returncode == 1 and "The selected release is unchanged" in failed.stderr
-    assert "Traceback" not in failed.stderr and scalar(url, selected) == before
+    dry = command("app.cli.model_release_raise", url, "--dry-run")
+    assert dry.returncode == 0, dry.stderr
+    assert "schema 0.9 -> 0.10" in dry.stdout and "Nothing changed" in dry.stdout
+    assert scalar(url, schema, key=release["key"]) == "0.9"
 
-    upgraded = command(
-        "app.cli.model_schema_upgrade", url, "--model", str(model_path(configuration))
-    )
-    assert upgraded.returncode == 0, upgraded.stderr
-    release_id = upgraded.stdout.split()[-1]
+    raised = command("app.cli.model_release_raise", url)
+    assert raised.returncode == 0, raised.stderr
+    assert scalar(url, schema, key=release["key"]) == "0.10"
+    again = command("app.cli.model_release_raise", url)
+    assert again.returncode == 0 and "nothing to do" in again.stdout
     with serve(configuration, url) as service:
         _serves(service)
-        api = service.world.api
-        assert api.get("/model").headers["X-Model-Release-Id"] == release_id
-        # One entry per workspace the upgrade moved (0.11 M1): each runs its own release.
-        items = ok(api.get(f"/model-releases/{release_id}/activations"))["items"]
-        assert [a["kind"] for a in items] == ["schemaUpgraded"] * 3
-        assert sorted(a["workspaceKey"] for a in items) == sorted([W1, W2, W3])
-        page = ok(api.get(f"/objects/{configuration.key('R')}", workspaceKey="closed-site"))
-        assert page["items"]
+        assert service.client.get("/api/v1/model").status_code == 200
+
+
+@pytest.mark.journey("J12.6")
+def test_a_changed_model_file_with_an_unchanged_release_version_is_named(configuration, databases):
+    """Given a stored release of the bootstrap model's version with other content, in a schema in the
+    window. When the service starts. Then it serves and logs one error naming the model file and
+    asking for a new release version, with no command."""
+    url = _clone(databases, scenario_seed(configuration))
+    release = configuration.model["release"]
+    execute(
+        url,
+        "UPDATE model_releases SET model_hash = 'other-hash' WHERE release_key = :key "
+        "AND release_version = :version",
+        key=release["key"],
+        version=release["version"],
+    )
+    with serve(configuration, url) as service:
+        [record] = service.errors()
+        message = record.getMessage()
+        assert "release.version" in message and "RDM_MODEL_PATH" in message, message
+        assert "app.cli" not in message and record.exc_info is None
+        assert service.health() == 200
 
 
 @pytest.mark.journey("J12.7")
@@ -360,6 +365,7 @@ def test_the_api_reference_loads_its_pinned_script(configuration, databases, scr
             ("CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY", "SECRETS_ENCRYPTION_KEY"),
         ),
         ({"PUBLIC_URL": "localhost:8000"}, ("PUBLIC_URL",)),
+        ({"SOURCE_CODE_URL": "git.example.org/source"}, ("SOURCE_CODE_URL",)),
     ],
     ids=[
         "reference-script",
@@ -370,6 +376,7 @@ def test_the_api_reference_loads_its_pinned_script(configuration, databases, scr
         "no-secrets-key",
         "retired-key-name",
         "public-url",
+        "source-code-url",
     ],
 )
 def test_an_invalid_setting_refuses_to_start(configuration, databases, settings, named):
@@ -444,27 +451,6 @@ def test_the_database_goes_away_while_running(configuration, databases):
     assert down == 503
 
 
-@pytest.mark.journey("J12.7")
-def test_a_model_file_with_schema_0_8_consumer_apis_refuses_to_start(configuration, databases, tmp_path):
-    """When the service starts with RDM_MODEL_PATH naming a schema 0.8 model that declares
-    consumerApis. Then it refuses to start with a message naming the setting, the file and schema
-    0.9 (C18, C-D134). The same file without them starts."""
-    legacy = json.loads((Path(__file__).parents[1] / "fixtures" / "consumer_08" / "rdm-starter-0.9.2.json").read_text())
-    path = tmp_path / "legacy.json"
-    path.write_text(json.dumps(legacy))
-    with (
-        pytest.raises(RuntimeError) as refusal,
-        serve(configuration, _clone(databases), RDM_MODEL_PATH=str(path)),
-    ):
-        pass
-    assert "RDM_MODEL_PATH" in str(refusal.value) and str(path) in str(refusal.value)
-    assert "schema 0.9" in str(refusal.value)
-    del legacy["consumerApis"]
-    path.write_text(json.dumps(legacy))
-    with serve(configuration, _clone(databases), RDM_MODEL_PATH=str(path)) as service:
-        assert service.health() == 200
-
-
 @pytest.mark.journey("J12.11", "J12.7")
 def test_the_pool_runs_out(configuration, databases):
     """Given the service with a pool of one connection and a one-second wait, and that connection
@@ -474,7 +460,11 @@ def test_the_pool_runs_out(configuration, databases):
     GET /system/configuration reports the pool settings as set (0.11 Q1, D179, D180)."""
     from app.db import get_engine
 
-    pool = {"DATABASE_POOL_SIZE": "1", "DATABASE_POOL_MAX_OVERFLOW": "0", "DATABASE_POOL_TIMEOUT": "1"}
+    pool = {
+        "DATABASE_POOL_SIZE": "1",
+        "DATABASE_POOL_MAX_OVERFLOW": "0",
+        "DATABASE_POOL_TIMEOUT": "1",
+    }
     with serve(configuration, _clone(databases, scenario_seed(configuration)), **pool) as service:
         api = service.world.api
         ok(api.get("/objects", workspaceKey=W1, pageSize=5))
@@ -494,7 +484,9 @@ def test_the_pool_runs_out(configuration, databases):
         ok(api.get("/objects", workspaceKey=W1, pageSize=5))
         reported = {s["name"]: s for s in ok(api.get("/system/configuration"))["settings"]}
         for name, value in pool.items():
-            assert reported[name]["value"] == int(value) and reported[name]["source"] == "environment"
+            assert (
+                reported[name]["value"] == int(value) and reported[name]["source"] == "environment"
+            )
 
 
 def _hold_the_pool(engine):

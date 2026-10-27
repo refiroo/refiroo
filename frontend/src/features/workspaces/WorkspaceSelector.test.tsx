@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
-import { testWorkspaceModel } from "@/test/fixtures";
+import { testWorkspaceModel, testAvailability } from "@/test/fixtures";
 
 vi.mock("@/api/client", () => ({
   api: { workspace: vi.fn(), workspaces: vi.fn() },
@@ -16,6 +16,7 @@ const defaultWorkspace = {
   createdAt: "2026-09-05T00:00:00Z",
   updatedAt: "2026-09-05T00:00:00Z",
   model: testWorkspaceModel,
+  availability: testAvailability,
   deletable: false,
 };
 
@@ -161,7 +162,7 @@ describe("WorkspaceSelector", () => {
         defaultWorkspace,
         { ...defaultWorkspace, key: "south", label: "South", model: otherRelease },
         { ...defaultWorkspace, key: "archive", label: "Archive", model: otherModel },
-        { ...defaultWorkspace, key: "twin", label: "Twin", model: testWorkspaceModel },
+        { ...defaultWorkspace, key: "twin", label: "Twin", model: testWorkspaceModel, availability: testAvailability },
       ],
       nextCursor: null,
     });

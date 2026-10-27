@@ -38,6 +38,8 @@ interface DataContext {
   retryLoading?: () => void;
   refresh?: () => Promise<ChangeSet>;
   reloadChangeSetModel?: () => Promise<void>;
+  /** The change set no longer exists (published, discarded elsewhere): the page moves to live data. */
+  changeSetGone?: boolean;
   /**
    * Which records the person may write here (0.12 Z5, D329): Edit live's in live data, Work in
    * change sets' in a change set, none in a publication. Absent without a workspace (the model
@@ -81,7 +83,7 @@ export function WorkspaceDataProvider({
     activeModelReleaseId?: string;
     activeModelReleaseLabel?: string;
   }>();
-  const [error, setError] = useState<{ message: string; retryable: boolean }>();
+  const [error, setError] = useState<{ message: string; retryable: boolean; gone?: boolean }>();
   const permissions = useWorkspacePermissions(workspaceKey);
   const writes = useMemo(
     () => (publicationId ? NO_WRITES : recordWrites(permissions, changeSetId ? "change-sets" : "edit-live")),
@@ -126,7 +128,14 @@ export function WorkspaceDataProvider({
         setError(undefined);
       }
     }
-    load().catch((cause) => active && setError(contextLoadError(cause, changeSetId ? "change set" : "publication")));
+    load().catch(
+      (cause) =>
+        active &&
+        setError({
+          ...contextLoadError(cause, changeSetId ? "change set" : "publication"),
+          gone: Boolean(changeSetId) && isApiError(cause, "CHANGE_SET_NOT_FOUND"),
+        }),
+    );
     return () => {
       active = false;
     };
@@ -140,7 +149,8 @@ export function WorkspaceDataProvider({
           warning: "",
           writes: NO_WRITES,
           permissions,
-          loadingError: error?.message,
+          loadingError: error?.gone ? undefined : error?.message,
+          changeSetGone: error?.gone,
           retryLoading: error?.retryable ? () => setRetry((value) => value + 1) : undefined,
         }}
       >
@@ -198,7 +208,23 @@ function LoadedChangeSet({
   const [activeModelReleaseId, setActiveModelReleaseId] = useState(initialActiveId);
   const [activeModelReleaseLabel, setActiveModelReleaseLabel] = useState(initialActiveLabel);
   const [warning, setWarning] = useState("");
+  const [gone, setGone] = useState(false);
   const pinned = changeSet.modelReleaseId;
+  // A change set left open while it was published (approved by someone else) is found again when
+  // the person returns to the tab; its controls would only answer errors.
+  const changeSetId = changeSet.id;
+  useEffect(() => {
+    function check() {
+      if (document.visibilityState === "hidden") return;
+      api.changeSet(changeSetId).catch((cause) => isApiError(cause, "CHANGE_SET_NOT_FOUND") && setGone(true));
+    }
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, [changeSetId]);
   useEffect(() => {
     setExpectedRelease(pinned);
     return () => setExpectedRelease(undefined);
@@ -236,6 +262,7 @@ function LoadedChangeSet({
     try {
       return await controller.refresh();
     } catch (cause) {
+      if (isApiError(cause, "CHANGE_SET_NOT_FOUND")) setGone(true);
       setWarning(errorMessage(cause));
       throw cause;
     }
@@ -254,6 +281,7 @@ function LoadedChangeSet({
         warning,
         refresh,
         reloadChangeSetModel,
+        changeSetGone: gone,
         writes,
         permissions,
       }}

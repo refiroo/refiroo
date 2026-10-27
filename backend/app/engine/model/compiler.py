@@ -11,12 +11,12 @@ from pydantic import ValidationError
 from ...common.json_pointer import pointer_segment
 from ...models.schema import EngineModel
 from .consumer_definitions import compiled_consumer_apis
-from .consumer_legacy import LegacyEngineModel, is_legacy, legacy_consumer_apis_refusal
 from .diagnostics import ModelDiagnostic, ModelReferenceError, ModelValidationError
 from .validation import validate_references
 
-# Oldest first: versions compare as numbers, so a text sort would put 0.10 before 0.5.
-SCHEMA_VERSIONS: tuple[str, ...] = ("0.5", "0.6", "0.7", "0.8", "0.9", "0.10")
+# Oldest first: versions compare as numbers, so a text sort would put 0.10 before 0.5. Before 1.0 the
+# window is cleaned at every release: it holds the version the release writes (0.12 L2a, D439, D441).
+SCHEMA_VERSIONS: tuple[str, ...] = ("0.10",)
 SUPPORTED_SCHEMA_VERSIONS: frozenset[str] = frozenset(SCHEMA_VERSIONS)
 
 __all__ = [
@@ -27,7 +27,6 @@ __all__ = [
     "ModelValidationError",
     "after_window",
     "canonical_model",
-    "compile_authored_model",
     "compile_model",
     "parse_model",
 ]
@@ -56,8 +55,6 @@ class CompilationResult:
 def compile_model(source: Any) -> CompilationResult:
     """Validate shape, then expand consumer API definitions, then references, then canonicalize.
 
-    A document of schema 0.8 or earlier is read with its own consumer API shape (C18). It compiles
-    as stored: refusing a new one is the authoring routes' check (``legacy_consumer_apis_refusal``).
     """
     if isinstance(source, dict) and source.get("schemaVersion") not in {None, *SUPPORTED_SCHEMA_VERSIONS}:
         supplied = source.get("schemaVersion")
@@ -73,7 +70,7 @@ def compile_model(source: Any) -> CompilationResult:
             unsupported_schema_version=str(supplied),
         )
     try:
-        model = (LegacyEngineModel if is_legacy(source) else EngineModel).model_validate(source)
+        model = EngineModel.model_validate(source)
     except ValidationError as exc:
         return _invalid(tuple(_shape_diagnostic(error, source) for error in exc.errors()))
     try:
@@ -93,15 +90,6 @@ def compile_model(source: Any) -> CompilationResult:
         model_hash=model_hash,
         diagnostics=(),
     )
-
-
-def compile_authored_model(source: Any) -> CompilationResult:
-    """:func:`compile_model` for a document an author submits (install, draft compile, validation):
-    schema 0.8 consumer API definitions are no longer written (C18, C-D134)."""
-    refusal = legacy_consumer_apis_refusal(source)
-    if refusal is not None:
-        return _invalid((refusal,))
-    return compile_model(source)
 
 
 def parse_model(source: Any) -> EngineModel:

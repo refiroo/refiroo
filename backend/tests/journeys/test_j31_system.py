@@ -48,10 +48,17 @@ def test_read_what_the_deployment_runs(world):
     system = ok(world.api.get("/system"))
     configuration = ok(world.api.get("/system/configuration"))
     document = ok(world.api.get("/openapi.json"))
-    assert system["engine"] == {"version": document["info"]["version"], "managementApi": "v1"}
+    assert system["engine"] == {
+        "version": document["info"]["version"],
+        "managementApi": "v1",
+        "license": "AGPL-3.0-or-later",
+        "sourceCode": f"https://github.com/refiroo/refiroo/tree/v{document['info']['version']}",
+    }
+    # The licence is in the API document too (0.12 L1, D219).
+    assert document["info"]["license"]["identifier"] == "AGPL-3.0-or-later"
     # Oldest first, by number: 0.10 after 0.9 (0.10 N1).
     assert system["schemaLanguages"] == list(SCHEMA_VERSIONS)
-    assert system["schemaLanguages"][-2:] == ["0.9", "0.10"]
+    assert system["schemaLanguages"] == ["0.10"]
     state = world.workspace_model()
     release = ok(world.api.get(f"/model-releases/{state['releaseId']}"))
     assert system["activeModelRelease"] == {
@@ -104,6 +111,22 @@ def test_a_setting_from_the_environment_against_one_at_its_default(world):
     )
     chunk = settings["JOB_CHUNK_ITEMS"]
     assert (chunk["value"], chunk["default"], chunk["source"]) == (500, 500, "default")
+
+
+@pytest.mark.journey("J31.4")
+@pytest.mark.settings(SOURCE_CODE_URL="https://git.example.org/ops/refiroo-modified")
+def test_an_operator_names_the_source_of_a_modified_version(world):
+    """Given the service started by an operator with a `SOURCE_CODE_URL`. When the system is read.
+    Then the engine offers that address as its source, the setting reads back from the environment
+    with the project's tag as its default, and the licence is still the AGPL's."""
+    system = ok(world.api.get("/system"))
+    configuration = ok(world.api.get("/system/configuration"))
+    assert system["engine"]["sourceCode"] == "https://git.example.org/ops/refiroo-modified"
+    assert system["engine"]["license"] == "AGPL-3.0-or-later"
+    setting = _settings(configuration)["SOURCE_CODE_URL"]
+    assert setting["value"] == "https://git.example.org/ops/refiroo-modified"
+    assert setting["default"].startswith("https://github.com/refiroo/refiroo/tree/v")
+    assert setting["source"] == "environment"
 
 
 @pytest.mark.journey("J31.2")

@@ -496,19 +496,6 @@ def test_a_relation_column_where_the_model_allows_it(world):
     refused_at(lambda m: h_config(m)["columns"].append("related:no-such"), f"{h_path}/config/columns")
     refused_at(lambda m: h_config(m)["columns"].append(f"related:{b1n}"), f"{h_path}/config/columns")
 
-    def schema_08(model):
-        model["schemaVersion"] = "0.8"
-        model.pop("consumerApis", None)
-        for binding in model["objectTypeRelations"]:
-            if binding["cardinality"] == "many-to-one":
-                binding["cardinality"] = "many-to-many"
-            # Schema 0.9 as well (0.9 K7): left in, it would be refused before the column.
-            binding.pop("candidates", None)
-        h_config(model)["sortFields"].remove(f"related:{bn1}")
-        h_config(model)["defaultSort"] = "name"
-
-    refused_at(schema_08, f"{h_path}/config/columns")
-
 
 @pytest.mark.journey("J08.12")
 @pytest.mark.structures("R", "G", "D", "K", "Bscope", "K.code")

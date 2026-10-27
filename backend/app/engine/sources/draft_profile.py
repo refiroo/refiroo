@@ -36,7 +36,7 @@ from ...models.schema import EngineModel
 from ...models.sources import DryRunRequest
 from ..imports.profiles import MISMATCH, check_profile, definition_of, model_key_of
 from ..model.authoring.kinds import Sheet
-from ..model.compiler import compile_authored_model
+from ..model.compiler import compile_model
 from ..model.diagnostics import ModelDiagnostic
 from ..workspaces.catalogue import resolve_workspace
 from .dry_run import runs_dry_run, submit_dry_run
@@ -179,7 +179,7 @@ def _draft_path(path: str, positions: list[int]) -> str:
 def read(session: Session, draft: ModelDraft) -> dict[str, Any]:
     """``GET /model-drafts/{id}/profile``: the profile as the draft holds it, the import profile it
     stands for, its warnings, and the source file it binds."""
-    compiled = compile_authored_model(draft.model_json)
+    compiled = compile_model(draft.model_json)
     profile = draft.profile_json
     found = diagnostics(profile, compiled.model if compiled.valid else None)
     exported, _ = definition(profile)
@@ -214,7 +214,7 @@ def dry_run_after(
     exported, _ = definition(draft.profile_json)
     if source is None or exported is None or profile_state(session, source)["state"] != "completed":
         return None
-    compiled = compile_authored_model(draft.model_json)
+    compiled = compile_model(draft.model_json)
     if not compiled.valid or compiled.model is None:
         return None
     if any(_blocks(item) for item in diagnostics(draft.profile_json, compiled.model)):

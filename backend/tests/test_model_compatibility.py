@@ -21,7 +21,7 @@ from app.models.schema import EngineModel
 
 def _source() -> dict:
     return {
-        "schemaVersion": "0.5",
+        "schemaVersion": "0.10",
         "release": {"key": "compat", "name": "Compatibility", "version": "1"},
         "product": {"name": "Compatibility test"},
         "attributeTypes": [
@@ -112,7 +112,7 @@ def add_release(session: Session) -> ModelRelease:
         release_key=f"compat-{uuid4().hex}",
         release_name="Compatibility",
         release_version="1",
-        schema_version="0.5",
+        schema_version="0.10",
         model_hash=uuid4().hex + uuid4().hex,
         model_json=_source(),
     )

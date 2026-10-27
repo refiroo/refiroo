@@ -81,7 +81,7 @@ export interface SystemSetting {
 
 /** What the deployment runs, for anyone signed in (`GET /api/v1/system`, D246). */
 export interface SystemResponse {
-  engine: { version: string; managementApi: string };
+  engine: { version: string; managementApi: string; license: string; sourceCode: string };
   schemaLanguages: string[];
   activeModelRelease: {
     id: string;
@@ -224,6 +224,24 @@ export interface ModelReleaseDiff {
   /** Activating the release into the workspace the diff names, the default one without (D52). */
   compatibility: CandidateCompatibility;
   consumerContracts?: ModelConsumerContracts;
+}
+
+/**
+ * Raising a release of a schema language that left the window to the window's (0.12 UW1, D444):
+ * the preview (`applied` false) changes nothing; the confirmed answer says what was rewritten.
+ */
+export interface ModelReleaseRaising {
+  applied: boolean;
+  releaseId: string;
+  releaseKey: string;
+  releaseVersion: string;
+  schemaFrom: string;
+  schemaTo: string;
+  consumerApisRewritten: number;
+  /** The hash a confirmation names as `expectedModelHash`. */
+  modelHash: string;
+  /** The workspaces that run the release and return once it is raised. */
+  workspaces: { key: string; label: string }[];
 }
 
 /** The release a workspace runs and its assignment's version, which activation claims (0.11 M1). */

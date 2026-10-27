@@ -18,7 +18,7 @@ from typing import Any
 from ....errors import api_error
 from ....models.database import ModelDraft
 from ....models.schema import EngineModel
-from ..compiler import compile_authored_model
+from ..compiler import compile_model
 from ..consumer_contract import contract_diagnostics
 from ..consumer_definitions import consumer_api
 from ..consumer_openapi import consumer_openapi
@@ -39,7 +39,7 @@ def draft_consumer_api(draft: ModelDraft, key: str, active: EngineModel | None) 
     )
     if written is None:
         raise _not_found(draft, key)
-    compiled = compile_authored_model(draft.model_json)
+    compiled = compile_model(draft.model_json)
     answer: dict[str, Any] = {"version": draft.version, "valid": compiled.valid, "definition": written}
     if compiled.valid and compiled.model is not None:
         definition = consumer_api(compiled.model, key)
@@ -162,7 +162,7 @@ def _compiled(draft: ModelDraft, key: str) -> tuple[EngineModel, Any]:
     data = draft.model_json if isinstance(draft.model_json, dict) else {}
     if not any(isinstance(item, dict) and item.get("key") == key for item in data.get("consumerApis") or []):
         raise _not_found(draft, key)
-    compiled = compile_authored_model(draft.model_json)
+    compiled = compile_model(draft.model_json)
     if not compiled.valid or compiled.model is None:
         raise api_error(
             422,

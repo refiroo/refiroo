@@ -5084,7 +5084,7 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 16 | [A2](#a2-the-inbox) | A1, I2 | The inbox; webhook events per step |
 | 16a | [M2](#m2-inbox-notifications-by-mail) | M1, A2 | **Delivered 2026-10-27** (D432, D433): e-mail for inbox notifications, per person, off by default
 | 17 | [A3](#a3-approvals-in-the-interface) | A2, Z5 | **Delivered 2026-10-27.** Submit, decide and the policy in the interface |
-| 18 | [L1](#l1-licensing-and-policies) | — | Licensing and policies (filler, any time) |
+| 18 | [L1](#l1-licensing-and-policies) | — | **Built 2026-10-27**, open: the maintainer's confirmations, counsel, the secret scan. Licensing and policies |
 | 19 | [L2](#l2-the-compatibility-commitment) | E1 (A3 if delivered), the project's name | The compatibility commitment, now including the authentication contracts |
 | 20 | R | all above the cut | Build acceptance and the first public release |
 
@@ -5223,3 +5223,182 @@ and one look at both at 1440px and 390px in light and dark (the reference patter
 their migration and removal dates published; the [composable domains doors](COMPOSABLE_DOMAINS.md#doors-to-keep-open)
 checked against it (a retired-ID redirect, a value source, derived read-only values and a new value
 type each addable without a breaking change).
+
+#### L2 plan (2026-10-27)
+
+**Planned 2026-10-27. D436, D437, D438 and D440 accepted by the user (2026-10-27, "otherwise it is okay"); D439 changed by the user, see below; D441 and D442 wait for the user.** Checked against the code and the
+documents at the head of `main` by reading them.
+
+**What exists:** the management API is `/api/v1`, and a consumer API names its own `contractVersion` in the
+route (`/api/consumer/{api}/v{n}/…`, a breaking change raises it and keeps the old one, C-D2). The
+schema-language window 0.5–0.10 and its conversion rules are written (APPLICATION_MODEL § Schema versions and
+the window, 0.11 V4), and its last paragraph defers "how a version leaves the window, with how much notice"
+to this package. The OpenAPI document is locked by a hash whose every re-baseline carries a comment naming
+what changed. Every route accepts only the query parameters it declares (D-3). The event headers (`RDM-*`), the CloudEvents type,
+the token endpoints and the sign-in JSON routes (D416) are documented, each with "to be kept stable (L2)".
+
+**What is missing:** one place that says what is promised, to whom, and what is not; the rule for what counts
+as a breaking change; the rule clients follow for additions; how a contract or schema version is retired, with
+notice and dates; and a check that the four doors of COMPOSABLE_DOMAINS stay open under that promise.
+
+**What is built:**
+
+1. **`docs/COMPATIBILITY.md`**, linked from the README, API.md, CONSUMER_API.md and OPERATIONS:
+   - the **committed contracts** (D437) and the **not committed** list;
+   - **additive or breaking**: a new field, optional parameter, route, event type, header, error code or
+     enum value in an answer is additive; removing or renaming anything, changing a type, a meaning, a
+     default or a status, making a parameter required, or refusing what was accepted is breaking;
+   - **what a client must tolerate**: unknown fields, unknown enum values and error codes in answers, and
+     the reserved extensions below (D440);
+   - **how a breaking change is made**: beside the old one, never in place: `/api/v2`, a consumer API's next
+     `contractVersion`, a new schema-language version, a new event type version; the old runs for the notice
+     period (D438), announced in the CHANGELOG, in the document and in the answers' `Deprecation` and `Sunset`
+     headers;
+   - **the schema-language window as a table** (version, what it adds, status, earliest removal) and how a
+     version leaves (D439), including what happens to releases and publications pinned to it;
+   - **security fixes** (SECURITY.md): the latest minor only, which is separate from this commitment.
+2. **The doors check**, as a table in COMPATIBILITY: for each of the four doors (retired-ID redirect, value
+   source, derived read-only values, new value type) the contract it touches, the additive change that opens
+   it, and the evidence in the code or tests (the registries in `engine/records/values.py`,
+   `attribute_values.value_source`, the single write path). Where the evidence is a promise only, the
+   promise is the reservation in D440.
+3. **The release check:** R's full review lists every OpenAPI-lock re-baseline since the last release and
+   marks each *additive* or *breaking* against COMPATIBILITY; a breaking one needs a decision recorded. This
+   is a line in the release checklist, not a new mechanism.
+4. **No new runtime mechanism.** `Deprecation`/`Sunset` headers are specified now and built when a first
+   version is deprecated. The window's table is documentation; `GET /system` keeps `schemaLanguages`.
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D436 | Does the commitment bind from 0.12.0, before 1.0? | **Recommended:** yes, for the committed contracts only. From the first public release a committed contract changes only additively, or beside the old version. Why: the roadmap moved the commitment to the first public release so that integrators can build on it, and "no compatibility pre-1.0" was for a project nobody ran. Cost: 0.13–0.15 and 1.0 must be additive for those contracts, or version them; the database schema, the interface and the internals stay free. Alternative: publish the rules now and bind from 1.0, so 0.x minor releases may break contracts with a CHANGELOG notice |
+| D437 | Which contracts are committed? | **Recommended:** everything documented for other systems: the management API `/api/v1` as in its OpenAPI document and error codes; each consumer API contract version; webhooks and CloudEvents, their types and the `RDM-*` headers and signature; the OAuth and OpenID endpoints, token claims, scope names and the sign-in JSON routes (D416); the model schema-language versions in the window; the setting names in OPERATIONS and the documented `python -m app.cli.*` commands with their flags. **Not committed:** database tables and migrations' internals, Python modules, the interface's layout and addresses, routes outside the OpenAPI documents that are not listed in the documents above, and test seeds. Cost: the list is long; each item is already documented |
+| D438 | The notice before a committed contract is removed | **Recommended:** at least 12 months and two minor releases from the announcement to the first release that removes it. Why: a solo maintainer cannot support many versions, and organisations that integrate need a year to plan. Cost: an old version runs for at least a year. Alternative: 6 months and one minor release |
+| D439 | **Changed by the user (2026-10-27).** Before 1.0 the schema-language window is cleaned at every release: a version nobody runs leaves it in the next release, with no notice period (the interim releases have no users; D438's notice applies to the committed contracts, not to schema versions before 1.0). From 1.0 a version leaves only in a major release with D438's notice and an offline upgrader. Consequence: the window is a published table that shrinks, and each release's CHANGELOG says which versions left |
+| D440 | The reserved extensions of the four doors | **Recommended:** COMPATIBILITY names them as non-breaking additions that a client must tolerate: an ID lookup may later answer with a redirect to a surviving record where it answers `404` now (object reads, relation endpoints, consumer API, cursors); a value may later carry a `source` beside its author; a field may later be computed from related records and marked read-only; a value type may later join the list, and the unknown type is shown as text and refused on write. Why: a promise that names no extension cannot be kept additively. Cost: clients are told once to code defensively. No format is chosen now |
+
+**Journey test cases:** none in the API; the package changes documents. Checked by reading: every contract named
+in D437 is found in a document; each door's evidence exists in the code at the commit; COMPATIBILITY's links
+and the schema table agree with `SCHEMA_VERSIONS` (a unit test already holds the window to the compiler; the
+table is checked against it by hand in R).
+
+**L2a: the window cleaned (follows from D439, before R).** Removing a version is not only a constant:
+the compiler's per-version feature gates, the 0.8 consumer-API reading (`consumer_legacy.py`), the legacy
+reader, the model files and test fixtures written in an older version, the J37.8 window journey, and every
+stored release of a removed version (a stored release outside the window makes its workspaces unavailable,
+`503 MODEL_REGISTRY_UNAVAILABLE`) are touched.
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D441 | Which versions does 0.12.0 keep? | **Recommended:** only the current one, 0.10, and every later release only the version it writes. Why: a document of any older version is a strict subset of 0.10 except the 0.8 consumer-API shape, so the example models and fixtures are raised to 0.10 by changing their version (and the 0.8 consumer APIs by writing them in the present syntax); the compiler loses its version gates and the legacy readers. Cost: one package that touches the compiler, models, fixtures and the window journey. Alternative: keep 0.9 and 0.10 for this release and drop the rest |
+| D442 | **Decided by the user, then changed (2026-10-27).** First "it can be removed" (no data known); then, on the first start against the development database (29 releases, one workspace on a schema 0.8 release, `rdm-starter@0.9.5` of schema 0.9 clashing with the raised file), the user asked for both: the application starts and serves the rest, and the log names an exact command. Built: `python -m app.cli.model_release_raise [--dry-run]` rewrites stored releases older than the window to the window's schema in place (identity unchanged), and the bootstrap conflict is logged once instead of stopping startup |
+
+### UW1: A workspace that cannot be served
+
+**Needs:** L2a (the window is the one version a release writes). **Added by the user, 2026-10-27**, after the
+first start against the development database: the screen of a disabled workspace is "basic, not nice", and it
+should offer a migration to a model the system supports.
+
+**Planned 2026-10-27; plan and mock-up approved by the user the same day (D443 changed, D444–D446 as recommended).**
+
+**What exists:** a workspace whose release the engine cannot serve (a schema that left the window, a later
+engine's schema, an invalid release) answers `503 MODEL_REGISTRY_UNAVAILABLE`; the application then shows
+`NotInModel.tsx`'s one sentence and "Open <start> in <other workspace>". The Workspaces list and the workspace's
+Settings page say nothing about it. The offline command `python -m app.cli.model_release_raise` (L2a follow-up)
+is the only way to repair it, and it needs the server stopped.
+
+**What is built:**
+
+1. **The workspace says why it is unavailable.** `GET /workspaces` and `GET /workspaces/{key}` gain
+   `availability`: `{state: "available"}` or `{state: "unavailable", reason: "schemaLeftWindow" |
+   "schemaAfterWindow" | "invalidRelease", schemaVersion, supportedSchemaVersions, releaseId}` (additive).
+2. **The screen** (below): what happened in plain words, which workspace, which model and release, what the
+   engine supports, the other workspaces to continue in, and, for someone allowed, the repair.
+3. **Raise to the supported schema, in the interface.** `POST /model-releases/{releaseId}/raising` with
+   `{confirm: false}` answers the preview (the release, its schema → the window's, how many consumer API
+   definitions are rewritten, the workspaces that run it and will return, a refusal where the raised document is
+   invalid or equals another release); `{confirm: true, expectedModelHash}` rewrites the release in place (the
+   same code as the command, moved to `engine/model/raising.py` and shared), re-reads it in every process
+   through the registry, and answers the workspaces now served. It needs the right to install models; it is
+   offered for a schema that left the window only, and is not part of the compatibility commitment (a
+   maintenance step of the releases before 1.0).
+4. **Then migrate to another model.** After a raise the workspace is served and the existing migration flow
+   (Settings › Workspaces › the workspace › Model) applies; the success message offers "Choose another model…"
+   which opens it.
+5. **The Workspaces list and the workspace's Settings page** mark an unavailable workspace (a warning badge, the
+   same banner with the same actions) so it is found without opening it.
+
+**Mock-up** (1440 px; at 390 px the two cards stack and the actions become full-width buttons):
+
+```text
+ refiroo   [ search ]                                     [Account ▾]
+ ┌───────────────────────────────────────────────────────────────────────────┐
+ │  ⚠  harbour cannot be opened                                           │
+ │  Its model, RDM Starter Model 0.9.0, was written in schema language 0.8,  │
+ │  which this version of refiroo no longer reads (it reads 0.10).           │
+ │  Nothing was lost and nothing was changed. The other workspaces work.     │
+ │                                                                           │
+ │  ┌─ Bring it up to date ─────────────────┐ ┌─ Or continue elsewhere ────┐ │
+ │  │ Raise the model to schema 0.10. Its    │ │  default      Operators …  → │ │
+ │  │ records, history and change sets stay  │ │  another      Master v1 → │ │
+ │  │ as they are.                           │ │  [All workspaces]          │ │
+ │  │ [ Review the change… ]                 │ └────────────────────────────┘ │
+ │  └────────────────────────────────────────┘                               │
+ │  Only people who may install models see the button; others see:            │
+ │  "Ask someone who manages models to bring this workspace up to date."      │
+ └───────────────────────────────────────────────────────────────────────────┘
+
+ Review the change (dialog)
+ ┌───────────────────────────────────────────────────────────────┐
+ │ Raise RDM Starter Model 0.9.0 to schema 0.10                  │
+ │  • Schema language   0.8 → 0.10                               │
+ │  • Consumer APIs rewritten   1 (xref, lists, objects)         │
+ │  • Workspaces that return   harbour                         │
+ │  • Records, change sets, publications   unchanged             │
+ │  This edits the stored release in place (before 1.0 only).    │
+ │                              [ Cancel ]  [ Raise and reopen ] │
+ └───────────────────────────────────────────────────────────────┘
+ After: "harbour is back. Choose another model…  |  Open harbour"
+```
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D443 | Who sees the repair button? | **Decided by the user.** Whoever may install models (the Model administrator role and anyone holding that action group) sees the repair button. Everyone else sees no button and no greyed-out control, but a sentence: "Ask someone with the Model administrator role to bring this workspace up to date." |
+| D444 | Rewrite the stored release in place, or install a raised copy? | **Approved.** Rewrite in place, with a preview and a confirmation; before 1.0 only |
+| D445 | Migration to another model | **Approved.** Raise first, then the existing migration flow, linked from the success message |
+| D446 | Where the state shows | **Approved.** The not-opened screen, the Workspaces list and the workspace's Settings page, one shared component |
+
+**Journey test cases** (a new J37.9, `GET /workspaces`, the raising route; the harness stages an old release in
+SQL as J12.6 does): 1. an unavailable workspace reads `availability` with the reason and the window; 2. the
+preview names the changes and changes nothing; 3. the confirmation raises it, the workspace is served in the
+same process, a re-run says nothing to do; 4. a caller without the right is refused `403`, and an available
+workspace's release is refused `422`; 5. a stale `expectedModelHash` is refused `409`. UI: Vitest for the
+shared component (reasons, permission, dialog), one browser run at 1440 and 390 in light and dark, the
+accessibility gate.
+
+**Who builds it:** the backend (item 1 and 3, the shared code, the journey) and the frontend (items 2, 4, 5) by
+Sonnet agents, one after the other, each reviewed and run before the next.
+
+#### UW1 record (2026-10-27)
+
+**Built; the interface's look is not yet verified in a browser.** Backend: `availability` on workspaces
+(`schemaLeftWindow`, `schemaAfterWindow`, `invalidRelease`, with `raisable`), `POST
+/model-releases/{releaseId}/raising` (preview, then confirm with `expectedModelHash`), the raising code shared with
+`python -m app.cli.model_release_raise` (`engine/model/raising.py`), an audit event `schema_raised`; J37.9 (two
+tests), J12.6, the OpenAPI lock re-baselined. Frontend: one component (`UnavailableWorkspace`, forms `page` and
+`banner`, and `UnavailableBadge`) on the not-opened screen, the Workspaces list and the workspace's Settings
+page; the review dialog; people without the install right read "Ask someone with the Model administrator role to
+bring this workspace up to date." (D443). Checks run: backend J37.9, J12 and model lifecycle (88), the OpenAPI
+lock, the authorization unit tests and the security sweep (34); frontend 308 Vitest tests in the touched folders,
+`tsc`, the production build.
+
+**Found on the way:** the E1 security sweep hung on `GET /me/notifications/events`, an endless stream added by A2
+after the sweep was written; the sweep now leaves allowed streams unprobed (`SWEEP_STREAMS`; J42 walks it).
+
+**Open:** the look at 1440 and 390 px in both themes, the accessibility gate for the new screen and a browser
+scenario (no runner stages an old release in SQL yet); the multi-process refresh rests on the registry keying what
+it parsed by the release's hash, read in code and not tested with two processes; "Choose another model…" opens
+Settings › Model, where activation and migration start (no route names a workspace to migrate).

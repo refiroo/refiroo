@@ -44,7 +44,6 @@ from ..consumer_definitions import authored_pointer, consumer_apis
 from ..consumer_expansion import authored_through
 from ..diagnostics import ModelReferenceError
 from ..traversal import ancestor_type_keys
-from .fields import require_schema
 from .index import ModelIndex
 
 # The API key and list keys appear in URLs: lowercase letters, digits and single hyphens.
@@ -80,7 +79,6 @@ _VIA_SHARED = "sharedProjection:"
 def check(model: EngineModel, _index: ModelIndex) -> None:
     if model.consumerApis is None:
         return
-    require_schema(model, "0.8", "/consumerApis", "consumerApis")
     seen: set[str] = set()
     for definition in consumer_apis(model):
         base = f"/consumerApis/{pointer_segment(definition.key)}"

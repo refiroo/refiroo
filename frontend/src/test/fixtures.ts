@@ -166,6 +166,9 @@ export const codelistObject: ObjectItem = {
   ],
 };
 
+/** A workspace the engine serves, as a workspace response carries it (0.12 UW1). */
+export const testAvailability = { state: "available" } as const;
+
 /** The release a fixture workspace runs, as a workspace response carries it (0.11 M1). */
 export const testWorkspaceModel = {
   releaseId: "release-1",

@@ -49,6 +49,10 @@ SWEEP_EXCEPTIONS = {
     ("delete", "/api/v1/mail-settings"): "removes the mail settings; nothing makes it invalid",
 }
 
+# Streams that never end, so a call the caller is allowed cannot be probed and read back: refused
+# callers are still probed. The inbox stream is walked in J42 (0.12 A2).
+SWEEP_STREAMS = {("get", "/api/v1/me/notifications/events")}
+
 _PATH_SCOPE = "the path's workspace"
 _PATH_SCOPES = (_PATH_SCOPE, "the change set, or the path's workspace")
 _QUERY_SCOPES = (
@@ -320,7 +324,7 @@ def collect(http, role: str, ids: dict[str, str], declared: list[Operation]) -> 
     for operation in ordered:
         for variant, workspace in variants(operation):
             holds = allowed(principal, operation, variant, workspace)
-            if holds and operation.key in SWEEP_EXCEPTIONS:
+            if holds and (operation.key in SWEEP_EXCEPTIONS or operation.key in SWEEP_STREAMS):
                 continue
             # Allowed with nothing to make it invalid: name nothing that exists.
             real = not (holds and operation.unsafe_when_allowed)

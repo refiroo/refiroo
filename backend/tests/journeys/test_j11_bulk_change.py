@@ -1140,10 +1140,9 @@ def test_a_record_holds_one_of_a_kind(world):
 
 @pytest.mark.journey("J11.12", "J08.1")
 @pytest.mark.structures("H", "K", "Bn1")
-def test_many_to_one_needs_schema_0_9_and_is_never_required(world):
-    """Given the configuration's model. When it is validated in schema 0.8, and in 0.9 with its
-    many-to-one binding required. Then both are invalid at that binding: many-to-one needs schema
-    0.9, and a required many-to-one is not offered."""
+def test_many_to_one_is_never_required(world):
+    """Given the configuration's model. When it is validated with its many-to-one binding required.
+    Then it is invalid at that binding: a required many-to-one is not offered."""
     identity = (world.key("Bn1"), world.key("H"), world.key("K"))
     path = "/objectTypeRelations/" + "/".join(identity)
 
@@ -1158,11 +1157,6 @@ def test_many_to_one_needs_schema_0_9_and_is_never_required(world):
             for b in model["objectTypeRelations"]
             if (b["relationTypeKey"], b["fromObjectTypeKey"], b["toObjectTypeKey"]) == identity
         )
-
-    older = copy.deepcopy(world.configuration.model)
-    older["schemaVersion"] = "0.8"
-    older.pop("consumerApis", None)
-    assert diagnostic(older)["path"] == f"{path}/cardinality"
 
     required = copy.deepcopy(world.configuration.model)
     binding(required)["required"] = True

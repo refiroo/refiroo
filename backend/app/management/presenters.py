@@ -18,7 +18,8 @@ from ..engine.events.subscriptions import is_workspace_source
 from ..engine.identity.principals import actors, named
 from ..engine.imports.profiles import StoredProfile
 from ..engine.jobs.store import release_public_ids
-from ..engine.model.compiler import ModelDiagnostic
+from ..engine.model.availability import Unavailable, unavailability
+from ..engine.model.compiler import SCHEMA_VERSIONS, ModelDiagnostic
 from ..engine.model.consumer_contract import contract_diagnostics
 from ..engine.model.diff import SemanticChange
 from ..engine.model.draft_compatibility import CandidateCompatibility
@@ -93,10 +94,12 @@ from .schemas.records import (
 )
 from .schemas.workspaces import (
     WorkspaceAssignmentResponse,
+    WorkspaceAvailable,
     WorkspaceDetailResponse,
     WorkspaceModelResponse,
     WorkspaceResponse,
     WorkspaceRuntimeStateResponse,
+    WorkspaceUnavailable,
 )
 
 
@@ -131,7 +134,9 @@ def diagnostic_response(item: ModelDiagnostic) -> ModelDiagnosticResponse:
     return ModelDiagnosticResponse(**values)
 
 
-def candidate_compatibility_response(found: CandidateCompatibility) -> CandidateCompatibilityResponse:
+def candidate_compatibility_response(
+    found: CandidateCompatibility,
+) -> CandidateCompatibilityResponse:
     """A candidate's compatibility: into the default workspace, and per workspace of its model."""
     return CandidateCompatibilityResponse(
         classification=found.default.classification,
@@ -264,7 +269,24 @@ def workspace_assignment_response(assignment: Assignment) -> WorkspaceAssignment
     )
 
 
-def workspace_response(item: Workspace, assignment: Assignment) -> WorkspaceResponse:
+def workspace_availability(
+    assignment: Assignment, unavailable: dict[int, Unavailable]
+) -> WorkspaceAvailable | WorkspaceUnavailable:
+    found = unavailable.get(assignment[1].id)
+    if found is None:
+        return WorkspaceAvailable()
+    return WorkspaceUnavailable(
+        reason=found.reason,
+        releaseId=found.release_id,
+        schemaVersion=found.schema_version,
+        supportedSchemaVersions=list(SCHEMA_VERSIONS),
+        raisable=found.raisable,
+    )
+
+
+def workspace_response(
+    item: Workspace, assignment: Assignment, unavailable: dict[int, Unavailable]
+) -> WorkspaceResponse:
     return WorkspaceResponse(
         key=item.key,
         label=item.label,
@@ -273,12 +295,14 @@ def workspace_response(item: Workspace, assignment: Assignment) -> WorkspaceResp
         createdAt=as_utc(item.created_at),
         updatedAt=as_utc(item.updated_at),
         model=workspace_model_response(assignment),
+        availability=workspace_availability(assignment, unavailable),
     )
 
 
 def workspace_page_items(session: Session, items: list[Workspace]) -> list[WorkspaceResponse]:
     assignments = assignments_of(session, (item.key for item in items))
-    return [workspace_response(item, assignments[item.key]) for item in items]
+    unavailable = unavailability(session, (release for _row, release in assignments.values()))
+    return [workspace_response(item, assignments[item.key], unavailable) for item in items]
 
 
 def workspace_detail_response(session: Session, item: Workspace) -> WorkspaceDetailResponse:
@@ -288,8 +312,11 @@ def workspace_detail_response(session: Session, item: Workspace) -> WorkspaceDet
         load_workspace_runtime_state(session).default_workspace_key,
         with_counts=False,  # Only whether it is empty, not how much: no count over every object.
     )
+    assignment = load_assignment(session, item.key)
     return WorkspaceDetailResponse(
-        **workspace_response(item, load_assignment(session, item.key)).model_dump(),
+        **workspace_response(
+            item, assignment, unavailability(session, [assignment[1]])
+        ).model_dump(),
         deletable=blocker is None,
         deleteBlockedBy=blocker,
     )
@@ -427,8 +454,7 @@ def feed_page(session: Session, page: FeedRead) -> FeedPage:
     named_actors = actors(session, page.entries)
     return FeedPage(
         items=[
-            _feed_entry(event, releases, named_actors[event.sequence_id])
-            for event in page.entries
+            _feed_entry(event, releases, named_actors[event.sequence_id]) for event in page.entries
         ],
         nextAfter=page.next_after,
         headPosition=page.head_position,
@@ -650,7 +676,9 @@ def delivery_detail_response(found: dict[str, Any]) -> DeliveryDetail:
                 completedAt=_utc_or_none(attempt.completed_at),
                 durationMs=attempt.duration_ms,
                 responseStatus=attempt.response_status,
-                error=DeliveryAttemptError(kind=attempt.error_kind, message=attempt.error_message or "")
+                error=DeliveryAttemptError(
+                    kind=attempt.error_kind, message=attempt.error_message or ""
+                )
                 if attempt.error_kind
                 else None,
                 responseBody=attempt.response_body,

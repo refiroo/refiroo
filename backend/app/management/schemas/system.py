@@ -9,6 +9,10 @@ from .common import CollectionPage
 class EngineInfo(BaseModel):
     version: str = Field(description="The product version, as the API document's info.version")
     managementApi: Literal["v1"]
+    license: str = Field(description="The licence the engine is offered under, an SPDX identifier")
+    sourceCode: str = Field(
+        description="Where the corresponding source of the running version is (SOURCE_CODE_URL)"
+    )
 
 
 class ActiveModelRelease(BaseModel):

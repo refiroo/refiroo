@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import { UnavailableBadge, unavailability } from "@/features/workspaces/UnavailableWorkspace";
 import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
 import type { Workspace } from "@/types";
 import { EntityList, type EntityGroup } from "@/ui/EntityList";
@@ -69,12 +70,16 @@ export function WorkspaceList({ defaultKey, onOpen }: { defaultKey?: string; onO
       title: workspace.label,
       subtitle: `${workspace.key} · ${workspaceModelLabel(workspace)}`,
       icon: "workspace" as const,
-      pill:
-        workspace.key === defaultKey ? (
-          <StatusPill tone="success">Default</StatusPill>
-        ) : (
-          workspace.status === "retired" && <StatusPill tone="neutral">Retired</StatusPill>
-        ),
+      pill: (
+        <>
+          {workspace.key === defaultKey ? (
+            <StatusPill tone="success">Default</StatusPill>
+          ) : (
+            workspace.status === "retired" && <StatusPill tone="neutral">Retired</StatusPill>
+          )}
+          {unavailability(workspace) && <UnavailableBadge />}
+        </>
+      ),
       onOpen: () => onOpen(workspace.key),
     })),
   });

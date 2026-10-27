@@ -15,7 +15,7 @@ from ....models.schema import (
 )
 from ..diagnostics import ModelReferenceError
 from ..traversal import ancestor_type_keys, related_object_types
-from .fields import ANCESTOR_FIELD_PREFIX, check_fields, check_panel_object_types, require_schema
+from .fields import ANCESTOR_FIELD_PREFIX, check_fields, check_panel_object_types
 from .index import ModelIndex
 
 
@@ -212,8 +212,6 @@ def _check_relations_panel_sort(
     config_path = f"{panel_path}/config"
     if config.sortFields is None and config.defaultSort is None:
         return
-    first_path = f"{config_path}/{'sortFields' if config.sortFields is not None else 'defaultSort'}"
-    require_schema(model, "0.7", first_path, f"{label} sort configuration")
     if config.sortFields is not None and len(config.sortFields) != len(set(config.sortFields)):
         raise ModelReferenceError(
             "DUPLICATE_KEY", f"{config_path}/sortFields", f"{label} sortFields must be unique"

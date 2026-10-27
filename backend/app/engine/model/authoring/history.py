@@ -26,7 +26,7 @@ from ....models.database import ModelDraft, ModelDraftOperation
 from ...authorization.writes import requester_of
 from ...identity.principals import Ref, columns, names, ref
 from ...sources import draft_profile
-from ..compiler import ModelDiagnostic, compile_authored_model
+from ..compiler import ModelDiagnostic, compile_model
 from ..drafts import load_draft_for_update, update_draft
 from .document import PROFILE, PROFILE_IDENTITIES, Document, Refusal
 from .kinds import INTERNAL_KINDS, Applied, Context, MigrationRequired, apply_operation, element_of
@@ -403,7 +403,7 @@ class _Drafts:
         draft = update_draft(
             session, draft.public_id, expected_version, name=None, model=model, profile=profile
         )
-        compiled = compile_authored_model(draft.model_json)
+        compiled = compile_model(draft.model_json)
         warnings = draft_profile.diagnostics(
             draft.profile_json, compiled.model if compiled.valid else None
         )

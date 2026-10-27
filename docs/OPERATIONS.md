@@ -59,6 +59,7 @@ and the one line the API and the Deployment page show) and to the table of its g
 | `RDM_CURSOR_SIGNING_KEY` | ephemeral | Secret that signs pagination cursors. Without it each process generates its own key, so cursors stop working after a restart and between instances |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API. They are also where a person's sign-in may return: `<origin>/signed-in` for each (0.12 D267), so the browser application is served at the root of one of them. **The API reference at `/docs` is a browser page too:** when it calls the engine from an origin not listed here (for example `Try it` on `/oauth/token`), the browser's preflight answers `400 Disallowed CORS origin` before the request is sent. List the origin the reference is opened at; `scripts/dev.sh engine` lists the engine's own addresses |
 | `PUBLIC_URL` | `http://localhost:8000` | The engine's address as callers reach it, behind any proxy: the issuer (`iss`) of its tokens and the base of the addresses in `/.well-known/oauth-authorization-server` (0.12 D259). An absolute `http` or `https` URL; anything else stops startup. Set it on every production installation, the same on every process. See [Authentication](#authentication) |
+| `SOURCE_CODE_URL` | `https://github.com/refiroo/refiroo/tree/v<version>` | Where the source of the running version is offered to its users: `GET /system` (`engine.sourceCode`), Settings › About and the account menu show it (0.12 L1, D219; AGPL section 13). **An operator who runs a modified version sets it to the address of their own corresponding source**, including the modifications and the scripts and configuration that are part of the work; an absolute `http` or `https` address, anything else stops startup |
 | `SECRETS_ENCRYPTION_KEY` | required | 32 bytes in URL-safe base64 (`python -m app.cli.generate_key`); seals the stored token signing keys and webhook signing keys (AES-256-GCM, D253). Startup refuses without it, and refuses the setting it replaced, `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, by name. Keep it outside the database and its backups; the same on every process |
 | `ACCESS_TOKEN_MINUTES` | `60` | Minutes an access token lasts, for people and clients (D251). A deactivation or a retired key applies on the next request whatever the lifetime |
 | `TOKEN_SIGNING_KEY_DAYS` | `30` | Days a token signing key signs; the first token issued after that brings a new key, and the old one keeps accepting its tokens until they expire (D254, D264) |
@@ -585,6 +586,11 @@ migration from SQLite.
 
 ## Startup checks and health
 
+Startup does not stop for a bootstrap model whose release key and version are already stored with other
+content: it logs one error and serves. If the stored release is of a schema outside the window, the error
+gives the `model_release_raise` command; if it is in the window, the model file changed without a new
+`release.version`, and the error asks to raise it in `RDM_MODEL_PATH`'s file and restart.
+
 Startup refuses to serve, logs what to do and answers `GET /health` with `503` when:
 
 - `DATABASE_URL` is missing, not PostgreSQL, uses another driver, or the server is unreachable;
@@ -592,9 +598,11 @@ Startup refuses to serve, logs what to do and answers `GET /health` with `503` w
   be created;
 - the database schema revision is unknown, or a migration fails (see [Upgrades](#upgrades));
 - every workspace runs a model release whose schema is outside the engine's window; the log names
-  the release's and the supported schemas and the recovery: for schema 0.4 the offline transition
-  command (`python -m app.cli.model_schema_upgrade`), for a schema newer than the window (a database
-  a later RDM Engine used) to start that version (0.11 V4);
+  the release's and the supported schemas and the recovery: for a schema older than the window, the exact
+  command `python -m app.cli.model_release_raise` (run offline in the backend directory; it raises the stored
+  releases to the window's schema in place, `--dry-run` only reports, and a release whose raised model is not
+  valid or equals another release is left and reported; 0.12 L2a), for a schema newer than the
+  window (a database a later RDM Engine used) to start that version (0.11 V4);
 - `RDM_MODEL_PATH` names a model of a schema outside the window: the process does not start, and the
   message names the setting, the file, its schema and the supported ones;
 - `SECRETS_ENCRYPTION_KEY` is missing or not 32 bytes in URL-safe base64, or the retired
@@ -1004,12 +1012,10 @@ database's default workspace); an existing database keeps the release each works
 (`workspace_models`, 0.11 M1), even when the file holds a newer one. Changing the file never activates
 it. A release this version cannot serve, such as one of an unsupported schema, makes only the
 workspaces running it unavailable (`503 MODEL_REGISTRY_UNAVAILABLE` naming the workspace); startup
-logs each, with the schema upgrade command for schema 0.4 or, for a schema newer than the window,
-the later engine to run, and `/health` answers 503 only when no
+logs each, with the recovery for a schema older than the window (a new database) or, for a schema newer
+than the window, the later engine to run, and `/health` answers 503 only when no
 workspace can be served (or the database is unreachable).
-A schema 0.8 file that declares `consumerApis` refuses to start, naming the file: rewrite its
-consumer API definitions in schema 0.9 or point `RDM_MODEL_PATH` at a 0.9 model such as
-`model/rdm-starter.json` (0.9 C18). Releases already installed are not affected.
+A model file of a schema outside the window refuses to start, naming the file.
 
 The model lifecycle is staged: save a draft, validate and compile it (no side effects), install it as
 an immutable inactive release, then activate it with the current runtime version and active-release

@@ -3,7 +3,6 @@
 from ....common.json_pointer import pointer_segment
 from ....models.schema import EngineModel, ObjectTypeAttributeDefinition, ObjectTypeDefinition
 from ..diagnostics import ModelReferenceError
-from .fields import require_schema
 from .index import ModelIndex
 
 
@@ -75,7 +74,6 @@ def _check_effective_period(
     if period is None:
         return
     path = f"{_base_path(object_type)}/effectivePeriod"
-    require_schema(model, "0.8", path, "effectivePeriod")
     for role in ("startAttributeTypeKey", "endAttributeTypeKey"):
         key = getattr(period, role)
         if key not in bindings:

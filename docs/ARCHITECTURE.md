@@ -85,8 +85,8 @@ validation in SQL is deferred until after 1.0.
   fields and their sources, related records, XREF matching, filters, lists, events and a contract
   version
 
-The engine reads schema versions 0.5 to 0.9; `python -m app.cli.model_schema_upgrade` transitions an
-older installed model offline. Definition objects are frozen recursively, so a cached model cannot
+The engine reads the one schema version in the window (0.10; before 1.0 the window is cleaned at every
+release, [APPLICATION_MODEL](APPLICATION_MODEL.md#schema-versions-and-the-window)). Definition objects are frozen recursively, so a cached model cannot
 change without installing and selecting another release.
 
 **Consumer API definitions have one internal form.** A model document holds its definitions as the

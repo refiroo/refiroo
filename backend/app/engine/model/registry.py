@@ -175,6 +175,11 @@ class ModelRegistry:
             return known
         return None
 
+    def unavailability(self, release: ModelRelease) -> UnavailableWorkspaceModel | None:
+        """Why this process cannot serve ``release`` (None when it can), as a workspace's request
+        would find it; nothing is raised (0.12 UW1)."""
+        return self._unavailable_release(release)
+
     def start(self, session: Session) -> list[UnavailableWorkspaceModel]:
         """Load every release a workspace runs, at startup; the ones this process cannot serve.
 

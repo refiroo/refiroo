@@ -64,6 +64,15 @@ export function AboutPage({ onNavigate }: { onNavigate: (route: SettingsRoute) =
                 { term: "Engine version", value: system.engine.version },
                 { term: "Management API", value: <code>{system.engine.managementApi}</code> },
                 { term: "Schema languages", value: system.schemaLanguages.join(", ") },
+                { term: "Licence", value: system.engine.license },
+                {
+                  term: "Source code",
+                  value: (
+                    <a href={system.engine.sourceCode} target="_blank" rel="noreferrer">
+                      {system.engine.sourceCode}
+                    </a>
+                  ),
+                },
               ]}
             />
           </Section>

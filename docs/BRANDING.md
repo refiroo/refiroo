@@ -7,15 +7,15 @@ start of a sentence.
 
 refiroo is an RDM (reference data management) engine, and it has an engine inside it. So "the RDM
 engine" and "the engine" remain the right words for the part that runs models, serves the API and
-keeps the data, wherever a technical text is clearer for using them: `rdm-engine` is the repository
-and the Python distribution, and "the engine" is the layer in [ARCHITECTURE.md](ARCHITECTURE.md). The
+keeps the data, wherever a technical text is clearer for using them: `rdm-engine` is the Python
+distribution and the directories (the repository is `refiroo/refiroo`, 0.12 L1), and "the engine" is the layer in [ARCHITECTURE.md](ARCHITECTURE.md). The
 rule is the one between a product and its parts:
 
 | Say | When |
 | --- | --- |
 | refiroo | the application as a whole: what a person opens, signs in to, reads about or asks for |
 | the engine, the RDM engine | the runtime inside it, in technical text: layers, packages, processes, contracts |
-| `rdm-engine` | the repository, directories, the package and anything already named so in code |
+| `rdm-engine` | directories, the package and anything already named so in code |
 
 Nothing is renamed by search and replace. Package names, the `RDM_*` settings, the `rdm:` storage keys
 and history in the changelog and in old plans keep what they say; they are technical names, and

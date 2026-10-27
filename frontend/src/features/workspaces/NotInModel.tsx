@@ -12,6 +12,7 @@ import type { RouteProblem } from "@/app/useRouter";
 import { applicationFor, objectTypeFor } from "@/model/lookup";
 import { navigationGroupFor } from "@/model/collections";
 import { workspaceModel } from "@/model/workspaceModels";
+import { UnavailableWorkspace, unavailability } from "@/features/workspaces/UnavailableWorkspace";
 import { missingElement, parseRoute, type MissingElement } from "@/routing/routes";
 import type { EngineModel, RouteState, Workspace } from "@/types";
 import { PageHeader } from "@/ui/PageHeader";
@@ -64,6 +65,21 @@ export function NotInModel({
   onNavigate: (route: RouteState) => void;
 }) {
   const [holders, setHolders] = useState<Holder[]>();
+  // The workspace that cannot be served, as the workspaces read says why (0.12 UW1, D446).
+  const [unserved, setUnserved] = useState<{ key: string; workspace?: Workspace }>();
+  const unavailableKey = problem.kind === "workspace" && problem.unavailable ? problem.workspaceKey : undefined;
+
+  useEffect(() => {
+    if (!unavailableKey) return;
+    let active = true;
+    api.workspace(unavailableKey).then(
+      (found) => active && setUnserved({ key: unavailableKey, workspace: found }),
+      () => active && setUnserved({ key: unavailableKey }),
+    );
+    return () => {
+      active = false;
+    };
+  }, [unavailableKey]);
 
   useEffect(() => {
     if (problem.kind === "workspace") return;
@@ -108,6 +124,17 @@ export function NotInModel({
 
   if (problem.kind === "workspace") {
     const missingKey = problem.workspaceKey;
+    const read = unserved?.key === missingKey ? unserved : undefined;
+    if (problem.unavailable && !read) {
+      return (
+        <section className="not-in-model">
+          <PageHeader variant="plain" focusTitle title={`Workspace ${missingKey} cannot be opened`} />
+        </section>
+      );
+    }
+    if (read?.workspace && unavailability(read.workspace)) {
+      return <UnavailableWorkspace workspace={read.workspace} form="page" onNavigate={onNavigate} />;
+    }
     return (
       <section className="not-in-model">
         <PageHeader

@@ -33,7 +33,7 @@ from ..imports.readers import TabularFile, open_tabular
 from ..jobs.batches import BatchContext, JobCancelled
 from ..jobs.files import JobFiles
 from ..jobs.store import ItemOutcome, complete_job, job_parameter, record_outcomes, start_job
-from ..model.compiler import compile_authored_model
+from ..model.compiler import compile_model
 from ..model.drafts import load_draft
 from ..model.registry import resolve_model_snapshot
 from ..workspaces.catalogue import resolve_workspace
@@ -453,7 +453,7 @@ def _current_draft(session: Session, job: Job) -> ModelDraft:
 
 
 def _compiled(draft: ModelDraft) -> EngineModel:
-    compiled = compile_authored_model(draft.model_json)
+    compiled = compile_model(draft.model_json)
     if not compiled.valid or compiled.model is None:
         raise InvalidDraft(compiled.diagnostics)
     return compiled.model

@@ -24,21 +24,6 @@ RELATED_COLUMN_PLACES = (
 )
 
 
-def require_schema(model: EngineModel, minimum: str, path: str, feature: str) -> None:
-    """Refuse ``feature`` at ``path`` when the model's schema version predates ``minimum``."""
-    if _schema_version(model.schemaVersion) < _schema_version(minimum):
-        raise ModelReferenceError(
-            "INVALID_MODEL",
-            path,
-            f"{feature} requires schema version {minimum} or later; "
-            f"this model uses {model.schemaVersion}",
-        )
-
-
-def _schema_version(version: str) -> tuple[int, ...]:
-    return tuple(int(part) for part in version.split("."))
-
-
 def check_fields(
     fields: Sequence[str | None],
     object_types: Sequence[ObjectTypeDefinition],
@@ -98,7 +83,6 @@ def _check_related_fields(
             f"{label} cannot show relation column '{fields[0]}': a relation column is allowed only"
             f" in {RELATED_COLUMN_PLACES}",
         )
-    require_schema(model, "0.9", path, f"{label} relation column '{fields[0]}'")
     for field in fields:
         key = field.removeprefix("related:")
         for object_type in object_types:

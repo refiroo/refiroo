@@ -643,7 +643,7 @@ def generated(variant: str) -> Configuration:
     ]
     applications.append(lens)
     model = {
-        "schemaVersion": "0.9",
+        "schemaVersion": "0.10",
         "release": {
             "key": f"journeys-{variant}",
             "name": f"Journey model {variant.upper()}",

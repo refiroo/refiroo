@@ -21,7 +21,6 @@ The dataset is a seed of its own, built once through ``POST /batches`` and reuse
   (Train).
 """
 
-import copy
 import re
 from collections.abc import Iterator
 from typing import Any
@@ -30,15 +29,9 @@ from uuid import uuid4
 import pytest
 import seeds
 from configurations import parity
-from model_support import without_relation_columns
 from openapi_schema_validator import OAS31Validator
-from scenario import SOURCE, W1, application, derive_events, ok, refused
+from scenario import SOURCE, W1, application, ok, refused
 from sqlalchemy import URL
-
-from app.db import SessionLocal
-from app.engine.model.bootstrap import ensure_bootstrap_release
-from app.engine.model.compiler import parse_model
-from app.engine.model.consumer_definitions import consumer_apis
 
 API = "/api/consumer/rdm/v1"
 CONFIGURATION = parity()
@@ -532,97 +525,3 @@ def test_the_reference_shape(fixture):
     assert set(train["parent"]) == PARENT_KEYS
     assert train["parent"]["masterId"] == fixture.ids["Timetable types"]
     assert (train["parent"]["objectType"], train["parent"]["code"]) == ("Codelist", "MOT")
-
-
-# --- the definition rewritten (C18) --------------------------------------------------------------
-
-
-SUBSCRIPTIONS = {"CONSUMER_SUBSCRIPTIONS_ENABLED": "true"}
-
-
-def _stored_in_schema_0_8(model: dict[str, Any]) -> str:
-    """``model`` installed as a release stored before C18: schema 0.8, its definitions in the 0.8
-    shape, which is the engine's internal form written out. Installed below the API, which no longer
-    takes such a document (C-D134), as the release was installed when it could."""
-    legacy = copy.deepcopy(model)
-    legacy["schemaVersion"] = "0.8"
-    without_relation_columns(legacy)
-    legacy["release"]["version"] += "-schema-0.8"
-    legacy["consumerApis"] = [item.model_dump(mode="json") for item in consumer_apis(parse_model(model))]
-    with SessionLocal() as session:
-        release = ensure_bootstrap_release(session, parse_model(legacy))
-        session.commit()
-        return release.public_id
-
-
-def _served(parity: Parity) -> dict[str, Any]:
-    """What a consumer reads: each answer's status, body and the headers it names, without the
-    ``ETag`` values, which name the release (C-D65); the document without the release it names."""
-    ids = parity.ids
-    world = parity.world
-    calls = {
-        "object": ("get", f"/objects/{ids['Train']}", None, {}),
-        "list": ("get", "/lists/values", None, {"codelist": ids["Timetable types"], "language": "de"}),
-        "filtered": ("get", "/lists/all-values", None, {"codelist": "MOT", "type": "CodelistValue"}),
-        "xref": ("get", "/xref", None, {"query": "CHF"}),
-        "one": ("get", "/xref", None, {"query": "CHF", "system": "SAP", "expect": "one"}),
-        "crosswalk": ("get", "/xref", None, {"query": "CHF", "system": "SAP", "to__system": "Oracle", "expect": "one"}),
-        "resolve": ("post", "/resolve", {"items": [{"query": "CHF", "system": "SAP"}, {"id": ids["Euro"]}]}, {}),
-        "events": ("get", "/events", None, {"after": "0", "pageSize": "100"}),
-    }
-    served: dict[str, Any] = {}
-    for name, (method, path, body, params) in calls.items():
-        response = parity.call(method, path, body, **params)
-        named = {key: value for key, value in response.headers.items() if key.lower().startswith("rdm-")}
-        served[name] = (response.status_code, response.json(), named, "etag" in response.headers)
-    served["index"] = ok(world.api.get("/api/consumer"))
-    document = ok(world.api.get(f"{API}/openapi.json"))
-    description = document["info"]["description"]
-    document["info"]["description"] = re.sub(r"declared by the model release .+? \S+\. ", "", description)
-    served["document"] = document
-    return served
-
-
-@pytest.mark.journey("J25.5")
-def test_rewriting_the_definition_in_schema_0_9_changes_nothing_it_serves():
-    """Given the workspace active on the fixture's definition stored in schema 0.8, with a webhook on
-    its event. When the same definition in schema 0.9 is compiled, installed and activated. Then no
-    consumer contract changes, the webhook stays active, and get by ID, a list below a parent with a
-    filter, a filtered list, XREF (a page, expect=one, a crosswalk), batch resolve, the pull feed and
-    the API index answer the same bodies and headers apart from the ETag values; the definition's
-    OpenAPI document differs only in the release it names."""
-    name = _seed()
-    payload = seeds.ensure(name)
-    url = seeds.clone(name)
-    try:
-        with application(CONFIGURATION, url, SUBSCRIPTIONS) as world:
-            ids = dict(payload["ids"])
-            ok(world.activate(_stored_in_schema_0_8(CONFIGURATION.model)))
-            webhook = {
-                "name": "Reference data",
-                "consumerApi": "rdm",
-                "workspaceKey": W1,
-                "events": ["reference-data-changed"],
-                "url": "https://hooks.example.test/rdm",
-            }
-            subscription = ok(world.api.post("/consumer-subscriptions", webhook), 201)
-            derive_events(world)
-            before = _served(Parity(world, ids))
-            assert before["events"][0] == 200 and before["events"][1]["items"], before["events"]
-
-            model = copy.deepcopy(CONFIGURATION.model)
-            model["release"]["version"] += "-schema-0.9"
-            draft = ok(world.api.post("/model-drafts", {"name": "Rewritten", "model": model}), 201)
-            compiled = ok(world.api.post(f"/model-drafts/{draft['id']}/compile", {"expectedVersion": draft["version"]}))
-            assert compiled["valid"] is True, compiled["diagnostics"]
-            assert compiled["consumerContracts"]["classification"] == "compatible"
-            assert compiled["consumerContracts"]["diagnostics"] == []
-            ok(world.activate(world.install(model)["id"]))
-            derive_events(world)
-
-            assert ok(world.api.get(f"/consumer-subscriptions/{subscription['id']}"))["status"] == "active"
-            after = _served(Parity(world, ids))
-            for read in before:
-                assert after[read] == before[read], read
-    finally:
-        seeds.drop(url.database)

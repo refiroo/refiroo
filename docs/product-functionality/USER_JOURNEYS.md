@@ -781,15 +781,9 @@ their events produced from C10 (J30); written in schema 0.9 since C18.
 - **J25.4 Events in the contract**: a release that tells consumers less (an event, a type, a change
   kind or a watched output removed, a watch added) needs a higher contract version; one that tells
   them more is compatible (C-D85).
-- **J25.5 Rewriting a definition changes nothing it serves**: a workspace active on a model whose
-  definitions are in schema 0.8 installs and activates the same definitions rewritten in 0.9. No
-  consumer contract change is reported and no subscription is suspended; get by ID, a list with a
-  parent and filters, XREF (a page, `expect=one`, a crosswalk), batch resolve, the pull feed and the
-  API index answer the same bodies and headers apart from the `ETag` values, and the definition's
-  OpenAPI document is the same apart from the release it names (C18).
-- **J25.6 Schema 0.8 refused for new definitions**: installing, compiling or validating a schema 0.8
-  document that declares `consumerApis` is refused at `/schemaVersion`, naming schema 0.9; a 0.8
-  document without them installs, and a stored 0.8 release stays readable (C-D134).
+- **J25.5, J25.6 Retired (0.12 L2a, D439):** the rewrite of 0.8 definitions into 0.9 and the refusal of schema 0.8
+  for new definitions left with schema 0.8; the window holds the version that reads definitions in their
+  present syntax only.
 - **J25.7 Operations a definition offers**: an operation the definition does not list answers
   `404 OPERATION_NOT_OFFERED` and is left out of its OpenAPI document; no longer offering one needs
   a higher contract version, offering one more is compatible; `resolve` without `xref` is refused at
@@ -1108,60 +1102,22 @@ through the API and at startup).
   losses in the change set's content and what must be fixed, including a record changed both in the
   change set and live since it started; the confirmation converts and moves the change set, or
   nothing happens, and live data is never touched (V3).
-- **J37.8 Schema versions side by side**: workspaces run releases of different schema versions in
-  the window at once, each read and written under its own; a release raised to a newer version with
-  nothing else changed activates without a migration; a migration across versions converts only
-  what the two releases declare differently; a draft raised to a newer version may use what it
-  adds, and lowered is invalid where it uses it; a version outside the window is refused at
-  installation naming the window, a workspace on a release a later engine wrote is unavailable on
-  its own with that recovery, and a model file outside the window refuses to start (V4).
-
-A record the migrated data would break a rule of the target for is refused, and the migration
-cannot be confirmed until the data is fixed and previewed again.
-
-**Refusals:** `409 MIGRATION_REVIEW_STALE`, `409 MIGRATION_HAS_REFUSALS`,
-`422 MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE`, `404 CHANGE_SET_NOT_FOUND`,
-`422 MIGRATION_LOSS_NOT_ACCEPTED`, `422 INVALID_MIGRATION_MAPPING`,
-`422 MIGRATION_TARGET_IS_CURRENT`, `422 MIGRATION_TARGET_NOT_WORKSPACE_RELEASE`, `422 UNSUPPORTED_SCHEMA_VERSION`, `409 WORKSPACE_RETIRED`; the
-job's `MIGRATION_FAILED`.
-
-**Evidence today:** `tests/journeys/test_j37_workspace_migration.py` (7 cases, generated A and B,
-each with a target release derived in the test: a preview, a confirmation with and without
-accepting the loss, a type mapping, cancel, stale reviews, refusals, a failed execution);
-`tests/journeys/test_j37_6_change_set_release.py` (J37.6: 6 cases on generated A and B, a change
-set from an older publication published with the migration, a stale change set, a publication
-refused in the preview, the start refusals, a failed publication); in the browser
-`test:browser:workspace-v1` case 6 (the change set bar's offer, the page, Migrate and publish, on both
-configurations);
-`tests/journeys/test_j37_7_change_set_moved.py` (J37.7: 8 cases on generated A and B, a change set
-left on the release its workspace ran: the preview, the confirmation and its publication afterwards,
-a type mapping, a conflict with live data, a rule refused until fixed, stale and cancelled previews,
-the start refusals, a failed move); in the browser `test:browser:workspace-v1` case 7 (the bar's
-offer, the page, Move change set, on both configurations);
-`tests/unit/engine/model/test_change_set_migrations.py` (the conflicts by content, the index
-statement);
-`tests/unit/engine/model/test_migrations.py` (the plan, the conversions against the import's reading
-of a cell, an executed migration leaving the matrix cell states true); the upgrade in
-`test_startup`; in the browser `test:browser:workspace-v1` (generated-a and generated-b: the
-preview from the activation dialog, a type mapped from the page, the confirmation by keyboard,
-refusals, a stale review, 390px); the budget `test_migration_budget` (100,000 records, once).
-
-### J38 — Move data between workspaces whose models differ
-
-**Actor:** model administrator; data steward. **Channel:** UI (the move editor), API.
-**Stories:** US-P09. **Status:** J38.1 delivered through the API (0.11 X1); the selection and the
-dry run of every item delivered through the API (0.11 X2); the move into change sets, copy or move,
-found again and moved back, delivered through the API (0.11 X3); the move editor delivered in the
-browser (0.11 X4); the checkpoint at full volume planned (0.11 X5).
-
-1. Open a mapping from the source workspace's model to the target's; the engine proposes it and the
-   user completes it.
-2. Choose what moves and read the dry run of every item: what is created, updated, and what cannot
-   move with the reason.
-3. Copy or move into a change set of the target workspace, review it and publish it.
-
-**Variants:**
-
+- **J37.8 The schema-language window**: before 1.0 the window holds the one version a release writes
+  (0.12 L2a, D439); a version outside it is refused at installation naming the window, a workspace on a
+  release outside it is unavailable on its own with that recovery, and a model file outside it refuses
+  to start (V4). Until 0.12 the window held 0.5 to 0.10 and its releases ran side by side.
+- **J37.9 A workspace that cannot be served** (0.12 UW1): a workspace whose release the engine cannot
+  serve says so in the workspace list and on the workspace, with the reason (the schema left the window,
+  is a later engine's, or the release is invalid), the release, the schema and the window. For a schema
+  that left the window, someone who may install models previews raising the release to the window's
+  schema (the schemas, the consumer API definitions rewritten, the workspaces that return; nothing
+  changes), then confirms it against the hash the preview named; the release is rewritten in place, so
+  its records, change sets and publications follow, and every process serves the workspace again from
+  its next request. A release already in the window is refused, as is one whose raised document is
+  invalid or equals another release. A maintenance step before 1.0. In the interface the not-opened screen,
+  the workspace's row in Settings › Workspaces and the top of its Overview say why; those who may not install
+  models read a sentence asking for the Model administrator role, and after a raise "Open" and "Choose
+  another model…" follow.
 - **J38.1 The mapping proposed and completed**: proposals with evidence placed as editable steps,
   corrected by hand, undone and redone, saved and reused. Records are matched by the unique attribute
   whose values the two workspaces share, of any value type.
@@ -1905,8 +1861,13 @@ controlled diagnostics.
 - **J12.5 An interrupted migration** leaves the database at its previous revision; the next start
   recovers. Not tested before 1.0: no instance runs an older version, so upgrades, downgrades and
   interrupted migrations are not exercised (the user, 2026-10-23).
-- **J12.6 An unsupported model schema in the database**: startup names the offline upgrade command,
-  which installs and selects a supported release atomically.
+- **J12.6 A model schema outside the window**: a model file of a schema that left the window refuses to
+  start, naming the setting, the file and the supported schema; a stored release of one makes only its
+  workspaces unavailable (`503`), and the service still starts. When the bootstrap model's own release is
+  stored in such a schema, the one logged error gives the command `python -m app.cli.model_release_raise`
+  (`--dry-run` reports only), which raises the stored releases in place; the next start serves them. A
+  stored release in the window with other content than the model file logs one error asking for a new
+  `release.version` (0.12 L2a, D439).
 - **J12.7 Settings**: model administration, workspace administration, integration jobs and their
   limits, the API reference script; an invalid setting refuses to start.
 - **J12.8 The database goes away while running**: requests answer `503 DATABASE_UNAVAILABLE`
@@ -1979,6 +1940,10 @@ Settings change only with a restart; the API and the page read them, never edit 
 - **J31.2 Secrets**: the cursor signing key and the webhook key-encryption key read no value, only
   whether they are set; `DATABASE_URL` reads without its password.
 - **J31.3 After an activation**: the active release is the one activated, with the activation's time.
+- **J31.4 The source and the licence** (0.12 L1, D219): the engine names its licence
+  (`AGPL-3.0-or-later`, also the API document's `info.license`) and where the source of the running
+  version is; unset, that is the project's tag of the version, and an operator running a modified version
+  sets `SOURCE_CODE_URL` to their own; an address that is not `http(s)` stops startup (J12).
 
 **Evidence today:** `test_j31_system`; the settings catalogue and URL masking in
 `tests/unit/test_config.py`; the settings pages in `e2e/u3-settings.mjs`.

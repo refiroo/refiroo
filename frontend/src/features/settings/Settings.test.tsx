@@ -29,7 +29,12 @@ const setting = (name: string, group: SystemSetting["group"], value: unknown, so
 });
 
 const system: SystemResponse = {
-  engine: { version: "0.9.0-alpha.1", managementApi: "v1" },
+  engine: {
+    version: "0.9.0-alpha.1",
+    managementApi: "v1",
+    license: "AGPL-3.0-or-later",
+    sourceCode: "https://github.com/refiroo/refiroo/tree/v0.9.0-alpha.1",
+  },
   schemaLanguages: ["0.7", "0.8"],
   activeModelRelease: {
     id: "r1",
@@ -225,6 +230,12 @@ describe("About", () => {
     const engine = await screen.findByRole("region", { name: "Engine" });
     expect(engine).toHaveTextContent("0.9.0-alpha.1");
     expect(engine).toHaveTextContent("0.7, 0.8");
+    // The licence and where the source is (AGPL section 13, 0.12 L1).
+    expect(engine).toHaveTextContent("AGPL-3.0-or-later");
+    expect(within(engine).getByRole("link", { name: /github\.com\/refiroo\/refiroo/ })).toHaveAttribute(
+      "href",
+      "https://github.com/refiroo/refiroo/tree/v0.9.0-alpha.1",
+    );
     const release = screen.getByRole("region", { name: "Active model release" });
     expect(release).toHaveTextContent(/Starter.*starter.*0\.9\.0.*0\.8/);
     // The migration revision is the operator's, on Deployment (0.12 D246).
