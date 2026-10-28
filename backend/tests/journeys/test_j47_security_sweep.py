@@ -51,6 +51,9 @@ SWEEP_EXCEPTIONS = {
     ("post", "/api/v1/me/second-factor"): "starts the caller's enrolment; nothing makes it invalid",
     # Security administration: the call removes the instance's mail settings.
     ("delete", "/api/v1/mail-settings"): "removes the mail settings; nothing makes it invalid",
+    # Operations: the call sends the AI provider a test request (0.16 AP1); with none set it is
+    # refused with 409, which J48.4 walks.
+    ("post", "/api/v1/ai/test"): "sends the AI provider a test request; nothing makes it invalid",
 }
 
 # Streams that never end, so a call the caller is allowed cannot be probed and read back by the

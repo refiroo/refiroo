@@ -51,6 +51,17 @@ LOG_LEVELS: tuple[LogLevel, ...] = ("DEBUG", "INFO", "WARNING", "ERROR")
 
 # The setting SECRETS_ENCRYPTION_KEY replaced (D253); startup refuses it, naming the new one.
 RETIRED_ENCRYPTION_KEY = "CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY"
+# The inference assistant's settings, folded onto the proposal provider (0.16 AP1); startup refuses
+# them, naming what replaces them.
+RETIRED_ASSISTANT_SETTINGS = {
+    "INFERENCE_ASSISTANT": "AI_PROVIDER",
+    "INFERENCE_ASSISTANT_ROWS": "AI_SAMPLE_VALUES",
+}
+
+# What may leave the instance for a proposal provider, lowest first (0.16 AP-D3): the structure
+# alone, a bounded number of values per attribute or column as well, or record values too.
+SendLevel = Literal["structure", "samples", "values"]
+SEND_LEVELS: tuple[SendLevel, ...] = ("structure", "samples", "values")
 
 # Regenerating this per process is deliberate: without RDM_CURSOR_SIGNING_KEY, cursors issued
 # before a restart stop verifying after it. It is generated once at import so reloading settings
@@ -126,10 +137,22 @@ class Settings(BaseModel):
     job_preview_max_items: int = Field(default=10_000, ge=1)
     # Operations in one request to a model draft (0.10 A2).
     model_operation_max_items: int = Field(default=500, ge=1)
-    # The optional inference assistant (0.10 A6, A-D5, D95): a factory ``module:function``, empty
-    # for none, and the rows of each sheet it is sent.
-    inference_assistant: str = ""
-    inference_assistant_rows: int = Field(default=20, ge=1)
+    # The proposal provider (0.16 AP1, AP-D2): ``claude``, ``openai-compatible`` or a factory
+    # ``module:function``; empty for none, and then nothing is sent anywhere. The key is read from
+    # the environment only and never shown.
+    ai_provider: str = ""
+    ai_model: str = ""
+    ai_api_key: str = ""
+    ai_base_url: str = ""
+    # The most that may leave the instance (AP-D3), the values sent per column or attribute at
+    # ``samples`` and above, and the confidence below which a proposal is not offered (AP-D6).
+    ai_send_level: SendLevel = "values"
+    ai_sample_values: int = Field(default=20, ge=1)
+    ai_min_confidence: float = Field(default=0.5, ge=0, le=1)
+    # A call's request and answer kept for an operator debugging a prompt, and for how long (AP-D4).
+    ai_log_content: bool = False
+    ai_log_content_days: int = Field(default=7, ge=1)
+    ai_timeout_seconds: int = Field(default=60, ge=1)
     # Export files and, from J2, uploads (D12, D55): one directory, created at start.
     job_file_dir: Path = DEFAULT_JOB_FILE_DIR
     # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
@@ -154,6 +177,13 @@ class Settings(BaseModel):
                 "and seals every stored secret (0.12, D253). Rename the setting, keeping its value, "
                 "and start again"
             )
+        for retired, replacement in RETIRED_ASSISTANT_SETTINGS.items():
+            if env.get(retired, "").strip():
+                raise RuntimeError(
+                    f"{retired} is no longer read: the proposal provider replaces the inference "
+                    f"assistant (0.16 AP1). Set {replacement} instead (OPERATIONS § AI proposals) "
+                    "and start again"
+                )
         return cls(
             database_url=env.get("DATABASE_URL", "").strip() or None,
             model_path=Path(configured_model_path) if configured_model_path else DEFAULT_MODEL_PATH,
@@ -210,8 +240,16 @@ class Settings(BaseModel):
             import_max_bytes=_positive(env, "IMPORT_MAX_BYTES", 200 * 1024 * 1024),
             job_preview_max_items=_positive(env, "JOB_PREVIEW_MAX_ITEMS", 10_000),
             model_operation_max_items=_positive(env, "MODEL_OPERATION_MAX_ITEMS", 500),
-            inference_assistant=env.get("INFERENCE_ASSISTANT", "").strip(),
-            inference_assistant_rows=_positive(env, "INFERENCE_ASSISTANT_ROWS", 20),
+            ai_provider=env.get("AI_PROVIDER", "").strip(),
+            ai_model=env.get("AI_MODEL", "").strip(),
+            ai_api_key=env.get("AI_API_KEY", "").strip(),
+            ai_base_url=env.get("AI_BASE_URL", "").strip().rstrip("/"),
+            ai_send_level=_choice(env, "AI_SEND_LEVEL", SEND_LEVELS, "values", str.lower),
+            ai_sample_values=_positive(env, "AI_SAMPLE_VALUES", 20),
+            ai_min_confidence=_fraction(env, "AI_MIN_CONFIDENCE", 0.5),
+            ai_log_content=env.get("AI_LOG_CONTENT", "false").strip().lower() in TRUTHY,
+            ai_log_content_days=_positive(env, "AI_LOG_CONTENT_DAYS", 7),
+            ai_timeout_seconds=_positive(env, "AI_TIMEOUT_SECONDS", 60),
             job_file_dir=Path(env.get("JOB_FILE_DIR", "").strip() or DEFAULT_JOB_FILE_DIR),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
             consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
@@ -274,6 +312,19 @@ def _positive(env: Mapping[str, str], name: str, default: int) -> int:
         raise RuntimeError(f"{name} must be a positive integer, not {raw!r}") from exc
     if value < 1:
         raise RuntimeError(f"{name} must be a positive integer, not {raw!r}")
+    return value
+
+
+def _fraction(env: Mapping[str, str], name: str, default: float) -> float:
+    raw = env.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = float(raw.strip())
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be a number from 0 to 1, not {raw!r}") from exc
+    if not 0 <= value <= 1:
+        raise RuntimeError(f"{name} must be a number from 0 to 1, not {raw!r}")
     return value
 
 
@@ -359,8 +410,8 @@ def _api_reference_script(raw: str) -> ApiReferenceScript:
     )
 
 
-# The four groups of OPERATIONS § Settings, in its order.
-SettingGroup = Literal["runtime", "capabilities", "limits", "webhooks"]
+# The groups of OPERATIONS § Settings, in its order.
+SettingGroup = Literal["runtime", "capabilities", "limits", "webhooks", "ai"]
 SettingSource = Literal["environment", "default"]
 
 
@@ -499,12 +550,6 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "capabilities",
         "Webhook subscriptions and their delivery",
     ),
-    CatalogueEntry(
-        "INFERENCE_ASSISTANT",
-        "inference_assistant",
-        "capabilities",
-        "The inference assistant's factory; empty for none, the default",
-    ),
     CatalogueEntry("BATCH_MAX_ITEMS", "batch_max_items", "limits", "Items in an inline batch"),
     CatalogueEntry(
         "BATCH_MAX_BYTES", "batch_max_bytes", "limits", "Bytes in an inline batch's body"
@@ -542,12 +587,6 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "model_operation_max_items",
         "limits",
         "Operations in one request to a model draft",
-    ),
-    CatalogueEntry(
-        "INFERENCE_ASSISTANT_ROWS",
-        "inference_assistant_rows",
-        "limits",
-        "Rows of each sheet the inference assistant is sent",
     ),
     CatalogueEntry(
         "JOB_LEASE_SECONDS",
@@ -614,6 +653,63 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "consumer_webhook_log_retention_days",
         "webhooks",
         "Days the webhook delivery log keeps a request, its body and its attempts",
+    ),
+    CatalogueEntry(
+        "AI_PROVIDER",
+        "ai_provider",
+        "ai",
+        "The proposal provider: claude, openai-compatible or a factory module:function; empty, "
+        "the default, sends nothing anywhere",
+    ),
+    CatalogueEntry(
+        "AI_MODEL",
+        "ai_model",
+        "ai",
+        "The provider's model; empty for claude means claude-opus-5-5",
+    ),
+    CatalogueEntry("AI_API_KEY", "ai_api_key", "ai", "The provider's key; never shown", secret=True),
+    CatalogueEntry(
+        "AI_BASE_URL",
+        "ai_base_url",
+        "ai",
+        "The provider's address: required for openai-compatible, empty for Claude's own",
+    ),
+    CatalogueEntry(
+        "AI_SEND_LEVEL",
+        "ai_send_level",
+        "ai",
+        "The most that may leave the instance: structure (no values), samples (a few) or values "
+        "(as many as a feature needs)",
+    ),
+    CatalogueEntry(
+        "AI_SAMPLE_VALUES",
+        "ai_sample_values",
+        "ai",
+        "At send level samples, the most values per column, or rows per sheet, that are sent",
+    ),
+    CatalogueEntry(
+        "AI_MIN_CONFIDENCE",
+        "ai_min_confidence",
+        "ai",
+        "The confidence, 0 to 1, below which a proposal is not offered",
+    ),
+    CatalogueEntry(
+        "AI_LOG_CONTENT",
+        "ai_log_content",
+        "ai",
+        "Keep each call's request and answer for an operator debugging a prompt",
+    ),
+    CatalogueEntry(
+        "AI_LOG_CONTENT_DAYS",
+        "ai_log_content_days",
+        "ai",
+        "Days a call's kept request and answer stay, when AI_LOG_CONTENT is on",
+    ),
+    CatalogueEntry(
+        "AI_TIMEOUT_SECONDS",
+        "ai_timeout_seconds",
+        "ai",
+        "Seconds one call to the provider may take before it fails",
     ),
 )
 

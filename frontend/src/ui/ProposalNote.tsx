@@ -15,12 +15,15 @@ export interface ProposalAlternative {
 export function ProposalNote({
   subtitle,
   summary,
+  origin,
   evidence,
   alternatives,
   busy,
 }: {
   subtitle: string;
   summary?: string;
+  /** Who proposed it, when not the engine's own patterns alone (the AI assistant, 0.16 AP1). */
+  origin?: string;
   evidence: string[];
   alternatives: ProposalAlternative[];
   busy: boolean;
@@ -36,6 +39,7 @@ export function ProposalNote({
         <span className="muted">{subtitle}</span>
       </header>
       {summary ? <p className="proposed-because-summary">{summary}</p> : null}
+      {origin ? <p className="proposed-because-origin">{origin}</p> : null}
       {read && (
         <ul id={`${id}-evidence`} className="proposed-because-evidence" hidden={!open}>
           {evidence.map((line, index) => (

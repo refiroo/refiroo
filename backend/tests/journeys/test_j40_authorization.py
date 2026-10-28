@@ -174,7 +174,14 @@ def test_a_custom_role_copied_from_a_predefined_one(world):
     and publishing answers `403`; changing a predefined role answers `409 ROLE_PREDEFINED`; deleting
     the granted role `409 ROLE_IN_USE`, and once the grant is removed it is deleted."""
     copied = ok(world.api.post("/roles", {"name": "Careful steward", "copiedFrom": "steward"}), 201)
-    assert copied["actionGroups"] == ["browse", "edit-live", "change-sets", "publish", "bulk"]
+    assert copied["actionGroups"] == [
+        "browse",
+        "edit-live",
+        "change-sets",
+        "publish",
+        "bulk",
+        "ai-proposals",
+    ]
     groups = [group for group in copied["actionGroups"] if group != "publish"]
     role = ok(
         world.api.patch(
@@ -348,7 +355,15 @@ def test_what_i_may_do(world):
     assert permissions["workspaceKey"] == W1
     assert {role["key"] for role in permissions["roles"]} == {"steward", "operator"}
     held = {group["key"]: group for group in permissions["actionGroups"]}
-    assert set(held) == {"browse", "edit-live", "change-sets", "publish", "bulk", "operations"}
+    assert set(held) == {
+        "browse",
+        "edit-live",
+        "change-sets",
+        "publish",
+        "bulk",
+        "ai-proposals",
+        "operations",
+    }
     assert held["edit-live"]["recordTypes"] == [record_type]
     assert held["browse"]["recordTypes"] == []
     assert held["operations"]["sources"][0]["scope"] == "instance"

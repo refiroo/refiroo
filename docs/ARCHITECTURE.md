@@ -1114,6 +1114,33 @@ without replacing the earlier link. Every message names the product through `tem
 before any account is looked up, so the answer reveals nothing. No other route queues mail; the test message is the one thing sent from a
 request, because its answer is the point. `resealing.py` covers the password and the queued text. Inbox notices are the third producer (M2, D432): `notifications/mailing.py` `queue_notices`, which `MailSender.run_once` calls before it claims, enqueues one message per unread, unhandled notice of a person with `users.notice_mail_since` set and marks it `notifications.mailed_at` in one transaction, so a notice is mailed once.
 
+### AI proposals (0.16)
+
+One provider serves every feature that asks a language model for a proposal (`engine/proposals/`,
+0.16 AP1). `registry.py` resolves `AI_PROVIDER` once at start into an `AiConfiguration` on
+`app.state.ai` and on the job worker's settings: the provider (`claude.py` and `openai_compatible.py`
+over `httpx`, a factory, or none), the send-level policy, the confidence floor and whether content is
+kept; a setting that cannot work refuses the start. Three rules hold the boundary:
+
+- **One reader of data** (`context.py`): a feature builds what is sent through it, and a value is
+  read only when `AI_SEND_LEVEL` allows it, so nothing above the level is even loaded. A feature
+  needing more than the level is not offered.
+- **One caller of the provider** (`calls.ask`): it sends the request, checks the answer against the
+  feature's Pydantic answer model (an answer out of shape is a failed call, never read in part) and
+  writes one `ai_calls` row per call. A job records the call in a session and transaction of its own,
+  so a cancelled job keeps the record of what it spent; kept content is emptied in one statement
+  once its days are up.
+- **Proposals, not writes:** a feature turns the answer into the steps or changes a person already
+  edits; a failure is a warning on the feature and its deterministic result stands. There is no
+  route that sends free text to a provider: asking is an option of the feature's own route
+  (`management/ai.py`), allowed by the action group Use AI proposals, which no route declares as its
+  action (`FEATURE_GROUPS`).
+
+The inference's assistant (`engine/sources/inference/assistant.py`) is the first feature: its names
+become proposals of pattern `assistant` whose `evidence.origin` (`kind: ai`, provider, model, prompt
+version, confidence, reason) is copied into the applied step's origin as `proposedBy`. Provenance on
+change-set changes, for features that propose data, comes with the first of them (AP2).
+
 ### Workspace migrations (0.11 V1)
 
 A migration (`engine/model/migrations.py`) is a background job of one workspace naming a target

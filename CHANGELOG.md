@@ -6,6 +6,40 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.16 AP1, the AI proposal provider)
+
+- **An AI provider for proposals**, set in the environment: `AI_PROVIDER` (`claude`, `openai-compatible` or a
+  factory), `AI_MODEL`, `AI_API_KEY`, `AI_BASE_URL`, and how much may leave the instance, `AI_SEND_LEVEL`
+  (`structure`, `samples`, `values`, default `values`) with `AI_SAMPLE_VALUES`; `AI_MIN_CONFIDENCE`,
+  `AI_LOG_CONTENT`, `AI_LOG_CONTENT_DAYS`, `AI_TIMEOUT_SECONDS`. A setting that cannot work refuses the start.
+  Without a provider nothing is sent anywhere.
+- **Settings › Administration › AI** and `GET /ai/status`, `GET /ai/calls`, `POST /ai/test` (Operations): the
+  provider, the send level, the features offered, a test request and every call with who asked, the sizes, the
+  tokens and the outcome (table `ai_calls`, migration `20261117_01`). `GET /system` answers `ai`.
+- **The action group Use AI proposals** (`ai-proposals`), held by the Data steward, Data owner, Model
+  administrator, Workspace administrator and Integration administrator roles.
+- **The inference's assistant runs on the provider:** `POST /model-drafts/{id}/inference` takes `assistant`
+  (a checkbox in the dialog); its clearer names are proposals of pattern `assistant` carrying
+  `evidence.origin` (`kind: ai`, model, confidence, reason), copied as `origin.proposedBy` into the step that
+  applies one, and shown in the editor's "Proposed because".
+
+### Changed (0.16 AP1)
+
+- **`INFERENCE_ASSISTANT` and `INFERENCE_ASSISTANT_ROWS` are retired**; the start is refused while either is set,
+  naming `AI_PROVIDER` or `AI_SAMPLE_VALUES`. `httpx` is now a runtime dependency (both adapters use it).
+
+- **Every setting in both settings files:** `python -m app.cli.settings_template` writes every engine setting
+  from the settings catalogue, commented out at its default with its description. `scripts/dev.sh settings` uses
+  it for a new `.dev/settings.env` and, run again, adds what an existing file misses and comments out a retired
+  setting; the engine part of `.env.example` is generated from it and a unit test keeps it so. `compose.yml`
+  passes all of `.env` to the engine (`env_file`) instead of a hand-kept list, which had left out every setting
+  but four capability groups.
+
+### Fixed (0.16 AP1)
+
+- `tests/test_startup.py` pinned the schema head at `20261114_01`, two migrations behind 0.12.0;
+  `POST /me/notifications/removal` was missing from the API journey inventory.
+
 ## [0.12.0] - 2026-10-28
 
 Security, authentication and authorization: every caller signs in, every operation is authorized against a role, and

@@ -4703,8 +4703,24 @@ is still the engine's, what changed since (a renamed column in a newer workbook,
 administrator changed any of it, nothing is proposed and a column read otherwise is a disagreement.
 A proposal whose step was undone is `rejected`.
 
-**The optional assistant** (A-D5, D95) is off unless `INFERENCE_ASSISTANT` names a factory
-(OPERATIONS); no provider is bundled.
+**The assistant** (A-D5, D95; on the proposal provider since 0.16 AP1). The request takes
+`assistant`: omitted, the AI provider is also asked for clearer names whenever one is set
+(`AI_PROVIDER`), the send level allows it and the caller holds Use AI proposals; `false` never;
+`true` is refused with `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW` or `403 FORBIDDEN`
+(`details.groups: ["ai-proposals"]`) when it cannot be. The read answers `assistant`, whether it
+was asked. The provider is sent each sheet's name and headers, its first rows from send level
+`samples` up (the helper asks for 50; at `samples` at most `AI_SAMPLE_VALUES`), and the names the rules gave the types they add. Each
+name at or above `AI_MIN_CONFIDENCE` is a proposal of pattern `assistant`, a `setLabel` requiring
+the proposal it renames, whose `evidence.origin` is its provenance:
+
+```json
+{"kind": "ai", "provider": "claude", "model": "claude-opus-5-5", "promptVersion": "model-names/1",
+ "confidence": 0.86, "reason": "The codes are ISO 3166 country codes"}
+```
+
+Applied, the step's `origin.proposedBy` holds the same object beside the person who applied it
+(`author`). A failing provider is a warning on the inference ("The assistant failed (…); the
+proposals of the rules stand"); its proposals stand. See [AI proposals](#ai-proposals-product-016).
 
 ### The next version of a workbook
 
@@ -6208,6 +6224,7 @@ D278).
 | Feed | `feed` | The workspace's change feed | Workspace |
 | Operations | `operations` | Processes, readiness detail, summary, backup rehearsals, `/metrics`, `GET /system/configuration` | Instance |
 | Security administration | `security-admin` | Users, groups, roles, grants, clients, token signing keys, sign-in providers | Instance |
+| Use AI proposals | `ai-proposals` | Ask the configured AI provider for proposals the person then edits, keeps or removes (0.16 AP1, AP-D7). It allows no write: what a proposal changes is written under the group that allows it | Instance or workspace |
 
 Rules the catalogue applies:
 
@@ -6242,11 +6259,11 @@ Rules the catalogue applies:
 | --- | --- | --- |
 | Reader | `reader` | `browse` |
 | Contributor | `contributor` | `browse`, `change-sets` |
-| Data steward | `steward` | `browse`, `edit-live`, `change-sets`, `publish`, `bulk` |
+| Data steward | `steward` | `browse`, `edit-live`, `change-sets`, `publish`, `bulk`, `ai-proposals` |
 | Data owner | `owner` | the steward's, `approve`, `feed`, `copy-move` (`approve` since A1, D280) |
-| Model administrator | `model-admin` | `model-authoring`, `model-release` |
-| Workspace administrator | `workspace-admin` | `workspace-admin` |
-| Integration administrator | `integration-admin` | `integration-admin`, `feed` |
+| Model administrator | `model-admin` | `model-authoring`, `model-release`, `ai-proposals` |
+| Workspace administrator | `workspace-admin` | `workspace-admin`, `ai-proposals` |
+| Integration administrator | `integration-admin` | `integration-admin`, `feed`, `ai-proposals` |
 | Operator | `operator` | `operations` |
 | Security administrator | `security-admin` | `security-admin` |
 
@@ -6750,3 +6767,37 @@ Browse there (D266, D308). `/docs`, its script, `/openapi.json` and each consume
 Subscriptions (`/consumer-subscriptions`) read `owner` (`kind`, `id`, `name`), the person or client
 that created one, `null` for one from before Z3, and the list takes `ownerId=` (Z3, D310); owning
 gives no right of its own.
+
+## AI proposals (Product 0.16)
+
+**Delivered by AP1 (2026-10-28):** the provider, its settings and its call record. A proposal is
+made through its feature's own route, which builds what is sent within the send level; there is no
+route that sends a provider free text. The provider is set in the environment and read at start
+(OPERATIONS § AI proposals); nothing here changes it, and the key is never answered. Features:
+the inference's names ([Inferences](#inferences)).
+
+- `GET /api/v1/system` answers `ai: {configured, provider, sendLevel}` to every signed-in caller, so
+  a client offers an AI action only when one can run.
+- `GET /api/v1/ai/status` (Operations at the instance): `configured`, `provider`, `model`,
+  `endpoint` (`AI_BASE_URL`, or null for the provider's own), `keySet`, `sendLevel`, `sampleValues`,
+  `minConfidence`, `logContent`, `logContentDays`, `timeoutSeconds`; `features`, each `{purpose,
+  name, needs, available}` (`needs` the least send level it works at); `lastCall`; and `totals` over
+  the last `totals.days` (30) days: `calls`, `failed`, `tokensIn`, `tokensOut`, `bytesIn`,
+  `bytesOut`.
+- `GET /api/v1/ai/calls` (Operations at the instance): every call, newest first, cursor paged
+  (ADR-030). A call is `id`, `purpose` (`connectionTest`, `modelNames`), `provider`, `model` (as the
+  provider answered it), `sendLevel`, `promptVersion`, `requestedBy` (a person or a client, as it
+  reads now), `jobId`, `startedAt`, `durationMs`, `bytesIn`, `bytesOut`, `tokensIn`, `tokensOut`,
+  `outcome` (`answered`, `failed`), `failureKind` (`unreachable`, `unauthorized`, `rateLimited`,
+  `declined`, `malformed`, `failed`), `failure` (the sentence) and `content` (`instructions`,
+  `context`, `answer`), null unless `AI_LOG_CONTENT` keeps it and only for `AI_LOG_CONTENT_DAYS`.
+- `POST /api/v1/ai/test` (Operations at the instance, action `ai.test`): sends the provider a fixed
+  request that holds no data and answers the call it made, answered or failed with what failed;
+  recorded like any call. `409 AI_NOT_CONFIGURED` without a provider.
+
+An answer that does not match the shape the feature asked for is a failed call (`malformed`), never
+read in part. A feature asked for explicitly is refused with `409 AI_NOT_CONFIGURED` without a
+provider and `409 AI_SEND_LEVEL_TOO_LOW` (`details.sendLevel`) when it needs more than the level
+allows; asked for without Use AI proposals it is `403 FORBIDDEN` with `details.groups:
+["ai-proposals"]`. Left to its default, a feature that cannot run is not run, and says so in its
+answer.

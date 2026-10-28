@@ -30,6 +30,9 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
+    # Every setting set in .env reaches the engine (.env.example lists them all); the ones below
+    # are worked out here and win over .env.
+    env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://rdm:${POSTGRES_PASSWORD}@database:5432/rdm
       SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:?Set SECRETS_ENCRYPTION_KEY in .env (see .env.example)}
@@ -40,11 +43,6 @@ services:
       CORS_ORIGINS: ${PUBLIC_URL}
       # `web` is the only caller (the engine is not published), and it replaces what callers send.
       FORWARDED_ALLOW_IPS: "*"
-      # Capabilities: the engine's own defaults unless .env sets them (docs/OPERATIONS.md).
-      MODEL_ADMIN_MUTATIONS_ENABLED: ${MODEL_ADMIN_MUTATIONS_ENABLED:-false}
-      WORKSPACE_ADMIN_MUTATIONS_ENABLED: ${WORKSPACE_ADMIN_MUTATIONS_ENABLED:-true}
-      INTEGRATION_JOBS_ENABLED: ${INTEGRATION_JOBS_ENABLED:-true}
-      CONSUMER_SUBSCRIPTIONS_ENABLED: ${CONSUMER_SUBSCRIPTIONS_ENABLED:-false}
     volumes:
       - job-files:/data/job-files
     depends_on:

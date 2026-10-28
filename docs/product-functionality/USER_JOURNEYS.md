@@ -2409,6 +2409,53 @@ the document; nothing is typed by hand, so a new route is covered the day it dec
 **Refusals:** `403 FORBIDDEN`, `401 AUTHENTICATION_REQUIRED`, `401 TOKEN_INVALID`, `429 slowed`, `410
 link_gone`, `403 foreign_origin`.
 
+## AI proposals
+
+### J48 — Use AI proposals
+
+**Actor:** an operator, who sets the provider up in the environment and watches what it is sent; a
+person holding Use AI proposals (a model administrator, a data steward or owner, a workspace or
+integration administrator), who asks for proposals in the screens they already use. **Channel:**
+the environment (`AI_*` settings), UI (Settings › AI, under Administration; the inference's Propose
+dialog), API (`GET /ai/status`, `GET /ai/calls`, `POST /ai/test`, `GET /system` `ai`, `POST
+/model-drafts/{id}/inference` `assistant`). **Status:** delivered by 0.16 AP1 (2026-10-28) for the
+inference's names; later 0.16 packages add their own proposals on the same provider.
+
+1. The operator sets `AI_PROVIDER` (the Claude API, an OpenAI-compatible endpoint or a factory), its
+   key and model, and how much may leave the instance (`AI_SEND_LEVEL`), and starts the engine; a
+   setting that cannot work refuses the start and names the setting.
+2. On Settings › AI the operator sees the provider, the model, whether a key is set (never the key),
+   the send level and which features it offers, sends a test request that holds no data and reads
+   every call: who asked, for what, how much went each way, how it ended.
+3. A person holding Use AI proposals runs a model draft's inference; the provider is asked too, and
+   its better names for the types the rules add arrive as proposals marked as the assistant's, with
+   the provider, model, confidence and reason. Applied, the step says who proposed it and who
+   applied it.
+
+**Variants:**
+
+- **J48.1 Ready and watched**: with a provider set, `GET /system` says so to everyone signed in;
+  the status names the provider and model and offers the inference's names; the test is answered
+  and is the newest call, attributed to its sender. Content is kept only with `AI_LOG_CONTENT` on.
+- **J48.2 Names proposed and recorded**: the inference's names arrive as proposals of pattern
+  `assistant` carrying `evidence.origin` (`kind: ai`, provider, model, prompt version, confidence,
+  reason); the provider was sent the sheets, the first rows it asks for (all of them at `values`) and the types
+  the rules add; applied, the step's origin holds `proposedBy`; the call names the job and the person.
+- **J48.3 Not offered without the group**: a caller without Use AI proposals runs the inference on
+  its rules alone and nothing is sent; asking for the assistant explicitly is refused.
+- **J48.4 No provider**: the system says none is set, no feature is offered, the test and an explicit
+  assistant are refused, and the inference runs as it did before 0.16 with nothing sent anywhere.
+- **J48.5 A failing provider**: unreachable, a refused key, a declined request or an answer out of
+  the shape asked for is a warning on the inference ("The assistant failed (…); the proposals of the
+  rules stand") and a failed call with its kind; the rules' proposals stand.
+- **J48.6 The send level holds**: at `structure` a sheet goes with its name and headers and no row;
+  at `samples` with at most `AI_SAMPLE_VALUES` rows; a feature needing more than the level is not
+  offered.
+- **J48.7 The confidence floor**: a name below `AI_MIN_CONFIDENCE` is not offered.
+
+**Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`; a start refused
+for `AI_PROVIDER` without what it needs, or for the retired `INFERENCE_ASSISTANT` settings.
+
 ## Guardrails kept from 0.7
 
 In J10, clear is offered only where empty is valid. Search continues beyond page one; large ambiguous

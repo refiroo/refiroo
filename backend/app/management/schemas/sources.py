@@ -299,6 +299,8 @@ class InferenceResponse(BaseModel):
     counts: InferenceCounts
     disagreements: list[InferenceDisagreement]
     warnings: list[str]
+    # Whether the AI provider was asked for names too (0.16 AP1).
+    assistant: bool
     proposed: list[ProposedElement]
     error: ApiErrorBody | None
 

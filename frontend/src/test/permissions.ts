@@ -14,6 +14,7 @@ export const EVERY_GROUP = [
   "integration-admin",
   "feed",
   "operations",
+  "ai-proposals",
   "security-admin",
 ];
 

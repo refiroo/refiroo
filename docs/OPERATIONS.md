@@ -11,9 +11,12 @@ is unauthenticated today: run it only in a trusted environment or behind an acce
 
 `scripts/dev.sh` runs one for development, each server in the foreground of its own terminal
 (0.12 Track DP, D411); `scripts/dev.sh` alone lists its commands. `scripts/dev.sh settings` writes
-`.dev/settings.env` once (git-ignored): `DATABASE_URL` for `scripts/postgres.sh`'s database and a new
-`SECRETS_ENCRYPTION_KEY`, or the one already in your environment, which an existing database needs.
-A setting in your environment wins over the file. `scripts/dev.sh admin <username> "<name>"` makes
+`.dev/settings.env` (git-ignored): `DATABASE_URL` for `scripts/postgres.sh`'s database, a new
+`SECRETS_ENCRYPTION_KEY` (or the one already in your environment, which an existing database needs),
+and every other setting commented out at its default with its one-line description. Run again on an
+existing file, it keeps every line, adds the settings a newer version brings and comments out a
+retired one the engine would refuse. A setting in your environment wins over the file; restart the
+engine after a change. `scripts/dev.sh admin <username> "<name>"` makes
 the first administrator.
 
 ### From a phone on the same network
@@ -49,7 +52,12 @@ a change needs a restart.
 
 A new setting is added to the `Settings` model, to the settings catalogue in `config.py` (its group
 and the one line the API and the Deployment page show) and to the table of its group below.
-`tests/unit/test_config.py` fails until all three agree.
+`tests/unit/test_config.py` fails until all three agree. The two settings files are written from the
+same catalogue by `python -m app.cli.settings_template` (run from `backend/`): the developer's
+`.dev/settings.env` (`--for dev`, through `scripts/dev.sh settings`) and the generated part of
+`.env.example` (`--for compose`), which `tests/unit/cli/test_settings_template.py` holds equal to it, so
+both list every setting. In the reference installation `compose.yml` passes everything set in `.env`
+to the engine.
 
 ### Runtime
 
@@ -156,7 +164,6 @@ not authorization ([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-dep
 | `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, reactivate, delete and default switching. Turn it off on an API exposed outside a trusted environment unless an access-control layer protects it |
 | `INTEGRATION_JOBS_ENABLED` | on | Job creation (`POST /api/v1/batches`) and cancellation. Job reads stay registered |
 | `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | The webhook subscriptions API (`/api/v1/consumer-subscriptions`), reads included, and from 0.9 C12 their delivery. Their signing keys are sealed with `SECRETS_ENCRYPTION_KEY`. Turned off, stored subscriptions are kept and continue when it is turned on again |
-| `INFERENCE_ASSISTANT` | empty | The optional assistant of a model draft's inference (0.10 A6, D95), as `package.module:function`, a factory returning an object with `suggest(request)`. Empty, nothing is sent anywhere. Configured, each inference sends it every sheet's headers and at most `INFERENCE_ASSISTANT_ROWS` rows, and the types its proposals add; its label suggestions become proposals, never applied unasked. No provider is bundled; a failing assistant is a warning on the inference |
 
 Always available: installed-release reads, diff and inline validation; workspace discovery; the
 change-set workflow (create, edit, validate, publish, discard) and publication withdrawal. Retired
@@ -179,7 +186,6 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | `IMPORT_MAX_BYTES` | 200 MB | An import's file (`POST /api/v1/imports`); a larger one is `413 IMPORT_TOO_LARGE`, and the request's body is held on disk while it is read. An import's items count against `BACKGROUND_JOB_MAX_ITEMS` and, `atomic`, `ATOMIC_JOB_MAX_ITEMS` (`IMPORT_TOO_MANY_ITEMS`) |
 | `JOB_PREVIEW_MAX_ITEMS` | 10,000 | The items a preview runs, an import's (`stage: preview`, 0.9 J3) or a batch's (0.9 K2); beyond them the preview is a `sample`. Named `IMPORT_PREVIEW_MAX_ITEMS` before 0.9 K2, which renamed it without an alias. The preview holds its workspace's write lock (or its change set's claim) while it runs, so a larger value makes other writes in that workspace wait longer once per preview |
 | `MODEL_OPERATION_MAX_ITEMS` | 500 | Operations in one request to a model draft (`POST /model-drafts/{id}/operations`, 0.10 A2); more is `413 OPERATION_BATCH_TOO_LARGE`. A request is one step of the draft's history and is applied and validated as a whole, so a larger value makes one step slower to apply and to undo |
-| `INFERENCE_ASSISTANT_ROWS` | 20 | Rows of each sheet an inference sends the assistant, when `INFERENCE_ASSISTANT` names one |
 | `JOB_CHUNK_ITEMS` | 500 | Items one background chunk commits |
 | `JOB_LEASE_SECONDS` | 120 | A worker's lease on a job, renewed by its heartbeat every third of it while the job runs; how long a stopped process holds its job before another takes it over |
 | `JOB_RETENTION_DAYS` | 7 | How long a finished job keeps its outcomes and idempotency key |
@@ -827,6 +833,61 @@ setting and takes no workspace lock: writes never wait for it.
 - **Retention:** events are deleted hourly with the change feed's floor (`FEED_RETENTION_DAYS`).
 - **Upgrade to 0.9 C10:** each workspace's events start at its active publication's position (all of
   its feed without one); earlier changes have no events.
+
+## AI proposals
+
+An AI provider makes proposals people then review in the screens they already use (0.16 AP1): today
+clearer names for the types a model draft's inference proposes; later 0.16 packages add targets for
+unmapped values, values for empty fields and more, all on the same provider. A proposal never writes
+live data and never publishes; it arrives as a step or a change a person edits, keeps or removes.
+With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action is offered.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `AI_PROVIDER` | empty | `claude` (the Claude API), `openai-compatible` (any endpoint speaking the chat-completions protocol, including a model the organisation runs itself), or a factory `package.module:function` returning an object with `propose(request)`. Empty: no provider |
+| `AI_MODEL` | empty | The model asked. Empty with `claude` means `claude-opus-5-5`; required with `openai-compatible` |
+| `AI_API_KEY` | empty | The provider's key; required with `claude`, optional with `openai-compatible`. Read from the environment only, never stored in the database, never shown or answered |
+| `AI_BASE_URL` | empty | The provider's address: required with `openai-compatible` (for example `http://models.internal:8080/v1`); with `claude`, empty for Anthropic's own API or a gateway's address |
+| `AI_SEND_LEVEL` | `values` | The most that may leave the instance: `structure` (keys, names, headers and types; no value), `samples` (also values, at most `AI_SAMPLE_VALUES` per column or attribute, or rows per sheet) or `values` (as many values and rows as a feature needs: an agent reads as much of a file as its task needs, 0.16 AP-D14). A feature needing more than the level is not offered |
+| `AI_SAMPLE_VALUES` | 20 | At send level `samples`, the most values per column or attribute, or rows per sheet, that are sent; no limit at `values`. Replaces `INFERENCE_ASSISTANT_ROWS` |
+| `AI_MIN_CONFIDENCE` | 0.5 | The provider's confidence, 0 to 1, below which a proposal is not offered |
+| `AI_LOG_CONTENT` | off | Keep each call's request and answer with its record, for an operator debugging a prompt. They hold reference data: switch it on only while needed |
+| `AI_LOG_CONTENT_DAYS` | 7 | Days a kept request and answer stay; then they are emptied and the record stays |
+| `AI_TIMEOUT_SECONDS` | 60 | Seconds one call may take; the Claude adapter tries a passing failure (overloaded, rate-limited, a server error, a timeout) up to three times |
+
+- **Where to set them:** in the reference installation, in `.env` (`.env.example` lists them, commented
+  out, and `compose.yml` passes `.env` to the engine); on a developer instance, in `.dev/settings.env`
+  (`scripts/dev.sh settings` lists them and names the fake provider). Either way restart the engine.
+- **Settings are read at start.** A provider without what it needs (`claude` without a key,
+  `openai-compatible` without an address or a model, a factory that does not import or has no
+  `propose`) refuses the start and names the setting. `INFERENCE_ASSISTANT` and
+  `INFERENCE_ASSISTANT_ROWS`, the 0.10 assistant's settings, are retired: the start is refused while
+  either is set, naming `AI_PROVIDER` or `AI_SAMPLE_VALUES`.
+- **Settings › Administration › AI** (Operations) shows the provider, the model, the address,
+  whether a key is set, the send level and which features are offered; **Send a test request** sends
+  a fixed request that holds no data and says whether it was answered or what failed (the key
+  refused, the provider not reached, the answer out of shape). The page lists every call: who asked,
+  for what, the model, the sizes each way, the tokens and the outcome; the totals cover the last 30
+  days. The same is `GET /api/v1/ai/status`, `GET /api/v1/ai/calls` and `POST /api/v1/ai/test`.
+- **Who may ask** is a role's business: the action group **Use AI proposals**, held by the
+  predefined Data steward, Data owner, Model administrator, Workspace administrator and Integration
+  administrator roles. A person without it is never offered an AI action, and a proposal is still
+  written by the person's own request, under their other rights.
+- **What is sent** is built in one place and held to `AI_SEND_LEVEL`. For the inference's names:
+  each sheet's name and headers, its first 50 rows from `samples` up (at most `AI_SAMPLE_VALUES` at
+  `samples`), and the names the rules gave the
+  types they add. Reference data is treated as data: the instructions tell the model not to follow
+  text found in it, and nothing it answers is applied unasked.
+- **A failing provider never fails the work it helps.** An unreachable provider, a refused key, a
+  declined request or an answer out of the shape asked for is a warning on the feature (the
+  inference's rules still propose) and a failed call on the AI page.
+- **The Claude adapter** asks for structured output and lets the API retry a declined request on
+  another model (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`). It calls
+  `https://api.anthropic.com/v1/messages` unless `AI_BASE_URL` names another address; open that
+  address in the firewall. A local `openai-compatible` model must support JSON-schema answers.
+- **Data protection:** a provider outside the organisation receives what the send level allows, under
+  the organisation's own agreement with that provider. For data that may not leave, use
+  `openai-compatible` with a model run inside the organisation, or `AI_SEND_LEVEL=structure`.
 
 ## Webhook subscriptions
 

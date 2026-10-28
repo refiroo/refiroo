@@ -2,9 +2,10 @@
 # A developer instance in two terminals (0.12 Track DP, D411): the engine and the frontend, on this
 # computer or reachable from a phone or another computer on the same network over https.
 #
-#   scripts/dev.sh settings            write .dev/settings.env once: the database address and a new
+#   scripts/dev.sh settings            write .dev/settings.env: the database address, a new
 #                                      SECRETS_ENCRYPTION_KEY (or the one already in your
-#                                      environment); edit it to switch capabilities on
+#                                      environment) and every other setting commented out at its
+#                                      default; run again, it adds what a newer version brings
 #   scripts/dev.sh admin <username> "<name>"
 #                                      create the first administrator (asks for a password)
 #   scripts/dev.sh engine              run the engine on http://localhost:8000
@@ -71,20 +72,33 @@ load_settings() {
 
 settings() {
   mkdir -p "$DEV"
+  local python="$ROOT/backend/.venv/bin/python"
+  [[ -x "$python" ]] || fail \
+    "No backend/.venv: run 'cd backend && python3.14 -m venv .venv && .venv/bin/pip install -e \".[dev]\"'."
+  # Every other setting comes from the engine's catalogue (app/cli/settings_template.py), commented out
+  # at its default; an existing file keeps its lines and gains only what it does not name yet.
   if [[ -f "$SETTINGS" ]]; then
-    say "$SETTINGS exists; it is left as it is."
+    (cd "$ROOT/backend" && "$python" -m app.cli.settings_template --for dev --update "$SETTINGS")
+    say "Restart the engine for a changed setting to apply."
     return
   fi
   local key="${SECRETS_ENCRYPTION_KEY:-}" source="your environment"
   if [[ -z "$key" ]]; then
-    key="$("$ROOT/backend/.venv/bin/python" -m app.cli.generate_key 2>/dev/null || python3 -c \
-      'import base64, secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())')"
+    key="$(cd "$ROOT/backend" && "$python" -m app.cli.generate_key)"
     source="a new key"
   fi
   umask 077
-  cat > "$SETTINGS" <<EOF
+  {
+    cat <<EOF
 # The developer instance's settings, read by scripts/dev.sh (never committed: .dev/ is ignored).
-# A setting in your environment wins over this file. All settings: docs/OPERATIONS.md.
+# A setting in your environment wins over this file. Remove the # in front of a setting to set it,
+# and restart the engine: settings are read when it starts. Each is described in docs/OPERATIONS.md.
+# 'scripts/dev.sh settings' run again adds settings a newer version brings, keeping your lines.
+#
+# For AI proposals without a real provider, set AI_PROVIDER=app.engine.proposals.fake:provider
+# (it answers every request and sends nothing out); for Claude, AI_PROVIDER=claude and AI_API_KEY.
+# CORS_ORIGINS defaults to the frontend's and the engine's own addresses (plain 'engine' only;
+# --network sets its own).
 
 # The database scripts/postgres.sh starts.
 DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres@localhost:54320/rdm}
@@ -93,16 +107,9 @@ DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres@localhost:54320/rdm}
 # key cannot be read with another.
 SECRETS_ENCRYPTION_KEY=$key
 
-# Browser origins allowed to call the engine (plain 'engine' only; --network sets its own). The
-# default is the frontend and the engine's own addresses, so the API reference at /docs can call it.
-#CORS_ORIGINS=http://localhost:5173,http://localhost:8000,http://127.0.0.1:8000
-
-# Capabilities, off by default; remove the # to switch one on.
-#MODEL_ADMIN_MUTATIONS_ENABLED=true
-#WORKSPACE_ADMIN_MUTATIONS_ENABLED=true
-#INTEGRATION_JOBS_ENABLED=true
-#CONSUMER_SUBSCRIPTIONS_ENABLED=true
 EOF
+    (cd "$ROOT/backend" && "$python" -m app.cli.settings_template --for dev)
+  } > "$SETTINGS"
   say "Wrote $SETTINGS with $source as SECRETS_ENCRYPTION_KEY."
 }
 

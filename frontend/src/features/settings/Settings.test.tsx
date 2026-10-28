@@ -44,6 +44,7 @@ const system: SystemResponse = {
     schemaVersion: "0.8",
     activatedAt: "2026-10-06T08:00:00Z",
   },
+  ai: { configured: false, provider: null, sendLevel: "structure" },
 };
 
 const configuration: SystemConfiguration = {
@@ -145,6 +146,7 @@ describe("SettingsShell", () => {
       "Model",
       "Deployment",
       "Operations",
+      "AI",
       "Import profiles",
       "Copy and move",
       "Jobs",

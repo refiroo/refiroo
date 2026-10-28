@@ -150,6 +150,11 @@ can complete the task in the application; "API" means another system can.
   CloudEvents 1.0; keep the signing key shown once, and see whether delivery is going, why a subscription
   stopped and what fixes it; edit, suspend, resume and delete subscriptions. Each webhook's
   **Deliveries** list what was sent, with each attempt, the request and the receiver's answer.
+- Connect an AI provider (the Claude API, or a model the organisation runs itself) and choose how much
+  of the data may leave; on Settings › **AI** see it ready, send a test request and read every call it
+  made. People allowed to use AI proposals then get suggestions in the screens they already use, which
+  they edit, keep or remove; nothing is written or published without them. Without a provider nothing
+  is sent anywhere.
 
 ### Manage workspaces — browser and API
 

@@ -28,6 +28,15 @@ configured and MCP off, nothing is sent anywhere and no AI action appears.
 
 ## Outcome
 
+**The requirement every package serves (the user's, restated 2026-10-28):** a person says a few words,
+uploads a workbook, and gets the model and the import. The model has whatever the workbook needs:
+any number of applications, types, attributes and relations within and across applications. The
+AI is an add-on on top of the building blocks that already work (profiling, the rule-based
+inference over every row, model-draft operations, the import profile, the dry run, the import); it
+drives them through the engine's own capabilities and is limited only by what they can express. No
+package narrows this, and a gap found in a building block (such as the inference proposing into one
+application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back as a question.
+
 - **Track P, proposals.** A steward sees machine-made proposals in the screens they already use: a
   likely target for each unmapped value, a draft of a missing label or translation, better names and
   relations for a spreadsheet's columns, a grouped explanation of why a dry run failed. Each carries a
@@ -60,7 +69,7 @@ configured and MCP off, nothing is sent anywhere and no AI action appears.
 | [AO3](#ao3-notification-digests) | AP1 (the AI sentence only) | A daily or weekly digest of a person's inbox notices by mail, opt-in; useful without a provider |
 | [R](#r-build-acceptance-and-release) | all | Full review of every change since 0.15, the gates, one bounded real-provider try and one real-assistant try, the release |
 
-**Order.** AP1 first. Then the tracks are independent: Track A (except AG4) does not need AP1 and could
+**Order (revised 2026-10-28).** AP1 first. Then AP6 with what it needs of AP3: the built-in chat in refiroo (attach a workbook, say a few words, get the model and the import) is the product's way to the requirement. Track A (MCP) is an additional route for organisations that bring their own assistant, never a precondition. Earlier wording: the tracks are independent: Track A (except AG4) does not need AP1 and could
 come first if the user prefers the cheapest slice; recommended order after AP1 is AP2, AP6 (the heart of the release,
 next because it reuses the import, inference and batch machinery rather than waiting on Track A), AG1–AG3, AO1,
 AP3–AP5, AO2, AO3, AG4. The `origin` provenance field (AP-D5) is introduced by whichever package comes
@@ -74,7 +83,7 @@ first and reused by the others.
 | --- | --- | --- |
 | AP-D1 | One interface or one per feature? | **One.** `ProposalProvider.propose(request) -> proposals`, where a request has a `purpose` (`mappingTarget`, `modelNames`, `fieldValue`, `failureTriage`, later ones), a bounded context and the schema of the answer expected. Features differ in the context they build and the step they make of the answer, not in the provider. Why: a feature must not be able to reach a provider on its own, and the data policy (AP-D3) is checked in one place. |
 | AP-D2 | Which providers ship? | **The interface, a fake for tests, and two adapters:** the Claude API and any OpenAI-compatible endpoint (which also covers a local model, for organisations that may not send data out). Chosen by `AI_PROVIDER` (`claude`, `openai-compatible`, or a factory `package.module:function` as `INFERENCE_ASSISTANT` is today); key and endpoint by settings read from the environment, never from the model or the database. Why: one organisation per instance brings its own key; a local endpoint answers "we cannot send reference data out". |
-| AP-D3 | What may leave the instance? | **Decided by the user 2026-10-27 (default and range): the default is `values`, so the helpers have the data they need; the levels below it stay selectable.** The operator sets the ceiling with `AI_SEND_LEVEL`: `structure` (keys, labels, attribute names and types; no record values), `samples` (plus a bounded number of values per attribute, default 20 like `INFERENCE_ASSISTANT_ROWS`) or `values` (plus record values for the features that need them). Why `values` first: reference data is short and its meaning is in the values (a model with many similar types and codes cannot be proposed on from names alone), and a proposal that misses costs the steward more than it saves. A feature that needs more than the level allows is hidden, not degraded. The context builder is the only code that reads data for a provider and it is the unit-tested boundary. **Open, my reading of "the user can select":** a person may also choose a lower level for their own request, never a higher one than the ceiling; confirm or drop. |
+| AP-D3 | What may leave the instance? | **Decided by the user 2026-10-27 (default and range): the default is `values`, so the helpers have the data they need; the levels below it stay selectable.** The operator sets the ceiling with `AI_SEND_LEVEL`: `structure` (keys, labels, attribute names and types; no record values), `samples` (plus a bounded number of values per attribute, default 20 like `INFERENCE_ASSISTANT_ROWS`) or `values` (plus record values for the features that need them). Why `values` first: reference data is short and its meaning is in the values (a model with many similar types and codes cannot be proposed on from names alone), and a proposal that misses costs the steward more than it saves. A feature that needs more than the level allows is hidden, not degraded. The context builder is the only code that reads data for a provider and it is the unit-tested boundary. **Decided by the user 2026-10-28:** a person may also choose a lower level for their own request, never a higher one than the ceiling. Not built in AP1 (its one feature has no level choice); the first feature that sends data, AP2, adds it to its request. |
 | AP-D4 | What is recorded about a call? | **A call record, without content by default:** who, purpose, provider and model, when, size in and out, outcome, the job. `AI_LOG_CONTENT=true` (off) also keeps the request and answer for a bounded time, for an operator debugging a prompt. Settings › AI lists the records and the totals. Why: an operator must see what was sent and how often; the content is reference data and is not kept without being asked. |
 | AP-D5 | How is a proposal marked once it is a step or a change? | **Provenance on the step.** A proposed step or change carries `origin = {kind: "ai", provider, model, promptVersion, confidence, reason}`; the history shows it as machine-proposed with the person who approved. A person's edit of the step keeps the origin and adds the editor. **Checked 2026-10-27:** model-draft steps already have an `origin`; change-set entries do not, so AP1 adds a nullable `origin` column to both change-set tables and copies it into the audit event at publication (see [AP6 in detail](#ap6-in-detail)); AP1 settles this first. Door affected (ADR-032, value provenance): it is the first use of the door; the field is additive and the record of origin stays outside the record's own values. |
 | AP-D6 | Review shape | **The editor, not a questionnaire** (the user's rule): a proposal is a step marked Proposed in the model editor, or a change in a change set the person opens in the mapping grid, edited in place. No separate accept/reject list. The reason and confidence show on the step; a confidence below the operator's floor (`AI_MIN_CONFIDENCE`, default 0.5) is not offered. |
@@ -85,8 +94,8 @@ first and reused by the others.
 | AP-D11 | Tests | **A deterministic fake provider** answers from a table keyed by purpose and context, so the journeys run in CI without a network. **One bounded try with a real provider** in R, in the style of [REAL_PROVIDER_TRY_PLAN](testing/REAL_PROVIDER_TRY_PLAN.md): run on the user's go-ahead, one provider, a small fixed set, cost stated first. No quality benchmark of providers in this release. |
 | AP-D12 | What can an instruction become? | **Approved by the user 2026-10-27. Only what the engine already does, nothing new for the model to execute.** A plan is a list of steps of five kinds: **model-draft operations** (the 67 kinds, to create or extend a model), **an import profile** (sheets, blocks, key columns, attribute columns, parent, relation, `relationFlags` and `relatedRecord` columns, value maps, `record` mode and `missing` handling), **batch items** (`update`, `upsert`, `ensureRelation`, `replaceRelationSet`, …), **a query** (the model-aware `where`, one relation hop, `not`), and **a change set** to hold the result. The assistant writes these as the same steps the editors show. An instruction that needs something outside them is answered "I can't do this because…", never approximated. Why: every step is validated by the rules of a hand edit, the dry run already checks every row, and the engine stays deterministic. |
 | AP-D13 | Where does the result go? | **Approved by the user 2026-10-27. A change set by default, live only when the person says so and the permission allows.** The profile is saved (the 0.10 profile mechanism), so next month's file runs through it unchanged: this is what makes working with an outside source repeatable. Nothing runs before the person confirms the dry run's counts (the 0.9 preview-and-confirm is reused for imports and for batches). |
-| AP-D14 | How much of the file does the provider see? | **Approved by the user 2026-10-27. The file's profile, not its rows.** Profiling already computes, in the database, each column's type, distinct count, fill rate, patterns and sample values. The provider gets that plus a bounded number of rows per sheet (like `INFERENCE_ASSISTANT_ROWS`, default 20) and the model's structure, within the send level (AP-D3). Whole-set truth comes from the dry run, which checks every row (D67), never from the provider. A workbook of 200,000 rows costs the same as one of 2,000. |
-| AP-D15 | One shot or a conversation? | **Approved by the user 2026-10-27. A bounded planning loop plus follow-ups.** The assistant may, within the task, call a small set of read-only tools (read the model, read the file's profile, count a query, run a dry run of its plan) up to `AI_MAX_STEPS` (default 8), and it revises the plan when the dry run refuses rows. After that the person talks to it as they would to any assistant: "no, column D is the name", "skip the first sheet", "also create the missing languages". Each follow-up revises the plan and re-runs the dry run; the thread belongs to the task. It never writes anything but the plan. This replaces the AP1 "single-shot" wording for this package only. Why: a plan that cannot read the model or try itself is a guess; this is the loop that lets it be right. |
+| AP-D14 | How much of the file does the provider see? | **Revised 2026-10-28 to follow the requirement (Outcome): as much as it needs, through tools, within the send level.** It starts from the file's profile (each column's type, distinct count, fill rate, patterns and sample values, computed in the database over every row) and the model's structure, and reads further through read-only tools over what the engine already computes: any sheet's rows by range, a column's distinct values with counts, overlaps between columns and sheets, the rule-based inference's findings. No fixed sample bounds it; `AI_SEND_LEVEL` is the only limit on what may leave. Whole-set truth still comes from the dry run, which checks every row (D67). *(Approved 2026-10-27 as "the profile plus a bounded number of rows per sheet"; that would have kept the AI's view sampled.)* |
+| AP-D15 | One shot or a conversation? | **Revised 2026-10-28 to follow the requirement: an agent loop with the engine's tools, plus follow-ups.** The assistant calls the read tools of AP-D14 and the planning tools (read the model, count a query, write plan steps, dry-run its plan) as often as the task needs, revising the plan when the dry run refuses rows, until the dry run is clean or it has a question only the person can answer (AP-D16). `AI_MAX_STEPS` stays as an operator's safety and cost limit, defaulting high enough for a workbook of many sheets, never as a design limit. Follow-ups as before ("no, column D is the name"); it never writes anything but the plan. *(Approved 2026-10-27 with at most 8 steps.)* |
 | AP-D16 | Questions back | **Approved by the user 2026-10-27. Few, specific, answerable by a click.** When an ambiguity changes the result (two plausible target types, which column is the key, whether to create or only update), the assistant asks once, with the candidates and what each would do, and goes on with its best reading marked Proposed. It does not interview. It never asks what the engine can tell it. |
 | AP-D17 | Relation "only where" conditions | **Approved by the user 2026-10-27. Supported to the extent the query is: one relation hop, `not`, field criteria, ancestor criteria, ANDed.** Checked 2026-10-27 in API.md (model-aware query): OR groups and nested hops "wait for a second real case" (D4). A condition that needs them is refused with that reason, which also makes a real case for D4 visible. The model part of such an instruction (the new relation type and its permitted binding) is model-draft operations (AP-D12); the data part is the items below. |
 | AP-D18 | Creating items for every record a query matches | **Approved by the user 2026-10-27. Recommended: the task job builds the batch items from the query inside the database, and the existing batch preview and confirm run them.** No new engine item kind. It is per-record writes, as any batch is. Measure the basics at 200 and 2,000 records first (the user's rule) and only then decide whether a true set operation (one statement, `ensureRelation` for every match) is needed; if so it is an engine capability of its own, generic and API-first, and gets its own decision. |
@@ -149,6 +158,77 @@ visible to the operator.
   (AP2–AP5), so there is no generic "ask the model" route (it would bypass the context builder).
 
 **Out of scope:** streaming, an open-ended agent, fine-tuning, a prompt editor. (AP6 adds a bounded, read-only planning loop and follow-up instructions; AP1 itself is single-shot.)
+
+### AP1 record (2026-10-28)
+
+**Delivered 2026-10-28** on the user's "deliver build 0.16 ap1", without a separate detailed plan or
+mock-up, as 0.12 M1 was: the page reuses the Mail page's pattern. The recommendations AP-D1, AP-D2,
+AP-D4–AP-D9 and AP-D11 are built as written; the user may reopen any of them.
+
+- **Engine** (`engine/proposals/`): `provider.py` (the request, the answer, `ProviderError` and its
+  kinds, the closed answer schema), `context.py` (the send levels; a value read only when the level
+  allows it), `claude.py` and `openai_compatible.py` (over `httpx`), `fake.py` (deterministic, records
+  what it was sent), `registry.py` (`AI_PROVIDER` resolved at start, a setting that cannot work refusing
+  it), `calls.py` (`ask`: the answer checked against its model, one `ai_calls` row per call, a job's
+  written apart; content kept and expired by `AI_LOG_CONTENT[_DAYS]`; paging and 30-day totals).
+- **Migration** `20261117_01`: `ai_calls`. **Settings:** `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY` (secret),
+  `AI_BASE_URL`, `AI_SEND_LEVEL` (default `values`, AP-D3), `AI_SAMPLE_VALUES`, `AI_MIN_CONFIDENCE`,
+  `AI_LOG_CONTENT`, `AI_LOG_CONTENT_DAYS`, `AI_TIMEOUT_SECONDS`; `INFERENCE_ASSISTANT[_ROWS]` refused by name.
+- **Authorization:** the group `ai-proposals` (Use AI proposals, workspace reach) in the steward, owner,
+  model-admin, workspace-admin and integration-admin roles; the action `ai.test` (Operations). The group is
+  a `FEATURE_GROUPS` entry: a feature's route checks it for its `assistant`-like option, no route
+  declares it (AP-D1: no generic route).
+- **API:** `GET /ai/status`, `GET /ai/calls`, `POST /ai/test`; `ai` on `GET /system`; `assistant` on the
+  inference's request and read; codes `AI_NOT_CONFIGURED`, `AI_SEND_LEVEL_TOO_LOW`. OpenAPI lock re-baselined,
+  additive (diffed against 0.12.0 in a worktree).
+- **The 0.10 assistant folded in** (`sources/inference/assistant.py`, purpose `modelNames`): its names are
+  proposals whose `evidence.origin` is the AP-D5 provenance, copied into the applied step's
+  `origin.proposedBy`.
+- **Frontend** (built by a Sonnet agent from a brief): Settings › Administration › **AI**
+  (`AiPage.tsx`, Operations), the shared `AssistantChoice` in New from a workbook and Propose again (shown
+  only with a provider and the group), "Proposed by the AI assistant (model), N% confident" in Proposed
+  because, the Deployment page's AI group, the group's texts. **Runner** `ap1-ai`.
+- **Documents:** API.md § AI proposals and § Inferences, OPERATIONS § AI proposals, ARCHITECTURE § AI
+  proposals, USER_JOURNEYS J48, API_JOURNEYS, CURRENT_FUNCTIONALITY F29, PRODUCT, UI_ACCEPTANCE AP1-1–AP1-5,
+  EXECUTION_GUIDE, CHANGELOG.
+
+**Where it differs from the plan:**
+
+- **Revised 2026-10-28 with AP-D14:** at send level `values` nothing caps what a feature asks for; `AI_SAMPLE_VALUES` caps only `samples`. The naming helper asks for 50 rows per sheet, its own choice.
+- **The change-set `origin` column and the `aiProposal` job kind move to AP2**, their first writer: in AP1
+  nothing could write or exercise them (no client could produce the state a test would need). The design
+  stands as AP-D5 and "AP6 in detail" describe it; ARCHITECTURE says so.
+- **The Claude adapter is plain HTTP, not the Anthropic SDK:** the SDK brings `httpx2`, which Starlette's
+  test client then prefers, breaking the harness; one client serves both adapters. It asks for structured
+  output and sends `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`); default model
+  `claude-opus-5-5`.
+- **`POST /ai/test`** was added (not in the plan): an operator otherwise learns of a bad key only at a
+  steward's first proposal. It sends no data.
+- **The fake is in the app** (`app.engine.proposals.fake:provider`), as the plan says, reachable only by
+  naming it; the browser runner uses it.
+- **Tests written after the code**, not seen failing first.
+
+**Checks:**
+
+- `test_j48_ai_proposals`: 20 passed (J48.1–J48.7, two configurations). Unit tests of
+  `engine/proposals/` (context per level, calls, both adapters over a mock transport, registry), the
+  assistant and `test_config`: 119 passed.
+- The guide's groups for the boundary: `contract` 82 passed; `startup` 191 passed and 4 failed, all fixed
+  and rerun (25 passed: the FK inventory, `SystemSetting.group`, J31's `/system` keys, and the stale head
+  pin); J34, J40, J47 (sweep and cases), the unit tests of jobs, sources and authorization: 495 passed.
+  `ruff check` on the changed files.
+- Frontend: `tsc -b`, `npm run lint` (0 errors; 9 older warnings), `npm run build`, focused Vitest (153,
+  then 16 after the shared choice), `test:browser:ai` (30 checks, axe 0 violations, a backend with the fake
+  on two models and one without a provider).
+
+**Not verified:** a real provider (the R try, on the user's go-ahead); screenshots at 390px on generated-b,
+dark at 390px and the dialogs at 390px were not inspected; a failed test request and kept content in the
+browser (Vitest only); Load more on the calls list. The development database was upgraded by the user's
+`uvicorn --reload` server (health answered `ok` after it); no side server was started.
+
+**What the user cannot do yet:** get AI proposals anywhere but the inference's names (AP2–AP6), reach the
+engine from an outside assistant (AG1–AG4), read plain-language summaries (AO1–AO3); choose a lower send
+level per request (AP-D3, decided 2026-10-28; built from AP2).
 
 ## AP2: Targets for unmapped values
 
@@ -494,6 +574,8 @@ each only on the user's go-ahead with its cost stated first (AP-D11, AG-D10); th
 
 ## Exit gate
 
+- A few words and a workbook give the model and the import, with as many applications, types and
+  relations (across applications too) as the workbook needs; tried on the user's own workbooks (AP-D22).
 - With no provider and MCP off, no screen shows an AI action, no request leaves the instance, `/mcp`
   does not exist, the existing inference behaves as before, and digests are the plain list.
 - No value above the configured send level reaches a provider (the context builder's tests).

@@ -19,7 +19,7 @@ from app.db import migration_config
 from app.engine.model.compiler import SCHEMA_VERSIONS
 
 HEAD = ScriptDirectory.from_config(migration_config()).get_current_head()
-GROUPS = {"runtime", "capabilities", "limits", "webhooks"}
+GROUPS = {"runtime", "capabilities", "limits", "webhooks", "ai"}
 SECRETS = ("RDM_CURSOR_SIGNING_KEY", "SECRETS_ENCRYPTION_KEY")
 SIGNING_KEY = "journey-signing-key-not-to-be-shown"
 # The harness's key: every test database's secrets are sealed with it (0.12 I1).
@@ -71,7 +71,9 @@ def test_read_what_the_deployment_runs(world):
     }
     # What the deployment runs is for anyone signed in; how it is configured is not in it (D246).
     # The instance's product, which a person with no workspace reads too (0.12 HM1, D338).
-    assert set(system) == {"engine", "schemaLanguages", "activeModelRelease", "product"}
+    assert set(system) == {"engine", "schemaLanguages", "activeModelRelease", "product", "ai"}
+    # Whether an AI provider is set, for a client to offer an AI action only then (0.16 AP1).
+    assert system["ai"] == {"configured": False, "provider": None, "sendLevel": "values"}
     assert configuration["database"] == {"revision": HEAD}
     names = [setting["name"] for setting in configuration["settings"]]
     assert len(names) == len(set(names)) and "DATABASE_URL" in names

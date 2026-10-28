@@ -305,6 +305,7 @@ describe("App", () => {
         schemaVersion: "0.8",
         activatedAt: "2026-09-05T00:00:00Z",
       },
+      ai: { configured: false, provider: null, sendLevel: "structure" },
     });
     visit("/apps/test-app/views/domains?workspaceKey=west&search=cli");
     render(<App />);

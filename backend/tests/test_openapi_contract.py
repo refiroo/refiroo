@@ -327,9 +327,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # NotificationsReadResult.marked. Verified by restoring NT1's two files in a copy, which
     # reproduces MR1's hash. Re-baselined for 0.12.0: info.version 0.12.0; with 0.11.0 the document
     # hashes to the previous lock exactly.
+    # Re-baselined for 0.16 AP1 (additive): GET /ai/status, GET /ai/calls and POST /ai/test with the
+    # Ai* schemas, and `ai` (AiSystemInfo) on SystemResponse. Diffed against 0.12.0's document in a
+    # worktree of HEAD: nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "252abf71fdcb96b7edb943059b594b8ea84e1d501d95c9c5519adf2dc51b73f4"
+        "aef722130b3e8e43a7b56370b06f6f5bb5b5bb51e5e75aa5c6d00ab9cc1ddad3"
     )
 
 
@@ -375,8 +378,9 @@ def test_paging_openapi_inventory():
     # a group's members, grants, a workspace's access and the caller's grants; 0.12 SP1 a person's
     # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets; 0.12
     # Z6 the changes across workspaces; 0.12 I3 the sign-in providers; 0.12 I4c a person's passkeys,
-    # their own and an administrator's; 0.12 M1 the mail outbox; 0.12 A1 the publication requests; 0.12 A2 the inbox.
-    assert seekable <= paged and len(paged) == 65
+    # their own and an administrator's; 0.12 M1 the mail outbox; 0.12 A1 the publication requests; 0.12 A2 the inbox;
+    # 0.16 AP1 the AI provider's calls.
+    assert seekable <= paged and len(paged) == 66
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

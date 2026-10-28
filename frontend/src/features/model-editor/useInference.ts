@@ -16,6 +16,8 @@ export interface DraftInference {
   proposals: Proposal[];
   /** Element (`objectType:item`, `column:items/Code`) to the proposal it is still as. */
   proposed: Map<string, Proposal | undefined>;
+  /** Element to the AI assistant's applied proposal that named it (0.16 AP1), beside the rules' own. */
+  assistantFor: Map<string, Proposal>;
   /** Proposing: the inference queued or running, or its proposals being applied. */
   running: boolean;
   error: string;
@@ -116,10 +118,22 @@ export function useInference(
     );
   }, [inference, items]);
 
+  const assistantFor = useMemo(() => {
+    const named = new Map<string, Proposal>();
+    for (const proposal of items)
+      if (proposal.pattern === "assistant" && proposal.status === "applied")
+        for (const operation of proposal.operations) {
+          const type = (operation.element as { objectType?: string } | undefined)?.objectType;
+          if (operation.kind === "setLabel" && type) named.set(`objectType:${type}`, proposal);
+        }
+    return named;
+  }, [items]);
+
   return {
     inference,
     proposals: items,
     proposed,
+    assistantFor,
     running,
     error,
     propose,

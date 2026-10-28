@@ -292,6 +292,9 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
         OPERATIONS,
         [
             "get /metrics",
+            "get /api/v1/ai/calls",
+            "get /api/v1/ai/status",
+            "post /api/v1/ai/test",
             "get /api/v1/system/backup-rehearsals",
             "get /api/v1/system/configuration",
             "get /api/v1/system/processes",

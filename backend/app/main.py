@@ -47,6 +47,7 @@ from .engine.model.loader import load_bootstrap_model
 from .engine.model.registry import model_registry
 from .engine.model.workspace_models import workspaces_running
 from .engine.processes.heartbeat import ProcessHeartbeat
+from .engine.proposals.registry import configure as configure_ai
 from .errors import ApiError
 from .management.access import MANAGEMENT_DEPENDENCIES
 from .management.brand_assets import brand_router
@@ -59,6 +60,7 @@ from .management.errors import (
 from .management.query_parameters import refuse_unknown_parameters
 from .management.reference import api_reference_router
 from .management.routers import (
+    ai,
     attributes,
     authorization,
     change_sets,
@@ -326,6 +328,7 @@ def create_app() -> FastAPI:
     configure_logging(settings.log_format, settings.log_level)
     settings.validate_secrets()
     settings.prepare_job_file_dir()
+    ai_configuration = configure_ai(settings)
     mutations_enabled = settings.model_admin_mutations_enabled
     workspace_mutations_enabled = settings.workspace_admin_mutations_enabled
     application = FastAPI(
@@ -427,6 +430,8 @@ def create_app() -> FastAPI:
     # themselves set ``run_job_worker`` to False before the application starts.
     # Export files (0.9 J1, D55); served by GET /jobs/{id}/output whatever the capability.
     application.state.model_operation_max_items = settings.model_operation_max_items
+    # The proposal provider (0.16 AP1): resolved once; a setting that cannot work refused the start.
+    application.state.ai = ai_configuration
     application.state.job_files = JobFiles(settings.job_file_dir)
     worker_settings = WorkerSettings(
         chunk_items=settings.job_chunk_items,
@@ -435,8 +440,7 @@ def create_app() -> FastAPI:
         atomic_max_items=settings.atomic_job_max_items,
         background_max_items=settings.background_job_max_items,
         preview_max_items=settings.job_preview_max_items,
-        inference_assistant=settings.inference_assistant,
-        inference_assistant_rows=settings.inference_assistant_rows,
+        ai=application.state.ai,
     )
     application.state.job_worker = (
         JobWorker(SessionLocal, worker_settings, files=application.state.job_files)
@@ -541,6 +545,7 @@ def create_app() -> FastAPI:
     application.include_router(oauth_console.router)
     application.include_router(identity.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(mail.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(ai.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(notifications.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(authorization.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(model.router, dependencies=MANAGEMENT_DEPENDENCIES)

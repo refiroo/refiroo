@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from .ai import AiSystemInfo
 from .common import CollectionPage
 
 
@@ -33,7 +34,7 @@ class DatabaseInfo(BaseModel):
 
 class SystemSetting(BaseModel):
     name: str = Field(description="The environment variable")
-    group: Literal["runtime", "capabilities", "limits", "webhooks"]
+    group: Literal["runtime", "capabilities", "limits", "webhooks", "ai"]
     description: str = Field(description="What the setting controls")
     value: Any = Field(
         description="The value in effect, typed; null for a secret, and DATABASE_URL without its "
@@ -58,6 +59,9 @@ class SystemResponse(BaseModel):
     # The instance's name in the top bar: the default workspace's model's product, readable by a
     # person who may browse no workspace (0.12 HM1, D338); null when that model cannot be served.
     product: InstanceProduct | None = None
+    # Whether an AI provider is set, the most that may leave the instance (0.16 AP1); a client
+    # offers an AI action only then.
+    ai: AiSystemInfo
 
 
 class SystemConfiguration(BaseModel):

@@ -93,6 +93,9 @@ RULES = {
     # Who asked for a job and who uploaded a source file (0.12 Z2, D294, D295): principals are never
     # deleted (D237), so a row naming one keeps it.
     ("jobs", "requested_by_user_id"): ("users", "RESTRICT"),
+    # 0.16 AP1: who asked the AI provider, kept as a job keeps its requester.
+    ("ai_calls", "requested_by_user_id"): ("users", "RESTRICT"),
+    ("ai_calls", "requested_by_client_id"): ("oauth_clients", "RESTRICT"),
     ("jobs", "requested_by_client_id"): ("oauth_clients", "RESTRICT"),
     ("source_files", "uploaded_by_user_id"): ("users", "RESTRICT"),
     ("source_files", "uploaded_by_client_id"): ("oauth_clients", "RESTRICT"),

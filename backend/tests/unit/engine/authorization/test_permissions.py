@@ -11,6 +11,7 @@ from app.db import SessionLocal
 from app.engine.authorization import administration
 from app.engine.authorization.catalogue import (
     ACTIONS,
+    FEATURE_GROUPS,
     FIRST_ADMINISTRATOR_ROLES,
     GROUPS,
     JOB_GROUPS,
@@ -87,8 +88,10 @@ def test_the_catalogue_names_only_groups_it_has():
         assert action.doing or not action.groups, action.key
     assert set(JOB_GROUPS.values()) <= set(GROUPS)
     assert set(FIRST_ADMINISTRATOR_ROLES) <= set(PREDEFINED_ROLES)
-    # Every group can be reached through some action, and every group is in some predefined role.
-    assert {group for action in ACTIONS.values() for group in action.groups} == set(GROUPS)
+    # Every group can be reached through some action or a feature's option, and every group is in
+    # some predefined role.
+    reached = {group for action in ACTIONS.values() for group in action.groups}
+    assert reached | set(FEATURE_GROUPS) == set(GROUPS) and not reached & set(FEATURE_GROUPS)
     assert {group for groups in PREDEFINED_ROLES.values() for group in groups} == set(GROUPS)
     # The first administrator can do everything the instance needs set up.
     held = {group for role in FIRST_ADMINISTRATOR_ROLES for group in PREDEFINED_ROLES[role]}

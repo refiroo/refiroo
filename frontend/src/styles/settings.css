@@ -365,6 +365,33 @@ nav.settings-rail {
   color: var(--text-secondary);
 }
 
+/* Settings › AI: what a call sent and was answered, on demand. */
+.ai-call-content {
+  margin-top: var(--space-2);
+}
+.ai-call-content summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+.ai-call-content pre {
+  max-height: 320px;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  overflow: auto;
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ai-call-content pre:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 /* Deployment's capability groups. */
 .capability-groups {
   display: grid;

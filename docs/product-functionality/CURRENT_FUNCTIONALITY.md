@@ -810,8 +810,8 @@ Limits: a field's editor cannot be chosen (each value type has one); the draft e
 for what a load does with missing records (Settings › Import profiles and the API set it); the
 a category's name in another language is not loaded when lists are read as one list under their
 headers;
-dragging a list's outline on the grid is not offered (its fields set it); the optional assistant is an interface
-only, with no provider. A consumer
+dragging a list's outline on the grid is not offered (its fields set it); the assistant's clearer names
+need an AI provider (F29). A consumer
 API's documents are worked out from the draft; messages from real records come from the consumer API
 after activation.
 
@@ -1465,3 +1465,43 @@ API, only SMTP; the organisation sets up SPF and DKIM for the from address's dom
 Evidence: [mail contract](../API.md#mail), [OPERATIONS](../OPERATIONS.md#sending-mail),
 [outbox](../../backend/app/engine/mail/outbox.py), [sender](../../backend/app/engine/mail/sender.py),
 [Mail page](../../frontend/src/features/settings/MailPage.tsx), [M1 runner](../../frontend/e2e/m1-mail.mjs).
+
+## F29 — Use AI proposals
+
+**User outcome:** An organisation lets an AI provider suggest improvements in the screens people
+already use, decides how much of its data may leave, and can see every request that was made.
+
+An operator sets the provider in the server's settings: the Claude API with the organisation's key,
+or any endpoint that speaks the common chat-completions protocol, which also covers a model the
+organisation runs on its own machines. They choose how much may be sent: names, headers and types
+only; also a few sample values; or also the record values a feature needs, up to a set number. A
+setting that cannot work stops the server from starting and names the setting. Without a provider
+nothing is sent anywhere and no AI action appears.
+
+On Settings › Administration › **AI**, a person with Operations sees the provider and model, whether a
+key is set (never the key), what may be sent and which features are offered; **Send a test request**
+sends a request that holds no data and says whether it was answered or what failed (the key refused,
+the provider not reached, an answer it could not read). Below, every call is listed: when, what for,
+who asked, the model, how much went each way and how it ended; and the totals of the last 30 days.
+The text sent and answered is kept only when the operator switches that on, for a few days.
+
+Who may ask is set by role: **Use AI proposals** is part of the Data steward, Data owner, Model
+administrator, Workspace administrator and Integration administrator roles. A person without it is
+never offered an AI action.
+
+The first feature is in the model editor: when a workbook's inference proposes a model, the assistant
+is asked too (a checkbox in the dialog, on by default) and suggests clearer names for the record types
+the rules named after headers or codes. Each arrives as a proposal like the others, applied or left
+as the person chooses; its note says it was proposed by the AI assistant, with the model, how
+confident it was and why. If the provider fails, the inference says so in a sentence and its own
+proposals stand.
+
+Limits: the inference's names are the only AI feature so far; targets for unmapped values, values for
+empty fields, help with a failed dry run, instruction-driven tasks, assistant access through MCP and
+plain-language summaries follow in later 0.16 packages. The provider is set in the environment, not
+on the page. Whether the suggestions are good has been tried only with a stand-in provider, not a
+real one.
+
+Evidence: [AI contract](../API.md#ai-proposals-product-016), [OPERATIONS](../OPERATIONS.md#ai-proposals),
+[provider](../../backend/app/engine/proposals/), [AI page](../../frontend/src/features/settings/AiPage.tsx),
+[J48](../../backend/tests/journeys/test_j48_ai_proposals.py), [AP1 runner](../../frontend/e2e/ap1-ai.mjs).

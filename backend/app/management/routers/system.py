@@ -30,6 +30,7 @@ from ..access import (
 )
 from ..dependencies import DbSession
 from ..paging import PageQuery
+from ..projections import ai as ai_projection
 from ..projections.operations import (
     metrics_text,
     process_response,
@@ -58,7 +59,7 @@ metrics_router = APIRouter(route_class=AuthorizedRoute, tags=["system"])
 
 @router.get("/system", response_model=SystemResponse)
 @requires("signed-in", at=SIGNED_IN)
-def get_system(session: DbSession) -> SystemResponse:
+def get_system(request: Request, session: DbSession) -> SystemResponse:
     state = read_system_state(session)
     release = state.active_release
     return SystemResponse(
@@ -78,6 +79,7 @@ def get_system(session: DbSession) -> SystemResponse:
             activatedAt=as_utc(state.activated_at),
         ),
         product=_instance_product(session),
+        ai=ai_projection.system_info(request.app.state.ai),
     )
 
 

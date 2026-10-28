@@ -30,6 +30,7 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
       { page: "model", label: "Model", requires: ["model-authoring", "model-release"] },
       { page: "deployment", label: "Deployment", requires: ["operations"] },
       { page: "operations", label: "Operations", requires: ["operations"] },
+      { page: "ai", label: "AI", requires: ["operations"] },
     ],
   },
   {

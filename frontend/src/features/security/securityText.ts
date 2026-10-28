@@ -172,6 +172,7 @@ const DOING: Record<string, string> = {
   "workspace-admin": "manage workspaces",
   "integration-admin": "manage webhooks",
   operations: "follow the instance's operations",
+  "ai-proposals": "ask the AI provider for proposals",
   "security-admin": "manage people, groups, roles and clients",
 };
 

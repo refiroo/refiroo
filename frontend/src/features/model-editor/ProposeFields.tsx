@@ -5,21 +5,25 @@
  * first, D91), or nothing (mapping by hand, A5b). Shared by New from a workbook and ⋯ › Propose again….
  */
 
-import type { InferenceRequest } from "@/types";
+import { AssistantChoice } from "@/features/model-editor/AssistantChoice";
+import type { AiSystemInfo, InferenceRequest } from "@/types";
 import { FormField } from "@/ui/FormField";
 
 export interface ProposeChoice {
   mode: InferenceRequest["mode"] | "newModel" | "none";
   applicationName: string;
+  /** Whether the AI assistant is asked too; sent only where it is offered. */
+  assistant?: boolean;
 }
 
 /** The request a choice sends; none for mapping by hand. A new model proposes a new application into
  * the empty draft it starts. */
-export function proposeRequest(choice: ProposeChoice): InferenceRequest | undefined {
+export function proposeRequest(choice: ProposeChoice, assistantOffered = false): InferenceRequest | undefined {
   if (choice.mode === "none") return undefined;
-  if (choice.mode === "extend") return { mode: "extend" };
+  const asked = assistantOffered ? { assistant: choice.assistant ?? true } : {};
+  if (choice.mode === "extend") return { mode: "extend", ...asked };
   const name = choice.applicationName.trim();
-  return { mode: "newApplication", ...(name ? { applicationName: name } : {}) };
+  return { mode: "newApplication", ...(name ? { applicationName: name } : {}), ...asked };
 }
 
 /** An application name from a file's name: "office-supplies.xlsx" → "Office supplies". */
@@ -35,11 +39,14 @@ export function ProposeFields({
   value,
   onChange,
   start,
+  assistantOffer,
 }: {
   value: ProposeChoice;
   onChange: (choice: ProposeChoice) => void;
   /** At the start, a new model and mapping by hand are offered too; not when proposing again. */
   start?: boolean;
+  /** The provider, when the AI assistant is offered (`useAssistantOffer`); the choice is not rendered without it. */
+  assistantOffer?: AiSystemInfo;
 }) {
   const options: { mode: ProposeChoice["mode"]; title: string; text: string }[] = [
     {
@@ -102,6 +109,13 @@ export function ProposeFields({
             />
           )}
         </FormField>
+      )}
+      {value.mode !== "none" && assistantOffer && (
+        <AssistantChoice
+          offer={assistantOffer}
+          checked={value.assistant ?? true}
+          onChange={(assistant) => onChange({ ...value, assistant })}
+        />
       )}
     </>
   );

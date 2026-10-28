@@ -114,6 +114,14 @@ GROUPS: dict[str, ActionGroup] = {
             "People, groups, roles, grants, clients and token signing keys",
             "instance",
         ),
+        # Asking the proposal provider (0.16 AP-D7). A proposal is written by the person's own
+        # request, so it still needs the group that allows writing what it proposes.
+        ActionGroup(
+            "ai-proposals",
+            "Use AI proposals",
+            "Ask the configured AI provider for proposals the person then edits, keeps or removes",
+            "workspace",
+        ),
     )
 }
 
@@ -283,6 +291,12 @@ ACTIONS: dict[str, Action] = {
             doing="Reading the service's operations",
         ),
         Action(
+            "ai.test",
+            ("operations",),
+            "Send the AI provider a test request",
+            doing="Testing the AI provider",
+        ),
+        Action(
             "security.manage",
             ("security-admin",),
             "Manage people, groups, roles, grants and keys",
@@ -309,7 +323,7 @@ class PredefinedRole:
 PREDEFINED_ROLES: dict[str, tuple[str, ...]] = {
     "reader": ("browse",),
     "contributor": ("browse", "change-sets"),
-    "steward": ("browse", "edit-live", "change-sets", "publish", "bulk"),
+    "steward": ("browse", "edit-live", "change-sets", "publish", "bulk", "ai-proposals"),
     "owner": (
         "browse",
         "edit-live",
@@ -319,10 +333,11 @@ PREDEFINED_ROLES: dict[str, tuple[str, ...]] = {
         "bulk",
         "feed",
         "copy-move",
+        "ai-proposals",
     ),
-    "model-admin": ("model-authoring", "model-release"),
-    "workspace-admin": ("workspace-admin",),
-    "integration-admin": ("integration-admin", "feed"),
+    "model-admin": ("model-authoring", "model-release", "ai-proposals"),
+    "workspace-admin": ("workspace-admin", "ai-proposals"),
+    "integration-admin": ("integration-admin", "feed", "ai-proposals"),
     "operator": ("operations",),
     "security-admin": ("security-admin",),
 }
@@ -337,6 +352,11 @@ FIRST_ADMINISTRATOR_ROLES = (
     "integration-admin",
     "operator",
 )
+
+# Groups a route checks for an option of its request rather than as its action: asking the AI
+# provider is part of a feature's own route (the inference's ``assistant``, 0.16 AP1), never a route
+# of its own (AP-D1).
+FEATURE_GROUPS: tuple[str, ...] = ("ai-proposals",)
 
 # Which group a job of each kind is used under, in its workspace (D285).
 JOB_GROUPS: dict[str, str] = {

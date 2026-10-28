@@ -19,14 +19,19 @@ import { StatusPill } from "@/ui/StatusPill";
 import { bytes, count, feedRetentionItem, jobLimitItems } from "./limits";
 import { useCapabilities, useSystemConfiguration } from "./useSystem";
 
-const GROUPS: { group: SystemSetting["group"]; title: string }[] = [
+const GROUPS: { group: SystemSetting["group"]; title: string; scope?: string }[] = [
   { group: "runtime", title: "Runtime" },
   { group: "capabilities", title: "Capability settings" },
   { group: "limits", title: "Batch and job limits" },
   { group: "webhooks", title: "Webhook subscriptions" },
+  {
+    group: "ai",
+    title: "AI proposals",
+    scope: "The AI provider asked for proposals people then review, and what may be sent to it. See Settings › AI.",
+  },
 ];
 
-const SECRETS = new Set(["RDM_CURSOR_SIGNING_KEY", "SECRETS_ENCRYPTION_KEY"]);
+const SECRETS = new Set(["RDM_CURSOR_SIGNING_KEY", "SECRETS_ENCRYPTION_KEY", "AI_API_KEY"]);
 
 /** A setting's value as text: booleans as On and Off, lists joined, and nothing as None. */
 function shown(value: unknown) {
@@ -88,8 +93,8 @@ export function DeploymentPage() {
               items={[{ term: "Migration revision", value: <code>{configuration.database.revision ?? "None"}</code> }]}
             />
           </Section>
-          {GROUPS.map(({ group, title }) => (
-            <Section key={group} title={title}>
+          {GROUPS.map(({ group, title, scope }) => (
+            <Section key={group} title={title} description={scope}>
               {group === "runtime" && signingKey?.source === "default" && (
                 <Notice tone="warning" title="Cursors do not survive a restart">
                   <code>RDM_CURSOR_SIGNING_KEY</code> is not set, so each engine process signs cursors with its own key.

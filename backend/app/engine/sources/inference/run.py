@@ -48,6 +48,9 @@ from ...model.compiler import compile_model
 from ...model.diagnostics import ModelDiagnostic
 from ...model.drafts import load_draft, load_draft_for_update
 from ...model.registry import resolve_model_snapshot
+from ...proposals import calls as ai_calls
+from ...proposals.context import workbook_sheets
+from ...proposals.registry import AiConfiguration
 from ...workspaces.catalogue import resolve_workspace
 from ..draft_profile import current_source
 from ..profiling import PLACEHOLDER_VALUES
@@ -85,8 +88,11 @@ class InvalidDraft(Exception):
 # --- submitting -----------------------------------------------------------------------------------
 
 
-def submit_inference(session: Session, draft_id: str, request: InferenceRequest, *, retention_days: int) -> Job:
-    """Queue the draft's inference and stop an earlier one still running; commits."""
+def submit_inference(
+    session: Session, draft_id: str, request: InferenceRequest, *, retention_days: int, assistant: bool = False
+) -> Job:
+    """Queue the draft's inference and stop an earlier one still running; commits. ``assistant``
+    is whether the provider is asked too, as the route decided (0.16 AP1)."""
     draft = load_draft(session, draft_id)
     source = current_source(session, draft)
     if source is None:
@@ -130,6 +136,7 @@ def submit_inference(session: Session, draft_id: str, request: InferenceRequest,
             "mode": request.mode,
             "applicationKey": request.applicationKey,
             "applicationName": request.applicationName,
+            "assistant": assistant,
             "file": {"name": source.name, "format": source.format, "bytes": source.bytes},
         },
         total=None,
@@ -209,8 +216,8 @@ def run_inference(
     session: Session,
     job: Job,
     *,
-    assistant_setting: str = "",
-    assistant_rows: int = 20,
+    ai: AiConfiguration | None = None,
+    record: Callable[[Any], None] | None = None,
     check: Callable[[], None] = lambda: None,
 ) -> None:
     """Find, build and compare the proposals of the job's draft and store them; the job completes.
@@ -270,8 +277,14 @@ def run_inference(
     warnings += builder.warnings
     if not proposals:
         warnings.append("No sheet showed a shape to propose from: nothing is proposed, map the workbook by hand")
-    if assistant_setting:
-        proposals, warning = _assisted(session, source, workbook, proposals, assistant_setting, assistant_rows)
+    # The assistant, when the person asked for it (the route decided they may, AP-D7) and a
+    # provider is still set (0.16 AP1).
+    asked = bool(parameters.get("assistant")) and ai is not None and ai.offers("modelNames")
+    if asked and ai is not None:
+        requester = ai_calls.Requester(job.requested_by_user_id, job.requested_by_client_id)
+        proposals, warning = _assisted(
+            session, source, workbook, proposals, ai, requester, job.id, record or ai_calls.record_in(session)
+        )
         if warning:
             warnings.append(warning)
         check()
@@ -291,7 +304,12 @@ def run_inference(
         )
     job.report = {
         **(job.report or {}),
-        "inference": {"proposals": len(proposals), "disagreements": disagreements, "warnings": warnings},
+        "inference": {
+            "proposals": len(proposals),
+            "disagreements": disagreements,
+            "warnings": warnings,
+            "assistant": asked,
+        },
     }
 
 
@@ -527,36 +545,15 @@ def _requirements(proposals: list[Proposal]) -> None:
 
 
 def _assisted(
-    session: Session, source: SourceFile, workbook: Any, proposals: list[Proposal], setting: str, rows: int
+    session: Session,
+    source: SourceFile,
+    workbook: Any,
+    proposals: list[Proposal],
+    ai: AiConfiguration,
+    requester: ai_calls.Requester,
+    job_id: str,
+    record: Callable[[Any], None],
 ) -> tuple[list[Proposal], str | None]:
-    try:
-        assistant = assistants.load_assistant(setting)
-    except Exception as exc:  # noqa: BLE001 - a misconfigured plug-in is a warning, not a failure
-        return proposals, f"The assistant '{setting}' could not be loaded ({type(exc).__name__})"
-    if assistant is None:
-        return proposals, None
-    sheets = []
-    for table in workbook.sheets:
-        found = session.execute(
-            text(
-                """
-                SELECT row_number, column_number, text FROM source_file_cells
-                WHERE source_file_id = :file AND sheet_index = :sheet AND row_number > :header
-                  AND row_number <= :header + :rows
-                ORDER BY row_number, column_number
-                """
-            ),
-            {"file": source.id, "sheet": table.index, "header": table.header_row, "rows": rows},
-        )
-        by_row: dict[int, dict[int, str]] = {}
-        for row_number, column_number, value in found:
-            by_row.setdefault(row_number, {})[column_number] = value
-        numbers = [c.number for c in table.columns]
-        sheets.append(
-            assistants.AssistantSheet(
-                table.name, [c.header for c in table.columns], [[cells.get(n) for n in numbers] for _, cells in sorted(by_row.items())]
-            )
-        )
     types = [
         assistants.AssistantType(p.id, o["key"], o["name"])
         for p in proposals
@@ -564,10 +561,19 @@ def _assisted(
         for o in p.operations
         if o.get("kind") == "addObjectType"
     ]
-    suggested, warning = assistants.suggestions(assistant, assistants.AssistantRequest(sheets, types))
+    if not types:
+        return proposals, None
+    sheets = workbook_sheets(session, ai.policy, source, list(workbook.sheets), assistants.ROWS)
+    outcome = ai_calls.ask(
+        ai, assistants.request(sheets, types), record=record, requester=requester, job_id=job_id
+    )
+    if outcome.answer is None:
+        return proposals, f"The assistant failed ({outcome.failure}); the proposals of the rules stand"
     names = {(t.proposal, t.key): t.name for t in types}
-    for suggestion in suggested:
-        body = assistants.proposal_body(suggestion, names[(suggestion.proposal, suggestion.key)])
+    for suggestion in assistants.suggestions(outcome.answer, types, ai.min_confidence):  # type: ignore[arg-type]
+        body = assistants.proposal_body(
+            suggestion, names[(suggestion.proposal, suggestion.key)], provider=outcome.provider, model=outcome.model
+        )
         proposals.append(
             Proposal(
                 pattern="assistant",
@@ -581,7 +587,7 @@ def _assisted(
                 requires=[suggestion.proposal],
             )
         )
-    return proposals, warning
+    return proposals, None
 
 
 # --- reads ----------------------------------------------------------------------------------------
@@ -654,6 +660,7 @@ def read_inference(session: Session, draft: ModelDraft) -> dict[str, Any]:
         "counts": counts,
         "disagreements": report.get("disagreements") or [],
         "warnings": report.get("warnings") or [],
+        "assistant": bool(job.parameters.get("assistant")),
         "proposed": proposed,
         "error": job.error,
     }
@@ -757,6 +764,8 @@ def _origin_of(proposal: ModelDraftProposal, job: Job) -> Callable[[list[Applied
             "anchor": body.get("anchor"),
             "signature": proposal.signature,
             "keys": body.get("keys") or {},
+            # Who proposed it, when not the rules: the assistant's provenance (0.16 AP-D5).
+            **({"proposedBy": body["evidence"]["origin"]} if (body.get("evidence") or {}).get("origin") else {}),
             "created": created,
             "snapshot": snapshot(model, profile, touched),
         }

@@ -5,7 +5,7 @@
  * column; any edit makes the element the administrator's, and the section goes with the mark.
  */
 
-import type { DraftOperation, Proposal } from "@/types";
+import type { AiOrigin, DraftOperation, Proposal } from "@/types";
 import { ProposalNote } from "@/ui/ProposalNote";
 import { StatusPill } from "@/ui/StatusPill";
 import { patternLabel } from "@/features/model-editor/proposing";
@@ -59,21 +59,37 @@ export function evidenceLines(evidence: Record<string, Value>): string[] {
   return lines;
 }
 
+/** The AI assistant's own account of a proposal, when it made it (0.16 AP1): who, how sure, and why. */
+export function aiOrigin(evidence: Record<string, Value>): AiOrigin | undefined {
+  const origin = evidence.origin as Partial<AiOrigin> | undefined;
+  return origin && typeof origin === "object" && origin.kind === "ai" ? (origin as AiOrigin) : undefined;
+}
+
 export function ProposedBecause({
   proposal,
+  assistant,
   busy,
   run,
 }: {
   /** The proposal the element is still as; its evidence reads once the inference's proposals are read. */
   proposal: Proposal | undefined;
+  /** The AI assistant's proposal that named the element, when it did (0.16 AP1). */
+  assistant?: Proposal;
   busy: boolean;
   run: (operations: DraftOperation[]) => void;
 }) {
+  const origin = aiOrigin((assistant ?? proposal)?.evidence ?? {});
+  const evidence = proposal ? evidenceLines(proposal.evidence).filter((line) => !line.startsWith("Origin: ")) : [];
   return (
     <ProposalNote
       subtitle={`${proposal ? patternLabel(proposal.pattern) : "From the workbook"} · edit anything here to make it yours`}
       summary={proposal?.summary}
-      evidence={proposal ? evidenceLines(proposal.evidence) : []}
+      origin={
+        origin
+          ? `Proposed by the AI assistant${origin.model ? ` (${origin.model})` : ""}, ${Math.round(origin.confidence * 100)}% confident. ${origin.reason}`
+          : undefined
+      }
+      evidence={evidence}
       alternatives={(proposal?.alternatives ?? []).map((alternative) => ({
         label: alternative.label,
         onSelect: () => run(alternative.operations),

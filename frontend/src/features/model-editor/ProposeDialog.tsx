@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { Modal } from "@/ui/Modal";
 import { nameOfFile, proposeRequest, ProposeFields, type ProposeChoice } from "@/features/model-editor/ProposeFields";
+import { useAssistantOffer } from "@/features/model-editor/AssistantChoice";
 import type { InferenceRequest } from "@/types";
 
 export function ProposeDialog({
@@ -25,7 +26,9 @@ export function ProposeDialog({
     mode: initialMode ?? "newApplication",
     applicationName: nameOfFile(fileName),
   });
-  const request = proposeRequest(choice);
+  // The AI assistant is offered only where a provider is set and the person may use it (0.16 AP1).
+  const offer = useAssistantOffer();
+  const request = proposeRequest(choice, Boolean(offer));
   return (
     <Modal
       title="Propose again"
@@ -41,7 +44,7 @@ export function ProposeDialog({
           if (request) onPropose(request);
         }}
       >
-        <ProposeFields value={choice} onChange={setChoice} />
+        <ProposeFields value={choice} onChange={setChoice} assistantOffer={offer} />
         <div className="dialog-actions">
           <button type="button" className="secondary" onClick={onClose}>
             Cancel

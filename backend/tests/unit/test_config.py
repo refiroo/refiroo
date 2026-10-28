@@ -27,6 +27,7 @@ GROUP_SECTIONS = {
     "capabilities": "### Capability groups",
     "limits": "### Batch and job limits",
     "webhooks": "## Webhook subscriptions",
+    "ai": "## AI proposals",
 }
 
 JOB_LIMITS = {
@@ -66,6 +67,7 @@ def test_the_catalogue_names_every_setting_once():
     assert {entry.name for entry in SETTINGS_CATALOGUE if entry.secret} == {
         "RDM_CURSOR_SIGNING_KEY",
         "SECRETS_ENCRYPTION_KEY",
+        "AI_API_KEY",
     }
 
 

@@ -1770,8 +1770,12 @@
 .proposed-because-summary {
   color: var(--text-primary);
 }
-.proposed-because-summary {
+.proposed-because-summary,
+.proposed-because-origin {
   margin: 0;
+}
+.proposed-because-origin {
+  color: var(--text-secondary);
 }
 .proposed-because-evidence {
   margin: 0;
@@ -1805,4 +1809,12 @@
 }
 .propose-fields {
   margin-bottom: var(--space-3);
+}
+
+/* The AI assistant choice in the propose dialogs (0.16 AP1): room before the next field. */
+.assistant-choice {
+  margin-bottom: var(--space-3);
+}
+.assistant-choice .admin-hint {
+  margin: var(--space-1) 0 0;
 }

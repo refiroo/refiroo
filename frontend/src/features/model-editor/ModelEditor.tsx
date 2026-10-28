@@ -489,6 +489,7 @@ export function ModelEditor({
     proposedElement && proposedElements.has(proposedElement) ? (
       <ProposedBecause
         proposal={inference.proposed.get(proposedElement)}
+        assistant={inference.assistantFor.get(proposedElement)}
         busy={busy}
         run={(operations) => void guarded(() => run(operations))}
       />

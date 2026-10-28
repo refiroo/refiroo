@@ -1,55 +1,55 @@
-"""The optional assistant's interface (``engine/sources/inference/assistant.py``, 0.10 A6, D95): off
-unless configured, its suggestions only for types the proposals add, and a failure a warning."""
-
-import sys
-import types
-
-import pytest
+"""The inference's assistant (``engine/sources/inference/assistant.py``, 0.10 A6, on the proposal
+provider since 0.16 AP1): only names for types the proposals add, above the floor and different,
+one per type, each a ``setLabel`` proposal carrying its provenance."""
 
 from app.engine.sources.inference import assistant as assistants
-from app.engine.sources.inference.assistant import (
-    AssistantRequest,
-    AssistantSheet,
-    AssistantSuggestion,
-    AssistantType,
-)
+from app.engine.sources.inference.assistant import AssistantType, NameAnswer
 
-REQUEST = AssistantRequest(
-    [AssistantSheet("Items", ["Ctry", "Name"], [["DE", "Pen"], ["FR", "Ruler"]])],
-    [AssistantType("p1", "ctry", "Ctry")],
-)
+TYPES = [AssistantType("p1", "ctry", "Ctry"), AssistantType("p2", "cur", "Cur")]
 
 
-class Fake:
-    def __init__(self, answer=None, fails=False):
-        self.answer, self.fails, self.seen = answer or [], fails, []
-
-    def suggest(self, request):
-        self.seen.append(request)
-        if self.fails:
-            raise RuntimeError("provider down")
-        return self.answer
-
-
-def test_no_setting_no_assistant_and_a_setting_names_a_factory(monkeypatch):
-    assert assistants.load_assistant("") is None
-    module = types.ModuleType("rdm_fake_assistant")
-    module.make = lambda: Fake()
-    monkeypatch.setitem(sys.modules, "rdm_fake_assistant", module)
-    assert isinstance(assistants.load_assistant("rdm_fake_assistant:make"), Fake)
-    with pytest.raises(ImportError):
-        assistants.load_assistant("rdm_missing_assistant:make")
+def _answer(*items: tuple[str, str, str, float]) -> NameAnswer:
+    return NameAnswer.model_validate(
+        {
+            "suggestions": [
+                {"proposal": p, "key": k, "name": n, "reason": "Codes", "confidence": c}
+                for p, k, n, c in items
+            ]
+        }
+    )
 
 
-def test_only_suggestions_for_types_the_proposals_add_are_kept():
-    fake = Fake([AssistantSuggestion("p1", "ctry", "Country", "ISO codes"), AssistantSuggestion("p9", "other", "Other"), AssistantSuggestion("p1", "ctry", " ")])
-    found, warning = assistants.suggestions(fake, REQUEST)
-    assert warning is None and [s.name for s in found] == ["Country"]
-    assert fake.seen == [REQUEST]
-    body = assistants.proposal_body(found[0], "Ctry")
-    assert body["operations"] == [{"kind": "setLabel", "element": {"objectType": "ctry"}, "name": "Country"}]
+def test_only_names_for_named_types_above_the_floor_and_different_are_kept():
+    answer = _answer(
+        ("p1", "ctry", "Country", 0.9),
+        ("p1", "ctry", "Nation", 0.95),
+        ("p9", "other", "Other", 0.9),
+        ("p2", "cur", "Cur", 0.9),
+        ("p2", "cur", "Currency", 0.4),
+        ("p2", "cur", "  ", 0.9),
+    )
+    found = assistants.suggestions(answer, TYPES, 0.5)
+    assert [(s.key, s.name) for s in found] == [("ctry", "Nation")]
 
 
-def test_a_failing_assistant_is_a_warning_and_suggests_nothing():
-    found, warning = assistants.suggestions(Fake(fails=True), REQUEST)
-    assert found == [] and "RuntimeError" in warning
+def test_the_request_holds_the_sheets_and_types_and_asks_for_the_answer_shape():
+    request = assistants.request([{"name": "Items", "headers": ["Ctry"]}], TYPES)
+    assert request.purpose == "modelNames" and request.answer is NameAnswer
+    assert request.context["types"][0] == {"proposal": "p1", "key": "ctry", "name": "Ctry"}
+    assert request.prompt_version == assistants.PROMPT_VERSION
+
+
+def test_a_proposal_body_renames_the_type_and_carries_its_provenance():
+    (suggestion,) = assistants.suggestions(_answer(("p1", "ctry", "Country", 0.834)), TYPES, 0.5)
+    body = assistants.proposal_body(suggestion, "Ctry", provider="claude", model="m")
+    assert body["operations"] == [
+        {"kind": "setLabel", "element": {"objectType": "ctry"}, "name": "Country"}
+    ]
+    assert body["evidence"]["origin"] == {
+        "kind": "ai",
+        "provider": "claude",
+        "model": "m",
+        "promptVersion": assistants.PROMPT_VERSION,
+        "confidence": 0.83,
+        "reason": "Codes",
+    }

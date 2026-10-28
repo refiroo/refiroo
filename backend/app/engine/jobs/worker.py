@@ -83,6 +83,8 @@ from ..model import change_set_migrations, migrations
 from ..moves import move_job, move_load
 from ..moves.mapping_inference import run_inference as run_mapping_inference
 from ..notifications import inbox
+from ..proposals.calls import record_apart
+from ..proposals.registry import AiConfiguration
 from ..sources.dry_run import (
     book_opener,
     dry_run_context,
@@ -157,9 +159,8 @@ class WorkerSettings:
     background_max_items: int = 1_000_000
     # The items a preview runs (JOB_PREVIEW_MAX_ITEMS; 0.9 J3, D83; batches since 0.9 K2).
     preview_max_items: int = 10_000
-    # The inference assistant (INFERENCE_ASSISTANT, INFERENCE_ASSISTANT_ROWS; 0.10 A6, D95).
-    inference_assistant: str = ""
-    inference_assistant_rows: int = 20
+    # The proposal provider and its policy (AI_*; 0.16 AP1): the inference's assistant.
+    ai: AiConfiguration | None = None
 
 
 # Another worker holds the job now; this chunk must not commit.
@@ -629,8 +630,8 @@ class JobWorker:
         run_inference(
             session,
             job,
-            assistant_setting=self.settings.inference_assistant,
-            assistant_rows=self.settings.inference_assistant_rows,
+            ai=self.settings.ai,
+            record=record_apart(self.session_factory),
             check=lambda: self._binding_check(job),
         )
         self._hold_lease(session, job.sequence_id, cancellable=True)

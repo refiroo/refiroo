@@ -2842,3 +2842,50 @@ class AuthorizationState(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class AiCall(Base):
+    """One call to the proposal provider (0.16 AP1, AP-D4): who asked, for what, of which provider
+    and model, how much went each way and how it ended. The request and answer are kept only with
+    ``AI_LOG_CONTENT`` on, and emptied once ``content_expires_at`` passes."""
+
+    __tablename__ = "ai_calls"
+    __table_args__ = (
+        CheckConstraint("outcome IN ('answered', 'failed')", name="ck_ai_calls_outcome"),
+        CheckConstraint(
+            "num_nonnulls(requested_by_user_id, requested_by_client_id) <= 1",
+            name="ck_ai_calls_one_requested_by",
+        ),
+        Index("ix_ai_calls_started", "started_at", "id"),
+        Index(
+            "ix_ai_calls_content_expiry",
+            "content_expires_at",
+            postgresql_where=text("content_expires_at IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
+    purpose: Mapped[str] = mapped_column(String(40), nullable=False)
+    provider: Mapped[str] = mapped_column(String(160), nullable=False)
+    model: Mapped[str] = mapped_column(String(160), nullable=False)
+    send_level: Mapped[str] = mapped_column(String(16), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    requested_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    requested_by_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
+    job_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    bytes_in: Mapped[int] = mapped_column(Integer, nullable=False)
+    bytes_out: Mapped[int] = mapped_column(Integer, nullable=False)
+    tokens_in: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tokens_out: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    failure_kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    failure: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    content_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)

@@ -6,6 +6,8 @@
 import type { EngineModel, ModelPlacements } from "./model";
 import type { Actor, Principal } from "@/types/security";
 
+import type { AiSystemInfo } from "@/types/ai";
+
 export interface ModelAdminCapabilities {
   readReleases: boolean;
   manageDrafts: boolean;
@@ -72,7 +74,7 @@ export interface CapabilitiesResponse {
 /** A deployment setting as `GET /system` reports it; a secret carries no value or default. */
 export interface SystemSetting {
   name: string;
-  group: "runtime" | "capabilities" | "limits" | "webhooks";
+  group: "runtime" | "capabilities" | "limits" | "webhooks" | "ai";
   description: string;
   value: unknown;
   default: unknown;
@@ -93,6 +95,8 @@ export interface SystemResponse {
   };
   /** The instance's product, readable without a workspace (0.12 HM1, D338); null when unavailable. */
   product?: { name: string; description: string | null } | null;
+  /** The AI provider, if one is set (0.16 AP1). */
+  ai: AiSystemInfo;
 }
 
 /** How the deployment is configured, for operators (`GET /api/v1/system/configuration`, D246). */
