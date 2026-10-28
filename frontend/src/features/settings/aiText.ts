@@ -12,6 +12,7 @@ export function sendLevelText(level: AiSendLevel, sampleValues: number): string 
 export const PURPOSE: Record<AiPurpose, string> = {
   connectionTest: "Test request",
   modelNames: "Names for an inference",
+  mappingTarget: "Targets for unmapped values",
 };
 
 /** The sentence under a failed call. */
@@ -25,4 +26,22 @@ export function sentToProvider(level: AiSendLevel, provider: string | null): str
   return level === "structure"
     ? `Sends the sheets' names and headers to ${to}`
     : `Sends the sheets' names, headers and first rows to ${to}`;
+}
+
+/** What the mapping proposal dialog says is sent: record names and the fields the view shows, and the floor when it is known. */
+export function sentForMappingTargets(options: {
+  provider: string | null;
+  model?: string | null;
+  sources: string;
+  targets: string;
+  /** `AI_MIN_CONFIDENCE` as a fraction, when the person may read it. */
+  floor?: number;
+}): string {
+  const to = options.provider ?? "the AI provider";
+  const who = options.model ? `${to} (${options.model})` : to;
+  const floor =
+    options.floor === undefined
+      ? ""
+      : ` Proposals below ${Math.round(options.floor * 100)}% confidence are not offered.`;
+  return `Sent to ${who}: the names of the ${options.sources} and ${options.targets} and the fields this view shows.${floor}`;
 }

@@ -252,6 +252,103 @@ aggregate tokens (ADR-022) apply unchanged: a divergent live set is refused as f
 Generic: any relation binding with a mapping view; the example model's mappings are one configuration
 and a second binding with different types and direction is the second proof.
 
+### AP2 in detail (approved by the user 2026-10-28, with the mock-up)
+
+The mock-up is the visual reference (a Design canvas, not kept in the repository): the grid's
+**Propose targets** button and **Proposed** segment, a target's mark "Proposed by the AI · 86%" with
+its reason, the dialog (scope, current or new change set, what is sent), progress and result counts,
+the phone layout (reason folded under "why?") and the history entry.
+
+| # | Decision |
+| --- | --- |
+| AP2-D1 | **Route** `POST /api/v1/workspaces/{key}/mapping-proposals` → `202` with the job (kind `aiProposal`). The view is named as coverage names it (`applicationKey`, `viewKey`; the binding comes from the view). Body: `search`, `parentObjectId` (the grid's narrowing), and `changeSetId` + `expectedChangeSetVersion` or `changeSetName` (a new change set, created by the request), exactly one; `sendLevel` (AP-D3). Only unmapped sources; never live. |
+| AP2-D2 | **Candidates** (AP-D9): the binding's eligible targets as the candidate search defines them (candidate criteria, one-to-one occupancy), in the change set's context. At most `WHOLE_LIST` (100) eligible targets: every call gets the whole list. More: each source gets its top `PER_SOURCE` (20) by `pg_trgm` similarity of the target's name and candidate search fields to the source's name and source columns. Computed in PostgreSQL when the job binds, stored as its inputs. An answer naming anything outside a source's candidates is dropped and counted. |
+| AP2-D3 | **Send level**: purpose `mappingTarget` needs `values` (record names are values) and is hidden below it. `sendLevel` on the request is checked in one place (`ai_requested`): never above the ceiling; for AP2 anything below `values` is `409 AI_SEND_LEVEL_TOO_LOW`, so the dialog offers no choice. |
+| AP2-D4 | **Batches** of 25 sources per provider call; the call holds no transaction (J48.8); each batch's proposals are written into the change set and committed before the next. Cancel keeps what was written. A failed call is a warning and its sources count as not proposed. A source whose set version changed since binding is refused by the version token and counted. Result: `proposed`, `unmatched` (no target at or above `AI_MIN_CONFIDENCE`), `changed`, `notAnswered`, `changeSetId`, `warnings`. |
+| AP2-D5 | **Provenance** (AP-D5, moved from AP1): nullable `origin` JSON on `change_set_relations` and `change_set_objects` (additive migration) = `{kind: "ai", provider, model, promptVersion, confidence, reason, proposedBy}`; copied into the publication's audit event (`changes.origin`); record history answers `origin` on the entry, whose actor stays the publisher. A person's change of the target is a new relation without origin, so the mark goes. |
+| AP2-D6 | **Review**: coverage target summaries carry `origin` (omitted when none); coverage takes `proposed=true` (change set context only: the sources with a target holding an AI origin), the grid's Proposed segment. No sort by confidence. |
+
+**Journey J49 (two configurations each):** J49.1 proposed into a new change set, origin on the
+relations and on coverage, live unchanged; J49.2 an invented, null or below-floor answer leaves the
+source unmapped and counted; J49.3 the provider receives only eligible candidates (whole list, or
+top 20) and names; J49.4 a failing provider: warning, failed call, nothing written; J49.5 a source
+mapped meanwhile is refused by its version token and counted; J49.6 hidden: `403 FORBIDDEN`
+(`groups: ["ai-proposals"]`), `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`; J49.7 the
+`proposed` filter, a changed target loses its mark, published history carries origin with the
+publisher as actor. Unit tests: candidate selection and answer filtering.
+
+### AP2 record (2026-10-28)
+
+**Delivered 2026-10-28** on the user's "deliver build 0.16 ap2", after the plan and the mock-up
+were approved. Backend and frontend were built by Sonnet agents from briefs, reviewed by the lead.
+
+- **Engine:** `engine/reads/mapping_scope.py` (`MappingScope`: the binding's edges, eligibility and
+  unmapped sources, shared with the mapping reads), `engine/proposals/mapping_selection.py` (the
+  sources and candidates in one `INSERT … SELECT` into the job's inputs), `mapping_targets.py` (prompt
+  `mapping-targets/2`, short refs, `chosen`, `shown_fields`, `sized`), `mapping_job.py` (`queue`,
+  `bind`, `step`), the worker's `aiProposal`, `ChangeSetWrites.set_origins`, `MergedRelation.origin`
+  into the relation audit event, `context_projection` moved to `engine/reads/mapping_projection.py`.
+- **Migration** `20261118_01`: `origin` on `change_set_relations` and `change_set_objects`, the job kind,
+  the inbox trigger's kinds. **Setting** `AI_CONTEXT_TOKENS`.
+- **API:** `POST /workspaces/{key}/mapping-proposals`; `aiProposal` on the job read and in `GET /jobs`
+  `kind`; coverage `proposed`; `origin` on target summaries and history entries; `sendLevel` checked in
+  `ai_requested`. OpenAPI lock re-baselined, additive.
+- **Frontend:** `MappingProposalDialog`, the grid's Propose targets and Proposed segment, `ui/AiOriginMark`
+  (also the model editor's sentence), the history entry's mark, the job kind's texts. Runner `ap1-ai`
+  extended with the AP2 checks.
+
+**Decided within the approved package:**
+
+- `refused` counts a target a rule refused (cardinality, two sources taking one exclusive target); `changed`
+  a version-token mismatch; `notAnswered` a failed call or a source the answer left out.
+- Each step claims the change set's current version, so a person editing meanwhile does not stop the job.
+- **Calls sized to the model's window** (AP-D8, found on the real try): `AI_CONTEXT_TOKENS` (empty: no limit);
+  a step takes as many sources as fit half of it; a whole list too large for one source becomes each source's
+  closest 20; a source with no candidate is not sent and no call is made for none. What is sent of a record
+  leaves out a field that repeats its name or holds a UUID.
+- The reason must name records, never the references (prompt `mapping-targets/2`).
+
+**Found by the user on realistic data (2026-10-28) and fixed:** the mapping grid listed every record of
+the source type as a source of every mapping view, ignoring the binding's criteria at the source end
+(0.9 K7, D171), so its "unmapped" rows, counts and the proposals included records that may never be
+mapped there. `MappingScope.source_clauses`: a source meets the source-end criteria or already holds an
+edge of the binding (D175); coverage, its counts and filters and the proposal job's selection all use
+it (J10.12, J49.3). The user's development model was given the criteria through the API (release
+`rdm-operators-timetables` 0.9.13 in `default`, `candidates.from` = `ancestor:system-group.name` per
+target; before/after inventory: only those five and the release version changed); in `default` both
+timetable views then have 0 unmapped values, where they showed 200 and 14. The example model file is
+unchanged: 31 older test modules and runners map system values without groups. The relation matrix's
+row side may have the same gap; not checked.
+
+**Real-model try** (the user's local `qwen3.5:9b-mlx`, `.dev/settings.env`, one transaction rolled back, tool
+`scratchpad/ap2-try/try_mapping_targets.py`). The first three calls, before the sizing, ran back to back
+without being announced: 19 s with no candidates (the workspace has none of the target type), 82 s not
+answering in shape, 133 s ending in Ollama's `500` with a prompt of about 6,100 tokens against the 4,096
+window Ollama serves the model with. They loaded the user's laptop for about four minutes. After the
+fixes, one announced call with the window set to 4,096: 14 sources and 15 candidates (about 940 tokens),
+answered in 54 s in shape; 7 sensible targets (98%, 95%, 90%), 7 left unmapped, among them sources whose
+code prefix names a candidate; the reasons named the references, fixed in `mapping-targets/2` (not tried
+again).
+
+**Checks:** J49 (30 cases, two configurations), the proposal unit tests, `test_config`, J48, J31 and the
+contract module: passed after the final change (the last run 216 and 11). Earlier, by the backend agent:
+`contract` 82, `startup` 198, `mapping or feed` 425, `change_sets or jobs` 1,200 (5 min 43 s, over the
+3-minute package ceiling: a harness ceiling defect to raise), the serial part 3. Frontend: focused Vitest
+(149), `npm run lint` (0 errors, 9 older warnings), `npm run build`, `tsc -b`, `test:browser:ai` (73
+checks, axe 0 violations, light, dark, 390px, keyboard, on an outgoing and an incoming view).
+
+**Not verified:** the J49 inbox notice of a finished job (the trigger lists the kind); a stopped, failed or
+partly refused job in the browser (the fake answers at once); the published history mark in a browser
+(component test only); a second model in the browser runner (the starter's two bindings); the screenshots
+of the result dialog and 390px dialog after the final layout fix; the reason wording of `mapping-targets/2`
+on a real model; the quality of the 9b model's matches beyond one call. The job page shows an `aiProposal`
+job in the generic layout without its tally. On a phone the grid's own scroll area hides the end of the mark
+pill, as it hides the Action column already.
+
+**What the user cannot do yet:** values for empty fields and missing related records (AP4), dry-run triage
+(AP5), instruction-driven tasks (AP6), AI in model authoring beyond names (AP3), assistant access (AG1–AG4),
+summaries (AO1–AO3).
+
 ## AP3: Model authoring and model mappings
 
 **Journey:** a model administrator imports a workbook; the inference's proposals now carry better

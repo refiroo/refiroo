@@ -6,6 +6,22 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.16 AP2, AI targets for unmapped values)
+
+- **Propose targets in a mapping grid:** `POST /workspaces/{key}/mapping-proposals` (a job of kind
+  `aiProposal`) asks the provider for a target for each unmapped source of a view, among the targets the
+  grid would offer (all up to 100, else each source's 20 closest), and writes them into a new or open
+  change set; never into live data. The job counts proposed, unmatched, changed, refused and not-answered
+  sources. Needs Use AI proposals and send level `values`.
+- **Provenance on change-set changes:** `origin` on `change_set_relations` and `change_set_objects`
+  (migration `20261118_01`), on coverage target summaries, copied into the published relation's audit
+  event and answered by record history. Coverage takes `proposed=true` in a change set; the grid's
+  **Proposed** filter and the "Proposed by the AI" mark with its reason.
+- **`sendLevel` on a feature's request**, a lower level than `AI_SEND_LEVEL` for that request (AP-D3).
+- **`AI_CONTEXT_TOKENS`**, a small model's context window: mapping-target calls are sized to half of it.
+  A source with no candidate is not sent; fields repeating the name or holding a generated identifier are
+  left out of what is sent. `GET /jobs` filters by `kind=aiProposal`.
+
 ### Added (0.16 AP1, the AI proposal provider)
 
 - **An AI provider for proposals**, set in the environment: `AI_PROVIDER` (`claude`, `openai-compatible` or a
@@ -38,6 +54,13 @@ All notable changes to this project are documented in this file. The format foll
 - **`AI_REASONING_EFFORT`** (`openai-compatible`): sends `reasoning_effort`, so a local thinking model answers
   without reasoning for minutes. The adapter also shows the answer's shape in the instructions as an example to
   fill in, so a model on an endpoint that does not enforce the schema (Ollama's MLX builds) answers in shape.
+
+### Fixed (0.16 AP2)
+
+- **Mapping sources ignored the binding's criteria:** a mapping grid applied `candidates` only to targets, so
+  coverage, its counts and state filters, the Proposed filter and the AI proposal job's unmapped sources
+  included records that can never be mapped there. Sources are now the source-type records meeting the
+  criteria at the source end, plus any that already holds a relationship of the binding (kept, D175).
 
 ### Fixed (0.16 AP1)
 

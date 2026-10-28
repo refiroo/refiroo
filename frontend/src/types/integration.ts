@@ -3,6 +3,7 @@
  * (`GET /api/v1/jobs`) and webhook subscriptions (`/api/v1/consumer-subscriptions`).
  */
 
+import type { AiProposalTally } from "@/types/ai";
 import type { MoveSummary } from "@/types/moves";
 import type { Principal } from "@/types/security";
 
@@ -43,7 +44,8 @@ export interface Job {
     | "profileCheck"
     | "migration"
     | "mappingInference"
-    | "move";
+    | "move"
+    | "aiProposal";
   workspaceKey: string;
   changeSetId: string | null;
   state: JobState;
@@ -85,6 +87,8 @@ export interface Job {
   migration?: MigrationSummary | null;
   /** A move's dry run summary (0.11 X2), and what its load opened (X3). */
   move?: MoveSummary | null;
+  /** An `aiProposal` job's tally, updated as it runs (0.16 AP2); null for other jobs. */
+  aiProposal?: AiProposalTally | null;
   /** Who submitted it, whose permissions it runs with (0.12 Z2, Z4); null from before Z2. */
   requestedBy: Principal | null;
 }

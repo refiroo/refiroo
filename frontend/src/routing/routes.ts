@@ -481,6 +481,7 @@ export function parseRoute(
         ...(view.type === "mappingGrid" && ["mapped", "unmapped", "ambiguous"].includes(query.get("mappingState") ?? "")
           ? { mappingState: query.get("mappingState") as "mapped" | "unmapped" | "ambiguous" }
           : {}),
+        ...(view.type === "mappingGrid" && query.get("proposed") === "true" ? { mappingProposed: true } : {}),
         ...(view.type === "relationMatrix" ? matrixQuery(query) : {}),
         ...(query.get("anchor") ? { anchor: query.get("anchor")! } : {}),
       };
@@ -568,6 +569,7 @@ export function routePath(route: RouteState) {
       query.set("parentObjectTypeKey", route.parentObjectTypeKey);
     }
     if (route.mappingState) query.set("mappingState", route.mappingState);
+    if (route.mappingProposed) query.set("proposed", "true");
     route.matrixColumnIds?.forEach((id) => query.append("matrixColumn", id));
     if (route.matrixState && route.matrixColumnIds?.length) query.set("matrixState", route.matrixState);
     if (route.anchor) query.set("anchor", route.anchor);

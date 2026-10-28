@@ -332,9 +332,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # worktree of HEAD: nothing else changed.
     # Re-baselined for 0.16 AP1 (fixes, additive): AiSystemInfo.model and
     # ModelDraftProfileResponse.freeKey; nothing else changed.
+    # Re-baselined for 0.16 AP2 (additive): POST /workspaces/{key}/mapping-proposals with
+    # MappingProposalRequest, AiProposalResult and ProposalOrigin; JobResponse.aiProposal and the
+    # kind aiProposal; MappingTargetSummary.origin and AuditEventResponse.origin; the coverage
+    # parameter proposed; the purpose mappingTarget on the Ai* schemas (AiFeature.purpose a
+    # one-value const becomes an enum). Diffed against HEAD's document in a worktree. Then the
+    # kind aiProposal on GET /jobs; with it removed the document hashes to the previous lock.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "0bc314fe20b7be290ae8e083e2eea9a47b326304c1edc9be78dfabb84dcebb35"
+        "fe2f424f4b19c3e082ececeef52f320bc7d21b58efc8cbba7ec92b76bd37bb70"
     )
 
 

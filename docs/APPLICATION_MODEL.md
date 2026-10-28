@@ -238,6 +238,9 @@ criterion's pointer (`/objectTypeRelations/<key>/<from>/<to>/candidates/to/0/fie
   Add, Replace with and Set to, the relationship view's and relation matrix's candidates, and the
   relationship filter's picker. Each says what it offers ("Offers only slots under a Slot group whose
   name contains “reserved”."). Remove lists what the records hold, whether it matches or not.
+- A mapping grid lists as sources only the records meeting the criteria at its source end (coverage, its
+  counts and filters, and the sources an AI proposal asks about), unless the record already holds the
+  relationship, which stays listed and editable.
 - A record that does not meet its own end is not offered the relationship on its panel, which says
   why ("Only bookable services can have this relationship."); in Change relationships the preview
   refuses such records by name.

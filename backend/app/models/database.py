@@ -1156,6 +1156,9 @@ class ChangeSetObject(Base):
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Who proposed it when a person did not (0.16 AP2): {kind: "ai", provider, model, promptVersion,
+    # confidence, reason, proposedBy}; null for a person's change.
+    origin: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class ChangeSetRelation(Base):
@@ -1194,6 +1197,9 @@ class ChangeSetRelation(Base):
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Who proposed it when a person did not (0.16 AP2): {kind: "ai", provider, model, promptVersion,
+    # confidence, reason, proposedBy}; null for a person's change.
+    origin: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class SnapshotAttributeValue(Base):
@@ -1735,7 +1741,7 @@ class Job(Base):
     __table_args__ = (
         CheckConstraint(
             "kind IN ('batch', 'import', 'export', 'profile', 'dryRun', 'inference', "
-            "'profileCheck', 'migration', 'mappingInference', 'move')",
+            "'profileCheck', 'migration', 'mappingInference', 'move', 'aiProposal')",
             name="ck_job_kind",
         ),
         CheckConstraint(

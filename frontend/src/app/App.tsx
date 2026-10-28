@@ -173,7 +173,14 @@ function AppContent({
   // and a change set's version. A bulk change may end after failing part way, its chunks applied.
   useJobEnded((job) => {
     if (job.workspaceKey !== route.workspaceKey) return;
-    if (job.kind === "import" ? job.state !== "completed" : job.kind !== "batch" || job.counts.applied === 0) return;
+    // An AI proposal job that stopped part way keeps what it proposed (0.16 AP2).
+    const wrote =
+      job.kind === "import"
+        ? job.state === "completed"
+        : job.kind === "aiProposal"
+          ? (job.aiProposal?.proposed ?? 0) > 0
+          : job.kind === "batch" && job.counts.applied > 0;
+    if (!wrote) return;
     if ((job.changeSetId ?? undefined) !== routeChangeSetId(route)) return;
     setRefreshToken((value) => value + 1);
     data.refresh?.().catch(() => undefined);
@@ -722,6 +729,16 @@ function AppContent({
                       });
                     }}
                     onOpen={(item, action, options) => openObject(item, action, options?.beside ? "beside" : undefined)}
+                    onShowProposed={(changeSetId) =>
+                      navigate({
+                        ...collection,
+                        changeSetId,
+                        publicationId: undefined,
+                        mappingState: undefined,
+                        mappingProposed: true,
+                        anchor: undefined,
+                      })
+                    }
                     onReviewChanges={
                       data.changeSet
                         ? () =>

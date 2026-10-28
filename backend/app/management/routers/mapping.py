@@ -3,20 +3,24 @@
 from dataclasses import dataclass
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
 from ...engine.operations.mapping_replacement import MappingVersionConflict, replace_mapping
+from ...engine.proposals import mapping_job
 from ...errors import api_error
-from ...models.commands import MappingReplacementRequest
+from ...models.commands import MappingProposalRequest, MappingReplacementRequest
 from ...models.schema import MappingGridViewConfig
 from ..access import (
+    MAPPING_PROPOSAL,
     MAPPINGS_WRITE,
     WORKSPACE_PATH,
     AuthorizedRoute,
     requires,
 )
+from ..ai import ai_requested
 from ..dependencies import DbSession
 from ..paging import PageQuery, SeekablePageQuery
+from ..presenters import job_responses
 from ..projections.mapping import (
     MappingRead,
     candidates,
@@ -27,6 +31,7 @@ from ..projections.mapping import (
     target_details,
     validate_binding,
 )
+from ..schemas.jobs import JobResponse
 from ..schemas.mapping import (
     MappingCandidatePage,
     MappingCoveragePage,
@@ -89,9 +94,14 @@ def mapping_coverage(
     search: str | None = Query(default=None, max_length=500),
     parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
     state: Literal["mapped", "unmapped", "ambiguous"] | None = Query(default=None),
+    proposed: bool = Query(
+        default=False,
+        description="Only sources with a target the AI proposed and nobody has changed since "
+        "(needs changeSetId, else 422 MAPPING_PROPOSED_NEEDS_CHANGE_SET)",
+    ),
     page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
 ) -> MappingCoveragePage:
-    return coverage(read, search, paging, page_size, parent_object_id, state)
+    return coverage(read, search, paging, page_size, parent_object_id, state, proposed)
 
 
 @dataclass(frozen=True)
@@ -267,3 +277,36 @@ def put_mapping(
         relationId=result.relation_id,
         changeSetVersion=result.change_set_version,
     )
+
+
+@router.post("/mapping-proposals", response_model=JobResponse, status_code=202)
+@requires("records.write", at=MAPPING_PROPOSAL)
+def post_mapping_proposals(
+    workspace_key: str, body: MappingProposalRequest, request: Request, session: DbSession
+) -> JobResponse:
+    """Ask the AI provider for targets for the unmapped sources of a mapping view, into a change
+    set (0.16 AP2). Answers 202 with a queued ``aiProposal`` job; its ``aiProposal`` tally reads
+    as it runs. Refused before a job exists: ``403 FORBIDDEN`` without Use AI proposals, ``409
+    AI_NOT_CONFIGURED``, ``409 AI_SEND_LEVEL_TOO_LOW`` (a ``sendLevel`` above the ceiling, or below
+    what the feature needs), ``404 CHANGE_SET_NOT_FOUND``, ``409 CHANGE_SET_VERSION_CONFLICT``,
+    ``404 MAPPING_VIEW_NOT_FOUND``, ``404 MAPPING_PARENT_NOT_FOUND``."""
+    ai_requested(
+        request, "mappingTarget", True, workspace_key=workspace_key, send_level=body.sendLevel
+    )
+    job = mapping_job.queue(
+        session,
+        workspace_key,
+        application_key=body.applicationKey,
+        view_key=body.viewKey,
+        search=body.search,
+        parent_object_id=str(body.parentObjectId) if body.parentObjectId else None,
+        change_set_id=str(body.changeSetId) if body.changeSetId else None,
+        expected_change_set_version=body.expectedChangeSetVersion,
+        change_set_name=body.changeSetName,
+        send_level=body.sendLevel,
+        retention_days=request.app.state.batch_limits.retention_days,
+    )
+    worker = getattr(request.app.state, "job_worker", None)
+    if worker is not None:
+        worker.wake()
+    return job_responses(session, [job])[0]

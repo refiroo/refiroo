@@ -25,6 +25,7 @@ vi.mock("@/api/client", () => ({
     }
   },
   api: {
+    system: vi.fn(),
     objects: vi.fn(),
     object: vi.fn(),
     mappingCoverage: vi.fn(),
@@ -167,6 +168,10 @@ function renderGrid(props?: Partial<Parameters<typeof CollectionView>[0]>) {
 describe("MappingGridView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The grid reads whether an AI provider is set (0.16 AP2); none here.
+    vi.mocked(api.system).mockResolvedValue({
+      ai: { configured: false, provider: null, sendLevel: "structure" },
+    } as never);
     vi.mocked(api.mappingCoverage).mockResolvedValue(coveragePage);
     vi.mocked(api.object).mockResolvedValue(domainObject);
     vi.mocked(api.mappingCandidates).mockResolvedValue(candidatePage);

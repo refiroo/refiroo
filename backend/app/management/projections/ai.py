@@ -19,7 +19,10 @@ from ..schemas.ai import (
     AiTotals,
 )
 
-FEATURE_NAMES = {"modelNames": "Better names for the types a model draft's inference proposes"}
+FEATURE_NAMES = {
+    "modelNames": "Better names for the types a model draft's inference proposes",
+    "mappingTarget": "Targets for the unmapped values of a mapping view",
+}
 
 
 def call_response(session: Session, row: AiCall) -> AiCallResponse:

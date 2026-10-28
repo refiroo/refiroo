@@ -4,7 +4,7 @@ import type { PageNavigation } from "@/types/runtime";
 
 /** What may leave the process: names and types, also sample values, also the values a feature needs. */
 export type AiSendLevel = "structure" | "samples" | "values";
-export type AiPurpose = "connectionTest" | "modelNames";
+export type AiPurpose = "connectionTest" | "modelNames" | "mappingTarget";
 export type AiFailureKind = "unreachable" | "unauthorized" | "rateLimited" | "declined" | "malformed" | "failed";
 
 /** What `GET /system` tells every signed-in person about the provider. */
@@ -82,4 +82,32 @@ export interface AiOrigin {
   promptVersion: string;
   confidence: number;
   reason: string;
+}
+
+/** A mapping target or a published change the AI proposed (0.16 AP2): who answered, how sure, why, and who asked. */
+export interface ProposalOrigin extends AiOrigin {
+  /** The person or client that asked for it; a public ID. */
+  proposedBy?: string | null;
+}
+
+/** `POST /workspaces/{key}/mapping-proposals`: the grid's narrowing, and exactly one of the change set choices. */
+export interface MappingProposalRequest {
+  applicationKey: string;
+  viewKey: string;
+  search?: string;
+  parentObjectId?: string;
+  changeSetId?: string;
+  expectedChangeSetVersion?: number;
+  changeSetName?: string;
+}
+
+/** What an `aiProposal` job did as far as it has run. */
+export interface AiProposalTally {
+  proposed: number;
+  unmatched: number;
+  changed: number;
+  refused: number;
+  notAnswered: number;
+  changeSetId: string;
+  warnings: string[];
 }

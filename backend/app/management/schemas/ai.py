@@ -13,7 +13,7 @@ SendLevel = Literal["structure", "samples", "values"]
 class AiFeature(BaseModel):
     """A feature that asks the provider: whether it is offered, and the least it needs sent."""
 
-    purpose: Literal["modelNames"]
+    purpose: Literal["modelNames", "mappingTarget"]
     name: str
     needs: SendLevel
     available: bool
@@ -35,7 +35,7 @@ class AiCallResponse(BaseModel):
     ``AI_LOG_CONTENT`` keeps them."""
 
     id: str
-    purpose: Literal["connectionTest", "modelNames"]
+    purpose: Literal["connectionTest", "modelNames", "mappingTarget"]
     provider: str
     model: str
     sendLevel: SendLevel

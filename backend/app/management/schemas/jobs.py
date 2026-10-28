@@ -278,6 +278,22 @@ class MoveSourceCounts(BaseModel):
     kept: int
 
 
+class AiProposalResult(BaseModel):
+    """What an ``aiProposal`` job did (0.16 AP2), as far as it has run: ``proposed`` sources given a
+    target in the change set; ``unmatched`` left unmapped because the provider found no target at or
+    above the confidence floor; ``changed`` skipped because the source or its targets changed since
+    the job bound them; ``refused`` because the rules refused the target; ``notAnswered`` because a
+    call failed or the answer left them out."""
+
+    proposed: int
+    unmatched: int
+    changed: int
+    refused: int
+    notAnswered: int
+    changeSetId: str
+    warnings: list[str]
+
+
 class MoveSummary(BaseModel):
     """What a move's dry run found (0.11 X2, D122): every row (``coverage`` is always
     ``complete``, D67) counted by outcome, by source type and by relation type; the reasons with
@@ -477,7 +493,7 @@ class JobResponse(BaseModel):
     id: str
     kind: Literal[
         "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration",
-        "mappingInference", "move",
+        "mappingInference", "move", "aiProposal",
     ]
     workspaceKey: str
     changeSetId: str | None
@@ -529,6 +545,10 @@ class JobResponse(BaseModel):
     move: MoveSummary | None = Field(
         default=None,
         description="A move's dry run summary once completed (0.11 X2); null for other jobs",
+    )
+    aiProposal: AiProposalResult | None = Field(
+        default=None,
+        description="An aiProposal job's tally, updated as it runs (0.16 AP2); null for other jobs",
     )
     requestedBy: PrincipalResponse | None = Field(
         description="Who submitted it, whose permissions it runs with (0.12 Z2, Z4); null for a "

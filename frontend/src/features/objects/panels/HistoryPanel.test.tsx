@@ -61,6 +61,38 @@ describe("HistoryPanel", () => {
     );
   });
 
+  it("marks a change the AI proposed, with its confidence, its reason and who asked (0.16 AP2)", async () => {
+    vi.mocked(api.objectHistory).mockResolvedValueOnce({
+      items: [
+        {
+          id: "event-3",
+          aggregateType: "relation",
+          aggregateId: "relation-id",
+          action: "created",
+          version: 3,
+          changedFields: [],
+          attributeTypeKeys: [],
+          occurredAt: "2026-09-05T10:00:00Z",
+          actor: { kind: "user", id: "p1", name: "Ana Varga" },
+          origin: {
+            kind: "ai",
+            provider: "fake",
+            model: "fake-1",
+            promptVersion: "1",
+            confidence: 0.86,
+            reason: "The name says so.",
+            proposedBy: "p1",
+          },
+        },
+      ],
+      nextCursor: null,
+    });
+    render(<HistoryPanel objectTypeKey="domain" objectId={domainObject.id} />);
+    fireEvent.click(await screen.findByRole("button", { name: /proposed by the AI/ }));
+    expect(screen.getByText("Proposed by the AI assistant (fake-1), 86% confident")).toBeInTheDocument();
+    expect(screen.getByText("The name says so. Asked for by Ana Varga.")).toBeInTheDocument();
+  });
+
   it("retries the same older-history cursor after a paging failure", async () => {
     vi.mocked(api.objectHistory)
       .mockResolvedValueOnce({

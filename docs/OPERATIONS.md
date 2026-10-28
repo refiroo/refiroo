@@ -837,8 +837,8 @@ setting and takes no workspace lock: writes never wait for it.
 ## AI proposals
 
 An AI provider makes proposals people then review in the screens they already use (0.16 AP1): today
-clearer names for the types a model draft's inference proposes; later 0.16 packages add targets for
-unmapped values, values for empty fields and more, all on the same provider. A proposal never writes
+clearer names for the types a model draft's inference proposes (AP1) and targets for a mapping view's
+unmapped values (AP2); later 0.16 packages add values for empty fields and more, all on the same provider. A proposal never writes
 live data and never publishes; it arrives as a step or a change a person edits, keeps or removes.
 With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action is offered.
 
@@ -854,6 +854,7 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
 | `AI_LOG_CONTENT` | off | Keep each call's request and answer with its record, for an operator debugging a prompt. They hold reference data: switch it on only while needed |
 | `AI_LOG_CONTENT_DAYS` | 7 | Days a kept request and answer stay; then they are emptied and the record stays |
 | `AI_REASONING_EFFORT` | empty | `openai-compatible` only: sends `reasoning_effort` (`none`, `low`, `medium`, `high`), how much the model reasons before it answers. Empty sends nothing. A local thinking model (Qwen through Ollama) can reason for minutes on a short request: `none` makes it answer directly |
+| `AI_CONTEXT_TOKENS` | empty | The model's context window in tokens, for a model with a small one (a local model): a feature sizes each call to half of it, sending fewer records per call. Empty: no limit beyond the feature's own batch. Ollama serves a model with its own window (4,096 by default, `OLLAMA_CONTEXT_LENGTH` when it starts), whatever the model supports: set this to that number |
 | `AI_TIMEOUT_SECONDS` | 60 | Seconds one call may take; the Claude adapter tries a passing failure (overloaded, rate-limited, a server error, a timeout) up to three times |
 
 - **Where to set them:** in the reference installation, in `.env` (`.env.example` lists them, commented
@@ -877,7 +878,9 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
 - **What is sent** is built in one place and held to `AI_SEND_LEVEL`. For the inference's names:
   each sheet's name and headers, its first 50 rows from `samples` up (at most `AI_SAMPLE_VALUES` at
   `samples`), and the names the rules gave the
-  types they add. Reference data is treated as data: the instructions tell the model not to follow
+  types they add. For mapping targets (needs `values`): the names and the view's displayed fields of
+  the unmapped sources, 25 per call, and of their candidate targets (all eligible targets up to 100,
+  otherwise each source's 20 closest by name). Reference data is treated as data: the instructions tell the model not to follow
   text found in it, and nothing it answers is applied unasked.
 - **A failing provider never fails the work it helps.** An unreachable provider, a refused key, a
   declined request or an answer out of the shape asked for is a warning on the feature (the

@@ -12,8 +12,9 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel
 
 # What a feature asks for. ``connectionTest`` is the operator's test of the settings (Settings › AI);
-# ``modelNames`` the inference's better names for the types it adds (0.10 A6, folded in AP1).
-Purpose = Literal["connectionTest", "modelNames"]
+# ``modelNames`` the inference's better names for the types it adds (0.10 A6, folded in AP1);
+# ``mappingTarget`` the target a mapping source's name says it maps to (0.16 AP2).
+Purpose = Literal["connectionTest", "modelNames", "mappingTarget"]
 
 # Why a call failed, for the operator: the provider was not reached, it refused the key, it limited
 # the rate, it declined the request, it answered out of shape, or it failed otherwise.

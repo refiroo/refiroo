@@ -58,6 +58,8 @@ class MergedRelation:
     to_object_id: str
     attributes: dict[str, Any]
     version: int
+    # Who proposed it when the AI did (0.16 AP2): copied into its audit entry.
+    origin: dict[str, Any] | None = None
 
 
 @dataclass
@@ -187,12 +189,15 @@ def publish_entries(merge: LiveMerge, model: Any) -> list[AuditEntry]:
 def _relation_entry(
     relation: MergedRelation, action: str, fields: list[str], attribute_type_keys: list[str]
 ) -> AuditEntry:
+    changes: dict[str, Any] = {"changedFields": fields, "attributeTypeKeys": attribute_type_keys}
+    if relation.origin and action != "deleted":
+        changes["origin"] = relation.origin
     return AuditEntry(
         "relation",
         relation.relation_id,
         action,
         relation.version,
-        {"changedFields": fields, "attributeTypeKeys": attribute_type_keys},
+        changes,
         (relation.from_object_id, relation.to_object_id),
         relation_subject(relation.relation_type_key, relation.from_object_id, relation.to_object_id),
     )
@@ -523,6 +528,7 @@ def _merge_change_set_over_live(
             to_object_id=row.to_object_id,
             attributes=dict(row.attributes or {}),
             version=row.version,
+            origin=row.origin,
         )
         if base is not None:
             live = live_relations.get(relation_id)

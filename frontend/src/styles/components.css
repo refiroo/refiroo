@@ -3233,6 +3233,60 @@ form .admin-hint {
   color: var(--status-error-action);
   font-size: 12.5px;
 }
+/* The AI's mark and reason on a mapping target and a history entry (0.16 AP2). */
+.ai-origin {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+.ai-origin-history {
+  margin-top: var(--space-1);
+}
+.ai-origin-reason {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.ai-origin-fold summary {
+  min-height: 24px;
+  color: var(--status-proposed-text);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.mapping-target-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+.mapping-propose-end {
+  margin-left: auto;
+}
+.mapping-proposal-scope strong {
+  color: var(--text-primary);
+}
+.mapping-proposal-counts {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+.mapping-proposal-counts div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.mapping-proposal-counts dt {
+  color: var(--text-secondary);
+}
+.mapping-proposal-counts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 .mapping-actions-col {
   width: 96px;
   white-space: nowrap;

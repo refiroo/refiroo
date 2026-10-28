@@ -43,6 +43,7 @@ JOB_ACTIONS: dict[str, str] = {
     "export": "exports.create",
     "move": "moves.create",
     "mappingInference": "model-mappings.manage",
+    "aiProposal": "records.write",
     "migration": "model.activate",
     "dryRun": "model.author",
     "inference": "model.author",

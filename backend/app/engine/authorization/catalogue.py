@@ -367,6 +367,8 @@ JOB_GROUPS: dict[str, str] = {
     "export": "browse",
     "move": "copy-move",
     "mappingInference": "copy-move",
+    # Proposals are edits of a change set (0.16 AP2).
+    "aiProposal": "change-sets",
     "migration": "model-release",
     "dryRun": "model-authoring",
     "inference": "model-authoring",

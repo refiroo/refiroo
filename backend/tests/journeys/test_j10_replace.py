@@ -698,3 +698,29 @@ def test_a_view_offers_only_the_candidates_its_relationship_allows(world):
 
     assert cells("Reserved South") == [f"{tag} permit in Reserved South"]
     assert cells("Open South") == []
+
+
+@pytest.mark.journey("J10.12")
+@pytest.mark.structures("H", "K", "H.code", "K.code", "Bsrc", "Vsrc")
+def test_coverage_lists_only_the_sources_the_binding_lets_be_mapped_or_already_mapped(world):
+    """Given a binding whose source end takes an H coded "OK…", an unmapped H that meets it, an
+    unmapped one that does not, and one that was mapped while it met the criteria and has since been
+    recoded. When the steward lists the sources in each state. Then the unmapped H outside the
+    criteria is never listed or counted, and the recoded mapped one is still listed as mapped."""
+    tag = uuid4().hex[:6]
+    meets = world.made("H", f"{tag} meets", values={"H.code": f"OK-{tag}"})
+    outside = world.made("H", f"{tag} outside", values={"H.code": f"NO-{tag}"})
+    kept = world.made("H", f"{tag} kept", values={"H.code": f"OK-kept-{tag}"})
+    target = world.made("K", f"{tag} target", values={"K.code": f"K-{tag}"})
+    ok(world.relate("Bsrc", kept["id"], target["id"]), 201)
+    ok(world.update("H", kept["id"], kept["version"], values={"H.code": f"NO-kept-{tag}"}))
+
+    def listed(**params):
+        page = _coverage(world, "Vsrc", search=tag, includeTotal=True, **params)
+        return {row["source"]["id"]: row["state"] for row in page["items"]}, page["totalCount"]
+
+    every, total = listed()
+    assert every == {meets["id"]: "unmapped", kept["id"]: "mapped"} and total == 2
+    assert listed(state="unmapped") == ({meets["id"]: "unmapped"}, 1)
+    assert listed(state="mapped") == ({kept["id"]: "mapped"}, 1)
+    assert outside["id"] not in every

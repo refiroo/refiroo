@@ -226,6 +226,18 @@ def _write_change_set(context: Context) -> Any:
     return context.field("changeSetId")
 
 
+MAPPING_PROPOSAL = Where(
+    "the change set, or the path's workspace",
+    lambda context, groups: Check(
+        ("change-sets",),
+        (
+            _change_set_workspace(context, str(context.field("changeSetId")))
+            if context.field("changeSetId")
+            else context.path("workspace_key"),
+        ),
+    ),
+    reads_body=True,
+)
 RECORD_WRITE = Where(
     "the change set, or the record's workspace",
     lambda context, groups: _live_or_change_set(

@@ -23,6 +23,11 @@ export interface ViewComponentProps {
   /** Records the scroll anchor in the route without a history entry or a reload. */
   onAnchorChange?: (anchor: string | undefined) => void;
   onViewChange?: (viewKey: string) => void;
+  /**
+   * Shows a change set's AI-proposed mappings (0.16 AP2): the grid in that change set with the
+   * Proposed filter on, as the route.
+   */
+  onShowProposed?: (changeSetId: string) => void;
   /** Opens the open change set's review, for a lens that wrote several records at once (C4). */
   onReviewChanges?: () => void;
   /**

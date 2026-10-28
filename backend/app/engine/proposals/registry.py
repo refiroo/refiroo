@@ -22,6 +22,8 @@ class AiConfiguration:
     min_confidence: float
     log_content: bool
     log_content_days: int
+    # AI_CONTEXT_TOKENS: the model's window, when a feature must size its calls to it.
+    context_tokens: int | None = None
 
     @property
     def configured(self) -> bool:
@@ -91,6 +93,7 @@ def configure(settings: Settings) -> AiConfiguration:
         min_confidence=settings.ai_min_confidence,
         log_content=settings.ai_log_content,
         log_content_days=settings.ai_log_content_days,
+        context_tokens=settings.ai_context_tokens,
     )
 
 

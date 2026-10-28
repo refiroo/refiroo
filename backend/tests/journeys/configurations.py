@@ -39,7 +39,8 @@ Structures:
   ``Bnn.weight`` (integer, minimum 1) and ``Bnn.note``; ``Bown`` R→D required one-to-many (D a
   dependant of R), unique per R within a ``G`` while ``D.active`` is true; ``Bscope`` R→D optional
   many-to-many with the same scope rule, and from ``R2`` to ``D`` without it; ``Hparent`` the
-  self-hierarchy's containment. Candidates (0.9 K7): ``Bcand`` H→K many-to-many whose ``to`` end takes a
+  self-hierarchy's containment. ``Bsrc`` H→K many-to-many whose ``from`` end takes an ``H`` whose
+  ``H.code`` starts with "OK" (the mapping grid's sources, view ``Vsrc``). Candidates (0.9 K7): ``Bcand`` H→K many-to-many whose ``to`` end takes a
   ``K`` whose ``K.code`` starts with "OK"; ``Banc`` R→D many-to-many whose ``from`` end takes an ``R``
   with ``R.b`` true and whose ``to`` end a ``D`` under a ``G`` whose name contains "reserved" (any
   case).
@@ -167,6 +168,8 @@ def _naming(variant: str) -> dict[str, str]:
         "Bcand": "branch-picks-token",
         "Banc": "ledger-reserves-permit",
         "Vcand": "branch-token-picks",
+        "Bsrc": "branch-lists-token",
+        "Vsrc": "branch-token-lists",
         "Mcand": "reserves-by-region",
     }
     if variant == "a":
@@ -379,6 +382,7 @@ def generated(variant: str) -> Configuration:
             "Bvk",
             "Bee",
             "Bcand",
+            "Bsrc",
             "Banc",
         )
     ]
@@ -431,6 +435,13 @@ def generated(variant: str) -> Configuration:
             "toObjectTypeKey": k["K"],
             "cardinality": "many-to-many",
             "candidates": {"to": [{"field": k["K.code"], "op": "startsWith", "value": "OK"}]},
+        },
+        {
+            "relationTypeKey": k["Bsrc"],
+            "fromObjectTypeKey": k["H"],
+            "toObjectTypeKey": k["K"],
+            "cardinality": "many-to-many",
+            "candidates": {"from": [{"field": k["H.code"], "op": "startsWith", "value": "OK"}]},
         },
         {
             "relationTypeKey": k["Banc"],
@@ -607,6 +618,7 @@ def generated(variant: str) -> Configuration:
 
     h_application["views"].append(mapping("V2", "Bh1n", "H", "K", "outgoing"))
     h_application["views"].append(mapping("Vcand", "Bcand", "H", "K", "outgoing"))
+    h_application["views"].append(mapping("Vsrc", "Bsrc", "H", "K", "outgoing"))
     second_application["views"].append(mapping("Vnnr", "Bnn", "H", "K", "incoming"))
 
     # A3 lists records the other applications own: relation matrices of R rows, G columns, D cells.

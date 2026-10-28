@@ -189,6 +189,34 @@ class MappingReplacementRequest(BaseModel):
     expectedChangeSetVersion: int | None = Field(default=None, ge=1)
 
 
+class MappingProposalRequest(BaseModel):
+    """Ask the AI provider for targets for the unmapped sources of a mapping view, into a change
+    set (0.16 AP2, AP2-D1): ``changeSetId`` with ``expectedChangeSetVersion``, or ``changeSetName``
+    for a new change set the request creates; exactly one. ``search`` and ``parentObjectId`` narrow
+    the sources as the grid does; ``sendLevel`` a lower level than the instance's ceiling."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    applicationKey: str
+    viewKey: str
+    search: str | None = Field(default=None, max_length=500)
+    parentObjectId: UUID4 | None = None
+    changeSetId: UUID4 | None = None
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
+    changeSetName: str | None = Field(default=None, min_length=1, max_length=300)
+    sendLevel: Literal["structure", "samples", "values"] | None = None
+
+    @model_validator(mode="after")
+    def one_change_set(self) -> MappingProposalRequest:
+        if (self.changeSetId is None) == (self.changeSetName is None):
+            raise ValueError("Send exactly one of changeSetId and changeSetName")
+        if self.changeSetId is not None and self.expectedChangeSetVersion is None:
+            raise ValueError("expectedChangeSetVersion is required with changeSetId")
+        if self.changeSetName is not None and self.expectedChangeSetVersion is not None:
+            raise ValueError("expectedChangeSetVersion belongs with changeSetId, not changeSetName")
+        return self
+
+
 # --- batches (Base 0.9 B1, INTEGRATION_API B) ---------------------------------------------------
 
 

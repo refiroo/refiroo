@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type Ref } from "react";
+import { useCallback, useMemo, useRef, useState, type Ref } from "react";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
@@ -18,6 +18,9 @@ import { attributeName } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ScopeBanner } from "@/features/objects/CollectionScope";
+import { MappingProposalDialog } from "@/features/objects/MappingProposalDialog";
+import { useWorkspaceAssistantOffer } from "@/features/model-editor/AssistantChoice";
+import { AiOriginMark } from "@/ui/AiOriginMark";
 import type {
   EngineModel,
   MappingCoverageRow,
@@ -49,6 +52,7 @@ export function MappingGridView({
   query,
   onQueryChange,
   onAnchorChange,
+  onShowProposed,
   refreshToken = 0,
   lenses,
 }: ViewComponentProps) {
@@ -58,6 +62,7 @@ export function MappingGridView({
   const root = useRef<HTMLDivElement>(null);
   const [internalRefresh, setInternalRefresh] = useState(0);
   const [editingId, setEditingId] = useState<string>();
+  const [proposing, setProposing] = useState(false);
 
   const { config } = view;
   const sourceTypeKey = config.direction === "outgoing" ? config.fromObjectTypeKey : config.toObjectTypeKey;
@@ -71,6 +76,40 @@ export function MappingGridView({
     contextReadOnly || !(writes.permits(application.key, sourceTypeKey) || writes.permitsType(targetTypeKey));
 
   const combinedRefresh = refreshToken + internalRefresh;
+  // The AI's proposals are read in a change set; the button is offered where the AI may be asked (0.16 AP2).
+  const proposed = Boolean(query.mappingProposed && changeSet);
+  const assistant = useWorkspaceAssistantOffer();
+  const canPropose = Boolean(assistant && !readOnly);
+  const proposalScope = useMemo(
+    () => ({
+      workspaceKey,
+      applicationKey: application.key,
+      viewKey: view.key,
+      viewName: view.name,
+      coverage: {
+        relationTypeKey: config.relationTypeKey,
+        fromObjectTypeKey: config.fromObjectTypeKey,
+        toObjectTypeKey: config.toObjectTypeKey,
+        direction: config.direction,
+      },
+      search: query.search || undefined,
+      parentObjectId: query.parentObjectId,
+      sources: (sourceType?.pluralName ?? "").toLowerCase(),
+      targets: (targetType?.pluralName ?? "").toLowerCase(),
+      targetName: (targetType?.name ?? "").toLowerCase(),
+    }),
+    [
+      workspaceKey,
+      application.key,
+      view.key,
+      view.name,
+      config,
+      query.search,
+      query.parentObjectId,
+      sourceType,
+      targetType,
+    ],
+  );
 
   const pageSize = query.pageSize || config.pageSize;
   const pages = useCursorWindow<MappingCoverageRow>(
@@ -86,7 +125,8 @@ export function MappingGridView({
         changeSetId: changeSet?.id,
         search: query.search || undefined,
         parentObjectId: query.parentObjectId,
-        state: query.mappingState,
+        state: proposed ? undefined : query.mappingState,
+        proposed: proposed || undefined,
         ...selector,
         pageSize,
       }),
@@ -98,6 +138,7 @@ export function MappingGridView({
       query.pageSize,
       query.parentObjectId,
       query.mappingState,
+      proposed,
       changeSet?.id,
     ],
     { anchor: query.anchor, refreshToken: combinedRefresh },
@@ -170,11 +211,12 @@ export function MappingGridView({
             {STATE_FILTERS.map((option) => (
               <button
                 key={option.value || "all"}
-                aria-pressed={(query.mappingState ?? "") === option.value}
+                aria-pressed={!proposed && (query.mappingState ?? "") === option.value}
                 onClick={() =>
                   onQueryChange({
                     ...query,
                     mappingState: option.value || undefined,
+                    mappingProposed: undefined,
                     anchor: undefined,
                   })
                 }
@@ -183,7 +225,26 @@ export function MappingGridView({
                 {option.label}
               </button>
             ))}
+            {changeSet && (
+              <button
+                aria-pressed={proposed}
+                onClick={() =>
+                  onQueryChange({ ...query, mappingState: undefined, mappingProposed: true, anchor: undefined })
+                }
+              >
+                <Icon name="sparkle" size={14} />
+                Proposed
+              </button>
+            )}
           </div>
+          {canPropose && (
+            <div className="mapping-propose-end">
+              <button type="button" className="secondary" onClick={() => setProposing(true)}>
+                <Icon name="sparkle" size={16} />
+                Propose targets
+              </button>
+            </div>
+          )}
         </div>
         {error && <InlineError message={error} onRetry={pages.retry} />}
         {(!error || pages.items.length > 0) && (
@@ -228,11 +289,13 @@ export function MappingGridView({
                   ) : pages.items.length === 0 ? (
                     <tr>
                       <td colSpan={columnCount} className="empty-row">
-                        {query.mappingState
-                          ? "No results match these filters"
-                          : query.search
-                            ? "No results match this search"
-                            : `No ${sourceType.pluralName.toLowerCase()} in this workspace yet`}
+                        {proposed
+                          ? "No targets proposed by the AI in this change set"
+                          : query.mappingState
+                            ? "No results match these filters"
+                            : query.search
+                              ? "No results match this search"
+                              : `No ${sourceType.pluralName.toLowerCase()} in this workspace yet`}
                       </td>
                     </tr>
                   ) : (
@@ -275,6 +338,19 @@ export function MappingGridView({
           </ScrollWindow>
         )}
       </Card>
+      {proposing && assistant && !readOnly && (
+        <MappingProposalDialog
+          scope={proposalScope}
+          offer={assistant}
+          onClose={() => setProposing(false)}
+          onShowProposed={(changeSetId) => {
+            if (changeSetId === changeSet?.id) {
+              onQueryChange({ ...query, mappingState: undefined, mappingProposed: true, anchor: undefined });
+              refreshCoverage();
+            } else onShowProposed?.(changeSetId);
+          }}
+        />
+      )}
       {editingRow && !readOnly && (
         <MappingActionDialog
           key={editingRow.source.id}
@@ -359,7 +435,7 @@ function CoverageRow({
           ? undefined
           : (event) => {
               // The row button is the keyboard path; the row is a larger pointer target.
-              if ((event.target as HTMLElement).closest("button, a, input, select, textarea")) return;
+              if ((event.target as HTMLElement).closest("button, a, input, select, textarea, summary")) return;
               if (window.getSelection()?.toString()) return;
               onEdit();
             }
@@ -762,13 +838,16 @@ function TargetDisplay({
   columns: string[];
 }) {
   return (
-    <div className="mapping-target">
-      <RecordChip hue={hue}>{target.object.name}</RecordChip>
-      {columns.map((col) => (
-        <span key={col} className="mapping-target-field mobile-secondary-column">
-          {formatValue(target.object.fields[col])}
-        </span>
-      ))}
+    <div className="mapping-target-block">
+      <div className="mapping-target">
+        <RecordChip hue={hue}>{target.object.name}</RecordChip>
+        {columns.map((col) => (
+          <span key={col} className="mapping-target-field mobile-secondary-column">
+            {formatValue(target.object.fields[col])}
+          </span>
+        ))}
+      </div>
+      {target.origin && <AiOriginMark origin={target.origin} variant="target" />}
     </div>
   );
 }

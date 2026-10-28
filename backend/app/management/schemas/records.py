@@ -5,7 +5,14 @@ from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
 from ...models.commands import RelationCreate
-from .common import ActorResponse, CollectionPage, omitted_when_none, without_default
+from .common import (
+    ActorResponse,
+    CollectionPage,
+    ProposalOrigin,
+    omitted_when_none,
+    optional_origin,
+    without_default,
+)
 
 
 class AttributeOutput(BaseModel):
@@ -197,6 +204,9 @@ class AuditEventResponse(BaseModel):
     related: HistoryRelated | SkipJsonSchema[None] = Field(
         default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
     )
+    # Who proposed the change when the AI did, a publication's entry for a proposed mapping
+    # (0.16 AP2); the actor stays the person who published.
+    origin: ProposalOrigin | SkipJsonSchema[None] = optional_origin()
 
 
 class AuditEventPage(CollectionPage[AuditEventResponse]):

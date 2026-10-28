@@ -1138,8 +1138,23 @@ kept; a setting that cannot work refuses the start. Three rules hold the boundar
 
 The inference's assistant (`engine/sources/inference/assistant.py`) is the first feature: its names
 become proposals of pattern `assistant` whose `evidence.origin` (`kind: ai`, provider, model, prompt
-version, confidence, reason) is copied into the applied step's origin as `proposedBy`. Provenance on
-change-set changes, for features that propose data, comes with the first of them (AP2).
+version, confidence, reason) is copied into the applied step's origin as `proposedBy`.
+
+Mapping targets (AP2, `proposals/mapping_selection.py`, `mapping_job.py`, `mapping_targets.py`) are a
+job of kind `aiProposal`. Its first step selects the view's unmapped sources in the change set's
+context and their candidates in one `INSERT … SELECT` into the job's inputs: the eligible targets are
+those of the grid's candidate search (`engine/reads/mapping_scope.MappingScope`, which the mapping
+reads share), the whole list when at most 100 (stored once with the job), else each source's 20 closest
+by `pg_trgm` similarity. Each later step takes 25 sources, commits before asking the provider (no
+transaction waits on it), then decides the chosen targets as set replacements over a change-set batch
+lookup under each source's set version from binding, writes them through the write unit and sets their
+`origin` (`ChangeSetWrites.set_origins`, one statement). Short refs replace IDs in the prompt; an answer
+naming a target outside the source's candidates is dropped. With `AI_CONTEXT_TOKENS` (a small local
+model's window) a step takes only the sources whose call fits half of it, estimated from the text
+(`mapping_targets.sized`), and binding gives each source its closest candidates when the whole list
+would not fit with one source; a source with no candidate is not sent. Provenance is a nullable `origin` on
+`change_set_relations` and `change_set_objects` (migration `20261118_01`), read by coverage and copied
+into the publication's relation audit event, where record history answers it.
 
 ### Workspace migrations (0.11 V1)
 

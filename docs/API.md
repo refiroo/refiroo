@@ -5374,9 +5374,11 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
 - `GET /api/v1/workspaces/{workspaceKey}/mapping-coverage` takes `applicationKey`, `viewKey`,
   explicit `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction`, bounded `pageSize`,
   `cursor`, optional source search, optional direct `parentObjectId` scope, optional
-  `state=mapped|unmapped|ambiguous` and one optional `changeSetId` or `publicationId`.
+  `state=mapped|unmapped|ambiguous`, `proposed=true` with a change set ([mapping targets](#mapping-targets-ap2)),
+  and one optional `changeSetId` or `publicationId`.
   Parent and state filtering happen
-  before pagination. The effective model resolves the
+  before pagination. The sources are the records of the source type that meet the binding's `candidates`
+  criteria at the source end, plus any that already holds a relationship of the binding (0.16 AP2). The effective model resolves the
   configured `mappingGrid`; supplied binding fields must match. Display fields and candidate search
   fields come from that view, so views sharing a binding can differ without a schema extension.
 - `GET /api/v1/workspaces/{workspaceKey}/mapping-candidates` takes the same view/context identity,
@@ -6777,7 +6779,7 @@ gives no right of its own.
 made through its feature's own route, which builds what is sent within the send level; there is no
 route that sends a provider free text. The provider is set in the environment and read at start
 (OPERATIONS § AI proposals); nothing here changes it, and the key is never answered. Features:
-the inference's names ([Inferences](#inferences)).
+the inference's names ([Inferences](#inferences)) and [mapping targets](#mapping-targets-ap2).
 
 - `GET /api/v1/system` answers `ai: {configured, provider, sendLevel}` to every signed-in caller, so
   a client offers an AI action only when one can run.
@@ -6788,7 +6790,7 @@ the inference's names ([Inferences](#inferences)).
   the last `totals.days` (30) days: `calls`, `failed`, `tokensIn`, `tokensOut`, `bytesIn`,
   `bytesOut`.
 - `GET /api/v1/ai/calls` (Operations at the instance): every call, newest first, cursor paged
-  (ADR-030). A call is `id`, `purpose` (`connectionTest`, `modelNames`), `provider`, `model` (as the
+  (ADR-030). A call is `id`, `purpose` (`connectionTest`, `modelNames`, `mappingTarget`), `provider`, `model` (as the
   provider answered it), `sendLevel`, `promptVersion`, `requestedBy` (a person or a client, as it
   reads now), `jobId`, `startedAt`, `durationMs`, `bytesIn`, `bytesOut`, `tokensIn`, `tokensOut`,
   `outcome` (`answered`, `failed`), `failureKind` (`unreachable`, `unauthorized`, `rateLimited`,
@@ -6804,3 +6806,44 @@ provider and `409 AI_SEND_LEVEL_TOO_LOW` (`details.sendLevel`) when it needs mor
 allows; asked for without Use AI proposals it is `403 FORBIDDEN` with `details.groups:
 ["ai-proposals"]`. Left to its default, a feature that cannot run is not run, and says so in its
 answer.
+
+A feature's request may carry `sendLevel`, a lower level than `AI_SEND_LEVEL` for that request (AP-D3).
+Above the ceiling it is `409 AI_SEND_LEVEL_TOO_LOW` with `details.ceiling`; below what the feature
+needs, the same code with `details.needs`.
+
+### Mapping targets (AP2)
+
+`POST /api/v1/workspaces/{workspaceKey}/mapping-proposals` asks the provider for a target for each
+unmapped source of a mapping view and writes the answers into a change set; it never writes live data.
+It needs Work in change sets with the right to write the mapping (as the mapping `PUT` in a change set)
+and Use AI proposals in the workspace, and send level `values` (purpose `mappingTarget`).
+
+- **Body:** `applicationKey`, `viewKey` (a `mappingGrid` view; its binding is used), optional `search`
+  and `parentObjectId` (the coverage narrowing), exactly one of `changeSetId` with
+  `expectedChangeSetVersion` or `changeSetName` (a new change set, created by the request), optional
+  `sendLevel`. Anything else, or both or neither change set fields, is `422`.
+- **Answer:** `202` with the job (kind `aiProposal`). Its `progress` counts sources; `aiProposal`
+  holds, while it runs and at the end, `proposed`, `unmatched` (the answer named no target, one
+  outside the source's candidates, or one below `AI_MIN_CONFIDENCE`), `changed` (the source's set
+  changed since the job selected it, so it was left alone), `refused` (a rule refused the target, such
+  as one-to-one occupancy), `notAnswered` (a failed call, or a source the answer left out),
+  `changeSetId` and `warnings`. Cancel keeps what was written. `GET /jobs?kind=aiProposal` lists
+  them. The requester gets the finished-job
+  notice.
+- **Candidates:** the targets the view's candidate search would offer in the change set (its
+  candidate criteria and one-to-one occupancy): all of them when at most 100, otherwise each source's
+  20 closest by trigram similarity of name and fields. The provider chooses among them; it cannot
+  name another record. A source with no candidate is left unmapped without a call. Each call holds
+  up to 25 sources; with `AI_CONTEXT_TOKENS` set, as many as fit half of that window (a whole list
+  that does not fit with one source gives each source its closest 20 instead). What is sent of a
+  record is its name and the fields the view shows, without a field that repeats the name or holds a
+  generated identifier.
+- **Provenance:** each written relation carries `origin = {kind: "ai", provider, model, promptVersion,
+  confidence, reason, proposedBy}` (`proposedBy` the requester's ID). Coverage target summaries in the
+  change set answer it, and `GET …/mapping-coverage` takes `proposed=true` (with `changeSetId` only,
+  else `422 MAPPING_PROPOSED_NEEDS_CHANGE_SET`) for the sources with a proposed target. Changing the
+  target makes a new relation without `origin`. Published, the relation's history entry
+  (`GET …/objects/{id}/history`) answers `origin`; its actor is the publisher.
+- **Refusals before a job:** `403 FORBIDDEN` (`details.groups: ["ai-proposals"]`, or the change-set
+  right), `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404 CHANGE_SET_NOT_FOUND`, `409
+  CHANGE_SET_VERSION_CONFLICT`, `404 MAPPING_VIEW_NOT_FOUND`, `404 MAPPING_PARENT_NOT_FOUND`.

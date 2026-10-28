@@ -27,6 +27,25 @@ def omitted_when_none(value: object) -> bool:
     return value is None
 
 
+class ProposalOrigin(BaseModel):
+    """Who proposed a change when a person did not (0.16 AP2, AP-D5): the provider and model that
+    answered, the prompt's version, how confident it was and why, and the person or client whose
+    request asked for it."""
+
+    kind: Literal["ai"]
+    provider: str
+    model: str
+    promptVersion: str
+    confidence: float
+    reason: str
+    proposedBy: str | None = None
+
+
+def optional_origin() -> Any:
+    """An ``origin`` present only on what a proposal made: omitted otherwise."""
+    return Field(default=None, exclude_if=omitted_when_none, json_schema_extra=without_default)
+
+
 def requested_count() -> Any:
     """A count present only when asked for: omitted from the body rather than null, and documented
     as an optional integer."""

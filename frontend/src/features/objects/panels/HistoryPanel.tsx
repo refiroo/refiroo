@@ -6,6 +6,7 @@ import type { Hue } from "@/model/hues";
 import type { Actor, AuditEventItem, EngineModel, HistoryKind, HistoryValue, RouteState } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { ActorName, actorText } from "@/ui/ActorName";
+import { AiOriginMark } from "@/ui/AiOriginMark";
 import { Card } from "@/ui/Card";
 import { Choice } from "@/ui/Choice";
 import { Timeline } from "@/ui/Timeline";
@@ -113,8 +114,8 @@ export function HistoryPanel({
             title: historyLine(item, model),
             at: item.occurredAt,
             tone: item.kind,
-            after: ` · ${lineActor(item.actor)}`,
-            details: <HistoryDetails item={item} model={model} onOpenChanges={onOpenChanges} />,
+            after: ` · ${lineActor(item.actor)}${item.origin ? " · proposed by the AI" : ""}`,
+            details: <HistoryDetails item={item} model={model} onOpenChanges={onOpenChanges} people={seen} />,
           }))}
         />
       )}
@@ -138,10 +139,13 @@ function HistoryDetails({
   item,
   model,
   onOpenChanges,
+  people,
 }: {
   item: AuditEventItem;
   model?: EngineModel;
   onOpenChanges?: (route: RouteState) => void;
+  /** The people seen in this history by ID, to name who asked for an AI proposal when they appear in it. */
+  people: ReadonlyMap<string, string>;
 }) {
   const values = item.values ?? [];
   const named = values.length ? undefined : historySummary(item, model);
@@ -164,6 +168,13 @@ function HistoryDetails({
         </table>
       )}
       {named && <p className="history-named">{named}</p>}
+      {item.origin && (
+        <AiOriginMark
+          origin={item.origin}
+          variant="history"
+          askedBy={item.origin.proposedBy ? people.get(item.origin.proposedBy) : undefined}
+        />
+      )}
       <p className="history-meta">
         <ActorName actor={item.actor} onOpenChanges={onOpenChanges} /> · version {item.version}
       </p>

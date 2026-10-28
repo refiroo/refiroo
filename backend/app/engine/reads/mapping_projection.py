@@ -1,6 +1,6 @@
 """SQL projections of effective change set membership for bounded mapping queries."""
 
-from sqlalchemy import Select, literal, select, union_all
+from sqlalchemy import JSON, Select, literal, null, select, union_all
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.selectable import Subquery
 
@@ -12,10 +12,14 @@ from ...models.database import (
     ChangeSetBaseRelation,
     ChangeSetObject,
     ChangeSetRelation,
+    ObjectRelation,
     Publication,
     PublicationObject,
     PublicationRelation,
+    RdmObject,
 )
+
+_NO_ORIGIN = null().cast(JSON)
 
 
 def change_set_mapping_projection(session: Session, change_set_id: str) -> tuple[Subquery, Subquery]:
@@ -72,6 +76,8 @@ def change_set_mapping_projection(session: Session, change_set_id: str) -> tuple
             entity.from_object_id,
             entity.to_object_id,
             entity.attributes,
+            # Who proposed the edge when a person did not (0.16 AP2); only a change set holds one.
+            (entity.origin if entity is ChangeSetRelation else _NO_ORIGIN).label("origin"),
         )
 
     # Any overlay, including a tombstone, hides the base ID. Only non-deleted
@@ -123,5 +129,42 @@ def publication_mapping_projection(session: Session, publication_id: str) -> tup
         PublicationRelation.from_object_id,
         PublicationRelation.to_object_id,
         PublicationRelation.attributes,
+        _NO_ORIGIN.label("origin"),
     ).where(PublicationRelation.publication_id == publication_id)
     return objects.subquery("mapping_objects"), relations.subquery("mapping_relations")
+
+
+def context_projection(
+    session: Session,
+    workspace_key: str,
+    change_set_id: str | None,
+    publication_id: str | None,
+) -> tuple[Subquery, Subquery]:
+    """The objects and relations of live data, a change set or a publication, in one shape."""
+    if change_set_id:
+        return change_set_mapping_projection(session, change_set_id)
+    if publication_id:
+        return publication_mapping_projection(session, publication_id)
+    objects = (
+        select(
+            RdmObject.id,
+            RdmObject.application_key,
+            RdmObject.object_type_key,
+            RdmObject.name,
+            RdmObject.parent_object_id,
+            literal(None).label("attributes"),
+            RdmObject.created_at,
+            RdmObject.updated_at,
+        )
+        .where(RdmObject.workspace_key == workspace_key)
+        .subquery("mapping_objects")
+    )
+    relations = select(
+        ObjectRelation.id,
+        ObjectRelation.relation_type_key,
+        ObjectRelation.from_object_id,
+        ObjectRelation.to_object_id,
+        ObjectRelation.attributes,
+        _NO_ORIGIN.label("origin"),
+    ).subquery("mapping_relations")
+    return objects, relations

@@ -16,6 +16,8 @@ import { bootHarness } from "./helpers/harness.mjs";
 import { cloneDatabase } from "./helpers/database.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { assertDialogLayout } from "./helpers/layout-checks.mjs";
+import { seedMappingData } from "./helpers/acceptance-data.mjs";
+import { goDark } from "./helpers/theme.mjs";
 
 const root = resolve(import.meta.dirname, "..", "..");
 const checks = [];
@@ -80,7 +82,8 @@ async function journey(label, source, level) {
           : "Also the record values a feature needs, up to 20 per column",
       )
       .waitFor();
-    await page.getByText("Available", { exact: true }).waitFor();
+    // Two features since AP2 (names for an inference, targets for unmapped values): at the structure level only the first.
+    await page.getByText("Available", { exact: true }).first().waitFor();
     await page.getByText(/No call has been made yet/).waitFor();
     assert.equal(await page.getByText("No AI provider is set up").count(), 0);
     await shot(page, "configured-1440");
@@ -423,10 +426,279 @@ async function withoutProvider() {
   console.log(`Screenshots (no provider): ${harness.output}`);
 }
 
+/** The starter's mapping views as the grid and the dialog show them; `unmapped` names a source the view starts with. */
+const MAPPING_VIEWS = [
+  { label: "outgoing", application: "rdm-systems", view: "system-to-master-mapping", unmapped: "PICKUP" },
+  { label: "incoming", application: "rdm-master", view: "master-to-system-mapping", unmapped: "Home delivery" },
+];
+
+async function mappingProposals() {
+  const harness = await bootHarness({ backendEnv: { AI_PROVIDER: FAKE } });
+  const { page, api, uiUrl, browser } = harness;
+  const shot = (target, name) =>
+    target.screenshot({ path: resolve(harness.output, `ap2-${name}.png`), fullPage: true });
+  const overflow = (target) => target.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  try {
+    await seedMappingData(api, harness.records, { alignment: false });
+    for (const { label, application, view, unmapped } of MAPPING_VIEWS) {
+      const address = `${uiUrl}/apps/${application}/views/${view}?workspaceKey=default`;
+      const grid = page.getByRole("region", { name: /mapping grid$/ });
+
+      // 1. The grid offers the button; no change set is open, so no Proposed segment.
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.goto(address);
+      await grid.getByText(unmapped, { exact: true }).first().waitFor();
+      await page.getByRole("button", { name: "Propose targets" }).waitFor();
+      assert.equal(
+        await page.getByRole("button", { name: "Proposed", exact: true }).count(),
+        0,
+        "no Proposed in live data",
+      );
+      checks.push(`${label}: Propose targets is offered; no Proposed segment in live data`);
+
+      // 2. By keyboard: the dialog says what it will do, what is sent, and into which change set.
+      await page.getByRole("button", { name: "Propose targets" }).focus();
+      await page.keyboard.press("Enter");
+      const dialog = page.getByRole("dialog", { name: "Propose targets" });
+      await dialog.getByText(/The AI assistant proposes an? .* for each of the/).waitFor();
+      const scope = await dialog.locator(".mapping-proposal-scope strong").innerText();
+      assert.match(scope, /^[\d,]+ unmapped /, `${label}: the scope names the count (${scope})`);
+      await dialog
+        .getByText(/^Sent to fake \(fake-1\): the names of the .* and the fields this view shows\./)
+        .waitFor();
+      const name = dialog.getByLabel("Name of the new change set");
+      assert.match(await name.inputValue(), /^AI proposals: /);
+      assert.equal(await dialog.getByRole("radio").count(), 0, "no change set open: only the new one");
+      await page.waitForTimeout(300);
+      await shot(page, `${label}-dialog-light-1440`);
+      await accessible(page, `ap2-${label}-dialog`);
+      await assertDialogLayout(page, `${label}: Propose targets`);
+      // Escape closes it and focus returns to the button that opened it.
+      await page.keyboard.press("Escape");
+      await dialog.waitFor({ state: "detached" });
+      assert.equal(
+        await page.evaluate(() => document.activeElement?.textContent?.trim()),
+        "Propose targets",
+        "focus returns to the opening button",
+      );
+      checks.push(
+        `${label}: the dialog opens by Enter, says the count and what is sent, passes axe, and Escape returns focus`,
+      );
+
+      // 3. Propose by keyboard into a new change set.
+      await page.keyboard.press("Enter");
+      await dialog.waitFor();
+      await dialog.getByLabel("Name of the new change set").waitFor();
+      await dialog.getByRole("button", { name: "Propose", exact: true }).focus();
+      await page.keyboard.press("Enter");
+      const done = page.getByRole("dialog", { name: "Targets proposed" });
+      await done.waitFor({ timeout: 60_000 });
+      await done.getByText("Proposed", { exact: true }).waitFor();
+      const proposed = Number(await done.locator("dd").first().innerText());
+      assert.ok(proposed > 0, `${label}: the fake provider proposed something`);
+      await done.getByText("Left unmapped: no likely target").waitFor();
+      await done.getByText("Changed meanwhile, not touched").waitFor();
+      await accessible(page, `ap2-${label}-result`);
+      await shot(page, `${label}-result-1440`);
+      const jobs = (await api("/jobs?pageSize=50")).items;
+      const job = jobs.find(
+        (item) => item.kind === "aiProposal" && item.state === "completed" && item.aiProposal?.proposed === proposed,
+      );
+      assert.ok(job, `${label}: a completed aiProposal job holds the counts the dialog showed`);
+      const changeSetId = job.aiProposal.changeSetId;
+      checks.push(
+        `${label}: Propose by keyboard into a new change set: ${proposed} proposed, the counts shown, one aiProposal job`,
+      );
+
+      // 4. Show proposed: the change set opens with the Proposed filter and the marks.
+      await done.getByRole("button", { name: "Show proposed" }).click();
+      await page.waitForURL(
+        (url) => url.searchParams.get("changeSetId") === changeSetId && url.searchParams.get("proposed") === "true",
+      );
+      await page
+        .getByText(/^Proposed by the AI · \d+%$/)
+        .first()
+        .waitFor();
+      await page.getByText("Closest name").first().waitFor();
+      const status = page.getByRole("group", { name: "Mapping status" });
+      assert.equal(await status.getByRole("button", { name: "Proposed" }).getAttribute("aria-pressed"), "true");
+      const marks = await page.getByText(/^Proposed by the AI · \d+%$/).count();
+      assert.ok(marks > 0 && marks <= proposed, `${label}: marks on the proposed sources (${marks} of ${proposed})`);
+      await shot(page, `${label}-grid-light-1440`);
+      await accessible(page, `ap2-${label}-grid-proposed`);
+      // Another status shows the whole list again, the marks staying on the AI's targets.
+      await status.getByRole("button", { name: "All" }).click();
+      await page.waitForFunction(() => !new URL(location.href).searchParams.has("proposed"));
+      await status.getByRole("button", { name: "Proposed" }).click();
+      await page.waitForURL((url) => url.searchParams.get("proposed") === "true");
+      // Live data is unchanged: no origin there.
+      const live = await api(
+        `/workspaces/default/mapping-coverage?${new URLSearchParams({
+          applicationKey: application,
+          viewKey: view,
+          ...(await bindingOf(application, view)),
+        })}`,
+      );
+      assert.ok(
+        live.items.every((row) => row.targets.every((target) => !target.origin)),
+        "live targets carry no origin",
+      );
+      const inChangeSet = await api(
+        `/workspaces/default/mapping-coverage?${new URLSearchParams({
+          applicationKey: application,
+          viewKey: view,
+          changeSetId,
+          proposed: "true",
+          pageSize: "100",
+          ...(await bindingOf(application, view)),
+        })}`,
+      );
+      assert.equal(inChangeSet.items.length, proposed, "the proposed filter reads the proposed sources");
+      checks.push(
+        `${label}: Show proposed opens the change set with the Proposed filter; marks show confidence and reason; live data has no origin`,
+      );
+
+      // 5. Dark.
+      await goDark(page);
+      await page
+        .getByText(/^Proposed by the AI · \d+%$/)
+        .first()
+        .waitFor();
+      await shot(page, `${label}-grid-dark-1440`);
+      await accessible(page, `ap2-${label}-grid-dark`);
+      // The dialog dark, in another change set, where the view's sources are still unmapped: the current
+      // change set is the first choice, and proposing into it follows the same job to the same result.
+      const october = await api("/workspaces/default/change-sets", { name: "October cleanup", source: "currentLive" });
+      await page.goto(`${address}&changeSetId=${october.id}`);
+      await page.getByRole("button", { name: "Propose targets" }).click();
+      const second = page.getByRole("dialog", { name: "Propose targets" });
+      const current = second.getByRole("radio", { name: "Current: “October cleanup”" });
+      await current.waitFor();
+      assert.equal(await current.isChecked(), true, "the open change set is chosen");
+      await second.getByRole("radio", { name: "New change set" }).focus();
+      await page.keyboard.press("Space");
+      await second.getByLabel("New change set name").waitFor();
+      await page.keyboard.press("ArrowUp");
+      assert.equal(await current.isChecked(), true, "back to the current change set by keyboard");
+      await page.waitForTimeout(300);
+      await shot(page, `${label}-dialog-dark-1440`);
+      await accessible(page, `ap2-${label}-dialog-dark`);
+      await second.getByRole("button", { name: "Propose", exact: true }).click();
+      const again = page.getByRole("dialog", { name: "Targets proposed" });
+      await again.waitFor({ timeout: 60_000 });
+      assert.equal(
+        (await api("/jobs?pageSize=50")).items.filter(
+          (item) => item.kind === "aiProposal" && item.changeSetId === october.id,
+        ).length,
+        1,
+        "the job went into the current change set",
+      );
+      await again.getByRole("button", { name: "Show proposed" }).click();
+      await page.waitForURL(
+        (url) => url.searchParams.get("changeSetId") === october.id && url.searchParams.get("proposed") === "true",
+      );
+      await page
+        .getByText(/^Proposed by the AI · \d+%$/)
+        .first()
+        .waitFor();
+      checks.push(
+        `${label}: dark grid and dialog; into the current change set (chosen by keyboard) and Show proposed stays in it; axe 0 violations`,
+      );
+
+      // 6. A phone: the reason folds under "Why?".
+      const narrow = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+      const phone = await narrow.newPage();
+      phone.setDefaultTimeout(15000);
+      await phone.goto(
+        `${uiUrl}/apps/${application}/views/${view}?workspaceKey=default&changeSetId=${changeSetId}&proposed=true`,
+      );
+      await phone
+        .getByText(/^Proposed by the AI · \d+%$/)
+        .first()
+        .waitFor();
+      const fold = phone.locator("details.ai-origin-fold").first();
+      await fold.getByText("Why?").waitFor();
+      assert.equal(await phone.getByText("Closest name").first().isVisible(), false, "folded on a phone");
+      await fold.locator("summary").click();
+      await phone.getByText("Closest name").first().waitFor({ state: "visible" });
+      assert.ok((await overflow(phone)) <= 0, `${label}: the grid scrolls sideways at 390px`);
+      await shot(phone, `${label}-grid-390`);
+      await accessible(phone, `ap2-${label}-grid-390`);
+      // The dialog where sources are still unmapped: live data.
+      await phone.goto(address);
+      await phone.getByRole("button", { name: "Propose targets" }).waitFor();
+      await phone.getByRole("button", { name: "Propose targets" }).click();
+      const sheet = phone.getByRole("dialog", { name: "Propose targets" });
+      await sheet.getByText(/The AI assistant proposes/).waitFor();
+      assert.ok((await overflow(phone)) <= 0, `${label}: the dialog scrolls sideways at 390px`);
+      await phone.waitForTimeout(300);
+      await shot(phone, `${label}-dialog-390`);
+      await accessible(phone, `ap2-${label}-dialog-390`);
+      await narrow.close();
+      checks.push(
+        `${label}: 390px: the reason folds under Why?, the dialog and the grid fit without sideways scroll; axe 0 violations`,
+      );
+    }
+
+    async function bindingOf(application, view) {
+      const model = (await api("/workspaces/default/model")).releaseId;
+      const release = await api(`/model-releases/${model}?includeModel=true`);
+      const found = release.model.applications
+        .find((item) => item.key === application)
+        .views.find((item) => item.key === view).config;
+      return {
+        relationTypeKey: found.relationTypeKey,
+        fromObjectTypeKey: found.fromObjectTypeKey,
+        toObjectTypeKey: found.toObjectTypeKey,
+        direction: found.direction,
+      };
+    }
+  } catch (error) {
+    await page.screenshot({ path: resolve(harness.output, "ap2-failure.png"), fullPage: true }).catch(() => {});
+    console.error(harness.log().slice(-3000));
+    console.error(
+      harness
+        .log()
+        .split("\n")
+        .filter((line) => /Error|Traceback| 500 /.test(line))
+        .slice(0, 40)
+        .join("\n"),
+    );
+    throw error;
+  } finally {
+    harness.cleanup();
+  }
+  console.log(`Screenshots (AP2): ${harness.output}`);
+}
+
+/** Without ai-proposals in the workspace (or a provider) the grid draws no Propose targets button. */
+async function mappingWithoutProvider() {
+  const harness = await bootHarness({});
+  const { page, api, uiUrl } = harness;
+  try {
+    await seedMappingData(api, harness.records, { alignment: false });
+    await page.goto(`${uiUrl}/apps/rdm-systems/views/system-to-master-mapping?workspaceKey=default`);
+    await page
+      .getByRole("region", { name: /mapping grid$/ })
+      .getByText("PICKUP", { exact: true })
+      .first()
+      .waitFor();
+    await page.waitForLoadState("networkidle");
+    assert.equal(await page.getByRole("button", { name: "Propose targets" }).count(), 0, "no provider: no button");
+    checks.push(
+      "no provider: the mapping grid draws no Propose targets button (the group is covered by the unit test)",
+    );
+  } finally {
+    harness.cleanup();
+  }
+}
+
 try {
   await journey("renamed-example", renamed);
   await journey("generated-b", generatedB, "structure");
   await withoutProvider();
+  await mappingProposals();
+  await mappingWithoutProvider();
   console.log(`AP1 AI: ${checks.length} checks passed`);
   for (const check of checks) console.log(`- ${check}`);
 } catch (error) {

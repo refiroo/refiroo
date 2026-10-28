@@ -24,6 +24,8 @@ from .provider import Purpose
 FEATURE_LEVELS: dict[Purpose, SendLevel] = {
     "connectionTest": "structure",
     "modelNames": "structure",
+    # Record names are values (AP2-D3).
+    "mappingTarget": "values",
 }
 
 

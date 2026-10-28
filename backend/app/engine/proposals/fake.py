@@ -7,6 +7,7 @@ an answer with ``script`` (a value, a function of the context, or an exception t
 the table and the record with ``reset``. Nothing leaves the process.
 """
 
+from collections import Counter
 from collections.abc import Callable
 from typing import Any
 
@@ -31,9 +32,37 @@ def _names(context: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _common(first: str, second: str) -> int:
+    """How many characters two names share, counted by letter (case ignored)."""
+    left, right = Counter(first.lower()), Counter(second.lower())
+    return sum((left & right).values())
+
+
+def _targets(context: dict[str, Any]) -> dict[str, Any]:
+    """Each source's candidate with the most characters in common with its name, else the first."""
+    shared = {item["ref"]: item for item in context.get("candidates", [])}
+    answers = []
+    for source in context.get("sources", []):
+        pool = [shared[ref] for ref in source.get("candidates", shared)] if shared else []
+        if not pool:
+            answers.append({"source": source["ref"], "target": None, "reason": "", "confidence": 0})
+            continue
+        best = max(pool, key=lambda item: _common(source["name"], item["name"]))
+        answers.append(
+            {
+                "source": source["ref"],
+                "target": best["ref"],
+                "reason": "Closest name",
+                "confidence": 0.8,
+            }
+        )
+    return {"answers": answers}
+
+
 DEFAULTS: dict[Purpose, Callable[[dict[str, Any]], Any]] = {
     "connectionTest": lambda context: {"ready": True},
     "modelNames": _names,
+    "mappingTarget": _targets,
 }
 
 _script: dict[str, Any] = {}

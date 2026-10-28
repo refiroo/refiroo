@@ -27,7 +27,24 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import String, all_, any_, bindparam, delete, event, select, text, update
+from sqlalchemy import (
+    JSON,
+    String,
+    all_,
+    any_,
+    bindparam,
+    delete,
+    event,
+    select,
+    text,
+    update,
+)
+from sqlalchemy import (
+    column as sql_column,
+)
+from sqlalchemy import (
+    values as sql_values,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
@@ -742,6 +759,26 @@ class ChangeSetWrites(_Permits):
             if result.rowcount != 1:
                 raise api_error(409, conflict_code, conflict_message)
             self.session.refresh(change_set, attribute_names=["version", "updated_at"])
+
+    def set_origins(self, origins: dict[str, dict[str, Any]]) -> None:
+        """Mark the change set's relation rows (by relation ID) as proposed by someone other than
+        the caller: ``{kind: "ai", …}`` (0.16 AP2). One statement; the rows were just written."""
+        if not origins:
+            return
+        data = sql_values(
+            sql_column("relation_id", String), sql_column("origin", JSON), name="proposed"
+        ).data(
+            list(origins.items())
+        )
+        self.session.execute(
+            update(ChangeSetRelation)
+            .where(
+                ChangeSetRelation.change_set_id == self.change_set_id,
+                ChangeSetRelation.relation_id == data.c.relation_id,
+            )
+            .values(origin=data.c.origin)
+            .execution_options(synchronize_session=False)
+        )
 
     @contextmanager
     def hold_claim(self, expected: int) -> Iterator[None]:

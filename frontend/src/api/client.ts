@@ -142,6 +142,7 @@ import type {
   SourcePage,
   SourceRectangle,
   SourceSheet,
+  MappingProposalRequest,
 } from "@/types";
 
 import { API_URL } from "@/api/address";
@@ -344,6 +345,8 @@ export interface MappingCoverageQuery extends PageSelector {
   pageSize?: number;
   parentObjectId?: string;
   state?: "mapped" | "unmapped" | "ambiguous";
+  /** Only the sources whose target the AI proposed; needs `changeSetId` (0.16 AP2). */
+  proposed?: boolean;
 }
 
 export interface MappingTargetQuery {
@@ -1580,12 +1583,19 @@ export const api = {
     if (query.search) params.set("search", query.search);
     if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
     if (query.state) params.set("state", query.state);
+    if (query.proposed) params.set("proposed", "true");
     setPaging(params, query);
     if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
     return request<MappingCoveragePage>(
       `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/mapping-coverage?${params}`,
     );
   },
+  /** Asks the AI provider for targets for a view's unmapped sources: `202` with the queued `aiProposal` job (0.16 AP2). */
+  proposeMappingTargets: (workspaceKey: string, body: MappingProposalRequest) =>
+    request<Job>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/mapping-proposals`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   mappingCandidates: (query: MappingCandidateQuery) => {
     const params = new URLSearchParams({
       applicationKey: query.applicationKey,

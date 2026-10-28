@@ -252,7 +252,7 @@ def list_jobs(
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     kind: Literal[
         "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration",
-        "mappingInference", "move",
+        "mappingInference", "move", "aiProposal",
     ]
     | None = None,
     state: Literal[

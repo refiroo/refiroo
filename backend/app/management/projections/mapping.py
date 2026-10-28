@@ -18,20 +18,14 @@ from ...common.pagination import (
 from ...db import begin_snapshot_read
 from ...engine.model.registry import ModelSnapshot, resolve_request_model
 from ...engine.operations.mapping_replacement import PREVIEW_SIZE, MappingConflictSet
-from ...engine.reads.mapping_projection import (
-    change_set_mapping_projection,
-    publication_mapping_projection,
-)
-from ...engine.reads.model_query import candidate_ids
-from ...engine.reads.snapshot_reads import change_set_context, publication_context
+from ...engine.reads.mapping_projection import context_projection
+from ...engine.reads.mapping_scope import MappingScope
 from ...engine.records.attributes import load_attribute_values
 from ...engine.records.values import VALUE_COLUMNS
 from ...engine.workspaces.catalogue import resolve_workspace
 from ...errors import api_error
 from ...models.database import (
     AttributeValue,
-    ObjectRelation,
-    RdmObject,
     RelationSetVersion,
 )
 from ...models.schema import MappingGridViewConfig, MappingGridViewDefinition
@@ -65,36 +59,33 @@ class MappingRead:
     relations: Subquery
 
     @property
-    def source_type(self) -> str:
-        return (
-            self.config.fromObjectTypeKey
-            if self.config.direction == "outgoing"
-            else self.config.toObjectTypeKey
+    def scope(self) -> MappingScope:
+        return MappingScope(
+            self.session,
+            self.workspace_key,
+            self.change_set_id,
+            self.publication_id,
+            self.snapshot.model,
+            self.config,
+            self.objects,
+            self.relations,
         )
+
+    @property
+    def source_type(self) -> str:
+        return self.scope.source_type
 
     @property
     def target_type(self) -> str:
-        return (
-            self.config.toObjectTypeKey
-            if self.config.direction == "outgoing"
-            else self.config.fromObjectTypeKey
-        )
+        return self.scope.target_type
 
     @property
     def anchor_column(self) -> Any:
-        return (
-            self.relations.c.from_object_id
-            if self.config.direction == "outgoing"
-            else self.relations.c.to_object_id
-        )
+        return self.scope.anchor_column
 
     @property
     def other_column(self) -> Any:
-        return (
-            self.relations.c.to_object_id
-            if self.config.direction == "outgoing"
-            else self.relations.c.from_object_id
-        )
+        return self.scope.other_column
 
     def paths(self, objects: list[Any]) -> dict[str, list[Any]]:
         """Fetch ancestors by hierarchy level, never once per mapping row."""
@@ -174,17 +165,7 @@ class MappingRead:
         return result
 
     def edge_statement(self) -> Select:
-        source, target = self.objects.alias("source"), self.objects.alias("target")
-        return (
-            select(*self.relations.c)
-            .join(source, source.c.id == self.anchor_column)
-            .join(target, target.c.id == self.other_column)
-            .where(
-                source.c.object_type_key == self.source_type,
-                target.c.object_type_key == self.target_type,
-                self.relations.c.relation_type_key == self.config.relationTypeKey,
-            )
-        )
+        return self.scope.edge_statement()
 
     def versions(self, ids: list[str]) -> dict[str, int]:
         if self.publication_id:
@@ -230,44 +211,10 @@ class MappingRead:
                 relationId=row.id,
                 attributes=row.attributes or {},
                 object=summaries[self.other(row)],
+                origin=row.origin,
             )
             for row in edges
         ]
-
-
-def context_projection(
-    session: Session,
-    workspace_key: str,
-    change_set_id: str | None,
-    publication_id: str | None,
-) -> tuple[Subquery, Subquery]:
-    """The objects and relations of live data, a change set or a publication, in one shape."""
-    if change_set_id:
-        return change_set_mapping_projection(session, change_set_id)
-    if publication_id:
-        return publication_mapping_projection(session, publication_id)
-    objects = (
-        select(
-            RdmObject.id,
-            RdmObject.application_key,
-            RdmObject.object_type_key,
-            RdmObject.name,
-            RdmObject.parent_object_id,
-            literal(None).label("attributes"),
-            RdmObject.created_at,
-            RdmObject.updated_at,
-        )
-        .where(RdmObject.workspace_key == workspace_key)
-        .subquery("mapping_objects")
-    )
-    relations = select(
-        ObjectRelation.id,
-        ObjectRelation.relation_type_key,
-        ObjectRelation.from_object_id,
-        ObjectRelation.to_object_id,
-        ObjectRelation.attributes,
-    ).subquery("mapping_relations")
-    return objects, relations
 
 
 def open_mapping_read(
@@ -409,6 +356,7 @@ def object_page(
     candidates: bool = False,
     parent_object_id: str | None = None,
     mapping_state: str | None = None,
+    proposed: bool = False,
 ) -> Page[Any]:
     fields = tuple(
         field
@@ -424,16 +372,16 @@ def object_page(
         "fields": fields,
         "parentObjectId": parent_object_id,
         "state": mapping_state,
+        "proposed": proposed,
     }
-    allowed = read.snapshot.model.allowed_relation(
-        read.config.relationTypeKey, read.config.fromObjectTypeKey, read.config.toObjectTypeKey
-    )
     statement = select(projection_bundle(read.objects)).where(
         read.objects.c.object_type_key == object_type
     )
     if not candidates:
         statement = statement.where(
-            read.objects.c.application_key == read.filters["applicationKey"]
+            read.objects.c.application_key == read.filters["applicationKey"],
+            # Only records that can be mapped here, or already are (0.9 K7, D171, D175).
+            *read.scope.source_clauses(),
         )
     if parent_object_id is not None:
         statement = statement.where(read.objects.c.parent_object_id == parent_object_id)
@@ -457,20 +405,25 @@ def object_page(
             statement = statement.where(target_count == 1)
         else:
             statement = statement.where(target_count > 1)
-    exclusive_target = candidates and allowed.holds_one(
-        "to" if read.config.direction == "outgoing" else "from"
-    )
-    if exclusive_target:
-        edges = read.edge_statement().subquery()
-        other = (
-            edges.c.to_object_id if read.config.direction == "outgoing" else edges.c.from_object_id
+    if proposed:
+        # The sources with a target the AI proposed and nobody has changed since (0.16 AP2): the
+        # change set's relation row still holds its origin.
+        proposed_edges = read.edge_statement().subquery("mapping_proposed_edges")
+        proposed_anchor = (
+            proposed_edges.c.from_object_id
+            if read.config.direction == "outgoing"
+            else proposed_edges.c.to_object_id
         )
-        # An anti-join, not NOT IN's subplan over every edge (0.11 Q1, D177).
-        statement = statement.where(~exists().where(other == read.objects.c.id))
-    criteria = allowed.candidates_at("to" if read.config.direction == "outgoing" else "from")
-    if candidates and criteria:
-        # The binding's candidate criteria (0.9 K7, D171): only records the model lets be chosen.
-        statement = statement.where(read.objects.c.id.in_(_meeting(read, object_type, criteria)))
+        statement = statement.where(
+            exists().where(
+                proposed_anchor == read.objects.c.id,
+                proposed_edges.c.origin["kind"].as_string() == "ai",
+            )
+        )
+    if candidates:
+        # Only records the binding lets be chosen: not taken by a one-to-one end, meeting the
+        # candidate criteria (0.9 K7, D171); one definition with the proposal job's (0.16 AP2).
+        statement = statement.where(*read.scope.eligible_clauses(object_type))
     if search:
         clauses = []
         for field in fields:
@@ -517,7 +470,15 @@ def coverage(
     page_size: int | None,
     parent_object_id: str | None = None,
     mapping_state: str | None = None,
+    proposed: bool = False,
 ) -> MappingCoveragePage:
+    if proposed and read.change_set_id is None:
+        raise api_error(
+            422,
+            "MAPPING_PROPOSED_NEEDS_CHANGE_SET",
+            "proposed lists the sources whose target the AI proposed in a change set; "
+            "send changeSetId",
+        )
     validate_parent_scope(read, parent_object_id)
     source_page = object_page(
         read,
@@ -528,6 +489,7 @@ def coverage(
         page_size or read.config.pageSize,
         parent_object_id=parent_object_id,
         mapping_state=mapping_state,
+        proposed=proposed,
     )
     objects = source_page.items
     ids = [row.id for row in objects]
@@ -588,21 +550,6 @@ def coverage(
             )
         )
     return MappingCoveragePage(items=rows, **source_page.links())
-
-
-def _meeting(read: MappingRead, object_type: str, criteria: tuple[Any, ...]) -> Select[Any]:
-    """The records of ``object_type`` meeting ``criteria`` in the mapping's context."""
-    session, model = read.session, read.snapshot.model
-    context = (
-        change_set_context(session, read.change_set_id)
-        if read.change_set_id
-        else publication_context(session, read.publication_id)
-        if read.publication_id
-        else None
-    )
-    definition = model.object_type(object_type)
-    assert definition is not None
-    return candidate_ids(model, definition, criteria, workspace_key=read.workspace_key, context=context)
 
 
 def candidates(

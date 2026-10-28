@@ -1496,7 +1496,19 @@ as the person chooses; its note says it was proposed by the AI assistant, with t
 confident it was and why. If the provider fails, the inference says so in a sentence and its own
 proposals stand.
 
-Limits: the inference's names are the only AI feature so far; targets for unmapped values, values for
+The second is in the mapping grid: **Propose targets** asks the assistant for a target for each
+unmapped value of the view (within its search and parent, if set), into the change set that is open or
+a new one. The assistant is given only the targets the grid itself would offer: all of them when
+there are up to a hundred, otherwise each value's twenty closest by name. A job works through the
+values in batches, shows how far it is and can be stopped; what it already wrote stays. Each proposal
+is an ordinary mapping in the change set, marked "Proposed by the AI" with its confidence and a
+one-sentence reason; **Proposed** in the status filter lists only those, and changing a target makes it
+the person's own, without the mark. The result says how many were proposed, how many were left
+unmapped because no target was likely enough, and how many were changed by someone meanwhile and left
+alone. Published through the normal approval, the relationship's history says the AI proposed it, with
+the model, and who published it. It needs the send level that allows record values.
+
+Limits: values for
 empty fields, help with a failed dry run, instruction-driven tasks, assistant access through MCP and
 plain-language summaries follow in later 0.16 packages. The provider is set in the environment, not
 on the page. Whether the suggestions are good has been tried only with a stand-in provider, not a

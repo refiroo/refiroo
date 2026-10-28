@@ -51,7 +51,7 @@ from ..models.database import (
     WorkspaceRuntimeState,
 )
 from ..models.schema import EngineModel
-from .schemas.common import ActorResponse, PrincipalResponse
+from .schemas.common import ActorResponse, PrincipalResponse, ProposalOrigin
 from .schemas.consumer_subscriptions import (
     DeliveryAttempt,
     DeliveryAttemptError,
@@ -372,6 +372,12 @@ def actor_response(actor: dict[str, str] | None) -> ActorResponse | None:
     return ActorResponse.model_validate(actor) if actor else None
 
 
+def _origin_of(event: AuditEvent) -> ProposalOrigin | None:
+    """The AI's provenance a publication copied into a relationship's entry (0.16 AP2)."""
+    found = event.changes.get("origin") if isinstance(event.changes, dict) else None
+    return ProposalOrigin.model_validate(found) if isinstance(found, dict) else None
+
+
 def _audit_response(
     event: AuditEvent,
     actor: dict[str, str] | None,
@@ -401,6 +407,7 @@ def _audit_response(
             else None
         ),
         actor=actor_response(actor),
+        origin=_origin_of(event),
         **(
             {
                 "kind": details.kind,
@@ -549,6 +556,7 @@ def job_responses(session: Session, jobs: list[Job]) -> list[JobResponse]:
             notices=(job.report or {}).get("notices"),
             migration=(job.report or {}).get("migration"),
             move=(job.report or {}).get("move"),
+            aiProposal=(job.report or {}).get("aiProposal") if job.kind == "aiProposal" else None,
             requestedBy=named(session, requester(job)),
         )
         for job in jobs

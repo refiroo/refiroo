@@ -299,6 +299,12 @@ describe("routes", () => {
     });
     window.history.replaceState({}, "", routePath(route));
     expect(parseRoute(model)).toEqual(route);
+    // The AI's proposals filter (0.16 AP2) is kept in the address too.
+    window.history.replaceState({}, "", "/apps/test-app/views/coverage?workspaceKey=west&proposed=true");
+    const proposed = parseRoute(model);
+    expect(proposed).toMatchObject({ mappingProposed: true });
+    window.history.replaceState({}, "", routePath(proposed));
+    expect(parseRoute(model)).toEqual(proposed);
   });
 
   it("round-trips a relation matrix's chosen columns and cell state, and drops a state without columns", () => {

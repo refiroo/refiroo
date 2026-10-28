@@ -484,6 +484,9 @@ item (J10.10), through the same replacement.
   required and containment rules refuse it with the single writes' codes.
 - **J10.11 Only the candidates a relationship allows** (0.9 K7): a relationship view's candidates and
   a relation matrix's link candidates list only the records the binding's `candidates` let be chosen.
+- **J10.12 Sources outside the binding's criteria** (0.16 AP2): a mapping view's coverage lists, counts and
+  filters as sources only the records meeting the criteria at the source end, plus any that already
+  holds a relationship of the binding (kept, not flagged, D175).
 
 **Refusals:** `409 MAPPING_VERSION_CONFLICT`, `422 INVALID_CLEAR_ATTRIBUTES`,
 `422 REQUIRED_OWNERSHIP_BINDING`, `422 RELATION_ANCESTOR_REQUIRED`, `422 REQUIRED_RELATION`,
@@ -2459,6 +2462,42 @@ inference's names; later 0.16 packages add their own proposals on the same provi
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`; a start refused
 for `AI_PROVIDER` without what it needs, or for the retired `INFERENCE_ASSISTANT` settings.
+
+### J49 — Targets for unmapped values
+
+**Actor:** a mapping steward holding Use AI proposals and Work in change sets. **Channel:** UI (the
+mapping grid's Propose targets and Proposed segment), API (`POST /workspaces/{key}/mapping-proposals`,
+`GET …/mapping-coverage` `proposed`, `origin` on target summaries and history). **Status:** delivered by
+0.16 AP2 (2026-10-28).
+
+1. A steward opens a mapping view with unmapped values and asks for target proposals into a new change
+   set, or one they already have; a job asks the provider about the unmapped sources in batches,
+   giving it only the targets the grid would offer.
+2. The change set holds each source mapped to the target the provider chose, marked as proposed by
+   the AI with its confidence and reason; live data is unchanged. The steward corrects some targets
+   in the grid and publishes through the normal approval; the history of a published proposed mapping
+   carries its origin, the publisher being the actor.
+
+**Variants:**
+
+- **J49.1 Proposed into a change set**: a new or an existing change set; origin on the relations and on
+  coverage; live unchanged; read from either end of the relationship.
+- **J49.2 An answer that does not count**: an invented, null or below-floor answer leaves the source
+  unmapped and counted; a source the answer leaves out counts as not answered.
+- **J49.3 Only eligible candidates**: the provider is sent the eligible targets (the whole list up to
+  100, else each source's closest 20) and names.
+  Nor is it asked about a source outside the binding's criteria at the source end.
+- **J49.4 A failing provider**: a warning, a failed call, nothing written.
+- **J49.5 Mapped meanwhile**: a source a person maps while the provider answers is refused by its version
+  token and counted as changed.
+- **J49.6 Hidden**: `403 FORBIDDEN` (`ai-proposals`), `409 AI_NOT_CONFIGURED`, `409
+  AI_SEND_LEVEL_TOO_LOW`; the request names one change set; a send level above the ceiling is refused.
+- **J49.7 Review**: the `proposed` filter; a changed target loses its mark; published history carries
+  `origin`, the publisher as actor.
+
+**Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `409
+CHANGE_SET_VERSION_CONFLICT`, `404 CHANGE_SET_NOT_FOUND`, `404 MAPPING_VIEW_NOT_FOUND`, `422
+MAPPING_PROPOSED_NEEDS_CHANGE_SET`.
 
 ## Guardrails kept from 0.7
 

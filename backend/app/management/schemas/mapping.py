@@ -1,8 +1,9 @@
 from typing import Any, Literal
 
 from pydantic import BaseModel
+from pydantic.json_schema import SkipJsonSchema
 
-from .common import CollectionPage
+from .common import CollectionPage, ProposalOrigin, optional_origin
 
 
 class MappingObjectSummary(BaseModel):
@@ -16,6 +17,8 @@ class MappingTargetSummary(BaseModel):
     relationId: str
     attributes: dict[str, Any]
     object: MappingObjectSummary
+    # Set when the AI proposed this target and nobody has changed it since (0.16 AP2).
+    origin: ProposalOrigin | SkipJsonSchema[None] = optional_origin()
 
 
 class MappingCoverageRow(BaseModel):

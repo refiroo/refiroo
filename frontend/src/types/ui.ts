@@ -25,6 +25,8 @@ export interface CollectionQueryState {
   parentObjectTypeKey?: string;
   /** Mapping-only coverage state; ignored by other renderer types. */
   mappingState?: "mapped" | "unmapped" | "ambiguous";
+  /** Mapping-only, in a change set: only the sources whose target the AI proposed (0.16 AP2). */
+  mappingProposed?: boolean;
   /** Relation-matrix-only: the column records shown, in order; absent pages the column type. */
   matrixColumnIds?: string[];
   /** Relation-matrix-only: rows with a cell in this state in any shown column. */

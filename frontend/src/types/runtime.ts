@@ -3,6 +3,7 @@
  * runtime state.
  */
 
+import type { ProposalOrigin } from "@/types/ai";
 import type { ValueType } from "@/types/model";
 import type { WorkspaceModel } from "@/types/modelAdmin";
 import type { Actor, Principal } from "@/types/security";
@@ -229,6 +230,8 @@ export interface AuditEventItem {
   values?: HistoryValue[];
   /** A relationship's other record, read from this record (D392). */
   related?: HistoryRelated;
+  /** Who proposed the change when the AI did; the actor stays the publisher (0.16 AP2). */
+  origin?: ProposalOrigin;
 }
 
 export type HistoryKind = "values" | "relationships" | "structure";
@@ -433,6 +436,8 @@ export interface MappingTargetSummary {
   relationId: string;
   attributes: Record<string, unknown>;
   object: MappingObjectSummary;
+  /** Set while the AI's proposal stands: nobody has changed the target since (0.16 AP2). */
+  origin?: ProposalOrigin;
 }
 
 export interface MappingCoverageRow {

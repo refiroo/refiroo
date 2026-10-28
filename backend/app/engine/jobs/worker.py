@@ -73,7 +73,7 @@ from sqlalchemy.orm import Session
 
 from ...common.outage import OutageLog, database_unavailable
 from ...common.time import as_utc
-from ...errors import ApiError
+from ...errors import ApiError, api_error
 from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job, SourceFile
 from ..authorization.requesters import job_writer
@@ -83,6 +83,7 @@ from ..model import change_set_migrations, migrations
 from ..moves import move_job, move_load
 from ..moves.mapping_inference import run_inference as run_mapping_inference
 from ..notifications import inbox
+from ..proposals import mapping_job
 from ..proposals.calls import record_apart
 from ..proposals.registry import AiConfiguration
 from ..sources.dry_run import (
@@ -142,6 +143,7 @@ BATCH_KINDS = (
     "migration",
     "mappingInference",
     "move",
+    "aiProposal",
 )
 EXPORT_KINDS = ("export",)
 _ITEM = TypeAdapter(BatchItem)
@@ -313,6 +315,8 @@ class JobWorker:
                     stage=case(
                         ((Job.kind == "profile"), "profiling"),
                         ((Job.kind.in_(("inference", "mappingInference"))), "inferring"),
+                        ((Job.kind == "aiProposal") & Job.total.is_(None), "binding"),
+                        ((Job.kind == "aiProposal"), "proposing"),
                         (Job.kind.in_(ROW_KINDS) & Job.total.is_(None), "binding"),
                         ((Job.kind == "move") & Job.total.is_(None), "binding"),
                         (
@@ -368,6 +372,8 @@ class JobWorker:
                     self._infer(session, job)
                 elif job.kind == "mappingInference":
                     self._infer_mapping(session, job)
+                elif job.kind == "aiProposal":
+                    self._propose_targets(session, job)
                 elif job.kind == "move":
                     self._move(session, job)
                 elif job.kind in ROW_KINDS and job.total is None:
@@ -648,6 +654,38 @@ class JobWorker:
         # An inference has no items, so no result.
         job.result = None
         session.commit()
+
+    def _propose_targets(self, session: Session, job: Job) -> None:
+        """Targets for the unmapped sources of a mapping view (0.16 AP2): the first step binds the
+        sources and their candidates; each later one asks the provider about a batch and writes
+        what it chose into the change set (``proposals/mapping_job.py``)."""
+        retention = self.settings.retention_days
+        if job.total is None:
+            mapping_job.bind(
+                session, job, self.settings.ai.context_tokens if self.settings.ai else None
+            )
+            self._hold_lease(session, job.sequence_id, cancellable=True)
+            if job.total == 0:
+                complete_job(session, job, retention_days=retention)
+            else:
+                job.lease_expires_at = datetime.now(UTC) + timedelta(
+                    seconds=self.settings.lease_seconds
+                )
+            session.commit()
+            return
+        if self.settings.ai is None:
+            raise api_error(409, "AI_NOT_CONFIGURED", "This worker has no AI configuration")
+        mapping_job.step(
+            session,
+            job,
+            self.settings.ai,
+            record=record_apart(self.session_factory),
+            hold=lambda cancellable=False: self._hold_lease(
+                session, job.sequence_id, cancellable=cancellable
+            ),
+            retention_days=retention,
+            lease_seconds=self.settings.lease_seconds,
+        )
 
     # --- moves (0.11 X2, X3) ----------------------------------------------------------------------
 

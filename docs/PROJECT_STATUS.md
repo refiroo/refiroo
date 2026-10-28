@@ -5,7 +5,11 @@
 [Planned](BASE_0_16_IMPLEMENTATION_PLAN.md) 2026-10-27. **AP1, the proposal provider, is delivered
 (2026-10-28)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap1-record-2026-10-28)): `AI_*` settings and the send
 levels, the Claude and OpenAI-compatible adapters, the call record, Use AI proposals, Settings › AI, the
-inference's assistant on the provider with provenance. Next: AP2.
+inference's assistant on the provider with provenance. **AP2, targets for unmapped values, is delivered
+(2026-10-28)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap2-record-2026-10-28)): Propose targets in the
+mapping grid, a job asking the provider among the grid's own candidates and writing into a change set,
+provenance on change-set relations through publication into history, the Proposed filter,
+`AI_CONTEXT_TOKENS`. Next: AP6 with what it needs of AP3.
 
 ## Current development baseline — Base 0.12 complete (2026-10-28)
 

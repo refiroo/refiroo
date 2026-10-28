@@ -7,6 +7,7 @@
 
 import type { AiOrigin, DraftOperation, Proposal } from "@/types";
 import { ProposalNote } from "@/ui/ProposalNote";
+import { aiOriginSentence } from "@/ui/AiOriginMark";
 import { StatusPill } from "@/ui/StatusPill";
 import { patternLabel } from "@/features/model-editor/proposing";
 
@@ -84,11 +85,7 @@ export function ProposedBecause({
     <ProposalNote
       subtitle={`${proposal ? patternLabel(proposal.pattern) : "From the workbook"} · edit anything here to make it yours`}
       summary={proposal?.summary}
-      origin={
-        origin
-          ? `Proposed by the AI assistant${origin.model ? ` (${origin.model})` : ""}, ${Math.round(origin.confidence * 100)}% confident. ${origin.reason}`
-          : undefined
-      }
+      origin={origin ? aiOriginSentence(origin) : undefined}
       evidence={evidence}
       alternatives={(proposal?.alternatives ?? []).map((alternative) => ({
         label: alternative.label,
