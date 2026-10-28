@@ -88,4 +88,6 @@ class AiSystemInfo(BaseModel):
 
     configured: bool
     provider: str | None
+    # The model asked, so a client can say what it waits for.
+    model: str | None = None
     sendLevel: SendLevel

@@ -330,9 +330,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.16 AP1 (additive): GET /ai/status, GET /ai/calls and POST /ai/test with the
     # Ai* schemas, and `ai` (AiSystemInfo) on SystemResponse. Diffed against 0.12.0's document in a
     # worktree of HEAD: nothing else changed.
+    # Re-baselined for 0.16 AP1 (fixes, additive): AiSystemInfo.model and
+    # ModelDraftProfileResponse.freeKey; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "aef722130b3e8e43a7b56370b06f6f5bb5b5bb51e5e75aa5c6d00ab9cc1ddad3"
+        "0bc314fe20b7be290ae8e083e2eea9a47b326304c1edc9be78dfabb84dcebb35"
     )
 
 

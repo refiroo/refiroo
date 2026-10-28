@@ -348,6 +348,19 @@ async function journey(label, source) {
     await page.reload();
     await row("Item").waitFor();
 
+    // The draft profile's key and name are in the source pane, edited by keyboard (a step each).
+    const identity = page.locator('dl[aria-label="Import profile"]');
+    await identity.getByText("Profile key", { exact: true }).waitFor();
+    await identity.getByRole("button").last().focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("Catalogue workbook");
+    await page.keyboard.press("Enter");
+    await identity.getByRole("button", { name: /Edit Profile name: Catalogue workbook/ }).waitFor();
+    assert.equal((await draftProfile()).profile.name, "Catalogue workbook");
+    await shot("profile-identity-1440");
+    checks.push(`${label}: the profile's key and name are in the source pane; the name edited by keyboard is one step`);
+
     // Load: install and activate, a change set named after the file, the load, the review.
     await page.getByRole("button", { name: "Load into a change set…" }).click();
     await dialog().getByRole("button", { name: "Install, activate and load" }).waitFor();

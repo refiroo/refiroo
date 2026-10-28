@@ -10,7 +10,13 @@ from typing import Any
 
 import httpx
 
-from .provider import ProposalRequest, ProviderAnswer, ProviderError, answer_schema
+from .provider import (
+    ProposalRequest,
+    ProviderAnswer,
+    ProviderError,
+    answer_example,
+    answer_schema,
+)
 
 
 class OpenAICompatibleProvider:
@@ -22,30 +28,42 @@ class OpenAICompatibleProvider:
         model: str,
         api_key: str = "",
         *,
+        reasoning_effort: str = "",
         timeout: float = 60,
         http_client: httpx.Client | None = None,
     ) -> None:
         self.model = model
+        self._reasoning_effort = reasoning_effort
         self._url = f"{base_url.rstrip('/')}/chat/completions"
         self._headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self._client = http_client or httpx.Client(timeout=timeout)
 
     def propose(self, request: ProposalRequest) -> ProviderAnswer:
+        schema = answer_schema(request.answer)
+        # The shape is also shown in the instructions, as an example to fill in: an endpoint that
+        # does not enforce response_format (Ollama's MLX builds) still gets told what to answer.
+        instructions = (
+            f"{request.instructions}\n\nAnswer with one JSON object only, no other text, in exactly "
+            "this form, the placeholders replaced and the list holding as many items as needed:\n"
+            f"{json.dumps(answer_example(request.answer), ensure_ascii=False)}"
+        )
         body = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": request.instructions},
+                {"role": "system", "content": instructions},
                 {"role": "user", "content": json.dumps(request.context, ensure_ascii=False)},
             ],
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {
                     "name": "answer",
-                    "schema": answer_schema(request.answer),
+                    "schema": schema,
                     "strict": True,
                 },
             },
         }
+        if self._reasoning_effort:
+            body["reasoning_effort"] = self._reasoning_effort
         try:
             response = self._client.post(self._url, json=body, headers=self._headers)
         except httpx.TimeoutException as exc:

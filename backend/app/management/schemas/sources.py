@@ -286,6 +286,17 @@ class InferenceCounts(BaseModel):
     rejected: int
 
 
+class InferenceAssistantOutcome(BaseModel):
+    """What the AI provider did for an inference (0.16 AP1): its model, the names it answered, the
+    ones offered as proposals (above AI_MIN_CONFIDENCE and different from the rules'), or why it
+    failed."""
+
+    model: str | None
+    suggested: int
+    offered: int
+    failure: str | None
+
+
 class InferenceResponse(BaseModel):
     """A model draft's latest inference (0.10 A6, D87): ``checking`` while its job runs, then
     ``completed`` with its proposals' counts by status, what the workbook disagrees with, its
@@ -299,8 +310,11 @@ class InferenceResponse(BaseModel):
     counts: InferenceCounts
     disagreements: list[InferenceDisagreement]
     warnings: list[str]
-    # Whether the AI provider was asked for names too (0.16 AP1).
+    # Whether the AI provider was asked for names too (0.16 AP1), and what it did once completed.
     assistant: bool
+    assistantOutcome: InferenceAssistantOutcome | None = None
+    # While checking: "assistant" when the inference waits for the AI provider's answer.
+    phase: Literal["assistant"] | None = None
     proposed: list[ProposedElement]
     error: ApiErrorBody | None
 

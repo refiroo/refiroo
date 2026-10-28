@@ -92,5 +92,6 @@ def system_info(ai: AiConfiguration) -> AiSystemInfo:
     return AiSystemInfo(
         configured=ai.configured,
         provider=provider_label(ai.provider) if ai.provider else None,
+        model=model_label(ai.provider) if ai.provider else None,
         sendLevel=ai.policy.level,
     )

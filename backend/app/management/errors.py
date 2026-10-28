@@ -7,6 +7,7 @@ from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..common.logs import current_request, request_id_from
@@ -182,3 +183,55 @@ def _request_id() -> str:
 def _request_id_header() -> dict[str, str]:
     """The request's ID for a response sent outside the request's middleware (0.11 O1, D196)."""
     return {REQUEST_ID_HEADER: _request_id()}
+
+
+class UnexpectedErrors:
+    """Every exception no other handler answered, answered here and never raised further.
+
+    Starlette runs a handler registered for ``Exception`` in its outermost middleware, which sends
+    the handler's answer and then raises the exception again for the server to log, so every
+    database outage and unexpected error became an "Exception in ASGI application" traceback
+    on top of its own concise log line (found on a real instance, 2026-10-28). This ASGI middleware
+    sits inside CORS and the request observation and answers with ``unexpected_error_handler``;
+    a stream that fails after its answer began cannot be answered again and is only logged.
+    """
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        started = False
+
+        async def sending(message: dict[str, Any]) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, sending)
+        except Exception as exc:  # noqa: BLE001 - the last line: nothing may escape to the server
+            if started:
+                logger.error(
+                    "A response failed after it began [%s] for %s %s (%s)",
+                    _request_id(),
+                    scope["method"],
+                    scope["path"],
+                    type(exc).__name__,
+                )
+                return
+            response = await unexpected_error_handler(Request(scope, receive), exc)
+            await response(scope, receive, send)
+
+
+async def refuse_waiting_too_long(scope: dict[str, Any], receive: Any, send: Any) -> None:
+    """A request that waited for its turn (``common/request_gate.py``) longer than
+    DATABASE_POOL_TIMEOUT: answered as a pool timeout is, 503 ``poolExhausted`` with Retry-After."""
+    request = Request(scope, receive)
+    response = await unexpected_error_handler(
+        request, SQLAlchemyTimeoutError("No turn among the requests inside the application")
+    )
+    await response(scope, receive, send)

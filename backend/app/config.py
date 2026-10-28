@@ -62,6 +62,8 @@ RETIRED_ASSISTANT_SETTINGS = {
 # alone, a bounded number of values per attribute or column as well, or record values too.
 SendLevel = Literal["structure", "samples", "values"]
 SEND_LEVELS: tuple[SendLevel, ...] = ("structure", "samples", "values")
+ReasoningEffort = Literal["", "none", "low", "medium", "high"]
+REASONING_EFFORTS: tuple[ReasoningEffort, ...] = ("", "none", "low", "medium", "high")
 
 # Regenerating this per process is deliberate: without RDM_CURSOR_SIGNING_KEY, cursors issued
 # before a restart stop verifying after it. It is generated once at import so reloading settings
@@ -153,6 +155,9 @@ class Settings(BaseModel):
     ai_log_content: bool = False
     ai_log_content_days: int = Field(default=7, ge=1)
     ai_timeout_seconds: int = Field(default=60, ge=1)
+    # How much an OpenAI-compatible model reasons before it answers (`reasoning_effort`); empty
+    # sends nothing. `none` keeps a local thinking model such as Qwen from reasoning for minutes.
+    ai_reasoning_effort: ReasoningEffort = ""
     # Export files and, from J2, uploads (D12, D55): one directory, created at start.
     job_file_dir: Path = DEFAULT_JOB_FILE_DIR
     # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
@@ -250,6 +255,9 @@ class Settings(BaseModel):
             ai_log_content=env.get("AI_LOG_CONTENT", "false").strip().lower() in TRUTHY,
             ai_log_content_days=_positive(env, "AI_LOG_CONTENT_DAYS", 7),
             ai_timeout_seconds=_positive(env, "AI_TIMEOUT_SECONDS", 60),
+            ai_reasoning_effort=_choice(
+                env, "AI_REASONING_EFFORT", REASONING_EFFORTS, "", str.lower
+            ),
             job_file_dir=Path(env.get("JOB_FILE_DIR", "").strip() or DEFAULT_JOB_FILE_DIR),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
             consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
@@ -667,7 +675,9 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "ai",
         "The provider's model; empty for claude means claude-opus-5-5",
     ),
-    CatalogueEntry("AI_API_KEY", "ai_api_key", "ai", "The provider's key; never shown", secret=True),
+    CatalogueEntry(
+        "AI_API_KEY", "ai_api_key", "ai", "The provider's key; never shown", secret=True
+    ),
     CatalogueEntry(
         "AI_BASE_URL",
         "ai_base_url",
@@ -710,6 +720,13 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "ai_timeout_seconds",
         "ai",
         "Seconds one call to the provider may take before it fails",
+    ),
+    CatalogueEntry(
+        "AI_REASONING_EFFORT",
+        "ai_reasoning_effort",
+        "ai",
+        "openai-compatible only: how much the model reasons first, none, low, medium or high; "
+        "empty sends nothing. none keeps a local thinking model fast",
     ),
 )
 

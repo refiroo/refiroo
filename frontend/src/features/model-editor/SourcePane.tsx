@@ -11,7 +11,18 @@
  */
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import type { DraftProfile, EditorSelection, ModelDiagnostic, SourceBlock, SourceColumn, SourceSheet } from "@/types";
+import type {
+  DraftProfile,
+  EditorSelection,
+  ModelDiagnostic,
+  ModelDraftOutline,
+  SourceBlock,
+  SourceColumn,
+  SourceSheet,
+} from "@/types";
+import { EditableText } from "@/features/model-editor/EditableText";
+import { PROFILE_KEY_MISMATCH, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";
+import type { StepOutcome } from "@/features/model-editor/OperationDialog";
 import { ActionMenu } from "@/ui/ActionMenu";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
@@ -58,8 +69,13 @@ export function SourcePane({
   onIgnoreSheet,
   proposed = NONE,
   describing = NONE,
+  outline,
+  onSetProfile,
 }: {
   source: DraftSource;
+  /** With `onSetProfile`: the profile's key and name, edited in place (a step each). */
+  outline?: ModelDraftOutline;
+  onSetProfile?: (patch: { key?: string; name?: string }) => Promise<StepOutcome>;
   selection: EditorSelection;
   /** Columns (`columnId`) that feed the type selected in the model pane. */
   linked: Set<string>;
@@ -95,6 +111,9 @@ export function SourcePane({
         </span>
       </header>
       {source.error && <InlineError message={source.error} onRetry={source.retry} />}
+      {outline && source.profile?.profile && (
+        <ProfileIdentity profile={source.profile} outline={outline} onSet={onSetProfile} />
+      )}
       {state === "queued" || state === "running" ? (
         <div className="source-pane-state" role="status">
           <p>Profiling {file.name}: reading every sheet and column…</p>
@@ -151,6 +170,64 @@ export function SourcePane({
       )}
       <p className="source-pane-hint muted">Drag a column onto the model, or use Map to… in its menu.</p>
     </section>
+  );
+}
+
+/**
+ * The draft's import profile key and name, where the editor shows the source. The key is what a
+ * stored profile is found by, so one that belongs to another model is a conflict: Use '…' sets the
+ * key the engine found free (`setProfile`, an undoable step).
+ */
+function ProfileIdentity({
+  profile,
+  outline,
+  onSet,
+}: {
+  profile: DraftProfile;
+  outline: ModelDraftOutline;
+  /** Absent while the editor is paused: the values are read, not edited. */
+  onSet?: (patch: { key?: string; name?: string }) => Promise<StepOutcome>;
+}) {
+  const document = profile.profile as NonNullable<DraftProfile["profile"]>;
+  const conflict = profile.diagnostics.some((item) => item.code === PROFILE_KEY_MISMATCH);
+  return (
+    <dl className="source-pane-profile" aria-label="Import profile">
+      <div id="profile-key-field">
+        <dt>Profile key</dt>
+        <dd>
+          {onSet ? (
+            <EditableText
+              value={document.key}
+              label="Profile key"
+              outline={outline}
+              onSave={(key) => onSet({ key })}
+              after={
+                conflict && profile.freeKey ? (
+                  <UseFreeKey freeKey={profile.freeKey} onUse={() => void onSet({ key: profile.freeKey as string })} />
+                ) : undefined
+              }
+            />
+          ) : (
+            <span>{document.key}</span>
+          )}
+        </dd>
+      </div>
+      <div>
+        <dt>Profile name</dt>
+        <dd>
+          {onSet ? (
+            <EditableText
+              value={document.name}
+              label="Profile name"
+              outline={outline}
+              onSave={(name) => onSet({ name })}
+            />
+          ) : (
+            <span>{document.name}</span>
+          )}
+        </dd>
+      </div>
+    </dl>
   );
 }
 

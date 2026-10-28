@@ -1818,3 +1818,48 @@
 .assistant-choice .admin-hint {
   margin: var(--space-1) 0 0;
 }
+
+/* Proposing (the user, 2026-10-28): the phase, an indeterminate bar, and why editing waits. */
+.notice .proposing-phase {
+  margin: var(--space-1) 0 var(--space-2);
+  font-weight: 600;
+}
+.notice .proposing-progress {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: var(--space-2);
+  accent-color: var(--action-primary);
+}
+.notice .proposing-progress + p {
+  margin: 0;
+}
+
+/* The draft profile's key and name in the source pane. */
+.source-pane-profile {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+.source-pane-profile > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.source-pane-profile dt {
+  min-width: 6.5em;
+  color: var(--text-secondary);
+}
+.source-pane-profile dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

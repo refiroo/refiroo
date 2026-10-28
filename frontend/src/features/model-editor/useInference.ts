@@ -22,6 +22,10 @@ export interface DraftInference {
   running: boolean;
   error: string;
   propose: (request: InferenceRequest) => Promise<void>;
+  /** What the running inference is doing: `assistant` while the AI assistant's call runs. */
+  phase: "assistant" | undefined;
+  /** Cancels the running inference: nothing is applied and proposing has ended. */
+  stop: () => Promise<void>;
   /** The editor applied the proposals (or gave up): proposing has ended. */
   settled: () => void;
 }
@@ -36,17 +40,25 @@ export function useInference(
   const [follow, setFollow] = useState<string>();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
+  const [stage, setStage] = useState<string | null>(null);
+  // The job whose end was handled: a late read that still says checking must not resume it.
+  const ended = useRef<string | undefined>(undefined);
   const completed = useRef(onCompleted);
   useEffect(() => {
     completed.current = onCompleted;
   });
 
   const read = useCallback(
-    () =>
+    (fresh = false) =>
       api
-        .modelDraftInference(draftId)
+        .modelDraftInference(draftId, fresh)
         .then((next) => {
           setInference(next);
+          // The editor opened (or reloaded) while the inference runs: pick its job up.
+          if (next.state === "checking" && ended.current !== next.jobId) {
+            setFollow((now) => now ?? next.jobId);
+            setRunning(true);
+          }
           return next;
         })
         .catch((cause) => {
@@ -80,9 +92,16 @@ export function useInference(
   }, [draftId, jobId, proposals?.jobId]);
 
   useJobStream(follow, (job) => {
-    if (!isFinal(job)) return;
+    if (!isFinal(job)) {
+      // The job moved on (to the assistant's call, say): read the inference again, so its phase shows.
+      setStage(job.stage);
+      void read();
+      return;
+    }
     setFollow(undefined);
-    void read().then((next) => {
+    ended.current = job.id;
+    // A read of its own: one already in flight (the poll below) may answer from before the end.
+    void read(true).then((next) => {
       if (next?.state === "completed") completed.current(next);
       else {
         setRunning(false);
@@ -91,9 +110,31 @@ export function useInference(
     });
   });
 
+  // A job's change is pushed when it commits; reading now and then keeps the phase from lagging.
+  useEffect(() => {
+    if (!follow) return;
+    const timer = setInterval(() => void read(), 3000);
+    return () => clearInterval(timer);
+  }, [follow, read]);
+
+  const stop = useCallback(async () => {
+    if (!follow) return;
+    try {
+      await api.cancelJob(follow);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    }
+    ended.current = follow;
+    setFollow(undefined);
+    setStage(null);
+    setRunning(false);
+    await read();
+  }, [follow, read]);
+
   const propose = useCallback(
     async (request: InferenceRequest) => {
       setError("");
+      setStage(null);
       setRunning(true);
       try {
         const started = await api.proposeFromWorkbook(draftId, request);
@@ -136,6 +177,11 @@ export function useInference(
     assistantFor,
     running,
     error,
+    phase:
+      running && inference?.state === "checking" && (inference.phase === "assistant" || stage === "assistant")
+        ? ("assistant" as const)
+        : undefined,
+    stop,
     propose,
     settled: useCallback(() => setRunning(false), []),
   };

@@ -221,6 +221,14 @@ AP-D4–AP-D9 and AP-D11 are built as written; the user may reopen any of them.
   then 16 after the shared choice), `test:browser:ai` (30 checks, axe 0 violations, a backend with the fake
   on two models and one without a provider).
 
+**Found on the user's first real try (2026-10-28, `gpt-oss:20b` through Ollama) and fixed in AP1:** the
+inference held its transaction open during the AI call (J48.8, which fails without the fix); the editor did not
+show or wait for the AI and an edit meanwhile discarded every proposal (now a phase, paused editing, Stop and the
+outcome); a draft profile key taken by another model was refused only at load, with no way to change the key in
+the editor (now an Issue with a free key, J36.4). The model itself answered in 84 s and found the names good as they
+were; `qwen3.8:27b-mlx` answered after 400 s with text that is not JSON (the build does not hold the schema).
+Prompt quality is AP3/AP6 work.
+
 **Not verified:** a real provider (the R try, on the user's go-ahead); screenshots at 390px on generated-b,
 dark at 390px and the dialogs at 390px were not inspected; a failed test request and kept content in the
 browser (Vitest only); Load more on the calls list. The development database was upgraded by the user's

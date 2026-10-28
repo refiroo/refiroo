@@ -407,6 +407,11 @@ class _Drafts:
         warnings = draft_profile.diagnostics(
             draft.profile_json, compiled.model if compiled.valid else None
         )
+        if compiled.valid and compiled.model is not None:
+            conflict = draft_profile.key_conflict(
+                session, draft.profile_json, compiled.model.release.key
+            )
+            warnings += [conflict] if conflict else []
         return draft, compiled.valid, (*compiled.diagnostics, *warnings)
 
 

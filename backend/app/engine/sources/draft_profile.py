@@ -182,6 +182,10 @@ def read(session: Session, draft: ModelDraft) -> dict[str, Any]:
     compiled = compile_model(draft.model_json)
     profile = draft.profile_json
     found = diagnostics(profile, compiled.model if compiled.valid else None)
+    conflict = None
+    if compiled.valid and compiled.model is not None:
+        conflict = key_conflict(session, profile, compiled.model.release.key)
+        found += [conflict] if conflict else []
     exported, _ = definition(profile)
     source = current_source(session, draft)
     return {
@@ -190,6 +194,8 @@ def read(session: Session, draft: ModelDraft) -> dict[str, Any]:
         "definition": exported,
         "valid": exported is not None and compiled.valid and not any(_blocks(item) for item in found),
         "diagnostics": found,
+        # The key to give the profile instead, when another model's profile holds its key.
+        "freeKey": free_key(session, profile["key"]) if conflict and profile else None,
         "sourceFile": (
             {"id": source.public_id, "name": source.name, "profile": profile_state(session, source)["state"]}
             if source is not None
@@ -236,24 +242,54 @@ def dry_run_after(
         return None
 
 
-def require_installable(session: Session, draft: ModelDraft, model: EngineModel) -> None:
-    """Before installing: ``409 IMPORT_PROFILE_MODEL_MISMATCH`` when the draft's profile would be
-    saved under the key of another model's profile (0.11 D36), which would stop that model's
-    imports."""
-    key = (draft.profile_json or {}).get("key")
+def key_conflict(session: Session, profile: dict[str, Any] | None, model_key: str) -> ModelDiagnostic | None:
+    """An error when the draft's profile would be saved under the key of another model's profile
+    (0.11 D36), which would stop that model's imports: installing and loading refuse it, and the
+    editor lists it with the free key it suggests (``details`` of the refusal name it too)."""
+    key = (profile or {}).get("key")
     if not key:
-        return
+        return None
     stored = session.scalar(select(ImportProfile).where(ImportProfile.key == key))
     if stored is None:
-        return
-    model_key = model_key_of(session, stored)
-    if model_key != model.release.key:
+        return None
+    owner = model_key_of(session, stored)
+    if owner == model_key:
+        return None
+    return ModelDiagnostic(
+        "error",
+        MISMATCH,
+        "/profile/key",
+        f"Import profile '{key}' belongs to the model '{owner}'; the draft's model is '{model_key}'. "
+        f"Give the draft's profile another key, such as '{free_key(session, key)}'",
+    )
+
+
+def free_key(session: Session, key: str) -> str:
+    """``key`` with the first number after it that no stored profile has: ``key-2``, ``key-3``."""
+    taken = set(session.scalars(select(ImportProfile.key).where(ImportProfile.key.like(f"{key}-%"))))
+    number = 2
+    while f"{key}-{number}" in taken:
+        number += 1
+    return f"{key}-{number}"
+
+
+def require_installable(session: Session, draft: ModelDraft, model: EngineModel) -> None:
+    """Before installing: ``409 IMPORT_PROFILE_MODEL_MISMATCH`` on a key conflict."""
+    conflict = key_conflict(session, draft.profile_json, model.release.key)
+    if conflict is not None:
+        key = (draft.profile_json or {})["key"]
+        stored = session.scalar(select(ImportProfile).where(ImportProfile.key == key))
         raise api_error(
             409,
             MISMATCH,
-            f"Import profile '{key}' belongs to the model '{model_key}'; the draft's model is "
-            f"'{model.release.key}'. Give the draft's profile another key",
-            {"profileKey": key, "modelKey": model_key, "draftModelKey": model.release.key},
+            conflict.message,
+            {
+                "profileKey": key,
+                "modelKey": model_key_of(session, stored) if stored else None,
+                "draftModelKey": model.release.key,
+                "freeKey": free_key(session, key),
+                "pointer": "/profile/key",
+            },
         )
 
 

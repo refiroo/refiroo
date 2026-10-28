@@ -52,7 +52,9 @@ def _profile(world, key=None):
 
 def _rows(prefix):
     header = ("Number", "Name", "Owner", "Summary")
-    rows = [(f"{prefix}-{n}", name, "Owner", "Summary") for n, name in ((1, "First"), (2, "Second"))]
+    rows = [
+        (f"{prefix}-{n}", name, "Owner", "Summary") for n, name in ((1, "First"), (2, "Second"))
+    ]
     return _xlsx({"Rows": [header, *rows]})
 
 
@@ -105,12 +107,19 @@ def _workbook_model(world, profile_key):
     _infer(world, draft)
     assert ok(_application(world, draft))["valid"] is True
     named = {"kind": "setProfile", "key": profile_key}
-    ok(world.api.post(f"/model-drafts/{draft['id']}/operations", {"expectedVersion": _version(world, draft), "operations": [named]}))
+    ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/operations",
+            {"expectedVersion": _version(world, draft), "operations": [named]},
+        )
+    )
     return draft, model_key, source
 
 
 def _install(world, draft):
-    return world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": _version(world, draft)})
+    return world.api.post(
+        f"/model-drafts/{draft['id']}/installation", {"expectedVersion": _version(world, draft)}
+    )
 
 
 @pytest.mark.journey("J36.4")
@@ -124,7 +133,11 @@ def test_a_new_model_from_a_workbook_runs_in_a_new_workspace(world):
     before = _model(world)
     draft, model_key, source = _workbook_model(world, f"workbook-{uuid4().hex[:8]}")
 
-    compiled = ok(world.api.post(f"/model-drafts/{draft['id']}/compile", {"expectedVersion": _version(world, draft)}))
+    compiled = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/compile", {"expectedVersion": _version(world, draft)}
+        )
+    )
     assert compiled["valid"] is True
     assert compiled["compatibility"]["workspaces"] == []
     assert compiled["againstReleaseId"] is None
@@ -152,7 +165,11 @@ def test_a_new_model_from_a_workbook_runs_in_a_new_workspace(world):
     assert done["counts"]["created"] > 0
 
     elsewhere = {**request, "workspaceKey": W1}
-    _mismatch(world.api.upload("/imports", {}, {"request": json.dumps(elsewhere)}), model_key, _release_key(world))
+    _mismatch(
+        world.api.upload("/imports", {}, {"request": json.dumps(elsewhere)}),
+        model_key,
+        _release_key(world),
+    )
 
 
 @pytest.mark.journey("J36.4")
@@ -172,7 +189,46 @@ def test_a_draft_profile_is_not_installed_over_another_models_profile(world):
     )
     assert ok(world.api.get("/model-releases", pageSize=100))["items"] == releases
     after = ok(world.api.get(f"/import-profiles/{taken['key']}"))
-    assert (after["version"], after["sources"], after["modelKey"]) == (1, taken["sources"], _release_key(world))
+    assert (after["version"], after["sources"], after["modelKey"]) == (
+        1,
+        taken["sources"],
+        _release_key(world),
+    )
+
+
+@pytest.mark.journey("J36.4")
+@pytest.mark.structures(*BOTH)
+def test_a_draft_profile_key_taken_by_another_model_is_an_issue_with_a_free_key(world):
+    """Given X's profile P and a draft of a new model whose profile has P's key. When the draft's
+    profile is read, then the conflict is an error at /profile/key naming P's model and a free key;
+    the installation's refusal names the same key. When the profile is given that key, the issue is
+    gone and the draft installs (0.16, found by the user: the editor had no sign of it)."""
+    taken = ok(world.api.post("/import-profiles", _profile(world)), 201)
+    draft, model_key, _source = _workbook_model(world, taken["key"])
+    issues = [
+        d
+        for d in ok(world.api.get(f"/model-drafts/{draft['id']}/profile"))["diagnostics"]
+        if d["code"] == MISMATCH
+    ]
+    assert [(d["severity"], d["path"]) for d in issues] == [("error", "/profile/key")]
+    assert _release_key(world) in issues[0]["message"] and model_key in issues[0]["message"]
+    free = refused(_install(world, draft), 409, MISMATCH)["details"]["freeKey"]
+    assert ok(world.api.get(f"/model-drafts/{draft['id']}/profile"))["freeKey"] == free
+    assert free.startswith(f"{taken['key']}-") and f"'{free}'" in issues[0]["message"]
+    step = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/operations",
+            {
+                "expectedVersion": _version(world, draft),
+                "operations": [{"kind": "setProfile", "key": free}],
+            },
+        )
+    )
+    assert MISMATCH not in [d["code"] for d in step["diagnostics"]]
+    assert MISMATCH not in [
+        d["code"] for d in ok(world.api.get(f"/model-drafts/{draft['id']}/profile"))["diagnostics"]
+    ]
+    ok(_install(world, draft), 201)
 
 
 @pytest.mark.journey("J36.3")
@@ -201,7 +257,9 @@ def test_each_model_imports_with_its_own_profile(world):
     _mismatch(upload, x_key, y_key)
     body = {k: v for k, v in _profile(world, mine["key"]).items() if k != "key"}
     _mismatch(
-        world.api.put(f"/import-profiles/{mine['key']}", {**body, "expectedVersion": 1, "workspaceKey": key}),
+        world.api.put(
+            f"/import-profiles/{mine['key']}", {**body, "expectedVersion": 1, "workspaceKey": key}
+        ),
         x_key,
         y_key,
     )
@@ -230,12 +288,20 @@ def test_a_draft_is_checked_against_every_workspace_running_its_model(world):
     _other_world, _y, y_workspace = _beside(world)
 
     release = ok(world.api.get(f"/model-releases/{x1}", includeModel=True))
-    draft = ok(world.api.post("/model-drafts", {"name": "Without R", "model": release["model"], "baseReleaseId": x1}), 201)
+    draft = ok(
+        world.api.post(
+            "/model-drafts", {"name": "Without R", "model": release["model"], "baseReleaseId": x1}
+        ),
+        201,
+    )
 
     def impact():
         removal = {"kind": "removeObjectType", "objectType": world.key("R")}
         return refused(
-            world.api.post(f"/model-drafts/{draft['id']}/operations", {"expectedVersion": draft["version"], "operations": [removal]}),
+            world.api.post(
+                f"/model-drafts/{draft['id']}/operations",
+                {"expectedVersion": draft["version"], "operations": [removal]},
+            ),
             409,
             "OPERATION_REQUIRES_MIGRATION",
         )["details"]["impact"]["records"]
@@ -246,15 +312,28 @@ def test_a_draft_is_checked_against_every_workspace_running_its_model(world):
     world.made("R", "Default record", workspace=W1)
     assert impact() == before + 1
 
-    ok(world.api.patch(f"/model-drafts/{draft['id']}", {"expectedVersion": draft["version"], "model": _strict(world, release["model"])}))
-    compiled = ok(world.api.post(f"/model-drafts/{draft['id']}/compile", {"expectedVersion": _version(world, draft)}))
+    ok(
+        world.api.patch(
+            f"/model-drafts/{draft['id']}",
+            {"expectedVersion": draft["version"], "model": _strict(world, release["model"])},
+        )
+    )
+    compiled = ok(
+        world.api.post(
+            f"/model-drafts/{draft['id']}/compile", {"expectedVersion": _version(world, draft)}
+        )
+    )
     assert compiled["valid"] is True, compiled["diagnostics"]
 
-    retired = {w["key"] for w in ok(world.api.get("/workspaces", status="retired", pageSize=100))["items"]}
+    retired = {
+        w["key"] for w in ok(world.api.get("/workspaces", status="retired", pageSize=100))["items"]
+    }
     installed = world.install(compiled["model"], name="Without R")
     diff = ok(world.api.get(f"/model-releases/{installed['id']}/diff", againstReleaseId=x1))
     for answer in (compiled, diff):
-        by_workspace = {item["workspaceKey"]: item for item in answer["compatibility"]["workspaces"]}
+        by_workspace = {
+            item["workspaceKey"]: item for item in answer["compatibility"]["workspaces"]
+        }
         assert {W1, empty} <= set(by_workspace), by_workspace
         assert {item["releaseId"] for item in by_workspace.values()} == {x1}
         assert by_workspace[W1]["classification"] == "migration_required"
@@ -300,14 +379,25 @@ def test_each_workspace_serves_its_own_consumer_apis(world):
         assert response.headers["X-Model-Release-Id"] == release
         (entry,) = [item for item in index["items"] if item["consumerApi"] == here.key("Capi")]
         assert entry["openapi"].endswith(f"?workspace={workspace}")
-        document = world.api.get(f"/api/consumer/{here.key('Capi')}/v{entry['contractVersion']}/openapi.json", workspace=workspace)
+        document = world.api.get(
+            f"/api/consumer/{here.key('Capi')}/v{entry['contractVersion']}/openapi.json",
+            workspace=workspace,
+        )
         assert ok(document)["info"]["version"] == str(entry["contractVersion"])
         assert document.headers["X-Model-Release-Id"] == release
         listed = {item["consumerApi"] for item in index["items"]}
         assert (other if here is world else world).key("Capi") not in listed
 
-    refused(world.api.get(f"/api/consumer/{other.key('Capi')}/v1/openapi.json", workspace=W1), 404, "CONSUMER_API_NOT_FOUND")
-    refused(world.api.get("/api/consumer", workspace=f"none-{uuid4().hex[:6]}"), 404, "WORKSPACE_NOT_FOUND")
+    refused(
+        world.api.get(f"/api/consumer/{other.key('Capi')}/v1/openapi.json", workspace=W1),
+        404,
+        "CONSUMER_API_NOT_FOUND",
+    )
+    refused(
+        world.api.get("/api/consumer", workspace=f"none-{uuid4().hex[:6]}"),
+        404,
+        "WORKSPACE_NOT_FOUND",
+    )
 
     mine = world.made("R", "Told here", workspace=W1)
     theirs = other.made("R", "Told there", workspace=key)

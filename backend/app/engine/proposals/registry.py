@@ -60,7 +60,11 @@ def load_provider(settings: Settings) -> ProposalProvider | None:
                 f"AI_PROVIDER=openai-compatible needs {' and '.join(missing)}: the endpoint and the model it serves"
             )
         return OpenAICompatibleProvider(
-            settings.ai_base_url, settings.ai_model, settings.ai_api_key, timeout=timeout
+            settings.ai_base_url,
+            settings.ai_model,
+            settings.ai_api_key,
+            reasoning_effort=settings.ai_reasoning_effort,
+            timeout=timeout,
         )
     module_name, separator, attribute = setting.partition(":")
     if not separator or not module_name or not attribute:

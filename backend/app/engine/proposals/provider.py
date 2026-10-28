@@ -79,3 +79,26 @@ def answer_schema(answer: type[BaseModel]) -> dict[str, Any]:
 
     close(schema)
     return schema
+
+
+def answer_example(answer: type[BaseModel]) -> dict[str, Any]:
+    """The answer's shape as an example to fill in: each string a placeholder naming its field, each
+    number 0, each list with one item. A small model copies a raw schema back; an example it fills."""
+    schema = answer.model_json_schema()
+    definitions = schema.get("$defs", {})
+
+    def example(node: dict[str, Any], name: str) -> Any:
+        if "$ref" in node:
+            return example(definitions[node["$ref"].rsplit("/", 1)[-1]], name)
+        kind = node.get("type")
+        if kind == "object":
+            return {key: example(value, key) for key, value in node.get("properties", {}).items()}
+        if kind == "array":
+            return [example(node.get("items", {}), name)]
+        if kind in ("number", "integer"):
+            return 0
+        if kind == "boolean":
+            return False
+        return f"<{name}>"
+
+    return example(schema, "answer")

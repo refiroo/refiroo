@@ -457,6 +457,9 @@ class ModelDraftProfileResponse(BaseModel):
     definition: dict[str, Any] | None
     valid: bool
     diagnostics: list[ModelDiagnosticResponse]
+    # A key no stored profile holds, when another model's profile holds the draft profile's key
+    # (IMPORT_PROFILE_MODEL_MISMATCH at /profile/key): what `setProfile` should set (0.16).
+    freeKey: str | None = None
     sourceFile: DraftProfileSourceFile | None
 
 

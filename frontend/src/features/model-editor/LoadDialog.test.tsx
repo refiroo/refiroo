@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "@/api/client";
+import { ApiError, api } from "@/api/client";
 import { outlineFixture } from "@/test/draftOutline";
 import { LoadDialog } from "@/features/model-editor/LoadDialog";
 import type { DraftProfile, ModelCompilation } from "@/types";
@@ -66,5 +66,51 @@ describe("LoadDialog (0.10 A5b, D81)", () => {
     );
     expect(await screen.findByText("The draft has errors: each is in the Issues list.")).toBeTruthy();
     expect(screen.getByText("Nothing is mapped yet: map the workbook's columns onto the model first.")).toBeTruthy();
+  });
+});
+
+describe("LoadDialog: the profile's key belongs to another model (the user, 2026-10-28)", () => {
+  it("offers the free key instead of a dead end, then loads again", async () => {
+    const valid: ModelCompilation = {
+      valid: true,
+      diagnostics: [],
+      compatibility: { classification: "compatible", activeReleaseId: "r1", diagnostics: [], workspaces: [] },
+      changes: [],
+    };
+    vi.mocked(api.compileModelDraft).mockResolvedValue(valid);
+    vi.mocked(api.workspaceModel).mockResolvedValue({ workspaceKey: "main", releaseId: "r1" } as never);
+    vi.mocked(api.workspaces).mockResolvedValue({ items: [], nextCursor: null });
+    vi.mocked(api.installModelDraft).mockRejectedValueOnce(
+      new ApiError(409, "IMPORT_PROFILE_MODEL_MISMATCH", "Import profile 'X' belongs to the model 'draf-2'.", {
+        freeKey: "X-2",
+        pointer: "/profile/key",
+      }),
+    );
+    const run = vi.fn().mockResolvedValue("applied");
+    render(
+      <LoadDialog
+        draftId="d1"
+        outline={{ ...outlineFixture(), baseReleaseId: "r1" }}
+        profile={{
+          ...profile,
+          valid: true,
+          profile: { key: "X", name: "X", sources: [], valueMaps: {} },
+        }}
+        dryRun={undefined}
+        defaultWorkspace="main"
+        run={run}
+        latestVersion={() => 2}
+        onActivated={vi.fn()}
+        onOpenReview={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Load" }));
+    expect(await screen.findByText("The profile's key belongs to another model")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Use 'X-2'" }));
+    await waitFor(() => expect(run).toHaveBeenCalledWith([{ kind: "setProfile", key: "X-2" }]));
+    await waitFor(() => expect(screen.queryByText("The profile's key belongs to another model")).toBeNull());
+    // Ready to load again: the dialog did not stop.
+    expect((screen.getByRole("button", { name: "Load" }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

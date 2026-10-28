@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .cli.model_release_raise import release_raise_command
 from .common.logs import configure_logging
+from .common.request_gate import RequestGate
 from .common.request_observation import REQUEST_ID_HEADER, RequestObservation
 from .config import (
     ENGINE_LICENSE,
@@ -52,9 +53,10 @@ from .errors import ApiError
 from .management.access import MANAGEMENT_DEPENDENCIES
 from .management.brand_assets import brand_router
 from .management.errors import (
+    UnexpectedErrors,
     api_error_handler,
     http_error_handler,
-    unexpected_error_handler,
+    refuse_waiting_too_long,
     validation_error_handler,
 )
 from .management.query_parameters import refuse_unknown_parameters
@@ -503,7 +505,17 @@ def create_app() -> FastAPI:
     application.add_exception_handler(ApiError, api_error_handler)
     application.add_exception_handler(RequestValidationError, validation_error_handler)
     application.add_exception_handler(StarletteHTTPException, http_error_handler)
-    application.add_exception_handler(Exception, unexpected_error_handler)
+    # Not add_exception_handler(Exception, …): Starlette raises such an exception again after the
+    # handler answered it, and the server logs it as unhandled. Added first, so it sits innermost.
+    application.add_middleware(UnexpectedErrors)
+    # As many requests inside as the pool has connections; the rest wait without a thread, so a burst
+    # of requests cannot leave the connection holders without a thread to finish on.
+    application.add_middleware(
+        RequestGate,
+        capacity=settings.database_pool_size + settings.database_pool_max_overflow,
+        timeout=settings.database_pool_timeout,
+        refuse=refuse_waiting_too_long,
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),

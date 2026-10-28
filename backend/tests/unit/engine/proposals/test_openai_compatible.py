@@ -83,3 +83,30 @@ def test_openai_compatible_names_each_refusal(response, kind):
     with pytest.raises(ProviderError) as raised:
         _openai(response, seen=[]).propose(REQUEST)
     assert raised.value.kind == kind
+
+
+def test_a_reasoning_effort_is_sent_only_when_set():
+    reply = {"choices": [{"message": {"content": "{}"}}]}
+    seen: list[httpx.Request] = []
+    OpenAICompatibleProvider(
+        "http://local/v1",
+        "qwen",
+        reasoning_effort="none",
+        http_client=_client(httpx.Response(200, json=reply), seen=seen),
+    ).propose(REQUEST)
+    assert json.loads(seen[0].content)["reasoning_effort"] == "none"
+    _openai(httpx.Response(200, json=reply), seen=seen).propose(REQUEST)
+    assert "reasoning_effort" not in json.loads(seen[1].content)
+
+
+def test_the_instructions_show_the_answer_as_an_example_to_fill_in():
+    """An endpoint that does not enforce response_format still gets told the shape (a small local
+    model copied a raw schema back, and filled in an example: found 2026-10-28)."""
+    seen: list[httpx.Request] = []
+    reply = {"choices": [{"message": {"content": '{"items": []}'}}]}
+    _openai(httpx.Response(200, json=reply), seen=seen).propose(REQUEST)
+    system = json.loads(seen[0].content)["messages"][0]["content"]
+    assert (
+        system.startswith("Name them")
+        and '{"items": [{"name": "<name>", "confidence": 0}]}' in system
+    )

@@ -82,7 +82,13 @@ import {
   removedWords,
   undoable,
 } from "@/features/model-editor/history";
+import { DeleteDraftDialog } from "@/features/model-admin/DeleteDraftDialog";
 import { InstallDialog } from "@/features/model-editor/InstallDialog";
+import {
+  ProposingProgress,
+  assistantOutcomeText,
+  type ProposingPhase,
+} from "@/features/model-editor/ProposingProgress";
 import { IssuesAndHistory } from "@/features/model-editor/IssuesAndHistory";
 import { droppedColumn, ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
 import { MoveToDialog, topOf, typeIn, type MoveSubject } from "@/features/model-editor/MoveToDialog";
@@ -121,6 +127,7 @@ type Dialog =
   | { kind: "load" }
   | { kind: "workbook" }
   | { kind: "propose" }
+  | { kind: "deleteDraft" }
   | { kind: "list"; mode: "adjust" | "load"; sheet: string; block: number };
 
 /** A step refused because the draft moved on (D41): what came first, and how to send mine again. */
@@ -169,7 +176,9 @@ export function ModelEditor({
     /** The workspace the applications open in. */
     workspaceKey?: string;
   }>();
-  const [busy, setBusy] = useState(false);
+  const [working, setBusy] = useState(false);
+  // Editing is paused while the engine proposes (set below, once the inference is followed).
+  const pausedRef = useRef(false);
   const [bottomTab, setBottomTab] = useState("issues");
   const [elementTab, setElementTab] = useState("attributes");
   const [phoneTab, setPhoneTab] = useState(selection.show ? "element" : "model");
@@ -249,7 +258,9 @@ export function ModelEditor({
 
   /** Sends a step at the draft's version; a stale version holds it and asks (D41). */
   const step = useCallback(
-    async (send: Send): Promise<StepOutcome> => {
+    async (send: Send, applyingProposals = false): Promise<StepOutcome> => {
+      if (pausedRef.current && !applyingProposals)
+        throw new Error("Editing is paused until the proposals are applied, so nothing you change is lost.");
       setNotice(undefined);
       try {
         const answer = await send(version.current);
@@ -280,13 +291,15 @@ export function ModelEditor({
 
   // The inference completed: its open proposals become steps, one each (D89).
   const inference = useInference(draftId, outline?.version, (done) => {
+    const assistant = assistantOutcomeText(done.assistantOutcome);
     if (!done.counts.open) {
       inference.settled();
+      const nothing = done.disagreements.length
+        ? `Nothing new to propose. The workbook reads ${done.disagreements.length} ${done.disagreements.length === 1 ? "column" : "columns"} otherwise than you decided: see Issues.`
+        : "Nothing new to propose: the draft holds what the workbook shows.";
       setNotice({
-        tone: "success",
-        text: done.disagreements.length
-          ? `Nothing new to propose. The workbook reads ${done.disagreements.length} ${done.disagreements.length === 1 ? "column" : "columns"} otherwise than you decided: see Issues.`
-          : "Nothing new to propose: the draft holds what the workbook shows.",
+        tone: assistant?.tone === "warning" ? "warning" : "success",
+        text: assistant ? `${nothing} ${assistant.text}` : nothing,
       });
       return;
     }
@@ -304,11 +317,18 @@ export function ModelEditor({
               (entry.origin.pattern === "keyColumn" || entry.origin.pattern === "modelDescription"),
           )?.parameters.key as string | undefined;
           return answer;
-        });
+        }, true);
         if (outcome === "applied" && first) select({ show: "type", key: first });
         if (outcome === "applied") {
           toast(`${done.counts.open} ${done.counts.open === 1 ? "proposal" : "proposals"} applied, one step each.`);
           setBottomTab("history");
+          // What the AI assistant did is said where the result is, after the step's own notices.
+          if (assistant)
+            setNotice((now) =>
+              now
+                ? { tone: "warning", text: `${now.text} ${assistant.text}` }
+                : { tone: assistant.tone, text: assistant.text },
+            );
         }
       } catch (cause) {
         setNotice({
@@ -325,14 +345,34 @@ export function ModelEditor({
       }
     })();
   });
-  const { propose: proposeFrom, running: proposing } = inference;
-  const profiled = source.profile?.sourceFile?.profile === "completed";
+  // Stop before the workbook is profiled drops the request that waits for it.
+  const [dropped, setDropped] = useState(false);
+  const { propose: proposeFrom, running: proposingNow } = inference;
+  const profileState = source.profile?.sourceFile?.profile;
+  const profiled = profileState === "completed";
+  // A proposal waiting for the profile is as good as running: editing waits for it too.
+  const waiting =
+    hasWaitingProposal(draftId) &&
+    !dropped &&
+    (profileState === "queued" || profileState === "running" || profileState === "completed");
+  const proposing = proposingNow || waiting;
+  useEffect(() => {
+    pausedRef.current = proposing;
+  }, [proposing]);
+  const busy = working || proposing;
+  const proposingPhase: ProposingPhase = !proposingNow
+    ? "profiling"
+    : inference.inference?.state === "completed"
+      ? "applying"
+      : inference.phase === "assistant"
+        ? "assistant"
+        : "reading";
   // New from a workbook asked to propose: once the workbook is profiled, the editor does.
   useEffect(() => {
-    if (!profiled || proposing || !hasWaitingProposal(draftId)) return;
+    if (!profiled || proposingNow || !hasWaitingProposal(draftId)) return;
     const request = takeWaitingProposal(draftId);
     if (request) void proposeFrom(request);
-  }, [profiled, proposing, draftId, proposeFrom]);
+  }, [profiled, proposingNow, draftId, proposeFrom]);
 
   async function guarded(action: () => Promise<unknown>) {
     setBusy(true);
@@ -494,6 +534,12 @@ export function ModelEditor({
         run={(operations) => void guarded(() => run(operations))}
       />
     ) : undefined;
+  const toModels: RouteState = { kind: "settings", page: "model" };
+  const deleteItem = {
+    id: "deleteDraft",
+    label: "Delete draft…",
+    onAction: () => setDialog({ kind: "deleteDraft" }),
+  };
   const proposeAgain = profiled
     ? [{ id: "propose", label: "Propose again…", onAction: () => setDialog({ kind: "propose" }) }]
     : [];
@@ -518,6 +564,11 @@ export function ModelEditor({
       })
       .join(", ")}`;
   };
+  // The profile key's field is in the source pane, a tab of its own on a phone.
+  const goToProfileKey = () => {
+    if (phone) setPhoneTab("source");
+    requestAnimationFrame(() => document.querySelector<HTMLElement>("#profile-key-field button")?.focus());
+  };
   const sourcePane = hasSource && (
     <SourcePane
       source={source}
@@ -530,6 +581,8 @@ export function ModelEditor({
       onSelect={select}
       onMap={(sheet, header) => mapColumn(sheet, header)}
       onIgnoreSheet={(sheet) => void guarded(() => run([{ kind: "ignoreSheet", sheet }]))}
+      outline={outline}
+      onSetProfile={proposing ? undefined : (patch) => run([{ kind: "setProfile", ...patch }])}
     />
   );
   const onPaneMenu = (next: EditorSelection) => {
@@ -738,6 +791,8 @@ export function ModelEditor({
       onSelect={select}
       onUndoStep={(value) => void undo([value])}
       profile={source.profile}
+      onUseProfileKey={proposing ? undefined : (key) => void guarded(() => run([{ kind: "setProfile", key }]))}
+      onGoToProfileKey={goToProfileKey}
       dryRun={
         hasSource
           ? {
@@ -829,7 +884,10 @@ export function ModelEditor({
                   ),
                   title: "The draft's version: one more with every step",
                 },
-                { icon: "check", label: "Saved after every step" },
+                {
+                  icon: "check",
+                  label: "Saved as you go: closing keeps the draft and its proposals.",
+                },
                 ...(source.profile?.sourceFile
                   ? [
                       {
@@ -865,8 +923,9 @@ export function ModelEditor({
                   />
                   <IconButton icon="redo" label="Redo" disabled={busy || !redoAvailable} onClick={() => void redo()} />
                   <ActionMenu
-                    label="More: Open as JSON, Install and activate, Load, Add a workbook, Propose again"
+                    label="More: Open as JSON, Install and activate, Load, Add a workbook, Propose again, Close, Delete"
                     items={[
+                      { id: "close", label: "Close", onAction: () => onNavigate(toModels) },
                       { id: "json", label: "Open as JSON", onAction: () => onNavigate(workbench) },
                       { id: "install", label: "Install and activate…", onAction: () => setDialog({ kind: "install" }) },
                       ...(hasSource
@@ -880,7 +939,8 @@ export function ModelEditor({
                         : []),
                       { id: "workbook", label: workbookLabel, onAction: () => setDialog({ kind: "workbook" }) },
                       ...proposeAgain,
-                    ]}
+                      ...(proposing ? [] : [deleteItem]),
+                    ].map((item) => ({ ...item, disabled: proposing && item.id !== "json" && item.id !== "close" }))}
                   />
                 </>
               ) : (
@@ -907,21 +967,31 @@ export function ModelEditor({
                   <button
                     type="button"
                     className={hasSource ? "secondary" : "primary"}
+                    disabled={proposing}
                     onClick={() => setDialog({ kind: "install" })}
                   >
                     Install and activate…
                   </button>
                   {hasSource && (
-                    <button type="button" className="primary" onClick={() => setDialog({ kind: "load" })}>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={proposing}
+                      onClick={() => setDialog({ kind: "load" })}
+                    >
                       Load into a change set…
                     </button>
                   )}
+                  <RouteLink className="secondary" href={routePath(toModels)} onNavigate={() => onNavigate(toModels)}>
+                    Close
+                  </RouteLink>
                   <ActionMenu
                     label="More actions"
                     items={[
                       { id: "workbook", label: workbookLabel, onAction: () => setDialog({ kind: "workbook" }) },
                       ...proposeAgain,
-                    ]}
+                      ...(proposing ? [] : [deleteItem]),
+                    ].map((item) => ({ ...item, disabled: proposing }))}
                   />
                 </>
               )}
@@ -929,12 +999,17 @@ export function ModelEditor({
           }
         />
       )}
-      {(proposing || hasWaitingProposal(draftId)) && (
-        <Notice tone="info" title="Proposing from the workbook">
-          {profiled
-            ? "Reading the patterns of every sheet; the proposals are applied as steps, one each, when it completes."
-            : "The workbook is being profiled; the engine proposes its model and mapping right after."}
-        </Notice>
+      {proposing && (
+        <ProposingProgress
+          phase={proposingPhase}
+          onStop={() => {
+            if (proposingNow) void inference.stop();
+            else {
+              takeWaitingProposal(draftId);
+              setDropped(true);
+            }
+          }}
+        />
       )}
       {inference.error && !proposing && (
         <Notice tone="error" title="Nothing was proposed">
@@ -1139,6 +1214,24 @@ export function ModelEditor({
           }}
           onClose={() => setDialog(undefined)}
         />
+      )}
+      {dialog?.kind === "deleteDraft" && !proposing && (
+        <DeleteDraftDialog
+          draftId={draftId}
+          version={outline.version}
+          onCancel={() => setDialog(undefined)}
+          onDeleted={() => {
+            setDialog(undefined);
+            toast(`Draft ${name || "Model draft"} was deleted.`);
+            onNavigate(toModels);
+          }}
+        >
+          <p>
+            This deletes the draft <strong>{name || "Model draft"}</strong>, its steps and proposals
+            {source.profile?.sourceFile ? ` and the workbook attached to it (${source.profile.sourceFile.name})` : ""}.
+            It cannot be undone. Installed releases are not affected.
+          </p>
+        </DeleteDraftDialog>
       )}
       {dialog?.kind === "propose" && source.profile?.sourceFile && (
         <ProposeDialog

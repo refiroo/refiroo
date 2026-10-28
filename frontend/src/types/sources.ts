@@ -223,6 +223,8 @@ export interface DraftProfile {
   valid: boolean;
   diagnostics: ModelDiagnostic[];
   sourceFile: { id: string; name: string; profile: SourceFileProfileState["state"] } | null;
+  /** A key no stored profile holds, offered when the profile's key belongs to another model. */
+  freeKey?: string | null;
 }
 
 export interface DryRunSource {
@@ -368,6 +370,10 @@ export interface Inference {
   warnings: string[];
   /** Whether the AI provider was asked (0.16 AP1). */
   assistant?: boolean;
+  /** While checking: the assistant's call is running (absent while the rules read the workbook). */
+  phase?: "assistant" | null;
+  /** What the assistant did, when it was asked. */
+  assistantOutcome?: { model: string | null; suggested: number; offered: number; failure: string | null } | null;
   /** The elements still as a proposal step left them: the engine's, until changed (D92). */
   proposed: { element: string; proposalId: string | null; pattern: string | null }[];
   error: { code: string; message: string } | null;

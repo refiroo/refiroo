@@ -179,6 +179,26 @@ describe("API client", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
+  it("reads an inference afresh when asked, never joining a read already in flight (0.16 AP1)", async () => {
+    const answers: ((response: Response) => void)[] = [];
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          answers.push(resolve);
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    // The poll's read is in flight when the job's end is announced: the read after it is its own.
+    const polled = api.modelDraftInference("d1");
+    const afterEnd = api.modelDraftInference("d1", true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    answers[0](jsonResponse({ state: "checking" }));
+    answers[1](jsonResponse({ state: "completed" }));
+    expect((await polled).state).toBe("checking");
+    expect((await afterEnd).state).toBe("completed");
+  });
+
   it("preserves structured errors", async () => {
     vi.stubGlobal(
       "fetch",

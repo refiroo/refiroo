@@ -4720,7 +4720,10 @@ the proposal it renames, whose `evidence.origin` is its provenance:
 
 Applied, the step's `origin.proposedBy` holds the same object beside the person who applied it
 (`author`). A failing provider is a warning on the inference ("The assistant failed (…); the
-proposals of the rules stand"); its proposals stand. See [AI proposals](#ai-proposals-product-016).
+proposals of the rules stand"); its proposals stand. While the inference waits for the provider, its
+read answers `phase: "assistant"`; once completed, `assistantOutcome: {model, suggested, offered,
+failure}` says what the assistant did (`offered`: the names above the floor and different from the
+rules'). The inference holds no database transaction open while it waits. See [AI proposals](#ai-proposals-product-016).
 
 ### The next version of a workbook
 

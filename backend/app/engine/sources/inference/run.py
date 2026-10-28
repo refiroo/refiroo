@@ -280,13 +280,14 @@ def run_inference(
     # The assistant, when the person asked for it (the route decided they may, AP-D7) and a
     # provider is still set (0.16 AP1).
     asked = bool(parameters.get("assistant")) and ai is not None and ai.offers("modelNames")
+    assistant: dict[str, Any] = {}
     if asked and ai is not None:
         requester = ai_calls.Requester(job.requested_by_user_id, job.requested_by_client_id)
-        proposals, warning = _assisted(
-            session, source, workbook, proposals, ai, requester, job.id, record or ai_calls.record_in(session)
+        proposals, assistant = _assisted(
+            session, job, source, workbook, proposals, ai, requester, record or ai_calls.record_in(session)
         )
-        if warning:
-            warnings.append(warning)
+        if assistant.get("failure"):
+            warnings.append(f"The assistant failed ({assistant['failure']}); the proposals of the rules stand")
         check()
     session.execute(delete(ModelDraftProposal).where(ModelDraftProposal.draft_id == draft.id))
     session.flush()
@@ -309,6 +310,9 @@ def run_inference(
             "disagreements": disagreements,
             "warnings": warnings,
             "assistant": asked,
+            # What the assistant did, for the person: its model, the names it suggested and those
+            # offered (above the confidence floor and different), or what failed.
+            **({"assistantOutcome": assistant} if asked else {}),
         },
     }
 
@@ -546,14 +550,16 @@ def _requirements(proposals: list[Proposal]) -> None:
 
 def _assisted(
     session: Session,
+    job: Job,
     source: SourceFile,
     workbook: Any,
     proposals: list[Proposal],
     ai: AiConfiguration,
     requester: ai_calls.Requester,
-    job_id: str,
     record: Callable[[Any], None],
-) -> tuple[list[Proposal], str | None]:
+) -> tuple[list[Proposal], dict[str, Any]]:
+    """The assistant's names as proposals, and what it did: ``model``, ``suggested`` (names it
+    answered), ``offered`` (those kept) and ``failure``."""
     types = [
         assistants.AssistantType(p.id, o["key"], o["name"])
         for p in proposals
@@ -562,15 +568,24 @@ def _assisted(
         if o.get("kind") == "addObjectType"
     ]
     if not types:
-        return proposals, None
+        return proposals, {"model": None, "suggested": 0, "offered": 0, "failure": None}
     sheets = workbook_sheets(session, ai.policy, source, list(workbook.sheets), assistants.ROWS)
+    # A provider may take minutes, a local model longer. Say so on the job, and end this read
+    # transaction first, so the job holds none open while it waits: the database ends a transaction
+    # left idle (DATABASE_IDLE_TRANSACTION_TIMEOUT). Nothing is written before this point.
+    if session.new or session.dirty or session.deleted:
+        raise RuntimeError("The inference wrote before asking the assistant")
+    job.stage = "assistant"
+    session.commit()
     outcome = ai_calls.ask(
-        ai, assistants.request(sheets, types), record=record, requester=requester, job_id=job_id
+        ai, assistants.request(sheets, types), record=record, requester=requester, job_id=job.id
     )
+    job.stage = "inferring"
     if outcome.answer is None:
-        return proposals, f"The assistant failed ({outcome.failure}); the proposals of the rules stand"
+        return proposals, {"model": outcome.model, "suggested": 0, "offered": 0, "failure": outcome.failure}
     names = {(t.proposal, t.key): t.name for t in types}
-    for suggestion in assistants.suggestions(outcome.answer, types, ai.min_confidence):  # type: ignore[arg-type]
+    kept = assistants.suggestions(outcome.answer, types, ai.min_confidence)  # type: ignore[arg-type]
+    for suggestion in kept:
         body = assistants.proposal_body(
             suggestion, names[(suggestion.proposal, suggestion.key)], provider=outcome.provider, model=outcome.model
         )
@@ -587,7 +602,8 @@ def _assisted(
                 requires=[suggestion.proposal],
             )
         )
-    return proposals, None
+    suggested = len(outcome.answer.suggestions)  # type: ignore[attr-defined]
+    return proposals, {"model": outcome.model, "suggested": suggested, "offered": len(kept), "failure": None}
 
 
 # --- reads ----------------------------------------------------------------------------------------
@@ -661,6 +677,10 @@ def read_inference(session: Session, draft: ModelDraft) -> dict[str, Any]:
         "disagreements": report.get("disagreements") or [],
         "warnings": report.get("warnings") or [],
         "assistant": bool(job.parameters.get("assistant")),
+        "assistantOutcome": report.get("assistantOutcome"),
+        # While it runs: "assistant" when it waits for the AI provider (0.16 AP1).
+        # (A claimed inference's stage is "inferring"; only the assistant's wait is a phase.)
+        "phase": "assistant" if job.state in RUNNING and job.stage == "assistant" else None,
         "proposed": proposed,
         "error": job.error,
     }

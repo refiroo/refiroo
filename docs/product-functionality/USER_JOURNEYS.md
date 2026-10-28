@@ -2451,7 +2451,11 @@ inference's names; later 0.16 packages add their own proposals on the same provi
 - **J48.6 The send level holds**: at `structure` a sheet goes with its name and headers and no row;
   at `samples` with at most `AI_SAMPLE_VALUES` rows; a feature needing more than the level is not
   offered.
-- **J48.7 The confidence floor**: a name below `AI_MIN_CONFIDENCE` is not offered.
+- **J48.7 The confidence floor**: a name below `AI_MIN_CONFIDENCE` is not offered. The inference says what the
+  assistant did: its model, the names it suggested and those offered, or why it failed; while it waits for the
+  answer its phase is `assistant`.
+- **J48.8 A slow provider**: a provider that takes minutes (a model run locally) holds no database transaction
+  open while the inference waits, so the inference completes however long the answer takes.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`; a start refused
 for `AI_PROVIDER` without what it needs, or for the retired `INFERENCE_ASSISTANT` settings.

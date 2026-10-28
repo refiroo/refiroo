@@ -9,10 +9,12 @@ was dropped with PG4 (2026-10-03).
 import json
 import time
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 import seeds
 from alembic.script import ScriptDirectory
+from harness_identity import TestClient
 from scenario import W1, ok, scenario_seed
 from service import command, execute, scalar, serve
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeout
@@ -468,9 +470,12 @@ def test_the_pool_runs_out(configuration, databases):
     with serve(configuration, _clone(databases, scenario_seed(configuration)), **pool) as service:
         api = service.world.api
         ok(api.get("/objects", workspaceKey=W1, pageSize=5))
+        # A client that raises what escapes the application: a server logs that as an unhandled
+        # "Exception in ASGI application" traceback, which no log handler of the app's would see.
+        strict = TestClient(service.client.app, raise_server_exceptions=True)
         held = _hold_the_pool(get_engine())
         try:
-            failing = api.get("/objects", workspaceKey=W1, pageSize=5)
+            failing = strict.get("/api/v1/objects", params={"workspaceKey": W1, "pageSize": 5})
         finally:
             held.close()
         assert failing.status_code == 503 and failing.headers["Retry-After"]
@@ -487,6 +492,32 @@ def test_the_pool_runs_out(configuration, databases):
             assert (
                 reported[name]["value"] == int(value) and reported[name]["source"] == "environment"
             )
+
+
+@pytest.mark.journey("J12.11")
+def test_a_burst_of_requests_is_served_by_a_small_pool(configuration, databases):
+    """Given the service with a pool of two connections and a three-second wait. When sixty signed-in
+    reads arrive at once, as a page asking for a list per type sends them. Then every one answers
+    200 within the wait: requests wait for their turn without holding a worker thread, so the ones
+    holding connections always have a thread to finish on (found on a real instance, 2026-10-28:
+    a sidebar of 101 types left every request waiting for DATABASE_POOL_TIMEOUT, then 503)."""
+    pool = {
+        "DATABASE_POOL_SIZE": "2",
+        "DATABASE_POOL_MAX_OVERFLOW": "0",
+        "DATABASE_POOL_TIMEOUT": "3",
+    }
+    with serve(configuration, _clone(databases, scenario_seed(configuration)), **pool) as service:
+        api = service.world.api
+        ok(api.get("/objects", workspaceKey=W1, pageSize=5))
+        started = time.monotonic()
+        with ThreadPoolExecutor(60) as threads:
+            answers = list(
+                threads.map(lambda _: api.get("/objects", workspaceKey=W1, pageSize=5), range(60))
+            )
+        took = time.monotonic() - started
+        assert [a.status_code for a in answers] == [200] * 60, {a.status_code for a in answers}
+        assert took < 3, took
+        assert all(r.exc_info is None for r in service.output.records)
 
 
 def _hold_the_pool(engine):

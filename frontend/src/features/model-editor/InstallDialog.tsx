@@ -13,6 +13,7 @@
  * first, or a new one created on it. No other workspace changes.
  */
 
+import { freeKeyOf, setProfileKey, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
@@ -185,6 +186,8 @@ export function InstallDialog({
   const version = identity.version;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  // The profile's key belongs to another model: the key the engine found free.
+  const [freeKey, setFreeKey] = useState<string>();
   const [outcome, setOutcome] = useState<Outcome>();
   const { capabilities } = useCapabilities();
   const canCreate = Boolean(capabilities?.workspaceAdmin.manageWorkspaces);
@@ -268,6 +271,7 @@ export function InstallDialog({
       setOutcome({ kind: "active", release });
       await onActivated(release, workspace);
     } catch (cause) {
+      setFreeKey(freeKeyOf(cause));
       setError(errorMessage(cause));
     } finally {
       setPending(false);
@@ -431,7 +435,26 @@ export function InstallDialog({
           </>
         )}
         {error && (
-          <Notice tone="error" title="Not installed">
+          <Notice
+            tone="error"
+            title="Not installed"
+            actions={
+              freeKey && (
+                <UseFreeKey
+                  freeKey={freeKey}
+                  disabled={pending}
+                  onUse={() =>
+                    void run([setProfileKey(freeKey)]).then((outcome) => {
+                      if (outcome === "applied") {
+                        setError("");
+                        setFreeKey(undefined);
+                      }
+                    })
+                  }
+                />
+              )
+            }
+          >
             {error}
           </Notice>
         )}

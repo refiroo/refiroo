@@ -853,6 +853,7 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
 | `AI_MIN_CONFIDENCE` | 0.5 | The provider's confidence, 0 to 1, below which a proposal is not offered |
 | `AI_LOG_CONTENT` | off | Keep each call's request and answer with its record, for an operator debugging a prompt. They hold reference data: switch it on only while needed |
 | `AI_LOG_CONTENT_DAYS` | 7 | Days a kept request and answer stay; then they are emptied and the record stays |
+| `AI_REASONING_EFFORT` | empty | `openai-compatible` only: sends `reasoning_effort` (`none`, `low`, `medium`, `high`), how much the model reasons before it answers. Empty sends nothing. A local thinking model (Qwen through Ollama) can reason for minutes on a short request: `none` makes it answer directly |
 | `AI_TIMEOUT_SECONDS` | 60 | Seconds one call may take; the Claude adapter tries a passing failure (overloaded, rate-limited, a server error, a timeout) up to three times |
 
 - **Where to set them:** in the reference installation, in `.env` (`.env.example` lists them, commented
@@ -885,6 +886,12 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
   another model (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`). It calls
   `https://api.anthropic.com/v1/messages` unless `AI_BASE_URL` names another address; open that
   address in the firewall. A local `openai-compatible` model must support JSON-schema answers.
+- **A model run locally with Ollama** (`AI_BASE_URL=http://localhost:11434/v1`): for a thinking model
+  such as Qwen set `AI_REASONING_EFFORT=none`, or a short request can take minutes; raise
+  `AI_TIMEOUT_SECONDS` for a laptop. The `openai-compatible` adapter asks for the answer's JSON schema
+  and also shows its shape in the instructions as an example to fill in, so a build that does not
+  enforce the schema (Ollama's MLX builds, tags ending `-mlx`) still answers in shape. Tried
+  2026-10-28: `qwen3.5:9b-mlx` with thinking off named the types of a real workbook in 67 s.
 - **Data protection:** a provider outside the organisation receives what the send level allows, under
   the organisation's own agreement with that provider. For data that may not leave, use
   `openai-compatible` with a model run inside the organisation, or `AI_SEND_LEVEL=structure`.

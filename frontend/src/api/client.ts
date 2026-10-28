@@ -896,8 +896,13 @@ export const api = {
       body: JSON.stringify(body),
     }),
   /** The draft's latest inference (D87). */
-  modelDraftInference: (draftId: string) =>
-    request<Inference>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/inference`),
+  /** The draft's latest inference. ``fresh`` makes a request of its own rather than joining an
+   * identical read in flight (D157), whose answer may predate a change just announced. */
+  modelDraftInference: (draftId: string, fresh = false) =>
+    request<Inference>(
+      `/api/v1/model-drafts/${encodeURIComponent(draftId)}/inference`,
+      fresh ? { signal: new AbortController().signal } : undefined,
+    ),
   /** Every proposal of the draft's latest inference, in the order they apply. */
   modelDraftProposals: async (draftId: string) => {
     const items: Proposal[] = [];

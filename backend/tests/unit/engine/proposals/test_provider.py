@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 
-from app.engine.proposals.provider import answer_schema
+from app.engine.proposals.provider import answer_example, answer_schema
 
 
 class Inner(BaseModel):
@@ -19,3 +19,7 @@ def test_the_schema_closes_every_object_and_requires_every_property():
     inner = schema["$defs"]["Inner"]
     assert schema["additionalProperties"] is False and schema["required"] == ["items"]
     assert inner["additionalProperties"] is False and inner["required"] == ["name", "confidence"]
+
+
+def test_the_example_shows_the_answer_to_fill_in_not_the_schema():
+    assert answer_example(Answer) == {"items": [{"name": "<name>", "confidence": 0}]}

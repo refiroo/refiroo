@@ -8,6 +8,7 @@ inference standing. The provider is the deterministic fake (``app.engine.proposa
 which records what it was sent. Every case runs on two configurations through the public API.
 """
 
+import time
 from typing import Any
 
 import pytest
@@ -69,7 +70,12 @@ def test_an_operator_sees_the_provider_ready_and_every_call_it_made(world):
     inference's names at send level values, and the test is the newest call, answered, recorded
     with who sent it and nothing of its content."""
     system = ok(world.api.get("/system"))
-    assert system["ai"] == {"configured": True, "provider": "fake", "sendLevel": "values"}
+    assert system["ai"] == {
+        "configured": True,
+        "provider": "fake",
+        "model": fake.MODEL,
+        "sendLevel": "values",
+    }
     status = ok(world.api.get("/ai/status"))
     assert (status["configured"], status["provider"], status["model"]) == (True, "fake", fake.MODEL)
     assert (status["keySet"], status["sendLevel"], status["sampleValues"]) == (False, "values", 20)
@@ -140,6 +146,9 @@ def test_a_model_administrator_gets_named_proposals_marked_as_the_assistants(wor
     assistant_steps = [e for e in entries if e["origin"].get("proposalId") == first["id"]]
     assert assistant_steps and assistant_steps[0]["origin"]["proposedBy"] == origin
     assert assistant_steps[0]["author"]["kind"] == "client"
+    outcome = read["assistantOutcome"]
+    assert (outcome["model"], outcome["failure"], read["phase"]) == (fake.MODEL, None, None)
+    assert outcome["offered"] == len(named) and outcome["suggested"] >= outcome["offered"] > 0
     call = _calls(world)[0]
     assert (call["purpose"], call["outcome"], call["jobId"]) == (
         "modelNames",
@@ -254,6 +263,45 @@ def test_a_name_below_the_confidence_floor_is_not_offered(world):
     """Given AI_MIN_CONFIDENCE 0.9 and an answer at 0.8, then the inference offers no assistant
     proposal, and the call still counts as answered."""
     draft = _prepared(world)
-    _infer(world, draft)
+    read = _infer(world, draft)
     assert not _assistant(_proposals(world, draft))
     assert _calls(world)[0]["outcome"] == "answered"
+    # The person is told the assistant answered and nothing was offered (found on a real model).
+    outcome = read["assistantOutcome"]
+    assert outcome["suggested"] > 0 and outcome["offered"] == 0 and outcome["failure"] is None
+
+
+@pytest.mark.journey("J48.7")
+@pytest.mark.settings(AI_PROVIDER=FAKE)
+def test_while_the_assistant_answers_the_inference_reads_as_waiting_for_it(world):
+    """Given an inference asking the assistant, when its read is asked while the provider has not
+    answered yet, then it reads as checking in phase assistant; once completed, phase is gone (found
+    by the browser runner: a read of a running inference was refused)."""
+    draft = _prepared(world)
+    seen: list[dict[str, Any]] = []
+
+    def answering(context):
+        seen.append(ok(world.api.get(f"/model-drafts/{draft['id']}/inference")))
+        return fake.DEFAULTS["modelNames"](context)
+
+    fake.script("modelNames", answering)
+    read = _infer(world, draft)
+    assert [(r["state"], r["phase"]) for r in seen] == [("checking", "assistant")]
+    assert read["phase"] is None
+
+
+@pytest.mark.journey("J48.8")
+@pytest.mark.settings(AI_PROVIDER=FAKE, DATABASE_IDLE_TRANSACTION_TIMEOUT="1")
+def test_a_slow_provider_does_not_hold_the_inference_in_an_idle_transaction(world):
+    """Given a provider that answers after longer than the database lets a transaction sit idle,
+    when the inference asks it, then the inference completes with its names: it held no
+    transaction open while waiting (found with a local model, 2026-10-28)."""
+
+    def slow(context):
+        time.sleep(2.5)
+        return fake.DEFAULTS["modelNames"](context)
+
+    fake.script("modelNames", slow)
+    draft = _prepared(world)
+    read = _infer(world, draft)
+    assert read["assistantOutcome"]["offered"] > 0 and _assistant(_proposals(world, draft))

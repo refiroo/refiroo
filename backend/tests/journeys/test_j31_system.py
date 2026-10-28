@@ -73,7 +73,12 @@ def test_read_what_the_deployment_runs(world):
     # The instance's product, which a person with no workspace reads too (0.12 HM1, D338).
     assert set(system) == {"engine", "schemaLanguages", "activeModelRelease", "product", "ai"}
     # Whether an AI provider is set, for a client to offer an AI action only then (0.16 AP1).
-    assert system["ai"] == {"configured": False, "provider": None, "sendLevel": "values"}
+    assert system["ai"] == {
+        "configured": False,
+        "provider": None,
+        "model": None,
+        "sendLevel": "values",
+    }
     assert configuration["database"] == {"revision": HEAD}
     names = [setting["name"] for setting in configuration["settings"]]
     assert len(names) == len(set(names)) and "DATABASE_URL" in names

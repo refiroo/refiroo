@@ -11,6 +11,8 @@ export type AiFailureKind = "unreachable" | "unauthorized" | "rateLimited" | "de
 export interface AiSystemInfo {
   configured: boolean;
   provider: string | null;
+  /** The model the provider answers with, when it names one. */
+  model?: string | null;
   sendLevel: AiSendLevel;
 }
 

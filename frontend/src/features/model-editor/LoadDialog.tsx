@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
+import { freeKeyOf, setProfileKey, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";
 import type { DraftProfile, DryRun, Job, ModelCompilation, ModelDraftOutline, ModelRelease } from "@/types";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -64,6 +65,8 @@ export function LoadDialog({
   const [workspace, setWorkspace] = useState(dryRun?.workspaceKey ?? defaultWorkspace);
   const [stage, setStage] = useState<Stage>("ready");
   const [error, setError] = useState("");
+  // The profile's key belongs to another model: the key the engine found free.
+  const [freeKey, setFreeKey] = useState<string>();
   const [job, setJob] = useState<Job>();
   const [changeSetId, setChangeSetId] = useState<string>();
 
@@ -126,6 +129,7 @@ export function LoadDialog({
           return;
         }
       }
+      setFreeKey(undefined);
       const release = await api.installModelDraft(draftId, latestVersion());
       if (!release.importProfile) {
         setStage("stopped");
@@ -140,6 +144,7 @@ export function LoadDialog({
           await api.activateWorkspaceModel(release.id, await api.workspaceModel(workspace));
         } catch (cause) {
           setStage("stopped");
+          setFreeKey(freeKeyOf(cause));
           setError(`${release.name} ${release.version} is installed but not active: ${activationRefusal(cause)}`);
           return;
         }
@@ -159,7 +164,10 @@ export function LoadDialog({
         }),
       );
     } catch (cause) {
-      setStage("stopped");
+      const free = freeKeyOf(cause);
+      setFreeKey(free);
+      // A key to change is a step to take here, then load again: the dialog is not over.
+      setStage(free ? "ready" : "stopped");
       setError(errorMessage(cause));
     }
   }
@@ -230,7 +238,26 @@ export function LoadDialog({
           </ol>
         )}
         {error && (
-          <Notice tone="error" title="Stopped" focusOnMount>
+          <Notice
+            tone="error"
+            title={freeKey ? "The profile's key belongs to another model" : "Stopped"}
+            focusOnMount
+            actions={
+              freeKey && (
+                <UseFreeKey
+                  freeKey={freeKey}
+                  onUse={() =>
+                    void run([setProfileKey(freeKey)]).then((outcome) => {
+                      if (outcome === "applied") {
+                        setError("");
+                        setFreeKey(undefined);
+                      }
+                    })
+                  }
+                />
+              )
+            }
+          >
             {error}
           </Notice>
         )}

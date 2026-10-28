@@ -121,11 +121,46 @@ async function journey(label, source, level) {
     await page.waitForTimeout(500);
     await shot(page, "new-from-workbook-1440");
     await accessible(page, `ap1-${label}-new-from-workbook`);
+    // The second model is watched at 390px: the editor must wait for the AI on a phone too.
+    const phoneRun = label === "generated-b";
     await dialog().getByRole("button", { name: "Create and propose" }).click();
     await page.waitForURL(/\/editor/);
+    if (phoneRun) await page.setViewportSize({ width: 390, height: 844 });
     const draftId = new URL(page.url()).pathname.split("/")[4];
     await page.getByText("Proposing from the workbook").waitFor();
+    // The editor says what it waits for and that editing is paused (the fake answers fast, so look at once).
+    await page
+      .getByText(
+        /Reading the workbook…|Finding the model in every sheet…|Asking the AI assistant \(fake-1\) for clearer names|Applying the proposals, one step each…/,
+      )
+      .first()
+      .waitFor({ timeout: 5000 });
+    await page
+      .getByText("Editing is paused until the proposals are applied, so nothing you change is lost.")
+      .waitFor({ timeout: 5000 });
+    await shot(page, phoneRun ? "proposing-390" : "proposing-1440");
+    checks.push(
+      `${label}: while proposing the editor names the phase, says editing is paused (Stop is covered by the unit tests: the fake answers too fast to click)`,
+    );
     await page.getByText("Proposing from the workbook").waitFor({ state: "hidden", timeout: 60_000 });
+    if (phoneRun) await page.setViewportSize({ width: 1440, height: 900 });
+    // Afterwards the editor says what the AI assistant did (the fake names the types).
+    await page
+      .getByText(/^The AI assistant \(fake-1\) (suggested \d+ clearer names?|found the names good as they are)/)
+      .waitFor({ timeout: 10_000 });
+    checks.push(`${label}: after the run the editor tells what the AI assistant (fake-1) did`);
+    // One user action, one submission: the draft has exactly one inference job and one POST reached it.
+    const jobs = (await api("/jobs?kind=inference&pageSize=100")).items;
+    assert.equal(jobs.length, 1, `${label}: one inference job after New from a workbook, found ${jobs.length}`);
+    assert.equal(
+      harness
+        .log()
+        .split("\n")
+        .filter((l) => l.includes(`POST /api/v1/model-drafts/${draftId}/inference `)).length,
+      1,
+      `${label}: exactly one POST .../inference`,
+    );
+    checks.push(`${label}: New from a workbook submitted exactly one inference`);
     const first = await api(`/model-drafts/${draftId}/inference`);
     assert.equal(first.assistant, true, "the provider is asked when assistant is omitted");
     const proposals = (await api(`/model-drafts/${draftId}/inference/proposals?pageSize=500`)).items;
@@ -152,6 +187,44 @@ async function journey(label, source, level) {
     checks.push(
       `${label}: Proposed because says "Proposed by the AI assistant (fake-1), 80% confident" and the reason`,
     );
+
+    // The profile key conflict at 390px: the server's answer is made to carry the conflict (a stored
+    // profile of another model is not set up here), so the page's own rendering is what is looked at.
+    {
+      const narrowEditor = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+      const phoneEditor = await narrowEditor.newPage();
+      phoneEditor.setDefaultTimeout(15000);
+      await phoneEditor.route(`**/model-drafts/${draftId}/profile`, async (route) => {
+        const response = await route.fetch();
+        const body = await response.json();
+        body.diagnostics = [
+          ...body.diagnostics,
+          {
+            severity: "error",
+            code: "IMPORT_PROFILE_MODEL_MISMATCH",
+            path: "/profile/key",
+            message: "Import profile 'X' belongs to the model 'draf-2'; the draft's model is another.",
+          },
+        ];
+        body.freeKey = "X-2";
+        body.valid = false;
+        await route.fulfill({ response, json: body });
+      });
+      await phoneEditor.goto(`${uiUrl}/settings/model/drafts/${draftId}/editor`);
+      await phoneEditor.getByRole("tab", { name: "Source" }).click();
+      await phoneEditor.getByRole("button", { name: "Use 'X-2'" }).waitFor();
+      assert.ok((await overflow(phoneEditor)) <= 0, `${label}: the profile rows overflow at 390px`);
+      await shot(phoneEditor, "profile-key-source-390");
+      await phoneEditor.getByRole("tab", { name: /^Issues/ }).click();
+      await phoneEditor.getByRole("button", { name: "Use 'X-2'" }).waitFor();
+      await phoneEditor.getByRole("button", { name: "Go to the profile key" }).waitFor();
+      assert.ok((await overflow(phoneEditor)) <= 0, `${label}: the Issues action overflows at 390px`);
+      await shot(phoneEditor, "profile-key-issues-390");
+      await narrowEditor.close();
+      checks.push(
+        `${label}: at 390px the profile key rows and the Issues action "Use 'X-2'" fit (server answer injected)`,
+      );
+    }
 
     // Propose again…: the checkbox, checked, with what is sent; unchecked, the inference says it was not asked.
     await page.getByRole("button", { name: "More actions" }).click();
@@ -215,6 +288,56 @@ async function journey(label, source, level) {
     await narrow.close();
     checks.push(`${label}: dark; 390px without horizontal page scroll`);
 
+    // 6b. Stepping away: Close by keyboard keeps the draft; Delete draft… on a throwaway removes it.
+    const state = await api("/workspaces/default/model");
+    const release = await api(`/model-releases/${state.releaseId}?includeModel=true`);
+    const throwaway = await api("/model-drafts", {
+      name: "Throwaway AP1",
+      model: release.model,
+      baseReleaseId: release.id,
+    });
+    await page.goto(`${uiUrl}/settings/model/drafts/${throwaway.id}/editor`);
+    await page.getByText("Saved as you go: closing keeps the draft and its proposals.").waitFor();
+    await shot(page, "header-1440");
+    await page.getByRole("link", { name: "Close", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await page.waitForURL(/\/settings\/model$/);
+    assert.equal((await api(`/model-drafts/${throwaway.id}`)).id, throwaway.id, "closing keeps the draft");
+    await page.goto(`${uiUrl}/settings/model/drafts/${throwaway.id}/editor`);
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Delete draft…" }).click();
+    const confirm = page.getByRole("alertdialog");
+    await confirm.getByText(/its steps and proposals/).waitFor();
+    await shot(page, "delete-draft-1440");
+    await accessible(page, `ap1-${label}-delete-draft`);
+    await confirm.getByRole("button", { name: "Delete draft" }).click();
+    await page.waitForURL(/\/settings\/model$/);
+    await page.getByText("Draft Throwaway AP1 was deleted.").waitFor();
+    await assert.rejects(api(`/model-drafts/${throwaway.id}`), "the deleted draft is gone");
+    // At 390px the header's Close and Delete are in the ⋯ menu.
+    const second = await api("/model-drafts", {
+      name: "Throwaway AP1 phone",
+      model: release.model,
+      baseReleaseId: release.id,
+    });
+    const narrowHeader = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const phoneHeader = await narrowHeader.newPage();
+    phoneHeader.setDefaultTimeout(15000);
+    await phoneHeader.goto(`${uiUrl}/settings/model/drafts/${second.id}/editor`);
+    await phoneHeader.getByText("Saved as you go: closing keeps the draft and its proposals.").waitFor();
+    await phoneHeader.getByRole("button", { name: /^More:/ }).click();
+    await phoneHeader.getByRole("menuitem", { name: "Close" }).waitFor();
+    await phoneHeader.getByRole("menuitem", { name: "Delete draft…" }).waitFor();
+    await shot(phoneHeader, "header-menu-390");
+    await phoneHeader.keyboard.press("Escape");
+    await shot(phoneHeader, "header-390");
+    assert.ok((await overflow(phoneHeader)) <= 0, `${label}: the editor header overflows at 390px`);
+    await narrowHeader.close();
+    await api(`/model-drafts/${second.id}`, undefined, "DELETE").catch(() => {});
+    checks.push(
+      `${label}: Close by keyboard keeps the draft; Delete draft… confirms, deletes and says so; 390px menu offers both`,
+    );
+
     // 7. Deployment lists the AI settings with the key hidden.
     await page.goto(`${uiUrl}/settings/deployment`);
     await page.getByRole("heading", { level: 2, name: "AI proposals" }).waitFor();
@@ -233,6 +356,15 @@ async function journey(label, source, level) {
       .screenshot({ path: resolve(harness.output, `ap1-${label}-failure.png`), fullPage: true })
       .catch(() => {});
     console.error(harness.log().slice(-3000));
+    // The backend's own errors, wherever in the log (a validation error in the tail's start is easy to miss).
+    console.error(
+      harness
+        .log()
+        .split("\n")
+        .filter((line) => /Error|Traceback| 500 /.test(line))
+        .slice(0, 40)
+        .join("\n"),
+    );
     throw error;
   } finally {
     harness.cleanup();

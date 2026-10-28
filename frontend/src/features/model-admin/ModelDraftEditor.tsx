@@ -3,6 +3,7 @@ import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { ModelCompilation, ModelDraft, ModelValidation } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { DeleteDraftDialog } from "@/features/model-admin/DeleteDraftDialog";
 import { Notice } from "@/ui/Notice";
 import { downloadJson } from "@/lib/download";
 import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
@@ -128,20 +129,6 @@ export function ModelDraftEditor({
       const release = await api.installModelDraft(draft.id, draft.version);
       setConfirm(undefined);
       onInstalled(release.id);
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setPending("");
-    }
-  }
-
-  async function remove() {
-    setPending("delete");
-    setError("");
-    try {
-      await api.deleteModelDraft(draft.id, draft.version);
-      setConfirm(undefined);
-      onDeleted();
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -312,16 +299,17 @@ export function ModelDraftEditor({
         </ConfirmDialog>
       )}
       {confirm === "delete" && (
-        <ConfirmDialog
-          title="Delete this draft?"
-          confirmLabel="Delete draft"
-          pending={pending === "delete"}
-          error={error}
+        <DeleteDraftDialog
+          draftId={draft.id}
+          version={draft.version}
           onCancel={() => setConfirm(undefined)}
-          onConfirm={remove}
+          onDeleted={() => {
+            setConfirm(undefined);
+            onDeleted();
+          }}
         >
           <p>This removes only the editable draft. Installed releases are not changed.</p>
-        </ConfirmDialog>
+        </DeleteDraftDialog>
       )}
     </div>
   );

@@ -35,8 +35,31 @@ All notable changes to this project are documented in this file. The format foll
   passes all of `.env` to the engine (`env_file`) instead of a hand-kept list, which had left out every setting
   but four capability groups.
 
+- **`AI_REASONING_EFFORT`** (`openai-compatible`): sends `reasoning_effort`, so a local thinking model answers
+  without reasoning for minutes. The adapter also shows the answer's shape in the instructions as an example to
+  fill in, so a model on an endpoint that does not enforce the schema (Ollama's MLX builds) answers in shape.
+
 ### Fixed (0.16 AP1)
 
+- **A burst of requests froze the engine:** a page asking for many lists at once (a sidebar of 101 types) left
+  the requests holding database connections without a worker thread to finish on, while the rest held every
+  thread waiting for a connection; everything waited for `DATABASE_POOL_TIMEOUT` and answered 503. At most as many
+  requests as the pool has connections are now inside the application; the rest wait for their turn without a
+  thread (503 `poolExhausted` only after `DATABASE_POOL_TIMEOUT`).
+- **Handled errors were also logged as unhandled:** the catch-all handler was registered where Starlette raises the
+  exception again after the answer, so every 503 or 500 also printed an "Exception in ASGI application"
+  traceback. The last-line handler now answers and raises nothing further; J12.11 fails on any escaping error.
+- **A slow AI provider no longer breaks the inference:** the inference held its database transaction open while
+  waiting for the answer, so a model taking longer than `DATABASE_IDLE_TRANSACTION_TIMEOUT` (a local model can) had
+  its connection ended. It now ends the transaction first and marks the job's phase `assistant`.
+- **The editor waits for the proposals, visibly:** while the inference runs it says what it is doing ("Asking the AI
+  assistant (model) for clearer names…"), pauses editing so a change cannot discard the proposals, and offers Stop;
+  afterwards it says what the AI did, including "found the names good as they are". The inference read answers
+  `phase` and `assistantOutcome`; `GET /system`'s `ai` names the `model`.
+- **A draft profile key taken by another model's profile** was refused only at installation or loading, and the
+  editor had no way to change the key. It is now an error in Issues at the profile's key, with a free key
+  (`freeKey` on the draft's profile and in the refusal's details) offered as "Use '…'" there and in the Load and
+  Install dialogs; the source pane shows and edits the profile's key and name.
 - `tests/test_startup.py` pinned the schema head at `20261114_01`, two migrations behind 0.12.0;
   `POST /me/notifications/removal` was missing from the API journey inventory.
 

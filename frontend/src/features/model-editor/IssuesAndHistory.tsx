@@ -21,6 +21,7 @@ import { describeStep, historySteps, undoable } from "@/features/model-editor/hi
 import { elementLabel, nameOf } from "@/features/model-editor/outline";
 import { columnsOfIssue } from "@/features/model-editor/mapping";
 import { ActorName } from "@/ui/ActorName";
+import { PROFILE_KEY_MISMATCH, PROFILE_KEY_POINTER, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";
 
 /** Where an issue's link goes: the element's own panel, the matrix for a relation between two types. */
 export function selectionFor(element: OutlineElement): EditorSelection {
@@ -42,6 +43,8 @@ export function IssuesAndHistory({
   onUndoStep,
   profile,
   dryRun,
+  onUseProfileKey,
+  onGoToProfileKey,
 }: {
   outline: ModelDraftOutline;
   tab: string;
@@ -53,6 +56,10 @@ export function IssuesAndHistory({
   profile?: DraftProfile;
   /** The dry run tab's content, with a source file. */
   dryRun?: { label: string; content: ReactNode };
+  /** Sets the profile's key (a conflict offers the free one); without it no action is offered. */
+  onUseProfileKey?: (key: string) => void;
+  /** Moves to the profile key's field in the source pane. */
+  onGoToProfileKey?: () => void;
 }) {
   const names = nameOf(outline);
   const steps = historySteps(history.items);
@@ -77,9 +84,18 @@ export function IssuesAndHistory({
                 const [column] = profile?.profile ? columnsOfIssue(profile.profile, issue) : [];
                 return (
                   <li key={`${issue.path}:${index}`}>
-                    <StatusPill tone="warning">Warning</StatusPill>
+                    <StatusPill tone={issue.severity === "error" ? "error" : "warning"}>
+                      {issue.severity === "error" ? "Error" : "Warning"}
+                    </StatusPill>
                     <span className="editor-issue-text">{issue.message}</span>
-                    {column ? (
+                    {issue.code === PROFILE_KEY_MISMATCH && profile?.freeKey && onUseProfileKey ? (
+                      <UseFreeKey freeKey={profile.freeKey} onUse={() => onUseProfileKey(profile.freeKey as string)} />
+                    ) : null}
+                    {issue.path === PROFILE_KEY_POINTER && onGoToProfileKey ? (
+                      <button type="button" className="link-button" onClick={onGoToProfileKey}>
+                        Go to the profile key
+                      </button>
+                    ) : column ? (
                       <button
                         type="button"
                         className="link-button"
