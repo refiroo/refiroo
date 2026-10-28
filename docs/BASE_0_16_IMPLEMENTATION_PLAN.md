@@ -67,6 +67,7 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
 | [AO1](#ao1-model-change-impact-summary) | AP1 | A plain-language impact summary of a release diff or activation preview, with its facts |
 | [AO2](#ao2-what-changed-an-account-of-history) | AP1 | An account of a workspace's history over a period, with citations |
 | [AO3](#ao3-notification-digests) | AP1 (the AI sentence only) | A daily or weekly digest of a person's inbox notices by mail, opt-in; useful without a provider |
+| [WM1](#wm1-change-a-workspaces-model-from-the-workspace) | 0.12 | **Not AI.** Edit a workspace's model from the workspace: a draft made for it, one "Apply to this workspace" |
 | [R](#r-build-acceptance-and-release) | all | Full review of every change since 0.15, the gates, one bounded real-provider try and one real-assistant try, the release |
 
 **Order (revised 2026-10-28).** AP1 first. Then AP6 with what it needs of AP3: the built-in chat in refiroo (attach a workbook, say a few words, get the model and the import) is the product's way to the requirement. Track A (MCP) is an additional route for organisations that bring their own assistant, never a precondition. Earlier wording: the tracks are independent: Track A (except AG4) does not need AP1 and could
@@ -570,6 +571,47 @@ not touched.
 - Ask for something the engine has no operation for; the assistant says so.
 - Rely on a small local model; AP-D21 hides the page when the provider cannot do tool calls.
 
+## WM1: Change a workspace's model from the workspace
+
+**Added 2026-10-28 at the user's request; not AI, a basic the release needs.** Found on the user's first real
+import: to change the model of the workspace they were in, a person had to know to go to Settings › Model, find or
+make a draft of the right release, open the editor, then install, then activate in the workspace. Even the user,
+who knows the application, could not tell what to do or where.
+
+**Journey:** a person holding Model authoring and Model release in a workspace opens the workspace, chooses
+**Edit model**, and lands in the model editor on a draft of exactly that workspace's model. They change it, and
+one main action, **Apply to this workspace**, installs the draft as a new release and activates it in that
+workspace (migrating it when the change needs it), with the confirmation saying in plain words what changes and
+what happens to the records. They return to the workspace with the new model. Without the groups the action is
+not shown (hide, never disable).
+
+**Scope.**
+- **On the workspace:** an **Edit model** action (the workspace's header or ⋯ menu, also on a phone) that opens the
+  editor on that workspace's draft: the draft that already targets the workspace's active release when there is
+  one (a person is not handed a second, competing draft), otherwise a new draft of that release, named after the
+  workspace. No detour through Settings › Model; Settings › Model stays for whole-instance model work.
+- **In the editor, for a draft opened from a workspace:** the main action reads **Apply to this workspace** and runs
+  the existing install-and-activate in one confirmed step against that workspace; the confirmation lists the
+  model changes, whether records move (a migration) and what a refusal means, in the activation preview's words.
+  After success the person is back in the workspace. Opened from Settings › Model, the editor is as today.
+- **The draft remembers its workspace** (where it was opened from), so a later visit from the workspace reopens it,
+  and the editor's header names the workspace it will apply to.
+- **API first:** whatever the UI needs is a route a client can call (for example "the draft of this workspace's
+  model, created when there is none"); existing routes are reused where they suffice. Contract and journeys
+  updated as for any route.
+- **Mock-up with the plan** (the user's rule for UI packages): the workspace action, the editor header naming
+  the workspace and the Apply confirmation, shown and approved before the build.
+
+**Out of scope:** reshaping a workspace whose records must move between types (the restructuring plan of AP6,
+described above), and any AI help. WM1 is the plain path every later step builds on: AP6's "Change this model…"
+lands in the same editor with the same Apply.
+
+**Tests:** journeys through the API on two model configurations: a workspace's model edited and applied from
+the workspace (new release active there, other workspaces untouched); an existing draft for that release reused,
+not duplicated; a change needing a migration applied with its records; a caller without the groups refused
+by code and not shown the action. One browser runner: the path by keyboard at 1440px and 390px, with no
+error line in the server log and no 5xx.
+
 ## Track A: agent access
 
 ## AG1: The server and its authority
@@ -696,3 +738,17 @@ each only on the user's go-ahead with its cost stated first (AP-D11, AG-D10); th
 - An instruction becomes only steps of the AP-D12 kinds; nothing runs before the person confirms a dry
   run of every row; the result lands in a change set by default; the saved profile repeats the load.
 - The real-file try (AP-D22) on the user's own workbooks has been run and judged by the user.
+- **The acceptance workbook** (the user, 2026-10-28): `Lines & Routes v2.0.xlsx`, a data dictionary laid
+  out for reading (lists side by side, group headings above list headings, English and Spanish column pairs, `Y`
+  flags, notes). The rules alone made one application of 101 types and 31 relation types of it. Through AP6 it gives
+  a model a person reads as the business does, about four applications and a dozen types with group hierarchies,
+  translations and relations, and its import, judged by the user.
+- **Reshaping a workspace's model is an instruction too:** from the workspace, "reorganise this model" (or a
+  narrower change) becomes the same kind of plan as a new workbook, so a person never needs the model editor's
+  draft, install and activate path to fix a model; where the change needs the 1.0 merge of types holding data, the
+  plan says so and offers a new workspace loaded from the same file. *(Corrected 2026-10-28: merging types that
+  hold data does not wait for 1.0. The 0.8 restructuring (`changeType`, `changeTypeUnder`, `move`, `insertLevel`,
+  `removeLevel` in a change set, records keeping their IDs, previewed first) does it today, so a reshaping plan is
+  three phases: a model version with the target types beside the old, a change set restructuring every record into
+  them, a version without the emptied types. Restructuring joins AP-D12's step kinds, an existing engine
+  capability like the other five.)*
