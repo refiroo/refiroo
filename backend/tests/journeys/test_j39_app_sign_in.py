@@ -68,7 +68,8 @@ def test_the_screen_signs_a_person_in_with_a_password(world):
     )
     code = _signed_in(right)
     other = _exchange(browser, code, _pkce()[0])
-    assert other.status_code == 400  # the code is spent by a try with the wrong verifier
+    # The code is spent by a try with the wrong verifier.
+    assert other.status_code == 400 and other.json()["error"] == "invalid_grant"
     again = browser.post(
         PASSWORD_STEP,
         json={"request": request, "username": "ana", "password": PASSWORD},
@@ -163,7 +164,7 @@ def test_the_screen_takes_the_second_step(world):
     again = _browser(world)
     _, step = first(again)
     repeat = again.post(SECOND, json={"step": step, "recovery": codes[0]}, headers=APP)
-    assert repeat.status_code == 401
+    assert repeat.status_code == 401 and repeat.json()["error"] == "wrong_code"
     assert ok(_own(world, token, "GET", "/me/second-factor"))["recoveryCodesLeft"] == 9
 
 
@@ -194,7 +195,7 @@ def test_the_screen_sets_a_second_factor_up_when_it_is_required(world):
     assert answer["setup"]["secret"] and "<svg" in answer["setup"]["svg"]
     step = answer["step"]
     wrong = browser.post(SECOND, json={"step": step, "code": "000000"}, headers=APP)
-    assert wrong.status_code == 401
+    assert wrong.status_code == 401 and wrong.json()["error"] == "wrong_code"
     shown = ok(
         browser.post(
             SECOND, json={"step": step, "code": _totp(answer["setup"]["secret"])}, headers=APP

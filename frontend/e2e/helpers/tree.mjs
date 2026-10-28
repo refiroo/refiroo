@@ -39,7 +39,8 @@ export function treeDriver(page, fail) {
     }));
 
   /** Presses `key` until focus is on a tree item: the keyboard path back into the tree. */
-  async function keyIntoTree(key = "Shift+Tab", limit = 60) {
+  // A record's inspector holds a tab stop per editable value, so the way back to the tree is long.
+  async function keyIntoTree(key = "Shift+Tab", limit = 120) {
     for (let step = 0; step < limit; step++) {
       if ((await focused()).role === "treeitem") return;
       await page.keyboard.press(key);

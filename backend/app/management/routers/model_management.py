@@ -34,6 +34,7 @@ from ...engine.model.drafts import (
 )
 from ...engine.model.migrations import submit_migration
 from ...engine.model.registry import model_registry
+from ...engine.model.release_lifecycle import set_release_status
 from ...engine.model.releases import (
     ActivationConflict,
     ConsumerContractVersionRequired,
@@ -47,7 +48,6 @@ from ...engine.model.releases import (
     activate_model_release,
     install_model_release,
 )
-from ...engine.model.workspace_models import workspaces_running
 from ...engine.sources import draft_profile
 from ...engine.sources.inference import run as inference
 from ...errors import api_error
@@ -56,6 +56,7 @@ from ..access import (
     INSTANCE,
     WORKSPACE_PATH,
     AuthorizedRoute,
+    CurrentPermissions,
     requires,
 )
 from ..dependencies import DbSession, DefaultModelSnapshot
@@ -67,6 +68,7 @@ from ..presenters import (
     diagnostic_details,
     diagnostic_response,
     job_responses,
+    model_release_responses,
 )
 from ..schemas.jobs import JobResponse
 from ..schemas.model import (
@@ -233,7 +235,11 @@ def activate_workspace_model(
 )
 @requires("model.activate", at=WORKSPACE_PATH)
 def start_workspace_migration(
-    workspace_key: str, payload: WorkspaceMigrationRequest, request: Request, session: DbSession
+    workspace_key: str,
+    payload: WorkspaceMigrationRequest,
+    request: Request,
+    session: DbSession,
+    permissions: CurrentPermissions,
 ) -> JobResponse:
     """Preview a migration of the workspace's data to an installed release (0.11 V1).
 
@@ -265,6 +271,7 @@ def start_workspace_migration(
             retention_days=request.app.state.batch_limits.retention_days,
             change_set_id=payload.changeSetId,
             expected_change_set_version=payload.expectedChangeSetVersion,
+            permissions=permissions,
         )
     except ConsumerContractVersionRequired as exc:
         raise api_error(
@@ -679,19 +686,14 @@ def install_model_draft(
                 },
             )
         )
+    elif release.status == "retired":
+        # Installing a retired release's model again brings it back (0.12 MR1, D457).
+        set_release_status(session, release.public_id, "active", release.status_version)
     session.commit()
     if not created:
         response.status_code = status.HTTP_200_OK
     return ModelInstallationResponse(
-        id=release.public_id,
-        key=release.release_key,
-        name=release.release_name,
-        version=release.release_version,
-        schemaVersion=release.schema_version,
-        modelHash=release.model_hash,
-        installedAt=as_utc(release.installed_at),
-        assigned=bool(running := workspaces_running(session, release.id)),
-        workspaces=running,
+        **model_release_responses(session, [release])[0].model_dump(exclude={"model"}),
         importProfile={"key": saved.key, "version": saved.version} if saved is not None else None,
     )
 

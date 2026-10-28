@@ -97,6 +97,7 @@ describe("the application's sign-in screen (0.12 I5)", () => {
     await typeCredentials();
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByText(/username or password is not right/)).toBeInTheDocument();
+    expect(screen.getByText(/username or password is not right/).closest(".notice")).toHaveClass("error-notice");
     // The username stays and the password field is cleared and focused.
     expect(screen.getByLabelText("Username")).toHaveValue("mei");
     expect(screen.getByLabelText("Password")).toHaveValue("");
@@ -104,6 +105,7 @@ describe("the application's sign-in screen (0.12 I5)", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "again" } });
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByText(/try again in 40 seconds/)).toBeInTheDocument();
+    expect(screen.getByText(/try again in 40 seconds/).closest(".notice")).toHaveClass("warning-notice");
     expect(go).not.toHaveBeenCalled();
   });
 

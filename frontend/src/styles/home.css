@@ -112,18 +112,10 @@
   gap: var(--space-4);
   padding: 22px 22px 18px;
 }
-.home-tile {
-  display: grid;
-  text-decoration: none;
-  place-items: center;
+.home-tile-link {
+  display: flex;
   flex: none;
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  background: var(--hue-fill);
-  color: var(--hue-ink);
-  font-size: 22px;
-  font-weight: 600;
+  text-decoration: none;
 }
 .home-card-title {
   display: grid;
@@ -346,6 +338,110 @@
   text-transform: uppercase;
 }
 
+/* The Notifications page (0.12 NT1): the bell's rows (`layout.css`) with a tick and a workspace. */
+.notifications-page {
+  max-width: 1280px;
+  gap: var(--space-5);
+}
+.notifications-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: baseline;
+  justify-content: space-between;
+}
+.notifications-head h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+.notifications-head p {
+  margin: 2px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.notifications-filters select {
+  min-width: 160px;
+}
+/* The bar above the list: Select all, then the hint or the count and its actions. Its height is the
+   same either way, so ticking a notice never moves the list (the user, 2026-10-28). */
+.notifications-selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+}
+.notifications-selection[data-active] {
+  border-color: transparent;
+  background: var(--state-selected);
+}
+.notifications-select-all {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.notifications-selection small {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+.notifications-selection strong {
+  margin-right: auto;
+  color: var(--state-selected-text);
+}
+.notification-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 140px);
+  gap: var(--space-3);
+  align-items: center;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border-bottom: 1px solid var(--border-faint);
+}
+/* The unread tint and the hover cover the whole row, the workspace included, not only the notice. */
+.notification-row[data-unread] {
+  background: var(--state-selected);
+}
+.notification-row:hover {
+  background: var(--surface-hover);
+}
+.notification-row[data-unread]:hover {
+  background: color-mix(in srgb, var(--action-primary) 12%, var(--surface-raised));
+}
+.notification-row .inbox-item,
+.notification-row .inbox-item:hover {
+  background: transparent;
+}
+.notification-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+.notification-workspace {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notifications-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.notifications-foot p {
+  margin: 0;
+}
+
 @media (max-width: 1100px) {
   .home-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -369,7 +465,7 @@
   .home-card-head {
     padding: var(--space-4);
   }
-  .home-tile {
+  .home-card-head .workspace-tile-large {
     width: 52px;
     height: 52px;
     border-radius: 14px;
@@ -401,5 +497,14 @@
     min-width: 0;
     width: 100%;
     min-height: 44px;
+  }
+  /* On a phone a notice's workspace goes under its text. */
+  .notification-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 0;
+  }
+  .notification-workspace {
+    grid-column: 2;
+    padding: 0 0 var(--space-2) 26px;
   }
 }

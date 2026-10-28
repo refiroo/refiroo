@@ -187,7 +187,8 @@ print(json.dumps({'target': generated('a').model, 'leftOut': world.key('C'), 're
       [
         "model-card-default",
         async () => {
-          await page.goto(`${uiUrl}/settings/model`);
+          // The model list holds one row per model; its page names the workspaces running it.
+          await page.goto(`${uiUrl}/settings/model/models/${encodeURIComponent(starter.release.key)}`);
           await page.getByRole("list", { name: `Workspaces running ${starter.release.name}` }).waitFor();
         },
         { dark: true },
@@ -196,12 +197,16 @@ print(json.dumps({'target': generated('a').model, 'leftOut': world.key('C'), 're
         "model-page",
         async () => {
           await page.goto(`${uiUrl}/settings/model/models/${encodeURIComponent(b.release.key)}`);
+          // The model page is in tabs (MR1, A3a): the releases are the second.
+          await page.getByRole("tab", { name: /^Releases/ }).click();
           await page.getByRole("list", { name: `Releases of ${b.release.name}` }).waitFor();
         },
       ],
       [
         "activate-dialog",
         async () => {
+          // Where each workspace runs is on the Overview tab.
+          await page.getByRole("tab", { name: /^Overview/ }).click();
           await page.getByRole("button", { name: "Change the model of Branch B" }).click();
           await dialog().getByText("Compatible with Branch B's data").waitFor();
         },
@@ -209,7 +214,7 @@ print(json.dumps({'target': generated('a').model, 'leftOut': world.key('C'), 're
       [
         "activate-migration-needed-dialog",
         async () => {
-          await page.goto(`${uiUrl}/settings/model`);
+          await page.goto(`${uiUrl}/settings/model/models/${encodeURIComponent(starter.release.key)}`);
           await page.getByRole("button", { name: `Change the model of ${defaultLabel}` }).click();
           await dialog()
             .getByRole("button", { name: new RegExp(`^${b.release.name}`) })

@@ -40,6 +40,7 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { RouteLink } from "@/ui/RouteLink";
 import { recordsToChange } from "./bulkChange";
+import { useSubjectSeen } from "@/features/inbox/useInbox";
 
 type Step = "form" | "reading" | "sending" | "previewing" | "preview" | "applying" | "result";
 
@@ -173,6 +174,8 @@ export function BulkJobDialog({
     onFinished(ended, applied);
   }
 
+  // A job watched here to its end or its preview adds nothing to the inbox's count (0.12 NT1).
+  useSubjectSeen(job?.id);
   // The job's changes arrive over its stream until it waits for confirmation or ends.
   useJobStream(job && !isFinal(job) && job.state !== "awaiting_confirmation" ? job.id : undefined, (next) => {
     setJob(next);

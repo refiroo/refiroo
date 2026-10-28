@@ -16,7 +16,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode
 import type { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { allows, recordWrites } from "@/features/security/permissions";
+import { holds, recordWrites } from "@/features/security/permissions";
 import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { attributeName, relatedRecords } from "@/model/fields";
 import { RELATED_FIELD_PREFIX, relatedCellEdit, type RelatedCellEdit } from "@/model/lookup";
@@ -100,7 +100,7 @@ export function useCellEditing({
         const edit = { ...found, choices };
         if (
           !edit.single &&
-          (!allows(permissions, "bulk") ||
+          (!holds(permissions, "bulk") ||
             (batches &&
               !(
                 batches.permits(item.applicationKey, item.objectTypeKey) ||
@@ -108,7 +108,7 @@ export function useCellEditing({
               )))
         )
           return shown;
-        const holds = (relatedRecords(item, column, model)?.count ?? 0) > 0;
+        const hasRecords = (relatedRecords(item, column, model)?.count ?? 0) > 0;
         return (
           <EditInPlaceCell
             name={edit.choices[0].label}
@@ -117,7 +117,7 @@ export function useCellEditing({
             onEdit={() =>
               edit.single ? void latest.current.openSingle(item, edit, false) : setOpen({ kind: "many", item, edit })
             }
-            onRemove={edit.single && holds ? () => void latest.current.openSingle(item, edit, true) : undefined}
+            onRemove={edit.single && hasRecords ? () => void latest.current.openSingle(item, edit, true) : undefined}
           >
             {shown}
           </EditInPlaceCell>

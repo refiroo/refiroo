@@ -8,6 +8,7 @@
 import { authorizedFetch } from "@/api/session";
 
 const RECONNECT_MS = 3000;
+const RECONNECT_MAX_MS = 60000;
 
 export interface EventStream {
   readonly url: string;
@@ -37,18 +38,27 @@ class FetchEventStream implements EventStream {
   }
 
   private async run() {
+    let delay = RECONNECT_MS;
     while (!this.abort.signal.aborted) {
+      let opened = false;
       try {
         const response = await authorizedFetch(this.url, {
           headers: { Accept: "text/event-stream" },
           signal: this.abort.signal,
         });
-        if (response.ok && response.body) await this.read(response.body);
+        if (response.ok && response.body) {
+          // A stream that opened is a healthy engine: the next retry starts short again.
+          opened = true;
+          await this.read(response.body);
+        }
       } catch {
         // A dropped connection is retried below, as EventSource retries it.
       }
       if (this.abort.signal.aborted) return;
-      await new Promise((done) => setTimeout(done, RECONNECT_MS));
+      // A refusal or an unreachable engine is retried less and less often, up to a minute.
+      const wait = opened ? RECONNECT_MS : delay;
+      delay = opened ? RECONNECT_MS : Math.min(delay * 2, RECONNECT_MAX_MS);
+      await new Promise((done) => setTimeout(done, wait));
     }
   }
 

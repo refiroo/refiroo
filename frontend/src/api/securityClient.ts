@@ -4,7 +4,7 @@
  * that changes a stored entry carries the version it was based on.
  */
 
-import { request } from "@/api/client";
+import { request, type PageSelector } from "@/api/client";
 import type {
   PasskeyPage,
   ActionGroup,
@@ -46,18 +46,28 @@ function query(params: Record<string, string | number | boolean | undefined>) {
   return text ? `?${text}` : "";
 }
 
+/** A page selector as query parameters: a cursor, a row position, the end, or a seek (ADR-030). */
+function selecting(selector: PageSelector) {
+  return {
+    cursor: selector.cursor,
+    position: selector.position,
+    from: selector.fromEnd ? "end" : undefined,
+    seek: selector.seek,
+    includeTotal: selector.includeTotal || undefined,
+  };
+}
+
 const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
 
 export const security = {
   /** People as created, each with their roles (D298); `includeTotal` counts the filter's matches. */
-  users: (options: { q?: string; active?: boolean; cursor?: string; pageSize?: number; includeTotal?: boolean } = {}) =>
+  users: (options: PageSelector & { q?: string; active?: boolean; pageSize?: number } = {}) =>
     request<UserPage>(
       `/api/v1/users${query({
         q: options.q,
         active: options.active,
-        cursor: options.cursor,
         pageSize: options.pageSize ?? 50,
-        includeTotal: options.includeTotal || undefined,
+        ...selecting(options),
       })}`,
     ),
   user: (userId: string) => request<User>(`/api/v1/users/${id(userId)}`),
@@ -108,9 +118,9 @@ export const security = {
   userGrants: (userId: string, cursor?: string) =>
     request<GrantPage>(`/api/v1/users/${id(userId)}/grants${query({ cursor, pageSize: 100 })}`),
 
-  groups: (options: { q?: string; memberId?: string; cursor?: string; pageSize?: number } = {}) =>
+  groups: (options: PageSelector & { q?: string; memberId?: string; pageSize?: number } = {}) =>
     request<GroupPage>(
-      `/api/v1/groups${query({ q: options.q, memberId: options.memberId, cursor: options.cursor, pageSize: options.pageSize ?? 50 })}`,
+      `/api/v1/groups${query({ q: options.q, memberId: options.memberId, pageSize: options.pageSize ?? 50, ...selecting(options) })}`,
     ),
   group: (groupId: string) => request<Group>(`/api/v1/groups/${id(groupId)}`),
   /** A local group, or with `source` a provider group made ahead of its members' sign-ins (I3, D364). */
@@ -137,16 +147,13 @@ export const security = {
       `/api/v1/clients${query({ q: options.q, active: true, pageSize: options.pageSize ?? 20 })}`,
     ),
   /** Clients as created, each with its access and creator (SP2, D348, D349). */
-  clientPage: (
-    options: { q?: string; active?: boolean; cursor?: string; pageSize?: number; includeTotal?: boolean } = {},
-  ) =>
+  clientPage: (options: PageSelector & { q?: string; active?: boolean; pageSize?: number } = {}) =>
     request<ClientPage>(
       `/api/v1/clients${query({
         q: options.q,
         active: options.active,
-        cursor: options.cursor,
         pageSize: options.pageSize ?? 50,
-        includeTotal: options.includeTotal || undefined,
+        ...selecting(options),
       })}`,
     ),
   client: (clientId: string) => request<Client>(`/api/v1/clients/${id(clientId)}`),

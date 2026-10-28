@@ -32,6 +32,9 @@ const release = {
   modelHash: "abc",
   installedAt: "2026-09-05T00:00:00Z",
   assigned: true,
+  status: "active" as const,
+  statusVersion: 1,
+  deletable: false,
   workspaces: ["default"],
 };
 const draft: ModelDraft = {
@@ -148,7 +151,9 @@ describe("ModelWorkbench", () => {
     );
 
     await screen.findByRole("region", { name: "Default workspace" });
-    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    // No model card is open: the only level-2 headings are the list's groups ("title · count").
+    for (const heading of screen.getAllByRole("heading", { level: 2 }))
+      expect(heading.textContent).toMatch(/^[^·]+ · \d+/);
     expect(screen.queryByRole("button", { name: /^Switch model/ })).not.toBeInTheDocument();
     const groups = screen.getAllByRole("region").map((group) => [
       group.getAttribute("aria-label"),
@@ -164,9 +169,9 @@ describe("ModelWorkbench", () => {
     expect(screen.getByRole("region", { name: "Default workspace" })).toHaveTextContent("Default workspace · 1");
     const entries = Array.from(document.querySelectorAll<HTMLElement>("button.entity-row"));
     expect(entries[0]).toHaveTextContent("Test");
-    expect(entries[0]).toHaveTextContent("test · 1 release");
+    expect(entries[0]).toHaveTextContent("Releases: 1, Latest: 1, Draft: 2, Schema: 0.4");
     expect(entries[0]).toHaveTextContent("Runs the default workspace");
-    expect(entries[2]).toHaveTextContent("Not installed yet · draft version 2");
+    expect(entries[2]).toHaveTextContent("Not installed yetReleases: —, Latest: —, Draft: 2");
     // The search filters by name and key.
     fireEvent.change(screen.getByRole("searchbox", { name: "Search models" }), { target: { value: "oth" } });
     expect(

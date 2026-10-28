@@ -14,6 +14,7 @@ import type {
   ChangePeriod,
   ChangesRoute,
   HomeRoute,
+  NotificationsRoute,
   MoveAddress,
   MoveChoice,
   RouteState,
@@ -104,12 +105,15 @@ export function isSettingsRoute(route: RouteState): route is SettingsRoute {
   return route.kind === "settings";
 }
 
-/** An application's data in a workspace: neither a settings page, home nor someone's changes. */
+/** An application's data in a workspace: neither a settings page, home, someone's changes nor notices. */
 export function isApplicationRoute(route: RouteState): route is ApplicationRoute {
-  return route.kind !== "settings" && route.kind !== "home" && route.kind !== "changes";
+  return (
+    route.kind !== "settings" && route.kind !== "home" && route.kind !== "changes" && route.kind !== "notifications"
+  );
 }
 
 export const HOME: HomeRoute = { kind: "home" };
+export const NOTIFICATIONS: NotificationsRoute = { kind: "notifications" };
 
 const CHANGE_ENTRY_KINDS: readonly ChangeEntryKind[] = ["record", "relationship", "change-set", "publication", "model"];
 const PERIODS: readonly ChangePeriod[] = ["day", "week", "month"];
@@ -392,6 +396,7 @@ export function parseRoute(
   if (!parts.length && !query.get("workspaceKey")?.trim()) return HOME;
   const changes = changesRoute(parts, query);
   if (changes) return changes;
+  if (parts.length === 1 && parts[0] === "notifications") return NOTIFICATIONS;
   const workspaceKey = query.get("workspaceKey")?.trim() || defaultWorkspaceKey;
   const changeSetId = query.get("changeSetId")?.trim() || undefined;
   const publicationId = changeSetId ? undefined : query.get("publicationId")?.trim() || undefined;
@@ -535,6 +540,7 @@ export function addressWorkspaceKey(fallback: string, location: Pick<Location, "
 export function routePath(route: RouteState) {
   if (route.kind === "home") return "/";
   if (route.kind === "changes") return changesPath(route);
+  if (route.kind === "notifications") return "/notifications";
   if (route.kind === "settings") return settingsPath(route);
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });

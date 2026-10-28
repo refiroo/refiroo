@@ -123,7 +123,10 @@
 
   function register(button) {
     var name = document.getElementById("passkey-name");
-    return post("/oauth/passkeys/registration/options", {}).then(function (started) {
+    var proof = document.getElementById("passkey-proof");
+    return post("/oauth/passkeys/registration/options", {
+      proof: proof ? proof.value : null,
+    }).then(function (started) {
       if (!started.ok) throw refused(started);
       var options = started.data.options;
       options.challenge = toBytes(options.challenge);

@@ -41,10 +41,32 @@ export interface NotificationPage {
   nextCursor: string | null;
   prevCursor?: string | null;
   anchor?: string | null;
+  totalCount?: number;
+  startIndex?: number;
   unreadCount: number;
 }
 
+/** How a list of notices is narrowed and ordered (0.12 NT1): every filter is the server's. */
+export interface NotificationQuery {
+  /** Words the person sees: the kind, the change set's name, the comment, who, the job's kind. */
+  q?: string;
+  kind?: NotificationKind;
+  workspace?: string;
+  /** true: unread only; false: read only. */
+  unread?: boolean;
+  sort?: "newest" | "oldest";
+  pageSize?: number;
+}
+
+/** Which notices a read, an unread or a removal applies to. */
+export type NotificationSelection = { ids: string[] } | { subjectId: string } | { all: true };
+
 export interface NotificationsReadResult {
   marked: number;
+  unreadCount: number;
+}
+
+export interface NotificationsRemovalResult {
+  removed: number;
   unreadCount: number;
 }

@@ -46,15 +46,23 @@ from ...engine.reads.change_lists import (
     ObjectChangeEntry,
     RelationChangeEntry,
     RelationEnd,
-    count_changes,
+    count_changes_many,
     list_object_changes,
     list_relation_changes,
 )
-from ...engine.reads.snapshot_reads import change_set_context
+from ...engine.reads.snapshot_reads import change_set_context, change_set_contexts
 from ...engine.workspaces.catalogue import load_workspace
 from ...engine.workspaces.workspace_audit import record_change_set_validated
 from ...errors import ApiError, api_error
-from ...models.database import ChangeSet, ChangeSetSubmission, ModelRelease, Publication, Workspace
+from ...models.database import (
+    ChangeSet,
+    ChangeSetSubmission,
+    ModelRelease,
+    OAuthClient,
+    Publication,
+    User,
+    Workspace,
+)
 from ..access import (
     CHANGE_SET_PATH,
     PUBLICATION_PATH,
@@ -245,17 +253,35 @@ def list_own_change_sets(
         )
     }
     submissions = submission_responses(session, [item.id for item in page.items])
-    return OwnChangeSetPage(
-        items=[
-            OwnChangeSetResponse(
-                **_change_set_response(session, item, submissions).model_dump(),
-                workspaceLabel=labels[item.workspace_key],
-                changeCount=count_changes(session, change_set_context(session, item.id)),
+    # The releases and creators each response names, read once and held, so the session's identity
+    # map answers them (0.12 R).
+    held = [
+        *session.scalars(
+            select(ModelRelease).where(
+                ModelRelease.id.in_({item.model_release_id for item in page.items})
             )
-            for item in page.items
-        ],
-        **page.links(),
-    )
+        ),
+        *session.scalars(
+            select(User).where(User.id.in_({i.created_by_user_id for i in page.items} - {None}))
+        ),
+        *session.scalars(
+            select(OAuthClient).where(
+                OAuthClient.id.in_({i.created_by_client_id for i in page.items} - {None})
+            )
+        ),
+    ]
+    # The page's counts in one statement, not one per change set (0.12 R).
+    counts = count_changes_many(session, list(change_set_contexts(session, page.items).values()))
+    items = [
+        OwnChangeSetResponse(
+            **_change_set_response(session, item, submissions).model_dump(),
+            workspaceLabel=labels[item.workspace_key],
+            changeCount=counts[item.id],
+        )
+        for item in page.items
+    ]
+    del held
+    return OwnChangeSetPage(items=items, **page.links())
 
 
 @router.post(
@@ -274,12 +300,12 @@ def post_change_set(
     # a model-release one.
     if payload.modelReleaseId and not permissions.allows("model-release", workspace_key):
         raise forbidden("change-sets.model-release", ("model-release",), workspace_key)
+    active_release_id = load_assignment(session, workspace_key)[1].id
     selected = (
-        selected_change_set_release(session, str(payload.modelReleaseId))
+        selected_change_set_release(session, str(payload.modelReleaseId), kept=(active_release_id,))
         if payload.modelReleaseId
         else None
     )
-    active_release_id = load_assignment(session, workspace_key)[1].id
     if not selected:
         resolve_model_snapshot(session, workspace_key)
     return _change_set_response(
@@ -714,13 +740,11 @@ def post_change_set_submission(
 
 
 @router.delete("/change-sets/{change_set_id}/submission", status_code=status.HTTP_204_NO_CONTENT)
-@requires("change-sets.submit", at=CHANGE_SET_PATH)
-def delete_change_set_submission(
-    change_set_id: str, session: DbSession, permissions: CurrentPermissions
-) -> None:
+@requires("change-sets.withdraw", at=CHANGE_SET_PATH)
+def delete_change_set_submission(change_set_id: str, session: DbSession) -> None:
     """Withdraw a submission: the person who submitted it, or a holder of Approve publications.
     `409 NOT_SUBMITTED` when the change set is not submitted."""
-    approvals.withdraw_submission(session, change_set_id, permissions)
+    approvals.withdraw_submission(session, change_set_id)
 
 
 @router.post(

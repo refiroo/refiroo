@@ -181,6 +181,7 @@ function renderReview(route: Partial<ReviewRoute> = {}, reviewModel: EngineModel
 
 beforeEach(() => {
   vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    permissions: permissionsFixture("west"),
     api,
     changeSet,
     activeModelReleaseId: changeSet.modelReleaseId,
@@ -553,6 +554,60 @@ describe("ChangeSetReview decision (0.12 A3)", () => {
       }),
     );
     await waitFor(() => expect(onDecided).toHaveBeenCalledWith(expect.stringContaining("Publication 7")));
+  });
+
+  it("approves against the publication seen when the review loaded, not the latest at click time", async () => {
+    approver("u-boss");
+    const decide = vi.spyOn(api, "decideChangeSet").mockResolvedValue({ publicationNumber: 8 } as never);
+    const latest = vi
+      .spyOn(api, "latestPublication")
+      .mockResolvedValue({ items: [{ id: "pub-6", status: "active" } as never], nextCursor: null });
+    render(
+      <ChangeSetReview
+        model={model}
+        route={changeReviewFor("test-app", "west", "cs-1")}
+        onRouteChange={vi.fn()}
+        onAnchorChange={vi.fn()}
+        onOpenRecord={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "Decision" });
+    await waitFor(() => expect(latest).toHaveBeenCalled());
+    // Someone else published meanwhile: the approver's decision still names what they saw.
+    latest.mockResolvedValue({ items: [{ id: "pub-7", status: "active" } as never], nextCursor: null });
+    fireEvent.click(screen.getByRole("button", { name: "Approve and publish" }));
+    await waitFor(() =>
+      expect(decide).toHaveBeenCalledWith("cs-1", expect.objectContaining({ expectedActivePublicationId: "pub-6" })),
+    );
+  });
+
+  it("offers no decision on a change set that changed after it was submitted, only a reload", async () => {
+    const changed = { ...submitted, version: 5 };
+    approver("u-boss");
+    const refresh = vi.fn().mockResolvedValue(changed);
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      changeSet: changed,
+      warning: "",
+      refresh,
+      permissions: permissionsFixture("west", ["browse", "change-sets", "approve"]),
+    });
+    render(
+      <ChangeSetReview
+        model={model}
+        route={changeReviewFor("test-app", "west", "cs-1")}
+        onRouteChange={vi.fn()}
+        onAnchorChange={vi.fn()}
+        onOpenRecord={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText(/cannot be decided as submitted/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Approve and publish" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send back" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    expect(refresh).toHaveBeenCalled();
   });
 
   it("gives the submitter no buttons under a second-person policy", async () => {

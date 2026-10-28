@@ -3,7 +3,7 @@ import { formatServerTime } from "@/lib/dates";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { allows } from "@/features/security/permissions";
+import { holds } from "@/features/security/permissions";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { Publication } from "@/types";
 import { ActionMenu } from "@/ui/ActionMenu";
@@ -32,8 +32,8 @@ export function Publications({
   const feed = useCursorFeed((cursor) => api.publications(workspaceKey, cursor), [workspaceKey]);
   // A change set from a publication needs Work in change sets, a withdrawal Publish (0.12 Z5, D323).
   const { permissions } = useWorkspaceData();
-  const starts = !readOnly && allows(permissions, "change-sets");
-  const withdraws = !readOnly && allows(permissions, "publish");
+  const starts = !readOnly && holds(permissions, "change-sets");
+  const withdraws = !readOnly && holds(permissions, "publish");
   const [changeSetSource, setChangeSetSource] = useState<Publication>();
   const [withdrawing, setWithdrawing] = useState<Publication>();
   const [pending, setPending] = useState(false);

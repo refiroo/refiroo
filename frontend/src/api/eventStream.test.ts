@@ -48,4 +48,30 @@ describe("openEventStream (0.12 I2, D247)", () => {
     expect(vi.mocked(authorizedFetch).mock.calls.length).toBe(2);
     vi.useRealTimers();
   });
+
+  it("waits longer after each refusal, up to a minute, and starts short again once it connects", async () => {
+    vi.useFakeTimers();
+    const calls = () => vi.mocked(authorizedFetch).mock.calls.length;
+    vi.mocked(authorizedFetch).mockImplementation(async () => new Response("busy", { status: 503 }));
+    const stream = openEventStream("http://engine/events");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls()).toBe(1);
+    await vi.advanceTimersByTimeAsync(3100);
+    expect(calls()).toBe(2);
+    // The second wait is six seconds, the third twelve.
+    await vi.advanceTimersByTimeAsync(3100);
+    expect(calls()).toBe(2);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(calls()).toBe(3);
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(calls()).toBe(3);
+    vi.mocked(authorizedFetch).mockImplementation(async () => streamed(["event: job\ndata: {}\n\n"]));
+    await vi.advanceTimersByTimeAsync(6100);
+    expect(calls()).toBe(4);
+    // Connected: the next retry is three seconds away again.
+    await vi.advanceTimersByTimeAsync(3100);
+    expect(calls()).toBe(5);
+    stream.close();
+    vi.useRealTimers();
+  });
 });

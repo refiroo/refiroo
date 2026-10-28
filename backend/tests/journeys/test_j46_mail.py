@@ -292,6 +292,52 @@ def test_queued_mail_is_sent_in_the_background_and_retried(world, smtp):
     assert LINK not in json.dumps(ok(world.api.get("/mail-outbox")))
 
 
+@pytest.mark.journey("J46.3")
+def test_a_lease_that_runs_out_mid_send_does_not_send_the_message_twice(world, smtp):
+    """Given a queued message that a sender has leased and is handing to the mail server. When the
+    lease runs out while the server is slow and a second process runs its sender, then the second
+    one does not take the message (it is being sent) and the server receives it once."""
+    from app.engine.mail.sender import MailSender
+
+    _save(world, smtp)
+    start = datetime.now(UTC)
+    queue_mail(world, "ada@example.org", _reset_mail(), now=start)
+    app = world.api.client.app
+    first = app.state.mail_sender
+    second = MailSender(app.state.session_factory, app.state.identity_settings, owner="second")
+    taken: list[int] = []
+    leased, real = first.claim, first._try
+
+    def claim(now):
+        ids = leased(now)
+        # The lease runs out before the message is handed to the server.
+        _database_write(
+            world, "UPDATE mail_outbox SET lease_expires_at = lease_expires_at - interval '1 day'"
+        )
+        return ids
+
+    def slow(message, connection):
+        taken.append(second.run_once(start + timedelta(minutes=10)))
+        return real(message, connection)
+
+    first.claim, first._try = claim, slow
+    try:
+        assert send_mail(world, start) == 1
+    finally:
+        del first.claim, first._try
+    assert taken == [0]
+    assert len(smtp.messages) == 1
+    assert ok(world.api.get("/mail-settings"))["outbox"] == {"pending": 0, "sent": 1, "failed": 0}
+
+
+def _database_write(world, statement: str) -> None:
+    from sqlalchemy import text
+
+    with world.api.client.app.state.session_factory() as session:
+        session.execute(text(statement))
+        session.commit()
+
+
 @pytest.mark.journey("J46.4")
 def test_mail_that_cannot_be_sent_is_given_up_with_its_reason(world, smtp):
     """Given a message for an address the server refuses for good and one that waits on a server

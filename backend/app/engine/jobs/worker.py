@@ -28,8 +28,9 @@ refusal of the context (a retired workspace, a lost change set claim) fails it w
 Any other error rolls the chunk back and fails the job with ``JOB_FAILED`` (D29). Items without an
 outcome then become ``unprocessed`` with the stop's reason; chunks committed before stay applied.
 
-**Retention.** The worker expires finished jobs past ``expiresAt`` every hour (D14, D30), and
-removes the job files no completed job serves any more (``files.py``).
+**Retention.** The worker expires finished jobs past ``expiresAt`` every hour (D14, D30), deletes
+inbox notices older than 90 days (0.12 NT1), and removes the job files no completed job serves any
+more (``files.py``).
 
 **Imports** (Base 0.9 J2, D73) run on the batch worker. An import's first step binds its file
 (``imports/binding.py``): its rejected rows become its first outcomes and its items its inputs, in
@@ -81,6 +82,7 @@ from ..imports.binding import ImportLimits, bind_import
 from ..model import change_set_migrations, migrations
 from ..moves import move_job, move_load
 from ..moves.mapping_inference import run_inference as run_mapping_inference
+from ..notifications import inbox
 from ..sources.dry_run import (
     book_opener,
     dry_run_context,
@@ -262,12 +264,13 @@ class JobWorker:
 
     def sweep(self, now: datetime | None = None) -> int:
         """Expire finished jobs past their retention, delete source files superseded longer ago
-        (0.10 A3, D5) and remove the files no job or source file serves any more; the number of
-        jobs expired."""
+        (0.10 A3, D5), delete inbox notices past theirs (0.12 NT1, D465) and remove the files no
+        job or source file serves any more; the number of jobs expired."""
         now = now or datetime.now(UTC)
         with self.session_factory() as session:
             expired = expire_jobs(session, now)
             superseded_files = expire_superseded(session, now, self.settings.retention_days)
+            inbox.expire(session, now)
             session.commit()
             if self.files is not None:
                 for source_file_id in superseded_files:

@@ -96,7 +96,9 @@ errors explicit and machine-readable.
 - When a migration or startup path changes, test clean bootstrap, upgrade from the preceding revision,
   restart, and recovery or actionable refusal after an interrupted migration. Exercise the FastAPI
   lifespan against a real temporary database and perform a final smoke start against the configured
-  development database or an isolated copy of it.
+  development database or an isolated copy of it. Before 1.0, upgrades from older revisions,
+  downgrades and interrupted migrations have no standing tests (the user, 2026-10-23: no instance
+  runs an older version); a release's R checks the upgrade from the previous release once.
 - Validation reports must state what was actually exercised and any remaining limitations. Never use
   a broad claim such as “the application works” based only on passing unit or fixture-level tests.
 

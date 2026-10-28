@@ -35,6 +35,7 @@ import { OutcomeCards } from "@/ui/OutcomeCards";
 import { RouteLink } from "@/ui/RouteLink";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
+import { useSubjectSeen } from "@/features/inbox/useInbox";
 
 const ROWS_PAGE = 50;
 const NOT_KEPT = "";
@@ -214,6 +215,8 @@ export function MigrationPage({
       active = false;
     };
   }, [jobId]);
+  // The migration's notices are read while its page is open (0.12 NT1).
+  useSubjectSeen(job?.id);
   useJobStream(job && !isResting(job) ? job.id : undefined, (next) => {
     setJob(next);
     // The workspace runs the target now: the shell forgets the model it held for it (D49). A change

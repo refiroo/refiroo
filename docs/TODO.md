@@ -994,3 +994,31 @@ Each becomes work only if the user decides it is needed.
   landmark so their dismiss controls are not stray page content.
 - [x] WP1-002: the child/relation table regions have distinct accessible labels since Base 0.8 S5
   (each panel names its scrolling region); the gate's exception matched nothing and was removed in S7.
+- [ ] **Flake (0.12 R, 2026-10-27):** Vitest `ModelReleaseDetail.test.tsx` "explains a first release and compares
+  against an explicitly chosen baseline" failed once in three runs (7 ms) and passed on the others; also
+  `RelationMatrixView.test.tsx` once (R's frontend fixes). Recorded by D447, not a release block.
+
+## From 0.12 R (2026-10-28)
+
+- [ ] **Harness ceiling:** the full backend suite took 19 min 15 s against the 11-minute ceiling (`-n 6`, load near
+  6 with other sessions; 0.11's took 10 min 51 s). Find the slow growth (the run's list of tests over 10 s is in R's
+  record) and bring it back under the ceiling.
+- [ ] **Recorded by the user's decision (R amendment):** the instance-wide cap on open passkey ceremonies (no
+  per-address count); the approval policy read without a lock (a switch applies from the next publish); settings
+  pages opened by a typed address show the engine's refusal; Home's full-reload fallback when the model cannot be
+  read; the 90-day notification prune inside each insert (since moved to the worker's periodic run by NT1,
+  D465).
+- [ ] **Decided within R:** open provider sign-ins are capped per provider (2,000), not per address, which would need
+  an address column and a migration.
+- [ ] **Lists still on `useCursorFeed`:** a group's members (a provider group can be large), the grants on a person's
+  or client's page (grouped in the browser; windowing needs a grouped read on the server), signing keys (one per
+  rotation, bounded).
+- [ ] `dp3-deployment` sets `NODE_TLS_REJECT_UNAUTHORIZED=0` for its whole process (scoping it needs `undici`, not a
+  declared dependency).
+- [ ] `tests/unit/engine/identity/test_provider_client.py` patches private names; the client has no public HTTP seam.
+- [ ] **Flake (0.12 R step 3, 2026-10-28):** `test:browser:changes` (Z6) once did not find the person's button in a
+  record's history, then passed unchanged. Recorded by D447.
+- [ ] **Basics (0.12 R step 9):** publishing 200 records took 1.08 s as an owner narrowed to one application against
+  0.27 s for one holding the whole workspace (2,000: 3.7 s against 2.6 s); the narrowed run came second, on a larger
+  workspace. Separate the narrowing's cost from the size's with one paired measurement, and look at the narrowed
+  publish's statements if it is the narrowing.

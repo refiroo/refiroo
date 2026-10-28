@@ -759,9 +759,8 @@ def patch_change_set_attribute(
     base = lookup.object(object_id)
     if base is None:
         raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found in change set")
-    row = writes.stored_object(object_id)
-    if row is None:
-        row = writes.own_object(base, flush=True)
+    # ``own_object`` permits the record's type whether or not the change set already holds a row.
+    row = writes.own_object(base, flush=True)
     require_record_version(expected_record_version, row.version, "Object record")
     model = change_set_model(session, change_set)
     normalized = stored_attributes(
@@ -802,9 +801,8 @@ def delete_change_set_attribute(
     base = lookup.object(object_id)
     if base is None:
         raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found in change set")
-    row = writes.stored_object(object_id)
-    if row is None:
-        row = writes.own_object(base, flush=True)
+    # ``own_object`` permits the record's type whether or not the change set already holds a row.
+    row = writes.own_object(base, flush=True)
     require_record_version(expected_record_version, row.version, "Object record")
     model = change_set_model(session, change_set)
     object_type = model.object_type(row.object_type_key)

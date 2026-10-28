@@ -184,6 +184,12 @@ ACTIONS: dict[str, Action] = {
             doing="Submitting a change set",
         ),
         Action(
+            "change-sets.withdraw",
+            ("change-sets", "approve"),
+            "Withdraw a change set's submission: the person who submitted it, or an approver",
+            doing="Withdrawing a submission",
+        ),
+        Action(
             "change-sets.decide",
             ("approve",),
             "Approve a submitted change set, which publishes it, or send it back",

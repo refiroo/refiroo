@@ -1,10 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import { createChangeSetClient } from "@/api/changeSetClient";
 import { createPublicationClient } from "@/api/publicationClient";
 import { setExpectedRelease } from "@/api/expectedRelease";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { EngineModel, ChangeSet, MyPermissions, Publication } from "@/types";
+import { useInbox } from "@/features/inbox/useInbox";
 import { allowNavigation } from "@/routing/navigationGuard";
 import {
   ALL_WRITES,
@@ -225,6 +226,16 @@ function LoadedChangeSet({
       window.removeEventListener("focus", check);
     };
   }, [changeSetId]);
+  // The change set follows its request: a notice about it (arrived, or opened at this address) means the
+  // submission may have moved, a decision sent back or given, so it is read again.
+  const { touched } = useInbox(false);
+  const lastTouch = useRef(touched?.count ?? 0);
+  useEffect(() => {
+    if (!touched || touched.count === lastTouch.current) return;
+    lastTouch.current = touched.count;
+    if (touched.subjectId === changeSetId) void refresh().catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [touched, changeSetId]);
   useEffect(() => {
     setExpectedRelease(pinned);
     return () => setExpectedRelease(undefined);

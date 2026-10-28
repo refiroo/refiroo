@@ -26,7 +26,7 @@ describe("Settings › Notifications (0.12 M2 and its follow-up)", () => {
     vi.mocked(api.myNoticeMail).mockResolvedValue(available);
     vi.mocked(api.setMyNoticeMail).mockResolvedValueOnce({ ...available, enabled: true });
     render(<NotificationsPage />);
-    expect(await screen.findByRole("heading", { name: "Notifications" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Notification email" })).toBeInTheDocument();
     const toggle = await screen.findByRole("switch", { name: label });
     expect(toggle).toHaveAttribute("aria-checked", "false");
     expect(screen.getByText(/sent to ana@example.org/)).toBeInTheDocument();

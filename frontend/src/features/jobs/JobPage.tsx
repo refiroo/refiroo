@@ -51,6 +51,7 @@ import {
 } from "./BatchOutcome";
 import { RESULT, STATE, cancellable, fileSize } from "./jobText";
 import { isResting, useJobStream } from "./useJobStream";
+import { useSubjectSeen } from "@/features/inbox/useInbox";
 
 const FORMAT_NAMES = { jsonl: "JSON Lines", csv: "CSV", xlsx: "Excel (XLSX)" } as const;
 
@@ -93,6 +94,8 @@ export function JobPage({
   }, [jobId, attempt]);
   // While the job runs, its changes arrive over its stream; a waiting preview is not followed.
   useJobStream(job && !isResting(job) ? jobId : undefined, setJob);
+  // The person is looking at the job: its notices are read, and one made while here (0.12 NT1).
+  useSubjectSeen(jobId);
 
   async function confirm() {
     setPending(true);

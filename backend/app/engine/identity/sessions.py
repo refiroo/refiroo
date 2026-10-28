@@ -37,6 +37,11 @@ EndReason = Literal[
     "identityUnlinked",
 ]
 
+# A used refresh token presented again within this long of its use renews from its successor once
+# (OAuth providers' "reuse interval"): a reload that moves on at once can cancel the renewal after
+# the engine rotated the token but before the browser kept the new cookie.
+REFRESH_REUSE_GRACE = timedelta(seconds=30)
+
 _KEYS = (integer_key("sequenceId", UserSession.id, "id"),)
 
 
@@ -149,7 +154,9 @@ def renew(
     session: Session, settings: IdentitySettings, refresh_token: str, now: datetime
 ) -> Renewed:
     """Use a refresh token once: the session goes on with a new one. A used token presented again
-    ends its session (D251); so does one presented after the session lapsed. Commits either way."""
+    ends its session (D251), except within ``REFRESH_REUSE_GRACE`` of its use while its successor is
+    unused: then the session renews from the successor. A token presented after the session lapsed
+    also ends it. Commits either way."""
     row = session.execute(
         select(SessionRefreshToken, UserSession, User)
         .join(UserSession, UserSession.id == SessionRefreshToken.session_id)
@@ -161,9 +168,26 @@ def renew(
         raise SessionRefused
     token, user_session, user = row
     if token.used_at is not None:
-        end(user_session, "reused", now)
-        session.commit()
-        raise SessionRefused
+        # The successor is the session's next token: renewing issues it as the token is used.
+        successor = (
+            session.scalar(
+                select(SessionRefreshToken)
+                .where(
+                    SessionRefreshToken.session_id == user_session.id,
+                    SessionRefreshToken.id > token.id,
+                )
+                .order_by(SessionRefreshToken.id)
+                .limit(1)
+                .with_for_update()
+            )
+            if now - token.used_at <= REFRESH_REUSE_GRACE and is_open(user_session, now)
+            else None
+        )
+        if successor is None or successor.used_at is not None:
+            end(user_session, "reused", now)
+            session.commit()
+            raise SessionRefused
+        token = successor
     if not is_open(user_session, now) or not user.active:
         end(user_session, "expired" if user.active else "deactivated", now)
         session.commit()

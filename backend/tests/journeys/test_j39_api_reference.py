@@ -8,7 +8,7 @@ none. Every case runs on two configurations through the public API, as the page 
 """
 
 import pytest
-from scenario import ok
+from scenario import ok, refused
 from test_j39_sign_in import _bearer, _browser, _me, _person, _renew, _revoked, _sign_in
 
 
@@ -50,9 +50,9 @@ def test_the_console_shows_what_the_person_may_do(world):
     token = ok(_console_token(browser))["access_token"]
 
     assert world.api.client.get("/api/v1/me", headers=_bearer(token)).status_code == 200
-    assert world.api.client.get("/api/v1/users", headers=_bearer(token)).status_code == 403
-    assert (
-        world.api.client.post("/api/v1/users", json={}, headers=_bearer(token)).status_code == 403
+    refused(world.api.client.get("/api/v1/users", headers=_bearer(token)), 403, "FORBIDDEN")
+    refused(
+        world.api.client.post("/api/v1/users", json={}, headers=_bearer(token)), 403, "FORBIDDEN"
     )
 
 

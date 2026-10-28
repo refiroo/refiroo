@@ -9,15 +9,17 @@
  * as worded.
  */
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { errorMessage, isApiError, refusalMessage } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import { formatServerDayTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
+import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { routePath } from "@/routing/routes";
 import type { Group, GroupMember, RouteState, SettingsRoute, SignInProvider } from "@/types";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
+import { CatalogueWindow } from "@/ui/CatalogueWindow";
 import { Choice } from "@/ui/Choice";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Icon } from "@/ui/Icon";
@@ -45,17 +47,11 @@ const members = (count: number) => `${count} member${count === 1 ? "" : "s"}`;
 const memberLine = (group: Group) =>
   group.source ? (group.members ? `${group.members} seen` : "Nobody seen yet") : members(group.members);
 
-/** The loaded groups, local first, then each provider's under its name, in the order loaded. */
-export function groupsBySource(groups: readonly Group[]): { label: string; groups: Group[] }[] {
-  const sections = new Map<string, { label: string; groups: Group[] }>();
-  sections.set("", { label: "Local", groups: [] });
-  for (const group of groups) {
-    const key = group.source?.provider.key ?? "";
-    if (!sections.has(key)) sections.set(key, { label: `From ${group.source?.provider.name}`, groups: [] });
-    sections.get(key)?.groups.push(group);
-  }
-  return [...sections.values()].filter((section) => section.groups.length);
-}
+/** Where a group comes from, for its entry: a provider's groups name the provider (D364). */
+const sourceLine = (group: Group) => (group.source ? `From ${group.source.provider.name} · ` : "");
+
+/** Groups read in a page of this size. */
+const CATALOGUE_PAGE = 50;
 
 export function GroupsPage({ route, onNavigate }: { route: GroupsRoute; onNavigate: (route: RouteState) => void }) {
   const [search, setSearch] = useState("");
@@ -64,45 +60,32 @@ export function GroupsPage({ route, onNavigate }: { route: GroupsRoute; onNaviga
   const [renamed, setRenamed] = useState(0);
   const newButtonRef = useRef<HTMLButtonElement>(null);
   const q = useDebouncedValue(search.trim());
-  const feed = useCursorFeed((cursor) => security.groups({ q, cursor }), [q]);
+  const list = useCursorWindow<Group>((selector) => security.groups({ q, ...selector, pageSize: CATALOGUE_PAGE }), [q]);
   const toast = useToast();
 
-  const changed = (group: Group) =>
-    feed.setItems((items) => items.map((item) => (item.id === group.id ? group : item)));
+  const changed = () => list.reload();
 
   const catalogue = (
     <nav className="model-catalogue security-catalogue" aria-label="Groups">
       <section>
         <SearchField label="Search groups" placeholder="Group name" value={search} onChange={setSearch} clearOnEscape />
-        {groupsBySource(feed.items).map((section, _, sections) => (
-          <Fragment key={section.label}>
-            {(sections.length > 1 || section.groups[0].source) && <h2 className="nav-label">{section.label}</h2>}
-            {section.groups.map((group) => (
-              <CatalogueEntry
-                key={group.id}
-                icon="users"
-                title={group.name}
-                subtitle={group.description ? `${memberLine(group)} · ${group.description}` : memberLine(group)}
-                current={route.groupId === group.id}
-                onSelect={() => onNavigate({ ...GROUPS, groupId: group.id })}
-              />
-            ))}
-          </Fragment>
-        ))}
-        {feed.loading && !feed.items.length && <p className="explorer-empty">Loading groups…</p>}
-        {!feed.loading && !feed.error && !feed.items.length && (
-          <p className="explorer-empty">{q ? `No group matches “${q}”.` : "No groups yet."}</p>
-        )}
-        {feed.error && (
-          <div className="catalogue-error">
-            <InlineError message={feed.error} onRetry={feed.retry} />
-          </div>
-        )}
-        {feed.hasMore && (
-          <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-            Load more groups
-          </button>
-        )}
+        <CatalogueWindow
+          list={list}
+          label="Groups"
+          noun={["group", "groups"]}
+          pageSize={CATALOGUE_PAGE}
+          loadingText="Loading groups…"
+          emptyText={q ? `No group matches “${q}”.` : "No groups yet."}
+          entry={(group) => (
+            <CatalogueEntry
+              icon="users"
+              title={group.name}
+              subtitle={`${sourceLine(group)}${memberLine(group)}${group.description ? ` · ${group.description}` : ""}`}
+              current={route.groupId === group.id}
+              onSelect={() => onNavigate({ ...GROUPS, groupId: group.id })}
+            />
+          )}
+        />
       </section>
     </nav>
   );
@@ -133,7 +116,7 @@ export function GroupsPage({ route, onNavigate }: { route: GroupsRoute; onNaviga
             onChanged={changed}
             onDeleted={(group) => {
               toast(`The group ${group.name} was deleted. Its roles no longer apply to its members.`);
-              feed.reload();
+              list.reload();
               onNavigate(GROUPS);
             }}
           />
@@ -151,11 +134,11 @@ export function GroupsPage({ route, onNavigate }: { route: GroupsRoute; onNaviga
           onSaved={(group, created) => {
             setEditing(undefined);
             if (created) {
-              feed.reload();
+              list.reload();
               onNavigate({ ...GROUPS, groupId: group.id });
               toast(`The group ${group.name} was created. Add members and grant it a role.`);
             } else {
-              changed(group);
+              changed();
               setRenamed((count) => count + 1);
               toast("Saved.");
             }

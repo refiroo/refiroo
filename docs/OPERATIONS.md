@@ -396,6 +396,10 @@ token presented a second time ends the session, since only a copy can do that.
   (`sign_in_failed`, with the username and address). Behind a proxy, the address is the proxy's
   unless uvicorn trusts it to forward the caller's (`--forwarded-allow-ips` with
   `--proxy-headers`); without that, every person shares the proxy's address and its count of 20.
+  The same slowing counts a wrong current password at `POST /me/password`, a wrong proof when adding a
+  passkey, a failed passkey answer, and a wrong client secret at `/oauth/token` (per client ID and per
+  address; an ID that is no client costs the same work). Open provider sign-in starts are capped at 2,000 at
+  once per provider (`429` page until they lapse after ten minutes) (0.12 R).
 
 ### Signing in with the organisation's provider
 
@@ -612,6 +616,12 @@ Startup refuses to serve, logs what to do and answers `GET /health` with `503` w
 
 `/health` also returns `503` when an activation committed but this process could not load the newly
 selected release. Restart the process; it then loads the database selection.
+
+A process that started with no workspace it could serve does not need a restart once the releases are
+raised: raising a release through the API (`POST /model-releases/{id}/raising`), here or in another process,
+makes it ready at the next `/health` probe or heartbeat, and only then does it start the job worker, the
+exporter, the job listener, the event deriver and the webhook dispatcher (0.12 R, R-F9). A process that
+starts with at least one servable workspace starts them at once, as before.
 
 While the service runs, `/health` asks the database each time: while the database is unreachable it
 answers `503`, and requests answer `503 DATABASE_UNAVAILABLE` with `details.reason` `unreachable`
@@ -1028,6 +1038,21 @@ To roll back model content, activate a previously installed compatible release. 
 compatibility check applies in both directions, so a rollback is refused when current data would be
 invalid under the older release. Never edit installed release JSON or point `RDM_MODEL_PATH` at an
 older file.
+
+**Clearing out old releases.** A release that should no longer be chosen is retired (Settings › Model › the
+release › Retire, or `PATCH /api/v1/model-releases/{releaseId}`): it disappears from every model picker,
+and the workspaces running it keep working. A release nothing refers to (no workspace runs it, and no
+record, change set, publication, job, import profile or mapping was made under it) can be deleted there too.
+To delete many at once, run in the backend directory:
+
+```bash
+.venv/bin/python -m app.cli.model_release_prune --dry-run   # list what would go
+.venv/bin/python -m app.cli.model_release_prune             # delete the retired releases nothing refers to
+.venv/bin/python -m app.cli.model_release_prune --unused    # also the active ones nothing refers to
+```
+
+It works in one transaction under the installation lock and may run while the service runs; exit status 0.
+Drafts started from a deleted release stay, without the link.
 
 ## Upgrades
 

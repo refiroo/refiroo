@@ -744,6 +744,15 @@ class LocalSignInUpdate(BaseModel):
     secondFactorRequired: bool | None = None
 
 
+class PasskeyRegistrationStart(BaseModel):
+    """What the Add a passkey page posts to start the ceremony: the person's password, or a code
+    from the authenticator app or a recovery code, as removing a passkey asks (0.12 R, R-F5)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    proof: str | None = Field(default=None, max_length=200)
+
+
 class PasskeyRegistration(BaseModel):
     """What the engine's Add a passkey page posts: the ceremony's token, the credential the browser
     created and the name the person gave it (0.12 I4c)."""

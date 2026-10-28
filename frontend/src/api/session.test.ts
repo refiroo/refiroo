@@ -137,6 +137,17 @@ describe("the browser's session (0.12 I2)", () => {
     expect(go).not.toHaveBeenCalled();
   });
 
+  it("treats an engine that fails or is busy as out of reach, not as the session's end", async () => {
+    for (const status of [500, 503, 429]) {
+      const session = await load();
+      const go = vi.spyOn(session.browserNavigation, "go");
+      fetchMock.mockReset();
+      fetchMock.mockResolvedValueOnce(new Response("{}", { status }));
+      await expect(session.startSession()).rejects.toThrow();
+      expect(go).not.toHaveBeenCalled();
+    }
+  });
+
   it("signs out by opening the engine's sign-out address, returning to the app", async () => {
     const session = await load();
     const go = vi.spyOn(session.browserNavigation, "go").mockImplementation(() => undefined);

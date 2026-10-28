@@ -1052,12 +1052,21 @@ lookup (J36.7) has no screen; migrating a workspace's data is J37.
   built the request on (`X-Expected-Model-Release-Id`); when the workspace, or the change set, now
   resolves another release, the request is refused and nothing is saved; the browser offers to
   reload. Without the header a write is checked against the current release, as before.
+- **J36.10 Retire a release** (0.12 MR1): a release that should no longer be used is retired; it is
+  no longer offered or accepted where a release is chosen (a new workspace, an activation, a
+  migration, a change set elsewhere), while the workspaces and change sets on it keep working; it can
+  be brought back, and installing its exact model again brings it back. The default workspace's release
+  is not retired.
+- **J36.11 Delete a release nothing refers to** (0.12 MR1): a release no workspace runs and nothing
+  was made under is deleted, its drafts kept; one in use says why it is not (`running`, `history`,
+  `importProfile`, `mapping`). An operator deletes every retired one at once with `model_release_prune`.
 
 **Refusals:** `409 ACTIVATION_CONFLICT`, `409 MODEL_MIGRATION_REQUIRED` (this workspace's data only),
 `409 MODEL_RELEASE_CHANGED`, `409 CHANGE_SET_MODEL_RELEASE_CONFLICT`,
 `422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, `422 COUNTERPARTS_ACROSS_MODELS`,
 `422 IMPORT_PROFILE_MODEL_MISMATCH`,
-`503 MODEL_REGISTRY_UNAVAILABLE` naming the workspace.
+`503 MODEL_REGISTRY_UNAVAILABLE` naming the workspace; `409 MODEL_RELEASE_RETIRED`,
+`409 MODEL_RELEASE_IS_DEFAULT`, `409 MODEL_RELEASE_IN_USE`, `409 MODEL_RELEASE_VERSION_CONFLICT` (J36.10–J36.11).
 
 **Evidence today:** `tests/journeys/test_j36_workspace_models.py` (7 cases, generated A beside B and
 B beside A); `tests/journeys/test_j36_workspace_resources.py` (5 cases, M3: a workbook's new model in
@@ -1070,7 +1079,8 @@ change-set write naming a release no longer resolved, the other workspace's writ
 upgrade of a 0.10.0 database in `test_startup`; in the browser `test:browser:workspace-m5` and the
 composed walk `test:browser:workspace-m6` (M6: two models installed from the editor into new
 workspaces, records, change sets and publications in each, a release changed in one, a stale page's
-save refused).
+save refused); `tests/journeys/test_j36_10_release_lifecycle.py` (J36.10–J36.11, 5 cases on generated A and
+B: retired and not chosen, the refusals, installed again, deleted and in use, the prune command).
 
 ### J37 — Move a workspace to another release
 
@@ -1118,6 +1128,53 @@ through the API and at startup).
   the workspace's row in Settings › Workspaces and the top of its Overview say why; those who may not install
   models read a sentence asking for the Model administrator role, and after a raise "Open" and "Choose
   another model…" follow.
+
+A record the migrated data would break a rule of the target for is refused, and the migration
+cannot be confirmed until the data is fixed and previewed again.
+
+**Refusals:** `409 MIGRATION_REVIEW_STALE`, `409 MIGRATION_HAS_REFUSALS`,
+`422 MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE`, `404 CHANGE_SET_NOT_FOUND`,
+`422 MIGRATION_LOSS_NOT_ACCEPTED`, `422 INVALID_MIGRATION_MAPPING`,
+`422 MIGRATION_TARGET_IS_CURRENT`, `422 MIGRATION_TARGET_NOT_WORKSPACE_RELEASE`, `422 UNSUPPORTED_SCHEMA_VERSION`, `409 WORKSPACE_RETIRED`; the
+job's `MIGRATION_FAILED`.
+
+**Evidence today:** `tests/journeys/test_j37_workspace_migration.py` (7 cases, generated A and B,
+each with a target release derived in the test: a preview, a confirmation with and without
+accepting the loss, a type mapping, cancel, stale reviews, refusals, a failed execution);
+`tests/journeys/test_j37_6_change_set_release.py` (J37.6: 6 cases on generated A and B, a change
+set from an older publication published with the migration, a stale change set, a publication
+refused in the preview, the start refusals, a failed publication); in the browser
+`test:browser:workspace-v1` case 6 (the change set bar's offer, the page, Migrate and publish, on both
+configurations);
+`tests/journeys/test_j37_7_change_set_moved.py` (J37.7: 8 cases on generated A and B, a change set
+left on the release its workspace ran: the preview, the confirmation and its publication afterwards,
+a type mapping, a conflict with live data, a rule refused until fixed, stale and cancelled previews,
+the start refusals, a failed move); in the browser `test:browser:workspace-v1` case 7 (the bar's
+offer, the page, Move change set, on both configurations);
+`tests/unit/engine/model/test_change_set_migrations.py` (the conflicts by content, the index
+statement);
+`tests/unit/engine/model/test_migrations.py` (the plan, the conversions against the import's reading
+of a cell, an executed migration leaving the matrix cell states true); the upgrade in
+`test_startup`; in the browser `test:browser:workspace-v1` (generated-a and generated-b: the
+preview from the activation dialog, a type mapped from the page, the confirmation by keyboard,
+refusals, a stale review, 390px); the budget `test_migration_budget` (100,000 records, once).
+
+### J38 — Move data between workspaces whose models differ
+
+**Actor:** model administrator; data steward. **Channel:** UI (the move editor), API.
+**Stories:** US-P09. **Status:** J38.1 delivered through the API (0.11 X1); the selection and the
+dry run of every item delivered through the API (0.11 X2); the move into change sets, copy or move,
+found again and moved back, delivered through the API (0.11 X3); the move editor delivered in the
+browser (0.11 X4); the checkpoint at full volume planned (0.11 X5).
+
+1. Open a mapping from the source workspace's model to the target's; the engine proposes it and the
+   user completes it.
+2. Choose what moves and read the dry run of every item: what is created, updated, and what cannot
+   move with the reason.
+3. Copy or move into a change set of the target workspace, review it and publish it.
+
+**Variants:**
+
 - **J38.1 The mapping proposed and completed**: proposals with evidence placed as editable steps,
   corrected by hand, undone and redone, saved and reused. Records are matched by the unique attribute
   whose values the two workspaces share, of any value type.

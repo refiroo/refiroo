@@ -1,5 +1,5 @@
 // 0.12 SP1 browser evidence: Settings › Security against a real backend, on two models (the
-// starter, and the starter under another product name), at 1440px and 390px, light and dark. As the
+// starter, and the differently shaped journey configuration generated-b), at 1440px and 390px, light and dark. As the
 // harness person (Security administrator): create a person and copy their one-time link; they set a
 // password through it and sign in; grant them Data steward in the default workspace narrowed to one
 // record type of that workspace's model; make a group, add them to it and grant it Reader in a second
@@ -11,10 +11,9 @@
 // did what, and a record changed by a client names it in the record's history.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { bootHarness } from "./helpers/harness.mjs";
+import { SHAPED_MODELS, bootShaped, startingPoint } from "./helpers/shaped-models.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 
-const MODELS = [{ name: "starter" }, { name: "renamed", product: "Northfield Reference Data" }];
 const SECOND = { key: "field-stations", label: "Field stations" };
 
 const checks = [];
@@ -30,21 +29,29 @@ async function axe(page, name) {
   checks.push(`axe ${name}: ${result.violations.length} violations`);
 }
 
+/**
+ * In an open picker, leaves exactly the options matching `name` ticked (the default workspace is chosen
+ * for the person already), and is done.
+ */
+async function chooseOnly(page, name) {
+  const options = page.getByRole("option");
+  await options.first().waitFor();
+  for (const option of await options.all()) {
+    const wanted = name.test((await option.getAttribute("aria-label")) ?? (await option.innerText()));
+    if (((await option.getAttribute("aria-selected")) === "true") !== wanted) await option.click();
+  }
+  await page.getByRole("button", { name: "Done" }).click();
+}
+
 async function walk(configuration) {
-  const harness = await bootHarness({
-    transformModel: configuration.product
-      ? (model) => {
-          model.product.name = configuration.product;
-        }
-      : undefined,
-  });
+  const harness = await bootShaped(configuration);
   try {
     const { uiUrl, api, output, browser, signedOutContext, harnessIdentity } = harness;
     const tag = configuration.name;
     const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     const shot = (page, name) => page.screenshot({ path: resolve(output, `${tag}-${name}.png`), fullPage: true });
     await api("/workspaces", SECOND, "POST");
-    const [recordType] = (await api("/object-types?workspaceKey=default")).items;
+    const { type: recordType } = await startingPoint(api);
     const lena = { username: `lena-${tag}`, name: `Lena ${tag}`, password: "a passphrase for lena here" };
 
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -99,6 +106,7 @@ async function walk(configuration) {
     await lenaPage.getByLabel("New password", { exact: true }).fill(lena.password);
     await lenaPage.getByLabel(/again|Repeat/i).fill(lena.password);
     await lenaPage.getByRole("button", { name: /Set password/i }).click();
+    await lenaPage.getByText(/Your password is set/).waitFor();
     checks.push(`${tag}: the person sets a password through the link`);
 
     // 3. Grant Data steward in the default workspace, narrowed to one record type; by keyboard into the
@@ -137,10 +145,11 @@ async function walk(configuration) {
     );
     await grantButton.click();
     dialog = page.getByRole("dialog", { name: `Grant ${lena.name} access` });
-    await dialog.getByRole("button", { name: /Role$/ }).click();
-    await page.getByRole("option", { name: /^Data steward/ }).click();
+    await dialog.getByRole("checkbox", { name: "Data steward" }).check();
+    await dialog.getByRole("button", { name: "Add workspace" }).click();
+    await chooseOnly(page, /^Default/);
     await dialog.getByText("Only these applications and record types").click();
-    await dialog.getByRole("button", { name: "Add" }).click();
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await page.getByRole("searchbox", { name: /Search applications and record types/i }).fill(recordType.name);
     await page
       .getByRole("option", { name: new RegExp(`^${recordType.name}`) })
@@ -206,8 +215,9 @@ async function walk(configuration) {
     checks.push(`${tag}: a member added from a search and a pasted list (an unknown line said so), together`);
     await page.getByRole("button", { name: "Grant", exact: true }).click();
     dialog = page.getByRole("dialog", { name: "Grant Curators access" });
-    await dialog.getByRole("button", { name: /Workspace$/ }).click();
-    await page.getByRole("option", { name: new RegExp(SECOND.label) }).click();
+    await dialog.getByRole("checkbox", { name: "Reader" }).check();
+    await dialog.getByRole("button", { name: "Add workspace" }).click();
+    await chooseOnly(page, new RegExp(SECOND.label));
     await dialog.getByText(`Curators will read everything in ${SECOND.label}.`).waitFor();
     await dialog.getByRole("button", { name: "Grant", exact: true }).click();
     await page
@@ -300,19 +310,24 @@ async function walk(configuration) {
     checks.push(`${tag}: a custom role copied from Data steward, Publish unticked in place`);
 
     // 7. The workspace's Access lists the grants; removing one there.
-    await page.goto(`${uiUrl}/settings/workspaces/default`);
+    await page.goto(`${uiUrl}/settings/workspaces/default/access`);
     const access = page.getByRole("region", { name: "Access" });
-    await access
-      .getByRole("row", { name: new RegExp(`${lena.name}.*Data steward.*${recordType.name}.*This workspace`) })
+    // Each person, group or client is one row of the list (a list item), the roles its chips.
+    const rowOf = (text) => access.getByRole("listitem").filter({ hasText: text });
+    await rowOf(new RegExp(`${lena.name}[\\s\\S]*Data steward[\\s\\S]*writes: ${recordType.name}`))
+      .first()
       .waitFor();
-    await access
-      .getByRole("row", { name: /Whole instance/ })
+    await rowOf(/whole instance/)
       .first()
       .waitFor();
     await shot(page, "access");
     await axe(page, `${tag}-access`);
     await access.getByRole("button", { name: `Remove Data steward from ${lena.name}` }).click();
-    await access.getByRole("row", { name: new RegExp(`${lena.name}.*Data steward`) }).waitFor({ state: "detached" });
+    await page
+      .getByRole("alertdialog", { name: `Remove Data steward from ${lena.name}?` })
+      .getByRole("button", { name: "Remove", exact: true })
+      .click();
+    await rowOf(new RegExp(`${lena.name}[\\s\\S]*Data steward`)).waitFor({ state: "detached" });
     checks.push(`${tag}: a workspace's Access lists who can do what and removes a grant`);
 
     // 7b. A client's consumer API grant (0.12 Z3) is listed in Access by the API's name, and
@@ -326,19 +341,24 @@ async function walk(configuration) {
     });
     await page.reload();
     const held = `Consumer API: ${consumerApi.name}`;
-    await access.getByRole("row", { name: new RegExp(`${sync.name}.*Client.*${held}.*This workspace`) }).waitFor();
+    await rowOf(new RegExp(`${sync.name}[\\s\\S]*Client[\\s\\S]*${held}`))
+      .first()
+      .waitFor();
     await shot(page, "access-consumer-api");
     await axe(page, `${tag}-access-consumer-api`);
     const narrowAccess = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
     const accessPhone = await narrowAccess.newPage();
-    await accessPhone.goto(`${uiUrl}/settings/workspaces/default`);
+    await accessPhone.goto(`${uiUrl}/settings/workspaces/default/access`);
     await accessPhone.getByRole("region", { name: "Access" }).getByText(held).waitFor();
     expect((await overflow(accessPhone)) <= 0, `${tag}: Access scrolls sideways at 390px`);
     await shot(accessPhone, "access-consumer-api-narrow");
     await narrowAccess.close();
     await access.getByRole("button", { name: `Remove ${held} from ${sync.name}` }).focus();
     await page.keyboard.press("Enter");
-    await access.getByRole("row", { name: new RegExp(sync.name) }).waitFor({ state: "detached" });
+    const removal = page.getByRole("alertdialog", { name: `Remove ${held} from ${sync.name}?` });
+    await removal.getByRole("button", { name: "Remove", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await rowOf(new RegExp(sync.name)).waitFor({ state: "detached" });
     expect(!(await api(`/grants?principalId=${sync.id}`)).items.length, `${tag}: the consumer API grant is removed`);
     checks.push(`${tag}: a consumer API grant in Access by its API's name, removed by keyboard, 390px`);
 
@@ -413,7 +433,7 @@ async function walk(configuration) {
 }
 
 try {
-  for (const configuration of MODELS) await walk(configuration);
+  for (const configuration of SHAPED_MODELS) await walk(configuration);
   console.log(`Checks: ${checks.length}`);
   for (const check of checks) console.log(`  ${check}`);
   if (failures.length) {

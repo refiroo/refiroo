@@ -381,8 +381,10 @@ runs ([Workspace models](#workspace-models-product-011)).
 
 #### Installed releases
 
-- `GET /api/v1/model-releases?releaseKey=...&assigned=...&pageSize=...&cursor=...`
+- `GET /api/v1/model-releases?releaseKey=...&assigned=...&status=...&usable=...&pageSize=...&cursor=...`
 - `GET /api/v1/model-releases/{releaseId}?includeModel=false`
+- `PATCH /api/v1/model-releases/{releaseId}` and `DELETE /api/v1/model-releases/{releaseId}?expectedStatusVersion=...`
+  (0.12 MR1, below)
 - `GET /api/v1/model-releases/{releaseId}/diff?againstReleaseId=...&workspaceKey=...`
 - `GET /api/v1/model-releases/{releaseId}/activations?pageSize=...&cursor=...`
 - `POST /api/v1/model-releases/{releaseId}/raising` (0.12 UW1, below)
@@ -404,6 +406,10 @@ this identity shape; `model` is included only on detail when `includeModel=true`
   "installedAt": "2026-09-04T12:00:00Z",
   "assigned": true,
   "workspaces": ["default", "north"],
+  "status": "active",
+  "statusVersion": 1,
+  "deletable": false,
+  "deleteBlockedBy": "running",
   "model": {}
 }
 ```
@@ -418,6 +424,30 @@ release of the candidate's model (D25).
 
 `model` is absent, rather than `null`, unless requested. Release list and detail are always readable;
 release installation and activation are mutation-gated.
+
+**Retiring and deleting a release** (0.12 MR1). A release's model never changes, but its `status` does:
+`active` or `retired`, with `statusVersion` for optimistic concurrency and `retiredAt` while retired. A
+retired release is refused wherever a caller chooses a release, `409 MODEL_RELEASE_RETIRED` with
+`details.operation` (`workspaceCreation`, `activation`, `migration`, `changeSet`), while every workspace and
+change set already on it keeps working (a change set may still name its own release or its workspace's).
+`status=active|retired|all` (default `all`) filters the list; `usable=true` keeps the releases a caller may
+choose: active and of a schema this version reads. Every picker of the built-in interface reads `usable=true`.
+
+`PATCH /api/v1/model-releases/{releaseId}` with `{"status": "retired" | "active", "expectedStatusVersion": N}`
+(action `model.install`, instance-wide) retires a release or brings it back and answers the release. The
+default workspace's release is not retired, `409 MODEL_RELEASE_IS_DEFAULT`: a new workspace starts on it
+unless another is named. Asking for the status a release has changes nothing. Installing a retired release's
+exact model again brings it back.
+
+`DELETE /api/v1/model-releases/{releaseId}?expectedStatusVersion=N` (the same action) removes a release
+nothing refers to, with its structure rows; drafts started from it stay without the link. Every release says
+whether it may be deleted, `deletable`, and otherwise the first reason, `deleteBlockedBy`: `running` (a
+workspace runs it), `history` (records, change sets, publications, events or jobs were made under it),
+`importProfile` (an import profile was checked against it) or `mapping` (a model mapping names it). A refusal
+is `409 MODEL_RELEASE_IN_USE` with `details.blockedBy`. Both routes answer `404 MODEL_RELEASE_NOT_FOUND` and
+`409 MODEL_RELEASE_VERSION_CONFLICT` (`details.currentStatusVersion`). Each change is an audit event of the
+release (`retired`, `restored`, `deleted`). `python -m app.cli.model_release_prune` deletes the retired
+releases nothing refers to at once ([OPERATIONS](OPERATIONS.md)).
 
 **Raising a release** (0.12 UW1). A release stored in a schema that left the window (older than the
 window's only version) cannot be served, and the workspaces running it answer `503
@@ -5959,8 +5989,12 @@ Outside `/api/v1`, needing no token:
   `oauth_refresh` cookie holds (`401` page without one), asks a name for it and runs the browser's
   prompt; `return` is an address at one of the browser's origins. `GET /oauth/passkey.js` is the
   script (`text/javascript`, no cache); it asks the browser for a passkey and posts the answers to
-  `POST /oauth/passkeys/registration/options` (`{}`; answers `{ceremony, options}`, the browser's
-  creation options: a discoverable credential, the user verified, no attestation) and
+  `POST /oauth/passkeys/registration/options` (`{proof}`: the person's password, or a code from the app or
+  a recovery code, as removing a passkey asks, so a stolen session cannot add a credential that outlives it
+  (0.12 R, R-F5); answers `{ceremony, options}`, the browser's creation options: a discoverable credential,
+  the user verified, no attestation; refused as `{error, code}`: `422 PROOF_REQUIRED`, `422 CODE_INCORRECT`,
+  `429 SIGN_IN_SLOWED` with `waitSeconds`, the wrong proofs counted like wrong passwords; the ceremony exists
+  only after the proof, and `/registration/verify` needs it) and
   `/registration/verify` (`{ceremony, credential, name}`; the passkey is kept, `{id, name}`), and to
   `POST /oauth/passkeys/authentication/options` (`{step}` for the second step of a password sign-in,
   or the browser's authorization request fields for a passkey alone; answers `{ceremony, options}`)
@@ -5997,13 +6031,15 @@ Outside `/api/v1`, needing no token:
   `management` (the default) or `consumer` (D260); another answers `invalid_scope`. A missing
   `grant_type` is `invalid_request`; credentials sent both ways are `invalid_request`; an unknown or
   inactive client or a wrong secret is `401 invalid_client` (with `WWW-Authenticate: Basic` when sent
-  as Basic). The browser's grants take `client_id=browser` and no secret (`401 invalid_client`
+  as Basic); wrong secrets are counted against the client ID and the address like wrong passwords (D271,
+  0.12 R): past the free failures the next attempt, even with the right secret, is `429 invalid_client` with
+  `Retry-After`, and an ID that is no client costs the same work and is counted the same way. The browser's grants take `client_id=browser` and no secret (`401 invalid_client`
   otherwise): `authorization_code` with `code`, `code_verifier` and `redirect_uri` starts a session;
   `refresh_token` takes the token from the cookie (or a `refresh_token` field) and renews it. Both
   answer the access token in the body and the new refresh token as the cookie. A code that is unknown,
   expired, used, or whose verifier or address differs, and a refresh token that is unknown, used or
-  whose session ended, answer `400 invalid_grant`; a code or refresh token presented a second time
-  ends the session it started. No refresh token at all is `invalid_request`.
+  whose session ended, answer `400 invalid_grant`; a code, or a refresh token presented a second time
+  (but within 30 seconds of its use, with its successor unused), ends the session it started. No refresh token at all is `invalid_request`.
 - `POST /oauth/revoke` (RFC 7009): the refresh token in `token`, or the cookie, ends its session; the
   cookie is cleared; always `200`.
 
@@ -6018,7 +6054,7 @@ principal's ID), `aud` (`management` or `consumer`), `exp`, `iat`, `jti`, `princ
 
 **Sessions** (people only): a refresh token, opaque and stored hashed, held in an `HttpOnly`,
 `Secure`, `SameSite=Strict` cookie named `oauth_refresh` scoped to the path `/oauth` (D234), so the browser sends it to `/oauth/token`, `/oauth/revoke` and the other `/oauth` routes. Each use
-rotates it; presenting a used one ends the session. A session ends after 12 idle hours or 14 days
+rotates it; presenting a used one ends the session, except within 30 seconds of its use (`REFRESH_REUSE_GRACE`) when the token that use issued is still unused: the session then renews from that token, so a reload that moves on before the browser kept the new cookie does not sign the person out. A session ends after 12 idle hours or 14 days
 (settings). Clients have no refresh token; they ask for a new access token with their credentials.
 
 **Signing keys** rotate on their own every 30 days (`TOKEN_SIGNING_KEY_DAYS`): the first token issued
@@ -6104,20 +6140,30 @@ a success clears the username's count (D271). Passwords and client secrets are h
   `404 SESSION_NOT_FOUND`), `DELETE /api/v1/me/sessions` ("sign out everywhere", this one included).
   A client calling them is refused with `403 NOT_A_PERSON`.
 - `POST /api/v1/me/password` `{currentPassword, newPassword}` (delivered, I2): `204`; a wrong current
-  password is `422 PASSWORD_INCORRECT`, a new one the rules refuse `422 PASSWORD_REJECTED`; ends every
-  other session.
-- `GET /api/v1/me/notifications` (delivered, A2): the caller's notices, newest first, cursor-paged, with
-  `unread=true|false` and `unreadCount` (all unread, whatever the page). For a person or a client. A notice reads `id`,
+  password is `422 PASSWORD_INCORRECT`, counted like a wrong sign-in (D271): past the free failures the
+  next attempt is `429 SIGN_IN_SLOWED` with `details.waitSeconds` (0.12 R); a new one the rules refuse
+  `422 PASSWORD_REJECTED`; ends every other session.
+- `GET /api/v1/me/notifications` (delivered, A2; narrowed in NT1): the caller's notices, newest first, cursor-paged, with
+  `unread=true|false` and `unreadCount` (all unread, whatever the page). NT1 adds `q` (words a person sees in the
+  notice: its kind's label, the change set's name, the comment, who acted, the job's kind; case-insensitive; other
+  `details` values are not read, D462), `kind`, `workspace` and `sort=newest|oldest`, each part of the cursor's
+  filters. For a person or a client. A notice reads `id`,
   `kind`, `workspaceKey`, `subject` (`{kind: "change-set" | "job", id}`), `details`, `read`, `readAt`, `createdAt`.
   Kinds: `change-set.submitted` (waiting for your approval; to every active person or client holding Approve
   publications in the workspace except the submitter), `change-set.approved` and `change-set.sent-back` (a decision on
   your request; not to the person who decided it), `job.completed`, `job.failed`, `job.awaiting-confirmation` (a
   background batch, import, export, migration or move you started). `details`: for a change set `changeSetName` (as it
   was), `version`, `comment`, `actor` (the submitter, or the decider) and `publicationId`; for a job `jobKind`, `state`.
-  Withdrawing, approving or sending back marks the change set's unread "waiting" notices read. Notices older than 90
-  days are deleted.
-- `POST /api/v1/me/notifications/read` `{ids}` or `{all: true}` (neither or both: `422`): `{marked, unreadCount}`;
-  another's or an unknown ID is left alone; idempotent.
+  Withdrawing, approving or sending back marks the change set's unread "waiting" notices read; a job leaving
+  `awaiting_confirmation` (confirmed, cancelled) marks its "waiting for your confirmation" notices read (NT1, D464).
+  Notices older than 90 days are deleted by the job worker's hourly sweep (D465).
+- `POST /api/v1/me/notifications/read` exactly one of `{ids}`, `{subjectId}` (the caller's notices about one change
+  set or job, as a client marks them when it shows that subject, NT1) or `{all: true}` (otherwise `422`), and
+  `read: false` to mark them unread instead: `{marked, unreadCount}` (`marked`: how many changed); another's or an
+  unknown ID is left alone; idempotent.
+- `POST /api/v1/me/notifications/removal` (NT1, D461) `{ids}` or `{read: true}` (every read notice; neither or both:
+  `422`): deletes the caller's notices for good, `{removed, unreadCount}`; another's or an unknown ID is left alone;
+  what they were about stays.
 - `GET /api/v1/me/notifications/events` (`text/event-stream`, read with `fetch`, D247): `event: unread`
   `{unreadCount}` at once and after every change, `event: notification` with each new notice as the list answers it;
   a comment every 15 s keeps it open. Nothing is polled.
@@ -6156,7 +6202,7 @@ D278).
 | Bulk and import | `bulk` | Batches, imports, import profiles and their checks, source files | Workspace, narrowed alike |
 | Copy and move | `copy-move` | Model-to-model mappings and moves | Workspace (Browse on the source, and Work in change sets there for `mode: move`; written in the target, narrowed alike) |
 | Model authoring | `model-authoring` | Model drafts and everything on them; reading releases | Instance |
-| Model release | `model-release` | Install a draft, activate a release into a workspace, migrate a workspace; reading releases | Instance or workspace |
+| Model release | `model-release` | Install a draft, activate a release into a workspace, migrate a workspace; raise, retire, bring back and delete a release (`model.install`, at the instance; 0.12 MR1: `PATCH` and `DELETE /model-releases/{releaseId}`); reading releases | Instance or workspace |
 | Workspace administration | `workspace-admin` | Create, rename, retire and delete workspaces; set the default | Instance |
 | Integration administration | `integration-admin` | Consumer subscriptions, deliveries, webhook keys | Workspace |
 | Feed | `feed` | The workspace's change feed | Workspace |
@@ -6183,7 +6229,7 @@ Rules the catalogue applies:
 - **Jobs** are read, followed, cancelled and confirmed by their requester, or by a holder in the
   job's workspace of the group that starts its kind (`bulk` for batches and imports, `browse` for
   exports, `copy-move` for moves, `model-release` for migrations, `change-sets` for a change set's
-  migration). A job runs with its requester's permissions, checked at submission, confirmation and
+  migration, `model-authoring` for a draft's dry run and inference). A job runs with its requester's permissions, checked at submission, confirmation and
   each step (D236).
 - **Change sets are shared** (D255): anyone holding `change-sets` in the workspace changes any open
   one; the creator is recorded (Z4).
@@ -6348,7 +6394,8 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   the value has a group). At each sign-in the person's memberships in that provider's groups become
   exactly those the claim names; adding or removing its members here is
   `409 GROUP_FROM_PROVIDER`, and a sign-in that takes the last Security administrator out of one is
-  not refused. Its members read `seenAt`, when a sign-in last named them in it. It is renamed,
+  not refused. Its members read `seenAt`, when a sign-in last named them in it (refreshed at most once a day, since any
+  change of a membership makes every process read permissions again, 0.12 R). It is renamed,
   granted and deleted like any group; deleting its provider deletes it.
   _Delivered by Z1 (local groups):_ a group reads `id`, `name` (unique ignoring case,
   `409 GROUP_NAME_TAKEN`), `description`, `members` (a count), `version`, `createdAt`, `updatedAt`;
@@ -6602,9 +6649,10 @@ Change-set publication only (D232, ADR-045):
   must validate (`409 CHANGE_SET_INVALID`, `details.diagnostics`), be at that version (`409
   VERSION_CONFLICT`) and not be submitted already (`409 CHANGE_SET_SUBMITTED`). Submitting is no
   edit: the change set's version does not change.
-- `DELETE /change-sets/{changeSetId}/submission` (`change-sets.submit`) withdraws it: the person who
-  submitted it, or a holder of `approve` (`403 FORBIDDEN`, `details.reason: "notSubmitter"`
-  otherwise); `409 NOT_SUBMITTED` if it is not submitted. `204`.
+- `DELETE /change-sets/{changeSetId}/submission` (`change-sets.withdraw`: Work in change sets or Approve
+  publications) withdraws it: the person who submitted it, or a holder of `approve` (`403 FORBIDDEN`,
+  `details.reason: "notSubmitter"` otherwise; the same rule for an edit carrying `withdrawSubmission=true`);
+  `409 NOT_SUBMITTED` if it is not submitted. `204`.
 - **A submitted change set is frozen.** Any write to it (a record, a relationship, a value, a rename, a
   restructuring, a batch or import into it, a discard) is refused `409 CHANGE_SET_SUBMITTED` unless
   the request carries the query parameter **`withdrawSubmission=true`** (accepted on every

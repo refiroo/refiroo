@@ -19,6 +19,9 @@ function summary(id: string, version: string, schemaVersion: string, active = fa
     modelHash: `hash-${id}`,
     installedAt: "2026-09-01T00:00:00Z",
     assigned: active,
+    status: "active" as const,
+    statusVersion: 1,
+    deletable: false,
     workspaces: active ? ["default"] : [],
   };
 }
@@ -277,5 +280,67 @@ describe("ModelReleaseDetail after activation and failures", () => {
     expect(await screen.findByText("Release history could not be loaded: History unavailable")).toBeInTheDocument();
     expect(screen.queryByText("Loading release history…")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export JSON" })).toBeEnabled();
+  });
+});
+
+describe("ModelReleaseDetail retiring and deleting (0.12 MR1)", () => {
+  function lifecycle(selected: ModelReleaseSummary, { isDefault = false, canInstall = true } = {}) {
+    vi.mocked(api.modelRelease).mockResolvedValue({ ...selected, model: {} });
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [r06, r07], nextCursor: null });
+    vi.mocked(api.modelReleaseActivations).mockResolvedValue({ items: [], nextCursor: null });
+    vi.mocked(api.modelReleaseDiff).mockImplementation(async (releaseId, against) => diff(releaseId, against));
+    const onStatusChanged = vi.fn();
+    const onDeleted = vi.fn();
+    render(
+      <ModelReleaseDetail
+        releaseId={selected.id}
+        workspaces={onDefault("r07")}
+        canManageDrafts={false}
+        canActivate
+        canInstall={canInstall}
+        isDefault={isDefault}
+        onCreateDraft={vi.fn()}
+        onActivate={vi.fn()}
+        onStatusChanged={onStatusChanged}
+        onDeleted={onDeleted}
+      />,
+    );
+    return { onStatusChanged, onDeleted };
+  }
+
+  it("retires a release after confirmation, then offers to bring it back and no activation", async () => {
+    const { onStatusChanged } = lifecycle(r06);
+    vi.mocked(api.setModelReleaseStatus).mockResolvedValue({ ...r06, status: "retired", statusVersion: 2 });
+    fireEvent.click(await screen.findByRole("button", { name: "Retire…" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Retire" }));
+
+    expect(await screen.findByRole("button", { name: "Bring back" })).toBeInTheDocument();
+    expect(api.setModelReleaseStatus).toHaveBeenCalledWith(expect.objectContaining({ id: "r06" }), "retired");
+    expect(onStatusChanged).toHaveBeenCalledWith(expect.objectContaining({ status: "retired" }));
+    expect(screen.queryByRole("button", { name: "Activate in a workspace…" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("Retired").length).toBeGreaterThan(0);
+  });
+
+  it("offers Delete only for a deletable release and reports a refusal in the dialog", async () => {
+    const { onDeleted } = lifecycle({ ...r06, deletable: true });
+    vi.mocked(api.deleteModelRelease).mockRejectedValueOnce(
+      new ApiError(409, "MODEL_RELEASE_IN_USE", "Model release 'r06' cannot be deleted"),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
+    const dialog = screen.getByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete release" }));
+    expect(await within(dialog).findByText(/cannot be deleted/)).toBeInTheDocument();
+    expect(onDeleted).not.toHaveBeenCalled();
+
+    vi.mocked(api.deleteModelRelease).mockResolvedValueOnce(undefined);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete release" }));
+    await waitFor(() => expect(onDeleted).toHaveBeenCalledWith(expect.objectContaining({ id: "r06" })));
+  });
+
+  it("hides Retire for the default workspace's release and every action without the right to install", async () => {
+    lifecycle(r07, { isDefault: true });
+    await screen.findByRole("button", { name: "Export JSON" });
+    expect(screen.queryByRole("button", { name: "Retire…" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();
   });
 });

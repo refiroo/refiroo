@@ -42,6 +42,7 @@ from ...models.commands import (
     PasskeyAuthentication,
     PasskeyAuthenticationStart,
     PasskeyRegistration,
+    PasskeyRegistrationStart,
 )
 from ...models.database import SignInProvider, User
 from .. import sign_in_pages as pages
@@ -336,7 +337,14 @@ def _factor_page(
     status = 429 if wait_seconds else 401 if wrong else 200
     common = {"issuer": settings.issuer, "redirect_origins": _origins(settings)}
     if stage == "setup":
-        made = second_factor.begin(session, settings, user, product, now, restart=fresh)
+        try:
+            made = second_factor.begin(session, settings, user, product, now, restart=fresh)
+        except ApiError as failure:  # e.g. the factor was confirmed elsewhere since
+            session.rollback()
+            return pages.problem(
+                product, f"{failure.message}. Open the application and sign in again.",
+                issuer=settings.issuer, redirect_origins=_origins(settings), status=failure.status,
+            )  # fmt: skip
         return pages.second_factor_setup(
             product, token, secret=made.secret, svg=made.svg, wrong=wrong,
             wait_seconds=wait_seconds, status=status, **common,
@@ -376,9 +384,16 @@ def second_factor_form(
             status=403,
         )
     now = datetime.now(UTC)
-    outcome = browser_sign_in.second_factor_step(
-        session, settings, step, code, recovery, view=view, address=_address(request), now=now
-    )
+    try:
+        outcome = browser_sign_in.second_factor_step(
+            session, settings, step, code, recovery, view=view, address=_address(request), now=now
+        )
+    except ApiError as failure:  # e.g. the factor was confirmed elsewhere since the page was shown
+        session.rollback()
+        return pages.problem(
+            product, f"{failure.message}. Open the application and sign in again.",
+            issuer=settings.issuer, redirect_origins=origins, status=failure.status,
+        )  # fmt: skip
     if isinstance(outcome, browser_sign_in.StepGone):
         return pages.problem(
             product,
@@ -441,7 +456,13 @@ def _provider_problem(
         retry_url=retry,
         issuer=settings.issuer,
         redirect_origins=_origins(settings),
-        status=403 if failed.reason in ("disabled", "deactivated") else 400,
+        status=(
+            403
+            if failed.reason in ("disabled", "deactivated")
+            else 429
+            if failed.reason == "busy"
+            else 400
+        ),
     )
     response.delete_cookie(
         PROVIDER_COOKIE, path=_PROVIDER_PATH, secure=settings.secure_cookies, httponly=True,
@@ -625,9 +646,13 @@ def passkey_script() -> Response:
     )
 
 
-def _passkey_error(message: str, status: int, wait_seconds: int = 0) -> JSONResponse:
+def _passkey_error(
+    message: str, status: int, wait_seconds: int = 0, code: str | None = None
+) -> JSONResponse:
     headers = {"Retry-After": str(wait_seconds)} if wait_seconds else None
     body: dict[str, object] = {"error": message}
+    if code:
+        body["code"] = code
     if wait_seconds:
         body["waitSeconds"] = wait_seconds
     return JSONResponse(body, status_code=status, headers={**_NO_STORE, **(headers or {})})
@@ -675,21 +700,33 @@ def _ceremony_guard(request: Request, settings: IdentitySettings) -> JSONRespons
 
 
 @router.post("/oauth/passkeys/registration/options", dependencies=_STARTED, include_in_schema=False)
-def passkey_registration_options(request: Request, session: DbSession) -> Response:
+def passkey_registration_options(
+    request: Request, session: DbSession, payload: PasskeyRegistrationStart | None = None
+) -> Response:
     """The browser's options for creating a passkey of the person this browser is signed in as; the
-    answer is ``{ceremony, options}``."""
+    answer is ``{ceremony, options}``. The body's ``proof`` is the person's password, or a code from
+    the app or a recovery code, as removing a passkey asks (R-F5): a stolen session cannot add a
+    credential that outlives it. The ceremony is opened only after the proof, and the verify step
+    needs that ceremony. Refused as ``{error, code}``: ``422 PROOF_REQUIRED``, ``422
+    CODE_INCORRECT``, ``429 SIGN_IN_SLOWED``."""
     settings = _settings(request)
     if refused := _ceremony_guard(request, settings):
         return refused
     user = _cookie_user(request, session)
     if user is None:
         return _passkey_error("Sign in to the application first.", 401)
+    now = datetime.now(UTC)
     try:
+        second_factor.prove(
+            session, settings, user, payload.proof if payload else None, now=now,
+            address=_address(request),
+        )  # fmt: skip
         token, options = passkeys.begin_registration(
-            session, settings, user, _product(session), datetime.now(UTC)
+            session, settings, user, _product(session), now
         )
     except ApiError as failure:
-        return _passkey_error(failure.message, failure.status_code)
+        waits = failure.details.get("waitSeconds", 0) if isinstance(failure.details, dict) else 0
+        return _passkey_error(failure.message, failure.status, waits, failure.code)
     return JSONResponse({"ceremony": token, "options": options}, headers=_NO_STORE)
 
 
@@ -956,8 +993,17 @@ def token(
     challenge = {"WWW-Authenticate": 'Basic realm="oauth"'} if basic is not None else None
     if not credentials[0] or not credentials[1]:
         return _error(401, "invalid_client", "The client's credentials are missing", challenge)
-    client = authenticate_client(session, credentials[0], credentials[1])
-    if client is None:
+    client = authenticate_client(
+        session, credentials[0], credentials[1], _address(request), datetime.now(UTC)
+    )
+    if isinstance(client, sign_in.Refused) and client.reason == "slowed":
+        return _error(
+            429,
+            "invalid_client",
+            "Too many wrong secrets for this client or from this address; try again later",
+            {"Retry-After": str(client.wait_seconds), **(challenge or {})},
+        )
+    if isinstance(client, sign_in.Refused):
         return _error(
             401,
             "invalid_client",

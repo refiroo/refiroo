@@ -109,7 +109,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
       ) : route.page === "appearance" ? (
         <AppearancePage />
       ) : route.page === "account" ? (
-        <AccountPage />
+        <AccountPage onNavigate={(next) => navigate(next)} />
       ) : route.page === "notifications" ? (
         <NotificationsPage />
       ) : route.page === "deployment" ? (

@@ -18,6 +18,9 @@ const release = (id: string, version: string, installedAt: string): ModelRelease
   modelHash: `h-${id}`,
   installedAt,
   assigned: false,
+  status: "active" as const,
+  statusVersion: 1,
+  deletable: false,
   workspaces: [],
 });
 const older = release("r1", "1.0.0", "2026-01-01T00:00:00Z");

@@ -79,6 +79,10 @@ def _assert_refused(client: TestClient, errors: list[str], *phrases: str) -> str
     for response in (
         client.get("/api/v1/workspaces", headers={"Authorization": "Bearer any"}),
         client.post("/oauth/token", data={"grant_type": "client_credentials", "client_id": "a", "client_secret": "b"}),
+        # The application's JSON sign-in routes (I5) are guarded the same way (0.12 R).
+        client.get("/oauth/sign-in/options"),
+        client.post("/oauth/sign-in/password", json={"username": "a", "password": "b"}),
+        client.post("/oauth/sign-in/reset-request", json={"username": "a"}),
     ):
         assert response.status_code == 503, response.text
         assert response.json()["error"]["code"] == "MODEL_REGISTRY_UNAVAILABLE"

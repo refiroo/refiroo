@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import * as navigationGuard from "@/routing/navigationGuard";
+import { act } from "@testing-library/react";
 import { api } from "@/api/client";
+import { touchSubject } from "@/features/inbox/useInbox";
 import { WorkspaceDataProvider, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { testModel, domainObject } from "@/test/fixtures";
 import type { ChangeSet } from "@/types";
@@ -97,4 +99,31 @@ it("names a differing active release by key and version, not by its id", async (
   );
   await screen.findByText("active: rdm-starter 0.7.0");
   expect(release).toHaveBeenCalledWith("active-id");
+});
+
+it("reads the change set again when a notice about it arrives or is opened at its address", async () => {
+  const read = vi
+    .spyOn(api, "changeSet")
+    .mockResolvedValueOnce({ ...changeSet, name: "Waiting" })
+    .mockResolvedValue({ ...changeSet, name: "Sent back", version: 2 });
+  vi.spyOn(api, "workspaceModel").mockResolvedValue({ releaseId: "old" } as Awaited<
+    ReturnType<typeof api.workspaceModel>
+  >);
+  vi.spyOn(api, "modelRelease").mockRejectedValue(new Error("not needed"));
+  vi.spyOn(api, "model").mockResolvedValue(testModel);
+  function Name() {
+    return <p>{useWorkspaceData().changeSet?.name}</p>;
+  }
+  render(
+    <WorkspaceDataProvider changeSetId="changeSet" workspaceKey="west" model={testModel}>
+      <Name />
+    </WorkspaceDataProvider>,
+  );
+  await screen.findByText("Waiting");
+  const reads = read.mock.calls.length;
+  act(() => touchSubject("another-change-set"));
+  expect(read).toHaveBeenCalledTimes(reads);
+  act(() => touchSubject("changeSet"));
+  await screen.findByText("Sent back");
+  expect(read.mock.calls.length).toBeGreaterThan(reads);
 });

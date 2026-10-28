@@ -11,6 +11,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { api, consumerApiDocumentPath } from "@/api/client";
+import { downloadFrom } from "@/api/download";
+import { DownloadLink } from "@/ui/DownloadLink";
 import { errorMessage } from "@/api/errors";
 import type {
   ConsumerApiDocumentKind,
@@ -892,9 +894,14 @@ export function ConsumerApiPanel({
             )}
             <p className="muted">
               The whole API, with its operations and parameters, is in the OpenAPI document:{" "}
-              <a href={consumerApiDocumentPath(draftId, key, "openapi")} download={`${key}-v${version}-openapi.json`}>
+              <DownloadLink
+                href={consumerApiDocumentPath(draftId, key, "openapi")}
+                save={() =>
+                  downloadFrom(consumerApiDocumentPath(draftId, key, "openapi"), `${key}-v${version}-openapi.json`)
+                }
+              >
                 download the draft's OpenAPI
-              </a>
+              </DownloadLink>
               .
             </p>
           </section>
@@ -1041,13 +1048,15 @@ function ConsumerDocument({
         >
           <Icon name="copy" /> Copy
         </button>
-        <a
+        <DownloadLink
           className="secondary"
           href={consumerApiDocumentPath(draftId, consumerApi, document)}
-          download={`${consumerApi}-${about.file}`}
+          save={() =>
+            downloadFrom(consumerApiDocumentPath(draftId, consumerApi, document), `${consumerApi}-${about.file}`)
+          }
         >
           <Icon name="download" /> Download {about.file}
-        </a>
+        </DownloadLink>
       </div>
       <p className="muted">{about.about}</p>
       {text?.at === at ? (

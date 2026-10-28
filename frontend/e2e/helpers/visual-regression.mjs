@@ -28,13 +28,16 @@ const committedBaselineDir = resolve(helpers, "..", "baselines");
 export async function compareScreenshot(page, name, options = {}) {
   const { outputDir, threshold = 0.1, maxDiffPercent = 0.5, baselineDir = committedBaselineDir, mask = [] } = options;
   const updateMode = process.argv.includes("--update-baselines");
+  // With `--changed-only`, an update re-records only the baselines that are missing or differ beyond the
+  // threshold, so the ones still matching are left as they are (0.12 R).
+  const changedOnly = updateMode && process.argv.includes("--changed-only");
   const baselinePath = resolve(baselineDir, `${name}.png`);
   // `mask` covers values that differ from run to run (a time, a port) with a solid box.
   const actualBuffer = await page.screenshot({ fullPage: false, mask });
 
   await mkdir(baselineDir, { recursive: true });
 
-  if (updateMode) {
+  if (updateMode && !(changedOnly && existsSync(baselinePath))) {
     await writeFile(baselinePath, actualBuffer);
     return {
       passed: true,
@@ -62,6 +65,15 @@ export async function compareScreenshot(page, name, options = {}) {
   const actual = PNG.sync.read(actualBuffer);
 
   if (baseline.width !== actual.width || baseline.height !== actual.height) {
+    if (changedOnly) {
+      await writeFile(baselinePath, actualBuffer);
+      return {
+        passed: true,
+        diffPercent: 0,
+        baselineCreated: true,
+        message: `Baseline updated: ${name} (size changed)`,
+      };
+    }
     if (outputDir) {
       await mkdir(outputDir, { recursive: true });
       await writeFile(resolve(outputDir, `${name}-actual.png`), actualBuffer);
@@ -81,6 +93,16 @@ export async function compareScreenshot(page, name, options = {}) {
   const totalPixels = baseline.width * baseline.height;
   const diffPercent = (diffPixels / totalPixels) * 100;
   const passed = diffPercent <= maxDiffPercent;
+
+  if (changedOnly && !passed) {
+    await writeFile(baselinePath, actualBuffer);
+    return {
+      passed: true,
+      diffPercent: 0,
+      baselineCreated: true,
+      message: `Baseline updated: ${name} (was ${diffPercent.toFixed(2)}% off)`,
+    };
+  }
 
   if (outputDir) {
     await mkdir(outputDir, { recursive: true });

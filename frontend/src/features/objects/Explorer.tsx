@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { allows } from "@/features/security/permissions";
+import { holds } from "@/features/security/permissions";
 import { TreeMoveDialog } from "@/features/objects/TreeMoveDialog";
 import { useTreeMoves } from "@/features/objects/useTreeMoves";
 import { AnchoredMenu } from "@/ui/AnchoredMenu";
@@ -58,7 +58,7 @@ export function Explorer({
   // and import (0.12 Z5, D323, D329).
   const writes = useRecordWrites();
   const writable = !readOnly && !publication && writes.any;
-  const severalMove = allows(permissions, "bulk");
+  const severalMove = holds(permissions, "bulk");
   const mayMove = (item: ObjectItem) => writes.permits(item.applicationKey, item.objectTypeKey);
   const roots = useMemo(() => rootObjectTypeKeys(model, application), [model, application]);
   const treeTypes = useMemo(

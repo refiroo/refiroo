@@ -11,7 +11,6 @@ import { Icon } from "@/ui/Icon";
 import { RouteLink } from "@/ui/RouteLink";
 import { routePath } from "@/routing/routes";
 import {
-  chipHue,
   groupByPrincipal,
   grantHeld,
   grantNarrowing,
@@ -20,6 +19,7 @@ import {
   rolesPresent,
   type AccessRow,
 } from "./accessGroups";
+import { RoleChip } from "./RoleChip";
 import { staleNote } from "./securityText";
 import type { PickedPrincipal } from "./PrincipalPicker";
 
@@ -112,7 +112,7 @@ export function AccessList({
       .join(". ");
     const held = grantHeld(grant);
     return (
-      <li key={grant.id} className="access-chip" data-hue={chipHue(grant)} title={title || undefined}>
+      <RoleChip key={grant.id} as="li" grant={grant} title={title || undefined}>
         <span className="access-chip-name">{held}</span>
         {short && <small>· writes: {short}</small>}
         {grant.scope.instance && <small>· whole instance</small>}
@@ -132,7 +132,7 @@ export function AccessList({
             <Icon name="trash" size={13} />
           </button>
         )}
-      </li>
+      </RoleChip>
     );
   }
 

@@ -20,7 +20,7 @@ export const SETTINGS_NAVIGATION: SettingsGroup[] = [
       { page: "about", label: "About" },
       { page: "appearance", label: "Appearance" },
       { page: "account", label: "Account" },
-      { page: "notifications", label: "Notifications" },
+      { page: "notifications", label: "Notification email" },
     ],
   },
   {

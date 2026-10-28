@@ -28,6 +28,7 @@ from ..indexes import matrix_states
 from .compatibility import CompatibilityResult, analyze_compatibility
 from .compiler import SUPPORTED_SCHEMA_VERSIONS, ModelDiagnostic, canonical_model, compile_model
 from .consumer_contract import contract_diagnostics
+from .release_lifecycle import require_choosable
 from .validation import require_valid_references
 from .workspace_models import load_assignment
 
@@ -196,6 +197,8 @@ def activate_model_release(
 
     if candidate_release.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
         raise UnsupportedModelSchema(candidate_release.public_id, candidate_release.schema_version)
+    if candidate_release.id != current_release.id:
+        require_choosable(session, candidate_release, operation="activation")
 
     current_compilation = compile_model(current_release.model_json)
     candidate_compilation = compile_model(candidate_release.model_json)

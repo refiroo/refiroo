@@ -14,6 +14,10 @@ artwork: **Krisztian Toth** (personal name; the git history has one author). New
 per-file header (D222). The maintainer must confirm, and the confirmation is theirs alone, that no employer,
 former employer or client holds rights in the work and that the committed example model and data are
 synthetic; until it is recorded here, [LICENSING_TODO](LICENSING_TODO.md) keeps it open.
+**Confirmed by the maintainer (2026-10-28):** the work is a one-person project; Krisztian Toth is its only
+author, working with AI assistants (Claude, ChatGPT) on their own accounts, and no employer, former employer or
+client is involved. No counsel review is planned (the maintainer's decision). Still open: that the committed
+example model and data are synthetic.
 
 **Project identity.** Name: refiroo. Domains: refiroo.com (the website), refiroo.org, refiroo.dev.
 Repository: <https://github.com/refiroo/refiroo> (the Python distribution and directories keep the name

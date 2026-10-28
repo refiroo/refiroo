@@ -138,6 +138,61 @@ def change_set_context(session: Session, change_set_id: str) -> SnapshotContext:
     return SnapshotContext("change_set", change_set.id, change_set.workspace_key, change_set, base)
 
 
+def change_set_contexts(
+    session: Session, change_sets: list[ChangeSet]
+) -> dict[str, SnapshotContext]:
+    """The contexts of several change sets already loaded, their publications and current-live
+    bases read in one statement each (a page of lists, 0.12 R); the errors are those of
+    ``change_set_context``."""
+    publication_ids = {c.derived_from_publication_id for c in change_sets} - {None}
+    base_ids = {c.base_id for c in change_sets} - {None}
+    publications = (
+        {
+            row.id: row
+            for row in session.scalars(select(Publication).where(Publication.id.in_(publication_ids)))
+        }
+        if publication_ids
+        else {}
+    )
+    bases = (
+        {
+            row.id: row
+            for row in session.scalars(select(ChangeSetBase).where(ChangeSetBase.id.in_(base_ids)))
+        }
+        if base_ids
+        else {}
+    )
+    contexts: dict[str, SnapshotContext] = {}
+    for change_set in change_sets:
+        base = None
+        if change_set.derived_from_publication_id is not None:
+            publication = publications.get(change_set.derived_from_publication_id)
+            if publication is None or publication.workspace_key != change_set.workspace_key:
+                raise api_error(
+                    409,
+                    "CHANGE_SET_BASE_INVALID",
+                    "Change set base publication is missing or belongs to another workspace",
+                )
+            base = SnapshotBase(
+                PublicationObject, PublicationRelation, "publication_id", publication.id
+            )
+        if change_set.base_id is not None:
+            current_live = bases.get(change_set.base_id)
+            if current_live is None or current_live.workspace_key != change_set.workspace_key:
+                raise api_error(
+                    409,
+                    "CHANGE_SET_BASE_INVALID",
+                    "Change set current-live base is missing or belongs to another workspace",
+                )
+            base = SnapshotBase(
+                ChangeSetBaseObject, ChangeSetBaseRelation, "base_id", current_live.id
+            )
+        contexts[change_set.id] = SnapshotContext(
+            "change_set", change_set.id, change_set.workspace_key, change_set, base
+        )
+    return contexts
+
+
 def publication_context(session: Session, publication_id: str) -> SnapshotContext:
     publication = session.scalar(select(Publication).where(Publication.id == publication_id))
     if publication is None:

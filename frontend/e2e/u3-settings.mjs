@@ -19,8 +19,8 @@ function expect(condition, message) {
 const PAGES = [
   ["About", "/settings/about", (page) => page.getByRole("region", { name: "Active model release" })],
   ["Appearance", "/settings/appearance", (page) => page.getByRole("group", { name: "Table density" })],
-  ["Workspaces", "/settings/workspaces", (page) => page.getByRole("navigation", { name: "Workspace catalogue" })],
-  ["Model", "/settings/model", (page) => page.getByRole("navigation", { name: "Model catalogue" })],
+  ["Workspaces", "/settings/workspaces", (page) => page.getByRole("region", { name: "Active" })],
+  ["Model", "/settings/model", (page) => page.getByRole("region", { name: "Default workspace" })],
   ["Deployment", "/settings/deployment", (page) => page.getByRole("region", { name: "Capability groups" })],
 ];
 
@@ -155,18 +155,10 @@ try {
     await page.getByRole("button", { name: "Export JSON" }).waitFor();
     // A release opens in Settings › Model beside its catalogue, on a phone with the way back to it
     // (0.11 M6, the layout left after the rework).
-    await (
-      width === 390
-        ? page.getByRole("button", { name: "All models" })
-        : page.getByRole("navigation", { name: "Model catalogue" })
-    ).waitFor();
+    await page.getByRole("button", { name: /^← Back to/ }).waitFor();
     await page.goto(`${uiUrl}/settings/workspaces/default`);
     await page.getByRole("button", { name: "Open workspace" }).waitFor();
-    await page
-      .getByRole(width === 390 ? "button" : "navigation", {
-        name: width === 390 ? "All workspaces" : "Workspace catalogue",
-      })
-      .waitFor();
+    await page.getByRole("button", { name: "← All workspaces" }).waitFor();
     checks.push(
       `${suffix}: every settings page, a release's page and a workspace's page open at their own URLs without horizontal scroll`,
     );
@@ -184,7 +176,10 @@ try {
   await page.getByRole("button", { name: "Open release" }).click();
   await page.waitForURL(`**/settings/model/releases/${system.activeModelRelease.id}`);
   await page.goto(`${uiUrl}/settings/deployment`);
-  await page.getByRole("region", { name: "Database" }).getByText(configuration.database.revision, { exact: true }).waitFor();
+  await page
+    .getByRole("region", { name: "Database" })
+    .getByText(configuration.database.revision, { exact: true })
+    .waitFor();
   const runtime = page.getByRole("region", { name: "Runtime" });
   await runtime.getByRole("row", { name: /RDM_CURSOR_SIGNING_KEY/ }).waitFor();
   const cursorKey = configuration.settings.find((setting) => setting.name === "RDM_CURSOR_SIGNING_KEY");
@@ -250,16 +245,18 @@ try {
   await page.getByRole("region", { name: "Capability groups" }).waitFor();
   await page.evaluate(() => document.activeElement?.blur());
   const tabNames = await page.getByRole("navigation", { name: "Applications" }).getByRole("button").allInnerTexts();
-  const productName = (await page.locator(".product-mark strong").innerText()).trim();
+  const productName = ((await page.locator(".product-mark").getAttribute("aria-label")) ?? "").replace(/ home$/, "");
   const expected = [
     "other:Skip to main content",
     `topbar:${productName} home`,
     ...tabNames.map((name) => `topbar:${name.trim()}`),
+    "topbar:Inbox",
     "topbar:Settings",
     "topbar:Account",
     "navigation:About",
     "navigation:Appearance",
     "navigation:Account",
+    "navigation:Notification email",
     "navigation:Workspaces",
     "navigation:Model",
     "navigation:Deployment",
@@ -271,8 +268,12 @@ try {
     "navigation:People",
     "navigation:Groups",
     "navigation:Roles",
+    "navigation:Clients",
+    "navigation:Sign-in",
+    "navigation:Signing keys",
     "navigation:Consumer APIs",
     "navigation:Webhooks",
+    "navigation:Mail",
     "navigation:API reference",
     "navigation:Resize settings navigation",
   ];
@@ -297,9 +298,9 @@ try {
     expected.every((item, index) => order[index] === item) && order[expected.length].startsWith("main:"),
     `keyboard order: ${order.join(" → ")}`,
   );
-  // Back past the resize handle, Integration's three pages, Security's three, Data operations' three,
+  // Back past the resize handle, Integration's three pages, Security's six, Mail, Data operations' three,
   // Operations and Deployment to Model, and open it.
-  for (let index = 0; index < 13; index += 1) await page.keyboard.press("Shift+Tab");
+  for (let index = 0; index < 17; index += 1) await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Enter");
   await page.getByRole("heading", { level: 1, name: "Model" }).waitFor();
   checks.push(`keyboard order: ${order.join(" → ")}; Enter on a navigation link opens its page`);

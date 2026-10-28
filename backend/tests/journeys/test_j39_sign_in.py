@@ -13,11 +13,16 @@ import base64
 import hashlib
 import secrets
 import time
+from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from harness_identity import TestClient
 from scenario import ok, refused
+from sqlalchemy import select
+
+from app.engine.identity.passwords import digest
+from app.models.database import SessionRefreshToken
 
 REDIRECT = "http://localhost:5173/signed-in"
 PASSWORD = "a long passphrase for testing"
@@ -182,6 +187,7 @@ def test_a_person_signs_in_and_works(world):
         browser, "ana", PASSWORD, challenge, redirect_uri="https://elsewhere.example/signed-in"
     )
     assert elsewhere.status_code == 400 and "location" not in elsewhere.headers
+    assert "not one this engine signs people in to" in elsewhere.text
     no_pkce = browser.get(
         "/oauth/authorize",
         params=_request(challenge, code_challenge_method="plain"),
@@ -193,8 +199,9 @@ def test_a_person_signs_in_and_works(world):
 @pytest.mark.journey("J39.2")
 def test_the_session_renews_and_a_reused_token_ends_it(world):
     """Given a session. When the cookie renews it, then a new token and a new cookie. When the old
-    refresh token is presented again, then `invalid_grant` and the session ends: the new cookie no
-    longer renews and the access token answers `401 TOKEN_INVALID` (`revoked`)."""
+    refresh token is presented again after the reuse grace (0.12 R: within it, a renewal the browser
+    never kept renews), then `invalid_grant` and the session ends: the new cookie no longer renews
+    and the access token answers `401 TOKEN_INVALID` (`revoked`)."""
     _person(world, "ben")
     browser = _browser(world)
     _sign_in(browser, "ben")
@@ -203,8 +210,62 @@ def test_the_session_renews_and_a_reused_token_ends_it(world):
     second = browser.cookies.get("oauth_refresh")
     assert second and second != first
     assert ok(_me(world, renewed["access_token"]))["kind"] == "user"
+    _used_long_ago(world, first)
     _invalid_grant(_renew(browser, first))
     _invalid_grant(_renew(browser, second))
+    _revoked(_me(world, renewed["access_token"]))
+
+
+def _used_long_ago(world, cookie: str) -> None:
+    """Age a refresh token's use past the reuse grace, as thirty-one seconds passing would."""
+    with world.api.client.app.state.session_factory() as session:
+        token = session.scalar(
+            select(SessionRefreshToken).where(SessionRefreshToken.token_hash == digest(cookie))
+        )
+        token.used_at = token.used_at - timedelta(seconds=31)
+        session.commit()
+
+
+@pytest.mark.journey("J39.2")
+def test_a_renewal_the_browser_never_kept_does_not_sign_the_person_out(world):
+    """Given a renewal whose answer the browser never kept (it navigated at once). When the same
+    refresh token is presented again within the reuse grace, then it renews and the session stays
+    open: the new cookie renews and the access token works."""
+    _person(world, "ben")
+    browser = _browser(world)
+    _sign_in(browser, "ben")
+    first = browser.cookies.get("oauth_refresh")
+    ok(_renew(browser, first))
+    again = ok(_renew(browser, first))
+    assert ok(_me(world, again["access_token"]))["kind"] == "user"
+    ok(_renew(browser))
+
+
+@pytest.mark.journey("J39.2")
+def test_a_used_token_after_the_reuse_grace_ends_the_session(world):
+    """Given a used refresh token. When it is presented after the grace, then `invalid_grant` and
+    the session ends, though its successor was never used."""
+    _person(world, "ben")
+    browser = _browser(world)
+    _sign_in(browser, "ben")
+    first = browser.cookies.get("oauth_refresh")
+    renewed = ok(_renew(browser, first))
+    _used_long_ago(world, first)
+    _invalid_grant(_renew(browser, first))
+    _revoked(_me(world, renewed["access_token"]))
+
+
+@pytest.mark.journey("J39.2")
+def test_a_used_token_within_the_grace_is_reuse_once_its_successor_was_used(world):
+    """Given two renewals. When the first token is presented, within the grace of its use but
+    behind a used successor, then `invalid_grant` and the session ends."""
+    _person(world, "ben")
+    browser = _browser(world)
+    _sign_in(browser, "ben")
+    first = browser.cookies.get("oauth_refresh")
+    ok(_renew(browser, first))
+    renewed = ok(_renew(browser))
+    _invalid_grant(_renew(browser, first))
     _revoked(_me(world, renewed["access_token"]))
 
 
@@ -257,7 +318,9 @@ def test_a_deactivated_person_is_refused_at_once(world):
     changed = ok(world.api.patch(f"/users/{person['id']}", {"expectedVersion": 2, "active": False}))
     _revoked(_me(world, token))
     _invalid_grant(_renew(browser))
-    assert _post_form(browser, "dov", PASSWORD, _pkce()[1]).status_code == 401
+    deactivated = _post_form(browser, "dov", PASSWORD, _pkce()[1])
+    assert deactivated.status_code == 401
+    assert "The username or password is not right" in deactivated.text
     ok(
         world.api.patch(
             f"/users/{person['id']}", {"expectedVersion": changed["version"], "active": True}
@@ -312,8 +375,37 @@ def test_changing_ones_password(world):
     assert change(PASSWORD, "another long passphrase").status_code == 204
     assert ok(_me(world, token))["kind"] == "user"
     _revoked(_me(world, other))
-    assert _post_form(there, "fay", PASSWORD, _pkce()[1]).status_code == 401
+    old = _post_form(there, "fay", PASSWORD, _pkce()[1])
+    assert old.status_code == 401 and "The username or password is not right" in old.text
     _sign_in(there, "fay", "another long passphrase")
+
+
+@pytest.mark.journey("J39.6")
+def test_wrong_current_passwords_are_slowed(world):
+    """Given a person signed in. When the current password is wrong past the free failures, the
+    next change is `429 SIGN_IN_SLOWED` with a wait, even with the right password, and the failures
+    are written as sign-in failures: a stolen session cannot guess the password through the
+    change form."""
+    _person(world, "ida")
+    token = _sign_in(_browser(world), "ida")
+
+    def change(current: str):
+        return world.api.client.post(
+            "/api/v1/me/password",
+            json={"currentPassword": current, "newPassword": "another long passphrase"},
+            headers=_bearer(token),
+        )
+
+    for _ in range(6):
+        refused(change("not my password at all"), 422, "PASSWORD_INCORRECT")
+    slowed = refused(change(PASSWORD), 429, "SIGN_IN_SLOWED")
+    assert slowed["details"]["waitSeconds"] >= 1
+    failed = ok(world.api.get("/security-events", aggregateType="sign-in"))["items"]
+    assert [e["details"]["reason"] for e in failed if e["action"] == "failed"].count(
+        "password-change"
+    ) == 6
+    time.sleep(slowed["details"]["waitSeconds"] + 0.2)
+    assert change(PASSWORD).status_code == 204
 
 
 @pytest.mark.journey("J40")
@@ -325,13 +417,15 @@ def test_a_reset_link_sets_a_password_once(world):
     assert ok(world.api.get(f"/users/{person['id']}"))["hasPassword"] is False
     browser = _browser(world)
     replaced, token = _reset_link(world, person), _reset_link(world, person)
-    assert browser.get("/oauth/password", params={"token": replaced}).status_code == 410
+    gone = browser.get("/oauth/password", params={"token": replaced})
+    assert gone.status_code == 410 and "used, replaced by a newer one" in gone.text
     page = browser.get("/oauth/password", params={"token": token})
     assert page.status_code == 200 and "gil" in page.text
     short = _set_password(browser, token, "short")
     assert short.status_code == 422 and "at least 15" in short.text
     assert _set_password(browser, token).status_code == 200
-    assert _set_password(browser, token).status_code == 410
+    used = _set_password(browser, token)
+    assert used.status_code == 410 and "used, replaced by a newer one" in used.text
     assert ok(world.api.get(f"/users/{person['id']}"))["hasPassword"] is True
     signed_in = _sign_in(browser, "gil")
     assert (

@@ -20,6 +20,15 @@ import AxeBuilder from "@axe-core/playwright";
  * @returns {Promise<{violations: object[], allowed: object[]}>}
  */
 export async function runAxe(page, allowlist = [], pageName) {
+  // A dialog fades in: read the colours once every animation and transition has finished.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
+  );
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])
     .analyze();

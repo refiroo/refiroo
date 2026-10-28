@@ -9,6 +9,7 @@
 .hierarchy-panel button,
 .diagnostic-list button,
 .model-catalogue section > button,
+.model-catalogue .catalogue-window li > button,
 .combo-control button {
   min-height: 0;
   box-shadow: none;
@@ -195,6 +196,27 @@
 }
 .hue-tile-18 .icon {
   stroke-width: 2.4;
+}
+/* A workspace's tile (ui/WorkspaceTile): its letters on its hue slot. */
+.workspace-tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--hue-fill);
+  color: var(--hue-ink);
+  font-weight: 600;
+}
+.workspace-tile-large {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  font-size: 22px;
+}
+.workspace-tile-small {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  font-size: 15px;
 }
 /* The page header's tile of a collection (ADR-040, UA3). */
 .hue-tile-40 {
@@ -2736,7 +2758,8 @@ button.history-line:hover {
 .model-catalogue .nav-label span {
   letter-spacing: 0;
 }
-.model-catalogue section > button:not(.load-more) {
+.model-catalogue section > button:not(.load-more),
+.model-catalogue .catalogue-window li > button {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2749,18 +2772,33 @@ button.history-line:hover {
   color: var(--text-secondary);
   text-align: left;
 }
-.model-catalogue section > button:not(.load-more) > .icon {
+.model-catalogue section > button:not(.load-more) > .icon,
+.model-catalogue .catalogue-window li > button > .icon {
   color: var(--text-tertiary);
 }
-.model-catalogue section > button:not(.load-more):hover {
+.model-catalogue section > button:not(.load-more):hover,
+.model-catalogue .catalogue-window li > button:hover {
   background: var(--surface-fill);
 }
-.model-catalogue section > button.active {
+.model-catalogue section > button.active,
+.model-catalogue .catalogue-window li > button.active {
   background: var(--state-selected);
   color: var(--state-selected-text);
 }
-.model-catalogue section > button.active > .icon {
+.model-catalogue section > button.active > .icon,
+.model-catalogue .catalogue-window li > button.active > .icon {
   color: var(--action-primary);
+}
+/* A catalogue's entries in a ScrollWindow (ui/CatalogueWindow): a list of buttons, a screen tall at most. */
+.catalogue-window .scroll-window {
+  --window-height: calc(100dvh - var(--topbar-height) - 260px);
+}
+.catalogue-window-list {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .catalogue-text {
   display: grid;
@@ -4037,9 +4075,14 @@ body.tree-drag-refused * {
   gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
-.decision-panel h3,
+.decision-panel h2,
 .decision-panel p {
   margin: 0;
+}
+.decision-panel h2,
+.decision-history h2,
+.decision-card h2 {
+  font-size: 1.17em;
 }
 .decision-field {
   display: grid;

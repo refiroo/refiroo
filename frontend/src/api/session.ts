@@ -135,7 +135,10 @@ async function tokenRequest(fields: Record<string, string>): Promise<string | un
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ client_id: CLIENT_ID, ...fields }),
   });
-  if (!response.ok) return undefined;
+  // Only the engine's refusal of the grant (OAuth `invalid_grant` and its kin, 400 or 401) ends the
+  // session; a 5xx, 429 or other answer means the engine cannot serve now, as an unreachable one.
+  if (response.status === 400 || response.status === 401) return undefined;
+  if (!response.ok) throw new Error(`The engine could not renew the session (status ${response.status}).`);
   const body = (await response.json()) as { access_token: string };
   return body.access_token;
 }

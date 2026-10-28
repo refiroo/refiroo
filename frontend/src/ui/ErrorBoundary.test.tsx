@@ -16,6 +16,7 @@ describe("ErrorBoundary (reported 2026-10-14: a blank page)", () => {
     );
     expect(screen.getByText("This page stopped working")).toBeTruthy();
     expect(screen.getByText(/reading 'length'/)).toBeTruthy();
+    expect(screen.queryByText(/Error:/)).toBeNull();
     expect(screen.getByRole("button", { name: "Reload the page" })).toBeTruthy();
     rerender(
       <ErrorBoundary resetKey="/b">
@@ -23,6 +24,20 @@ describe("ErrorBoundary (reported 2026-10-14: a blank page)", () => {
       </ErrorBoundary>,
     );
     expect(screen.getByText("Another page")).toBeTruthy();
+    quiet.mockRestore();
+  });
+
+  it("never shows an Error: prefix, whatever was thrown", () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    function Silent(): never {
+      throw new Error("");
+    }
+    render(
+      <ErrorBoundary>
+        <Silent />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText(/failed while showing: Error\./).textContent).not.toMatch(/: Error: /);
     quiet.mockRestore();
   });
 });

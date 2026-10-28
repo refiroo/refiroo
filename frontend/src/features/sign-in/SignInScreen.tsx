@@ -60,7 +60,9 @@ export function SignInScreen() {
   const [loadError, setLoadError] = useState("");
   const [view, setView] = useState<View>({ kind: "start" });
   const [showLocal, setShowLocal] = useState(false);
-  const [message, setMessage] = useState("");
+  const [notice, setNotice] = useState<{ text: string; slowed: boolean }>();
+  const message = notice?.text ?? "";
+  const setMessage = (text: string, slowed = false) => setNotice(text ? { text, slowed } : undefined);
   const [pending, setPending] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [username, setUsername] = useState("");
@@ -102,7 +104,7 @@ export function SignInScreen() {
     else if (answer.kind === "recovery-codes" && view.kind === "second")
       setView({ kind: "codes", step: view.step, codes: answer.codes });
     else if (answer.kind === "refused") {
-      setMessage(refusalText(answer));
+      setMessage(refusalText(answer), answer.error === "slowed");
       if (answer.error === "step_gone") setView({ kind: "start" });
       if (answer.error === "wrong_credentials" || answer.error === "slowed") {
         // The username stays; the password is typed again.
@@ -191,7 +193,7 @@ export function SignInScreen() {
           {ended && view.kind === "start" && (
             <Notice tone="info">Your session ended. Sign in again to return to where you were.</Notice>
           )}
-          {message && <Notice tone={message.startsWith("Too many") ? "warning" : "error"}>{message}</Notice>}
+          {message && <Notice tone={notice?.slowed ? "warning" : "error"}>{message}</Notice>}
           {view.kind === "start" && request && (
             <>
               {options.passkey && (

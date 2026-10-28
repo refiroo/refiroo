@@ -146,6 +146,13 @@ export interface ModelReleaseSummary {
   /** Run by at least one workspace, and the keys of the workspaces running it (0.11 M1). */
   assigned: boolean;
   workspaces: string[];
+  /** A retired release is not chosen again; what runs on it keeps running (0.12 MR1). */
+  status: "active" | "retired";
+  statusVersion: number;
+  retiredAt?: string | null;
+  /** Nothing refers to it, so it may be deleted; otherwise the first reason. */
+  deletable: boolean;
+  deleteBlockedBy?: "running" | "history" | "importProfile" | "mapping" | null;
 }
 
 export interface ModelRelease extends ModelReleaseSummary {

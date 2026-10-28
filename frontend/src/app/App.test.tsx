@@ -765,6 +765,9 @@ describe("App", () => {
       modelHash: "hash",
       installedAt: "",
       assigned: true,
+      status: "active" as const,
+      statusVersion: 1,
+      deletable: false,
       workspaces: ["default"],
       model: testModel as unknown as Record<string, unknown>,
     });
@@ -864,6 +867,9 @@ describe("App", () => {
       modelHash: "hash",
       installedAt: "",
       assigned: false,
+      status: "active" as const,
+      statusVersion: 1,
+      deletable: false,
       workspaces: [],
     };
     vi.mocked(api.changeSet).mockResolvedValue(changeSet);
@@ -918,6 +924,9 @@ describe("App", () => {
       modelHash: "old-hash",
       installedAt: "",
       assigned: false,
+      status: "active" as const,
+      statusVersion: 1,
+      deletable: false,
       workspaces: [],
       model: testModel as unknown as Record<string, unknown>,
     });
@@ -973,6 +982,9 @@ describe("App", () => {
       modelHash: "old-hash",
       installedAt: "",
       assigned: false,
+      status: "active" as const,
+      statusVersion: 1,
+      deletable: false,
       workspaces: [],
       model: testModel as unknown as Record<string, unknown>,
     });

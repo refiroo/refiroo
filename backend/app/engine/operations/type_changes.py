@@ -626,6 +626,7 @@ def _restore_relation(
         dict(restoring.attributes),
     )
     writes = ChangeSetWrites(session, change_set)
+    writes.permit(relations=[(restoring.from_object_id, restoring.to_object_id)])
     stored = writes.stored_relation(restoring.relation_id)
     if stored is None:
         stored = writes.add_relation(

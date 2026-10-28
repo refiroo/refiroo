@@ -35,7 +35,8 @@ function expect(condition, message) {
 }
 
 const attribute = (item, key) => item.attributes.find((entry) => entry.attributeTypeKey === key)?.value;
-const csv = (rows) => rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n") + "\n";
+const csv = (rows) =>
+  rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n") + "\n";
 
 try {
   harness = await bootHarness({ backendEnv: { IMPORT_MAX_BYTES: String(MAX_BYTES) } });
@@ -115,11 +116,20 @@ try {
   const files = {
     values: (tag, corrected = false) => [
       ["Id", "Code", "Name", "Value name", "Order", "List"],
-      [attribute(value, "master-id"), attribute(value, "value-code"), `${value.name} (J4)`, `${value.name} (J4)`, "1", listCode],
+      [
+        attribute(value, "master-id"),
+        attribute(value, "value-code"),
+        `${value.name} (J4)`,
+        `${value.name} (J4)`,
+        "1",
+        listCode,
+      ],
       [`${tag}-NEW`, `${tag}-NEW`, `${tag} New value`, `${tag} New value`, "5", listCode],
       [`${tag}-BAD`, `${tag}-BAD`, `${tag} Bad order`, `${tag} Bad order`, corrected ? "7" : "ten", listCode],
       [`${tag}-DUP`, `${tag}-DUP`, `${tag} Duplicate one`, `${tag} Duplicate one`, "8", listCode],
-      ...(corrected ? [] : [[`${tag}-DUP`, `${tag}-DUP`, `${tag} Duplicate two`, `${tag} Duplicate two`, "9", listCode]]),
+      ...(corrected
+        ? []
+        : [[`${tag}-DUP`, `${tag}-DUP`, `${tag} Duplicate two`, `${tag} Duplicate two`, "9", listCode]]),
     ],
     systems: (tag, corrected = false) => [
       ["Code", "Name", "Type", "Active"],
@@ -145,8 +155,18 @@ try {
   }
 
   const collections = {
-    values: { label: "Master values", path: "/apps/rdm-master/views/master-values?workspaceKey=default", profile: "j4-values", type: "master-value" },
-    systems: { label: "Systems", path: "/apps/rdm-systems/views/systems?workspaceKey=default", profile: "j4-systems", type: "system" },
+    values: {
+      label: "Master values",
+      path: "/apps/rdm-master/views/master-values?workspaceKey=default",
+      profile: "j4-values",
+      type: "master-value",
+    },
+    systems: {
+      label: "Systems",
+      path: "/apps/rdm-systems/views/systems?workspaceKey=default",
+      profile: "j4-systems",
+      type: "system",
+    },
   };
 
   /** Import from a collection page: opened by keyboard, a file and a profile, previewed by keyboard. */
@@ -194,14 +214,19 @@ try {
       })),
     });
 
-  const regionText = async (name) => (await page.getByRole("region", { name, exact: true }).innerText()).replace(/\s+/g, " ");
+  const regionText = async (name) =>
+    (await page.getByRole("region", { name, exact: true }).innerText()).replace(/\s+/g, " ");
 
   // 5 and 6, once per configuration and width.
-  for (const [key, width, tag] of [["values", 1440, "J4A"], ["systems", 390, "J4B"]]) {
+  for (const [key, width, tag] of [
+    ["values", 1440, "J4A"],
+    ["systems", 390, "J4B"],
+  ]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     const collection = collections[key];
     const name = `${key}-${width === 390 ? "narrow" : "wide"}`;
-    const before = (await api(`/objects/${collection.type}?workspaceKey=default&pageSize=1&includeTotal=true`)).totalCount;
+    const before = (await api(`/objects/${collection.type}?workspaceKey=default&pageSize=1&includeTotal=true`))
+      .totalCount;
 
     const file = await csvFile(`sc10-${key}.csv`, files[key](tag));
     await previewFromCollection(collection, file, { name });
@@ -215,7 +240,8 @@ try {
     expect(/(Order|Active):/.test(rows), `${name}: the invalid cell is not named by its column: "${rows}"`);
     const report = await regionText("How the file was read");
     expect(/Order|Active/.test(report) && report.includes("Refused"), `${name}: the binding report reads "${report}"`);
-    const unchanged = (await api(`/objects/${collection.type}?workspaceKey=default&pageSize=1&includeTotal=true`)).totalCount;
+    const unchanged = (await api(`/objects/${collection.type}?workspaceKey=default&pageSize=1&includeTotal=true`))
+      .totalCount;
     expect(unchanged === before, `${name}: the preview changed the data (${before} → ${unchanged})`);
     const scroll = await overflow();
     expect(scroll <= 0, `${name}: the job page scrolls horizontally by ${scroll}px`);
@@ -228,14 +254,19 @@ try {
     await shot(`j4-result-${name}`);
     await page.goto(`${uiUrl}${collection.path}&search=${encodeURIComponent(`${tag} New`)}`);
     await page.locator(".record-collection").getByText(`${tag} New`, { exact: false }).first().waitFor();
-    checks.push(`${name}: SC-10 previewed by keyboard (1 created, 1 updated, 3 rows refused by row and column, data unchanged), loaded, the new record in the collection`);
+    checks.push(
+      `${name}: SC-10 previewed by keyboard (1 created, 1 updated, 3 rows refused by row and column, data unchanged), loaded, the new record in the collection`,
+    );
 
     // 6. The corrected file: what loaded comes back unchanged, the corrected rows load.
     const corrected = await csvFile(`sc10-${key}-corrected.csv`, files[key](tag, true));
     await previewFromCollection(collection, corrected);
     preview = await regionText("The preview");
     expect(preview.includes("Loading would apply every row."), `${name}: the corrected preview says "${preview}"`);
-    expect(/Created 2/.test(preview) && /Unchanged 2/.test(preview), `${name}: the corrected preview counts "${preview}"`);
+    expect(
+      /Created 2/.test(preview) && /Unchanged 2/.test(preview),
+      `${name}: the corrected preview counts "${preview}"`,
+    );
     await load();
     checks.push(`${name}: the corrected file previews 2 unchanged and 2 created, and loads (D94)`);
   }
@@ -248,7 +279,10 @@ try {
   const atomicPreview = await regionText("The preview");
   expect(atomicPreview.includes("Loading would write nothing"), `atomic: the preview says "${atomicPreview}"`);
   await page.getByRole("button", { name: "Cancel import" }).click();
-  await page.getByRole("alertdialog", { name: "Cancel this import?" }).getByRole("button", { name: "Cancel import" }).click();
+  await page
+    .getByRole("alertdialog", { name: "Cancel this import?" })
+    .getByRole("button", { name: "Cancel import" })
+    .click();
   await page.getByText("Cancelled", { exact: true }).waitFor();
   const leftover = await api("/objects/master-value?workspaceKey=default&search=J4C&pageSize=5");
   expect(leftover.items.length === 0, `atomic: ${leftover.items.length} records written by a cancelled preview`);
@@ -283,15 +317,23 @@ try {
   await ready.getByRole("link", { name: "Review" }).click();
   await page.getByRole("region", { name: "The preview", exact: true }).waitFor();
   await page.reload();
+  // The reloaded page renews its session once its script runs; leaving before it has answered would
+  // present a used refresh token again, which ends the session (D251).
+  await page.getByRole("region", { name: "The preview", exact: true }).waitFor();
+  await page.waitForLoadState("networkidle");
   await page.goto(`${uiUrl}/settings/jobs`);
   await page.locator(`a[href$="/settings/jobs/${jobId}"]`).first().click();
   await page.getByText("Awaiting confirmation", { exact: true }).waitFor();
   await load();
-  await page.goto(`${uiUrl}/apps/rdm-systems/views/systems?workspaceKey=default&changeSetId=${changeSet.id}&search=J4D`);
+  await page.goto(
+    `${uiUrl}/apps/rdm-systems/views/systems?workspaceKey=default&changeSetId=${changeSet.id}&search=J4D`,
+  );
   await page.locator(".record-collection").getByText("J4D New system").first().waitFor();
   const live = await api("/objects/system?workspaceKey=default&search=J4D&pageSize=5");
   expect(live.items.length === 0, "change set: the import reached live data");
-  checks.push("New import from Jobs into a change set (XLSX): left, Review brought the user back, reopened from Jobs after a reload, loaded into the change set only");
+  checks.push(
+    "New import from Jobs into a change set (XLSX): left, Review brought the user back, reopened from Jobs after a reload, loaded into the change set only",
+  );
 
   // 10. The export of one workspace previewed into another. Refused (0.9 J4a): the page says why rows
   // cannot load, and each refused row names the workspace its record belongs to. Loaded as this
@@ -316,7 +358,10 @@ try {
     exportJob = await api(`/jobs/${exported.id}`);
   }
   const exportPath = resolve(output, "export-default.csv");
-  await writeFile(exportPath, Buffer.from(await (await fetch(`${apiUrl}/api/v1/jobs/${exported.id}/output`)).arrayBuffer()));
+  await writeFile(
+    exportPath,
+    Buffer.from(await (await fetch(`${apiUrl}/api/v1/jobs/${exported.id}/output`)).arrayBuffer()),
+  );
   /** New import of the export into the other workspace, with the choice for another workspace's records. */
   async function previewElsewhere(choice) {
     await page.goto(`${uiUrl}/settings/jobs`);
@@ -332,14 +377,21 @@ try {
   await previewElsewhere("Refuse them");
   const notice = await page.locator(".notice", { hasText: "Why rows cannot load here" }).innerText();
   expect(/workspace 'default'/.test(notice), `cross-workspace: the page's notice says "${notice}"`);
-  await page.getByRole("region", { name: "Rows in the preview", exact: true }).getByText("Refused", { exact: true }).first().waitFor();
+  await page
+    .getByRole("region", { name: "Rows in the preview", exact: true })
+    .getByText("Refused", { exact: true })
+    .first()
+    .waitFor();
   const crossRows = await regionText("Rows in the preview");
   expect(
-    crossRows.includes("belongs to workspace 'default'") && crossRows.includes("of workspace 'default', not of this one"),
+    crossRows.includes("belongs to workspace 'default'") &&
+      crossRows.includes("of workspace 'default', not of this one"),
     `cross-workspace: the rows say "${crossRows.slice(0, 600)}"`,
   );
   await shot("j4-preview-cross-workspace");
-  checks.push("an export of 'default' previewed into another workspace, refused: the page and every refused row say the records belong to 'default'");
+  checks.push(
+    "an export of 'default' previewed into another workspace, refused: the page and every refused row say the records belong to 'default'",
+  );
 
   const domain = await api(`/objects/domain/${list.parentObjectId}?workspaceKey=default`);
   await previewElsewhere();
@@ -355,8 +407,13 @@ try {
   expect(original.version === domain.version, "counterparts: the original in 'default' changed");
   await previewElsewhere();
   crossPreview = await regionText("The preview");
-  expect(/Created 0/.test(crossPreview) && /Unchanged [1-9]/.test(crossPreview), `counterparts, sent again: "${crossPreview}"`);
-  checks.push(`the same export loaded into another workspace as its own records (default choice): ${domain.name} in its Domains collection, 'default' untouched; sent again it previews as unchanged`);
+  expect(
+    /Created 0/.test(crossPreview) && /Unchanged [1-9]/.test(crossPreview),
+    `counterparts, sent again: "${crossPreview}"`,
+  );
+  checks.push(
+    `the same export loaded into another workspace as its own records (default choice): ${domain.name} in its Domains collection, 'default' untouched; sent again it previews as unchanged`,
+  );
 
   // 9. A file over the limit, refused at the file field.
   await page.goto(`${uiUrl}${collections.values.path}`);
@@ -410,7 +467,13 @@ try {
     if (theme === "dark") await shot("j4-result-dark");
   }
 
-  const report = { browser: browser.version(), viewports: ["1440x900", "390x844"], checks, failures, passed: !failures.length };
+  const report = {
+    browser: browser.version(),
+    viewports: ["1440x900", "390x844"],
+    checks,
+    failures,
+    passed: !failures.length,
+  };
   await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
   console.log(`J4 browser evidence: ${output}`);
   console.log(`Checks: ${checks.length}`);

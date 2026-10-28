@@ -15,7 +15,7 @@
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { devices, webkit } from "playwright";
-import { bootHarness, watchPageErrors } from "./helpers/harness.mjs";
+import { bootHarness, ignoreEventStreamsIn, signInContext, watchPageErrors } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { escapeRegExp as escape, openFoldedGroups } from "./helpers/tree.mjs";
 
@@ -448,6 +448,16 @@ try {
   const { browser, uiUrl, api, records, output } = harness;
   await walk({ engine: "chromium", browser, uiUrl, api, records, output, tag: "P" });
   iphone = await webkit.launch();
+  // The harness signs in the contexts of its own browser only: this one is the runner's (0.12 I2).
+  const openContext = iphone.newContext.bind(iphone);
+  iphone.newContext = async (...args) =>
+    ignoreEventStreamsIn(
+      await signInContext(await openContext(...args), {
+        apiUrl: harness.apiUrl,
+        uiUrl,
+        person: harness.harnessIdentity.person,
+      }),
+    );
   await walk({ engine: "webkit", browser: iphone, uiUrl, api, records, output, tag: "W" });
 
   const report = { chromium: browser.version(), webkit: iphone.version(), checks, failures, passed: !failures.length };

@@ -1,6 +1,31 @@
 # Project status
 
-## In progress — Product 0.12, security and the first public release
+## Current development baseline — Base 0.12 complete (2026-10-28)
+
+**Base 0.12 is complete**, build acceptance R included
+([record](BASE_0_12_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)), versions 0.12.0; the commit and the
+tags `v0.12.0` (and `v0.11.0` on `a68466b`) follow the user's instruction. Security, authentication and
+authorization: every caller signs in (local accounts with a second factor and passkeys, or the organisation's
+OpenID Connect provider), every operation is checked against roles, groups and grants narrowed to applications and
+record types, every change names who made it; change-set publication approvals with an inbox and mail; Settings ›
+Security; webhook key rotation; the deployment images and guide; licensing, policies and the compatibility
+commitment. MR1 (model releases retired and deleted) and NT1 (the notifications list and history page) were built
+during R in other sessions and passed with it.
+
+R reviewed every change since 0.11.0 with five reviewers (14 findings of medium or high severity, R-F1–R-F14, the
+four high ones authorization gaps; every finding fixed but five recorded by the user's decision and R-F8, which was
+not a defect), and ran: the backend suite (6,675 cases, 19 min 15 s with `-n 6`, over the 11-minute ceiling: in
+TODO), Vitest (1,215), about 70 browser runners and `security-r`, walking sign-in, grants and the approval round trip
+by keyboard alone on two model shapes, the accessibility gate (0 violations, light and dark) and the visual gate (208
+scenarios, 89 baselines re-recorded or added for delivered changes), a smoke start on a copy of the development
+database, the budgets (9, 13 min 50 s), the 200- and 2,000-record basics, and the secret scan (no leaks in 371
+commits). The runs found two more product defects, fixed with their tests: a reload followed at once by a navigation
+signed the person out (a 30-second reuse grace for a refresh token the browser never kept), and a list jumping when
+wheeled up from its end (`ScrollWindow`). Settings › Account "What you can do" was redesigned with the user.
+Still the maintainer's: that the example model and data are synthetic, the security mailbox.
+
+## Product 0.12 history
+
 
 [Planned](BASE_0_12_IMPLEMENTATION_PLAN.md) 2026-10-22, the security plan and D224–D242 accepted
 the same day. **P0, the design pass, is delivered (2026-10-23):** D243–D257 accepted (access tokens
@@ -143,7 +168,7 @@ unless a write carries `withdrawSubmission=true`; the API only ([record](BASE_0_
 migration `20261110_01`). **L1, licensing and policies, is built (2026-10-27)**: the project is named refiroo (repository `refiroo/refiroo`); a running instance offers its licence and source (`SOURCE_CODE_URL`, J31.4); README licence section, CONTRIBUTING, SECURITY, TRADEMARKS, COMMERCIAL and a generated THIRD_PARTY_NOTICES; what stays the maintainer's or counsel's is in [LICENSING_TODO](LICENSING_TODO.md). **L2, the compatibility commitment, is delivered (2026-10-27)** with L2a (the schema window cleaned to 0.10, the example models released as 0.10.0, `python -m app.cli.model_release_raise`) and UW1 (a workspace that cannot be served, its repair in the interface): [COMPATIBILITY](COMPATIBILITY.md). 0.12 is released complete: next R (no cut
 line, the user, 2026-10-26).
 
-## Current development baseline — Base 0.11 complete (2026-10-22)
+## Base 0.11 complete (2026-10-22)
 
 **Base 0.11 is complete**, build acceptance R included
 ([record](BASE_0_11_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)), versions 0.11.0; the

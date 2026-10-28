@@ -15,6 +15,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { goDark } from "./helpers/theme.mjs";
 
 const root = resolve(import.meta.dirname, "..", "..");
 const SECOND = { key: "branch-b", label: "Branch B" };
@@ -55,11 +56,7 @@ try {
     await page.screenshot({ path: resolve(output, `z6-${name}-top.png`) });
     await page.screenshot({ path: resolve(output, `z6-${name}.png`), fullPage: true });
   };
-  const dark = async (page) => {
-    await page.emulateMedia({ colorScheme: "dark" });
-    await page.evaluate(() => (document.documentElement.dataset.theme = "dark"));
-    await page.waitForTimeout(400);
-  };
+  const dark = goDark;
   /** A call to the API with `token`, as that person or client. */
   async function as(token, path, body, method) {
     const response = await fetch(`${apiUrl}/api/v1${path}`, {
@@ -199,7 +196,10 @@ try {
   await page.goto(`${uiUrl}/apps/${table.application.key}/objects/${table.type.key}/${record.id}?workspaceKey=default`);
   const history = page.locator(".history-panel");
   // Since 0.12 RH1 the name links from the opened entry (a line is a button of its own).
-  await history.getByRole("button", { name: /Ana Varga/ }).first().click();
+  await history
+    .getByRole("button", { name: /Ana Varga/ })
+    .first()
+    .click();
   await history.getByRole("link", { name: "Ana Varga: their changes" }).first().click();
   await page.getByRole("heading", { level: 1, name: "Ana Varga's changes" }).waitFor();
   expect(new URL(page.url()).pathname === "/changes", `the changes page: ${page.url()}`);
@@ -221,7 +221,11 @@ try {
   await page.getByRole("heading", { level: 1, name: `${record.name} (synced)` }).waitFor();
   checks.push("Load more continues; an entry's title opens the record it changed");
   // The client's name opens the client's changes.
-  await page.locator(".history-panel").getByRole("button", { name: /Catalogue sync \(client\)/ }).first().click();
+  await page
+    .locator(".history-panel")
+    .getByRole("button", { name: /Catalogue sync \(client\)/ })
+    .first()
+    .click();
   await page.locator(".history-panel").getByRole("link", { name: "Catalogue sync (client): their changes" }).click();
   await page.getByRole("heading", { level: 1, name: "Catalogue sync's changes" }).waitFor();
   await page.getByText("Client · newest first, in the workspaces you can read").waitFor();
@@ -233,8 +237,8 @@ try {
   await page.goto(uiUrl);
   const recent = page.getByRole("region", { name: "Your recent changes" });
   await recent.waitFor();
-  expect((await recent.locator(".home-change").count()) === 5, "Home shows the five latest");
   await recent.getByText("Created change set “Spring work”").waitFor();
+  expect((await recent.locator(".home-change").count()) === 5, "Home shows the five latest");
   await shot(page, "home-recent");
   await axe(page, "z6-home-recent");
   await recent.getByRole("link", { name: "See all your changes" }).click();
@@ -303,6 +307,8 @@ try {
   const sofia = await person("sofia", "Sofia Lind", [["security-admin", { instance: true }]]);
   await sofia.page.goto(`${uiUrl}/settings/people/${ana.id}`);
   await sofia.page.getByRole("heading", { level: 2, name: "Ana Varga" }).waitFor();
+  // The page's actions wait for the permissions; the Security administrator's own action shows they are in.
+  await sofia.page.getByRole("button", { name: "Grant", exact: true }).waitFor();
   expect(
     (await sofia.page.getByRole("link", { name: "See changes" }).count()) === 0,
     "no See changes without data roles",

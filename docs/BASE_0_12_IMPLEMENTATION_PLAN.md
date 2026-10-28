@@ -5086,7 +5086,9 @@ line). Each is explained in plain words: what is decided, why the recommendation
 | 17 | [A3](#a3-approvals-in-the-interface) | A2, Z5 | **Delivered 2026-10-27.** Submit, decide and the policy in the interface |
 | 18 | [L1](#l1-licensing-and-policies) | — | **Built 2026-10-27**, open: the maintainer's confirmations, counsel, the secret scan. Licensing and policies |
 | 19 | [L2](#l2-the-compatibility-commitment) | E1 (A3 if delivered), the project's name | **Delivered 2026-10-27** with L2a (the window cleaned) and UW1 (a workspace that cannot be served). The compatibility commitment, now including the authentication contracts |
-| 20 | R | all above the cut | Build acceptance and the first public release |
+| 19a | [MR1](#mr1-retiring-and-deleting-model-releases) | UW1 | **Built 2026-10-28**, added by the user during R. Retiring and deleting model releases; pickers offer only what can be chosen |
+| 19b | [NT1](#nt1-notifications-a-short-list-and-a-history-page) | A2, M2 | **Delivered 2026-10-28**, added by the user during R (D460–D465); its browser runners are rerun in R's browser pass. The bell panel a short unread list; a Notifications page with search, filters, sort and delete; the engine closes finished notices; expiry in the worker |
+| 20 | [R](#r-build-acceptance-and-release) | all above the cut | **Delivered 2026-10-28.** Review (R-F1–R-F14) fixed; steps 1–10 passed; 0.12.0 set; commit and tags on the user's instruction. Build acceptance and the first public release |
 
 ```text
 Design:     P0
@@ -5414,3 +5416,578 @@ after the sweep was written; the sweep now leaves allowed streams unprobed (`SWE
 scenario (no runner stages an old release in SQL yet); the multi-process refresh rests on the registry keying what
 it parsed by the release's hash, read in code and not tested with two processes; "Choose another model…" opens
 Settings › Model, where activation and migration start (no route names a workspace to migrate).
+
+### MR1: Retiring and deleting model releases
+
+**Added by the user, 2026-10-28**, during R: as development goes on, installed releases pile up (20 and more
+for testing). The model view groups them, but every model picker (a new workspace, a change set's model
+version) lists every release ever installed, including those of a schema this version cannot run. **Proposal
+approved the same day** (D457 retire and delete, D458 hide what cannot be chosen, D459 now, during R, with only
+targeted retests coordinated with R's session).
+
+**What existed:** releases are immutable and permanent; a draft can be deleted, a release never. The pickers read
+`GET /model-releases` unfiltered. UW1 knows which releases this version cannot serve, but only for workspaces.
+
+**What is built:**
+
+1. **A release's status** (`active` or `retired`), with `statusVersion` and `retiredAt` (migration
+   `20261115_01`); the snapshot itself never changes. `PATCH /model-releases/{releaseId}` retires a release or
+   brings it back (action `model.install`). A retired release is refused where a caller chooses a release (`409
+   MODEL_RELEASE_RETIRED`, `details.operation`: a new workspace, an activation, a migration, a change set
+   elsewhere); the workspaces and change sets on it keep working, and a change set may still name its own
+   release or its workspace's. The default workspace's release is not retired (`409 MODEL_RELEASE_IS_DEFAULT`),
+   as the default workspace is not (ADR-019). Installing a retired release's exact model again brings it back.
+2. **Deletion of a release nothing refers to.** `DELETE /model-releases/{releaseId}?expectedStatusVersion=N`;
+   every release answers `deletable` and `deleteBlockedBy` (`running`, `history`, `importProfile`, `mapping`),
+   as a workspace answers `deleteBlockedBy` (D27). What refers to a release is read from the database's own
+   foreign keys (every `RESTRICT` key to `model_releases`), so a table added later is counted without a change;
+   structure rows go with the release and drafts keep their content without the link. The audit records
+   `retired`, `restored` and `deleted` on the release. `python -m app.cli.model_release_prune` deletes every
+   retired release nothing refers to in one statement (`--unused` also the active ones, `--dry-run` lists).
+3. **Pickers offer only what can be chosen.** `GET /model-releases` gains `status` and `usable=true` (active
+   and of a schema this version reads), which every picker reads. The new-workspace picker lists each model's
+   newest release, its older ones behind "Show older versions" (`features/model-admin/ReleaseChoices`); a
+   change set's pickers list every usable version (its choice is usually another version of its own model) and
+   its workspace's own release even when that one is retired, as the server accepts it; a workspace's Change
+   model… dialog, which already folds by model, offers the usable ones.
+4. **Settings › Model:** a release's page offers Retire… (confirmation), Bring back and Delete… (confirmation),
+   each only where it can succeed and for someone who may install models (D323's hiding); a retired release
+   says so and offers no activation. A model all of whose releases are retired and that no workspace runs is
+   listed last, under Retired; the releases tab marks each retired one.
+
+**Mock-up** (1440 px; at 390 px the actions wrap to full-width buttons, as the release page's other actions):
+
+```text
+ Settings › Model › Test model › Releases › 0.9.12
+ ┌───────────────────────────────────────────────────────────────────────────┐
+ │ Immutable release                                   [Retired] [Run by no  │
+ │ test-model · version 0.9.12 · schema 0.10                     workspace]  │
+ │ ⓘ Retired: no longer offered for new workspaces, change sets or           │
+ │   activations.                                                             │
+ │ [Export JSON] [Create draft from release] [Bring back] [Delete…]           │
+ └───────────────────────────────────────────────────────────────────────────┘
+
+ New workspace › Model
+   ( ) The default workspace's model
+   (•) Another installed release
+       [ Test model 0.9.14          ▾ ]   ← newest of each model only
+       [ ] Show older versions (13)
+```
+
+**Decisions:**
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D457 | Retire, delete or both? | **Decided by the user: both.** Retire hides what has a history; delete removes what never ran. Cost: a status column, two routes and five answer fields |
+| D458 | Releases a picker cannot use | **Decided by the user: hidden.** A picker offers only active releases of a schema this version reads; Settings › Model keeps showing the rest, with Raise where UW1 offers it |
+| D459 | When | **Decided by the user: now, during R.** Targeted retests only, coordinated with R's session; no full runs |
+
+**Journey test cases** (J36.10–J36.11, `tests/journeys/test_j36_10_release_lifecycle.py`, generated A and B):
+1. a retired release reads retired, leaves the usable list, its workspace still reads, writes and opens a change
+set on it, and a new workspace, an activation, a migration and a change set elsewhere naming it are each `409
+MODEL_RELEASE_RETIRED`; brought back, a workspace is created on it; 2. the default workspace's release is `409
+MODEL_RELEASE_IS_DEFAULT`, a stale status version `409 MODEL_RELEASE_VERSION_CONFLICT`, a Reader `403`, an unknown
+release `404`; 3. installing a retired release's model again brings it back; 4. an unused release is deleted
+(`404` after, its draft kept), one a workspace runs is `409 MODEL_RELEASE_IN_USE` (`running`), and after the
+workspace moves on `history`; 5. the prune command, dry and real, with and without `--unused`. Vitest: the
+helper's order, the picker's older versions, the release page's retire, delete and hidden actions.
+
+**Doors** (ADR-032): none affected; audit/history keeps every row, and a release with history is only retired.
+
+#### MR1 record (2026-10-28)
+
+**Built.** Backend: `engine/model/release_lifecycle.py` (status, deletion, the blockers read from the foreign
+keys, the refusal at the four choosers), the routes in `routers/model_releases.py`, the response built once in
+`presenters.model_release_responses` (also for an installation), the migration, the prune command. Frontend:
+`ReleaseChoices` (helper, hook, toggle) in the new-workspace and both change-set pickers, the usable set in
+the Change model… dialog, the release page's actions and confirmations, the Retired group and marks.
+
+**Decided on the way** (by recommendation, recorded): the Retired group is listed last, not folded, since the
+model list has no folding groups and one is not added for this. Older versions are folded in the new-workspace
+picker only: in a change set's pickers they are the usual choice (R's runners `sc15`, `wp11` and `wp13c`
+select such versions there) (the user asked whether the hiding hid too much, 2026-10-28; it did, for the workspace's own
+retired release as a change set's target, now listed). The runner `workspace-m5` now ticks "Show older
+versions" before creating a workspace on an older release.
+
+**Checks run (frontend):** `tsc`; Vitest `features/model-admin` (8 files, 48 tests, among them the helper and
+the release page's retire, delete and hidden actions), `ChangeSets` (23: usable releases, every version, the workspace's own retired release as a target),
+`WorkspaceAdmin` and `App` (with `ChangeSets`, 101); eslint on the changed folders (0 errors; the 4 warnings
+are older lines); the production build into a scratch directory. **Backend** (one invocation, `-n auto`, in a
+window R's session gave): J36.10–J36.11 (10 cases), J36's workspace models, J37.6, J37.7, J37.9, J37's migration,
+the OpenAPI lock (re-baselined "0.12 MR1 (additive)"; NT1 re-baselined on top) and the J47 security sweep
+(`security_oracle` names the two routes): **138 passed**, 1 min 31 s; `ruff check` clean. The MR1 cases take
+16–19 s each under the parallel run, the seeds rebuilt once for the migration in the same run; the cause
+is not measured (each case clones a seed and installs two or three releases). **Left to R:** the eight runners that walk the pickers
+(`workspace-m5`, `workspace-m6-checkpoint`, `workspace-r-acceptance`, `sc15`, `wp11`, `wp12`, `wp13c`,
+`wp9-change-sets`), rerun after its browser pass; the new actions' look at 1440 and 390 px has not been seen
+in a browser.
+
+### NT1: Notifications, a short list and a history page
+
+**Added by the user, 2026-10-28**, during R: the inbox only grows. The bell panel lists every notice of the last
+90 days, a clicked notice stays in it, and with a thousand notices it is unusable; "you don't see notifications
+piling up for 90 days in any application, that's usually a shortlist". **Proposal and mock-up approved the same
+day** (D460–D465 as recommended; [mock-up](https://claude.ai/artifact/WTVk5PGYpc9wzqv1uCgtKF)). Implementation
+window and test runs agreed with the other sessions working in the checkout (R's included), targeted retests
+only.
+
+**What existed:** A2's inbox (`engine/notifications/inbox.py`) pages every notice newest first, read and unread;
+the panel shows them all. Only one kind is closed by the engine: "waiting for your approval" when the change set is
+decided or withdrawn (`close_requests`). A job's notices stay unread after the person watched the job finish in
+its dialog, and "waiting for your confirmation" stays unread after the job is confirmed or cancelled. The 90-day
+delete (`rdm_prune_inbox`, revision `20261111_01`) runs only inside an insert, so nothing is removed while no notice
+arrives. Settings › Notifications chooses only the mail (M2 follow-up, D434).
+
+**What is built:**
+
+1. **The bell panel is a short list (D460):** unread notices only, newest first, at most 20 with "and N more";
+   a notice opened from it is read and is gone the next time it opens; Mark all read; "See all notifications" at
+   its foot; "You are all caught up" with the same link when nothing is unread.
+2. **A Notifications page** at `/notifications` (D463), opened from a new "Notifications" item (with the unread
+   count) in the account menu and from the panel: search, Kind, Workspace, Show (all, unread, read), Sort (newest
+   or oldest first); rows with the unread dot, the notice and its second line, workspace, from whom, when; a
+   row opens its subject as in the panel; tick rows to Mark read, Mark unread or Delete; Delete all read…
+   (confirmed); "Notices are kept for 90 days"; rows load as the list scrolls (cursor paging). A link to the
+   mail settings, whose page is renamed **Notification email**.
+3. **The API, so every client has the same:** `GET /me/notifications` gains `q` (D462), `kind`, `workspace` and
+   `sort` (`newest` | `oldest`), each part of the cursor's filters; `POST /me/notifications/read` gains `read:
+   false` (mark unread) and `subjectId` (the caller's notices about one subject); new `POST
+   /me/notifications/removal` (a body, as `POST /groups/{id}/members/removal`) with `{ids}` or `{read: true}` (all
+   read ones), answering how many went and the unread count (D461). Another principal's or an unknown ID is left
+   alone, as marking does.
+4. **The engine closes what is done (D464):** `close_requests` becomes one rule, "mark the unread notices of
+   these kinds about this subject read", used for a decided change set as now and by the jobs trigger when a job
+   leaves `awaiting_confirmation`. Opening a job's page or dialog, or a change set, marks the person's own
+   notices about it read (`subjectId` above), so a job watched to its end never adds to the count.
+5. **Expiry where it runs (D465):** the 90-day delete moves from the insert trigger to the worker's periodic run,
+   in one statement, so old notices go on a quiet day too; the trigger is dropped (closes the 0.12 R TODO item
+   on the prune inside each insert).
+
+**Not built:** a cap of notices per person or client (offered, not chosen); keeping read notices for a shorter
+time (all notices keep 90 days).
+
+**Mock-up** (approved; three artboards on the linked canvas):
+
+```text
+Notifications   3 unread · 214 in the last 90 days            Notification email settings
+[Search: change set, comment, person, job]  Kind [All]  Workspace [All]  Show [All]  Sort [Newest first]
+2 selected                                           [Mark read] [Mark unread] [Delete]
+☐ ● A change set is waiting for your approval        Pricing    Anna K.   2 h ago
+     "Q4 price list" · "Please check rows 4–9 before Friday"
+☑ ● A job you started has failed                     Pricing    —         5 h ago
+☑   A change set you submitted was sent back         Catalogue  Ben T.    26 Oct
+Showing 9 of 214 · more load as you scroll      Notices are kept for 90 days.  [Delete all read…]
+
+Bell panel: Unread 3 [Mark all read] · three unread notices · "See all notifications ›"
+Account menu: Account · Notifications (3) · All settings · Theme · Sign out
+```
+
+**Tests (journeys, D-sized):** J42's inbox journeys extended by one scenario per rule: search and filters over
+a principal's notices, delete by IDs and all read, mark unread, a job confirmed closes its notice, opening a
+subject marks its notices read, the worker's prune; Vitest for the panel, the page and the account menu item;
+the production build. No full suite (targeted groups only).
+
+**Delivered 2026-10-28.** As planned, with what the user asked while it was built:
+
+- **A popover's button toggles it** (the bell, the account menu, every `ui/ControlPopover`): pressed while open,
+  React Aria's non-modal popover closed on focus leaving it and the same press opened it again; a press that
+  begins while open now only closes it. A test that holds focus in the popover, as a browser does, fails without
+  the fix.
+- **The page is wider** (1280 px, centred) and **the unread tint and hover cover the whole row**, the workspace
+  included.
+- **Selecting as in the records table** (`useRecordSelection`, `SelectionCheckbox`): a tick or Cmd/Ctrl-click
+  toggles one, Shift a range from the last one ticked, Select all the loaded notices (at most 500, the API's
+  limit). **One bar of one height** above the list holds Select all and either the hint or "N selected" with
+  Mark read, Mark unread and Delete, so ticking never moves the list.
+- **A notice opens in its own workspace's first application** from the bell as on the page, so a change set's
+  notice opens from Home, Changes and the Notifications page too (the top bar there has no application).
+- Pages that call `useSubjectSeen` (`features/inbox/useInbox.ts`): a job's page, the bulk-change dialog, a
+  migration's page, a move's dry run, a change set's review.
+
+**Checks run:** the OpenAPI document diffed against MR1's lock with NT1's two files restored in a copy (it
+reproduces MR1's hash; re-baselined, additive); `ruff` on the changed backend files; the security oracle lists
+the new route. Frontend: `tsc`; Vitest `features/inbox`, `app`, `features/settings`, `features/jobs`,
+`features/objects`, `features/model-admin`, `features/moves`, `features/workspaces`, `routing`, `ui` (88 files,
+826 tests, before the last two inbox tests were added; inbox, account menu and `ui` again after: 126); eslint and
+prettier on the changed files; the production build into a scratch directory. In the user's development database,
+inside a rolled-back transaction: marking two read notices unread and read again. **Backend, in R's window:**
+`test_j42_inbox.py`, the OpenAPI lock test and `test_j47_security_sweep.py` in one run: 68 passed, 2 failed, the
+two parameters of the search journey, whose test took `_proposal`'s record name for the change set's; rewritten
+to name the change sets and compare by ID, it passes (2 passed); no product code changed. The browser runners the
+bell, the account menu and Settings' rename move, the `/notifications` page in the a11y and visual gates and the
+re-recorded baselines are R's browser pass (handed over with the list of changes).
+
+| # | Question | Decision |
+| --- | --- | --- |
+| D460 | What the bell panel lists | **Decided by the user: unread only.** A read notice is history and lives on the page; that keeps the panel short. Cost: a notice just read is found on the page, not in the panel |
+| D461 | What Delete means | **Decided by the user: removed for good.** A notice only points at its subject; the job or change set stays. Cost: none (no audit of notices is needed) |
+| D462 | What search reads | **Decided by the user: the text a person sees**: the change set's name, the comment, people's names, the job's kind. Cost: none; internal values in `details` are not matched |
+| D463 | Where the history lives | **Approved with the mock-up:** its own page at `/notifications` from the account menu, outside Settings (it is not a setting); Settings › Notifications renamed Notification email and linked from the page |
+| D464 | Notices the engine closes | **Approved:** one rule for "this subject is done", used by a decided change set and a job leaving `awaiting_confirmation`; opening a subject marks the caller's notices about it read |
+| D465 | Expiry | **Approved:** 90 days for every notice, deleted by the worker's periodic run instead of the insert trigger |
+
+## R: Build acceptance and release
+
+- A full review of every change since 0.11.0 first, as every R, with COMPATIBILITY's release check
+  (every OpenAPI-lock re-baseline marked additive or breaking).
+- J39–J47 composed in the browser over the real backend on two models, keyboard alone, 1440px and
+  390px, with the accessibility and visual gates, which gain 0.12's surfaces.
+- The roadmap 0.12 exit gate, item by item.
+- Migrations: clean bootstrap, upgrade from 0.11.0.
+- Full suites per AGENTS.md; documents and versions; tag on the user's instruction.
+- Every heavy run as an announced block.
+
+**Exit:** all gates pass, or each failure is explained and tracked; Base 0.12.0 is ready to release, the first
+public one, with what stays the maintainer's or counsel's named (L1).
+
+### R plan (2026-10-27)
+
+**Planned 2026-10-27; D447–D456 accepted by the user on 2026-10-27, D455 changed: Sonnet also writes the product fixes, each from a well-defined brief; the primary agent reviews the diffs. The user: "this R should not be a token consuming exercise". D456: back to back. Step 0's findings: all fixed but five recorded (below).** Step 0 (the review, read only) was started the same day, before the acceptance, since every R begins with it and no decision below changes it but D455's allocation of models, which follows the user's request for Sonnet where reasonable. This plan says in what order R runs, what
+it costs, which decisions it needs and what a failure means.
+
+**What was checked for this plan (2026-10-27, at `cb0c290`).**
+
+- **Base.** 0.11.0 was released at `a68466b` ("release 0.11.0: build acceptance R"); **no `v0.11.0` tag exists**
+  (the tags stop at `v0.11.0-alpha.1`). R compares against `a68466b`.
+- **Size.** Since `a68466b`: 54 commits; 196 files in `backend/app` (22,215 lines added), 230 in `frontend/src`
+  (26,381); 133 files in `backend/tests` (11,641) and 30 in `frontend/e2e` (4,852). Most in `engine/identity`,
+  `engine/authorization`, the OAuth, identity and sign-in routes, `models/database.py`, `features/security`,
+  `features/settings` and `features/workspaces`. About 1.5 times 0.11's R.
+- **Migrations.** 19 since 0.11.0, `20261027_01_identity` … `20261114_01_consumer_grants_clients_only`; with
+  backfills in `20261101_01_audit_actors`, `20261102_01_audit_places` (the only one with a unit test) and
+  `20261114_01` (grants of people and groups to consumer APIs removed).
+- **The OpenAPI lock.** `test_openapi_contract.py` changed in 25 of the 54 commits; each re-baseline names its
+  package in the comment, which the release check reads.
+- **Runners.** `package.json` has 69 browser runners; 0.12 added 15 (`hm1-home`, `i2`, `i3-sign-in-providers`,
+  `i3-real-provider`, `i4`, `i6`, `m1`, `sp1`–`sp3`, `z5`, `z6`, `dp1`, `dp3`) and changed 15 for the harness's
+  sign-in. `i3-real-provider` needs the organisation's provider and its credentials; `dp3-deployment` builds the
+  Docker images.
+- **Gates.** `accessibility-gate.mjs` and `visual-regression-gate.mjs` are unchanged since 0.11.0: **no 0.12
+  surface is in either** (sign-in screen, Home, Settings › Account, Settings › Security's pages, Mail, the inbox,
+  the submitted change set and its decision card, the workspace page's tabs, the unavailable workspace).
+- **Composed journeys.** None walks a 0.12 journey whole by keyboard alone. **A3 (approvals in the interface),
+  A3a (the workspace page in tabs), M2's settings and UW1 have never run in a browser**: their records say so.
+- **Open items from 0.12 packages:** L1's maintainer and counsel items (ownership confirmation, the contributor
+  agreement, the mailbox, the public repository) and the `gitleaks` scan; UW1's multi-process refresh, read in
+  code only; E1's three closing checks (the B3 expiry test only at the verifier, person and group consumer grants
+  not swept, which `20261114_01` made moot, passkey ceremonies not exercised); LS1's and RH1's one open browser
+  check each.
+- **Versions.** `0.11.0` in `backend/app/config.py`, `backend/pyproject.toml` and `frontend/package.json`. The
+  schema window is 0.10 only (L2a, D439).
+- **Machine.** Load 2.8 (5-minute 5.2) at planning; the development engine, Vite and both PostgreSQL servers are
+  running (the user's).
+- **Not checked:** whether anything fails today; the browser runners' total time.
+
+**Steps.** Each step's failures are handled by D447 before the next starts. Steps 2, 3, 5, 6 and 9 are heavy runs,
+each announced (D456).
+
+0. **Full review**, before any gate: every change since `a68466b` in `backend/app`, `frontend/src` and the
+   migrations, and the tests and runners for whether they check what they claim. Area by area (D455): identity
+   (the issuer, sessions, sign-in pages and JSON routes, providers, linking, second factors, passkeys, resets);
+   authorization (the catalogue, grants, narrowing at the write unit, jobs as their requester, consumer grants,
+   the permission cache across processes); audit identity and Z6; approvals and the inbox; mail and its outbox;
+   key rotation; the deployment files; L2a's window and UW1's raising; the interface (Z5's hiding, the Security
+   pages, Home, approvals, the workspace page). Across packages where a later one changed an earlier one's work
+   (Z2 on I1's harness, A1 on publishing, M2 on A2, L2a on the compiler, `20261114_01` on Z3). Migrations,
+   concurrency and the public contracts get one independent reviewer of the final code (AGENTS.md), with
+   **COMPATIBILITY's release check**: each of the 25 re-baselines marked additive or breaking; a breaking one
+   gets a recorded decision. Every finding listed with its outcome.
+1. **Static and unit gates:** Ruff, frontend format check, lint, `tsc -b && vite build`, Vitest, gate helpers
+   (every runner classified in EXECUTION_GUIDE §3). THIRD_PARTY_NOTICES regenerated (D220) and diffed.
+2. **Backend suite:** `pytest -n 6 -q`, then `pytest -m serial -q`, under the 11-minute ceiling (0.11: 10 min
+   51 s for a smaller suite, so the ceiling may be crossed; by AGENTS.md that is reported as a harness defect,
+   not fixed in R).
+3. **Browser runners**, all 69, one at a time; `i3-real-provider` and `dp3-deployment` by D453.
+4. **Composed acceptance runner** `security-r` (D448).
+5. **Accessibility and visual gates** by D449: 0.12's surfaces added first, then `test:a11y` light and dark,
+   then `test:visual`.
+6. **Migration checks** by D450: clean bootstrap and lifespan (`test_startup`, `test_migrations`); a database
+   built by `a68466b` upgraded by this code; the smoke start on a copy of the development database.
+7. **Exit gate:** ROADMAP 0.12's walked item by item with its evidence from steps 0–6, E1's sweep and the
+   packages' records; the composable-domains doors confirmed against the code (L2's table).
+8. **Secret scan and documents:** `gitleaks` over the whole history once (D452); PROJECT_STATUS, ROADMAP (0.12
+   complete), TODO, CHANGELOG (`[Unreleased]` becomes `[0.12.0]`, with the window's change), API.md,
+   COMPATIBILITY's table checked against `SCHEMA_VERSIONS` by hand, the functionality catalogue, LICENSING_TODO;
+   R's record with every gate's figures.
+9. **Long run** by D451, one announced block after steps 1–8 pass.
+10. **Version and tag** by D454: version strings set, R's record written; commit, tags and commands when the
+    user asks.
+
+**Decisions** (D447–D456, accepted 2026-10-27; D455 changed as above)
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| D447 | What does a failure mean? | **As 0.11's D224.** A product defect is fixed in R as a named amendment with its regression test, and only its boundary's groups rerun. A runner that drifted from a later package's model or screen (most likely: the 15 runners changed for sign-in, and Z5's hidden actions) is fixed in the runner and recorded. A budget over its target is a TODO exception with its figure and cause, unless it regressed against its own earlier figure, which is a defect. A run that fails once and passes on one rerun is a flake: recorded, a TODO item, no release block. A high-severity security finding, or anything else, stops R and comes to you |
+| D448 | How are 0.12's journeys composed? | **One new runner, `security-r`, by keyboard alone on two models at 1440px and 390px:** J39 sign in and work (and sign out); J40 a Security administrator grants a role to a person and a group; J42 a Contributor submits a change set and a Data owner sends it back, then approves it under four-eyes, the inbox showing each step; J45 Home's "Waiting for your approval". Why: A3, A3a and M2's settings have never run in a browser, and J42's round trip is the release's newest flow. J41 (a client), J43 (a key), J44 (who changed what) and J47 (the security model) are API journeys the backend suite and the existing runners (`sp2`, `u5`, `z6`) carry. Cost: one runner, iterated on its smallest slice (one model, one walk) |
+| D449 | What joins the gates | **0.12's surfaces, light and dark at 1440px and 390px:** the sign-in screen (password and second factor), Home, Settings › Account, Security's people, a person, groups, roles, clients and sign-in providers, Mail, the inbox, a submitted change set with its decision card (and A3's fixed bottom bar at 390px), the workspace page's tabs, and the unavailable workspace (staged by an SQL helper that writes a release of a schema outside the window, which the helper says arrives only from an older engine). About 40 scenarios and 20 new baselines. **The new baselines are recorded once and shown to you before `test:visual` compares against them**, as 0.11's D226. Cost: one helper (`security-surfaces.mjs`) beside `workspace-surfaces.mjs` |
+| D450 | Upgrade from 0.11.0 | **A database built by `a68466b`'s code** (a temporary worktree, a scratch database with the starter, a second workspace with records, a change set, a webhook subscription with deliveries and a consumer client of 0.11's kind, and one workspace on a release of a schema below 0.10), upgraded by this code and started: records, history and deliveries intact, the audit's earlier rows reading "Before sign-in", the first administrator made by `create_admin` as OPERATIONS says, the old-schema workspace answering `unavailable` and raised through the API. Why: 19 migrations, three of them backfills, and L2a's window turns a 0.11 workspace on an older schema unavailable, which only an upgrade produces. Cost: one worktree and one scratch database, removed afterwards |
+| D451 | Which long runs? | **`pytest -m budget` once, and the basics at 200 and 2,000 records.** Why: Z2 put the narrowing check into the write unit and Z4 the actor into every audit row, both on the bulk path the budgets measure. The basics: a list's first page, a publish of 200 and 2,000 changed records, and one approve-and-publish of a 2,000-record change set, timed through the running API as a Data steward with a narrowed grant and as a Data owner with an unnarrowed one. No full-volume run beyond the budgets. Cost: one announced block |
+| D452 | The secret scan and L1's open items | **`gitleaks` once in R over the whole history, findings reported with commit and path; nothing rewritten (D223).** The ownership confirmation, counsel's review, the mailbox and the public repository stay yours, listed in R's record and LICENSING_TODO; R reports 0.12.0 ready, and the first push waits for them. Cost: none |
+| D453 | The two runners that need outside things | **`dp3-deployment` runs once in step 3 (it builds the images; Docker must be running); `i3-real-provider` runs only if you give the provider's settings for that block, otherwise it is skipped and named as not run** (I3 already reported a real-provider try). Why: neither can run unattended without your environment |
+| D454 | Version numbers and tags | **Engine, backend and frontend `0.12.0`;** the window stays 0.10; the starter and the example model unchanged. **Tag `v0.12.0` on your instruction, and also `v0.11.0` on `a68466b`**, missing since 0.11 R, so the next R's base has a name |
+| D455 | Who does what, and which model (your request: Sonnet where reasonable) | **The review:** the independent reviewer (migrations, concurrency, public contracts and the release check) and the identity and authorization areas on Opus, since they decide whether a security gap ships; the interface areas and "do the tests check what they claim" on **Sonnet**, each returning findings with file and symbol for me to confirm in the code before recording. **Test running and runner work on Sonnet:** one Sonnet agent at a time runs each block, fixes runners that drifted (D447), writes `security-r` and the gate helper, and reports figures; I decide failures by D447, write product fixes or check a Sonnet fix's diff, and keep the record. Why: the runs and runner edits are mechanical and long; the security judgement is not. Cost: more agents than a normal package (AGENTS.md asks your explicit request, which this is) |
+| D456 | Pauses between the heavy blocks | **Your choice, asked again as the memory of 0.11 R says.** Recommended: **back to back after you accept this plan**, one block at a time, the machine's load checked before each and said when high, stopping only for what D447 sends to you. Alternative: each heavy block (steps 2, 3, 5, 6, 9) waits for your go-ahead |
+
+**Groups:** R runs everything (the full suites by AGENTS.md); "targeted tests only" does not apply to build
+acceptance. Test work added: `security-r` (D448), the gate helper and its scenarios (D449), the upgrade check's
+scratch setup (D450, not committed).
+
+#### R step 0: the review (2026-10-27)
+
+**Done 2026-10-27** at `cb0c290`, read only; nothing fixed. Five reviewers (D455): the independent one (migrations,
+concurrency, public contracts and the release check) and identity and authorization on Opus; the interface and
+the tests on Sonnet. **Every finding of medium or high severity was checked again in the code by the primary
+agent before it was recorded**; the lows are as reported.
+
+**High (4).** By D447 as proposed, these stop R until the user decides.
+
+| # | Where | Finding |
+| --- | --- | --- |
+| R-F1 | `management/access.py` `RECORD_WRITE`, `RELATION_WRITE`; `objects.delete_object`, the relationship delete, `attributes.remove_attribute_value` | **Edit live bypassed on the DELETE routes.** The route check reads `changeSetId` from the JSON body first; the three DELETE handlers read it from the query only. A DELETE with no query parameter and a body `{"changeSetId": <a change set the caller works in>}` is checked as Work in change sets and deletes **live** (cascades included); the write unit's `allowance` narrows by the writer's groups, now `change-sets`, and passes. A Contributor deletes live records. Confirmed by tracing |
+| R-F2 | `engine/change_sets/records.py` `patch_change_set_attribute`, `delete_change_set_attribute` | **Record-type narrowing (Z2) skipped** when the change set already holds a row for the record: `own_object`, the only `permit`, runs only when `stored_object` is `None`. An editor narrowed to one type changes or removes values of any type another person already edited in the change set. Same class as E1's C1. Confirmed by reading |
+| R-F3 | `engine/model/migrations.py` `submit_migration`, execution's `apply_publication`; `POST /workspaces/{k}/model/migrations` (`model.activate`) | **The approval policy and Publish bypassed by a migration.** A migration naming `changeSetId` publishes it in the same transaction with Model release alone: no Publish, no `requireApproval`/`secondPerson` (`policy_flags` is read only in `approvals.py`), an open request left unresolved. Confirmed by reading |
+| R-F4 | `engine/authorization/requesters.py` `job_group`; `access._job`; the worker's `job_writer` | **A Contributor confirms an administrator's migration.** A workspace migration that publishes a change set (V2) and a change set's own migration (V3) are both `kind="migration"` with `change_set_id` set; `job_group` answers `change-sets` for both. Confirming (`acceptLoss` included), reading or cancelling such a V2 job, and the worker's run-time check, need only Work in change sets: the workspace's release switches and the change set publishes. Confirmed by reading |
+
+**Medium (10).**
+
+| # | Where | Finding |
+| --- | --- | --- |
+| R-F5 | `routers/oauth.py` `passkey_registration_options`, `_verify` | Adding a passkey needs only the refresh cookie; removing one needs the password or a code. A passkey signs in alone (D393) and survives a reset, a password change and "sign out everywhere": a stolen session becomes a permanent credential past the second factor. Confirmed |
+| R-F6 | `engine/model/change_set_migrations.py` | A submitted change set moved onto another release is converted and its version raised without `submissions.freeze` (D426's "every path" misses it). Confirmed |
+| R-F7 | `engine/change_sets/approvals.py` `decide` | The expected version is compared with the change set's current version, not the submitted one; with R-F6 an approver publishes content never submitted. Confirmed |
+| R-F8 | `engine/model/migrations.py` `confirm_migration` | Confirming a migration does not check the requester again (D294 holds for imports, batches and moves only). Confirmed by the reviewer's trace; consistent with R-F4 |
+| R-F9 | `engine/model/registry.py` `_servable`; `raising.raise_release` | An instance upgraded from 0.11.0 whose every workspace is on a schema below 0.10 starts not ready (`/health` 503) without the job worker, exporter, listeners, deriver or dispatcher; raising fixes the release but not the process, which stays so until restarted. Confirmed (`_servable` set only at start and `clear`) |
+| R-F10 | `frontend` `ConsumerApis.tsx` (two links) | The draft's consumer API documents are plain `<a href download>` links: no token since I2, so the downloads fail. `DownloadLink` exists for this. Confirmed |
+| R-F11 | `frontend` `features/security/permissions.ts` `allows` | `allows()` is true while permissions are unknown (loading or failed); 11 production sites use it (approve, publish, create and withdraw change sets, bulk and move), so those show to people without the right (D323). Confirmed |
+| R-F12 | journey tests (J39 console, J41, J42 inbox, J43, J46, J37.9, J40:727, J42:179) | About a dozen refusals asserted by status alone or by either of two outcomes, against AGENTS.md. Read |
+| R-F13 | browser runners `i2`, `i3-sign-in-providers`, `i4`, `i6`, `m1`, `sp1`, `sp3`, `z5`, `dp1` | The "two models" are the starter and the starter with a changed product name: one structure walked twice; `i2` names the starter's keys. Confirmed |
+| R-F14 | J47 sweep | The oracle for an operation's groups is its own declaration (`x-action-groups`); the sweep proves enforcement equals declaration, not that a declaration is right (J40's cases and the catalogue cross-check in `test_openapi_contract` carry that). R-F1–R-F4 are this kind. Read |
+
+**Low (about 30), as reported.** Identity: a malformed passkey answer gives `500` (the library's
+`InvalidJSONStructure` is not caught; confirmed); `POST /me/password` guesses not slowed; `client_credentials` costs
+an Argon2 per request unslowed; the open passkey ceremonies capped per instance, not per address; the I5 JSON routes
+without the maintenance guard; the HTML second step answering a JSON error after a factor confirmed elsewhere;
+provider starts unbounded per address. Authorization and backend: two rules for who may withdraw a request
+(`withdrawSubmission=true` by anyone working in change sets; `DELETE …/submission` refuses an approver without Work in
+change sets); `availability` compiles per raisable release; `list_own_change_sets` counts changes per item; the
+inbox stream's catch-up read unbounded; the mail sender's batch lease can send a one-time link twice against a slow
+server; every provider sign-in raises the permission generation even when nothing changed; the approval policy read
+without a lock; the 90-day notification prune inside every insert; `claim`'s freeze safe only because every caller
+locks first. Interface: a stale approval's buttons enabled; the security lists on `useCursorFeed` with Load more
+instead of `ScrollWindow`; a 5xx or 429 on refresh treated as signed out; event streams retried every 3 s on
+403/5xx without backoff; Approval's `VERSION_CONFLICT` without a reload; the sign-in tone read from the message's
+wording; settings pages rendering by typed address until the 403; `ErrorBoundary` can show `Error:`; Home's
+full-reload fallback; the decision reading the active publication at the click. Tests: OAuth and page refusals by
+status; the inbox stream unprobed per role; J47.7's docstring beyond its assertions; weak unit tests (a constant
+equal to itself, a count hard-coded, private names patched); runner gaps (`i3`'s second group, `dp1` opens no
+collection, `z6` waits, `i6`'s swallowed wait, `sp1`–`sp3` waits, a leaked provider process, `m1`'s stale header).
+
+**Not a defect, recorded.** I1 removed the upgrade and interrupted-migration tests by the user's decision
+(2026-10-23, pre-1.0); AGENTS.md's error-handling and done sections still require them: the document is out of
+date. No browser runner covers A2's inbox, A3, A3a, M2's switches or UW1 (D448–D449 address them). Every backend
+sub-journey J39–J47 has a test.
+
+**COMPATIBILITY's release check** (the independent reviewer generated `/openapi.json` at `a68466b` and at HEAD with
+every capability on and diffed them). Beyond I1's authentication on every operation (expected), no 0.11 path,
+operation, parameter, response code, schema or error code was removed. Breaking against 0.11.0: **I1** moved
+`database` and `settings` out of `GET /system` into `/system/configuration`; **Z4** typed the draft and mapping
+operations' `author` as a principal (always `null` in 0.11); **E1 F5** made `workspaceKey` required on six
+import-profile check routes (a security fix); **A2** widened `SubscriptionResponse.consumerApi` to nullable (only for
+the new workspace source). All precede 0.12.0, where the commitment begins; the first three are in the CHANGELOG,
+the fourth is not. The A3 re-baseline's comment omits `POST /grants`' tightening (a 0.12-only feature) and RH1's
+changes ride in I4's hash. Every other re-baseline (21) is additive.
+
+**Found sound** (the reviewers' summaries, kept short): tokens (ES256, `alg`/`kid`/`iss`/`aud`/`exp`, retired keys,
+ended sessions), codes and refresh rotation under lock with reuse ending the session, PKCE, the second factor on
+every password path, OIDC state/nonce/`iss`/`aud`/`azp` and matching by `sub`, passkey origin and rpId, redirects
+limited to the browser origins, reset by mail answering the same; every route declared and an undeclared one failing
+closed; jobs checked as their requester at each step; audit actor on every insert; Z6 filtered in SQL; the inbox
+scoped to the principal; consumer grants per client; the migration chain linear, the backfills set-based and
+loss-free from 0.11.0, downgrades present; the permission cache, webhook steps in repeatable read, gapless event
+positions, approval locks in the edit order with one open request per change set; the browser's token in memory
+only, one refresh at a time across tabs, no token in a URL, dialogs on `ui/Modal`.
+
+#### R amendment: the review's findings (2026-10-27)
+
+**Decided by the user, 2026-10-27:** every finding is fixed, R-F13 included, except five recorded as they are:
+the instance-wide cap on open passkey ceremonies (documented as intended); the approval policy read without a lock
+(a switch during a publish applies from the next one); settings pages opened by a typed address show the engine's
+refusal; Home's full-reload fallback when the model cannot be read; the 90-day notification prune inside the insert
+(moved only if a run shows the suspected deadlock). The fixes, in four briefs written by Sonnet one at a time
+(the backend's authorization, then identity and the rest; the frontend beside the first, its files apart):
+
+| # | Outcome | Regression test |
+| --- | --- | --- |
+| R-F1 | Fixed: the route check reads `changeSetId` where the handler does (the query on DELETE); the write unit refuses a live write by a writer allowed only change-set work, and the mirror (`authorization/writes.require_live`, `require_change_set`, called by `LiveWrites` and `ChangeSetWrites`) | J40 `test_a_delete_naming_a_change_set_only_in_its_body_is_not_a_change_set_write`; unit `test_a_route_allowed_for_one_kind_of_write_does_not_do_the_other` |
+| R-F2 | Fixed: change-set attribute writes always pass `own_object`'s type check; the same check added on a restored relation in `operations/type_changes.py` | J40 `test_a_narrowed_editor_cannot_change_values_of_a_record_already_in_the_change_set` |
+| R-F3 | Fixed: a migration publishing a change set applies the direct publication's checks (`approvals.require_direct_publication`: Publish, the policy's `APPROVAL_REQUIRED`) at submission, confirmation and execution (the requester's rights), and closes an open request as a direct publication does | J37.6 `test_a_migration_publishes_a_change_set_only_where_publishing_it_is_allowed` |
+| R-F4 | Fixed: `job_group` answers Work in change sets only for a change set's own migration (`moves == "changeSet"`); a workspace migration is Model release | J37.6 `test_a_contributor_does_not_confirm_or_read_a_migration_that_publishes` |
+| R-F6 | Fixed: a change set's move freezes at confirmation and execution: refused `409 CHANGE_SET_SUBMITTED`, or withdrawn with `withdrawSubmission=true` | J37.7 `test_moving_a_submitted_change_set_withdraws_its_submission_or_is_refused` |
+| R-F7 | Fixed: `decide` also compares the submitted version (`VERSION_CONFLICT`); after R-F6 no route reaches the state, so the test raises the version in SQL and says so | J42 `test_an_approval_binds_the_version_that_was_submitted` |
+| R-F8 | **Not a defect:** `check_confirmation` calls `confirm_job`, which calls `job_writer` (`jobs/store.py`); the review's trace missed it. A guard test kept | J37.4 `test_a_migration_whose_requester_lost_model_release_is_not_confirmed` |
+| Withdraw (low) | Fixed: one rule (`submissions.require_may_withdraw`: the submitter or an approver) for `DELETE …/submission` and `withdrawSubmission=true`; the route's new action `change-sets.withdraw` (Work in change sets or Approve publications); API.md amended; the OpenAPI lock re-baselined for it alone | J42.2 `test_a_request_is_withdrawn_only_by_its_submitter_or_an_approver` |
+| `claim` (low) | Fixed: `ChangeSetWrites.claim` locks the change set before it freezes | the change-set journeys |
+| R-F10 | Fixed: both draft document links are `DownloadLink`s | — (no component test exists) |
+| R-F11 | Fixed: `allows()` removed; the 11 sites use `holds()`, hidden while permissions load | Vitest: ChangeSets, ChangeSetReview, Publications, Explorer, TreeView, permissions |
+| Interface lows | Fixed: the decision bound to the publication the approver saw, a stale request's actions hidden with Reload; people, groups and clients in `ScrollWindow` (new `ui/CatalogueWindow`; the Groups page loses its Local/provider headings, the source shown on each entry); refresh 5xx/429 kept as "cannot reach"; streams back off to 60 s; Approval's Reload after `VERSION_CONFLICT`; sign-in tone by the `slowed` code; `ErrorBoundary` without `Error:`. Grants and signing keys stay on `useCursorFeed` (grants are grouped in the browser; keys are one per rotation); a group's members likewise: both in TODO | Vitest per item |
+
+The CHANGELOG already names A2's `consumerApi: null` (the independent reviewer's "not in the CHANGELOG" was wrong).
+AGENTS.md's migration rule now states the pre-1.0 decision of 2026-10-23. Checks: backend J37, J40, J42, J47 and the
+authorization units with the OpenAPI lock, 233 passed then the lock re-baselined (11 passed); frontend Vitest of the
+touched areas 613 passed, lint 0 errors, build.
+
+**Second backend round (2026-10-27).**
+
+| # | Outcome | Regression test |
+| --- | --- | --- |
+| R-F5 | Fixed: `POST /oauth/passkeys/registration/options` takes `{"proof"}` (the password, an authenticator or a recovery code) checked by `second_factor.prove`, as removing one is; the ceremony exists only after it; the engine's Add a passkey page asks for it (the application only links to that page) | J39 passkeys: proof required, wrong proof, forged verify `410`, slowed `429` |
+| R-F9 | Fixed: the registry recomputes whether the process can serve after a raise, on `/health` while waiting and in the heartbeat; `main.ModelThreads` starts the worker, exporter, listener, deriver and dispatcher once it can (the "no model, no jobs" rule kept); the raising docstring corrected | J37.9 `test_a_service_that_started_with_nothing_to_serve_serves_and_runs_jobs_after_a_raising` |
+| R-F12 | Fixed: every listed refusal asserts its code; J40:727 and J42:179 made deterministic (`RESTRUCTURING_NOT_READY`, `NOT_SUBMITTED`); the OAuth and page modules assert the `error` value or the message; the outbox unit tests the retry schedule. `test_provider_client.py` keeps its private seam (`_get` is the only HTTP seam) | — |
+| R-F14 | Fixed: `tests/journeys/security_oracle.py`, all 251 operations → their groups written from API.md § Security, held by `test_every_operation_needs_the_groups_the_documentation_says`; it agreed on the first run, and API.md's Jobs rule gained the missing `model-authoring`. J47.3 checks the named J40 test; J47.7's junk values and docstring corrected; the inbox stream probed per audience | the oracle test, `test_the_inbox_stream_answers_as_its_class_says` |
+| Identity lows | Fixed: a malformed passkey answer is a refusal (`WebAuthnException`), failures slowed; `POST /me/password` slowed (`429 SIGN_IN_SLOWED`); `client_credentials` slowed per client and address, an unknown client costing one hash; the I5 JSON routes behind the maintenance guard; the second-factor pages answer a page, not JSON. Open provider starts capped at 2,000 per provider (**decided within the approved R:** not per address, which needs an address column and a migration; the cap bounds the rows, which was the finding) | J39 modules, `test_startup` `_assert_refused` |
+| Backend lows | Fixed: the mail sender holds its row locked from read to commit (no second send after a lease runs out); provider groups' `seen_at` refreshed at most daily, so a sign-in with unchanged groups leaves the permission generation alone (`seenAt` may lag a day, documented); `availability` reads the stored releases once per page; `list_own_change_sets` counts a page in one statement; the inbox catch-up reads 200 at a time | J46, J39 provider, J37.9, the change-set and inbox journeys |
+| J41 | **A stale test, not a defect:** `test_the_index_and_documents_follow_the_grants` expected `403` on another API's document, which D412 (the user, 2026-10-25) made public; aligned with D412 (14 passed) | — |
+
+Checks: one `-n 6` run of J37.9, J39, J40, J41, J42, J43, J46, J47, the identity, mail and authorization units, the
+OpenAPI lock and `test_startup`: 512 passed, 2 failed (the J41 case above, then 14 passed); the lock re-baselined for
+`POST /me/password`'s description alone. API.md and OPERATIONS amended (passkey registration, slowing, readiness after
+raising, the jobs group, `seenAt`).
+
+**Found after the review, at the user's report (2026-10-27).** The development proxy printed Node's TLS stack trace
+(`EPROTO … wrong version number`) when another program held the engine's port: it now logs one line per cause a
+minute, naming the port's holder and what to do, and answers the application `502 ENGINE_UNREACHABLE` in the engine's
+error shape (`frontend/vite.config.ts`). The engine's unhandled-error answer was read: `500 INTERNAL_ERROR` with a
+reference, no traceback. Settings › Model gained aligned columns (Releases, Latest, Draft, Schema) like the
+Workspaces list; an opened draft or release no longer repeats the page's title (the user's requests, same day).
+
+**Browser round (2026-10-27/28).** R-F13 fixed: `e2e/helpers/shaped-models.mjs` (the starter and `generated-b`,
+records made through the API, nothing named by key); `i2`, `i3-sign-in-providers`, `i4`, `i6`, `m1`, `sp1`, `sp3`,
+`z5` and `dp1` walk both shapes, and the runner lows are fixed (`i3`'s second group, `dp1` opens a collection, `z6`'s
+waits and `helpers/theme.mjs`, `i6`'s quiet SMTP, `sp1`/`sp3`/`sp2` waits, providers started inside `try`); `dp3`'s
+process-wide TLS setting stays (scoping it needs an undeclared dependency). Runners that drifted from 0.12's later
+screens were fixed in the runner (D447): the grant dialog, the Access list, "Type it again", the passkey proof,
+`i4` booted on one address, axe waiting for finite animations. **`security-r`** (D448) passed: two shapes × 1440 and
+390 px, keyboard alone, 48 checks. **The gates** (D449): `helpers/security-surfaces.mjs`, `--only security` in both;
+32 new baselines (`security-*`), no existing one changed. Found and sent to a fix by D447: the decision card's and the
+Model list's heading order, the grant dialog's dimmed rows' contrast, the change set page not following its request
+after a send-back, and five runners still waiting on A3's removed "Model catalogue" label.
+
+**Account and Settings, at the user's requests during R (2026-10-28).** Settings › Account "What you can do" was
+redesigned on a canvas with the user (mock-up approved) and built as one card per workspace on shared columns
+(Workspace, Your roles, Read, Propose changes, Change live, Publish, Approve): each role once per workspace, the
+group it comes through, a limited permission as a count that opens its own view ("What you may propose in …",
+"What you may change live in …", one line per application with the roles giving it), roles across the instance
+under the cards; below the width the columns need (measured on the section, 960 px) each workspace stacks. The
+Account and Notifications pages are 1180 px wide, their rows' text capped at a reading length; at phone width a
+row's action goes under its text; the Passkeys note gained its missing padding. **Found on the way:** the first
+build reused `.account-row` for its grid and restyled the Password, Passkeys, Authenticator and sessions rows
+(fixed: its own class); the count and the panel disagreed where a record type sits in an application held whole
+(fixed: one folding for both). Checked by looking at the page (1440, 1024, 600, 390 and 360 px, a panel opened
+by each count) with a person holding whole, narrowed and group grants in four workspaces; 83 settings tests.
+
+#### R steps 1, 2 and 6, and the secret scan (2026-10-28)
+
+- **Step 1 passed:** Ruff, the frontend format check (`src`), lint (0 errors, 9 warnings as before), the build,
+  gate helpers 6/6, Vitest 1,214 of 1,215 (one test left behind by R's heading fix, adjusted; then green).
+- **Step 2 passed** after two harness findings, neither a product defect: (1) every run stopped at once with an
+  xdist internal error, because commit `170cbc3` (UW1, before R) had removed J37's closing block and J38's head
+  from USER_JOURNEYS.md, so the layout check refused every J38 test on each worker — the block was restored as it
+  was; (2) API_JOURNEYS lacked `SOURCE_CODE_URL` and still cited J25.5/J25.6, which L2a removed — fixed.
+  `pytest -n 6 -q`: 6,675 passed, 5 failed in 19 min 15 s; the other three failures were a regression from R's own
+  `claim` fix (a change-set chunk cost one statement over its budget: the claim re-locked a row its transaction
+  already held) — fixed: `load_change_set(for_update=True)` notes the lock, the claim takes no second one, and a
+  locked read refreshes the session's copy; `test_batch_statements` 14 passed, the change-set boundary (J10, J11,
+  J37.6, J37.7, J42 and the records and change-set units) 181 passed. `pytest -m serial -q`: 5 passed. **The run
+  exceeded the 11-minute ceiling** (19 min 15 s, load near 6 with other sessions): a harness defect by AGENTS.md,
+  in TODO, not fixed in R.
+- **Step 6, decided within the approved R (the user, 2026-10-28: "run whatever tests you need"):** as a smoke
+  start on a copy of the development database, which every package already upgraded migration by migration
+  (no instance runs 0.11.0; the user's pre-1.0 rule): the copy at `20261114_01` with 9 workspaces started in 3 s,
+  `/health` 200, an unauthenticated `GET /workspaces` 401, no error in the log; the copy, dump and log removed.
+  The 0.11.0 worktree upgrade (D450) was not run.
+- **The secret scan (D452):** `gitleaks git` with `.gitleaks.toml` over the whole history, 371 commits: no
+  leaks.
+
+#### R step 7: the exit gate (2026-10-28)
+
+| ROADMAP 0.12 exit item | Evidence |
+| --- | --- |
+| Authorization cannot be bypassed through administrative, bulk, job, feed or consumer APIs | E1's sweep (every operation as each predefined role and a client without grants); R-F1–R-F4 fixed with their journey tests; the sweep's groups now held against API.md § Security's catalogue by an independent table (`security_oracle.py`, 251 operations, R-F14) |
+| Administrative, ordinary and bulk paths enforce the same authenticated scope (US-S01) | The write unit refuses a live write authorized only for change-set work and the reverse (R-F1); record-type narrowing on every change-set write (R-F2); jobs checked as their requester at submission, confirmation and each step (Z2, R-F4) |
+| Webhook receivers can verify every delivery, and a rotated key stops verifying | K1 and J43 (both signatures during the overlap, the old one refused after it) |
+| Supported schema versions and their migration/removal dates are published | COMPATIBILITY.md's window table (L2, D439; the window is 0.10 after L2a), checked against `SCHEMA_VERSIONS` |
+| The compatibility commitment leaves the composable-domains doors open | COMPATIBILITY's doors table (L2, D440): all four open, evidence in the value registries, `value_source` and the single write path |
+| Approvals (D232) | A1–A3: J42 in the backend; `security-r` walks submit, send back, resubmit and approve under four-eyes, with the inbox, by keyboard on two model shapes at 1440 and 390 px |
+
+**L1 at R (2026-10-28).** The maintainer confirmed ownership: a one-person project, the only author working with AI
+assistants on their own accounts, no employer or client involved (recorded in OPEN_SOURCE). No counsel review, by
+the maintainer's decision; CONTRIBUTING keeps outside pull requests closed until a contributor agreement exists. The
+repository is `github.com/refiroo/refiroo` (the `SOURCE_CODE_URL` default). Still the maintainer's: that the example
+model and data are synthetic, and the security mailbox.
+
+#### R steps 3–5: the browser runners, `security-r`, the gates (2026-10-28)
+
+**Passed**, one runner at a time (Sonnet, D455), every fix a runner or harness change (D447), no product defect but
+the two below. About 70 runners: all pass (several after their fix), `changes` (Z6) once a flake, `i3-real-provider`
+not run (the organisation's provider; I3 reported a real try), `dp3-deployment` once (108 s). **Fixed in the runners
+or harness:** the Account section's new shape; `networkidle` never arriving while the inbox stream is open (the harness
+ignores `/events` streams); consumer routes given a consumer-audience token; `wp9-authoring` and `wp9-publications`
+started their own backend without the 0.12 settings and sign-in; `touch-u1` never signed in; the tree runners'
+Shift+Tab limit; `w4` and `wp9-navigation` following A3, A3a, L2 and LS1; the settings rail's Mail item. **MR1 and NT1**
+(two approved 0.12 packages, built in other sessions during R) landed mid-pass: their changes were runner drift; the
+picker runners and the NT1-affected runners were run again after both landed, and pass. **Gates:** `test:a11y` light
+and dark, 0 violations, with `/notifications` (NT1) added to `security-surfaces.mjs`; `test:visual` green after
+re-recording 85 baselines and adding 4 (`--changed-only`, a new option of `visual-regression.mjs`). Causes, all
+delivered changes: the 0.12 top bar (about 0.5–0.8 % on every page), the settings rail (Security, Mail, "Notification
+email"), the workspace list and tabs, the model list and MR1's pickers, A3's change-set header, LS1's list footer, Z4's
+"Requested by"; four diffs opened and checked, the rest explained by the same causes and waiting for the user's look
+(the list: R's scratch log `r-step3/upd.log`).
+
+**Two product defects found and fixed in R:**
+
+- **A reload followed at once by a navigation signed the person out** (found by `j4`): the reload's renewal was cut off
+  after the server had rotated the refresh token, the next page presented the used token, and reuse ended the session
+  (D251). **Decided within the approved R** (the user: "complete with fixes, without stop"): a reuse grace of 30 s,
+  as OAuth providers' reuse interval — a used token presented again within 30 s of its use, its session open and its
+  successor unused, renews from the successor (`sessions.renew`, `REFRESH_REUSE_GRACE`); anything else still ends the
+  session. D251's reuse rule is amended accordingly: J39's reuse journey presents the old token after the grace.
+  Journeys: `test_a_renewal_the_browser_never_kept_does_not_sign_the_person_out` (failed without the fix),
+  `test_a_used_token_after_the_reuse_grace_ends_the_session`, `test_a_used_token_within_the_grace_is_reuse_once_its_successor_was_used`;
+  J39 sign-in and the identity units 79 passed. API.md and CHANGELOG amended.
+- **`s5`: a row jumps 36 px when a list is wheeled up from its end** (present before LS1): fixed below.
+
+**MR1's and NT1's test windows** (their sessions, on R's schedule): MR1 138 passed (J36.10, J36, J37.9, J37.6, J37.7,
+J37, the OpenAPI lock, the J47 sweep with the oracle's two new routes); NT1 j42, the lock and the J47 sweep passed
+after a fix in its own test.
+- **`s5` fixed (2026-10-28):** rows drawn above the view near a list's end are about 47 px against an estimate of 43
+  (measured near the top), so each one drawn while wheeling up moved the rows below it; the virtualizer corrected the
+  scroll position only from its resize observer, and on a touch-capable Mac (and an iPad) only after scrolling stopped.
+  `ui/ScrollWindow` now measures rows newly drawn before the browser paints and corrects the scroll position once for
+  those above the view; the landing pin is released by a key pressed elsewhere (an option list steered from its
+  combobox kept scrolling back to its start). **Found on the way:** the first version measured a row without a list
+  index on every render, so the error footer's Retry re-rendered without end (`wp9-navigation`, 2 failures in 8); guarded
+  (only rows with an index in the list), then 0 in 6. `s5` passed twice, `s6`, `k1`, `k5`, `k6`, `ua8`, `ua9`,
+  `security` once each. The runner's jump check now counts a step as a jump only when the row's move matches neither
+  the scroll position's change nor the wheel (the window's own correction moves the scroll position less than the
+  wheel), and its 390 px fitted-page check, stale since the phone page scrolls normally (`3f6bd1e`), was removed.
+
+#### R steps 9 and 10: the long run, the basics, the version (2026-10-28)
+
+- **Budgets (D451):** `pytest -m budget -q`, once: 9 passed in 13 min 50 s (the fixture rebuilt after MR1's and NT1's
+  migrations; 0.11: 12 min 12 s).
+- **The basics at 200 and 2,000 records** (D451), once, through a running engine (the browser harness's) as a client
+  holding Data owner for the whole workspace and one narrowed to an application: publish 200 0.27 s and 1.08 s,
+  publish 2,000 2.6 s and 3.7 s, submit then approve and publish 2,000 (the other client deciding) 3.0 s and 4.1 s,
+  a list's first page of 50 among about 4,200 records 9–13 ms and 10–11 ms. The narrowed runs came second, on a
+  workspace about 2,000 records larger, so the narrowing's share is not separated by this one measurement (TODO).
+- **Version 0.12.0** in `backend/app/config.py`, `backend/pyproject.toml`, `frontend/package.json` and its lock; the
+  OpenAPI lock re-baselined for `info.version` alone (with 0.11.0 the document hashes to the previous lock exactly);
+  the lock, system and contract tests 25 passed; the visual gate run once more: 208 scenarios match, none re-recorded.
+  CHANGELOG `[Unreleased]` became `[0.12.0] - 2026-10-28`. **The commit and the tags `v0.12.0` (and `v0.11.0` on
+  `a68466b`, D454) follow the user's instruction.**
+- **Left on disk, not R's to remove:** about 450 `rdm-*` evidence folders in the system temporary directory from this
+  and earlier runs (removing them was refused as outside this session's files), and one idle shell of an agent
+  (`cat` waiting for input, no CPU).
+
+**R is done (2026-10-28).** Every finding of step 0 fixed or recorded by the user's decision; steps 1–10 passed.
+What stays the maintainer's: the commit and tags; that the example model and data are synthetic; the security mailbox.

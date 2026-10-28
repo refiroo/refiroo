@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from ...common.outage import OutageLog
 from ...config import ENGINE_VERSION
 from ...models.database import EngineProcess
+from ..model.registry import model_registry
 from .report import HEARTBEAT_THREAD, build_report, this_process
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,9 @@ class ProcessHeartbeat:
         self._thread: threading.Thread | None = None
 
     def beat(self, session: Session) -> None:
+        if model_registry.waiting_for_a_servable_model:
+            # Another process may have raised the releases this one waits for (0.12 R, R-F9).
+            model_registry.refresh_servable(session)
         beat(session, self.started_threads | {HEARTBEAT_THREAD})
 
     def start(self) -> None:

@@ -1,6 +1,8 @@
 import logging
 import os
+import threading
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import Depends, FastAPI, Response, status
 from fastapi.exceptions import RequestValidationError
@@ -132,6 +134,76 @@ def database_reachable() -> bool:
     return True
 
 
+class ModelThreads:
+    """The background threads that need a servable model: the job worker and exporter, the job
+    listener, the event deriver and the webhook dispatcher. Started once, when the process can serve
+    some workspace, now or after a raising makes it so (0.12 R, R-F9); stopped with the service."""
+
+    def __init__(self, application: FastAPI) -> None:
+        self.application = application
+        self.heartbeat: Any = None
+        self.mail_sender: Any = None
+        self._lock = threading.Lock()
+        self._stopped = False
+        self._started = False
+        self.worker = self.exporter = self.listener = self.deriver = self.dispatcher = None
+
+    def start(self) -> None:
+        state = self.application.state
+        with self._lock:
+            if self._started or self._stopped:
+                return
+            self._started = True
+            self.worker = state.job_worker if state.run_job_worker else None
+            self.exporter = state.export_worker if state.run_job_worker else None
+            if self.worker is not None:
+                # Files a stopped process left behind: partial ones, or a finished job's (D55).
+                with SessionLocal() as session:
+                    state.job_files.reconcile(session)
+                self.worker.start()
+            if self.exporter is not None:
+                self.exporter.start()
+            self.listener = state.job_listener if state.run_job_listener else None
+            if self.listener is not None:
+                self.listener.start()
+            # The event deriver (C10) runs where the model can be served, as the job worker does.
+            self.deriver = state.event_deriver if state.run_event_deriver else None
+            if self.deriver is not None:
+                self.deriver.start()
+            # The webhook dispatcher (C12): only with subscriptions on (C-D102).
+            self.dispatcher = state.consumer_dispatcher if state.run_consumer_dispatcher else None
+            if self.dispatcher is not None:
+                self.dispatcher.start()
+        if self.heartbeat is not None:
+            self.report(self.mail_sender)
+
+    def report(self, mail_sender: Any) -> None:
+        """Tell the heartbeat which threads this process runs."""
+        self.mail_sender = mail_sender
+        if self.heartbeat is None:
+            return
+        self.heartbeat.started_threads = {
+            name
+            for name, thread in (
+                (self.worker.thread_name if self.worker else "", self.worker),
+                (self.exporter.thread_name if self.exporter else "", self.exporter),
+                (LISTENER_THREAD, self.listener),
+                (DERIVER_THREAD, self.deriver),
+                (DISPATCHER_THREAD, self.dispatcher),
+                (MAIL_SENDER_THREAD, mail_sender),
+            )
+            if thread is not None
+        }
+
+    def stop(self) -> None:
+        with self._lock:
+            self._stopped = True
+            running = [self.dispatcher, self.deriver, self.listener, self.exporter, self.worker]
+        for thread in running:
+            if thread is not None:
+                thread.stop()
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     loaded_model = load_bootstrap_model()
@@ -216,58 +288,25 @@ async def lifespan(application: FastAPI):
         # A conflict no unavailable workspace explains: the file changed without a new version, or
         # the stored release is of a schema that left the window and no workspace runs it.
         logger.error("%s", _conflict_message(conflict))
-    # A process that can serve no workspace's model runs no jobs: each chunk would fail its job.
-    worker = application.state.job_worker if application.state.run_job_worker else None
-    exporter = application.state.export_worker if application.state.run_job_worker else None
-    if not model_registry.ready:
-        worker = exporter = None
-    if worker is not None:
-        # Files a stopped process left behind: partial ones, or a finished job's (D55).
-        with SessionLocal() as session:
-            application.state.job_files.reconcile(session)
-        worker.start()
-    if exporter is not None:
-        exporter.start()
-    listener = application.state.job_listener if application.state.run_job_listener else None
-    if listener is not None and not model_registry.ready:
-        listener = None
-    if listener is not None:
-        listener.start()
-    # The event deriver (C10) runs where the model can be served, as the job worker does.
-    deriver = application.state.event_deriver if application.state.run_event_deriver else None
-    if deriver is not None and not model_registry.ready:
-        deriver = None
-    if deriver is not None:
-        deriver.start()
-    # The webhook dispatcher (C12): only with subscriptions on (C-D102), where the model is served.
-    dispatcher = (
-        application.state.consumer_dispatcher if application.state.run_consumer_dispatcher else None
+    # A process that can serve no workspace's model runs no jobs: each chunk would fail its job. The
+    # threads that need a servable model start when the process is (0.12 R, R-F9): at once, or
+    # later, when a raising of the releases it waits for is found (``refresh_servable``).
+    model_threads = ModelThreads(application)
+    heartbeat = (
+        application.state.process_heartbeat if application.state.run_process_heartbeat else None
     )
-    if dispatcher is not None and not model_registry.ready:
-        dispatcher = None
-    if dispatcher is not None:
-        dispatcher.start()
+    model_threads.heartbeat = heartbeat
+    if model_registry.ready:
+        model_threads.start()
+    else:
+        model_registry.when_servable(model_threads.start)
     # The mail sender (0.12 M1): it needs no model, so it runs wherever the database does.
     mail_sender = application.state.mail_sender if application.state.run_mail_sender else None
     if mail_sender is not None:
         mail_sender.start()
     # Each process reports itself to the others, ready or not (0.11 O1, D192).
-    heartbeat = (
-        application.state.process_heartbeat if application.state.run_process_heartbeat else None
-    )
     if heartbeat is not None:
-        heartbeat.started_threads = {
-            name
-            for name, thread in (
-                (worker.thread_name if worker else "", worker),
-                (exporter.thread_name if exporter else "", exporter),
-                (LISTENER_THREAD, listener),
-                (DERIVER_THREAD, deriver),
-                (DISPATCHER_THREAD, dispatcher),
-                (MAIL_SENDER_THREAD, mail_sender),
-            )
-            if thread is not None
-        }
+        model_threads.report(mail_sender)
         heartbeat.start()
         application.state.running_heartbeat = heartbeat
     try:
@@ -278,16 +317,8 @@ async def lifespan(application: FastAPI):
             heartbeat.stop()
         if mail_sender is not None:
             mail_sender.stop()
-        if dispatcher is not None:
-            dispatcher.stop()
-        if deriver is not None:
-            deriver.stop()
-        if listener is not None:
-            listener.stop()
-        if exporter is not None:
-            exporter.stop()
-        if worker is not None:
-            worker.stop()
+        model_registry.forget_servable_callbacks()
+        model_threads.stop()
 
 
 def create_app() -> FastAPI:
@@ -484,6 +515,13 @@ def create_app() -> FastAPI:
 
     @application.get("/health")
     def health(response: Response) -> dict[str, str]:
+        if model_registry.waiting_for_a_servable_model:
+            # A raising in another process may have made a workspace servable (0.12 R, R-F9).
+            try:
+                with SessionLocal() as session:
+                    model_registry.refresh_servable(session)
+            except SQLAlchemyError, DatabaseStartupError:
+                pass
         if not model_registry.ready or not database_reachable():
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
             return {"status": "unhealthy"}

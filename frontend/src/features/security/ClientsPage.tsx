@@ -12,11 +12,13 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { security } from "@/api/securityClient";
 import { formatServerDate, formatServerDayTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
+import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { routePath } from "@/routing/routes";
 import type { Client, ClientWithSecret, RouteState, SettingsRoute } from "@/types";
 import { ActorName } from "@/ui/ActorName";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
+import { CatalogueWindow } from "@/ui/CatalogueWindow";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { CopyValue } from "@/ui/CopyValue";
 import { FormField } from "@/ui/FormField";
@@ -46,6 +48,9 @@ const CLIENTS: ClientsRoute = { kind: "settings", page: "clients" };
 /** A new secret, and whether it came with a new client or replaced earlier ones. */
 type Made = { client: ClientWithSecret; created: boolean; overlapHours?: number };
 
+/** Clients read in a page of this size. */
+const CATALOGUE_PAGE = 50;
+
 export function ClientsPage({ route, onNavigate }: { route: ClientsRoute; onNavigate: (route: RouteState) => void }) {
   const [search, setSearch] = useState("");
   const [active, setActive] = useState(true);
@@ -54,7 +59,10 @@ export function ClientsPage({ route, onNavigate }: { route: ClientsRoute; onNavi
   const [made, setMade] = useState<Made>();
   const newButtonRef = useRef<HTMLButtonElement>(null);
   const q = useDebouncedValue(search.trim());
-  const feed = useCursorFeed((cursor) => security.clientPage({ q, active, cursor }), [q, active]);
+  const list = useCursorWindow<Client>(
+    (selector) => security.clientPage({ q, active, ...selector, pageSize: CATALOGUE_PAGE }),
+    [q, active],
+  );
   const [countToken, setCountToken] = useState(0);
 
   useEffect(() => {
@@ -71,8 +79,8 @@ export function ClientsPage({ route, onNavigate }: { route: ClientsRoute; onNavi
     };
   }, [countToken]);
 
-  function changed(client: Client) {
-    feed.setItems((items) => items.map((item) => (item.id === client.id ? client : item)));
+  function changed() {
+    list.reload();
     setCountToken((token) => token + 1);
   }
 
@@ -88,39 +96,32 @@ export function ClientsPage({ route, onNavigate }: { route: ClientsRoute; onNavi
             Deactivated{counts.deactivated !== undefined && <span>{counts.deactivated}</span>}
           </button>
         </div>
-        {feed.items.map((client) => (
-          <CatalogueEntry
-            key={client.id}
-            icon="api"
-            title={client.name}
-            subtitle={
-              <>
-                {clientAccessLine(client)}
-                <span className="security-entry-use">{clientUseLine(client)}</span>
-              </>
-            }
-            current={route.clientId === client.id}
-            onSelect={() => onNavigate({ ...CLIENTS, clientId: client.id })}
-          />
-        ))}
-        {feed.loading && !feed.items.length && <p className="explorer-empty">Loading clients…</p>}
-        {!feed.loading && !feed.error && !feed.items.length && (
-          <p className="explorer-empty">
-            {q
+        <CatalogueWindow
+          list={list}
+          label="Clients"
+          noun={["client", "clients"]}
+          pageSize={CATALOGUE_PAGE}
+          loadingText="Loading clients…"
+          emptyText={
+            q
               ? `No ${active ? "active" : "deactivated"} client matches “${q}”.`
-              : `No ${active ? "active" : "deactivated"} clients.`}
-          </p>
-        )}
-        {feed.error && (
-          <div className="catalogue-error">
-            <InlineError message={feed.error} onRetry={feed.retry} />
-          </div>
-        )}
-        {feed.hasMore && (
-          <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-            Load more clients
-          </button>
-        )}
+              : `No ${active ? "active" : "deactivated"} clients.`
+          }
+          entry={(client) => (
+            <CatalogueEntry
+              icon="api"
+              title={client.name}
+              subtitle={
+                <>
+                  {clientAccessLine(client)}
+                  <span className="security-entry-use">{clientUseLine(client)}</span>
+                </>
+              }
+              current={route.clientId === client.id}
+              onSelect={() => onNavigate({ ...CLIENTS, clientId: client.id })}
+            />
+          )}
+        />
       </section>
     </nav>
   );
@@ -162,7 +163,7 @@ export function ClientsPage({ route, onNavigate }: { route: ClientsRoute; onNavi
           }}
           onCreated={(client) => {
             setCreating(false);
-            feed.reload();
+            list.reload();
             setCountToken((token) => token + 1);
             onNavigate({ ...CLIENTS, clientId: client.id });
             setMade({ client, created: true });

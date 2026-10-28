@@ -82,6 +82,7 @@ class ModelRelease(Base):
     __tablename__ = "model_releases"
     __table_args__ = (
         UniqueConstraint("release_key", "release_version", name="uq_model_release_identity"),
+        CheckConstraint("status IN ('active', 'retired')", name="ck_model_release_status"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -97,6 +98,15 @@ class ModelRelease(Base):
     installed_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=lambda: datetime.now(UTC)
     )
+    # A retired release is never chosen again; what runs on it keeps running (0.12 MR1, D457).
+    # The snapshot stays immutable: only the status and its version change.
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="active", server_default="active", index=True
+    )
+    status_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
+    retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 
@@ -726,8 +736,9 @@ class Notification(Base):
     """A notice in a person's or client's inbox (0.12 A2, D233): a request waiting for their
     approval, a decision on theirs, a job they started that finished. ``details`` holds what a
     client words the notice from (names, the comment, the job's kind and state); it is read as it
-    was when the notice was made. Triggers send the stream its wake-up and delete notices older
-    than 90 days (revision ``20261111_01``)."""
+    was when the notice was made. Triggers send the stream its wake-up (revision ``20261111_01``)
+    and close a job's request for confirmation once answered (``20261116_01``); the job worker's
+    sweep deletes notices older than 90 days (0.12 NT1)."""
 
     __tablename__ = "notifications"
     __table_args__ = (

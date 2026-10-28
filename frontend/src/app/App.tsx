@@ -25,6 +25,7 @@ import { useMe } from "./useMe";
 import { NoWorkspace } from "./NoWorkspace";
 import { HomePage } from "@/features/home/HomePage";
 import { ChangesPage } from "@/features/changes/ChangesPage";
+import { NotificationsPage } from "@/features/inbox/NotificationsPage";
 import { continueAddressFor, rememberContinueAddress } from "@/features/home/continueAddress";
 import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
 import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
@@ -79,6 +80,9 @@ export default function App() {
           ) : route.kind === "changes" ? (
             // One person's changes span workspaces too, each named from its own model (0.12 Z6).
             <ChangesPage model={model} route={route} onNavigate={router.navigate} />
+          ) : route.kind === "notifications" ? (
+            // The person's notices span workspaces too (0.12 NT1).
+            <NotificationsPage model={model} onNavigate={router.navigate} />
           ) : (
             <WorkspaceDataProvider
               key={`${route.workspaceKey}:${routeChangeSetId(route) ?? routePublicationId(route) ?? "live"}`}

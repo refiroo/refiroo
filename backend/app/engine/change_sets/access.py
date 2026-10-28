@@ -20,19 +20,19 @@ from ...models.database import (
     Workspace,
 )
 from ..model.registry import resolve_pinned_release
-from ..records.writes import ChangeSetWrites
+from ..records.writes import ChangeSetWrites, note_locked
 
 
 @dataclass(frozen=True)
 class EffectiveChangeSetMembership:
     change_set: ChangeSet
     objects: tuple[PublicationObject | ChangeSetBaseObject | ChangeSetObject, ...]
-    relations: tuple[
-        PublicationRelation | ChangeSetBaseRelation | ChangeSetRelation, ...
-    ]
+    relations: tuple[PublicationRelation | ChangeSetBaseRelation | ChangeSetRelation, ...]
 
 
-def effective_change_set_membership(session: Session, change_set_id: str) -> EffectiveChangeSetMembership:
+def effective_change_set_membership(
+    session: Session, change_set_id: str
+) -> EffectiveChangeSetMembership:
     """Resolve a change set's immutable base plus its changed rows and tombstones.
 
     A change set row replaces the same stable public ID from its base.  A tombstone hides that base row;
@@ -41,12 +41,8 @@ def effective_change_set_membership(session: Session, change_set_id: str) -> Eff
     change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
     if change_set is None:
         raise api_error(404, "CHANGE_SET_NOT_FOUND", f"Change set '{change_set_id}' not found")
-    objects: dict[
-        str, PublicationObject | ChangeSetBaseObject | ChangeSetObject
-    ] = {}
-    relations: dict[
-        str, PublicationRelation | ChangeSetBaseRelation | ChangeSetRelation
-    ] = {}
+    objects: dict[str, PublicationObject | ChangeSetBaseObject | ChangeSetObject] = {}
+    relations: dict[str, PublicationRelation | ChangeSetBaseRelation | ChangeSetRelation] = {}
     if change_set.derived_from_publication_id is not None:
         publication = session.scalar(
             select(Publication).where(Publication.id == change_set.derived_from_publication_id)
@@ -60,9 +56,7 @@ def effective_change_set_membership(session: Session, change_set_id: str) -> Eff
         objects = {
             item.object_id: item
             for item in session.scalars(
-                select(PublicationObject).where(
-                    PublicationObject.publication_id == publication.id
-                )
+                select(PublicationObject).where(PublicationObject.publication_id == publication.id)
             )
         }
         relations = {
@@ -90,9 +84,7 @@ def effective_change_set_membership(session: Session, change_set_id: str) -> Eff
         relations = {
             item.relation_id: item
             for item in session.scalars(
-                select(ChangeSetBaseRelation).where(
-                    ChangeSetBaseRelation.base_id == base.id
-                )
+                select(ChangeSetBaseRelation).where(ChangeSetBaseRelation.base_id == base.id)
             )
         }
     for item in session.scalars(
@@ -127,10 +119,13 @@ def load_change_set(session: Session, change_set_id: str, *, for_update: bool = 
         _lock_workspace(session, change_set_id)
     statement = select(ChangeSet).where(ChangeSet.id == change_set_id)
     if for_update:
-        statement = statement.with_for_update()
+        # Read anew under the lock: a copy loaded earlier in the session may be stale.
+        statement = statement.with_for_update().execution_options(populate_existing=True)
     item = session.scalar(statement)
     if item is None:
         raise api_error(404, "CHANGE_SET_NOT_FOUND", f"Change set '{change_set_id}' not found")
+    if for_update:
+        note_locked(session, change_set_id)
     return item
 
 

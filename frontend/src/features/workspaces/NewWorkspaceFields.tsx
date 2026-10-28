@@ -5,6 +5,7 @@
 
 import { useId, useState } from "react";
 import { api } from "@/api/client";
+import { OlderVersionsToggle, useReleaseChoices } from "@/features/model-admin/ReleaseChoices";
 import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
 import type { ModelReleaseSummary, Workspace } from "@/types";
 import { SelectField } from "@/ui/Selection";
@@ -86,12 +87,12 @@ export function NewWorkspaceFields({
   );
 }
 
-/** Every installed release, newest first. */
+/** Every release a new workspace may start on (active, of a schema this version reads), newest first. */
 export async function installedReleases(): Promise<ModelReleaseSummary[]> {
   const items: ModelReleaseSummary[] = [];
   let cursor: string | undefined;
   do {
-    const page = await api.modelReleases({ cursor, pageSize: 500 });
+    const page = await api.modelReleases({ cursor, pageSize: 500, usable: true });
     items.push(...page.items);
     cursor = page.nextCursor ?? undefined;
   } while (cursor);
@@ -114,6 +115,8 @@ export function ModelChoice({
   onChange: (releaseId: string) => void;
 }) {
   const other = Boolean(releaseId);
+  // The newest release of each model; older ones on request (0.12 MR1, D458).
+  const choices = useReleaseChoices(releases ?? [], releaseId);
   const runBy = (release: ModelReleaseSummary) =>
     release.workspaces.length ? `run by ${release.workspaces.join(", ")}` : "run by no workspace";
   return (
@@ -136,21 +139,24 @@ export function ModelChoice({
           name="new-workspace-model"
           checked={other}
           disabled={!releases?.length}
-          onChange={() => releases?.[0] && onChange(releases[0].id)}
+          onChange={() => choices.shown[0] && onChange(choices.shown[0].id)}
         />
         <span>Another installed release</span>
       </label>
       {other && releases && (
-        <SelectField
-          label="Installed release"
-          value={releaseId}
-          onChange={onChange}
-          options={releases.map((release) => ({
-            id: release.id,
-            label: `${release.name} ${release.version}`,
-            description: `${release.key} · schema ${release.schemaVersion} · ${runBy(release)}`,
-          }))}
-        />
+        <>
+          <SelectField
+            label="Installed release"
+            value={releaseId}
+            onChange={onChange}
+            options={choices.shown.map((release) => ({
+              id: release.id,
+              label: `${release.name} ${release.version}`,
+              description: `${release.key} · schema ${release.schemaVersion} · ${runBy(release)}`,
+            }))}
+          />
+          <OlderVersionsToggle count={choices.olderCount} older={choices.older} onChange={choices.setOlder} />
+        </>
       )}
       <small className="field-description">
         The new workspace starts empty on this release. Changing the default workspace later never moves it to another

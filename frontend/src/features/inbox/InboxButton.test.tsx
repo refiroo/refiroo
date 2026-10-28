@@ -7,7 +7,7 @@ import { InboxButton } from "./InboxButton";
 
 vi.mock("@/api/client", () => ({
   notificationEventsUrl: () => "/api/v1/me/notifications/events",
-  api: { me: vi.fn(), notifications: vi.fn(), markNotificationsRead: vi.fn() },
+  api: { me: vi.fn(), notifications: vi.fn(), markNotificationsRead: vi.fn(), myWorkspaces: vi.fn(async () => []) },
 }));
 // The stream is read with fetch (D247); the test drives what the engine would push.
 vi.mock("@/api/eventStream", () => ({ openEventStream: vi.fn() }));
@@ -55,6 +55,13 @@ const page = (items: Notification[], unreadCount: number, nextCursor: string | n
   nextCursor,
   unreadCount,
 });
+
+/** A pointer press as a browser makes it: focus moves to the button before the click. */
+function press(button: HTMLElement) {
+  fireEvent.pointerDown(button);
+  act(() => button.focus());
+  fireEvent.click(button);
+}
 
 const onNavigate = vi.fn();
 const bell = () => screen.findByRole("button", { name: /^Inbox/ });
@@ -116,7 +123,7 @@ describe("Inbox (0.12 A2)", () => {
     button.focus();
     fireEvent.click(button);
     const panel = await screen.findByRole("dialog", { name: /^Inbox/ });
-    expect(within(panel).getByRole("heading", { name: "Inbox" })).toBeInTheDocument();
+    expect(within(panel).getByRole("heading", { name: /^Unread/ })).toBeInTheDocument();
     expect(await within(panel).findByText("Waiting for your approval")).toBeInTheDocument();
     expect(within(panel).getByText(/‘Spring update’ · From Bea Costa/)).toBeInTheDocument();
     expect(within(panel).getByText("Sent back: ‘Autumn fixes’")).toBeInTheDocument();
@@ -139,6 +146,18 @@ describe("Inbox (0.12 A2)", () => {
     expect(api.markNotificationsRead).toHaveBeenCalledWith({ ids: ["n1"] });
     expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ kind: "changeSetChanges", changeSetId: "s-n1" }));
     expect(await screen.findByRole("button", { name: "Inbox, 2 unread" })).toBeInTheDocument();
+  });
+
+  it("opens a change set in its own workspace's application where none is open, as on Home (0.12 NT1)", async () => {
+    vi.mocked(api.myWorkspaces).mockResolvedValueOnce([{ key: "default", applications: [{ key: "plants" }] }] as never);
+    render(<InboxButton applicationKey={undefined} onNavigate={onNavigate} />);
+    fireEvent.click(await bell());
+    await waitFor(() => expect(api.myWorkspaces).toHaveBeenCalled());
+    await act(async () => undefined);
+    fireEvent.click(await screen.findByRole("button", { name: /Waiting for your approval/ }));
+    expect(onNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "changeSetChanges", applicationKey: "plants", changeSetId: "s-n1" }),
+    );
   });
 
   it("opens a job's page, and leads nowhere for an approved change set that is gone", async () => {
@@ -165,24 +184,42 @@ describe("Inbox (0.12 A2)", () => {
     expect(screen.queryByText("Unread:")).not.toBeInTheDocument();
   });
 
-  it("reads older notices by cursor on Show older", async () => {
-    vi.mocked(api.notifications)
-      .mockResolvedValueOnce(page([submitted], 1, "c2"))
-      .mockResolvedValueOnce(page([failed], 1));
+  it("lists at most 20 unread notices, counts the rest, and opens every notice's page (0.12 NT1)", async () => {
+    vi.mocked(api.notifications).mockResolvedValue(page([submitted, sentBack], 25, "c2"));
     renderBell();
-    fireEvent.click(await bell());
+    await bell();
+    FakeStream.opened[0].push("unread", { unreadCount: 25 });
+    fireEvent.click(await screen.findByRole("button", { name: "Inbox, 25 unread" }));
     await screen.findByText("Waiting for your approval");
-    fireEvent.click(screen.getByRole("button", { name: "Show older" }));
-    expect(await screen.findByText("Import failed")).toBeInTheDocument();
-    expect(api.notifications).toHaveBeenLastCalledWith("c2");
+    expect(api.notifications).toHaveBeenCalledWith({ unread: true, pageSize: 20 });
+    expect(screen.getByText("And 23 more unread.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Show older" })).not.toBeInTheDocument();
+    const all = screen.getByRole("link", { name: /See all notifications/ });
+    expect(all).toHaveAttribute("href", "/notifications");
+    fireEvent.click(all);
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "notifications" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /^Inbox/ })).not.toBeInTheDocument());
   });
 
-  it("says nothing waits when there are no notices, and shows a failed read with Retry", async () => {
+  it("closes on a second press of the bell (the user, 2026-10-28)", async () => {
+    renderBell();
+    const button = await bell();
+    press(button);
+    // Opened, the panel holds focus, as in a browser; the second press takes it to the bell.
+    const panel = await screen.findByRole("dialog", { name: /^Inbox/ });
+    act(() => panel.focus());
+    press(button);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /^Inbox/ })).not.toBeInTheDocument());
+    press(button);
+    expect(await screen.findByRole("dialog", { name: /^Inbox/ })).toBeInTheDocument();
+  });
+
+  it("says all is read when nothing is unread, and shows a failed read with Retry", async () => {
     vi.mocked(api.notifications).mockResolvedValueOnce(page([], 0));
     renderBell();
     fireEvent.click(await bell());
-    expect(await screen.findByText("Nothing waiting for you.")).toBeInTheDocument();
+    expect(await screen.findByText("You are all caught up.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /See all notifications/ })).toBeInTheDocument();
     cleanup();
 
     vi.mocked(api.notifications).mockRejectedValueOnce(new Error("Inbox unavailable"));

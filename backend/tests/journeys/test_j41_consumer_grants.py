@@ -117,7 +117,8 @@ def test_a_granted_api_answers_and_others_are_refused(world):
 def test_the_index_and_documents_follow_the_grants(world):
     """Given C. The index of A lists X only and the index of B is empty; X's document in A declares
     the `clientCredentials` scheme with the token URL and `401` and `403` on its operations; Y's
-    document in A answers `403`. With a `management` token, a person holding Reader in A sees every
+    document in A is public (D412, the user, 2026-10-25), so the client reads it although its data
+    stays refused (the test above). With a `management` token, a person holding Reader in A sees every
     API in A's index, and a person without Browse in A gets `403`."""
     _with_other(world, "index")
     api = world.key("Capi")
@@ -136,7 +137,7 @@ def test_the_index_and_documents_follow_the_grants(world):
     for path in document["paths"].values():
         for operation in path.values():
             assert {"401", "403"} <= set(operation["responses"])
-    _forbidden(caller.get(f"/api/consumer/{OTHER}/v1/openapi.json"), OTHER, W1)
+    assert ok(caller.get(f"/api/consumer/{OTHER}/v1/openapi.json"))["paths"]
 
     reader = _person(world, f"reader{uuid4().hex[:6]}")
     _grant(world, reader, kind="user", role="reader")
@@ -266,7 +267,7 @@ def test_granting_a_consumer_api(world):
             "scope": {"workspaceKey": W1},
         },
     )
-    assert both.status_code == 422
+    refused(both, 422, "REQUEST_VALIDATION_ERROR")
 
 
 @pytest.mark.journey("J41.2")

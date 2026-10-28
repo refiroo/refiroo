@@ -105,7 +105,10 @@ function watchModelReads(target) {
     const url = new URL(response.url());
     if (url.pathname !== "/api/v1/model" || response.status() !== 200) return;
     if (url.searchParams.get("changeSetId") || url.searchParams.get("publicationId")) return;
-    modelReads.push({ workspaceKey: url.searchParams.get("workspaceKey"), releaseId: response.headers()["x-model-release-id"] });
+    modelReads.push({
+      workspaceKey: url.searchParams.get("workspaceKey"),
+      releaseId: response.headers()["x-model-release-id"],
+    });
   });
 }
 // Case 4's refusal is the one 4xx a walk expects: the stale tab's write and its console line.
@@ -120,7 +123,8 @@ async function createRecord(target, who, addButton, name, what) {
   await who.fill(dialog.getByLabel("Name", { exact: true }), name, "a record's name");
   const [created] = await Promise.all([
     target.waitForResponse(
-      (response) => response.request().method() === "POST" && /\/api\/v1\/objects$/.test(new URL(response.url()).pathname),
+      (response) =>
+        response.request().method() === "POST" && /\/api\/v1\/objects$/.test(new URL(response.url()).pathname),
     ),
     who.press(dialog.getByRole("button", { name: "Create", exact: true }), "Create"),
   ]);
@@ -187,9 +191,14 @@ try {
   const aView = `/apps/${encodeURIComponent(A.application.key)}/views/${encodeURIComponent(A.application.defaultView)}`;
   await page.goto(`${uiUrl}${aView}?workspaceKey=site-b`);
   await page.getByRole("heading", { level: 1, name: /is not in this workspace's model/ }).waitFor();
-  await page.getByRole("list", { name: /Workspaces whose model has/ }).getByRole("heading", { name: "Site A" }).waitFor();
+  await page
+    .getByRole("list", { name: /Workspaces whose model has/ })
+    .getByRole("heading", { name: "Site A" })
+    .waitFor();
   await noErrors("case 1");
-  checks.push("1. A by keyboard and B by clicking installed from the editor into new workspaces; each opens on its own model; the default unchanged; A's address in B's workspace names Site A");
+  checks.push(
+    "1. A by keyboard and B by clicking installed from the editor into new workspaces; each opens on its own model; the default unchanged; A's address in B's workspace names Site A",
+  );
 
   // ---- 2. Work in each workspace (J36.3) ----
   for (const side of sides) {
@@ -199,7 +208,10 @@ try {
     const tab = apps.getByRole("button", { name: side.application.name }).first();
     if ((await tab.getAttribute("aria-current")) !== "page") await who.press(tab, side.application.name);
     const rail = page.getByRole("navigation", { name: `${side.application.name} collections` });
-    await who.press(rail.getByRole("button", { name: new RegExp(`^${side.root.pluralName}`) }).first(), side.root.pluralName);
+    await who.press(
+      rail.getByRole("button", { name: new RegExp(`^${side.root.pluralName}`) }).first(),
+      side.root.pluralName,
+    );
     await page.getByRole("heading", { level: 1, name: side.view.name }).waitFor();
     side.record = await createRecord(
       page,
@@ -216,11 +228,18 @@ try {
       `${side.label} child`,
       `Add ${side.child.name}`,
     );
-    assert.equal(side.childRecord.parentObjectId, side.record.id, "the child stands under the record it was added from");
+    assert.equal(
+      side.childRecord.parentObjectId,
+      side.record.id,
+      "the child stands under the record it was added from",
+    );
     const form = await editValue(page, who, side.code, `${side.key}-live`);
     await saveValue(page, who, form);
     await form.waitFor({ state: "detached" });
-    assert.equal(valueOf(await api(`/objects/${side.root.key}/${side.record.id}?workspaceKey=${side.key}`), side.code), `${side.key}-live`);
+    assert.equal(
+      valueOf(await api(`/objects/${side.root.key}/${side.record.id}?workspaceKey=${side.key}`), side.code),
+      `${side.key}-live`,
+    );
     await shotBoth(page, `record-${side.key}`);
 
     // A change set: started, the record changed in it, validated and published.
@@ -250,7 +269,10 @@ try {
       "confirm Publish change set",
     );
     await page.getByText(/Reviewed changes are now live/).waitFor();
-    assert.equal(valueOf(await api(`/objects/${side.root.key}/${side.record.id}?workspaceKey=${side.key}`), side.code), `${side.key}-published`);
+    assert.equal(
+      valueOf(await api(`/objects/${side.root.key}/${side.record.id}?workspaceKey=${side.key}`), side.code),
+      `${side.key}-published`,
+    );
     const publications = await api(`/workspaces/${side.key}/publications`);
     assert.equal(publications.items.length, 1, `${side.label} has its one publication`);
   }
@@ -276,7 +298,9 @@ try {
     await apps.getByRole("button", { name: application.name }).first().waitFor();
   }
   await noErrors("case 2");
-  checks.push("2. in each workspace a record and its child created, a value edited, a change set started, changed, validated and published; each lists only its own records; the switcher moves between three models");
+  checks.push(
+    "2. in each workspace a record and its child created, a value edited, a change set started, changed, validated and published; each lists only its own records; the switcher moves between three models",
+  );
 
   const [siteA, siteB] = sides;
   // ---- 3. A's second release, with a change set open and a tab opened before (J36.2, J36.9) ----
@@ -322,14 +346,20 @@ try {
   assert.notEqual(a2Release, sides[0].release);
   assert.equal((await api("/workspaces/site-b/model")).releaseId, sides[1].release);
   assert.equal((await api(`/workspaces/${defaultKey}/model`)).releaseId, starterRelease);
-  assert.equal((await api(`/change-sets/${leftBehind.id}`)).modelReleaseId, sides[0].release, "the open change set is left on 1.0.0");
+  assert.equal(
+    (await api(`/change-sets/${leftBehind.id}`)).modelReleaseId,
+    sides[0].release,
+    "the open change set is left on 1.0.0",
+  );
   await page.goto(recordUrl(siteA));
   await valueButton(page, note).waitFor();
   await page.goto(recordUrl(siteB));
   await page.getByRole("heading", { name: "Site B root", level: 1 }).waitFor();
   assert.equal(await valueButton(page, note).count(), 0);
   await noErrors("case 3");
-  checks.push("3. A's 1.1.0 activated into Site A by clicking: the open change set listed as left behind, Site B named as not changed; A's record form gains the field, B's does not");
+  checks.push(
+    "3. A's 1.1.0 activated into Site A by clicking: the open change set listed as left behind, Site B named as not changed; A's record form gains the field, B's does not",
+  );
 
   // ---- 4. The stale tab's save refused, B's commits, Reload then saves (J36.9) ----
   await Promise.all([saveValue(stale, clicking(stale), staleForm), saveValue(otherTab, clicking(otherTab), otherForm)]);
@@ -337,8 +367,15 @@ try {
   const toast = stale.getByRole("status").filter({ hasText: "Site A now runs" });
   await toast.getByText(`Site A now runs ${a2.release.name} 1.1.0. Nothing was saved.`).waitFor();
   await otherForm.waitFor({ state: "detached" });
-  assert.equal(valueOf(await api(`/objects/${A.root.key}/${siteA.record.id}?workspaceKey=site-a`), A.code), "site-a-published", "nothing saved from the stale tab");
-  assert.equal(valueOf(await api(`/objects/${B.root.key}/${siteB.record.id}?workspaceKey=site-b`), B.code), "saved-in-b-meanwhile");
+  assert.equal(
+    valueOf(await api(`/objects/${A.root.key}/${siteA.record.id}?workspaceKey=site-a`), A.code),
+    "site-a-published",
+    "nothing saved from the stale tab",
+  );
+  assert.equal(
+    valueOf(await api(`/objects/${B.root.key}/${siteB.record.id}?workspaceKey=site-b`), B.code),
+    "saved-in-b-meanwhile",
+  );
   await assertAccessible(stale, "the refused save and its toast");
   await shotBoth(stale, "stale-save-refused");
   await toast.getByRole("link", { name: "Reload" }).click();
@@ -347,12 +384,17 @@ try {
   const retried = await editValue(stale, clicking(stale), A.code, "saved-after-reload");
   await saveValue(stale, clicking(stale), retried);
   await retried.waitFor({ state: "detached" });
-  assert.equal(valueOf(await api(`/objects/${A.root.key}/${siteA.record.id}?workspaceKey=site-a`), A.code), "saved-after-reload");
+  assert.equal(
+    valueOf(await api(`/objects/${A.root.key}/${siteA.record.id}?workspaceKey=site-a`), A.code),
+    "saved-after-reload",
+  );
   await staleErrors("case 4, the stale tab");
   await otherErrors("case 4, B's tab");
   await otherTab.close();
   await stale.close();
-  checks.push("4. the tab opened before the activation: its save refused in place, the toast names 1.1.0 with Reload, nothing saved; B's save at the same moment committed; after Reload the save succeeded");
+  checks.push(
+    "4. the tab opened before the activation: its save refused in place, the toast names 1.1.0 with Reload, nothing saved; B's save at the same moment committed; after Reload the save succeeded",
+  );
 
   // ---- 6. 390px ----
   await page.setViewportSize({ width: 390, height: 844 });
@@ -363,7 +405,9 @@ try {
   await page.waitForURL(/workspaceKey=site-b/);
   await page.getByRole("button", { name: /Workspace: Site B/ }).waitFor();
   await noPageOverflow(page, "Site B's shell at 390px");
-  await page.goto(`${uiUrl}/apps/${encodeURIComponent(B.application.key)}/views/${encodeURIComponent(B.view.key)}?workspaceKey=site-b`);
+  await page.goto(
+    `${uiUrl}/apps/${encodeURIComponent(B.application.key)}/views/${encodeURIComponent(B.view.key)}?workspaceKey=site-b`,
+  );
   await page.getByRole("heading", { level: 1, name: B.view.name }).waitFor();
   await createRecord(
     page,
@@ -376,20 +420,26 @@ try {
   await noPageOverflow(page, "a record of Site B at 390px");
   await shotBoth(page, "phone-record");
   await page.goto(`${uiUrl}/settings/model`);
-  await page.getByRole("navigation", { name: "Model catalogue" }).waitFor();
+  await page.getByRole("region", { name: "Default workspace" }).waitFor();
   await noPageOverflow(page, "Settings › Model at 390px");
   await shotBoth(page, "phone-settings-model");
   await noErrors("case 6");
   checks.push("6. 390px: Site B chosen from the band, a record created, Settings › Model, no sideways scroll");
 
   // ---- 5. No combined snapshot ----
-  const runs = { [defaultKey]: [starterRelease], "site-a": [sides[0].release, a2Release], "site-b": [sides[1].release] };
+  const runs = {
+    [defaultKey]: [starterRelease],
+    "site-a": [sides[0].release, a2Release],
+    "site-b": [sides[1].release],
+  };
   assert.ok(modelReads.length > 0, "the walk read models");
   for (const read of modelReads) {
     const key = read.workspaceKey ?? defaultKey;
     assert.ok(runs[key]?.includes(read.releaseId), `a model read for ${key} answered ${read.releaseId}`);
   }
-  checks.push(`5. ${modelReads.length} model reads, each answering a release of the one workspace it named; no console error, Error: text or unexpected 4xx/5xx`);
+  checks.push(
+    `5. ${modelReads.length} model reads, each answering a release of the one workspace it named; no console error, Error: text or unexpected 4xx/5xx`,
+  );
 
   console.log(`workspace-m6: ${checks.length} cases passed\n- ${checks.join("\n- ")}\nscreenshots: ${output}`);
 } catch (error) {

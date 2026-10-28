@@ -538,6 +538,11 @@ def passkey_add(
         + 'autocomplete="off" aria-describedby="passkey-name-help">'
         + '<small id="passkey-name-help" class="hint">So you can tell your passkeys apart on '
         + "Account.</small></div>"
+        + '<div><label for="passkey-proof">Your password, or a code from your app</label>'
+        + '<input id="passkey-proof" name="proof" type="password" autocomplete="current-password" '
+        + 'required aria-describedby="passkey-proof-help">'
+        + '<small id="passkey-proof-help" class="hint">Asked again because a passkey signs you in '
+        + "without a password.</small></div>"
         + f'<button type="button" data-passkey="register" data-return="{escape(return_to)}">'
         + "Create passkey</button>"
         + f'<p class="aside"><a href="{escape(return_to)}">Back to Account</a></p>'

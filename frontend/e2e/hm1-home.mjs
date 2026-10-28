@@ -13,6 +13,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { goDark } from "./helpers/theme.mjs";
 
 const root = resolve(import.meta.dirname, "..", "..");
 const SECOND = { key: "branch-b", label: "Branch B" };
@@ -47,11 +48,7 @@ try {
   const { uiUrl, api, output, signedOutContext } = harness;
   const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   const shot = (page, name) => page.screenshot({ path: resolve(output, `hm1-${name}.png`), fullPage: true });
-  const dark = async (page) => {
-    await page.emulateMedia({ colorScheme: "dark" });
-    await page.evaluate(() => (document.documentElement.dataset.theme = "dark"));
-    await page.waitForTimeout(400);
-  };
+  const dark = goDark;
   const seen = (page, locator) =>
     locator.waitFor().catch(async (error) => {
       console.error(`${page.url()}\n${(await page.locator("body").innerText()).slice(0, 1500)}`);
@@ -250,8 +247,11 @@ try {
   await security.page.getByRole("heading", { level: 1, name: "There is no workspace you can open yet" }).waitFor();
   expect(new URL(security.page.url()).pathname === "/", `no workspace at the bare address: ${security.page.url()}`);
   // The top bar names the instance's product, not the release (D338).
-  const mark = await security.page.locator(".product-mark strong").innerText();
-  expect(mark === models.default.product.name, `no workspace: the product mark reads "${mark}"`);
+  const mark = await security.page.locator(".product-mark").getAttribute("aria-label");
+  expect(
+    mark === `${models.default.product.name} home`,
+    `no workspace: the product mark reads "${mark}", not "${models.default.product.name} home"`,
+  );
   await security.context.close();
   checks.push("a person with no workspace sees the no-workspace text at / under the instance's product name");
 

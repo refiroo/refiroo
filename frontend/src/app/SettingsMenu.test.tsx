@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { signOut } from "@/api/session";
@@ -49,14 +49,28 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function openMenu(onOpenSettings = vi.fn(), onOpenAccount = vi.fn(), workspaceKey?: string) {
+/** A pointer press as a browser makes it: focus moves to the button before the click. */
+function press(button: HTMLElement) {
+  fireEvent.pointerDown(button);
+  act(() => button.focus());
+  fireEvent.click(button);
+}
+
+function openMenu(
+  onOpenSettings = vi.fn(),
+  onOpenAccount = vi.fn(),
+  workspaceKey?: string,
+  onOpenNotifications = vi.fn(),
+) {
   render(
     <AccountMenu
       workspaceKey={workspaceKey}
       settingsHref="/settings/about"
       accountHref="/settings/account"
+      notificationsHref="/notifications"
       onOpenSettings={onOpenSettings}
       onOpenAccount={onOpenAccount}
+      onOpenNotifications={onOpenNotifications}
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: "Account" }));
@@ -104,6 +118,17 @@ describe("AccountMenu", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
   });
 
+  it("links a person to their Notifications and closes when it is followed (0.12 NT1)", async () => {
+    const onOpenNotifications = vi.fn();
+    openMenu(vi.fn(), vi.fn(), undefined, onOpenNotifications);
+    const link = await screen.findByRole("link", { name: /^Notifications/ });
+    expect(link).toHaveAttribute("href", "/notifications");
+    expect(link).toHaveClass("secondary", "account-menu-action");
+    fireEvent.click(link);
+    expect(onOpenNotifications).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
+  });
+
   it("offers the source and the licence from every page (AGPL section 13, 0.12 L1)", async () => {
     openMenu();
     const link = await screen.findByRole("link", { name: "Source code" });
@@ -135,6 +160,18 @@ describe("AccountMenu", () => {
     fireEvent.click(outside);
     expect(onPress).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
+  });
+
+  it("closes on a second press of its button (the user, 2026-10-28)", async () => {
+    openMenu();
+    // Opened, the menu holds focus, as in a browser; the second press takes it to the button.
+    const menu = await screen.findByRole("dialog", { name: "Account" });
+    act(() => menu.focus());
+    const button = screen.getByRole("button", { name: "Account" });
+    press(button);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Account" })).not.toBeInTheDocument());
+    press(button);
+    expect(await screen.findByRole("dialog", { name: "Account" })).toBeInTheDocument();
   });
 
   it("stays open for a press inside and closes on Escape", async () => {

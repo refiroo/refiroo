@@ -253,3 +253,31 @@ def test_a_provider_sign_in_is_never_asked_for_a_second_factor(world, idp):
     me = ok(world.api.client.get("/api/v1/me", headers=_bearer(token)))
     assert me["signedInWith"] == "harness"
     assert ok(_own(world, token, "GET", "/me/second-factor"))["enabled"] is False
+
+
+@pytest.mark.journey("J39")
+def test_a_setup_page_for_a_factor_confirmed_elsewhere_answers_a_page_not_json(world):
+    """Given the instance requires a second factor and a person is on the set-up step of a
+    sign-in. When the same person confirms a factor elsewhere before the page is submitted (the
+    requirement was off for a moment), the page they submit answers the engine's HTML page with
+    the message and the step is not used, never the API's JSON error."""
+    _person(world, "pia")
+    local = ok(world.api.get("/sign-in-providers/local"))
+    on = ok(world.api.patch("/sign-in-providers/local", {"expectedVersion": local["version"],
+                                                          "secondFactorRequired": True}))  # fmt: skip
+    browser = _browser(world)
+    page = _password_step(browser, "pia", _pkce()[1])
+    assert "Set up a second factor" in page.text
+
+    ok(world.api.patch("/sign-in-providers/local", {"expectedVersion": on["version"],
+                                                     "secondFactorRequired": False}))  # fmt: skip
+    token = _sign_in(_browser(world), "pia")
+    _set_up(world, token)
+    local = ok(world.api.get("/sign-in-providers/local"))
+    ok(world.api.patch("/sign-in-providers/local", {"expectedVersion": local["version"],
+                                                     "secondFactorRequired": True}))  # fmt: skip
+
+    answer = _second(browser, _step(page), code="000000")
+    assert answer.headers["content-type"].startswith("text/html"), answer.text[:300]
+    assert answer.status_code == 404 and "No second factor is being set up" in answer.text
+    assert "location" not in answer.headers

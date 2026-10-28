@@ -17,10 +17,10 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import ApiError, api_error
 from ...models.commands import ClientCreate, ClientSecretCreate, ClientUpdate
-from ...models.database import AuditEvent, OAuthClient, OAuthClientSecret
+from ...models.database import AuditEvent, OAuthClient, OAuthClientSecret, SignInFailure
 from ..authorization.administration import grant_roles
 from ..reads.object_query import name_contains
-from . import security_events
+from . import security_events, sign_in
 from .passwords import hash_secret, verify_secret
 from .principals import actors
 
@@ -211,21 +211,37 @@ def creators(session: Session, public_ids: list[str]) -> dict[str, dict[str, str
     return found
 
 
-def authenticate_client(session: Session, client_id: str, secret: str) -> OAuthClient | None:
-    """The active client whose valid secret ``secret`` is, its use recorded; none otherwise."""
+def authenticate_client(
+    session: Session, client_id: str, secret: str, address: str | None, now: datetime
+) -> OAuthClient | sign_in.Refused:
+    """The active client whose valid secret ``secret`` is, its use recorded, or why not. A wrong
+    secret is counted against the client ID and the address and slows the next attempts like a
+    wrong password (D271); an ID that matches no active client costs the same work as a wrong
+    secret, so the time does not show which IDs exist. Commits."""
+    wait = sign_in.seconds_to_wait(session, client_id, address, now, sign_in.CLIENT)
+    if wait > 0:
+        return sign_in.Refused("slowed", wait)
     client = session.scalar(
         select(OAuthClient).where(OAuthClient.public_id == client_id, OAuthClient.active.is_(True))
     )
     if client is None:
-        return None
-    for candidate in secrets_of(session, client):
-        if verify_secret(secret, candidate.secret_hash):
-            now = datetime.now(UTC)
-            candidate.last_used_at = now
-            client.last_used_at = now
-            session.commit()
-            return client
-    return None
+        sign_in.spend_verification(secret)
+    else:
+        for candidate in secrets_of(session, client):
+            if verify_secret(secret, candidate.secret_hash):
+                candidate.last_used_at = now
+                client.last_used_at = now
+                session.execute(
+                    delete(SignInFailure).where(
+                        SignInFailure.kind == f"{sign_in.CLIENT}account",
+                        SignInFailure.key == client_id.strip().casefold()[:320],
+                    )
+                )
+                session.commit()
+                return client
+    sign_in.record_failure(session, client_id, address, now, sign_in.CLIENT)
+    session.commit()
+    return sign_in.Refused("wrong")
 
 
 def client_page(

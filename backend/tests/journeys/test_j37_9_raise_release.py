@@ -7,6 +7,7 @@ arrives from outside the API (the schema is set in the database), as after an en
 """
 
 import json
+import time
 
 import pytest
 from scenario import W1, application, ok, refused
@@ -25,23 +26,28 @@ def _raising(release_id: str) -> str:
     return f"/model-releases/{release_id}/raising"
 
 
-def _stage_old(world, schema="0.9"):
+def _stage_old(world, schema="0.9", version="1.0.0"):
     """A workspace on another model's release stored as an earlier engine left it; its key and the
     release. The stored hash is the earlier engine's, not the present one."""
     other = _other(world)
-    release = world.install(other.configuration.model, name="Other model")
+    model = {
+        **other.configuration.model,
+        "release": {**other.configuration.model["release"], "version": version},
+    }
+    release = world.install(model, name="Other model")
     key = _on(world, release["id"])
     engine = create_engine(world.database, poolclass=NullPool)
     with engine.begin() as connection:
         connection.execute(
             text(
-                "UPDATE model_releases SET schema_version = :v, model_hash = 'stale-hash', "
+                "UPDATE model_releases SET schema_version = :v, model_hash = :h, "
                 "model_json = CAST(:m AS json) WHERE public_id = :id"
             ),
             {
                 "v": schema,
-                "m": json.dumps({**other.configuration.model, "schemaVersion": schema}),
+                "m": json.dumps({**model, "schemaVersion": schema}),
                 "id": release["id"],
+                "h": "stale-hash" if version == "1.0.0" else f"stale-hash-{version}",
             },
         )
     engine.dispose()
@@ -138,5 +144,96 @@ def test_a_raising_needs_the_right_to_install_and_the_previewed_hash(world):
             "MODEL_HASH_CHANGED",
         )
         assert error["details"]["currentModelHash"] == "stale-hash"
-        assert service.api.post(_raising(release["id"]), {"confirm": True}).status_code == 422
+        refused(
+            service.api.post(_raising(release["id"]), {"confirm": True}),
+            422,
+            "REQUEST_VALIDATION_ERROR",
+        )
         assert _availability(service, key)["state"] == "unavailable"
+
+
+@pytest.mark.journey("J37.9")
+@pytest.mark.structures("R", "R.u")
+def test_a_service_that_started_with_nothing_to_serve_serves_and_runs_jobs_after_a_raising(world):
+    """Given every release stored in schema 0.9, as an engine upgrade leaves them. When the
+    service starts, `/health` is `503` and no job runs; after the default workspace's release is
+    raised through the API, the same process is ready, and a background batch is run by its job
+    worker, without a restart (R-F9)."""
+    engine = create_engine(world.database, poolclass=NullPool)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE model_releases SET schema_version = '0.9', "
+                "model_hash = 'stale-' || id, "
+                "model_json = jsonb_set(model_json::jsonb, '{schemaVersion}', '\"0.9\"')::json"
+            )
+        )
+        releases = connection.execute(
+            text(
+                "SELECT r.public_id, r.model_hash FROM model_releases r "
+                "JOIN workspace_models m ON m.model_release_id = r.id"
+            )
+        ).all()
+    engine.dispose()
+    with application(world.configuration, world.database, worker=True) as service:
+        assert service.api.get("/health").status_code == 503
+        refused(service.api.get("/model"), 503, "MODEL_REGISTRY_UNAVAILABLE")
+        for release_id, model_hash in dict(releases).items():
+            ok(
+                service.api.post(
+                    _raising(release_id), {"confirm": True, "expectedModelHash": model_hash}
+                )
+            )
+        assert service.api.get("/health").status_code == 200
+        item = {
+            "op": "create",
+            "applicationKey": service.app("R"),
+            "objectTypeKey": service.key("R"),
+            "name": "After the raising",
+            "attributes": [
+                {"attributeTypeKey": k, "value": v}
+                for k, v in {
+                    **service.required_values("R"),
+                    service.key("R.u"): "After-001",
+                }.items()
+            ],
+        }
+        job = ok(
+            service.api.post(
+                "/batches",
+                {"workspaceKey": W1, "policy": "independent", "run": "background", "items": [item]},
+            ),
+            202,
+        )
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            state = ok(service.api.get(f"/jobs/{job['id']}"))["state"]
+            if state in ("completed", "failed"):
+                break
+            time.sleep(0.3)
+        assert state == "completed"
+
+
+@pytest.mark.journey("J37.9")
+@pytest.mark.structures("R")
+def test_a_page_of_unavailable_workspaces_reads_the_stored_releases_once(world, monkeypatch):
+    """Given two workspaces on releases stored in schema 0.9. When the workspace list is read, both
+    read unavailable and raisable, and the stored releases were read once for the page, not once per
+    release."""
+    from app.engine.model import availability, raising
+
+    first, _ = _stage_old(world)
+    second, _ = _stage_old(world, version="1.0.1")
+    reads = []
+    real = raising.hashes_taken
+    for module in (raising, availability):
+        monkeypatch.setattr(
+            module, "hashes_taken", lambda s: reads.append(1) or real(s), raising=False
+        )
+    with application(world.configuration, world.database) as service:
+        listed = {
+            item["key"]: item["availability"]
+            for item in ok(service.api.get("/workspaces", pageSize=500))["items"]
+        }
+    assert listed[first]["raisable"] is True and listed[second]["raisable"] is True
+    assert len(reads) == 1

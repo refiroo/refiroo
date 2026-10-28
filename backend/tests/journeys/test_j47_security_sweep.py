@@ -18,12 +18,16 @@ cannot be probed so are in ``SWEEP_EXCEPTIONS``.
 
 import json
 import re
+import threading
 from dataclasses import dataclass
 from uuid import uuid4
 
+import httpx
 import pytest
 from harness_identity import TestClient, request_token
 from scenario import W1, W2, ok
+from security_oracle import EXPECTED_GROUPS
+from test_j24_job_stream import served  # noqa: F401 - a fixture
 from test_j30_consumer_events import LEDGER, _activate
 from test_j30_subscriptions import SUBSCRIPTIONS, _subscribe
 from test_j39_sign_in import _browser, _person, _sign_in
@@ -49,8 +53,10 @@ SWEEP_EXCEPTIONS = {
     ("delete", "/api/v1/mail-settings"): "removes the mail settings; nothing makes it invalid",
 }
 
-# Streams that never end, so a call the caller is allowed cannot be probed and read back: refused
-# callers are still probed. The inbox stream is walked in J42 (0.12 A2).
+# Streams that never end, so a call the caller is allowed cannot be probed and read back by the
+# sweep: refused callers are still probed. The inbox stream's class (any signed-in person, never a
+# `consumer` token) is probed over HTTP by `test_the_inbox_stream_answers_as_its_class_says`; what it
+# sends is walked in J42 (0.12 A2).
 SWEEP_STREAMS = {("get", "/api/v1/me/notifications/events")}
 
 _PATH_SCOPE = "the path's workspace"
@@ -386,6 +392,96 @@ def test_every_operation_answers_as_the_catalogue_says(world, role):
 
 
 @pytest.mark.journey("J47.1")
+def test_every_operation_needs_the_groups_the_documentation_says(monkeypatch):
+    """Given the table `EXPECTED_GROUPS` (``security_oracle.py``), written from docs/API.md § Security
+    and not from the code, and the application with every capability on. When each operation of its
+    OpenAPI document is looked up, then it is named in the table, declares the groups the table
+    expects (an open operation declares no action at all, and is one of `OPEN_OPERATIONS`), and no
+    entry is left for an operation that does not exist: a route added without a decision fails
+    here, and so does a declaration that drifts from the documentation. The sweep above proves
+    enforcement equals declaration; this proves the declaration is the documented one."""
+    from app.main import create_app
+
+    for flag in (
+        "MODEL_ADMIN_MUTATIONS_ENABLED",
+        "WORKSPACE_ADMIN_MUTATIONS_ENABLED",
+        "INTEGRATION_JOBS_ENABLED",
+        "CONSUMER_SUBSCRIPTIONS_ENABLED",
+    ):
+        monkeypatch.setenv(flag, "true")
+    document = create_app().openapi()["paths"]
+    found = {
+        (method, path): operation
+        for path, methods in document.items()
+        for method, operation in methods.items()
+        if method != "parameters"
+    }
+    assert set(found) - set(EXPECTED_GROUPS) == set(), "operations the oracle does not name"
+    assert set(EXPECTED_GROUPS) - set(found) == set(), "oracle entries for no operation"
+    drifted = {}
+    for key, operation in found.items():
+        expected = EXPECTED_GROUPS[key]
+        declared = None if "x-action" not in operation else frozenset(operation["x-action-groups"])
+        if declared != expected:
+            drifted[key] = (sorted(declared) if declared is not None else None,
+                            sorted(expected) if expected is not None else None)  # fmt: skip
+    assert not drifted, f"declared groups differ from the documented ones: {drifted}"
+    assert {key for key, groups in EXPECTED_GROUPS.items() if groups is None} == set(
+        OPEN_OPERATIONS
+    )
+
+
+def _opened(base: str, bearer: str | None) -> dict:
+    """What the inbox stream answers a caller: its status, content type and, when it is a refusal,
+    the body. The stream is opened on a thread and closed at once; nothing is asserted there."""
+    answer: dict = {}
+
+    def read() -> None:
+        headers = {"Authorization": f"Bearer {bearer}"} if bearer else {}
+        try:
+            with httpx.stream(
+                "GET", f"{base}/api/v1/me/notifications/events", headers=headers, timeout=15
+            ) as response:
+                answer["status"] = response.status_code
+                answer["type"] = response.headers.get("content-type", "")
+                if response.status_code != 200:
+                    answer["body"] = response.read().decode()
+        except httpx.HTTPError as failure:
+            answer["failure"] = repr(failure)
+
+    thread = threading.Thread(target=read, daemon=True)
+    thread.start()
+    thread.join(20)
+    assert not thread.is_alive(), "the stream did not answer"
+    return answer
+
+
+@pytest.mark.journey("J47.1")
+def test_the_inbox_stream_answers_as_its_class_says(world, served):  # noqa: F811
+    """Given the inbox stream, which the sweep cannot read back because it never ends. When a person
+    with no role opens it, then it is served (`200`, an event stream: it asks for no action group);
+    a client's `consumer` token is refused as the other API's (`401 TOKEN_INVALID`, `audience`); and
+    with no token it is `401 AUTHENTICATION_REQUIRED`."""
+    _person(world, "streamer")
+    person = _sign_in(_browser(world), "streamer")
+    served_person = _opened(served, person)
+    assert served_person == {"status": 200, "type": served_person["type"]}
+    assert served_person["type"].startswith("text/event-stream")
+
+    client = ok(world.api.post("/clients", {"name": "Stream probe"}), 201)
+    post = lambda path, **kwargs: httpx.post(f"{served}{path}", **kwargs)
+    consumer = ok(request_token(post, client["id"], client["secret"], "consumer"))["access_token"]
+    wrong = _opened(served, consumer)
+    assert wrong["status"] == 401, wrong
+    error = json.loads(wrong["body"])["error"]
+    assert error["code"] == "TOKEN_INVALID" and error["details"] == {"reason": "audience"}
+
+    bare = _opened(served, None)
+    assert bare["status"] == 401
+    assert json.loads(bare["body"])["error"]["code"] == "AUTHENTICATION_REQUIRED"
+
+
+@pytest.mark.journey("J47.1")
 @pytest.mark.settings(**SUBSCRIPTIONS)
 @pytest.mark.structures(*LEDGER)
 def test_without_a_token_every_operation_but_the_open_ones_is_refused(world):
@@ -589,20 +685,20 @@ def test_the_consumer_routes_follow_their_grants(world):
     declared_shapes = {(op.method, _shape(op.path)) for op in operations_ if op.kind != "index"} | {
         ("get", CONSUMER)
     }
-    served = set()
+    served_routes = set()
     for route in app_routes(app):
         if route.path == CONSUMER or route.path.startswith(CONSUMER + "/"):
             for method in route.methods - {"HEAD"}:
-                served.add((method.lower(), _shape(route.path)))
-    generic = {path for _, path in served}
+                served_routes.add((method.lower(), _shape(route.path)))
+    generic = {path for _, path in served_routes}
     # The router names a list by its parameter; a document writes out each list it declares.
     covered = {
         (m, "{api}/lists/{list_key}") if p.startswith("{api}/lists/") else (m, p)
         for m, p in declared_shapes
     }
-    assert {(m, p.replace("{object_id}", "{id}")) for m, p in served} <= covered | {
+    assert {(m, p.replace("{object_id}", "{id}")) for m, p in served_routes} <= covered | {
         ("get", "{api}/events")
-    }, served ^ covered
+    }, served_routes ^ covered
     assert ("get", "{api}/objects/{id}") in covered and generic
 
     clients = {}

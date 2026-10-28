@@ -50,6 +50,7 @@ from ...models.database import (
     Workspace,
 )
 from ...models.schema import EngineModel
+from ..change_sets import submissions
 from ..change_sets.access import effective_change_set_membership
 from ..change_sets.validation import graph_diagnostics
 from ..indexes import matrix_states
@@ -821,6 +822,10 @@ def run_execution(
         reviewed_feed_position=summary["feedPosition"],
         summary=summary,
         for_update=True,
+    )
+    # A change set submitted since the confirmation is not moved under the submission (R-F6).
+    submissions.freeze(
+        session, session.scalar(select(ChangeSet).where(ChangeSet.id == job.change_set_id))
     )
     move = _Move.open(session, job)
     session.execute(text("DELETE FROM job_items WHERE job_id = :job"), {"job": job.sequence_id})

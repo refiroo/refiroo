@@ -1,6 +1,6 @@
 // 0.12 I4 browser evidence, grown by each part (`--part a|b|c`, default all): against a real
 // backend and the harness's minimal OpenID Connect provider (backend/tests/oidc_provider.py), on
-// two models (the starter, and the starter under another product name), at 1440px and 390px, light
+// two models (the starter, and the differently shaped journey configuration generated-b), at 1440px and 390px, light
 // and dark.
 //
 // Part a (a provider identity linked, signing out of the provider, the switch): a person made at a
@@ -23,14 +23,13 @@
 // step after a password, renames it, and an administrator removes it from their page. The servers
 // are reached as localhost: WebAuthn takes no IP address as its relying party. Axe on each page,
 // light and dark, and 390px.
-import { createHmac } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { bootHarness } from "./helpers/harness.mjs";
+import { SHAPED_MODELS, bootShaped } from "./helpers/shaped-models.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { startProvider } from "./helpers/oidc-provider.mjs";
+import { totp } from "./helpers/totp.mjs";
 
-const MODELS = [{ name: "starter" }, { name: "renamed", product: "Northfield Reference Data" }];
 const PARTS = ["a", "b", "c"];
 const requested = process.argv.includes("--part") ? process.argv[process.argv.indexOf("--part") + 1] : "all";
 const parts = requested === "all" ? PARTS : [requested];
@@ -147,7 +146,7 @@ async function partA(c) {
   const tick = page.getByRole("checkbox", { name: /Sign people out of Harness ID too/ });
   await tick.focus();
   await page.keyboard.press("Space");
-  await page.getByText(`${c.apiUrl}/oauth/providers/harness-id/signed-out`).waitFor();
+  await page.getByText(`${c.engineUrl}/oauth/providers/harness-id/signed-out`).waitFor();
   await shot(page, "provider-sign-out");
   await axe(page, `${tag}-provider-sign-out`);
   await page.getByRole("button", { name: "Save", exact: true }).first().click();
@@ -216,20 +215,6 @@ async function partA(c) {
 }
 
 const PASSPHRASE = "a long passphrase for testing";
-const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-
-/** RFC 6238's six-digit code of the current 30-second step, or `ahead` steps later. */
-function totp(secret, ahead = 0) {
-  let bits = "";
-  for (const letter of secret.replace(/\s/g, "")) bits += BASE32.indexOf(letter).toString(2).padStart(5, "0");
-  const key = Buffer.from(bits.match(/.{8}/g).map((byte) => Number.parseInt(byte, 2)));
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000) + ahead));
-  const mac = createHmac("sha1", key).update(counter).digest();
-  const offset = mac[mac.length - 1] & 15;
-  return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1000000).padStart(6, "0");
-}
-
 /** A person with a password: made through the API, the password set on the engine's own page. */
 async function personWithPassword(c, username, name) {
   const person = await c.api("/users", { username, name });
@@ -239,7 +224,7 @@ async function personWithPassword(c, username, name) {
   page.setDefaultTimeout(15000);
   await page.goto(link.url);
   await page.getByLabel("New password").fill(PASSPHRASE);
-  await page.getByLabel("Repeat the password").fill(PASSPHRASE);
+  await page.getByLabel("Type it again").fill(PASSPHRASE);
   await page.getByRole("button", { name: "Set password" }).click();
   await page.getByText("Your password is set").waitFor();
   await outside.close();
@@ -458,10 +443,12 @@ async function partC(c) {
   await account.keyboard.press("Enter");
   await account.getByRole("heading", { level: 1, name: "Add a passkey" }).waitFor();
   expect(
-    new URL(account.url()).origin === c.apiUrl,
+    new URL(account.url()).origin === c.engineUrl,
     `${tag}: the passkey is made on the engine's own page (${account.url()})`,
   );
   await account.getByLabel("Name it").fill("Test laptop");
+  // Asked again, because a passkey signs the person in without a password (R).
+  await account.getByLabel("Your password, or a code from your app").fill(PASSPHRASE);
   await shot(account, "passkey-add-page");
   await axe(account, `${tag}-passkey-add-page`);
   await account.getByRole("button", { name: "Create passkey" }).click();
@@ -479,8 +466,9 @@ async function partC(c) {
   await shot(account, "sign-in-passkey");
   await axe(account, `${tag}-sign-in-passkey`);
   await account.getByRole("button", { name: "Sign in with a passkey" }).click();
-  // Signing out returned to the front page, where the sign-in came back to.
-  await account.waitForURL((url) => url.origin === uiUrl && url.pathname !== "/signed-in");
+  // The page the person is back on shows the Account menu once the sign-in has finished; the URL alone
+  // would hold at the front page while the passkey is still being checked.
+  await account.getByRole("button", { name: "Account" }).waitFor();
   await account.goto(`${uiUrl}/settings/account`);
   await account.getByText("Signed in with a passkey").waitFor();
   await account.getByText(/last used/).waitFor();
@@ -498,7 +486,7 @@ async function partC(c) {
   await shot(account, "second-step-passkey");
   await axe(account, `${tag}-second-step-passkey`);
   await account.getByRole("button", { name: "Use a passkey" }).click();
-  await account.waitForURL((url) => url.origin === uiUrl && url.pathname !== "/signed-in");
+  await account.getByRole("button", { name: "Account" }).waitFor();
   await account.goto(`${uiUrl}/settings/account`);
   await account.getByText("Signed in with your password").waitFor();
   checks.push(`${tag}: after the password, the passkey is the second step`);
@@ -530,6 +518,7 @@ async function partC(c) {
   await holder.page.waitForURL(`${uiUrl}/settings/account`);
   await virtualAuthenticator(holder.context, holder.page);
   await holder.page.getByRole("button", { name: /Add a passkey/ }).click();
+  await holder.page.getByLabel("Your password, or a code from your app").fill(PASSPHRASE);
   await holder.page.getByRole("button", { name: "Create passkey" }).click();
   await holder.page.waitForURL(`${uiUrl}/settings/account`);
   await holder.context.close();
@@ -553,16 +542,11 @@ async function partC(c) {
 const SECTIONS = { a: partA, b: partB, c: partC };
 
 async function walk(configuration) {
-  const provider = await startProvider();
-  const harness = await bootHarness({
-    host: "localhost",
-    transformModel: configuration.product
-      ? (model) => {
-          model.product.name = configuration.product;
-        }
-      : undefined,
-  });
+  let provider;
+  let harness;
   try {
+    provider = await startProvider();
+    harness = await bootShaped(configuration, { host: "localhost", oneAddress: true });
     const { uiUrl, apiUrl, api, output, browser, signedOutContext, harnessIdentity } = harness;
     const tag = configuration.name;
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -581,7 +565,9 @@ async function walk(configuration) {
     const c = {
       tag,
       uiUrl,
-      apiUrl,
+      // The engine's pages are at the application's own address: a passkey made on an engine page signs in
+      // on the application's sign-in screen only where both are one origin (the relying party, I4c).
+      engineUrl: uiUrl,
       api,
       browser,
       page,
@@ -597,13 +583,13 @@ async function walk(configuration) {
     await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
     console.log(`I4 browser evidence (${tag}): ${output}`);
   } finally {
-    harness.cleanup();
-    provider.child.kill();
+    harness?.cleanup();
+    provider?.child.kill();
   }
 }
 
 try {
-  for (const configuration of MODELS) await walk(configuration);
+  for (const configuration of SHAPED_MODELS) await walk(configuration);
   console.log(`Checks: ${checks.length}`);
   for (const check of checks) console.log(`  ${check}`);
   if (failures.length) {

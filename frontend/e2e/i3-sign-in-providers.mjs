@@ -1,6 +1,5 @@
 // 0.12 I3 browser evidence: a sign-in provider against a real backend and the harness's minimal
-// OpenID Connect provider (backend/tests/oidc_provider.py), on two models (the starter, and the
-// starter under another product name), at 1440px and 390px, light and dark. As the harness person:
+// OpenID Connect provider (backend/tests/oidc_provider.py), on two models (the starter, and the differently shaped journey configuration generated-b), at 1440px and 390px, light and dark. As the harness person:
 // add the provider on Settings › Security › Sign-in by keyboard and read the address to register.
 // Signed out: the engine's sign-in page offers "Continue with"; the provider signs a new person in
 // with two groups and the browser returns to the page asked for; Account names the provider. As the
@@ -11,11 +10,9 @@
 // Axe on each page; screenshots; no horizontal page scroll at 390px.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { bootHarness } from "./helpers/harness.mjs";
+import { SHAPED_MODELS, bootShaped } from "./helpers/shaped-models.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { startProvider } from "./helpers/oidc-provider.mjs";
-
-const MODELS = [{ name: "starter" }, { name: "renamed", product: "Northfield Reference Data" }];
 
 const checks = [];
 const failures = [];
@@ -31,20 +28,15 @@ async function axe(page, name) {
 }
 
 async function walk(configuration) {
-  const provider = await startProvider();
-  const harness = await bootHarness({
-    transformModel: configuration.product
-      ? (model) => {
-          model.product.name = configuration.product;
-        }
-      : undefined,
-  });
+  let provider;
+  let harness;
   try {
+    provider = await startProvider();
+    harness = await bootShaped(configuration);
     const { uiUrl, apiUrl, api, output, browser, signedOutContext, harnessIdentity } = harness;
     const tag = configuration.name;
     const overflow = (target) => target.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     const shot = (target, name) => target.screenshot({ path: resolve(output, `${tag}-${name}.png`), fullPage: true });
-    const product = configuration.product ?? (await api("/system")).product?.name;
     const pat = { sub: `p-${tag}`, name: `Pat ${tag}`, email: `pat-${tag}@provider.example` };
 
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -116,7 +108,12 @@ async function walk(configuration) {
     await page.getByText(/^Signs in with Harness ID/).waitFor();
     await page.goto(`${uiUrl}/settings/groups`);
     const groups = page.getByRole("navigation", { name: "Groups" });
-    await groups.getByRole("heading", { name: "From Harness ID" }).waitFor();
+    // Each entry names its source (the headings are gone, R); both provider groups are listed.
+    for (const group of ["herbarium-staff", "data-governance"])
+      await groups
+        .getByRole("button", { name: new RegExp(group) })
+        .filter({ hasText: "Harness ID" })
+        .waitFor();
     await groups.getByRole("button", { name: /herbarium-staff/ }).click();
     await page.getByRole("heading", { level: 2, name: "herbarium-staff" }).waitFor();
     await page.getByText("Members come from the sign-in provider").waitFor();
@@ -135,8 +132,9 @@ async function walk(configuration) {
     await page.getByRole("heading", { level: 2, name: "Herbarium staff" }).waitFor();
     await page.getByRole("button", { name: "Grant", exact: true }).click();
     const grant = page.getByRole("dialog", { name: "Grant Herbarium staff access" });
-    await grant.getByRole("button", { name: /Workspace$/ }).click();
-    await page.getByRole("option").first().click();
+    await grant.getByRole("checkbox", { name: "Reader" }).check();
+    // The only workspace is chosen already.
+    await grant.getByText("No workspace chosen yet").waitFor({ state: "detached" });
     await grant.getByRole("button", { name: "Grant", exact: true }).click();
     await page
       .getByRole("group", { name: "Roles" })
@@ -225,13 +223,13 @@ async function walk(configuration) {
     await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
     console.log(`I3 browser evidence (${tag}): ${output}`);
   } finally {
-    harness.cleanup();
-    provider.child.kill();
+    harness?.cleanup();
+    provider?.child.kill();
   }
 }
 
 try {
-  for (const configuration of MODELS) await walk(configuration);
+  for (const configuration of SHAPED_MODELS) await walk(configuration);
   console.log(`Checks: ${checks.length}`);
   for (const check of checks) console.log(`  ${check}`);
   if (failures.length) {

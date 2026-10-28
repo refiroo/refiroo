@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import type { ChangeSet, Publication } from "@/types";
+import { permissionsFixture } from "@/test/permissions";
+import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
 import { Publications } from "./Publications";
 
 const current: Publication = {
@@ -20,6 +22,15 @@ const current: Publication = {
   publishedBy: null,
   withdrawnBy: null,
 };
+
+beforeEach(() => {
+  // A person holding every group, read: nothing is offered before the permissions are known.
+  vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    api,
+    warning: "",
+    permissions: permissionsFixture("west"),
+  });
+});
 
 afterEach(() => vi.restoreAllMocks());
 

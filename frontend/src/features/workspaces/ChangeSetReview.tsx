@@ -12,7 +12,7 @@ import { useEffect, useId, useState, type ReactNode, type Ref } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { useMe } from "@/app/useMe";
-import { allows } from "@/features/security/permissions";
+import { holds } from "@/features/security/permissions";
 import { principalName } from "@/ui/ActorName";
 import { formatServerAgo } from "@/lib/dates";
 import { Notice } from "@/ui/Notice";
@@ -41,6 +41,7 @@ import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow, WindowPlaceholder, WindowSpacer } from "@/ui/ScrollWindow";
 import { StatusPill, type StatusTone } from "@/ui/StatusPill";
 import { Tabs } from "@/ui/Tabs";
+import { useSubjectSeen } from "@/features/inbox/useInbox";
 
 type ReviewRoute = Extract<RouteState, { kind: "changeSetChanges" }>;
 
@@ -72,6 +73,8 @@ export function ChangeSetReview({
   /** The request was approved and published: the change set is gone (0.12 A3). */
   onDecided?: (message: string) => void;
 }) {
+  // The person has the change set in front of them: its notices are read (0.12 NT1, D464).
+  useSubjectSeen(route.changeSetId);
   const records = route.tab === "records";
   // A type from the URL that the pinned model lacks is dropped rather than refused by the API.
   const types = records
@@ -240,6 +243,22 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
       active = false;
     };
   }, [workspaceKey]);
+  // The publication the approver saw when the review loaded: approving replaces exactly that one.
+  const [seen, setSeen] = useState<{ workspaceKey: string; id: string | null }>();
+  useEffect(() => {
+    if (!workspaceKey) return;
+    let active = true;
+    Promise.resolve()
+      .then(() => api.latestPublication(workspaceKey))
+      .then(
+        (latest) =>
+          active && setSeen({ workspaceKey, id: latest.items[0]?.status === "active" ? latest.items[0].id : null }),
+        () => active && setSeen(undefined),
+      );
+    return () => {
+      active = false;
+    };
+  }, [workspaceKey]);
   const [comment, setComment] = useState("");
   const [commentError, setCommentError] = useState("");
   const [error, setError] = useState("");
@@ -250,8 +269,8 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
   const decisions = request.decisions;
   const history =
     decisions.length > 0 ? (
-      <Card as="section" aria-label="Decisions on this request">
-        <h3>Decisions</h3>
+      <Card as="section" aria-label="Decisions on this request" className="decision-card">
+        <h2>Decisions</h2>
         <ul className="decision-history">
           {decisions.map((item) => (
             <li key={item.id}>
@@ -264,10 +283,11 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
       </Card>
     ) : null;
   const waiting = request.state === "submitted";
-  const approves = allows(permissions, "approve");
+  const approves = holds(permissions, "approve");
   const own = Boolean(me && request.submitter && request.submitter.id === me.id);
   const blocked = Boolean(policy?.secondPerson && own);
   const current = changeSet;
+  const stale = current.version !== request.version;
 
   async function decide(outcome: "approve" | "sendBack") {
     if (outcome === "sendBack" && !comment.trim()) {
@@ -280,12 +300,15 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
     setPending(true);
     try {
       if (outcome === "approve") {
-        const latest = await api.latestPublication(current.workspaceKey);
+        if (seen?.workspaceKey !== current.workspaceKey) {
+          setError("The current publication could not be read. Reload the review and try again.");
+          return;
+        }
         const publication = (await api.decideChangeSet(current.id, {
           outcome,
           comment: comment.trim() || undefined,
           expectedChangeSetVersion: request!.version,
-          expectedActivePublicationId: latest.items[0]?.status === "active" ? latest.items[0].id : null,
+          expectedActivePublicationId: seen.id,
         })) as { publicationNumber: number };
         onDecided?.(`Published as Publication ${publication.publicationNumber}. Reviewed changes are now live.`);
       } else {
@@ -314,41 +337,54 @@ function DecisionPanel({ onDecided }: { onDecided?: (message: string) => void })
       )}
       {waiting && approves && policyRead && me && !blocked && (
         <Card as="section" aria-labelledby="decision-title" className="decision-panel">
-          <h3 id="decision-title">Decision</h3>
+          <h2 id="decision-title">Decision</h2>
           <p>
             Submitted by {request.submitter ? principalName(request.submitter) : "an unknown person"} · version{" "}
             {request.version} · {formatServerAgo(request.submittedAt)}
           </p>
           {request.comment && <blockquote className="decision-request-comment">{request.comment}</blockquote>}
           {error && <Notice tone="error">{error}</Notice>}
-          {current.version !== request.version ? (
-            <Notice tone="warning">
-              The change set changed after it was submitted (version {request.version}, now {current.version}). It
-              cannot be decided as submitted.
-            </Notice>
-          ) : null}
-          <label className="decision-field">
-            Comment
-            <textarea
-              className="field-input"
-              rows={3}
-              value={comment}
-              maxLength={2000}
-              aria-invalid={commentError ? true : undefined}
-              aria-describedby="decision-comment-help"
-              onChange={(event) => setComment(event.target.value)}
-            />
-            <small id="decision-comment-help">Required to send back</small>
-          </label>
-          {commentError && <p className="field-error">{commentError}</p>}
-          <div className="decision-actions">
-            <button type="button" className="secondary" disabled={pending} onClick={() => void decide("sendBack")}>
-              Send back
-            </button>
-            <button type="button" className="primary" disabled={pending} onClick={() => void decide("approve")}>
-              Approve and publish
-            </button>
-          </div>
+          {stale && (
+            <>
+              <Notice tone="warning">
+                The change set changed after it was submitted (version {request.version}, now {current.version}). It
+                cannot be decided as submitted.
+              </Notice>
+              {refresh && (
+                <div className="decision-actions">
+                  <button type="button" className="secondary" onClick={() => void refresh()}>
+                    Reload
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          {!stale && (
+            <>
+              <label className="decision-field">
+                Comment
+                <textarea
+                  className="field-input"
+                  rows={3}
+                  value={comment}
+                  maxLength={2000}
+                  aria-invalid={commentError ? true : undefined}
+                  aria-describedby="decision-comment-help"
+                  onChange={(event) => setComment(event.target.value)}
+                />
+                <small id="decision-comment-help">Required to send back</small>
+              </label>
+              {commentError && <p className="field-error">{commentError}</p>}
+              <div className="decision-actions">
+                <button type="button" className="secondary" disabled={pending} onClick={() => void decide("sendBack")}>
+                  Send back
+                </button>
+                <button type="button" className="primary" disabled={pending} onClick={() => void decide("approve")}>
+                  Approve and publish
+                </button>
+              </div>
+            </>
+          )}
         </Card>
       )}
       {waiting && approves && policyRead && blocked && <p>A second person must decide this request.</p>}

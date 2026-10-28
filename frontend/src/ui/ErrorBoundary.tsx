@@ -6,6 +6,7 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { errorMessage } from "@/api/errors";
 import { Notice } from "@/ui/Notice";
 
 export class ErrorBoundary extends Component<
@@ -41,9 +42,9 @@ export class ErrorBoundary extends Component<
             </button>
           }
         >
-          A part of the page failed while showing: {error.message || String(error)}. Nothing was saved by the failure;
-          what you saved before stays. Reload the page, or go elsewhere from the top bar. The details are in the
-          browser's console.
+          A part of the page failed while showing: {errorMessage(error) || error.name || "an unknown error"}. Nothing
+          was saved by the failure; what you saved before stays. Reload the page, or go elsewhere from the top bar. The
+          details are in the browser's console.
         </Notice>
       </div>
     );

@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from ...errors import api_error
 from ...models.database import ChangeSet, ChangeSetSubmission
+from ..authorization.writes import writer_of
+from ..identity.principals import ref
 from ..workspaces.workspace_audit import record_submission_event
 from .announcements import WITHDRAWN as ANNOUNCE_WITHDRAWN
 from .announcements import announce
@@ -45,6 +47,32 @@ def open_submission(
     return session.scalar(statement.with_for_update() if for_update else statement)
 
 
+def require_may_withdraw(
+    session: Session, submission: ChangeSetSubmission, workspace_key: str
+) -> None:
+    """The one rule for who withdraws a request, by ``DELETE …/submission`` and by an edit with
+    ``withdrawSubmission=true`` alike: the person who submitted it, or a holder of Approve
+    publications in the workspace; ``403 FORBIDDEN`` otherwise. The engine's own writes may."""
+    writer = writer_of(session)
+    if writer is None or writer.permissions is None:
+        return
+    submitter = ref(submission.submitted_by_user_id, submission.submitted_by_client_id)
+    if submitter == writer.principal or writer.permissions.allows("approve", workspace_key):
+        return
+    raise api_error(
+        403,
+        "FORBIDDEN",
+        "Only the person who submitted a change set, or a holder of Approve publications, "
+        "can withdraw its submission",
+        {
+            "action": "change-sets.withdraw",
+            "groups": ["approve"],
+            "workspaceKey": workspace_key,
+            "reason": "notSubmitter",
+        },
+    )
+
+
 def withdraw(session: Session, submission: ChangeSetSubmission, version: int) -> None:
     """Mark a submission withdrawn and audit it, in the caller's transaction."""
     submission.state = WITHDRAWN
@@ -73,4 +101,5 @@ def freeze(session: Session, change_set: ChangeSet) -> None:
             "submission, or send the change with withdrawSubmission=true to withdraw it",
             {"submissionId": submission.id, "withdraw": "withdrawSubmission=true"},
         )
+    require_may_withdraw(session, submission, change_set.workspace_key)
     withdraw(session, submission, change_set.version)

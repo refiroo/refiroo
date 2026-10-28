@@ -28,20 +28,67 @@ export function watchPageErrors(context, push) {
   return context;
 }
 
+/** The requests a signed-in page keeps open for as long as it is shown: the inbox's and a job's event streams. */
+export const LONG_LIVED = /\/events(\?|$)/;
+
+/**
+ * Make `page.waitForLoadState("networkidle")` mean what the runners meant: no request but the event streams
+ * in flight for 500 ms. A signed-in page keeps the inbox's stream open (0.12 I2), so Playwright's own
+ * "networkidle" never arrives. Any other state is Playwright's. Safe to call twice for a page.
+ */
+export function ignoreEventStreams(page) {
+  if (page.__ignoresEventStreams) return page;
+  page.__ignoresEventStreams = true;
+  const pending = new Set();
+  const track = (request) => {
+    if (!LONG_LIVED.test(new URL(request.url()).pathname + new URL(request.url()).search)) pending.add(request);
+  };
+  page.on("request", track);
+  page.on("requestfinished", (request) => pending.delete(request));
+  page.on("requestfailed", (request) => pending.delete(request));
+  const original = page.waitForLoadState.bind(page);
+  page.waitForLoadState = async (state, options) => {
+    if (state !== "networkidle") return original(state, options);
+    await original("load", options);
+    const timeout = options?.timeout ?? 10000;
+    const until = Date.now() + timeout;
+    let quietSince = null;
+    while (Date.now() < until) {
+      if (pending.size === 0) {
+        quietSince ??= Date.now();
+        if (Date.now() - quietSince >= 500) return;
+      } else quietSince = null;
+      await new Promise((done) => setTimeout(done, 50));
+    }
+    throw new Error(
+      `page.waitForLoadState: Timeout ${timeout}ms exceeded (in flight: ${[...pending].map((request) => request.url()).join(", ")}).`,
+    );
+  };
+  return page;
+}
+
+/** Every page of the context, now and later, waits for network idle without counting the event streams. */
+export function ignoreEventStreamsIn(context) {
+  context.pages().forEach(ignoreEventStreams);
+  context.on("page", ignoreEventStreams);
+  return context;
+}
+
 /**
  * A token for the seed's harness client (`database.payload.harness`, backend/tests/browser_seeds.py)
  * from the client credentials grant: every route but the open ones needs one (0.12 I1).
  */
-export async function harnessToken(apiUrl, harness) {
+export async function harnessToken(apiUrl, harness, scope) {
   const response = await fetch(`${apiUrl}/oauth/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Authorization: `Basic ${Buffer.from(`${harness.clientId}:${harness.clientSecret}`).toString("base64")}`,
     },
-    body: "grant_type=client_credentials",
+    body: scope ? `grant_type=client_credentials&scope=${scope}` : "grant_type=client_credentials",
   });
-  if (!response.ok) throw new Error(`The harness could not obtain a token: ${response.status} ${await response.text()}`);
+  if (!response.ok)
+    throw new Error(`The harness could not obtain a token: ${response.status} ${await response.text()}`);
   return `Bearer ${(await response.json()).access_token}`;
 }
 
@@ -87,20 +134,57 @@ export async function signInContext(context, { apiUrl, uiUrl, person }) {
  * Add the token to every `fetch` this process makes to `apiUrl` without an Authorization header of
  * its own, so a runner's direct API calls reach the backend as its pages do.
  */
-function sendTokenTo(apiUrl, token) {
+export function sendTokenTo(apiUrl, token, identity) {
   const original = globalThis.fetch;
-  globalThis.fetch = (input, init = {}) => {
+  const consumer = { token: undefined };
+  const path = (url) => new URL(url).pathname;
+  // The consumer routes take a `consumer` token; the routes describing them take either (D266).
+  const needsConsumer = (url) => {
+    const at = path(url).replace(/\/$/, "");
+    return at.startsWith("/api/consumer") && at !== "/api/consumer" && !at.endsWith("/openapi.json");
+  };
+  const consumerToken = async () => {
+    consumer.token ??= await harnessToken(apiUrl, identity(), "consumer");
+    return consumer.token;
+  };
+  globalThis.fetch = async (input, init = {}) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     if (!url.startsWith(apiUrl) || !token()) return original(input, init);
     const headers = new Headers(init.headers ?? (input instanceof Request ? input.headers : undefined));
-    if (!headers.has("Authorization")) headers.set("Authorization", token());
+    if (headers.has("Authorization")) return original(input, { ...init, headers });
+    const consumerRoute = identity() && needsConsumer(url);
+    headers.set("Authorization", consumerRoute ? await consumerToken() : token());
+    const response = await original(input, { ...init, headers });
+    if (!consumerRoute || response.status !== 403) return response;
+    // A consumer API is read only with a grant of it in the workspace read (Z3, D306): grant the
+    // harness client the API the route refused, as a Security administrator would, and ask again (D312).
+    const details = (
+      await response
+        .clone()
+        .json()
+        .catch(() => ({}))
+    ).error?.details;
+    if (!details?.consumerApi || !details?.workspaceKey) return response;
+    const granted = await original(`${apiUrl}/api/v1/grants`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token() },
+      body: JSON.stringify({
+        principal: { kind: "client", id: identity().clientId },
+        consumerApi: details.consumerApi,
+        scope: { workspaceKey: details.workspaceKey },
+      }),
+    });
+    if (!granted.ok) return response;
     return original(input, { ...init, headers });
   };
 }
 
 async function freePort() {
   const server = createServer();
-  await new Promise((done, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", done); });
+  await new Promise((done, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", done);
+  });
   const value = server.address().port;
   await new Promise((done) => server.close(done));
   return value;
@@ -127,11 +211,23 @@ async function freePort() {
  * @returns {Promise<{page, browser, apiUrl, uiUrl, output, records, cleanup}>}
  */
 export async function bootHarness(options = {}) {
-  const { modelAdmin = true, workspaceAdmin = true, transformModel, prepare, viewport, backendEnv = {}, host = "127.0.0.1", oneAddress = false } = options;
+  const {
+    modelAdmin = true,
+    workspaceAdmin = true,
+    transformModel,
+    prepare,
+    viewport,
+    backendEnv = {},
+    host = "127.0.0.1",
+    oneAddress = false,
+  } = options;
   const started = performance.now();
   // Setup phase durations in milliseconds, separated from the runner's own checks (WP-13B).
   const timings = {};
-  const mark = (phase, since) => { timings[phase] = Math.round(performance.now() - since); return performance.now(); };
+  const mark = (phase, since) => {
+    timings[phase] = Math.round(performance.now() - since);
+    return performance.now();
+  };
   const output = await mkdtemp(resolve(tmpdir(), "rdm-ui07-gate-"));
   const processes = [];
   let log = "";
@@ -142,16 +238,26 @@ export async function bootHarness(options = {}) {
   function start(command, args, cwd, env) {
     const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] });
     processes.push(child);
-    child.stdout.on("data", (data) => { log += data; });
-    child.stderr.on("data", (data) => { log += data; });
-    child.on("error", (error) => { log += error.message; });
+    child.stdout.on("data", (data) => {
+      log += data;
+    });
+    child.stderr.on("data", (data) => {
+      log += data;
+    });
+    child.on("error", (error) => {
+      log += error.message;
+    });
     return child;
   }
 
   async function ready(url, child) {
     for (let attempt = 0; attempt < 200; attempt++) {
       if (child.exitCode !== null) throw new Error(`Server exited: ${log}`);
-      try { if ((await fetch(url)).ok) return; } catch { /* starting */ }
+      try {
+        if ((await fetch(url)).ok) return;
+      } catch {
+        /* starting */
+      }
       await new Promise((done) => setTimeout(done, 100));
     }
     throw new Error(`Server did not become ready: ${url}\n${log}`);
@@ -164,7 +270,11 @@ export async function bootHarness(options = {}) {
   // The harness client's access token, sent with the runners' own API calls (0.12 I1, D263); the
   // pages sign in as the harness person instead (I2, D274).
   let authorization = "";
-  sendTokenTo(apiUrl, () => authorization);
+  sendTokenTo(
+    apiUrl,
+    () => authorization,
+    () => database?.payload.harness,
+  );
 
   async function api(path, body, method) {
     const response = await fetch(`${apiUrl}/api/v1${path}`, {
@@ -234,7 +344,7 @@ export async function bootHarness(options = {}) {
       ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}),
     });
 
-    const watch = (context) => watchPageErrors(context, (error) => pageErrors.push(error));
+    const watch = (context) => ignoreEventStreamsIn(watchPageErrors(context, (error) => pageErrors.push(error)));
     // Every context is signed in as the harness person through the sign-in form (0.12 I2, D274);
     // the pages carry no injected token, so a page that forgets the header fails here.
     const person = database.payload.harness.person;
@@ -255,7 +365,11 @@ export async function bootHarness(options = {}) {
     timings.setupTotal = Math.round(performance.now() - started);
   } catch (error) {
     for (const child of processes) {
-      try { child.kill(); } catch { /* ignore */ }
+      try {
+        child.kill();
+      } catch {
+        /* ignore */
+      }
     }
     await browser?.close().catch(() => {});
     database.drop();
@@ -270,9 +384,17 @@ export async function bootHarness(options = {}) {
       console.error(`page errors (the run fails):\n${pageErrors.map((error) => `- ${error}`).join("\n")}`);
       process.exitCode = 1;
     }
-    try { browser?.close(); } catch { /* ignore */ }
+    try {
+      browser?.close();
+    } catch {
+      /* ignore */
+    }
     for (const child of processes) {
-      try { child.kill(); } catch { /* ignore */ }
+      try {
+        child.kill();
+      } catch {
+        /* ignore */
+      }
     }
     // Dropped WITH (FORCE), which closes any connection the stopping backend still holds.
     database.drop();

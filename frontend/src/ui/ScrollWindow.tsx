@@ -192,6 +192,9 @@ export function ScrollWindow<T>({
   const measuredMargin = useRef<number | undefined>(undefined);
   // The row a jump landed on, held in its place until the reader moves (see the landing below).
   const pinned = useRef<{ index: number; align: "start" | "end" } | undefined>(undefined);
+  // While the window measures the rows that just came into the drawn range (see below), the height
+  // they add above the view; undefined at any other time.
+  const measuring = useRef<number | undefined>(undefined);
 
   // A layout effect, declared first, so the landing and the reads below see this render's list.
   useLayoutEffect(() => {
@@ -239,6 +242,19 @@ export function ScrollWindow<T>({
       return size;
     },
   });
+  // The first measurement of a row above the view is corrected by the window itself, before the
+  // browser paints (see below); any other change of a height above the view is the library's.
+  virtualizer.shouldAdjustScrollPositionOnItemSizeChange = (item, delta, instance) => {
+    const offset = instance.scrollOffset ?? 0;
+    if (measuring.current !== undefined) {
+      if (item.start < offset) measuring.current += delta;
+      return false;
+    }
+    // The library's own rule: a first measurement is corrected for any row starting above the view,
+    // a later change only for a row wholly above it and not while scrolling backward.
+    if (!instance.itemSizeCache.has(item.key)) return item.start < offset;
+    return item.start + item.size <= offset && instance.scrollDirection !== "backward";
+  };
   const virtualRows = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
   const firstRow = virtualRows[0];
@@ -413,7 +429,14 @@ export function ScrollWindow<T>({
     element.addEventListener("pointerdown", onGesture);
     element.addEventListener("touchstart", onGesture, { passive: true });
     element.addEventListener("keydown", onGesture);
+    // A key pressed elsewhere on the page moves the list too where the list is steered from outside
+    // it (an option list moved through from its combobox): the landed row is held no longer.
+    const releasePin = () => {
+      pinned.current = undefined;
+    };
+    document.addEventListener("keydown", releasePin, true);
     return () => {
+      document.removeEventListener("keydown", releasePin, true);
       element.removeEventListener("wheel", onGesture);
       element.removeEventListener("wheel", onWheel);
       element.removeEventListener("pointerdown", onGesture);
@@ -566,8 +589,40 @@ export function ScrollWindow<T>({
   // it here, after every range change, laid the table out again in the middle of each scroll frame
   // (0.12 LS1, D374).
   useLayoutEffect(() => {
+    const element = viewport.current;
+    if (element) {
+      // A row that came into the drawn range is measured before the browser paints, and the scroll
+      // position corrected for the rows above the view at once. The virtualizer measures such a row
+      // when the resize observer reports it, a frame or more after the row was drawn (and, on a
+      // device it takes for an iPad, after the scrolling stops): drawn at its natural height, not
+      // the estimate's, it moved every row below it until then (found by s5, "live wheel up from the
+      // end": a row jumped by the rows' difference to the estimate).
+      const fresh: [number, HTMLElement][] = [];
+      for (const row of ownRows(element)) {
+        // Only a drawn row of the list: a footer or status row has no index, and measuring it on
+        // every render would never fill the cache and render again for ever (found by wp9-navigation's
+        // Retry, detached on every frame).
+        const index = Number(row.dataset.rowIndex);
+        if (!Number.isInteger(index) || index < 0 || index >= virtualizer.options.count) continue;
+        if (!virtualizer.itemSizeCache.has(virtualizer.options.getItemKey(index))) fresh.push([index, row]);
+      }
+      if (fresh.length) {
+        const sizes = fresh.map(([, row]) => virtualizer.options.measureElement(row, undefined, virtualizer));
+        measuring.current = 0;
+        try {
+          fresh.forEach(([index], position) => virtualizer.resizeItem(index, sizes[position]));
+          const shift = measuring.current;
+          if (Math.abs(shift) > 0) {
+            element.scrollTop += shift;
+            virtualizer.scrollOffset = element.scrollTop;
+          }
+        } finally {
+          measuring.current = undefined;
+        }
+      }
+    }
     settle();
-  }, [virtualRows, settle]);
+  }, [virtualRows, virtualizer, settle]);
 
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement;

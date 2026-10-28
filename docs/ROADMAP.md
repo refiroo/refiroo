@@ -10,7 +10,15 @@ model and the import mapping, ADR-035), 0.11 for production hardening and staged
 0.12 for security (authentication and authorization across the backend, frontend and APIs), 0.13 for the documentation, 0.14 for the management API reference, 0.15 for the interface language, 0.16 for AI integration (proposals, agent access, operations summaries), and 1.0 for
 migration-class model changes, protected publishing and extensions.
 
-## Current development baseline — Base 0.11 complete
+## Current development baseline — Base 0.12 complete
+
+Base 0.12 is complete (2026-10-28; build acceptance R in
+[its plan](BASE_0_12_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)): security, authentication and
+authorization, approvals and the inbox, mail, deployment, licensing and the compatibility commitment
+([product release 0.12](#product-release-012--security-authentication-and-authorization)). Next: 0.13, documentation.
+
+## Base 0.11 complete
+
 
 Base 0.11 is complete (2026-10-22; build acceptance R in
 [its plan](BASE_0_11_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)): production hardening and

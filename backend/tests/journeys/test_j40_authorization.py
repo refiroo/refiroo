@@ -724,7 +724,7 @@ def test_a_narrowed_type_change(world):
             "expectedChangeSetVersion": narrowed.current(change_set)["version"],
         },
     )
-    assert applied.status_code in (403, 422), applied.text
+    refused(applied, 422, "RESTRUCTURING_NOT_READY")
     assert world.record("L1", moving["id"], changeSetId=change_set["id"])["objectTypeKey"] == l1
 
 
@@ -1036,3 +1036,94 @@ def test_a_stale_grant_allows_nothing(world):
         W1,
         [world.key("R")],
     )
+
+
+@pytest.mark.journey("J40.2")
+@pytest.mark.structures("R", "R.n", "B1n", "K")
+def test_a_delete_naming_a_change_set_only_in_its_body_is_not_a_change_set_write(world):
+    """Given Contributor in A and live records. When it deletes a record, a value or a
+    relationship live with `changeSetId` in the request body instead of the query, then each
+    answers `403 FORBIDDEN` naming Edit live and nothing is deleted; the same deletes naming the
+    change set in the query pass into the change set and leave the live data alone (0.12 R-F1)."""
+    record = world.made("R", "Kept live", values={"R.n": 5})
+    other = world.made("K", "Related")
+    relation = ok(world.relate("B1n", record["id"], other["id"]), 201)
+    _, contributor = _client(world, "Contributor", ("contributor", {"workspaceKey": W1}))
+    change_set = contributor.change_set()
+    smuggled = {"changeSetId": change_set["id"], "expectedChangeSetVersion": change_set["version"]}
+    client = contributor.api.client
+    base = "/api/v1"
+    path = f"/objects/{world.key('R')}/{record['id']}"
+
+    for url, params in (
+        (f"{path}/attributes/{world.key('R.n')}", {"expectedVersion": record["version"]}),
+        (f"/relations/{relation['id']}", {"expectedVersion": relation["version"]}),
+        (path, {"expectedVersion": record["version"]}),
+    ):
+        response = client.request("DELETE", base + url, params=params, json=smuggled)
+        _forbidden(response, "records.write", ["edit-live"], W1)
+    live = world.record("R", record["id"])
+    assert world.value(live, "R.n") == 5
+    ok(world.api.get(f"/relations/{relation['id']}"))
+
+    ok(
+        contributor.api.delete(
+            f"{path}/attributes/{world.key('R.n')}",
+            changeSetId=change_set["id"],
+            expectedChangeSetVersion=change_set["version"],
+            expectedVersion=record["version"],
+        ),
+        204,
+    )
+    assert world.value(world.record("R", record["id"]), "R.n") == 5
+
+
+@pytest.mark.journey("J40.3")
+@pytest.mark.structures("R", "H", "H.code")
+def test_a_narrowed_editor_cannot_change_values_of_a_record_already_in_the_change_set(world):
+    """Given Data steward narrowed to one record type, and a record of another type that someone
+    else already changed in a change set. When the narrowed client changes or removes one of its
+    values in that change set, then each answers `403 FORBIDDEN` naming the record type and the
+    value stays (0.12 R-F2)."""
+    record = world.made("H", "Held by another", values={"H.code": "H-1"})
+    _, narrowed = _client(
+        world, "Narrow", ("steward", {"workspaceKey": W1, "recordTypes": [world.key("R")]})
+    )
+    change_set = world.change_set()
+    ok(
+        world.api.patch(
+            f"/objects/{world.key('H')}/{record['id']}",
+            {
+                "expectedVersion": record["version"],
+                "name": "Renamed in the change set",
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
+            },
+        )
+    )
+    current = world.current(change_set)
+    in_set = world.record("H", record["id"], changeSetId=change_set["id"])
+    path = f"/objects/{world.key('H')}/{record['id']}/attributes/{world.key('H.code')}"
+    body = {
+        "value": "H-2",
+        "expectedVersion": in_set["version"],
+        "changeSetId": change_set["id"],
+        "expectedChangeSetVersion": current["version"],
+    }
+    _narrowed(
+        narrowed.api.patch(path, body), "records.write", ["change-sets"], W1, [world.key("H")]
+    )
+    _narrowed(
+        narrowed.api.delete(
+            path,
+            changeSetId=change_set["id"],
+            expectedChangeSetVersion=current["version"],
+            expectedVersion=in_set["version"],
+        ),
+        "records.write",
+        ["change-sets"],
+        W1,
+        [world.key("H")],
+    )
+    after = world.record("H", record["id"], changeSetId=change_set["id"])
+    assert world.value(after, "H.code") == "H-1"

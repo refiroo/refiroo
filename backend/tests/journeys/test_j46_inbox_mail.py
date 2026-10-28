@@ -314,8 +314,8 @@ def test_choosing_kinds_is_refused_for_unknown_kinds_empty_bodies_and_clients(wo
     )
     assert "nonsense" in error["message"]
     assert _kinds(ok(approver.api.get(SWITCH)))["job.failed"] is True
-    assert approver.api.put(SWITCH, {}).status_code == 422
-    assert approver.api.put(SWITCH, {"kinds": None}).status_code == 422
+    refused(approver.api.put(SWITCH, {}), 422, "REQUEST_VALIDATION_ERROR")
+    refused(approver.api.put(SWITCH, {"kinds": None}), 422, "REQUEST_VALIDATION_ERROR")
     refused(
         _submitter(world).api.put(SWITCH, {"kinds": {"job.failed": False}}), 403, "NOT_A_PERSON"
     )

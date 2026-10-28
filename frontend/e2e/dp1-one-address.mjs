@@ -7,9 +7,8 @@
 // engine's own port. The engine's published paths answer at the page's address, its issuer names that
 // address, and `/metrics` is not forwarded. At 390px the sign-in screen does not scroll sideways.
 import { resolve } from "node:path";
-import { bootHarness } from "./helpers/harness.mjs";
+import { SHAPED_MODELS, bootShaped, startingPoint } from "./helpers/shaped-models.mjs";
 
-const MODELS = [{ name: "starter" }, { name: "renamed", product: "Northfield Reference Data" }];
 const checks = [];
 const failures = [];
 
@@ -19,17 +18,9 @@ function expect(condition, message) {
 
 async function walk(configuration) {
   // `localhost`: a secure page, where the browser offers the sign-in's cryptography.
-  const harness = await bootHarness({
-    host: "localhost",
-    oneAddress: true,
-    transformModel: configuration.product
-      ? (model) => {
-          model.product.name = configuration.product;
-        }
-      : undefined,
-  });
+  const harness = await bootShaped(configuration, { host: "localhost", oneAddress: true });
   try {
-    const { apiUrl, uiUrl, output, signedOutContext, harnessIdentity } = harness;
+    const { apiUrl, uiUrl, api, output, signedOutContext, harnessIdentity } = harness;
     const tag = configuration.name;
     const person = harnessIdentity.person;
     const engineOrigin = new URL(apiUrl).origin;
@@ -70,10 +61,14 @@ async function walk(configuration) {
     checks.push(`${tag}: signed in by keyboard through the page's address`);
 
     // 3. A collection opens, a reload keeps the session.
-    await page.goto(`${uiUrl}/settings/account`);
-    await page.getByRole("heading", { level: 1, name: "Account" }).waitFor();
+    const start = await startingPoint(api);
+    await page.goto(`${uiUrl}${start.path}`);
+    await page.getByRole("heading", { level: 1, name: start.heading }).waitFor();
+    await page.getByText(start.records[0].name, { exact: true }).first().waitFor();
+    checks.push(`${tag}: the collection ${start.heading} opened and lists its records`);
     await page.reload();
-    await page.getByRole("heading", { level: 1, name: "Account" }).waitFor();
+    await page.getByRole("heading", { level: 1, name: start.heading }).waitFor();
+    await page.getByText(start.records[0].name, { exact: true }).first().waitFor();
     checks.push(`${tag}: a reload kept the session (the cookie renewed through the same address)`);
 
     // 4. Sign out returns to the sign-in screen.
@@ -99,7 +94,7 @@ async function walk(configuration) {
   }
 }
 
-for (const configuration of MODELS) await walk(configuration);
+for (const configuration of SHAPED_MODELS) await walk(configuration);
 
 console.log(checks.join("\n"));
 if (failures.length) {

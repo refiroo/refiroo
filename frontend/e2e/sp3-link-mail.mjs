@@ -8,11 +8,10 @@
 // on although mail is set up. Axe on each dialog; screenshots; no horizontal page scroll at 390px.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { bootHarness } from "./helpers/harness.mjs";
+import { SHAPED_MODELS, bootShaped } from "./helpers/shaped-models.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { startSmtp } from "./helpers/smtp-server.mjs";
 
-const MODELS = [{ name: "starter" }, { name: "renamed", product: "Northfield Reference Data" }];
 const checks = [];
 const failures = [];
 
@@ -40,15 +39,11 @@ async function received(smtp, count) {
 }
 
 async function walk(configuration) {
-  const smtp = await startSmtp();
-  const harness = await bootHarness({
-    transformModel: configuration.product
-      ? (model) => {
-          model.product.name = configuration.product;
-        }
-      : undefined,
-  });
+  let smtp;
+  let harness;
   try {
+    smtp = await startSmtp();
+    harness = await bootShaped(configuration);
     const { uiUrl, api, output, browser } = harness;
     const tag = configuration.name;
     const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -113,6 +108,13 @@ async function walk(configuration) {
     await again.getByText(/was mailed to/).waitFor();
     await again.getByRole("button", { name: "I have copied it" }).click();
     expect(await received(smtp, 2), `${tag}: the second message reached the server`);
+    const second = decoded(smtp.messages[1] ?? "");
+    expect(second.includes(`To: bea-${tag}@example.org`), `${tag}: the second message is addressed to the person`);
+    const secondLink = second.match(/https?:\/\/\S+reset-password\?token=\S+/)?.[0] ?? "";
+    expect(
+      secondLink !== "" && secondLink !== link.trim(),
+      `${tag}: the second message holds a newer link than the first (${secondLink})`,
+    );
     checks.push(`${tag}: Make a password link, then Mail it, on a person's page mails it too`);
 
     // 4. A person with no address: the link to pass on although mail is set up.
@@ -133,6 +135,11 @@ async function walk(configuration) {
     await shot(page, "link-mailed-390");
     expect((await overflow(page)) <= 0, `${tag}: no horizontal scroll at 390px`);
     await shown.getByRole("button", { name: "I have copied it" }).click();
+    expect(await received(smtp, 3), `${tag}: the 390px message reached the server`);
+    expect(
+      decoded(smtp.messages[2] ?? "").includes(`To: di-${tag}@example.org`),
+      `${tag}: the 390px message is addressed to the person`,
+    );
     checks.push(`${tag}: the mailed dialog at 390px`);
 
     await context.close();
@@ -140,13 +147,13 @@ async function walk(configuration) {
     await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
     console.log(`SP3 browser evidence (${tag}): ${output}`);
   } finally {
-    harness.cleanup();
-    smtp.stop();
+    harness?.cleanup();
+    smtp?.stop();
   }
 }
 
 try {
-  for (const configuration of MODELS) await walk(configuration);
+  for (const configuration of SHAPED_MODELS) await walk(configuration);
   console.log(`Checks: ${checks.length}`);
   for (const check of checks) console.log(`  ${check}`);
   if (failures.length) {

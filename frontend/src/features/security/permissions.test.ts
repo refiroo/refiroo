@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { permissionsFixture } from "@/test/permissions";
-import { allows, holds, recordWrites } from "./permissions";
+import { holds, recordWrites } from "./permissions";
 
 const ref = (applicationKey: string, objectTypeKey: string) => ({ applicationKey, objectTypeKey });
 
@@ -53,13 +53,12 @@ describe("recordWrites (0.12 Z5, D329)", () => {
   });
 });
 
-describe("holds and allows", () => {
-  it("holds only what was read; allows also what was never read (a component shown alone)", () => {
+describe("holds", () => {
+  it("holds only what was read, nothing while unknown", () => {
     const reader = permissionsFixture("w", ["browse"]);
     expect(holds(reader, "browse")).toBe(true);
     expect(holds(reader, "publish")).toBe(false);
     expect(holds(undefined, "browse")).toBe(false);
-    expect(allows(reader, "publish")).toBe(false);
-    expect(allows(undefined, "publish")).toBe(true);
+    expect(holds(undefined, "publish")).toBe(false);
   });
 });

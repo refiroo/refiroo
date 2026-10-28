@@ -84,6 +84,8 @@ try {
     });
     return { status: response.status, body: await response.json() };
   };
+  /** The token endpoint's own refusal (a client error with the OAuth error), not a failure of the server. */
+  const refused = (answer) => answer.status >= 400 && answer.status < 500 && typeof answer.body?.error === "string";
 
   // Setup: generated-b installed and a second workspace on it.
   const b = structuredClone(generatedB);
@@ -185,7 +187,11 @@ try {
   expect((await token(client.id, secret)).status === 200, "the older secret still works during the overlap");
   await secrets.getByRole("button", { name: /^End the secret/ }).click();
   await secrets.getByRole("row", { name: new RegExp(`…${secret.slice(-4)}`) }).waitFor({ state: "detached" });
-  expect((await token(client.id, secret)).status !== 200, "the ended secret no longer obtains a token");
+  const ended = await token(client.id, secret);
+  expect(
+    refused(ended),
+    `the ended secret is refused by the token endpoint: ${ended.status} ${JSON.stringify(ended.body)}`,
+  );
   expect((await token(client.id, second)).status === 200, "the new secret obtains a token");
   checks.push(
     "a rotation by keyboard with a one-hour overlap, both secrets by their last four characters; the older ended",
@@ -201,7 +207,11 @@ try {
   const confirm = page.getByRole("alertdialog");
   await confirm.getByRole("button", { name: "Deactivate", exact: true }).click();
   await page.getByRole("button", { name: "Restore" }).waitFor();
-  expect((await token(client.id, second)).status !== 200, "a deactivated client obtains no token");
+  const deactivated = await token(client.id, second);
+  expect(
+    refused(deactivated),
+    `a deactivated client is refused by the token endpoint: ${deactivated.status} ${JSON.stringify(deactivated.body)}`,
+  );
   await page.getByRole("button", { name: "Restore" }).click();
   await page.getByRole("button", { name: "Deactivate", exact: true }).waitFor();
   // Grouped by day since 0.12 RA1: the name is the group's, a list under each day's heading.
@@ -241,10 +251,12 @@ try {
   checks.push("a webhook it created is on its page and names it as its owner, linking back");
 
   // 7. The workspace's Access lists its consumer API grant.
-  await page.goto(`${uiUrl}/settings/workspaces/default`);
+  await page.goto(`${uiUrl}/settings/workspaces/default/access`);
   await page
     .getByRole("region", { name: "Access" })
-    .getByRole("row", { name: new RegExp(`catalogue-sync-2.*Client.*Consumer API: ${firstApi.name}`) })
+    .getByRole("listitem")
+    .filter({ hasText: new RegExp(`catalogue-sync-2[\\s\\S]*Client[\\s\\S]*Consumer API: ${firstApi.name}`) })
+    .first()
     .waitFor();
   checks.push("the workspace's Access lists the client's consumer API grant");
 

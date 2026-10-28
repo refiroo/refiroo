@@ -1,7 +1,8 @@
 /**
- * Settings › Notifications (0.12 M2 follow-up, D434): what reaches the person by e-mail. The inbox
- * keeps every notice; this page only chooses the mail. Where nothing can be chosen (mail is not set
- * up, the person has no address, a client) it says so in one sentence and offers no control.
+ * Settings › Notification email (0.12 M2 follow-up, D434; renamed in NT1, D463): what reaches the
+ * person by e-mail. The notices themselves are on the Notifications page; this page only chooses
+ * the mail. Where nothing can be chosen (mail is not set up, the person has no address, a client) it
+ * says so in one sentence and offers no control.
  */
 
 import { useEffect, useState } from "react";
@@ -40,7 +41,7 @@ export function NotificationsPage() {
   return (
     <SettingsLayout
       eyebrow="General"
-      title="Notifications"
+      title="Notification email"
       description="Choose which notices reach you by email. Your inbox keeps all of them."
     >
       {error ? (
@@ -54,7 +55,9 @@ export function NotificationsPage() {
       ) : !state ? (
         <Skeleton label="Loading your notification settings" lines={3} />
       ) : shown ? (
-        <NoticeMailPanel state={state} onChange={setState} />
+        <div className="account-page">
+          <NoticeMailPanel state={state} onChange={setState} />
+        </div>
       ) : (
         <p className="account-muted">{NOTHING_TO_CHOOSE[state.reason ?? ""] ?? "There is nothing to choose here."}</p>
       )}

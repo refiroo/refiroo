@@ -176,8 +176,7 @@ def test_an_edit_of_a_submitted_change_set_needs_to_withdraw_the_submission(worl
     assert [item["state"] for item in _requests(contributor)] == ["withdrawn"]
 
     stale = _decide(world, approver, change_set, "approve")
-    assert stale.status_code == 409, stale.text
-    assert stale.json()["error"]["code"] in {"VERSION_CONFLICT", "NOT_SUBMITTED"}
+    refused(stale, 409, "NOT_SUBMITTED")
     assert _active(world) == before
 
     newer = contributor.current(change_set)
@@ -275,3 +274,70 @@ def test_the_policy_is_read_by_a_reader_and_changed_by_a_workspace_administrator
     refused(admin.api.put(POLICY, body), 409, "VERSION_CONFLICT")
     assert "approve" in ok(world.api.get("/roles/owner"))["actionGroups"]
     assert "approve" not in ok(world.api.get("/roles/steward"))["actionGroups"]
+
+
+@pytest.mark.journey("J42")
+def test_an_approval_binds_the_version_that_was_submitted(world):
+    """Given a submitted change set whose version moved on without a new submission (the state
+    arrives from outside the API: no client route changes a submitted change set without
+    withdrawing the request). When an approver decides with the version they read, then `409
+    VERSION_CONFLICT`, nothing is published and the request stays submitted (0.12 R-F7)."""
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.pool import NullPool
+
+    actors = _actors(world, contributor="contributor", approver="owner")
+    contributor, approver = actors["contributor"], actors["approver"]
+    change_set = _proposal(world, contributor, "Moved on")
+    ok(_submit(contributor, change_set), 201)
+    engine = create_engine(world.database, poolclass=NullPool)
+    with engine.begin() as connection:
+        connection.execute(
+            text("UPDATE change_sets SET version = version + 1 WHERE id = :id"),
+            {"id": change_set["id"]},
+        )
+    engine.dispose()
+    current = contributor.current(change_set)
+
+    error = refused(_decide(world, approver, current, "approve"), 409, "VERSION_CONFLICT")
+    assert error["details"]["currentVersion"] == current["version"]
+    assert [item["state"] for item in _requests(contributor)] == ["submitted"]
+    assert "Moved on" not in world.names(
+        ok(world.api.get(f"/objects/{world.key('R')}", workspaceKey=W1))
+    )
+
+
+@pytest.mark.journey("J42.2")
+def test_a_request_is_withdrawn_only_by_its_submitter_or_an_approver(world):
+    """Given a submitted change set. When another Contributor edits it with
+    `withdrawSubmission=true` or withdraws it, then each answers `403 FORBIDDEN` (`reason:
+    notSubmitter`) and the request stays submitted; an approver holding Approve and Browse but not
+    Work in change sets withdraws it, and the submitter withdraws a request of their own with
+    either route (0.12 R-F9, the one rule)."""
+    actors = _actors(world, contributor="contributor", other="contributor")
+    contributor, other = actors["contributor"], actors["other"]
+    approver_role = ok(
+        world.api.post("/roles", {"name": "Only approves", "copiedFrom": "owner"}), 201
+    )
+    ok(
+        world.api.patch(
+            f"/roles/{approver_role['key']}",
+            {"expectedVersion": approver_role["version"], "actionGroups": ["browse", "approve"]},
+        )
+    )
+    _, approver = _client(world, "Approver", (approver_role["key"], {"workspaceKey": W1}))
+    change_set = _proposal(world, contributor)
+    ok(_submit(contributor, change_set), 201)
+    path = f"/change-sets/{change_set['id']}/submission"
+
+    edit = _edit(world, other, change_set, "Not theirs", withdrawSubmission=True)
+    assert refused(edit, 403, "FORBIDDEN")["details"]["reason"] == "notSubmitter"
+    assert refused(other.api.delete(path), 403, "FORBIDDEN")["details"]["reason"] == "notSubmitter"
+    assert [item["state"] for item in _requests(contributor)] == ["submitted"]
+
+    assert approver.api.delete(path).status_code == 204
+    assert [item["state"] for item in _requests(contributor)] == ["withdrawn"]
+
+    again = _proposal(world, contributor, "Again")
+    ok(_submit(contributor, again), 201)
+    ok(_edit(world, contributor, again, "Own edit", withdrawSubmission=True), 201)
+    assert [item["state"] for item in _requests(contributor)].count("withdrawn") == 2

@@ -177,7 +177,7 @@ def test_a_rotation_is_refused_for_a_stale_version_an_unknown_subscription_and_a
     current = _read(world, created)
     for overlap in (169, -1):
         response = _rotate(world, current, overlapHours=overlap)
-        assert response.status_code == 422, response.text
+        refused(response, 422, "REQUEST_VALIDATION_ERROR")
     refused(
         world.api.post(f"{PATH}/{uuid_text()}/rotate-secret", {"expectedVersion": 1}),
         404,

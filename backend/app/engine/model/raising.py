@@ -169,8 +169,11 @@ def raise_release(
     ``404 MODEL_RELEASE_NOT_FOUND``; ``422 RELEASE_NOT_RAISABLE`` for a schema in the window or
     after it; ``422 RELEASE_RAISE_REFUSED`` when the raised document is invalid or equals another
     release; ``409 MODEL_HASH_CHANGED`` when the release is no longer the one that was previewed.
-    No process needs telling: the registry keys what it parsed by the release's hash and reads its
-    schema from the row on every request, so each serves the workspaces again from its next one.
+    No process parses anything again: the registry keys what it parsed by the release's hash and
+    reads its schema from the row on every request, so each serves the workspaces again from its
+    next one. A process that started with no servable workspace is told once the caller has
+    committed (``model_registry.refresh_servable``); the others find out at their next heartbeat or
+    health probe, and then start the background threads that need a servable model (0.12 R, R-F9).
     """
     if confirm:
         lock_installation(session)

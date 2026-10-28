@@ -1,5 +1,5 @@
 // 0.12 Z5 browser evidence: the interface follows the person's permissions, against a real backend
-// on two models (the starter, and the starter under another product name). People are made and
+// on two models (the starter, and the differently shaped journey configuration generated-b). People are made and
 // granted through the API, then each sets a password through their link and signs in on the
 // engine's page. A Reader sees no write affordance and the band says they can read; a Contributor
 // proposes a change from a record, names their change set, edits the record in it, sees no Publish,
@@ -11,10 +11,9 @@
 // and 390px; no horizontal page scroll at 390px. Record types are read from the model, never named.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { bootHarness } from "./helpers/harness.mjs";
+import { SHAPED_MODELS, bootShaped, startingPoints } from "./helpers/shaped-models.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 
-const MODELS = [{ name: "starter" }, { name: "renamed", product: "Northfield Reference Data" }];
 const SECOND = { key: "field-stations", label: "Field stations" };
 const PASSWORD = "a long passphrase for this person";
 
@@ -32,13 +31,7 @@ async function axe(page, name) {
 }
 
 async function walk(configuration) {
-  const harness = await bootHarness({
-    transformModel: configuration.product
-      ? (model) => {
-          model.product.name = configuration.product;
-        }
-      : undefined,
-  });
+  const harness = await bootShaped(configuration);
   try {
     const { uiUrl, api, output, signedOutContext } = harness;
     const tag = configuration.name;
@@ -54,21 +47,8 @@ async function walk(configuration) {
 
     // The model's own tables: two record types of one application, each with a record.
     await api("/workspaces", SECOND, "POST");
-    const model = await api("/model?workspaceKey=default");
-    const tables = model.applications.flatMap((application) =>
-      application.views
-        .filter((view) => view.type === "table" && view.objectTypeKey)
-        .map((view) => ({
-          application,
-          view,
-          type: model.objectTypes.find((item) => item.key === view.objectTypeKey),
-        })),
-    );
-    const [first, second] = tables.filter((table) => table.application.key === tables[0].application.key);
-    const recordOf = async (table) =>
-      (await api(`/objects/${table.type.key}?workspaceKey=default&pageSize=1&applicationKey=${table.application.key}`))
-        .items[0];
-    const [one, other] = [await recordOf(first), await recordOf(second)];
+    const [first, second] = await startingPoints(api);
+    const [one, other] = [first.records[0], second.records[0]];
     const recordUrl = (table, record, extra = "") =>
       `${uiUrl}/apps/${table.application.key}/objects/${table.type.key}/${record.id}?workspaceKey=default${extra}`;
 
@@ -141,7 +121,16 @@ async function walk(configuration) {
     const readerLinks = await readerNav.getByRole("link").allInnerTexts();
     expect(
       JSON.stringify(readerLinks) ===
-        JSON.stringify(["About", "Appearance", "Account", "Workspaces", "Jobs", "Consumer APIs", "API reference"]),
+        JSON.stringify([
+          "About",
+          "Appearance",
+          "Account",
+          "Notification email",
+          "Workspaces",
+          "Jobs",
+          "Consumer APIs",
+          "API reference",
+        ]),
       `${tag}: a Reader's settings navigation: ${readerLinks.join(", ")}`,
     );
     checks.push(`${tag}: a Reader's settings navigation lists only their pages`);
@@ -261,7 +250,7 @@ async function walk(configuration) {
 }
 
 try {
-  for (const configuration of MODELS) await walk(configuration);
+  for (const configuration of SHAPED_MODELS) await walk(configuration);
   console.log(`Checks: ${checks.length}`);
   for (const check of checks) console.log(`  ${check}`);
   if (failures.length) {

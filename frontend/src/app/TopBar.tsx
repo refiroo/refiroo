@@ -12,7 +12,7 @@
 
 import { InboxButton } from "@/features/inbox/InboxButton";
 import { applicationHue } from "@/model/hues";
-import { routePath } from "@/routing/routes";
+import { NOTIFICATIONS, routePath } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, RouteState } from "@/types";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
@@ -103,8 +103,10 @@ export function TopBar({
           workspaceKey={workspaceKey}
           settingsHref={routePath(SETTINGS)}
           accountHref={routePath(ACCOUNT)}
+          notificationsHref={routePath(NOTIFICATIONS)}
           onOpenSettings={() => onNavigate(SETTINGS)}
           onOpenAccount={() => onNavigate(ACCOUNT)}
+          onOpenNotifications={() => onNavigate(NOTIFICATIONS)}
         />
       </div>
     </header>

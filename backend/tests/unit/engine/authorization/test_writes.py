@@ -12,6 +12,8 @@ from app.engine.authorization.writes import (
     Writer,
     allowance,
     refuse_types,
+    require_change_set,
+    require_live,
     set_writer,
 )
 from app.errors import ApiError
@@ -102,3 +104,31 @@ def test_a_session_naming_no_writer_writes_nothing():
     engine = Session()
     set_writer(engine, SYSTEM)
     assert allowance(engine, "a").everything
+
+
+@pytest.mark.parametrize(
+    ("groups", "live_refused", "change_set_refused"),
+    [
+        (("change-sets",), True, False),
+        (("edit-live",), False, True),
+        (("edit-live", "change-sets"), False, False),
+        (("publish",), False, False),
+        (("bulk",), False, False),
+    ],
+)
+def test_a_route_allowed_for_one_kind_of_write_does_not_do_the_other(
+    groups, live_refused, change_set_refused
+):
+    """0.12 R-F1: a live write by a writer allowed only for change-set work is `403`, and the
+    mirror; the engine's own and a writer holding another write group are not refused."""
+    session = _session(_holding(("edit-live", "change-sets")), groups=groups)
+    for check, expected in ((require_live, live_refused), (require_change_set, change_set_refused)):
+        if expected:
+            with pytest.raises(ApiError) as caught:
+                check(session, "a")
+            assert caught.value.code == "FORBIDDEN"
+        else:
+            check(session, "a")
+    set_writer(session, SYSTEM)
+    require_live(session, "a")
+    require_change_set(session, "a")

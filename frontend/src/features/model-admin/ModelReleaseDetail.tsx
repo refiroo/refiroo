@@ -8,6 +8,7 @@ import { ModelDiagnostics } from "@/features/model-admin/ModelDiagnostics";
 import { CompatibilityPill, ModelDiff } from "@/features/model-admin/ModelDiff";
 import { downloadJson } from "@/lib/download";
 import { ModelSummary } from "@/features/model-admin/ModelSummary";
+import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Notice } from "@/ui/Notice";
 import { StatusPill } from "@/ui/StatusPill";
 
@@ -76,10 +77,17 @@ export function ModelReleaseDetail({
   workspaces,
   canManageDrafts,
   canActivate,
+  canInstall = false,
+  isDefault = false,
   onCreateDraft,
   onActivate,
+  onStatusChanged,
+  onDeleted,
+  pageTitle,
 }: {
   releaseId: string;
+  /** The page's own title; the release's name is not repeated under it. */
+  pageTitle?: string;
   /** The active workspaces with the release each runs (0.11 M5). */
   workspaces: Workspace[];
   canManageDrafts: boolean;
@@ -87,6 +95,14 @@ export function ModelReleaseDetail({
   onCreateDraft: (release: ModelRelease) => void;
   /** Opens the activation dialog with this release (D51). */
   onActivate: (releaseId: string) => void;
+  /** May retire, restore and delete releases: the right to install models (0.12 MR1). */
+  canInstall?: boolean;
+  /** The default workspace runs it, so it is not retired (MR1). */
+  isDefault?: boolean;
+  /** The release was retired or brought back. */
+  onStatusChanged?: (release: ModelRelease) => void;
+  /** The release was deleted. */
+  onDeleted?: (release: ModelRelease) => void;
 }) {
   const [release, setRelease] = useState<ModelRelease>();
   const [releases, setReleases] = useState<ModelReleaseSummary[]>();
@@ -98,6 +114,9 @@ export function ModelReleaseDetail({
   const [error, setError] = useState("");
   const [unsupportedSchema, setUnsupportedSchema] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
+  const [confirming, setConfirming] = useState<"retire" | "delete">();
+  const [lifecyclePending, setLifecyclePending] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState("");
   // Which workspace runs which release; an activation anywhere changes it and reloads what depends on it.
   const assignments = workspaces.map((item) => `${item.key}=${item.model.releaseId}`).join(",");
 
@@ -188,6 +207,27 @@ export function ModelReleaseDetail({
     }
   }
 
+  async function changeLifecycle(action: "retire" | "restore" | "delete") {
+    if (!release) return;
+    setLifecyclePending(true);
+    setLifecycleError("");
+    try {
+      if (action === "delete") {
+        await api.deleteModelRelease(release);
+        onDeleted?.(release);
+      } else {
+        const changed = await api.setModelReleaseStatus(release, action === "retire" ? "retired" : "active");
+        setRelease({ ...changed, model: release.model });
+        setConfirming(undefined);
+        onStatusChanged?.(changed);
+      }
+    } catch (cause) {
+      setLifecycleError(errorMessage(cause));
+    } finally {
+      setLifecyclePending(false);
+    }
+  }
+
   function chooseBaseline(id: string) {
     setBaseline(id === defaultBase?.releaseId ? defaultBase : { releaseId: id, source: "choice" });
   }
@@ -212,18 +252,33 @@ export function ModelReleaseDetail({
     <div className="model-editor-stack">
       <header className="model-detail-header">
         <div>
-          <p className="eyebrow">Immutable release</p>
-          <h2>{release.name}</h2>
+          {release.name === pageTitle ? (
+            <p className="muted">Immutable release</p>
+          ) : (
+            <>
+              <p className="eyebrow">Immutable release</p>
+              <h2>{release.name}</h2>
+            </>
+          )}
           <p>
             {release.key} · version {release.version} · schema {release.schemaVersion}
           </p>
         </div>
-        {runBy.length ? (
-          <StatusPill tone="success">Run by {runBy.map((item) => item.label).join(", ")}</StatusPill>
-        ) : (
-          <StatusPill tone="neutral">Run by no workspace</StatusPill>
-        )}
+        <span className="model-row-marks">
+          {release.status === "retired" && <StatusPill tone="warning">Retired</StatusPill>}
+          {runBy.length ? (
+            <StatusPill tone="success">Run by {runBy.map((item) => item.label).join(", ")}</StatusPill>
+          ) : (
+            <StatusPill tone="neutral">Run by no workspace</StatusPill>
+          )}
+        </span>
       </header>
+      {release.status === "retired" && (
+        <Notice tone="info" title="Retired">
+          This release is no longer offered for new workspaces, change sets or activations
+          {runBy.length ? "; the workspaces that run it keep working" : ""}.
+        </Notice>
+      )}
       <dl className="release-metadata">
         <div>
           <dt>Installed</dt>
@@ -232,6 +287,7 @@ export function ModelReleaseDetail({
       </dl>
       {release.model && <ModelSummary model={release.model} />}
       {error && <Notice tone="error">{error}</Notice>}
+      {lifecycleError && !confirming && <Notice tone="error">{lifecycleError}</Notice>}
       <div className="model-actions">
         {release.model && (
           <button
@@ -248,12 +304,66 @@ export function ModelReleaseDetail({
             Create draft from release
           </button>
         )}
-        {canActivate && !unsupportedSchema && runBy.length < workspaces.length && (
+        {canActivate && !unsupportedSchema && release.status === "active" && runBy.length < workspaces.length && (
           <button className="primary" onClick={() => onActivate(release.id)}>
             Activate in a workspace…
           </button>
         )}
+        {canInstall && release.status === "active" && !isDefault && (
+          <button className="secondary" disabled={lifecyclePending} onClick={() => setConfirming("retire")}>
+            Retire…
+          </button>
+        )}
+        {canInstall && release.status === "retired" && (
+          <button className="secondary" disabled={lifecyclePending} onClick={() => void changeLifecycle("restore")}>
+            Bring back
+          </button>
+        )}
+        {canInstall && release.deletable && (
+          <button className="danger" disabled={lifecyclePending} onClick={() => setConfirming("delete")}>
+            Delete…
+          </button>
+        )}
       </div>
+      {confirming === "retire" && (
+        <ConfirmDialog
+          title={`Retire ${release.name} ${release.version}?`}
+          confirmLabel="Retire"
+          pending={lifecyclePending}
+          error={lifecycleError}
+          onCancel={() => {
+            setConfirming(undefined);
+            setLifecycleError("");
+          }}
+          onConfirm={() => void changeLifecycle("retire")}
+        >
+          <p>
+            It will no longer be offered for new workspaces, change sets or activations.
+            {runBy.length
+              ? ` ${runBy.map((item) => item.label).join(", ")} keep${runBy.length === 1 ? "s" : ""} running it.`
+              : ""}{" "}
+            You can bring it back at any time.
+          </p>
+        </ConfirmDialog>
+      )}
+      {confirming === "delete" && (
+        <ConfirmDialog
+          title={`Delete ${release.name} ${release.version}?`}
+          confirmLabel="Delete release"
+          pending={lifecyclePending}
+          error={lifecycleError}
+          onCancel={() => {
+            setConfirming(undefined);
+            setLifecycleError("");
+          }}
+          onConfirm={() => void changeLifecycle("delete")}
+        >
+          <p>
+            Nothing was made under this release, so it can be removed for good. Drafts started from it stay. This cannot
+            be undone; export the JSON first if you may need it again.
+          </p>
+        </ConfirmDialog>
+      )}
       <details className="release-technical">
         <summary>Technical details</summary>
         <div className="release-technical-body">

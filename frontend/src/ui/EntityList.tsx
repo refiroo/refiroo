@@ -126,7 +126,7 @@ function EntityGroupSection({ group, label }: { group: EntityGroup; label: strin
   if (group.error && !rowCount) {
     return (
       <section className="entity-group" aria-label={group.title}>
-        <h3 className="nav-label">{group.title}</h3>
+        <h2 className="nav-label">{group.title}</h2>
         <InlineError message={group.error} onRetry={group.onRetry ?? noRetry} />
       </section>
     );
@@ -134,7 +134,7 @@ function EntityGroupSection({ group, label }: { group: EntityGroup; label: strin
   if (group.loading && !rowCount) {
     return (
       <section className="entity-group" aria-label={group.title}>
-        <h3 className="nav-label">{group.title}</h3>
+        <h2 className="nav-label">{group.title}</h2>
         <div
           className="entity-skeleton"
           role="status"
@@ -160,7 +160,7 @@ function EntityGroupSection({ group, label }: { group: EntityGroup; label: strin
       aria-label={group.title}
       style={tracks ? ({ "--fact-tracks": tracks } as CSSProperties) : undefined}
     >
-      <h3 className="nav-label">
+      <h2 className="nav-label">
         <span className="entity-group-title">
           {group.title} · {group.count}
         </span>
@@ -169,7 +169,7 @@ function EntityGroupSection({ group, label }: { group: EntityGroup; label: strin
             {label}
           </span>
         ))}
-      </h3>
+      </h2>
       {group.rows.map((row) => (
         <button
           key={row.key}

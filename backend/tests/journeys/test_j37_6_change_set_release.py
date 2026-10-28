@@ -272,3 +272,80 @@ def test_a_failed_publication_changes_nothing(world, monkeypatch):
     assert failed["error"]["code"] == "MIGRATION_FAILED"
     assert _model(world, key)["releaseId"] == x2_id
     assert _unchanged(world, key, made, change_set) == before
+
+
+@pytest.mark.journey("J37.6")
+@pytest.mark.structures(*BOTH)
+def test_a_migration_publishes_a_change_set_only_where_publishing_it_is_allowed(world):
+    """Given the J37.6 state and a client holding Model release in the workspace. Without Publish,
+    naming the change set answers `403 FORBIDDEN` naming Publish; with Publish under a policy that
+    requires approval and no Approve, `409 APPROVAL_REQUIRED`; holding Approve too, it passes, and
+    the request still open for the change set is closed as approved by the publication
+    (0.12 R-F3)."""
+    from test_j40_authorization import _client
+
+    key, _made, _p1, _x1_id, _x2_id, change_set = _historical(world)
+
+    def start(actor):
+        request = {
+            "changeSetId": change_set["id"],
+            "expectedChangeSetVersion": world.current(change_set)["version"],
+            "expectedVersion": _model(world, key)["version"],
+        }
+        return actor.api.post(f"/workspaces/{key}/model/migrations", request)
+
+    scope = {"workspaceKey": key}
+    _, releaser = _client(world, "Releaser", ("model-admin", scope))
+    error = refused(start(releaser), 403, "FORBIDDEN")
+    assert error["details"]["groups"] == ["publish"] and error["details"]["workspaceKey"] == key
+
+    policy = f"/workspaces/{key}/approval-policy"
+    current = ok(world.api.get(policy))
+    flags = {"requireApproval": True, "secondPerson": False, "expectedVersion": current["version"]}
+    ok(world.api.put(policy, flags))
+    _, publisher = _client(world, "Publisher", ("model-admin", scope), ("steward", scope))
+    refused(start(publisher), 409, "APPROVAL_REQUIRED")
+
+    ok(
+        world.api.post(
+            f"/change-sets/{change_set['id']}/submission",
+            {"expectedChangeSetVersion": world.current(change_set)["version"]},
+        ),
+        201,
+    )
+    _, approver = _client(world, "Approver", ("model-admin", scope), ("owner", scope))
+    job = ok(start(approver), 202)
+    _run(world)
+    job = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert job["state"] == "awaiting_confirmation", job
+    ok(_confirm(world, job, acceptLoss=True), 202)
+    _run(world)
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+    requests = ok(world.api.get(f"/workspaces/{key}/publication-requests"))["items"]
+    assert [item["state"] for item in requests] == ["approved"]
+    assert _publications(world, key)
+
+
+@pytest.mark.journey("J37.6")
+@pytest.mark.structures(*BOTH)
+def test_a_contributor_does_not_confirm_or_read_a_migration_that_publishes(world):
+    """Given a previewed workspace migration that publishes a change set, started by an
+    administrator. When a Contributor in the workspace (Work in change sets) reads it or confirms
+    it, then each answers `403 FORBIDDEN` naming Model release, and the job keeps waiting
+    (0.12 R-F4)."""
+    from test_j40_authorization import _client
+
+    key, _made, _p1, _x1_id, _x2_id, change_set = _historical(world)
+    job = _previewed(world, key, change_set)
+    _, contributor = _client(world, "Contributor", ("contributor", {"workspaceKey": key}))
+
+    error = refused(contributor.api.get(f"/jobs/{job['id']}"), 403, "FORBIDDEN")
+    assert error["details"]["groups"] == ["model-release"]
+    request = {
+        "expectedVersion": job["migration"]["expectedVersion"],
+        "expectedFeedPosition": job["migration"]["feedPosition"],
+        "acceptLoss": True,
+    }
+    error = refused(contributor.api.post(f"/jobs/{job['id']}/confirm", request), 403, "FORBIDDEN")
+    assert error["details"]["groups"] == ["model-release"]
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "awaiting_confirmation"

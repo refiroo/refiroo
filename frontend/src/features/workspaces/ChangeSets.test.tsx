@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import type { ModelReleaseSummary, ChangeSet, PublicationRequest } from "@/types";
@@ -19,6 +19,9 @@ const activeRelease: ModelReleaseSummary = {
   modelHash: "abc",
   installedAt: "2026-09-14T00:00:00Z",
   assigned: true,
+  status: "active" as const,
+  statusVersion: 1,
+  deletable: false,
   workspaces: ["west"],
 };
 const olderRelease: ModelReleaseSummary = {
@@ -30,6 +33,9 @@ const olderRelease: ModelReleaseSummary = {
   modelHash: "def",
   installedAt: "2026-09-10T00:00:00Z",
   assigned: false,
+  status: "active" as const,
+  statusVersion: 1,
+  deletable: false,
   workspaces: [],
 };
 
@@ -47,6 +53,15 @@ const baseChangeSet: ChangeSet = {
   updatedAt: "2026-09-14T00:00:00Z",
   createdBy: null,
 };
+
+beforeEach(() => {
+  // A person holding every group, read: nothing is offered before the permissions are known.
+  vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    api,
+    warning: "",
+    permissions: permissionsFixture("west"),
+  });
+});
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -166,6 +181,16 @@ describe("an empty change set list", () => {
   );
 });
 
+describe("permissions not yet read", () => {
+  it("offers no way to start a change set until the person's permissions are known", async () => {
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({ api, warning: "" });
+    vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
+    render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
+    expect(await screen.findByText("No change sets.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start from current live data" })).not.toBeInTheDocument();
+  });
+});
+
 describe("change set creation incompatibility error", () => {
   it("shows server error when change set creation against a non-active release fails", async () => {
     vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
@@ -198,11 +223,25 @@ it("allows choosing an installed release beyond the first page", async () => {
   fireEvent.click(screen.getAllByRole("button", { name: "Start from current live data" })[0]);
   fireEvent.click(await screen.findByRole("button", { name: "Load more model releases" }));
   expect(await screen.findByRole("option", { name: /0.6.0/ })).toHaveValue(olderRelease.id);
-  expect(list).toHaveBeenLastCalledWith({ cursor: "page-two" });
+  expect(list).toHaveBeenLastCalledWith({ cursor: "page-two", usable: true });
+});
+
+it("offers only usable releases, every version of each (0.12 MR1)", async () => {
+  vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
+  const newer = { ...olderRelease, id: "release-newer", version: "0.8.0", installedAt: "2026-09-20T00:00:00Z" };
+  const list = vi
+    .spyOn(api, "modelReleases")
+    .mockResolvedValue({ items: [olderRelease, activeRelease, newer], nextCursor: null });
+  render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
+  fireEvent.click(screen.getAllByRole("button", { name: "Start from current live data" })[0]);
+  expect(await screen.findByRole("option", { name: /0.8.0/ })).toHaveValue(newer.id);
+  expect(screen.getByRole("option", { name: /0.6.0/ })).toHaveValue(olderRelease.id);
+  expect(list).toHaveBeenCalledWith({ cursor: undefined, usable: true });
 });
 
 it("keeps the version-change error visible if the saved pin cannot be refreshed", async () => {
   vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    permissions: permissionsFixture("west"),
     api,
     changeSet: baseChangeSet,
     activeModelReleaseId: baseChangeSet.modelReleaseId,
@@ -229,8 +268,28 @@ it("keeps the version-change error visible if the saved pin cannot be refreshed"
   expect(await screen.findByText(/could not refresh\. Pinned model refresh failed\. Retry/)).toBeVisible();
 });
 
+it("offers the workspace's own release as a target even when it is retired (0.12 MR1)", async () => {
+  const retiredOwn = { ...activeRelease, id: "release-own", version: "0.9.0", status: "retired" as const };
+  vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    permissions: permissionsFixture("west"),
+    api,
+    changeSet: baseChangeSet,
+    activeModelReleaseId: retiredOwn.id,
+    warning: "",
+    refresh: vi.fn().mockResolvedValue(baseChangeSet),
+  });
+  vi.spyOn(api, "modelReleases").mockResolvedValue({ items: [activeRelease, olderRelease], nextCursor: null });
+  vi.spyOn(api, "modelRelease").mockResolvedValue(retiredOwn);
+  render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "More change set actions" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Change model version" }));
+  expect(await screen.findByRole("option", { name: /0.9.0/ })).toHaveValue(retiredOwn.id);
+  expect(screen.getByRole("option", { name: /0.6.0/ })).toHaveValue(olderRelease.id);
+});
+
 it("separates an unpunctuated server message from the preserved-change-set guidance", async () => {
   vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    permissions: permissionsFixture("west"),
     api,
     changeSet: baseChangeSet,
     activeModelReleaseId: baseChangeSet.modelReleaseId,
@@ -255,6 +314,7 @@ describe("a change set on a release its workspace no longer runs (0.11 V2)", () 
   const older = { ...baseChangeSet, modelReleaseId: olderRelease.id, modelReleaseVersion: "0.6.0", version: 7 };
   const mismatched = () =>
     vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      permissions: permissionsFixture("west"),
       api,
       changeSet: older,
       activeModelReleaseId: activeRelease.id,
@@ -302,6 +362,7 @@ describe("a change set moved onto the release its workspace runs (0.11 V3)", () 
   const older = { ...baseChangeSet, modelReleaseId: olderRelease.id, modelReleaseVersion: "0.6.0", version: 7 };
   const mismatched = () =>
     vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      permissions: permissionsFixture("west"),
       api,
       changeSet: older,
       activeModelReleaseId: activeRelease.id,

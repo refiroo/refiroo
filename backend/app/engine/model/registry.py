@@ -1,3 +1,5 @@
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from threading import Lock
 
@@ -20,6 +22,8 @@ from ...models.schema import EngineModel
 from .compiler import SCHEMA_VERSIONS, SUPPORTED_SCHEMA_VERSIONS, parse_model
 from .diagnostics import ModelValidationError
 from .metadata import clear_metadata_cache
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -71,6 +75,8 @@ class ModelRegistry:
         self._lock = Lock()
         self._ready = True
         self._servable = True
+        # Run once when the process becomes servable after being not (0.12 R, R-F9).
+        self._on_servable: list[Callable[[], None]] = []
 
     def resolve_workspace(self, session: Session, workspace_key: str | None) -> ModelSnapshot:
         """The model of ``workspace_key`` (the default workspace when ``None``)."""
@@ -180,11 +186,10 @@ class ModelRegistry:
         would find it; nothing is raised (0.12 UW1)."""
         return self._unavailable_release(release)
 
-    def start(self, session: Session) -> list[UnavailableWorkspaceModel]:
-        """Load every release a workspace runs, at startup; the ones this process cannot serve.
-
-        The instance is not ``ready`` when there are releases to serve and none of them can be.
-        """
+    def _assigned_unavailable(
+        self, session: Session
+    ) -> tuple[int, list[UnavailableWorkspaceModel]]:
+        """How many releases some workspace runs, and the ones this process cannot serve."""
         releases = list(
             session.scalars(
                 select(ModelRelease)
@@ -193,9 +198,46 @@ class ModelRegistry:
             )
         )
         found = [item for item in map(self._unavailable_release, releases) if item is not None]
+        return len(releases), found
+
+    def start(self, session: Session) -> list[UnavailableWorkspaceModel]:
+        """Load every release a workspace runs, at startup; the ones this process cannot serve.
+
+        The instance is not ``ready`` when there are releases to serve and none of them can be.
+        """
+        assigned, found = self._assigned_unavailable(session)
         with self._lock:
-            self._servable = not releases or len(found) < len(releases)
+            self._servable = not assigned or len(found) < assigned
         return found
+
+    def refresh_servable(self, session: Session) -> bool:
+        """Read the assignments again: whether this process can serve some workspace now. A raising
+        in this process or another (R-F9), or a release assigned since, changes it; when the process
+        becomes servable, the callbacks of ``when_servable`` run, once (0.12 R)."""
+        assigned, found = self._assigned_unavailable(session)
+        servable = not assigned or len(found) < assigned
+        with self._lock:
+            became = servable and not self._servable
+            self._servable = servable
+            callbacks = list(self._on_servable) if became else []
+            if became:
+                self._on_servable.clear()
+        for callback in callbacks:
+            try:
+                callback()
+            except Exception:
+                logger.exception("Starting the background threads of a servable process failed")
+        return servable
+
+    def when_servable(self, callback: Callable[[], None]) -> None:
+        """Call ``callback`` once, when a refresh finds this process able to serve a workspace it
+        could not before: the background threads that need a servable model start then."""
+        with self._lock:
+            self._on_servable.append(callback)
+
+    def forget_servable_callbacks(self) -> None:
+        with self._lock:
+            self._on_servable.clear()
 
     def unavailable_assigned(self, session: Session) -> list[UnavailableWorkspaceModel]:
         """The releases some workspace runs that this process cannot serve, as its heartbeat
@@ -240,6 +282,13 @@ class ModelRegistry:
             self._ready = False
 
     @property
+    def waiting_for_a_servable_model(self) -> bool:
+        """Healthy, but no workspace's release can be served yet: a raising, here or in another
+        process, can change that, so a probe or a heartbeat asks again."""
+        with self._lock:
+            return self._ready and not self._servable
+
+    @property
     def ready(self) -> bool:
         with self._lock:
             return self._ready and self._servable
@@ -250,6 +299,7 @@ class ModelRegistry:
             self._unavailable.clear()
             self._ready = True
             self._servable = True
+            self._on_servable.clear()
         clear_metadata_cache()
 
 

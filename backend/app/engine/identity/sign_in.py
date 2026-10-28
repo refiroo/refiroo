@@ -37,8 +37,12 @@ FREE_FAILURES: dict[str, int] = {
     "address": 20,
     "reset-account": 3,
     "reset-address": 20,
+    "client-account": 5,
+    "client-address": 20,
 }
 RESET = "reset-"
+# A wrong client secret at the token endpoint counts against the client ID and the address (R).
+CLIENT = "client-"
 LONGEST_WAIT_SECONDS = 15 * 60
 # Counts lapse after this long without a failure.
 FAILURES_LAPSE = timedelta(hours=24)
@@ -52,6 +56,12 @@ def _absent_hash() -> str:
     """Compared with when no account matches, so an unknown username takes as long as a wrong
     password."""
     return hash_secret(new_token())
+
+
+def spend_verification(secret: str) -> None:
+    """The work of checking a secret against a stored hash, for a name that matches no account or
+    client, so the answer takes as long as a wrong secret and does not show which names exist."""
+    verify_secret(secret, _absent_hash())
 
 
 def wait_after(failures: int, kind: str) -> int:

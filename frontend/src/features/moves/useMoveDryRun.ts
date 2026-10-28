@@ -11,6 +11,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import type { Job, MappingProblem, MoveRequest } from "@/types";
 import { isFinal, isResting, useJobStream } from "@/features/jobs/useJobStream";
 import { figuresOf, jobRunKey, runKey, type Figures } from "./moveRun";
+import { useSubjectSeen } from "@/features/inbox/useInbox";
 
 export interface MoveDryRun {
   /** The run asked for the current state; it may still be checking. */
@@ -123,6 +124,8 @@ export function useMoveDryRun(
     };
   }, [key, attempt, finish]);
 
+  // The move shown here: its notices are read, and one made while it is shown (0.12 NT1).
+  useSubjectSeen(job?.id);
   useJobStream(job && !isResting(job) ? job.id : undefined, (next) => {
     if (current.current && next.id !== current.current.id) return;
     finish(next);

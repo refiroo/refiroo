@@ -280,15 +280,24 @@ for _test, _routes in {
 @pytest.mark.structures(*LEDGER)
 def test_every_operation_a_grant_can_narrow_names_its_narrowing_test(world):
     """Given the document's operations. When those whose action allows a narrowable group are listed,
-    then each is in `NARROWED_PATHS`, naming a test of J40 that exists or the reason it writes no
-    record; a route added without a decision fails here, and so does an entry for no route."""
+    then each is in `NARROWED_PATHS`, naming a journey test of J40 (a function of that module named
+    `test_…` and marked `J40`) or the reason it writes no record; a route added without a decision
+    fails here, and so does an entry for no route, and so does a name that is no J40 test. That the
+    named test exercises the route is read in review, not here."""
     declared, _ = operations(world.api.client.app)
     narrowable = {key for key, group in GROUPS.items() if group.narrowable}
     found = {op.key for op in declared if narrowable.intersection(op.groups)}
     assert found - set(NARROWED_PATHS) == set(), "no narrowing decision for these operations"
     assert set(NARROWED_PATHS) - found == set(), "a decision for an operation that is not there"
     for name in set(NARROWED_PATHS.values()):
-        assert name.startswith(("no record", "a migration")) or hasattr(j40, name), name
+        if name.startswith(("no record", "a migration")):
+            continue
+        test = getattr(j40, name, None)
+        assert callable(test) and name.startswith("test_"), f"{name} is no test of J40"
+        marks = [mark for mark in getattr(test, "pytestmark", []) if mark.name == "journey"]
+        assert any(str(arg).startswith("J40") for mark in marks for arg in mark.args), (
+            f"{name} is not marked as a J40 journey"
+        )
 
 
 # --- B3 --------------------------------------------------------------------------------------------
@@ -620,18 +629,17 @@ def _structured(response, where: str) -> str | None:
 
 def _junk_bodies() -> list[tuple[str, dict]]:
     json_ = {"content-type": "application/json"}
-    wrong = {
-        name: value
-        for name in ("request", "username", "password", "step", "token", "identifier", "code")
-        for value in [[1], {"a": 1}][:1]
-    }
+    names = ("request", "username", "password", "step", "token", "identifier", "code")
+    wrong = {name: [1] for name in names}
+    nested = {name: {"a": 1} for name in names}
     long = "x" * 70000
     return [
         ("empty", {}),
         ("not json", {"content": "not json {", "headers": json_}),
         ("a list", {"content": "[]", "headers": json_}),
         ("null", {"content": "null", "headers": json_}),
-        ("wrong types", {"content": json.dumps(wrong), "headers": json_}),
+        ("lists for text", {"content": json.dumps(wrong), "headers": json_}),
+        ("objects for text", {"content": json.dumps(nested), "headers": json_}),
         ("long values", {"content": json.dumps({k: long for k in ("identifier", "token", "step", "password", "username", "ceremony", "name")}), "headers": json_}),
         ("nul and emoji", {"content": json.dumps({"identifier": "\u0000\u00e9\U0001f4a5", "token": "\u0000", "username": "\u0000", "step": "\u0000"}), "headers": json_}),
         ("deep", {"content": "[" * 50000, "headers": json_}),
@@ -674,13 +682,15 @@ def _location(response, where: str) -> str | None:
 def test_every_route_outside_the_document_answers_as_its_class_says(world):
     """Given the application's routes. When each route outside the OpenAPI document, and each open
     route in it, is called with nothing, with a well-formed body and no credentials, with a foreign
-    origin, and with junk (not JSON, wrong types, 70,000-character values, NUL and emoji, a cut-off
-    deep document, binary, a form, cookies that mean nothing, a path and query that try to redirect
-    or traverse), then the table `CLASSIFICATION` is complete and each route answers as its class
-    says: never `5xx`, never a traceback, a refusal in the engine's shape or a page, a redirect only
-    to the browser's origins, no person, session, grant, link, code or message made or ended; a
-    session-class route serves the person whose cookie it is and nobody else; `/metrics` is `401`
-    with no token, `403` for a client holding nothing and served to one holding Operator."""
+    origin, and with junk (not JSON, a list or an object where text belongs, a list, `null`,
+    70,000-character values, NUL and emoji, a cut-off deep document, a form, cookies that mean
+    nothing, queries that try to redirect; and, for a route with a path parameter, five addresses
+    that try to traverse, the first two junk bodies or queries each), then the table
+    `CLASSIFICATION` is complete and each route answers as its class says: never `5xx`, never a
+    traceback, a refusal in the engine's shape or a page, a redirect only to the browser's origins,
+    no person, session, grant, link, code or message made or ended; a session-class route serves
+    the person whose cookie it is and nobody else; `/metrics` is `401` with no token, `403` for a
+    client holding nothing and served to one holding Operator. (A binary body is the next test's.)"""
     app = world.api.client.app
     _, open_ = operations(app)
     documented = {key for key, _ in [((m, p), 0) for m, p in OPEN_OPERATIONS]}

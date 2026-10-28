@@ -2,13 +2,23 @@
 
 import { KIND } from "@/features/jobs/jobText";
 import { changeReviewFor } from "@/routing/routes";
-import type { Notification, RouteState } from "@/types";
+import type { Notification, NotificationKind, RouteState } from "@/types";
 
 export interface NoticeText {
   title: string;
   /** The second line's parts before the time, such as the change set, the comment and who. */
   detail: string[];
 }
+
+/** Each kind of notice in the engine's words (`engine/notifications/kinds.py`), for the Kind filter. */
+export const KIND_LABELS: Record<NotificationKind, string> = {
+  "change-set.submitted": "A change set is waiting for your approval",
+  "change-set.approved": "A change set you submitted was approved",
+  "change-set.sent-back": "A change set you submitted was sent back",
+  "job.completed": "A job you started has finished",
+  "job.failed": "A job you started has failed",
+  "job.awaiting-confirmation": "A job you started is waiting for your confirmation",
+};
 
 const quoted = (name: string | undefined) => (name ? `‘${name}’` : "a change set");
 

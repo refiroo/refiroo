@@ -313,9 +313,23 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.12 UW1: `availability` on WorkspaceResponse and WorkspaceDetailResponse
     # (WorkspaceAvailable, WorkspaceUnavailable) and POST /model-releases/{releaseId}/raising with
     # the ModelReleaseRaising* schemas; nothing else changed.
+    # Re-baselined for 0.12 R: DELETE /change-sets/{id}/submission is declared by the new action
+    # `change-sets.withdraw` (groups change-sets and approve, was change-sets.submit), so an
+    # approver without Work in change sets may withdraw a request; nothing else changed.
+    # Re-baselined for 0.12 R: the description of POST /me/password names `429 SIGN_IN_SLOWED` (a
+    # wrong current password is counted like a wrong sign-in); nothing else changed.
+    # Re-baselined for 0.12 MR1 (additive): PATCH and DELETE /model-releases/{releaseId}
+    # (ModelReleaseStatusRequest), the list's `status` and `usable` parameters, and a release's
+    # status, statusVersion, retiredAt, deletable and deleteBlockedBy; nothing else changed.
+    # Re-baselined for 0.12 NT1 (additive): GET /me/notifications's `q`, `kind`, `workspace` and
+    # `sort`; NotificationsRead's `subjectId` and `read`; POST /me/notifications/removal with
+    # NotificationsRemoval and NotificationsRemovalResult; the descriptions of those routes and of
+    # NotificationsReadResult.marked. Verified by restoring NT1's two files in a copy, which
+    # reproduces MR1's hash. Re-baselined for 0.12.0: info.version 0.12.0; with 0.11.0 the document
+    # hashes to the previous lock exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "12d6fec8a98c3b23a428158db0299599a201347cea872d4330943cc74a5cfc9d"
+        "252abf71fdcb96b7edb943059b594b8ea84e1d501d95c9c5519adf2dc51b73f4"
     )
 
 

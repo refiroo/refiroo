@@ -11,7 +11,9 @@ import { Icon, type IconName } from "@/ui/Icon";
  * here: it does not close on an outside press, and it closes on any scroll around its trigger,
  * including the page's own when an applied setting shortens the list. So the popover closes on a
  * press outside or the user's own scrolling (wheel, touch) and ignores scrolls the layout causes.
- * Escape and focus leaving it still close it through React Aria.
+ * Escape and focus leaving it still close it through React Aria. A press on the trigger toggles it:
+ * pressed while open, focus leaving closes it and the same press must not open it again (the user,
+ * 2026-10-28: the bell opens its list and closes it).
  */
 export function ControlPopover({
   label,
@@ -41,6 +43,8 @@ export function ControlPopover({
   const popoverRef = useRef<HTMLElement>(null);
   const [isOpen, setOpen] = useState(false);
   const [container, setContainer] = useState<Element>();
+  // Set when a press on the trigger begins while the popover is open: that press only closes it.
+  const closingPress = useRef(false);
   useEffect(() => {
     if (!isOpen) return;
     const closeOutside = (event: Event) => {
@@ -64,6 +68,11 @@ export function ControlPopover({
       onOpenChange={(open) => {
         // React Aria's close-on-scroll, called from inside the scroll event; see above.
         if (!open && window.event?.type === "scroll") return;
+        if (open && closingPress.current) {
+          closingPress.current = false;
+          setOpen(false);
+          return;
+        }
         setOpen(open);
         // Render inside a landmark so React Aria's hidden dismiss buttons are not stray page
         // content: the enclosing dialog (such as the mobile drawer, which makes the page inert),
@@ -75,11 +84,20 @@ export function ControlPopover({
       }}
     >
       {trigger ? (
-        <Button ref={triggerRef} className={triggerClassName} aria-label={label}>
+        <Button
+          ref={triggerRef}
+          className={triggerClassName}
+          aria-label={label}
+          onPointerDown={() => (closingPress.current = isOpen)}
+        >
           {trigger}
         </Button>
       ) : (
-        <Button ref={triggerRef} className={`secondary toolbar-button${count ? " has-count" : ""}`}>
+        <Button
+          ref={triggerRef}
+          className={`secondary toolbar-button${count ? " has-count" : ""}`}
+          onPointerDown={() => (closingPress.current = isOpen)}
+        >
           {icon && <Icon name={icon} size={15} />}
           {label}
           {count > 0 && (

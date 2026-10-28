@@ -1,5 +1,5 @@
 // 0.12 I2 browser evidence: signing in from the browser against a real backend, on two models (the
-// starter, and the starter under another product name), at 1440px and 390px, light and dark. A
+// starter, and the differently shaped journey configuration generated-b), at 1440px and 390px, light and dark. A
 // record page opened signed out leads to the application's sign-in screen; a wrong password is refused
 // without saying which part; the right one, typed by keyboard, returns to that page. The account
 // menu names the person and leads to Account, where the password is changed. A session ended by an
@@ -8,22 +8,12 @@
 // Account; screenshots of each; no horizontal scroll at 390px. Z1: the menu names the roles held in
 // the workspace, its actions are buttons, and Account lists the roles, for the harness person (every
 // role at the instance) and for a person granted Reader and a narrowed Contributor in one workspace.
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { bootHarness } from "./helpers/harness.mjs";
+import { SHAPED_MODELS, bootShaped, startingPoint } from "./helpers/shaped-models.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 
 const NEW_PASSWORD = "a brand new harness passphrase";
-
-const MODELS = [
-  { name: "starter", record: "/apps/rdm-master/views/domains?workspaceKey=default", heading: "Domains" },
-  {
-    name: "renamed",
-    product: "Northfield Reference Data",
-    record: "/apps/rdm-systems/views/systems?workspaceKey=default",
-    heading: "Systems",
-  },
-];
 
 const checks = [];
 const failures = [];
@@ -39,23 +29,17 @@ async function axe(page, name) {
 }
 
 async function walk(configuration) {
-  const harness = await bootHarness({
-    transformModel: configuration.product
-      ? (model) => {
-          model.product.name = configuration.product;
-        }
-      : undefined,
-  });
+  const harness = await bootShaped(configuration);
   try {
     const { apiUrl, uiUrl, api, output, signedOutContext, harnessIdentity } = harness;
     const person = harnessIdentity.person;
     const tag = configuration.name;
-    const starter = JSON.parse(await readFile(resolve("..", "model", "rdm-starter.json"), "utf8"));
-    const product = configuration.product ?? starter.product.name;
+    const start = await startingPoint(api);
+    const product = start.model.product.name;
     const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     const shot = (page, name) => page.screenshot({ path: resolve(output, `${tag}-${name}.png`), fullPage: true });
     const onSignInPage = (page) => page.getByRole("heading", { level: 1, name: "Sign in" }).waitFor();
-    const record = `${uiUrl}${configuration.record}`;
+    const record = `${uiUrl}${start.path}`;
 
     // 1. Signed out: the record page leads to the application's sign-in screen, the product named.
     const context = await signedOutContext({ viewport: { width: 1440, height: 900 } });
@@ -72,7 +56,8 @@ async function walk(configuration) {
     );
     // A model's own product name stands beside the refiroo mark; the default names show the mark alone.
     expect(await page.getByAltText("refiroo").isVisible(), `${tag}: the refiroo mark is shown`);
-    if (configuration.product) {
+    // The product's name stands beside the mark where the model names its own (the default model's does not).
+    if (configuration.generated) {
       expect(
         await page.getByText(product, { exact: true }).isVisible(),
         `${tag}: the product's name ${product} is shown`,
@@ -119,8 +104,8 @@ async function walk(configuration) {
     await page.keyboard.type(person.password);
     await page.keyboard.press("Enter");
     await page.waitForURL(record);
-    await page.getByRole("heading", { level: 1, name: configuration.heading }).waitFor();
-    checks.push(`${tag}: the right password returns to ${configuration.record}`);
+    await page.getByRole("heading", { level: 1, name: start.heading }).waitFor();
+    checks.push(`${tag}: the right password returns to ${start.path}`);
 
     // 4. The account menu names the person and leads to Account.
     const menuButton = page.getByRole("button", { name: "Account" });
@@ -144,11 +129,18 @@ async function walk(configuration) {
     await page.getByRole("heading", { level: 1, name: "Account" }).waitFor();
     const sessions = page.getByRole("list", { name: "Where you’re signed in" });
     await sessions.getByText("This browser").waitFor();
-    const roles = page.getByRole("list", { name: "What you can do" });
-    await roles.getByText("Security administrator").waitFor();
-    expect((await roles.getByRole("listitem").count()) === 9, `${tag}: Account lists the nine roles`);
+    await page.getByRole("heading", { name: "What you can do" }).waitFor();
+    const roles = page.locator(".account-permissions");
+    await roles.locator(".access-chip", { hasText: "Security administrator" }).first().waitFor();
+    expect((await roles.locator(".access-chip").count()) === 9, `${tag}: Account lists the nine roles`);
+    // The harness person's roles are at the instance: the data roles in the "Every workspace" card,
+    // the rest under "Across the instance".
+    const everyWorkspace = roles.getByRole("region", { name: "Every workspace" });
+    const acrossInstance = roles.getByRole("region", { name: "Across the instance" });
     expect(
-      (await roles.getByText("Every workspace").count()) === 9,
+      (await everyWorkspace.locator(".access-chip").count()) +
+        (await acrossInstance.locator(".access-chip").count()) ===
+        9,
       `${tag}: the harness person's roles are at the instance`,
     );
     await shot(page, "account-wide");
@@ -224,14 +216,19 @@ async function walk(configuration) {
     await rhea.getByLabel("Password").fill(reader.password);
     await rhea.getByRole("button", { name: "Sign in" }).click();
     await rhea.getByRole("heading", { level: 1, name: "Account" }).waitFor();
-    const rheaRoles = rhea.getByRole("list", { name: "What you can do" });
-    await rheaRoles.getByText("Contributor").waitFor();
-    const rows = await rheaRoles.getByRole("listitem").allInnerTexts();
+    await rhea.getByRole("heading", { name: "What you can do" }).waitFor();
+    const rheaRoles = rhea.locator(".account-permissions");
+    await rheaRoles.locator(".access-chip", { hasText: "Contributor" }).first().waitFor();
+    const rows = await rheaRoles.locator(".access-chip").allInnerTexts();
     expect(rows.length === 2, `${tag}: the reader's Account lists two roles: ${rows.join(" | ")}`);
-    expect(
-      rows.some((row) => row.includes(`Changes narrowed to ${recordType.name}`)),
-      `${tag}: the narrowing is named by the type's name: ${rows.join(" | ")}`,
-    );
+    // The narrowing is a count that opens what the role covers: it names the type by its name.
+    await rheaRoles.locator(".account-count").first().click();
+    await rheaRoles
+      .getByRole("region", { name: /^What you may / })
+      .getByText(recordType.name)
+      .first()
+      .waitFor();
+
     await rhea.getByRole("button", { name: "Account" }).click();
     await rhea
       .getByRole("dialog", { name: "Account" })
@@ -242,7 +239,11 @@ async function walk(configuration) {
     await shot(rhea, "reader-account");
     await axe(rhea, `${tag}-reader-account`);
     await rhea.setViewportSize({ width: 390, height: 844 });
-    await rheaRoles.getByText("Contributor").waitFor();
+    await rheaRoles.locator(".access-chip", { hasText: "Contributor" }).first().waitFor();
+    // The cards re-lay out once the section's width is observed; measure after that settles.
+    await rhea
+      .waitForFunction(() => document.documentElement.scrollWidth <= window.innerWidth, null, { timeout: 3000 })
+      .catch(() => {});
     expect((await overflow(rhea)) <= 0, `${tag}: the reader's Account scrolls sideways at 390px`);
     await shot(rhea, "reader-account-narrow");
     await readers.close();
@@ -284,7 +285,7 @@ async function walk(configuration) {
 }
 
 try {
-  for (const configuration of MODELS) await walk(configuration);
+  for (const configuration of SHAPED_MODELS) await walk(configuration);
   console.log(`Checks: ${checks.length}`);
   for (const check of checks) console.log(`  ${check}`);
   if (failures.length) {

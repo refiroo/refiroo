@@ -31,6 +31,9 @@ import { visitReleaseSurfaces } from "./helpers/release-surfaces.mjs";
 import { visitDesignerSurfaces } from "./helpers/designer-surfaces.mjs";
 import { visitSpreadsheetSurfaces } from "./helpers/spreadsheet-surfaces.mjs";
 import { visitWorkspaceSurfaces } from "./helpers/workspace-surfaces.mjs";
+import { visitSecuritySurfaces } from "./helpers/security-surfaces.mjs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
 
 // Permitted known violations with tracked issue references.
 // Each entry must state the axe rule id and a tracking reference.
@@ -45,6 +48,37 @@ const failures = [];
 
 async function shown(locator) {
   await locator.waitFor({ state: "visible" });
+}
+
+// `--only security` runs the 0.12 security surfaces alone (0.12 R, D449), for iterating on them.
+const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : undefined;
+
+/** Every security surface, light and dark, at 1440px and the ones kept at 390px. */
+async function visitSecurity(output) {
+  await visitSecuritySurfaces(async ({ page: surface, name, axe }) => {
+    if (!axe) return;
+    const found = await runAxe(surface, ALLOWLIST, name);
+    if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
+    checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+    await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+  });
+}
+
+if (only === "security") {
+  const output = await mkdtemp(resolve(tmpdir(), "rdm-a11y-security-"));
+  try {
+    await visitSecurity(output);
+  } catch (error) {
+    console.error("Accessibility gate (security) error:", error);
+    failures.push(String(error));
+  }
+  console.log(`Accessibility evidence: ${output}`);
+  for (const check of checks) console.log(`  ${check}`);
+  if (failures.length) {
+    console.log(`\nFAILED: ${failures.length}`);
+    for (const failure of failures) console.log(failure);
+  } else console.log("\nPASSED: no unexpected accessibility violations in the security surfaces.");
+  process.exit(failures.length ? 1 : 0);
 }
 
 try {
@@ -100,7 +134,10 @@ try {
     const extra = document.createElement("section");
     extra.id = "wp1-unexpected-region";
     extra.setAttribute("role", "region");
-    extra.setAttribute("aria-label", document.querySelector("main [role='region'][aria-label]").getAttribute("aria-label"));
+    extra.setAttribute(
+      "aria-label",
+      document.querySelector("main [role='region'][aria-label]").getAttribute("aria-label"),
+    );
     extra.textContent = "Unexpected duplicate region";
     document.querySelector("main").append(extra);
   });
@@ -111,7 +148,10 @@ try {
 
   // --- 5. Change set editing ---
   // Create a change set and navigate into it.
-  const changeSet = await api(`/workspaces/default/change-sets`, { name: "A11y test change set", source: "currentLive" });
+  const changeSet = await api(`/workspaces/default/change-sets`, {
+    name: "A11y test change set",
+    source: "currentLive",
+  });
   await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet.id}`);
   await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
   result = await runAxe(page, ALLOWLIST, "change-set-collection");
@@ -144,7 +184,7 @@ try {
   // --- 7. Settings › Model (the model workbench's list page since U3) ---
   await page.goto(`${uiUrl}/settings/model`);
   await shown(page.getByRole("heading", { name: "Model", exact: true, level: 1 }));
-  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
+  await shown(page.getByRole("region", { name: "Default workspace" }));
   result = await runAxe(page, ALLOWLIST, "model-workbench");
   if (result.violations.length > 0) failures.push(`model-workbench:\n${formatViolations(result.violations)}`);
   checks.push(`model-workbench: ${result.violations.length} violations, ${result.allowed.length} allowed`);
@@ -192,14 +232,42 @@ try {
   // --- 11. Dark theme: the same token contract must keep contrast on core page types ---
   await page.emulateMedia({ colorScheme: "dark" });
   for (const [name, path, ready] of [
-    ["dark-collection-domain", "/apps/rdm-master/views/domains?workspaceKey=default", () => page.getByRole("button", { name: "Domain 00", exact: true })],
-    ["dark-detail-domain", `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "Domain 00" })],
-    ["dark-detail-system", `/apps/rdm-systems/objects/system/${records.system[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "System 00" })],
-    ["dark-change-sets-list", "/apps/rdm-master/change-sets?workspaceKey=default", () => page.getByText("Second change set")],
-    ["dark-model-workbench", "/settings/model", () => page.getByRole("navigation", { name: "Model catalogue" })],
-    ["dark-collection-system", "/apps/rdm-systems/views/systems?workspaceKey=default", () => page.getByRole("button", { name: "System 00", exact: true })],
-    ["dark-change-set-collection", `/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet2.id}`, () => page.getByRole("button", { name: "Domain 00", exact: true })],
-    ["dark-change-set-detail", `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&changeSetId=${changeSet2.id}`, () => page.getByRole("heading", { name: "Domain 00" })],
+    [
+      "dark-collection-domain",
+      "/apps/rdm-master/views/domains?workspaceKey=default",
+      () => page.getByRole("button", { name: "Domain 00", exact: true }),
+    ],
+    [
+      "dark-detail-domain",
+      `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`,
+      () => page.getByRole("heading", { name: "Domain 00" }),
+    ],
+    [
+      "dark-detail-system",
+      `/apps/rdm-systems/objects/system/${records.system[0].id}?workspaceKey=default`,
+      () => page.getByRole("heading", { name: "System 00" }),
+    ],
+    [
+      "dark-change-sets-list",
+      "/apps/rdm-master/change-sets?workspaceKey=default",
+      () => page.getByText("Second change set"),
+    ],
+    ["dark-model-workbench", "/settings/model", () => page.getByRole("region", { name: "Default workspace" })],
+    [
+      "dark-collection-system",
+      "/apps/rdm-systems/views/systems?workspaceKey=default",
+      () => page.getByRole("button", { name: "System 00", exact: true }),
+    ],
+    [
+      "dark-change-set-collection",
+      `/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet2.id}`,
+      () => page.getByRole("button", { name: "Domain 00", exact: true }),
+    ],
+    [
+      "dark-change-set-detail",
+      `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&changeSetId=${changeSet2.id}`,
+      () => page.getByRole("heading", { name: "Domain 00" }),
+    ],
     ["dark-publications", "/apps/rdm-master/publications?workspaceKey=default", () => page.getByText("Publication 1")],
   ]) {
     await page.goto(`${uiUrl}${path}`);
@@ -315,7 +383,10 @@ try {
   // new record's inputs, and Remove this level…; the system hierarchy, where a place holds two types:
   // Change type… ---
   await seedRestructuring(api);
-  const restructuring = await api("/workspaces/default/change-sets", { name: "Restructuring gate", source: "currentLive" });
+  const restructuring = await api("/workspaces/default/change-sets", {
+    name: "Restructuring gate",
+    source: "currentLive",
+  });
   const closeDialog = async () => {
     await page.keyboard.press("Escape");
     await page.getByRole("dialog").waitFor({ state: "detached" });
@@ -346,8 +417,13 @@ try {
     await openRestructuring(page, "Road", "Remove this level…", "Remove Road as a level");
     await scan("restructuring-remove-level");
     await closeDialog();
-    await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default&changeSetId=${restructuring.id}`);
-    await page.locator(".tree-lens").getByRole("treeitem", { name: /^System 00/ }).waitFor();
+    await page.goto(
+      `${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default&changeSetId=${restructuring.id}`,
+    );
+    await page
+      .locator(".tree-lens")
+      .getByRole("treeitem", { name: /^System 00/ })
+      .waitFor();
     await revealInTree(page, "Sodium");
     await openRestructuring(page, "Sodium", "Change type…", "Change the type of Sodium");
     await scan("restructuring-change-type");
@@ -395,8 +471,16 @@ try {
     const prefix = scheme === "dark" ? "dark-" : "";
     await page.emulateMedia({ colorScheme: scheme });
     for (const [name, path, ready] of [
-      [`${prefix}narrow-collection-domain`, "/apps/rdm-master/views/domains?workspaceKey=default", () => page.getByRole("button", { name: "Domain 00", exact: true })],
-      [`${prefix}narrow-detail-domain`, `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "Domain 00" })],
+      [
+        `${prefix}narrow-collection-domain`,
+        "/apps/rdm-master/views/domains?workspaceKey=default",
+        () => page.getByRole("button", { name: "Domain 00", exact: true }),
+      ],
+      [
+        `${prefix}narrow-detail-domain`,
+        `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`,
+        () => page.getByRole("heading", { name: "Domain 00" }),
+      ],
     ]) {
       await page.goto(`${uiUrl}${path}`);
       await shown(ready());
@@ -422,10 +506,14 @@ try {
       "/settings/workspaces/default",
       () => page.getByRole("button", { name: "Open workspace" }),
     ],
-    ["settings-about", "/settings/about", () => page.getByRole("region", { name: "Database" })],
+    ["settings-about", "/settings/about", () => page.getByRole("region", { name: "Engine" })],
     ["settings-appearance", "/settings/appearance", () => page.getByRole("group", { name: "Table density" })],
     ["settings-deployment", "/settings/deployment", () => page.getByRole("region", { name: "Webhook subscriptions" })],
-    ["settings-release-detail", `/settings/model/releases/${activeRelease}`, () => page.getByRole("button", { name: "Export JSON" })],
+    [
+      "settings-release-detail",
+      `/settings/model/releases/${activeRelease}`,
+      () => page.getByRole("button", { name: "Export JSON" }),
+    ],
   ];
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });
@@ -500,6 +588,12 @@ try {
     checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
     await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
   });
+
+  // --- 19. 0.12 security surfaces (0.12 R, D449), light and dark, 1440px and 390px, on a harness of their
+  // own: the sign-in screen and its second-factor step, Home, Account, Security's pages, Mail, the inbox,
+  // a submitted change set with its decision card, the workspace page's tabs, Settings › Model's list
+  // and the unavailable workspace ---
+  await visitSecurity(output);
 
   // Write report.
   const report = { checks, regressionChecks, failures, passed: failures.length === 0 };

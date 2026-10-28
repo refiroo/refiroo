@@ -168,6 +168,11 @@ export function ModelDetail({
                   {release.version}
                 </RouteLink>
                 <span className="model-row-marks">
+                  {release.status === "retired" && (
+                    <StatusPill tone="warning" marker={false}>
+                      Retired
+                    </StatusPill>
+                  )}
                   {by.map((workspace) => (
                     <StatusPill key={workspace.key} tone="success" marker={false}>
                       {workspace.label}

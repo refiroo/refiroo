@@ -55,6 +55,15 @@ from sqlalchemy.orm import Session
 from ...errors import ApiError, api_error
 from ...models.database import ChangeSet, Job, ModelRelease, Workspace
 from ...models.schema import EngineModel
+from ..authorization.permissions import Permissions
+from ..authorization.requesters import job_writer
+from ..authorization.writes import writer_of
+from ..change_sets import submissions
+from ..change_sets.access import load_change_set
+from ..change_sets.approvals import (
+    close_request_on_publication,
+    require_direct_publication,
+)
 from ..change_sets.publish import apply_publication, publication_findings
 from ..indexes import matrix_states
 from ..jobs.store import (
@@ -72,6 +81,7 @@ from .compatibility import analyze_compatibility, is_parent_pair
 from .compiler import SCHEMA_VERSIONS, SUPPORTED_SCHEMA_VERSIONS
 from .consumer_contract import contract_diagnostics
 from .registry import model_registry, resolve_pinned_release
+from .release_lifecycle import require_choosable
 from .releases import (
     ConsumerContractVersionRequired,
     lock_unique_values,
@@ -937,6 +947,7 @@ def submit_migration(
     retention_days: int,
     change_set_id: str | None = None,
     expected_change_set_version: int | None = None,
+    permissions: Permissions | None = None,
 ) -> Job:
     """Queue the preview of a migration of ``workspace_key`` to the target release. Refused before
     a job exists: an unknown or retired workspace, an unknown target or one of an unsupported
@@ -946,7 +957,9 @@ def submit_migration(
     (``ConsumerContractVersionRequired``). Naming a change set (V2): another workspace's or none
     (``404 CHANGE_SET_NOT_FOUND``), one changed since ``expected_change_set_version`` (``409
     CHANGE_SET_VERSION_CONFLICT``), a target other than its release (``422
-    MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE``)."""
+    MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE``). It publishes the change set, so it needs what
+    publishing it directly needs (0.12 R-F3): Publish in the workspace for ``permissions`` (None
+    for the engine's own) and the approval policy (``409 APPROVAL_REQUIRED``)."""
     workspace = session.get(Workspace, workspace_key)
     if workspace is None:
         raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
@@ -961,6 +974,7 @@ def submit_migration(
     change_set = None
     if change_set_id is not None:
         change_set = _change_set_of(session, workspace_key, change_set_id)
+        require_direct_publication(session, workspace_key, permissions)
         if change_set.version != expected_change_set_version:
             raise api_error(
                 409,
@@ -984,6 +998,8 @@ def submit_migration(
         target_release_id = pinned.public_id
     assert target_release_id is not None
     target = installed_release(session, target_release_id)
+    if change_set is None and target.id != current.id:
+        require_choosable(session, target, operation="migration")
     if assignment.version != expected_version:
         raise api_error(
             409,
@@ -1321,6 +1337,11 @@ def check_confirmation(
 
     def check(job: Job) -> None:
         summary = (job.report or {}).get("migration", {})
+        if "changeSetId" in summary:
+            # It will publish the change set: what publishing it directly needs (0.12 R-F3).
+            require_direct_publication(
+                session, job.workspace_key, job_writer(session, job).permissions
+            )
         require_reviewed(
             session,
             job,
@@ -1344,6 +1365,12 @@ def check_confirmation(
                 f"The migration removes {counts['loss']} items the preview lists; confirm with "
                 "acceptLoss: true to remove them",
                 {"loss": counts["loss"]},
+            )
+        if moves_change_set(job):
+            # The move edits the change set's content and version: a submitted one is refused, or
+            # its submission withdrawn when the request says so, as for any edit (R-F6).
+            submissions.freeze(
+                session, load_change_set(session, job.change_set_id, for_update=True)
             )
 
     if not confirm_job(session, job, check, keep_items=True):
@@ -1491,6 +1518,13 @@ def run_execution(
         session.execute(
             select(ChangeSet.id).where(ChangeSet.id == summary["changeSetId"]).with_for_update()
         )
+    require_approval = False
+    if "changeSetId" in summary:
+        # The requester's rights as they stand at the run, and the policy as it stands (R-F3).
+        writer = writer_of(session)
+        require_approval = require_direct_publication(
+            session, job.workspace_key, writer.permissions if writer is not None else None
+        )
     migration = _Migration.open(session, job)
     current_release = session.get(ModelRelease, job.model_release_id)
     # The unique values are locked only at the switch (R-F6): the workspace's row, held from the
@@ -1531,6 +1565,9 @@ def run_execution(
     published = {}
     if "changeSetId" in summary:
         renew()
+        change_set_name = session.scalar(
+            select(ChangeSet.name).where(ChangeSet.id == summary["changeSetId"])
+        )
         publication = apply_publication(
             session,
             summary["changeSetId"],
@@ -1538,6 +1575,16 @@ def run_execution(
             migration.target_release.id,
             summary["changeSetVersion"],
             summary.get("activePublicationId"),
+        )
+        # The request still open for it closes as a direct publication closes it (R-F3).
+        close_request_on_publication(
+            session,
+            summary["changeSetId"],
+            job.workspace_key,
+            change_set_name,
+            publication,
+            summary["changeSetVersion"],
+            require_approval=require_approval,
         )
         published = {"publicationId": publication.id}
     record_summary(job, counts, **published)

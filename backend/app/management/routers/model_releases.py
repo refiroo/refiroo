@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Query
+from typing import Literal
+
+from fastapi import APIRouter, Query, status
 from sqlalchemy import select
 
 from ...common.cursors import METADATA_CURSOR_MESSAGE
@@ -9,8 +11,8 @@ from ...engine.model.compiler import SCHEMA_VERSIONS, compile_model
 from ...engine.model.diff import semantic_diff
 from ...engine.model.draft_compatibility import assess
 from ...engine.model.raising import raise_release
-from ...engine.model.registry import resolve_model_snapshot
-from ...engine.model.workspace_models import assigned_workspaces
+from ...engine.model.registry import model_registry, resolve_model_snapshot
+from ...engine.model.release_lifecycle import delete_release, set_release_status
 from ...errors import api_error
 from ...models.database import AuditEvent, ModelRelease, Workspace, WorkspaceModel
 from ..access import (
@@ -26,6 +28,7 @@ from ..presenters import (
     change_response,
     consumer_contracts_response,
     diagnostic_details,
+    model_release_responses,
 )
 from ..schemas.model import (
     ModelReleaseActivationPage,
@@ -36,6 +39,7 @@ from ..schemas.model import (
     ModelReleaseRaisingResponse,
     ModelReleaseRaisingWorkspace,
     ModelReleaseResponse,
+    ModelReleaseStatusRequest,
 )
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["model"])
@@ -60,13 +64,23 @@ def list_model_releases(
     paging: PageQuery,
     release_key: str | None = Query(default=None, alias="releaseKey"),
     assigned: bool | None = None,
+    release_status: Literal["active", "retired", "all"] = Query(default="all", alias="status"),
+    usable: bool = False,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> ModelReleasePage:
     """Installed releases, oldest first; ``assigned`` keeps those some workspace runs (``true``) or
-    none does (``false``). Each names the workspaces running it (D24)."""
+    none does (``false``). Each names the workspaces running it (D24). ``status`` keeps the active
+    or the retired ones; ``usable=true`` keeps those a caller may choose, active and of a schema
+    this version reads (0.12 MR1, D458)."""
     statement = select(ModelRelease)
     if release_key is not None:
         statement = statement.where(ModelRelease.release_key == release_key)
+    if release_status != "all":
+        statement = statement.where(ModelRelease.status == release_status)
+    if usable:
+        statement = statement.where(
+            ModelRelease.status == "active", ModelRelease.schema_version.in_(SCHEMA_VERSIONS)
+        )
     running = select(WorkspaceModel.model_release_id)
     if assigned is True:
         statement = statement.where(ModelRelease.id.in_(running))
@@ -81,13 +95,15 @@ def list_model_releases(
         filters={
             "releaseKey": release_key,
             "assigned": assigned,
+            "status": release_status,
+            "usable": usable,
         },
         page=paging,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
     )
     return ModelReleasePage(
-        items=release_responses(session, page.items),
+        items=model_release_responses(session, page.items),
         **page.links(),
     )
 
@@ -104,7 +120,42 @@ def get_model_release(
     include_model: bool = Query(default=False, alias="includeModel"),
 ) -> ModelReleaseResponse:
     release = load_release(session, release_id)
-    return release_responses(session, [release], include_model=include_model)[0]
+    return model_release_responses(session, [release], include_model=include_model)[0]
+
+
+@router.patch(
+    "/model-releases/{release_id}",
+    response_model=ModelReleaseResponse,
+    response_model_exclude_none=True,
+)
+@requires("model.install", at=INSTANCE)
+def patch_model_release(
+    release_id: str, payload: ModelReleaseStatusRequest, session: DbSession
+) -> ModelReleaseResponse:
+    """Retire a release (`status: retired`) or bring it back (`active`); its model never changes
+    (0.12 MR1, D457). A retired release is refused where a release is chosen (`409
+    MODEL_RELEASE_RETIRED`: a new workspace, a change set, an activation, a migration), and every
+    workspace and change set on it keeps working. `404 MODEL_RELEASE_NOT_FOUND`, `409
+    MODEL_RELEASE_VERSION_CONFLICT`, `409 MODEL_RELEASE_IS_DEFAULT` (the default workspace runs
+    it)."""
+    release = set_release_status(session, release_id, payload.status, payload.expectedStatusVersion)
+    session.commit()
+    return model_release_responses(session, [release])[0]
+
+
+@router.delete("/model-releases/{release_id}", status_code=status.HTTP_204_NO_CONTENT)
+@requires("model.install", at=INSTANCE)
+def delete_model_release(
+    release_id: str,
+    session: DbSession,
+    expected_status_version: int = Query(ge=1, alias="expectedStatusVersion"),
+) -> None:
+    """Delete a release nothing refers to: no workspace runs it, and no record, change set,
+    publication, job, import profile or model mapping was made under it (0.12 MR1, D457). Its
+    drafts stay, without their link to it. `404 MODEL_RELEASE_NOT_FOUND`, `409
+    MODEL_RELEASE_VERSION_CONFLICT`, `409 MODEL_RELEASE_IN_USE` (with `blockedBy`)."""
+    delete_release(session, release_id, expected_status_version)
+    session.commit()
 
 
 @router.get(
@@ -269,6 +320,8 @@ def raise_model_release(
     )
     if result.applied:
         session.commit()
+        # A process that started with nothing it could serve is ready now (0.12 R, R-F9).
+        model_registry.refresh_servable(session)
     return ModelReleaseRaisingResponse(
         applied=result.applied,
         releaseId=result.release.public_id,
@@ -289,37 +342,6 @@ def load_release(session: DbSession, release_id: str) -> ModelRelease:
     if release is None:
         raise _release_not_found(release_id)
     return release
-
-
-def release_responses(
-    session: DbSession, releases: list[ModelRelease], *, include_model: bool = False
-) -> list[ModelReleaseResponse]:
-    """The releases with the workspaces running each, read once for the page."""
-    running = assigned_workspaces(session, (release.id for release in releases))
-    return [
-        build_release_response(release, running.get(release.id, []), include_model=include_model)
-        for release in releases
-    ]
-
-
-def build_release_response(
-    release: ModelRelease,
-    workspaces: list[str],
-    *,
-    include_model: bool = False,
-) -> ModelReleaseResponse:
-    return ModelReleaseResponse(
-        id=release.public_id,
-        key=release.release_key,
-        name=release.release_name,
-        version=release.release_version,
-        schemaVersion=release.schema_version,
-        modelHash=release.model_hash,
-        installedAt=as_utc(release.installed_at),
-        assigned=bool(workspaces),
-        workspaces=workspaces,
-        model=release.model_json if include_model else None,
-    )
 
 
 def _release_not_found(release_id: str):

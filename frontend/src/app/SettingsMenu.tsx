@@ -1,11 +1,13 @@
 /**
  * The account popover at the right of both top bars (ADR-039, Track U U3, 0.12 I2): who is signed
- * in and the roles they hold in the workspace open now (Z1), their Account page, all settings, the
- * theme, and signing out, each action a button (the user, 2026-10-23). Theme is the same per-browser
- * preference Settings › Appearance writes.
+ * in and the roles they hold in the workspace open now (Z1), their Account page, their
+ * Notifications with the unread count (NT1, D463), all settings, the theme, and signing out, each
+ * action a button (the user, 2026-10-23). Theme is the same per-browser preference Settings ›
+ * Appearance writes.
  */
 
 import { signOut } from "@/api/session";
+import { useInbox } from "@/features/inbox/useInbox";
 import { ControlPopover } from "@/ui/ControlPopover";
 import { Icon, type IconName } from "@/ui/Icon";
 import { RouteLink } from "@/ui/RouteLink";
@@ -22,18 +24,25 @@ export function AccountMenu({
   workspaceKey,
   settingsHref,
   accountHref,
+  notificationsHref,
   onOpenSettings,
   onOpenAccount,
+  onOpenNotifications,
 }: {
   /** The workspace open now, whose roles the menu names; the default one in Settings. */
   workspaceKey?: string;
   settingsHref: string;
   accountHref: string;
+  notificationsHref: string;
   onOpenSettings: () => void;
   onOpenAccount: () => void;
+  onOpenNotifications: () => void;
 }) {
   const { theme, setTheme } = useThemePreference();
   const me = useMe();
+  // The bell keeps the inbox's stream open; the menu reads its count. A client has no inbox page.
+  const { unreadCount } = useInbox(false);
+  const person = me?.kind === "user";
   const roleLine = useRoleLine(workspaceKey);
   const source = useSourceOffer();
   const avatar = me ? (
@@ -77,6 +86,23 @@ export function AccountMenu({
             >
               <Icon name="user" size={15} /> Account
             </RouteLink>
+            {person && (
+              <RouteLink
+                className="secondary account-menu-action"
+                href={notificationsHref}
+                onNavigate={() => {
+                  close();
+                  onOpenNotifications();
+                }}
+              >
+                <Icon name="bell" size={15} /> Notifications
+                {unreadCount > 0 && (
+                  <span className="account-menu-count" aria-label={`${unreadCount} unread`}>
+                    {unreadCount}
+                  </span>
+                )}
+              </RouteLink>
+            )}
             <RouteLink
               className="secondary account-menu-action"
               href={settingsHref}

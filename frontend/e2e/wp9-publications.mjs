@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import { chromium } from "playwright";
 import { cloneDatabase } from "./helpers/database.mjs";
-import { watchPageErrors } from "./helpers/harness.mjs";
+import { harnessToken, ignoreEventStreamsIn, sendTokenTo, signInContext, watchPageErrors } from "./helpers/harness.mjs";
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(frontend, "..");
@@ -90,6 +90,7 @@ try {
     ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(apiPort)],
     resolve(root, "backend"),
     {
+      ...database.payload.harness.settings,
       DATABASE_URL: database.databaseUrl,
       RDM_MODEL_PATH: modelPath,
       CORS_ORIGINS: uiUrl,
@@ -99,6 +100,13 @@ try {
     },
   );
   await ready(`${apiUrl}/health`, backend);
+  // The harness client's token for the runner's own API calls and the harness person for the page (0.12 I1, I2).
+  const harnessAuthorization = await harnessToken(apiUrl, database.payload.harness);
+  sendTokenTo(
+    apiUrl,
+    () => harnessAuthorization,
+    () => database.payload.harness,
+  );
   const ui = start(
     process.execPath,
     ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"],
@@ -162,7 +170,10 @@ try {
     headless: true,
     ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}),
   });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const signedIn = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  await signInContext(signedIn, { apiUrl, uiUrl, person: database.payload.harness.person });
+  ignoreEventStreamsIn(signedIn);
+  const page = await signedIn.newPage();
   page.setDefaultTimeout(10000);
   watchPageErrors(page.context(), (error) => failures.push(error));
   const historicalReads = [];
@@ -191,28 +202,45 @@ try {
   await page.keyboard.press("Escape");
   assert(historicalReads.some((url) => url.includes(`publicationId=${oldPublication.id}`)));
   await page.screenshot({ path: resolve(output, "earlier-publication.png"), fullPage: true });
-  checks.push("An earlier publication remains typed and unchanged under its pinned model; shared list/detail reads carry the immutable publication and expose no write controls");
+  checks.push(
+    "An earlier publication remains typed and unchanged under its pinned model; shared list/detail reads carry the immutable publication and expose no write controls",
+  );
 
   await page.getByRole("button", { name: "Back to publications" }).click();
   const sourceCard = oldCard;
-  await sourceCard.getByRole("button", { name: `More actions for Publication ${oldPublication.publicationNumber}`, exact: true }).click();
+  await sourceCard
+    .getByRole("button", { name: `More actions for Publication ${oldPublication.publicationNumber}`, exact: true })
+    .click();
   await page.getByRole("menuitem", { name: "Start a change set from this publication" }).click();
   await page.getByRole("dialog").getByLabel("Change set name").fill("Earlier review");
   await page.getByRole("dialog").getByRole("button", { name: "Create change set" }).click();
-  await page.getByRole("region", { name: "Change set publication" }).getByRole("heading", { name: "Earlier review", exact: true }).waitFor();
+  await page
+    .getByRole("region", { name: "Change set publication" })
+    .getByRole("heading", { name: "Earlier review", exact: true })
+    .waitFor();
   const changeSetText = await page.locator("main").innerText();
   assert.match(changeSetText, new RegExp(`From publication ${oldPublication.id}`));
   assert.match(changeSetText, /This change set uses a different model version/);
-  checks.push("Deriving from an earlier publication is explicitly labelled, keeps the old model pin and explains that Base 0.6 requires migration instead of promising restore or implicit override");
+  checks.push(
+    "Deriving from an earlier publication is explicitly labelled, keeps the old model pin and explains that Base 0.6 requires migration instead of promising restore or implicit override",
+  );
 
   await page.goto(`${uiUrl}/apps/rdm-master/publications?workspaceKey=${workspaceKey}`);
   const currentCard = page.locator("article.publication-card").filter({
-    has: page.getByRole("heading", { name: `Publication ${currentPublication.publicationNumber} Current`, exact: true }),
+    has: page.getByRole("heading", {
+      name: `Publication ${currentPublication.publicationNumber} Current`,
+      exact: true,
+    }),
   });
-  await currentCard.getByRole("button", { name: `More actions for Publication ${currentPublication.publicationNumber}`, exact: true }).click();
+  await currentCard
+    .getByRole("button", { name: `More actions for Publication ${currentPublication.publicationNumber}`, exact: true })
+    .click();
   await page.getByRole("menuitem", { name: "Withdraw publication" }).click();
   const confirmation = page.getByRole("alertdialog");
-  assert.match(await confirmation.innerText(), new RegExp(`Withdraw Publication ${currentPublication.publicationNumber}\\?`));
+  assert.match(
+    await confirmation.innerText(),
+    new RegExp(`Withdraw Publication ${currentPublication.publicationNumber}\\?`),
+  );
   assert.match(await confirmation.innerText(), /Live records and all publications remain available/);
   await confirmation.getByRole("button", { name: "Withdraw publication" }).click();
   await page.getByText(/is withdrawn and no longer current/).waitFor();
@@ -220,17 +248,25 @@ try {
   assert.equal(afterWithdrawal.items[0].status, "withdrawn");
   assert.equal((await api(`/objects/domain/${changed.id}?workspaceKey=${workspaceKey}`)).name, "Current live domain");
   await page.screenshot({ path: resolve(output, "publication-withdrawn.png"), fullPage: true });
-  checks.push("Withdrawing names the selected publication and removes only its current designation; current live data and both immutable publications remain readable");
+  checks.push(
+    "Withdrawing names the selected publication and removes only its current designation; current live data and both immutable publications remain readable",
+  );
 
   await api("/workspaces", { key: "other", label: "Other workspace" });
   const workspaceState = await api("/workspace-runtime-state");
-  await api("/workspace-runtime-state", { defaultWorkspaceKey: "other", expectedVersion: workspaceState.version }, "PATCH");
+  await api(
+    "/workspace-runtime-state",
+    { defaultWorkspaceKey: "other", expectedVersion: workspaceState.version },
+    "PATCH",
+  );
   const workspace = await api(`/workspaces/${workspaceKey}`);
   await api(`/workspaces/${workspaceKey}`, { expectedVersion: workspace.version, status: "retired" }, "PATCH");
   await page.reload();
   await page.getByText("Read-only workspace").waitFor();
   assert.equal(await page.getByRole("button", { name: /^More actions for Publication/ }).count(), 0);
-  checks.push("Catalogue retirement is a separate read-only state: publications stay visible while change-set and withdrawal actions disappear");
+  checks.push(
+    "Catalogue retirement is a separate read-only state: publications stay visible while change-set and withdrawal actions disappear",
+  );
 
   assert.deepEqual(failures, []);
   const report = {

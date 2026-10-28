@@ -21,9 +21,15 @@ from .writes import JOB_ACTIONS, SYSTEM, Writer, doing
 
 
 def job_group(job: Job) -> str:
-    """The group a job's kind is used under; Work in change sets for a change set's migration
-    (D285)."""
-    if job.kind == "migration" and job.change_set_id:
+    """The group a job's kind is used under; Work in change sets for a change set's own migration
+    (D285). A workspace migration that publishes a change set (V2) also names the change set but
+    is the workspace's release switch: Model release (0.12 R-F4). Only the change set's own
+    migration stores ``moves: changeSet`` (``change_set_migrations``)."""
+    if (
+        job.kind == "migration"
+        and job.change_set_id
+        and (job.parameters or {}).get("moves") == "changeSet"
+    ):
         return "change-sets"
     return JOB_GROUPS[job.kind]
 

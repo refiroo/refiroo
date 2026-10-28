@@ -216,11 +216,21 @@ JOB_PATH = Where("the job's workspace and kind", _job)
 BODY = Where("the body's change set or workspace", _body_context, reads_body=True)
 IMPORT_FORM = Where("the import request's change set or workspace", _import_form, reads_body=True)
 MOVE = Where("the move's target and source workspaces", _move, reads_body=True)
+
+
+def _write_change_set(context: Context) -> Any:
+    """The change set a record or relationship write names, where its handler reads it: the query
+    on a DELETE, the body on any other write (0.12 R-F1)."""
+    if context.request.method == "DELETE":
+        return context.query("changeSetId")
+    return context.field("changeSetId")
+
+
 RECORD_WRITE = Where(
     "the change set, or the record's workspace",
     lambda context, groups: _live_or_change_set(
         context,
-        context.field("changeSetId") or context.query("changeSetId"),
+        _write_change_set(context),
         lambda: _record_workspace(context, context.path("object_id")),
     ),
     reads_body=True,
@@ -229,7 +239,7 @@ RELATION_WRITE = Where(
     "the change set, or the relationship's workspace",
     lambda context, groups: _live_or_change_set(
         context,
-        context.field("changeSetId") or context.query("changeSetId"),
+        _write_change_set(context),
         lambda: _relation_workspace(context, context.path("relation_id")),
     ),
     reads_body=True,

@@ -48,12 +48,15 @@ function appendUnique<T extends { id: string }>(current: T[], incoming: T[]) {
   return [...current, ...incoming.filter((item) => !ids.has(item.id))];
 }
 
-/** Every installed release, oldest first (releases are few: one line per model's versions). */
-async function allReleases() {
+/**
+ * Every installed release, oldest first (releases are few: one line per model's versions); with
+ * `usable`, those that may be chosen (0.12 MR1).
+ */
+async function allReleases(usable = false) {
   const items: ModelReleaseSummary[] = [];
   let cursor: string | undefined;
   do {
-    const page = await api.modelReleases({ cursor, pageSize: 500 });
+    const page = await api.modelReleases({ cursor, pageSize: 500, usable });
     items.push(...page.items);
     cursor = page.nextCursor ?? undefined;
   } while (cursor);
@@ -94,6 +97,8 @@ export function ModelWorkbench({
   // instance), activating and migrating (in a workspace) with Model release.
   const [held, setHeld] = useState<HeldAnywhere[]>([]);
   const [releases, setReleases] = useState<ModelReleaseSummary[]>([]);
+  // The releases an activation may choose: active, of a schema this version reads (0.12 MR1).
+  const [usableIds, setUsableIds] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<ModelDraft[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [defaultWorkspaceKey, setDefaultWorkspaceKey] = useState("");
@@ -124,13 +129,14 @@ export function ModelWorkbench({
   async function load() {
     setError("");
     try {
-      const [groups, caps, installed, workspacePage, state] = await Promise.all([
+      const [groups, caps, installed, usable, workspacePage, state] = await Promise.all([
         api.myActionGroups().then(
           (list) => list.items,
           () => [],
         ),
         api.capabilities(),
         allReleases(),
+        allReleases(true),
         // Workspaces are few (ADR-042); retired ones keep their release and take no activation.
         api.workspaces({ status: "active", pageSize: 100 }),
         api.workspaceRuntimeState(),
@@ -142,6 +148,7 @@ export function ModelWorkbench({
       setDrafts(loadedDrafts);
       setCapabilities(caps);
       setReleases(installed);
+      setUsableIds(new Set(usable.map((release) => release.id)));
       setWorkspaces(workspacePage.items);
       setDefaultWorkspaceKey(state.defaultWorkspaceKey);
       const defaultRelease = workspacePage.items.find((item) => item.key === state.defaultWorkspaceKey)?.model
@@ -219,14 +226,31 @@ export function ModelWorkbench({
     (route.releaseId ? modelOfRelease.get(route.releaseId) : selectedDraft ? modelOfDraft(selectedDraft) : undefined);
   const shownModel = models.find((model) => model.key === selectedModelKey);
   const listing = !route.modelKey && !route.releaseId && !route.draftId;
-  const releaseCount = (model: ModelLine) =>
-    `${model.releases.length} ${model.releases.length === 1 ? "release" : "releases"}`;
+  const draftSchema = (draft: ModelDraft) =>
+    typeof draft.model.schemaVersion === "string" ? draft.model.schemaVersion : "—";
+  const newestDraft = (items: ModelDraft[]) =>
+    items.length ? String([...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0].version) : "—";
+  const listFacts = (releases: string, latest: string, draft: string, schema: string) => [
+    { label: "Releases", value: releases },
+    { label: "Latest", value: latest, mono: true },
+    { label: "Draft", value: draft, mono: true },
+    { label: "Schema", value: schema, mono: true },
+  ];
   const modelRow = (model: ModelLine, isDefault: boolean): EntityRow => {
     const running = runningWorkspaces(workspaces, model.releases).length;
     return {
       key: `model:${model.key}`,
       title: model.name,
-      subtitle: `${model.key} · ${releaseCount(model)}`,
+      subtitle: model.key,
+      subtitleMono: true,
+      // As the Workspaces list: aligned columns, the same four in every group; the newest release
+      // first, and the model's newest open draft.
+      facts: listFacts(
+        String(model.releases.length),
+        model.releases[0].version,
+        newestDraft(drafts.filter((draft) => modelOfDraft(draft) === model.key)),
+        model.releases[0].schemaVersion,
+      ),
       icon: "model",
       pill: isDefault ? (
         <StatusPill tone="success">Runs the default workspace</StatusPill>
@@ -234,6 +258,8 @@ export function ModelWorkbench({
         <StatusPill tone="neutral">
           {running} {running === 1 ? "workspace" : "workspaces"}
         </StatusPill>
+      ) : model.releases.every((release) => release.status === "retired") ? (
+        <StatusPill tone="warning">Retired</StatusPill>
       ) : undefined,
       onOpen: () => onRouteChange({ ...MODEL, modelKey: model.key }),
     };
@@ -241,7 +267,8 @@ export function ModelWorkbench({
   const draftRow = (draft: ModelDraft): EntityRow => ({
     key: `draft:${draft.id}`,
     title: draft.name,
-    subtitle: `Not installed yet · draft version ${draft.version}`,
+    subtitle: "Not installed yet",
+    facts: listFacts("—", "—", String(draft.version), draftSchema(draft)),
     icon: "list",
     pill: <StatusPill tone="draft">Draft</StatusPill>,
     onOpen: () => onRouteChange({ ...MODEL, draftId: draft.id }),
@@ -252,18 +279,25 @@ export function ModelWorkbench({
     const needle = search.trim().toLowerCase();
     const matches = (name: string, key: string) => !needle || `${name} ${key}`.toLowerCase().includes(needle);
     const shown = ordered.filter((model) => matches(model.name, model.key));
+    // A model all of whose releases are retired and that no workspace runs goes last (0.12 MR1).
+    const retired = (m: ModelLine) => !inUse(m) && m.releases.every((release) => release.status === "retired");
     const groups: [string, string, EntityRow[]][] = [
       ["default", "Default workspace", shown.filter((m) => m.key === defaultModelKey).map((m) => modelRow(m, true))],
       ["in-use", "In use", shown.filter((m) => m.key !== defaultModelKey && inUse(m)).map((m) => modelRow(m, false))],
       [
         "not-in-use",
         "Not in use",
-        shown.filter((m) => m.key !== defaultModelKey && !inUse(m)).map((m) => modelRow(m, false)),
+        shown.filter((m) => m.key !== defaultModelKey && !inUse(m) && !retired(m)).map((m) => modelRow(m, false)),
       ],
       [
         "drafts",
         "Drafts without an installed model",
         canManageDrafts ? newModelDrafts.filter((draft) => matches(draft.name, draft.id)).map(draftRow) : [],
+      ],
+      [
+        "retired",
+        "Retired",
+        shown.filter((m) => m.key !== defaultModelKey && retired(m)).map((m) => modelRow(m, false)),
       ],
     ];
     return groups.map(([key, title, rows]): EntityGroup => ({ key, title, count: rows.length, rows }));
@@ -381,11 +415,31 @@ export function ModelWorkbench({
               <ModelReleaseDetail
                 key={route.releaseId}
                 releaseId={route.releaseId}
+                pageTitle={headerLabel}
                 workspaces={workspaces}
                 canManageDrafts={canManageDrafts}
                 canActivate={canActivate}
+                canInstall={canInstall}
+                isDefault={workspaces.some(
+                  (item) => item.key === defaultWorkspaceKey && item.model.releaseId === route.releaseId,
+                )}
                 onCreateDraft={startFromRelease}
                 onActivate={(releaseId) => setActivating({ releaseId })}
+                onStatusChanged={(release) => {
+                  void load();
+                  toast(
+                    release.status === "retired"
+                      ? `${release.name} ${release.version} is retired. It is no longer offered where a model is chosen.`
+                      : `${release.name} ${release.version} is offered again.`,
+                  );
+                }}
+                onDeleted={(release) => {
+                  void load().then(() => {
+                    toast(`${release.name} ${release.version} was deleted.`);
+                    const left = releases.some((item) => item.key === release.key && item.id !== release.id);
+                    onRouteChange(left ? { ...MODEL, modelKey: release.key, modelTab: "releases" } : MODEL);
+                  });
+                }}
               />
             </>
           ) : listing ? (
@@ -439,7 +493,7 @@ export function ModelWorkbench({
       {activating && (
         <ActivateDialog
           workspaces={activatable}
-          releases={releases}
+          releases={releases.filter((release) => usableIds.has(release.id))}
           workspaceKey={activating.workspaceKey}
           releaseId={activating.releaseId}
           canMigrate={canMigrate}

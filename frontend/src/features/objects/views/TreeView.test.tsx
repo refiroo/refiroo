@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { permissionsFixture } from "@/test/permissions";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api, type ObjectQuery } from "@/api/client";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
@@ -19,6 +20,12 @@ import type {
 } from "@/types";
 
 beforeEach(() => {
+  // A person holding every group, read: nothing is offered before the permissions are known.
+  vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    api,
+    warning: "",
+    permissions: permissionsFixture("west"),
+  });
   const values = new Map<string, string>();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => values.get(key) ?? null,
@@ -932,6 +939,7 @@ describe("TreeView dragging", () => {
       serve();
       if (context === "publication")
         vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+          permissions: permissionsFixture("west"),
           api,
           warning: "",
           publication: { id: "r1" } as Publication,
@@ -1093,6 +1101,7 @@ describe("TreeView dragging", () => {
 /** The open change set: restructurings are offered only here (D38). */
 function inChangeSet() {
   vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    permissions: permissionsFixture("west"),
     api,
     warning: "",
     changeSet: { id: "cs-1", workspaceKey: "west", version: 4 } as ChangeSet,

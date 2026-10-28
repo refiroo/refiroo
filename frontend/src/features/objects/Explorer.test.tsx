@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { permissionsFixture } from "@/test/permissions";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ObjectQuery } from "@/api/client";
 import { Explorer } from "@/features/objects/Explorer";
@@ -9,6 +10,12 @@ import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
 import type { EngineModel, Job, ObjectItem, ObjectPage, Publication } from "@/types";
 
 beforeEach(() => {
+  // A person holding every group, read: nothing is offered before the permissions are known.
+  vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    api,
+    warning: "",
+    permissions: permissionsFixture("west"),
+  });
   const values = new Map<string, string>();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => values.get(key) ?? null,
@@ -606,6 +613,7 @@ describe("Explorer", () => {
   it("starts no drag in a publication, and offers Move to… from the record's menu (U-D28)", async () => {
     serve();
     vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      permissions: permissionsFixture("west"),
       api,
       warning: "",
       publication: { id: "p1" } as Publication,

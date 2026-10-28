@@ -31,6 +31,9 @@ import { visitReleaseSurfaces } from "./helpers/release-surfaces.mjs";
 import { visitDesignerSurfaces } from "./helpers/designer-surfaces.mjs";
 import { visitSpreadsheetSurfaces } from "./helpers/spreadsheet-surfaces.mjs";
 import { visitWorkspaceSurfaces } from "./helpers/workspace-surfaces.mjs";
+import { visitSecuritySurfaces } from "./helpers/security-surfaces.mjs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
 
 let harness;
 const checks = [];
@@ -42,13 +45,43 @@ async function shown(locator) {
 
 async function capture(page, name, outputDir, mask = []) {
   // A record heading can appear while its independently fetched panels still load.
-  await page.waitForLoadState("networkidle");
+  // A signed-in page keeps the inbox's event stream open (Home, 0.12 A2), so the network never idles there.
+  await page.waitForLoadState("networkidle", { timeout: 2500 }).catch(() => undefined);
   await page.waitForFunction(() => document.querySelectorAll('[aria-busy="true"]').length === 0);
   await page.evaluate(() => document.fonts.ready);
   const result = await compareScreenshot(page, name, { outputDir, mask });
   checks.push(result.message);
   if (!result.passed) failures.push(result.message);
   return result;
+}
+
+// `--only security` runs the 0.12 security surfaces alone (0.12 R, D449), for iterating on them and for
+// recording their baselines without touching the others.
+const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : undefined;
+
+/** Light at 1440px for every security surface; dark and 390px for the ones that mark them. */
+async function visitSecurity(output) {
+  await visitSecuritySurfaces(async ({ page: surface, name, mask, dark }) => {
+    if (name.endsWith("-dark") && !dark) return;
+    await capture(surface, name, output, mask);
+  });
+}
+
+if (only === "security") {
+  const output = await mkdtemp(resolve(tmpdir(), "rdm-visual-security-"));
+  try {
+    await visitSecurity(output);
+  } catch (error) {
+    console.error("Visual regression gate (security) error:", error);
+    failures.push(String(error));
+  }
+  console.log(`Visual regression evidence: ${output}`);
+  for (const check of checks) console.log(`  ${check}`);
+  if (failures.length) {
+    console.log(`\nFAILED: ${failures.length}`);
+    for (const failure of failures) console.log(`  ${failure}`);
+  } else console.log("\nPASSED: no unexpected visual changes in the security surfaces.");
+  process.exit(failures.length ? 1 : 0);
 }
 
 try {
@@ -78,7 +111,10 @@ try {
   await capture(page, "record-detail-system-light", output);
 
   // --- 5. Change set editing (collection in change set context) ---
-  const changeSet = await api(`/workspaces/default/change-sets`, { name: "Visual test change set", source: "currentLive" });
+  const changeSet = await api(`/workspaces/default/change-sets`, {
+    name: "Visual test change set",
+    source: "currentLive",
+  });
   await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet.id}`);
   await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
   await capture(page, "change-set-editing-light", output);
@@ -100,7 +136,7 @@ try {
 
   // --- 8. Settings › Model (U3): the list page, and the active release's page ---
   await page.goto(`${uiUrl}/settings/model`);
-  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
+  await shown(page.getByRole("region", { name: "Default workspace" }));
   await capture(page, "settings-model-light", output, [
     page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
   ]);
@@ -135,7 +171,7 @@ try {
   await shown(page.getByRole("heading", { name: "Domain 00" }));
   await capture(page, "record-detail-domain-dark", output);
   await page.goto(`${uiUrl}/settings/model`);
-  await shown(page.getByRole("navigation", { name: "Model catalogue" }));
+  await shown(page.getByRole("region", { name: "Default workspace" }));
   await capture(page, "settings-model-dark", output, [
     page.locator(".release-metadata dd, .catalogue-text small:has-text(':')"),
   ]);
@@ -224,7 +260,10 @@ try {
   // two-level cascade asking for Carriers' values) and by type pair, Insert level above… Road named
   // Surface with its sibling list and inputs, and Remove this level… on Road ---
   await seedRestructuring(api);
-  const restructuring = await api("/workspaces/default/change-sets", { name: "Restructuring gate", source: "currentLive" });
+  const restructuring = await api("/workspaces/default/change-sets", {
+    name: "Restructuring gate",
+    source: "currentLive",
+  });
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });
     await openDomainHierarchy(page, uiUrl, restructuring);
@@ -301,7 +340,7 @@ try {
     // The selected workspace's panel shows its times, as the workspace's own page does.
     await capture(page, `settings-workspaces-${scheme}`, output, varying());
     await page.goto(`${uiUrl}/settings/about`);
-    await shown(page.getByRole("region", { name: "Database" }));
+    await shown(page.getByRole("region", { name: "Engine" }));
     await capture(page, `settings-about-${scheme}`, output, varying());
     await page.goto(`${uiUrl}/settings/deployment`);
     await shown(page.getByRole("region", { name: "Capability groups" }));
@@ -338,6 +377,9 @@ try {
     if (name.endsWith("-dark") && !dark) return;
     await capture(surface, name, output, mask);
   });
+
+  // --- Base 0.12 security surfaces (0.12 R, D449), light and the dark and 390px subsets ---
+  await visitSecurity(output);
 
   // Write report.
   const report = { checks, failures, passed: failures.length === 0 };

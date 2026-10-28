@@ -27,7 +27,7 @@ describe("a person's recent activity (0.12 RA1)", () => {
     render(<RecentActivity principal={{ id: "person", name: "Anna", version: 1 }} />);
     expect(await screen.findByText("Showing 10 entries")).toBeInTheDocument();
     expect(security.securityEvents).toHaveBeenLastCalledWith("person", undefined, 10, []);
-    expect(screen.getAllByRole("heading", { level: 3 }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("heading", { level: 2 }).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Load more" }));
     expect(await screen.findByText("Showing 14 entries")).toBeInTheDocument();
     expect(security.securityEvents).toHaveBeenLastCalledWith("person", "older", 20, []);

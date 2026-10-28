@@ -11,6 +11,7 @@ as J30.8's are.
 import json
 import threading
 import time
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -132,7 +133,7 @@ def test_notices_are_marked_read_by_id_or_all_and_only_the_callers_own(world):
     assert ok(first.api.post(f"{NOTICES}/read", {"all": True}))["unreadCount"] == 0
     assert _inbox(first, unread=True) == []
     for body in ({}, {"ids": [mine[0]["id"]], "all": True}, {"all": False}):
-        assert first.api.post(f"{NOTICES}/read", body).status_code == 422
+        refused(first.api.post(f"{NOTICES}/read", body), 422, "REQUEST_VALIDATION_ERROR")
 
 
 @pytest.mark.journey("J42.5")
@@ -179,6 +180,140 @@ def test_a_job_finishing_reaches_its_requester_and_an_inline_batch_does_not(worl
     }
     assert notice["details"] == {"jobKind": "batch", "state": "completed"}
     assert all(item["subject"]["id"] != job["id"] for item in _inbox(other))
+
+
+def _background(steward, prefix, **body) -> dict:
+    """A background batch of the steward's, run by the worker until it finishes or waits."""
+    request = {
+        "workspaceKey": W1,
+        "policy": "independent",
+        "run": "background",
+        "items": _items(steward, 2, prefix),
+        **body,
+    }
+    job = ok(steward.api.post("/batches", request), 202)
+    _worker("inbox").run_until_idle()
+    return job
+
+
+@pytest.mark.journey("J42.5")
+def test_a_job_waiting_for_confirmation_closes_its_notice_once_answered(world):
+    """Given a Data steward whose previewed batch waits for confirmation (0.12 NT1, D464). Then
+    they have one unread "awaiting-confirmation" notice. When they cancel the job, then the notice
+    is read without anyone marking it, and the unread count falls by one."""
+    [steward] = _actors(world, steward="steward").values()
+    job = _background(steward, "W", stage="preview")
+    [waiting] = _inbox(steward)
+    assert waiting["kind"] == "job.awaiting-confirmation" and not waiting["read"]
+    before = _unread(steward)
+
+    ok(steward.api.post(f"/jobs/{job['id']}/cancel", None), 202)
+    assert _inbox(steward)[0]["read"] is True and _unread(steward) == before - 1
+
+
+@pytest.mark.journey("J42.5")
+def test_opening_a_subject_marks_its_notices_read_and_a_notice_may_be_unread_again(world):
+    """Given a steward whose background batch finished (0.12 NT1). When the page of the job is
+    opened (`subjectId`), then its notice is read; another subject marks nothing. When the
+    notice is marked unread by ID, then it counts again, and marking it unread twice marks 0.
+    Naming two selections at once is a validation error."""
+    [steward] = _actors(world, steward="steward").values()
+    job = _background(steward, "S")
+    [notice] = _inbox(steward)
+    start = _unread(steward)
+
+    assert ok(steward.api.post(f"{NOTICES}/read", {"subjectId": "unknown"}))["marked"] == 0
+    result = ok(steward.api.post(f"{NOTICES}/read", {"subjectId": job["id"]}))
+    assert result == {"marked": 1, "unreadCount": start - 1}
+    unread = {"ids": [notice["id"]], "read": False}
+    assert ok(steward.api.post(f"{NOTICES}/read", unread)) == {"marked": 1, "unreadCount": start}
+    assert ok(steward.api.post(f"{NOTICES}/read", unread))["marked"] == 0
+    for body in ({"subjectId": job["id"], "all": True}, {"ids": [notice["id"]], "subjectId": "x"}):
+        refused(steward.api.post(f"{NOTICES}/read", body), 422, "REQUEST_VALIDATION_ERROR")
+
+
+@pytest.mark.journey("J42.5")
+def test_notices_are_searched_filtered_and_sorted_through_every_page(world):
+    """Given an approver with two waiting requests, "Alpha prices" commented "Rounded to cents"
+    and "Beta codes" commented "Two regions added" (0.12 NT1, D462). Then `q` finds a change
+    set's name and a comment in any case, the submitter's name and the words of the kind, never a
+    value only `details` holds (the actor's kind); `%` is a character, not a wildcard. `kind`,
+    `workspace` and `unread` narrow; `sort=oldest` turns the order, and its pages continue by
+    cursor."""
+    actors = _actors(world, contributor="contributor", approver="owner")
+    contributor, approver = actors["contributor"], actors["approver"]
+
+    def named(name: str) -> dict:
+        change_set = contributor.change_set(name=name)
+        ok(contributor.create("R", "Proposed", change_set=change_set), 201)
+        return contributor.current(change_set)
+
+    alpha = named("Alpha prices")
+    ok(_submit(contributor, alpha, "Rounded to cents"), 201)
+    beta = named("Beta codes")
+    ok(_submit(contributor, beta, "Two regions added"), 201)
+    both = [beta["id"], alpha["id"]]
+
+    def found(**params) -> list[str]:
+        """The change sets of the approver's notices, newest first."""
+        return [item["subject"]["id"] for item in _inbox(approver, **params)]
+
+    assert found(q="ALPHA") == [alpha["id"]] and found(q="codes") == [beta["id"]]
+    assert found(q="ROUNDED") == [alpha["id"]] and found(q="regions") == [beta["id"]]
+    assert found(q="contributor") == both
+    assert found(q="waiting for your approval") == both
+    assert found(q="%") == [] and found(q="client") == []
+    assert found(kind="change-set.submitted", workspace=W1) == both
+    assert found(kind="job.failed") == [] and found(workspace="elsewhere") == []
+    assert found(q="rounded", unread=False) == []
+
+    first = ok(approver.api.get(NOTICES, sort="oldest", pageSize=1))
+    second = ok(approver.api.get(NOTICES, sort="oldest", pageSize=1, cursor=first["nextCursor"]))
+    assert [item["subject"]["id"] for item in first["items"] + second["items"]] == both[::-1]
+    refused(approver.api.get(NOTICES, sort="sideways"), 422, "REQUEST_VALIDATION_ERROR")
+
+
+@pytest.mark.journey("J42.5")
+def test_notices_are_removed_by_id_or_all_read_and_only_the_callers_own(world):
+    """Given two approvers with the same three waiting requests (0.12 NT1, D461). When one
+    removes a notice by ID, then `removed` is 1 and it is gone; the other's notice, named by ID,
+    stays. When one notice is read and every read one is removed, then only the read one goes
+    and the unread count is unchanged. The change sets stay. Naming neither or both is a
+    validation error."""
+    actors = _actors(world, contributor="contributor", first="owner", second="owner")
+    contributor, first, second = actors["contributor"], actors["first"], actors["second"]
+    for index in range(3):
+        ok(_submit(contributor, _proposal(world, contributor, f"Removal {index}")), 201)
+    mine, theirs = _inbox(first), _inbox(second)
+
+    removal = f"{NOTICES}/removal"
+    result = ok(first.api.post(removal, {"ids": [mine[0]["id"]]}))
+    assert result == {"removed": 1, "unreadCount": 2}
+    assert ok(first.api.post(removal, {"ids": [theirs[1]["id"]]}))["removed"] == 0
+    assert len(_inbox(second)) == 3
+
+    ok(first.api.post(f"{NOTICES}/read", {"ids": [mine[1]["id"]]}))
+    assert ok(first.api.post(removal, {"read": True})) == {"removed": 1, "unreadCount": 1}
+    assert [item["id"] for item in _inbox(first)] == [mine[2]["id"]]
+    ok(contributor.api.get(f"/change-sets/{mine[0]['subject']['id']}"))
+    for body in ({}, {"ids": [mine[2]["id"]], "read": True}, {"read": False}):
+        refused(first.api.post(removal, body), 422, "REQUEST_VALIDATION_ERROR")
+
+
+@pytest.mark.journey("J42.5")
+def test_the_worker_deletes_notices_older_than_ninety_days(world):
+    """Given a waiting request's notice (0.12 NT1, D465). When the job worker sweeps 89 days
+    later, then it stays; when it sweeps 91 days later, then it is gone, read or not."""
+    actors = _actors(world, contributor="contributor", approver="owner")
+    contributor, approver = actors["contributor"], actors["approver"]
+    ok(_submit(contributor, _proposal(world, contributor, "Old news")), 201)
+    assert len(_inbox(approver)) == 1
+
+    worker = _worker("inbox")
+    worker.sweep(datetime.now(UTC) + timedelta(days=89))
+    assert len(_inbox(approver)) == 1
+    worker.sweep(datetime.now(UTC) + timedelta(days=91))
+    assert _inbox(approver) == [] and _unread(approver) == 0
 
 
 def _subscribe(world, url, **changes):
@@ -260,7 +395,7 @@ def test_a_subscription_takes_only_the_events_it_names_and_may_be_cloudevents(wo
     )
     refused(_subscribe(world, receiver.url, events=["record.created"]), 400, "UNKNOWN_EVENT")
     for extra in ({"filters": {"x": "y"}}, {"consumerApi": "any"}, {"payload": "identity"}):
-        assert _subscribe(world, receiver.url, **extra).status_code == 422
+        refused(_subscribe(world, receiver.url, **extra), 422, "REQUEST_VALIDATION_ERROR")
     actors = _actors(world, contributor="contributor", approver="owner")
     contributor, approver = actors["contributor"], actors["approver"]
     change_set = _proposal(world, contributor)
@@ -371,3 +506,38 @@ def test_the_inbox_stream_sends_the_count_at_once_and_each_new_notice(world, ser
     assert (
         stream.wait_for("unread", lambda body: body["unreadCount"] > count)["unreadCount"] > count
     )
+
+
+@pytest.mark.journey("J42.5")
+def test_the_inbox_stream_reads_a_burst_in_bounded_pages_and_loses_none(world, served, monkeypatch):  # noqa: F811
+    """Given the stream open and a read of at most two notices. When five change sets are
+    submitted at once, then the stream sends all five notices, none twice, and the unread count
+    they raised; one read of the inbox never holds more than the limit."""
+    from app.engine.notifications import inbox
+
+    monkeypatch.setattr(inbox, "CATCH_UP_LIMIT", 2)
+    stream = _Inbox(served)
+    actors = _actors(world, contributor="contributor")
+    contributor = actors["contributor"]
+    count = stream.events[0][1]["unreadCount"]
+    for n in range(5):
+        ok(_submit(contributor, _proposal(world, contributor, f"Burst {n}")), 201)
+    deadline = time.monotonic() + 15
+    while sum(1 for name, _ in stream.events if name == "notification") < 5:
+        assert time.monotonic() < deadline, stream.events
+        time.sleep(0.05)
+    sent = [body["id"] for name, body in stream.events if name == "notification"]
+    assert len(sent) == len(set(sent)) == 5
+    assert stream.wait_for("unread", lambda body: body["unreadCount"] == count + 5)
+    with world.api.client.app.state.session_factory() as session:
+        found = inbox.after(session, ("client", _inbox_owner(session)), 0)
+        assert len(found) == 2
+
+
+def _inbox_owner(session) -> int:
+    """The row ID of the client the harness token belongs to."""
+    from sqlalchemy import text
+
+    return session.execute(
+        text("SELECT client_id FROM notifications WHERE client_id IS NOT NULL LIMIT 1")
+    ).scalar_one()

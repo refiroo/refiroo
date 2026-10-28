@@ -6,6 +6,96 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-28
+
+Security, authentication and authorization: every caller signs in, every operation is authorized against a role, and
+every change records who made it; change-set publication approvals and an inbox; mail; licensing and the
+compatibility commitment ([COMPATIBILITY](docs/COMPATIBILITY.md)). Upgrading from 0.11: create the first administrator
+with `python -m app.cli.create_admin` ([OPERATIONS](docs/OPERATIONS.md)); the schema-language window is 0.10 only,
+and a workspace on an older release is brought up to date from its own screen or with
+`python -m app.cli.model_release_raise`.
+
+### Added (0.12 NT1, notifications: a short list and a history page)
+
+- **The bell lists only unread notices**, at most 20 with how many more, and a notice opened from it leaves the
+  list; "See all notifications" opens the new **Notifications** page (`/notifications`, also in the account menu with
+  the unread count): search, Kind, Workspace, Show (all, unread, read) and Sort, rows loaded as the list scrolls,
+  notices selected as records are (Cmd/Ctrl-click, Shift for a range, Select all) and marked read or unread or
+  deleted from one steady bar, and Delete all read…. Settings › Notifications is renamed **Notification email**.
+- **A notice opens in its own workspace's application** from the bell, also on Home and the Notifications page.
+- `GET /me/notifications` gains `q`, `kind`, `workspace` and `sort`; `POST /me/notifications/read` gains `subjectId`
+  and `read: false`; new `POST /me/notifications/removal` (`{ids}` or `{read: true}`). Additive.
+- **The engine closes what is done:** a job's "waiting for your confirmation" notice is read once the job is
+  confirmed or cancelled, and opening a job's page or dialog, a migration, a move or a change set's review marks the
+  person's notices about it read, including one that arrives while it is shown.
+- The 90-day delete runs in the job worker's hourly sweep instead of inside every insert (migration
+  `20261116_01`).
+
+### Fixed (0.12 NT1)
+
+- **A second click on the bell, the account button or any other popover button closed and reopened it.** Focus
+  leaving the popover closed it and the same press opened it again; that press now only closes it.
+
+### Added (0.12 MR1, retiring and deleting model releases)
+
+- **A model release can be retired** (`PATCH /api/v1/model-releases/{releaseId}`, Settings › Model › the release
+  › Retire…): it is no longer offered or accepted where a release is chosen (`409 MODEL_RELEASE_RETIRED` for a new
+  workspace, an activation, a migration or a change set elsewhere), and the workspaces and change sets on it keep
+  working. It can be brought back; installing its exact model again also does. The default workspace's release is
+  not retired (`409 MODEL_RELEASE_IS_DEFAULT`).
+- **A release nothing refers to can be deleted** (`DELETE /api/v1/model-releases/{releaseId}`, Delete… on its
+  page). Every release says `deletable` and, if not, `deleteBlockedBy` (`running`, `history`, `importProfile`,
+  `mapping`); a refusal is `409 MODEL_RELEASE_IN_USE`. `python -m app.cli.model_release_prune` deletes the retired
+  ones at once (`--unused` also the active ones, `--dry-run` lists).
+- **Model pickers offer only what can be chosen.** `GET /model-releases` gains `status` and `usable=true` (active,
+  of a schema this version reads); every picker uses it. The new-workspace picker lists each model's newest
+  release, older ones behind "Show older versions"; a change set's pickers list every usable version, and its
+  workspace's own release even when retired. Settings › Model lists fully retired models last, under Retired.
+- Release answers gain `status`, `statusVersion`, `retiredAt`, `deletable` and `deleteBlockedBy` (additive). The
+  database gains `model_releases.status`, `status_version` and `retired_at` (migration `20261115_01`).
+
+### Fixed (0.12 R, the release review)
+
+- **Reloading and moving on at once no longer signs you out.** A reload renews the session; when the browser navigated before it kept the new refresh cookie, the next page presented a used token and the session ended as reuse. A used refresh token presented again within 30 seconds of its use, while the token that use issued is unused, now renews from that token; an older token, a later one, or a successor already used still ends the session.
+- **A DELETE could change live data under a change-set permission.** The record, relationship and
+  attribute-value deletes took `changeSetId` from the body for the permission check but from the query for
+  the write, so a Contributor could delete live. The check now reads it where the write does, and the write
+  unit itself refuses a live write by a caller allowed only change-set work (and the reverse), `403 FORBIDDEN`.
+- **A record-type narrowing was skipped** for attribute writes in a change set that already held the record.
+- **A migration that publishes a change set** now needs what publishing it directly needs: Publish in the
+  workspace and the workspace's approval policy (`409 APPROVAL_REQUIRED`); an open request is closed as a direct
+  publication closes it. Confirming such a migration is no longer allowed to someone with only Work in change
+  sets.
+- **A submitted change set can no longer change underneath its request.** Moving it to another release freezes
+  or withdraws the request (`409 CHANGE_SET_SUBMITTED`, or `withdrawSubmission=true`), and an approval is bound
+  to the version that was submitted (`409 VERSION_CONFLICT`).
+- **Withdrawing a request** follows one rule: its submitter or an approver. `DELETE …/submission` is declared by
+  its own action, `change-sets.withdraw` (Work in change sets or Approve publications).
+- **Adding a passkey asks for your password or a code first**, as removing one does
+  (`POST /oauth/passkeys/registration/options` takes `{"proof"}`; `422 PROOF_REQUIRED`, `422 CODE_INCORRECT`,
+  `429 SIGN_IN_SLOWED`). A malformed passkey answer is refused instead of answering `500`.
+- **More guessing is slowed:** a wrong current password on `POST /me/password`, wrong client secrets on
+  `/oauth/token` (per client and address; an unknown client costs the same), and open provider sign-ins are capped
+  at 2,000 per provider.
+- **An engine that started with nothing to serve** (every workspace on a schema outside the window) starts its
+  background work as soon as a release is raised, without a restart.
+- **A one-time link is never mailed twice** when a mail server is slow; a provider sign-in with unchanged groups
+  no longer empties every process's permission cache.
+- **The application:** actions stay hidden until your permissions are known; the draft's consumer API documents
+  download with your sign-in; a server error while renewing the session no longer signs you out; live updates back
+  off when the engine is unreachable; a change set's page follows its request after it is sent back; reload after
+  a version conflict on the approval policy; no `Error:` prefix on the crash screen.
+- **The development proxy** answers `502 ENGINE_UNREACHABLE` with the reason (nothing at the engine's address,
+  or another program holds its port) instead of printing a TLS stack trace.
+
+### Changed (0.12 R, Settings)
+
+- **Settings › Account › What you can do** is a table of your workspaces: your roles, and what you may read,
+  propose, change live, publish and approve. A limited permission is a count ("2 applications, 1 record type")
+  that opens what it covers, application by application, with the role it comes from. Each role appears once per
+  workspace; roles across the instance are listed under it. The Account and Notifications pages are wider.
+- **People, groups and clients** scroll page by page; the Groups page names each group's source on the group.
+
 ### Added (0.12 UW1, a workspace that cannot be served)
 
 - **A workspace says why it cannot be opened.** `GET /api/v1/workspaces` and `GET /api/v1/workspaces/{key}`
@@ -32,6 +122,10 @@ All notable changes to this project are documented in this file. The format foll
 
 - **Settings › Workspaces lists each workspace's model and release in aligned columns**, labelled once per
   group; the second line is the workspace's key. At a phone's width they stack under the name.
+- **Settings › Model lists each model the same way:** its key on the second line, then Releases, Latest, Draft (the
+  model's newest open draft) and Schema (the newest release's schema language) as aligned columns; a draft not yet
+  installed shows "—" for the release columns. Every group has the same columns and the status column fits its pill,
+  so they line up from group to group. An opened draft or release no longer repeats the page's title as its heading.
 
 ### Added (0.12 L2, the compatibility commitment)
 

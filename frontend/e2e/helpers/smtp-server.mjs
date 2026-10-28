@@ -53,6 +53,14 @@ export async function startSmtp() {
   return {
     port: server.address().port,
     messages,
+    /** Resolves once no message has arrived for `ms`, so a count read after it is the final one. */
+    quiet: async (ms = 1500) => {
+      let seen = -1;
+      while (seen !== messages.length) {
+        seen = messages.length;
+        await new Promise((done) => setTimeout(done, ms));
+      }
+    },
     refuse: (address, code, text) => refused.set(address, { code, text }),
     stop: () => {
       for (const socket of sockets) socket.destroy();

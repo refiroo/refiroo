@@ -7,11 +7,10 @@
 // works and offers a new one. Axe on each page; screenshots; no horizontal scroll at 390px.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { bootHarness } from "./helpers/harness.mjs";
+import { SHAPED_MODELS, bootShaped } from "./helpers/shaped-models.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { startSmtp } from "./helpers/smtp-server.mjs";
 
-const MODELS = [{ name: "starter" }, { name: "renamed", product: "Northfield Reference Data" }];
 const OLD = "an old harness passphrase 1";
 const NEW = "a brand new harness passphrase 2";
 const checks = [];
@@ -40,15 +39,11 @@ async function received(smtp, count) {
 }
 
 async function walk(configuration) {
-  const smtp = await startSmtp();
-  const harness = await bootHarness({
-    transformModel: configuration.product
-      ? (model) => {
-          model.product.name = configuration.product;
-        }
-      : undefined,
-  });
+  let smtp;
+  let harness;
   try {
+    smtp = await startSmtp();
+    harness = await bootShaped(configuration);
     const { apiUrl, uiUrl, api, output, browser, signedOutContext } = harness;
     const tag = configuration.name;
     const username = `ada-${tag}`;
@@ -58,7 +53,10 @@ async function walk(configuration) {
     // A person with a password and an address, set the way an administrator's link sets it.
     const made = await api("/users", { username, name: `Ada ${tag}`, email: `${username}@example.org` });
     const first = await api(`/users/${made.id}/password-reset`, {});
-    expect(first.url.startsWith(`${uiUrl}/reset-password?token=`), `${tag}: an administrator's link opens the application: ${first.url}`);
+    expect(
+      first.url.startsWith(`${uiUrl}/reset-password?token=`),
+      `${tag}: an administrator's link opens the application: ${first.url}`,
+    );
     const token = new URL(first.url).searchParams.get("token");
     const set = await fetch(`${apiUrl}/oauth/password`, {
       method: "POST",
@@ -76,14 +74,21 @@ async function walk(configuration) {
     // 1. Mail not set up: no link to reset, and the ask page says so.
     await page.goto(uiUrl);
     await signInHeading();
-    expect((await page.getByRole("link", { name: "Forgotten your password?" }).count()) === 0, `${tag}: no reset link without mail`);
+    expect(
+      (await page.getByRole("link", { name: "Forgotten your password?" }).count()) === 0,
+      `${tag}: no reset link without mail`,
+    );
     await page.goto(`${uiUrl}/reset-password`);
     await page.getByText(/cannot be asked for by e-mail here/).waitFor();
     expect((await page.getByRole("button", { name: "Mail me a link" }).count()) === 0, `${tag}: no form without mail`);
     checks.push(`${tag}: without mail set up the screen offers no reset`);
 
     // 2. Mail set up: the link leads to the ask page.
-    await api("/mail-settings", { host: "127.0.0.1", port: smtp.port, security: "none", fromAddress: "refiroo@example.org" }, "PUT");
+    await api(
+      "/mail-settings",
+      { host: "127.0.0.1", port: smtp.port, security: "none", fromAddress: "refiroo@example.org" },
+      "PUT",
+    );
     await page.goto(uiUrl);
     await signInHeading();
     await shot(page, "sign-in-with-reset");
@@ -106,12 +111,15 @@ async function walk(configuration) {
     await shot(page, "asked");
     await axe(page, `${tag}-asked`);
     expect(await received(smtp, 1), `${tag}: the message reached the server`);
+    await smtp.quiet();
     expect(smtp.messages.length === 1, `${tag}: only the person was written to (${smtp.messages.length})`);
     const mail = decoded(smtp.messages[0] ?? "");
     expect(mail.includes(`To: ${username}@example.org`), `${tag}: addressed to the person`);
     const link = mail.match(/https?:\/\/\S+reset-password\?token=\S+/)?.[0] ?? "";
     expect(link.startsWith(`${uiUrl}/reset-password?token=`), `${tag}: the mail links to the application: ${link}`);
-    checks.push(`${tag}: the ask said the same for a person and a stranger; one message, to the person, with the application's link`);
+    checks.push(
+      `${tag}: the ask said the same for a person and a stranger; one message, to the person, with the application's link`,
+    );
 
     // 4. The link: who it is for, the engine's refusal, then the new password.
     await page.goto(link);
@@ -122,7 +130,10 @@ async function walk(configuration) {
     await page.getByLabel("New password").fill("short");
     await page.getByLabel("Type it again").fill("short");
     await page.getByRole("button", { name: "Set password" }).click();
-    await page.getByRole("alert").filter({ hasText: /at least \d+ characters/ }).waitFor();
+    await page
+      .getByRole("alert")
+      .filter({ hasText: /at least \d+ characters/ })
+      .waitFor();
     await page.getByLabel("New password").fill(NEW);
     await page.getByLabel("Type it again").fill(NEW);
     await page.getByRole("button", { name: "Set password" }).click();
@@ -140,9 +151,12 @@ async function walk(configuration) {
     await page.getByRole("alert").filter({ hasText: "The username or password is not right" }).waitFor();
     await page.getByLabel("Password").fill(NEW);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await page.getByRole("button", { name: /account/i }).first().waitFor().catch(() => undefined);
+    await page.locator(".account-button").waitFor();
     await page.waitForURL((url) => !url.pathname.includes("reset-password") && url.origin === uiUrl);
-    expect(!(await page.getByRole("heading", { level: 1, name: "Sign in" }).isVisible()), `${tag}: signed in with the new password`);
+    expect(
+      !(await page.getByRole("heading", { level: 1, name: "Sign in" }).isVisible()),
+      `${tag}: signed in with the new password`,
+    );
     checks.push(`${tag}: signed in with the new password; the old one was refused`);
 
     // 6. The used link is gone.
@@ -166,13 +180,13 @@ async function walk(configuration) {
     await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
     console.log(`I6 browser evidence (${tag}): ${output}`);
   } finally {
-    harness.cleanup();
-    smtp.stop();
+    harness?.cleanup();
+    smtp?.stop();
   }
 }
 
 try {
-  for (const configuration of MODELS) await walk(configuration);
+  for (const configuration of SHAPED_MODELS) await walk(configuration);
   console.log(`Checks: ${checks.length}`);
   for (const check of checks) console.log(`  ${check}`);
   if (failures.length) {

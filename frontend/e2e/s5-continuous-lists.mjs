@@ -167,8 +167,15 @@ async function walk(page, region, rows, direction, label, delta = 360) {
     const moved = (await scrolled()) - top;
     if (Math.abs(moved) < 1) break;
     const after = await placeOf(region, before.index);
-    if (after !== undefined && Math.abs(before.top - moved - after) > worst) {
-      worst = Math.abs(before.top - moved - after);
+    // The row moves by the distance the list scrolled, or, where rows drawn above the view were taller
+    // or shorter than their estimate and the window corrected the scroll position for it, by the
+    // distance the wheel asked: a jump is a move that is neither.
+    const jump =
+      after === undefined
+        ? 0
+        : Math.min(Math.abs(before.top - moved - after), Math.abs(before.top - direction * delta - after));
+    if (after !== undefined && jump > worst) {
+      worst = jump;
       const now = await heights();
       const changed = Object.entries(now).filter(
         ([index, height]) => sizes[index] !== undefined && sizes[index] !== height,
@@ -603,7 +610,8 @@ try {
   const phoneReads = pageSizes(phone, "/api/v1/objects/vol-item");
   // D164 (8): the walk and the page size hold at phone width.
   const phoneWalk = await walk(phone, phoneTable, 400, 1, "390px wheel down");
-  await fittedPage(phone);
+  // At phone width the page scrolls as any other and the rows keep a window of their own (3f6bd1e,
+  // reported 2026-10-25), so the fitted-page check holds at 1440px only.
   let phoneState = await windowState(phoneTable);
   assert.ok(phoneState.first > 40, `390px: scrolled to ${phoneState.first}`);
   const phonePage = phone.getByRole("spinbutton", { name: "Page" });
@@ -629,7 +637,7 @@ try {
   assert.deepEqual(phoneReads.odd, [], `390px: reads over the reader's page: ${phoneReads.odd.join(" ")}`);
   await narrow.close();
   checks.push(
-    `volume 390px: the lens walks 400 rows by wheel (${phoneWalk.steps} steps) with no row jumping more than 1 px on its fitted page (window still, footer on the bottom line) and reads the reader's page only, jumps by page number without horizontal page scroll; the record panel scrolls`,
+    `volume 390px: the lens walks 400 rows by wheel (${phoneWalk.steps} steps) with no row jumping more than 1 px and reads the reader's page only, jumps by page number without horizontal page scroll; the record panel scrolls`,
   );
 } catch (error) {
   console.error(harness.log().slice(-3000));

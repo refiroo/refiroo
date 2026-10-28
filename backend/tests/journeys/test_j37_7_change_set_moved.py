@@ -395,3 +395,38 @@ def test_a_failed_move_changes_nothing(world, monkeypatch):
     assert failed["error"]["code"] == "MIGRATION_FAILED"
     assert _unchanged(world, key, made, change_set, [made["forty"], new]) == before
     assert world.current(change_set)["modelReleaseId"] == x1_id
+
+
+@pytest.mark.journey("J37.7")
+@pytest.mark.structures(*BOTH)
+def test_moving_a_submitted_change_set_withdraws_its_submission_or_is_refused(world):
+    """Given a previewed move of a change set that is submitted for publication. When it is
+    confirmed without `withdrawSubmission=true`, then `409 CHANGE_SET_SUBMITTED` and the job keeps
+    waiting; with it, the move runs and the request reads as withdrawn, so no approver can publish
+    the moved content as submitted (0.12 R-F6)."""
+    key, _made, _x1_id, x2_id, change_set, _new = _left_behind(world, _count_integer(world))
+    job = _previewed(world, change_set)
+    version = world.current(change_set)["version"]
+    ok(
+        world.api.post(
+            f"/change-sets/{change_set['id']}/submission", {"expectedChangeSetVersion": version}
+        ),
+        201,
+    )
+    request = {
+        "expectedVersion": job["migration"]["expectedVersion"],
+        "expectedFeedPosition": job["migration"]["feedPosition"],
+        "acceptLoss": True,
+    }
+
+    refused(world.api.post(f"/jobs/{job['id']}/confirm", request), 409, "CHANGE_SET_SUBMITTED")
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "awaiting_confirmation"
+    assert world.current(change_set)["submission"]["state"] == "submitted"
+
+    ok(world.api.post(f"/jobs/{job['id']}/confirm", request, withdrawSubmission=True), 202)
+    _run(world)
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+    moved = world.current(change_set)
+    assert moved["modelReleaseId"] == x2_id and moved["version"] == version + 1
+    requests = ok(world.api.get(f"/workspaces/{key}/publication-requests"))["items"]
+    assert [item["state"] for item in requests] == ["withdrawn"]

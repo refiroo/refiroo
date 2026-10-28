@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 
 import jwt
 import pytest
@@ -168,6 +169,32 @@ def test_a_client_obtains_a_token_and_calls_the_api(world):
     _oauth_error(unknown, 400, "unsupported_grant_type")
 
 
+@pytest.mark.journey("J41")
+def test_wrong_client_secrets_are_slowed_and_unknown_ids_cost_the_same(world, monkeypatch):
+    """Given a client. When its secret is guessed wrong past the free failures, the next attempt is
+    `429` `invalid_client` with `Retry-After`, even with the right secret; an ID that is no client
+    is counted and slowed the same way and spends one password check, as a wrong secret does."""
+    from app.engine.identity import sign_in
+
+    checks = []
+    real = sign_in.verify_secret
+    monkeypatch.setattr(sign_in, "verify_secret", lambda *args: checks.append(1) or real(*args))
+    client = _client(world)
+    anonymous = _anonymous(world)
+    for _ in range(6):
+        _oauth_error(request_token(anonymous.post, client["id"], "wrong"), 401, "invalid_client")
+    slowed = request_token(anonymous.post, client["id"], client["secret"])
+    _oauth_error(slowed, 429, "invalid_client")
+    assert int(slowed.headers["retry-after"]) >= 1
+    assert "slowed" not in slowed.text and "Too many wrong secrets" in slowed.text
+    time.sleep(int(slowed.headers["retry-after"]) + 0.2)
+    assert request_token(anonymous.post, client["id"], client["secret"]).status_code == 200
+
+    spent = len(checks)
+    _oauth_error(request_token(anonymous.post, "no-such-client", "wrong"), 401, "invalid_client")
+    assert len(checks) == spent + 1
+
+
 @pytest.mark.journey("J41.3")
 def test_the_secret_rotated_with_an_overlap(world):
     """Given a client. When a second secret is created with an overlap, then both obtain tokens;
@@ -316,7 +343,7 @@ def test_people_are_created_changed_and_deactivated(world):
     )
     assert (gone["name"], gone["active"]) == ("Grace H.", False)
     assert ok(world.api.get(f"/users/{person['id']}")) == gone
-    assert world.api.delete(f"/users/{person['id']}").status_code == 405
+    refused(world.api.delete(f"/users/{person['id']}"), 405, "HTTP_ERROR")
     listed = ok(world.api.get("/users", q="grace"))["items"]
     assert [item["id"] for item in listed] == [person["id"]]
 

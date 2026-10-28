@@ -16,9 +16,7 @@ import { changeWhere } from "@/features/changes/changeText";
 import { useHeldAnywhere } from "@/features/security/permissions";
 import { formatServerAgo } from "@/lib/dates";
 import { emptyModel } from "@/model/emptyModel";
-import { applicationFor } from "@/model/lookup";
-import { workspaceModel } from "@/model/workspaceModels";
-import { changeReviewFor, defaultRoute, parseRoute, routePath, viewRoute } from "@/routing/routes";
+import { changeReviewFor, parseRoute, routePath } from "@/routing/routes";
 import type { Hue } from "@/model/hues";
 import type {
   ChangeEntry,
@@ -29,59 +27,19 @@ import type {
   OwnWorkspace,
   PublicationRequest,
   RouteState,
-  WorkspaceApplication,
 } from "@/types";
 import { HueTile } from "@/ui/HueTile";
+import { WorkspaceTile } from "@/ui/WorkspaceTile";
 import { Icon, type IconName } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { principalName } from "@/ui/ActorName";
 import { RouteLink } from "@/ui/RouteLink";
 import { BrandMascot } from "@/ui/ProductMark";
 import { Skeleton } from "@/ui/Skeleton";
+import { appPath, openApplication, openIn, openWorkspace, workspacePathOf, type Navigate } from "./openWorkspace";
 import { continueLines, readContinueAddress, type ContinueAddress } from "./continueAddress";
-import {
-  greeting,
-  openLabel,
-  ownLabel,
-  quietNote,
-  roleLine,
-  rolePills,
-  summary,
-  tileLetters,
-  workspaceHue,
-} from "./homeText";
+import { greeting, openLabel, ownLabel, quietNote, roleLine, rolePills, summary } from "./homeText";
 
-type Navigate = (route: RouteState) => void;
-
-/**
- * Open `path` in `workspaceKey` once its model is loaded, since the route needs its views and types.
- * A model that cannot be read is left to the address itself, whose page then says what failed.
- */
-function openIn(
-  workspaceKey: string,
-  path: string,
-  onNavigate: Navigate,
-  route: (model: EngineModel) => RouteState | undefined,
-) {
-  workspaceModel(workspaceKey).then(
-    (model) => {
-      const next = route(model);
-      if (next) onNavigate(next);
-      else window.location.assign(path);
-    },
-    () => window.location.assign(path),
-  );
-}
-
-const appPath = (workspaceKey: string, application: WorkspaceApplication) =>
-  `/apps/${encodeURIComponent(application.key)}/views/${encodeURIComponent(application.defaultView)}?workspaceKey=${encodeURIComponent(workspaceKey)}`;
-
-function openApplication(workspaceKey: string, application: WorkspaceApplication, onNavigate: Navigate) {
-  openIn(workspaceKey, appPath(workspaceKey, application), onNavigate, (model) => {
-    const found = applicationFor(model, application.key);
-    return found && viewRoute(found, found.defaultView, workspaceKey);
-  });
-}
 export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate: Navigate }) {
   const me = useMe();
   const held = useHeldAnywhere();
@@ -240,29 +198,25 @@ function WorkspaceCard({
   const open = workspace.openChangeSets;
   const anything = workspace.ownChangeSets > 0 || (open ?? 0) > 0;
   // The workspace itself: its start, the first application's default view (D339).
-  const workspacePath = `/?workspaceKey=${encodeURIComponent(workspace.key)}`;
-  const openWorkspace = () =>
-    openIn(workspace.key, workspacePath, onNavigate, (model) =>
-      model.applications.length ? defaultRoute(model, workspace.key) : undefined,
-    );
+  const workspacePath = workspacePathOf(workspace.key);
+  const openThis = () => openWorkspace(workspace.key, onNavigate);
   return (
     <li className="account-panel home-card">
       <div className="home-card-head">
         {/* The tile opens the workspace too (0.12 HM1a); the name's link is the one keyboard and
             screen reader users meet, so the tile is out of the tab order and hidden from them. */}
         <RouteLink
-          className="home-tile"
-          data-hue={workspaceHue(workspace.key)}
+          className="home-tile-link"
           aria-hidden="true"
           tabIndex={-1}
           href={workspacePath}
-          onNavigate={openWorkspace}
+          onNavigate={openThis}
         >
-          {tileLetters(workspace.label)}
+          <WorkspaceTile workspaceKey={workspace.key} label={workspace.label} />
         </RouteLink>
         <div className="home-card-title">
           <h3>
-            <RouteLink className="home-card-link" href={workspacePath} onNavigate={openWorkspace}>
+            <RouteLink className="home-card-link" href={workspacePath} onNavigate={openThis}>
               {workspace.label}
             </RouteLink>
             {workspace.isDefault && <span className="account-pill">Default</span>}

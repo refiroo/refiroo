@@ -19,6 +19,8 @@ import pytest
 from oidc_provider import OidcProvider
 from scenario import W1, ok, refused
 from service import BACKEND, render
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
 from test_j39_sign_in import (
     PASSWORD,
     _bearer,
@@ -197,6 +199,47 @@ def test_a_provider_group_granted_ahead(world, idp):
     refused(gone, 403, "FORBIDDEN")
 
 
+def _generation(world) -> int:
+    engine = create_engine(world.database, poolclass=NullPool)
+    try:
+        with engine.connect() as connection:
+            return connection.execute(
+                text("SELECT generation FROM authorization_state")
+            ).scalar_one()
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.journey("J39")
+def test_a_sign_in_with_the_same_groups_does_not_raise_the_authorization_generation(world, idp):
+    """Given a person who signed in through the provider with groups g1 and g2. When they sign in
+    again with the same groups, the authorization generation (which makes every process read
+    permissions again) is unchanged; when a group is added to their claim, it rises."""
+    _provider(world, idp)
+    _signed_in(world, idp, **PAT, preferred_username="pat", groups=["g1", "g2"])
+    before = _generation(world)
+    _signed_in(world, idp, **PAT, preferred_username="pat", groups=["g1", "g2"])
+    assert _generation(world) == before
+    _signed_in(world, idp, **PAT, preferred_username="pat", groups=["g1", "g2", "g3"])
+    assert _generation(world) > before
+
+
+@pytest.mark.journey("J39")
+def test_open_provider_starts_are_capped(world, idp, monkeypatch):
+    """Given a provider that already has as many unexpired starts as the engine allows. When another
+    browser starts, the engine answers `429` with its page instead of storing one more (the start
+    is open, so it cannot grow the table without bound); a start of a person's own still works
+    once the others lapse."""
+    from app.engine.identity import provider_sign_in
+
+    _provider(world, idp)
+    monkeypatch.setattr(provider_sign_in, "MAX_OPEN_STARTS", 1)
+    assert _start(_browser(world), "harness", _pkce()[1]).status_code == 303
+    capped = _start(_browser(world), "harness", _pkce()[1])
+    assert capped.status_code == 429 and "location" not in capped.headers
+    assert "Many sign-ins are waiting" in capped.text
+
+
 @pytest.mark.journey("J39")
 def test_provider_sign_ins_that_cannot_finish(world, idp):
     """The callback with an unknown state, a used state and another browser's cookie each shows the
@@ -217,14 +260,14 @@ def test_provider_sign_ins_that_cannot_finish(world, idp):
     back = idp.sign_in(started.headers["location"], **PAT)
     _cannot(_back(_browser(world), back), "another browser")
 
-    for mode, text in (
+    for mode, message in (
         ("issuer", "could not confirm"),
         ("nonce", "could not confirm"),
         ("audience", "could not confirm"),
         ("error", "access_denied"),
     ):
         idp.misbehave = mode
-        _cannot(_through(_browser(world), idp, **PAT)[0], text)
+        _cannot(_through(_browser(world), idp, **PAT)[0], message)
     idp.misbehave = None
 
     person = next(u for u in ok(world.api.get("/users", q="Pat"))["items"])
@@ -287,7 +330,9 @@ def test_local_sign_in_off(world, idp):
     assert "Sign in with a local administrator account" in page.text
     form = _browser(world).get("/oauth/authorize", params={**_request(challenge), "local": "1"})
     assert 'name="password"' in form.text
-    assert _post_form(_browser(world), "lou", PASSWORD, challenge).status_code == 401
+    local_off = _post_form(_browser(world), "lou", PASSWORD, challenge)
+    assert local_off.status_code == 401
+    assert "The username or password is not right" in local_off.text
     kept = _post_form(_browser(world), "kept", PASSWORD, challenge)
     assert kept.status_code == 303
     refused(world.api.post(f"/users/{local_person['id']}/password-reset", {}), 409,

@@ -870,6 +870,8 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [pending, setPending] = useState(false);
+  const [reloads, setReloads] = useState(0);
+  const [conflict, setConflict] = useState(false);
   useEffect(() => {
     let active = true;
     Promise.resolve()
@@ -887,7 +889,7 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
     return () => {
       active = false;
     };
-  }, [workspaceKey]);
+  }, [workspaceKey, reloads]);
   // A confirmation is news for a moment: tabs stay mounted (keepVisited), so it must go by itself.
   useEffect(() => {
     if (!saved) return;
@@ -898,6 +900,7 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
     if (!policy) return;
     setPending(true);
     setError("");
+    setConflict(false);
     setSaved("");
     try {
       const updated = await api.setApprovalPolicy(workspaceKey, {
@@ -910,10 +913,9 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
       setSecondPerson(updated.secondPerson);
       setSaved("Approval policy saved.");
     } catch (cause) {
+      setConflict(isApiError(cause, "VERSION_CONFLICT"));
       setError(
-        isApiError(cause) && cause.code === "VERSION_CONFLICT"
-          ? "The policy changed meanwhile. Reload to see it."
-          : errorMessage(cause),
+        isApiError(cause, "VERSION_CONFLICT") ? "The policy changed meanwhile. Reload to see it." : errorMessage(cause),
       );
     } finally {
       setPending(false);
@@ -970,9 +972,23 @@ function ApprovalSection({ workspaceKey }: { workspaceKey: string }) {
           {approverWarning && <Notice tone="warning">{approverWarning}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
           {saved && <p role="status">{saved}</p>}
-          <button className="secondary" disabled={pending}>
-            Save approval policy
-          </button>
+          {conflict ? (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                setError("");
+                setConflict(false);
+                setReloads((count) => count + 1);
+              }}
+            >
+              Reload the policy
+            </button>
+          ) : (
+            <button className="secondary" disabled={pending}>
+              Save approval policy
+            </button>
+          )}
         </form>
       )}
     </section>

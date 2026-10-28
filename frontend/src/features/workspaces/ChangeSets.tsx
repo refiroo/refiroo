@@ -4,7 +4,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorFeed, type CursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useMe } from "@/app/useMe";
-import { allows } from "@/features/security/permissions";
+import { holds } from "@/features/security/permissions";
 import { allowNavigation } from "@/routing/navigationGuard";
 import type { ApprovalPolicy, ChangeSet, ChangeSetValidation, ModelReleaseSummary } from "@/types";
 import { Notice } from "@/ui/Notice";
@@ -48,7 +48,7 @@ export function ChangeSets({
   const [creating, setCreating] = useState(false);
   // Starting one needs Work in change sets (0.12 Z5, D323).
   const { permissions } = useWorkspaceData();
-  const creates = !readOnly && allows(permissions, "change-sets");
+  const creates = !readOnly && holds(permissions, "change-sets");
   return (
     <section className="context-page">
       <PageHeader
@@ -128,9 +128,10 @@ function CreateChangeSet({
   const [selectedRelease, setSelectedRelease] = useState("");
   // Another model version is Model release's choice; a steward starts from the workspace's own.
   const { permissions } = useWorkspaceData();
-  const picksRelease = allows(permissions, "model-release");
+  const picksRelease = holds(permissions, "model-release");
   const releases = useCursorFeed(
-    (cursor) => (picksRelease ? api.modelReleases({ cursor }) : Promise.resolve({ items: [], nextCursor: null })),
+    (cursor) =>
+      picksRelease ? api.modelReleases({ cursor, usable: true }) : Promise.resolve({ items: [], nextCursor: null }),
     [picksRelease],
   );
   const [pending, setPending] = useState(false);
@@ -202,10 +203,22 @@ function CreateChangeSet({
   );
 }
 
+/**
+ * The releases a change set may move to: the usable ones, and its workspace's own even when that one is
+ * retired, since moving onto it stays allowed (0.12 MR1).
+ */
+async function targetReleases(cursor: string | undefined, workspaceReleaseId: string | null | undefined) {
+  const page = await api.modelReleases({ cursor, usable: true });
+  if (cursor || !workspaceReleaseId || page.items.some((item) => item.id === workspaceReleaseId)) return page;
+  const own = await api.modelRelease(workspaceReleaseId);
+  return own.status === "retired" ? { ...page, items: [own, ...page.items] } : page;
+}
+
 /** Human-readable diagnostics retain record identities without exposing serialized exception data. */
 /**
- * An installed model release to choose, paged with Load more. The empty option is `placeholder`;
- * `onlyWhenChoice` hides the select while one release is all there is.
+ * An installed model release to choose, paged with Load more: the usable ones (0.12 MR1), every
+ * version of each, since a change set's choice is usually another version of its own model. The
+ * empty option is `placeholder`; `onlyWhenChoice` hides the select while one release is all there is.
  */
 function ReleasePicker({
   label,
@@ -311,9 +324,9 @@ export function ChangeSetActions({
   // What the person may do with it (0.12 Z5, D323): its work needs Work in change sets; publishing
   // also needs Publish, after a validation only Work in change sets makes; moving the workspace to
   // its release also needs Model release. Without permissions read (a test), every action.
-  const works = !readOnly && allows(permissions, "change-sets");
-  const publishes = works && allows(permissions, "publish");
-  const approves = allows(permissions, "approve");
+  const works = !readOnly && holds(permissions, "change-sets");
+  const publishes = works && holds(permissions, "publish");
+  const approves = holds(permissions, "approve");
   // The workspace's approval policy (0.12 A3); a policy that cannot be read counts as off, and the
   // engine refuses what the policy forbids.
   const policyWorkspace = changeSet?.workspaceKey;
@@ -335,7 +348,7 @@ export function ChangeSetActions({
   const [submitting, setSubmitting] = useState(false);
   const [submitComment, setSubmitComment] = useState("");
   const [submitted, setSubmitted] = useState("");
-  const migrates = canMigrate && publishes && allows(permissions, "model-release");
+  const migrates = canMigrate && publishes && holds(permissions, "model-release");
   const mismatchedWorkspace =
     changeSet && activeModelReleaseId && activeModelReleaseId !== changeSet.modelReleaseId
       ? changeSet.workspaceKey
@@ -364,8 +377,9 @@ export function ChangeSetActions({
   const [confirm, setConfirm] = useState<"publish" | "discard">();
   const [changingVersion, setChangingVersion] = useState(false);
   const releases = useCursorFeed(
-    (cursor) => (changingVersion ? api.modelReleases({ cursor }) : Promise.resolve({ items: [], nextCursor: null })),
-    [changingVersion],
+    (cursor) =>
+      changingVersion ? targetReleases(cursor, activeModelReleaseId) : Promise.resolve({ items: [], nextCursor: null }),
+    [changingVersion, activeModelReleaseId],
   );
   const [selectedRelease, setSelectedRelease] = useState("");
   const [versionChangeError, setVersionChangeError] = useState("");

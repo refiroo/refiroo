@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import api_error
 from ...models.database import PasswordResetLink, User, UserSession
-from . import providers, security_events, sessions
+from . import providers, security_events, sessions, sign_in
 from .passwords import check_password, digest, hash_secret, new_token, verify_secret
 from .settings import IdentitySettings
 from .users import load_user
@@ -113,14 +113,32 @@ def change_password(
     session_public_id: str | None,
     current: str,
     new: str,
+    address: str | None = None,
 ) -> None:
     """A signed-in person's new password: the current one must match (``422
-    PASSWORD_INCORRECT``), the new one meet the rules; every other session ends. Commits."""
+    PASSWORD_INCORRECT``), the new one meet the rules; every other session ends. A wrong current
+    password is counted like a wrong sign-in (D271, ``429 SIGN_IN_SLOWED`` while a wait runs), so
+    a stolen session cannot guess it. Commits."""
     user = load_user(session, user_public_id, for_update=True)
+    now = datetime.now(UTC)
+    wait = sign_in.seconds_to_wait(session, user.username, address, now)
+    if wait > 0:
+        session.rollback()
+        raise api_error(
+            429,
+            "SIGN_IN_SLOWED",
+            "Too many wrong passwords for this account or from this address; try again later",
+            {"waitSeconds": wait},
+        )
     if user.password_hash is None or not verify_secret(current, user.password_hash):
+        sign_in.record_failure(session, user.username, address, now)
+        security_events.record(
+            session, "sign-in", user.public_id, "failed", about=[user.public_id], by=None,
+            details={"username": user.username, "address": address, "reason": "password-change"},
+        )  # fmt: skip
+        session.commit()
         raise api_error(422, "PASSWORD_INCORRECT", "The current password is not right")
     check_password(new, user.username, settings.password_min_length)
-    now = datetime.now(UTC)
     _set(user, new, now)
     kept = None
     if session_public_id is not None:

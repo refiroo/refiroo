@@ -794,7 +794,11 @@ def _seed_articles(world: World, known: dict[str, str]) -> dict[str, str]:
 
 @contextmanager
 def application(
-    configuration: Configuration, database: URL, settings: dict[str, str] | None = None
+    configuration: Configuration,
+    database: URL,
+    settings: dict[str, str] | None = None,
+    *,
+    worker: bool = False,
 ) -> Iterator[World]:
     from app.config import reload_settings
     from app.main import create_app
@@ -807,7 +811,7 @@ def application(
     try:
         with seeds.application_environment(database, model_path(configuration)):
             app = create_app()
-            app.state.run_job_worker = False
+            app.state.run_job_worker = worker  # a test of the worker's start leaves it on
             app.state.run_event_deriver = False
             app.state.run_consumer_dispatcher = False
             app.state.run_process_heartbeat = False

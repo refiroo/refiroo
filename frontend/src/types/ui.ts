@@ -94,11 +94,17 @@ export type RouteState =
     }
   | HomeRoute
   | ChangesRoute
+  | NotificationsRoute
   | SettingsRoute;
 
 /** The home page after sign-in (0.12 HM1, D331): the bare address, outside any workspace. */
 export interface HomeRoute {
   kind: "home";
+}
+
+/** The person's notices of the last 90 days (0.12 NT1, D463): `/notifications`, outside any workspace. */
+export interface NotificationsRoute {
+  kind: "notifications";
 }
 
 /** How far back a person's changes are shown (0.12 Z6, D344); none is any time. */
@@ -233,4 +239,4 @@ export type ConsumerApiTab = "types" | "fields" | "operations" | "filters" | "sc
 export type SettingsPage = SettingsRoute["page"];
 
 /** Every route that is neither a settings page nor home: an application's data, in a workspace. */
-export type ApplicationRoute = Exclude<RouteState, SettingsRoute | HomeRoute | ChangesRoute>;
+export type ApplicationRoute = Exclude<RouteState, SettingsRoute | HomeRoute | ChangesRoute | NotificationsRoute>;

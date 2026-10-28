@@ -90,6 +90,46 @@ def test_what_is_mine(world):
     assert mine["createdBy"]["id"] == person["id"]
 
 
+@pytest.mark.journey("J45.2")
+@pytest.mark.structures("R")
+def test_my_change_sets_count_their_changes_in_one_statement_for_the_page(world):
+    """Given a person with one change set holding a record, and then with three. When
+    `GET /me/change-sets` is read, then each reads its own `changeCount` and the page costs the same
+    number of statements for three change sets as for one (the counts are not asked one by one)."""
+    from sqlalchemy import event
+
+    from app.db import get_engine
+
+    person = _person(world, "hana-count")
+    _grant(world, "user", person["id"], "steward", workspaceKey=W1)
+    steward = _as(
+        world, _sign_in(TestClient(world.api.client.app, authenticated=False), "hana-count")
+    )
+
+    def statements() -> tuple[list[dict], int]:
+        seen: list[str] = []
+        engine = get_engine()
+        listener = lambda *args: seen.append(args[2])
+        event.listen(engine, "before_cursor_execute", listener)
+        try:
+            items = _own(steward)
+        finally:
+            event.remove(engine, "before_cursor_execute", listener)
+        return items, len(seen)
+
+    first = steward.change_set(name="One")
+    steward.made("R", "In one", change_set=steward.current(first))
+    items, one = statements()
+    assert [item["changeCount"] for item in items] == [1]
+    for n in (2, 3):
+        more = steward.change_set(name=f"Number {n}")
+        for k in range(n):
+            steward.made("R", f"In {n} {k}", change_set=steward.current(more))
+    items, three = statements()
+    assert sorted(item["changeCount"] for item in items) == [1, 2, 3]
+    assert three == one
+
+
 @pytest.mark.journey("J45.3")
 def test_it_follows_the_work(world):
     """Given a caller who is Data steward in A and Contributor in B with a change set in each. When

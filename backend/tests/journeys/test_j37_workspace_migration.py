@@ -602,3 +602,33 @@ def test_a_failed_execution_changes_nothing(world, monkeypatch):
     assert "nothing" in failed["error"]["message"].lower()
     assert failed["error"]["details"]["correlationId"]
     assert _state(world, key, made) == before
+
+
+@pytest.mark.journey("J37.4")
+@pytest.mark.structures(*BOTH)
+def test_a_migration_whose_requester_lost_model_release_is_not_confirmed(world):
+    """Given a previewed migration requested by a client holding Model release in the workspace.
+    When the grant is removed and an administrator confirms the job, then it answers `403
+    FORBIDDEN` naming the requester and the job keeps waiting (0.12 R-F8)."""
+    from test_j40_authorization import _client
+
+    key, _made, _citation = _workspace(world)
+    x2 = world.install(_x2(world, "same"), name="Probe")
+    client, requester = _client(world, "Requester", ("model-admin", {"workspaceKey": key}))
+    current = _model(world, key)
+    job = ok(
+        requester.api.post(
+            f"/workspaces/{key}/model/migrations",
+            {"targetReleaseId": x2["id"], "expectedVersion": current["version"]},
+        ),
+        202,
+    )
+    _run(world)
+    job = ok(world.api.get(f"/jobs/{job['id']}"))
+    assert job["state"] == "awaiting_confirmation"
+    [grant] = ok(world.api.get("/grants", principalId=client["id"]))["items"]
+    assert world.api.delete(f"/grants/{grant['id']}").status_code == 204
+
+    error = refused(_confirm(world, job), 403, "FORBIDDEN")
+    assert error["details"]["requestedBy"]["id"] == client["id"]
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "awaiting_confirmation"

@@ -47,7 +47,10 @@ import type {
   BackupRehearsalPage,
   Me,
   NotificationPage,
+  NotificationQuery,
+  NotificationSelection,
   NotificationsReadResult,
+  NotificationsRemovalResult,
   SignInSession,
   MySecondFactor,
   NoticeMail,
@@ -105,6 +108,7 @@ import type {
   ModelReleaseDiff,
   ModelReleasePage,
   ModelReleaseRaising,
+  ModelReleaseSummary,
   WorkspaceModel,
   WorkspaceModelActivation,
   ModelValidation,
@@ -483,15 +487,29 @@ export const api = {
   myActionGroups: () => request<HeldAnywhereList>("/api/v1/me/action-groups"),
   /** The caller's grants, direct and through their groups, every page (a caller has a handful). */
   myGrants: () => allPages<Grant>("/api/v1/me/grants"),
-  /** A page of the caller's inbox, newest first, with the count of all their unread notices (0.12 A2). */
-  notifications: (cursor?: string) => {
-    const query = new URLSearchParams({ pageSize: "20" });
-    if (cursor) query.set("cursor", cursor);
-    return request<NotificationPage>(`/api/v1/me/notifications?${query}`);
+  /**
+   * A page of the caller's inbox, newest first unless `sort` says otherwise, searched and filtered
+   * on the server, with the count of all their unread notices (0.12 A2, NT1).
+   */
+  notifications: (query: NotificationQuery & PageSelector = {}) => {
+    const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 20) });
+    if (query.q) params.set("q", query.q);
+    if (query.kind) params.set("kind", query.kind);
+    if (query.workspace) params.set("workspace", query.workspace);
+    if (query.unread !== undefined) params.set("unread", String(query.unread));
+    if (query.sort) params.set("sort", query.sort);
+    setPaging(params, query);
+    return request<NotificationPage>(`/api/v1/me/notifications?${params}`);
   },
-  /** Mark notices read, by ID or all of them; idempotent. */
-  markNotificationsRead: (selection: { ids: string[] } | { all: true }) =>
+  /** Mark notices read, or unread with `read` false: by ID, by what they are about, or all; idempotent. */
+  markNotificationsRead: (selection: NotificationSelection, read = true) =>
     request<NotificationsReadResult>("/api/v1/me/notifications/read", {
+      method: "POST",
+      body: JSON.stringify(read ? selection : { ...selection, read }),
+    }),
+  /** Delete notices for good, by ID or every read one (0.12 NT1, D461); what they were about stays. */
+  removeNotifications: (selection: { ids: string[] } | { read: true }) =>
+    request<NotificationsRemovalResult>("/api/v1/me/notifications/removal", {
       method: "POST",
       body: JSON.stringify(selection),
     }),
@@ -1151,11 +1169,25 @@ export const api = {
   withdrawPublication: (publicationId: string) =>
     request<void>(`/api/v1/publications/${encodeURIComponent(publicationId)}/withdrawal`, { method: "POST" }),
   workspaceRuntimeState: () => request<WorkspaceRuntimeState>("/api/v1/workspace-runtime-state"),
-  modelReleases: (options: { cursor?: string; pageSize?: number } = {}) => {
+  /** Installed releases; `usable` keeps those that may be chosen: active, of a schema this version reads (MR1). */
+  modelReleases: (options: { cursor?: string; pageSize?: number; usable?: boolean } = {}) => {
     const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 100) });
     if (options.cursor) params.set("cursor", options.cursor);
+    if (options.usable) params.set("usable", "true");
     return request<ModelReleasePage>(`/api/v1/model-releases?${params}`);
   },
+  /** Retire a release, or bring it back (0.12 MR1). */
+  setModelReleaseStatus: (release: Pick<ModelReleaseSummary, "id" | "statusVersion">, status: "active" | "retired") =>
+    request<ModelRelease>(`/api/v1/model-releases/${encodeURIComponent(release.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, expectedStatusVersion: release.statusVersion }),
+    }),
+  /** Delete a release nothing refers to (0.12 MR1). */
+  deleteModelRelease: (release: Pick<ModelReleaseSummary, "id" | "statusVersion">) =>
+    request<void>(
+      `/api/v1/model-releases/${encodeURIComponent(release.id)}?expectedStatusVersion=${release.statusVersion}`,
+      { method: "DELETE" },
+    ),
   modelRelease: (releaseId: string, includeModel = false) =>
     request<ModelRelease>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}?includeModel=${includeModel}`),
   modelReleaseActivations: (releaseId: string, options: { cursor?: string; pageSize?: number } = {}) => {

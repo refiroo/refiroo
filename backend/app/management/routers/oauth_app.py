@@ -12,7 +12,7 @@ the passkey ceremonies are the routes of ``oauth.py``, which already answer in J
 from datetime import UTC, datetime
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from ...engine.identity import (
@@ -33,10 +33,16 @@ from ...models.commands import (
     AppSecondFactor,
 )
 from .. import sign_in_pages as pages
-from ..dependencies import DbSession
+from ..dependencies import DbSession, started
 from . import oauth
 
-router = APIRouter(prefix="/oauth/sign-in", tags=["oauth"], include_in_schema=False)
+# In maintenance mode every route answers 503 before a session is opened, as ``oauth.py``'s do.
+router = APIRouter(
+    prefix="/oauth/sign-in",
+    tags=["oauth"],
+    include_in_schema=False,
+    dependencies=[Depends(started)],
+)
 
 _NO_STORE = oauth._NO_STORE
 

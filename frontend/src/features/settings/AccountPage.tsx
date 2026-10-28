@@ -10,9 +10,10 @@ import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { signOut } from "@/api/session";
 import { initials } from "@/app/useMe";
-import { grantHeld } from "@/features/security/securityText";
+import type { Navigate } from "@/features/home/openWorkspace";
 import { formatServerAgo, formatServerDayTime } from "@/lib/dates";
-import type { Grant, Me, SignInSession, WorkspacePage } from "@/types";
+import { applicationHue } from "@/model/hues";
+import type { EngineModel, Grant, Me, SignInSession, WorkspacePage } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
@@ -22,6 +23,7 @@ import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
 import { useToast } from "@/ui/Toast";
+import { permissionsSummary, PermissionsBody, type AppInfo, type AppsByName } from "./AccountPermissions";
 import { browserName, onPhone } from "./browserName";
 import { PasskeysPanel } from "./PasskeysPanel";
 import { SecondFactorPanel } from "./SecondFactorPanel";
@@ -34,7 +36,7 @@ const SIGNED_IN_WITH: Record<string, string> = {
 // The production rule (D252); the engine's refusal is what counts where a deployment sets another.
 const LONG_ENOUGH = 15;
 
-export function AccountPage() {
+export function AccountPage({ onNavigate }: { onNavigate?: Navigate }) {
   const { data: me, error, retry } = useSettingsRead<Me>(api.me);
   return (
     <SettingsLayout eyebrow="General" title="Account">
@@ -49,7 +51,7 @@ export function AccountPage() {
           {(me.signedInWith === "password" || me.signedInWith === "passkey") && <PasskeysPanel />}
           {(me.signedInWith === "password" || me.signedInWith === "passkey") && <SecondFactorPanel />}
           <Sessions />
-          <Permissions />
+          <Permissions onNavigate={onNavigate} />
         </div>
       )}
     </SettingsLayout>
@@ -346,20 +348,54 @@ function Sessions() {
   );
 }
 
-/** The person's roles: per grant, where it applies, the role, what it narrows and where it comes from (Z1). */
-function Permissions() {
-  const { data, error, retry } = useSettingsRead<[Grant[], WorkspacePage]>(grantsAndWorkspaces);
-  const labels = new Map(data?.[1].items.map((workspace) => [workspace.key, workspace.label]));
+/** The action groups each grant gives, read from the person's permissions in every workspace (Z1). */
+async function grantsAndGroups(): Promise<
+  [Grant[], WorkspacePage, ReadonlyMap<string, ReadonlySet<string>>, ReadonlyMap<string, AppsByName>]
+> {
+  const [grants, workspaces] = await Promise.all([api.myGrants(), api.workspaces()]);
+  const [read, models] = await Promise.all([
+    Promise.all(workspaces.items.map((workspace) => api.myPermissions(workspace.key).catch(() => null))),
+    Promise.all(workspaces.items.map((workspace) => api.model({ workspaceKey: workspace.key }).catch(() => null))),
+  ]);
+  const groups = new Map<string, Set<string>>();
+  for (const permissions of read)
+    for (const group of permissions?.actionGroups ?? [])
+      for (const source of group.sources) {
+        const held = groups.get(source.grantId) ?? new Set<string>();
+        groups.set(source.grantId, held.add(group.key));
+      }
+  // Each application's hue is the one the rest of the app gives it: its place in its workspace's model.
+  const hues = new Map<string, AppsByName>();
+  workspaces.items.forEach((workspace, index) => hues.set(workspace.key, applicationHues(models[index])));
+  return [grants, workspaces, groups, hues];
+}
+
+/** Application name to its hue, address and record types, for a grant that names applications. */
+function applicationHues(model: EngineModel | null): AppsByName {
+  const found = new Map<string, AppInfo>();
+  for (const application of model?.applications ?? [])
+    found.set(application.name, {
+      key: application.key,
+      defaultView: application.defaultView,
+      hue: applicationHue(model!, application.key),
+      recordTypes: application.objectTypeKeys.flatMap(
+        (key) => model!.objectTypes.find((type) => type.key === key)?.name ?? [],
+      ),
+    });
+  return found;
+}
+
+/** The person's roles: a row per workspace with what each allows, the instance's roles below (Z1). */
+function Permissions({ onNavigate }: { onNavigate?: Navigate }) {
+  const { data, error, retry } = useSettingsRead<Awaited<ReturnType<typeof grantsAndGroups>>>(grantsAndGroups);
   const grants = data?.[0];
+  const labels = new Map(data?.[1].items.map((workspace) => [workspace.key, workspace.label]));
   return (
     <Section
       title="What you can do"
       actions={
-        grants && (
-          <span className="account-muted">
-            {grants.length} role{grants.length === 1 ? "" : "s"}
-          </span>
-        )
+        grants &&
+        grants.length > 0 && <span className="account-muted">{permissionsSummary(grants, labels, data![2])}</span>
       }
     >
       {error ? (
@@ -367,50 +403,8 @@ function Permissions() {
       ) : !grants ? (
         <Skeleton label="Loading your roles" lines={2} />
       ) : (
-        <div className="account-panel">
-          {grants.length > 0 && (
-            <ul className="account-list" aria-label="What you can do">
-              {grants.map((grant) => (
-                <li key={grant.id} className="account-row">
-                  <span className="account-tile" aria-hidden="true">
-                    <Icon name={grant.scope.instance ? "globe" : "workspace"} size={20} />
-                  </span>
-                  <div className="account-row-text">
-                    <strong>
-                      {grant.scope.instance
-                        ? "Every workspace"
-                        : (labels.get(grant.scope.workspaceKey ?? "") ?? grant.scope.workspaceKey)}
-                    </strong>
-                    <span className="account-muted">{grantDetail(grant)}</span>
-                  </div>
-                  <span className="account-pill role">{grantHeld(grant)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="account-row account-footer">
-            <span className="account-muted">
-              {grants.length === 0
-                ? "You have no roles yet. Ask a security administrator to give you one."
-                : "A security administrator gives and removes roles. Reading a workspace is never narrowed; a narrowing limits what you may change."}
-            </span>
-          </div>
-        </div>
+        <PermissionsBody grants={grants} labels={labels} groups={data![2]} apps={data![3]} onNavigate={onNavigate} />
       )}
     </Section>
   );
-}
-
-const grantsAndWorkspaces = () => Promise.all([api.myGrants(), api.workspaces()]);
-
-/** "Changes narrowed to Specimen, Determination · directly", "Through the group Curators". */
-export function grantDetail(grant: Grant): string {
-  const narrowed = [...grant.scope.applicationNames, ...grant.scope.recordTypeNames];
-  const where = grant.scope.instance
-    ? "The whole instance"
-    : narrowed.length
-      ? `Changes narrowed to ${narrowed.join(", ")}`
-      : "";
-  const how = grant.principal.kind === "group" ? `through the group ${grant.principal.name}` : "directly";
-  return where ? `${where} · ${how}` : how[0].toUpperCase() + how.slice(1);
 }

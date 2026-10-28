@@ -139,10 +139,11 @@ compatible, and any commercial terms are separate, explicit, and reviewed before
 
 ## Still open after 0.12 L1 (the maintainer's or counsel's)
 
-- Confirm that no employer, former employer or client holds rights in the work, and that the example model
-  and data are synthetic (the ownership record in [OPEN_SOURCE](OPEN_SOURCE.md)).
-- Counsel: review the contributor agreement, then open contributions (CONTRIBUTING says none are merged
-  before); the commercial agreement template; the trademark registration strategy.
+- ~~Confirm that no employer, former employer or client holds rights in the work~~ **confirmed 2026-10-28**
+  (the ownership record in [OPEN_SOURCE](OPEN_SOURCE.md)); still open: that the example model and data are
+  synthetic.
+- ~~Counsel~~ **none, by the maintainer's decision (2026-10-28).** Consequence kept: CONTRIBUTING merges no
+  outside pull requests until a contributor agreement exists.
 - Create the mailbox security@refiroo.org and the public repository, and turn on GitHub private
   vulnerability reporting.
 - Run the secret scan of the whole history once (`gitleaks`) before the first push.

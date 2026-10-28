@@ -41,19 +41,42 @@ class NotificationPage(CollectionPage[NotificationResponse]):
 
 
 class NotificationsRead(BaseModel):
-    """Mark notices read: those named in ``ids`` (another's or an unknown one is left alone), or
-    ``all``."""
+    """Mark notices read, or unread with ``read`` false: those named in ``ids`` (another's or an
+    unknown one is left alone), those about ``subjectId`` (a change set or job the caller opened),
+    or ``all``."""
 
     ids: list[str] | None = Field(default=None, min_length=1, max_length=500)
+    subjectId: str | None = Field(default=None, min_length=1, max_length=36)
     all: bool | None = None
+    read: bool = Field(default=True, description="false marks the notices unread (0.12 NT1)")
 
     @model_validator(mode="after")
-    def one_of_ids_or_all(self) -> NotificationsRead:
-        if (self.ids is None) == (self.all is not True):
-            raise ValueError("Give 'ids' or 'all': true")
+    def one_selection(self) -> NotificationsRead:
+        given = [self.ids is not None, self.subjectId is not None, self.all is True]
+        if sum(given) != 1:
+            raise ValueError("Give one of 'ids', 'subjectId' or 'all': true")
         return self
 
 
 class NotificationsReadResult(BaseModel):
-    marked: int = Field(description="How many were unread and are read now")
+    marked: int = Field(description="How many notices changed")
+    unreadCount: int
+
+
+class NotificationsRemoval(BaseModel):
+    """Delete notices for good (0.12 NT1, D461): those named in ``ids`` (another's or an unknown
+    one is left alone), or every read one with ``read`` true. What they were about stays."""
+
+    ids: list[str] | None = Field(default=None, min_length=1, max_length=500)
+    read: bool | None = None
+
+    @model_validator(mode="after")
+    def one_of_ids_or_read(self) -> NotificationsRemoval:
+        if (self.ids is None) == (self.read is not True):
+            raise ValueError("Give 'ids' or 'read': true")
+        return self
+
+
+class NotificationsRemovalResult(BaseModel):
+    removed: int = Field(description="How many notices were deleted")
     unreadCount: int

@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import String, all_, any_, bindparam, delete, select, text, update
+from sqlalchemy import String, all_, any_, bindparam, delete, event, select, text, update
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
@@ -43,7 +43,7 @@ from ...models.database import (
     Workspace,
 )
 from ...models.schema import EngineModel
-from ..authorization.writes import allowance, refuse_types
+from ..authorization.writes import allowance, refuse_types, require_change_set, require_live
 from ..change_sets import submissions
 from ..indexes import matrix_states, unique_values
 from ..model import expected_release
@@ -54,6 +54,21 @@ from .values import VALUE_COLUMNS, normalize_value
 
 # Change sets whose version a job has claimed for all its items, in ``Session.info``.
 _HELD_CLAIMS = "held_change_set_claims"
+# Change sets whose row this transaction has locked (``load_change_set(for_update=True)``), so a
+# claim needs no second lock; forgotten when the transaction ends or a savepoint rolls back, which
+# releases the locks taken in it.
+LOCKED_CHANGE_SETS = "locked_change_sets"
+
+
+def note_locked(session: Session, change_set_id: str) -> None:
+    """Remember that this transaction holds the change set's row lock."""
+    session.info.setdefault(LOCKED_CHANGE_SETS, set()).add(change_set_id)
+
+
+@event.listens_for(Session, "after_commit")
+@event.listens_for(Session, "after_soft_rollback")
+def _forget_locked_change_sets(session: Session, *_: object) -> None:
+    session.info.pop(LOCKED_CHANGE_SETS, None)
 # IDs bound into one statement.
 _CHUNK = 500
 
@@ -166,6 +181,8 @@ class LiveWrites(_Permits):
                 f"Workspace '{self.workspace_key}' was retired while this request was "
                 "processed; nothing was saved",
             )
+        # A route allowed only for change-set work does not write live (0.12 R-F1).
+        require_live(self.session, self.workspace_key)
         # A client that built this write on another release than the workspace runs (M6a, D64).
         expected_release.check(self.session, self.workspace_key)
 
@@ -652,6 +669,7 @@ class ChangeSetWrites(_Permits):
         self.change_set = change_set
         self.change_set_id = change_set.id
         self.workspace_key = change_set.workspace_key
+        require_change_set(session, self.workspace_key)
         expected_release.check(
             session, self.workspace_key, change_set.model_release_id, change_set_id=change_set.id
         )
@@ -699,7 +717,16 @@ class ChangeSetWrites(_Permits):
         if self.change_set_id in self.session.info.get(_HELD_CLAIMS, ()):
             return
         change_set = self.change_set
-        if change_set.version != expected:
+        # The row lock first, before the submission is read, so the claim is safe whoever calls
+        # it and however they locked (no autoflush: candidate writes are flushed after the claim).
+        if change_set.id in self.session.info.get(LOCKED_CHANGE_SETS, ()):
+            locked = change_set.version  # read under the lock this transaction already holds
+        else:
+            with self.session.no_autoflush:
+                locked = self.session.scalar(
+                    select(ChangeSet.version).where(ChangeSet.id == change_set.id).with_for_update()
+                )
+        if change_set.version != expected or locked != expected:
             raise api_error(409, conflict_code, conflict_message)
         if not publishing:
             submissions.freeze(self.session, change_set)

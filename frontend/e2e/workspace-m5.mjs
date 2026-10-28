@@ -94,7 +94,10 @@ try {
   await option.waitFor();
   assert.match(await option.textContent(), /Other model/);
   await shotBoth("switcher");
-  while ((await page.evaluate(() => document.activeElement?.getAttribute("aria-activedescendant"))) !== (await option.getAttribute("id")))
+  while (
+    (await page.evaluate(() => document.activeElement?.getAttribute("aria-activedescendant"))) !==
+    (await option.getAttribute("id"))
+  )
     await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await topBarApps.getByRole("button", { name: bApp.name }).waitFor();
@@ -151,7 +154,7 @@ try {
   await page.getByText(/Branch B now runs .* 1\.1\.0/).waitFor();
   assert.equal((await api("/workspaces/branch-b/model")).releaseId, b2.id);
   assert.equal((await api(`/workspaces/${defaultKey}/model`)).releaseId, defaultRelease);
-  await page.goto(`${uiUrl}/settings/model`);
+  await page.goto(`${uiUrl}/settings/model/models/${encodeURIComponent(starter.release.key)}`);
   const defaultRow = page
     .getByRole("list", { name: `Workspaces running ${starter.release.name}` })
     .getByRole("listitem")
@@ -168,7 +171,9 @@ try {
   assert.equal(await other.getByRole("button", { name: /^Activate / }).count(), 0);
   await shotBoth("activate-migration-needed");
   await other.getByRole("button", { name: "Cancel" }).click();
-  checks.push("5. activation into one workspace by keyboard, the other unchanged; another model refused with no Activate");
+  checks.push(
+    "5. activation into one workspace by keyboard, the other unchanged; another model refused with no Activate",
+  );
 
   // 6. A workspace created on another installed release.
   await page.goto(`${uiUrl}/settings/workspaces`);
@@ -176,6 +181,8 @@ try {
   const create = page.getByRole("dialog", { name: "New workspace" });
   await create.getByLabel("Name").fill("Reading room");
   await create.getByRole("radio", { name: "Another installed release" }).check();
+  // 1.0.0 is the second model's older release: listed after "Show older versions" (0.12 MR1).
+  await create.getByRole("checkbox", { name: /Show older versions/ }).check();
   await create.getByRole("button", { name: /Installed release/ }).click();
   await page.getByRole("option", { name: new RegExp(`${b.release.name} 1\\.0\\.0`) }).click();
   await assertDialogLayout(page, "the new workspace dialog");
@@ -217,10 +224,12 @@ try {
   await shotBoth("phone-switcher");
   await page.keyboard.press("Escape");
   await page.goto(`${uiUrl}/settings/model`);
-  await page.getByRole("navigation", { name: "Model catalogue" }).waitFor();
+  await page.getByRole("region", { name: "Default workspace" }).waitFor();
   await noPageOverflow(page, "Settings › Model at 390px");
   await shotBoth("phone-settings-model");
-  checks.push("8. 390px: band workspace choice and Settings › Model without sideways scroll; light and dark screenshots");
+  checks.push(
+    "8. 390px: band workspace choice and Settings › Model without sideways scroll; light and dark screenshots",
+  );
 
   console.log(`workspace-m5: ${checks.length} cases passed\n- ${checks.join("\n- ")}\nscreenshots: ${output}`);
 } catch (error) {

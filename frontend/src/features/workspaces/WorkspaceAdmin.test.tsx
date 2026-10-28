@@ -120,7 +120,8 @@ describe("WorkspaceAdmin", () => {
   it("opens on the list, not on a workspace, with the default named in the description", async () => {
     renderAdmin();
     expect(await screen.findByRole("region", { name: "Active" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    // Only the list's group headings (title · count); no workspace's own heading.
+    for (const heading of screen.queryAllByRole("heading", { level: 2 })) expect(heading.textContent).toMatch(/ · \d+/);
     expect(screen.queryByRole("navigation", { name: "Where you are" })).not.toBeInTheDocument();
     expect(await screen.findByText("Default · Default")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /New workspace/ })).toBeInTheDocument();
@@ -533,6 +534,49 @@ describe("WorkspaceAdmin approval policy (0.12 A3)", () => {
       }),
     );
     expect(await screen.findByText("Approval policy saved.")).toBeVisible();
+  });
+
+  it("offers to reload the policy after a version conflict, and saves with the version it then reads", async () => {
+    vi.mocked(api.approvalPolicy)
+      .mockResolvedValueOnce({
+        workspaceKey: "retail",
+        requireApproval: false,
+        secondPerson: false,
+        version: 2,
+        approverCount: 1,
+      })
+      .mockResolvedValue({
+        workspaceKey: "retail",
+        requireApproval: false,
+        secondPerson: false,
+        version: 5,
+        approverCount: 1,
+      });
+    vi.mocked(api.setApprovalPolicy)
+      .mockRejectedValueOnce(new ApiError(409, "VERSION_CONFLICT", "The policy changed"))
+      .mockResolvedValue({
+        workspaceKey: "retail",
+        requireApproval: true,
+        secondPerson: false,
+        version: 6,
+        approverCount: 1,
+      });
+    renderAdmin("retail", { route: { ...LIST, workspaceKey: "retail", workspaceTab: "approval" } });
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Changes need approval before they are published" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save approval policy" }));
+    expect(await screen.findByText("The policy changed meanwhile. Reload to see it.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Save approval policy" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reload the policy" }));
+    await screen.findByRole("button", { name: "Save approval policy" });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Changes need approval before they are published" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save approval policy" }));
+    await waitFor(() =>
+      expect(api.setApprovalPolicy).toHaveBeenLastCalledWith("retail", {
+        requireApproval: true,
+        secondPerson: false,
+        expectedVersion: 5,
+      }),
+    );
   });
 
   function policyWith(approverCount: number, requireApproval = false) {

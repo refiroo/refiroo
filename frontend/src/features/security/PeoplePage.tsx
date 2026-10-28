@@ -14,10 +14,12 @@ import { security } from "@/api/securityClient";
 import { initials } from "@/app/useMe";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
+import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { routePath } from "@/routing/routes";
 import type { Group, Passkey, PasswordResetLink, RouteState, SettingsRoute, SignInProviderRef, User } from "@/types";
 import { CatalogueEntry, CatalogueLayout } from "@/ui/CatalogueLayout";
+import { CatalogueWindow } from "@/ui/CatalogueWindow";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { FormField } from "@/ui/FormField";
 import { Icon } from "@/ui/Icon";
@@ -59,6 +61,9 @@ async function makeLink(user: Pick<User, "id" | "email">, send = false): Promise
   }
 }
 
+/** People read in a page of this size. */
+const CATALOGUE_PAGE = 50;
+
 export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNavigate: (route: RouteState) => void }) {
   const [search, setSearch] = useState("");
   const [active, setActive] = useState(true);
@@ -67,7 +72,10 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
   const [link, setLink] = useState<{ user: User; link: PasswordResetLink; created: boolean }>();
   const newButtonRef = useRef<HTMLButtonElement>(null);
   const q = useDebouncedValue(search.trim());
-  const feed = useCursorFeed((cursor) => security.users({ q, active, cursor }), [q, active]);
+  const list = useCursorWindow<User>(
+    (selector) => security.users({ q, active, ...selector, pageSize: CATALOGUE_PAGE }),
+    [q, active],
+  );
   const [countToken, setCountToken] = useState(0);
   // While local sign-in is off, a new person or a password is of no use (I3, D365).
   const [localOn, setLocalOn] = useState(true);
@@ -109,8 +117,8 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
     };
   }, [countToken]);
 
-  function changed(user: User) {
-    feed.setItems((items) => items.map((item) => (item.id === user.id ? user : item)));
+  function changed() {
+    list.reload();
     setCountToken((token) => token + 1);
   }
 
@@ -132,34 +140,27 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
             Deactivated{counts.deactivated !== undefined && <span>{counts.deactivated}</span>}
           </button>
         </div>
-        {feed.items.map((user) => (
-          <CatalogueEntry
-            key={user.id}
-            icon="user"
-            title={user.name}
-            subtitle={userRoleLine(user.roles)}
-            current={route.userId === user.id}
-            onSelect={() => onNavigate({ ...PEOPLE, userId: user.id })}
-          />
-        ))}
-        {feed.loading && !feed.items.length && <p className="explorer-empty">Loading people…</p>}
-        {!feed.loading && !feed.error && !feed.items.length && (
-          <p className="explorer-empty">
-            {q
+        <CatalogueWindow
+          list={list}
+          label="People"
+          noun={["person", "people"]}
+          pageSize={CATALOGUE_PAGE}
+          loadingText="Loading people…"
+          emptyText={
+            q
               ? `No ${active ? "active" : "deactivated"} person matches “${q}”.`
-              : `No ${active ? "active" : "deactivated"} people.`}
-          </p>
-        )}
-        {feed.error && (
-          <div className="catalogue-error">
-            <InlineError message={feed.error} onRetry={feed.retry} />
-          </div>
-        )}
-        {feed.hasMore && (
-          <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-            Load more people
-          </button>
-        )}
+              : `No ${active ? "active" : "deactivated"} people.`
+          }
+          entry={(user) => (
+            <CatalogueEntry
+              icon="user"
+              title={user.name}
+              subtitle={userRoleLine(user.roles)}
+              current={route.userId === user.id}
+              onSelect={() => onNavigate({ ...PEOPLE, userId: user.id })}
+            />
+          )}
+        />
       </section>
     </nav>
   );
@@ -193,7 +194,7 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
             onChanged={changed}
             onLink={(user, made) => setLink({ user, link: made, created: false })}
             onLinked={(target) => {
-              feed.reload();
+              list.reload();
               setCountToken((token) => token + 1);
               onNavigate({ ...PEOPLE, userId: target.id });
             }}
@@ -210,7 +211,7 @@ export function PeoplePage({ route, onNavigate }: { route: PeopleRoute; onNaviga
           }}
           onCreated={(user, made) => {
             setCreating(false);
-            feed.reload();
+            list.reload();
             setCountToken((token) => token + 1);
             onNavigate({ ...PEOPLE, userId: user.id });
             if (made) setLink({ user, link: made, created: true });

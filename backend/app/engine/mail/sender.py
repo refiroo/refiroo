@@ -159,12 +159,21 @@ class MailSender:
         server_failure: MailError | None,
         now: datetime,
     ) -> MailError | None:
-        """One leased message; the failure, if it did not go."""
+        """One leased message; the failure, if it did not go.
+
+        The row is locked from here to the commit that records the outcome: a lease that runs out
+        while the server is slow cannot be taken over by another process, whose claim skips locked
+        rows, and one that was taken over before this point is no longer ours (``lease_owner``), so
+        the message is sent by one process only (0.12 R)."""
         with self.session_factory() as session:
             message = session.scalar(
-                select(MailOutbox).where(
-                    MailOutbox.id == message_id, MailOutbox.lease_owner == self.owner
+                select(MailOutbox)
+                .where(
+                    MailOutbox.id == message_id,
+                    MailOutbox.lease_owner == self.owner,
+                    MailOutbox.status == "pending",
                 )
+                .with_for_update(skip_locked=True)
             )
             if message is None:
                 return None

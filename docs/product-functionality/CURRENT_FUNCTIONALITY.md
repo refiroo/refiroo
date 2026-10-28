@@ -478,6 +478,15 @@ never activates. Activation is refused when existing data would not fit, and als
 contract changes incompatibly without a new contract version (F23). Releases on unsupported older
 schemas stay inspectable and exportable.
 
+A release that should no longer be used is **retired** from its page: it is no longer offered when a new
+workspace, a change set or an activation chooses a model, and the workspaces already running it keep
+working; it can be brought back. A model whose releases are all retired and that no workspace runs is
+listed under Retired. A release nothing was made under (never run, no records, change sets or
+publications) can be **deleted**. Every model picker offers only releases that can be chosen: active and
+of a schema this version reads. A new workspace's picker shows the newest release of each model, older
+versions on request; a change set's picker shows every version, and its workspace's own release even when
+that one is retired. An operator clears many at once with `model_release_prune`.
+
 Each workspace runs a model release of its own, and different workspaces may run different models.
 Through the API a workspace is created on a chosen installed release (or on the default workspace's),
 and a release is activated into one workspace: only that workspace's data is checked, only its
@@ -1339,9 +1348,11 @@ job stops and says why, while they can still see and cancel their own job. A fil
 import profile is seen by the one who uploaded it and by those who may import in its workspace. Anything a caller's roles do not allow is refused, naming the action, the action
 groups that would allow it and the workspace; lists of workspaces, jobs and subscriptions show only
 what the caller holds a role for. A change to a role or grant applies on the caller's next request.
-The engine never lets the last security administrator be removed. Settings › Account lists the
-person's roles, where each applies, what it narrows and the group it comes through; the account
-menu names the roles held in the workspace open.
+The engine never lets the last security administrator be removed. Settings › Account shows, workspace
+by workspace, the person's roles (each once, with the groups it comes through) and what they may read,
+propose, change live, publish and approve; a limited permission is a count that opens what it covers,
+application by application, with the roles giving it; roles across the instance are listed beneath. On a
+narrow screen each workspace stacks. The account menu names the roles held in the workspace open.
 
 A security administrator manages all of it in Settings › Security. **People** lists everyone with
 the roles they hold, searched by name and shown active or deactivated; a person's page edits their

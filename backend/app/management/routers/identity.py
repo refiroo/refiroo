@@ -133,8 +133,9 @@ def delete_my_sessions(principal: CurrentPrincipal, session: DbSession) -> Respo
 def post_my_password(
     payload: PasswordChange, principal: CurrentPrincipal, request: Request, session: DbSession
 ) -> Response:
-    """Change the caller's password: the current one must be right (``422 PASSWORD_INCORRECT``) and
-    the new one meet the rules (``422 PASSWORD_REJECTED``). Every other session ends (J39.6)."""
+    """Change the caller's password: the current one must be right (``422 PASSWORD_INCORRECT``,
+    counted like a wrong sign-in: ``429 SIGN_IN_SLOWED`` while a wait runs) and the new one meet the
+    rules (``422 PASSWORD_REJECTED``). Every other session ends (J39.6)."""
     resets.change_password(
         session,
         request.app.state.identity_settings,
@@ -142,6 +143,7 @@ def post_my_password(
         principal.session_id,
         payload.currentPassword,
         payload.newPassword,
+        _address(request),
     )
     return Response(status_code=204)
 

@@ -23,7 +23,13 @@ from ..engine.model.compiler import SCHEMA_VERSIONS, ModelDiagnostic
 from ..engine.model.consumer_contract import contract_diagnostics
 from ..engine.model.diff import SemanticChange
 from ..engine.model.draft_compatibility import CandidateCompatibility
-from ..engine.model.workspace_models import Assignment, assignments_of, load_assignment
+from ..engine.model.release_lifecycle import delete_blockers
+from ..engine.model.workspace_models import (
+    Assignment,
+    assigned_workspaces,
+    assignments_of,
+    load_assignment,
+)
 from ..engine.moves.origins import HistoryOrigin
 from ..engine.reads.feed import FeedPage as FeedRead
 from ..engine.reads.object_query import live_object_paths
@@ -75,6 +81,7 @@ from .schemas.model import (
     ModelChangeResponse,
     ModelConsumerContractsResponse,
     ModelDiagnosticResponse,
+    ModelReleaseResponse,
     WorkspaceCompatibilityResponse,
 )
 from .schemas.records import (
@@ -120,6 +127,36 @@ def snapshot_attributes(
             )
         )
     return outputs
+
+
+def model_release_responses(
+    session: Session, releases: list[ModelRelease], *, include_model: bool = False
+) -> list[ModelReleaseResponse]:
+    """The releases with the workspaces running each and whether each may be deleted, read once
+    for the page."""
+    ids = [release.id for release in releases]
+    running = assigned_workspaces(session, ids)
+    blockers = delete_blockers(session, ids)
+    return [
+        ModelReleaseResponse(
+            id=release.public_id,
+            key=release.release_key,
+            name=release.release_name,
+            version=release.release_version,
+            schemaVersion=release.schema_version,
+            modelHash=release.model_hash,
+            installedAt=as_utc(release.installed_at),
+            assigned=bool(running.get(release.id)),
+            workspaces=running.get(release.id, []),
+            status=release.status,
+            statusVersion=release.status_version,
+            retiredAt=as_utc(release.retired_at) if release.retired_at else None,
+            deletable=release.id not in blockers,
+            deleteBlockedBy=blockers.get(release.id),
+            model=release.model_json if include_model else None,
+        )
+        for release in releases
+    ]
 
 
 def diagnostic_response(item: ModelDiagnostic) -> ModelDiagnosticResponse:

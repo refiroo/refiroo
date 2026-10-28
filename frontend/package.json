@@ -1,7 +1,7 @@
 {
   "name": "rdm-engine-ui",
   "private": true,
-  "version": "0.11.0",
+  "version": "0.12.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -52,6 +52,7 @@
     "test:browser:settings": "node e2e/u3-settings.mjs",
     "test:browser:sign-in": "node e2e/i2-sign-in.mjs",
     "test:browser:security": "node e2e/sp1-security.mjs",
+    "test:browser:security-r": "node e2e/security-r-acceptance.mjs",
     "test:browser:permissions": "node e2e/z5-permissions.mjs",
     "test:browser:home": "node e2e/hm1-home.mjs",
     "test:browser:changes": "node e2e/z6-changes.mjs",

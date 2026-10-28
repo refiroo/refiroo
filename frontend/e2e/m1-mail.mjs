@@ -1,20 +1,18 @@
 // 0.12 M1 browser evidence: Settings › Integration › Mail against a real backend and a harness SMTP
-// server (helpers/smtp-server.mjs), on two models (the starter, and the starter under another
-// product name), at 1440px and 390px, light and dark. As the harness person, by keyboard: the page
+// server (helpers/smtp-server.mjs), on two models (the starter, and the differently shaped journey configuration generated-b), at 1440px and 390px, light and dark. As the harness person, by keyboard: the page
 // says mail is not set up; a server is saved (the port follows the connection; a login without
 // encryption is refused before anything is sent); a test message arrives at the server; a recipient
 // the server refuses and a server that cannot be reached each say what failed; the outbox lists
-// what the engine queued (rows written from outside the API: no route queues mail yet, SP3 and I6
-// are the first producers) and narrows to the failed one with its reason; the settings are removed
+// what the engine queued (rows written from outside the API, so each state is shown whatever the
+// producers SP3 and I6 queue in the other runners) and narrows to the failed one with its reason; the settings are removed
 // through their confirmation. Axe on each state; screenshots; no horizontal page scroll at 390px.
 import { writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
-import { bootHarness } from "./helpers/harness.mjs";
+import { SHAPED_MODELS, bootShaped } from "./helpers/shaped-models.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { startSmtp } from "./helpers/smtp-server.mjs";
 
-const MODELS = [{ name: "starter" }, { name: "renamed", product: "Northfield Reference Data" }];
 const backend = resolve(import.meta.dirname, "..", "..", "backend");
 
 const checks = [];
@@ -63,13 +61,7 @@ with engine.begin() as connection:
 
 async function walk(configuration) {
   const smtp = await startSmtp();
-  const harness = await bootHarness({
-    transformModel: configuration.product
-      ? (model) => {
-          model.product.name = configuration.product;
-        }
-      : undefined,
-  });
+  const harness = await bootShaped(configuration);
   try {
     const { uiUrl, api, output, browser, databaseUrl } = harness;
     const tag = configuration.name;
@@ -265,7 +257,7 @@ async function walk(configuration) {
 }
 
 try {
-  for (const configuration of MODELS) await walk(configuration);
+  for (const configuration of SHAPED_MODELS) await walk(configuration);
   console.log(`Checks: ${checks.length}`);
   for (const check of checks) console.log(`  ${check}`);
   if (failures.length) {

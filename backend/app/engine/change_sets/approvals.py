@@ -18,6 +18,7 @@ from ...models.database import (
     ChangeSetSubmission,
     Publication,
 )
+from ..authorization.catalogue import ACTIONS, group_names
 from ..authorization.permissions import Permissions
 from ..authorization.writes import requester_of
 from ..identity import security_events
@@ -31,7 +32,14 @@ from .announcements import SENT_BACK as ANNOUNCE_SENT_BACK
 from .announcements import SUBMITTED as ANNOUNCE_SUBMITTED
 from .announcements import announce
 from .publish import apply_publication
-from .submissions import APPROVED, SENT_BACK, SUBMITTED, open_submission, withdraw
+from .submissions import (
+    APPROVED,
+    SENT_BACK,
+    SUBMITTED,
+    open_submission,
+    require_may_withdraw,
+    withdraw,
+)
 from .validation import validate_change_set
 
 POLICY_AGGREGATE = "approval-policy"
@@ -164,26 +172,12 @@ def submit(
     return submission
 
 
-def withdraw_submission(session: Session, change_set_id: str, permissions: Permissions) -> None:
+def withdraw_submission(session: Session, change_set_id: str) -> None:
     """Withdraw the change set's submission; commits. The submitter, or a holder of Approve
-    publications in the workspace, may."""
+    publications in the workspace, may (``submissions.require_may_withdraw``)."""
     change_set = load_change_set(session, change_set_id, for_update=True)
     submission = _require_submitted(session, change_set_id)
-    if _submitter(submission) != requester_of(session) and not permissions.allows(
-        "approve", change_set.workspace_key
-    ):
-        raise api_error(
-            403,
-            "FORBIDDEN",
-            "Only the person who submitted a change set, or a holder of Approve publications, "
-            "can withdraw its submission",
-            {
-                "action": "change-sets.submit",
-                "groups": ["approve"],
-                "workspaceKey": change_set.workspace_key,
-                "reason": "notSubmitter",
-            },
-        )
+    require_may_withdraw(session, submission, change_set.workspace_key)
     withdraw(session, submission, change_set.version)
     session.commit()
 
@@ -282,7 +276,9 @@ def decide(
     change_set = load_change_set(session, change_set_id, for_update=True)
     submission = _require_submitted(session, change_set_id)
     _require_second_person(session, submission)
-    if change_set.version != expected_version:
+    # The decision binds the version read and the version submitted: a change set that no longer
+    # is what was submitted is not decided (0.12 R-F7).
+    if change_set.version != expected_version or change_set.version != submission.version_submitted:
         raise api_error(
             409,
             "VERSION_CONFLICT",
@@ -363,6 +359,70 @@ def _require_second_person(session: Session, submission: ChangeSetSubmission) ->
 # --- publishing directly ------------------------------------------------------------------------
 
 
+def require_direct_publication(
+    session: Session, workspace_key: str, permissions: Permissions | None
+) -> bool:
+    """What publishing a change set directly needs in ``workspace_key``, for every path that
+    publishes one (0.12 R-F3): Publish there (``403 FORBIDDEN``), and under the workspace's policy
+    an approval (``409 APPROVAL_REQUIRED``) unless the caller holds Approve publications and no
+    second person is required. ``permissions`` is None for the engine's own. Returns whether the
+    policy requires approval."""
+    if permissions is not None and not permissions.allows("publish", workspace_key):
+        action = ACTIONS["change-sets.publish"]
+        raise api_error(
+            403,
+            "FORBIDDEN",
+            f"{action.doing} in workspace '{workspace_key}' needs {group_names(action.groups)}",
+            {
+                "action": action.key,
+                "groups": list(action.groups),
+                "workspaceKey": workspace_key,
+            },
+        )
+    require_approval, second_person = policy_flags(session, workspace_key)
+    if require_approval and (
+        second_person
+        or (permissions is not None and not permissions.allows("approve", workspace_key))
+    ):
+        raise api_error(
+            409,
+            "APPROVAL_REQUIRED",
+            "This workspace requires an approval to publish: submit the change set for "
+            "publication" + (", to be approved by someone else" if second_person else ""),
+            {"workspaceKey": workspace_key, "secondPerson": second_person},
+        )
+    return require_approval
+
+
+def close_request_on_publication(
+    session: Session,
+    change_set_id: str,
+    workspace_key: str,
+    name: str,
+    publication: Publication,
+    version: int,
+    *,
+    require_approval: bool,
+) -> None:
+    """After a direct publication, in the caller's transaction: the request still open for the
+    change set is closed as approved by it, and under ``requireApproval`` one is made for it, so
+    the publication records an approval as the publisher's own decision."""
+    submission = open_submission(session, change_set_id, for_update=True)
+    if submission is None and require_approval:
+        submission = ChangeSetSubmission(
+            workspace_key=workspace_key,
+            change_set_id=change_set_id,
+            change_set_name=name,
+            version_submitted=version,
+            state=SUBMITTED,
+            **columns(requester_of(session), "submitted_by"),
+        )
+        session.add(submission)
+        session.flush()
+    if submission is not None:
+        _approved(session, submission, publication, version, None)
+
+
 def publish_directly(
     session: Session,
     change_set_id: str,
@@ -380,29 +440,16 @@ def publish_directly(
     its publication."""
     change_set = load_change_set(session, change_set_id)
     workspace_key, name = change_set.workspace_key, change_set.name
-    require_approval, second_person = policy_flags(session, workspace_key)
-    if require_approval and (second_person or not permissions.allows("approve", workspace_key)):
-        raise api_error(
-            409,
-            "APPROVAL_REQUIRED",
-            "This workspace requires an approval to publish: submit the change set for "
-            "publication" + (", to be approved by someone else" if second_person else ""),
-            {"workspaceKey": workspace_key, "secondPerson": second_person},
-        )
+    require_approval = require_direct_publication(session, workspace_key, permissions)
     publication = _publish(session, change_set, expected_version, expected_active_publication_id)
-    submission = open_submission(session, change_set_id, for_update=True)
-    if submission is None and require_approval:
-        submission = ChangeSetSubmission(
-            workspace_key=workspace_key,
-            change_set_id=change_set_id,
-            change_set_name=name,
-            version_submitted=expected_version,
-            state=SUBMITTED,
-            **columns(requester_of(session), "submitted_by"),
-        )
-        session.add(submission)
-        session.flush()
-    if submission is not None:
-        _approved(session, submission, publication, expected_version, None)
+    close_request_on_publication(
+        session,
+        change_set_id,
+        workspace_key,
+        name,
+        publication,
+        expected_version,
+        require_approval=require_approval,
+    )
     session.commit()
     return publication

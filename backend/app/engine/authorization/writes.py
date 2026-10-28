@@ -162,6 +162,34 @@ def allowance(session: Session, workspace_key: str) -> Narrowing:
     return allowed
 
 
+def _require_route(session: Session, workspace_key: str, only: str, needs: str) -> None:
+    """Refuse the write of a writer allowed only under ``only`` where ``needs`` is the group it
+    takes: a route authorized for one kind of write must not perform the other (0.12 R-F1)."""
+    writer = session.info.get(_WRITER)
+    if writer is None or writer.permissions is None:
+        return
+    held = {group for group in writer.groups if group in WRITE_GROUPS}
+    if held != {only}:
+        return
+    raise api_error(
+        403,
+        "FORBIDDEN",
+        f"{doing(writer.action, (needs,))} in workspace '{workspace_key}' needs "
+        f"{group_names((needs,))}",
+        {"action": writer.action, "groups": [needs], "workspaceKey": workspace_key},
+    )
+
+
+def require_live(session: Session, workspace_key: str) -> None:
+    """A live write by a writer authorized only for change-set work is refused ``403 FORBIDDEN``."""
+    _require_route(session, workspace_key, "change-sets", "edit-live")
+
+
+def require_change_set(session: Session, workspace_key: str) -> None:
+    """A change-set write by a writer authorized only for live edits is refused ``403 FORBIDDEN``."""
+    _require_route(session, workspace_key, "edit-live", "change-sets")
+
+
 def refusal(session: Session, workspace_key: str, record_types: Iterable[str]) -> ApiError:
     """``403 FORBIDDEN`` for writing records of ``record_types``, which the writer's grants in the
     workspace do not name (D293)."""

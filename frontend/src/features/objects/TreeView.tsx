@@ -35,7 +35,7 @@ import { Card } from "@/ui/Card";
 import { useCallback, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { changedObjectType, errorMessage, isApiError } from "@/api/errors";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { allows } from "@/features/security/permissions";
+import { holds } from "@/features/security/permissions";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { RecordTree, type TreeConfiguration, type TreeFocusRequest } from "@/features/objects/RecordTree";
 import { RestructuringDialog, type RestructuringSetup } from "@/features/objects/RestructuringDialog";
@@ -92,7 +92,7 @@ export function TreeView({
   // which needs Bulk and import (D323).
   const writes = useRecordWrites();
   const { permissions } = useWorkspaceData();
-  const severalMove = allows(permissions, "bulk");
+  const severalMove = holds(permissions, "bulk");
   const may = useCallback(
     (item: ObjectItem, action: string) =>
       actions.has(action as never) && writes.permits(item.applicationKey, item.objectTypeKey),

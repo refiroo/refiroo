@@ -28,7 +28,7 @@ from webauthn import (
     verify_registration_response,
 )
 from webauthn.helpers import base64url_to_bytes
-from webauthn.helpers.exceptions import InvalidAuthenticationResponse, InvalidRegistrationResponse
+from webauthn.helpers.exceptions import WebAuthnException
 from webauthn.helpers.structs import (
     AttestationConveyancePreference,
     AuthenticatorSelectionCriteria,
@@ -285,7 +285,7 @@ def finish_registration(
             expected_origin=origin,
             require_user_verification=True,
         )
-    except (InvalidRegistrationResponse, ValueError, KeyError, TypeError) as failure:
+    except (WebAuthnException, ValueError, KeyError, TypeError) as failure:
         raise PasskeyRefused(
             "The browser's answer could not be confirmed: the passkey must be made here, "
             f"with your fingerprint, face or PIN ({failure}).",
@@ -403,7 +403,7 @@ def finish_authentication(
         )
     try:
         credential_id = base64url_to_bytes(str(credential["id"]))
-    except KeyError, ValueError, TypeError:
+    except KeyError, ValueError, TypeError, WebAuthnException:
         raise _refuse(
             session, "The browser's answer is not a passkey's.", user=None, address=address, now=now
         ) from None
@@ -428,7 +428,7 @@ def finish_authentication(
             credential_current_sign_count=passkey.sign_count,
             require_user_verification=True,
         )
-    except (InvalidAuthenticationResponse, ValueError, KeyError, TypeError) as failure:
+    except (WebAuthnException, ValueError, KeyError, TypeError) as failure:
         raise _refuse(
             session,
             "The passkey could not be confirmed: it must be one made here, used with your "
@@ -436,7 +436,11 @@ def finish_authentication(
             user=owner, address=address, now=now, detail=str(failure),
         ) from None  # fmt: skip
     handle = (credential.get("response") or {}).get("userHandle")
-    if handle and base64url_to_bytes(str(handle)) != owner.public_id.encode():
+    try:
+        handled = base64url_to_bytes(str(handle)) if handle else None
+    except ValueError, TypeError:
+        handled = b""
+    if handle and handled != owner.public_id.encode():
         raise _refuse(
             session, "That passkey belongs to someone else.", user=owner, address=address,
             now=now, detail="user handle",

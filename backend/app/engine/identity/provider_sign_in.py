@@ -40,6 +40,11 @@ logger = logging.getLogger(__name__)
 SIGN_IN_MINUTES = 10
 # Pending sign-ins are removed this long after they lapse.
 KEPT_AFTER = timedelta(days=1)
+# The start endpoint is open and stores a row: this many unexpired, unused starts at once for a
+# provider, then it answers 429 until they lapse (as passkey ceremonies are capped, I4c).
+MAX_OPEN_STARTS = 2000
+# A membership's ``seen_at`` is refreshed by a sign-in only when it is this old.
+SEEN_REFRESH = timedelta(days=1)
 _UNCONFIRMED = (
     "The engine could not confirm the answer from {name}. Try again; if it happens again, tell a "
     "security administrator."
@@ -111,6 +116,22 @@ def start(
             request=request, address=address, detail=str(error),
         ) from None  # fmt: skip
     session.execute(delete(ProviderSignIn).where(ProviderSignIn.expires_at < now - KEPT_AFTER))
+    open_now = session.scalar(
+        select(func.count())
+        .select_from(ProviderSignIn)
+        .where(
+            ProviderSignIn.provider_id == provider.id,
+            ProviderSignIn.used_at.is_(None),
+            ProviderSignIn.expires_at > now,
+        )
+    )
+    if (open_now or 0) >= MAX_OPEN_STARTS:
+        session.commit()
+        raise SignInFailed(
+            "busy",
+            "Many sign-ins are waiting for this provider; try again in a few minutes.",
+            request,
+        )
     state, nonce, browser_token = new_token(), new_token(), new_token()
     verifier = secrets.token_urlsafe(48)
     session.add(
@@ -413,6 +434,14 @@ def _sync_groups(
             .where(UserGroupMember.user_id == user.id, UserGroup.provider_id == provider.id)
         )
     }
+    seen_at = {
+        group_id: seen
+        for group_id, seen in session.execute(
+            select(UserGroupMember.group_id, UserGroupMember.seen_at).where(
+                UserGroupMember.user_id == user.id, UserGroupMember.group_id.in_(list(held))
+            )
+        )
+    }
     left = [group for group_id, group in held.items() if group_id not in wanted]
     if left:
         session.execute(
@@ -421,13 +450,17 @@ def _sync_groups(
                 UserGroupMember.group_id.in_([group.id for group in left]),
             )
         )
-    if held.keys() & wanted.keys():
+    # Any UPDATE of a membership raises the authorization generation and makes every process read
+    # permissions again, so ``seen_at`` is refreshed at most once a day, not at every sign-in.
+    stale = [
+        group_id
+        for group_id in held.keys() & wanted.keys()
+        if (seen := seen_at.get(group_id)) is None or now - seen >= SEEN_REFRESH
+    ]
+    if stale:
         session.execute(
             update(UserGroupMember)
-            .where(
-                UserGroupMember.user_id == user.id,
-                UserGroupMember.group_id.in_(list(held.keys() & wanted.keys())),
-            )
+            .where(UserGroupMember.user_id == user.id, UserGroupMember.group_id.in_(stale))
             .values(seen_at=now)
         )
     joined = [group for group_id, group in wanted.items() if group_id not in held]

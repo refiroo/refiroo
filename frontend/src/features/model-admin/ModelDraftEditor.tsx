@@ -200,8 +200,8 @@ export function ModelDraftEditor({
     <div className="model-editor-stack">
       <header className="model-detail-header">
         <div>
-          <p className="eyebrow">Editable draft · version {draft.version}</p>
-          <h2>{draft.name}</h2>
+          {/* The page title names the draft (ModelWorkbench); this line says what it is. */}
+          <p className="muted">Editable draft · version {draft.version}</p>
         </div>
         <div className="model-detail-actions">
           <button className="primary" onClick={onOpenEditor}>

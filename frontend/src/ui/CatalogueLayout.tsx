@@ -57,7 +57,12 @@ export function CatalogueEntry({
   onSelect: () => void;
 }) {
   return (
-    <button className={current ? "active" : ""} aria-current={current ? "page" : undefined} onClick={onSelect}>
+    <button
+      data-row-focus
+      className={current ? "active" : ""}
+      aria-current={current ? "page" : undefined}
+      onClick={onSelect}
+    >
       <Icon name={icon} />
       <span className="catalogue-text">
         <strong>{title}</strong>

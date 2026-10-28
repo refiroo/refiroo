@@ -644,3 +644,20 @@ def count_changes(session: Session, context: SnapshotContext) -> int:
         ChangeSetRelation, "relation_id", context, base.relations if base else None
     )
     return int(session.scalar(select(records + relations)) or 0)
+
+
+def count_changes_many(session: Session, contexts: list[SnapshotContext]) -> dict[str, int]:
+    """``count_changes`` for each of several contexts, all in one statement: a page of change sets
+    (0.12 R)."""
+    if not contexts:
+        return {}
+    columns = []
+    for context in contexts:
+        base = context.base
+        records = _counted(ChangeSetObject, "object_id", context, base.objects if base else None)
+        relations = _counted(
+            ChangeSetRelation, "relation_id", context, base.relations if base else None
+        )
+        columns.append(records + relations)
+    row = session.execute(select(*columns)).one()
+    return {context.id: int(value or 0) for context, value in zip(contexts, row, strict=True)}

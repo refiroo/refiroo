@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from ...errors import api_error
 from ...models.database import ModelRelease, Workspace, WorkspaceModel, WorkspaceRuntimeState
 from .compiler import SCHEMA_VERSIONS, SUPPORTED_SCHEMA_VERSIONS
+from .release_lifecycle import require_choosable
 
 Assignment = tuple[WorkspaceModel, ModelRelease]
 
@@ -93,6 +94,7 @@ def assign_new_workspace(
                     "operation": "workspaceCreation",
                 },
             )
+        require_choosable(session, release, operation="workspaceCreation")
     assignment = WorkspaceModel(
         workspace_key=workspace_key,
         model_release_id=release.id,

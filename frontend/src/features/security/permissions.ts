@@ -95,17 +95,12 @@ export function useHeldAnywhere(): HeldAnywhere[] | undefined {
   return anywhere.failed && !anywhere.value ? [] : anywhere.value;
 }
 
-/** Whether the person holds `group` in the workspace these permissions are for. */
+/**
+ * Whether the person holds `group` in the workspace these permissions are for; false while the
+ * permissions are unknown (loading or unreadable), so nothing is offered before it is known (D323).
+ */
 export function holds(permissions: MyPermissions | undefined, group: string): boolean {
   return Boolean(permissions?.actionGroups.some((held) => held.key === group));
-}
-
-/**
- * Whether a component may offer what `group` allows: held, or no permissions given at all (a
- * component shown without a workspace's permissions, as in a test). The app's own gates use `holds`.
- */
-export function allows(permissions: MyPermissions | undefined, group: string): boolean {
-  return !permissions || holds(permissions, group);
 }
 
 /** Whether the person holds `group` anywhere. */

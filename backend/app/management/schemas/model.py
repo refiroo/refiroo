@@ -121,6 +121,17 @@ class ModelReleaseSummary(BaseModel):
     # Run by at least one workspace, and the keys of the workspaces running it (0.11 D24).
     assigned: bool
     workspaces: list[str]
+    status: Literal["active", "retired"] = Field(
+        description="A retired release is never chosen again; what runs on it keeps running"
+    )
+    statusVersion: int = Field(
+        description="Changes with the status; sent back to change or delete it"
+    )
+    retiredAt: datetime | None = None
+    deletable: bool = Field(description="Nothing refers to the release, so it may be deleted")
+    deleteBlockedBy: Literal["running", "history", "importProfile", "mapping"] | None = Field(
+        default=None, description="Why it may not be deleted, the first reason that applies"
+    )
 
 
 class ModelReleaseResponse(ModelReleaseSummary):
@@ -633,6 +644,15 @@ class ModelCompilationResponse(BaseModel):
     changes: list[ModelChangeResponse] = Field(default_factory=list)
     # Present when the draft is valid.
     consumerContracts: ModelConsumerContractsResponse | None = None
+
+
+class ModelReleaseStatusRequest(BaseModel):
+    """Retire a release or bring it back (0.12 MR1, D457)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["active", "retired"]
+    expectedStatusVersion: int = Field(ge=1)
 
 
 class ModelReleaseRaisingRequest(BaseModel):

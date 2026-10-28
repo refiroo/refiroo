@@ -9,14 +9,20 @@ from ...errors import api_error
 from ...models.database import ChangeSet, ModelRelease
 from ..indexes import matrix_states
 from ..model.registry import resolve_pinned_release
+from ..model.release_lifecycle import require_choosable
+from ..model.workspace_models import load_assignment
 from ..records.audit import record_audit_event
 from ..records.writes import ChangeSetWrites
 from .access import change_set_model, effective_change_set_membership, load_change_set
 from .validation import graph_diagnostics, is_parent_pair
 
 
-def selected_change_set_release(session: Session, public_id: str) -> ModelRelease:
-    """Resolve an installed public release identity using pinned-model errors."""
+def selected_change_set_release(
+    session: Session, public_id: str, *, kept: tuple[int, ...] = ()
+) -> ModelRelease:
+    """Resolve an installed public release identity using pinned-model errors. A retired release
+    is refused unless it is one of ``kept``, the releases the change set or its workspace already
+    work under (0.12 MR1)."""
     release = session.scalar(select(ModelRelease).where(ModelRelease.public_id == public_id))
     if release is None:
         raise api_error(
@@ -25,6 +31,8 @@ def selected_change_set_release(session: Session, public_id: str) -> ModelReleas
             "The selected model release is not installed",
             {"modelReleaseId": public_id},
         )
+    if release.id not in kept:
+        require_choosable(session, release, operation="changeSet")
     resolve_pinned_release(session, release.id, require_ready=False)
     return release
 
@@ -138,7 +146,14 @@ def set_change_set_model_release(
     try:
         change_set = load_change_set(session, change_set_id, for_update=True)
         writes = ChangeSetWrites(session, change_set)
-        release = selected_change_set_release(session, public_id)
+        release = selected_change_set_release(
+            session,
+            public_id,
+            kept=(
+                change_set.model_release_id,
+                load_assignment(session, change_set.workspace_key)[1].id,
+            ),
+        )
         if change_set.version != expected_version:
             raise api_error(
                 409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed"
