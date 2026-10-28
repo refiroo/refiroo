@@ -1,26 +1,22 @@
 """The context builder (AP-D3): the only code that reads data for a provider.
 
 ``AI_SEND_LEVEL`` is the ceiling: ``structure`` sends keys, labels, headers, attribute names and
-types and no value; ``samples`` adds values, at most ``AI_SAMPLE_VALUES`` per column (or rows per
-sheet) whatever a feature asks for; ``values`` sends the values a feature asks for, as many as it
-needs (0.16 AP-D14: an agent reads as much of a file as its task needs). A value is read only when
-the level allows it, so nothing above the level is even loaded. A feature that needs more than the ceiling is not
-offered (``FEATURE_LEVELS``).
+types and no value; ``samples`` adds values, at most ``AI_SAMPLE_VALUES`` per column whatever a feature asks for;
+``values`` sends the values a feature asks for, as many as it needs. A file is sent as its
+profile (0.16 AP-D14): each column's counts, type and most frequent values, computed in the
+database over every row; no raw row is read here. A value is sent only when the level allows it. A
+feature that needs more than the ceiling is not offered (``FEATURE_LEVELS``).
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import text
-from sqlalchemy.orm import Session
-
 from ...config import SEND_LEVELS, SendLevel
-from ...models.database import SourceFile
 from .provider import Purpose
 
 # The least each purpose needs to be useful. The inference's names work from headers alone, and
-# are better with rows.
+# are better with the columns' values.
 FEATURE_LEVELS: dict[Purpose, SendLevel] = {
     "connectionTest": "structure",
     "modelNames": "structure",
@@ -41,65 +37,100 @@ class Policy:
         return self.allows(FEATURE_LEVELS[purpose])
 
     def values(self, wanted: int) -> int:
-        """How many of the ``wanted`` values (or rows) may be sent: none at ``structure``, at most
+        """How many of the ``wanted`` values may be sent: none at ``structure``, at most
         ``AI_SAMPLE_VALUES`` at ``samples``, all of them at ``values``."""
         if not self.allows("samples"):
             return 0
         return wanted if self.allows("values") else min(wanted, self.samples)
 
 
-def sheet(
-    policy: Policy,
-    name: str,
-    headers: list[str],
-    read_rows: Callable[[int], list[list[str | None]]],
-    wanted: int,
-) -> dict[str, Any]:
-    """A sheet as a provider sees it: its name and headers, and the first of the ``wanted`` rows
-    the level allows (``read_rows`` is called only when it allows any)."""
-    shown: dict[str, Any] = {"name": name, "headers": list(headers)}
-    allowed = policy.values(wanted)
+# The characters a token holds at the least (JSON with codes tokenises densely).
+CHARS_PER_TOKEN = 3
+
+
+def estimated_tokens(characters: int) -> int:
+    """The tokens ``characters`` of a request cost, estimated."""
+    return characters // CHARS_PER_TOKEN
+
+
+def within_window(characters: int, context_tokens: int | None, answer_tokens: int = 0) -> bool:
+    """Whether a request of ``characters`` and an answer of ``answer_tokens`` fit half of the
+    model's window (the rest is the model's); always without a window."""
+    if context_tokens is None:
+        return True
+    return estimated_tokens(characters) + answer_tokens <= context_tokens // 2
+
+
+def _column(policy: Policy, column: Any) -> dict[str, Any]:
+    shown: dict[str, Any] = {
+        "header": column.header,
+        "rows": column.rows,
+        "filled": column.filled,
+        "distinct": column.distinct,
+        "valueType": column.value_type(),
+        "candidateKey": column.candidate_key,
+    }
+    if column.delimiters:
+        shown["delimiters"] = [
+            {"character": d["character"], "cells": d["cells"], "share": d["share"]}
+            for d in column.delimiters
+        ]
+    if column.placeholders:
+        if policy.allows("samples"):
+            shown["placeholders"] = [
+                {"value": p["value"], "count": p["count"]}
+                for p in column.placeholders[: policy.values(len(column.placeholders))]
+            ]
+        else:
+            shown["placeholderCells"] = sum(p["count"] for p in column.placeholders)
+    overlaps = []
+    for overlap in column.overlaps:
+        if "sheet" in overlap:
+            overlaps.append(
+                {"sheet": overlap["sheet"], "column": overlap.get("header") or overlap["column"]}
+            )
+        else:
+            overlaps.append({"existingType": overlap.get("objectTypeKey")})
+            if overlap.get("attributeTypeKey"):
+                overlaps[-1]["attribute"] = overlap["attributeTypeKey"]
+        overlaps[-1]["share"] = overlap["share"]
+    if overlaps:
+        shown["overlaps"] = overlaps
+    allowed = policy.values(len(column.values))
     if allowed:
-        shown["rows"] = [list(row) for row in read_rows(allowed)[:allowed]]
+        shown["values"] = [
+            {"value": v["value"], "count": v["count"]} for v in column.values[:allowed]
+        ]
     return shown
 
 
-def workbook_sheets(
-    session: Session, policy: Policy, source: SourceFile, tables: list[Any], wanted: int
+def workbook_profile(
+    policy: Policy,
+    tables: Sequence[Any],
+    fits: Callable[[list[dict[str, Any]]], bool] | None = None,
 ) -> list[dict[str, Any]]:
-    """The profiled tables of a staged workbook (``inference.facts`` tables: index, name, header
-    row, columns) as sheets, their rows read from the staged cells only at ``samples`` and up."""
-    sheets = []
+    """The profiled tables of a staged workbook (``inference.facts`` tables) as a provider sees
+    them (AP-D14): each table's name, titles and row count, and per column its counts, value type,
+    candidate key, delimiters, placeholders, overlaps with other columns and most frequent values,
+    all from the profile over every row. ``fits`` says whether a request carrying the tables is
+    within the model's window; when it is not, the frequent values of the columns with the most
+    distinct values go first, never the structure."""
+    shown = []
     for table in tables:
-        numbers = [column.number for column in table.columns]
-
-        def read_rows(
-            limit: int, table: Any = table, numbers: list[int] = numbers
-        ) -> list[list[str | None]]:
-            found = session.execute(
-                text(
-                    """
-                    SELECT row_number, column_number, text FROM source_file_cells
-                    WHERE source_file_id = :file AND sheet_index = :sheet AND row_number > :header
-                      AND row_number <= :header + :rows
-                    ORDER BY row_number, column_number
-                    """
-                ),
-                {
-                    "file": source.id,
-                    "sheet": table.index,
-                    "header": table.header_row,
-                    "rows": limit,
-                },
-            )
-            by_row: dict[int, dict[int, str]] = {}
-            for row_number, column_number, value in found:
-                by_row.setdefault(row_number, {})[column_number] = value
-            return [[cells.get(n) for n in numbers] for _, cells in sorted(by_row.items())]
-
-        sheets.append(
-            sheet(
-                policy, table.name, [column.header for column in table.columns], read_rows, wanted
-            )
+        entry: dict[str, Any] = {"name": table.name}
+        titles = getattr(table, "titles", ())
+        if titles:
+            entry["titles"] = list(titles)
+        entry["rows"] = table.rows
+        entry["columns"] = [_column(policy, column) for column in table.columns]
+        shown.append(entry)
+    if fits is not None and not fits(shown):
+        columns = sorted(
+            (c for t in shown for c in t["columns"] if "values" in c),
+            key=lambda c: -c["distinct"],
         )
-    return sheets
+        for column in columns:
+            del column["values"]
+            if fits(shown):
+                break
+    return shown

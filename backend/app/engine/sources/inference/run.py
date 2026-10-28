@@ -49,7 +49,7 @@ from ...model.diagnostics import ModelDiagnostic
 from ...model.drafts import load_draft, load_draft_for_update
 from ...model.registry import resolve_model_snapshot
 from ...proposals import calls as ai_calls
-from ...proposals.context import workbook_sheets
+from ...proposals.context import within_window, workbook_profile
 from ...proposals.registry import AiConfiguration
 from ...workspaces.catalogue import resolve_workspace
 from ..draft_profile import current_source
@@ -284,7 +284,7 @@ def run_inference(
     if asked and ai is not None:
         requester = ai_calls.Requester(job.requested_by_user_id, job.requested_by_client_id)
         proposals, assistant = _assisted(
-            session, job, source, workbook, proposals, ai, requester, record or ai_calls.record_in(session)
+            session, job, workbook, proposals, ai, requester, record or ai_calls.record_in(session)
         )
         if assistant.get("failure"):
             warnings.append(f"The assistant failed ({assistant['failure']}); the proposals of the rules stand")
@@ -551,7 +551,6 @@ def _requirements(proposals: list[Proposal]) -> None:
 def _assisted(
     session: Session,
     job: Job,
-    source: SourceFile,
     workbook: Any,
     proposals: list[Proposal],
     ai: AiConfiguration,
@@ -569,7 +568,14 @@ def _assisted(
     ]
     if not types:
         return proposals, {"model": None, "suggested": 0, "offered": 0, "failure": None}
-    sheets = workbook_sheets(session, ai.policy, source, list(workbook.sheets), assistants.ROWS)
+    # The tables the rules propose from: the sheets read whole and the lists of sheets laid out
+    # for reading. Their profile is read (AP-D14), never a row.
+    tables = [*workbook.sheets, *getattr(workbook, "blocks", [])]
+    profile = workbook_profile(
+        ai.policy,
+        tables,
+        lambda shown: within_window(assistants.characters(shown, types), ai.context_tokens),
+    )
     # A provider may take minutes, a local model longer. Say so on the job, and end this read
     # transaction first, so the job holds none open while it waits: the database ends a transaction
     # left idle (DATABASE_IDLE_TRANSACTION_TIMEOUT). Nothing is written before this point.
@@ -578,7 +584,7 @@ def _assisted(
     job.stage = "assistant"
     session.commit()
     outcome = ai_calls.ask(
-        ai, assistants.request(sheets, types), record=record, requester=requester, job_id=job.id
+        ai, assistants.request(profile, types), record=record, requester=requester, job_id=job.id
     )
     job.stage = "inferring"
     if outcome.answer is None:

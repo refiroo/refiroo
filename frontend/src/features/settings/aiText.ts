@@ -24,8 +24,8 @@ export function failureSentence(call: Pick<AiCall, "failure" | "failureKind">): 
 export function sentToProvider(level: AiSendLevel, provider: string | null): string {
   const to = provider ?? "the AI provider";
   return level === "structure"
-    ? `Sends the sheets' names and headers to ${to}`
-    : `Sends the sheets' names, headers and first rows to ${to}`;
+    ? `Sends each sheet's name and headers and, for every column, its counts over all rows (no values) to ${to}`
+    : `Sends each sheet's name and headers and, for every column, counts and its most frequent values over all rows, to ${to}`;
 }
 
 /** What the mapping proposal dialog says is sent: record names and the fields the view shows, and the floor when it is known. */

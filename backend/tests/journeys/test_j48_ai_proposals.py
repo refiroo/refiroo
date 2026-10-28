@@ -34,7 +34,7 @@ def _prepared(world) -> dict[str, Any]:
     """A draft of the active model with W1 profiled in a new workspace."""
     workspace = _workspace(world)
     draft = _draft(world)
-    book = workbooks.w1(rows=40)
+    book = workbooks.w1(rows=120)
     _profiled(
         world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace
     )
@@ -113,7 +113,7 @@ def test_with_content_logging_on_a_call_keeps_what_was_sent_and_answered(world):
 @pytest.mark.settings(AI_PROVIDER=FAKE)
 def test_a_model_administrator_gets_named_proposals_marked_as_the_assistants(world):
     """Given a provider and a model administrator, when their inference runs, then the provider is
-    sent the sheets with their rows and the types the rules add, each better name above the floor is
+    sent the tables with each column's profile over every row and the types the rules add, each better name above the floor is
     a proposal marked machine-proposed with provider, model, confidence and reason, and once applied
     the step's origin says who proposed it; the call names the job and the person."""
     draft = _prepared(world)
@@ -124,15 +124,22 @@ def test_a_model_administrator_gets_named_proposals_marked_as_the_assistants(wor
     assert named, [p["pattern"] for p in proposals]
     sent = fake.seen[-1]
     assert sent.purpose == "modelNames" and sent.context["types"]
-    # At send level values the helper gets the rows it asks for (its own 50), not AI_SAMPLE_VALUES.
-    assert all(0 < len(sheet["rows"]) <= 50 for sheet in sent.context["sheets"])
-    assert any(len(sheet["rows"]) > 20 for sheet in sent.context["sheets"])
+    # The profile counts every row of the sheet, beyond any first-rows window, and no row is sent.
+    tables = sent.context["tables"]
+    assert "sheets" not in sent.context
+    assert any(t["rows"] > 100 for t in tables)
+    columns = [c for t in tables for c in t["columns"]]
+    assert all(c["rows"] > 50 for c in columns if c["rows"]) and any(
+        c["distinct"] > 50 for c in columns
+    )
+    assert all(c["valueType"] and "filled" in c for c in columns)
+    assert any(c.get("values") for c in columns)
     origin = named[0]["evidence"]["origin"]
     assert origin == {
         "kind": "ai",
         "provider": "fake",
         "model": fake.MODEL,
-        "promptVersion": "model-names/1",
+        "promptVersion": "model-names/2",
         "confidence": 0.8,
         "reason": "Written out from the header",
     }
@@ -241,23 +248,28 @@ def test_a_failing_provider_leaves_the_rules_proposals_standing(world, answer, k
 @pytest.mark.settings(AI_PROVIDER=FAKE, AI_SEND_LEVEL="structure")
 def test_at_send_level_structure_no_value_of_the_file_leaves(world):
     """Given AI_SEND_LEVEL structure, when the inference asks the assistant, then the provider is
-    sent sheet names, headers and type names and not one row."""
+    sent table names, each column's header and counts, and type names, and not one value."""
     draft = _prepared(world)
     _infer(world, draft)
     sent = fake.seen[-1].context
-    assert sent["sheets"] and all(set(sheet) == {"name", "headers"} for sheet in sent["sheets"])
+    columns = [c for t in sent["tables"] for c in t["columns"]]
+    assert columns and all(
+        not {"values", "placeholders"} & set(c) and c["rows"] > 50 for c in columns if c["rows"]
+    )
+    assert any(c["distinct"] > 50 for c in columns)
     assert _calls(world)[0]["sendLevel"] == "structure"
 
 
 @pytest.mark.journey("J48.6")
 @pytest.mark.settings(AI_PROVIDER=FAKE, AI_SEND_LEVEL="samples", AI_SAMPLE_VALUES="3")
 def test_at_send_level_samples_at_most_the_sample_rows_leave(world):
-    """Given AI_SEND_LEVEL samples and AI_SAMPLE_VALUES 3, then each sheet is sent with at most 3
-    rows."""
+    """Given AI_SEND_LEVEL samples and AI_SAMPLE_VALUES 3, then each column is sent with its counts
+    over every row and at most 3 frequent values."""
     draft = _prepared(world)
     _infer(world, draft)
-    sheets = fake.seen[-1].context["sheets"]
-    assert sheets and all(0 < len(sheet["rows"]) <= 3 for sheet in sheets)
+    columns = [c for t in fake.seen[-1].context["tables"] for c in t["columns"]]
+    assert columns and all(len(c.get("values", [])) <= 3 for c in columns)
+    assert any(c.get("values") for c in columns) and any(c["distinct"] > 50 for c in columns)
 
 
 @pytest.mark.journey("J48.7")

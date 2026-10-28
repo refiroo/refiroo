@@ -20,7 +20,7 @@ export function phaseText(phase: ProposingPhase, model?: string | null): string 
     case "reading":
       return "Finding the model in every sheet…";
     case "assistant":
-      return `Asking ${model ? `the AI assistant (${model})` : "the AI assistant"} for clearer names. A model run on your own machine can take a few minutes.`;
+      return `Asking ${model ? `the AI assistant (${model})` : "the AI assistant"} for clearer names. Depending on the model and where it runs, this can take a few minutes.`;
     case "applying":
       return "Applying the proposals, one step each…";
   }

@@ -19,7 +19,7 @@ describe("the editor while the engine proposes", () => {
     expect(phaseText("reading")).toBe("Finding the model in every sheet…");
     expect(phaseText("applying")).toBe("Applying the proposals, one step each…");
     expect(phaseText("assistant", "qwen3:8b")).toBe(
-      "Asking the AI assistant (qwen3:8b) for clearer names. A model run on your own machine can take a few minutes.",
+      "Asking the AI assistant (qwen3:8b) for clearer names. Depending on the model and where it runs, this can take a few minutes.",
     );
     expect(phaseText("assistant", null)).toMatch(/^Asking the AI assistant for clearer names\./);
   });

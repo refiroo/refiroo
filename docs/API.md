@@ -4708,8 +4708,9 @@ A proposal whose step was undone is `rejected`.
 (`AI_PROVIDER`), the send level allows it and the caller holds Use AI proposals; `false` never;
 `true` is refused with `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW` or `403 FORBIDDEN`
 (`details.groups: ["ai-proposals"]`) when it cannot be. The read answers `assistant`, whether it
-was asked. The provider is sent each sheet's name and headers, its first rows from send level
-`samples` up (the helper asks for 50; at `samples` at most `AI_SAMPLE_VALUES`), and the names the rules gave the types they add. Each
+was asked. The provider is sent each sheet's name and, for every column, its profile over every row
+(counts, value type, delimiters, overlaps) and from send level `samples` up its most frequent values
+with counts (at `samples` at most `AI_SAMPLE_VALUES`), and the names the rules gave the types they add. Each
 name at or above `AI_MIN_CONFIDENCE` is a proposal of pattern `assistant`, a `setLabel` requiring
 the proposal it renames, whose `evidence.origin` is its provenance:
 

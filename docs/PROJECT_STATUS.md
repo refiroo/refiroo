@@ -9,7 +9,7 @@ inference's assistant on the provider with provenance. **AP2, targets for unmapp
 (2026-10-28)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap2-record-2026-10-28)): Propose targets in the
 mapping grid, a job asking the provider among the grid's own candidates and writing into a change set,
 provenance on change-set relations through publication into history, the Proposed filter,
-`AI_CONTEXT_TOKENS`. Next: AP6 with what it needs of AP3.
+`AI_CONTEXT_TOKENS`. Next: AP6, one assistant whose tools are every AI capability (AP-D27, 2026-10-28), starting with AP6a.
 
 ## Current development baseline — Base 0.12 complete (2026-10-28)
 

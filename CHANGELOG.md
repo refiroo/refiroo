@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (0.16 AP1, the naming helper sees the whole file)
+
+- The inference's AI assistant no longer sends each sheet's first 50 rows. It sends each table's
+  profile, computed in the database over every row: per column the counts, value type, candidate key,
+  delimiters, placeholders, overlaps with other columns and, from `samples` up, the most frequent
+  values with counts (at most `AI_SAMPLE_VALUES` at `samples`); `structure` sends no value. A request
+  over half of `AI_CONTEXT_TOKENS` drops the values of the columns with the most distinct values
+  first. Prompt version `model-names/2`.
+
 ### Added (0.16 AP2, AI targets for unmapped values)
 
 - **Propose targets in a mapping grid:** `POST /workspaces/{key}/mapping-proposals` (a job of kind

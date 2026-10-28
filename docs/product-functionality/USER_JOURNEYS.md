@@ -2442,8 +2442,8 @@ inference's names; later 0.16 packages add their own proposals on the same provi
   and is the newest call, attributed to its sender. Content is kept only with `AI_LOG_CONTENT` on.
 - **J48.2 Names proposed and recorded**: the inference's names arrive as proposals of pattern
   `assistant` carrying `evidence.origin` (`kind: ai`, provider, model, prompt version, confidence,
-  reason); the provider was sent the sheets, the first rows it asks for (all of them at `values`) and the types
-  the rules add; applied, the step's origin holds `proposedBy`; the call names the job and the person.
+  reason); the provider was sent the tables with each column's profile over every row (and, as the level allows,
+  its most frequent values) and the types the rules add; applied, the step's origin holds `proposedBy`; the call names the job and the person.
 - **J48.3 Not offered without the group**: a caller without Use AI proposals runs the inference on
   its rules alone and nothing is sent; asking for the assistant explicitly is refused.
 - **J48.4 No provider**: the system says none is set, no feature is offered, the test and an explicit
@@ -2451,8 +2451,8 @@ inference's names; later 0.16 packages add their own proposals on the same provi
 - **J48.5 A failing provider**: unreachable, a refused key, a declined request or an answer out of
   the shape asked for is a warning on the inference ("The assistant failed (…); the proposals of the
   rules stand") and a failed call with its kind; the rules' proposals stand.
-- **J48.6 The send level holds**: at `structure` a sheet goes with its name and headers and no row;
-  at `samples` with at most `AI_SAMPLE_VALUES` rows; a feature needing more than the level is not
+- **J48.6 The send level holds**: at `structure` a sheet goes with its name, headers and each column's counts and no value;
+  at `samples` with at most `AI_SAMPLE_VALUES` frequent values per column; a feature needing more than the level is not
   offered.
 - **J48.7 The confidence floor**: a name below `AI_MIN_CONFIDENCE` is not offered. The inference says what the
   assistant did: its model, the names it suggested and those offered, or why it failed; while it waits for the

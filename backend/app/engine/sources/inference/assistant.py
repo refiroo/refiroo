@@ -1,13 +1,14 @@
 """The inference's assistant (0.10 A6, D95), on the proposal provider since 0.16 AP1.
 
 When the person asks for it and may use AI proposals, the inference sends the provider each
-sheet's name and headers, its first ``ROWS`` rows from send level ``samples`` up, and the types its
-proposals add; the provider answers a better name for some of them, with a reason and a
+table's profile (its columns' counts, types and most frequent values over every row, as far as the
+send level allows, AP-D14) and the types its proposals add; the provider answers a better name for some of them, with a reason and a
 confidence. Each name at or above ``AI_MIN_CONFIDENCE`` becomes a proposal of pattern ``assistant``
 (a ``setLabel`` requiring the proposal it renames) that carries its provenance. Nothing is applied
 unasked, and a failing provider is a warning: the proposals of the rules stand.
 """
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,16 +16,15 @@ from pydantic import BaseModel, Field
 
 from ...proposals.provider import ProposalRequest
 
-PROMPT_VERSION = "model-names/1"
-# The rows of each sheet this helper asks for: enough to read what a header means. Its own choice,
-# not a limit of the provider; at send level samples AI_SAMPLE_VALUES caps it.
-ROWS = 50
+PROMPT_VERSION = "model-names/2"
 
 INSTRUCTIONS = """\
 You help a data steward turn a spreadsheet into a reference data model. The message is JSON: the \
-workbook's sheets (each with its name, its column headers and, when allowed, its first rows) and \
-the record types a rule-based inference proposes to create from them, each with the name the rules \
-gave it. Rules name a type after a header or a sheet, so names are often codes or abbreviations.
+workbook's "tables" (each with its name, its row count and, for every column, a profile computed \
+over every row of the file: header, rows, filled cells, distinct values, value type, whether it \
+identifies a row, delimiters and placeholder values found in it, the other columns whose values it \
+shares, and, when allowed, its most frequent values with their counts) and the record types a \
+rule-based inference proposes to create from them, each with the name the rules gave it. Rules name a type after a header or a sheet, so names are often codes or abbreviations.
 
 For each type whose name a person would understand better, suggest a short, plain name in the \
 language of the workbook: singular, title case, no codes or underscores. Leave out a type whose \
@@ -54,17 +54,22 @@ class AssistantType:
     name: str
 
 
-def request(sheets: list[dict[str, Any]], types: list[AssistantType]) -> ProposalRequest:
+def request(tables: list[dict[str, Any]], types: list[AssistantType]) -> ProposalRequest:
     return ProposalRequest(
         purpose="modelNames",
         instructions=INSTRUCTIONS,
         prompt_version=PROMPT_VERSION,
         context={
-            "sheets": sheets,
+            "tables": tables,
             "types": [{"proposal": t.proposal, "key": t.key, "name": t.name} for t in types],
         },
         answer=NameAnswer,
     )
+
+
+def characters(tables: list[dict[str, Any]], types: list[AssistantType]) -> int:
+    """The size of the request carrying ``tables`` and ``types``, in characters."""
+    return len(INSTRUCTIONS) + len(json.dumps(request(tables, types).context, ensure_ascii=False))
 
 
 def suggestions(

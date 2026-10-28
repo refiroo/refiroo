@@ -56,9 +56,9 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
 | --- | --- | --- |
 | [AP1](#ap1-the-proposal-provider) | 0.12 | **Foundation.** Provider interface, settings, adapters, send levels, call record, permission, jobs, provenance, Settings › AI |
 | [AP2](#ap2-targets-for-unmapped-values) | AP1 | Ranked target candidates for the unmapped rows of a mapping view, landing as edits in a change set |
-| [AP3](#ap3-model-authoring-and-model-mappings) | AP1 | The 0.10 assistant moved onto the provider and widened; semantic re-ranking of model-mapping candidates |
-| [AP4](#ap4-values-for-empty-fields-and-missing-related-records) | AP1 | The one-click form: a draft value for an empty attribute, or a missing related record such as a translation |
-| [AP5](#ap5-dry-run-triage) | AP1 | A dry run's failures grouped, explained and given a suggested fix step |
+| [AP3](#ap3-model-authoring-and-model-mappings) | — | **Folded into AP6 (AP-D27, 2026-10-28):** model authoring is steps 3–8 of the workbook flow |
+| [AP4](#ap4-values-for-empty-fields-and-missing-related-records) | — | **Folded into AP6 (AP-D27):** value drafts are a tool of the assistant, offered in place on a filtered collection |
+| [AP5](#ap5-dry-run-triage) | — | **Folded into AP6 (AP-D27):** the grouped refusals feed the assistant's loop (AP6c) and are shown to the person |
 | [AP6](#ap6-instruction-driven-tasks) | AP1, AP2–AP5 patterns | **Tell the assistant what you need, attach the material.** A free-text instruction and a workbook become a plan of steps made only of what the engine already does, shown for editing, dry-run over every row and run into a change set |
 | [AG1](#ag1-the-server-and-its-authority) | 0.12 | The MCP endpoint, its setting, sign-in with the existing OAuth, audit channel, the agent role, Settings › Agent access |
 | [AG2](#ag2-read-tools-and-resources) | AG1 | Read tools generated from the consumer API definitions plus a curated set; the model as resources |
@@ -195,7 +195,7 @@ AP-D4–AP-D9 and AP-D11 are built as written; the user may reopen any of them.
 
 **Where it differs from the plan:**
 
-- **Revised 2026-10-28 with AP-D14:** at send level `values` nothing caps what a feature asks for; `AI_SAMPLE_VALUES` caps only `samples`. The naming helper asks for 50 rows per sheet, its own choice.
+- **Revised 2026-10-28 with AP-D14:** at send level `values` nothing caps what a feature asks for; `AI_SAMPLE_VALUES` caps only `samples`. The naming helper asked for 50 rows per sheet, its own choice; replaced on 2026-10-28 by the column profiles over every row (AP-D14), the fixed slice having no basis.
 - **The change-set `origin` column and the `aiProposal` job kind move to AP2**, their first writer: in AP1
   nothing could write or exercise them (no client could produce the state a test would need). The design
   stands as AP-D5 and "AP6 in detail" describe it; ARCHITECTURE says so.
@@ -352,6 +352,8 @@ summaries (AO1–AO3).
 
 ## AP3: Model authoring and model mappings
 
+**Folded into AP6 on 2026-10-28 (AP-D27);** the text below is kept as the scope the assistant's tools cover.
+
 **Journey:** a model administrator imports a workbook; the inference's proposals now carry better
 names, descriptions, enum detections and relation guesses, each with a reason, in the editor as
 Proposed steps. A model mapping's candidate list is re-ranked by meaning, with the reason shown.
@@ -363,6 +365,8 @@ mappings, the provider re-ranks each source type's top alternatives (evidence st
 is added). Needs send level `samples` for enumerations, `structure` for the rest.
 
 ## AP4: Values for empty fields and missing related records
+
+**Folded into AP6 on 2026-10-28 (AP-D27);** the text below is kept as the scope the assistant's tools cover.
 
 **Journeys:** (1) a steward filters the records with an empty description, asks for drafts and gets a
 change set of proposed values they edit in the list's cells. (2) A localisation steward filters the
@@ -378,6 +382,8 @@ machine-proposed changes in a change set. Needs send level `values`; hidden belo
 produce the same plan from a sentence, and AP4 is the one-click form of it.
 
 ## AP5: Dry-run triage
+
+**Folded into AP6 on 2026-10-28 (AP-D27);** the text below is kept as the scope the assistant's tools cover.
 
 **Journey:** after a dry run of a 40,000-row file with 3,100 failures, the person asks for a
 summary and sees eight groups ("200 rows: trailing spaces in `code`"), each with a count, three
@@ -489,6 +495,7 @@ kept in the repository). AP-D23–AP-D26 below were approved by the user the sam
 | AP-D24 | What is stored, for how long? | **Approved by the user 2026-10-27. The instructions, the assistant's replies, the plan versions and the dry-run summaries, for `AI_TASK_RETENTION_DAYS` (default 90) after the task finishes or is abandoned; never the rows or samples sent to the provider** (AP-D4: content is not kept unless `AI_LOG_CONTENT` is on). The source file follows the existing source-file retention. A saved profile and the change set are ordinary resources and outlive the task. |
 | AP-D25 | How many files and how large? | **Approved by the user 2026-10-27. Up to three files per task (`AI_TASK_MAX_FILES`), each within `IMPORT_MAX_BYTES`;** XLSX and CSV only, as source files accept today. A task over a limit is refused when attached, not when it runs. |
 | AP-D26 | How does a revision treat the person's edits? | **Approved by the user 2026-10-27. A step the person edited or removed is theirs: a revision never overwrites it.** Each step has an `owner` (`assistant` or `person`); the assistant may propose an alternative for a person-owned step in its reply, as text, never in place. A person-owned step also keeps its mark off. This is the rule that makes the editor feel like an editor and not a regenerate button. |
+| AP-D27 | One assistant or a helper per feature? | **Approved by the user 2026-10-28. One assistant, every AI capability a tool of it, offered where its situation occurs.** The AP6 loop is the only AI that plans: it starts from the rules' result, reads through tools (the profile over every row, any sheet by range including skipped ones, distinct values, overlaps, the model and records, AP2's matcher, the dry run) and writes only the editor's operation catalogue and profile operations, as proposals in the editor's Proposed list. A question is answered in the thread from what it read; an action becomes a plan that runs on one confirmation (AP-D13). AP-D12 gains a sixth step kind, **a capability's job** (AP2's matcher, value drafts, the dry-run grouping). Entries: the task page, the editor's pane and **New from a workbook**, whose AI path is the workbook and an optional words field (the assistant proposes the dialog's choices with reasons); without a provider the dialog stays as it is. AP1's rename becomes step 3 of the workbook flow; AP3, AP4 and AP5 are folded in. Why: the separate helpers did not reach each other (AP2 could not serve a workbook load), and a capable provider (Claude, ChatGPT) can be called as often as a task needs. |
 
 #### The plan, as data
 
@@ -531,14 +538,35 @@ bounded sample), `trialPlan` (the dry run or preview of the current plan, return
 the first refusals). The loop is bounded by `AI_MAX_STEPS`; a tool call that would exceed the send
 level returns "not available at this level" and the plan says what it could not check.
 
+#### The workbook flow (AP-D27)
+
+What the assistant adds at each step of New from a workbook (MODEL_AUTHORING § The editor, § Operation
+catalogue, § Pattern catalogue):
+
+| Step | The rules today | The assistant adds |
+| --- | --- | --- |
+| 1 Start | The dialog's choices, made before anything is known | Proposes the choice (new application, new model, additions) with its reason |
+| 2 Read | Sheets, blocks, lists; a sheet without a table is skipped | Reads skipped and prose sheets; which lists belong together or are not data |
+| 3 Types | One type per sheet or list, named from headers | Merges, splits, names as the business does, writes descriptions |
+| 4 Applications | One application per workbook | Groups types into applications and navigation groups by meaning |
+| 5 Hierarchy | Repeated parent, level columns, fixed thresholds | Confirms or corrects the parent by meaning; multi-level trees |
+| 6 Attributes | Value type from cells; one header, one attribute type | One field under different headers; dates as text; required by meaning |
+| 7 Relations | Keys matched at 90%; delimiters; flags | Relations the values hide; across applications; names, cardinality and binding criteria |
+| 8 Translations | Language by header word or value shape | The language from the values; column pairs |
+| 9 Matching | Exact key or name; missing IDs reported | AP2's matcher: a proposed record per unmatched value, as a value-map entry; new ones proposed for creation |
+| 10 Values | Placeholders; drift by frequency | Variants by meaning; which name is right |
+| 11 Views | Defaults from the model | Useful columns and filters per type |
+| 12 Dry run | Every row checked, refusals listed | Refusals grouped by cause, a fixing operation proposed, run again |
+| 13 Next file | The saved profile, differences reported | What changed and the profile change it needs |
+
 #### Work packages
 
 | Package | Needs | What changes | Journeys it must pass |
 | --- | --- | --- | --- |
-| **AP6a** Task, plan and planning core | AP1 | Tables for tasks, messages and plan versions (migration), the `aiTask` job kind, the routes above, the plan schema, the four tools, the revision rule (AP-D26), retention (AP-D24), limits (AP-D25), the fake provider's scripted plans | A task is created, planned and revised; a person-owned step survives a revision; nothing runs without `run`; a stale `expectedPlanVersion` is refused; limits and retention |
-| **AP6b** Steps into engine operations | AP6a | The translators of the table above: model operations into a draft with origin `assistant`, profile parts into a draft or saved profile, destination into a change set and a saved profile; the origin on change-set entries and into the audit event (the AP1 spike's result) | New model and extend-model journeys; values from a column; translations and variants; the origin is visible on a published record's history |
-| **AP6c** The check | AP6b | One normal form for the three checks (draft dry run, import preview, batch preview): counts (change, new, same, refused), refusals by reason with row and column, suggested fixes as steps (the AP5 grouping where it exists), the trial inside the planning loop | A refused row is reported with its reason; a suggested fix applies and the counts change; every row is checked (D67) |
-| **AP6d** The task page | AP6a–AP6c | The page of the mock-up: attachment, thread, question with candidates, reading and plan with steps expandable and editable, the check, the destination, "Run into change set"; the starting suggestions for a file with no instruction; the home page entry | A data task end to end in the browser; the question changes the plan; a follow-up chip; a phone layout; light and dark; the accessibility and visual gates |
+| **AP6a** Task, plan and planning core | AP1 | Tables for tasks, messages and plan versions (migration), the `aiTask` job kind, the routes above, the plan schema, the four tools, the revision rule (AP-D26), retention (AP-D24), limits (AP-D25), the fake provider's scripted plans; a plain question answered in the thread from the read tools (AP-D27) | A question is answered and changes nothing; a task is created, planned and revised; a person-owned step survives a revision; nothing runs without `run`; a stale `expectedPlanVersion` is refused; limits and retention |
+| **AP6b** Steps into engine operations | AP6a | The workbook flow's steps 3–8 as write tools over the operation catalogue (AP-D27); the translators of the table above: model operations into a draft with origin `assistant`, profile parts into a draft or saved profile, destination into a change set and a saved profile; the origin on change-set entries and into the audit event (the AP1 spike's result) | New model and extend-model journeys; values from a column; translations and variants; the origin is visible on a published record's history |
+| **AP6c** The check | AP6b | One normal form for the three checks (draft dry run, import preview, batch preview): counts (change, new, same, refused), refusals by reason with row and column, suggested fixes as steps (the AP5 grouping, folded in), the trial inside the planning loop; AP2's matcher as a capability step writing value-map entries (steps 9, 10, 12) | A refused row is reported with its reason; a suggested fix applies and the counts change; every row is checked (D67) |
+| **AP6d** The task page and New from a workbook | AP6a–AP6c | New from a workbook's AI path (the workbook, an optional words field, the assistant's steps as progress, the result in the editor; AP1's rename checkbox removed); the page of the mock-up: attachment, thread, question with candidates, reading and plan with steps expandable and editable, the check, the destination, "Run into change set"; the starting suggestions for a file with no instruction; the home page entry | A data task end to end in the browser; the question changes the plan; a follow-up chip; a phone layout; light and dark; the accessibility and visual gates |
 | **AP6e** The editor's side pane | AP6a, AP6b | `ui/SidePane` extracted from SAVED_UI_PATTERNS (frame, fold button, folded strip, resize handle, width and open state remembered); the editor's grid gets a third column (`ModelEditor.tsx` and `model-editor.css`), a tab on a phone; the assistant thread inside it; an assistant step shows in the editor as any step with its mark and "Proposed because" | New model and extend-model journeys in the browser; renaming a Proposed type clears its mark; undo reverses an assistant step; the pane folds and the width is remembered; 390px tabs |
 | **AP6f** A relationship that depends on a condition | AP6b, AP6c | The query conditions (one hop, `not`) into a `batchItems` step with the items built in the database; the refusal of a condition the query cannot say (AP-D17); the measurement at 200 and 2,000 records (AP-D18) | The conditional relationship journey with its count; an inexpressible condition is refused with its reason; a measurement report |
 | **AP6g** Real-file try and close-out | all | The AP-D22 try on the user's own workbooks; the documentation (PRODUCT, CURRENT_FUNCTIONALITY, ARCHITECTURE, OPERATIONS settings `AI_MAX_STEPS`, `AI_TASK_MAX_FILES`, `AI_TASK_RETENTION_DAYS`, API, journeys, CHANGELOG) | The real-file try: five task kinds, each with a real provider, judged by the user |

@@ -23,7 +23,7 @@ describe("New from a workbook › the AI assistant (0.16 AP1)", () => {
     render(<Harness assistantOffer={offer} />);
     const box = screen.getByLabelText(label) as HTMLInputElement;
     expect(box.checked).toBe(true);
-    expect(screen.getByText("Sends the sheets' names, headers and first rows to anthropic")).toBeTruthy();
+    expect(screen.getByText("Sends each sheet's name and headers and, for every column, counts and its most frequent values over all rows, to anthropic")).toBeTruthy();
     expect(sent()).toEqual({ mode: "newApplication", applicationName: "Items", assistant: true });
     fireEvent.click(box);
     expect(sent()).toEqual(expect.objectContaining({ assistant: false }));

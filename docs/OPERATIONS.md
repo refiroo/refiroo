@@ -848,8 +848,8 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
 | `AI_MODEL` | empty | The model asked. Empty with `claude` means `claude-opus-5-5`; required with `openai-compatible` |
 | `AI_API_KEY` | empty | The provider's key; required with `claude`, optional with `openai-compatible`. Read from the environment only, never stored in the database, never shown or answered |
 | `AI_BASE_URL` | empty | The provider's address: required with `openai-compatible` (for example `http://models.internal:8080/v1`); with `claude`, empty for Anthropic's own API or a gateway's address |
-| `AI_SEND_LEVEL` | `values` | The most that may leave the instance: `structure` (keys, names, headers and types; no value), `samples` (also values, at most `AI_SAMPLE_VALUES` per column or attribute, or rows per sheet) or `values` (as many values and rows as a feature needs: an agent reads as much of a file as its task needs, 0.16 AP-D14). A feature needing more than the level is not offered |
-| `AI_SAMPLE_VALUES` | 20 | At send level `samples`, the most values per column or attribute, or rows per sheet, that are sent; no limit at `values`. Replaces `INFERENCE_ASSISTANT_ROWS` |
+| `AI_SEND_LEVEL` | `values` | The most that may leave the instance: `structure` (keys, names, headers and types; no value), `samples` (also values, at most `AI_SAMPLE_VALUES` per column or attribute) or `values` (as many values as a feature needs: an agent reads as much of a file as its task needs, 0.16 AP-D14). A feature needing more than the level is not offered |
+| `AI_SAMPLE_VALUES` | 20 | At send level `samples`, the most values per column or attribute, that are sent; no limit at `values`. Replaces `INFERENCE_ASSISTANT_ROWS` |
 | `AI_MIN_CONFIDENCE` | 0.5 | The provider's confidence, 0 to 1, below which a proposal is not offered |
 | `AI_LOG_CONTENT` | off | Keep each call's request and answer with its record, for an operator debugging a prompt. They hold reference data: switch it on only while needed |
 | `AI_LOG_CONTENT_DAYS` | 7 | Days a kept request and answer stay; then they are emptied and the record stays |
@@ -876,9 +876,12 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
   administrator roles. A person without it is never offered an AI action, and a proposal is still
   written by the person's own request, under their other rights.
 - **What is sent** is built in one place and held to `AI_SEND_LEVEL`. For the inference's names:
-  each sheet's name and headers, its first 50 rows from `samples` up (at most `AI_SAMPLE_VALUES` at
-  `samples`), and the names the rules gave the
-  types they add. For mapping targets (needs `values`): the names and the view's displayed fields of
+  each sheet's (or list's) name and, for every column, its profile over every row: counts, value
+  type, delimiters, overlaps with other columns, and from `samples` up its most frequent values with
+  their counts (at most `AI_SAMPLE_VALUES` at `samples`; the placeholder texts likewise), and the
+  names the rules gave the types they add. No row is sent. When that would pass half of
+  `AI_CONTEXT_TOKENS`, the values of the columns with the most distinct values are dropped first,
+  never the counts. For mapping targets (needs `values`): the names and the view's displayed fields of
   the unmapped sources, 25 per call, and of their candidate targets (all eligible targets up to 100,
   otherwise each source's 20 closest by name). Reference data is treated as data: the instructions tell the model not to follow
   text found in it, and nothing it answers is applied unasked.

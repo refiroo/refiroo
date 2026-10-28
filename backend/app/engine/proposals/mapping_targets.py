@@ -15,6 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from .context import estimated_tokens
 from .provider import ProposalRequest
 
 PROMPT_VERSION = "mapping-targets/2"
@@ -61,10 +62,8 @@ class Batch:
 
 
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
-# What a call costs besides its sources and candidates, and each source's answer, in tokens; and
-# the characters a token holds at the least (JSON with codes tokenises densely).
+# What each source's answer costs, in tokens.
 _ANSWER_TOKENS = 60
-_CHARS_PER_TOKEN = 3
 
 
 def shown_fields(name: str, fields: dict[str, Any] | None) -> dict[str, Any]:
@@ -87,7 +86,7 @@ def has_candidates(item: dict[str, Any], whole_list: list[dict[str, Any]] | None
 def tokens(batch: Batch) -> int:
     """The call's estimated size: instructions, data and the answer it asks for."""
     sent = len(INSTRUCTIONS) + len(json.dumps(batch.context, ensure_ascii=False))
-    return sent // _CHARS_PER_TOKEN + _ANSWER_TOKENS * len(batch.sources)
+    return estimated_tokens(sent) + _ANSWER_TOKENS * len(batch.sources)
 
 
 def sized(

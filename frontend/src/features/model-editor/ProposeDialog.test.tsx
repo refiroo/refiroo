@@ -27,15 +27,15 @@ describe("Propose again › the AI assistant (0.16 AP1)", () => {
     const onPropose = open({ configured: true, provider: "anthropic", sendLevel: "structure" }, ["ai-proposals"]);
     const box = await screen.findByLabelText(label);
     expect((box as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByText("Sends the sheets' names and headers to anthropic")).toBeTruthy();
+    expect(screen.getByText("Sends each sheet's name and headers and, for every column, its counts over all rows (no values) to anthropic")).toBeTruthy();
     fireEvent.click(box);
     fireEvent.click(screen.getByRole("button", { name: "Propose" }));
     expect(onPropose).toHaveBeenCalledWith(expect.objectContaining({ assistant: false }));
   });
 
-  it("says first rows are sent at the samples level, and sends true by default", async () => {
+  it("says the most frequent values are sent at the samples level, and sends true by default", async () => {
     const onPropose = open({ configured: true, provider: "anthropic", sendLevel: "samples" }, ["ai-proposals"]);
-    await screen.findByText("Sends the sheets' names, headers and first rows to anthropic");
+    await screen.findByText("Sends each sheet's name and headers and, for every column, counts and its most frequent values over all rows, to anthropic");
     fireEvent.click(screen.getByRole("button", { name: "Propose" }));
     expect(onPropose).toHaveBeenCalledWith(expect.objectContaining({ assistant: true }));
   });
