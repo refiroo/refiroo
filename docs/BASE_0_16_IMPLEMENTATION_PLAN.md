@@ -559,7 +559,83 @@ catalogue, § Pattern catalogue):
 | 12 Dry run | Every row checked, refusals listed | Refusals grouped by cause, a fixing operation proposed, run again |
 | 13 Next file | The saved profile, differences reported | What changed and the profile change it needs |
 
-#### Work packages
+#### The workbook assistant by what the file means (designed 2026-10-28, replacing the step-based slice)
+
+**Why the earlier slice went.** It cut the work along the rules' steps (types, applications, hierarchy)
+and so covered a part of one case, a totally new file, and only the model's shape: no import, no update,
+no extension of a model that holds data. The user named the cases (2026-10-28); the design starts from
+them.
+
+**Requirement trace.** "A few words and a workbook give the model and the import", against the data a
+workspace already holds: every case below ends in the model the file needs and its data loaded into a
+change set. Reached from New from a workbook, a workspace's Import, the task page and the editor's pane
+(the same assistant, AP-D27). Calls the rules, AP2's matcher, the dry run and restructuring.
+
+**The journey.**
+
+1. The person gives the workbook, a few words if they like, and where it goes: the workspace they are
+   in, or a new one.
+2. The assistant reads the file against that workspace's model and records (profiles over every row,
+   any sheet by range, distinct values, overlaps with stored records by key, by name and, through AP2's
+   matcher, by meaning) and shows **its reading per table** (a sheet or a list; a file mixes cases),
+   each with its evidence:
+
+| Case | A table is | Recognised by | Model | Data |
+| --- | --- | --- | --- | --- |
+| A | An update of existing data | Its keys or names match a type's records ("180 of 200 codes") | none | Update the matched; create the rest, or hold them back; changed values listed |
+| B | Additions to existing data | It matches a type, with columns the type lacks | New attributes on the type | Update, filling them |
+| C | A new kind of thing related to existing data, or a new relation between existing types | New records whose column points to existing ones; or two existing types' keys side by side | A new type in the application and its relation; or only the relation | Create and link; or only link |
+| D | Something new beside existing applications | Tables that belong together, related to existing types | A new application, its types and relations, linked across applications | Create and link |
+| E | Something totally new | Nothing matches | A new application, or a new model in a new workspace | Create |
+
+3. The person corrects the reading where it is wrong, by the choices it offers ("an update of Services,
+   not a new list"; "match on the code"); the words may say so up front. It asks only where the answer
+   changes the outcome (AP-D16).
+4. The plan: the model part as model-draft steps marked Proposed in the editor (attributes, types,
+   applications, relations, hierarchy, names, binding criteria); the data part as the import profile
+   (keys, record mode, relation columns, value maps from the matcher, translations, `missing`).
+5. One dry run of every row, counted per table: created, updated (old and new values), unchanged, linked,
+   refused with reasons. The assistant fixes what it can and runs it again.
+6. On confirmation, in the order the engine needs: **data for a changed model loads only once that model
+   is active in the workspace**, so a model change (B–E) is installed and activated first, after the
+   compatibility preview shows what it does to existing data; then the load runs into a change set. Case
+   A loads at once.
+7. The result: the workspace on the model the file needs, a change set of created, updated and linked
+   records for the normal approval, and the saved profile, so the next file of the layout runs without
+   the assistant.
+
+**Also in the design (found beyond the five cases):** records missing from a full list (retire or leave
+them: the profile's `missing`); conflicts per field between the file and stored records (name drift:
+which wins); duplicates by meaning (the matcher, so no second record is created); translations and
+variants of existing records (`relatedRecord`); a system's codes as system values under the right group,
+mapped to master records (AP2's case arriving as a file); existing records moved under new parents and an
+existing model reshaped (the 0.8 restructuring in a change set, in phases); the next file of a layout (the
+saved profile; the assistant explains what changed).
+
+**How it talks to the provider** (AP6a-D1, kept): turns of structured answers (`reads`, `operations`,
+`done`, `note`) through both adapters; the engine runs the reads, tries the operations as hand edits are
+tried and sends the results back; refusals return with their reason. `AI_MAX_STEPS` and the window
+sizing bound a run; a failure keeps what was proposed and the rules' result. The rename helper goes
+(AP6a-D6).
+
+**Providers for the work** (the user, 2026-10-28): the local 9b and 27b models for development tries,
+DeepSeek through its API for cheaper real tries (OpenAI-compatible; its acceptance of strict JSON-schema
+answers is checked before the first try), Claude or ChatGPT later. A 9b model is not expected to plan a
+workbook well; the engine's side is judged with it, the quality with a stronger model.
+
+**Slices, each usable end to end in the browser on a real file:**
+
+| Slice | Delivers | With |
+| --- | --- | --- |
+| AP6a | Case A and the core every case needs: the reading per table against a workspace, correcting it, the plan (profile), the dry run with the assistant fixing what it can, the run into a change set | Matching by meaning, conflicts, records missing from the file |
+| AP6b | Cases B and C: model extension, installed and activated before the load | Translations and variants, a system's codes as mappings |
+| AP6c | Cases D and E: new applications and new models | Restructuring of existing records and models |
+| AP6d | The free-text chat on the same plan (questions answered, actions planned) | The task page and the editor's pane |
+| AP6e | Conditional relations; the real-file close-out | AP-D17, AP-D18; the acceptance workbook |
+
+Each slice's plan lists its journey cases and its mock-up for one approval.
+
+#### Work packages (as first planned 2026-10-27; superseded by the slices above)
 
 | Package | Needs | What changes | Journeys it must pass |
 | --- | --- | --- | --- |
