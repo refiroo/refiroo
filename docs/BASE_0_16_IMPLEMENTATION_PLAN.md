@@ -627,7 +627,7 @@ workbook well; the engine's side is judged with it, the quality with a stronger 
 
 | Slice | Delivers | With |
 | --- | --- | --- |
-| AP6a | Case A and the core every case needs: the reading per table against a workspace, correcting it, the plan (profile), the dry run with the assistant fixing what it can, the run into a change set | Matching by meaning, conflicts, records missing from the file |
+| AP6a | First, the removal of the naming helper (New from a workbook's "Also ask the AI assistant for clearer names", the inference's `assistant` option, purpose `modelNames` and `inference/assistant.py`, its texts, J48.2/J48.6/J48.7 and their docs; New from a workbook runs on the rules alone until AP6c). Then case A and the core every case needs: the reading per table against a workspace, correcting it, the plan (profile), the dry run with the assistant fixing what it can, the run into a change set | Matching by meaning, conflicts, records missing from the file |
 | AP6b | Cases B and C: model extension, installed and activated before the load | Translations and variants, a system's codes as mappings |
 | AP6c | Cases D and E: new applications and new models | Restructuring of existing records and models |
 | AP6d | The free-text chat on the same plan (questions answered, actions planned) | The task page and the editor's pane |
