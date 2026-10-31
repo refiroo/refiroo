@@ -5,8 +5,9 @@
  * never a component. The view and panel verbs are A4b's; `replaceModel` and `restoreElements` are
  * the server's own.
  *
- * A draft-only kind on an element of the base release stays listed, marked as needing a migration;
- * choosing it sends the request and the server's refusal says what it would affect (D39).
+ * A draft-only kind on an element of the base release stays listed and marked; choosing it sends
+ * the request, which applies while no data holds the element, and a refusal says what it would
+ * affect (D39, AP-D28). A released key stays fixed.
  */
 
 import type { ConsumerDefinition, DraftOperation, ModelDraftOutline } from "@/types";
@@ -1971,7 +1972,9 @@ export function menuItems(
     icon: PRESENTATION[item.id]?.icon,
     section: sections ? PRESENTATION[item.id]?.section : undefined,
     description: needsMigration(item, target, outline)
-      ? "Needs a migration: the server says what it affects"
+      ? item.id.endsWith("-key")
+        ? "Key fixed once released: needs a migration"
+        : "Refused if data uses it: the server checks"
       : undefined,
     tone: item.confirm ? "danger" : "default",
     onAction: () => onAction(item),

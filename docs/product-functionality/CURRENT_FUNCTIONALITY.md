@@ -633,9 +633,10 @@ JSON: add, rename, re-key, split, merge or remove applications, types, attribute
 types, set where a type sits in the containment tree, allow relations between types, lay out views
 and detail pages, and group an application's collections. New types get a table view and a detail
 page from the server. Each request is one step of the draft's history, which can be read, undone and
-redone; a step that later steps build on is undone together with them. A key change, removal or
-other change that would need a migration of something already released is refused, saying how many
-records, values and relationships it would touch. A JSON edit in the workbench is recorded as one
+redone; a step that later steps build on is undone together with them. A removal or other change to
+something already released goes through when no record, value or relationship uses it (activating the
+release checks the data again); when data uses it, it is refused, saying how many records, values and
+relationships it would touch. The key of something released stays fixed. A JSON edit in the workbench is recorded as one
 step too.
 
 The **model editor** makes the same changes in the browser. A draft opens in it from Settings ›

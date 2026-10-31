@@ -852,8 +852,10 @@ invalid between steps; installation refuses an invalid draft as J08 does.
 - **J33.4 Undo and redo** a step; a new step clears what can be redone.
 - **J33.5 An undo with dependants** is refused naming them; undoing them together succeeds.
 - **J33.6 A stale editor**: a step at an old version is refused with the steps applied since.
-- **J33.7 A released element**: a key change, a removal or a split of a released element is refused
-  `OPERATION_REQUIRES_MIGRATION` with its impact; nothing of the request applies.
+- **J33.7 A released element**: a removal or a split of a released element that data holds is refused
+  `OPERATION_REQUIRES_MIGRATION` with its impact, and so is a key change whatever the data; nothing of
+  the request applies. With nothing holding it, the removal applies; a record arriving afterwards makes
+  activating that release refuse `MODEL_MIGRATION_REQUIRED`.
 - **J33.8 A request that cannot apply** (an unknown element, a key taken) applies nothing.
 - **J33.9 Group collections**: groups declared on an application show as sidebar sections and a
   group page with a search; collections in no group keep their place (N1). A group naming no

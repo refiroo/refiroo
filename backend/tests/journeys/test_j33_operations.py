@@ -73,6 +73,10 @@ def _redo(world, draft: dict[str, Any], version: int):
     return world.api.post(f"/model-drafts/{draft['id']}/redo", {"expectedVersion": version})
 
 
+def _application_of_r(world) -> str:
+    return next(a["key"] for a in _active_release(world)["model"]["applications"] if world.key("R") in a["objectTypeKeys"])
+
+
 def _attribute(key: str, name: str) -> dict[str, Any]:
     return {"kind": "addAttributeType", "key": key, "name": name, "valueType": "text"}
 
@@ -385,6 +389,52 @@ def test_a_draft_only_operation_on_a_released_element_is_refused_with_its_impact
     assert current["version"] == draft["version"]
     assert current["model"] == start
     assert _history(world, draft)["items"] == []
+
+
+@pytest.mark.journey("J33.7")
+@pytest.mark.structures("R")
+def test_a_released_element_no_data_holds_is_removed_and_activation_checks_the_data_again(world):
+    """Given a released type with no records. When its key is changed, then it is removed. Then the
+    key change is refused with nothing held and the removal applies. When a record of it arrives and
+    that draft is installed, activating it is refused; a new draft's removal is refused with the
+    record counted."""
+    model = _model(world, _draft_of_active(world))
+    r_app = _application_of_r(world)
+    draft = _draft_of_active(world, "Empty type")
+    answer = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {"kind": "addObjectType", "applicationKey": r_app, "key": "j33-empty", "name": "Empty", "pluralName": "Empties", "parent": None},
+            {"kind": "setRelease", "key": model["release"]["key"], "name": model["release"]["name"], "version": model["release"]["version"] + "-empty"},
+        )
+    )
+    ok(world.activate(ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": answer["version"]}), 201)["id"]))
+
+    current = _draft(world, draft)
+    rekey = {"kind": "setKey", "element": {"objectType": "j33-empty"}, "key": "j33-renamed"}
+    error = refused(_apply(world, draft, current["version"], rekey), 409, "OPERATION_REQUIRES_MIGRATION")
+    assert error["details"]["impact"] == {"records": 0, "values": 0, "relationships": 0}
+    removed = ok(
+        _apply(
+            world,
+            draft,
+            current["version"],
+            {"kind": "removeObjectType", "objectType": "j33-empty"},
+            {"kind": "setRelease", "key": model["release"]["key"], "name": model["release"]["name"], "version": model["release"]["version"] + "-gone"},
+        )
+    )
+    assert removed["valid"] is True, removed["diagnostics"]
+    assert not [t for t in _model(world, draft)["objectTypes"] if t["key"] == "j33-empty"]
+
+    ok(world.api.post("/objects", {"applicationKey": r_app, "objectTypeKey": "j33-empty", "name": "Arrived", "workspaceKey": "default"}), 201)
+    release = ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": removed["version"]}), 201)
+    refused(world.activate(release["id"]), 409, "MODEL_MIGRATION_REQUIRED")
+
+    later = _draft_of_active(world, "Too late")
+    error = refused(_apply(world, later, later["version"], {"kind": "removeObjectType", "objectType": "j33-empty"}), 409, "OPERATION_REQUIRES_MIGRATION")
+    assert error["details"]["impact"]["records"] == 1
 
 
 @pytest.mark.journey("J33.7")

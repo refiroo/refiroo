@@ -96,7 +96,7 @@ describe("ModelEditor", () => {
     renderEditor();
     fireEvent.click(await screen.findByRole("button", { name: "Operations for Shelf" }));
     const item = await screen.findByRole("menuitem", { name: /^Change key…/ });
-    expect(item.textContent).toContain("Needs a migration");
+    expect(item.textContent).toContain("needs a migration");
     fireEvent.click(item);
     const dialog = await screen.findByRole("dialog", { name: "Change key" });
     fireEvent.change(within(dialog).getByLabelText("Key"), { target: { value: "rack" } });

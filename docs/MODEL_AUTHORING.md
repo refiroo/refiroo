@@ -178,8 +178,9 @@ Each operation changes the model draft, the attached profiles, or both. Its **cl
 is allowed:
 
 - **Additive:** always allowed.
-- **Draft-only:** allowed while every element it touches is absent from the base release; otherwise it
-  becomes a migration.
+- **Draft-only:** allowed while every element it touches is absent from the base release or no record,
+  value or relationship holds it; otherwise it becomes a migration. Activation checks the data again.
+  An element's key is stricter: fixed once released, held or not.
 - **Migration:** changes released structure that existing data depends on. Shown with its impact and
   blocked until the 0.11 migration boundary exists (see [Delivery](#delivery)); never hidden.
 
@@ -206,8 +207,8 @@ is allowed:
 | Values | Add values found in the data to a list: the load creates the records a lookup names that do not exist (0.10 A5, D77) | Yes | Additive |
 | Views | Add, reorder, show or hide views, panels, columns, filters and fields | — | Additive |
 
-Once a release is installed, a draft-only operation on a released element is recorded as a migration
-request with its impact (records, values and relationships affected), not applied. Type changes of
+Once a release is installed, a draft-only operation on a released element that data holds is recorded
+as a migration request with its impact (records, values and relationships affected), not applied. Type changes of
 existing records already have an engine operation in change sets (ADR-034); the 0.11 migration
 boundary is where model-level changes reuse it.
 

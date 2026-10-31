@@ -4012,8 +4012,11 @@ are registered with `INTEGRATION_JOBS_ENABLED` as well (D6).
   group by `applicationKey` and `group`. A key the operation creates is generated from its name when
   omitted (A-D6: lower-case, hyphen-separated ASCII, accents dropped, `-2`, `-3` on a clash).
 - **Class** (MODEL_AUTHORING): an additive kind is always applied. A draft-only kind applies while
-  every element it touches is absent from the draft's **base release** (the active release when the
-  draft has none, D17); otherwise it is refused `409 OPERATION_REQUIRES_MIGRATION` with
+  every element it touches is absent from the draft's **base release** (the newest installed release
+  of its `release.key` when the draft has none, D37) or no data holds it (impact zero, AP-D28);
+  activation checks the data again, `409 MODEL_MIGRATION_REQUIRED`. `setKey` applies only to an
+  element absent from the base release, whatever the impact: integrations name elements by their
+  keys. Otherwise it is refused `409 OPERATION_REQUIRES_MIGRATION` with
   `details.index`, `details.kind`, `details.element` (named as operations name it, e.g.
   `{"objectType": "unit"}` or `{"objectType": "unit", "attributeType": "code"}`),
   `details.baseReleaseId` and `details.impact`: `records`, `values` and `relationships` in live data of

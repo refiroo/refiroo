@@ -367,7 +367,17 @@ class _Drafts:
             log=document.log,
         )
         sheets, file_name = draft_profile.sheets(session, draft)
-        context = Context(document, released.__contains__, profile, sheets, file_name)
+        model_key = base.release_key if base else None
+        held: dict[str, bool] = {}
+
+        def in_use(element: str) -> bool:
+            if element not in released:
+                return False
+            if element not in held:
+                held[element] = any(impact(session, element, model_key).values())
+            return held[element]
+
+        context = Context(document, released.__contains__, profile, sheets, file_name, in_use)
         applied: list[Applied] = []
         for index, operation in enumerate(operations):
             if not isinstance(operation, dict):
@@ -385,13 +395,14 @@ class _Drafts:
                 raise api_error(
                     409,
                     "OPERATION_REQUIRES_MIGRATION",
-                    "The operation changes an element of the draft's base release; that needs a migration",
+                    "The operation changes an element of the draft's base release that data holds, or its key;"
+                    " that needs a migration",
                     {
                         "index": index,
                         "kind": operation.get("kind"),
                         "element": element_of(exc.element),
                         "baseReleaseId": base.public_id if base else None,
-                        "impact": impact(session, exc.element, base.release_key if base else None),
+                        "impact": impact(session, exc.element, model_key),
                     },
                 ) from exc
         return applied, (document.data, profile.data or None)

@@ -387,14 +387,14 @@ async function journey(label, source, { emptyDraft = false } = {}) {
     await row(top.name).click();
     await operations(top.name).click();
     await page.getByRole("menuitem", { name: /^Change key…/ }).waitFor();
-    await page.getByText("Needs a migration: the server says what it affects").first().waitFor();
+    await page.getByText("Key fixed once released: needs a migration").first().waitFor();
     await shot("menu-1440");
     await chooseMenu("Change key…");
     await dialog().getByLabel("Key").fill("a4a-renamed");
     await dialog().getByRole("button", { name: "Apply", exact: true }).click();
     await dialog()
       .getByText(
-        /needs a migration .* It would affect \d+ records, \d+ values and \d+ relationships\. Nothing was applied\./,
+        /(needs a migration .* It would affect \d+ records, \d+ values and \d+ relationships|its key is fixed: integrations name it by its key)\.( Nothing was applied\.)?/,
       )
       .waitFor();
     await assertAccessible(page, `a4a-${label}-refused`);

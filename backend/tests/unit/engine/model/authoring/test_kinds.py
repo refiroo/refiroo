@@ -185,6 +185,20 @@ def test_a_draft_only_kind_on_a_released_element_is_refused_before_anything_chan
     assert data == MODELS["example"]
 
 
+def test_a_released_element_data_does_not_hold_changes_but_its_key_stays_fixed():
+    type_key = MODELS["example"]["objectTypes"][0]["key"]
+    released = lambda atom: atom == f"objectType:{type_key}"
+    unheld = lambda _atom: False
+    with pytest.raises(MigrationRequired):
+        apply_operation(
+            Context(Document(copy.deepcopy(MODELS["example"])), released, in_use=unheld),
+            {"kind": "setKey", "element": {"objectType": type_key}, "key": "renamed"},
+        )
+    data = copy.deepcopy(MODELS["example"])
+    apply_operation(Context(Document(data), released, in_use=unheld), {"kind": "removeObjectType", "objectType": type_key})
+    assert type_key not in [item["key"] for item in data["objectTypes"]]
+
+
 def test_which_records_a_released_relationship_may_choose_changes_without_a_migration():
     """``candidates`` is compatible in a release (0.9 K7): set on a released binding, it applies;
     its cardinality on the same binding still needs a migration (found in A4a)."""

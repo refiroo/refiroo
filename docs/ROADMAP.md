@@ -439,8 +439,9 @@ workbook) is built first, then the spreadsheet functionality (the plan's D11).
 
 The editor builds on the Atlas UI foundation delivered in 0.9 (UA, which absorbed U6).
 
-Changes to released structure (key renames, splits, merges, cardinality) are shown with their impact
-and blocked; they are enabled in 1.0 on the 0.11 migration boundary.
+Changes to released structure that data holds (splits, merges, cardinality), and key renames whatever
+the data, are shown with their impact and blocked; they are enabled in 1.0 on the 0.11 migration
+boundary. With nothing holding the element, the change applies (0.16 AP-D28).
 
 ### Exit gate
 

@@ -247,8 +247,8 @@ export function MoveToDialog({
         )}
         {released && !error && (
           <Notice tone="warning">
-            {subjectName} is released: moving it needs a migration. Moving asks the server, which says what it would
-            affect and applies nothing.
+            {subjectName} is released: moving it is refused if data uses it. Moving asks the server, which says what it
+            would affect and then applies nothing.
           </Notice>
         )}
         {error && (

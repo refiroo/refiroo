@@ -31,7 +31,7 @@ export type StepOutcome = "applied" | "stale";
 
 export type RunStep = (operations: DraftOperation[]) => Promise<StepOutcome>;
 
-/** A refusal in words: the migration a released element would need and what it would touch (D39). */
+/** A refusal in words: what holds a released element, or that its key is fixed (D39, AP-D28). */
 export function refusalText(cause: unknown, outline: ModelDraftOutline): string {
   if (isApiError(cause, "OPERATION_REQUIRES_MIGRATION")) {
     const details = (cause.details ?? {}) as {
@@ -40,6 +40,8 @@ export function refusalText(cause: unknown, outline: ModelDraftOutline): string 
     };
     const impact = details.impact ?? {};
     const name = details.element ? elementLabel(outline, details.element) : "The element";
+    const held = [impact.records, impact.values, impact.relationships].some((count) => count && count !== 0);
+    if (!held) return `${name} is released, so its key is fixed: integrations name it by its key. Nothing was applied.`;
     return (
       `${name} is released, so this change needs a migration (planned for 1.0). ` +
       `It would affect ${impact.records ?? 0} records, ${impact.values ?? 0} values and ` +

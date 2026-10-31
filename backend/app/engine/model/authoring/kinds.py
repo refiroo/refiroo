@@ -76,7 +76,8 @@ def element_of(value: str) -> dict[str, str]:
 
 
 class MigrationRequired(Exception):
-    """A draft-only change to an element of the base release (D17): ``element`` is its atom."""
+    """A draft-only change to an element of the base release that data holds, or to its key (D17,
+    AP-D28): ``element`` is its atom."""
 
     def __init__(self, element: str) -> None:
         super().__init__(element)
@@ -115,9 +116,12 @@ class Context:
         profile: Document | None = None,
         sheets: dict[str, Sheet] | None = None,
         file_name: str | None = None,
+        in_use: Callable[[str], bool] | None = None,
     ) -> None:
         self.document = document
         self.released = released
+        # Released and held by records, values or relationships (AP-D28); without a count, released.
+        self.in_use = in_use or released
         # The draft's import profile (0.10 A5, D75), writing into the model document's log.
         self.profile = profile or Document({}, name=PROFILE, identities=PROFILE_IDENTITIES, log=document.log)
         # The draft's profiled source file, or None (the mapping kinds refuse then).
@@ -133,9 +137,15 @@ class Context:
         return self.document.data
 
     def unreleased(self, *atoms: str) -> None:
+        """Refuses a change to an element data holds: activation checks the data again (AP-D28)."""
         for value in atoms:
-            if self.released(value):
+            if self.in_use(value):
                 raise MigrationRequired(value)
+
+    def key_free(self, value: str) -> None:
+        """Refuses a new key for a released element, held or not: integrations name it by its key."""
+        if self.released(value):
+            raise MigrationRequired(value)
 
     # --- finding elements ---
 
@@ -390,7 +400,7 @@ def set_key(context: Context, raw: dict[str, Any]) -> Applied:
     if element_kind in ("application", "objectType", "attributeType", "relationType"):
         # Only an element the base release lacks is re-keyed, so a definition naming it is not yet read
         # by any consumer, and the rename rewrites it (D54).
-        context.unreleased(element)
+        context.key_free(element)
     inverse: dict[str, Any] = {"kind": "setKey", "key": old}
     if element_kind == "relationType":
         old_reverse = context.document.at(path).get("reverseKey")

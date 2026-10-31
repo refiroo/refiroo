@@ -6,6 +6,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (model editor, released elements)
+
+- **A released element nothing uses can be changed:** a removal or other draft-only change applies when
+  it would affect 0 records, values and relationships in the workspaces running the model and their
+  change sets; above 0 it is refused with its impact, and activating the release checks the data again.
+  A released key stays fixed whatever the data, and the refusal now says so.
+
 ### Changed (model editor, choosing a relation)
 
 - **Types and relation types sharing a name can be told apart:** in the model editor's pickers, a type

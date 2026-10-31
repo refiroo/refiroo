@@ -3,10 +3,11 @@
 A draft is compared with its **base release**; without one, with the newest installed release of
 its own model (its ``release.key``); with neither it is a new model and nothing of it is released
 (0.11 D37). An element is released when that release declares it (D17). A draft-only operation on
-a released element is refused with its impact: the records, values and relationships that hold it,
-in live data and in the rows of every change set (all change sets are open until published) of the
-workspaces running the draft's model, each counted exactly up to :data:`IMPACT_LIMIT` (D33).
-Counts are set statements in PostgreSQL.
+a released element applies while its impact is nothing (AP-D28); otherwise it is refused with that
+impact: the records, values and relationships that hold it, in live data and in the rows of every
+change set (all change sets are open until published) of the workspaces running the draft's model,
+each counted exactly up to :data:`IMPACT_LIMIT` (D33). A released key stays fixed whatever the
+impact. Counts are set statements in PostgreSQL.
 """
 
 from typing import Any
