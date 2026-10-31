@@ -1324,6 +1324,22 @@ boundary only; the OpenAPI lock re-baselined per package and marked additive.
 
 Supersedes the turn format of AP6r and the engine-first calls of AP7. The working setup was the user's own: a few words, the workbook, the model and the OpenAPI document, and a model free to explore. Each limit added around it was the limit that failed. Journey J50.30. Open: a client that cannot publish (the session runs with the rights of who asked), isolation on a shared server, speed against the time limits, and the old J50 cases removed with the loop, to be replaced as journeys demand.
 
+### AP8 record: model shape and speed (2026-10-31)
+
+- **Model shape. Built 2026-10-31, the user's decisions.** The same words gave five types on one run and one type of 87
+  attributes on another, and both pass the dry run. **Separated by default:** one generic sentence in the prompt makes what
+  a file repeats into types of their own, and a session keeping a repetition flat raises it as a question. **What the
+  workspace holds decides the start:** with records the session adds to the model; with none, words asking for a model may
+  get a new one. The proposal shows the shape from the engine's figures (attributes and records per type, relationships
+  apart from records), and warns when a model leaves out types the workspace holds records of; Accept stays available.
+  **Tried on real files, three runs each, from the same words:** all six separated and loaded with 0 rejected. Price
+  Catalogue: the same 9,746 records each time; run 1's prices, VAT, enabled flags and ledgers match task 56's flat load
+  value for value. Timetables: 1,964, 1,966 and 400 records; the third keeps its 1,500 translations on relationships
+  rather than as records, and every workbook value is found in all three. **Still varies, by design:** names and details
+  of the structure (Station or Operator; translations as records or on relationships). A run may start from the workspace's
+  model and still replace it, which labels same-keyed types "Changed".
+- **Speed.** Open: the separated runs took 200 to 348 s on Timetables and 497 to 633 s on Tariff File, proposal and load, without a person's wait. Tariff File's atomic import is refused at the 10,000-item limit, so the session falls back to row-by-row success, and pays for the failed try.
+
 ## AI usage log (for hosting cost planning)
 
 **Why (the user, 2026-10-29):** refiroo may be hosted on a subscription that includes the AI provider,
