@@ -61,6 +61,8 @@ _NAMES = {
     "publish": "Publish",
     "bulk": "Bulk and import",
     "security-admin": "Security administration",
+    "model-release": "Model release",
+    "model-install": "Install a model",
 }
 
 
@@ -1156,3 +1158,41 @@ def test_a_narrowed_editor_cannot_change_values_of_a_record_already_in_the_chang
     )
     after = world.record("H", record["id"], changeSetId=change_set["id"])
     assert world.value(after, "H.code") == "H-1"
+
+
+@pytest.mark.journey("J40")
+def test_a_change_set_on_an_installed_release(world):
+    """Given a release installed but not active, a Contributor and a client that may also install a
+    model. When each starts a change set on that release, then the Contributor is refused with
+    `403 FORBIDDEN` and the other gets it; publishing it stays refused while the release is not
+    active in the workspace."""
+    model, _key = world.candidate("compatible")
+    release = world.install(model)["id"]
+    body = {"source": "currentLive", "modelReleaseId": release}
+    _, contributor = _client(world, "Contributor", ("contributor", {"workspaceKey": W1}))
+    role = ok(
+        world.api.post("/roles", {"name": "Installs", "actionGroups": ["model-install"]}), 201
+    )
+    _, installer = _client(
+        world,
+        "Loads a new release",
+        ("contributor", {"workspaceKey": W1}),
+        (role["key"], {"instance": True}),
+    )
+
+    _forbidden(
+        contributor.api.post(f"/workspaces/{W1}/change-sets", body),
+        "change-sets.write",
+        ["model-release", "model-install"],
+        W1,
+    )
+    change_set = ok(installer.api.post(f"/workspaces/{W1}/change-sets", body), 201)
+    assert change_set["modelReleaseId"] == release
+    refused(
+        world.api.post(
+            f"/change-sets/{change_set['id']}/publication",
+            {"expectedChangeSetVersion": change_set["version"]},
+        ),
+        409,
+        "CHANGE_SET_MODEL_RELEASE_CONFLICT",
+    )
