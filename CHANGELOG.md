@@ -56,6 +56,12 @@ All notable changes to this project are documented in this file. The format foll
   has Discard and Close. The turn loop, its answer format and `unpivots` are gone. A saved layout that
   still fits needs no AI; `key.storedUnique` keys a source by an attribute whose stored values are unique.
 - **Guards on the assistant's session, for sessions refiroo starts only:** the operating system's sandbox holds it to its folder and this engine, it has only file and shell tools and none of the server's secrets, and its client cannot publish, activate or reach another workspace. A stopped session can be tried again. The engine image holds Claude Code (`AI_AGENT_SANDBOX=container`).
+- **Imports reach every column of a repeated heading:** where a header repeats a name, the first column has the name and each later one the name with its place, `Currency #2`.
+- **Words alone start a session:** a task without a file no longer stops with an internal error.
+- **An empty change set is no load:** the task fails with what the session said, and can be tried again.
+- **An import's request sent as a file part** is checked against the workspace it names, not the default one.
+- **One session per task:** a session left running by a worker that stopped is ended before its job goes on, so two no longer work in one folder.
+- **Conflicting values are kept:** the session is told that a workbook's conflicting names or values are intended: it keeps them as they are and may raise them as a question.
 - **Switching workspace:** a page the other workspace's model lacks no longer shows "not in this
   workspace's model"; its start opens. An address asking for that page still says so.
 - **The assistant designs the load:** with AI proposals offered, a task's assistant decides how the

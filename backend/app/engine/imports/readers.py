@@ -59,11 +59,18 @@ class Table:
     rows: Iterator[tuple[int, list[Any]]]
 
     def columns(self) -> dict[str, int]:
-        """Each named column's position; the first of two equal names."""
+        """Each named column's position. Of equal names the first has the name and each later one
+        the name with its place among them, ``Currency #2``, unless a column is really called that."""
         positions: dict[str, int] = {}
         for index, name in enumerate(self.header):
             if name is not None:
                 positions.setdefault(name, index)
+        seen: dict[str, int] = {}
+        for index, name in enumerate(self.header):
+            if name is not None:
+                seen[name] = seen.get(name, 0) + 1
+                if seen[name] > 1:
+                    positions.setdefault(f"{name} #{seen[name]}", index)
         return positions
 
 

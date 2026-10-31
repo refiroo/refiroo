@@ -134,6 +134,10 @@ def run_turns(
         else:
             agent.said(session, job, ctx, task_id, words or "", dry_run_check)
         return
+    if agent.enabled() and workbook_of(session, task) is None:
+        # Words alone: the session starts here, as there is no file to read first.
+        agent.start(session, job, ctx, task_id, None, dry_run_check)
+        return
     if current.get("stage", "load") == "model":
         _propose(session, job, ctx, task_id, record_call)
         return

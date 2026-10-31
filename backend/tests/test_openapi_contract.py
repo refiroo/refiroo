@@ -370,7 +370,7 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # ProcessThread; with it removed the document hashes to the previous lock.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "ad2ac80530b349a521fa832c9ab9f6d61c8b11e8e712776535fe7bfecaebfa95"
+        "4b4bfdad32eeb795ddf277789e58914366b5a8403b789a6057992ce8d9f302a3"
     )
 
 

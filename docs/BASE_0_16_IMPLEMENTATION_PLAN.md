@@ -105,6 +105,8 @@ next because it reuses the import, inference and batch machinery rather than wai
 AP3–AP5, AO2, AO3, AG4. The `origin` provenance field (AP-D5) is introduced by whichever package comes
 first and reused by the others.
 
+**Tracks A and O stay in 0.16 (decided by the user 2026-10-31).**
+
 ## Decisions
 
 ### Track P: proposals

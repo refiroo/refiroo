@@ -22,6 +22,7 @@ from fastapi import Depends, Request
 from fastapi.routing import APIRoute
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from ..engine.authorization.catalogue import ACTIONS, group_names
 from ..engine.authorization.permissions import Permissions, permissions_of
@@ -363,7 +364,14 @@ async def request_body(request: Request) -> dict[str, Any] | None:
         # An import naming a stored source file sends no file part: a URL-encoded form.
         if content_type.startswith(("multipart/form-data", "application/x-www-form-urlencoded")):
             form = await request.form()
-            return {key: value for key, value in form.items() if isinstance(value, str)}
+            found = {key: value for key, value in form.items() if isinstance(value, str)}
+            # The request sent as a file part: the workspace it names is still the one checked,
+            # and the route then answers for the part's form.
+            part = form.get("request")
+            if isinstance(part, StarletteUploadFile):
+                found["request"] = (await part.read()).decode(errors="replace")
+                await part.seek(0)
+            return found
         body = await request.json()
     except ValueError:
         return None

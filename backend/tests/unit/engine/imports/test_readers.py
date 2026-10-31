@@ -73,3 +73,15 @@ def test_a_workbook_is_read_by_its_values_and_a_bad_one_refused(tmp_path):
     with pytest.raises(ApiError) as caught:
         XlsxFile(path)
     assert caught.value.code == "IMPORT_FILE_UNREADABLE"
+
+
+def test_every_column_of_a_header_that_repeats_a_name_can_be_named(tmp_path):
+    path = tmp_path / "wide.csv"
+    path.write_text("ID,Currency,Price,Currency,Price,Currency,Currency #2\nA,EUR,1,USD,2,GBP,x\n")
+    file = CsvFile(path, ",")
+    columns = file.table(None, Area()).columns()
+    assert columns["Currency"] == 1
+    assert columns["Price #2"] == 4
+    assert columns["Currency #3"] == 5
+    # A column really called that keeps its name.
+    assert columns["Currency #2"] == 6

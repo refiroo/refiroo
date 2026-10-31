@@ -121,6 +121,20 @@ def test_a_reader_reads_and_changes_nothing(world):
         {"request": json.dumps({"workspaceKey": W1, "policy": "independent"})},
     )
     _forbidden(imported, "bulk.write", ["bulk"], W1)
+    # The request as a file part names its workspace all the same.
+    as_file = reader.api.upload(
+        "/imports",
+        {
+            "file": ("rows.csv", b"name\nx\n", "text/csv"),
+            "request": (
+                "request.json",
+                json.dumps({"workspaceKey": W1, "policy": "independent"}).encode(),
+                "application/json",
+            ),
+        },
+        {},
+    )
+    _forbidden(as_file, "bulk.write", ["bulk"], W1)
     _forbidden(
         reader.api.post(
             f"/change-sets/{change_set['id']}/publication", _publication_body(world, change_set)

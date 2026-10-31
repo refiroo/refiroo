@@ -597,7 +597,14 @@ def test_a_session_proposes_on_a_draft_goes_on_with_the_persons_words_and_loads_
     ok(world.api.post(f"/ai/tasks/{task['id']}/accept", {"expectedVersion": task["version"]}), 202)
     _run(world)
     task = _task(world, task)
+    # An empty change set is no load, whatever the session says; tried again once it holds the rows.
+    assert task["state"] == "failed" and task["result"] is None
+    world.create("R", "Loaded", change_set=world.current(change_set), workspace=ledgers.workspace)
+    ok(world.api.post(f"/ai/tasks/{task['id']}/retry", {"expectedVersion": task["version"]}), 202)
+    _run(world)
+    task = _task(world, task)
     assert task["state"] == "loaded" and task["result"]["changeSetId"] == change_set["id"]
+    assert task["result"]["counts"]["created"] == 1
 
     # A session that stops can be tried again, from where it was.
     stopped = ok(_create(world, ledgers.workspace, ledgers.book()), 202)
@@ -616,6 +623,22 @@ def test_a_session_proposes_on_a_draft_goes_on_with_the_persons_words_and_loads_
     stopped = _task(world, stopped)
     assert stopped["state"] == "checked"
     assert "--resume" in json.loads(log.read_text().splitlines()[-1])["args"]
+
+    # Words alone start a session too, with no file in its folder.
+    alone = ok(
+        world.api.upload(
+            "/ai/tasks",
+            {},
+            {"request": json.dumps({"workspaceKey": ledgers.workspace, "words": "Rename the ledgers"})},
+        ),
+        202,
+    )
+    _run(world)
+    alone = _task(world, alone)
+    assert alone["state"] == "checked" and alone["draftId"] == draft["id"]
+    said = json.loads(log.read_text().splitlines()[-1])
+    assert said["prompt"].startswith("Rename the ledgers") and "There is no file" in said["prompt"]
+    assert "workbook.xlsx" not in said["files"]
 
     gone = ok(world.api.post(f"/ai/tasks/{stopped['id']}/discard", {}), 200)
     assert gone["state"] == "cancelled" and gone["draftId"] is None

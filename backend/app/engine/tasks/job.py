@@ -122,7 +122,8 @@ def submit(
     )
     if upload is None:
         task.design = {"stage": "model", "rulesProfile": None, "rulesSources": []}
-        design_job.start(session, task)
+        if not agent.enabled():
+            design_job.start(session, task)
         job = start_job(
             session,
             kind=KIND,

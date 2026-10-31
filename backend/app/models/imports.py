@@ -217,7 +217,8 @@ BINDING_KINDS = (
 
 class ColumnBinding(BaseModel):
     """One column (or, for ``relationFlags``, several) and what it fills. ``valueMap`` names a map
-    applied to the cell's text before it is converted or matched."""
+    applied to the cell's text before it is converted or matched. Where a header repeats a name, the
+    first column has the name and each later one the name with its place: ``Currency #2``."""
 
     model_config = ConfigDict(extra="forbid")
 

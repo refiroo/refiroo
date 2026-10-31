@@ -2725,7 +2725,7 @@ fixed values it matches. A list pages in key order (ADR-030).
 ```
 
 - **A source** loads one object type of one application from a sheet (the first sheet when
-  `sheet` is left out; a CSV file is one sheet), from its `headerRow`, optionally within a `block`.
+  `sheet` is left out; a CSV file is one sheet), from its `headerRow`, optionally within a `block`. Where a header repeats a name, the first column has the name and each later one the name with its place, `Currency #2`.
   Columns the profile does not name are ignored; a header names a column by its text. A row
   holding nothing in any column the source names is no record of it and is skipped (a list or
   parent read from another type's sheet, on a row without one; 0.10 A6b, D99).

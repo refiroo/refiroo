@@ -17,6 +17,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import ssl
 import subprocess
 import sys
@@ -70,19 +71,29 @@ def enabled() -> bool:
     return bool(os.environ.get("AI_AGENT_COMMAND", "").strip())
 
 
-def _connection(workspace: str, url: str) -> str:
+def _connection(workspace: str, url: str, *, workbook: bool = True) -> str:
+    file = "workbook.xlsx is the file, " if workbook else "There is no file: the words are about the stored records. "
+    data = "The data comes from this workbook alone. " if workbook else ""
     return (
-        "workbook.xlsx is the file, model.json the workspace's model, openapi.json the API of the "
-        f"engine at {url}, with the header 'Authorization: Bearer $REFIROO_TOKEN' (curl -k --noproxy ''). The "
-        f"data comes from this workbook alone. Work only in the workspace {workspace}: no other "
-        "workspace is read or changed."
+        f"{file}model.json the workspace's model, openapi.json the API of the "
+        f"engine at {url}, with the header 'Authorization: Bearer $REFIROO_TOKEN' (curl -k --noproxy ''). "
+        f"{data}Work only in the workspace {workspace}: no other "
+        "workspace is read or changed. Where the data gives one thing two names or values, that "
+        "is intended: keep them all as they are, correct nothing and do not keep only the most "
+        "common; you may raise it as a question."
     )
 
 
-def _propose_prompt(words: str | None, workspace: str, url: str) -> str:
+def _propose_prompt(words: str | None, workspace: str, url: str, *, workbook: bool = True) -> str:
+    check = (
+        "Build the model in a model draft and check every row with the draft's dry run"
+        if workbook
+        else "Put any model change in a model draft, with the workspace's model unchanged if none is "
+        "needed, and work out every record the words touch"
+    )
     return (
-        f"{(words or '').strip() or DEFAULT_WORDS}\n\n{_connection(workspace, url)} Build the model "
-        "in a model draft and check every row with the draft's dry run; install, activate, load and "
+        f"{(words or '').strip() or DEFAULT_WORDS}\n\n"
+        f"{_connection(workspace, url, workbook=workbook)} {check}; install, activate, load and "
         f"publish nothing yet: the person reviews first. Then write {PROPOSAL}: "
         '{"draftId": ..., "summary": two sentences a person reads, "questions": [{"text", "options", '
         '"assumed"}] for what only a person can decide}.'
@@ -91,7 +102,8 @@ def _propose_prompt(words: str | None, workspace: str, url: str) -> str:
 
 _ACCEPTED = (
     "The person accepted. They may have edited the draft in the model editor: read it again. Install "
-    "it as exactly one new release and do not activate it, load the workbook into a new change set "
+    "it as exactly one new release and do not activate it, make the change (a workbook's rows, or "
+    "what the words ask of the stored records) in a new change set "
     f"on that release, do not publish it, and end with the line {LAST_LINE} <its id>."
 )
 
@@ -363,12 +375,33 @@ class _Progress:
         }
 
 
+def _stop_earlier(earlier: dict[str, Any] | None) -> None:
+    """Ends a session left running by a worker that stopped: its job came back, and two sessions in
+    one folder would overwrite each other. The process counts only if it still names its session,
+    as its number may be another's by now."""
+    if not earlier:
+        return
+    pid = int(earlier["pid"])
+    shown = subprocess.run(
+        ["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True, check=False
+    )
+    if str(earlier["session"]) not in shown.stdout:
+        return
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
 def _run_turn(
     session: Session, job: Job, ctx: Any, task_id: str, folder: Path, prompt: str, session_id: str, *, first: bool
 ) -> _Progress | None:
     """One turn of the session, the task's progress written as it goes; ``None`` when it could not
     start, with the reason on the task."""
     task_key = task_id
+    _stop_earlier((load_task(session, task_key).design or {}).get("agentProcess"))
+    if first:
+        (folder / PROPOSAL).unlink(missing_ok=True)
     token, opened = _access(session, job, load_task(session, task_key).workspace_key)
     session.commit()
     command = [
@@ -394,6 +427,7 @@ def _run_turn(
                 stdout=output,
                 stderr=subprocess.STDOUT,
                 text=True,
+                start_new_session=True,
             )
         except OSError as error:
             _end(session, opened)
@@ -403,6 +437,12 @@ def _run_turn(
             session.commit()
             return None
         try:
+            task = load_task(session, task_key, for_update=True)
+            task.design = {
+                **(task.design or {}),
+                "agentProcess": {"pid": process.pid, "session": session_id},
+            }
+            session.commit()
             shown = -10.0
             while process.poll() is None:
                 ctx.check()
@@ -417,7 +457,7 @@ def _run_turn(
                 time.sleep(2)
             _await_its_jobs(session, ctx, started)
         except BaseException:
-            process.kill()
+            _stop_earlier({"pid": process.pid, "session": session_id})
             raise
         finally:
             _end(session, opened)
@@ -485,7 +525,7 @@ def _proposal_landed(
     session.commit()
 
 
-def start(session: Session, job: Job, ctx: Any, task_id: str, workbook_path: Path, check_of: Any) -> None:
+def start(session: Session, job: Job, ctx: Any, task_id: str, workbook_path: Path | None, check_of: Any) -> None:
     """The session's first turn: the workbook to a draft the person reviews."""
     task = load_task(session, task_id, for_update=True)
     workspace = task.workspace_key
@@ -494,16 +534,16 @@ def start(session: Session, job: Job, ctx: Any, task_id: str, workbook_path: Pat
     release = session.get(ModelRelease, load_assignment(session, workspace)[1].id)
     folder = folder_of(ctx.files, task)
     folder.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(workbook_path, folder / "workbook.xlsx")
+    if workbook_path is not None:
+        shutil.copyfile(workbook_path, folder / "workbook.xlsx")
     (folder / "model.json").write_text(json.dumps(release.model_json))
     (folder / "openapi.json").write_bytes(_openapi(url))
     session_id = str(uuid4())
     task.design = {**(task.design or {}), "stage": "model", "agentSession": session_id}
     task.state = "reading"
     session.commit()
-    progress = _run_turn(
-        session, job, ctx, task_id, folder, _propose_prompt(words, workspace, url), session_id, first=True
-    )
+    prompt = _propose_prompt(words, workspace, url, workbook=workbook_path is not None)
+    progress = _run_turn(session, job, ctx, task_id, folder, prompt, session_id, first=True)
     if progress is not None:
         _proposal_landed(session, ctx, task_id, folder, progress, check_of)
 
@@ -554,13 +594,15 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
     design.pop("progress", None)
     task.design = design
     note(task, "note", _said(progress))
-    if change_set is None or change_set.workspace_key != workspace:
+    counts = _counts(session, change_set.id) if change_set is not None else None
+    # An empty change set is no load, whatever the session's last line says.
+    if change_set is None or change_set.workspace_key != workspace or not counts["applied"]:
         finish(task, "failed", _retention(ctx))
     else:
         task.result = {
             "changeSetId": change_set.id,
             "changeSetName": change_set.name,
-            "counts": _counts(session, change_set.id),
+            "counts": counts,
         }
         finish(task, "loaded", _retention(ctx))
         remove_folder(ctx.files, task)
