@@ -16,22 +16,6 @@ from .provider import ProposalRequest, ProviderAnswer, ProviderError, Purpose
 MODEL = "fake-1"
 
 
-def _names(context: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "suggestions": [
-            {
-                "proposal": item["proposal"],
-                "key": item["key"],
-                # Always a different name, so every type gets a proposal.
-                "name": f"{item['name'].replace('_', ' ').title()} (suggested)",
-                "reason": "Written out from the header",
-                "confidence": 0.8,
-            }
-            for item in context.get("types", [])
-        ]
-    }
-
-
 def _common(first: str, second: str) -> int:
     """How many characters two names share, counted by letter (case ignored)."""
     left, right = Counter(first.lower()), Counter(second.lower())
@@ -59,10 +43,23 @@ def _targets(context: dict[str, Any]) -> dict[str, Any]:
     return {"answers": answers}
 
 
+def _workbook(context: dict[str, Any]) -> dict[str, Any]:
+    """A workbook task's turn (0.16 AP6): ``design`` takes the rules' profile and changes no model."""
+    turn = context.get("turn")
+    if turn == "design":
+        # 0.16 AP6: no model change; the rules' profile as the design.
+        return {
+            "profile": context.get("rulesProfile"),
+            "done": True,
+            "summary": "The workbook updates what the workspace holds.",
+        }
+    return {"operations": [], "note": ""}
+
+
 DEFAULTS: dict[Purpose, Callable[[dict[str, Any]], Any]] = {
     "connectionTest": lambda context: {"ready": True},
-    "modelNames": _names,
     "mappingTarget": _targets,
+    "workbookLoad": _workbook,
 }
 
 _script: dict[str, Any] = {}

@@ -66,6 +66,8 @@ to the engine.
 | `DATABASE_URL` | required | PostgreSQL URL, `postgresql+psycopg://…`. See [Database](#database) |
 | `RDM_MODEL_PATH` | `model/rdm-starter.json` | Bootstrap model file. Not the active-model setting; see [Model releases](#model-releases-and-rollback) |
 | `RDM_CURSOR_SIGNING_KEY` | ephemeral | Secret that signs pagination cursors. Without it each process generates its own key, so cursors stop working after a restart and between instances |
+| `AI_AGENT_COMMAND` | none | The command of the AI assistant's session, such as `claude --model sonnet --permission-mode bypassPermissions`; the provider's key and base URL come from the environment. It runs as a process of the worker with the rights of who asked, so isolate it on a shared server. Empty: files are read by the rules alone. |
+| `AI_AGENT_API_URL` | `PUBLIC_URL` | The address the session reaches this engine's API at. |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API. They are also where a person's sign-in may return: `<origin>/signed-in` for each (0.12 D267), so the browser application is served at the root of one of them. **The API reference at `/docs` is a browser page too:** when it calls the engine from an origin not listed here (for example `Try it` on `/oauth/token`), the browser's preflight answers `400 Disallowed CORS origin` before the request is sent. List the origin the reference is opened at; `scripts/dev.sh engine` lists the engine's own addresses |
 | `PUBLIC_URL` | `http://localhost:8000` | The engine's address as callers reach it, behind any proxy: the issuer (`iss`) of its tokens and the base of the addresses in `/.well-known/oauth-authorization-server` (0.12 D259). An absolute `http` or `https` URL; anything else stops startup. Set it on every production installation, the same on every process. See [Authentication](#authentication) |
 | `SOURCE_CODE_URL` | `https://github.com/refiroo/refiroo/tree/v<version>` | Where the source of the running version is offered to its users: `GET /system` (`engine.sourceCode`), Settings › About and the account menu show it (0.12 L1, D219; AGPL section 13). **An operator who runs a modified version sets it to the address of their own corresponding source**, including the modifications and the scripts and configuration that are part of the work; an absolute `http` or `https` address, anything else stops startup |
@@ -837,8 +839,7 @@ setting and takes no workspace lock: writes never wait for it.
 ## AI proposals
 
 An AI provider makes proposals people then review in the screens they already use (0.16 AP1): today
-clearer names for the types a model draft's inference proposes (AP1) and targets for a mapping view's
-unmapped values (AP2); later 0.16 packages add values for empty fields and more, all on the same provider. A proposal never writes
+targets for a mapping view's unmapped values (AP2); later 0.16 packages add values for empty fields and more, all on the same provider. A proposal never writes
 live data and never publishes; it arrives as a step or a change a person edits, keeps or removes.
 With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action is offered.
 
@@ -854,7 +855,9 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
 | `AI_LOG_CONTENT` | off | Keep each call's request and answer with its record, for an operator debugging a prompt. They hold reference data: switch it on only while needed |
 | `AI_LOG_CONTENT_DAYS` | 7 | Days a kept request and answer stay; then they are emptied and the record stays |
 | `AI_REASONING_EFFORT` | empty | `openai-compatible` only: sends `reasoning_effort` (`none`, `low`, `medium`, `high`), how much the model reasons before it answers. Empty sends nothing. A local thinking model (Qwen through Ollama) can reason for minutes on a short request: `none` makes it answer directly |
-| `AI_CONTEXT_TOKENS` | empty | The model's context window in tokens, for a model with a small one (a local model): a feature sizes each call to half of it, sending fewer records per call. Empty: no limit beyond the feature's own batch. Ollama serves a model with its own window (4,096 by default, `OLLAMA_CONTEXT_LENGTH` when it starts), whatever the model supports: set this to that number |
+| `AI_CONTEXT_TOKENS` | empty | The model's context window in tokens, for a model with a small one (a local model): a feature sizes each call to half of it, sending fewer records per call. The workbook assistant's design needs at least 65536: below it the model goes out without its attributes. Leave it empty for a hosted model. Empty: no limit beyond the feature's own batch. Ollama serves a model with its own window (4,096 by default, `OLLAMA_CONTEXT_LENGTH` when it starts), whatever the model supports: set this to that number |
+| `AI_MAX_STEPS` | 40 | The calls to the provider one job of an assistant task (a workbook loaded with the assistant) may make: its reading, its meaning matches and its fixes each count. Reached, the task keeps what the rules read and the assistant had proposed, with a warning |
+| `AI_TASK_RETENTION_DAYS` | 90 | Days an assistant task is kept after it finished (loaded, failed or cancelled) or was last changed; then the worker's sweep deletes it and its workbook. What was sent to the provider is never kept on a task (`AI_LOG_CONTENT` keeps it on the call record only) |
 | `AI_TIMEOUT_SECONDS` | 60 | Seconds one call may take; the Claude adapter tries a passing failure (overloaded, rate-limited, a server error, a timeout) up to three times |
 
 - **Where to set them:** in the reference installation, in `.env` (`.env.example` lists them, commented
@@ -863,7 +866,7 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
 - **Settings are read at start.** A provider without what it needs (`claude` without a key,
   `openai-compatible` without an address or a model, a factory that does not import or has no
   `propose`) refuses the start and names the setting. `INFERENCE_ASSISTANT` and
-  `INFERENCE_ASSISTANT_ROWS`, the 0.10 assistant's settings, are retired: the start is refused while
+  `INFERENCE_ASSISTANT_ROWS`, the 0.10 naming helper's settings, are retired: the start is refused while
   either is set, naming `AI_PROVIDER` or `AI_SAMPLE_VALUES`.
 - **Settings › Administration › AI** (Operations) shows the provider, the model, the address,
   whether a key is set, the send level and which features are offered; **Send a test request** sends
@@ -875,19 +878,13 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
   predefined Data steward, Data owner, Model administrator, Workspace administrator and Integration
   administrator roles. A person without it is never offered an AI action, and a proposal is still
   written by the person's own request, under their other rights.
-- **What is sent** is built in one place and held to `AI_SEND_LEVEL`. For the inference's names:
-  each sheet's (or list's) name and, for every column, its profile over every row: counts, value
-  type, delimiters, overlaps with other columns, and from `samples` up its most frequent values with
-  their counts (at most `AI_SAMPLE_VALUES` at `samples`; the placeholder texts likewise), and the
-  names the rules gave the types they add. No row is sent. When that would pass half of
-  `AI_CONTEXT_TOKENS`, the values of the columns with the most distinct values are dropped first,
-  never the counts. For mapping targets (needs `values`): the names and the view's displayed fields of
+- **What is sent** is built in one place and held to `AI_SEND_LEVEL`. For mapping targets (needs `values`): the names and the view's displayed fields of
   the unmapped sources, 25 per call, and of their candidate targets (all eligible targets up to 100,
   otherwise each source's 20 closest by name). Reference data is treated as data: the instructions tell the model not to follow
   text found in it, and nothing it answers is applied unasked.
 - **A failing provider never fails the work it helps.** An unreachable provider, a refused key, a
-  declined request or an answer out of the shape asked for is a warning on the feature (the
-  inference's rules still propose) and a failed call on the AI page.
+  declined request or an answer out of the shape asked for is a warning on the feature and a
+  failed call on the AI page.
 - **The Claude adapter** asks for structured output and lets the API retry a declined request on
   another model (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`). It calls
   `https://api.anthropic.com/v1/messages` unless `AI_BASE_URL` names another address; open that

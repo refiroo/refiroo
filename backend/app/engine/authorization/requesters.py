@@ -31,7 +31,17 @@ def job_group(job: Job) -> str:
         and (job.parameters or {}).get("moves") == "changeSet"
     ):
         return "change-sets"
+    if job.kind == "dryRun" and "taskId" in (job.parameters or {}):
+        # A task's dry run reads the workspace's records as an import does (0.16 AP6a).
+        return "bulk"
     return JOB_GROUPS[job.kind]
+
+
+def job_action(job: Job) -> str:
+    """How a job's step is named in a refusal."""
+    if job.kind == "dryRun" and "taskId" in (job.parameters or {}):
+        return "bulk.write"
+    return JOB_ACTIONS[job.kind]
 
 
 def requester(job: Job) -> tuple[PrincipalKind, int] | None:
@@ -63,7 +73,7 @@ def job_writer(session: Session, job: Job) -> Writer:
     ).one()
     permissions = permissions_of(session, kind, row_id, generation or 0)
     group = job_group(job)
-    action = JOB_ACTIONS[job.kind]
+    action = job_action(job)
     workspace_key = None if group == "model-authoring" else job.workspace_key
 
     def refused(message: str):

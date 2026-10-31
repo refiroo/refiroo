@@ -217,6 +217,9 @@ for _test, _routes in {
         "get /jobs/{job_id}/events",
         "post /jobs/{job_id}/cancel",
         "post /jobs/{job_id}/confirm",
+        # The proposal job and an assistant task's load write as their requester (0.16 AP2, AP6a).
+        "post /workspaces/{workspace_key}/mapping-proposals",
+        "post /ai/tasks/{task_id}/run",
     ],
     _SOURCE: [
         "get /source-files",
@@ -241,6 +244,17 @@ for _test, _routes in {
     _NO_RECORD + ": a change set is submitted for publication and its submission withdrawn": [
         "post /change-sets/{change_set_id}/submission",
         "delete /change-sets/{change_set_id}/submission",
+    ],
+    _NO_RECORD + ": an assistant task designs a load, takes answers, checks and cancels it": [
+        "post /ai/tasks",
+        "get /ai/tasks/{task_id}",
+        "get /ai/tasks/{task_id}/changes",
+        "post /ai/tasks/{task_id}/plan",
+        "post /ai/tasks/{task_id}/answers",
+        "post /ai/tasks/{task_id}/model",
+        "post /ai/tasks/{task_id}/accept",
+        "post /ai/tasks/{task_id}/discard",
+        "post /ai/tasks/{task_id}/cancel",
     ],
     _NO_RECORD + ": an import profile holds a column layout": [
         "get /import-profiles",

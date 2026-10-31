@@ -19,7 +19,7 @@ import { objectTypeFor } from "@/model/lookup";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ScopeBanner } from "@/features/objects/CollectionScope";
 import { MappingProposalDialog } from "@/features/objects/MappingProposalDialog";
-import { useWorkspaceAssistantOffer } from "@/features/model-editor/AssistantChoice";
+import { useWorkspaceAiOffer } from "@/features/settings/useWorkspaceAiOffer";
 import { AiOriginMark } from "@/ui/AiOriginMark";
 import type {
   EngineModel,
@@ -78,7 +78,7 @@ export function MappingGridView({
   const combinedRefresh = refreshToken + internalRefresh;
   // The AI's proposals are read in a change set; the button is offered where the AI may be asked (0.16 AP2).
   const proposed = Boolean(query.mappingProposed && changeSet);
-  const assistant = useWorkspaceAssistantOffer();
+  const assistant = useWorkspaceAiOffer();
   const canPropose = Boolean(assistant && !readOnly);
   const proposalScope = useMemo(
     () => ({

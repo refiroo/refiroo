@@ -1741,7 +1741,7 @@ class Job(Base):
     __table_args__ = (
         CheckConstraint(
             "kind IN ('batch', 'import', 'export', 'profile', 'dryRun', 'inference', "
-            "'profileCheck', 'migration', 'mappingInference', 'move', 'aiProposal')",
+            "'profileCheck', 'migration', 'mappingInference', 'move', 'aiProposal', 'aiTask')",
             name="ck_job_kind",
         ),
         CheckConstraint(
@@ -1933,15 +1933,15 @@ class ImportProfile(Base):
 
 
 class SourceFile(Base):
-    """A file a model draft or an import profile owns (Product 0.10 A3, D5), deleted with its
-    owner. The file is in ``JOB_FILE_DIR`` as ``{public_id}.upload``; its filled cells are staged in
+    """A file a model draft, an import profile or an assistant task owns (Product 0.10 A3, D5),
+    deleted with its owner. The file is in ``JOB_FILE_DIR`` as ``{public_id}.upload``; its filled cells are staged in
     ``source_file_cells`` by its profiling job (D66). A newer file of the same owner supersedes it,
     and the job retention sweep removes it ``JOB_RETENTION_DAYS`` later."""
 
     __tablename__ = "source_files"
     __table_args__ = (
         CheckConstraint(
-            "(draft_id IS NULL) <> (profile_key IS NULL)", name="ck_source_files_one_owner"
+            "num_nonnulls(draft_id, profile_key, task_id) = 1", name="ck_source_files_one_owner"
         ),
         CheckConstraint(
             "num_nonnulls(uploaded_by_user_id, uploaded_by_client_id) <= 1",
@@ -1949,6 +1949,7 @@ class SourceFile(Base):
         ),
         Index("ix_source_files_draft", "draft_id", "id"),
         Index("ix_source_files_profile", "profile_key", "id"),
+        Index("ix_source_files_task", "task_id"),
         Index("ix_source_files_uploaded_by_user", "uploaded_by_user_id"),
         Index("ix_source_files_uploaded_by_client", "uploaded_by_client_id"),
     )
@@ -1962,6 +1963,10 @@ class SourceFile(Base):
     )
     profile_key: Mapped[str | None] = mapped_column(
         ForeignKey("import_profiles.key", ondelete="CASCADE"), nullable=True
+    )
+    # The assistant task the file was uploaded for (0.16 AP6a); it goes with the task.
+    task_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ai_tasks.id", ondelete="CASCADE"), nullable=True
     )
     name: Mapped[str] = mapped_column(String(300), nullable=False)
     format: Mapped[str] = mapped_column(String(10), nullable=False)
@@ -2895,3 +2900,61 @@ class AiCall(Base):
     failure: Mapped[str | None] = mapped_column(Text, nullable=True)
     content: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     content_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class AiTask(Base):
+    """An assistant task: a workbook read against a workspace and planned into a load (0.16 AP6a,
+    AP-D23 to AP-D26). The reading, the plan and the check are the assistant's and the rules' work
+    as the person sees it; ``version`` is claimed by every change a person makes. The workbook is
+    the task's source file; the task and the file go ``expires_at``."""
+
+    __tablename__ = "ai_tasks"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('reading', 'read', 'checking', 'checked', 'loading', 'loaded', 'failed', "
+            "'cancelled')",
+            name="ck_ai_tasks_state",
+        ),
+        CheckConstraint(
+            "num_nonnulls(requested_by_user_id, requested_by_client_id) <= 1",
+            name="ck_ai_tasks_one_requested_by",
+        ),
+        Index("ix_ai_tasks_requested_by_user", "requested_by_user_id", "id"),
+        Index("ix_ai_tasks_requested_by_client", "requested_by_client_id", "id"),
+        Index("ix_ai_tasks_workspace", "workspace_key", "id"),
+        Index("ix_ai_tasks_expires", "expires_at"),
+        Index("ix_ai_tasks_draft", "draft_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
+    requested_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    requested_by_client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
+    workspace_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    words: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    reading: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    plan: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    check: Mapped[dict[str, Any] | None] = mapped_column("check_report", JSON, nullable=True)
+    # The assistant's design and the draft of the workspace's model it is carried out in (0.16 AP6).
+    design: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    draft_id: Mapped[int | None] = mapped_column(
+        ForeignKey("model_drafts.id", ondelete="SET NULL"), nullable=True
+    )
+    notes: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # The public ID of the job the task waits for now (its reading, its plan, its dry run, its import).
+    job_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)

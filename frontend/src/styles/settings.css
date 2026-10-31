@@ -3293,3 +3293,248 @@ a.account-reach-app:hover {
   color: var(--text-primary);
   font-weight: 600;
 }
+
+/* Loading a workbook with the AI assistant (0.16 AP6a): a card per table, its choices, the figures
+   of the check and the foot that loads. Cards stack and choice groups take one column on a phone. */
+.task-table {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.task-table-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.task-table-head h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.task-table h4 {
+  margin: 0;
+}
+.task-reason {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.task-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+.task-choices .theme-choice {
+  flex-wrap: wrap;
+}
+.task-meaning,
+.task-refusals,
+.task-fixes,
+.task-next {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.task-meaning li,
+.task-fixes li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+.task-notes {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.task-changes {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 100%;
+}
+.task-foot {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* A folded part: a group row with a chevron, or a line with a Show button. */
+.disclosure-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) 0;
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.disclosure.is-row {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.disclosure.is-row .disclosure-toggle {
+  padding: var(--space-3) var(--space-1);
+}
+.disclosure.is-row .disclosure-toggle::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-right: var(--space-1);
+  border-right: 2px solid var(--text-secondary);
+  border-bottom: 2px solid var(--text-secondary);
+  transform: rotate(-45deg);
+  transition: transform 0.12s;
+}
+.disclosure.is-row.is-open .disclosure-toggle::before {
+  transform: rotate(45deg);
+}
+.disclosure-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.disclosure-detail {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.disclosure.is-link .disclosure-label {
+  font-weight: 400;
+}
+.disclosure-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) 0;
+}
+.disclosure-body {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-3);
+  max-width: 100%;
+}
+.task-summary {
+  display: grid;
+  gap: var(--space-2);
+}
+.task-summary p {
+  margin: 0;
+}
+.task-summary ul,
+.task-sheet-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-4);
+  color: var(--text-secondary);
+}
+.task-structure {
+  display: grid;
+  gap: var(--space-1);
+}
+.task-structure h4 {
+  margin: var(--space-3) 0 0;
+}
+.task-child {
+  color: var(--text-secondary);
+}
+.task-figures {
+  margin: 0;
+  color: var(--text-secondary);
+}
+@media (max-width: 760px) {
+  .task-choices {
+    grid-template-columns: 1fr;
+  }
+  .task-actions > button {
+    flex: 1 1 0;
+  }
+}
+/* The assistant's design (0.16 AP6): questions as groups of options, the order of what confirming does. */
+.task-question {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.task-question legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+  font-weight: 600;
+}
+.task-order {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+/* The assistant's design and check (0.16 AP6): the page's own gap between its cards and sections, no
+   second gap under a card's title, and the stacked tables as one ruled card per row on a phone. */
+.task-check {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.task-check .task-table {
+  margin-bottom: 0;
+}
+.task-table > .card-header {
+  margin-bottom: 0;
+}
+.task-table > p {
+  margin: 0;
+}
+.disclosure.is-button .disclosure-line {
+  padding: 0;
+}
+@media (max-width: 760px) {
+  .task-check .settings-table {
+    overflow: visible;
+  }
+  .task-check .settings-table tbody {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .task-check .settings-table tr {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--card-radius);
+  }
+  .task-check .settings-table thead tr {
+    padding: 0;
+    border: 0;
+  }
+  .task-check .settings-table tbody th {
+    padding-bottom: var(--space-1);
+    color: var(--text-primary);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: var(--space-1);
+  }
+  .task-check .settings-table td[data-label] {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+  .task-check .settings-table td[data-label]::before {
+    flex: none;
+  }
+}

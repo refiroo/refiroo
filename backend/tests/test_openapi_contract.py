@@ -338,9 +338,37 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # parameter proposed; the purpose mappingTarget on the Ai* schemas (AiFeature.purpose a
     # one-value const becomes an enum). Diffed against HEAD's document in a worktree. Then the
     # kind aiProposal on GET /jobs; with it removed the document hashes to the previous lock.
+    # Re-baselined for 0.16 AP6a (removal): the inference's naming helper; InferenceRequest.assistant,
+    # InferenceResponse.assistant, .assistantOutcome and .phase (with InferenceAssistantOutcome) and
+    # the purpose modelNames on the Ai* schemas (AiFeature.purpose a one-value const again), and the
+    # description of POST /model-drafts/{id}/inference; nothing else changed.
+    # Re-baselined for 0.16 AP6a (additive): the assistant's tasks (GET and POST /ai/tasks, GET
+    # /ai/tasks/{id} and its /changes, POST /ai/tasks/{id}/plan, /run and /cancel) with the AiTask*
+    # and Task* schemas; the kind aiTask on JobResponse and GET /jobs; the purpose workbookLoad on
+    # the Ai* schemas. With them removed the document hashes to the previous lock.
+    # Re-baselined for 0.16 AP6a (revision, additive): the task reading's titles, profile and summary,
+    # a table's parentTypeKeys, profile, parent, notes, attention and leftOut, a column's kind, label
+    # and evidence, the owner profile, the check's summary and a check table's translations and
+    # nothingToDo. Schemas only; not diffed against the previous document. Then AP6a's column
+    # `known` (a column the followed profile always left out), additive.
+    # Re-baselined for 0.16 AP6 (additive): POST /ai/tasks/{id}/answers (AiTaskAnswersRequest), the
+    # task's `design` (TaskDesign, DesignQuestion, DesignRecord) and `draftId`, the check as
+    # TaskCheck or DesignCheck (DesignSheet), the result's `releaseId` and the job phase
+    # `designing`. Schemas and one path only; no existing field changed.
+    # Re-baselined for 0.16 AP6 (words alone, relationships; additive): the optional `file` of POST
+    # /ai/tasks (a request with words only), the design's `links` and the check's `links` and
+    # `summary.relationships`, DesignCheck.dryRunJobId nullable, the result's `linksJobId` and the
+    # error code AI_TASK_NEEDS_WORDS in the route's description.
+    # Re-baselined for 0.16 AP6 (revision): GET /ai/tasks/{id}/changes takes `source` (a design's
+    # sheet; `table` optional), DesignSheet.source, and the task phases narrowed to profiling,
+    # reading, designing and checking (asking, matching and fixing were AP6a's removed turns);
+    # DesignSheet.skipped (rows of a source skipping rows without a key that wrote nothing); the
+    # import profile's RelatedParent.valueMap (a parent column's cell mapped before it is matched);
+    # TaskDesign.leftOut (the columns no source loads, with the assistant's reason); 0.16 AP6r:
+    # POST /ai/tasks/{id}/model and /accept, TaskDesign.stage, outline, checks and corrections.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "fe2f424f4b19c3e082ececeef52f320bc7d21b58efc8cbba7ec92b76bd37bb70"
+        "3c6a8da965815d289a38753da3b1d7662b8e88f91c9db21836a6bc2ce1bd282b"
     )
 
 
@@ -387,8 +415,8 @@ def test_paging_openapi_inventory():
     # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets; 0.12
     # Z6 the changes across workspaces; 0.12 I3 the sign-in providers; 0.12 I4c a person's passkeys,
     # their own and an administrator's; 0.12 M1 the mail outbox; 0.12 A1 the publication requests; 0.12 A2 the inbox;
-    # 0.16 AP1 the AI provider's calls.
-    assert seekable <= paged and len(paged) == 66
+    # 0.16 AP1 the AI provider's calls; 0.16 AP6a the assistant's tasks and a task's changes.
+    assert seekable <= paged and len(paged) == 68
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

@@ -30,6 +30,7 @@ import type {
   ModelDraftOperationEntry,
   ModelDraftOutline,
   ModelDraftStep,
+  JourneyRef,
   RouteState,
   Workspace,
 } from "@/types";
@@ -84,11 +85,7 @@ import {
 } from "@/features/model-editor/history";
 import { DeleteDraftDialog } from "@/features/model-admin/DeleteDraftDialog";
 import { InstallDialog } from "@/features/model-editor/InstallDialog";
-import {
-  ProposingProgress,
-  assistantOutcomeText,
-  type ProposingPhase,
-} from "@/features/model-editor/ProposingProgress";
+import { ProposingProgress, type ProposingPhase } from "@/features/model-editor/ProposingProgress";
 import { IssuesAndHistory } from "@/features/model-editor/IssuesAndHistory";
 import { droppedColumn, ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
 import { MoveToDialog, topOf, typeIn, type MoveSubject } from "@/features/model-editor/MoveToDialog";
@@ -135,6 +132,7 @@ type Stale = { since: ModelDraftOperationEntry[]; more: boolean; send: Send };
 
 export function ModelEditor({
   draftId,
+  journey,
   selection,
   onSelect,
   onNavigate,
@@ -145,6 +143,8 @@ export function ModelEditor({
   workspaceKey,
 }: {
   draftId: string;
+  /** The journey the editor was opened from: Close returns to it, not to the models. */
+  journey?: JourneyRef;
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
   onNavigate: (route: RouteState) => void;
@@ -291,16 +291,12 @@ export function ModelEditor({
 
   // The inference completed: its open proposals become steps, one each (D89).
   const inference = useInference(draftId, outline?.version, (done) => {
-    const assistant = assistantOutcomeText(done.assistantOutcome);
     if (!done.counts.open) {
       inference.settled();
       const nothing = done.disagreements.length
         ? `Nothing new to propose. The workbook reads ${done.disagreements.length} ${done.disagreements.length === 1 ? "column" : "columns"} otherwise than you decided: see Issues.`
         : "Nothing new to propose: the draft holds what the workbook shows.";
-      setNotice({
-        tone: assistant?.tone === "warning" ? "warning" : "success",
-        text: assistant ? `${nothing} ${assistant.text}` : nothing,
-      });
+      setNotice({ tone: "success", text: nothing });
       return;
     }
     void (async () => {
@@ -322,13 +318,6 @@ export function ModelEditor({
         if (outcome === "applied") {
           toast(`${done.counts.open} ${done.counts.open === 1 ? "proposal" : "proposals"} applied, one step each.`);
           setBottomTab("history");
-          // What the AI assistant did is said where the result is, after the step's own notices.
-          if (assistant)
-            setNotice((now) =>
-              now
-                ? { tone: "warning", text: `${now.text} ${assistant.text}` }
-                : { tone: assistant.tone, text: assistant.text },
-            );
         }
       } catch (cause) {
         setNotice({
@@ -364,9 +353,7 @@ export function ModelEditor({
     ? "profiling"
     : inference.inference?.state === "completed"
       ? "applying"
-      : inference.phase === "assistant"
-        ? "assistant"
-        : "reading";
+      : "reading";
   // New from a workbook asked to propose: once the workbook is profiled, the editor does.
   useEffect(() => {
     if (!profiled || proposingNow || !hasWaitingProposal(draftId)) return;
@@ -529,12 +516,13 @@ export function ModelEditor({
     proposedElement && proposedElements.has(proposedElement) ? (
       <ProposedBecause
         proposal={inference.proposed.get(proposedElement)}
-        assistant={inference.assistantFor.get(proposedElement)}
         busy={busy}
         run={(operations) => void guarded(() => run(operations))}
       />
     ) : undefined;
   const toModels: RouteState = { kind: "settings", page: "model" };
+  // Close returns to where the editor was opened from: the journey's page, else the models.
+  const toClose: RouteState = journey ? { kind: "settings", page: "ai-tasks", taskId: journey.taskId } : toModels;
   const deleteItem = {
     id: "deleteDraft",
     label: "Delete draft…",
@@ -925,7 +913,7 @@ export function ModelEditor({
                   <ActionMenu
                     label="More: Open as JSON, Install and activate, Load, Add a workbook, Propose again, Close, Delete"
                     items={[
-                      { id: "close", label: "Close", onAction: () => onNavigate(toModels) },
+                      { id: "close", label: "Close", onAction: () => onNavigate(toClose) },
                       { id: "json", label: "Open as JSON", onAction: () => onNavigate(workbench) },
                       { id: "install", label: "Install and activate…", onAction: () => setDialog({ kind: "install" }) },
                       ...(hasSource
@@ -982,7 +970,7 @@ export function ModelEditor({
                       Load into a change set…
                     </button>
                   )}
-                  <RouteLink className="secondary" href={routePath(toModels)} onNavigate={() => onNavigate(toModels)}>
+                  <RouteLink className="secondary" href={routePath(toClose)} onNavigate={() => onNavigate(toClose)}>
                     Close
                   </RouteLink>
                   <ActionMenu

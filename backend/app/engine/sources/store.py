@@ -124,6 +124,40 @@ def store_source_file(
     return source
 
 
+def store_task_file(
+    session: Session, task_id: int, upload: Upload, *, workspace_key: str, files: JobFiles
+) -> SourceFile:
+    """Store the workbook of an assistant task (0.16 AP6a) as a source file the task owns. Its
+    cells are staged and profiled by the task's own job, so no ``profile`` job is queued. The
+    caller commits; the file is written now and removed when the caller's transaction fails."""
+    found_format = upload_format(upload)
+    source = SourceFile(
+        task_id=task_id,
+        name=upload.name or f"workbook.{found_format}",
+        format=found_format,
+        bytes=upload.size,
+        sha256=upload.sha256,
+        csv_delimiter="," if found_format == "csv" else None,
+        workspace_key=workspace_key,
+        version=1,
+        uploaded_at=datetime.now(UTC),
+    )
+    uploader = requester_of(session)
+    if uploader is not None:
+        if uploader[0] == "user":
+            source.uploaded_by_user_id = uploader[1]
+        else:
+            source.uploaded_by_client_id = uploader[1]
+    session.add(source)
+    session.flush()
+    files.directory.mkdir(parents=True, exist_ok=True)
+    target = files.upload(source.public_id)
+    upload.file.seek(0)
+    with target.open("wb") as copy:
+        shutil.copyfileobj(upload.file, copy, _READ)
+    return source
+
+
 def compared_workspace(session: Session, source: SourceFile) -> str | None:
     """The workspace whose records a file's columns are compared with (D69, D91, D112): the one it
     names, else the default workspace, as its profile job runs in (0.10 A7: the editor uploads
@@ -157,6 +191,11 @@ def source_format(request: SourceFileRequest, upload: Upload) -> str:
     """The request's ``format``, or the file name's suffix: a workbook or a CSV file."""
     if request.format is not None:
         return request.format
+    return upload_format(upload)
+
+
+def upload_format(upload: Upload) -> str:
+    """The format the file name's suffix says: a workbook or a CSV file."""
     suffix = Path(upload.name).suffix.lower()
     if suffix in SUFFIXES:
         return SUFFIXES[suffix]
@@ -190,7 +229,8 @@ def source_file_page(
 ) -> Page[SourceFile]:
     """An owner's source files, newest first; every file without an owner named. ``visible``
     narrows the profiles' files to those the caller may use (0.12 Z2, D295)."""
-    statement = select(SourceFile)
+    # A task's file is read through its task (0.16 AP6a), not as a source file.
+    statement = select(SourceFile).where(SourceFile.task_id.is_(None))
     if visible is not None:
         statement = statement.where(or_(SourceFile.profile_key.is_(None), visible))
     if draft_public_id is not None:

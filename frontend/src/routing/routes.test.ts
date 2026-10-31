@@ -65,6 +65,7 @@ describe("routes", () => {
     ["/settings/operations", { kind: "settings", page: "operations" }],
     ["/settings/consumer-apis", { kind: "settings", page: "consumer-apis" }],
     ["/settings/jobs", { kind: "settings", page: "jobs" }],
+    ["/settings/ai-tasks/t-1", { kind: "settings", page: "ai-tasks", taskId: "t-1" }],
     ["/settings/api-reference", { kind: "settings", page: "api-reference" }],
     ["/settings/workspaces", { kind: "settings", page: "workspaces" }],
     ["/settings/workspaces/central-europe", { kind: "settings", page: "workspaces", workspaceKey: "central-europe" }],
@@ -426,5 +427,26 @@ describe("Home (0.12 HM1, D331)", () => {
     const named = parseRoute(testModel, "default", { pathname: "/", search: "?workspaceKey=north" });
     expect(named.kind).toBe("list");
     expect(named).toMatchObject({ workspaceKey: "north" });
+  });
+});
+
+describe("A user journey in the address", () => {
+  it("is carried by the model editor and the change set review, as journey=ai-task:<id>", () => {
+    const journey = { kind: "aiTask" as const, taskId: "t-1" };
+    const editor: RouteState = {
+      kind: "settings",
+      page: "model",
+      draftId: "d1",
+      editor: { show: "type", key: "shelf" },
+      journey,
+    };
+    const review: RouteState = { ...changeReviewFor("test-app", "default", "cs-1"), journey };
+    for (const route of [editor, review, { ...editor, editor: {} } as RouteState]) {
+      const path = routePath(route);
+      expect(path).toContain("journey=ai-task%3At-1");
+      const [pathname, search] = path.split("?");
+      expect(parseRoute(testModel, "default", { pathname, search: `?${search}` })).toEqual(route);
+    }
+    expect(routePath({ ...editor, journey: undefined })).not.toContain("journey");
   });
 });

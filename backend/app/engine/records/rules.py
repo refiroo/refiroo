@@ -290,10 +290,20 @@ def relation_cardinality(
             for row in lookup.relations([object_id], direction, [binding.relationTypeKey])
         )
 
-    if (binding.holds_one("from") and taken(from_id, "outgoing")) or (
-        binding.holds_one("to") and taken(to_id, "incoming")
-    ):
-        raise api_error(409, "CARDINALITY_VIOLATION", "Relation cardinality would be violated")
+    for end, object_id, direction in (("from", from_id, "outgoing"), ("to", to_id, "incoming")):
+        if binding.holds_one(end) and taken(object_id, direction):
+            # Which relation and which end: a caller (or the assistant) can tell what to change.
+            raise api_error(
+                409,
+                "CARDINALITY_VIOLATION",
+                f"Relation cardinality would be violated: '{binding.relationTypeKey}' is "
+                f"{binding.cardinality} and its '{end}' record already holds one",
+                {
+                    "relationTypeKey": binding.relationTypeKey,
+                    "cardinality": binding.cardinality,
+                    "end": end,
+                },
+            )
 
 
 def relation_scope(
@@ -364,10 +374,13 @@ def relation(
     attributes: dict[str, Any],
     *,
     excluded: frozenset[str] = frozenset(),
+    added: bool = True,
 ) -> dict[str, Any]:
     """A relation between two records the context holds, as a write would store it: its binding,
     not a containment relation, within cardinality and ancestor scope, with valid attributes.
-    ``excluded`` names relations the write replaces. Returns the normalized attributes."""
+    ``excluded`` names relations the write replaces. A relationship the record already holds
+    (``added=False``) is kept whatever the candidate criteria say now (D175). Returns the
+    normalized attributes."""
     refusals: Refusals = lookup.refusals
     binding = relation_binding(
         model, relation_type_key, source.object_type_key, target.object_type_key, refusals
@@ -375,7 +388,8 @@ def relation(
     mutable_relation(model, relation_type_key, target.object_type_key, refusals)
     relation_cardinality(lookup, binding, source.object_id, target.object_id, excluded)
     relation_scope(lookup, binding, source.object_id, target, excluded)
-    relation_candidates(lookup, model, binding, source, target)
+    if added:
+        relation_candidates(lookup, model, binding, source, target)
     return relation_attributes(model, binding, attributes)
 
 

@@ -73,6 +73,9 @@ def _usable(
     import in its workspace, or at the instance for one naming none (0.12 Z2, D248, D295); a
     draft's as before."""
     source = load_source_file(session, source_file_id)
+    if source.task_id is not None:
+        # An assistant task's workbook is read through its task (0.16 AP6a).
+        raise api_error(404, "SOURCE_FILE_NOT_FOUND", f"Source file '{source_file_id}' not found")
     if source.profile_key is not None and not may_use_source_file(
         permissions, principal.kind, principal.row_id, source
     ):

@@ -1,13 +1,18 @@
-// 0.16 AP1 browser evidence: Settings › Administration › AI and the Propose dialog's AI assistant against a
+// 0.16 AP1 browser evidence: Settings › Administration › AI and the AP2 mapping proposals against a
 // real backend whose provider is the deterministic fake (`AI_PROVIDER=app.engine.proposals.fake:provider`,
 // nothing leaves the process), on the two designer models of the A6 runner (the starter with every key
 // renamed, and the journey configuration generated-b). As the harness person, by keyboard: the AI page lists
 // the provider's settings and features and no call yet; a test request is sent with Enter, answered, and
-// listed; the editor's Propose again… offers "Also ask the AI assistant for clearer names" (checked, with
-// what is sent), and the choice reaches the inference (`assistant` true or false); an assistant proposal says
-// who proposed it in Proposed because; the Deployment page lists the AI settings with the key hidden. Then a
-// backend without a provider: the AI page says so and offers nothing, and the dialog has no checkbox. Dark;
+// listed; the Deployment page lists the AI settings with the key hidden. Then a backend without a provider:
+// the AI page says so and offers nothing, and neither New from a workbook nor Propose again… asks it.
+// The mapping view's Propose targets… follows (AP2). Dark;
 // 390px without horizontal page scroll; axe on each state; screenshots in the run's folder.
+// Then 0.16 AP6, loading a workbook with the assistant, on two object types (Domains in RDM Master by
+// keyboard, Systems in RDM Systems by pointer): Import → Load a workbook (Import without the assistant…
+// takes the ordinary dialog) → the assistant's design (no model change under the fake provider) with
+// where each sheet goes → the check of every row → Load into a change set → the change set holds the
+// changes and live data does not; every state in light and dark at 1440px and 390px with axe; and no
+// such action on a backend without a provider.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -82,8 +87,11 @@ async function journey(label, source, level) {
           : "Also the record values a feature needs, up to 20 per column",
       )
       .waitFor();
-    // Two features since AP2 (names for an inference, targets for unmapped values): at the structure level only the first.
-    await page.getByText("Available", { exact: true }).first().waitFor();
+    // One feature (targets for unmapped values): offered at the values level, unavailable at structure.
+    await page
+      .getByText(structureOnly ? "Unavailable" : "Available", { exact: true })
+      .first()
+      .waitFor();
     await page.getByText(/No call has been made yet/).waitFor();
     assert.equal(await page.getByText("No AI provider is set up").count(), 0);
     await shot(page, "configured-1440");
@@ -111,16 +119,7 @@ async function journey(label, source, level) {
       .getByRole("radio", { name: /A new application/, checked: true })
       .waitFor();
     await dialog().getByLabel("Application name").fill("Catalogue AP1");
-    const startBox = dialog().getByRole("checkbox", { name: "Also ask the AI assistant for clearer names" });
-    await startBox.waitFor();
-    assert.equal(await startBox.isChecked(), true, "checked by default in New from a workbook");
-    await dialog()
-      .getByText(
-        structureOnly
-          ? "Sends the sheets' names and headers to fake"
-          : "Sends the sheets' names, headers and first rows to fake",
-      )
-      .waitFor();
+    assert.equal(await dialog().getByRole("checkbox").count(), 0, "New from a workbook asks no AI");
     await page.waitForTimeout(500);
     await shot(page, "new-from-workbook-1440");
     await accessible(page, `ap1-${label}-new-from-workbook`);
@@ -133,9 +132,7 @@ async function journey(label, source, level) {
     await page.getByText("Proposing from the workbook").waitFor();
     // The editor says what it waits for and that editing is paused (the fake answers fast, so look at once).
     await page
-      .getByText(
-        /Reading the workbook…|Finding the model in every sheet…|Asking the AI assistant \(fake-1\) for clearer names|Applying the proposals, one step each…/,
-      )
+      .getByText(/Reading the workbook…|Finding the model in every sheet…|Applying the proposals, one step each…/)
       .first()
       .waitFor({ timeout: 5000 });
     await page
@@ -147,11 +144,6 @@ async function journey(label, source, level) {
     );
     await page.getByText("Proposing from the workbook").waitFor({ state: "hidden", timeout: 60_000 });
     if (phoneRun) await page.setViewportSize({ width: 1440, height: 900 });
-    // Afterwards the editor says what the AI assistant did (the fake names the types).
-    await page
-      .getByText(/^The AI assistant \(fake-1\) (suggested \d+ clearer names?|found the names good as they are)/)
-      .waitFor({ timeout: 10_000 });
-    checks.push(`${label}: after the run the editor tells what the AI assistant (fake-1) did`);
     // One user action, one submission: the draft has exactly one inference job and one POST reached it.
     const jobs = (await api("/jobs?kind=inference&pageSize=100")).items;
     assert.equal(jobs.length, 1, `${label}: one inference job after New from a workbook, found ${jobs.length}`);
@@ -164,32 +156,8 @@ async function journey(label, source, level) {
       `${label}: exactly one POST .../inference`,
     );
     checks.push(`${label}: New from a workbook submitted exactly one inference`);
-    const first = await api(`/model-drafts/${draftId}/inference`);
-    assert.equal(first.assistant, true, "the provider is asked when assistant is omitted");
-    const proposals = (await api(`/model-drafts/${draftId}/inference/proposals?pageSize=500`)).items;
-    const assistants = proposals.filter((item) => item.pattern === "assistant");
-    assert.ok(assistants.length > 0, "the fake provider's names became assistant proposals");
-    assert.equal(assistants[0].evidence.origin.kind, "ai");
-    checks.push(
-      `${label}: omitted, the provider was asked: ${assistants.length} assistant proposals with an AI origin`,
-    );
-
-    // 4. A type the assistant named says who proposed the name, in Proposed because.
-    const named = assistants.find((item) =>
-      item.operations.some((op) => op.kind === "setLabel" && op.element?.objectType),
-    );
-    assert.ok(named, "an assistant proposal names a type");
-    const typeKey = named.operations.find((op) => op.kind === "setLabel").element.objectType;
-    await page.goto(`${uiUrl}/settings/model/drafts/${draftId}/editor?show=type&key=${encodeURIComponent(typeKey)}`);
-    const because = page.getByRole("region", { name: "Proposed because" });
-    await because
-      .getByText(/^Proposed by the AI assistant \(fake-1\), 80% confident\. Written out from the header/)
-      .waitFor();
-    await shot(page, "proposed-because-1440");
-    await accessible(page, `ap1-${label}-proposed-because`);
-    checks.push(
-      `${label}: Proposed because says "Proposed by the AI assistant (fake-1), 80% confident" and the reason`,
-    );
+    assert.equal((await api("/ai/calls")).items.length, 1, "the inference asked the provider nothing");
+    checks.push(`${label}: the inference ran on its rules: the provider saw only the test request`);
 
     // The profile key conflict at 390px: the server's answer is made to carry the conflict (a stored
     // profile of another model is not set up here), so the page's own rendering is what is looked at.
@@ -232,44 +200,29 @@ async function journey(label, source, level) {
     // Propose again…: the checkbox, checked, with what is sent; unchecked, the inference says it was not asked.
     await page.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Propose again…" }).click();
-    const box = dialog().getByRole("checkbox", { name: "Also ask the AI assistant for clearer names" });
-    await box.waitFor();
-    assert.equal(await box.isChecked(), true, "checked by default");
     await dialog()
-      .getByText(
-        structureOnly
-          ? "Sends the sheets' names and headers to fake"
-          : "Sends the sheets' names, headers and first rows to fake",
-      )
+      .getByRole("radio", { name: /A new application/ })
       .waitFor();
-    await assertDialogLayout(page, `${label}: Propose again with the assistant`);
+    assert.equal(await dialog().getByRole("checkbox").count(), 0, "Propose again asks no AI");
+    await assertDialogLayout(page, `${label}: Propose again`);
     await page.waitForTimeout(500);
     await shot(page, "propose-dialog-1440");
     await accessible(page, `ap1-${label}-propose-dialog`);
-    await box.focus();
-    await page.keyboard.press("Space");
-    assert.equal(await box.isChecked(), false, "Space unchecks it");
     await dialog().getByRole("button", { name: "Propose", exact: true }).click();
     await page
       .getByText(/Nothing new to propose|Proposing from the workbook/)
       .first()
       .waitFor({ timeout: 60_000 });
     await page.getByText("Proposing from the workbook").waitFor({ state: "hidden", timeout: 60_000 });
-    assert.equal((await api(`/model-drafts/${draftId}/inference`)).assistant, false, "unchecked: not asked");
-    checks.push(
-      `${label}: Propose again shows the checkbox (checked, naming what is sent); Space unchecks; the inference reports it was not asked`,
-    );
+    assert.equal((await api("/ai/calls")).items.length, 1, "Propose again asked the provider nothing");
+    checks.push(`${label}: Propose again offers no AI choice and the provider is not asked`);
 
-    // 5. The calls now include the inference's; the Deployment page shows the settings, the key hidden.
+    // 5. The calls list; the Deployment page shows the settings, the key hidden.
     await page.goto(`${uiUrl}/settings/ai`);
-    await page
-      .getByRole("row", { name: /Names for an inference/ })
-      .first()
-      .waitFor();
     await page.getByRole("row", { name: /Test request/ }).waitFor();
     await shot(page, "calls-1440");
     await accessible(page, `ap1-${label}-calls`);
-    checks.push(`${label}: the calls list holds the test and the inference's names`);
+    checks.push(`${label}: the calls list holds the test`);
 
     // 6. Dark and a phone, on the page with calls.
     const dark = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
@@ -375,7 +328,7 @@ async function journey(label, source, level) {
   console.log(`Screenshots (${label}): ${harness.output}`);
 }
 
-/** A backend without a provider: the page says so and offers nothing; the dialog has no checkbox. */
+/** A backend without a provider: the page says so and offers nothing; neither dialog asks it. */
 async function withoutProvider() {
   const harness = await boot(renamed, {});
   const { page, uiUrl, api } = harness;
@@ -395,27 +348,21 @@ async function withoutProvider() {
       .getByRole("radio", { name: /A new application/ })
       .waitFor();
     await page.waitForLoadState("networkidle");
-    assert.equal(
-      await dialog().getByRole("checkbox").count(),
-      0,
-      "no checkbox in New from a workbook without a provider",
-    );
+    assert.equal(await dialog().getByRole("checkbox").count(), 0, "no checkbox in New from a workbook");
     await dialog().getByRole("button", { name: "Create and propose" }).click();
     await page.waitForURL(/\/editor/);
     const draftId = new URL(page.url()).pathname.split("/")[4];
     await page.getByText("Proposing from the workbook").waitFor();
     await page.getByText("Proposing from the workbook").waitFor({ state: "hidden", timeout: 60_000 });
-    assert.equal((await api(`/model-drafts/${draftId}/inference`)).assistant, false);
+    assert.equal((await api("/ai/calls")).items.length, 0, "no call without a provider");
     await page.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Propose again…" }).click();
     await dialog()
       .getByRole("radio", { name: /A new application/ })
       .waitFor();
-    assert.equal(await dialog().getByRole("checkbox").count(), 0, "no checkbox without a provider");
+    assert.equal(await dialog().getByRole("checkbox").count(), 0, "no checkbox in Propose again");
     await shot("propose-dialog-1440");
-    checks.push(
-      "no provider: the AI page says so and offers no test; the Propose dialog has no checkbox, and no assistant ran",
-    );
+    checks.push("no provider: the AI page says so and offers no test; the inference ran on its rules with no call");
   } catch (error) {
     await page.screenshot({ path: resolve(harness.output, "ap1-none-failure.png"), fullPage: true }).catch(() => {});
     console.error(harness.log().slice(-3000));
@@ -688,17 +635,386 @@ async function mappingWithoutProvider() {
     checks.push(
       "no provider: the mapping grid draws no Propose targets button (the group is covered by the unit test)",
     );
+    // AP6a: without a provider Import opens the ordinary dialog, with no mention of the assistant.
+    await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
+    await page.getByRole("button", { name: "Import", exact: true }).click();
+    const importDialog = page.getByRole("dialog", { name: "Import" });
+    await importDialog.getByRole("button", { name: "Preview" }).waitFor();
+    await page.waitForLoadState("networkidle");
+    assert.equal(await page.getByRole("dialog", { name: "Load a workbook" }).count(), 0);
+    assert.equal(await importDialog.getByText(/assistant/i).count(), 0);
+    checks.push("no provider: Import opens the ordinary dialog and does not mention the assistant (J50.10)");
   } finally {
     harness.cleanup();
   }
 }
 
+/** An XLSX file built by openpyxl from `{sheet: rows}`, as the user's program would write it. */
+function xlsx(sheets) {
+  return execFileSync(
+    resolve(root, "backend/.venv/bin/python"),
+    [
+      "-c",
+      "import io, json, sys; from openpyxl import Workbook; book = Workbook(); book.remove(book.active)\n" +
+        "for title, rows in json.loads(sys.argv[1]).items():\n" +
+        "    sheet = book.create_sheet(title)\n" +
+        "    [sheet.append(row) for row in rows]\n" +
+        "buffer = io.BytesIO(); book.save(buffer); sys.stdout.buffer.write(buffer.getvalue())",
+      JSON.stringify(sheets),
+    ],
+    { cwd: resolve(root, "backend"), maxBuffer: 1 << 24 },
+  );
+}
+
+/** The two object types the AP6 design flow runs on: each a collection, a sheet, one changed value, one new row. */
+const LOADS = [
+  {
+    label: "domains",
+    collection: "/apps/rdm-master/views/domains?workspaceKey=default",
+    typeName: "Domain",
+    sheet: "Domains",
+    keyHeader: "Domain code",
+    file: "ap6-domains.xlsx",
+    // domain-1's name differs, domain-2's description is a new value and domain-9 is a new key.
+    rows: [
+      ["Domain code", "Name", "Description", "Remarks"],
+      ["domain-0", "Domain 00", "", "checked"],
+      ["domain-1", "Domain 01 (renamed)", "", "checked"],
+      ["domain-2", "Domain 02", "Reviewed in October", "checked"],
+      ["domain-3", "Domain 03", "", "checked"],
+      ["domain-9", "Domain 09", "", "checked"],
+    ],
+    changedRecord: "Domain 02",
+    keyboard: true,
+  },
+  {
+    label: "systems",
+    collection: "/apps/rdm-systems/views/systems?workspaceKey=default",
+    typeName: "System",
+    sheet: "Systems",
+    keyHeader: "System code",
+    file: "ap6-systems.xlsx",
+    // The file is the full list; system-1 gets a system type; system-9 is new.
+    rows: [
+      ["System code", "Name", "System type", "Remarks"],
+      ["system-0", "System 00", "", "checked"],
+      ["system-1", "System 01", "ERP", "checked"],
+      ["system-2", "System 02", "", "checked"],
+      ["system-3", "System 03", "", "checked"],
+      ["system-4", "System 04", "", "checked"],
+      ["system-9", "System 09", "CRM", "checked"],
+    ],
+    changedRecord: "System 01",
+    keyboard: false,
+  },
+];
+
+/** `POST /ai/tasks` as an integrator does it: the workbook and the workspace. */
+async function createTask(harness, load, words) {
+  const form = new FormData();
+  form.append("file", new Blob([load.book ?? xlsx({ [load.sheet]: load.rows })], { type: XLSX }), load.file);
+  form.append("request", JSON.stringify({ workspaceKey: "default", ...(words ? { words } : {}) }));
+  const response = await fetch(`${harness.apiUrl}/api/v1/ai/tasks`, { method: "POST", body: form });
+  const text = await response.text();
+  assert.equal(response.status, 202, text);
+  return JSON.parse(text);
+}
+const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+async function taskIn(harness, id, states) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const task = await harness.api(`/ai/tasks/${id}`);
+    if (states.includes(task.state)) return task;
+    await new Promise((done) => setTimeout(done, 150));
+  }
+  throw new Error(`task ${id} did not reach ${states.join("/")}`);
+}
+
+/** The workspace's records of a type, by name, as live data holds them. */
+async function liveRecords(harness, typeKey) {
+  const found = await harness.api(`/objects/${typeKey}?workspaceKey=default&pageSize=100`);
+  return Object.fromEntries(found.items.map((item) => [item.name, item]));
+}
+
+/** Loading a workbook with the assistant on one object type, from the collection's Import to the change set. */
+async function workbookLoad(harness, load) {
+  const { page, api, uiUrl, output } = harness;
+  const filePath = resolve(output, load.file);
+  await writeFile(filePath, xlsx({ [load.sheet]: load.rows }));
+  const shot = (target, name) =>
+    target.screenshot({ path: resolve(output, `ap6-${load.label}-${name}.png`), fullPage: true });
+  const typeKey = load.typeName.toLowerCase();
+  const before = await liveRecords(harness, typeKey);
+  const keyboard = load.keyboard;
+  const press = async (locator, key = "Enter") => {
+    if (keyboard) {
+      await locator.focus();
+      await page.keyboard.press(key);
+    } else await locator.click();
+  };
+
+  // 1. Import opens the assistant's dialog first; the ordinary import is chosen from it.
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto(`${uiUrl}${load.collection}`);
+  await page.getByRole("button", { name: "Import", exact: true }).waitFor();
+  const importButton = page.getByRole("button", { name: "Import", exact: true });
+  await press(importButton);
+  const importDialog = page.getByRole("dialog", { name: "Import" });
+  const dialog = page.getByRole("dialog", { name: "Load a workbook" });
+  await dialog.waitFor();
+  assert.equal(await importDialog.count(), 0, "the ordinary import is not opened first");
+  await dialog.getByLabel("Workbook", { exact: true }).setInputFiles(filePath);
+  const manual = dialog.getByRole("button", { name: "Import without the assistant…" });
+  await manual.waitFor();
+  checks.push(`${load.label}: Import opens "Load a workbook" first, with "Import without the assistant…"`);
+  if (load.keyboard) {
+    // One pass takes the manual way: the ordinary dialog, the file carried, focus there and back.
+    await press(manual);
+    await importDialog.waitFor();
+    await dialog.waitFor({ state: "detached" });
+    await importDialog.getByRole("button", { name: "Preview" }).waitFor();
+    assert.equal(await importDialog.getByRole("button", { name: /AI assistant/ }).count(), 0);
+    assert.equal(
+      await importDialog.evaluate((node) => node.contains(document.activeElement)),
+      true,
+      "focus is in the ordinary dialog",
+    );
+    assert.equal(await importDialog.getByRole("button", { name: "Preview" }).isEnabled(), true, "the file is carried");
+    await accessible(page, `ap6-${load.label}-manual-import`);
+    await page.keyboard.press("Escape");
+    await importDialog.waitFor({ state: "detached" });
+    await page.waitForFunction(() => document.activeElement?.textContent?.trim() === "Import");
+    checks.push(
+      `${load.label}: Import without the assistant… opens the ordinary Import with the file; Escape returns focus to Import`,
+    );
+    await press(importButton);
+    await dialog.waitFor();
+    await dialog.getByLabel("Workbook", { exact: true }).setInputFiles(filePath);
+  }
+  await page.waitForTimeout(300);
+
+  // 2. The dialog: what it does, what is sent, the workspace, the file carried.
+  await dialog.getByText(/Nothing changes until you confirm\./).waitFor();
+  await dialog.getByText(new RegExp(`${load.file} · `)).waitFor();
+  await dialog
+    .getByText(
+      "Sent to fake (fake-1): the sheets' names, headers, counts and values, and the workspace's matching records, as the assistant asks for them.",
+    )
+    .waitFor();
+  const into = dialog.getByLabel("Into");
+  assert.ok((await into.inputValue()) !== "", "a workspace is chosen");
+  await dialog.getByLabel("Tell the assistant about this file (optional)").fill("The monthly list from the owners.");
+  await page.waitForTimeout(300);
+  await shot(page, "dialog-1440");
+  await accessible(page, `ap6-${load.label}-dialog`);
+  await assertDialogLayout(page, `${load.label}: Load a workbook`);
+  // Escape closes it; focus is not left on the page's body.
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "detached" });
+  const landed = await page.evaluate(() => document.activeElement?.tagName);
+  assert.notEqual(landed, "BODY", `${load.label}: focus is left on the page body after Escape`);
+  checks.push(
+    `${load.label}: the dialog says what it does and what is sent, carries the file, and Escape leaves focus on a control`,
+  );
+  await press(importButton);
+  await dialog.waitFor();
+  await dialog.getByLabel("Workbook", { exact: true }).setInputFiles(filePath);
+  await dialog.getByLabel("Tell the assistant about this file (optional)").fill("The monthly list from the owners.");
+  await press(dialog.getByRole("button", { name: "Read the workbook" }));
+
+  // 3. The design: the summary, no model change, where each sheet goes (columns unfolded), no questions.
+  await page.waitForURL(/\/settings\/ai-tasks\//);
+  const taskId = new URL(page.url()).pathname.split("/").at(-1);
+  await page.getByRole("region", { name: "What the assistant understood" }).waitFor({ timeout: 90_000 });
+  const designed = await taskIn(harness, taskId, ["checked"]);
+  assert.equal(designed.words, "The monthly list from the owners.");
+  assert.ok(designed.design, "the task holds a design");
+  assert.equal(designed.design.questions.length, 0, "the default design asks nothing");
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByText("Load a workbook").waitFor();
+  await page.getByText("Nothing is written until you confirm.").first().waitFor();
+  await page.getByRole("heading", { level: 2, name: /^The model: what changes/ }).waitFor();
+  await page.getByText("No change to the model: the workbook fits it as it is.").waitFor();
+  const where = page.getByRole("region", { name: "Where each sheet goes" });
+  await where.getByRole("row", { name: new RegExp(`^${load.sheet} `) }).waitFor();
+  assert.equal(await page.getByRole("heading", { name: "Questions" }).count(), 0, "no questions");
+  const unfold = where.getByRole("button", { name: /Show what each column fills/ });
+  await press(unfold);
+  await where.getByRole("button", { name: /Hide what each column fills/ }).waitFor();
+  await where.getByText(new RegExp(`^Sheet “${load.sheet}”: \\d+ columns?`)).waitFor();
+  await where.getByText(new RegExp(`^${load.keyHeader} → `)).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, "design-1440");
+  await accessible(page, `ap6-${load.label}-design`);
+  checks.push(
+    `${load.label}: the design says what the assistant understood, no change to the model, where ${load.sheet} goes with every column's target unfolded by ${keyboard ? "keyboard" : "pointer"}, and asks no question`,
+  );
+
+  // 4. The check: every row, the per-sheet table, the order.
+  const checkRegion = page.getByRole("region", { name: "What the check found" });
+  await checkRegion.getByText(/\d+ rows? checked: \d+ created, \d+ changed, \d+ unchanged, \d+ refused\./).waitFor();
+  const summary = designed.check.summary;
+  assert.equal(summary.refused, 0, "no row refused");
+  assert.ok(summary.created + summary.updated >= 1, "something to load");
+  const rowsChecked = summary.created + summary.updated + summary.unchanged + summary.refused;
+  assert.equal(rowsChecked, load.rows.length - 1, "every row of the sheet was checked");
+  await checkRegion
+    .getByText(new RegExp(`^${rowsChecked} rows checked: ${summary.created} created, ${summary.updated} changed`))
+    .waitFor();
+  const perSheet = page.getByRole("group", { name: "Check per sheet" });
+  await perSheet.getByRole("row", { name: new RegExp(`^${load.sheet} `) }).waitFor();
+  await page.getByRole("heading", { level: 2, name: "What confirming does, in this order" }).waitFor();
+  assert.equal(await page.locator("ol.task-order > li").count(), 2, "two steps without a model change");
+  await page.getByRole("button", { name: "Load into a change set" }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Activate the model and load" }).count(), 0);
+  assert.deepEqual(Object.keys(await liveRecords(harness, typeKey)), Object.keys(before), "live records unchanged");
+  await page.waitForTimeout(300);
+  await shot(page, "check-1440");
+  await accessible(page, `ap6-${load.label}-check`);
+  checks.push(
+    `${load.label}: the check says ${rowsChecked} rows checked (${summary.created} created, ${summary.updated} changed), a row per sheet, the order of what confirming does; live data unchanged`,
+  );
+
+  // 5. Load into a change set, keeping the import as a profile.
+  const profile = page.getByRole("checkbox", { name: /Save as a new profile/ });
+  assert.equal(await profile.isChecked(), true, "saving the profile is ticked for a design");
+  await page.getByLabel("Profile name").fill(`Supplier ${load.sheet} AP6`);
+  await page.getByText("Its key is “supplier-" + load.sheet.toLowerCase() + "-ap6”.").waitFor();
+  await press(page.getByRole("button", { name: "Load into a change set" }));
+  await page.getByRole("heading", { level: 2, name: /^Loaded into the change set/ }).waitFor({ timeout: 60_000 });
+  const loaded = await api(`/ai/tasks/${taskId}`);
+  assert.equal(loaded.state, "loaded");
+  assert.equal(loaded.result.profileKey, `supplier-${load.sheet.toLowerCase()}-ap6`);
+  await page.getByText(/Live data is unchanged until the change set is approved and published/).waitFor();
+  await page.getByText(new RegExp(`Saved the profile “${loaded.result.profileKey}”`)).waitFor();
+  await page.waitForTimeout(300);
+  await shot(page, "loaded-1440");
+  await accessible(page, `ap6-${load.label}-loaded`);
+
+  // The change set holds the changes; live data does not.
+  const changeSetId = loaded.result.changeSetId;
+  const objectChanges = (await api(`/change-sets/${changeSetId}/object-changes?pageSize=100`)).items;
+  assert.equal(objectChanges.length, summary.created + summary.updated, "the change set holds what the check found");
+  assert.ok(
+    objectChanges.some((item) => (item.after ?? item.before)?.name === load.changedRecord),
+    `the change set holds ${load.changedRecord}`,
+  );
+  const after = await liveRecords(harness, typeKey);
+  assert.deepEqual(Object.keys(after), Object.keys(before), "live records are still the stored ones");
+  assert.equal((await api(`/import-profiles/${loaded.result.profileKey}`)).key, loaded.result.profileKey);
+  checks.push(
+    `${load.label}: loaded into the change set (${objectChanges.length} changes), the profile saved, live data unchanged`,
+  );
+
+  // 6. Review the change set from the link.
+  await press(page.getByRole("link", { name: "Review the change set" }));
+  await page.waitForURL(
+    (url) => url.searchParams.get("changeSetId") === changeSetId || url.pathname.includes(changeSetId),
+  );
+  await page.getByText(load.changedRecord, { exact: false }).first().waitFor();
+  checks.push(`${load.label}: Review the change set opens the change set holding the load`);
+}
+
+/** Every state of the page for one type at 1440px and 390px in light and dark, each with axe. */
+async function workbookStates(harness, load) {
+  const { browser, uiUrl, api } = harness;
+  const checked = await createTask(harness, load, "States of the page.");
+  await taskIn(harness, checked.id, ["checked"]);
+  const loaded = await createTask(harness, load);
+  const loadedChecked = await taskIn(harness, loaded.id, ["checked"]);
+  await api(`/ai/tasks/${loaded.id}/run`, {
+    expectedVersion: loadedChecked.version,
+    changeSetName: `States ${load.label}`,
+  });
+  await taskIn(harness, loaded.id, ["loaded"]);
+  const states = [
+    ["design", checked.id, "What the load would do"],
+    ["columns", checked.id, "What the load would do"],
+    ["loaded", loaded.id, /^Loaded into the change set/],
+  ];
+  for (const [scheme, width, height] of [
+    ["light", 1440, 900],
+    ["dark", 1440, 900],
+    ["light", 390, 844],
+    ["dark", 390, 844],
+  ]) {
+    const context = await browser.newContext({
+      viewport: { width, height },
+      colorScheme: scheme,
+      hasTouch: width < 500,
+    });
+    const view = await context.newPage();
+    view.setDefaultTimeout(30_000);
+    for (const [state, id, heading] of states) {
+      await view.goto(`${uiUrl}/settings/ai-tasks/${id}`);
+      await view.getByRole("heading", { level: 2, name: heading }).waitFor();
+      if (state === "design" || state === "columns")
+        await view.getByRole("region", { name: "What the assistant understood" }).waitFor();
+      if (state === "columns") {
+        const unfold = view.getByRole("button", { name: /Show what each column fills/ });
+        await unfold.focus();
+        await view.keyboard.press("Enter");
+        await view.getByRole("button", { name: /Hide what each column fills/ }).waitFor();
+      }
+      if (state === "loaded") await view.getByText(/Live data is unchanged until/).waitFor();
+      await view.waitForTimeout(300);
+      if (width < 500) {
+        const overflow = await view.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        assert.ok(overflow <= 0, `${load.label} ${state}: the page scrolls sideways at ${width}px`);
+      }
+      await view.screenshot({
+        path: resolve(harness.output, `ap6-${load.label}-${state}-${scheme}-${width}.png`),
+        fullPage: true,
+      });
+      await accessible(view, `ap6-${load.label}-${state}-${scheme}-${width}`);
+    }
+    await context.close();
+  }
+  checks.push(
+    `${load.label}: design, columns unfolded and loaded states in light and dark at 1440px and 390px: no sideways scroll, axe 0 violations`,
+  );
+}
+
+/** The assistant: a provider, two object types, the whole journey and every state. */
+async function workbookLoads() {
+  const harness = await bootHarness({ backendEnv: { AI_PROVIDER: FAKE } });
+  try {
+    for (const load of LOADS) {
+      await workbookLoad(harness, load);
+      await workbookStates(harness, load);
+    }
+    // Without a way back the assistant's jobs are listed by their kind.
+    const jobs = (await harness.api("/jobs?kind=aiTask&pageSize=100")).items;
+    assert.ok(jobs.length >= 2, "the assistant's jobs are listed by kind");
+  } catch (error) {
+    await harness.page
+      .screenshot({ path: resolve(harness.output, "ap6-failure.png"), fullPage: true })
+      .catch(() => {});
+    console.error(harness.log().slice(-3000));
+    console.error(
+      harness
+        .log()
+        .split("\n")
+        .filter((line) => /Error|Traceback| 500 /.test(line))
+        .slice(0, 40)
+        .join("\n"),
+    );
+    throw error;
+  } finally {
+    harness.cleanup();
+  }
+  console.log(`Screenshots (AP6): ${harness.output}`);
+}
+
 try {
-  await journey("renamed-example", renamed);
-  await journey("generated-b", generatedB, "structure");
-  await withoutProvider();
-  await mappingProposals();
+  // ONLY=ap6a runs the assistant's load of a workbook (and the backend without a provider) alone.
+  if (process.env.ONLY !== "ap6a") {
+    await journey("renamed-example", renamed);
+    await journey("generated-b", generatedB, "structure");
+    await withoutProvider();
+    await mappingProposals();
+  }
   await mappingWithoutProvider();
+  await workbookLoads();
   console.log(`AP1 AI: ${checks.length} checks passed`);
   for (const check of checks) console.log(`- ${check}`);
 } catch (error) {

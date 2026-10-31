@@ -325,3 +325,25 @@
     padding: 8px 12px;
   }
 }
+
+/* The journey bar on a phone: "Step 3 of 6: Check", the sentence and the buttons. */
+@media (max-width: 760px) {
+  .journey-bar {
+    position: static;
+    padding: var(--space-2) 16px;
+  }
+  .journey-steps {
+    display: none;
+  }
+  .journey-summary {
+    display: block;
+    flex: 1 0 100%;
+  }
+  .journey-now {
+    flex-basis: 100%;
+    justify-content: stretch;
+  }
+  .journey-actions > button {
+    flex: 1 1 auto;
+  }
+}

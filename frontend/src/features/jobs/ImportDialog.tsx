@@ -42,6 +42,8 @@ import {
 export interface ImportStart {
   /** The page's data; none lets the user choose a workspace and its data. */
   context?: ImportContext;
+  /** A file already chosen, where the person came from the AI assistant's dialog (0.16 AP6a). */
+  file?: File;
 }
 
 const ACCEPT = ".xlsx,.csv,.jsonl,.ndjson";
@@ -69,7 +71,7 @@ export function ImportDialog({
   onStarted: (job: Job) => void;
 }) {
   const { capabilities } = useCapabilities();
-  const [file, setFile] = useState<File>();
+  const [file, setFile] = useState<File | undefined>(start.file);
   const [profiles, setProfiles] = useState<ImportProfile[]>();
   const [profileKey, setProfileKey] = useState("");
   const [policy, setPolicy] = useState<ImportPolicy>("independent");

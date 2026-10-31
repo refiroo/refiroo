@@ -168,6 +168,10 @@ export function JobPage({
   const imported = job.kind === "import";
   const batch = job.kind === "batch";
   const waitingName = imported ? "import" : "preview";
+  // An assistant task's job (0.16 AP6a): its page is where the reading, the check and the load are.
+  const taskId = job.kind === "aiTask" ? job.parameters.taskId : undefined;
+  const taskPage: RouteState | undefined =
+    typeof taskId === "string" ? { kind: "settings", page: "ai-tasks", taskId } : undefined;
   return (
     <SettingsLayout
       trail={back(jobTitle(model, job))}
@@ -228,6 +232,16 @@ export function JobPage({
         {!imported && <DescriptionList className="compact" items={times(job)} />}
         {imported && <ImportNotices job={job} />}
       </Section>
+      {taskPage && (
+        <Section title="The load">
+          <p>
+            This job belongs to a load of a workbook with the AI assistant.{" "}
+            <RouteLink href={routePath(taskPage)} onNavigate={() => onNavigate?.(taskPage)}>
+              Open the load
+            </RouteLink>
+          </p>
+        </Section>
+      )}
       {imported && (
         // What to act on first: the result or the preview, then the rows; how it was read, then its facts.
         <>

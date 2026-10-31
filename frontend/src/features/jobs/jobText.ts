@@ -16,6 +16,7 @@ export const KIND: Record<Job["kind"], string> = {
   mappingInference: "Mapping proposal",
   move: "Move",
   aiProposal: "AI mapping proposals",
+  aiTask: "Assistant: reading a workbook",
 };
 
 /** Whether a job is an export of a workbook for people (0.9 J6). */

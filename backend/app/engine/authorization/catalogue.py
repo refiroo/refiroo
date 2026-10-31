@@ -354,7 +354,7 @@ FIRST_ADMINISTRATOR_ROLES = (
 )
 
 # Groups a route checks for an option of its request rather than as its action: asking the AI
-# provider is part of a feature's own route (the inference's ``assistant``, 0.16 AP1), never a route
+# provider is part of a feature's own route (a mapping view's targets, 0.16 AP2), never a route
 # of its own (AP-D1).
 FEATURE_GROUPS: tuple[str, ...] = ("ai-proposals",)
 
@@ -369,6 +369,8 @@ JOB_GROUPS: dict[str, str] = {
     "mappingInference": "copy-move",
     # Proposals are edits of a change set (0.16 AP2).
     "aiProposal": "change-sets",
+    # An assistant task reads and checks a workbook as an import does (0.16 AP6a).
+    "aiTask": "bulk",
     "migration": "model-release",
     "dryRun": "model-authoring",
     "inference": "model-authoring",

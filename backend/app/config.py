@@ -161,6 +161,10 @@ class Settings(BaseModel):
     # The model's context window in tokens, when it is small (a local model): a feature sizes each
     # call to fit half of it. None: no limit beyond the feature's own batch size.
     ai_context_tokens: int | None = Field(default=None, ge=256)
+    # The provider calls one job of an assistant task may make (0.16 AP6a), and the days a task is
+    # kept after it finished or was last changed (AP-D24).
+    ai_max_steps: int = Field(default=40, ge=1)
+    ai_task_retention_days: int = Field(default=90, ge=1)
     # Export files and, from J2, uploads (D12, D55): one directory, created at start.
     job_file_dir: Path = DEFAULT_JOB_FILE_DIR
     # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
@@ -266,6 +270,8 @@ class Settings(BaseModel):
                 if env.get("AI_CONTEXT_TOKENS", "").strip()
                 else None
             ),
+            ai_max_steps=_positive(env, "AI_MAX_STEPS", 40),
+            ai_task_retention_days=_positive(env, "AI_TASK_RETENTION_DAYS", 90),
             job_file_dir=Path(env.get("JOB_FILE_DIR", "").strip() or DEFAULT_JOB_FILE_DIR),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
             consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
@@ -742,6 +748,20 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "ai",
         "The model's context window in tokens, for a small local model; each call is sized to "
         "half of it. Empty: no limit",
+    ),
+    CatalogueEntry(
+        "AI_MAX_STEPS",
+        "ai_max_steps",
+        "ai",
+        "The most calls to the provider one job of an assistant task may make; reached, the task "
+        "keeps what the rules read and the assistant had proposed, with a warning",
+    ),
+    CatalogueEntry(
+        "AI_TASK_RETENTION_DAYS",
+        "ai_task_retention_days",
+        "ai",
+        "Days an assistant task is kept after it finished (loaded, failed or cancelled) or was "
+        "last changed; then it and its file are deleted",
     ),
 )
 

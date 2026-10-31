@@ -17,11 +17,14 @@ import { ResizeHandle } from "@/ui/ResizeHandle";
 
 export function ShellFrame({
   topBar,
+  journey,
   rail,
   main,
   children,
 }: {
   topBar: ReactNode;
+  /** A user journey's bar, right below the top bar and across the full width (`JourneyBar`). */
+  journey?: ReactNode;
   rail?: {
     id: string;
     /** `aside` for a browser beside the content, `nav` for a list of pages. */
@@ -49,13 +52,14 @@ export function ShellFrame({
   const Rail = rail?.as ?? "nav";
   return (
     <div
-      className={`app-shell${rail ? "" : " app-shell-full"}${main?.fill ? " app-shell-fill" : ""}`}
+      className={`app-shell${rail ? "" : " app-shell-full"}${main?.fill ? " app-shell-fill" : ""}${journey ? " app-shell-journey" : ""}`}
       style={rail ? ({ "--sidebar": `${width.value}px` } as CSSProperties) : undefined}
     >
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
       {topBar}
+      {journey}
       {rail && (
         <>
           <button

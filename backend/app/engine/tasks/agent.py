@@ -1,0 +1,457 @@
+"""An assistant task run by Claude Code (Product 0.16, the user's decision of 2026-10-31).
+
+The person's words, the workbook, the workspace's model and the API's OpenAPI document go to one
+Claude Code session, which works through the API as the person who asked. It is told where to stop,
+nothing about how to work. First it builds a model draft and checks every row with the draft's dry
+run; the person reads that, edits the draft or says what to change, and the same session goes on.
+When the person accepts, it installs one release and loads into a change set. It never activates or
+publishes: the person does, from the change set.
+
+The session is a process of the worker in a folder of its own, kept for the task's next turn. Its
+stream is the task's progress: what its calls reached, read from what it actually did.
+"""
+
+import json
+import os
+import re
+import shlex
+import shutil
+import ssl
+import subprocess
+import time
+import urllib.request
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+from uuid import uuid4
+
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
+
+from ...config import get_settings
+from ...models.database import AiTask, ChangeSet, Job, ModelDraft, ModelRelease, OAuthClient, User
+from ..identity import sessions, tokens
+from ..identity.settings import IdentitySettings
+from ..model.workspace_models import load_assignment
+from .store import finish, load_task, note
+
+TIMEOUT_SECONDS = 1800
+LAST_LINE = "CHANGE_SET:"
+DEFAULT_WORDS = "Create a model for this or map it to the current model, and import it."
+PROPOSAL = "proposal.json"
+# (what it reached, what shows it in a call).
+MILESTONES = (
+    ("draft", "Model draft started", re.compile(r"POST\S*\s+\S*/model-drafts\b(?!/)|/model-drafts[\"' ]")),
+    ("operations", "Model changed", re.compile(r"/model-drafts/[^/\s\"']+/operations")),
+    ("check", "Every row checked", re.compile(r"/model-drafts/[^/\s\"']+/dry-run")),
+    ("install", "Release installed", re.compile(r"/model-drafts/[^/\s\"']+/installation")),
+    ("load", "Loaded into the change set", re.compile(r"/api/v1/imports|/api/v1/batches")),
+)
+_CALL = re.compile(r"(?:-X\s*(GET|POST|PUT|PATCH|DELETE)\b[^\n]*?)?/api/v1/([A-Za-z0-9_\-/{}$.]+)")
+_REFUSED = re.compile(r'"(?:rejected|refused)"\s*:\s*(\d+)')
+
+
+def enabled() -> bool:
+    return bool(os.environ.get("AI_AGENT_COMMAND", "").strip())
+
+
+def _connection(workspace: str, url: str) -> str:
+    return (
+        "workbook.xlsx is the file, model.json the workspace's model, openapi.json the API of the "
+        f"engine at {url}, with the header 'Authorization: Bearer $REFIROO_TOKEN' (curl -k). The "
+        f"data comes from this workbook alone. Work only in the workspace {workspace}: no other "
+        "workspace is read or changed."
+    )
+
+
+def _propose_prompt(words: str | None, workspace: str, url: str) -> str:
+    return (
+        f"{(words or '').strip() or DEFAULT_WORDS}\n\n{_connection(workspace, url)} Build the model "
+        "in a model draft and check every row with the draft's dry run; install, activate, load and "
+        f"publish nothing yet: the person reviews first. Then write {PROPOSAL}: "
+        '{"draftId": ..., "summary": two sentences a person reads, "questions": [{"text", "options", '
+        '"assumed"}] for what only a person can decide}.'
+    )
+
+
+_ACCEPTED = (
+    "The person accepted. They may have edited the draft in the model editor: read it again. Install "
+    "it as exactly one new release and do not activate it, load the workbook into a new change set "
+    f"on that release, do not publish it, and end with the line {LAST_LINE} <its id>."
+)
+
+
+def _said_prompt(said: str) -> str:
+    return (
+        f"The person says:\n{said}\n\nThey may have edited the draft in the model editor: read it "
+        f"again. Change the draft as they say, check every row again and write {PROPOSAL} again."
+    )
+
+
+def _identity() -> IdentitySettings:
+    settings = get_settings()
+    return IdentitySettings(
+        encryption_key=settings.secrets_encryption_key,
+        issuer=settings.public_url,
+        access_token_seconds=settings.access_token_minutes * 60,
+        signing_key_days=settings.token_signing_key_days,
+        browser_origins=settings.cors_origins,
+        session_idle_hours=settings.session_idle_hours,
+        session_days=settings.session_days,
+        password_reset_hours=settings.password_reset_hours,
+        password_min_length=settings.password_min_length,
+    )
+
+
+def _token(session: Session, job: Job) -> tuple[str, Any]:
+    """A token of who asked: a person, in a session of its own that ends with the turn; a client."""
+    settings = _identity()
+    if job.requested_by_client_id is not None:
+        client = session.get(OAuthClient, job.requested_by_client_id)
+        return (
+            tokens.issue(
+                session, settings, subject=client.public_id, kind="client", audience="management"
+            ),
+            None,
+        )
+    user = session.get(User, job.requested_by_user_id)
+    if user is None:
+        raise ValueError("The task names no one who asked for it")
+    opened, _ = sessions.start(
+        session, settings, user, signed_in_with="password", user_agent="AI task", now=datetime.now(UTC)
+    )
+    token = tokens.issue(
+        session,
+        settings,
+        subject=user.public_id,
+        kind="user",
+        audience="management",
+        session_id=opened.public_id,
+    )
+    return token, opened
+
+
+def _end(session: Session, opened: Any) -> None:
+    if opened is not None:
+        sessions.end(session.merge(opened), "signedOut", datetime.now(UTC))
+
+
+def _api_url() -> str:
+    return os.environ.get("AI_AGENT_API_URL", "").strip() or get_settings().public_url
+
+
+def _openapi(url: str) -> bytes:
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    with urllib.request.urlopen(f"{url}/openapi.json", context=context, timeout=30) as answer:
+        return answer.read()
+
+
+def folder_of(ctx_files: Any, task: AiTask) -> Path:
+    return Path(ctx_files.directory) / "agent" / task.public_id
+
+
+def remove_folder(files: Any, task: AiTask) -> None:
+    shutil.rmtree(folder_of(files, task), ignore_errors=True)
+
+
+def _plain(command: str) -> str:
+    """A call in a person's words."""
+    found = _CALL.search(command)
+    if not found:
+        return "Working through the workbook" if "workbook" in command else "Working"
+    method, path = found.group(1) or "GET", found.group(2).split("?")[0]
+    parts = path.split("/")
+    if parts[0] == "objects" and len(parts) > 1 and method == "GET":
+        return f"Reading stored {parts[1].replace('-', ' ')} records"
+    reading = "Reading" if method == "GET" else "Writing"
+    return f"{reading} {parts[0].replace('-', ' ')}"
+
+
+class _Progress:
+    """The session's stream as the task's progress: read from the log, written when it moves."""
+
+    def __init__(self, log: Path) -> None:
+        self.log = log
+        self.position = 0
+        self.reached: dict[str, int] = {}
+        self.now = "Starting"
+        self.refused: int | None = None
+        self.result: dict[str, Any] = {}
+
+    def read(self) -> bool:
+        if not self.log.exists():
+            return False
+        moved = False
+        with self.log.open() as handle:
+            handle.seek(self.position)
+            while True:
+                line = handle.readline()
+                if not line or not line.endswith("\n"):
+                    break
+                self.position = handle.tell()
+                moved = self._line(line) or moved
+        return moved
+
+    def _line(self, line: str) -> bool:
+        try:
+            event = json.loads(line)
+        except ValueError:
+            return False
+        if event.get("type") == "result":
+            self.result = event
+            return False
+        moved = False
+        for block in (event.get("message") or {}).get("content") or []:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "text" and block.get("text", "").strip():
+                self.now = block["text"].strip().split("\n")[0][:200]
+                moved = True
+            elif block.get("type") == "tool_use":
+                command = str((block.get("input") or {}).get("command") or "")
+                if command:
+                    self.now = _plain(command)
+                    moved = True
+                for key, _, pattern in MILESTONES:
+                    if pattern.search(command):
+                        self.reached[key] = self.reached.get(key, 0) + 1
+            elif block.get("type") == "tool_result":
+                found = _REFUSED.findall(json.dumps(block.get("content")))
+                if found:
+                    self.refused = int(found[-1])
+                    moved = True
+        return moved
+
+    def view(self, started: float) -> dict[str, Any]:
+        return {
+            "now": self.now,
+            "seconds": round(time.monotonic() - started),
+            "refused": self.refused,
+            "milestones": [
+                {"key": key, "label": label, "done": key in self.reached, "times": self.reached.get(key, 0)}
+                for key, label, _ in MILESTONES
+            ],
+        }
+
+
+def _run_turn(
+    session: Session, job: Job, ctx: Any, task_id: str, folder: Path, prompt: str, session_id: str, *, first: bool
+) -> _Progress | None:
+    """One turn of the session, the task's progress written as it goes; ``None`` when it could not
+    start, with the reason on the task."""
+    task_key = task_id
+    token, opened = _token(session, job)
+    session.commit()
+    command = [
+        *shlex.split(os.environ["AI_AGENT_COMMAND"].strip().strip("\"'")),
+        "-p",
+        prompt,
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        *(["--session-id", session_id] if first else ["--resume", session_id]),
+    ]
+    log = folder / f"session-{uuid4().hex[:8]}.log"
+    progress = _Progress(log)
+    started = time.monotonic()
+    with log.open("w") as output:
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=folder,
+                env={**os.environ, "REFIROO_TOKEN": token},
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+        except OSError as error:
+            _end(session, opened)
+            task = load_task(session, task_key, for_update=True)
+            note(task, "warning", f"AI_AGENT_COMMAND could not start: {error}")
+            finish(task, "failed", ctx.ai.task_retention_days if ctx.ai else 90)
+            session.commit()
+            return None
+        try:
+            shown = -10.0
+            while process.poll() is None:
+                ctx.check()
+                if time.monotonic() - started > TIMEOUT_SECONDS:
+                    raise TimeoutError("The session took too long")
+                moved = progress.read()
+                if moved or time.monotonic() - shown >= 10:
+                    shown = time.monotonic()
+                    task = load_task(session, task_key, for_update=True)
+                    task.design = {**(task.design or {}), "progress": progress.view(started)}
+                    session.commit()
+                time.sleep(2)
+        except BaseException:
+            process.kill()
+            raise
+        finally:
+            _end(session, opened)
+            session.commit()
+    progress.read()
+    return progress
+
+
+def _said(progress: _Progress) -> str:
+    result = progress.result
+    cost = result.get("total_cost_usd")
+    seconds = round((result.get("duration_ms") or 0) / 1000)
+    words = str(result.get("result") or "")
+    return f"{words[:6000]} ({seconds} s" + (f", ${cost:.2f})" if cost else ")")
+
+
+def _retention(ctx: Any) -> int:
+    return ctx.ai.task_retention_days if ctx.ai else 90
+
+
+def _proposal_landed(
+    session: Session, ctx: Any, task_id: str, folder: Path, progress: _Progress, check_of: Any
+) -> None:
+    """The proposal the session wrote: the task shows it and waits, or fails with what was said."""
+    task = load_task(session, task_id, for_update=True)
+    path = folder / PROPOSAL
+    try:
+        proposal = json.loads(path.read_text())
+    except (OSError, ValueError):
+        proposal = None
+    draft = (
+        session.scalar(select(ModelDraft).where(ModelDraft.public_id == str(proposal.get("draftId"))))
+        if isinstance(proposal, dict)
+        else None
+    )
+    if draft is None:
+        note(task, "warning", _said(progress) or "The session ended without a proposal")
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return
+    design = dict(task.design or {})
+    design.pop("progress", None)
+    questions = [
+        {
+            "text": str(q.get("text"))[:500],
+            "options": [str(o) for o in q.get("options") or []],
+            "assumed": q.get("assumed"),
+        }
+        for q in proposal.get("questions") or []
+        if isinstance(q, dict) and q.get("text")
+    ]
+    task.draft_id = draft.id
+    task.design = {
+        **design,
+        "stage": "model",
+        "summary": str(proposal.get("summary") or ""),
+        "questions": questions,
+        "origin": {"kind": "ai", "provider": "claude-code", "model": None, "promptVersion": "agent/1"},
+        "outcome": {},
+    }
+    task.check = check_of(session, draft)
+    note(task, "note", _said(progress))
+    finish(task, "checked", _retention(ctx))
+    task.finished_at = None
+    session.commit()
+
+
+def start(session: Session, job: Job, ctx: Any, task_id: str, workbook_path: Path, check_of: Any) -> None:
+    """The session's first turn: the workbook to a draft the person reviews."""
+    task = load_task(session, task_id, for_update=True)
+    workspace = task.workspace_key
+    words = task.words
+    url = _api_url()
+    release = session.get(ModelRelease, load_assignment(session, workspace)[1].id)
+    folder = folder_of(ctx.files, task)
+    folder.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(workbook_path, folder / "workbook.xlsx")
+    (folder / "model.json").write_text(json.dumps(release.model_json))
+    (folder / "openapi.json").write_bytes(_openapi(url))
+    session_id = str(uuid4())
+    task.design = {**(task.design or {}), "stage": "model", "agentSession": session_id}
+    task.state = "reading"
+    session.commit()
+    progress = _run_turn(
+        session, job, ctx, task_id, folder, _propose_prompt(words, workspace, url), session_id, first=True
+    )
+    if progress is not None:
+        _proposal_landed(session, ctx, task_id, folder, progress, check_of)
+
+
+def said(session: Session, job: Job, ctx: Any, task_id: str, words: str, check_of: Any) -> None:
+    """The person's answers or corrections: the same session goes on."""
+    task = load_task(session, task_id)
+    folder = folder_of(ctx.files, task)
+    (folder / PROPOSAL).unlink(missing_ok=True)
+    progress = _run_turn(
+        session,
+        job,
+        ctx,
+        task_id,
+        folder,
+        _said_prompt(words),
+        (task.design or {})["agentSession"],
+        first=False,
+    )
+    if progress is not None:
+        _proposal_landed(session, ctx, task_id, folder, progress, check_of)
+
+
+def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
+    """The person accepted: the same session installs one release and loads into a change set."""
+    task = load_task(session, task_id)
+    workspace = task.workspace_key
+    folder = folder_of(ctx.files, task)
+    progress = _run_turn(
+        session, job, ctx, task_id, folder, _ACCEPTED, (task.design or {})["agentSession"], first=False
+    )
+    if progress is None:
+        return
+    words = str(progress.result.get("result") or "")
+    change_set_id = next(
+        (
+            line.split(LAST_LINE, 1)[1].strip().strip("`*")
+            for line in reversed(words.splitlines())
+            if LAST_LINE in line
+        ),
+        None,
+    )
+    change_set = (
+        session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id)) if change_set_id else None
+    )
+    task = load_task(session, task_id, for_update=True)
+    design = dict(task.design or {})
+    design.pop("progress", None)
+    task.design = design
+    note(task, "note", _said(progress))
+    if change_set is None or change_set.workspace_key != workspace:
+        finish(task, "failed", _retention(ctx))
+    else:
+        task.result = {
+            "changeSetId": change_set.id,
+            "changeSetName": change_set.name,
+            "counts": _counts(session, change_set.id),
+        }
+        finish(task, "loaded", _retention(ctx))
+        remove_folder(ctx.files, task)
+    session.commit()
+
+
+def _counts(session: Session, change_set_id: str) -> dict[str, int]:
+    """What the change set holds, as a load's counts: new records and changed ones."""
+    created, updated = session.execute(
+        text(
+            "SELECT count(*) FILTER (WHERE o.id IS NULL), count(*) FILTER (WHERE o.id IS NOT NULL)"
+            " FROM change_set_objects c LEFT JOIN objects o ON o.id = c.object_id"
+            " WHERE c.change_set_id = :id AND NOT c.is_deleted"
+        ),
+        {"id": change_set_id},
+    ).one()
+    return {
+        "applied": created + updated,
+        "created": created,
+        "updated": updated,
+        "unchanged": 0,
+        "rejected": 0,
+    }

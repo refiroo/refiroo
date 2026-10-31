@@ -43,7 +43,7 @@ const conflict: DraftProfile = {
   freeKey: "X-2",
 };
 
-const checking = (phase?: "assistant"): Inference => ({
+const checking = (): Inference => ({
   jobId: "j1",
   state: "checking",
   mode: "extend",
@@ -52,9 +52,6 @@ const checking = (phase?: "assistant"): Inference => ({
   counts: { open: 0, applied: 0, held: 0, rejected: 0 },
   disagreements: [],
   warnings: [],
-  assistant: true,
-  phase: phase ?? null,
-  assistantOutcome: null,
   proposed: [],
   error: null,
 });
@@ -83,11 +80,12 @@ beforeEach(() => {
   });
 });
 
-function renderEditor(onNavigate = vi.fn()) {
+function renderEditor(onNavigate = vi.fn(), journey?: { kind: "aiTask"; taskId: string }) {
   return render(
     <ToastProvider>
       <ModelEditor
         draftId="d1"
+        journey={journey}
         selection={{}}
         onSelect={vi.fn()}
         onNavigate={onNavigate}
@@ -139,13 +137,13 @@ describe("the draft profile's key (the user, 2026-10-28)", () => {
 });
 
 describe("the editor while the engine proposes (the user, 2026-10-28)", () => {
-  it("shows the phase, pauses editing and resumes it on Stop with nothing applied", async () => {
+  it("shows the reading phase, pauses editing and resumes it on Stop with nothing applied", async () => {
     vi.mocked(api.modelDraftProfile).mockResolvedValue({ ...conflict, diagnostics: [], freeKey: null });
-    vi.mocked(api.proposeFromWorkbook).mockResolvedValue(checking("assistant"));
+    vi.mocked(api.proposeFromWorkbook).mockResolvedValue(checking());
     vi.mocked(api.cancelJob).mockResolvedValue({} as never);
-    proposeWhenProfiled("d1", { mode: "extend", assistant: true } as never);
+    proposeWhenProfiled("d1", { mode: "extend" });
     renderEditor();
-    expect(await screen.findByText(/Asking the AI assistant \(qwen3:8b\) for clearer names/)).toBeTruthy();
+    expect(await screen.findByText("Finding the model in every sheet…")).toBeTruthy();
     expect(screen.getByText(/Editing is paused until the proposals are applied/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Install and activate…" }) as HTMLButtonElement).disabled).toBe(true);
     // The profile's key is read, not edited, meanwhile.
@@ -160,7 +158,7 @@ describe("the editor while the engine proposes (the user, 2026-10-28)", () => {
   it("submits exactly one inference for New from a workbook, and none when one is resumed", async () => {
     vi.mocked(api.modelDraftProfile).mockResolvedValue({ ...conflict, diagnostics: [], freeKey: null });
     vi.mocked(api.proposeFromWorkbook).mockResolvedValue(checking());
-    proposeWhenProfiled("d1", { mode: "extend", assistant: true } as never);
+    proposeWhenProfiled("d1", { mode: "extend" });
     const first = renderEditor();
     await screen.findByText("Finding the model in every sheet…");
     // More steps and re-reads while it runs must not submit it again.
@@ -177,7 +175,7 @@ describe("the editor while the engine proposes (the user, 2026-10-28)", () => {
   it("names the reading phase while the rules read every sheet", async () => {
     vi.mocked(api.modelDraftProfile).mockResolvedValue({ ...conflict, diagnostics: [], freeKey: null });
     vi.mocked(api.proposeFromWorkbook).mockResolvedValue(checking());
-    proposeWhenProfiled("d1", { mode: "extend", assistant: false } as never);
+    proposeWhenProfiled("d1", { mode: "extend" });
     renderEditor();
     expect(await screen.findByText("Finding the model in every sheet…")).toBeTruthy();
   });
@@ -190,26 +188,25 @@ describe("the editor while the engine proposes (the user, 2026-10-28)", () => {
       sourceFile: { id: "f1", name: "book.xlsx", profile: "running" },
     });
     vi.mocked(api.sourceFile).mockResolvedValue({ profile: { jobId: null } } as never);
-    proposeWhenProfiled("d1", { mode: "extend", assistant: false } as never);
+    proposeWhenProfiled("d1", { mode: "extend" });
     renderEditor();
     expect(await screen.findByText("Reading the workbook…")).toBeTruthy();
   });
 
-  it("picks up an inference still running when the editor opens, then applies it and tells the outcome", async () => {
+  it("picks up an inference still running when the editor opens, then applies it", async () => {
     vi.mocked(api.modelDraftProfile).mockResolvedValue({ ...conflict, diagnostics: [], freeKey: null });
-    vi.mocked(api.modelDraftInference).mockResolvedValue(checking("assistant"));
+    vi.mocked(api.modelDraftInference).mockResolvedValue(checking());
     vi.mocked(api.applyProposals).mockResolvedValue({ version: 5, entries: [], valid: true, diagnostics: [] });
     renderEditor();
-    expect(await screen.findByText(/Asking the AI assistant \(qwen3:8b\) for clearer names/)).toBeTruthy();
+    expect(await screen.findByText("Finding the model in every sheet…")).toBeTruthy();
     expect(screen.getByText(/Editing is paused until the proposals are applied/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy();
     expect((screen.getByRole("button", { name: "Install and activate…" }) as HTMLButtonElement).disabled).toBe(true);
-    // The job ends: the inference now reads completed, with what the assistant did.
+    // The job ends: the inference now reads completed, .
     vi.mocked(api.modelDraftInference).mockResolvedValue({
       ...checking(),
       state: "completed",
       counts: { open: 2, applied: 0, held: 0, rejected: 0 },
-      assistantOutcome: { model: "qwen3:8b", suggested: 2, offered: 2, failure: null },
     });
     const follow = vi
       .mocked(useJobStream)
@@ -218,7 +215,6 @@ describe("the editor while the engine proposes (the user, 2026-10-28)", () => {
     expect(follow).toBeTruthy();
     await act(async () => follow![1]({ id: "j1", state: "completed" } as never));
     await waitFor(() => expect(api.applyProposals).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText("The AI assistant (qwen3:8b) suggested 2 clearer names.")).toBeTruthy();
     await waitFor(() => expect(screen.queryByText(/Editing is paused/)).toBeNull());
   });
 });
@@ -233,6 +229,13 @@ describe("stepping away from the editor (the user, 2026-10-28)", () => {
     fireEvent.click(screen.getByRole("link", { name: "Close" }));
     expect(onNavigate).toHaveBeenCalledWith(models);
     expect(api.deleteModelDraft).not.toHaveBeenCalled();
+  });
+
+  it("closes back to the assistant's task when it was opened from there", async () => {
+    const onNavigate = vi.fn();
+    renderEditor(onNavigate, { kind: "aiTask", taskId: "t-1" });
+    fireEvent.click(await screen.findByRole("link", { name: "Close" }));
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "ai-tasks", taskId: "t-1" });
   });
 
   async function openDelete() {

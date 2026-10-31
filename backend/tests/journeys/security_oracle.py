@@ -50,6 +50,7 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
     (
         SIGNED_IN,
         [
+            "get /api/v1/ai/tasks",
             "get /api/v1/capabilities",
             "get /api/v1/changes",
             "get /api/v1/jobs",
@@ -141,6 +142,9 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
             "delete /api/v1/relations/{relation_id}",
             "patch /api/v1/relations/{relation_id}",
             "put /api/v1/workspaces/{workspace_key}/mappings",
+            # Proposals are edits of a change set (0.16 AP2); Use AI proposals is checked in the
+            # route as an option, never as its action.
+            "post /api/v1/workspaces/{workspace_key}/mapping-proposals",
         ],
     ),
     (
@@ -172,6 +176,17 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
         [
             "post /api/v1/batches",
             "post /api/v1/imports",
+            # An assistant task loads a workbook as an import does (0.16 AP6a).
+            "post /api/v1/ai/tasks",
+            "get /api/v1/ai/tasks/{task_id}",
+            "get /api/v1/ai/tasks/{task_id}/changes",
+            "post /api/v1/ai/tasks/{task_id}/plan",
+            "post /api/v1/ai/tasks/{task_id}/answers",
+            "post /api/v1/ai/tasks/{task_id}/model",
+            "post /api/v1/ai/tasks/{task_id}/accept",
+            "post /api/v1/ai/tasks/{task_id}/discard",
+            "post /api/v1/ai/tasks/{task_id}/run",
+            "post /api/v1/ai/tasks/{task_id}/cancel",
             "get /api/v1/import-profiles",
             "post /api/v1/import-profiles",
             "delete /api/v1/import-profiles/{profile_key}",

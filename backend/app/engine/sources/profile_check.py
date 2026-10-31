@@ -172,7 +172,7 @@ def prepare(session: Session, job: Job, model: EngineModel) -> bool:
             "SOURCE_FILE_NOT_FOUND",
             f"Source file '{job.parameters['sourceFileId']}' was deleted",
         )
-    previous = _previous_file(session, profile.key, source)
+    previous = previous_file(session, profile.key, source)
     staged = StagedFile(session, source.id)
     earlier = StagedFile(session, previous.id) if previous is not None else None
     problems = [problem.body() for problem in check_profile(model, definition)]
@@ -183,7 +183,7 @@ def prepare(session: Session, job: Job, model: EngineModel) -> bool:
         named_on.setdefault(sheet, set()).update(name for _, name in named_columns(entry, ""))
     for index, entry in enumerate(definition.sources):
         first_on_sheet = sheet_of.index(sheet_of[index]) == index
-        found, followed = _columns(
+        found, followed = compare_columns(
             session, entry, staged, earlier, named_on[sheet_of[index]], first_on_sheet
         )
         sources.append(
@@ -284,7 +284,7 @@ def complete_unbound(session: Session, job: Job, *, retention_days: int) -> None
 # --- columns ------------------------------------------------------------------------------------
 
 
-def _columns(
+def compare_columns(
     session: Session,
     source: Source,
     staged: StagedFile,
@@ -456,7 +456,7 @@ def _follow(
         return None
 
 
-def _previous_file(session: Session, profile_key: str, source: SourceFile) -> SourceFile | None:
+def previous_file(session: Session, profile_key: str, source: SourceFile) -> SourceFile | None:
     """The file the profile read before ``source``: its own earlier file, else the stored file its
     last import read; ``None`` when neither is profiled."""
     for found in session.scalars(

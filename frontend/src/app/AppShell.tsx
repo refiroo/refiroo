@@ -22,6 +22,7 @@ import { Notice } from "@/ui/Notice";
 import { ContextBandSlotContext } from "@/ui/ContextBandSlot";
 import { DataContextBand } from "./DataContextBand";
 import { ShellFrame } from "./ShellFrame";
+import { AiTaskJourneyBar } from "@/features/ai-tasks/AiTaskJourneyBar";
 import { TopBar } from "./TopBar";
 import { useHoldsGroup } from "./useMe";
 
@@ -93,6 +94,16 @@ export function AppShell({
 
   return (
     <ShellFrame
+      journey={
+        activeRoute.kind === "changeSetChanges" && activeRoute.journey ? (
+          <AiTaskJourneyBar
+            key={activeRoute.journey.taskId}
+            journey={activeRoute.journey}
+            place="changeSet"
+            onNavigate={onNavigate}
+          />
+        ) : undefined
+      }
       main={fill ? { fill: true } : undefined}
       topBar={
         <TopBar

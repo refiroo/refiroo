@@ -810,8 +810,7 @@ Limits: a field's editor cannot be chosen (each value type has one); the draft e
 for what a load does with missing records (Settings › Import profiles and the API set it); the
 a category's name in another language is not loaded when lists are read as one list under their
 headers;
-dragging a list's outline on the grid is not offered (its fields set it); the assistant's clearer names
-need an AI provider (F29). A consumer
+dragging a list's outline on the grid is not offered (its fields set it). A consumer
 API's documents are worked out from the draft; messages from real records come from the consumer API
 after activation.
 
@@ -1489,14 +1488,7 @@ Who may ask is set by role: **Use AI proposals** is part of the Data steward, Da
 administrator, Workspace administrator and Integration administrator roles. A person without it is
 never offered an AI action.
 
-The first feature is in the model editor: when a workbook's inference proposes a model, the assistant
-is asked too (a checkbox in the dialog, on by default) and suggests clearer names for the record types
-the rules named after headers or codes. Each arrives as a proposal like the others, applied or left
-as the person chooses; its note says it was proposed by the AI assistant, with the model, how
-confident it was and why. If the provider fails, the inference says so in a sentence and its own
-proposals stand.
-
-The second is in the mapping grid: **Propose targets** asks the assistant for a target for each
+The feature there is in the mapping grid: **Propose targets** asks the assistant for a target for each
 unmapped value of the view (within its search and parent, if set), into the change set that is open or
 a new one. The assistant is given only the targets the grid itself would offer: all of them when
 there are up to a hundred, otherwise each value's twenty closest by name. A job works through the
@@ -1508,11 +1500,44 @@ unmapped because no target was likely enough, and how many were changed by someo
 alone. Published through the normal approval, the relationship's history says the AI proposed it, with
 the model, and who published it. It needs the send level that allows record values.
 
-Limits: values for
-empty fields, help with a failed dry run, instruction-driven tasks, assistant access through MCP and
-plain-language summaries follow in later 0.16 packages. The provider is set in the environment, not
-on the page. Whether the suggestions are good has been tried only with a stand-in provider, not a
-real one.
+**Loading a workbook with the assistant.** When AI proposals are offered, **Import** in a collection
+opens the assistant first; "Import without the assistant…" opens the manual import as before. The
+person chooses a file, adds a few words about it, or gives words alone ("relate the lab durations to
+the 15-minute slot"). The assistant designs the load the way a person building it by hand would: it
+decides per sheet whether the rows update stored records, add to them, relate to them, or are
+something new, and changes the model where the data needs it — an attribute on a type, a new type,
+a new application — in a model draft of the task's own. It reads the sheets and the stored records it
+needs, writes extra sheets of its own for rows the workbook's shape cannot load (one translation per
+record and language, pairs of IDs), and can ask the person a question with options. Every row is
+then checked in a dry run against the draft; what is refused goes back to the assistant, which fixes
+it and checks again within the call budget. The page shows the summary, the model change, the
+records the structure needs, where each sheet goes, the relationships it will make, and the check per
+sheet with each sheet's changed records behind a button. **Activate the model and load** (or **Load
+into a change set** when the model does not change) installs and activates the model change first,
+which needs Model release, then writes everything into one change set, reviewed and published as
+usual; the import can be saved as a profile for the next file. The inbox says once when the design is
+ready.
+
+A bar below the top bar follows the load from step to step: the file and words, the design, the
+model change, the assistant's questions, the check, the load, and the change set's review and
+publication. It says what to do now and offers the next action (open the model change in the
+editor, answer the questions, load, open the change set), and Stop while the assistant works or
+Start again after a failure. It stays on the model editor and the change set opened from the task;
+Close in the editor goes back to the task.
+
+Without the assistant offered, the task is read by the rules: a stored profile that fits is
+followed, the lists with a choice to make are shown under **Needs you**, **Prepare the load** checks
+every row and **Load into a change set** loads it.
+
+Limits:
+- The assistant works through one task at a time; there is no free-text conversation after the
+  design beyond answering its questions.
+- Values for empty fields, assistant access through MCP and plain-language summaries follow in later
+  0.16 packages.
+- The provider is set in the environment, not on the page.
+- Proposals for mapping targets have been tried only with a stand-in provider. The design was tried
+  with Claude Sonnet on real workbooks: an update of a known layout, a new model in an empty
+  workspace, and a relationship from words alone.
 
 Evidence: [AI contract](../API.md#ai-proposals-product-016), [OPERATIONS](../OPERATIONS.md#ai-proposals),
 [provider](../../backend/app/engine/proposals/), [AI page](../../frontend/src/features/settings/AiPage.tsx),

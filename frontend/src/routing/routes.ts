@@ -14,6 +14,7 @@ import type {
   ChangePeriod,
   ChangesRoute,
   HomeRoute,
+  JourneyRef,
   NotificationsRoute,
   MoveAddress,
   MoveChoice,
@@ -77,10 +78,26 @@ function changeReviewRoute(
     ...(knownType ? { typeKey } : {}),
     ...(tab === "relationships" && query.get("containment") === "true" ? { containment: true } : {}),
     ...(query.get("anchor") ? { anchor: query.get("anchor")! } : {}),
+    ...journeyIn(query),
   };
 }
 
 /** A change set review opened on its records, with no filter. */
+const JOURNEY_PREFIX = "ai-task:";
+
+/** The journey a URL carries (`journey=ai-task:<id>`), else nothing. */
+export function journeyIn(query: URLSearchParams): { journey?: JourneyRef } {
+  const value = query.get("journey")?.trim();
+  const taskId = value?.startsWith(JOURNEY_PREFIX) ? value.slice(JOURNEY_PREFIX.length) : "";
+  return taskId ? { journey: { kind: "aiTask", taskId } } : {};
+}
+
+/** The query parameter for a journey, to add to a path with or without a query. */
+function withJourney(path: string, journey: JourneyRef | undefined) {
+  if (!journey) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}journey=${encodeURIComponent(`${JOURNEY_PREFIX}${journey.taskId}`)}`;
+}
+
 export function changeReviewFor(
   applicationKey: string,
   workspaceKey: string,
@@ -186,6 +203,7 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
       : { kind: "settings", page, workspaceKey: kind };
   }
   if (page === "jobs") return kind ? { kind: "settings", page, jobId: kind } : { kind: "settings", page };
+  if (page === "ai-tasks" && kind) return { kind: "settings", page, taskId: kind };
   if (page === "people") return kind ? { kind: "settings", page, userId: kind } : { kind: "settings", page };
   if (page === "groups") return kind ? { kind: "settings", page, groupId: kind } : { kind: "settings", page };
   if (page === "clients") return kind ? { kind: "settings", page, clientId: kind } : { kind: "settings", page };
@@ -220,7 +238,7 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
     }
     if (kind === "migrations" && id) return { kind: "settings", page, migrationJobId: id };
     if (kind === "drafts" && id && parts[4] === "editor") {
-      return { kind: "settings", page, draftId: id, editor: editorSelection(query) };
+      return { kind: "settings", page, draftId: id, editor: editorSelection(query), ...journeyIn(query) };
     }
     if (kind === "drafts" && id) return { kind: "settings", page, draftId: id, ...(from ? { modelTab: from } : {}) };
     return { kind: "settings", page };
@@ -318,6 +336,24 @@ function editorSelection(query: URLSearchParams): EditorSelection {
 
 const EDITOR_MODES = ["preview", "layout"] as const;
 
+/** The model editor's address for a draft, with what its centre shows. */
+function editorPath(draftId: string, editor: EditorSelection): string {
+  const base = `/settings/model/drafts/${encodeURIComponent(draftId)}/editor`;
+  const { show } = editor;
+  if (!show) return base;
+  if (show === "matrix") return `${base}?show=matrix`;
+  if (show === "column")
+    return `${base}?show=column&sheet=${encodeURIComponent(editor.sheet)}&key=${encodeURIComponent(editor.key)}`;
+  if (show === "list") return `${base}?show=list&sheet=${encodeURIComponent(editor.sheet)}&block=${editor.block}`;
+  const mode =
+    editor.show === "type" && editor.mode
+      ? `&mode=${editor.mode}`
+      : editor.show === "consumerApi" && editor.tab
+        ? `&tab=${editor.tab}`
+        : "";
+  return `${base}?show=${show}&key=${encodeURIComponent(editor.key)}${mode}`;
+}
+
 function settingsPath(route: SettingsRoute) {
   if (route.page === "workspaces" && route.workspaceKey) {
     const base = `/settings/workspaces/${encodeURIComponent(route.workspaceKey)}`;
@@ -331,6 +367,7 @@ function settingsPath(route: SettingsRoute) {
     return route.eventId ? `${opened}/${encodeURIComponent(route.eventId)}` : opened;
   }
   if (route.page === "jobs" && route.jobId) return `/settings/jobs/${encodeURIComponent(route.jobId)}`;
+  if (route.page === "ai-tasks" && route.taskId) return `/settings/ai-tasks/${encodeURIComponent(route.taskId)}`;
   if (route.page === "people" && route.userId) return `/settings/people/${encodeURIComponent(route.userId)}`;
   if (route.page === "groups" && route.groupId) return `/settings/groups/${encodeURIComponent(route.groupId)}`;
   if (route.page === "clients" && route.clientId) return `/settings/clients/${encodeURIComponent(route.clientId)}`;
@@ -339,23 +376,8 @@ function settingsPath(route: SettingsRoute) {
   if (route.page === "moves" && route.move) return movePath(route.move);
   if (route.page === "import-profiles" && route.profileKey)
     return `/settings/import-profiles/${encodeURIComponent(route.profileKey)}`;
-  if (route.page === "model" && route.draftId && route.editor) {
-    const base = `/settings/model/drafts/${encodeURIComponent(route.draftId)}/editor`;
-    const { show } = route.editor;
-    if (!show) return base;
-    if (show === "matrix") return `${base}?show=matrix`;
-    if (show === "column")
-      return `${base}?show=column&sheet=${encodeURIComponent(route.editor.sheet)}&key=${encodeURIComponent(route.editor.key)}`;
-    if (show === "list")
-      return `${base}?show=list&sheet=${encodeURIComponent(route.editor.sheet)}&block=${route.editor.block}`;
-    const mode =
-      route.editor.show === "type" && route.editor.mode
-        ? `&mode=${route.editor.mode}`
-        : route.editor.show === "consumerApi" && route.editor.tab
-          ? `&tab=${route.editor.tab}`
-          : "";
-    return `${base}?show=${show}&key=${encodeURIComponent(route.editor.key)}${mode}`;
-  }
+  if (route.page === "model" && route.draftId && route.editor)
+    return withJourney(editorPath(route.draftId, route.editor), route.journey);
   // An opened release or draft keeps the tab it was opened from, unless that is where Back goes anyway.
   const modelFrom = (back: ModelTab) =>
     route.page === "model" && route.modelTab && route.modelTab !== back ? `?from=${route.modelTab}` : "";
@@ -553,7 +575,10 @@ export function routePath(route: RouteState) {
     if (route.typeKey) query.set("type", route.typeKey);
     if (route.containment) query.set("containment", "true");
     if (route.anchor) query.set("anchor", route.anchor);
-    return `/apps/${app}/change-sets/${encodeURIComponent(route.changeSetId)}/changes?${query}`;
+    return withJourney(
+      `/apps/${app}/change-sets/${encodeURIComponent(route.changeSetId)}/changes?${query}`,
+      route.journey,
+    );
   }
   if (route.kind === "publications") return `/apps/${app}/publications?${query}`;
   if (route.changeSetId) query.set("changeSetId", route.changeSetId);

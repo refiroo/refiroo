@@ -1811,14 +1811,6 @@
   margin-bottom: var(--space-3);
 }
 
-/* The AI assistant choice in the propose dialogs (0.16 AP1): room before the next field. */
-.assistant-choice {
-  margin-bottom: var(--space-3);
-}
-.assistant-choice .admin-hint {
-  margin: var(--space-1) 0 0;
-}
-
 /* Proposing (the user, 2026-10-28): the phase, an indeterminate bar, and why editing waits. */
 .notice .proposing-phase {
   margin: var(--space-1) 0 var(--space-2);

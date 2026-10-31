@@ -43,7 +43,7 @@ export interface Router {
    */
   route: RouteState | undefined;
   /** Pushes or replaces a route, keeping the URL and the rendered route in step. */
-  navigate: (next: RouteState, replace?: boolean) => boolean;
+  navigate: (next: RouteState, replace?: boolean, carried?: boolean) => boolean;
   /**
    * Replaces the current entry without consulting the navigation guard, for state that only records
    * where the user is (a list's scroll anchor) and must not discard an open editor. `silent` writes
@@ -298,7 +298,14 @@ export function useRouter(): Router {
 
   /** Write `destination` to the history, then show it (its model already loaded). */
   const commit = useCallback(
-    (destination: RouteState, replace: boolean, loaded: EngineModel, workspaceKey: string) => {
+    (
+      destination: RouteState,
+      replace: boolean,
+      loaded: EngineModel,
+      workspaceKey: string,
+      /** A page carried over by a switch of workspace: not asked for, so its absence is no problem. */
+      carried = false,
+    ) => {
       const path = routePath(destination);
       const missing = isApplicationRoute(destination)
         ? missingElement(loaded, new URL(path, window.location.origin))
@@ -306,13 +313,13 @@ export function useRouter(): Router {
       const shownRoute = missing ? defaultRoute(loaded, workspaceKey) : destination;
       if (!replace) historyIndex.current += 1;
       window.history[replace ? "replaceState" : "pushState"](historyState(shownRoute, historyIndex.current), "", path);
-      show(loaded, workspaceKey, shownRoute, missing ? { ...missing, workspaceKey } : undefined);
+      show(loaded, workspaceKey, shownRoute, missing && !carried ? { ...missing, workspaceKey } : undefined);
     },
     [show],
   );
 
   const navigate = useCallback(
-    (next: RouteState, replace = false) => {
+    (next: RouteState, replace = false, carried = false) => {
       if (restoring.current || !allowNavigation()) return false;
       const destination = routeWithOrigin(next, currentRoute.current);
       const current = shown.current;
@@ -325,7 +332,7 @@ export function useRouter(): Router {
       // Another workspace: its model first, then its page under that model (0.11 M5).
       workspaceModel(workspaceKey!)
         .then((loaded) => {
-          if (ticket === sequence.current) commit(destination, replace, loaded, workspaceKey!);
+          if (ticket === sequence.current) commit(destination, replace, loaded, workspaceKey!, carried);
         })
         .catch((cause) => {
           if (ticket !== sequence.current || !current) return;

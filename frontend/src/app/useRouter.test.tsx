@@ -255,6 +255,16 @@ describe("a workspace's own model (0.11 M5, D48, D49)", () => {
     expect(router.result.current.problem).toBeUndefined();
   });
 
+  it("opens the start of another workspace's model when a switch carried a page it lacks", async () => {
+    const router = renderHook(useRouter);
+    await waitFor(() => expect(router.result.current.route?.kind).toBe("list"));
+    act(() => {
+      router.result.current.navigate({ ...collection, workspaceKey: "east" }, false, true);
+    });
+    await waitFor(() => expect(router.result.current.modelWorkspaceKey).toBe("east"));
+    expect(router.result.current.problem).toBeUndefined();
+  });
+
   it("says what another workspace's model lacks instead of opening its start silently", async () => {
     const router = renderHook(useRouter);
     await waitFor(() => expect(router.result.current.route?.kind).toBe("list"));

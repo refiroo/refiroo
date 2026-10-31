@@ -6,6 +6,103 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (0.16 AP6, the assistant designs and loads)
+
+- **The assistant is a Claude Code session:** with `AI_AGENT_COMMAND` set, the person's words, the
+  workbook, the model and the OpenAPI document go to one session working through the API. It stops at a
+  model draft with every row checked; the person opens it in the model editor, answers or says what to
+  change, and the same session goes on. Accepting installs one release, unactivated, and loads a change
+  set; activation stays with publishing. The page shows what the session has reached while it works, and
+  has Discard and Close. The turn loop, its answer format and `unpivots` are gone. A saved layout that
+  still fits needs no AI; `key.storedUnique` keys a source by an attribute whose stored values are unique.
+- **Switching workspace:** a page the other workspace's model lacks no longer shows "not in this
+  workspace's model"; its start opens. An address asking for that page still says so.
+- **The assistant designs the load:** with AI proposals offered, a task's assistant decides how the
+  workbook lives in the workspace — an update, additions, a new relation, something new but related,
+  something totally new — and changes the model where the data needs it (attributes, types,
+  applications, relations) in a model draft of the task's own (`draftId`). It reads cells, values,
+  stored records and model-aware queries; writes data sheets of its own for rows the workbook's shape
+  cannot load; and asks questions with an assumed option (`POST /ai/tasks/{id}/answers`). Every row of
+  the working copy is checked in a dry run against the draft, and refused rows go back to it within
+  `AI_MAX_STEPS` calls. `POST /ai/tasks/{id}/run` installs and activates the model change first (needs
+  Model release), then imports into one change set and saves the profile (`result.releaseId`).
+- **Words alone:** `POST /ai/tasks` without a file takes an instruction; relationships where a
+  condition holds (`design.links`) are counted in the database and written as one background batch
+  into the change set (`result.linksJobId`).
+- `GET /ai/tasks/{id}/changes?source=` lists a design sheet's changed records; the design check shows
+  them behind a button per sheet. The check counts rows skipped for an empty key (`skipped`,
+  refused as `ROWS_SKIPPED` when most of a source's rows are).
+- `CARDINALITY_VIOLATION` names the relation and the end that already holds one (message and
+  `details`).
+- Import profiles: a related record's `parent` read from a `column` may name a `valueMap`
+  (`parent.valueMap`), so a language word in a translations sheet finds the language record. The
+  assistant's working copy keeps the formulas' last values.
+- Imports: a `record: "existing"` source finds a record by the value another source of the file
+  writes into its key attribute, whatever that source is keyed by. The assistant is given every
+  model-draft operation kind (such as `setAttributeTypeFeatures` to make a stored attribute a key).
+- Loading the same file again with "save the import" no longer fails with `IMPORT_PROFILE_EXISTS`:
+  a key holding a profile of the same model gets its next version. A profile that cannot be saved
+  is a warning note on the task; the load, already committed, stands.
+- A record edited in a change set (an import's update) no longer re-checks the relationships it
+  already holds against their candidate criteria: as live, an existing relationship is kept
+  whatever the criteria say now (D175); the dry run and the load now agree.
+- A design whose dry run cannot run (the file does not fit the profile, such as a header on row 2
+  under a row of group headings) no longer fails the task with "The reading failed": the problems
+  go back to the assistant to fix. Each round's refused rows by code go with the design so far.
+- Imports: rows repeating a key no longer conflict where one leaves a cell empty that another fills
+  (the record takes the filled values); rows of two sheets keyed alike by an attribute are one new
+  record instead of two that break the unique rule.
+- The assistant's loaded page lists only the sheets and columns the design leaves out (no longer
+  the rules' first reading as "something new, not loaded"); the shown model is read again once a
+  load activated a model change; the release it installs is numbered after the newest one.
+- **The assistant proposes the model first (AP6r):** a task stops at a proposal — the model in
+  plain sentences per type, the engine's design checks of any workbook (stored records to reuse,
+  columns that group the rows, translations left out, relationships one end cannot show) and the
+  questions — before anything loads. The steward corrects it in words (`POST /ai/tasks/{id}/model`)
+  or accepts it (`POST /ai/tasks/{id}/accept`); the load stage then maps the sheets and checks every
+  row. The assistant may use every model-draft operation, the page kinds included.
+- The assistant describes how a wide sheet (one group of columns per operator, list or period) becomes
+  rows (`unpivots`) and the engine writes them into the working copy.
+- The assistant's design lists each column no source of its sheet loads with the reason it gave
+  (`design.leftOut`; the loaded page shows it), and is told to reuse the records the workspace
+  holds, to put rows under the column that groups them, and to load every translated column
+  (`workbook-design/5`).
+- **The import's journey bar:** below the top bar, an assistant's load shows its steps (file and
+  words, the design, the model change, questions, the check, the load, review and publish), what
+  to do now and the next action, on the task's page, in the model editor opened from it and on its
+  change set (`?journey=ai-task:<id>`). Close in the editor returns to the task; Stop, Start again
+  and Open the change set are on the bar.
+
+### Removed (0.16 AP6, the reading turns)
+
+- The assistant's read, match and fix turns of AP6a and the task phases `asking`, `matching` and
+  `fixing`: with the assistant offered a task is designed; without it, read by the rules and planned
+  by the person as before.
+
+### Added (0.16 AP6a, loading a workbook with the assistant)
+
+- **Import with the assistant:** with AI proposals offered, Import opens the assistant first ("Import
+  without the assistant…" opens the manual import). `POST /ai/tasks` takes a workbook and a workspace;
+  a job (kind `aiTask`) reads it: a stored import profile that fits the file is followed, other tables
+  are read by the rules (an update of a type when most of a column's values are its records' keys or
+  names), note and title rows are set apart, and the assistant checks the reading and matches values by
+  meaning. The task page shows what needs the person (new keys, names that differ, missing records), the
+  rest grouped by the model; `POST /ai/tasks/{id}/plan` checks every row in a dry run, the assistant
+  proposes value maps for refused values, and `POST /ai/tasks/{id}/run` loads into a change set,
+  optionally saving the import profile. Visible to its requester and the workspace's administrators;
+  kept `AI_TASK_RETENTION_DAYS`; at most `AI_MAX_STEPS` provider calls a job.
+- A list of records the workspace does not hold yet is read as new records of its type, keyed by
+  the column the assistant names (prompt `workbook-read/2`). An answer that only repeats an operation
+  the engine refused ends the assistant's turns. The task keeps only the assistant's last note, and
+  refusals name the sheet and the column's header.
+
+### Removed (0.16 AP6a, the AI naming helper)
+
+- The AI naming helper of New from a workbook and Propose again is removed ("Also ask the AI assistant
+  for clearer names", the inference's `assistant` option and read fields, `phase` and `assistantOutcome`,
+  the purpose `modelNames` and the proposal pattern `assistant`): the inference runs on its rules; the
+  workbook assistant replaces it.
+
 ### Changed (0.16 AP1, the naming helper sees the whole file)
 
 - The inference's AI assistant no longer sends each sheet's first 50 rows. It sends each table's

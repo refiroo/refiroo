@@ -64,10 +64,6 @@ class InferenceRequest(BaseModel):
     mode: Literal["newApplication", "extend"]
     applicationKey: str | None = Field(default=None, min_length=1)
     applicationName: str | None = Field(default=None, min_length=1)
-    # Whether the AI provider is asked for better names too (0.16 AP1): omitted, it is whenever a
-    # provider is set and the caller may use AI proposals; ``false`` never; ``true`` refused when it
-    # cannot be.
-    assistant: bool | None = None
 
 
 class ListProposalRequest(BaseModel):

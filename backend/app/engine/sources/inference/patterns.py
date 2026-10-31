@@ -817,14 +817,20 @@ def list_block(block: BlockTable, *, asked: bool = False) -> Finding | None:
     return Finding("listBlock", block.name, [names.number, *(c.number for c in others if c.filled)], {**evidence, "list": True}, detail)
 
 
-def _language_of(header: str, index: int) -> str:
-    """A translation column's language: a language word of its header, else the index-th
-    translation language (the administrator names it in the editor)."""
+def header_language(header: str) -> str | None:
+    """The language word of a translation column's header (``Name (Spanish)``, ``Name_ES``), or
+    ``None`` when it names none."""
     match = _TRANSLATED.match(header)
     if match and match.group("base").strip() and is_language(match.group("language")):
         return match.group("language")
     words = re.findall(r"[A-Za-z]+", header)
-    return next((w for w in reversed(words) if len(w) > 2 and is_language(w)), f"Language {index + 1}")
+    return next((w for w in reversed(words) if len(w) > 2 and is_language(w)), None)
+
+
+def _language_of(header: str, index: int) -> str:
+    """A translation column's language: a language word of its header, else the index-th
+    translation language (the administrator names it in the editor)."""
+    return header_language(header) or f"Language {index + 1}"
 
 
 def _lookups(sheet: _Sheet) -> list[Finding]:

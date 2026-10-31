@@ -23,6 +23,7 @@ import { RolesPage } from "@/features/security/RolesPage";
 import { ClientsPage } from "@/features/security/ClientsPage";
 import { SignInPage } from "@/features/security/SignInPage";
 import { SigningKeysPage } from "@/features/security/SigningKeysPage";
+import { AiTaskPage } from "@/features/ai-tasks/AiTaskPage";
 import { AiPage } from "@/features/settings/AiPage";
 import { MailPage } from "@/features/settings/MailPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
@@ -32,6 +33,7 @@ import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
 import { changeReviewFor, HOME, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, SettingsRoute } from "@/types";
+import { AiTaskJourneyBar } from "@/features/ai-tasks/AiTaskJourneyBar";
 import { SettingsShell } from "./SettingsShell";
 import type { Router } from "./useRouter";
 
@@ -57,10 +59,22 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
       if (application) navigate(changeReviewFor(application.key, changeSetWorkspace, changeSetId));
       else router.openWorkspace(changeSetWorkspace);
     });
+  // The assistant's load is a journey over the task's page, the editor opened from it and the change set.
+  const journeyTaskId = route.page === "ai-tasks" ? route.taskId : editing?.journey?.taskId;
+  const journeyBar = journeyTaskId && (
+    <AiTaskJourneyBar
+      key={journeyTaskId}
+      journey={{ kind: "aiTask", taskId: journeyTaskId }}
+      place={editing ? "editor" : "task"}
+      onNavigate={(next) => navigate(next)}
+    />
+  );
   return (
     <SettingsShell
+      journey={journeyBar || undefined}
       model={model}
-      page={route.page}
+      // A load of a workbook is a data operation: the rail keeps Jobs current.
+      page={route.page === "ai-tasks" ? "jobs" : route.page}
       fullWidth={Boolean(editing || moving)}
       onHome={() => navigate(HOME)}
       onSelectApplication={selectApplication}
@@ -70,6 +84,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         <ModelEditor
           key={editing.draftId}
           draftId={editing.draftId}
+          journey={editing.journey}
           selection={editing.editor ?? {}}
           onSelect={(selection) => navigate({ ...editing, editor: selection })}
           onNavigate={(next) => navigate(next)}
@@ -84,6 +99,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
               changeSetId,
               tab: "records",
               changeKinds: [],
+              ...(editing.journey ? { journey: editing.journey } : {}),
             })
           }
           onOpenApplication={(applicationKey, openedWorkspace = workspaceKey) => {
@@ -130,6 +146,17 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         />
       ) : route.page === "jobs" ? (
         <JobsPage model={model} route={route} onNavigate={(next) => navigate(next)} />
+      ) : route.page === "ai-tasks" && route.taskId ? (
+        <AiTaskPage
+          key={route.taskId}
+          taskId={route.taskId}
+          onNavigate={(next) => navigate(next)}
+          onActiveModelChange={router.reloadModel}
+          onOpenWorkspace={(key) => {
+            router.openWorkspace(key);
+            router.rememberWorkspace(key);
+          }}
+        />
       ) : route.page === "people" ? (
         <PeoplePage route={route} onNavigate={(next) => navigate(next)} />
       ) : route.page === "groups" ? (

@@ -20,7 +20,7 @@ class Answer(BaseModel):
     items: list[Inner]
 
 
-REQUEST = ProposalRequest("modelNames", "Name them", "m/1", {"types": ["a"]}, Answer)
+REQUEST = ProposalRequest("mappingTarget", "Name them", "m/1", {"types": ["a"]}, Answer)
 
 
 def _client(*responses: httpx.Response, seen: list[httpx.Request]) -> httpx.Client:

@@ -19,9 +19,10 @@ from .provider import Purpose
 # are better with the columns' values.
 FEATURE_LEVELS: dict[Purpose, SendLevel] = {
     "connectionTest": "structure",
-    "modelNames": "structure",
     # Record names are values (AP2-D3).
     "mappingTarget": "values",
+    # Record names and codes are values (AP6a).
+    "workbookLoad": "values",
 }
 
 

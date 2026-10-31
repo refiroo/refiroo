@@ -4,7 +4,7 @@ import { api } from "@/api/client";
 import { forgetWorkspaceModel } from "@/model/workspaceModels";
 import { ApiError } from "@/api/errors";
 import { codelistObject, domainObject, testModel, testWorkspaceModel, testAvailability } from "@/test/fixtures";
-import type { ApplicationDefinition } from "@/types";
+import type { ApplicationDefinition, SystemResponse } from "@/types";
 import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
 import { capabilitiesFixture } from "@/test/capabilities";
 import { EVERY_GROUP, heldAnywhereFixture, permissionsFixture } from "@/test/permissions";
@@ -65,6 +65,10 @@ describe("App", () => {
     // Each workspace's model is held for the tab (0.11 D49); every case starts without one.
     forgetWorkspaceModel();
     vi.mocked(api.relations).mockResolvedValue({ items: [], nextCursor: null });
+    // Import offers the AI assistant where a provider is set (0.16 AP6a): none is, here.
+    vi.mocked(api.system).mockResolvedValue({
+      ai: { configured: false, provider: null, sendLevel: "structure" },
+    } as SystemResponse);
     const stored = new Map<string, string>();
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => stored.get(key) ?? null,

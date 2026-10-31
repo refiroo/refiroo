@@ -493,7 +493,7 @@ class JobResponse(BaseModel):
     id: str
     kind: Literal[
         "batch", "import", "export", "profile", "dryRun", "inference", "profileCheck", "migration",
-        "mappingInference", "move", "aiProposal",
+        "mappingInference", "move", "aiProposal", "aiTask",
     ]
     workspaceKey: str
     changeSetId: str | None

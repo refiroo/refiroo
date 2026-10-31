@@ -4,7 +4,7 @@ import type { PageNavigation } from "@/types/runtime";
 
 /** What may leave the process: names and types, also sample values, also the values a feature needs. */
 export type AiSendLevel = "structure" | "samples" | "values";
-export type AiPurpose = "connectionTest" | "modelNames" | "mappingTarget";
+export type AiPurpose = "connectionTest" | "mappingTarget" | "workbookLoad";
 export type AiFailureKind = "unreachable" | "unauthorized" | "rateLimited" | "declined" | "malformed" | "failed";
 
 /** What `GET /system` tells every signed-in person about the provider. */
@@ -25,7 +25,8 @@ export interface AiFeature {
 
 export interface AiCall {
   id: string;
-  purpose: AiPurpose;
+  /** The purpose it was made for; `modelNames` (removed in 0.16) stays on the calls recorded before. */
+  purpose: AiPurpose | "modelNames";
   provider: string;
   model: string | null;
   sendLevel: AiSendLevel;
@@ -74,7 +75,7 @@ export interface AiCallPage extends PageNavigation {
   items: AiCall[];
 }
 
-/** Where an assistant proposal came from: carried in its evidence and in an applied step's origin. */
+/** Where an AI proposal came from: carried in its evidence and in an applied step's origin. */
 export interface AiOrigin {
   kind: "ai";
   provider: string;

@@ -172,7 +172,11 @@ def _source_problems(
             model, source.objectTypeKey, key, f"{path}/key/attributeTypeKey"
         )
         definition = model.attribute_type(key)
-        if definition is not None and not definition.features.get("unique"):
+        if (
+            definition is not None
+            and not definition.features.get("unique")
+            and not source.key.storedUnique
+        ):
             problems.append(
                 Problem(
                     f"{path}/key/attributeTypeKey",
@@ -199,8 +203,10 @@ def _source_problems(
                     "The source sets every row's parent, so no column of it can bind a parent",
                 )
             )
-    if source.key is not None and source.key.field == "name" and not any(
-        binding.field == "name" for binding in source.columns
+    if (
+        source.key is not None
+        and source.key.field == "name"
+        and not any(binding.field == "name" for binding in source.columns)
     ):
         problems.append(
             Problem(
@@ -219,6 +225,15 @@ def _source_problems(
                     f"Value map '{binding.valueMap}' is not defined",
                 )
             )
+        parent_map = binding.relatedRecord.parent.valueMap if binding.relatedRecord else None
+        if parent_map is not None and parent_map not in profile.valueMaps:
+            problems.append(
+                Problem(
+                    f"{at}/relatedRecord/parent/valueMap",
+                    "UNKNOWN_VALUE_MAP",
+                    f"Value map '{parent_map}' is not defined",
+                )
+            )
         if binding.attributeTypeKey is not None:
             problems += _attribute_problems(
                 model,
@@ -228,7 +243,9 @@ def _source_problems(
                 writable=True,
             )
         elif binding.parent is not None:
-            problems += _parent_problems(model, source.objectTypeKey, binding.parent, f"{at}/parent")
+            problems += _parent_problems(
+                model, source.objectTypeKey, binding.parent, f"{at}/parent"
+            )
         elif binding.relation is not None or binding.relationFlags is not None:
             relation = binding.relation or binding.relationFlags
             name = "relation" if binding.relation is not None else "relationFlags"
@@ -499,7 +516,11 @@ def mismatch(profile_key: str, model_key: str, workspace_model_key: str) -> Exce
         MISMATCH,
         f"Import profile '{profile_key}' is written for the model '{model_key}', and the workspace "
         f"runs '{workspace_model_key}'",
-        {"profileKey": profile_key, "modelKey": model_key, "workspaceModelKey": workspace_model_key},
+        {
+            "profileKey": profile_key,
+            "modelKey": model_key,
+            "workspaceModelKey": workspace_model_key,
+        },
     )
 
 
@@ -548,6 +569,32 @@ def create_profile(session: Session, payload: ImportProfileCreate) -> StoredProf
     return StoredProfile(profile, snapshot.release_id, snapshot.model.release.key, [])
 
 
+def save_profile(session: Session, payload: ImportProfileCreate) -> StoredProfile:
+    """The profile saved under its key: created, or, when the key holds a profile of the same
+    model, stored as its next version (the same layout loaded again, 0.16 AP6). A key holding
+    another model's profile is ``409 IMPORT_PROFILE_EXISTS``. Commits."""
+    existing = session.scalar(select(ImportProfile).where(ImportProfile.key == payload.key))
+    if existing is None:
+        return create_profile(session, payload)
+    snapshot = resolve_model_snapshot(session, payload.workspaceKey)
+    if model_key_of(session, existing) != snapshot.model.release.key:
+        raise api_error(
+            409,
+            "IMPORT_PROFILE_EXISTS",
+            f"An import profile '{payload.key}' already exists for another model",
+        )
+    return update_profile(
+        session,
+        payload.key,
+        ImportProfileUpdate.model_validate(
+            {
+                **payload.model_dump(exclude={"key"}, exclude_none=True),
+                "expectedVersion": existing.version,
+            }
+        ),
+    )
+
+
 def load_profile(session: Session, key: str, *, for_update: bool = False) -> ImportProfile:
     statement = select(ImportProfile).where(ImportProfile.key == key)
     if for_update:
@@ -562,7 +609,9 @@ def read_profile(session: Session, key: str, workspace_key: str | None = None) -
     return stored(session, load_profile(session, key), workspace_key)
 
 
-def stored(session: Session, profile: ImportProfile, workspace_key: str | None = None) -> StoredProfile:
+def stored(
+    session: Session, profile: ImportProfile, workspace_key: str | None = None
+) -> StoredProfile:
     """The profile with its problems under the workspace's release, and the release it was saved
     against."""
     return stored_page(session, [profile], workspace_key)[0]
@@ -584,7 +633,9 @@ def stored_page(
     found = []
     for profile in profiles:
         release_id, model_key = releases[profile.checked_release_id]
-        found.append(StoredProfile(profile, release_id, model_key, _problems(model_key, snapshot, profile)))
+        found.append(
+            StoredProfile(profile, release_id, model_key, _problems(model_key, snapshot, profile))
+        )
     return found
 
 

@@ -1,6 +1,6 @@
 /** Words for Settings › AI and the Propose dialog (0.16 AP1): the send level, a call's purpose and what failed. */
 
-import type { AiCall, AiPurpose, AiSendLevel } from "@/types";
+import type { AiCall, AiSendLevel } from "@/types";
 
 /** What each send level lets leave the server, in one plain line. */
 export function sendLevelText(level: AiSendLevel, sampleValues: number): string {
@@ -9,10 +9,11 @@ export function sendLevelText(level: AiSendLevel, sampleValues: number): string 
   return `Also the record values a feature needs, up to ${sampleValues} per column`;
 }
 
-export const PURPOSE: Record<AiPurpose, string> = {
+export const PURPOSE: Record<AiCall["purpose"], string> = {
   connectionTest: "Test request",
-  modelNames: "Names for an inference",
   mappingTarget: "Targets for unmapped values",
+  workbookLoad: "Load a workbook",
+  modelNames: "Names for an inference (no longer offered)",
 };
 
 /** The sentence under a failed call. */

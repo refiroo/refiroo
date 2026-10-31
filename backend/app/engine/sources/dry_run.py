@@ -30,6 +30,7 @@ from ...models.schema import EngineModel
 from ...models.sources import DryRunRequest
 from ..imports.profiles import check_profile, invalid_profile, source_order
 from ..imports.readers import TabularFile, open_tabular
+from ..jobs.background import open_job_context
 from ..jobs.batches import BatchContext, JobCancelled
 from ..jobs.files import JobFiles
 from ..jobs.store import ItemOutcome, complete_job, job_parameter, record_outcomes, start_job
@@ -116,7 +117,10 @@ def submit_dry_run(
 def dry_run_context(session: Session, job: Job) -> BatchContext:
     """The dry run's context: the workspace, with the draft's model at the version the dry run
     was sent for. A draft changed since stops the dry run (``JobCancelled``); a release activated
-    since fails it, as any job's."""
+    since fails it, as any job's. An assistant task's dry run (0.16 AP6a) runs on the workspace's
+    live data under its active release, as an import does."""
+    if "taskId" in job.parameters and "draftId" not in job.parameters:
+        return open_job_context(session, job)
     workspace = resolve_workspace(session, job.workspace_key, require_active=True)
     snapshot = resolve_model_snapshot(session, workspace.key)
     if snapshot.release_db_id != job.model_release_id:
@@ -223,7 +227,8 @@ def record_dry_run(
     require_file(session, job)
     record_outcomes(session, job, outcomes)
     found = summary(session, job, model)
-    previous = _previous(session, job)
+    # A model draft's dry run is compared with its previous one; a task's check is not (0.16 AP6a).
+    previous = _previous(session, job) if "draftId" in job.parameters else None
     found["difference"] = (
         _difference(previous["sources"], found["sources"]) if previous is not None else None
     )
@@ -346,6 +351,8 @@ def summary(session: Session, job: Job, model: EngineModel) -> dict[str, Any]:
         if "draftId" in job.parameters
         else {}
     )
+    if "taskId" in job.parameters:
+        drafted = {"taskId": job.parameters["taskId"]}
     return {
         "jobId": job.id,
         **drafted,

@@ -82,15 +82,17 @@ def validate_change_set_relation(
     *,
     exclude_id: str | None = None,
     exclude_ids: set[str] | None = None,
+    added: bool = True,
 ) -> dict[str, Any]:
-    """Check one candidate relation against the relations at its own ends (S2b)."""
+    """Check one candidate relation against the relations at its own ends (S2b); one the record
+    already holds is not checked against the candidate criteria (``added=False``, D175)."""
     endpoints = lookup.objects([from_id, to_id])
     source, target = endpoints.get(from_id), endpoints.get(to_id)
     if source is None or target is None:
         raise rules.relation_endpoint_missing(from_id if source is None else to_id)
     excluded = frozenset({exclude_id, *(exclude_ids or set())} - {None})
     return rules.relation(
-        lookup, model, relation_type_key, source, target, attributes, excluded=excluded
+        lookup, model, relation_type_key, source, target, attributes, excluded=excluded, added=added
     )
 
 
@@ -346,6 +348,7 @@ def decide_change_set_object_update(
             relation.to_object_id,
             dict(relation.attributes or {}),
             exclude_id=relation.relation_id,
+            added=False,
         )
     _place(lookup, model, record)
     lookup.audit(

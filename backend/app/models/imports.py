@@ -119,7 +119,8 @@ class FlagsBinding(BaseModel):
 
 class RelatedParent(BaseModel):
     """Where a related record stands: the record ``matchBy`` finds for a fixed ``value``, or for the
-    row's cell in ``column``."""
+    row's cell in ``column``, through ``valueMap`` when one is named (a language word mapped to the
+    language record's ID, 0.16 AP6)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -127,6 +128,7 @@ class RelatedParent(BaseModel):
     matchBy: MatchBy
     value: str | None = None
     column: str | None = None
+    valueMap: str | None = None
     missing: Missing | None = Field(
         default=None,
         description=(
@@ -139,6 +141,8 @@ class RelatedParent(BaseModel):
     def one_source(self) -> RelatedParent:
         if (self.value is None) == (self.column is None):
             raise ValueError("A related record's parent has either a value or a column")
+        if self.valueMap is not None and self.column is None:
+            raise ValueError("A related record's parent maps the cell of its column only")
         return self
 
 
@@ -271,6 +275,13 @@ class SourceKey(BaseModel):
     field: Literal["name"] | None = None
     versionColumn: str | None = Field(default=None, min_length=1)
     nameColumn: str | None = Field(default=None, min_length=1)
+    storedUnique: bool = Field(
+        default=False,
+        description=(
+            "With attributeTypeKey: the attribute is not declared unique but its stored values"
+            " identify one record each; a value two records hold refuses the row"
+        ),
+    )
 
     @model_validator(mode="after")
     def one_form(self) -> SourceKey:

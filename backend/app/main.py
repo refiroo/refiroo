@@ -63,6 +63,7 @@ from .management.query_parameters import refuse_unknown_parameters
 from .management.reference import api_reference_router
 from .management.routers import (
     ai,
+    ai_tasks,
     attributes,
     authorization,
     change_sets,
@@ -579,11 +580,13 @@ def create_app() -> FastAPI:
     application.include_router(relation_matrix.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(jobs.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(imports.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(ai_tasks.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(source_files.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(model_mappings.router, dependencies=MANAGEMENT_DEPENDENCIES)
     if settings.integration_jobs_enabled:
         application.include_router(jobs.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
         application.include_router(imports.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
+        application.include_router(ai_tasks.write_router, dependencies=MANAGEMENT_DEPENDENCIES)
         application.include_router(
             model_mappings.write_router, dependencies=MANAGEMENT_DEPENDENCIES
         )

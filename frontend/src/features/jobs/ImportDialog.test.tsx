@@ -233,4 +233,9 @@ describe("ImportDialog (0.9 J4)", () => {
     );
     expect(screen.getByText(/^Read as exported from Values on /)).toHaveTextContent("2026");
   });
+  it("offers no way to the AI assistant, and starts with a file carried from its dialog (0.16 AP6a)", () => {
+    open({ context: { workspaceKey: "west" }, file });
+    expect(screen.queryByRole("button", { name: /AI assistant/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+  });
 });

@@ -45,7 +45,8 @@ export interface Job {
     | "migration"
     | "mappingInference"
     | "move"
-    | "aiProposal";
+    | "aiProposal"
+    | "aiTask";
   workspaceKey: string;
   changeSetId: string | null;
   state: JobState;

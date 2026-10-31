@@ -43,6 +43,8 @@ import type { ApiError } from "@/api/errors";
 import { JobNotificationsProvider, useJobEnded, useJobNotifications } from "@/features/jobs/JobNotifications";
 import { ExportDialog, type ExportStart } from "@/features/jobs/ExportDialog";
 import { ImportDialog, type ImportStart } from "@/features/jobs/ImportDialog";
+import { LoadWorkbookDialog, type LoadWorkbookStart } from "@/features/ai-tasks/LoadWorkbookDialog";
+import { useWorkspaceAiOffer } from "@/features/settings/useWorkspaceAiOffer";
 import { BrandMascot } from "@/ui/ProductMark";
 import { useCapabilities } from "@/features/settings/useSystem";
 
@@ -169,6 +171,20 @@ function AppContent({
   const [exportStart, setExportStart] = useState<ExportStart>();
   const onExport = capabilities?.integrationJobs.createJobs ? setExportStart : undefined;
   const [importStart, setImportStart] = useState<ImportStart>();
+  // The AI assistant loads a workbook where a provider is set and the person may use it (0.16 AP6a).
+  const aiOffer = useWorkspaceAiOffer();
+  const [workbookStart, setWorkbookStart] = useState<LoadWorkbookStart>();
+  const importTrigger = useRef<HTMLElement | null>(null);
+  // The page's data Import was opened on, kept for the ordinary import chosen from the assistant's dialog.
+  const importContext = useRef<ImportStart["context"]>(undefined);
+  // Closing either dialog returns focus to the control that opened Import: a dialog that replaced the
+  // other has no opener of its own to return to.
+  function closeImport() {
+    setImportStart(undefined);
+    setWorkbookStart(undefined);
+    const trigger = importTrigger.current;
+    window.setTimeout(() => trigger?.focus(), 0);
+  }
   // An import or a bulk change (0.9 K2) this tab started that wrote into the data shown reloads it,
   // and a change set's version. A bulk change may end after failing part way, its chunks applied.
   useJobEnded((job) => {
@@ -273,15 +289,22 @@ function AppContent({
   // and the person holds Bulk and import, which every import needs (Z5, D323).
   const onImport =
     capabilities?.integrationJobs.createJobs && !contextReadOnly && holds(permissions, "bulk")
-      ? () =>
-          setImportStart({
-            context: {
-              workspaceKey: activeRoute.workspaceKey,
-              ...(data.changeSet
-                ? { changeSet: { id: data.changeSet.id, name: data.changeSet.name, version: data.changeSet.version } }
-                : {}),
-            },
-          })
+      ? () => {
+          importTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          const context = {
+            workspaceKey: activeRoute.workspaceKey,
+            ...(data.changeSet
+              ? { changeSet: { id: data.changeSet.id, name: data.changeSet.name, version: data.changeSet.version } }
+              : {}),
+          };
+          // Where the assistant is offered it is the way in; the ordinary import is chosen from its dialog.
+          if (aiOffer) {
+            importContext.current = context;
+            setWorkbookStart({ workspaceKey: context.workspaceKey });
+            return;
+          }
+          setImportStart({ context });
+        }
       : undefined;
 
   function selectApplication(selected: ApplicationDefinition) {
@@ -370,13 +393,15 @@ function AppContent({
   }
 
   function changeWorkspace(workspaceKey: string) {
+    // The page goes along where the other model has it; where not, its start opens: nothing was asked for.
+    const carry = (next: Parameters<typeof navigate>[0]) => navigate(next, false, true);
     let changed: boolean;
     if (activeRoute.kind === "detail") {
       const matchingView = application.views.find(
         (view) => view.type === "table" && view.objectTypeKey === activeRoute.objectTypeKey,
       );
       const remembered = lastCollection(application.key);
-      changed = navigate(
+      changed = carry(
         remembered && remembered.viewKey === matchingView?.key
           ? {
               ...remembered,
@@ -390,14 +415,14 @@ function AppContent({
           : viewRoute(application, matchingView?.key ?? application.defaultView, workspaceKey),
       );
     } else if (activeRoute.kind === "changeSets" || activeRoute.kind === "publications") {
-      changed = navigate({ ...activeRoute, workspaceKey });
+      changed = carry({ ...activeRoute, workspaceKey });
     } else if (activeRoute.kind === "group") {
-      changed = navigate({ ...activeRoute, workspaceKey, changeSetId: undefined, publicationId: undefined });
+      changed = carry({ ...activeRoute, workspaceKey, changeSetId: undefined, publicationId: undefined });
     } else if (activeRoute.kind === "changeSetChanges") {
       // A change set belongs to one workspace; another workspace opens its live data.
-      changed = navigate(viewRoute(application, application.defaultView, workspaceKey));
+      changed = carry(viewRoute(application, application.defaultView, workspaceKey));
     } else {
-      changed = navigate({
+      changed = carry({
         ...activeRoute,
         workspaceKey,
         changeSetId: undefined,
@@ -821,12 +846,28 @@ function AppContent({
         <ImportDialog
           model={model}
           start={importStart}
-          onClose={() => setImportStart(undefined)}
+          onClose={closeImport}
           onStarted={(job) => {
             setImportStart(undefined);
             // The preview is the screen the user came for: its page opens at once (D91).
             notifications.follow(job, { announce: false });
             navigate({ kind: "settings", page: "jobs", jobId: job.id });
+          }}
+        />
+      )}
+      {workbookStart && aiOffer && (
+        <LoadWorkbookDialog
+          start={workbookStart}
+          offer={aiOffer}
+          onClose={closeImport}
+          onImportManually={(file) => {
+            // The person chose the ordinary import: its dialog takes this one's place with the same data.
+            setImportStart({ context: importContext.current, ...(file ? { file } : {}) });
+            setWorkbookStart(undefined);
+          }}
+          onStarted={(task) => {
+            setWorkbookStart(undefined);
+            navigate({ kind: "settings", page: "ai-tasks", taskId: task.id });
           }}
         />
       )}

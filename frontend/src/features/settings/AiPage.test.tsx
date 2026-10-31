@@ -33,7 +33,14 @@ const on: AiStatus = {
   sampleValues: 5,
   logContent: true,
   logContentDays: 7,
-  features: [{ purpose: "modelNames", name: "Clearer names for an inference", needs: "structure", available: true }],
+  features: [
+    {
+      purpose: "mappingTarget",
+      name: "Targets for the unmapped values of a mapping view",
+      needs: "values",
+      available: true,
+    },
+  ],
   totals: { days: 30, calls: 2, failed: 1, tokensIn: 1200, tokensOut: 300, bytesIn: 1, bytesOut: 1 },
 };
 
@@ -80,7 +87,7 @@ describe("Settings › AI (0.16 AP1)", () => {
       call({ id: "a" }),
       call({
         id: "b",
-        purpose: "modelNames",
+        purpose: "mappingTarget",
         outcome: "failed",
         failureKind: "unreachable",
         failure: "The provider could not be reached.",
@@ -94,7 +101,7 @@ describe("Settings › AI (0.16 AP1)", () => {
     expect(screen.getByText("For 7 days")).toBeTruthy();
     expect(screen.getByText("Available")).toBeTruthy();
     const rows = await screen.findAllByRole("row");
-    const failed = rows.find((row) => within(row).queryByText("Names for an inference"))!;
+    const failed = rows.find((row) => within(row).queryByText("Targets for unmapped values"))!;
     expect(within(failed).getByText("Failed")).toBeTruthy();
     expect(within(failed).getByText("The provider could not be reached.")).toBeTruthy();
     expect(within(failed).getByText("Show what was sent and answered")).toBeTruthy();

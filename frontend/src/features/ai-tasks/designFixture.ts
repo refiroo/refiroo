@@ -1,0 +1,156 @@
+/** A design task as the server sends it, for the design views' tests (0.16 AP6). */
+
+import type { AiTask, AiTaskDesignCheck } from "@/types";
+
+export const designCheck: AiTaskDesignCheck = {
+  dryRunJobId: "job-1",
+  ranAt: "2026-10-29T10:00:00Z",
+  rounds: 1,
+  sheets: [
+    {
+      sheet: "Timetables",
+      objectTypeKey: "timetable",
+      structure: false,
+      rows: 120,
+      created: 118,
+      updated: 0,
+      unchanged: 0,
+      refused: 2,
+    },
+    {
+      sheet: "Translations",
+      objectTypeKey: "translation",
+      structure: false,
+      rows: 40,
+      created: 0,
+      updated: 40,
+      unchanged: 0,
+      refused: 0,
+    },
+    {
+      sheet: "Structure Domain",
+      objectTypeKey: "domain",
+      structure: true,
+      rows: 2,
+      created: 2,
+      updated: 0,
+      unchanged: 0,
+      refused: 0,
+    },
+    {
+      sheet: "Structure Codelist",
+      objectTypeKey: "codelist",
+      structure: true,
+      rows: 3,
+      created: 3,
+      updated: 0,
+      unchanged: 0,
+      refused: 0,
+    },
+  ],
+  refused: [
+    {
+      sheet: "Timetables",
+      objectTypeKey: "timetable",
+      code: "REFERENCE_NOT_FOUND",
+      rows: 2,
+      examples: [{ row: 14, message: "No category named Walk-in.", details: null }],
+    },
+  ],
+  summary: { created: 123, updated: 40, unchanged: 0, refused: 2, relationships: 3 },
+};
+
+export const designTask = (): AiTask => ({
+  id: "task-1",
+  workspaceKey: "west",
+  fileName: "scheduling.xlsx",
+  sourceFileId: "file-1",
+  words: "A scheduling model",
+  state: "checked",
+  version: 4,
+  jobId: null,
+  phase: null,
+  createdAt: "2026-10-29T09:00:00Z",
+  updatedAt: "2026-10-29T10:00:00Z",
+  requestedBy: null,
+  reading: null,
+  plan: null,
+  check: designCheck,
+  draftId: "draft-1",
+  notes: [],
+  result: null,
+  design: {
+    summary: "The workbook lists timetables with a category. The model gets a Scheduling application.",
+    operations: [
+      { kind: "addApplication", key: "scheduling", name: "Scheduling", description: "Timetables" },
+      {
+        kind: "addObjectType",
+        applicationKey: "scheduling",
+        key: "timetable",
+        name: "Timetable",
+        pluralName: "Timetables",
+        parent: null,
+      },
+      { kind: "addAttributeType", key: "starts", name: "Starts", valueType: "datetime", features: [] },
+      { kind: "attachAttribute", objectType: "timetable", attributeType: "starts", required: true },
+      { kind: "addRelationType", key: "has-category", name: "has category", reverseName: "categorises" },
+      {
+        kind: "allowRelation",
+        relationType: "has-category",
+        from: "timetable",
+        to: "codelist",
+        cardinality: "many-to-one",
+      },
+      { kind: "setRelease", name: "scheduling" },
+    ],
+    records: [
+      { ref: "r1", objectTypeKey: "domain", applicationKey: null, name: "Scheduling", attributes: {}, parent: null },
+      {
+        ref: "r2",
+        objectTypeKey: "codelist",
+        applicationKey: null,
+        name: "Timetable categories",
+        attributes: {},
+        parent: null,
+      },
+    ],
+    profile: {
+      sources: [
+        {
+          sheet: "Timetables",
+          objectTypeKey: "timetable",
+          applicationKey: "scheduling",
+          key: { attributeTypeKey: "starts" },
+          columns: [
+            { column: "Starts", attributeTypeKey: "starts" },
+            { column: "Note", ignore: true },
+          ],
+        },
+        {
+          sheet: "Translations",
+          objectTypeKey: "codelist",
+          applicationKey: "scheduling",
+          key: { field: "name" },
+          record: "existing",
+          columns: [{ column: "German", field: "name" }],
+        },
+      ],
+    },
+    links: [
+      {
+        relationTypeKey: "has-category",
+        from: { objectTypeKey: "timetable", where: [{ field: "name", op: "contains", value: "Visit" }] },
+        to: { objectTypeKey: "codelist" },
+        reason: "Every visit is categorised.",
+      },
+    ],
+    questions: [
+      { text: "Is a visit one timetable?", options: ["Yes", "No"], assumed: "Yes" },
+      { text: "Keep walk-ins?", options: ["Keep", "Drop"], assumed: null },
+    ],
+    answers: { "Keep walk-ins?": "Drop" },
+    rounds: 1,
+    origin: null,
+    outcome: { links: [{ rule: {}, from: 3, to: 1, pairs: 3 }] } as never,
+  },
+});

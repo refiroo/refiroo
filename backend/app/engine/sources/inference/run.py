@@ -48,14 +48,10 @@ from ...model.compiler import compile_model
 from ...model.diagnostics import ModelDiagnostic
 from ...model.drafts import load_draft, load_draft_for_update
 from ...model.registry import resolve_model_snapshot
-from ...proposals import calls as ai_calls
-from ...proposals.context import within_window, workbook_profile
-from ...proposals.registry import AiConfiguration
 from ...workspaces.catalogue import resolve_workspace
 from ..draft_profile import current_source
 from ..profiling import PLACEHOLDER_VALUES
 from ..store import compared_workspace, require_profile
-from . import assistant as assistants
 from .build import Builder, Proposal
 from .compare import (
     bound,
@@ -88,11 +84,8 @@ class InvalidDraft(Exception):
 # --- submitting -----------------------------------------------------------------------------------
 
 
-def submit_inference(
-    session: Session, draft_id: str, request: InferenceRequest, *, retention_days: int, assistant: bool = False
-) -> Job:
-    """Queue the draft's inference and stop an earlier one still running; commits. ``assistant``
-    is whether the provider is asked too, as the route decided (0.16 AP1)."""
+def submit_inference(session: Session, draft_id: str, request: InferenceRequest, *, retention_days: int) -> Job:
+    """Queue the draft's inference and stop an earlier one still running; commits."""
     draft = load_draft(session, draft_id)
     source = current_source(session, draft)
     if source is None:
@@ -136,7 +129,6 @@ def submit_inference(
             "mode": request.mode,
             "applicationKey": request.applicationKey,
             "applicationName": request.applicationName,
-            "assistant": assistant,
             "file": {"name": source.name, "format": source.format, "bytes": source.bytes},
         },
         total=None,
@@ -212,18 +204,11 @@ def _ownable(element: str) -> bool:
 # --- the job ----------------------------------------------------------------------------------------
 
 
-def run_inference(
-    session: Session,
-    job: Job,
-    *,
-    ai: AiConfiguration | None = None,
-    record: Callable[[Any], None] | None = None,
-    check: Callable[[], None] = lambda: None,
-) -> None:
+def run_inference(session: Session, job: Job, *, check: Callable[[], None] = lambda: None) -> None:
     """Find, build and compare the proposals of the job's draft and store them; the job completes.
-    The caller commits. ``check`` is called between the phases (reading, finding, building, the
-    assistant) and raises to stop: it renews the job's lease and looks for a cancel request, as a
-    newer inference of the draft sends (0.10 R-F6)."""
+    The caller commits. ``check`` is called between the phases (reading, finding, building) and
+    raises to stop: it renews the job's lease and looks for a cancel request, as a newer inference
+    of the draft sends (0.10 R-F6)."""
     parameters = job.parameters
     draft = load_draft(session, parameters["draftId"])
     source = session.scalar(select(SourceFile).where(SourceFile.public_id == parameters["sourceFileId"]))
@@ -277,18 +262,6 @@ def run_inference(
     warnings += builder.warnings
     if not proposals:
         warnings.append("No sheet showed a shape to propose from: nothing is proposed, map the workbook by hand")
-    # The assistant, when the person asked for it (the route decided they may, AP-D7) and a
-    # provider is still set (0.16 AP1).
-    asked = bool(parameters.get("assistant")) and ai is not None and ai.offers("modelNames")
-    assistant: dict[str, Any] = {}
-    if asked and ai is not None:
-        requester = ai_calls.Requester(job.requested_by_user_id, job.requested_by_client_id)
-        proposals, assistant = _assisted(
-            session, job, workbook, proposals, ai, requester, record or ai_calls.record_in(session)
-        )
-        if assistant.get("failure"):
-            warnings.append(f"The assistant failed ({assistant['failure']}); the proposals of the rules stand")
-        check()
     session.execute(delete(ModelDraftProposal).where(ModelDraftProposal.draft_id == draft.id))
     session.flush()
     for position, proposal in enumerate(proposals):
@@ -309,10 +282,6 @@ def run_inference(
             "proposals": len(proposals),
             "disagreements": disagreements,
             "warnings": warnings,
-            "assistant": asked,
-            # What the assistant did, for the person: its model, the names it suggested and those
-            # offered (above the confidence floor and different), or what failed.
-            **({"assistantOutcome": assistant} if asked else {}),
         },
     }
 
@@ -548,70 +517,6 @@ def _requirements(proposals: list[Proposal]) -> None:
             creators.setdefault(element, proposal.id)
 
 
-def _assisted(
-    session: Session,
-    job: Job,
-    workbook: Any,
-    proposals: list[Proposal],
-    ai: AiConfiguration,
-    requester: ai_calls.Requester,
-    record: Callable[[Any], None],
-) -> tuple[list[Proposal], dict[str, Any]]:
-    """The assistant's names as proposals, and what it did: ``model``, ``suggested`` (names it
-    answered), ``offered`` (those kept) and ``failure``."""
-    types = [
-        assistants.AssistantType(p.id, o["key"], o["name"])
-        for p in proposals
-        if p.state == "open"
-        for o in p.operations
-        if o.get("kind") == "addObjectType"
-    ]
-    if not types:
-        return proposals, {"model": None, "suggested": 0, "offered": 0, "failure": None}
-    # The tables the rules propose from: the sheets read whole and the lists of sheets laid out
-    # for reading. Their profile is read (AP-D14), never a row.
-    tables = [*workbook.sheets, *getattr(workbook, "blocks", [])]
-    profile = workbook_profile(
-        ai.policy,
-        tables,
-        lambda shown: within_window(assistants.characters(shown, types), ai.context_tokens),
-    )
-    # A provider may take minutes, a local model longer. Say so on the job, and end this read
-    # transaction first, so the job holds none open while it waits: the database ends a transaction
-    # left idle (DATABASE_IDLE_TRANSACTION_TIMEOUT). Nothing is written before this point.
-    if session.new or session.dirty or session.deleted:
-        raise RuntimeError("The inference wrote before asking the assistant")
-    job.stage = "assistant"
-    session.commit()
-    outcome = ai_calls.ask(
-        ai, assistants.request(profile, types), record=record, requester=requester, job_id=job.id
-    )
-    job.stage = "inferring"
-    if outcome.answer is None:
-        return proposals, {"model": outcome.model, "suggested": 0, "offered": 0, "failure": outcome.failure}
-    names = {(t.proposal, t.key): t.name for t in types}
-    kept = assistants.suggestions(outcome.answer, types, ai.min_confidence)  # type: ignore[arg-type]
-    for suggestion in kept:
-        body = assistants.proposal_body(
-            suggestion, names[(suggestion.proposal, suggestion.key)], provider=outcome.provider, model=outcome.model
-        )
-        proposals.append(
-            Proposal(
-                pattern="assistant",
-                sheet=None,
-                columns=[],
-                summary=body["summary"],
-                evidence=body["evidence"],
-                operations=body["operations"],
-                anchor=f"assistant|{suggestion.key}",
-                signature=f"assistant|{suggestion.key}|{suggestion.name}",
-                requires=[suggestion.proposal],
-            )
-        )
-    suggested = len(outcome.answer.suggestions)  # type: ignore[attr-defined]
-    return proposals, {"model": outcome.model, "suggested": suggested, "offered": len(kept), "failure": None}
-
-
 # --- reads ----------------------------------------------------------------------------------------
 
 
@@ -682,11 +587,6 @@ def read_inference(session: Session, draft: ModelDraft) -> dict[str, Any]:
         "counts": counts,
         "disagreements": report.get("disagreements") or [],
         "warnings": report.get("warnings") or [],
-        "assistant": bool(job.parameters.get("assistant")),
-        "assistantOutcome": report.get("assistantOutcome"),
-        # While it runs: "assistant" when it waits for the AI provider (0.16 AP1).
-        # (A claimed inference's stage is "inferring"; only the assistant's wait is a phase.)
-        "phase": "assistant" if job.state in RUNNING and job.stage == "assistant" else None,
         "proposed": proposed,
         "error": job.error,
     }
@@ -790,7 +690,7 @@ def _origin_of(proposal: ModelDraftProposal, job: Job) -> Callable[[list[Applied
             "anchor": body.get("anchor"),
             "signature": proposal.signature,
             "keys": body.get("keys") or {},
-            # Who proposed it, when not the rules: the assistant's provenance (0.16 AP-D5).
+            # Who proposed it, when not the rules: the provenance of an AI proposal (0.16 AP-D5).
             **({"proposedBy": body["evidence"]["origin"]} if (body.get("evidence") or {}).get("origin") else {}),
             "created": created,
             "snapshot": snapshot(model, profile, touched),

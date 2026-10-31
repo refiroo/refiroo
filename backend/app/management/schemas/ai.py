@@ -13,7 +13,7 @@ SendLevel = Literal["structure", "samples", "values"]
 class AiFeature(BaseModel):
     """A feature that asks the provider: whether it is offered, and the least it needs sent."""
 
-    purpose: Literal["modelNames", "mappingTarget"]
+    purpose: Literal["mappingTarget", "workbookLoad"]
     name: str
     needs: SendLevel
     available: bool
@@ -35,7 +35,9 @@ class AiCallResponse(BaseModel):
     ``AI_LOG_CONTENT`` keeps them."""
 
     id: str
-    purpose: Literal["connectionTest", "modelNames", "mappingTarget"]
+    # A call keeps the purpose it was made for: ``modelNames`` (the inference's names, removed in
+    # 0.16 AP6a) stays readable on the calls recorded before.
+    purpose: Literal["connectionTest", "mappingTarget", "workbookLoad", "modelNames"]
     provider: str
     model: str
     sendLevel: SendLevel

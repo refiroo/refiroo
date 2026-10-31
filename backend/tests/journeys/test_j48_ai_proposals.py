@@ -1,21 +1,18 @@
 """J48 — Use AI proposals (USER_JOURNEYS.md § AI proposals, 0.16 AP1).
 
-An operator sets an AI provider up in the environment and sees it ready on Settings › AI; a model
-administrator's inference asks it for better names, which arrive as proposals marked with their
-provenance and become steps that say so once applied; a caller without Use AI proposals, an
-instance without a provider, a failing provider and a low send level each leave the deterministic
-inference standing. The provider is the deterministic fake (``app.engine.proposals.fake``, AP-D11),
-which records what it was sent. Every case runs on two configurations through the public API.
+An operator sets an AI provider up in the environment and sees it ready on Settings › AI and
+sends a test; an instance without a provider and a failing provider each say so. The features that
+ask the provider have their own journeys (J49). The provider is the deterministic fake
+(``app.engine.proposals.fake``, AP-D11). Every case runs on two configurations through the public
+API.
 """
 
-import time
 from typing import Any
 
 import pytest
-import workbooks
 from scenario import ok, refused
-from test_j34_onboard import _all, _draft, _profiled, _proposals, _run, _workspace
-from test_j40_authorization import _client
+from sqlalchemy import create_engine, text
+from test_j34_onboard import _all
 
 from app.engine.proposals import fake
 from app.engine.proposals.provider import ProviderError
@@ -30,34 +27,6 @@ def _fresh_fake():
     fake.reset()
 
 
-def _prepared(world) -> dict[str, Any]:
-    """A draft of the active model with W1 profiled in a new workspace."""
-    workspace = _workspace(world)
-    draft = _draft(world)
-    book = workbooks.w1(rows=120)
-    _profiled(
-        world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace
-    )
-    return draft
-
-
-def _infer(world, draft: dict[str, Any], **body: Any) -> dict[str, Any]:
-    started = ok(
-        world.api.post(
-            f"/model-drafts/{draft['id']}/inference", {"mode": "newApplication", **body}
-        ),
-        202,
-    )
-    _run(world)
-    done = ok(world.api.get(f"/model-drafts/{draft['id']}/inference"))
-    assert (done["jobId"], done["state"]) == (started["jobId"], "completed"), done
-    return done
-
-
-def _assistant(proposals: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [p for p in proposals if p["pattern"] == "assistant"]
-
-
 def _calls(world) -> list[dict[str, Any]]:
     return _all(world, "/ai/calls")
 
@@ -67,7 +36,7 @@ def _calls(world) -> list[dict[str, Any]]:
 def test_an_operator_sees_the_provider_ready_and_every_call_it_made(world):
     """Given a provider set in the environment, when the operator opens Settings › AI and sends the
     test, then the status names the provider and model, says no key is shown, offers the
-    inference's names at send level values, and the test is the newest call, answered, recorded
+    mapping targets and workbook load features at send level values, and the test is the newest call, answered, recorded
     with who sent it and nothing of its content."""
     system = ok(world.api.get("/system"))
     assert system["ai"] == {
@@ -80,8 +49,8 @@ def test_an_operator_sees_the_provider_ready_and_every_call_it_made(world):
     assert (status["configured"], status["provider"], status["model"]) == (True, "fake", fake.MODEL)
     assert (status["keySet"], status["sendLevel"], status["sampleValues"]) == (False, "values", 20)
     assert [(f["purpose"], f["available"]) for f in status["features"]] == [
-        ("modelNames", True),
         ("mappingTarget", True),
+        ("workbookLoad", True),
     ]
     assert "apiKey" not in str(status).replace("keySet", "")
 
@@ -109,112 +78,17 @@ def test_with_content_logging_on_a_call_keeps_what_was_sent_and_answered(world):
     assert tested["content"]["context"] == {"test": True}
 
 
-@pytest.mark.journey("J48.2")
-@pytest.mark.settings(AI_PROVIDER=FAKE)
-def test_a_model_administrator_gets_named_proposals_marked_as_the_assistants(world):
-    """Given a provider and a model administrator, when their inference runs, then the provider is
-    sent the tables with each column's profile over every row and the types the rules add, each better name above the floor is
-    a proposal marked machine-proposed with provider, model, confidence and reason, and once applied
-    the step's origin says who proposed it; the call names the job and the person."""
-    draft = _prepared(world)
-    read = _infer(world, draft)
-    assert read["assistant"] is True and read["warnings"] == []
-    proposals = _proposals(world, draft)
-    named = _assistant(proposals)
-    assert named, [p["pattern"] for p in proposals]
-    sent = fake.seen[-1]
-    assert sent.purpose == "modelNames" and sent.context["types"]
-    # The profile counts every row of the sheet, beyond any first-rows window, and no row is sent.
-    tables = sent.context["tables"]
-    assert "sheets" not in sent.context
-    assert any(t["rows"] > 100 for t in tables)
-    columns = [c for t in tables for c in t["columns"]]
-    assert all(c["rows"] > 50 for c in columns if c["rows"]) and any(
-        c["distinct"] > 50 for c in columns
-    )
-    assert all(c["valueType"] and "filled" in c for c in columns)
-    assert any(c.get("values") for c in columns)
-    origin = named[0]["evidence"]["origin"]
-    assert origin == {
-        "kind": "ai",
-        "provider": "fake",
-        "model": fake.MODEL,
-        "promptVersion": "model-names/2",
-        "confidence": 0.8,
-        "reason": "Written out from the header",
-    }
-
-    first = named[0]
-    version = ok(world.api.get(f"/model-drafts/{draft['id']}"))["version"]
-    ok(
-        world.api.post(
-            f"/model-drafts/{draft['id']}/inference/application",
-            {"expectedVersion": version},
-        )
-    )
-    entries = _all(world, f"/model-drafts/{draft['id']}/operations")
-    assistant_steps = [e for e in entries if e["origin"].get("proposalId") == first["id"]]
-    assert assistant_steps and assistant_steps[0]["origin"]["proposedBy"] == origin
-    assert assistant_steps[0]["author"]["kind"] == "client"
-    outcome = read["assistantOutcome"]
-    assert (outcome["model"], outcome["failure"], read["phase"]) == (fake.MODEL, None, None)
-    assert outcome["offered"] == len(named) and outcome["suggested"] >= outcome["offered"] > 0
-    call = _calls(world)[0]
-    assert (call["purpose"], call["outcome"], call["jobId"]) == (
-        "modelNames",
-        "answered",
-        read["jobId"],
-    )
-    assert call["requestedBy"]["kind"] == "client"
-
-
-@pytest.mark.journey("J48.3")
-@pytest.mark.settings(AI_PROVIDER=FAKE)
-def test_a_caller_without_use_ai_proposals_is_never_offered_the_assistant(world):
-    """Given a provider and a client whose role holds Model authoring but not Use AI proposals, when
-    it runs the inference, then the provider is not asked and nothing is recorded; asking for the
-    assistant explicitly is refused with 403 naming the group."""
-    draft = _prepared(world)
-    role = ok(
-        world.api.post("/roles", {"name": "Drafts only", "actionGroups": ["model-authoring"]}), 201
-    )
-    _, author = _client(world, "Drafts only", (role["key"], {"instance": True}))
-    before = len(_calls(world))
-    read = _infer(author, draft)
-    assert read["assistant"] is False and not _assistant(_proposals(world, draft))
-    assert fake.seen == [] and len(_calls(world)) == before
-    error = refused(
-        author.api.post(
-            f"/model-drafts/{draft['id']}/inference", {"mode": "newApplication", "assistant": True}
-        ),
-        403,
-        "FORBIDDEN",
-    )
-    assert error["details"]["groups"] == ["ai-proposals"]
-
-
 @pytest.mark.journey("J48.4")
 def test_without_a_provider_nothing_is_sent_and_no_ai_action_is_offered(world):
-    """Given no provider, then the system says so, no feature is offered, the test and an explicit
-    assistant are refused with 409 AI_NOT_CONFIGURED, and the inference runs on its rules alone
-    with no call recorded."""
+    """Given no provider, then the system says so, no feature is offered, and the test is refused
+    with 409 AI_NOT_CONFIGURED with no call recorded."""
     assert ok(world.api.get("/system"))["ai"]["configured"] is False
     status = ok(world.api.get("/ai/status"))
     assert status["configured"] is False
     assert [f["available"] for f in status["features"]] == [False, False]
-    refused(world.api.post("/ai/test", {}), 409, "AI_NOT_CONFIGURED")
-    draft = _prepared(world)
-    refused(
-        world.api.post(
-            f"/model-drafts/{draft['id']}/inference", {"mode": "newApplication", "assistant": True}
-        ),
-        409,
-        "AI_NOT_CONFIGURED",
-    )
     before = len(_calls(world))
-    read = _infer(world, draft)
-    assert read["assistant"] is False and _proposals(world, draft)
-    assert not _assistant(_proposals(world, draft)) and len(_calls(world)) == before
+    refused(world.api.post("/ai/test", {}), 409, "AI_NOT_CONFIGURED")
+    assert len(_calls(world)) == before
 
 
 @pytest.mark.journey("J48.5")
@@ -227,96 +101,32 @@ def test_without_a_provider_nothing_is_sent_and_no_ai_action_is_offered(world):
     ],
     ids=["unreachable", "out-of-shape"],
 )
-def test_a_failing_provider_leaves_the_rules_proposals_standing(world, answer, kind):
-    """Given a provider that cannot be reached, or answers out of shape, when the inference runs,
-    then it completes with the rules' proposals and a warning saying the assistant failed and why,
-    and the failed call is recorded with its kind."""
-    fake.script("modelNames", answer)
-    draft = _prepared(world)
-    read = _infer(world, draft)
-    assert read["assistant"] is True
-    assert any(
-        w.startswith("The assistant failed (") and w.endswith("the proposals of the rules stand")
-        for w in read["warnings"]
-    )
-    assert _proposals(world, draft) and not _assistant(_proposals(world, draft))
-    call = _calls(world)[0]
-    assert (call["outcome"], call["failureKind"]) == ("failed", kind)
+def test_a_failing_provider_gives_a_failed_call_with_its_kind(world, answer, kind):
+    """Given a provider that cannot be reached, or answers out of shape, when the operator sends
+    the test, then the call is answered as failed with its kind and is the newest one recorded."""
+    fake.script("connectionTest", answer)
+    tested = ok(world.api.post("/ai/test", {}))
+    assert (tested["outcome"], tested["failureKind"]) == ("failed", kind)
+    assert _calls(world)[0]["id"] == tested["id"]
+    assert ok(world.api.get("/ai/status"))["lastCall"]["failureKind"] == kind
 
 
-@pytest.mark.journey("J48.6")
-@pytest.mark.settings(AI_PROVIDER=FAKE, AI_SEND_LEVEL="structure")
-def test_at_send_level_structure_no_value_of_the_file_leaves(world):
-    """Given AI_SEND_LEVEL structure, when the inference asks the assistant, then the provider is
-    sent table names, each column's header and counts, and type names, and not one value."""
-    draft = _prepared(world)
-    _infer(world, draft)
-    sent = fake.seen[-1].context
-    columns = [c for t in sent["tables"] for c in t["columns"]]
-    assert columns and all(
-        not {"values", "placeholders"} & set(c) and c["rows"] > 50 for c in columns if c["rows"]
-    )
-    assert any(c["distinct"] > 50 for c in columns)
-    assert _calls(world)[0]["sendLevel"] == "structure"
-
-
-@pytest.mark.journey("J48.6")
-@pytest.mark.settings(AI_PROVIDER=FAKE, AI_SEND_LEVEL="samples", AI_SAMPLE_VALUES="3")
-def test_at_send_level_samples_at_most_the_sample_rows_leave(world):
-    """Given AI_SEND_LEVEL samples and AI_SAMPLE_VALUES 3, then each column is sent with its counts
-    over every row and at most 3 frequent values."""
-    draft = _prepared(world)
-    _infer(world, draft)
-    columns = [c for t in fake.seen[-1].context["tables"] for c in t["columns"]]
-    assert columns and all(len(c.get("values", [])) <= 3 for c in columns)
-    assert any(c.get("values") for c in columns) and any(c["distinct"] > 50 for c in columns)
-
-
-@pytest.mark.journey("J48.7")
-@pytest.mark.settings(AI_PROVIDER=FAKE, AI_MIN_CONFIDENCE="0.9")
-def test_a_name_below_the_confidence_floor_is_not_offered(world):
-    """Given AI_MIN_CONFIDENCE 0.9 and an answer at 0.8, then the inference offers no assistant
-    proposal, and the call still counts as answered."""
-    draft = _prepared(world)
-    read = _infer(world, draft)
-    assert not _assistant(_proposals(world, draft))
-    assert _calls(world)[0]["outcome"] == "answered"
-    # The person is told the assistant answered and nothing was offered (found on a real model).
-    outcome = read["assistantOutcome"]
-    assert outcome["suggested"] > 0 and outcome["offered"] == 0 and outcome["failure"] is None
-
-
-@pytest.mark.journey("J48.7")
+@pytest.mark.journey("J48.1")
 @pytest.mark.settings(AI_PROVIDER=FAKE)
-def test_while_the_assistant_answers_the_inference_reads_as_waiting_for_it(world):
-    """Given an inference asking the assistant, when its read is asked while the provider has not
-    answered yet, then it reads as checking in phase assistant; once completed, phase is gone (found
-    by the browser runner: a read of a running inference was refused)."""
-    draft = _prepared(world)
-    seen: list[dict[str, Any]] = []
-
-    def answering(context):
-        seen.append(ok(world.api.get(f"/model-drafts/{draft['id']}/inference")))
-        return fake.DEFAULTS["modelNames"](context)
-
-    fake.script("modelNames", answering)
-    read = _infer(world, draft)
-    assert [(r["state"], r["phase"]) for r in seen] == [("checking", "assistant")]
-    assert read["phase"] is None
-
-
-@pytest.mark.journey("J48.8")
-@pytest.mark.settings(AI_PROVIDER=FAKE, DATABASE_IDLE_TRANSACTION_TIMEOUT="1")
-def test_a_slow_provider_does_not_hold_the_inference_in_an_idle_transaction(world):
-    """Given a provider that answers after longer than the database lets a transaction sit idle,
-    when the inference asks it, then the inference completes with its names: it held no
-    transaction open while waiting (found with a local model, 2026-10-28)."""
-
-    def slow(context):
-        time.sleep(2.5)
-        return fake.DEFAULTS["modelNames"](context)
-
-    fake.script("modelNames", slow)
-    draft = _prepared(world)
-    read = _infer(world, draft)
-    assert read["assistantOutcome"]["offered"] > 0 and _assistant(_proposals(world, draft))
+def test_a_call_made_for_a_feature_since_removed_stays_readable(world):
+    """Given the newest call was made for the inference's names, a feature removed in 0.16 AP6a
+    (written by this test, as calls recorded before the removal hold it), when the operator opens
+    Settings › AI, then the status and the calls list answer with it under its own purpose. Found
+    on the user's instance: the status failed with an internal error."""
+    tested = ok(world.api.post("/ai/test", {}))
+    engine = create_engine(world.database)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text("UPDATE ai_calls SET purpose = 'modelNames' WHERE public_id = :id"),
+                {"id": tested["id"]},
+            )
+    finally:
+        engine.dispose()
+    assert ok(world.api.get("/ai/status"))["lastCall"]["purpose"] == "modelNames"
+    assert _calls(world)[0]["purpose"] == "modelNames"

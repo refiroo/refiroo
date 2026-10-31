@@ -19,7 +19,6 @@ import { errorMessage } from "@/api/errors";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
 import { WORKBOOK_ACCEPT } from "@/features/model-editor/AddWorkbookDialog";
-import { useAssistantOffer } from "@/features/model-editor/AssistantChoice";
 import { proposeWhenProfiled } from "@/features/model-editor/proposing";
 import { nameOfFile, proposeRequest, ProposeFields, type ProposeChoice } from "@/features/model-editor/ProposeFields";
 import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
@@ -66,7 +65,6 @@ export function CreateDraftDialog({
   const [importText, setImportText] = useState("{}");
   const [workbook, setWorkbook] = useState<File>();
   const [propose, setPropose] = useState<ProposeChoice>({ mode: "newApplication", applicationName: "" });
-  const assistantOffer = useAssistantOffer();
   const [workspace, setWorkspace] = useState("");
   // A draft created whose workbook did not upload: trying again uploads to it, creating no second one.
   const [created, setCreated] = useState<ModelDraft>();
@@ -117,7 +115,7 @@ export function CreateDraftDialog({
           );
         }
       }
-      const request = workbook ? proposeRequest(propose, Boolean(assistantOffer)) : undefined;
+      const request = workbook ? proposeRequest(propose) : undefined;
       if (request) proposeWhenProfiled(draft.id, request);
       onCreated(draft);
     } catch (cause) {
@@ -171,7 +169,7 @@ export function CreateDraftDialog({
             )}
           </FormField>
         )}
-        {seed.workbook && <ProposeFields value={propose} onChange={setPropose} start assistantOffer={assistantOffer} />}
+        {seed.workbook && <ProposeFields value={propose} onChange={setPropose} start />}
         {seed.workbook && (
           <WorkspaceField
             label="Compare with the records of"

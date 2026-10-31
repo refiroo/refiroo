@@ -1239,3 +1239,120 @@ fieldset.settings-section legend {
 .app-shell-full > .workspace-main {
   grid-column: 1;
 }
+
+/* The journey bar (`app/JourneyBar`): a row of its own right below the top bar, across the full
+   width and sticky under it. The rail and the content move one row down; the band and the model
+   editor leave room for it through `--journey-height`. */
+.app-shell-journey {
+  grid-template-rows: var(--topbar-height) auto 1fr;
+}
+.app-shell-journey > .journey-bar {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.app-shell-journey > .workspace-sidebar,
+.app-shell-journey > .application-rail,
+.app-shell-journey > .settings-rail {
+  grid-row: 3;
+}
+.app-shell-journey .data-context-band {
+  top: calc(var(--topbar-height) + var(--journey-height, 0px));
+}
+.journey-bar {
+  position: sticky;
+  top: var(--topbar-height);
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-5);
+  padding: var(--space-2) var(--space-5);
+  background: var(--home-continue-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.journey-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+.journey-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.journey-marker {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+}
+.journey-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+.journey-done {
+  color: var(--text-secondary);
+}
+.journey-done .journey-marker {
+  color: var(--status-success-text);
+  border-color: var(--status-success-line);
+  background: var(--status-success-surface);
+}
+.journey-current {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+.journey-current .journey-marker {
+  border-color: var(--action-primary);
+  color: var(--action-primary);
+}
+.journey-current .journey-dot {
+  opacity: 1;
+}
+.journey-failed {
+  color: var(--status-error-text);
+  font-weight: 650;
+}
+.journey-failed .journey-marker {
+  border-color: var(--status-error-marker);
+  background: var(--status-error-surface);
+}
+.journey-summary {
+  display: none;
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+.journey-now {
+  display: flex;
+  flex: 1 1 360px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2) var(--space-4);
+}
+.journey-sentence {
+  flex: 1 1 260px;
+  margin: 0;
+  font-size: var(--text-md);
+}
+.journey-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.model-editor-main > .model-editor {
+  height: calc(100dvh - var(--topbar-height) - var(--journey-height, 0px));
+}

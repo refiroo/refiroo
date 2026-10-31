@@ -155,6 +155,10 @@ can complete the task in the application; "API" means another system can.
   made. People allowed to use AI proposals then get suggestions in the screens they already use, which
   they edit, keep or remove; nothing is written or published without them. Without a provider nothing
   is sent anywhere.
+- Load a workbook with the assistant: Import offers it first. It reads the file the way an import
+  profile that fits already reads it, or works out which lists update which types, asks only about what
+  needs a person (new keys, names that differ, records missing from the file), checks every row and
+  loads into a change set for review.
 
 ### Manage workspaces — browser and API
 

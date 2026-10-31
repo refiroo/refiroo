@@ -102,6 +102,9 @@ from ..sources.profile_check import (
 )
 from ..sources.profiling import profile_source_file
 from ..sources.store import expire_superseded, load_source_file
+from ..tasks import design_job
+from ..tasks import job as ai_task
+from ..tasks import store as task_store
 from .background import open_job_context
 from .batches import BatchContext, JobCancelled, run_items
 from .exports import ExportCancelled, ExportControl, run_export
@@ -144,6 +147,7 @@ BATCH_KINDS = (
     "mappingInference",
     "move",
     "aiProposal",
+    "aiTask",
 )
 EXPORT_KINDS = ("export",)
 _ITEM = TypeAdapter(BatchItem)
@@ -161,7 +165,7 @@ class WorkerSettings:
     background_max_items: int = 1_000_000
     # The items a preview runs (JOB_PREVIEW_MAX_ITEMS; 0.9 J3, D83; batches since 0.9 K2).
     preview_max_items: int = 10_000
-    # The proposal provider and its policy (AI_*; 0.16 AP1): the inference's assistant.
+    # The proposal provider and its policy (AI_*; 0.16 AP1).
     ai: AiConfiguration | None = None
 
 
@@ -273,6 +277,8 @@ class JobWorker:
         with self.session_factory() as session:
             expired = expire_jobs(session, now)
             superseded_files = expire_superseded(session, now, self.settings.retention_days)
+            # A task and its file go once its retention is over (0.16 AP6a, AP-D24).
+            superseded_files += task_store.expire(session, now)
             inbox.expire(session, now)
             session.commit()
             if self.files is not None:
@@ -317,6 +323,7 @@ class JobWorker:
                         ((Job.kind.in_(("inference", "mappingInference"))), "inferring"),
                         ((Job.kind == "aiProposal") & Job.total.is_(None), "binding"),
                         ((Job.kind == "aiProposal"), "proposing"),
+                        ((Job.kind == "aiTask"), "reading"),
                         (Job.kind.in_(ROW_KINDS) & Job.total.is_(None), "binding"),
                         ((Job.kind == "move") & Job.total.is_(None), "binding"),
                         (
@@ -374,6 +381,8 @@ class JobWorker:
                     self._infer_mapping(session, job)
                 elif job.kind == "aiProposal":
                     self._propose_targets(session, job)
+                elif job.kind == "aiTask":
+                    self._task(session, job)
                 elif job.kind == "move":
                     self._move(session, job)
                 elif job.kind in ROW_KINDS and job.total is None:
@@ -580,6 +589,13 @@ class JobWorker:
             record_dry_run(
                 session, job, outcomes, context.model, retention_days=self.settings.retention_days
             )
+            if "taskId" in job.parameters:
+                ai_task.checked(
+                    session,
+                    job,
+                    ai=self.settings.ai,
+                    retention_days=self.settings.retention_days,
+                )
         elif job.kind == "profileCheck":
             record_check(
                 session, job, outcomes, context.model, retention_days=self.settings.retention_days
@@ -597,7 +613,8 @@ class JobWorker:
     def _stop_check(self, job: Job) -> Callable[[], bool]:
         """A preview's stop check; a dry run also stops once its draft has changed."""
         renewed = self._chunk_check(job.sequence_id)
-        if job.kind != "dryRun":
+        if job.kind != "dryRun" or "taskId" in job.parameters:
+            # A task's dry run is stopped by a cancel request: a newer plan asks for it.
             return renewed
         parameters = dict(job.parameters)
 
@@ -633,13 +650,7 @@ class JobWorker:
 
     def _infer(self, session: Session, job: Job) -> None:
         """Propose from the job's draft's source file in one step and complete the job (0.10 A6)."""
-        run_inference(
-            session,
-            job,
-            ai=self.settings.ai,
-            record=record_apart(self.session_factory),
-            check=lambda: self._binding_check(job),
-        )
+        run_inference(session, job, check=lambda: self._binding_check(job))
         self._hold_lease(session, job.sequence_id, cancellable=True)
         complete_job(session, job, retention_days=self.settings.retention_days)
         # An inference has no items, so no result.
@@ -654,6 +665,32 @@ class JobWorker:
         # An inference has no items, so no result.
         job.result = None
         session.commit()
+
+    def _task(self, session: Session, job: Job) -> None:
+        """One phase of an assistant task: its reading, its plan or its fixes (0.16 AP6a,
+        ``tasks/job.py``)."""
+        sequence_id = job.sequence_id
+        stop = self._stop_check(job)
+
+        def check() -> None:
+            # Reads nothing of the job's row: it runs while the provider is about to be asked.
+            if stop():
+                raise JobCancelled
+
+        ai_task.run(
+            session,
+            job,
+            ai_task.Context(
+                ai=self.settings.ai,
+                files=self._files(),
+                check=check,
+                record=record_apart(self.session_factory),
+                hold=lambda cancellable=False: self._hold_lease(
+                    session, sequence_id, cancellable=cancellable
+                ),
+                retention_days=self.settings.retention_days,
+            ),
+        )
 
     def _propose_targets(self, session: Session, job: Job) -> None:
         """Targets for the unmapped sources of a mapping view (0.16 AP2): the first step binds the
@@ -760,6 +797,11 @@ class JobWorker:
     def _finished_import(self, job: Job) -> None:
         if job.kind == "import" and job.state in FINISHED and self.files is not None:
             self.files.remove(job.id)
+        if job.kind == "import" and job.state == "completed":
+            # A design's relationships follow its import into the same change set (0.16 AP6).
+            with self.session_factory() as session:
+                design_job.import_finished(session, job.id, self.settings.retention_days)
+                session.commit()
 
     def _hold_lease(self, session: Session, sequence_id: int, *, cancellable: bool = False) -> None:
         """Lock the job row for the commit that ends a step, holding the lease; with
@@ -915,6 +957,19 @@ class JobWorker:
                 error=error,
                 retention_days=self.settings.retention_days,
             )
+            if (
+                job.kind == "dryRun"
+                and state == "failed"
+                and {"taskId", "draftId"} <= set(job.parameters)
+            ):
+                # A design's dry run that could not run goes back to the assistant (0.16 AP6).
+                design_job.dry_run_failed(
+                    session,
+                    job,
+                    error,
+                    ai=self.settings.ai,
+                    retention_days=self.settings.retention_days,
+                )
             session.commit()
             self._finished_import(job)
 

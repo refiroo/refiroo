@@ -320,9 +320,7 @@ def create_missing_required_relation(c):
 
 def create_existing_id(c):
     existing = _domain(c, "E")
-    return c.create(
-        "X", "rdm-master", "domain", {"domain-code": _code("x")}, id=existing["id"]
-    )
+    return c.create("X", "rdm-master", "domain", {"domain-code": _code("x")}, id=existing["id"])
 
 
 def create_parent_required(c):
@@ -473,9 +471,7 @@ def delete_at_least_one_of(c):
 def move_into_taken_scope(c):
     domain, language, group = _translation_setup(c, "move")
     other = c.made("G2", "rdm-translations", "translation-group", {"group-code": "g"}, language)
-    other_language = c.made(
-        "L2", "rdm-translations", "language", {"language-code": _code("l")}
-    )
+    other_language = c.made("L2", "rdm-translations", "language", {"language-code": _code("l")})
     far = c.made("G3", "rdm-translations", "translation-group", {"group-code": "g"}, other_language)
     assert _translation(c, "T1", group, domain).status_code == 201
     moving = _translation(c, "T2", far, domain).json()
@@ -604,7 +600,11 @@ EXPECTED: dict[str, dict[str, tuple]] = {
             "At least one of these attributes is required: ('translated-name', 'translated-description', 'translated-value')",
             {
                 "rule": "atLeastOneOf",
-                "attributeTypeKeys": ["translated-name", "translated-description", "translated-value"],
+                "attributeTypeKeys": [
+                    "translated-name",
+                    "translated-description",
+                    "translated-value",
+                ],
             },
         ),
         "change_set": (
@@ -613,7 +613,11 @@ EXPECTED: dict[str, dict[str, tuple]] = {
             "At least one of these attributes is required: ('translated-name', 'translated-description', 'translated-value')",
             {
                 "rule": "atLeastOneOf",
-                "attributeTypeKeys": ["translated-name", "translated-description", "translated-value"],
+                "attributeTypeKeys": [
+                    "translated-name",
+                    "translated-description",
+                    "translated-value",
+                ],
             },
         ),
     },
@@ -624,7 +628,11 @@ EXPECTED: dict[str, dict[str, tuple]] = {
             "At least one of these attributes is required: ('translated-name', 'translated-description', 'translated-value')",
             {
                 "rule": "atLeastOneOf",
-                "attributeTypeKeys": ["translated-name", "translated-description", "translated-value"],
+                "attributeTypeKeys": [
+                    "translated-name",
+                    "translated-description",
+                    "translated-value",
+                ],
             },
         ),
         "change_set": (200,),
@@ -779,15 +787,22 @@ EXPECTED: dict[str, dict[str, tuple]] = {
             None,
         ),
     },
-    "relation_cardinality": {
-        "live": (409, "CARDINALITY_VIOLATION", "Relation cardinality would be violated", None),
-        "change_set": (
+    "relation_cardinality": dict.fromkeys(
+        ("live", "change_set"),
+        (
             409,
             "CARDINALITY_VIOLATION",
-            "Relation cardinality would be violated",
-            None,
+            (
+                "Relation cardinality would be violated: 'reference-has-system-representation' is "
+                "one-to-many and its 'to' record already holds one"
+            ),
+            {
+                "relationTypeKey": "reference-has-system-representation",
+                "cardinality": "one-to-many",
+                "end": "to",
+            },
         ),
-    },
+    ),
     # Alike since H4c (E-D4 row settled; deviation 11).
     "relation_missing_endpoint": dict.fromkeys(
         ("live", "change_set"),
@@ -858,7 +873,11 @@ EXPECTED: dict[str, dict[str, tuple]] = {
             "At least one of these attributes is required: ('translated-name', 'translated-description', 'translated-value')",
             {
                 "rule": "atLeastOneOf",
-                "attributeTypeKeys": ["translated-name", "translated-description", "translated-value"],
+                "attributeTypeKeys": [
+                    "translated-name",
+                    "translated-description",
+                    "translated-value",
+                ],
             },
         ),
         "change_set": (
@@ -867,7 +886,11 @@ EXPECTED: dict[str, dict[str, tuple]] = {
             "At least one of these attributes is required: ('translated-name', 'translated-description', 'translated-value')",
             {
                 "rule": "atLeastOneOf",
-                "attributeTypeKeys": ["translated-name", "translated-description", "translated-value"],
+                "attributeTypeKeys": [
+                    "translated-name",
+                    "translated-description",
+                    "translated-value",
+                ],
             },
         ),
     },

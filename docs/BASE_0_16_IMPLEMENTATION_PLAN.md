@@ -42,7 +42,36 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
   relations for a spreadsheet's columns, a grouped explanation of why a dry run failed. Each carries a
   confidence and a reason, is edited like any other step, and is recorded as machine-proposed and
   human-approved.
-- **Instruction-driven tasks (AP6).** A person attaches a workbook and writes, in loose English, "create a model for this and import it", "map this to the current model", "change the values of x from column y", "add these translations", "relate A to B only where C is assigned". They get a plan they can read and edit, a count of what would happen row by row, and one step to run it.
+- **Instruction-driven tasks (AP6).** The user's scenarios, word for word (2026-10-27). Every AP6 plan
+  is checked against each of them, and each is an acceptance case:
+
+  > "I imagine it in a way, that someone uploads a complex xls and says so, create a model for this
+  > and import, or map it to the current model and import, or extend. the current model, etc.
+  > or as per your example: change the values of x based on the xls column y, add this translation,
+  > add this system variant, add a new business
+  > add a new relationship between duration and stations but only if driver assigned, etc."
+
+  > "of course it is an instruction driven assistant. people already got used that they just use even
+  > a loosely formulated english to describe what they would like to and they give it as a prompt,
+  > attaching the material they are refering to. … please do all the necessary checks, this function
+  > has to be usefull and make working with external sources kind of easy and fun"
+
+  The cases (the user, 2026-10-28, word for word; cases A–E of the workbook assistant):
+
+  > An update of existing data: import or update the data.
+  > Additions to existing data: extend the model with new attributes on existing types, then update
+  > the data.
+  > A new relation to existing data: add new object types and their relations to the existing types,
+  > then import the new data.
+  > Something new but related to existing data: add new applications, their object types and
+  > relations, and link them to the existing applications and types.
+  > Something totally new: a new application or model.
+
+  And 2026-10-28: "The user says a few words, uploads an xls, expects the model and the import." "we
+  don't build limitations." They get a plan they can read and edit, a count of what would happen row
+  by row, and one step to run it.
+
+  **Status 2026-10-29:** AP6a delivers none of these scenarios fully (its record has the table).
 - **Track A, agent access.** An organisation points an MCP-capable assistant at its instance; the
   assistant looks up and explains reference data, reads the model, finds unmapped values and prepares
   changes. It can submit changes for approval but never approve or publish them.
@@ -621,9 +650,12 @@ sizing bound a run; a failure keeps what was proposed and the rules' result. The
 **Providers for the work** (the user, 2026-10-28): the local 9b and 27b models for development tries,
 DeepSeek through its API for cheaper real tries (OpenAI-compatible; its acceptance of strict JSON-schema
 answers is checked before the first try), Claude or ChatGPT later. A 9b model is not expected to plan a
-workbook well; the engine's side is judged with it, the quality with a stronger model.
+workbook well; the engine's side is judged with it, the quality with a stronger model. **Added 2026-10-29:**
+Claude Sonnet through the developer's Claude Code sign-in (`AI_PROVIDER=devtools.claude_code_provider:provider`,
+`backend/devtools/`, never deployed) for development tries; every try's usage goes into the
+[AI usage log](#ai-usage-log-for-hosting-cost-planning).
 
-**Slices, each usable end to end in the browser on a real file:**
+**Slices, each usable end to end in the browser on a real file** *(superseded 2026-10-29: the user rejected splitting the cases; AP6a stays as delivered, AP6b–AP6e are replaced by [one package](#ap6-the-assistant-designs-and-loads-one-package-replacing-slices-ap6bap6e-planned-2026-10-29))*:
 
 | Slice | Delivers | With |
 | --- | --- | --- |
@@ -634,6 +666,377 @@ workbook well; the engine's side is judged with it, the quality with a stronger 
 | AP6e | Conditional relations; the real-file close-out | AP-D17, AP-D18; the acceptance workbook |
 
 Each slice's plan lists its journey cases and its mock-up for one approval.
+
+#### AP6: the assistant designs and loads (one package, replacing slices AP6b–AP6e; planned 2026-10-29)
+
+**The requirement, checked line by line.** The user's words in the [Outcome](#outcome): the five cases
+(an update; additions; a new relation; something new but related; something totally new), the eight
+scenarios of 2026-10-27, and "a few words, an xls, the model and the import; we don't build
+limitations". Every one is an acceptance case below. No case is left to a later slice; there is none.
+
+**Why AP6a cannot be extended into it.** In AP6a the engine's rules decide what a file is, and the
+language model gets narrow turns to correct them, against the model as it is. The cases B–E need the
+opposite: the language model **designs** (which concepts become new applications, types, attributes
+and relations, which are plain lists, what are translations and mappings to other systems) and the
+engine **carries out and checks** the design. Evidence (AI usage log, 2026-10-29): one call with the
+file's profile and the model, asked to design, gave the user's Timetables workbook a new
+application and object type, codelists for the plain lists, the external system's IDs as mappings and
+the translations under the model's translation types, with four real questions. AP6a's parts are
+kept as tools: profiling over every row, the reading per table and its evidence, matching by key,
+name and meaning, value maps, the dry run of every row, the fix turn, the change set, the task page.
+
+**How it works.**
+
+1. **The person** gives the workbook, a few words (the instruction: "create a model for this and
+   import", "add this translation", "change the values of x from column y", "relate durations and
+   stations only where a driver is assigned"…) and where it goes: the workspace they are in, or a new
+   one.
+2. **The assistant designs** (prompt `workbook-design/1`): it reads the file's profile, the
+   workspace's model with its hierarchy, relationships and applications, and what the workspace holds,
+   and reads further with tools (any range of cells, a column's distinct values, stored records by a
+   word, the rules' reading of a table) until it can answer the design:
+   - **the model changes**: applications, object types with their parents, attributes, relationships
+     (within and across applications), as model-draft operations;
+   - **the records the structure needs** that the rows do not give (a domain, a codelist, a language,
+     a system and its groups);
+   - **per table**: what its rows become (records of a type, translations, mappings to a system,
+     relationships between existing records, changed values of matched records, or not data), its
+     key, every column's target, where its records stand, and conditions ("only where a driver is
+     assigned": the query of AP-D17);
+   - **questions**: only what the data cannot answer.
+3. **The engine carries it out in a model draft** of the workspace's model (or a new model for a new
+   workspace): the operations are applied as the editor applies them, each checked by the draft's
+   validation; the draft's import profile binds the file. A refused operation goes back to the
+   assistant with its reason, which revises; an answer that only repeats a refusal ends the turns
+   (AP6a's guard). Case A (nothing to change in the model) needs no draft and uses the workspace's
+   profile as AP6a does.
+4. **The person sees the design**, not a report: the task page shows the model changes (new
+   applications and types as a small diagram, new attributes and relationships, each with its reason
+   and marked Proposed), the records to create, each table's destination and the questions with their
+   choices. "Open in the model editor" opens the draft itself, where every step is edited as any other.
+   Answering a question or changing a step re-plans what depends on it.
+5. **One dry run of every row** against the draft (the draft's dry run): counted per table, refused rows
+   with reasons; the assistant's fix turn proposes value maps and runs it again (AP6a).
+6. **On confirmation**, in the order the engine needs: the draft is installed and activated in the
+   workspace after the compatibility preview (a model administrator's step: a person without it gets
+   the design saved and the task waits for an administrator, who sees it in the inbox); then the load
+   runs into a change set for the normal approval, and the import profile is saved so the next file
+   of the layout loads without the assistant. Live data is never written by the task.
+
+**The instructions without a model change** (scenarios "change the values of x based on column y",
+"add this translation", "add this system variant", "add a new business", "a relationship only where
+a driver is assigned") are the same plan with an empty model part: the import profile's record mode
+and value columns, `relatedRecord` translations, system values mapped to records, one record, or the
+AP-D17/AP-D18 query building `ensureRelation` items in the database. An instruction the engine has no
+operation for is answered "I can't do this because…", never approximated (AP-D12).
+
+**What changes in the code.**
+- Engine `tasks/`: `design.py` (the design turn, its answer, its checks), `draft_plan.py` (the design
+  as draft operations and the draft's import profile, through `model/authoring`), the turn loop with the
+  read tools of AP-D15 (`describeModel` with hierarchy and relationships, `describeFile`, `findRecords`,
+  `trialPlan`), the conditional relation step; `reading.py` and `turns.py` stay as tools.
+- A task has a `draftId`; states add `designing`, `designed`, `awaitingActivation`; the job phases add
+  `design` and `activate`. Migration: the column and the states.
+- API: `GET /ai/tasks/{id}` adds `design` (model changes, records, tables, questions);
+  `POST /ai/tasks/{id}/answers` (answers to questions); `POST /ai/tasks/{id}/run` installs, activates
+  and loads, or waits for an administrator. Documented in API.md; the OpenAPI lock re-baselined.
+- Frontend: the task page's design view (diagram of new and changed types, the records, the tables'
+  destinations, the questions), "Open in the model editor", the activation step; the reading, check and
+  loaded views of AP6a reused.
+
+**Acceptance (each with a real provider on the user's own files, usage logged; done only when all
+pass):**
+
+| Case | Try |
+| --- | --- |
+| A An update | Lines & Routes into the workspace whose model and records came from it |
+| B Additions | The same workbook with new columns, into that workspace |
+| C A new relation to existing data | A sheet of new records pointing to existing ones (a workbook the user names, or the Timetables workbook's categories into a workspace holding them) |
+| D Something new but related | The Timetables workbook into a workspace holding the master data: a new application linked to it |
+| E Something totally new | The Timetables workbook into an empty workspace, and into a new one |
+| Scenarios | Each of the eight instructions on the user's workbooks, as worded by the user |
+
+Journey cases J50.18 onward with the fake provider prove the engine's side (each case's draft, the
+activation order, refusals, the waiting task); the quality is judged on the real tries above.
+
+**Not in this package, said plainly:** a document or an image as data; a task handed to a colleague or
+run on a schedule; Track A (the same tools over MCP) is its own package.
+
+#### AP6r: the assistant proposes the model, the steward shapes it, then it loads (planned 2026-10-30)
+
+**Why.** The AP6 loop measured success by "the engine refuses nothing". On the user's samples it
+loaded cleanly and still built the wrong model: flat lists where the data groups rows, new types
+duplicating records the workspace holds, relationships readable from one end only. Whether a model
+is good is not something a dry run checks, and the steward saw the model only after the load. The
+requirement (§ Outcome) asks for what a Claude Code session does: analyse, decide the structure,
+let the person steer in plain words, then load. AP6r changes what the assistant decides and when,
+not the engine: every operation it uses is one the editor and the import already have.
+
+**What changes, for any workbook (no file, sheet or name is known to the code or the prompt):**
+
+1. **Two phases.** *Model*: the assistant reads what it needs (sheets, values, stored records,
+   queries) and proposes the model: model-draft operations plus a plain description per type
+   ("Countries, under their region; a sponsor belongs to several countries, so it is related to
+   them"). No import profile yet. *Load*: only after the steward accepts the model, the assistant
+   maps the sheets onto it (profile, data sheets) and the dry run decides, as today.
+2. **The steward shapes the proposal.** The task page shows the proposed model as a short outline
+   (types under their parents, what each reuses from the workspace, the relationships with the
+   page that shows each end, the translations, the columns left out with their reasons) and a box
+   for corrections in words ("Sponsors belong to operators, not to new stations"). A correction is a
+   new model turn with the words; "Accept the model" moves to the load phase. Nothing is installed
+   or loaded before that.
+3. **Design checks the engine computes for any workbook**, sent to the assistant with every model
+   turn and shown beside the outline:
+   - *Reuse*: a new type whose record names match a stored type's records (by the sheet's
+     values) — "these 7 names are already Countries in the workspace";
+   - *Grouping*: a column whose value determines other columns of its rows (few distinct values,
+     each always with the same companions) loaded as a plain attribute or relation instead of a
+     parent — "REGION groups the rows";
+   - *Both ends*: a relationship no page of its "to" type shows;
+   - *Translations*: a column headed by a language (the reading's own detection) not loaded as
+     a translation;
+   - *Left out*: columns without a reason (as AP6's `leftOut`).
+   The assistant fixes or explains each one; the steward sees what is still open.
+4. **Full context for the configured model.** The request is sized to the provider's window as
+   configured (`AI_CONTEXT_TOKENS`), not to a small local model's: with Sonnet the whole reading,
+   the model and the design are sent; compaction stays for small windows only.
+5. **Acceptance by target, not by refusals.** Each sample the user gave has a written target (kept
+   outside the repository: it names the example data). A run is judged against it; new samples get
+   the same treatment. The code and the prompt never see a target.
+
+**What stays.** The task, the draft, the reads, the working copy, the dry run, the load, the
+journey bar, the engine's import-path fixes of 2026-10-30. **What goes.** Designing the model and
+the profile in one answer; the call budget as the only stop (the model phase stops when the steward
+accepts).
+
+**Tests.** J50 for the two phases with the fake provider (a correction in words starts a new model
+turn; nothing installs before acceptance; each design check fires on a small workbook built to show
+it). Real tries: each sample against its target, Stations first, one run each, usage logged.
+
+#### AP6 progress (2026-10-29, in delivery)
+
+**The core is built and works on the user's own workbooks** (real tries in the AI usage log):
+
+- **Timetables** into an empty workspace (cases D/E), checked with nothing refused:
+  - a new application, with an timetable type and an timetable category type and their
+    attributes;
+  - the translation join, made required as the model's other translation joins are;
+  - the 7 languages and translation groups the structure needs;
+  - 1,756 records and 1,500 translations;
+  - one real question (category translations).
+- **Lines & Routes** into the workspace built from it (case A): the saved profile kept, no
+  model change, every one of 87 lists checked; one call, 3 s, $0.08.
+
+**What was built:**
+
+- **Engine** `tasks/`:
+  - `design.py`: the design turn, its answer and the model brief with the hierarchy, required joins,
+    type rules, and what the draft added marked `new`;
+  - `draft_plan.py`: the draft, the working copy with `Structure` sheets, applying operations, the
+    profile check, refusals with examples;
+  - `design_job.py`: the turns in the task's job, the dry run against the draft, design rounds on
+    refusals (up to 3), answers, and the load (install, activate, change set, saved profile);
+  - lists with nothing to decide go in a line each and load as the rules read them; the request is
+    sized to the model's window;
+  - the retention sweep deletes a task's draft with it.
+- **Migration** `20261119_03` (`ai_tasks.design`, `ai_tasks.draft_id`). The worker runs a task's dry
+  run against its draft when it names one.
+- **API:**
+  - `design`, `draftId`, the design check, `result.releaseId`, phase `designing`;
+  - `POST /ai/tasks/{id}/answers`;
+  - `/run` on a design installs and activates when the model changed (needs Model release);
+  - the OpenAPI lock re-baselined.
+- **Frontend:** the task page's design view (summary, model changes, Open in the model editor, records,
+  where each sheet goes, questions) and the design check (per sheet, refusals, the order of what
+  confirming does; the load button hidden without Model release).
+- **Tests:**
+  - J50.1–J50.20 rewritten to the design flow (with the fake provider: the default design, scripted
+    model changes for cases B and C/D installed, activated and loaded, answers, fix rounds, failure,
+    the window, Model release);
+  - unit tests of the brief and the structure sheets;
+  - J47 lists `/answers`;
+  - the foreign key review lists the task's draft.
+
+**Found and fixed on the way:**
+
+- refusals went back without their messages;
+- a reused required relationship was not marked required;
+- a shadowed variable sent the model alone;
+- a request of about 236,000 characters for 87 lists;
+- the loop resending an accepted design;
+- the load reading the workspace's model before the activation committed;
+- the saved profile missing the kept lists.
+
+**Also built since:**
+
+- **An instruction without a workbook**, and **relationships where a condition holds**
+  (`tasks/links.py`):
+  - two model-aware queries, the pairs counted in the database;
+  - one batch built by `INSERT … SELECT`, after the import when there is one, queued by the worker;
+  - where a record may hold only one, its set is replaced (counted as `replaces`); a rule giving it
+    two is refused.
+  - Real try: "Give every timetable type in the Lab category the duration 15 min" gave 15 durations
+    replaced in a change set.
+- **The page:** model names instead of keys, the relationships card, "Ask the assistant" without a
+  workbook, the spacing and the 390px stacks.
+- **Tests:** J50.21, J50.21b and J50.22; the browser runner on the design flow.
+
+**Where the cases stand on real files (2026-10-29):**
+
+| Case | Status |
+| --- | --- |
+| A, an update | works: Lines & Routes, 87 lists, one call |
+| E/D, new or related application | works: Timetables into an empty workspace, nothing refused |
+| B/C, additions and new relations to existing data | works (2026-10-30, run 6): Timetables into the workspace holding the example model, two attributes added, every row and translation loaded into a change set |
+| Scenario: relationships only where a condition holds | works (Lab durations) |
+| Scenarios as worded by the user (translations, system variants, a new business, values from a column) | not tried yet |
+| The user's further samples (2026-10-30) | Reductions and Tariff File work (new applications, nothing refused); Sponsor Sources loaded by the user (477 new, 54 changed); Stations stopped mid-run, its two refusal causes (empty cells in repeated rows, one key in two sheets) fixed in the import engine since |
+
+**Still to do in this package:**
+
+- **Cases B/C on the existing model.** The refusals are about reserved slots matched by name
+  (ambiguous or missing), a cardinality and a required code; the translations sheet is left out.
+  The design needs more rounds and a way to look up stored records before matching by name.
+- **Real tries of the remaining scenarios.**
+- ~~**`GET /ai/tasks/{id}/changes` for a design.**~~ Done 2026-10-30: `?source=` pages a design
+  sheet's changed records through the dry run's own profile and the draft's model; the design check
+  shows them behind a button per sheet (J50.1).
+- ~~**Removing AP6a's unreachable parts.**~~ Done 2026-10-30: the read, match and fix turns, their
+  prompts and `matching.py` are gone, and the phases `asking`, `matching`, `fixing` with them. The
+  per-table choices and the plan route stay: they are the path of a task read without the assistant
+  offered.
+
+**Found on the real B/C runs of 2026-10-30 and fixed (each in the AI usage log):**
+
+- the dry run's refusals were lost on a round's later turns: they are kept until the next dry run;
+- each turn was sent the outcome but not the design so far, so a round rebuilt the design instead of
+  fixing it (round 3 went from 1 refused row back to 11): the design so far goes with every turn, and
+  a part the answer leaves out is kept (`workbook-design/4`);
+- the working copy dropped the formulas' last values (the Translations sheet's ID column is a
+  formula), so every row was skipped for an empty key without a word: the copy keeps the values, and
+  the check reports skipped rows (`skipped`, refused as `ROWS_SKIPPED` when most of a source's are);
+- a related record's parent read from a column took no value map, so a language word could not find
+  its language record: `parent.valueMap` in import profiles (J27.1);
+- `CARDINALITY_VIOLATION` did not say which relation: it names the relation and the end.
+- a change-set edit re-checked relationships the record already held against their candidate
+  criteria, so the load refused rows the dry run passed: kept as live does (D175);
+- a dry run that could not run (a header under a row of group headings) failed the task: it goes
+  back to the assistant as `dryRun.failed`; each round's refusals are a history it sees;
+- rows repeating a key conflicted where one left a cell empty; rows of two sheets keyed alike made
+  two records: both merged now;
+- loading the same file again refused the profile save: the profile's next version;
+- the loaded page listed the rules' first reading as not loaded, the shown model stayed stale after
+  activation, and the installed release was numbered below the newest: all three fixed.
+
+**AP6r built (2026-10-30):** the two stages, the correction and acceptance routes, the design checks,
+the proposal page, the bar's step, the assistant's page operations, `unpivots` (see the AP6r section).
+
+**Still to do:** the journey bar the user asked for (2026-10-30: a bar below the top bar following the
+import across the task page, the model editor and the change set, Close returning to the task,
+Stop / Start again / Open the change set) — built 2026-10-30 (`JourneyBar`, `AiTaskJourneyBar`, the
+`journey` route parameter); the proposal page not yet looked at in a browser. Also open: the wide
+price file's load, the update and additions files under AP6r, and the release's docs.
+
+#### AP6a record (2026-10-29)
+
+**Delivered 2026-10-29** after the user approved the plan, the mock-up and J50.1–J50.11. After the
+user's first try on their own workbook ("everything looks off": junk records from note rows, a report
+hundreds of lines long), the user approved a revision on the same day (mock-up boards 5–7, J50.12–16,
+"its good"). Backend and frontend were built by Sonnet agents from briefs and reviewed by the lead.
+
+- **Removal first:** the naming helper (`inference/assistant.py`, its option, read fields, texts and
+  tests, J48.2/6/7). A call recorded for `modelNames` stays readable: Settings › AI answered 500 on the
+  user's instance because of it. Fixed, with J48.1 *a call made for a feature since removed stays
+  readable*.
+- **Engine** `engine/tasks/`:
+  - `store`, `reading`, `matching`, `turns`, `plan`, `job` (the phases read, plan and fix, one job each,
+    no transaction held during a provider call), `changes`;
+  - added by the revision: `catalog`, `sql`, `translations`, `placement`, `profile_reading` (a stored
+    profile that fits the file is followed first), `workbook`.
+- **Migrations:**
+  - `20261119_01`: `ai_tasks`, a source file's `task_id`, the job kind `aiTask`;
+  - `20261119_02`: the inbox notices a task once, when its reading is ready, and on a failure; not on
+    every phase.
+- **Settings:** `AI_MAX_STEPS`, `AI_TASK_RETENTION_DAYS`.
+- **API:** `/ai/tasks` (create, list, read, plan, changes, run, cancel), the codes `AI_TASK_*`, and a
+  column's `known`. The OpenAPI lock was re-baselined. J47 narrowing decisions were added for the new
+  routes and for AP2's mapping-proposals route.
+- **Frontend** `features/ai-tasks/`:
+  - the task page with the reading (summary, Needs you, grouped by the model), the check (totals and
+    the lists that change something) and the loaded state;
+  - `ui/Disclosure`.
+- **Import order (asked by the user during the package):** with the assistant offered, Import opens it
+  first, and "Import without the assistant…" opens the manual import.
+
+**Decisions within the package:**
+- A column the followed profile left out of the file it read before too is no decision now (`known`).
+- An updated record is listed under its stored name; a rename shows as a field.
+- The evidence sentence is built from the current figures, without zero counts.
+
+**Checks:**
+- Last runs: J50, the `tasks` unit tests and the contract test, 110 passed; J48 and J49 passed; AP6a
+  components 29 passed; tsc, eslint and the production build clean.
+- Runner `ap1-ai` with the AP6a screens (a 33-list workbook): passed.
+- Real try (logged in the AI usage log): the user's workbook, read phase in a rolled-back
+  transaction. The stored profile was followed: 87 tables on 4 sheets, 0 to decide, and the assistant
+  confirmed the reading. $0.056 at API prices, against $0.24 for the same turn before the revision.
+
+**Pre-existing failures, not from AP6a** (both fail at HEAD before AP6a, checked in a worktree):
+- the J47 sweep gives a contributor 422 on AP2's mapping-proposals route;
+- J38.1 fails on 'Bsrc'.
+
+**Not verified:**
+- the plan, check and fix phases with a real provider on the user's workbook (the try covered the
+  read phase);
+- matching by meaning and fixes with a real provider on a file whose layout the instance does not
+  know.
+
+**What the user cannot do yet:**
+- extend the model from a workbook, or load a system's codes as mappings (AP6b);
+- create new applications or models from a workbook (AP6c);
+- talk to the assistant in free text (AP6d).
+
+The assistant reads by the engine's rules and gets narrow turns. It does not yet decide the structure
+itself with the engine's operations as tools.
+
+**The user, 2026-10-29: no splits.** The assistant is meant to work as a language model with the
+engine's capabilities as its tools. It analyses the workbook, decides a reference data structure that
+fits the model, and when none fits, aligns the model. Splitting this into slices that each give the
+model a little more room (AP6b–d) is rejected: a slice delivered and left behind is not revisited. So
+AP6a is not finished as the feature. It is the base the assistant's loop builds on, and its reading,
+check and pages are the loop's first tools. The next plan replaces AP6b–d with that one piece of work.
+
+**Against the user's scenarios (Outcome, word for word):**
+
+| Scenario | AP6a |
+| --- | --- |
+| Create a model for this and import | No |
+| Map it to the current model and import | Only when the model already fits the file; no mappings of other systems' codes |
+| Extend the current model | No |
+| Change the values of x based on column y | Only as an update by matched keys, not from the instruction |
+| Add this translation | Only language columns where the model has one fitting structure; not a translations sheet |
+| Add this system variant | No |
+| Add a new business | No |
+| A relationship between duration and stations, only if driver assigned | No |
+
+The person's words reach the provider only as context: nothing plans from them.
+
+**After the record:**
+- the loaded page's "(show)" became a Show/Hide button (`ui/Disclosure`, `link` variant);
+- the list count of a check stored before the revision said "87 of 87": it is now worked out from the
+  figures.
+- **The user's second real file** (a code list and its translations, into an empty workspace) loaded
+  nothing in 10 calls ($0.52). Three causes, all fixed (J50.17):
+  - no operation existed for "these rows are new records of a type": `readTable` `update` now takes
+    the key column and its key when no stored record matches, and the table reads "New records of …";
+  - the assistant could repeat a refused operation on every turn: an answer that only repeats one now
+    ends the turns;
+  - every turn's note was shown, and refusals named `t1` and column letters: now only the last note is
+    kept, and refusals name the sheet and the column's header. Prompt `workbook-read/2`.
+
+  The same file afterwards: 2 calls, $0.106; the list is read as 200 new records. It still cannot load.
+  Its rows need a codelist and a domain that the workspace does not hold, and the translations sheet
+  needs the model's own translation types. That is the assistant deciding the structure: the next plan.
 
 #### Work packages (as first planned 2026-10-27; superseded by the slices above)
 
@@ -814,6 +1217,30 @@ permission-hidden journey, and where data is read a send-level journey; Track O 
 uncited-statement, the visibility and the fact-completeness tests. Track A uses a test MCP client
 (AG-D10). The context builder's level tests are unit tests. Execution-guide groups for the changed
 boundary only; the OpenAPI lock re-baselined per package and marked additive.
+
+## AP8: The assistant is a Claude Code session (decided 2026-10-31)
+
+Supersedes the turn format of AP6r and the engine-first calls of AP7. The working setup was the user's own: a few words, the workbook, the model and the OpenAPI document, and a model free to explore. Each limit added around it was the limit that failed. Journey J50.30. Open: a client that cannot publish (the session runs with the rights of who asked), isolation on a shared server, speed against the time limits, and the old J50 cases removed with the loop, to be replaced as journeys demand.
+
+## AI usage log (for hosting cost planning)
+
+**Why (the user, 2026-10-29):** refiroo may be hosted on a subscription that includes the AI provider,
+so what a real task costs is planning data. Every real-provider try in a package or in R adds one row
+here. A row is reported to the user with the try.
+
+**How it is measured.** The call records (`ai_calls`, Settings › AI) give each call's purpose, duration
+and tokens in and out; the tokens in are the sum of plain input, cache writes and cache reads. Through
+the Claude Code provider, each call also logs those three kinds apart and `total_cost_usd`: Claude
+Code's price of the same call at API rates, whatever the sign-in. So that figure is the API cost, and on
+a subscription it is not money spent. For another provider the API cost is worked out from its
+published prices, and the date of those prices is given.
+
+| Date | Package, what was tried | Provider, model | Calls | Tokens in (plain / cache write / cache read) | Tokens out | Time | Cost at API prices | Note |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+**What a hosting estimate needs from these rows:** the cost per task kind (e.g. loading one workbook of
+N rows and M sheets), how it grows with the file (the reading is sent as column profiles, so it grows
+with columns and distinct values, not with rows), and how much prompt caching saves on repeated turns.
 
 ## R: Build acceptance and release
 

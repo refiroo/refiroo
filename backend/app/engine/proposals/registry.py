@@ -24,6 +24,10 @@ class AiConfiguration:
     log_content_days: int
     # AI_CONTEXT_TOKENS: the model's window, when a feature must size its calls to it.
     context_tokens: int | None = None
+    # AI_MAX_STEPS and AI_TASK_RETENTION_DAYS (0.16 AP6a): an assistant task's provider calls per
+    # job, and the days it is kept.
+    max_steps: int = 40
+    task_retention_days: int = 90
 
     @property
     def configured(self) -> bool:
@@ -94,6 +98,8 @@ def configure(settings: Settings) -> AiConfiguration:
         log_content=settings.ai_log_content,
         log_content_days=settings.ai_log_content_days,
         context_tokens=settings.ai_context_tokens,
+        max_steps=settings.ai_max_steps,
+        task_retention_days=settings.ai_task_retention_days,
     )
 
 

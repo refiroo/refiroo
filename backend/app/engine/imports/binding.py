@@ -186,6 +186,40 @@ class _Mismatch:
             )
 
 
+def _source_columns(
+    book: TabularFile, source: Source, at: str, xlsx: bool, mismatch: _Mismatch
+) -> Any:
+    """The columns of the source's table, its missing sheet, header row and columns added to
+    ``mismatch``; ``None`` when there is no table to read."""
+    if xlsx and source.sheet is not None and source.sheet not in book.sheet_names:
+        mismatch.add(
+            f"{at}/sheet",
+            "SHEET_NOT_FOUND",
+            f"The workbook has no sheet '{source.sheet}'; it has {', '.join(book.sheet_names)}",
+        )
+        return None
+    found = book.table(source.sheet if xlsx else None, _area(source))
+    if found is None:
+        mismatch.add(
+            f"{at}/headerRow",
+            "HEADER_ROW_NOT_FOUND",
+            f"The sheet ends before its header row {source.headerRow}",
+        )
+        return None
+    columns = found.columns()
+    for path, name in named_columns(source, at):
+        if name not in columns:
+            mismatch.add(path, "COLUMN_NOT_FOUND", f"The header has no column '{name}'")
+    return columns
+
+
+def source_mismatch(book: TabularFile, source: Source, at: str) -> list[dict[str, str]]:
+    """What of the workbook's source its file lacks: the problems a binding would raise for it."""
+    mismatch = _Mismatch()
+    _source_columns(book, source, at, True, mismatch)
+    return mismatch.problems
+
+
 def bind_import(
     session: Session,
     job: Job,
@@ -864,25 +898,9 @@ class _ProfileBinding:
         for position, index in enumerate(order):
             source = self.profile.sources[index]
             at = f"/sources/{index}"
-            if xlsx and source.sheet is not None and source.sheet not in book.sheet_names:
-                mismatch.add(
-                    f"{at}/sheet",
-                    "SHEET_NOT_FOUND",
-                    f"The workbook has no sheet '{source.sheet}'; it has {', '.join(book.sheet_names)}",
-                )
+            columns = _source_columns(book, source, at, xlsx, mismatch)
+            if columns is None:
                 continue
-            found = book.table(source.sheet if xlsx else None, _area(source))
-            if found is None:
-                mismatch.add(
-                    f"{at}/headerRow",
-                    "HEADER_ROW_NOT_FOUND",
-                    f"The sheet ends before its header row {source.headerRow}",
-                )
-                continue
-            columns = found.columns()
-            for path, name in named_columns(source, at):
-                if name not in columns:
-                    mismatch.add(path, "COLUMN_NOT_FOUND", f"The header has no column '{name}'")
             sheet = (source.sheet or book.sheet_names[0]) if xlsx else book.sheet_names[0]
             plans.append(_Plan(index, position, source, sheet, columns))
             self.report.source(position, sheet, source.objectTypeKey)
@@ -1315,6 +1333,7 @@ class _ProfileBinding:
             parent.matchBy.attributeTypeKey,
             parent.value,
             parent.column,
+            parent.valueMap,
             spec.matchBy.attributeTypeKey if spec.matchBy else None,
         )
         group = plan.groups.setdefault(identity, len(plan.groups))
@@ -1325,6 +1344,11 @@ class _ProfileBinding:
                 if parent.value is not None
                 else _cell(plan.columns, cells, parent.column)
             )
+            if parent.valueMap is not None and parent_raw is not None:
+                mapping = self.profile.valueMaps[parent.valueMap]
+                if cell_text(parent_raw) in mapping:
+                    parent_raw = mapping[cell_text(parent_raw)]
+                    parent_raw = None if is_empty(parent_raw) else parent_raw
             parent_match = (
                 self._match(
                     parent.objectTypeKey,
@@ -1430,7 +1454,14 @@ class _ProfileBinding:
                     column("version"),
                 )
             ).from_select(
-                ["object_id", "object_type_key", "name", "parent_object_id", "attributes", "version"],
+                [
+                    "object_id",
+                    "object_type_key",
+                    "name",
+                    "parent_object_id",
+                    "attributes",
+                    "version",
+                ],
                 select(
                     source.c.object_id,
                     source.c.object_type_key,
@@ -1582,17 +1613,24 @@ class _ProfileBinding:
         counterparts.flush()
 
     def _duplicates(self) -> None:
-        """D69: rows of one source with one key are one record when their own values agree; when
-        they differ, every such row is rejected naming the others. Rows keyed by name under a
+        """D69: rows of one source with one key are one record when their own values agree (an empty
+        cell agrees with any value, and the record takes every value the rows fill); when they
+        differ, every such row is rejected naming the others. Rows keyed by name under a
         parent are one key with the rows of any source naming that parent (0.10 A8c, D142)."""
         self._sql(
             f"""
             WITH keyed AS (
                 SELECT r.*, {_KEY_GROUP.format(r="r")} AS grp FROM import_rows r
                 WHERE r.error IS NULL AND r.key_value IS NOT NULL),
+            -- An empty cell says nothing: rows differ only where two of them fill one field
+            -- with different values (the first row of a group often carries the details).
+            clashes AS (
+                SELECT DISTINCT k.grp FROM keyed k CROSS JOIN LATERAL jsonb_each(k.attributes) a
+                GROUP BY k.grp, a.key HAVING count(DISTINCT a.value) > 1),
             groups AS (
                 SELECT grp, min(row_id) AS rep,
-                       count(DISTINCT jsonb_build_array(name, attributes, parent - 'column')) AS variants,
+                       CASE WHEN count(DISTINCT name) > 1 OR count(DISTINCT parent - 'column') > 1
+                            OR grp IN (SELECT grp FROM clashes) THEN 2 ELSE 1 END AS variants,
                        array_agg(row_number ORDER BY row_number) AS numbers
                 FROM keyed GROUP BY grp HAVING count(*) > 1)
             UPDATE import_rows r SET
@@ -1605,6 +1643,26 @@ class _ProfileBinding:
                         'column', r.key_column)) END,
                 rep_id = CASE WHEN g.variants = 1 AND r.row_id <> g.rep THEN g.rep END
             FROM groups g WHERE {_KEY_GROUP.format(r="r")} = g.grp AND r.error IS NULL
+            """
+        )
+        # The record a group loads holds every value its rows fill.
+        self._sql(
+            """
+            WITH members AS (
+                SELECT coalesce(m.rep_id, m.row_id) AS rep, m.name, m.parent, m.attributes
+                FROM import_rows m
+                WHERE m.error IS NULL AND (m.rep_id IS NOT NULL OR EXISTS (
+                    SELECT 1 FROM import_rows x WHERE x.rep_id = m.row_id))),
+            merged AS (
+                SELECT u.rep, max(u.name) AS name,
+                       (array_agg(u.parent) FILTER (WHERE u.parent IS NOT NULL))[1] AS parent,
+                       coalesce((SELECT jsonb_object_agg(a.key, a.value)
+                                 FROM members v CROSS JOIN LATERAL jsonb_each(v.attributes) a
+                                 WHERE v.rep = u.rep), '{}'::jsonb) AS attributes
+                FROM members u GROUP BY u.rep)
+            UPDATE import_rows r SET name = coalesce(r.name, g.name),
+                parent = coalesce(r.parent, g.parent), attributes = g.attributes
+            FROM merged g WHERE r.row_id = g.rep
             """
         )
 
@@ -1623,6 +1681,24 @@ class _ProfileBinding:
             """
         )
         self._sql("ANALYZE import_context_values")
+        # A stored-unique key two records now hold finds neither: the row says so (0.16 AP7).
+        self._sql(
+            """
+            UPDATE import_rows r SET error = jsonb_build_object(
+                'code', 'KEY_AMBIGUOUS',
+                'message', 'Several records hold this key: ' || (r.key_value #>> '{}'),
+                'column', r.key_column)
+            FROM (SELECT c.object_type_key, k.attr, c.attributes -> k.attr AS value
+                  FROM (SELECT DISTINCT object_type_key, key_attr AS attr FROM import_rows
+                        WHERE key_kind = 'attribute') k
+                  JOIN import_context c ON c.object_type_key = k.object_type_key
+                  WHERE c.attributes -> k.attr IS NOT NULL
+                  GROUP BY 1, 2, 3 HAVING count(*) > 1) d
+            WHERE r.error IS NULL AND r.key_kind = 'attribute'
+              AND d.object_type_key = r.object_type_key AND d.attr = r.key_attr
+              AND d.value = r.key_value
+            """
+        )
         self._sql(
             """
             UPDATE import_rows r SET record_id = c.object_id, existing = true, current_name = c.name
@@ -1675,6 +1751,23 @@ class _ProfileBinding:
             WHERE error IS NULL AND rep_id IS NULL AND record_id IS NULL AND mode = 'upsert'
             """
         )
+        # A new record two sources of the file key alike is one record: the first source's row
+        # creates it and the later ones update it (two sheets listing the same IDs, 0.16 AP6).
+        self._sql(
+            """
+            UPDATE import_rows r SET record_id = f.record_id
+            FROM (SELECT DISTINCT ON (object_type_key, key_attr, key_value)
+                      object_type_key, key_attr, key_value, record_id
+                  FROM import_rows
+                  WHERE error IS NULL AND rep_id IS NULL AND mode = 'upsert' AND NOT existing
+                    AND key_kind = 'attribute'
+                  ORDER BY object_type_key, key_attr, key_value, src, row_number) f
+            WHERE r.error IS NULL AND r.rep_id IS NULL AND r.mode = 'upsert' AND NOT r.existing
+              AND r.key_kind = 'attribute' AND r.object_type_key = f.object_type_key
+              AND r.key_attr = f.key_attr AND r.key_value = f.key_value
+              AND r.record_id <> f.record_id
+            """
+        )
         # An existing-records row also finds the record another row of the file creates by the same
         # key, as a sheet of translations names the records the main sheet loads (0.10 A6, D93).
         self._sql(
@@ -1684,6 +1777,26 @@ class _ProfileBinding:
               AND r.key_kind = 'attribute' AND f.mode = 'upsert' AND f.error IS NULL
               AND f.rep_id IS NULL AND f.object_type_key = r.object_type_key
               AND f.key_kind = 'attribute' AND f.key_attr = r.key_attr AND f.key_value = r.key_value
+            """
+        )
+        # Or by the value another row of the file writes into the key's attribute, whatever that row
+        # is keyed by: a main sheet keyed by name that fills a new code, and a sheet of translations
+        # keyed by the code (0.16 AP6). Only where the value names one record.
+        self._sql(
+            """
+            WITH written AS (
+                SELECT r.row_id, min(f.record_id) AS one, count(DISTINCT f.record_id) AS n,
+                    bool_and(f.existing) AS existing, min(f.current_name) AS current_name
+                FROM import_rows r JOIN import_rows f
+                    ON f.mode = 'upsert' AND f.error IS NULL AND f.rep_id IS NULL
+                   AND f.object_type_key = r.object_type_key
+                   AND f.attributes -> r.key_attr = r.key_value
+                WHERE r.error IS NULL AND r.rep_id IS NULL AND r.mode = 'existing'
+                  AND NOT r.existing AND r.record_id IS NULL AND r.key_kind = 'attribute'
+                GROUP BY r.row_id)
+            UPDATE import_rows r SET record_id = w.one, existing = w.existing,
+                current_name = w.current_name
+            FROM written w WHERE w.row_id = r.row_id AND w.n = 1
             """
         )
         self._sql(
@@ -1885,13 +1998,24 @@ class _ProfileBinding:
             self._sql(
                 """
                 UPDATE import_rows r SET record_id = s.one, existing = true, current_name = s.name
-                FROM import_settled s WHERE r.row_id = s.row_id OR r.rep_id = s.row_id
+                FROM import_settled s
+                -- With the rows that found it by a key another row writes (an existing-records
+                -- sheet): they hold the row's provisional ID.
+                WHERE r.row_id = s.row_id OR r.rep_id = s.row_id OR r.record_id = s.old
                 """
             )
-            self._sql("UPDATE import_rows r SET parent_id = s.one FROM import_settled s WHERE r.parent_id = s.old")
-            self._sql("UPDATE import_matches m SET resolved = s.one FROM import_settled s WHERE m.resolved = s.old")
-            self._sql("UPDATE import_links l SET target_id = s.one FROM import_settled s WHERE l.target_id = s.old")
-            self._sql("UPDATE import_related d SET parent_id = s.one FROM import_settled s WHERE d.parent_id = s.old")
+            self._sql(
+                "UPDATE import_rows r SET parent_id = s.one FROM import_settled s WHERE r.parent_id = s.old"
+            )
+            self._sql(
+                "UPDATE import_matches m SET resolved = s.one FROM import_settled s WHERE m.resolved = s.old"
+            )
+            self._sql(
+                "UPDATE import_links l SET target_id = s.one FROM import_settled s WHERE l.target_id = s.old"
+            )
+            self._sql(
+                "UPDATE import_related d SET parent_id = s.one FROM import_settled s WHERE d.parent_id = s.old"
+            )
 
     def _hierarchy(self) -> None:
         """A source's rows under rows of the same source load parents first (depth); rows whose
@@ -2266,12 +2390,24 @@ def _findings(session: Session) -> dict[str, list[dict[str, Any]]]:
     ).all()
     return {
         "newValues": [
-            {"source": src, "column": column_name, "value": value, "created": created, "cells": cells}
+            {
+                "source": src,
+                "column": column_name,
+                "value": value,
+                "created": created,
+                "cells": cells,
+            }
             for src, column_name, value, created, cells in new_values
         ],
         "drift": [
-            {"source": src, "row": number, "recordId": record_id, "key": key, "name": name,
-             "recordName": current}
+            {
+                "source": src,
+                "row": number,
+                "recordId": record_id,
+                "key": key,
+                "name": name,
+                "recordName": current,
+            }
             for src, number, record_id, key, name, current in drift
         ],
         "missingRecords": [

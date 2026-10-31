@@ -437,10 +437,9 @@ under two headers is two records. The category's name in another language (a tra
 header) is not read, and a second header row is skipped, not stored on the category.
 
 **Inference is deterministic first.** Profiling computes types, uniqueness, fill rates, delimiters and
-value overlap between columns and sheets; the patterns are rules over those statistics. An optional
-assistant (A-D5) may suggest names and meanings of columns ("Ctry" probably means country) as
-proposals. Neither ever applies an operation that the administrator did not accept, and every
-accepted operation passes the same validation.
+value overlap between columns and sheets; the patterns are rules over those statistics. The
+inference never applies an operation that the administrator did not accept, and every accepted
+operation passes the same validation.
 
 ## Lists as object types
 

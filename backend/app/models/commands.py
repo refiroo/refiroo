@@ -1014,3 +1014,77 @@ class MailTest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     to: Email
+
+
+class AiTaskRequest(BaseModel):
+    """``POST /ai/tasks``'s ``request`` part (0.16 AP6a): the workspace the workbook goes into, the
+    person's words and a send level lower than the instance's ceiling."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    workspaceKey: str = Field(min_length=1)
+    words: str | None = Field(default=None, max_length=4000)
+    sendLevel: Literal["structure", "samples", "values"] | None = None
+
+
+class AiTaskTableChoices(BaseModel):
+    """The person's choices for one table of the reading; what is left out stays as it is."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    table: str = Field(min_length=1)
+    keyColumn: str | None = Field(default=None, min_length=1, max_length=3)
+    newRecords: Literal["create", "leaveOut"] | None = None
+    names: Literal["file", "stored"] | None = None
+    missing: Literal["leave", "remove"] | None = None
+    load: bool | None = None
+
+
+class AiTaskPlanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    tables: list[AiTaskTableChoices] = Field(default_factory=list)
+
+
+class AiTaskSaveProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+    name: str = Field(min_length=1, max_length=200)
+
+
+class AiTaskCorrectionRequest(BaseModel):
+    """``POST /ai/tasks/{id}/model``: the steward's correction of the proposed model, in words
+    (0.16 AP6r)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=0)
+    correction: str = Field(min_length=1, max_length=2000)
+
+
+class AiTaskAcceptRequest(BaseModel):
+    """``POST /ai/tasks/{id}/accept``: the steward accepts the proposed model (0.16 AP6r)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=0)
+
+
+class AiTaskAnswersRequest(BaseModel):
+    """``POST /ai/tasks/{id}/answers``: the person's answers to the design's questions, by the
+    question's text (0.16 AP6)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    answers: dict[str, str] = Field(min_length=1)
+
+
+class AiTaskRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    changeSetName: str | None = Field(default=None, min_length=1, max_length=300)
+    saveProfile: AiTaskSaveProfile | None = None

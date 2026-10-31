@@ -83,6 +83,8 @@ export type RouteState =
       containment?: boolean;
       /** Cursor that reopens the shown list at the top of the viewport (ADR-030). */
       anchor?: string;
+      /** The user journey this page is a step of; its bar shows under the top bar. */
+      journey?: JourneyRef;
     }
   | { kind: "publications"; applicationKey: string; workspaceKey: string }
   | {
@@ -145,6 +147,8 @@ export type SettingsRoute =
     }
   /** Jobs, or one job's page (0.9 J1u). */
   | { kind: "settings"; page: "jobs"; jobId?: string }
+  /** A load of a workbook with the AI assistant: the reading, the check and the load of one task (0.16 AP6a). */
+  | { kind: "settings"; page: "ai-tasks"; taskId?: string }
   /** Moves between workspaces, or the move editor of one mapping between two workspaces (0.11 X4). */
   | { kind: "settings"; page: "moves"; move?: MoveAddress }
   /** Stored import profiles, or one profile's page with its next file's check (0.10 A5c, D85). */
@@ -188,7 +192,12 @@ export type SettingsRoute =
       migrationJobId?: string;
       /** The draft opened in the model editor (0.10 A4a, D7), with what its centre shows. */
       editor?: EditorSelection;
+      /** The user journey the editor is a step of: Close returns to it. */
+      journey?: JourneyRef;
     };
+
+/** A user journey across pages (the journey bar): today the assistant's load of a workbook. */
+export type JourneyRef = { kind: "aiTask"; taskId: string };
 
 /**
  * What the model editor's centre shows: an element by its key, or the relationship matrix. A type

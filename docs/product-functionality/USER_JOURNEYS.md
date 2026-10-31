@@ -2416,13 +2416,12 @@ link_gone`, `403 foreign_origin`.
 
 ### J48 — Use AI proposals
 
-**Actor:** an operator, who sets the provider up in the environment and watches what it is sent; a
-person holding Use AI proposals (a model administrator, a data steward or owner, a workspace or
-integration administrator), who asks for proposals in the screens they already use. **Channel:**
-the environment (`AI_*` settings), UI (Settings › AI, under Administration; the inference's Propose
-dialog), API (`GET /ai/status`, `GET /ai/calls`, `POST /ai/test`, `GET /system` `ai`, `POST
-/model-drafts/{id}/inference` `assistant`). **Status:** delivered by 0.16 AP1 (2026-10-28) for the
-inference's names; later 0.16 packages add their own proposals on the same provider.
+**Actor:** an operator, who sets the provider up in the environment and watches what it is sent.
+**Channel:** the environment (`AI_*` settings), UI (Settings › AI, under Administration), API
+(`GET /ai/status`, `GET /ai/calls`, `POST /ai/test`, `GET /system` `ai`). **Status:** delivered by
+0.16 AP1 (2026-10-28); the inference's better names for the types it proposes, its first feature,
+were removed in 0.16 AP6a, and the inference runs on its rules alone. Each feature that asks the
+provider has a journey of its own (J49 is the first).
 
 1. The operator sets `AI_PROVIDER` (the Claude API, an OpenAI-compatible endpoint or a factory), its
    key and model, and how much may leave the instance (`AI_SEND_LEVEL`), and starts the engine; a
@@ -2430,35 +2429,17 @@ inference's names; later 0.16 packages add their own proposals on the same provi
 2. On Settings › AI the operator sees the provider, the model, whether a key is set (never the key),
    the send level and which features it offers, sends a test request that holds no data and reads
    every call: who asked, for what, how much went each way, how it ended.
-3. A person holding Use AI proposals runs a model draft's inference; the provider is asked too, and
-   its better names for the types the rules add arrive as proposals marked as the assistant's, with
-   the provider, model, confidence and reason. Applied, the step says who proposed it and who
-   applied it.
 
 **Variants:**
 
 - **J48.1 Ready and watched**: with a provider set, `GET /system` says so to everyone signed in;
-  the status names the provider and model and offers the inference's names; the test is answered
+  the status names the provider and model and offers the mapping targets; the test is answered
   and is the newest call, attributed to its sender. Content is kept only with `AI_LOG_CONTENT` on.
-- **J48.2 Names proposed and recorded**: the inference's names arrive as proposals of pattern
-  `assistant` carrying `evidence.origin` (`kind: ai`, provider, model, prompt version, confidence,
-  reason); the provider was sent the tables with each column's profile over every row (and, as the level allows,
-  its most frequent values) and the types the rules add; applied, the step's origin holds `proposedBy`; the call names the job and the person.
-- **J48.3 Not offered without the group**: a caller without Use AI proposals runs the inference on
-  its rules alone and nothing is sent; asking for the assistant explicitly is refused.
-- **J48.4 No provider**: the system says none is set, no feature is offered, the test and an explicit
-  assistant are refused, and the inference runs as it did before 0.16 with nothing sent anywhere.
+- **J48.4 No provider**: the system says none is set, no feature is offered and the test is refused
+  with `AI_NOT_CONFIGURED`; nothing is sent anywhere and no call is recorded.
 - **J48.5 A failing provider**: unreachable, a refused key, a declined request or an answer out of
-  the shape asked for is a warning on the inference ("The assistant failed (…); the proposals of the
-  rules stand") and a failed call with its kind; the rules' proposals stand.
-- **J48.6 The send level holds**: at `structure` a sheet goes with its name, headers and each column's counts and no value;
-  at `samples` with at most `AI_SAMPLE_VALUES` frequent values per column; a feature needing more than the level is not
-  offered.
-- **J48.7 The confidence floor**: a name below `AI_MIN_CONFIDENCE` is not offered. The inference says what the
-  assistant did: its model, the names it suggested and those offered, or why it failed; while it waits for the
-  answer its phase is `assistant`.
-- **J48.8 A slow provider**: a provider that takes minutes (a model run locally) holds no database transaction
-  open while the inference waits, so the inference completes however long the answer takes.
+  the shape asked for is a failed call with its kind, the newest call on the AI page and the last
+  call in the status.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`; a start refused
 for `AI_PROVIDER` without what it needs, or for the retired `INFERENCE_ASSISTANT` settings.
@@ -2498,6 +2479,135 @@ mapping grid's Propose targets and Proposed segment), API (`POST /workspaces/{ke
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `409
 CHANGE_SET_VERSION_CONFLICT`, `404 CHANGE_SET_NOT_FOUND`, `404 MAPPING_VIEW_NOT_FOUND`, `422
 MAPPING_PROPOSED_NEEDS_CHANGE_SET`.
+
+### J50 — Load a workbook into a workspace with the assistant
+
+**Actor:** a steward holding Use AI proposals and Bulk and import in the workspace (and, when the
+design changes the model, Model release). **Channel:** API (`POST /ai/tasks`, `GET /ai/tasks`, `GET
+/ai/tasks/{id}`, `POST /ai/tasks/{id}/answers`, `POST /ai/tasks/{id}/run`, `POST
+/ai/tasks/{id}/cancel`, and the draft the task opens at `GET /model-drafts/{id}`); the task page
+follows in a later package. **Status:** the backend delivered by 0.16 AP6a (2026-10-29) and AP6 (the
+assistant designs how the workbook lives in the engine: the five cases, an update of existing data, additions,
+a new relation to existing data, something new but related, something totally new).
+
+1. The steward gives a workbook, the workspace it goes into and optionally a few words. Nothing
+   changes until they confirm.
+2. The rules read each table of the file against the workspace's records (a sheet whose keys or
+   names match a type's records is an update of that type; a column the type does not have is named
+   and left out; a sheet of notes is not data). The assistant then designs from that reading, the
+   workbook profiled over every row and the model in short: it may add attribute types, object
+   types, applications and relationships to a **draft of the workspace's model**, name the records
+   the structure needs that no row gives, write the import profile that loads the workbook and ask
+   only what the data cannot answer (each question with its choices and the one assumed meanwhile).
+   The engine applies the draft's operations all or none, checks the profile against the draft and
+   reports what it refused, which the assistant answers.
+3. A complete design is checked by one dry run of every row of the workbook (and of the sheets the
+   engine adds for the structure records) against the draft. What it refuses goes back to the
+   assistant, up to three rounds; then the task is `checked`: the design, the draft and the check
+   per sheet (created, updated, unchanged, refused) are the steward's to read. The steward answers
+   its questions, which makes another round, or opens the draft in the model editor.
+4. The steward loads it. A design that changes the model needs Model release (at the instance and
+   in the workspace): the draft is installed as a new release and activated in the workspace; then
+   the workbook is imported into a new change set, optionally saving the profile of the person's
+   sheets. Live data is unchanged. The next file of the layout loads through the profile without the
+   assistant.
+
+**Variants:**
+
+- **J50.1 An update**: the default design (no model change) is checked (created, updated,
+  unchanged) and loaded into a change set holding exactly the creates and updates; live unchanged,
+  no new release. The reading says update of the type keyed by its unique column (matched, new,
+  names that differ). The sheet's changed records list what each holds now and after. A task is kept
+  `AI_TASK_RETENTION_DAYS` after it finished or was last changed, then it and its workbook go.
+- **J50.2 The reading corrected**: the assistant asks a question with its options and the one it
+  assumes; the person's answer reaches its next design, which uses it (another key column).
+- **J50.3 Matched by meaning**: a value map in the design maps a new key to the stored key, so the
+  row updates the stored record and nothing is created twice.
+- **J50.4 Conflicts**: the design keeps the stored names (the column is not loaded) or takes the
+  file's.
+- **J50.5 Missing records**: the design reports them (they stay) or deletes them in the change set.
+- **J50.6 Other cases recognised**: the model changes. A new column becomes an attribute type attached
+  to the type (additions); a sheet of something new becomes an object type of a new application
+  related to the stored type, with the records its structure needs and a profile that loads it. The
+  load installs the draft as a release, activates it in the workspace (other workspaces keep theirs)
+  and the change set holds the new records.
+- **J50.7 Every sheet**: the assistant reads cells of a sheet before it decides; the next request
+  carries what it read.
+- **J50.8 Fixes itself**: the dry run refuses cells (a text in an integer column); the assistant's
+  next design call is told the code with examples and its design so far, maps the cells, and the
+  check refuses nothing. Rows a source skips for an empty key are refused as `ROWS_SKIPPED` and go
+  back the same way.
+- **J50.9 Failure**: a failing provider, an answer out of shape and the step limit give a warning,
+  the task `checked` without a profile and nothing written; a slow provider holds no transaction
+  open.
+- **J50.10 Not offered**: `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `403 FORBIDDEN`; a
+  task is visible to its requester and the workspace's administrators, otherwise `404
+  AI_TASK_NOT_FOUND`.
+- **J50.11 Next file**: `POST /imports` naming the saved profile, with no provider call.
+- **J50.12 A profile that fits**: a stored import profile of the workspace's model whose sheets and
+  columns the file has is followed: one table per profile source (`owner: profile`, its bindings of
+  every kind, the file's other columns listed as left out), the design starts from the source as
+  stored, and the load gives what an import through the profile gives.
+- **J50.13 Note, heading and title rows**: a list's note row and second header row are never
+  counted, new or loaded (the profile maps the note text to nothing and skips rows without a key); a
+  block with a header and no rows is a title shown apart, not a table.
+- **J50.14 Translations**: where the model gives the type one related-record structure, a column
+  headed by a language is bound as a related record under that language (a missing language record
+  is created); where it does not, the column stays left out with the reason.
+- **J50.15 Under their parents**: new rows load under the parent the type's stored records share;
+  a table carries its application, type and the types it may stand under; rows that cannot be
+  placed are left out by default with a note.
+- **J50.16 A large workbook**: of 33 lists the reading's summary and each table's attention name the
+  few that need a decision, the check's summary totals the rest, and the provider's request stays
+  within the model's window.
+- **J50.17 Records not stored yet**: a list of records the workspace does not hold yet is loaded as
+  new records of its type by a profile the assistant writes; an answer that only repeats the last
+  one ends the turns.
+- **J50.18 A design that changes the model needs Model release**: a caller with Bulk and Use AI
+  proposals but not Model release is refused `403 FORBIDDEN` naming `model-release` and the task is
+  unchanged; with it (at the instance and in the workspace) the design is installed, activated and
+  loaded.
+- **J50.19 Answers**: `POST /ai/tasks/{id}/answers` is allowed only on a `checked` task (`409
+  AI_TASK_STATE`) and claims the version (`409 AI_TASK_VERSION_CONFLICT`).
+- **J50.20 The draft is the person's**: the task's `draftId` opens through `GET /model-drafts/{id}`
+  and holds the operations the assistant applied (`GET /model-drafts/{id}/operations`).
+- **J50.21 An instruction without a workbook**: a task may come with only words (`422
+  AI_TASK_NEEDS_WORDS` without either). The assistant designs relationships between records the
+  workspace holds, where a condition holds (a field criterion or a related hop): every record one
+  query finds related to every record the other finds. A rule for a relation the model does not
+  allow between the types is refused with its reason in the next call. The task is checked at once
+  with the pairs counted (no dry run); loading puts exactly those relationships into a change set;
+  live data is unchanged. Where a record may hold only one record of the other end (a many-to-one
+  relation), the rule gives it that record and the change set replaces what it held (the check
+  counts these as replaces); a rule that finds more than one such record is refused.
+- **J50.22 A workbook and relationships**: a design with a profile and a rule imports the
+  workbook first; then the relationships' batch runs into the same change set, and the task ends
+  loaded naming both jobs.
+- **J50.23 The proposal**: a new task stops at `checked` in the model stage (`design.stage` is
+  `model`) with the assistant's outline (`design.outline`), no dry run (`check` is empty) and
+  nothing installed. `POST /ai/tasks/{id}/run` is refused `409 AI_TASK_STATE` (the design has not
+  been checked yet). `POST /ai/tasks/{id}/accept` moves the task to the load stage: the sheets are
+  mapped onto the accepted model, every row is dry-run, the task is `checked` with a check, and the
+  run loads it.
+- **J50.24 A correction in words**: `POST /ai/tasks/{id}/model` with a correction proposes the model
+  again; the assistant's call is in the model stage and carries the words (`corrections`, newest
+  last), which win over its own choices. A stale version is refused `409
+  AI_TASK_VERSION_CONFLICT`; `accept` on a task past the proposal is refused `409 AI_TASK_STATE`.
+- **J50.25 The engine's design checks**: every design turn is checked for the workbook, whatever it
+  holds, in `design.checks` (`reuse`, `grouping`, `translations`, `bothEnds`): a column naming
+  records the workspace holds but loaded as a plain value, a column of few values over many rows
+  loaded as a plain value. The open ones go to the assistant in the next call's `outcome.checks`;
+  an answer's `explains` closes a check with its explanation, which the steward sees.
+- **J50.30 Claude Code as the assistant**: with `AI_AGENT_COMMAND` set, the person's words, the workbook,
+  the model and the OpenAPI document go to one session working through the API. It stops at a model
+  draft with every row checked, nothing installed; the person edits the draft or says what to change
+  and the same session goes on; accepting installs one release and loads into a change set; a proposal
+  can be discarded with its draft. A saved layout that still fits needs no session.
+
+**Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
+AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409
+AI_TASK_NOTHING_TO_LOAD`, `409 IMPORT_PROFILE_EXISTS`, `413 IMPORT_TOO_LARGE`, `422
+UNSUPPORTED_FILE_FORMAT`.
 
 ## Guardrails kept from 0.7
 

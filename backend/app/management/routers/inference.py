@@ -24,7 +24,6 @@ from ..access import (
     AuthorizedRoute,
     requires,
 )
-from ..ai import ai_requested
 from ..dependencies import DbSession
 from ..paging import PageQuery
 from ..presenters import diagnostic_details
@@ -51,18 +50,14 @@ def run_inference(draft_id: str, payload: InferenceRequest, request: Request, se
     Refused: ``404 SOURCE_FILE_NOT_FOUND`` for a draft without a file, ``409
     SOURCE_FILE_PROFILE_NOT_READY`` before the file is profiled, ``422 INVALID_MODEL`` for a draft
     that does not compile, ``422 INVALID_INFERENCE_REQUEST`` for an application key that does not
-    fit the mode. ``assistant`` asks the AI provider for better names too (0.16 AP1): by default
-    whenever a provider is set and the caller holds Use AI proposals; ``true`` is refused with
-    ``409 AI_NOT_CONFIGURED`` without a provider and ``403 FORBIDDEN`` without the group.
+    fit the mode.
     """
-    assistant = ai_requested(request, "modelNames", payload.assistant, workspace_key=None)
     try:
         submit_inference(
             session,
             draft_id,
             payload,
             retention_days=request.app.state.batch_limits.retention_days,
-            assistant=assistant,
         )
     except InvalidDraft as invalid:
         raise api_error(

@@ -130,11 +130,18 @@ const refusedRow: JobRow = {
   ],
 };
 
-function renderPage() {
+function renderPage(onNavigate = vi.fn()) {
   render(
     <ToastProvider>
       <JobNotificationsProvider model={testModel} onNavigate={vi.fn()}>
-        <JobPage model={testModel} jobId="j7" canCancel jobsHref="/settings/jobs" onJobs={vi.fn()} />
+        <JobPage
+          model={testModel}
+          jobId="j7"
+          canCancel
+          jobsHref="/settings/jobs"
+          onJobs={vi.fn()}
+          onNavigate={onNavigate}
+        />
       </JobNotificationsProvider>
     </ToastProvider>,
   );
@@ -152,6 +159,22 @@ describe("JobPage of an import (0.9 J4)", () => {
     vi.mocked(api.jobRows).mockResolvedValue({ items: [refusedRow], nextCursor: null });
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it("leads an assistant task's job to the task's page (0.16 AP6a)", async () => {
+    vi.mocked(api.job).mockResolvedValue({
+      ...waiting,
+      kind: "aiTask",
+      state: "completed",
+      preview: null,
+      bindingReport: null,
+      parameters: { taskId: "task-9" },
+    });
+    const onNavigate = vi.fn();
+    renderPage(onNavigate);
+    await screen.findByRole("heading", { level: 1, name: "Assistant: reading a workbook" });
+    fireEvent.click(screen.getByRole("link", { name: "Open the load" }));
+    expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "ai-tasks", taskId: "task-9" });
+  });
 
   it("shows a waiting preview: its counts, result, coverage, the binding report and its refused rows", async () => {
     renderPage();

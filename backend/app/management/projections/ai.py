@@ -20,8 +20,8 @@ from ..schemas.ai import (
 )
 
 FEATURE_NAMES = {
-    "modelNames": "Better names for the types a model draft's inference proposes",
     "mappingTarget": "Targets for the unmapped values of a mapping view",
+    "workbookLoad": "Load a workbook into a workspace",
 }
 
 

@@ -24,6 +24,7 @@ export function SettingsShell({
   onSelectApplication,
   onNavigate,
   fullWidth = false,
+  journey,
   children,
 }: {
   model: EngineModel;
@@ -32,12 +33,15 @@ export function SettingsShell({
   onSelectApplication: (application: ApplicationDefinition) => void;
   onNavigate: (route: RouteState) => void;
   fullWidth?: boolean;
+  /** The bar of the user journey this page is a step of, right below the top bar. */
+  journey?: ReactNode;
   children: ReactNode;
 }) {
   const navigation = navigationFor(useHeldAnywhere());
   const current = SETTINGS_NAVIGATION.flatMap((group) => group.pages).find((item) => item.page === page);
   return (
     <ShellFrame
+      journey={journey}
       topBar={
         <TopBar
           model={model}

@@ -96,6 +96,12 @@ RULES = {
     # 0.16 AP1: who asked the AI provider, kept as a job keeps its requester.
     ("ai_calls", "requested_by_user_id"): ("users", "RESTRICT"),
     ("ai_calls", "requested_by_client_id"): ("oauth_clients", "RESTRICT"),
+    # An assistant task (0.16 AP6a): its requester is kept; its workbook goes with it.
+    ("ai_tasks", "requested_by_user_id"): ("users", "RESTRICT"),
+    ("ai_tasks", "requested_by_client_id"): ("oauth_clients", "RESTRICT"),
+    # A design's draft is the person's too: deleting it leaves the task without it (0.16 AP6).
+    ("ai_tasks", "draft_id"): ("model_drafts", "SET NULL"),
+    ("source_files", "task_id"): ("ai_tasks", "CASCADE"),
     ("jobs", "requested_by_client_id"): ("oauth_clients", "RESTRICT"),
     ("source_files", "uploaded_by_user_id"): ("users", "RESTRICT"),
     ("source_files", "uploaded_by_client_id"): ("oauth_clients", "RESTRICT"),

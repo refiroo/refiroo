@@ -447,7 +447,8 @@ def test_a_workbook_loads_every_binding_kind_through_a_profile(world):
     value mapped to nothing and a related D under a fixed parent. When it is imported live under
     independent with overwrite. Then the job completes, every row applied; each record, value,
     parent, relationship and related record reads back as the file says; the existing ledger is
-    updated in place; every item names its sheet and row; the feed names the job as the cause."""
+    updated in place; every item names its sheet and row; the feed names the job as the cause. A
+    related record's parent read from a column through a value map finds the same record."""
     ws = _workspace(world)
     existing = {
         "estate": world.made("P", "Old estate", workspace=ws),
@@ -499,6 +500,28 @@ def test_a_workbook_loads_every_binding_kind_through_a_profile(world):
         _request(ws, profileKey=ledgers_only["key"]),
     )
     assert {(i["status"], i.get("action")) for i in _outcomes(world, again)} == {
+        ("applied", "unchanged")
+    }
+    assert _related(world, new["id"], "Bown", ws) == {permit["id"]}
+
+    # The parent read from a column through a value map: the file's word for it finds the same one.
+    mapped = _workbook_profile(world, parent_structure, parent_name)
+    mapped["sources"] = mapped["sources"][-1:]
+    permit_binding = mapped["sources"][0]["columns"][-1]["relatedRecord"]
+    permit_binding["parent"] = {
+        "objectTypeKey": world.key(parent_structure),
+        "matchBy": {"field": "name"},
+        "column": "Place",
+        "valueMap": "places",
+    }
+    mapped["valueMaps"]["places"] = {"home": parent_name}
+    mapped = ok(world.api.post("/import-profiles", mapped), 201)
+    ledgers = _workbook()["Ledgers"]
+    with_place = [ledgers[0] + ("Place",), *(row + ("home",) for row in ledgers[1:])]
+    third = _imported(
+        world, "places.xlsx", _xlsx({"Ledgers": with_place}), _request(ws, profileKey=mapped["key"])
+    )
+    assert {(i["status"], i.get("action")) for i in _outcomes(world, third)} == {
         ("applied", "unchanged")
     }
     assert _related(world, new["id"], "Bown", ws) == {permit["id"]}
@@ -567,7 +590,10 @@ def _export(world, ws, types, fmt, relations="withinScope", where=None):
         "workspaceKey": ws,
         "scope": {
             "types": [
-                {"objectTypeKey": world.key(t), **({"where": where[t]} if where and t in where else {})}
+                {
+                    "objectTypeKey": world.key(t),
+                    **({"where": where[t]} if where and t in where else {}),
+                }
                 for t in types
             ]
         },
@@ -1001,10 +1027,127 @@ def test_rows_that_cannot_load_are_rejected_by_row_and_the_rest_load(world):
 
 @pytest.mark.journey("J27.10")
 @pytest.mark.structures("R", "R.u", "R.q", "R.x1", "K", "K.code", "B1n")
+def test_a_sheet_finds_its_records_by_a_number_another_sheet_of_the_file_writes(world):
+    """Given a stored ledger without a number and two K tokens. When a file's first sheet, keyed by
+    name, gives the ledger a number and creates a second ledger with one, and its second sheet
+    relates existing ledgers, keyed by number, to a token each. Then the second sheet finds both by
+    the numbers the first writes, a number nobody holds or writes is refused, and nothing is
+    created twice."""
+    ws = _workspace(world)
+    stored = world.made("R", "Stored ledger", workspace=ws)
+    tokens = [
+        world.made("K", f"Token {n}", workspace=ws, values={"K.code": f"T{n}"}) for n in (1, 2)
+    ]
+    k, app = world.key, world.app("R")
+    profile = {
+        "key": f"numbers-{uuid4().hex[:8]}",
+        "name": "Numbers then tokens",
+        "sources": [
+            {
+                "sheet": "Ledgers",
+                "applicationKey": app,
+                "objectTypeKey": k("R"),
+                "key": {"field": "name"},
+                "columns": [
+                    {"column": "Name", "field": "name"},
+                    {"column": "Number", "attributeTypeKey": k("R.u")},
+                    {"column": "Owner", "attributeTypeKey": k("R.q")},
+                    {"column": "Summary", "attributeTypeKey": k("R.x1")},
+                ],
+            },
+            {
+                "sheet": "Tokens",
+                "applicationKey": app,
+                "objectTypeKey": k("R"),
+                "record": "existing",
+                "key": {"attributeTypeKey": k("R.u")},
+                "columns": [
+                    {"column": "Number", "attributeTypeKey": k("R.u")},
+                    {
+                        "column": "Token",
+                        "relation": {
+                            "relationTypeKey": k("B1n"),
+                            "objectTypeKey": k("K"),
+                            "matchBy": {"attributeTypeKey": k("K.code")},
+                        },
+                    },
+                ],
+            },
+        ],
+    }
+    profile = ok(world.api.post("/import-profiles", profile), 201)
+    content = _xlsx(
+        {
+            "Ledgers": [
+                ("Name", "Number", "Owner", "Summary"),
+                ("Stored ledger", "N-1", "Ann", "Kept"),
+                ("New ledger", "N-2", "Bob", "New"),
+            ],
+            "Tokens": [("Number", "Token"), ("N-1", "T1"), ("N-2", "T2"), ("N-9", "T1")],
+        }
+    )
+    job = _imported(world, "numbers.xlsx", content, _request(ws, profileKey=profile["key"]))
+    rows = _by_ref(_outcomes(world, job))
+    assert _code(rows["Tokens!4"][0]) == "REFERENCE_NOT_FOUND"
+    assert all(
+        i["status"] == "applied" for ref, items in rows.items() if ref != "Tokens!4" for i in items
+    )
+    ledgers = _named(world, "R", ws)
+    assert set(ledgers) == {"Stored ledger", "New ledger"}
+    assert ledgers["Stored ledger"]["id"] == stored["id"]
+    for name, token in (("Stored ledger", tokens[0]), ("New ledger", tokens[1])):
+        assert _related(world, ledgers[name]["id"], "B1n", ws) == {token["id"]}
+
+
+@pytest.mark.journey("J27.10")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1")
+def test_two_sheets_listing_the_same_new_number_load_one_record(world):
+    """Given no ledgers. When a file's two sheets both upsert ledgers keyed by number and both list
+    N-5. Then one ledger N-5 is created by the first sheet and updated by the second, and nothing
+    is refused as a repeated unique value."""
+    ws = _workspace(world)
+    k, app = world.key, world.app("R")
+
+    def source(sheet):
+        return {
+            "sheet": sheet,
+            "applicationKey": app,
+            "objectTypeKey": k("R"),
+            "key": {"attributeTypeKey": k("R.u")},
+            "columns": [
+                {"column": "Number", "attributeTypeKey": k("R.u")},
+                {"column": "Name", "field": "name"},
+                {"column": "Owner", "attributeTypeKey": k("R.q")},
+                {"column": "Summary", "attributeTypeKey": k("R.x1")},
+            ],
+        }
+
+    profile = {
+        "key": f"two-lists-{uuid4().hex[:8]}",
+        "name": "Two lists of ledgers",
+        "sources": [source("Old list"), source("Current list")],
+    }
+    profile = ok(world.api.post("/import-profiles", profile), 201)
+    header = ("Number", "Name", "Owner", "Summary")
+    content = _xlsx(
+        {
+            "Old list": [header, ("N-5", "Fifth", "Ann", "Old"), ("N-6", "Sixth", "Ann", "Old")],
+            "Current list": [header, ("N-5", "Fifth", "Bob", "Current")],
+        }
+    )
+    job = _imported(world, "lists.xlsx", content, _request(ws, profileKey=profile["key"]))
+    assert job["result"] == "applied", job["error"]
+    ledgers = _named(world, "R", ws)
+    assert set(ledgers) == {"Fifth", "Sixth"}
+    assert world.value(ledgers["Fifth"], "R.q") == "Bob"
+
+
+@pytest.mark.journey("J27.10")
+@pytest.mark.structures("R", "R.u", "R.q", "R.x1", "K", "K.code", "B1n")
 def test_rows_repeating_a_key_with_equal_values_load_as_one_record_with_every_relationship(world):
-    """Given two K tokens. When a file holds two rows for one ledger number with equal values and
-    a different token each in its relation column. Then the ledger is created once and holds both
-    relationships."""
+    """Given two K tokens. When a file holds two rows for one ledger number with equal values (the
+    second leaving the summary empty) and a different token each in its relation column. Then the
+    ledger is created once, with the summary, and holds both relationships."""
     ws = _workspace(world)
     first = world.made("K", "First", workspace=ws, values={"K.code": "T1"})
     second = world.made("K", "Second", workspace=ws, values={"K.code": "T2"})
@@ -1023,12 +1166,14 @@ def test_rows_repeating_a_key_with_equal_values_load_as_one_record_with_every_re
     rows = [
         ("Number", "Name", "Owner", "Summary", "Token"),
         ("L-1", "Ledger", "Ann", "Summary", "T1"),
-        ("L-1", "Ledger", "Ann", "Summary", "T2"),
+        # A repeating row may leave a value empty: it agrees, and the record keeps the filled one.
+        ("L-1", "Ledger", "Ann", None, "T2"),
     ]
     job = _imported(world, "rows.csv", _csv(rows), _request(ws, profileKey=profile["key"]))
     assert job["state"] == "completed" and job["result"] == "applied", job["error"]
     ledgers = _named(world, "R", ws)
     assert list(ledgers) == ["Ledger"]
+    assert world.value(ledgers["Ledger"], "R.x1") == "Summary"
     assert _related(world, ledgers["Ledger"]["id"], "B1n", ws) == {first["id"], second["id"]}
 
 

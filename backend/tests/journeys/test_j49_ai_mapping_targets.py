@@ -455,8 +455,8 @@ def test_a_send_level_too_low_for_the_feature_or_above_the_ceiling_is_refused(wo
     AI_SEND_LEVEL_TOO_LOW, and so is a request choosing a level above the ceiling, naming both."""
     status = ok(world.api.get("/ai/status"))
     assert {f["purpose"]: f["available"] for f in status["features"]} == {
-        "modelNames": True,
         "mappingTarget": False,
+        "workbookLoad": False,
     }
     refused(_propose(world, "Vnn", changeSetName="Low"), 409, "AI_SEND_LEVEL_TOO_LOW")
     error = refused(

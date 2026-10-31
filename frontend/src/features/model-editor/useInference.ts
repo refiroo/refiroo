@@ -16,14 +16,10 @@ export interface DraftInference {
   proposals: Proposal[];
   /** Element (`objectType:item`, `column:items/Code`) to the proposal it is still as. */
   proposed: Map<string, Proposal | undefined>;
-  /** Element to the AI assistant's applied proposal that named it (0.16 AP1), beside the rules' own. */
-  assistantFor: Map<string, Proposal>;
   /** Proposing: the inference queued or running, or its proposals being applied. */
   running: boolean;
   error: string;
   propose: (request: InferenceRequest) => Promise<void>;
-  /** What the running inference is doing: `assistant` while the AI assistant's call runs. */
-  phase: "assistant" | undefined;
   /** Cancels the running inference: nothing is applied and proposing has ended. */
   stop: () => Promise<void>;
   /** The editor applied the proposals (or gave up): proposing has ended. */
@@ -40,7 +36,6 @@ export function useInference(
   const [follow, setFollow] = useState<string>();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
-  const [stage, setStage] = useState<string | null>(null);
   // The job whose end was handled: a late read that still says checking must not resume it.
   const ended = useRef<string | undefined>(undefined);
   const completed = useRef(onCompleted);
@@ -93,8 +88,7 @@ export function useInference(
 
   useJobStream(follow, (job) => {
     if (!isFinal(job)) {
-      // The job moved on (to the assistant's call, say): read the inference again, so its phase shows.
-      setStage(job.stage);
+      // The job moved on: read the inference again.
       void read();
       return;
     }
@@ -110,7 +104,7 @@ export function useInference(
     });
   });
 
-  // A job's change is pushed when it commits; reading now and then keeps the phase from lagging.
+  // A job's change is pushed when it commits; reading now and then keeps the read from lagging.
   useEffect(() => {
     if (!follow) return;
     const timer = setInterval(() => void read(), 3000);
@@ -126,7 +120,6 @@ export function useInference(
     }
     ended.current = follow;
     setFollow(undefined);
-    setStage(null);
     setRunning(false);
     await read();
   }, [follow, read]);
@@ -134,7 +127,6 @@ export function useInference(
   const propose = useCallback(
     async (request: InferenceRequest) => {
       setError("");
-      setStage(null);
       setRunning(true);
       try {
         const started = await api.proposeFromWorkbook(draftId, request);
@@ -159,28 +151,12 @@ export function useInference(
     );
   }, [inference, items]);
 
-  const assistantFor = useMemo(() => {
-    const named = new Map<string, Proposal>();
-    for (const proposal of items)
-      if (proposal.pattern === "assistant" && proposal.status === "applied")
-        for (const operation of proposal.operations) {
-          const type = (operation.element as { objectType?: string } | undefined)?.objectType;
-          if (operation.kind === "setLabel" && type) named.set(`objectType:${type}`, proposal);
-        }
-    return named;
-  }, [items]);
-
   return {
     inference,
     proposals: items,
     proposed,
-    assistantFor,
     running,
     error,
-    phase:
-      running && inference?.state === "checking" && (inference.phase === "assistant" || stage === "assistant")
-        ? ("assistant" as const)
-        : undefined,
     stop,
     propose,
     settled: useCallback(() => setRunning(false), []),

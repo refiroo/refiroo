@@ -434,7 +434,7 @@ def test_a_relationship_offers_and_takes_only_its_candidates(world):
     reads the candidates, live and in a change set where a code changes, and relates records alone,
     in a batch and by replacing a set. Then only matching records are offered and related, the others
     refused with RELATION_CANDIDATE_REFUSED naming the end; a record already held stays when the set
-    is replaced, while one added must match."""
+    is replaced or edited in a change set, while one added must match."""
     tag = uuid4().hex[:6]
     bcand = world.key("Bcand")
     h = world.made("H", f"{tag} chooser")
@@ -494,6 +494,14 @@ def test_a_relationship_offers_and_takes_only_its_candidates(world):
     assert kept["items"][0]["status"] == "applied"
     added = ok(_batch(world, [{**replace, "targets": [{"object": {"id": bad["id"]}}]}], onExisting="overwrite"))
     assert added["items"][0]["error"]["code"] == "RELATION_CANDIDATE_REFUSED"
+    # An edit of the held record keeps it, live and in a change set alike (an import's update).
+    held = world.record("K", good["id"])
+    edit = world.change_set(name=f"{tag} rename held")
+    ok(world.api.patch(
+        f"/objects/{world.key('K')}/{good['id']}",
+        {"name": f"{tag} good renamed", "expectedVersion": held["version"], "changeSetId": edit["id"],
+         "expectedChangeSetVersion": edit["version"]},
+    ))
 
     # Banc: the R end must be flagged, the D end under a reserved G.
     banc = world.key("Banc")

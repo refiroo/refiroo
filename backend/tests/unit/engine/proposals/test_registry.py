@@ -19,7 +19,7 @@ def _settings(**environ: str) -> Settings:
 
 def test_no_provider_is_the_default_and_offers_nothing():
     ai = configure(_settings())
-    assert ai.provider is None and not ai.configured and not ai.offers("modelNames")
+    assert ai.provider is None and not ai.configured and not ai.offers("mappingTarget")
     assert (ai.policy.level, ai.policy.samples, ai.min_confidence) == ("values", 20, 0.5)
 
 

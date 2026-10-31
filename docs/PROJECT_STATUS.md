@@ -9,7 +9,7 @@ inference's assistant on the provider with provenance. **AP2, targets for unmapp
 (2026-10-28)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap2-record-2026-10-28)): Propose targets in the
 mapping grid, a job asking the provider among the grid's own candidates and writing into a change set,
 provenance on change-set relations through publication into history, the Proposed filter,
-`AI_CONTEXT_TOKENS`. Next: AP6, one assistant whose tools are every AI capability (AP-D27, 2026-10-28), starting with AP6a.
+`AI_CONTEXT_TOKENS`. **AP6a, loading a workbook with the assistant, is delivered (2026-10-29)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap6a-record-2026-10-29)): the naming helper removed; Import offers the assistant first; a task reads the workbook (a stored profile that fits followed first), shows what needs the person, checks every row in a dry run, has the assistant fix refused values and loads into a change set. Next (the user, 2026-10-29: no slices): one plan replacing AP6b–d, in which the assistant analyses the workbook, decides the structure and aligns the model, with the engine's operations as its tools.
 
 ## Current development baseline — Base 0.12 complete (2026-10-28)
 

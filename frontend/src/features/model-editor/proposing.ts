@@ -84,7 +84,6 @@ export const PATTERN_LABELS: Record<string, string> = {
   describedField: "A field the description names",
   describedFlags: "Flags the description names",
   listBlock: "A list of a sheet laid out for reading",
-  assistant: "The assistant's suggestion",
 };
 
 export const patternLabel = (pattern: string | null | undefined) =>

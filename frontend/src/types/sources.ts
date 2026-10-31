@@ -341,8 +341,6 @@ export interface InferenceRequest {
   mode: "newApplication" | "extend";
   applicationKey?: string;
   applicationName?: string;
-  /** Ask the AI provider for clearer names (0.16 AP1); omitted: whatever the deployment and the person allow. */
-  assistant?: boolean;
 }
 
 /** A column the draft reads otherwise than a pattern does (D92). */
@@ -368,12 +366,6 @@ export interface Inference {
   counts: { open: number; applied: number; held: number; rejected: number };
   disagreements: InferenceDisagreement[];
   warnings: string[];
-  /** Whether the AI provider was asked (0.16 AP1). */
-  assistant?: boolean;
-  /** While checking: the assistant's call is running (absent while the rules read the workbook). */
-  phase?: "assistant" | null;
-  /** What the assistant did, when it was asked. */
-  assistantOutcome?: { model: string | null; suggested: number; offered: number; failure: string | null } | null;
   /** The elements still as a proposal step left them: the engine's, until changed (D92). */
   proposed: { element: string; proposalId: string | null; pattern: string | null }[];
   error: { code: string; message: string } | null;
