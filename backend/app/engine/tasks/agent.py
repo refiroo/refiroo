@@ -9,7 +9,7 @@ When the person accepts, it installs one release and loads into a change set. It
 publishes: the person does, from the change set.
 
 The session is a process of the assistant worker in a folder of its own, kept for the task's next turn. Its
-stream is the task's progress: what its calls reached, read from what it actually did.
+stream says what it is doing now; what it has reached is read from what the engine recorded of it.
 """
 
 import json
@@ -23,18 +23,20 @@ import subprocess
 import sys
 import time
 import urllib.request
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
 from ...models.commands import ClientCreate, GrantCreate, GrantPrincipal, GrantScope, RoleCreate
 from ...models.database import (
     AiTask,
+    AuditEvent,
     AuthorizationState,
     ChangeSet,
     Job,
@@ -55,16 +57,7 @@ TIMEOUT_SECONDS = 1800
 LAST_LINE = "CHANGE_SET:"
 DEFAULT_WORDS = "Create a model for this or map it to the current model, and import it."
 PROPOSAL = "proposal.json"
-# (what it reached, what shows it in a call).
-MILESTONES = (
-    ("draft", "Model draft started", re.compile(r"POST\S*\s+\S*/model-drafts\b(?!/)|/model-drafts[\"' ]")),
-    ("operations", "Model changed", re.compile(r"/model-drafts/[^/\s\"']+/operations")),
-    ("check", "Every row checked", re.compile(r"/model-drafts/[^/\s\"']+/dry-run")),
-    ("install", "Release installed", re.compile(r"/model-drafts/[^/\s\"']+/installation")),
-    ("load", "Loaded into the change set", re.compile(r"/api/v1/imports|/api/v1/batches")),
-)
 _CALL = re.compile(r"(?:-X\s*(GET|POST|PUT|PATCH|DELETE)\b[^\n]*?)?/api/v1/([A-Za-z0-9_\-/{}$.]+)")
-_REFUSED = re.compile(r'"(?:rejected|refused)"\s*:\s*(\d+)')
 
 
 def enabled() -> bool:
@@ -308,15 +301,84 @@ def _plain(command: str) -> str:
     return f"{reading} {parts[0].replace('-', ' ')}"
 
 
+def _steps(
+    load: bool, drafted: bool, audited: dict[tuple[str, str], Any], jobs: list[Any]
+) -> tuple[list[dict[str, Any]], int | None]:
+    """What this turn has reached, from what the engine recorded of its client: the audit's last
+    time per (type, action) and the turn's jobs, oldest first. A turn shows only what it can reach:
+    the model and its check, or the release and the load. A check before the model's last change
+    no longer counts, and a load counts once one applied without a refusal."""
+
+    def step(key: str, label: str, done: bool = False, running: bool = False) -> dict[str, Any]:
+        return {"key": key, "label": label, "done": done, "running": running}
+
+    def waiting(job: Any) -> bool:
+        return job.state in ("queued", "running")
+
+    if load:
+        loads = [job for job in jobs if job.kind != "dryRun"]
+        loaded = any(
+            job.state == "completed"
+            and not (job.counts or {}).get("rejected")
+            and (job.counts or {}).get("applied")
+            for job in loads
+        )
+        loading = not loaded and any(waiting(job) for job in loads)
+        return [
+            step("install", "Release installed", ("model_release", "installed") in audited),
+            step(
+                "load",
+                "Loading into the change set" if loading else "Loaded into the change set",
+                loaded,
+                loading,
+            ),
+        ], None
+    changed = audited.get(("model_draft", "updated"))
+    checks = [job for job in jobs if job.kind == "dryRun"]
+    last = checks[-1] if checks else None
+    current = last is not None and (changed is None or last.created_at >= changed)
+    checking = last is not None and waiting(last)
+    checked = current and last.state == "completed"
+    return [
+        step("draft", "Model draft started", drafted or ("model_draft", "created") in audited),
+        step("operations", "Model changed", changed is not None),
+        step("check", "Checking every row" if checking else "Every row checked", checked, checking),
+    ], (last.counts or {}).get("rejected") if checked else None
+
+
+def _reached(
+    session: Session, load: bool, drafted: bool, workspace: str, since: datetime
+) -> tuple[list[dict[str, Any]], int | None]:
+    client = select(OAuthClient.id).where(OAuthClient.name == CLIENT).scalar_subquery()
+    audited = session.execute(
+        select(AuditEvent.aggregate_type, AuditEvent.action, func.max(AuditEvent.occurred_at))
+        .where(
+            AuditEvent.actor_client_id == client,
+            AuditEvent.occurred_at >= since,
+            AuditEvent.aggregate_type.in_(("model_draft", "model_release")),
+        )
+        .group_by(AuditEvent.aggregate_type, AuditEvent.action)
+    ).all()
+    jobs = session.execute(
+        select(Job.kind, Job.state, Job.counts, Job.created_at)
+        .where(
+            Job.requested_by_client_id == client,
+            Job.workspace_key == workspace,
+            Job.created_at >= since,
+            Job.kind.in_(("dryRun", "import", "batch")),
+        )
+        .order_by(Job.sequence_id)
+    ).all()
+    return _steps(load, drafted, {(kind, action): at for kind, action, at in audited}, list(jobs))
+
+
 class _Progress:
-    """The session's stream as the task's progress: read from the log, written when it moves."""
+    """The session's stream as what it is doing now: read from the log, written when it moves."""
 
     def __init__(self, log: Path) -> None:
         self.log = log
         self.position = 0
-        self.reached: dict[str, int] = {}
         self.now = "Starting"
-        self.refused: int | None = None
         self.result: dict[str, Any] = {}
 
     def read(self) -> bool:
@@ -353,26 +415,7 @@ class _Progress:
                 if command:
                     self.now = _plain(command)
                     moved = True
-                for key, _, pattern in MILESTONES:
-                    if pattern.search(command):
-                        self.reached[key] = self.reached.get(key, 0) + 1
-            elif block.get("type") == "tool_result":
-                found = _REFUSED.findall(json.dumps(block.get("content")))
-                if found:
-                    self.refused = int(found[-1])
-                    moved = True
         return moved
-
-    def view(self, started: float) -> dict[str, Any]:
-        return {
-            "now": self.now,
-            "seconds": round(time.monotonic() - started),
-            "refused": self.refused,
-            "milestones": [
-                {"key": key, "label": label, "done": key in self.reached, "times": self.reached.get(key, 0)}
-                for key, label, _ in MILESTONES
-            ],
-        }
 
 
 def _stop_earlier(earlier: dict[str, Any] | None) -> None:
@@ -394,7 +437,7 @@ def _stop_earlier(earlier: dict[str, Any] | None) -> None:
 
 
 def _run_turn(
-    session: Session, job: Job, ctx: Any, task_id: str, folder: Path, prompt: str, session_id: str, *, first: bool
+    session: Session, job: Job, ctx: Any, task_id: str, folder: Path, prompt: str, session_id: str, *, first: bool, load: bool = False
 ) -> _Progress | None:
     """One turn of the session, the task's progress written as it goes; ``None`` when it could not
     start, with the reason on the task."""
@@ -417,6 +460,7 @@ def _run_turn(
     log = folder / f"session-{uuid4().hex[:8]}.log"
     progress = _Progress(log)
     started = time.monotonic()
+    since = datetime.now(UTC)
     with log.open("w") as output:
         try:
             process = subprocess.Popen(
@@ -449,10 +493,21 @@ def _run_turn(
                 if time.monotonic() - started > TIMEOUT_SECONDS:
                     raise TimeoutError("The session took too long")
                 moved = progress.read()
-                if moved or time.monotonic() - shown >= 10:
+                if moved or time.monotonic() - shown >= 5:
                     shown = time.monotonic()
                     task = load_task(session, task_key, for_update=True)
-                    task.design = {**(task.design or {}), "progress": progress.view(started)}
+                    milestones, refused = _reached(
+                        session, load, task.draft_id is not None, task.workspace_key, since
+                    )
+                    task.design = {
+                        **(task.design or {}),
+                        "progress": {
+                            "now": progress.now,
+                            "seconds": round(time.monotonic() - started),
+                            "refused": refused,
+                            "milestones": milestones,
+                        },
+                    }
                     session.commit()
                 time.sleep(2)
             _await_its_jobs(session, ctx, started)
@@ -573,7 +628,7 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
     workspace = task.workspace_key
     folder = folder_of(ctx.files, task)
     progress = _run_turn(
-        session, job, ctx, task_id, folder, _ACCEPTED, (task.design or {})["agentSession"], first=False
+        session, job, ctx, task_id, folder, _ACCEPTED, (task.design or {})["agentSession"], first=False, load=True
     )
     if progress is None:
         return

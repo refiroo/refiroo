@@ -276,7 +276,7 @@ class TaskDesign(BaseModel):
     checks: list[dict[str, Any]] = []
     # The steward's corrections in words, the newest last.
     corrections: list[str] = []
-    # While a session works: ``{now, seconds, refused, milestones: [{key, label, done, times}]}``.
+    # While a session works: ``{now, seconds, refused, milestones: [{key, label, done, running}]}``.
     progress: dict[str, Any] | None = None
     # The Claude Code session working on this design.
     agentSession: str | None = None

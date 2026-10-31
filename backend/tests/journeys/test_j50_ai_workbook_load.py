@@ -700,6 +700,22 @@ def test_a_job_the_session_queues_runs_under_its_grants_even_when_the_session_ha
             },
         )
         assert upload.status_code == 201, upload.text
+        # The checklist follows what the engine recorded, for this client since the turn began.
+        with SessionLocal() as db:
+            since = datetime.now(UTC) - timedelta(minutes=1)
+            done = lambda: {
+                step["key"]: step["done"]
+                for step in agent._reached(db, False, False, ledgers.workspace, since)[0]
+            }
+            assert done() == {"draft": False, "operations": False, "check": False}
+            created = world.api.client.post(
+                "/api/v1/model-drafts",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"name": "Its own", "model": {}},
+            )
+            assert created.status_code == 201, created.text
+            db.rollback()
+            assert done() == {"draft": True, "operations": False, "check": False}
         (tmp_path / "go").touch()
         with SessionLocal() as db:
             queued = select(Job).where(

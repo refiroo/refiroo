@@ -304,12 +304,12 @@ export interface AiTaskDesign {
   corrections?: string[];
   /** The session this design belongs to, when Claude Code works on it. */
   agentSession?: string;
-  /** While a session works: what it does now and what its calls reached. */
+  /** While a session works: what it does now and what the engine recorded of it. */
   progress?: {
     now: string;
     seconds: number;
     refused: number | null;
-    milestones: { key: string; label: string; done: boolean; times: number }[];
+    milestones: { key: string; label: string; done: boolean; running: boolean }[];
   } | null;
   summary: string;
   operations: AiTaskOperation[];
