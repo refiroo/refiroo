@@ -370,6 +370,8 @@ class ModelDraftResponse(BaseModel):
     id: str
     name: str
     baseReleaseId: str | None
+    # The workspace it was opened from, which it applies to (0.16 WM1).
+    workspaceKey: str | None = None
     model: dict[str, Any]
     version: int
     createdAt: datetime
@@ -629,6 +631,7 @@ class ModelDraftOutlineResponse(BaseModel):
 
     version: int
     baseReleaseId: str | None
+    workspaceKey: str | None = None
     release: OutlineReleaseIdentity
     baseRelease: OutlineReleaseIdentity | None
     applications: list[OutlineApplication]

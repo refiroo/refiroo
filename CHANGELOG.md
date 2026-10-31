@@ -6,6 +6,26 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (changing a workspace's model)
+
+- **Edit model from the workspace:** a ⋯ menu beside the workspace selector, and a button on the workspace's page
+  in Settings › Workspaces, open the model editor on that workspace's draft. **Apply to this workspace** says what
+  changes and what happens to the records, installs, then activates or migrates there alone, and returns to the
+  workspace. `POST /workspaces/{key}/model/draft`; a draft's `workspaceKey`. Model release in a draft's workspace
+  now allows installing that draft.
+
+### Changed (Import and Export)
+
+- **Import and Export moved** from the collection's header into the workspace's ⋯ menu. Export still exports what
+  the page shows.
+
+### Fixed (the assistant's pages)
+
+- **Load a workbook is offered only where a session is set up** (`ai.assistant` on `GET /system`, `AI_AGENT_COMMAND`),
+  and says what the session is given. With a provider alone, Import is the ordinary dialog.
+- **The proposal's correction box** is three lines, not 440px. **The loaded page** no longer says a session's changes
+  note the assistant, which they do not yet.
+
 ### Added (agent access)
 
 - **An assistant can reach refiroo (0.16 AG1).** With `MCP_ENABLED`, an assistant that speaks MCP connects at `/mcp`. A person adds the address and signs in on refiroo's own page, which says who asks and where it returns; a system uses an agent client. It works within what its person or client may do, cut down to reading and preparing changes, and can never approve or publish. Two tools so far: who it acts as, and the workspaces it may read.

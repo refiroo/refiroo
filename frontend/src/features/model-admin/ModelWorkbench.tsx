@@ -80,12 +80,15 @@ export function ModelWorkbench({
   onRouteChange,
   onActiveModelChange,
   onOpenWorkspace,
+  onReturnToWorkspace,
   onOpenChangeSet,
 }: {
   route: ModelsRoute;
   onRouteChange: (route: ModelsRoute) => void;
   /** Opens a workspace in Settings › Workspaces, from the workspaces a model runs in (M6). */
   onOpenWorkspace?: (workspaceKey: string) => void;
+  /** A migration opened from a workspace goes back to its data (0.16 WM1). */
+  onReturnToWorkspace?: (workspaceKey: string) => void;
   /** A change set moved onto its workspace's release (0.11 V3): open it. */
   onOpenChangeSet?: (workspaceKey: string, changeSetId: string) => void;
   /** A workspace's model changed: the shell forgets the model it held for it (D49). */
@@ -337,7 +340,8 @@ export function ModelWorkbench({
         jobId={route.migrationJobId}
         workspaces={workspaces}
         releases={releases}
-        onOpenJob={(jobId) => onRouteChange({ ...MODEL, migrationJobId: jobId })}
+        onOpenJob={(jobId) => onRouteChange({ ...MODEL, migrationJobId: jobId, forWorkspace: route.forWorkspace })}
+        onReturnToWorkspace={route.forWorkspace ? () => onReturnToWorkspace?.(route.forWorkspace!) : undefined}
         onBack={() => onRouteChange(MODEL)}
         onMigrated={(workspaceKey) => Promise.all([load(), onActiveModelChange?.(workspaceKey)])}
         onOpenChangeSet={onOpenChangeSet}

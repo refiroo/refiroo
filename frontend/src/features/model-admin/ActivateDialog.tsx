@@ -33,7 +33,7 @@ type Check =
   | { key: string; state: "error"; message: string };
 
 /** Every open change set of the workspace, page by page (a workspace holds few). */
-async function openChangeSets(workspaceKey: string): Promise<ChangeSet[]> {
+export async function openChangeSets(workspaceKey: string): Promise<ChangeSet[]> {
   const found: ChangeSet[] = [];
   let cursor: string | undefined;
   do {
@@ -314,28 +314,11 @@ export function ActivateDialog({
               </Notice>
             )}
             {fits && (
-              <section aria-labelledby="activate-left-behind" className="activate-left-behind">
-                <h3 id="activate-left-behind" className="install-heading">
-                  Change sets left on {workspace.model.releaseVersion}
-                </h3>
-                {current.leftBehind.length ? (
-                  <>
-                    <p className="muted">
-                      These open change sets of {workspace.label} stay pinned to the release it runs now. They cannot be
-                      published until each is moved to the new release or discarded.
-                    </p>
-                    <ul>
-                      {current.leftBehind.map((item) => (
-                        <li key={item.id}>
-                          {item.name ?? "Unnamed change set"} · version {item.version}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <p className="muted">None: {workspace.label} has no open change set.</p>
-                )}
-              </section>
+              <LeftBehindChangeSets
+                workspaceLabel={workspace.label}
+                version={workspace.model.releaseVersion}
+                changeSets={current.leftBehind}
+              />
             )}
             {others.length > 0 && (
               <p className="muted">
@@ -369,10 +352,46 @@ export function ActivateDialog({
   );
 }
 
+/** The workspace's open change sets that stay on the release it runs now (D26). */
+export function LeftBehindChangeSets({
+  workspaceLabel,
+  version,
+  changeSets,
+}: {
+  workspaceLabel: string;
+  version: string;
+  changeSets: ChangeSet[];
+}) {
+  return (
+    <section aria-labelledby="activate-left-behind" className="activate-left-behind">
+      <h3 id="activate-left-behind" className="install-heading">
+        Change sets left on {version}
+      </h3>
+      {changeSets.length ? (
+        <>
+          <p className="muted">
+            These open change sets of {workspaceLabel} stay pinned to the release it runs now. They cannot be published
+            until each is moved to the new release or discarded.
+          </p>
+          <ul>
+            {changeSets.map((item) => (
+              <li key={item.id}>
+                {item.name ?? "Unnamed change set"} · version {item.version}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="muted">None: {workspaceLabel} has no open change set.</p>
+      )}
+    </section>
+  );
+}
+
 /** The first reasons the data does not fit, in plain words; the release's page lists every one. */
 const REASONS_SHOWN = 5;
 
-function MigrationReasons({ diagnostics }: { diagnostics: ModelDiagnostic[] }) {
+export function MigrationReasons({ diagnostics }: { diagnostics: ModelDiagnostic[] }) {
   if (!diagnostics.length) return null;
   const more = diagnostics.length - REASONS_SHOWN;
   return (

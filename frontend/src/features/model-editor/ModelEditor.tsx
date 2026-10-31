@@ -84,6 +84,7 @@ import {
   undoable,
 } from "@/features/model-editor/history";
 import { DeleteDraftDialog } from "@/features/model-admin/DeleteDraftDialog";
+import { ApplyDialog } from "@/features/model-editor/ApplyDialog";
 import { InstallDialog } from "@/features/model-editor/InstallDialog";
 import { ProposingProgress, type ProposingPhase } from "@/features/model-editor/ProposingProgress";
 import { IssuesAndHistory } from "@/features/model-editor/IssuesAndHistory";
@@ -117,6 +118,7 @@ type Dialog =
   | { kind: "operation"; operation: OperationSpec; target: OperationTarget; preset?: FieldValues }
   | { kind: "move"; subject: MoveSubject; target?: string }
   | { kind: "install" }
+  | { kind: "apply" }
   | { kind: "dependants"; steps: number[]; dependants: number[] }
   | { kind: "map"; start: MapStart }
   | { kind: "valueMap"; use: ColumnUse; header: string }
@@ -133,6 +135,8 @@ type Stale = { since: ModelDraftOperationEntry[]; more: boolean; send: Send };
 export function ModelEditor({
   draftId,
   journey,
+  forWorkspace,
+  onOpenWorkspace,
   selection,
   onSelect,
   onNavigate,
@@ -145,6 +149,9 @@ export function ModelEditor({
   draftId: string;
   /** The journey the editor was opened from: Close returns to it, not to the models. */
   journey?: JourneyRef;
+  /** Opened from this workspace (0.16 WM1): the main action applies to it, Close returns to it. */
+  forWorkspace?: string;
+  onOpenWorkspace?: (workspaceKey: string) => void;
   selection: EditorSelection;
   onSelect: (selection: EditorSelection) => void;
   onNavigate: (route: RouteState) => void;
@@ -163,6 +170,19 @@ export function ModelEditor({
   const phone = useMediaQuery(PHONE_WIDTH);
   const [outline, setOutline] = useState<ModelDraftOutline>();
   const editorWorkspace = useEditorWorkspace(outline?.release.key ?? undefined, workspaceKey);
+  const [forWorkspaceLabel, setForWorkspaceLabel] = useState<string>();
+  useEffect(() => {
+    if (!forWorkspace) return;
+    let active = true;
+    api
+      .workspace(forWorkspace)
+      .then((found) => active && setForWorkspaceLabel(found.label))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [forWorkspace]);
+  const appliesTo = forWorkspaceLabel ?? forWorkspace;
   const [name, setName] = useState("");
   // Whether the draft names a base release of its own; without one, the active release stands in (D17).
   const [ownBase, setOwnBase] = useState(true);
@@ -523,6 +543,7 @@ export function ModelEditor({
   const toModels: RouteState = { kind: "settings", page: "model" };
   // Close returns to where the editor was opened from: the journey's page, else the models.
   const toClose: RouteState = journey ? { kind: "settings", page: "ai-tasks", taskId: journey.taskId } : toModels;
+  const close = () => (forWorkspace ? onOpenWorkspace?.(forWorkspace) : onNavigate(toClose));
   const deleteItem = {
     id: "deleteDraft",
     label: "Delete draft…",
@@ -840,19 +861,37 @@ export function ModelEditor({
           variant="detail"
           icon={<Icon name="model" size={20} />}
           eyebrow={
-            <RouteLink
-              className="model-editor-crumb"
-              href={routePath({ kind: "settings", page: "model" })}
-              onNavigate={() => onNavigate({ kind: "settings", page: "model" })}
-            >
-              Settings › Model
-            </RouteLink>
+            forWorkspace ? (
+              <button type="button" className="model-editor-crumb" onClick={() => onOpenWorkspace?.(forWorkspace)}>
+                {appliesTo}
+              </button>
+            ) : (
+              <RouteLink
+                className="model-editor-crumb"
+                href={routePath({ kind: "settings", page: "model" })}
+                onNavigate={() => onNavigate({ kind: "settings", page: "model" })}
+              >
+                Settings › Model
+              </RouteLink>
+            )
           }
           title={name || "Model draft"}
           description={
             <Facts
               label="About this draft"
               facts={[
+                ...(forWorkspace
+                  ? [
+                      {
+                        icon: "model" as const,
+                        label: (
+                          <>
+                            Applies to <strong>{appliesTo}</strong>
+                          </>
+                        ),
+                      },
+                    ]
+                  : []),
                 base && ownBase
                   ? {
                       icon: "model",
@@ -913,7 +952,16 @@ export function ModelEditor({
                   <ActionMenu
                     label="More: Open as JSON, Install and activate, Load, Add a workbook, Propose again, Close, Delete"
                     items={[
-                      { id: "close", label: "Close", onAction: () => onNavigate(toClose) },
+                      ...(forWorkspace
+                        ? [
+                            {
+                              id: "apply",
+                              label: "Apply to this workspace…",
+                              onAction: () => setDialog({ kind: "apply" }),
+                            },
+                          ]
+                        : []),
+                      { id: "close", label: "Close", onAction: close },
                       { id: "json", label: "Open as JSON", onAction: () => onNavigate(workbench) },
                       { id: "install", label: "Install and activate…", onAction: () => setDialog({ kind: "install" }) },
                       ...(hasSource
@@ -952,30 +1000,67 @@ export function ModelEditor({
                   <RouteLink className="secondary" href={routePath(workbench)} onNavigate={() => onNavigate(workbench)}>
                     Open as JSON
                   </RouteLink>
-                  <button
-                    type="button"
-                    className={hasSource ? "secondary" : "primary"}
-                    disabled={proposing}
-                    onClick={() => setDialog({ kind: "install" })}
-                  >
-                    Install and activate…
-                  </button>
-                  {hasSource && (
+                  {forWorkspace ? (
                     <button
                       type="button"
                       className="primary"
                       disabled={proposing}
-                      onClick={() => setDialog({ kind: "load" })}
+                      onClick={() => setDialog({ kind: "apply" })}
                     >
-                      Load into a change set…
+                      Apply to this workspace…
                     </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className={hasSource ? "secondary" : "primary"}
+                        disabled={proposing}
+                        onClick={() => setDialog({ kind: "install" })}
+                      >
+                        Install and activate…
+                      </button>
+                      {hasSource && (
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={proposing}
+                          onClick={() => setDialog({ kind: "load" })}
+                        >
+                          Load into a change set…
+                        </button>
+                      )}
+                    </>
                   )}
-                  <RouteLink className="secondary" href={routePath(toClose)} onNavigate={() => onNavigate(toClose)}>
-                    Close
-                  </RouteLink>
+                  {forWorkspace ? (
+                    <button type="button" className="secondary" onClick={close}>
+                      Close
+                    </button>
+                  ) : (
+                    <RouteLink className="secondary" href={routePath(toClose)} onNavigate={close}>
+                      Close
+                    </RouteLink>
+                  )}
                   <ActionMenu
                     label="More actions"
                     items={[
+                      ...(forWorkspace
+                        ? [
+                            {
+                              id: "install",
+                              label: "Install and activate…",
+                              onAction: () => setDialog({ kind: "install" }),
+                            },
+                            ...(hasSource
+                              ? [
+                                  {
+                                    id: "load",
+                                    label: "Load into a change set…",
+                                    onAction: () => setDialog({ kind: "load" }),
+                                  },
+                                ]
+                              : []),
+                          ]
+                        : []),
                       { id: "workbook", label: workbookLabel, onAction: () => setDialog({ kind: "workbook" }) },
                       ...proposeAgain,
                       ...(proposing ? [] : [deleteItem]),
@@ -1267,6 +1352,24 @@ export function ModelEditor({
             setDialog(undefined);
             onOpenChangeSet(target);
           }}
+          onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "apply" && forWorkspace && (
+        <ApplyDialog
+          draftId={draftId}
+          outline={outline}
+          run={run}
+          latestVersion={() => version.current}
+          workspaceKey={forWorkspace}
+          onApplied={async (release, workspace) => {
+            await onActivated(workspace.key);
+            toast(`${workspace.label} now runs ${release.name} ${release.version}.`);
+            onOpenWorkspace?.(workspace.key);
+          }}
+          onMigrationStarted={(jobId) =>
+            onNavigate({ kind: "settings", page: "model", migrationJobId: jobId, forWorkspace })
+          }
           onClose={() => setDialog(undefined)}
         />
       )}

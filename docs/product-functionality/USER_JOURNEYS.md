@@ -1072,6 +1072,15 @@ lookup (J36.7) has no screen; migrating a workspace's data is J37.
   was made under is deleted, its drafts kept; one in use says why it is not (`running`, `history`,
   `importProfile`, `mapping`). An operator deletes every retired one at once with `model_release_prune`.
 
+- **J36.12 Change a workspace's model from the workspace** (0.16 WM1): a person holding Model authoring
+  and Model release there opens the workspace's draft from its ⋯ menu or its Settings › Workspaces page,
+  edits it and applies it: installed, then activated or, when records must move, migrated, in that
+  workspace alone. `POST /workspaces/{key}/model/draft` answers the draft the workspace remembers while
+  it is current, else the newest draft of the running release no workspace remembers and no assistant
+  task names, else a new one (`201`). A remembered draft gives up the workspace when its model changed
+  elsewhere. Model release in the draft's workspace is enough to install it; `403 FORBIDDEN` in another
+  workspace or on a draft remembering none. `409 WORKSPACE_RETIRED`, `404 WORKSPACE_NOT_FOUND`.
+
 **Refusals:** `409 ACTIVATION_CONFLICT`, `409 MODEL_MIGRATION_REQUIRED` (this workspace's data only),
 `409 MODEL_RELEASE_CHANGED`, `409 CHANGE_SET_MODEL_RELEASE_CONFLICT`,
 `422 MODEL_ELEMENT_NOT_IN_EVERY_MODEL`, `422 COUNTERPARTS_ACROSS_MODELS`,

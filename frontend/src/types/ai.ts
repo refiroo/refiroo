@@ -14,6 +14,8 @@ export interface AiSystemInfo {
   /** The model the provider answers with, when it names one. */
   model?: string | null;
   sendLevel: AiSendLevel;
+  /** The assistant's session can run here (`AI_AGENT_COMMAND`); without it Import stays the ordinary dialog. */
+  assistant?: boolean;
 }
 
 export interface AiFeature {

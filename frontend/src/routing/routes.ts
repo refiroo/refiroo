@@ -92,6 +92,17 @@ export function journeyIn(query: URLSearchParams): { journey?: JourneyRef } {
   return taskId ? { journey: { kind: "aiTask", taskId } } : {};
 }
 
+/** The workspace an editor or migration was opened from (`workspace=<key>`, 0.16 WM1). */
+function forWorkspaceIn(query: URLSearchParams): { forWorkspace?: string } {
+  const value = query.get("workspace")?.trim();
+  return value ? { forWorkspace: value } : {};
+}
+
+function withForWorkspace(path: string, workspaceKey: string | undefined) {
+  if (!workspaceKey) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}workspace=${encodeURIComponent(workspaceKey)}`;
+}
+
 /** The query parameter for a journey, to add to a path with or without a query. */
 function withJourney(path: string, journey: JourneyRef | undefined) {
   if (!journey) return path;
@@ -237,9 +248,16 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
       const modelTab = MODEL_TABS.find((item) => item === parts[4] && item !== "overview");
       return { kind: "settings", page, modelKey: id, ...(modelTab ? { modelTab } : {}) };
     }
-    if (kind === "migrations" && id) return { kind: "settings", page, migrationJobId: id };
+    if (kind === "migrations" && id) return { kind: "settings", page, migrationJobId: id, ...forWorkspaceIn(query) };
     if (kind === "drafts" && id && parts[4] === "editor") {
-      return { kind: "settings", page, draftId: id, editor: editorSelection(query), ...journeyIn(query) };
+      return {
+        kind: "settings",
+        page,
+        draftId: id,
+        editor: editorSelection(query),
+        ...journeyIn(query),
+        ...forWorkspaceIn(query),
+      };
     }
     if (kind === "drafts" && id) return { kind: "settings", page, draftId: id, ...(from ? { modelTab: from } : {}) };
     return { kind: "settings", page };
@@ -378,7 +396,7 @@ function settingsPath(route: SettingsRoute) {
   if (route.page === "import-profiles" && route.profileKey)
     return `/settings/import-profiles/${encodeURIComponent(route.profileKey)}`;
   if (route.page === "model" && route.draftId && route.editor)
-    return withJourney(editorPath(route.draftId, route.editor), route.journey);
+    return withForWorkspace(withJourney(editorPath(route.draftId, route.editor), route.journey), route.forWorkspace);
   // An opened release or draft keeps the tab it was opened from, unless that is where Back goes anyway.
   const modelFrom = (back: ModelTab) =>
     route.page === "model" && route.modelTab && route.modelTab !== back ? `?from=${route.modelTab}` : "";
@@ -391,7 +409,10 @@ function settingsPath(route: SettingsRoute) {
     return route.modelTab && route.modelTab !== "overview" ? `${base}/${route.modelTab}` : base;
   }
   if (route.page === "model" && route.migrationJobId)
-    return `/settings/model/migrations/${encodeURIComponent(route.migrationJobId)}`;
+    return withForWorkspace(
+      `/settings/model/migrations/${encodeURIComponent(route.migrationJobId)}`,
+      route.forWorkspace,
+    );
   return `/settings/${route.page}`;
 }
 

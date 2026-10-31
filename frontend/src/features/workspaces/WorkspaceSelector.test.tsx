@@ -30,6 +30,25 @@ describe("WorkspaceSelector", () => {
     });
   });
 
+  it("shows the workspace's ⋯ menu only with actions, and runs what is chosen", async () => {
+    const onAction = vi.fn();
+    const { unmount } = render(<WorkspaceSelector workspaceKey="default" onChange={() => undefined} />);
+    await screen.findByRole("combobox", { name: "Workspace" });
+    expect(screen.queryByRole("button", { name: "Workspace actions" })).not.toBeInTheDocument();
+    unmount();
+
+    render(
+      <WorkspaceSelector
+        workspaceKey="default"
+        onChange={() => undefined}
+        actions={[{ id: "edit-model", label: "Edit model", onAction }]}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Workspace actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit model" }));
+    expect(onAction).toHaveBeenCalled();
+  });
+
   it("selects a catalogue result while retaining its stable key", async () => {
     const onChange = vi.fn();
     render(<WorkspaceSelector workspaceKey="default" onChange={onChange} />);

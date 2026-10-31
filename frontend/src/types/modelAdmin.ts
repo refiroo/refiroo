@@ -194,6 +194,8 @@ export interface ModelDraft {
   id: string;
   name: string;
   baseReleaseId: string | null;
+  /** The workspace it was opened from, which it applies to (0.16 WM1). */
+  workspaceKey?: string | null;
   model: Record<string, unknown>;
   version: number;
   createdAt: string;

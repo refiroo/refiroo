@@ -31,15 +31,10 @@ export interface ViewComponentProps {
   /** Opens the open change set's review, for a lens that wrote several records at once (C4). */
   onReviewChanges?: () => void;
   /**
-   * Offers Export with what the page shows (0.9 J1u, D57); given only while the deployment lets
-   * jobs be created. A view without it offers no export.
+   * Hands up how to read what the page would export (0.9 J1u, D57), for the workspace ⋯ menu's
+   * Export (0.16 WM1); called with nothing when the page goes.
    */
-  onExport?: (start: ExportStart) => void;
-  /**
-   * Offers Import into the data the page shows (0.9 J4, D89); given only where that data can be
-   * written while the deployment lets jobs be created. A view without it offers no import.
-   */
-  onImport?: () => void;
+  onExportContext?: (read: (() => ExportStart) | undefined) => void;
   /**
    * Lets records be selected for a bulk change (0.9 K1); given only where the data can be written
    * while the deployment lets jobs be created (D105). `maxItems` is the most one bulk change may

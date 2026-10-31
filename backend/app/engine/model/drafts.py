@@ -1,14 +1,17 @@
+import copy
 import hashlib
 import json
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, exists, select, update
 from sqlalchemy.orm import Session
 
 from ...common.encoding import to_jsonable
+from ...common.time import as_utc
 from ...errors import api_error
-from ...models.database import AuditEvent, ModelDraft, ModelRelease
+from ...models.database import AiTask, AuditEvent, ModelDraft, ModelRelease, Workspace
+from .workspace_models import load_assignment
 
 
 def create_draft(
@@ -38,6 +41,64 @@ def create_draft(
     return draft
 
 
+def workspace_draft(session: Session, workspace_key: str) -> tuple[ModelDraft, bool]:
+    """The draft of the model ``workspace_key`` runs, and whether it was created (0.16 WM1, WM-D2):
+    the one it remembers while that is current, else the newest of the running release no workspace
+    remembers and no assistant task names, else a new one. A task's draft goes with its task, so it
+    is never taken. The assignment is held, so a concurrent first open finds the same draft."""
+    assignment, release = load_assignment(session, workspace_key, for_update=True)
+    workspace = session.get(Workspace, workspace_key)
+    if workspace is None or workspace.status != "active":
+        raise api_error(
+            409,
+            "WORKSPACE_RETIRED",
+            f"Workspace '{workspace_key}' is retired; its model is not changed",
+            {"workspaceKey": workspace_key},
+        )
+    remembered = session.scalar(select(ModelDraft).where(ModelDraft.workspace_key == workspace_key))
+    if remembered is not None:
+        if _still_current(session, remembered, release, assignment.updated_at):
+            return remembered, False
+        # The workspace's model changed elsewhere: this draft could undo that, so it lets go.
+        remembered.workspace_key = None
+        session.flush()
+    unclaimed = session.scalar(
+        select(ModelDraft)
+        .where(
+            ModelDraft.base_model_release_id == release.id,
+            ModelDraft.workspace_key.is_(None),
+            ~exists().where(AiTask.draft_id == ModelDraft.id),
+        )
+        .order_by(ModelDraft.updated_at.desc(), ModelDraft.id.desc())
+        .limit(1)
+        .with_for_update()
+    )
+    if unclaimed is not None:
+        unclaimed.workspace_key = workspace_key
+        return unclaimed, False
+    draft = create_draft(
+        session,
+        name=f"The model of {workspace.label}"[:300],
+        model=copy.deepcopy(release.model_json),
+        base_release_id=release.public_id,
+    )
+    draft.workspace_key = workspace_key
+    return draft, True
+
+
+def _still_current(
+    session: Session, draft: ModelDraft, running: ModelRelease, assigned_at: datetime
+) -> bool:
+    """Its base is the running release, or was installed since the workspace's model last changed:
+    an apply stopped at the migration preview."""
+    if draft.base_model_release_id == running.id:
+        return True
+    if draft.base_model_release_id is None:
+        return False
+    base = session.get(ModelRelease, draft.base_model_release_id)
+    return base is not None and as_utc(base.installed_at) > as_utc(assigned_at)
+
+
 def load_draft(session: Session, draft_id: str) -> ModelDraft:
     draft = session.scalar(select(ModelDraft).where(ModelDraft.public_id == draft_id))
     if draft is None:
@@ -47,9 +108,7 @@ def load_draft(session: Session, draft_id: str) -> ModelDraft:
 
 def load_draft_for_update(session: Session, draft_id: str) -> ModelDraft:
     draft = session.scalar(
-        select(ModelDraft)
-        .where(ModelDraft.public_id == draft_id)
-        .with_for_update()
+        select(ModelDraft).where(ModelDraft.public_id == draft_id).with_for_update()
     )
     if draft is None:
         raise api_error(404, "MODEL_DRAFT_NOT_FOUND", f"Model draft '{draft_id}' not found")
@@ -170,9 +229,7 @@ def _optional_base_release(session: Session, release_id: str | None) -> ModelRel
         return None
     release = session.scalar(select(ModelRelease).where(ModelRelease.public_id == release_id))
     if release is None:
-        raise api_error(
-            404, "MODEL_RELEASE_NOT_FOUND", f"Model release '{release_id}' not found"
-        )
+        raise api_error(404, "MODEL_RELEASE_NOT_FOUND", f"Model release '{release_id}' not found")
     return release
 
 

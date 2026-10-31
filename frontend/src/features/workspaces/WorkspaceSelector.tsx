@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import type { Workspace } from "@/types";
+import { ActionMenu, type ActionMenuItem } from "@/ui/ActionMenu";
 import { ComboBoxField, type SelectionOption } from "@/ui/Selection";
 
 /** The model a workspace runs, as people read it: its name and release (0.11 D46, D53). */
@@ -22,12 +23,15 @@ export function WorkspaceSelector({
   onChange,
   onResolved,
   onManage,
+  actions = [],
 }: {
   workspaceKey: string;
   onChange: (workspaceKey: string) => void;
   onResolved?: (workspace: Workspace) => void;
   /** Opens workspace administration; offered only where the deployment allows it. */
   onManage?: () => void;
+  /** The workspace's own actions, in a ⋯ menu on the label's line (0.16 WM1). */
+  actions?: readonly ActionMenuItem[];
 }) {
   const labelId = useId();
   const [query, setQuery] = useState("");
@@ -85,10 +89,17 @@ export function WorkspaceSelector({
           .join(" · ")
       : undefined);
 
+  const menu = actions.length > 0 && (
+    <div className="workspace-actions">
+      <ActionMenu label="Workspace actions" items={actions} />
+    </div>
+  );
+
   if (onlyWorkspace && selectedWorkspace && items[0]?.key === selectedWorkspace.key) {
     // Nothing to choose between, so the name is a fact rather than a control.
     return (
       <div className="workspace-selector">
+        {menu}
         <div className="workspace-single" role="group" aria-labelledby={labelId}>
           <span id={labelId} className="workspace-single-label">
             Workspace
@@ -117,6 +128,7 @@ export function WorkspaceSelector({
 
   return (
     <div className="workspace-selector">
+      {menu}
       <ComboBoxField
         label="Workspace"
         value={query}

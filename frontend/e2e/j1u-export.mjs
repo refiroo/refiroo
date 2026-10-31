@@ -10,6 +10,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { workspaceAction } from "./helpers/workspaceMenu.mjs";
 
 let harness;
 const checks = [];
@@ -58,9 +59,7 @@ try {
       await page.getByRole("heading", { level: 1, name: collection.label }).waitFor();
 
       // 1. Export, opened by keyboard: the dialog prefilled with the page's type and filter.
-      const exportButton = page.getByRole("button", { name: "Export", exact: true });
-      await exportButton.focus();
-      await page.keyboard.press("Enter");
+      await workspaceAction(page, "Export…", { keyboard: true });
       const dialog = page.getByRole("dialog", { name: "Export" });
       await dialog.waitFor();
       const chips = await dialog.getByRole("row").allInnerTexts();
@@ -163,7 +162,7 @@ try {
   for (const theme of ["light", "dark"]) {
     await page.evaluate((value) => localStorage.setItem("rdm:theme:v1", JSON.stringify(value)), theme);
     await page.goto(`${uiUrl}${collections[0].path}`);
-    await page.getByRole("button", { name: "Export", exact: true }).click();
+    await workspaceAction(page, "Export…");
     const opened = page.getByRole("dialog", { name: "Export" });
     await opened.waitFor();
     let result = await runAxe(page, [], `j1u-dialog-${theme}`);

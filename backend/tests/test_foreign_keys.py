@@ -74,6 +74,7 @@ RULES = {
     # An import profile names the release it was last checked against (0.9 J2).
     ("import_profiles", "checked_release_id"): ("model_releases", "RESTRICT"),
     ("model_drafts", "base_model_release_id"): ("model_releases", "SET NULL"),
+    ("model_drafts", "workspace_key"): ("workspaces", "SET NULL"),
     # A client is deactivated, never deleted (0.12 I1, D237); a secret is deleted alone
     # (``clients.remove_secret``), and the cascade only keeps a client's secrets with it.
     ("oauth_client_secrets", "client_id"): ("oauth_clients", "CASCADE"),

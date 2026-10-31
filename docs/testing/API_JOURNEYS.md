@@ -74,6 +74,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/health/
 | `GET /model-releases` (`status`, `usable`; each release's `status`, `statusVersion`, `retiredAt`, `deletable`, `deleteBlockedBy`), `PATCH /model-releases/{id}` (`status`, `expectedStatusVersion`), `DELETE /model-releases/{id}` (`expectedStatusVersion`), `python -m app.cli.model_release_prune` (0.12 MR1) | J36.10, J36.11 |
 | `GET /model-releases/{id}/activations` | J08.8 |
 | `GET /model-releases/{id}/diff` (`againstReleaseId`; `compatibility.workspaces`, 0.11 M3; `workspaceKey`, 0.11 M5) | J08.2, J25, J08.11, J36.2 |
+| `POST /workspaces/{key}/model/draft` (0.16 WM1; a draft's and outline's `workspaceKey`; `POST /model-drafts/{id}/installation` checked at the draft's workspace) | J36.12 |
 | `POST /workspaces/{key}/model/activation` (`releaseId`, `expectedVersion`, `expectedReleaseId`; `changeSetsLeftBehind`; 0.11 M1) | J08, J08.3, J08.5, J08.6, J08.10, J08.11, J36.2, J36.5 |
 | `GET/POST /model-drafts`, `GET/PATCH/DELETE /model-drafts/{id}` | J08 |
 | `POST /model-drafts/{id}/compile` (`compatibility.workspaces`, compared with the draft's own model, 0.11 M3), `POST /model-drafts/{id}/installation` | J08, J25, J36.2, J36.4 |

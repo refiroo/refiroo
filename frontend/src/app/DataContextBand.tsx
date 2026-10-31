@@ -29,6 +29,7 @@ import { ControlPopover } from "@/ui/ControlPopover";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
 import { StatusPill } from "@/ui/StatusPill";
+import type { ActionMenuItem } from "@/ui/ActionMenu";
 import { ApplicationButtons } from "./TopBar";
 
 export function DataContextBand({
@@ -41,6 +42,7 @@ export function DataContextBand({
   onSelectApplication,
   onChangeWorkspace,
   onManageWorkspaces,
+  workspaceActions = [],
   permissionNote,
   ownChangeSet,
 }: {
@@ -54,6 +56,8 @@ export function DataContextBand({
   onChangeWorkspace: (workspaceKey: string) => void;
   /** Offered where the deployment allows workspace administration. */
   onManageWorkspaces?: () => void;
+  /** The workspace's ⋯ menu, in the workspace choice on a phone (0.16 WM1). */
+  workspaceActions?: readonly ActionMenuItem[];
   /** What the person may do here, in place of the line about edits (0.12 Z5, D322). */
   permissionNote?: string;
   /** The way into the person's own change set from live data (D324). */
@@ -156,6 +160,13 @@ export function DataContextBand({
                       }
                     : undefined
                 }
+                actions={workspaceActions.map((item) => ({
+                  ...item,
+                  onAction: () => {
+                    close();
+                    item.onAction();
+                  },
+                }))}
               />
             )}
           </ControlPopover>

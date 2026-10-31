@@ -86,12 +86,14 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           key={editing.draftId}
           draftId={editing.draftId}
           journey={editing.journey}
+          forWorkspace={editing.forWorkspace}
+          onOpenWorkspace={router.openWorkspace}
           selection={editing.editor ?? {}}
           onSelect={(selection) => navigate({ ...editing, editor: selection })}
           onNavigate={(next) => navigate(next)}
           onActivated={router.reloadModel}
           activeModel={model}
-          workspaceKey={workspaceKey}
+          workspaceKey={editing.forWorkspace ?? workspaceKey}
           onOpenChangeSet={({ applicationKey, workspaceKey: changeSetWorkspace, changeSetId }) =>
             navigate({
               kind: "changeSetChanges",
@@ -200,6 +202,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           onRouteChange={(next) => navigate(next)}
           onActiveModelChange={router.reloadModel}
           onOpenWorkspace={(workspaceKey) => navigate({ kind: "settings", page: "workspaces", workspaceKey })}
+          onReturnToWorkspace={router.openWorkspace}
           onOpenChangeSet={openChangeSet}
         />
       ) : null}

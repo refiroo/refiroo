@@ -4,7 +4,7 @@ import { ai } from "@/api/aiClient";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import type { AiTask, Workspace } from "@/types";
-import { LoadWorkbookDialog, sentForWorkbookLoad } from "./LoadWorkbookDialog";
+import { LoadWorkbookDialog, SENT_WITH_WORKBOOK } from "./LoadWorkbookDialog";
 
 vi.mock("@/api/aiClient", () => ({ ai: { createTask: vi.fn() } }));
 vi.mock("@/api/client", async (importOriginal) => ({
@@ -12,7 +12,6 @@ vi.mock("@/api/client", async (importOriginal) => ({
   api: { workspaces: vi.fn() },
 }));
 
-const offer = { configured: true, provider: "anthropic", model: "claude-test", sendLevel: "values" as const };
 const file = new File(["a,b\n1,2\n"], "codes.csv", { type: "text/csv" });
 const workspace = (key: string, label: string) => ({ key, label }) as Workspace;
 
@@ -21,7 +20,6 @@ function open(start: { workspaceKey?: string; file?: File } = {}, onStarted = vi
   render(
     <LoadWorkbookDialog
       start={start}
-      offer={offer}
       onClose={onClose}
       onStarted={onStarted}
       onImportManually={onImportManually}
@@ -43,11 +41,7 @@ describe("Load a workbook (0.16 AP6a)", () => {
     open({ workspaceKey: "west" });
     expect(await screen.findByRole("dialog", { name: "Load a workbook" })).toBeInTheDocument();
     expect(screen.getByText(/Nothing changes until you confirm\./)).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Sent to anthropic (claude-test): the sheets' names, headers, counts and values, and the workspace's matching records, as the assistant asks for them.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(SENT_WITH_WORKBOOK)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText("Into")).toHaveValue("west"));
     expect(api.workspaces).toHaveBeenCalledWith(expect.objectContaining({ holding: "ai-proposals" }));
     expect(screen.getByRole("button", { name: "Ask the assistant" })).toBeDisabled();
@@ -61,10 +55,6 @@ describe("Load a workbook (0.16 AP6a)", () => {
     fireEvent.change(screen.getByLabelText("Workbook"), { target: { files: [lines] } });
     fireEvent.click(screen.getByRole("button", { name: "Import without the assistant…" }));
     expect(onImportManually).toHaveBeenLastCalledWith(lines);
-  });
-
-  it("names the provider alone when it names no model", () => {
-    expect(sentForWorkbookLoad({ provider: "fake", model: null })).toMatch(/^Sent to fake: /);
   });
 
   it("sends the workbook, the workspace and the words, and hands the task on", async () => {

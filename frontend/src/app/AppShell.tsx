@@ -15,7 +15,9 @@ import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import type { ReactNode } from "react";
 import { Explorer } from "@/features/objects/Explorer";
+import { useEditModel } from "@/features/workspaces/useEditModel";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
+import type { ActionMenuItem } from "@/ui/ActionMenu";
 import { routeChangeSetId, routePublicationId, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, ApplicationRoute, EngineModel, ObjectItem, RouteState, Workspace } from "@/types";
 import { Notice } from "@/ui/Notice";
@@ -43,6 +45,8 @@ export function AppShell({
   contextActions,
   permissionNote,
   ownChangeSet,
+  onImport,
+  onExport,
   fill = false,
   children,
 }: {
@@ -58,6 +62,9 @@ export function AppShell({
   workspace?: Workspace;
   onWorkspaceResolved: (workspace: Workspace) => void;
   onHome: () => void;
+  /** The workspace ⋯ menu's Import and Export, where each is offered (0.16 WM1). */
+  onImport?: () => void;
+  onExport?: () => void;
   onOpenObject: (item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) => void;
   /** Records were written from the shell itself, such as moved in the sidebar (UA9). */
   onChanged?: () => void;
@@ -72,6 +79,16 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [bandSlot, setBandSlot] = useState<HTMLElement | null>(null);
+  const editModel = useEditModel(
+    activeRoute.workspaceKey,
+    workspace?.key === activeRoute.workspaceKey ? workspace.status : undefined,
+    onNavigate,
+  );
+  const workspaceActions: ActionMenuItem[] = [
+    ...(onImport ? [{ id: "import", label: "Import…", onAction: onImport }] : []),
+    ...(onExport ? [{ id: "export", label: "Export…", onAction: onExport }] : []),
+    ...(editModel ? [{ id: "edit-model", label: "Edit model", onAction: editModel }] : []),
+  ];
   // Capabilities only decide whether Manage workspaces is offered; a failed read leaves it hidden,
   // and the Workspaces page itself reports the capability state.
   const [deploymentManages, setManageWorkspaces] = useState(false);
@@ -131,6 +148,13 @@ export function AppShell({
               workspaceKey={activeRoute.workspaceKey}
               onChange={onChangeWorkspace}
               onResolved={onWorkspaceResolved}
+              actions={workspaceActions.map((item) => ({
+                ...item,
+                onAction: () => {
+                  close();
+                  item.onAction();
+                },
+              }))}
               onManage={
                 manageWorkspaces
                   ? () => onNavigate({ kind: "settings", page: "workspaces", workspaceKey: activeRoute.workspaceKey })
@@ -189,6 +213,7 @@ export function AppShell({
         onNavigate={onNavigate}
         onSelectApplication={onSelectApplication}
         onChangeWorkspace={onChangeWorkspace}
+        workspaceActions={workspaceActions}
         onManageWorkspaces={
           manageWorkspaces
             ? () => onNavigate({ kind: "settings", page: "workspaces", workspaceKey: activeRoute.workspaceKey })

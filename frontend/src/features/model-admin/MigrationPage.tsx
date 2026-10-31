@@ -181,6 +181,7 @@ export function MigrationPage({
   onBack,
   onMigrated,
   onOpenChangeSet,
+  onReturnToWorkspace,
 }: {
   jobId: string;
   workspaces: Workspace[];
@@ -192,6 +193,8 @@ export function MigrationPage({
   onMigrated: (workspaceKey: string) => Promise<unknown> | void;
   /** A moved change set (V3): open it in its workspace. */
   onOpenChangeSet?: (workspaceKey: string, changeSetId: string) => void;
+  /** Opened from a workspace (0.16 WM1): the way back once it is done or cancelled. */
+  onReturnToWorkspace?: () => void;
 }) {
   const [job, setJob] = useState<Job>();
   const [models, setModels] = useState<{ current: EngineModel; target: EngineModel }>();
@@ -476,6 +479,13 @@ export function MigrationPage({
             tone="success"
             title={`${label} runs ${target?.name ?? "the release"} ${version}${changeSetId ? `, and ${changeSetName} is live` : ""}`}
             focusOnMount
+            actions={
+              onReturnToWorkspace && (
+                <button type="button" className="primary" onClick={onReturnToWorkspace}>
+                  Back to {label}
+                </button>
+              )
+            }
           >
             {changeSetId && (
               <>{publicationNumber ? `Published as Publication ${publicationNumber}. ` : "Published. "}</>
@@ -491,9 +501,16 @@ export function MigrationPage({
             tone="info"
             title="Preview cancelled"
             actions={
-              <button type="button" className="secondary" onClick={() => void preview(choices)} disabled={pending}>
-                Preview again
-              </button>
+              <>
+                <button type="button" className="secondary" onClick={() => void preview(choices)} disabled={pending}>
+                  Preview again
+                </button>
+                {onReturnToWorkspace && (
+                  <button type="button" className="secondary" onClick={onReturnToWorkspace}>
+                    Back to {label}
+                  </button>
+                )}
+              </>
             }
           >
             {moving

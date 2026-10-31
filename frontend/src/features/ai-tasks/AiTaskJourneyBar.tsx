@@ -101,7 +101,7 @@ export function AiTaskJourneyBar({
     acceptModel: place === "task" ? () => scrollToAndFocus("journey-accept") : undefined,
     load: place === "task" ? () => scrollToAndFocus("journey-load") : undefined,
     openChangeSet: place === "changeSet" ? undefined : () => void openChangeSet(),
-    restart: offer ? () => setRestarting(true) : undefined,
+    restart: offer?.assistant ? () => setRestarting(true) : undefined,
     openTask: place === "task" ? undefined : () => onNavigate(toTask),
   };
   const onClick = plan.primary && run[plan.primary.action];
@@ -128,10 +128,9 @@ export function AiTaskJourneyBar({
         back={place === "task" ? undefined : { label: "Back to the import", onClick: () => onNavigate(toTask) }}
         stop={plan.stoppable ? { label: "Stop", onClick: () => void stop(), disabled: pending } : undefined}
       />
-      {restarting && offer && (
+      {restarting && offer?.assistant && (
         <LoadWorkbookDialog
           start={{ workspaceKey: task.workspaceKey, ...(task.words ? { words: task.words } : {}) }}
-          offer={offer}
           onClose={() => setRestarting(false)}
           onStarted={(started) => {
             setRestarting(false);

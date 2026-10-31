@@ -1252,6 +1252,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ expectedVersion }),
     }),
+  /** The draft of the model a workspace runs, made when there is none (0.16 WM1). */
+  openWorkspaceModelDraft: (workspaceKey: string) =>
+    request<ModelDraft>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/model/draft`, { method: "POST" }),
   installModelDraft: (draftId: string, expectedVersion: number) =>
     request<ModelInstallation>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/installation`, {
       method: "POST",

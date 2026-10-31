@@ -232,6 +232,7 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
             "post /api/v1/model-validations",
             "get /api/v1/model-drafts",
             "post /api/v1/model-drafts",
+            "post /api/v1/workspaces/{workspace_key}/model/draft",
             "delete /api/v1/model-drafts/{draft_id}",
             "get /api/v1/model-drafts/{draft_id}",
             "patch /api/v1/model-drafts/{draft_id}",

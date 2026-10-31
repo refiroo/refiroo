@@ -22,6 +22,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { workspaceAction } from "./helpers/workspaceMenu.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const MAX_BYTES = 8192;
@@ -173,8 +174,7 @@ try {
   async function previewFromCollection(collection, file, { atomic = false, name } = {}) {
     await page.goto(`${uiUrl}${collection.path}`);
     await page.getByRole("heading", { level: 1, name: collection.label }).waitFor();
-    await page.getByRole("button", { name: "Import", exact: true }).focus();
-    await page.keyboard.press("Enter");
+    await workspaceAction(page, "Import…", { keyboard: true });
     const dialog = page.getByRole("dialog", { name: "Import" });
     await dialog.waitFor();
     await dialog.getByLabel("File", { exact: true }).setInputFiles(file);
@@ -417,7 +417,7 @@ try {
 
   // 9. A file over the limit, refused at the file field.
   await page.goto(`${uiUrl}${collections.values.path}`);
-  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await workspaceAction(page, "Import…");
   const big = await csvFile("too-large.csv", [["Id"], ...Array.from({ length: 1200 }, (_, n) => [`J4E-${n}`])]);
   const opened = page.getByRole("dialog", { name: "Import" });
   await opened.getByLabel("File", { exact: true }).setInputFiles(big);
@@ -432,7 +432,7 @@ try {
   for (const theme of ["light", "dark"]) {
     await page.evaluate((value) => localStorage.setItem("rdm:theme:v1", JSON.stringify(value)), theme);
     await page.goto(`${uiUrl}${collections.values.path}`);
-    await page.getByRole("button", { name: "Import", exact: true }).click();
+    await workspaceAction(page, "Import…");
     const form = page.getByRole("dialog", { name: "Import" });
     await form.waitFor();
     const file = await csvFile(`sc10-${theme}.csv`, files.values(`J4${theme === "light" ? "L" : "K"}`));

@@ -113,6 +113,14 @@ class ModelRelease(Base):
 
 class ModelDraft(Base):
     __tablename__ = "model_drafts"
+    __table_args__ = (
+        Index(
+            "uq_model_drafts_workspace",
+            "workspace_key",
+            unique=True,
+            postgresql_where=text("workspace_key IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
@@ -123,6 +131,16 @@ class ModelDraft(Base):
         ForeignKey("model_releases.id", ondelete="SET NULL"), nullable=True, index=True
     )
     model_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    # The workspace the draft was opened from, which it applies to (0.16 WM1, WM-D1).
+    workspace_key: Mapped[str | None] = mapped_column(
+        String(160),
+        ForeignKey(
+            "workspaces.key",
+            name="fk_model_drafts_workspace_key_workspaces",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
     # The draft's import profile (0.10 A5, D75), changed only by operations; ``None`` for none.
     profile_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

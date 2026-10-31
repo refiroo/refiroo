@@ -55,8 +55,8 @@ and is not repeated here.
 | [PL0](#pl0-the-principles-as-reference-rules) | — | The principles as reference rules in UI acceptance, with a plain-path checklist for each UI package |
 | [PL1](#pl1-change-sets-in-two-clicks) | — | Start with a name; Publish checks, then confirms in plain words; Validate and the rest in ⋯ |
 | [PL2](#pl2-plain-add-and-edit) | — | The parent as a sentence, required first, optional under More fields, inline errors; the record header without the raw ID |
-| WM1 | 0.12 | As planned in 0.16; its action moves onto PL3's page when that lands |
-| [PL3](#pl3-the-workspace-page) | PL0 | A page for each workspace: search across it, what waits, recent changes, its own actions; Home cards open it |
+| WM1 | 0.12 | Delivered in 0.16: in the workspace ⋯ menu and as a button on the workspace's page in Settings › Workspaces (the user, 2026-10-31). PL3's page reuses the action |
+| [PL3](#pl3-the-workspace-page) | PL0, WM1 | A page for each workspace: search across it, what waits, recent changes, its own actions; Home cards open it |
 | [PL4](#pl4-new-workspace-from-a-workbook) | WM1, PL3 | The file and a name, what refiroo found, Create workspace |
 | [PL5](#pl5-plain-words-and-identifiers) | PL0 | One list of replacements applied on the common path; Settings index; Back to the workspace |
 | [PL6](#pl6-collection-import-and-export-and-your-changes) | PL0 | Import file-first with profile chosen and options folded; Export for people; draft steps grouped |

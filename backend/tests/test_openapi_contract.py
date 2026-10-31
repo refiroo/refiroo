@@ -371,9 +371,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.16 AG1 (additive, diffed against HEAD in a worktree): the agent-access
     # routes and schemas, the protected resource metadata, /oauth/register; resource on the token
     # form, kind on clients, application on sessions and mcp on the system read.
+    # Re-baselined for the assistant's offer: assistant on AiSystemInfo; with it removed the document
+    # hashes to the previous lock.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "49f446b49b4f7ae04cf1262f2b0b8dc4cee0723050614c58eed3720c27339272"
+        "ce0472508dd1af2c63c83aa3a381cd447b3a6fc03985d25fd95c89ba8c1e2da9"
     )
 
 

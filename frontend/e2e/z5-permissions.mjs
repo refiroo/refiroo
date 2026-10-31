@@ -110,10 +110,17 @@ async function walk(configuration) {
         .count()) === 0,
       `${tag}: a Reader's collection offers no Add`,
     );
-    expect(
-      (await reader.page.getByRole("button", { name: /^Import/ }).count()) === 0,
-      `${tag}: no Import for a Reader`,
-    );
+    // Export is offered to a reader, so the menu may stand; it holds no Import and no Edit model.
+    const menu = reader.page.getByRole("button", { name: "Workspace actions" });
+    if (await menu.count()) {
+      await menu.click();
+      await reader.page.getByRole("menu").waitFor();
+      expect(
+        (await reader.page.getByRole("menuitem", { name: /^(Import|Edit model)/ }).count()) === 0,
+        `${tag}: no Import and no Edit model for a Reader`,
+      );
+      await reader.page.keyboard.press("Escape");
+    }
     checks.push(`${tag}: a Reader's record and collection offer no write; the band says they can read`);
     await reader.page.goto(`${uiUrl}/settings/about`);
     const readerNav = reader.page.getByRole("navigation", { name: "Settings" });

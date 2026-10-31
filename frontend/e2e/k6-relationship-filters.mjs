@@ -22,6 +22,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { workspaceAction } from "./helpers/workspaceMenu.mjs";
 
 let harness;
 const checks = [];
@@ -180,7 +181,7 @@ try {
 
   // 10. Export carries the filter.
   await open(valuesPath(`&${filterParam("eq")}=${masters[1].id}`), "System values");
-  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await workspaceAction(page, "Export…");
   const exportDialog = page.getByRole("dialog", { name: "Export" });
   await exportDialog.waitFor();
   await exportDialog.getByRole("button", { name: "Start export" }).click();

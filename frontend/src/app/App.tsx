@@ -169,7 +169,8 @@ function AppContent({
   const { capabilities } = useCapabilities();
   const notifications = useJobNotifications();
   const [exportStart, setExportStart] = useState<ExportStart>();
-  const onExport = capabilities?.integrationJobs.createJobs ? setExportStart : undefined;
+  // What the shown collection would export: the workspace ⋯ menu's Export keeps it (0.16 WM1).
+  const collectionExport = useRef<() => ExportStart>(undefined);
   const [importStart, setImportStart] = useState<ImportStart>();
   // The AI assistant loads a workbook where a provider is set and the person may use it (0.16 AP6a).
   const aiOffer = useWorkspaceAiOffer();
@@ -183,7 +184,15 @@ function AppContent({
     setImportStart(undefined);
     setWorkbookStart(undefined);
     const trigger = importTrigger.current;
-    window.setTimeout(() => trigger?.focus(), 0);
+    // The menu item Import was chosen from is gone: the workspace menu's button stands for it.
+    window.setTimeout(
+      () =>
+        (trigger?.isConnected
+          ? trigger
+          : document.querySelector<HTMLElement>(".workspace-actions .menu-trigger")
+        )?.focus(),
+      0,
+    );
   }
   // An import or a bulk change (0.9 K2) this tab started that wrote into the data shown reloads it,
   // and a change set's version. A bulk change may end after failing part way, its chunks applied.
@@ -298,13 +307,27 @@ function AppContent({
               : {}),
           };
           // Where the assistant is offered it is the way in; the ordinary import is chosen from its dialog.
-          if (aiOffer) {
+          if (aiOffer?.assistant) {
             importContext.current = context;
             setWorkbookStart({ workspaceKey: context.workspaceKey });
             return;
           }
           setImportStart({ context });
         }
+      : undefined;
+
+  const exportFromMenu =
+    capabilities?.integrationJobs.createJobs && application
+      ? () =>
+          setExportStart(
+            collectionExport.current?.() ?? {
+              workspaceKey: activeRoute.workspaceKey,
+              changeSetId,
+              publicationId,
+              objectTypeKeys: application.objectTypeKeys,
+              selected: application.objectTypeKeys,
+            },
+          )
       : undefined;
 
   function selectApplication(selected: ApplicationDefinition) {
@@ -574,6 +597,8 @@ function AppContent({
       workspace={workspace}
       onWorkspaceResolved={setWorkspace}
       onHome={goHome}
+      onImport={onImport}
+      onExport={exportFromMenu}
       onOpenObject={(item) => openObject(item, undefined, "hierarchy")}
       contextActions={contextActions}
       permissionNote={permissionNote}
@@ -721,8 +746,9 @@ function AppContent({
                       setCollectionWrites((value) => value + 1);
                     }}
                     query={collection}
-                    onExport={onExport}
-                    onImport={onImport}
+                    onExportContext={(read) => {
+                      collectionExport.current = read;
+                    }}
                     bulkSelection={bulkSelection}
                     fill={fillPage}
                     onQueryChange={(query: CollectionQueryState) =>
@@ -856,10 +882,9 @@ function AppContent({
           }}
         />
       )}
-      {workbookStart && aiOffer && (
+      {workbookStart && aiOffer?.assistant && (
         <LoadWorkbookDialog
           start={workbookStart}
-          offer={aiOffer}
           onClose={closeImport}
           onImportManually={(file) => {
             // The person chose the ordinary import: its dialog takes this one's place with the same data.

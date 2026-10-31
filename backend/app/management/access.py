@@ -35,7 +35,7 @@ from ..engine.jobs.store import load_job
 from ..engine.model.workspace_models import default_workspace_key
 from ..engine.workspaces.catalogue import load_workspace
 from ..errors import api_error
-from ..models.database import AiTask, ChangeSet, ObjectRelation, Publication, RdmObject
+from ..models.database import AiTask, ChangeSet, ModelDraft, ObjectRelation, Publication, RdmObject
 from .dependencies import CurrentPrincipal, DbSession, expect_model_release, started
 from .query_parameters import refuse_after_authorization
 
@@ -185,6 +185,15 @@ def _ai_task(context: Context, groups: tuple[str, ...]) -> Check:
     return Check(groups, (key or context.default_workspace(),))
 
 
+def _model_draft(context: Context, groups: tuple[str, ...]) -> Check:
+    """The workspace a model draft remembers (0.16 WM-D3); the instance for a draft remembering none,
+    or one that does not exist, so the handler answers its own not-found."""
+    key = context.session.scalar(
+        select(ModelDraft.workspace_key).where(ModelDraft.public_id == context.path("draft_id"))
+    )
+    return Check(groups, (key,)) if key else Check(groups)
+
+
 def _move(context: Context, groups: tuple[str, ...]) -> Check:
     """Copy and move in the target; reading the source is checked by ``_move_source`` (D286)."""
     return Check(groups, (context.field("targetWorkspaceKey") or context.default_workspace(),))
@@ -225,6 +234,7 @@ SUBSCRIPTION_PATH = Where(
 JOB_PATH = Where("the job's workspace and kind", _job)
 BODY = Where("the body's change set or workspace", _body_context, reads_body=True)
 AI_TASK_PATH = Where("the AI task's workspace", _ai_task)
+MODEL_DRAFT_PATH = Where("the workspace the model draft remembers, else the instance", _model_draft)
 IMPORT_FORM = Where("the import request's change set or workspace", _import_form, reads_body=True)
 MOVE = Where("the move's target and source workspaces", _move, reads_body=True)
 

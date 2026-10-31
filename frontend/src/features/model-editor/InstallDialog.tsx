@@ -484,7 +484,7 @@ export function activationRefusal(cause: unknown): string {
 }
 
 /** Each consumer API of the draft against what its consumers read now, with the step a break needs (D58). */
-function ConsumerContracts({
+export function ConsumerContracts({
   outline,
   diagnostics,
   run,

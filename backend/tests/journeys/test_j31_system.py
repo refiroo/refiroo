@@ -78,6 +78,7 @@ def test_read_what_the_deployment_runs(world):
         "provider": None,
         "model": None,
         "sendLevel": "values",
+        "assistant": False,
     }
     assert configuration["database"] == {"revision": HEAD}
     names = [setting["name"] for setting in configuration["settings"]]

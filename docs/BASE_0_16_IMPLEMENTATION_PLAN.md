@@ -1112,15 +1112,117 @@ not shown (hide, never disable).
 - **Mock-up with the plan** (the user's rule for UI packages): the workspace action, the editor header naming
   the workspace and the Apply confirmation, shown and approved before the build.
 
-**Out of scope:** reshaping a workspace whose records must move between types (the restructuring plan of AP6,
-described above), and any AI help. WM1 is the plain path every later step builds on: AP6's "Change this model…"
-lands in the same editor with the same Apply.
+**Out of scope:** reshaping a workspace whose records must move between types, and any AI help (both
+[AP12](#ap12-reshaping-and-asking-from-the-workspace)). An assistant's draft is not WM1's: a session installs without
+activating, and WM-D2 keeps a task's draft, finished or not, away from Apply.
 
 **Tests:** journeys through the API on two model configurations: a workspace's model edited and applied from
 the workspace (new release active there, other workspaces untouched); an existing draft for that release reused,
 not duplicated; a change needing a migration applied with its records; a caller without the groups refused
 by code and not shown the action. One browser runner: the path by keyboard at 1440px and 390px, with no
 error line in the server log and no 5xx.
+
+### WM1 record (delivered 2026-10-31)
+
+**Exercised:** journey tests J36.12 (12 cases on generated A and B, confirmed failing first) and the J08, J36, J37, J40 and
+J50 modules, boundaries and the OpenAPI lock; unit tests of `ApplyDialog` and the selector's menu; runner `wm1-edit-model`
+(menu, editor, Apply by keyboard at 1440px on two configurations, a migration, the Settings button, 390px, axe on the
+dialog, no 4xx/5xx); the changed runners `j1u-export`, `j4-import`, `j6-people-workbook`, `j6a-people-columns`,
+`k6-relationship-filters`, `z5-permissions`; lint and the production build. Screenshots of the menu, editor, Apply and the
+phone menu inspected.
+
+**Changes from the plan:** Edit model also needs Browse in the workspace, as Apply reads the workspace's model with it;
+J36.12's holder has Browse for that. The sweep's rule is tested in the journey, not a unit test.
+
+**`ap1-ai`:** its workbook section still expected the designs from before AP8, which a backend with only `AI_PROVIDER`
+cannot reach: the task stops at `read` (`job.py`, unchanged by WM1), so it timed out at "What the assistant understood". The
+section now runs AP8's journey with a stand-in session (`helpers/session-stand-in.py`), as J50.30 does: 105 checks passed.
+The stand-in proves the engine and the pages, not the assistant's judgement (AP13).
+
+**The guide's other runners for the changed files** also passed: `w4`, `authoring-n1`, `k1`, `wp9-navigation`, `wp11`, `wp12`,
+`wp13c`, `authoring-a4a`, `authoring-a4b`, `authoring-a4c`, `authoring-a5`, `authoring-a6`, `authoring-a7`, `authoring-t1`.
+
+**Not run:** the visual baselines and the accessibility gate, at R, where the collection header's baselines change.
+
+**Fixed with it, on the assistant's pages:** the correction box no longer takes the JSON field's 440px height. The loaded page
+says each change notes the assistant only where that is true: a session's changes do not yet (AP9). `GET /system`'s `ai` gains
+`assistant` (`AI_AGENT_COMMAND` set): only then does Import offer Load a workbook, whose sentence now says what the session is
+given. A provider without a session gets the ordinary Import. `POST /ai/tasks` still reads by the rules there, and a session
+still needs `AI_PROVIDER` too: the rest of AP10's one switch.
+
+### WM1 in detail (planned 2026-10-31; approved by the user 2026-10-31 with the mock-up)
+
+Mock-up: [WM1 Edit model](https://claude.ai/artifact/Kzt6bM9BS8jxvh6K8ast3y) (a Design canvas, not kept in the
+repository). Reference patterns: the activation dialog (`ActivateDialog`) for the confirmation and the migration
+page for records that must move.
+
+**What already works and stays:** the draft operations and editor, `compile` (its `compatibility.workspaces` gives
+each workspace's check before anything is installed), `installation`, `activation`, the migration preview and
+confirmation, and `Install and activate…`, which moves into ⋯ on a draft opened from a workspace.
+
+#### Decisions (recommended, approved with this plan)
+
+| # | Decision | Why and what it costs |
+| --- | --- | --- |
+| WM-D1 | **A draft remembers one workspace** in `model_drafts.workspace_key` (foreign key, `ON DELETE SET NULL`), with a partial unique index: a workspace has at most one remembered draft. | The rule "no second, competing draft" is held by the database. One column, one index, one migration. |
+| WM-D2 | **Which draft opens.** (1) The remembered draft while it is current: its base is the release the workspace runs, or a release installed after the workspace's model last changed (an Apply stopped at the migration preview). (2) Otherwise the newest draft of the running release that remembers no workspace and that no assistant task names (`ai_tasks.draft_id`), whatever the task's state; it now remembers this workspace. (3) Otherwise a new draft of the running release, named "The model of ‹workspace›". A remembered draft that is no longer current, because the workspace's model was changed elsewhere, gives up the link and stays in Settings › Model. | Without (1)'s second half, leaving a migration preview would orphan the person's work. Without the last sentence, an old draft could silently undo someone else's activation. A finished task's draft is left out too: after an accepted load and its activation its base is the running release, so it would match, and the task's sweep deletes it with the task (`tasks/store.py`, `expire`), taking the person's edits. The sweep in turn keeps a draft that remembers a workspace, as a session may reach one (the new route is in its OpenAPI; sessions reused another task's draft, AP10). |
+| WM-D3 | **The install is allowed by Model release in the draft's workspace.** `POST /model-drafts/{id}/installation` checks `model.install` at the draft's remembered workspace; a draft remembering none is checked at the instance, as today. | The check today reads instance grants only (`management/access.py`, `permissions.allows`), so a person holding Model release in one workspace is refused with 403 at Apply, against the journey. Model release is already a workspace-scoped group whose description includes installing; a release does nothing until it is activated. Model authoring stays instance-wide, so "in a workspace" means Model authoring at the instance and Model release there. |
+| WM-D4 | **The API adds one route and one field.** `POST /api/v1/workspaces/{key}/model/draft` (action `model.author`; 200 with the draft found, 201 with a new one; `404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`). `workspaceKey` joins the draft and its outline. Apply stays the existing `installation`, then `activation` or `migrations`. | A client takes the same steps as the UI, with no combined route, like the load (D81). A concurrent first open waits on the workspace's row and gets the same draft. |
+| WM-D5 | **A ⋯ menu on the Workspace label's line**, at its right end, holds **Import…**, **Export…** and **Edit model**; Import and Export leave the collection page's header, which keeps its Add. The menu is `ui/ActionMenu` in `WorkspaceSelector`, the one component behind the rail on desktop and the band's workspace choice on a phone, with one workspace too. Each item follows its existing rule: Import where the data shown can be written and the person holds Bulk and import; Export where jobs run; Edit model with Model authoring and Model release in that workspace, not for a retired one. With no item the menu is not shown. Export keeps what the collection page shows (type, filters, search, parent, columns), which the page hands to the shell; on any other page it opens on the application's types. Manage workspaces stays where it is. | The user, 2026-10-31: these are not frequent actions and the page must not overwhelm. Cost: moving Import and Export changes existing tests and browser runners that press them, and PL6 (0.17), which reworks these two dialogs, starts from the menu. **Edit model is also a button on the workspace's existing page in Settings › Workspaces, in 0.16 (the user, 2026-10-31)**, beside Rename, under the same rule, opening the same route. PL3's new overview page (0.17) reuses it. |
+| WM-D6 | **The workspace mode is in the URL**: `/settings/model/drafts/{id}/editor?workspace={key}`, and the same parameter on the migration page. Without it the editor is as today, including for a draft that remembers a workspace. | Survives a reload and a shared link, and keeps "Opened from Settings › Model, the editor is as today". The journey parameter is not reused: it drives the journey bar. |
+
+#### The Apply dialog
+
+A new `ApplyDialog` on the existing pieces; the parts it shares with `InstallDialog` and `ActivateDialog`
+(`summarizeChanges`, `ConsumerContracts`, `useReleaseIdentity`, the left-behind list and the migration reasons) are
+extracted once, not copied. It reads `compile` and shows, in order: what changes in the model; what happens to the
+records; change sets left behind; the workspaces not changed; the release identity folded under "Becomes release
+‹name› ‹version›".
+
+| State | The main action | After it |
+| --- | --- | --- |
+| Records fit | **Apply to ‹workspace›**: install, activate | Back in the workspace, with one sentence saying it now runs the release |
+| Records must move | **Preview what happens to the records…**: install, start the migration | The migration page; on done, back in the workspace. Leaving changes nothing there and the draft reopens |
+| Records must move, migrations not available here | None; says that this deployment does not run migrations | Cancel |
+| A consumer API needs a higher contract version | None until raised, with the Raise step in the dialog, as today | The state above it |
+| Draft invalid | None; the Issues list has each reason | Cancel |
+| Nothing to apply | None; "Nothing to apply yet: this draft matches what ‹workspace› runs" | Close |
+| Installed, then activation refused | **Try again**; says the workspace did not change | The draft's base has moved, so the install finds the same release and only activation repeats |
+
+#### Tests (cases for approval)
+
+Journey tests in `tests/journeys/`, new variants of J36, each on two model configurations:
+
+1. **Apply to one workspace.** Given two workspaces on one release, when the first's draft is opened, a field added,
+   it is installed and activated there, then the first runs the new release with the field, the second is unchanged,
+   and opening again answers 200 with the same draft.
+2. **An existing draft is reused.** Given a draft of the running release remembering no workspace and one of another
+   release, when the draft is opened, then the first is answered, now naming the workspace, and no draft is created. Given instead only the draft of a task that ended, a new draft answers 201.
+3. **The model changed elsewhere.** Given a remembered draft, when another release is activated in the workspace and
+   the draft is opened, then a new draft of that release answers 201, and the old one still exists, naming no workspace.
+4. **Records move.** Given records of a type the draft removes, when it is installed, then activation answers
+   `MODEL_MIGRATION_REQUIRED`; opening before the migration confirms answers the same draft; after the confirmation
+   the workspace runs the release with its records converted.
+5. **Who may.** No Model authoring: `FORBIDDEN` on the route. Model authoring and Model release in workspace A: installs
+   A's draft; `FORBIDDEN` on B's draft and on a draft remembering none. A retired workspace: `WORKSPACE_RETIRED`.
+
+Unit tests: `ApplyDialog` for each state above, the ⋯ menu's items and the Settings button shown and hidden, Export keeping the collection's context, the route's `workspace` parameter. A new
+browser runner on two configurations: ⋯ menu → editor → Apply → back, and the migration path, by keyboard at 1440px and
+390px, axe on the dialog, no 5xx and no server error line; its screenshots inspected against the reference patterns.
+
+#### Delivery
+
+- **Backend:** the migration, written in one go; `engine/model/drafts.py` (the choice in WM-D2); the sweep's condition in `engine/tasks/store.py`, with a unit test; the route and `draftResponse`
+  field; the workspace-aware check in `management/access.py`; the journey tests, confirmed failing first.
+- **Frontend:** the ⋯ menu with Import and Export moved into it, the Edit model button in `WorkspaceAdmin`, `ApplyDialog`, the route parameter, the editor's crumb, header and main action (desktop and
+  phone menu), the migration page's way back, a workspace's model reloaded after Apply.
+- **Documents:** `API.md`, `API_JOURNEYS.md`, `USER_JOURNEYS.md` (J36), `CURRENT_FUNCTIONALITY.md`, `PRODUCT.md`, `CHANGELOG.md`.
+- **Door check (ADR-032):** no door is affected; the package touches none of identity, attribute storage, audit and
+  history, bulk APIs, `match` or mapping coverage.
+
+**What a person still cannot do after WM1:** move records between types in one reshaping (AP12),
+or ask the assistant to change the model from here (AP12). Edit model starts from the workspace ⋯ menu on any of its pages and from the
+button on the workspace's page in Settings › Workspaces. PL3 (0.17) builds a new overview page, which reuses the same action.
 
 ## Track A: agent access
 

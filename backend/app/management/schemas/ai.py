@@ -93,3 +93,5 @@ class AiSystemInfo(BaseModel):
     # The model asked, so a client can say what it waits for.
     model: str | None = None
     sendLevel: SendLevel
+    # Whether the assistant's session can run (``AI_AGENT_COMMAND``, AP8).
+    assistant: bool = False

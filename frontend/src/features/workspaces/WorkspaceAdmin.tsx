@@ -16,6 +16,7 @@ import { security } from "@/api/securityClient";
 import { useHoldsGroup } from "@/app/useMe";
 import { holds, useWorkspacePermissions } from "@/features/security/permissions";
 import { GrantsSection } from "@/features/security/GrantsSection";
+import { useEditModel } from "@/features/workspaces/useEditModel";
 import { errorMessage, isApiError } from "@/api/errors";
 import { formatServerTime } from "@/lib/dates";
 import { UnavailableWorkspace, unavailability } from "@/features/workspaces/UnavailableWorkspace";
@@ -341,6 +342,7 @@ function WorkspaceDetail({
   const permissions = useWorkspacePermissions(workspaceKey);
   const browses = holds(permissions, "browse");
   const [workspace, setWorkspace] = useState<WorkspaceDetail | undefined>(() => lastRead.details.get(workspaceKey));
+  const editModel = useEditModel(workspaceKey, workspace?.status, onNavigate);
   const [loadError, setLoadError] = useState("");
   const [loadToken, setLoadToken] = useState(0);
   const [renaming, setRenaming] = useState(false);
@@ -576,6 +578,11 @@ function WorkspaceDetail({
           {browses && (
             <button className="secondary" onClick={() => onOpen(workspace.key)}>
               Open workspace
+            </button>
+          )}
+          {editModel && (
+            <button className="secondary" onClick={editModel}>
+              Edit model
             </button>
           )}
           {canMove && active && (

@@ -44,8 +44,7 @@ export function ObjectCollectionView({
   refreshToken = 0,
   selectedId,
   lenses,
-  onExport,
-  onImport,
+  onExportContext,
   bulkSelection,
   onPropose,
   createRequest,
@@ -237,6 +236,26 @@ export function ObjectCollectionView({
     onSort: (sort) => onQueryChange({ ...query, sort, anchor: undefined }),
     labelFor: (field) => attributeName(model, field),
   });
+  // The workspace ⋯ menu's Export reads this at the moment it is chosen (0.16 WM1).
+  useEffect(() => {
+    if (!onExportContext || !objectType) return;
+    onExportContext(() => ({
+      workspaceKey,
+      changeSetId: changeSet?.id,
+      publicationId: publication?.id,
+      objectTypeKeys: application.objectTypeKeys,
+      selected: [objectType.key],
+      filters: { objectTypeKey: objectType.key, filters: query.filters },
+      search: query.search || undefined,
+      parentObjectId: query.parentObjectId,
+      // The table as its Display shows it, for a workbook for people (0.9 J6).
+      columns: {
+        shown: display.columns,
+        hidden: columns.filter((column) => !display.columns.includes(column)),
+      },
+    }));
+    return () => onExportContext(undefined);
+  });
   if (!objectType) return <div className="empty-state">This configured view does not select an object type.</div>;
   const hue = objectTypeHue(model, objectType.key);
   const narrowed = query.search !== "" || query.filters.length > 0;
@@ -255,31 +274,6 @@ export function ObjectCollectionView({
     )
   );
   // Export changes nothing, so it is offered in every context; the search is not carried (D60).
-  const exportAction = onExport && (
-    <button
-      type="button"
-      className="secondary"
-      onClick={() =>
-        onExport({
-          workspaceKey,
-          changeSetId: changeSet?.id,
-          publicationId: publication?.id,
-          objectTypeKeys: application.objectTypeKeys,
-          selected: [objectType.key],
-          filters: { objectTypeKey: objectType.key, filters: query.filters },
-          search: query.search || undefined,
-          parentObjectId: query.parentObjectId,
-          // The table as its Display shows it, for a workbook for people (0.9 J6).
-          columns: {
-            shown: display.columns,
-            hidden: columns.filter((column) => !display.columns.includes(column)),
-          },
-        })
-      }
-    >
-      Export
-    </button>
-  );
 
   return (
     <div
@@ -294,17 +288,7 @@ export function ObjectCollectionView({
         icon={<HueTile hue={hue} icon={objectType.icon} size={40} />}
         title={view.name}
         description={objectType.description ?? application.description}
-        actions={
-          <>
-            {onImport && (
-              <button type="button" className="secondary" onClick={onImport}>
-                Import
-              </button>
-            )}
-            {exportAction}
-            {add}
-          </>
-        }
+        actions={add}
       />
       <ScopeBanner
         model={model}

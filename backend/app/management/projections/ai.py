@@ -9,6 +9,7 @@ from ...engine.identity.principals import named, ref
 from ...engine.proposals import calls
 from ...engine.proposals.context import FEATURE_LEVELS
 from ...engine.proposals.registry import AiConfiguration, model_label, provider_label
+from ...engine.tasks import agent
 from ...models.database import AiCall
 from ..schemas.ai import (
     AiCallPage,
@@ -97,4 +98,5 @@ def system_info(ai: AiConfiguration) -> AiSystemInfo:
         provider=provider_label(ai.provider) if ai.provider else None,
         model=model_label(ai.provider) if ai.provider else None,
         sendLevel=ai.policy.level,
+        assistant=agent.enabled(),
     )

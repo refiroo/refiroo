@@ -31,6 +31,7 @@ from ...engine.model.drafts import (
     load_draft_for_update,
     require_draft_version,
     update_draft,
+    workspace_draft,
 )
 from ...engine.model.migrations import submit_migration
 from ...engine.model.registry import model_registry
@@ -54,6 +55,7 @@ from ...errors import api_error
 from ...models.database import AuditEvent, ModelDraft, ModelDraftOperation
 from ..access import (
     INSTANCE,
+    MODEL_DRAFT_PATH,
     WORKSPACE_PATH,
     AuthorizedRoute,
     CurrentPermissions,
@@ -286,6 +288,26 @@ def start_workspace_migration(
     if worker is not None:
         worker.wake()
     return job_responses(session, [job])[0]
+
+
+@router.post(
+    "/workspaces/{workspace_key}/model/draft",
+    response_model=ModelDraftResponse,
+    responses={201: {"model": ModelDraftResponse, "description": "A new draft was made"}},
+)
+@requires("model.author", at=INSTANCE)
+def open_workspace_model_draft(
+    workspace_key: str, session: DbSession, response: Response
+) -> ModelDraftResponse:
+    """The draft of the model a workspace runs, made when there is none (0.16 WM1): `200` with the
+    draft it remembers or the newest of its release nothing holds, now remembering the workspace;
+    `201` with a new one. Applying it is the draft's `installation`, then the workspace's
+    `model/activation` or `model/migrations`. `404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`."""
+    draft, created = workspace_draft(session, workspace_key)
+    session.commit()
+    if created:
+        response.status_code = status.HTTP_201_CREATED
+    return draft_response(session, draft)
 
 
 @router.get("/model-drafts", response_model=ModelDraftPage)
@@ -626,7 +648,7 @@ def compile_model_draft(
     response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
 )
-@requires("model.install", at=INSTANCE)
+@requires("model.install", at=MODEL_DRAFT_PATH)
 def install_model_draft(
     draft_id: str,
     payload: ModelDraftVersionRequest,
@@ -703,6 +725,7 @@ def draft_response(session: Session, draft: ModelDraft) -> ModelDraftResponse:
         id=draft.public_id,
         name=draft.name,
         baseReleaseId=base_release_public_id(session, draft),
+        workspaceKey=draft.workspace_key,
         model=draft.model_json,
         version=draft.version,
         createdAt=as_utc(draft.created_at),

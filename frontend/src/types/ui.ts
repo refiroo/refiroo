@@ -196,6 +196,8 @@ export type SettingsRoute =
       editor?: EditorSelection;
       /** The user journey the editor is a step of: Close returns to it. */
       journey?: JourneyRef;
+      /** The editor or migration was opened from this workspace, and returns to it (0.16 WM1). */
+      forWorkspace?: string;
     };
 
 /** A user journey across pages (the journey bar): today the assistant's load of a workbook. */

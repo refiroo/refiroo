@@ -20,6 +20,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { workspaceAction } from "./helpers/workspaceMenu.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const COLLECTION = "/apps/rdm-systems/views/system-values?workspaceKey=default";
@@ -130,8 +131,7 @@ try {
   async function openForPeople() {
     await page.goto(`${uiUrl}${COLLECTION}`);
     await page.getByRole("heading", { level: 1, name: "System values" }).waitFor();
-    await page.getByRole("button", { name: "Export", exact: true }).focus();
-    await page.keyboard.press("Enter");
+    await workspaceAction(page, "Export…", { keyboard: true });
     const dialog = page.getByRole("dialog", { name: "Export" });
     await dialog.waitFor();
     await dialog.locator("label", { hasText: "For people" }).click();
@@ -206,7 +206,7 @@ try {
   // 4. Imported from the collection without a profile, previewed, loaded.
   await page.goto(`${uiUrl}${COLLECTION}`);
   await page.getByRole("heading", { level: 1, name: "System values" }).waitFor();
-  await page.getByRole("button", { name: "Import", exact: true }).click();
+  await workspaceAction(page, "Import…");
   const importing = page.getByRole("dialog", { name: "Import" });
   await importing.waitFor();
   await importing.getByLabel("File", { exact: true }).setInputFiles(edited);

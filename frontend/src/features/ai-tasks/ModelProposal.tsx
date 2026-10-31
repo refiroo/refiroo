@@ -8,6 +8,7 @@ import { useState } from "react";
 import type { AiTask, EngineModel } from "@/types";
 import { Card } from "@/ui/Card";
 import { Disclosure } from "@/ui/Disclosure";
+import { FormField } from "@/ui/FormField";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { StatusPill } from "@/ui/StatusPill";
@@ -159,15 +160,17 @@ export function ModelProposal({
             ))}
           </ul>
         )}
-        <label className="model-json-field">
-          Tell the assistant what to change
-          <textarea
-            rows={3}
-            value={words}
-            placeholder="e.g. “Sponsors belong to operators, not to locations”"
-            onChange={(event) => setWords(event.target.value)}
-          />
-        </label>
+        <FormField label="Tell the assistant what to change">
+          {(control) => (
+            <textarea
+              {...control}
+              rows={3}
+              value={words}
+              placeholder="e.g. “Sponsors belong to operators, not to locations”"
+              onChange={(event) => setWords(event.target.value)}
+            />
+          )}
+        </FormField>
         <div className="task-actions">
           <button
             type="button"

@@ -91,7 +91,8 @@ export function LoadedView({
           </>
         )}
         {sentence.rest && `${sentence.rest} `}Live data is unchanged until the change set is approved and published.
-        Each change notes that the AI assistant prepared the load and that you confirmed it.
+        {/* A session's changes do not carry this yet (AP9). */}
+        {!task.design?.agentSession && " Each change notes that the AI assistant prepared the load and that you confirmed it."}
       </Notice>
       <ul className="task-next">
         {result?.releaseId && (

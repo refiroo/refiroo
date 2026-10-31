@@ -506,7 +506,15 @@ fieldset.settings-section legend {
 }
 /* The workspace switcher at the top of the rail, above the application browser (restored 0.9 U3). */
 .workspace-selector {
+  position: relative;
   margin: 0 4px 18px;
+}
+/* The ⋯ menu stands at the right end of the Workspace label's line, above the field. */
+.workspace-actions {
+  position: absolute;
+  top: -8px;
+  right: 0;
+  z-index: 1;
 }
 .workspace-selector .selection-field {
   width: 100%;

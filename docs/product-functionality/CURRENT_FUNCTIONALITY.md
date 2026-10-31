@@ -91,6 +91,13 @@ is off the screen is read only and names the setting.
 Each workspace names the model and release it runs, in the selector and in Settings › Workspaces,
 and a new workspace starts on the default workspace's model or on another installed release chosen
 when it is created.
+A workspace's ⋯ menu, beside the selector, holds Import, Export and Edit model, each where the person may use it;
+Edit model is also a button on the workspace's page in Settings › Workspaces. It opens the model editor on that
+workspace's draft, which later visits reopen. **Apply to this workspace** lists what changes in the model, whether
+the records stay as they are, the change sets left behind and the workspaces not changed, then applies it and
+returns to the workspace. When records must move it opens the migration preview first, and nothing changes until
+that is confirmed. Export from the menu exports what the page shows.
+
 Settings › Model opens on a list of models; a model's page has the tabs Overview, Releases, Drafts and Structure (a release's applications, object types, attributes and relations, read only); an opened release or draft has a way back to the tab it came from. Settings › Workspaces opens on a list of workspaces (active ones first, then retired, with search); a workspace's page has tabs: Overview (its facts and its applications, each opening in the workspace), Access,
 Approval and Activity (its changes, newest first, by day); a person sees the tabs they may use.
 

@@ -65,6 +65,7 @@ def draft_outline(session: Session, draft: ModelDraft, active: EngineModel | Non
     return {
         "version": draft.version,
         "baseReleaseId": base.public_id if base else None,
+        "workspaceKey": draft.workspace_key,
         **outline,
         "valid": compiled.valid,
         "diagnostics": [diagnostic_with_element(data, item) for item in compiled.diagnostics],

@@ -30,6 +30,13 @@
 .model-editor-bar h1 {
   font-size: var(--text-xl);
 }
+button.model-editor-crumb {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
 .model-editor-crumb {
   color: var(--text-secondary);
   text-decoration: none;

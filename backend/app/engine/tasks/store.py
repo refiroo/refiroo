@@ -210,13 +210,20 @@ def sync(session: Session, task: AiTask, retention_days: int) -> None:
 def expire(session: Session, now: datetime) -> list[str]:
     """Delete the tasks past ``expires_at`` and, by cascade, their files; a design's model draft
     goes with its task, with its files and history (0.16 AP6; a release it was installed as
-    stays). The public IDs of the files, which the caller removes from disk once it committed
-    (AP-D24)."""
+    stays), unless it remembers a workspace, whose person's edits it holds (WM1). The public IDs of
+    the files, which the caller removes from disk once it committed (AP-D24)."""
     rows = session.execute(select(AiTask.id, AiTask.draft_id).where(AiTask.expires_at <= now)).all()
     if not rows:
         return []
     ids = [row.id for row in rows]
-    drafts = [row.draft_id for row in rows if row.draft_id is not None]
+    drafts = list(
+        session.scalars(
+            select(ModelDraft.id).where(
+                ModelDraft.id.in_([row.draft_id for row in rows if row.draft_id is not None]),
+                ModelDraft.workspace_key.is_(None),
+            )
+        )
+    )
     files = list(
         session.scalars(
             select(SourceFile.public_id).where(

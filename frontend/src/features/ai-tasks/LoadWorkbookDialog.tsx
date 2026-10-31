@@ -10,7 +10,7 @@ import { ai } from "@/api/aiClient";
 import { errorMessage, isApiError } from "@/api/errors";
 import { bytes } from "@/features/settings/limits";
 import { WorkspaceField } from "@/features/workspaces/WorkspaceField";
-import type { AiSystemInfo, AiTask } from "@/types";
+import type { AiTask } from "@/types";
 import { FileField } from "@/ui/FileField";
 import { FormField } from "@/ui/FormField";
 import { Modal } from "@/ui/Modal";
@@ -26,29 +26,21 @@ export interface LoadWorkbookStart {
 
 const ACCEPT = ".xlsx,.csv";
 
-/** What leaves the server, in one line: the provider and model, and what the assistant is given. */
-export function sentForWorkbookLoad(offer: Pick<AiSystemInfo, "provider" | "model">): string {
-  const to = offer.provider ?? "the AI provider";
-  const who = offer.model ? `${to} (${offer.model})` : to;
-  return `Sent to ${who}: the sheets' names, headers, counts and values, and the workspace's matching records, as the assistant asks for them.`;
-}
+/** What leaves the server, in one line: the session is given the file itself (AP8). */
+export const SENT_WITH_WORKBOOK =
+  "Sent to Claude Code: the whole workbook, your words and the workspace's model. It reads the workspace's records as it needs them.";
 
 /** What leaves the server for an instruction without a workbook. */
-export function sentForInstruction(offer: Pick<AiSystemInfo, "provider" | "model">): string {
-  const to = offer.provider ?? "the AI provider";
-  const who = offer.model ? `${to} (${offer.model})` : to;
-  return `Sent to ${who}: your words, the model's names, and the workspace's matching records, as the assistant asks for them.`;
-}
+export const SENT_WITH_WORDS =
+  "Sent to Claude Code: your words and the workspace's model. It reads the workspace's records as it needs them.";
 
 export function LoadWorkbookDialog({
   start,
-  offer,
   onClose,
   onStarted,
   onImportManually,
 }: {
   start: LoadWorkbookStart;
-  offer: AiSystemInfo;
   onClose: () => void;
   onStarted: (task: AiTask) => void;
   /** Closes this dialog and opens the ordinary import with the file chosen so far, whatever its kind. */
@@ -120,7 +112,7 @@ export function LoadWorkbookDialog({
             />
           )}
         </FormField>
-        <p className="admin-hint">{file || !words.trim() ? sentForWorkbookLoad(offer) : sentForInstruction(offer)}</p>
+        <p className="admin-hint">{file || !words.trim() ? SENT_WITH_WORKBOOK : SENT_WITH_WORDS}</p>
         {error && (
           <Notice tone="error" title="The workbook was not sent" focusOnMount>
             {error}

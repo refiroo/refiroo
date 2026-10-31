@@ -596,7 +596,15 @@ unchanged.
 - `DELETE /api/v1/model-drafts/{draftId}?expectedVersion=...`
 - `POST /api/v1/model-validations`
 - `POST /api/v1/model-drafts/{draftId}/compile`
-- `POST /api/v1/model-drafts/{draftId}/installation`
+- `POST /api/v1/model-drafts/{draftId}/installation`: action `model.install`, checked at the workspace the
+  draft remembers, or at the instance for a draft remembering none (0.16 WM1).
+- `POST /api/v1/workspaces/{workspaceKey}/model/draft` (action `model.author`, 0.16 WM1): the draft of the
+  model the workspace runs. `200` with the draft it remembers while that is current (its base is the running
+  release, or a release installed since the workspace's model last changed), else with the newest draft of the
+  running release no workspace remembers and no assistant task names, now remembering the workspace; `201` with a
+  new one. A remembered draft that is no longer current gives up the workspace. A draft's and its outline's
+  `workspaceKey` names the workspace. `404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`. Applying it is
+  `installation`, then the workspace's `model/activation` or `model/migrations`.
 - `POST /api/v1/model-drafts/{draftId}/operations`, `GET /api/v1/model-drafts/{draftId}/operations`,
   `POST /api/v1/model-drafts/{draftId}/undo`, `POST /api/v1/model-drafts/{draftId}/redo` (0.10 A2,
   [below](#draft-operations))
@@ -6779,8 +6787,9 @@ route that sends a provider free text. The provider is set in the environment an
 (OPERATIONS § AI proposals); nothing here changes it, and the key is never answered. Feature:
 [mapping targets](#mapping-targets-ap2).
 
-- `GET /api/v1/system` answers `ai: {configured, provider, sendLevel}` to every signed-in caller, so
-  a client offers an AI action only when one can run.
+- `GET /api/v1/system` answers `ai: {configured, provider, sendLevel, assistant}` to every signed-in caller, so
+  a client offers an AI action only when one can run; `assistant` says the assistant's session is set up
+  (`AI_AGENT_COMMAND`), without which a workbook is read by the rules alone.
 - `GET /api/v1/ai/status` (Operations at the instance): `configured`, `provider`, `model`,
   `endpoint` (`AI_BASE_URL`, or null for the provider's own), `keySet`, `sendLevel`, `sampleValues`,
   `minConfidence`, `logContent`, `logContentDays`, `timeoutSeconds`; `features`, each `{purpose,
