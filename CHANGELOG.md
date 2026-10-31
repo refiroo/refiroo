@@ -42,17 +42,17 @@ All notable changes to this project are documented in this file. The format foll
   job it queued, such as profiling its workbook, waited until the session ended and then failed because
   the session's grants had ended too. Sessions now run on an assistant worker of their own (reported as
   `assistantWorker` among a process's threads), and their grants stay until the jobs they queued are done.
-- **The session's checklist shows what happened:** a step was ticked as soon as a command mentioned its
-  address, so "Model changed" and "Every row checked" appeared before either happened, and a refused load
-  counted as loaded. Steps now come from what the engine recorded: a check counts until the model changes
-  again, a running one shows as in progress, and a turn lists only what it can reach, the model and its
-  check first and the release and the load after acceptance.
 
 ### Fixed (opening a record from another application)
 
 - **A record opens where it stands:** opening a record from an application that lists its type but does
   not hold it, such as from a matrix row, now goes to the record's own application. It said "This object
   belongs to another application" before.
+- **The session's checklist shows what happened:** a step was ticked as soon as a command mentioned its
+  address, so "Model changed" and "Every row checked" appeared before either happened, and a refused load
+  counted as loaded. Steps now come from what the engine recorded: a check counts until the model changes
+  again, a running one shows as in progress, and a turn lists only what it can reach, the model and its
+  check first and the release and the load after acceptance.
 
 ### Fixed (relation matrix cells)
 

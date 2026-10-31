@@ -1,6 +1,7 @@
 # The plain path: implementation plan
 
-**Proposed 2026-10-28, not approved.** From a UX review of the running application at the user's request:
+**Proposed 2026-10-28. Approved by the user 2026-10-31 as product release 0.17, straight after 0.16, with
+the workbook canvas (PL3b) in it.** From a UX review of the running application at the user's request:
 refiroo can do almost everything a steward or model administrator needs, but the everyday journeys feel
 like a spaceship, with every capability visible at once and long paths between them. This plan keeps
 every capability and adds a friendly common path, with the expert depth one step away. The review page
@@ -57,12 +58,13 @@ and is not repeated here.
 | [PL2](#pl2-plain-add-and-edit) | — | The parent as a sentence, required first, optional under More fields, inline errors; the record header without the raw ID |
 | WM1 | 0.12 | Delivered in 0.16: in the workspace ⋯ menu and as a button on the workspace's page in Settings › Workspaces (the user, 2026-10-31). PL3's page reuses the action |
 | [PL3](#pl3-the-workspace-page) | PL0, WM1 | A page for each workspace: search across it, what waits, recent changes, its own actions; Home cards open it |
-| [PL4](#pl4-new-workspace-from-a-workbook) | WM1, PL3 | The file and a name, what refiroo found, Create workspace |
+| [PL3b](BASE_0_17_IMPLEMENTATION_PLAN.md#pl3b-the-workbook-canvas) | PL0 | The workbook beside the live result: drag sheets and columns into lists, fields, relationships, hierarchies, filters and groups; each drop applies at once |
+| [PL4](#pl4-new-workspace-from-a-workbook) | WM1, PL3, PL3b | The file and a name, what refiroo found, Create workspace |
 | [PL5](#pl5-plain-words-and-identifiers) | PL0 | One list of replacements applied on the common path; Settings index; Back to the workspace |
 | [PL6](#pl6-collection-import-and-export-and-your-changes) | PL0 | Import file-first with profile chosen and options folded; Export for people; draft steps grouped |
 
-**Order (recommended).** PL0, PL1, PL2, then WM1 as planned, PL3, PL4, PL5, PL6. PL1 and PL2 are the
-cheapest fixes on the most frequent paths; PL3 gives WM1 and PL4 their place.
+**Order (recommended).** PL0, PL1, PL2, then WM1 as planned, PL3, PL3b, PL4, PL5, PL6. PL1 and PL2 are the
+cheapest fixes on the most frequent paths; PL3 adds WM1's action to its page and gives PL4 its place; PL3b is where PL4's Adjust leads.
 
 **Decision needed (asked with this plan):** a workbook's new workspace loads straight into live data
 (recommended) or into a change set first. A workbook loaded into an existing workspace keeps going into
@@ -128,6 +130,11 @@ search over every type's name was not checked beyond API.md; if missing, adding 
 a J01.4 journey test on two configurations. **Tests:** browser: Home → overview → search → record → back on
 two configurations, keyboard through results, 390px, axe, no 5xx or server error line.
 
+## PL3b: The workbook canvas
+
+Added 2026-10-31 at the user's request. Its scope, gestures and engine work are in the
+[0.17 plan](BASE_0_17_IMPLEMENTATION_PLAN.md#pl3b-the-workbook-canvas).
+
 ## PL4: New workspace from a workbook
 
 **Journey:** an administrator drops a workbook and names the workspace, reads what refiroo found (lists,
@@ -137,7 +144,7 @@ step, landing on its page with what didn't load.
 **Scope.**
 - Started from Home, Settings › Workspaces and the workspace page. Draft, release key, version and profile
   key are derived; **More ways to start** keeps today's dialog.
-- **Adjust in the editor** opens today's editor; its main finish for a draft not made for a workspace is
+- **Adjust** opens the workbook canvas (PL3b); its main finish for a draft not made for a workspace is
   **Create workspace…**; **Load into an existing workspace…** moves to ⋯ and names whose model it replaces.
 - **Create workspace** installs the draft, creates the workspace on the release and loads the workbook
   (live or change set: the decision above).

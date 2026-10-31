@@ -9,7 +9,9 @@ inference's assistant on the provider with provenance. **AP2, targets for unmapp
 (2026-10-28)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap2-record-2026-10-28)): Propose targets in the
 mapping grid, a job asking the provider among the grid's own candidates and writing into a change set,
 provenance on change-set relations through publication into history, the Proposed filter,
-`AI_CONTEXT_TOKENS`. **AP6a, loading a workbook with the assistant, is delivered (2026-10-29)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap6a-record-2026-10-29)): the naming helper removed; Import offers the assistant first; a task reads the workbook (a stored profile that fits followed first), shows what needs the person, checks every row in a dry run, has the assistant fix refused values and loads into a change set. Next (the user, 2026-10-29: no slices): one plan replacing AP6b–d, in which the assistant analyses the workbook, decides the structure and aligns the model, with the engine's operations as its tools.
+`AI_CONTEXT_TOKENS`. **AP6a, loading a workbook with the assistant, is delivered (2026-10-29)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap6a-record-2026-10-29)): the naming helper removed; Import offers the assistant first; a task reads the workbook (a stored profile that fits followed first), shows what needs the person, checks every row in a dry run, has the assistant fix refused values and loads into a change set.
+
+**The assistant is now a Claude Code session (AP8, the user's decision of 2026-10-31)**, built and tried on real files; it supersedes AP3–AP7, which are kept as [history](BASE_0_16_IMPLEMENTATION_PLAN.md#history-of-the-assistant). The plan was [reconciled](BASE_0_16_IMPLEMENTATION_PLAN.md#where-each-decision-stands) with the code on 2026-10-31. **Open:** WM1 (planned, not built); [AP9–AP13](BASE_0_16_IMPLEMENTATION_PLAN.md#ap8-the-assistant-is-a-claude-code-session) (who did it, one path, good models in time, reshaping, the real-file tries); Track A (AG1 planned, not built) and Track O (not started); R.
 
 ## Current development baseline — Base 0.12 complete (2026-10-28)
 

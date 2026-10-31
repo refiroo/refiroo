@@ -154,6 +154,12 @@ coverage matrix decides completeness):
   are separate, each with its own records or pairs, so a view over one does not show the other; a new pair
   on an existing relation type does not take over its one-per rule
 - Onboard a workbook (J34); load the next version of a workbook (J35)
+- **Shape a workbook on the canvas (added 2026-10-31 at the user's request; arrives with 0.17, PL3b):** place
+  cards, make lists, connect a hierarchy or a relationship, add filters and navigation groups, read refused rows,
+  turn wide sheets and grouped rows into records, repeat the load from the saved profile, and do it all without
+  dragging and through the API. With screenshots. If this guide is written before 0.17, it covers today's
+  editor and PL3b adds this page in its own change
+  ([0.17 plan](BASE_0_17_IMPLEMENTATION_PLAN.md#pl3b-the-workbook-canvas))
 - Run a workspace on a model of its own (J36); move a workspace to another release (J37); move data
   between workspaces whose models differ (J38)
 - Reference (generated): the model language. Seed for the prose around it: MODEL_AUTHORING.md,

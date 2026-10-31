@@ -6,6 +6,8 @@ the AI integration discussion of 2026-10-27. First drafted as three releases (0.
 one on the user's suggestion the same day because the three share one foundation, one permission and
 one acceptance step, and together are about the size of 0.15.
 
+**Reconciled 2026-10-31 at the user's request:** the assistant's design moved faster than this plan, so [Packages](#packages), [Where each decision stands](#where-each-decision-stands) and the [Exit gate](#exit-gate) now describe what exists and what is open. Earlier designs are at the end, under [History](#history-of-the-assistant).
+
 **Target:** Product 0.16.0, [AI integration](ROADMAP.md#product-release-016--ai-integration).
 
 **Depends on:** 0.12 (identity, roles and grants, change-set approvals, the inbox: a proposal is an
@@ -38,8 +40,8 @@ package narrows this, and a gap found in a building block (such as the inference
 application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back as a question.
 
 - **Track P, proposals.** A steward sees machine-made proposals in the screens they already use: a
-  likely target for each unmapped value, a draft of a missing label or translation, better names and
-  relations for a spreadsheet's columns, a grouped explanation of why a dry run failed. Each carries a
+  likely target for each unmapped value. *(Value drafts and the grouped explanation of a failed dry run, AP4 and AP5,
+  were removed 2026-10-31; names and relations for a workbook come from the assistant, AP8.)* Each carries a
   confidence and a reason, is edited like any other step, and is recorded as machine-proposed and
   human-approved.
 - **Instruction-driven tasks (AP6).** The user's scenarios, word for word (2026-10-27). Every AP6 plan
@@ -68,10 +70,9 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
   > Something totally new: a new application or model.
 
   And 2026-10-28: "The user says a few words, uploads an xls, expects the model and the import." "we
-  don't build limitations." They get a plan they can read and edit, a count of what would happen row
-  by row, and one step to run it.
+  don't build limitations." They get a proposal they can read and shape, every row checked, and one step to load it into a change set (AP8).
 
-  **Status 2026-10-29:** AP6a delivers none of these scenarios fully (its record has the table).
+  **Status 2026-10-31:** see [where the cases stand](#ap8-the-assistant-is-a-claude-code-session).
 - **Track A, agent access.** An organisation points an MCP-capable assistant at its instance; the
   assistant looks up and explains reference data, reads the model, finds unmapped values and prepares
   changes. It can submit changes for approval but never approve or publish them.
@@ -85,10 +86,13 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
 | --- | --- | --- |
 | [AP1](#ap1-the-proposal-provider) | 0.12 | **Foundation.** Provider interface, settings, adapters, send levels, call record, permission, jobs, provenance, Settings › AI |
 | [AP2](#ap2-targets-for-unmapped-values) | AP1 | Ranked target candidates for the unmapped rows of a mapping view, landing as edits in a change set |
-| [AP3](#ap3-model-authoring-and-model-mappings) | — | **Folded into AP6 (AP-D27, 2026-10-28):** model authoring is steps 3–8 of the workbook flow |
-| [AP4](#ap4-values-for-empty-fields-and-missing-related-records) | — | **Folded into AP6 (AP-D27):** value drafts are a tool of the assistant, offered in place on a filtered collection |
-| [AP5](#ap5-dry-run-triage) | — | **Folded into AP6 (AP-D27):** the grouped refusals feed the assistant's loop (AP6c) and are shown to the person |
-| [AP6](#ap6-instruction-driven-tasks) | AP1, AP2–AP5 patterns | **Tell the assistant what you need, attach the material.** A free-text instruction and a workbook become a plan of steps made only of what the engine already does, shown for editing, dry-run over every row and run into a change set |
+| AP3, AP4, AP5, AP6, AP7 | — | **Superseded by AP8.** See [History](#history-of-the-assistant). AP4 and AP5 are removed from 0.16 (the user, 2026-10-31) |
+| [AP8](#ap8-the-assistant-is-a-claude-code-session) | AP1 | **Built.** A few words and a workbook go to a Claude Code session; proposal, the person's words, then install and load into a change set |
+| [AP9](#ap9-who-did-it) | AP8 | Provenance on a session's changes, one client per session, the call record, retention |
+| [AP10](#ap10-one-path) | AP8 | One switch, the old design removed, a saved profile from a load, updating from a file, the session's leftovers, the proposal page, the documents |
+| [AP11](#ap11-good-models-in-time) | AP8 | Model shape from the same words, and the time limits |
+| [AP12](#ap12-reshaping-and-asking-from-the-workspace) | AP8, WM1 | Moving records between types through a session, and "Change this model…" from the workspace |
+| [AP13](#ap13-acceptance-on-real-files-ap-d22) | AP9–AP12 | The remaining real-file tries, judged by the user |
 | [AG1](#ag1-the-server-and-its-authority) | 0.12 | The MCP endpoint, its setting, sign-in with the existing OAuth, audit channel, the agent role, Settings › Agent access |
 | [AG2](#ag2-read-tools-and-resources) | AG1 | Read tools generated from the consumer API definitions plus a curated set; the model as resources |
 | [AG3](#ag3-changes-prepared-and-submitted-for-approval) | AG1, AG2 | Write tools that create a change set, add validated changes and submit it for approval; no approve or publish tool |
@@ -99,15 +103,47 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
 | [WM1](#wm1-change-a-workspaces-model-from-the-workspace) | 0.12 | **Not AI.** Edit a workspace's model from the workspace: a draft made for it, one "Apply to this workspace" |
 | [R](#r-build-acceptance-and-release) | all | Full review of every change since 0.15, the gates, one bounded real-provider try and one real-assistant try, the release |
 
-**Order (revised 2026-10-28).** AP1 first. Then AP6 with what it needs of AP3: the built-in chat in refiroo (attach a workbook, say a few words, get the model and the import) is the product's way to the requirement. Track A (MCP) is an additional route for organisations that bring their own assistant, never a precondition. Earlier wording: the tracks are independent: Track A (except AG4) does not need AP1 and could
-come first if the user prefers the cheapest slice; recommended order after AP1 is AP2, AP6 (the heart of the release,
-next because it reuses the import, inference and batch machinery rather than waiting on Track A), AG1–AG3, AO1,
-AP3–AP5, AO2, AO3, AG4. The `origin` provenance field (AP-D5) is introduced by whichever package comes
-first and reused by the others.
+**Order (revised 2026-10-31).** Delivered: AP1, AP2. Built: AP8. Next: WM1, then AP9 to AP13 with the tries already running, and Tracks A and O beside them, as they touch little of the same code; then R. Track A is an additional route for organisations that bring their own assistant, never a precondition of the built-in one.
 
 **Tracks A and O stay in 0.16 (decided by the user 2026-10-31).**
 
 ## Decisions
+
+### Where each decision stands
+
+Checked against the code 2026-10-31. Where this differs from a decision's own text below, this table is current; the text
+keeps the reasoning.
+
+| Decision | Stands? | Now |
+| --- | --- | --- |
+| AP-D1 One interface | Changed | Holds for AP2, AG4 and Track O. A session is not a provider call (AP10) |
+| AP-D2 Providers | Kept | Plus `AI_AGENT_COMMAND` for the session (AP10) |
+| AP-D3 Send levels | Changed | A task below `values` is refused, so the level holds. For a session the boundary is the refusal, its grants and the sandbox, not the context builder |
+| AP-D4 Call record | **Not met** for sessions | AP9 |
+| AP-D5 Provenance | **Not met** for sessions | AP9. Met for AP2 |
+| AP-D6 The editor, not a list | Kept | A session's draft opens in the editor. Confidence and its floor apply to AP2 only |
+| AP-D7 The group | Kept, **part not met** | The group is checked. "Made by the person's own request" is not met: AP9 |
+| AP-D8 Jobs | Kept | A session runs on the assistant worker |
+| AP-D9, AP-D10, AP-D11 | Kept | J50.30 scripts the session's command, as the fake provider cannot drive it |
+| AP-D12 Five step kinds | **Replaced** | By AP-D29 |
+| AP-D13 Change set, saved profile | Kept, **part not met** | The change set holds. The saved profile: AP10. "Live only when the person says so" is not offered to a session |
+| AP-D14 What the provider sees | Kept | The session reads what it needs within its folder and the API |
+| AP-D15 The loop | **Replaced** | By the session. `AI_MAX_STEPS` does not bound it |
+| AP-D16 Questions back | Kept | In the proposal |
+| AP-D17, AP-D18 Relations where a condition holds | Changed | The query's limits hold as the API's. `links.py` is reached only by the old design (AP10); set work: AP11 |
+| AP-D19 One set of tools, two drivers | **Dropped** | The two drivers share the API instead. Track A is unaffected: AG-D4 calls the routes' service functions |
+| AP-D20 What the person sees | Changed | A proposal, its check, the questions and the draft in the editor. Not a plan of steps |
+| AP-D21 Providers that cannot do this | Changed | What it needs is a session command (AP10) |
+| AP-D22 Real-file try | Kept | AP13 |
+| AP-D23 Who sees a task | Kept | |
+| AP-D24 Retention | Kept, to check | AP9 |
+| AP-D25 Files per task | Changed | One file is built; up to three is not. Kept to one unless a real case asks |
+| AP-D26 A person's edits | Changed | There are no steps to own. The person's edits are in the draft, and the session reads it again before installing |
+| AP-D27 One assistant | Kept | AP2's helper stays until a real case moves it. AP4 and AP5 are removed from 0.16 |
+| AP-D28 Draft-only change nothing holds | Kept | |
+| AP-D29 How far the session may go | New, approved | Replaces AP-D12 |
+| AG-D1 to AG-D10 | Kept | Except as [AG1 in detail](#ag1-in-detail-planned-2026-10-31-for-approval-with-the-mock-up) revises them, for approval there |
+| AO-D1 to AO-D9 | Kept | They use the provider, not the session |
 
 ### Track P: proposals
 
@@ -135,6 +171,13 @@ first and reused by the others.
 | AP-D20 | What the person sees | **Approved by the user 2026-10-27. The editor, extended by one panel.** A task page (reachable from home and from a workspace) with the attachment, the instruction, the assistant's reading of the file (sheets, blocks, columns and what it thinks each is, editable), the plan as steps marked Proposed in the editors people know, and the dry run beside it in plain counts ("412 rows: 380 new, 20 changed, 12 refused", each refusal with its reason and row). A workbook attached with no instruction offers three or four likely tasks. A mock-up goes with AP6's detailed plan for approval before any build (the user's rule). |
 | AP-D21 | Providers that cannot do this | **Approved by the user 2026-10-27. AP6 needs a provider that supports tool use and structured answers.** The Claude adapter does; an OpenAI-compatible endpoint does if the model behind it supports tool calls, which a small local model may not. Settings › AI reports per feature whether the configured provider can do it, and the task page is hidden when it cannot. No quality promise for small models. |
 | AP-D22 | How is it tested? | **Approved by the user 2026-10-27. Scripted journeys with the fake provider, which returns a prepared plan for a prepared instruction.** They prove the engine's side: the plan is applied exactly, refused rows are reported, follow-ups revise, nothing runs unconfirmed, the file is not sent beyond the level. They cannot prove the assistant understands loose English; that needs **a real-file try**: the user's own complex workbooks, the five task kinds of AP6, run with a real provider on the user's go-ahead, cost stated first, results judged by the user. This is a package acceptance step, not left to R. |
+| AP-D23 | Who sees a task? | **Approved by the user 2026-10-27. Its owner, and a person with the permission to administer the workspace it targets.** A task holds the person's instructions and the assistant's replies, which can name records. Not shared by default; handing a task to a colleague is out of scope for this release. |
+| AP-D24 | What is stored, for how long? | **Approved by the user 2026-10-27. The instructions, the assistant's replies, the plan versions and the dry-run summaries, for `AI_TASK_RETENTION_DAYS` (default 90) after the task finishes or is abandoned; never the rows or samples sent to the provider** (AP-D4: content is not kept unless `AI_LOG_CONTENT` is on). The source file follows the existing source-file retention. A saved profile and the change set are ordinary resources and outlive the task. |
+| AP-D25 | How many files and how large? | **Approved by the user 2026-10-27. Up to three files per task (`AI_TASK_MAX_FILES`), each within `IMPORT_MAX_BYTES`;** XLSX and CSV only, as source files accept today. A task over a limit is refused when attached, not when it runs. |
+| AP-D26 | How does a revision treat the person's edits? | **Approved by the user 2026-10-27. A step the person edited or removed is theirs: a revision never overwrites it.** Each step has an `owner` (`assistant` or `person`); the assistant may propose an alternative for a person-owned step in its reply, as text, never in place. A person-owned step also keeps its mark off. This is the rule that makes the editor feel like an editor and not a regenerate button. |
+| AP-D27 | One assistant or a helper per feature? | **Approved by the user 2026-10-28. One assistant, every AI capability a tool of it, offered where its situation occurs.** The AP6 loop is the only AI that plans: it starts from the rules' result, reads through tools (the profile over every row, any sheet by range including skipped ones, distinct values, overlaps, the model and records, AP2's matcher, the dry run) and writes only the editor's operation catalogue and profile operations, as proposals in the editor's Proposed list. A question is answered in the thread from what it read; an action becomes a plan that runs on one confirmation (AP-D13). AP-D12 gains a sixth step kind, **a capability's job** (AP2's matcher, value drafts, the dry-run grouping). Entries: the task page, the editor's pane and **New from a workbook**, whose AI path is the workbook and an optional words field (the assistant proposes the dialog's choices with reasons); without a provider the dialog stays as it is. AP1's rename becomes step 3 of the workbook flow; AP3, AP4 and AP5 are folded in. Why: the separate helpers did not reach each other (AP2 could not serve a workbook load), and a capable provider (Claude, ChatGPT) can be called as often as a task needs. |
+| AP-D28 | A draft-only change to a released element nothing holds | **Approved by the user 2026-10-31. It applies when it would affect 0 records, values and relationships**, counted in every workspace running the model and their change sets; above 0 it is refused as before. Amends 0.10 D17 and the roadmap's "blocked until 1.0". Why: activation checks the workspace's data again (`*_IN_USE`, required checks) and consumer contracts, so the refusal at edit time protected no data, and a released model with no data could not be edited. A key change stays refused whatever the count: "public IDs and model keys are stable", and an integration names elements by key where no guard sees it. Cost: one count per released element an operation touches, once per request. The menu cannot know the count without counting every element on each outline read, so a released element's actions stay listed, reading "Refused if data uses it" |
+| AP-D29 | How far may the session go? | **Approved by the user 2026-10-31. Replaces AP-D12. The session may use whatever its API grants allow, and always stops at a change set; a person activates and publishes.** It is held by the engine, not by the prompt: the session's client holds no group that publishes or activates (J50.30). Why: each limit added around the working setup was the limit that failed (AP8). What it costs: "only known steps" can no longer be promised, so the guarantee rests on the grants, the dry run of every row and the change set. |
 
 ### Track A: agent access
 
@@ -381,6 +424,595 @@ pill, as it hides the Action column already.
 (AP5), instruction-driven tasks (AP6), AI in model authoring beyond names (AP3), assistant access (AG1–AG4),
 summaries (AO1–AO3).
 
+## AP8: The assistant is a Claude Code session
+
+**Decided by the user 2026-10-31; this section is the current design of the assistant.** It replaces the
+designs of AP3 to AP7, which are kept under [History of the assistant](#history-of-the-assistant) for their reasons.
+The requirement in the [Outcome](#outcome) did not change. Reconciled against the code 2026-10-31; nothing was run.
+
+**How it works** (`engine/tasks/agent.py`, journey J50.30). The person's words, the workbook, the workspace's model
+and the API's OpenAPI document go to one Claude Code session, a process of the assistant worker in a folder of its
+own, set up by `AI_AGENT_COMMAND`. It works through the API as the client "AI assistant".
+
+1. **Proposal.** It builds a model draft, checks every row with the draft's dry run and writes a proposal: two
+   sentences and its questions. Nothing is installed or loaded.
+2. **The person's turn.** They read the proposal, edit the draft in the model editor or say what to change, and the same
+   session goes on.
+3. **Accepted.** It installs one release, does not activate it, and loads into a new change set. An empty change set
+   is not a load.
+4. **The person** activates and publishes from the change set. The engine refuses the session both (AP-D29).
+
+Words without a workbook work the same way. A file whose saved profile still fits takes the engine's path with no AI.
+
+**What stays from the earlier designs:** the task, its page and journey bar, the draft, the dry run, the guards on
+the session, and every fix they made to the import engine (listed in the AP6 progress notes in the history).
+
+**Where the user's cases stand on real files (from the [usage log](#ai-usage-log-for-hosting-cost-planning)):**
+
+| Case | Under AP8 |
+| --- | --- |
+| A, an update | Words only: works (185 records). "Update from this file": **wrong**, 667 duplicates, as the file has no single-column key (AP10). The acceptance workbook: not tried |
+| B, C, additions and new relations | Not tried. They worked on the earlier design only |
+| D, E, new or related application | Loaded on two workbooks, nothing refused. Over the time limits, and the same words gave very different models (AP11) |
+| Reshaping | One try: 6,816 created, 667 changed. Values not checked by a before/after count, and it took 922 s (AP12) |
+| Scenarios as worded: translations, system variants, a new business | Not tried (AP13) |
+
+**The open work, every item with one package:**
+
+### AP9: Who did it
+
+- **Provenance (AP-D5, AP-D7).** A session's changes carry no `origin` and act as the shared client. The change-set
+  columns exist, and the import path does not fill them. Accepted changes must read as machine-proposed, asked for by
+  the person, approved by the person, through publication into history.
+- **One client per session.** All sessions share one client and its grants come and go per session, so sessions
+  overlapping across nodes could use each other's workspace grant. Found by reading the code, not reproduced.
+- **The call record (AP-D4).** Session runs reach neither `ai_calls` nor the usage file, so Settings › AI does not
+  show them and hosting estimates lack their tokens.
+- **Retention (AP-D24).** Check that a failed or abandoned task's folder goes with its task.
+
+### AP10: One path
+
+- **One switch and one assistant.** `AI_PROVIDER` and `AI_AGENT_COMMAND` are separate today: with only the provider
+  set, a workbook is read by the rules alone and words alone go to the old turns. Settings › AI says what is available
+  and the page is hidden when it cannot work (AP-D21). `AI_PROVIDER` stays for AP2, AG4 and Track O.
+- **The old design removed.** Whatever only the turns of AP6 to AP7 reach in `design_job.py`, `design.py`,
+  `draft_plan.py`, `design_checks.py`, `links.py`, `matching.py`, `plan.py` and `turns.py`, each confirmed unused first.
+  The saved-layout path and the rules-only path keep what they use.
+- **Repeating next month (AP-D13).** The session is not asked to save a profile, so the no-AI path may never apply to
+  its loads. A load leaves a saved profile.
+- **Updating from a file.** A key may span several columns, or such a file is refused re-import matching.
+  **Waiting for the user's decision**, asked in the session delivering the tries.
+- **The session's leftovers.** Unused releases (0.10.3, 0.10.5), and sessions reusing another task's draft (tasks 53, 57).
+- **The proposal page** looked at in a browser, and journeys only where the tries showed a need. J50 is 9 tests, 3 on
+  sessions.
+- **Documents:** `API.md` and `USER_JOURNEYS.md` J50 still describe the turns, `ARCHITECTURE.md` both designs.
+
+### AP11: Good models, in time
+
+- **Model shape. Built 2026-10-31, the user's decisions.** The same words gave five types on one run and one type of 87
+  attributes on another, and both pass the dry run. **Separated by default:** one generic sentence in the prompt makes what
+  a file repeats into types of their own, and a session keeping a repetition flat raises it as a question. **What the
+  workspace holds decides the start:** with records the session adds to the model; with none, words asking for a model may
+  get a new one. The proposal shows the shape from the engine's figures (attributes and records per type, relationships
+  apart from records), and warns when a model leaves out types the workspace holds records of; Accept stays available.
+  **Tried on real files, three runs each, from the same words:** all six separated and loaded with 0 rejected. Price
+  Catalogue: the same 9,746 records each time; run 1's prices, VAT, enabled flags and ledgers match task 56's flat load
+  value for value. Timetables: 1,964, 1,966 and 400 records; the third keeps its 1,500 translations on relationships
+  rather than as records, and every workbook value is found in all three. **Still varies, by design:** names and details
+  of the structure (Station or Operator; translations as records or on relationships). A run may start from the workspace's
+  model and still replace it, which labels same-keyed types "Changed".
+- **Speed** against the time limits: 1 to 2 minutes for a workbook like Timetables, 5 at most for a complex one. Runs
+  take about 5 and over 5. Includes whether the session sends set work row by row. Open: the separated runs took 200 to
+  348 s on Timetables and 497 to 633 s on Tariff File, proposal and load, without a person's wait. Tariff File's
+  atomic import is refused at the 10,000-item limit, so the session falls back to row-by-row success, and pays for the
+  failed try.
+
+### AP12: Reshaping, and asking from the workspace
+
+- **Moving records between types.** The exit gate asks for it. The 0.8 restructuring does it. Prove it through a
+  session with a before/after count on a real model, and make the reshaping's three phases work under AP-D29.
+- **"Change this model…".** A way from the workspace to ask the assistant, with the workspace's model as its start. It is
+  the existing task, offered there, and lands in the proposal page. WM1's Apply does not serve it: a session
+  installs without activating, and WM-D2 keeps a task's draft, finished or not, away from WM1. The package decides how
+  an accepted task's release reaches activation from there.
+
+### AP13: Acceptance on real files (AP-D22)
+
+The remaining tries, each announced and judged by the user: the acceptance workbook, cases B and C, the scenarios as
+worded, and the other new files under the session. Done after AP9 to AP12, so they judge the finished assistant.
+
+**Value drafts and dry-run triage (AP4, AP5): removed from 0.16 by the user, 2026-10-31.** Neither was built. A person
+asks for values in words, and the session reads the dry run's refusals itself. There is no bulk action on a filtered
+list and no grouped summary of refusals for the person.
+
+**Said plainly: what a person still cannot do after AP8:** hand a task to a colleague or run one on a schedule; use a
+document or an image as data; attach more than one file (AP-D25); ask for something the API cannot do, which the
+session says so; rely on a small local model.
+
+## WM1: Change a workspace's model from the workspace
+
+**Added 2026-10-28 at the user's request; not AI, a basic the release needs.** Found on the user's first real
+import: to change the model of the workspace they were in, a person had to know to go to Settings › Model, find or
+make a draft of the right release, open the editor, then install, then activate in the workspace. Even the user,
+who knows the application, could not tell what to do or where.
+
+**Journey:** a person holding Model authoring and Model release in a workspace opens the workspace, chooses
+**Edit model**, and lands in the model editor on a draft of exactly that workspace's model. They change it, and
+one main action, **Apply to this workspace**, installs the draft as a new release and activates it in that
+workspace (migrating it when the change needs it), with the confirmation saying in plain words what changes and
+what happens to the records. They return to the workspace with the new model. Without the groups the action is
+not shown (hide, never disable).
+
+**Scope.**
+- **On the workspace:** an **Edit model** action (the workspace's header or ⋯ menu, also on a phone) that opens the
+  editor on that workspace's draft: the draft that already targets the workspace's active release when there is
+  one (a person is not handed a second, competing draft), otherwise a new draft of that release, named after the
+  workspace. No detour through Settings › Model; Settings › Model stays for whole-instance model work.
+- **In the editor, for a draft opened from a workspace:** the main action reads **Apply to this workspace** and runs
+  the existing install-and-activate in one confirmed step against that workspace; the confirmation lists the
+  model changes, whether records move (a migration) and what a refusal means, in the activation preview's words.
+  After success the person is back in the workspace. Opened from Settings › Model, the editor is as today.
+- **The draft remembers its workspace** (where it was opened from), so a later visit from the workspace reopens it,
+  and the editor's header names the workspace it will apply to.
+- **API first:** whatever the UI needs is a route a client can call (for example "the draft of this workspace's
+  model, created when there is none"); existing routes are reused where they suffice. Contract and journeys
+  updated as for any route.
+- **Mock-up with the plan** (the user's rule for UI packages): the workspace action, the editor header naming
+  the workspace and the Apply confirmation, shown and approved before the build.
+
+**Out of scope:** reshaping a workspace whose records must move between types, and any AI help (both
+[AP12](#ap12-reshaping-and-asking-from-the-workspace)). An assistant's draft is not WM1's: a session installs without
+activating, and WM-D2 keeps a task's draft, finished or not, away from Apply.
+
+**Tests:** journeys through the API on two model configurations: a workspace's model edited and applied from
+the workspace (new release active there, other workspaces untouched); an existing draft for that release reused,
+not duplicated; a change needing a migration applied with its records; a caller without the groups refused
+by code and not shown the action. One browser runner: the path by keyboard at 1440px and 390px, with no
+error line in the server log and no 5xx.
+
+### WM1 record (delivered 2026-10-31)
+
+**Exercised:** journey tests J36.12 (12 cases on generated A and B, confirmed failing first) and the J08, J36, J37, J40 and
+J50 modules, boundaries and the OpenAPI lock; unit tests of `ApplyDialog` and the selector's menu; runner `wm1-edit-model`
+(menu, editor, Apply by keyboard at 1440px on two configurations, a migration, the Settings button, 390px, axe on the
+dialog, no 4xx/5xx); the changed runners `j1u-export`, `j4-import`, `j6-people-workbook`, `j6a-people-columns`,
+`k6-relationship-filters`, `z5-permissions`; lint and the production build. Screenshots of the menu, editor, Apply and the
+phone menu inspected.
+
+**Changes from the plan:** Edit model also needs Browse in the workspace, as Apply reads the workspace's model with it;
+J36.12's holder has Browse for that. The sweep's rule is tested in the journey, not a unit test.
+
+**`ap1-ai`:** its workbook section still expected the designs from before AP8, which a backend with only `AI_PROVIDER`
+cannot reach: the task stops at `read` (`job.py`, unchanged by WM1), so it timed out at "What the assistant understood". The
+section now runs AP8's journey with a stand-in session (`helpers/session-stand-in.py`), as J50.30 does: 105 checks passed.
+The stand-in proves the engine and the pages, not the assistant's judgement (AP13).
+
+**The guide's other runners for the changed files** also passed: `w4`, `authoring-n1`, `k1`, `wp9-navigation`, `wp11`, `wp12`,
+`wp13c`, `authoring-a4a`, `authoring-a4b`, `authoring-a4c`, `authoring-a5`, `authoring-a6`, `authoring-a7`, `authoring-t1`.
+
+**Not run:** the visual baselines and the accessibility gate, at R, where the collection header's baselines change.
+
+**Fixed with it, on the assistant's pages:** the correction box no longer takes the JSON field's 440px height. The loaded page
+says each change notes the assistant only where that is true: a session's changes do not yet (AP9). `GET /system`'s `ai` gains
+`assistant` (`AI_AGENT_COMMAND` set): only then does Import offer Load a workbook, whose sentence now says what the session is
+given. A provider without a session gets the ordinary Import. `POST /ai/tasks` still reads by the rules there, and a session
+still needs `AI_PROVIDER` too: the rest of AP10's one switch.
+
+### WM1 in detail (planned 2026-10-31; approved by the user 2026-10-31 with the mock-up)
+
+Mock-up: [WM1 Edit model](https://claude.ai/artifact/Kzt6bM9BS8jxvh6K8ast3y) (a Design canvas, not kept in the
+repository). Reference patterns: the activation dialog (`ActivateDialog`) for the confirmation and the migration
+page for records that must move.
+
+**What already works and stays:** the draft operations and editor, `compile` (its `compatibility.workspaces` gives
+each workspace's check before anything is installed), `installation`, `activation`, the migration preview and
+confirmation, and `Install and activate…`, which moves into ⋯ on a draft opened from a workspace.
+
+#### Decisions (recommended, approved with this plan)
+
+| # | Decision | Why and what it costs |
+| --- | --- | --- |
+| WM-D1 | **A draft remembers one workspace** in `model_drafts.workspace_key` (foreign key, `ON DELETE SET NULL`), with a partial unique index: a workspace has at most one remembered draft. | The rule "no second, competing draft" is held by the database. One column, one index, one migration. |
+| WM-D2 | **Which draft opens.** (1) The remembered draft while it is current: its base is the release the workspace runs, or a release installed after the workspace's model last changed (an Apply stopped at the migration preview). (2) Otherwise the newest draft of the running release that remembers no workspace and that no assistant task names (`ai_tasks.draft_id`), whatever the task's state; it now remembers this workspace. (3) Otherwise a new draft of the running release, named "The model of ‹workspace›". A remembered draft that is no longer current, because the workspace's model was changed elsewhere, gives up the link and stays in Settings › Model. | Without (1)'s second half, leaving a migration preview would orphan the person's work. Without the last sentence, an old draft could silently undo someone else's activation. A finished task's draft is left out too: after an accepted load and its activation its base is the running release, so it would match, and the task's sweep deletes it with the task (`tasks/store.py`, `expire`), taking the person's edits. The sweep in turn keeps a draft that remembers a workspace, as a session may reach one (the new route is in its OpenAPI; sessions reused another task's draft, AP10). |
+| WM-D3 | **The install is allowed by Model release in the draft's workspace.** `POST /model-drafts/{id}/installation` checks `model.install` at the draft's remembered workspace; a draft remembering none is checked at the instance, as today. | The check today reads instance grants only (`management/access.py`, `permissions.allows`), so a person holding Model release in one workspace is refused with 403 at Apply, against the journey. Model release is already a workspace-scoped group whose description includes installing; a release does nothing until it is activated. Model authoring stays instance-wide, so "in a workspace" means Model authoring at the instance and Model release there. |
+| WM-D4 | **The API adds one route and one field.** `POST /api/v1/workspaces/{key}/model/draft` (action `model.author`; 200 with the draft found, 201 with a new one; `404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`). `workspaceKey` joins the draft and its outline. Apply stays the existing `installation`, then `activation` or `migrations`. | A client takes the same steps as the UI, with no combined route, like the load (D81). A concurrent first open waits on the workspace's row and gets the same draft. |
+| WM-D5 | **A ⋯ menu on the Workspace label's line**, at its right end, holds **Import…**, **Export…** and **Edit model**; Import and Export leave the collection page's header, which keeps its Add. The menu is `ui/ActionMenu` in `WorkspaceSelector`, the one component behind the rail on desktop and the band's workspace choice on a phone, with one workspace too. Each item follows its existing rule: Import where the data shown can be written and the person holds Bulk and import; Export where jobs run; Edit model with Model authoring and Model release in that workspace, not for a retired one. With no item the menu is not shown. Export keeps what the collection page shows (type, filters, search, parent, columns), which the page hands to the shell; on any other page it opens on the application's types. Manage workspaces stays where it is. | The user, 2026-10-31: these are not frequent actions and the page must not overwhelm. Cost: moving Import and Export changes existing tests and browser runners that press them, and PL6 (0.17), which reworks these two dialogs, starts from the menu. **Edit model is also a button on the workspace's existing page in Settings › Workspaces, in 0.16 (the user, 2026-10-31)**, beside Rename, under the same rule, opening the same route. PL3's new overview page (0.17) reuses it. |
+| WM-D6 | **The workspace mode is in the URL**: `/settings/model/drafts/{id}/editor?workspace={key}`, and the same parameter on the migration page. Without it the editor is as today, including for a draft that remembers a workspace. | Survives a reload and a shared link, and keeps "Opened from Settings › Model, the editor is as today". The journey parameter is not reused: it drives the journey bar. |
+
+#### The Apply dialog
+
+A new `ApplyDialog` on the existing pieces; the parts it shares with `InstallDialog` and `ActivateDialog`
+(`summarizeChanges`, `ConsumerContracts`, `useReleaseIdentity`, the left-behind list and the migration reasons) are
+extracted once, not copied. It reads `compile` and shows, in order: what changes in the model; what happens to the
+records; change sets left behind; the workspaces not changed; the release identity folded under "Becomes release
+‹name› ‹version›".
+
+| State | The main action | After it |
+| --- | --- | --- |
+| Records fit | **Apply to ‹workspace›**: install, activate | Back in the workspace, with one sentence saying it now runs the release |
+| Records must move | **Preview what happens to the records…**: install, start the migration | The migration page; on done, back in the workspace. Leaving changes nothing there and the draft reopens |
+| Records must move, migrations not available here | None; says that this deployment does not run migrations | Cancel |
+| A consumer API needs a higher contract version | None until raised, with the Raise step in the dialog, as today | The state above it |
+| Draft invalid | None; the Issues list has each reason | Cancel |
+| Nothing to apply | None; "Nothing to apply yet: this draft matches what ‹workspace› runs" | Close |
+| Installed, then activation refused | **Try again**; says the workspace did not change | The draft's base has moved, so the install finds the same release and only activation repeats |
+
+#### Tests (cases for approval)
+
+Journey tests in `tests/journeys/`, new variants of J36, each on two model configurations:
+
+1. **Apply to one workspace.** Given two workspaces on one release, when the first's draft is opened, a field added,
+   it is installed and activated there, then the first runs the new release with the field, the second is unchanged,
+   and opening again answers 200 with the same draft.
+2. **An existing draft is reused.** Given a draft of the running release remembering no workspace and one of another
+   release, when the draft is opened, then the first is answered, now naming the workspace, and no draft is created. Given instead only the draft of a task that ended, a new draft answers 201.
+3. **The model changed elsewhere.** Given a remembered draft, when another release is activated in the workspace and
+   the draft is opened, then a new draft of that release answers 201, and the old one still exists, naming no workspace.
+4. **Records move.** Given records of a type the draft removes, when it is installed, then activation answers
+   `MODEL_MIGRATION_REQUIRED`; opening before the migration confirms answers the same draft; after the confirmation
+   the workspace runs the release with its records converted.
+5. **Who may.** No Model authoring: `FORBIDDEN` on the route. Model authoring and Model release in workspace A: installs
+   A's draft; `FORBIDDEN` on B's draft and on a draft remembering none. A retired workspace: `WORKSPACE_RETIRED`.
+
+Unit tests: `ApplyDialog` for each state above, the ⋯ menu's items and the Settings button shown and hidden, Export keeping the collection's context, the route's `workspace` parameter. A new
+browser runner on two configurations: ⋯ menu → editor → Apply → back, and the migration path, by keyboard at 1440px and
+390px, axe on the dialog, no 5xx and no server error line; its screenshots inspected against the reference patterns.
+
+#### Delivery
+
+- **Backend:** the migration, written in one go; `engine/model/drafts.py` (the choice in WM-D2); the sweep's condition in `engine/tasks/store.py`, with a unit test; the route and `draftResponse`
+  field; the workspace-aware check in `management/access.py`; the journey tests, confirmed failing first.
+- **Frontend:** the ⋯ menu with Import and Export moved into it, the Edit model button in `WorkspaceAdmin`, `ApplyDialog`, the route parameter, the editor's crumb, header and main action (desktop and
+  phone menu), the migration page's way back, a workspace's model reloaded after Apply.
+- **Documents:** `API.md`, `API_JOURNEYS.md`, `USER_JOURNEYS.md` (J36), `CURRENT_FUNCTIONALITY.md`, `PRODUCT.md`, `CHANGELOG.md`.
+- **Door check (ADR-032):** no door is affected; the package touches none of identity, attribute storage, audit and
+  history, bulk APIs, `match` or mapping coverage.
+
+**What a person still cannot do after WM1:** move records between types in one reshaping (AP12),
+or ask the assistant to change the model from here (AP12). Edit model starts from the workspace ⋯ menu on any of its pages and from the
+button on the workspace's page in Settings › Workspaces. PL3 (0.17) builds a new overview page, which reuses the same action.
+
+## Track A: agent access
+
+## AG1: The server and its authority
+
+**Journeys:** an operator enables MCP and creates an agent client; the client connects and lists only
+the tools its grants allow; with MCP disabled the endpoint does not exist; revoking the client stops
+it on the next call.
+
+**Scope.** `management/routers/mcp.py` (the Streamable HTTP endpoint on the MCP Python SDK, pinned in
+pyproject's ranges with `pip check`), the `agent` audience in `engine/identity/tokens.py`, the `Agent`
+predefined role and its action group in the catalogue, the audit `channel` column, `GET /system`
+reporting `mcp: {enabled}`, Settings › Agent access (clients, last use, counts, how to connect
+including the URL and the sign-in), `MCP_ENABLED`, `MCP_RATE_PER_MINUTE` in OPERATIONS.md.
+
+### AG1 in detail (planned 2026-10-31, approved by the user the same day with the mock-up)
+
+Mock-up: [AG1 Agent access](https://claude.ai/artifact/TqCG2VCdQV1Cti6Y6cgnCo) (a Design canvas, not kept in the
+repository). Reference patterns: the AI page (`AiPage`) for a setting read from the environment, the Clients page for
+a client's detail, secret and access, which are reused and not copied.
+
+**Checked against the code and the MCP specification of 2025-11-25.** Four things in the scope above do not hold as written:
+
+- **"The existing OAuth flow" cannot sign in an assistant.** `check_request` and `/oauth/token` accept only
+  `client_id=browser` and the configured redirect addresses, and the refresh token goes in a cookie. The specification
+  also requires protected resource metadata (RFC 9728), which the engine does not have. AG-D2's person sign-in needs AG-D12.
+- **An `agent` token would read as `management`:** `_audience()` in `authentication.py` turns every value but
+  `consumer` into `management`. It must name each audience.
+- **A session is not tied to an audience:** `/oauth/token` issues whichever `scope` is asked for on a refresh, so a
+  refresh token held by an assistant could obtain a management token (AG-D12).
+- **The current MCP SDK breaks the test harness:** `mcp` 2.x requires `httpx2`, which Starlette's test client then
+  prefers. AP1 found this break with the Anthropic SDK (AG-D11).
+
+| # | Decision | Why |
+| --- | --- | --- |
+| AG-D11 | **`mcp>=1.30,<2`.** A dry run against the shared environment adds `mcp`, `httpx-sse` and `sse-starlette` and moves nothing. 1.30 speaks protocol 2025-11-25. Stateless, JSON answers, a session manager per application started in `lifespan`, `Origin` and `Host` checked from `PUBLIC_URL`. | 2.x would change the test client for everyone using the environment. Stateless needs no affinity between processes. Moving to 2.x waits until the harness moves to `httpx2`. |
+| AG-D12 | **An assistant is a registered application, and a person signs in for it.** New: `/.well-known/oauth-protected-resource` and its `/mcp` form, the 401's `resource_metadata`, `POST /oauth/register` (RFC 7591), the table `agent_applications`, and `user_sessions.agent_application_id`. A public client with PKCE; `resource` must be this instance's `/mcp` when sent. Open registration (`MCP_OPEN_REGISTRATION`, default on) accepts loopback addresses and HTTPS hosts in `MCP_REDIRECT_HOSTS` (default none); anything else is registered by an administrator. Unused registrations are removed after 30 days. Client ID Metadata Documents are not built. **A session is bound:** one started for an application issues only `agent`, with its refresh token in the answer's body and rotated by the existing `sessions.renew`; a browser session never issues `agent`. | Registration is what Claude Code uses by default; a metadata document makes the engine fetch addresses an unknown caller names, a request-forgery risk and outbound traffic a closed deployment may not have. The session rows give sign-in rules, ending a session and "revoked on the next call" with no new mechanism. |
+| AG-D13 | **The sign-in page is the consent.** When an application sent the person, the page says who asks (its own claimed name), where it returns (the host, which the specification requires shown), what it can and cannot do, and the buttons read "… and allow". Password, passkey, provider and second factor run unchanged. | Every sign-in route ends in `issue_code`; one banner in `check_request`'s page needs no extra state or step. An open registration can claim any name, so the page says the name is claimed. |
+| AG-D14 | **`oauth_clients.kind`: `api` (existing) or `agent`.** An agent client gets only `scope=agent`, an API client never does. The AP8 session's client stays `api`. | An agent principal can then never hold a token that reaches an approve route (AG-D5), enforced at issue and not by each route. |
+| AG-D15 | **The `agent` role holds `browse` and `change-sets`; the same set is the ceiling** for every `agent` token, applied to the permissions read after the cache. A person needs no new grant: their own roles cut down to the ceiling. A client needs a grant as usual. `publish` and `approve` are not in it; consumer API grants pass unchanged. | AG-D3 as code, one definition. `change-sets` carries no capability until AG3 adds tools, and only the tools are reachable on this audience. |
+| AG-D16 | **Revises AG-D6. Each call is a row in a new `agent_calls` table, not an audit event:** who, application, tool, argument names (never values), outcome, duration, request ID; removed after `MCP_CALLS_DAYS` (90). **The audit `channel` column moves to AG3**, its first writer. | Today reads write no audit entry, and rows per read in `audit_events` would be permanent and sit in the trail that holds changes. `ai_calls` is the precedent; so is AP1 moving `origin` to its first writer, because nothing could write or test it earlier. |
+| AG-D17 | **The rate limit is a count over `agent_calls` in the last minute,** per principal, on tool calls: `MCP_RATE_PER_MINUTE` (120), a tool error with the seconds to wait. | One statement, right across processes, no new store. |
+| AG-D18 | **Two tools prove the registry:** `describe_access` (always: who I am, my ceiling, my workspaces) and `list_workspaces` (needs Browse somewhere, paged, the service function of `GET /workspaces`). A tool declares the group it needs; one the principal lacks is not listed and is refused if called. | The journey "lists only the tools its grants allow" cannot run with no tools. AG2 adds to the same registry. |
+
+**Scope.**
+
+- **Engine:** `engine/agent_access/` (settings, applications and registration, the call log, the limit, the ceiling, the
+  tool registry); `tokens.py` and `_audience()`; `/oauth/token`, `check_request` and `issue_code` for applications; the
+  `agent` scope offered only while MCP is on.
+- **Endpoint:** `management/routers/mcp.py` mounted only with `MCP_ENABLED`. The token is checked by `authenticate` on
+  every request, so revoking applies on the next call. `/mcp` joins the proxy paths in `frontend/nginx/snippets/locations.inc.template`
+  and `frontend/vite.config.ts`.
+- **API:** `GET /agent-access` (status and totals), `GET /agent-access/calls`, `GET` and `POST /agent-access/applications`,
+  `POST …/applications/{id}/block` and `/restore`; `kind` on `POST` and `GET /clients`; `application` on `GET /me/sessions`;
+  `mcp: {enabled}` on `GET /system`. Action `agent-access.read` and the writes under Security administration.
+- **Migration, one file:** `agent_applications`, `agent_calls`, `oauth_clients.kind`,
+  `user_sessions.agent_application_id`, the `agent` role row.
+- **Frontend:** Settings › Security › Agent access as in the mock-up. An agent client opens the existing client page, and
+  New agent client reuses the existing dialog with its one-time secret. The person's sessions list names the assistant.
+- **Documents:** API.md, OPERATIONS.md (settings, and the prompt-injection stance of AG-D8), ARCHITECTURE.md, USER_JOURNEYS
+  J51, API_JOURNEYS, CURRENT_FUNCTIONALITY, PRODUCT, UI_ACCEPTANCE, EXECUTION_GUIDE, CHANGELOG.
+
+**Out of scope:** reading data and the model (AG2), writing and `channel` (AG3), Client ID Metadata Documents, a stdio bridge.
+
+**Tests, J51, through the endpoint with the SDK's client on two model configurations:**
+
+1. **Off:** `/mcp`, the resource metadata and `/oauth/register` answer 404, and `scope=agent` is refused.
+2. **A client:** made as `agent`, granted, connects and lists its tools; without Browse, `list_workspaces` is neither
+   listed nor callable. Deactivated, it is refused on the next call.
+3. **Audiences, in every direction:** an `agent` token is refused by `/api/v1` and the consumer API; management and
+   consumer tokens are refused by `/mcp`; an agent client asking for `management` and an API client asking for `agent` are refused.
+4. **A person through an assistant:** a 401 leads to metadata, registration, sign-in with PKCE, a tool call and a rotated
+   refresh. The same refresh token asking for `management` is refused, and a browser session asking for `agent` is refused.
+   Ending the session, or blocking the application, stops it on the next call.
+5. **The ceiling:** a person holding Approve and Publish keeps neither on this audience (`describe_access`).
+6. **Registration:** an outside HTTP or unlisted HTTPS address is refused; with open registration off, only a registered
+   application signs in.
+7. **Limit and log:** the call past the limit is refused with its wait; a row names the argument, not its value.
+
+One browser runner: the page at 1440px and 390px, by keyboard, with the sign-in banner.
+
+**The real try:** one sign-in with Claude Code through the dev server, since the SDK's client cannot prove a real client's
+discovery. It needs `MCP_ENABLED=true` in `.dev/settings.env` and the user's restart, and the user's own password in the
+browser. The bounded R try stays as AG-D10 says.
+
+**Working beside other sessions:** install the packages first, as the dev server imports what `main.py` names on save. The
+migration's `down_revision` and `HEAD` in `test_startup.py` are taken from the head at the moment of writing, the file
+written in one go (WM1 also adds a migration). The OpenAPI lock is re-baselined last and diffed for AG1's additions only. J51 is
+checked for being free before use. Commits hold AG1's hunks only.
+
+**Door check (ADR-032):** identity gains a client kind and an application on a session, additive; audit and history are untouched
+in AG1. No door closes.
+
+**What the user cannot do after AG1:** ask an assistant about data or the model (AG2), or have it prepare a change (AG3). An
+assistant connects, signs in and sees where it may work, nothing more.
+
+### AG1 record (2026-10-31)
+
+**Delivered as planned**, with the build's tests below; the one real sign-in is the user's step and has not happened yet. Frontend built by a Sonnet agent from a brief.
+
+**Where it differs from the plan:**
+
+- `GET /agent-access/clients` was added: the page's call counts per client need it.
+- The five `MCP_*` settings sit in the `ai` settings group, beside the rest of this release's settings.
+- AG-D11's `Host` check is left out: only `Origin` is checked. A proxy's forwarded host differs by deployment, and a bearer token carries no ambient authority.
+- Registrations use the `client` security events (`application-registered`, `-blocked`, `-restored`), so the audit index's aggregate list stays as it is.
+- `/mcp` loads the SDK on every start, flag or not: the boundary test refuses a deferred import in `app.main`.
+
+**Checks:** J51: 16 passed (two configurations). J39, J40, J41 with J51: 168 passed; an earlier run of the same set had one J51 failure under parallel load (`test_an_assistant_never_holds_approve_or_publish`, generated-b), whose log was not kept; it passed alone three times and in the rerun, cause not established. `contract` and `startup`: 284 passed, 4 failed, all from WM1's uncommitted migration `20261120_02` (the `HEAD` pin and the `model_drafts` rule). OpenAPI lock re-baselined, additive, diffed against HEAD. Frontend: `tsc -b`, `npm run build`, focused Vitest, `test:browser:agent-access` (18 checks, axe 0 violations).
+
+**The real try (the user, 2026-10-31):** Claude Code through the dev server at `PUBLIC_URL`: discovery, self-registration, sign-in and both tools worked. The person's Data owner role showed only Browse and Work in change sets. On a development certificate Claude Code needs `NODE_EXTRA_CA_CERTS` with mkcert's root.
+
+**Not verified:** Claude Desktop's and claude.ai's return addresses.
+
+**What the user cannot do yet:** ask an assistant about data or the model (AG2), or have it prepare a change (AG3).
+
+## AG2: Read tools and resources
+
+**Journeys:** "what is the code of this value in the webshop system?" is answered from a consumer
+definition; "which values of this list have no mapping to the webshop?" is answered from mapping
+coverage; the model description is readable as a resource.
+
+**Scope.** The generator from consumer definitions (one tool per definition, schema from its fields,
+authorization from its grant), the curated tools (AG-D4), the model, applications, object types and
+views as MCP resources, structured results with IDs, cursor paging. Proven on two definitions whose
+types differ (the generic-capability rule), not on the example model's keys.
+
+### AG2 in detail (planned 2026-10-31, for approval)
+
+No screen changes, so no mock-up: Settings › Security › Agent access already lists whatever tool is called, and the client
+page already grants a consumer API to an agent client.
+
+**Checked against the code.** Five things in the scope above do not hold as written:
+
+- **A person can never hold a consumer API grant** (`CONSUMER_API_CLIENTS_ONLY`, D306). "Authorization from its grant" would
+  give a person signing in through an assistant no generated tool, and that is the route the AG1 real try used (AG-D19).
+- **One key can mean different contracts in two workspaces** (ADR-042), so "one tool per definition" needs a rule for names and
+  workspaces (AG-D20).
+- **The limits of a tool name.** The model allows keys of up to 160 characters. Claude's API allows 64 characters in a tool
+  name, and Claude Code puts `mcp__<server>__` in front, as this session's tool names show (AG-D20).
+- **The parameter check is tied to the HTTP request.** `_Parameters.check` in `consumer/router.py` reads `request`, and
+  `management` may not import `consumer` (`test_boundaries.py`). It has to move to the engine (AG-D21).
+- **AG-D7's answer size cap does not exist yet:** AG1 built the rate limit only. The first tools with long answers need it (AG-D23).
+
+| # | Decision | Why |
+| --- | --- | --- |
+| AG-D19 | **A definition's tool is offered where the caller holds its grant or Browse in the workspace.** The tool only: `/api/consumer` stays closed to anything but a `consumer` token with a grant (D306, D307 unchanged). Refines AG-D3's "the consumer definitions it is granted". A client holding only a consumer API grant sees that tool and `describe_access`, and no other tool. | The journey "what is the code of this value in the webshop system?" must work for a person. Grants narrow writes only (D243), so Browse already reads every record of the workspace, and a definition gives it a new shape and no new data. |
+| AG-D20 | **Named by the definition, not by the workspace.** `lookup_<key>`, with a required `workspace` argument listing the workspaces the caller may read it in. Workspaces whose definitions are equal share one tool. Where a key differs between them, or the name would pass 48 characters, the name ends in a short hash of the definition. Hyphens stay; the characters allowed in a key are all legal in a name. | One tool per workspace would multiply the list for no gain when many workspaces run one model. 48 leaves room for Claude Code's prefix under Claude's 64. The list is read per caller, which `_run` already allows for. |
+| AG-D21 | **The check moves to `engine/reads/consumer_parameters.py`, taking the parsed names and values;** the route passes them from its request and behaves as before. A tool offers `objects`, `lists` and `xref`, those the definition offers, on live data, with `asOf`, its parameters and its `to.` targets. **Not offered:** `resolve` (a batch for systems; `xref` answers one lookup), `events`, `publications` and a pinned read. The tool's schema is flat with an `operation` argument, and what fits each operation is checked by the moved check. | One check, the same refusals. Claude's API refuses `oneOf` at the top of a tool's schema (from memory, to confirm in the real try), and the check exists anyway. An assistant asks about the current state; an integration that needs a pinned read has the consumer API. |
+| AG-D22 | **Eight curated tools join the two of AG1,** all needing Browse in the named workspace. The refusal is the same whether the workspace is missing or not readable: `describe_model` (applications, views, record types, relation types and consumer APIs, by key and name), `describe_type` (its attributes with their types and filters, parents, relationships, views), `find_records` (the `ModelQuery` of `POST …/queries/objects`), `read_record` (values, path, relationships), `mapping_coverage` (a view and `state`, `search`, `parentObjectId`; the binding is read from the view, as a route's caller must repeat it only to have it checked), `record_history` (`kind`, `actorId`), `list_changes` (`GET /changes`). Live data only: `changeSetId` joins them in AG3, whose tools read their own change set. | AG-D4's list, plus `find_records` and the two `describe_*`, without which an assistant cannot name what it asks about. Route bodies that hold their logic are split out as `workspace_page` was, so route and tool run one function. AO-D7's account tool arrives with AO2. |
+| AG-D23 | **`MCP_ANSWER_BYTES` (40,000).** A paged answer over it is read again with half the page size, which returns a cursor, never a truncated answer. One record over it is a refusal saying so. `pageSize` defaults to 50 on the new tools. | AG-D7. The SDK sends a dict twice (as `structuredContent` and as text, seen in `lowlevel/server.py`), and Claude Code refuses long answers (25,000 tokens by default, from memory, to confirm in the real try). The size of the first page is not known before reading it. |
+| AG-D24 | **Resources:** `refiroo://workspaces/{key}/model` and its `/applications/{key}`, `/object-types/{key}` and `/views/{application}/{key}`, all listed for the caller's readable workspaces, a page at a time by the protocol's cursor. They are read through `_run`, so the limit and the log hold, recorded as `read_resource` with `uri` as the argument name. A resource answers whole, without the size cap. | The scope. Claude Code reads resources (its `ListMcpResources` and `ReadMcpResource` tools); an assistant that cannot has `describe_model` and `describe_type`, which call the same functions. A model's size is bounded by the model itself. |
+| AG-D25 | **Every tool here says `readOnlyHint`,** and each generated tool's description ends by saying that values are data. AG-D8 stands as the server's instructions already say it. Answers keep the API's shapes, with no wrapper. | The hint lets an assistant treat a read as safe. A wrapper would make a tool's answer differ from its route's. |
+
+**Scope.**
+
+- **Engine:** the moved check; the definition's tool schema (`engine/agent_access/`), with fields, parameters and descriptions from
+  `compiled_consumer_apis`, so nothing per definition is written by hand.
+- **Management:** `mcp_tools.py` gains `tools_for(session, permissions)` (the fixed tools and the generated ones, which both
+  `_listed` and `_run` read), the eight tools and a workspace check; `routers/mcp.py` gains the resource handlers and the size cap;
+  route bodies split where a tool needs them (`objects.py`, `changes.py`).
+- **No migration, no new route.** The OpenAPI lock should not change.
+- **Settings:** `MCP_ANSWER_BYTES` in `config.py` and OPERATIONS.md.
+- **Documents:** USER_JOURNEYS J52, API_JOURNEYS, CURRENT_FUNCTIONALITY, PRODUCT line on agent access, OPERATIONS, ARCHITECTURE, EXECUTION_GUIDE,
+  PROJECT_STATUS (its Open line still says AG1 is not built), CHANGELOG. The exit gate's "every call is in the audit trail with its
+  channel" is corrected to AG-D16: reads in `agent_calls`, changes in the audit trail with their channel from AG3. The table row for
+  AG-D1 to AG-D10 gets AG2's revisions and a working link to AG1 in detail.
+
+**Out of scope:** writing and `changeSetId` (AG3), natural-language search (AG4), a tool for the account of history (AO2), any change
+to the consumer API's own access.
+
+**Tests, J52, through the endpoint with the SDK's client, on the two model configurations J51 uses, whose definitions differ:**
+
+1. **A value's code:** a person with Browse and a client with only the grant both answer it from a generated tool. The answer equals
+   the consumer route's for the same read. The client lists no curated tool, and an ungranted definition is neither listed nor callable.
+2. **Unmapped values:** `mapping_coverage` with `state=unmapped` pages through a view with cursors and equals the route's rows.
+3. **Finding and reading:** `describe_model`, `describe_type`, `find_records`, `read_record`, `record_history` and `list_changes` in one
+   journey; a workspace the caller cannot read is refused in the same words as one that does not exist, on every tool.
+4. **Two workspaces:** the same definition gives one tool; a differing one gives two, each listing its own workspace. A long key stays under 48 characters.
+5. **The cap:** a page over `MCP_ANSWER_BYTES` comes back smaller, with a cursor that reads every row exactly once.
+6. **Resources:** listed and read only where the caller may read, and logged by argument name.
+7. **The route is unchanged:** the moved check's refusals through `/api/consumer` (the existing consumer groups for that boundary).
+
+Groups to run: J51, J52, the consumer API's journeys, `contract`, `startup`, `test_boundaries`. No browser runner, as no screen changes.
+
+**The real try:** one Claude Code session through the dev server, signed in as a person, asks the three journey questions on the user's own
+model. It needs `MCP_ENABLED=true`, which AG1 already set, and the user reconnecting `/mcp` after the dev server reloads. It confirms the two
+limits taken from memory and that resources are reachable. The bounded R try stays as AG-D10 says.
+
+**Working beside other sessions:** other sessions have uncommitted changes in this checkout, so commits hold AG2's hunks only. J52 is
+checked for being free before use.
+
+**Door check (ADR-032):** additive. The moved check keeps the consumer API's contract, and a later stdio bridge would call the same tools. No door closes.
+
+**What the user cannot do after AG2:** have an assistant prepare a change (AG3) or read a change set through it (AG3); read an older
+publication through it (not planned, the consumer API does this); ask in words in the built-in search box (AG4).
+
+## AG3: Changes prepared and submitted for approval
+
+**Journey:** an agent asked to add five missing values creates a change set, adds the five, reads the
+validation and submits it; a steward is notified in the inbox, opens it, edits one value and approves;
+live data changes only at that approval.
+
+**Scope.** Tools: create/select change set, add or change an object, set a field, add a relation, read
+the change set's validation. Optimistic concurrency applies (versions are inputs); conflicts return the
+engine's own error code and message. No approve, publish, delete, model or security tool exists, and the agent principal cannot approve through any route (AG-D5).
+
+## AG4: Natural-language search
+
+**Journey:** a steward types "values changed last month without a webshop mapping" in the search box
+and sees the filters it became, editable, and the results.
+
+**Scope.** The `queryTranslation` purpose of the AP1 provider (`structure` send level: the question
+and the list's filterable fields, no record values); the answer is the existing filter parameters,
+validated like a hand-typed filter, shown as chips the person edits. The engine answers; the model
+only builds the query. A question it cannot express is said so, not approximated.
+
+## Track O: operations
+
+## AO1: Model change impact summary
+
+**Journey:** a model administrator opens a release's activation preview for a workspace; beside the
+counts and the list of operations, a short account says: "Two attributes are added to Delivery method
+(optional, no data change); the mapping to the webshop gains one relation; 3 consumer definitions
+change shape, one of them removing a field" with each statement linking to the operation or
+definition. It never says a change is safe; it says what the facts are.
+
+**Scope.** The fact set from the existing diff and preview (operations, affected counts, consumer
+definition changes, mapping changes, blocked items), the `impactSummary` purpose, `POST …/releases/{id}
+/impact-summary`. Send level `structure`. Also available on a model draft's validation result.
+
+## AO2: What changed, an account of history
+
+**Journey:** a data owner picks "last week" on a workspace; the account says "Translations: 200
+labels changed by 3 people, 190 of them in one bulk import on Tuesday; Master: 4 values retired; one
+change set (CS-18) was sent back", each statement linking to the records and the change set.
+
+**Scope.** Fact aggregates from history and the change feed, grouped in PostgreSQL by type, kind,
+actor and source (job, change set, direct), restricted to what the requester may read; the
+`historyAccount` purpose; the panel and the route (AO-D7). Send level `structure` for counts and
+groups, `values` to name records.
+
+## AO3: Notification digests
+
+**Journey:** a steward sets daily digests; the next morning one mail says "3 change sets wait for
+your approval, 1 job failed (import of the operators file, 14 rows rejected)", then lists the notices
+as today with their links.
+
+**Scope.** The `digest` setting per person, the scheduled job (an existing worker with the lease
+rules: one digest per person per period, no duplicates across nodes), the `digest` purpose (kinds,
+counts, titles; send level `structure`), the mail template, the outbox. With the provider off, the
+digest is the plain list with counts, which is already an improvement over many mails; AI only writes
+the opening sentence. (This makes AO3 useful without a provider: recommended to build it so.)
+
+## Door check (ADR-032)
+
+Provenance (`origin`, AP-D5, and AP9 for a session's changes) is the first use of the value-provenance door and is additive, kept
+outside a record's own values. Audit gains a `channel`, additive. Identity, attribute storage, bulk
+APIs, the consumer API `match` declaration and mapping coverage states are read or reused, not
+changed. Summaries (Track O) are derived and stay outside history, the model and the records. No door
+closes.
+
+## Tests
+
+Journey-driven through the API, at most about a quarter of a package. Track P and O use a deterministic
+fake provider (AP-D11, AO-D9): per package the happy journey, the provider-failure journey, the
+permission-hidden journey, and where data is read a send-level journey; Track O adds the
+uncited-statement, the visibility and the fact-completeness tests. Track A uses a test MCP client
+(AG-D10). The context builder's level tests are unit tests. A session is tested with a scripted command (J50.30). Execution-guide groups for the changed
+boundary only; the OpenAPI lock re-baselined per package and marked additive.
+
+## AI usage log (for hosting cost planning)
+
+**Why (the user, 2026-10-29):** refiroo may be hosted on a subscription that includes the AI provider,
+so what a real task costs is planning data. Every real-provider try in a package or in R adds one row
+here. A row is reported to the user with the try.
+
+**How it is measured.** The call records (`ai_calls`, Settings › AI) give each call's purpose, duration
+and tokens in and out; the tokens in are the sum of plain input, cache writes and cache reads. Through
+the Claude Code provider, each call also logs those three kinds apart and `total_cost_usd`: Claude
+Code's price of the same call at API rates, whatever the sign-in. So that figure is the API cost, and on
+a subscription it is not money spent. For another provider the API cost is worked out from its
+published prices, and the date of those prices is given.
+
+| Date | Package, what was tried | Provider, model | Calls | Tokens in (plain / cache write / cache read) | Tokens out | Time | Cost at API prices | Note |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+**What a hosting estimate needs from these rows:** the cost per task kind (e.g. loading one workbook of
+N rows and M sheets), how it grows with the file (the reading is sent as column profiles, so it grows
+with columns and distinct values, not with rows), and how much prompt caching saves on repeated turns.
+
+## R: Build acceptance and release
+
+Full review of every change since 0.15 (it is one review for three tracks, the main saving of merging);
+the contract lock marked additive (the `agent` audience, `/mcp` and the new routes); documentation
+(PRODUCT, CURRENT_FUNCTIONALITY, ARCHITECTURE, OPERATIONS for the AI and MCP settings and connecting an
+assistant, API, USER_JOURNEYS, API_JOURNEYS, PROJECT_STATUS, CHANGELOG); **one** bounded real-provider try and **one** real-assistant try,
+each only on the user's go-ahead with its cost stated first (AP-D11, AG-D10); the release.
+
+## Exit gate
+
+- A few words and a workbook give the model and the import, with as many applications, types and
+  relations (across applications too) as the workbook needs; tried on the user's own workbooks (AP-D22).
+- With no provider and MCP off, no screen shows an AI action, no request leaves the instance, `/mcp`
+  does not exist, the existing inference behaves as before, and digests are the plain list.
+- No value above the configured send level reaches a provider (the context builder's tests).
+- Every proposal refers to an existing record or valid step and passes the validation of a hand edit;
+  it can be edited, kept or removed with existing tools; every accepted one, a session's changes included, is recorded as
+  machine-proposed with who asked and who approved (AP9).
+- An agent token works on `/mcp` only; no tool approves, publishes, withdraws, administers the model or security,
+  or deletes; an agent's change set leaves live data unchanged until a person approves it; every call
+  is in the audit trail with its channel.
+- Every summary statement cites a fact that exists; the facts equal the database for the period; a
+  summary never contains what its requester may not read and changes nothing.
+- A failing provider never fails a deterministic result.
+- A session uses only what its API grants allow and stops at a change set; the engine refuses it activation and
+  publication, and a person does both (AP-D29). Nothing is installed or loaded before the person accepts a proposal
+  whose every row was checked. A load leaves a saved profile that repeats it (AP10).
+- A session's every run is in the call record, with its tokens and cost (AP9).
+- The real-file try (AP-D22) on the user's own workbooks has been run and judged by the user.
+- **The acceptance workbook** (the user, 2026-10-28): `Lines & Routes v2.0.xlsx`, a data dictionary laid
+  out for reading (lists side by side, group headings above list headings, English and Spanish column pairs, `Y`
+  flags, notes). The rules alone made one application of 101 types and 31 relation types of it. Through AP6 it gives
+  a model a person reads as the business does, about four applications and a dozen types with group hierarchies,
+  translations and relations, and its import, judged by the user.
+- **Reshaping a workspace's model is an instruction too** (AP12): from the workspace, "reorganise this model" (or a
+  narrower change) becomes a proposal like a new workbook's, so a person never needs the model editor's draft, install
+  and activate path to fix a model. Merging types that hold data needs no wait for 1.0: the 0.8 restructuring
+  (`changeType`, `changeTypeUnder`, `move`, `insertLevel`, `removeLevel` in a change set, records keeping their IDs,
+  previewed first) does it, in three phases: a model version with the target types beside the old, a change set
+  restructuring every record into them, a version without the emptied types. A before/after count on the real model
+  shows nothing lost.
+
+## History of the assistant
+
+**Superseded by [AP8](#ap8-the-assistant-is-a-claude-code-session). Kept for the reasons and findings, not as the plan.**
+Nothing here is open work: what is still open moved to AP9 to AP13. What replaced what: AP3 to AP5 folded into AP6
+(AP-D27), and AP4 and AP5 were then removed from 0.16; AP6 as first planned was a plan of steps; AP6a read by rules with the AI fixing refusals; AP6 and AP6r designed
+in turns, with the steward accepting the model first; AP7, the engine matching first with the AI asked only about
+the rest, had no section of its own and lives in the usage log, `workbook-design/9` and `/10`, and migration
+`20261119_04`; AP8 replaced these turns with a session.
+
 ## AP3: Model authoring and model mappings
 
 **Folded into AP6 on 2026-10-28 (AP-D27);** the text below is kept as the scope the assistant's tools cover.
@@ -397,7 +1029,7 @@ is added). Needs send level `samples` for enumerations, `structure` for the rest
 
 ## AP4: Values for empty fields and missing related records
 
-**Folded into AP6 on 2026-10-28 (AP-D27);** the text below is kept as the scope the assistant's tools cover.
+**Removed from 0.16 by the user 2026-10-31.** Never built; the text is kept as history.
 
 **Journeys:** (1) a steward filters the records with an empty description, asks for drafts and gets a
 change set of proposed values they edit in the list's cells. (2) A localisation steward filters the
@@ -414,7 +1046,7 @@ produce the same plan from a sentence, and AP4 is the one-click form of it.
 
 ## AP5: Dry-run triage
 
-**Folded into AP6 on 2026-10-28 (AP-D27);** the text below is kept as the scope the assistant's tools cover.
+**Removed from 0.16 by the user 2026-10-31.** Never built; the text is kept as history.
 
 **Journey:** after a dry run of a 40,000-row file with 3,100 failures, the person asks for a
 summary and sees eight groups ("200 rows: trailing spaces in `code`"), each with a count, three
@@ -520,14 +1152,7 @@ kept in the repository). AP-D23–AP-D26 below were approved by the user the sam
 
 #### Decisions (new, approved)
 
-| # | Question | Recommendation |
-| --- | --- | --- |
-| AP-D23 | Who sees a task? | **Approved by the user 2026-10-27. Its owner, and a person with the permission to administer the workspace it targets.** A task holds the person's instructions and the assistant's replies, which can name records. Not shared by default; handing a task to a colleague is out of scope for this release. |
-| AP-D24 | What is stored, for how long? | **Approved by the user 2026-10-27. The instructions, the assistant's replies, the plan versions and the dry-run summaries, for `AI_TASK_RETENTION_DAYS` (default 90) after the task finishes or is abandoned; never the rows or samples sent to the provider** (AP-D4: content is not kept unless `AI_LOG_CONTENT` is on). The source file follows the existing source-file retention. A saved profile and the change set are ordinary resources and outlive the task. |
-| AP-D25 | How many files and how large? | **Approved by the user 2026-10-27. Up to three files per task (`AI_TASK_MAX_FILES`), each within `IMPORT_MAX_BYTES`;** XLSX and CSV only, as source files accept today. A task over a limit is refused when attached, not when it runs. |
-| AP-D26 | How does a revision treat the person's edits? | **Approved by the user 2026-10-27. A step the person edited or removed is theirs: a revision never overwrites it.** Each step has an `owner` (`assistant` or `person`); the assistant may propose an alternative for a person-owned step in its reply, as text, never in place. A person-owned step also keeps its mark off. This is the rule that makes the editor feel like an editor and not a regenerate button. |
-| AP-D27 | One assistant or a helper per feature? | **Approved by the user 2026-10-28. One assistant, every AI capability a tool of it, offered where its situation occurs.** The AP6 loop is the only AI that plans: it starts from the rules' result, reads through tools (the profile over every row, any sheet by range including skipped ones, distinct values, overlaps, the model and records, AP2's matcher, the dry run) and writes only the editor's operation catalogue and profile operations, as proposals in the editor's Proposed list. A question is answered in the thread from what it read; an action becomes a plan that runs on one confirmation (AP-D13). AP-D12 gains a sixth step kind, **a capability's job** (AP2's matcher, value drafts, the dry-run grouping). Entries: the task page, the editor's pane and **New from a workbook**, whose AI path is the workbook and an optional words field (the assistant proposes the dialog's choices with reasons); without a provider the dialog stays as it is. AP1's rename becomes step 3 of the workbook flow; AP3, AP4 and AP5 are folded in. Why: the separate helpers did not reach each other (AP2 could not serve a workbook load), and a capable provider (Claude, ChatGPT) can be called as often as a task needs. |
-| AP-D28 | A draft-only change to a released element nothing holds | **Approved by the user 2026-10-31. It applies when it would affect 0 records, values and relationships**, counted in every workspace running the model and their change sets; above 0 it is refused as before. Amends 0.10 D17 and the roadmap's "blocked until 1.0". Why: activation checks the workspace's data again (`*_IN_USE`, required checks) and consumer contracts, so the refusal at edit time protected no data, and a released model with no data could not be edited. A key change stays refused whatever the count: "public IDs and model keys are stable", and an integration names elements by key where no guard sees it. Cost: one count per released element an operation touches, once per request. The menu cannot know the count without counting every element on each outline read, so a released element's actions stay listed, reading "Refused if data uses it" |
+AP-D23 to AP-D28 stand in [Decisions](#decisions).
 
 #### The plan, as data
 
@@ -1080,428 +1705,3 @@ not touched.
 - Use a document or an image as data.
 - Ask for something the engine has no operation for; the assistant says so.
 - Rely on a small local model; AP-D21 hides the page when the provider cannot do tool calls.
-
-## WM1: Change a workspace's model from the workspace
-
-**Added 2026-10-28 at the user's request; not AI, a basic the release needs.** Found on the user's first real
-import: to change the model of the workspace they were in, a person had to know to go to Settings › Model, find or
-make a draft of the right release, open the editor, then install, then activate in the workspace. Even the user,
-who knows the application, could not tell what to do or where.
-
-**Journey:** a person holding Model authoring and Model release in a workspace opens the workspace, chooses
-**Edit model**, and lands in the model editor on a draft of exactly that workspace's model. They change it, and
-one main action, **Apply to this workspace**, installs the draft as a new release and activates it in that
-workspace (migrating it when the change needs it), with the confirmation saying in plain words what changes and
-what happens to the records. They return to the workspace with the new model. Without the groups the action is
-not shown (hide, never disable).
-
-**Scope.**
-- **On the workspace:** an **Edit model** action (the workspace's header or ⋯ menu, also on a phone) that opens the
-  editor on that workspace's draft: the draft that already targets the workspace's active release when there is
-  one (a person is not handed a second, competing draft), otherwise a new draft of that release, named after the
-  workspace. No detour through Settings › Model; Settings › Model stays for whole-instance model work.
-- **In the editor, for a draft opened from a workspace:** the main action reads **Apply to this workspace** and runs
-  the existing install-and-activate in one confirmed step against that workspace; the confirmation lists the
-  model changes, whether records move (a migration) and what a refusal means, in the activation preview's words.
-  After success the person is back in the workspace. Opened from Settings › Model, the editor is as today.
-- **The draft remembers its workspace** (where it was opened from), so a later visit from the workspace reopens it,
-  and the editor's header names the workspace it will apply to.
-- **API first:** whatever the UI needs is a route a client can call (for example "the draft of this workspace's
-  model, created when there is none"); existing routes are reused where they suffice. Contract and journeys
-  updated as for any route.
-- **Mock-up with the plan** (the user's rule for UI packages): the workspace action, the editor header naming
-  the workspace and the Apply confirmation, shown and approved before the build.
-
-**Out of scope:** reshaping a workspace whose records must move between types, and any AI help (both
-[AP12](#ap12-reshaping-and-asking-from-the-workspace)). An assistant's draft is not WM1's: a session installs without
-activating, and WM-D2 keeps a task's draft, finished or not, away from Apply.
-
-**Tests:** journeys through the API on two model configurations: a workspace's model edited and applied from
-the workspace (new release active there, other workspaces untouched); an existing draft for that release reused,
-not duplicated; a change needing a migration applied with its records; a caller without the groups refused
-by code and not shown the action. One browser runner: the path by keyboard at 1440px and 390px, with no
-error line in the server log and no 5xx.
-
-### WM1 record (delivered 2026-10-31)
-
-**Exercised:** journey tests J36.12 (12 cases on generated A and B, confirmed failing first) and the J08, J36, J37, J40 and
-J50 modules, boundaries and the OpenAPI lock; unit tests of `ApplyDialog` and the selector's menu; runner `wm1-edit-model`
-(menu, editor, Apply by keyboard at 1440px on two configurations, a migration, the Settings button, 390px, axe on the
-dialog, no 4xx/5xx); the changed runners `j1u-export`, `j4-import`, `j6-people-workbook`, `j6a-people-columns`,
-`k6-relationship-filters`, `z5-permissions`; lint and the production build. Screenshots of the menu, editor, Apply and the
-phone menu inspected.
-
-**Changes from the plan:** Edit model also needs Browse in the workspace, as Apply reads the workspace's model with it;
-J36.12's holder has Browse for that. The sweep's rule is tested in the journey, not a unit test.
-
-**`ap1-ai`:** its workbook section still expected the designs from before AP8, which a backend with only `AI_PROVIDER`
-cannot reach: the task stops at `read` (`job.py`, unchanged by WM1), so it timed out at "What the assistant understood". The
-section now runs AP8's journey with a stand-in session (`helpers/session-stand-in.py`), as J50.30 does: 105 checks passed.
-The stand-in proves the engine and the pages, not the assistant's judgement (AP13).
-
-**The guide's other runners for the changed files** also passed: `w4`, `authoring-n1`, `k1`, `wp9-navigation`, `wp11`, `wp12`,
-`wp13c`, `authoring-a4a`, `authoring-a4b`, `authoring-a4c`, `authoring-a5`, `authoring-a6`, `authoring-a7`, `authoring-t1`.
-
-**Not run:** the visual baselines and the accessibility gate, at R, where the collection header's baselines change.
-
-**Fixed with it, on the assistant's pages:** the correction box no longer takes the JSON field's 440px height. The loaded page
-says each change notes the assistant only where that is true: a session's changes do not yet (AP9). `GET /system`'s `ai` gains
-`assistant` (`AI_AGENT_COMMAND` set): only then does Import offer Load a workbook, whose sentence now says what the session is
-given. A provider without a session gets the ordinary Import. `POST /ai/tasks` still reads by the rules there, and a session
-still needs `AI_PROVIDER` too: the rest of AP10's one switch.
-
-### WM1 in detail (planned 2026-10-31; approved by the user 2026-10-31 with the mock-up)
-
-Mock-up: [WM1 Edit model](https://claude.ai/artifact/Kzt6bM9BS8jxvh6K8ast3y) (a Design canvas, not kept in the
-repository). Reference patterns: the activation dialog (`ActivateDialog`) for the confirmation and the migration
-page for records that must move.
-
-**What already works and stays:** the draft operations and editor, `compile` (its `compatibility.workspaces` gives
-each workspace's check before anything is installed), `installation`, `activation`, the migration preview and
-confirmation, and `Install and activate…`, which moves into ⋯ on a draft opened from a workspace.
-
-#### Decisions (recommended, approved with this plan)
-
-| # | Decision | Why and what it costs |
-| --- | --- | --- |
-| WM-D1 | **A draft remembers one workspace** in `model_drafts.workspace_key` (foreign key, `ON DELETE SET NULL`), with a partial unique index: a workspace has at most one remembered draft. | The rule "no second, competing draft" is held by the database. One column, one index, one migration. |
-| WM-D2 | **Which draft opens.** (1) The remembered draft while it is current: its base is the release the workspace runs, or a release installed after the workspace's model last changed (an Apply stopped at the migration preview). (2) Otherwise the newest draft of the running release that remembers no workspace and that no assistant task names (`ai_tasks.draft_id`), whatever the task's state; it now remembers this workspace. (3) Otherwise a new draft of the running release, named "The model of ‹workspace›". A remembered draft that is no longer current, because the workspace's model was changed elsewhere, gives up the link and stays in Settings › Model. | Without (1)'s second half, leaving a migration preview would orphan the person's work. Without the last sentence, an old draft could silently undo someone else's activation. A finished task's draft is left out too: after an accepted load and its activation its base is the running release, so it would match, and the task's sweep deletes it with the task (`tasks/store.py`, `expire`), taking the person's edits. The sweep in turn keeps a draft that remembers a workspace, as a session may reach one (the new route is in its OpenAPI; sessions reused another task's draft, AP10). |
-| WM-D3 | **The install is allowed by Model release in the draft's workspace.** `POST /model-drafts/{id}/installation` checks `model.install` at the draft's remembered workspace; a draft remembering none is checked at the instance, as today. | The check today reads instance grants only (`management/access.py`, `permissions.allows`), so a person holding Model release in one workspace is refused with 403 at Apply, against the journey. Model release is already a workspace-scoped group whose description includes installing; a release does nothing until it is activated. Model authoring stays instance-wide, so "in a workspace" means Model authoring at the instance and Model release there. |
-| WM-D4 | **The API adds one route and one field.** `POST /api/v1/workspaces/{key}/model/draft` (action `model.author`; 200 with the draft found, 201 with a new one; `404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`). `workspaceKey` joins the draft and its outline. Apply stays the existing `installation`, then `activation` or `migrations`. | A client takes the same steps as the UI, with no combined route, like the load (D81). A concurrent first open waits on the workspace's row and gets the same draft. |
-| WM-D5 | **A ⋯ menu on the Workspace label's line**, at its right end, holds **Import…**, **Export…** and **Edit model**; Import and Export leave the collection page's header, which keeps its Add. The menu is `ui/ActionMenu` in `WorkspaceSelector`, the one component behind the rail on desktop and the band's workspace choice on a phone, with one workspace too. Each item follows its existing rule: Import where the data shown can be written and the person holds Bulk and import; Export where jobs run; Edit model with Model authoring and Model release in that workspace, not for a retired one. With no item the menu is not shown. Export keeps what the collection page shows (type, filters, search, parent, columns), which the page hands to the shell; on any other page it opens on the application's types. Manage workspaces stays where it is. | The user, 2026-10-31: these are not frequent actions and the page must not overwhelm. Cost: moving Import and Export changes existing tests and browser runners that press them, and PL6 (0.17), which reworks these two dialogs, starts from the menu. **Edit model is also a button on the workspace's existing page in Settings › Workspaces, in 0.16 (the user, 2026-10-31)**, beside Rename, under the same rule, opening the same route. PL3's new overview page (0.17) reuses it. |
-| WM-D6 | **The workspace mode is in the URL**: `/settings/model/drafts/{id}/editor?workspace={key}`, and the same parameter on the migration page. Without it the editor is as today, including for a draft that remembers a workspace. | Survives a reload and a shared link, and keeps "Opened from Settings › Model, the editor is as today". The journey parameter is not reused: it drives the journey bar. |
-
-#### The Apply dialog
-
-A new `ApplyDialog` on the existing pieces; the parts it shares with `InstallDialog` and `ActivateDialog`
-(`summarizeChanges`, `ConsumerContracts`, `useReleaseIdentity`, the left-behind list and the migration reasons) are
-extracted once, not copied. It reads `compile` and shows, in order: what changes in the model; what happens to the
-records; change sets left behind; the workspaces not changed; the release identity folded under "Becomes release
-‹name› ‹version›".
-
-| State | The main action | After it |
-| --- | --- | --- |
-| Records fit | **Apply to ‹workspace›**: install, activate | Back in the workspace, with one sentence saying it now runs the release |
-| Records must move | **Preview what happens to the records…**: install, start the migration | The migration page; on done, back in the workspace. Leaving changes nothing there and the draft reopens |
-| Records must move, migrations not available here | None; says that this deployment does not run migrations | Cancel |
-| A consumer API needs a higher contract version | None until raised, with the Raise step in the dialog, as today | The state above it |
-| Draft invalid | None; the Issues list has each reason | Cancel |
-| Nothing to apply | None; "Nothing to apply yet: this draft matches what ‹workspace› runs" | Close |
-| Installed, then activation refused | **Try again**; says the workspace did not change | The draft's base has moved, so the install finds the same release and only activation repeats |
-
-#### Tests (cases for approval)
-
-Journey tests in `tests/journeys/`, new variants of J36, each on two model configurations:
-
-1. **Apply to one workspace.** Given two workspaces on one release, when the first's draft is opened, a field added,
-   it is installed and activated there, then the first runs the new release with the field, the second is unchanged,
-   and opening again answers 200 with the same draft.
-2. **An existing draft is reused.** Given a draft of the running release remembering no workspace and one of another
-   release, when the draft is opened, then the first is answered, now naming the workspace, and no draft is created. Given instead only the draft of a task that ended, a new draft answers 201.
-3. **The model changed elsewhere.** Given a remembered draft, when another release is activated in the workspace and
-   the draft is opened, then a new draft of that release answers 201, and the old one still exists, naming no workspace.
-4. **Records move.** Given records of a type the draft removes, when it is installed, then activation answers
-   `MODEL_MIGRATION_REQUIRED`; opening before the migration confirms answers the same draft; after the confirmation
-   the workspace runs the release with its records converted.
-5. **Who may.** No Model authoring: `FORBIDDEN` on the route. Model authoring and Model release in workspace A: installs
-   A's draft; `FORBIDDEN` on B's draft and on a draft remembering none. A retired workspace: `WORKSPACE_RETIRED`.
-
-Unit tests: `ApplyDialog` for each state above, the ⋯ menu's items and the Settings button shown and hidden, Export keeping the collection's context, the route's `workspace` parameter. A new
-browser runner on two configurations: ⋯ menu → editor → Apply → back, and the migration path, by keyboard at 1440px and
-390px, axe on the dialog, no 5xx and no server error line; its screenshots inspected against the reference patterns.
-
-#### Delivery
-
-- **Backend:** the migration, written in one go; `engine/model/drafts.py` (the choice in WM-D2); the sweep's condition in `engine/tasks/store.py`, with a unit test; the route and `draftResponse`
-  field; the workspace-aware check in `management/access.py`; the journey tests, confirmed failing first.
-- **Frontend:** the ⋯ menu with Import and Export moved into it, the Edit model button in `WorkspaceAdmin`, `ApplyDialog`, the route parameter, the editor's crumb, header and main action (desktop and
-  phone menu), the migration page's way back, a workspace's model reloaded after Apply.
-- **Documents:** `API.md`, `API_JOURNEYS.md`, `USER_JOURNEYS.md` (J36), `CURRENT_FUNCTIONALITY.md`, `PRODUCT.md`, `CHANGELOG.md`.
-- **Door check (ADR-032):** no door is affected; the package touches none of identity, attribute storage, audit and
-  history, bulk APIs, `match` or mapping coverage.
-
-**What a person still cannot do after WM1:** move records between types in one reshaping (AP12),
-or ask the assistant to change the model from here (AP12). Edit model starts from the workspace ⋯ menu on any of its pages and from the
-button on the workspace's page in Settings › Workspaces. PL3 (0.17) builds a new overview page, which reuses the same action.
-
-## Track A: agent access
-
-## AG1: The server and its authority
-
-**Journeys:** an operator enables MCP and creates an agent client; the client connects and lists only
-the tools its grants allow; with MCP disabled the endpoint does not exist; revoking the client stops
-it on the next call.
-
-**Scope.** `management/routers/mcp.py` (the Streamable HTTP endpoint on the MCP Python SDK, pinned in
-pyproject's ranges with `pip check`), the `agent` audience in `engine/identity/tokens.py`, the `Agent`
-predefined role and its action group in the catalogue, the audit `channel` column, `GET /system`
-reporting `mcp: {enabled}`, Settings › Agent access (clients, last use, counts, how to connect
-including the URL and the sign-in), `MCP_ENABLED`, `MCP_RATE_PER_MINUTE` in OPERATIONS.md.
-
-### AG1 in detail (planned 2026-10-31, approved by the user the same day with the mock-up)
-
-Mock-up: [AG1 Agent access](https://claude.ai/artifact/TqCG2VCdQV1Cti6Y6cgnCo) (a Design canvas, not kept in the
-repository). Reference patterns: the AI page (`AiPage`) for a setting read from the environment, the Clients page for
-a client's detail, secret and access, which are reused and not copied.
-
-**Checked against the code and the MCP specification of 2025-11-25.** Four things in the scope above do not hold as written:
-
-- **"The existing OAuth flow" cannot sign in an assistant.** `check_request` and `/oauth/token` accept only
-  `client_id=browser` and the configured redirect addresses, and the refresh token goes in a cookie. The specification
-  also requires protected resource metadata (RFC 9728), which the engine does not have. AG-D2's person sign-in needs AG-D12.
-- **An `agent` token would read as `management`:** `_audience()` in `authentication.py` turns every value but
-  `consumer` into `management`. It must name each audience.
-- **A session is not tied to an audience:** `/oauth/token` issues whichever `scope` is asked for on a refresh, so a
-  refresh token held by an assistant could obtain a management token (AG-D12).
-- **The current MCP SDK breaks the test harness:** `mcp` 2.x requires `httpx2`, which Starlette's test client then
-  prefers. AP1 found this break with the Anthropic SDK (AG-D11).
-
-| # | Decision | Why |
-| --- | --- | --- |
-| AG-D11 | **`mcp>=1.30,<2`.** A dry run against the shared environment adds `mcp`, `httpx-sse` and `sse-starlette` and moves nothing. 1.30 speaks protocol 2025-11-25. Stateless, JSON answers, a session manager per application started in `lifespan`, `Origin` and `Host` checked from `PUBLIC_URL`. | 2.x would change the test client for everyone using the environment. Stateless needs no affinity between processes. Moving to 2.x waits until the harness moves to `httpx2`. |
-| AG-D12 | **An assistant is a registered application, and a person signs in for it.** New: `/.well-known/oauth-protected-resource` and its `/mcp` form, the 401's `resource_metadata`, `POST /oauth/register` (RFC 7591), the table `agent_applications`, and `user_sessions.agent_application_id`. A public client with PKCE; `resource` must be this instance's `/mcp` when sent. Open registration (`MCP_OPEN_REGISTRATION`, default on) accepts loopback addresses and HTTPS hosts in `MCP_REDIRECT_HOSTS` (default none); anything else is registered by an administrator. Unused registrations are removed after 30 days. Client ID Metadata Documents are not built. **A session is bound:** one started for an application issues only `agent`, with its refresh token in the answer's body and rotated by the existing `sessions.renew`; a browser session never issues `agent`. | Registration is what Claude Code uses by default; a metadata document makes the engine fetch addresses an unknown caller names, a request-forgery risk and outbound traffic a closed deployment may not have. The session rows give sign-in rules, ending a session and "revoked on the next call" with no new mechanism. |
-| AG-D13 | **The sign-in page is the consent.** When an application sent the person, the page says who asks (its own claimed name), where it returns (the host, which the specification requires shown), what it can and cannot do, and the buttons read "… and allow". Password, passkey, provider and second factor run unchanged. | Every sign-in route ends in `issue_code`; one banner in `check_request`'s page needs no extra state or step. An open registration can claim any name, so the page says the name is claimed. |
-| AG-D14 | **`oauth_clients.kind`: `api` (existing) or `agent`.** An agent client gets only `scope=agent`, an API client never does. The AP8 session's client stays `api`. | An agent principal can then never hold a token that reaches an approve route (AG-D5), enforced at issue and not by each route. |
-| AG-D15 | **The `agent` role holds `browse` and `change-sets`; the same set is the ceiling** for every `agent` token, applied to the permissions read after the cache. A person needs no new grant: their own roles cut down to the ceiling. A client needs a grant as usual. `publish` and `approve` are not in it; consumer API grants pass unchanged. | AG-D3 as code, one definition. `change-sets` carries no capability until AG3 adds tools, and only the tools are reachable on this audience. |
-| AG-D16 | **Revises AG-D6. Each call is a row in a new `agent_calls` table, not an audit event:** who, application, tool, argument names (never values), outcome, duration, request ID; removed after `MCP_CALLS_DAYS` (90). **The audit `channel` column moves to AG3**, its first writer. | Today reads write no audit entry, and rows per read in `audit_events` would be permanent and sit in the trail that holds changes. `ai_calls` is the precedent; so is AP1 moving `origin` to its first writer, because nothing could write or test it earlier. |
-| AG-D17 | **The rate limit is a count over `agent_calls` in the last minute,** per principal, on tool calls: `MCP_RATE_PER_MINUTE` (120), a tool error with the seconds to wait. | One statement, right across processes, no new store. |
-| AG-D18 | **Two tools prove the registry:** `describe_access` (always: who I am, my ceiling, my workspaces) and `list_workspaces` (needs Browse somewhere, paged, the service function of `GET /workspaces`). A tool declares the group it needs; one the principal lacks is not listed and is refused if called. | The journey "lists only the tools its grants allow" cannot run with no tools. AG2 adds to the same registry. |
-
-**Scope.**
-
-- **Engine:** `engine/agent_access/` (settings, applications and registration, the call log, the limit, the ceiling, the
-  tool registry); `tokens.py` and `_audience()`; `/oauth/token`, `check_request` and `issue_code` for applications; the
-  `agent` scope offered only while MCP is on.
-- **Endpoint:** `management/routers/mcp.py` mounted only with `MCP_ENABLED`. The token is checked by `authenticate` on
-  every request, so revoking applies on the next call. `/mcp` joins the proxy paths in `frontend/nginx/snippets/locations.inc.template`
-  and `frontend/vite.config.ts`.
-- **API:** `GET /agent-access` (status and totals), `GET /agent-access/calls`, `GET` and `POST /agent-access/applications`,
-  `POST …/applications/{id}/block` and `/restore`; `kind` on `POST` and `GET /clients`; `application` on `GET /me/sessions`;
-  `mcp: {enabled}` on `GET /system`. Action `agent-access.read` and the writes under Security administration.
-- **Migration, one file:** `agent_applications`, `agent_calls`, `oauth_clients.kind`,
-  `user_sessions.agent_application_id`, the `agent` role row.
-- **Frontend:** Settings › Security › Agent access as in the mock-up. An agent client opens the existing client page, and
-  New agent client reuses the existing dialog with its one-time secret. The person's sessions list names the assistant.
-- **Documents:** API.md, OPERATIONS.md (settings, and the prompt-injection stance of AG-D8), ARCHITECTURE.md, USER_JOURNEYS
-  J51, API_JOURNEYS, CURRENT_FUNCTIONALITY, PRODUCT, UI_ACCEPTANCE, EXECUTION_GUIDE, CHANGELOG.
-
-**Out of scope:** reading data and the model (AG2), writing and `channel` (AG3), Client ID Metadata Documents, a stdio bridge.
-
-**Tests, J51, through the endpoint with the SDK's client on two model configurations:**
-
-1. **Off:** `/mcp`, the resource metadata and `/oauth/register` answer 404, and `scope=agent` is refused.
-2. **A client:** made as `agent`, granted, connects and lists its tools; without Browse, `list_workspaces` is neither
-   listed nor callable. Deactivated, it is refused on the next call.
-3. **Audiences, in every direction:** an `agent` token is refused by `/api/v1` and the consumer API; management and
-   consumer tokens are refused by `/mcp`; an agent client asking for `management` and an API client asking for `agent` are refused.
-4. **A person through an assistant:** a 401 leads to metadata, registration, sign-in with PKCE, a tool call and a rotated
-   refresh. The same refresh token asking for `management` is refused, and a browser session asking for `agent` is refused.
-   Ending the session, or blocking the application, stops it on the next call.
-5. **The ceiling:** a person holding Approve and Publish keeps neither on this audience (`describe_access`).
-6. **Registration:** an outside HTTP or unlisted HTTPS address is refused; with open registration off, only a registered
-   application signs in.
-7. **Limit and log:** the call past the limit is refused with its wait; a row names the argument, not its value.
-
-One browser runner: the page at 1440px and 390px, by keyboard, with the sign-in banner.
-
-**The real try:** one sign-in with Claude Code through the dev server, since the SDK's client cannot prove a real client's
-discovery. It needs `MCP_ENABLED=true` in `.dev/settings.env` and the user's restart, and the user's own password in the
-browser. The bounded R try stays as AG-D10 says.
-
-**Working beside other sessions:** install the packages first, as the dev server imports what `main.py` names on save. The
-migration's `down_revision` and `HEAD` in `test_startup.py` are taken from the head at the moment of writing, the file
-written in one go (WM1 also adds a migration). The OpenAPI lock is re-baselined last and diffed for AG1's additions only. J51 is
-checked for being free before use. Commits hold AG1's hunks only.
-
-**Door check (ADR-032):** identity gains a client kind and an application on a session, additive; audit and history are untouched
-in AG1. No door closes.
-
-**What the user cannot do after AG1:** ask an assistant about data or the model (AG2), or have it prepare a change (AG3). An
-assistant connects, signs in and sees where it may work, nothing more.
-
-### AG1 record (2026-10-31)
-
-**Delivered as planned**, with the build's tests below; the one real sign-in is the user's step and has not happened yet. Frontend built by a Sonnet agent from a brief.
-
-**Where it differs from the plan:**
-
-- `GET /agent-access/clients` was added: the page's call counts per client need it.
-- The five `MCP_*` settings sit in the `ai` settings group, beside the rest of this release's settings.
-- AG-D11's `Host` check is left out: only `Origin` is checked. A proxy's forwarded host differs by deployment, and a bearer token carries no ambient authority.
-- Registrations use the `client` security events (`application-registered`, `-blocked`, `-restored`), so the audit index's aggregate list stays as it is.
-- `/mcp` loads the SDK on every start, flag or not: the boundary test refuses a deferred import in `app.main`.
-
-**Checks:** J51: 16 passed (two configurations). J39, J40, J41 with J51: 168 passed; an earlier run of the same set had one J51 failure under parallel load (`test_an_assistant_never_holds_approve_or_publish`, generated-b), whose log was not kept; it passed alone three times and in the rerun, cause not established. `contract` and `startup`: 284 passed, 4 failed, all from WM1's uncommitted migration `20261120_02` (the `HEAD` pin and the `model_drafts` rule). OpenAPI lock re-baselined, additive, diffed against HEAD. Frontend: `tsc -b`, `npm run build`, focused Vitest, `test:browser:agent-access` (18 checks, axe 0 violations).
-
-**The real try (the user, 2026-10-31):** Claude Code through the dev server at `PUBLIC_URL`: discovery, self-registration, sign-in and both tools worked. The person's Data owner role showed only Browse and Work in change sets. On a development certificate Claude Code needs `NODE_EXTRA_CA_CERTS` with mkcert's root.
-
-**Not verified:** Claude Desktop's and claude.ai's return addresses.
-
-**What the user cannot do yet:** ask an assistant about data or the model (AG2), or have it prepare a change (AG3).
-
-## AG2: Read tools and resources
-
-**Journeys:** "what is the code of this value in the webshop system?" is answered from a consumer
-definition; "which values of this list have no mapping to the webshop?" is answered from mapping
-coverage; the model description is readable as a resource.
-
-**Scope.** The generator from consumer definitions (one tool per definition, schema from its fields,
-authorization from its grant), the curated tools (AG-D4), the model, applications, object types and
-views as MCP resources, structured results with IDs, cursor paging. Proven on two definitions whose
-types differ (the generic-capability rule), not on the example model's keys.
-
-## AG3: Changes prepared and submitted for approval
-
-**Journey:** an agent asked to add five missing values creates a change set, adds the five, reads the
-validation and submits it; a steward is notified in the inbox, opens it, edits one value and approves;
-live data changes only at that approval.
-
-**Scope.** Tools: create/select change set, add or change an object, set a field, add a relation, read
-the change set's validation. Optimistic concurrency applies (versions are inputs); conflicts return the
-engine's own error code and message. No approve, publish, delete, model or security tool exists, and the agent principal cannot approve through any route (AG-D5).
-
-## AG4: Natural-language search
-
-**Journey:** a steward types "values changed last month without a webshop mapping" in the search box
-and sees the filters it became, editable, and the results.
-
-**Scope.** The `queryTranslation` purpose of the AP1 provider (`structure` send level: the question
-and the list's filterable fields, no record values); the answer is the existing filter parameters,
-validated like a hand-typed filter, shown as chips the person edits. The engine answers; the model
-only builds the query. A question it cannot express is said so, not approximated.
-
-## Track O: operations
-
-## AO1: Model change impact summary
-
-**Journey:** a model administrator opens a release's activation preview for a workspace; beside the
-counts and the list of operations, a short account says: "Two attributes are added to Delivery method
-(optional, no data change); the mapping to the webshop gains one relation; 3 consumer definitions
-change shape, one of them removing a field" with each statement linking to the operation or
-definition. It never says a change is safe; it says what the facts are.
-
-**Scope.** The fact set from the existing diff and preview (operations, affected counts, consumer
-definition changes, mapping changes, blocked items), the `impactSummary` purpose, `POST …/releases/{id}
-/impact-summary`. Send level `structure`. Also available on a model draft's validation result.
-
-## AO2: What changed, an account of history
-
-**Journey:** a data owner picks "last week" on a workspace; the account says "Translations: 200
-labels changed by 3 people, 190 of them in one bulk import on Tuesday; Master: 4 values retired; one
-change set (CS-18) was sent back", each statement linking to the records and the change set.
-
-**Scope.** Fact aggregates from history and the change feed, grouped in PostgreSQL by type, kind,
-actor and source (job, change set, direct), restricted to what the requester may read; the
-`historyAccount` purpose; the panel and the route (AO-D7). Send level `structure` for counts and
-groups, `values` to name records.
-
-## AO3: Notification digests
-
-**Journey:** a steward sets daily digests; the next morning one mail says "3 change sets wait for
-your approval, 1 job failed (import of the operators file, 14 rows rejected)", then lists the notices
-as today with their links.
-
-**Scope.** The `digest` setting per person, the scheduled job (an existing worker with the lease
-rules: one digest per person per period, no duplicates across nodes), the `digest` purpose (kinds,
-counts, titles; send level `structure`), the mail template, the outbox. With the provider off, the
-digest is the plain list with counts, which is already an improvement over many mails; AI only writes
-the opening sentence. (This makes AO3 useful without a provider: recommended to build it so.)
-
-## Door check (ADR-032)
-
-Provenance (`origin`, AP-D5) is the first use of the value-provenance door and is additive, kept
-outside a record's own values. Audit gains a `channel`, additive. Identity, attribute storage, bulk
-APIs, the consumer API `match` declaration and mapping coverage states are read or reused, not
-changed. Summaries (Track O) are derived and stay outside history, the model and the records. No door
-closes.
-
-## Tests
-
-Journey-driven through the API, at most about a quarter of a package. Track P and O use a deterministic
-fake provider (AP-D11, AO-D9): per package the happy journey, the provider-failure journey, the
-permission-hidden journey, and where data is read a send-level journey; Track O adds the
-uncited-statement, the visibility and the fact-completeness tests. Track A uses a test MCP client
-(AG-D10). The context builder's level tests are unit tests. Execution-guide groups for the changed
-boundary only; the OpenAPI lock re-baselined per package and marked additive.
-
-## AP8: The assistant is a Claude Code session (decided 2026-10-31)
-
-Supersedes the turn format of AP6r and the engine-first calls of AP7. The working setup was the user's own: a few words, the workbook, the model and the OpenAPI document, and a model free to explore. Each limit added around it was the limit that failed. Journey J50.30. Open: a client that cannot publish (the session runs with the rights of who asked), isolation on a shared server, speed against the time limits, and the old J50 cases removed with the loop, to be replaced as journeys demand.
-
-### AP8 record: model shape and speed (2026-10-31)
-
-- **Model shape. Built 2026-10-31, the user's decisions.** The same words gave five types on one run and one type of 87
-  attributes on another, and both pass the dry run. **Separated by default:** one generic sentence in the prompt makes what
-  a file repeats into types of their own, and a session keeping a repetition flat raises it as a question. **What the
-  workspace holds decides the start:** with records the session adds to the model; with none, words asking for a model may
-  get a new one. The proposal shows the shape from the engine's figures (attributes and records per type, relationships
-  apart from records), and warns when a model leaves out types the workspace holds records of; Accept stays available.
-  **Tried on real files, three runs each, from the same words:** all six separated and loaded with 0 rejected. Price
-  Catalogue: the same 9,746 records each time; run 1's prices, VAT, enabled flags and ledgers match task 56's flat load
-  value for value. Timetables: 1,964, 1,966 and 400 records; the third keeps its 1,500 translations on relationships
-  rather than as records, and every workbook value is found in all three. **Still varies, by design:** names and details
-  of the structure (Station or Operator; translations as records or on relationships). A run may start from the workspace's
-  model and still replace it, which labels same-keyed types "Changed".
-- **Speed.** Open: the separated runs took 200 to 348 s on Timetables and 497 to 633 s on Tariff File, proposal and load, without a person's wait. Tariff File's atomic import is refused at the 10,000-item limit, so the session falls back to row-by-row success, and pays for the failed try.
-
-## AI usage log (for hosting cost planning)
-
-**Why (the user, 2026-10-29):** refiroo may be hosted on a subscription that includes the AI provider,
-so what a real task costs is planning data. Every real-provider try in a package or in R adds one row
-here. A row is reported to the user with the try.
-
-**How it is measured.** The call records (`ai_calls`, Settings › AI) give each call's purpose, duration
-and tokens in and out; the tokens in are the sum of plain input, cache writes and cache reads. Through
-the Claude Code provider, each call also logs those three kinds apart and `total_cost_usd`: Claude
-Code's price of the same call at API rates, whatever the sign-in. So that figure is the API cost, and on
-a subscription it is not money spent. For another provider the API cost is worked out from its
-published prices, and the date of those prices is given.
-
-| Date | Package, what was tried | Provider, model | Calls | Tokens in (plain / cache write / cache read) | Tokens out | Time | Cost at API prices | Note |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-
-**What a hosting estimate needs from these rows:** the cost per task kind (e.g. loading one workbook of
-N rows and M sheets), how it grows with the file (the reading is sent as column profiles, so it grows
-with columns and distinct values, not with rows), and how much prompt caching saves on repeated turns.
-
-## R: Build acceptance and release
-
-Full review of every change since 0.15 (it is one review for three tracks, the main saving of merging);
-the contract lock marked additive (the `agent` audience, `/mcp` and the new routes); documentation
-(PRODUCT, CURRENT_FUNCTIONALITY, ARCHITECTURE, OPERATIONS for the AI and MCP settings and connecting an
-assistant, API, journeys, CHANGELOG); **one** bounded real-provider try and **one** real-assistant try,
-each only on the user's go-ahead with its cost stated first (AP-D11, AG-D10); the release.
-
-## Exit gate
-
-- A few words and a workbook give the model and the import, with as many applications, types and
-  relations (across applications too) as the workbook needs; tried on the user's own workbooks (AP-D22).
-- With no provider and MCP off, no screen shows an AI action, no request leaves the instance, `/mcp`
-  does not exist, the existing inference behaves as before, and digests are the plain list.
-- No value above the configured send level reaches a provider (the context builder's tests).
-- Every proposal refers to an existing record or valid step and passes the validation of a hand edit;
-  it can be edited, kept or removed with existing tools; every accepted one is recorded as
-  machine-proposed with its approver.
-- An agent token works on `/mcp` only; no tool approves, publishes, withdraws, administers the model or security,
-  or deletes; an agent's change set leaves live data unchanged until a person approves it; every call
-  is in the audit trail with its channel.
-- Every summary statement cites a fact that exists; the facts equal the database for the period; a
-  summary never contains what its requester may not read and changes nothing.
-- A failing provider never fails a deterministic result.
-- An instruction becomes only steps of the AP-D12 kinds; nothing runs before the person confirms a dry
-  run of every row; the result lands in a change set by default; the saved profile repeats the load.
-- The real-file try (AP-D22) on the user's own workbooks has been run and judged by the user.
-- **The acceptance workbook** (the user, 2026-10-28): `Lines & Routes v2.0.xlsx`, a data dictionary laid
-  out for reading (lists side by side, group headings above list headings, English and Spanish column pairs, `Y`
-  flags, notes). The rules alone made one application of 101 types and 31 relation types of it. Through AP6 it gives
-  a model a person reads as the business does, about four applications and a dozen types with group hierarchies,
-  translations and relations, and its import, judged by the user.
-- **Reshaping a workspace's model is an instruction too:** from the workspace, "reorganise this model" (or a
-  narrower change) becomes the same kind of plan as a new workbook, so a person never needs the model editor's
-  draft, install and activate path to fix a model; where the change needs the 1.0 merge of types holding data, the
-  plan says so and offers a new workspace loaded from the same file. *(Corrected 2026-10-28: merging types that
-  hold data does not wait for 1.0. The 0.8 restructuring (`changeType`, `changeTypeUnder`, `move`, `insertLevel`,
-  `removeLevel` in a change set, records keeping their IDs, previewed first) does it today, so a reshaping plan is
-  three phases: a model version with the target types beside the old, a change set restructuring every record into
-  them, a version without the emptied types. Restructuring joins AP-D12's step kinds, an existing engine
-  capability like the other five.)*

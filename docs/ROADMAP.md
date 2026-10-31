@@ -7,7 +7,7 @@ optimistic concurrency, and keeps public collections cursor-paged.
 The release train is 0.6 for daily live operations and optional coordinated design, 0.7 for core mapping, 0.8 for the relation matrix
 (translations among its uses) and hierarchy editing, 0.9 for integration APIs, 0.10 for model authoring and spreadsheet onboarding (one editor for the
 model and the import mapping, ADR-035), 0.11 for production hardening and staged workspace model rollout,
-0.12 for security (authentication and authorization across the backend, frontend and APIs), 0.13 for the documentation, 0.14 for the management API reference, 0.15 for the interface language, 0.16 for AI integration (proposals, agent access, operations summaries), and 1.0 for
+0.12 for security (authentication and authorization across the backend, frontend and APIs), 0.13 for the documentation, 0.14 for the management API reference, 0.15 for the interface language, 0.16 for AI integration (proposals, agent access, operations summaries), 0.17 for the plain path, and 1.0 for
 migration-class model changes, protected publishing and extensions.
 
 ## Current development baseline — Base 0.12 complete
@@ -704,27 +704,54 @@ provider, and nothing writes live data without a person.
 - A proposal provider (the 0.10 inference assistant generalised): settings, a Claude and an
   OpenAI-compatible adapter (which covers local models), send levels, a call record, a permission,
   jobs, and provenance on proposed steps and changes (AP1)
-- Track P: target proposals for unmapped values, a widened model-authoring assistant and semantic
-  model-mapping candidates, draft values for empty fields (translations among them), dry-run triage
-  (AP2–AP5)
+- Track P: target proposals for unmapped values (AP2); model authoring through the assistant (AP8, which
+  supersedes AP3–AP7). The value drafts and dry-run triage of AP4 and AP5 were removed 2026-10-31
 - Track A: an MCP server in the engine under the existing tokens and roles, read tools generated from
   the consumer API definitions, write tools that prepare a change set and submit it for approval (never approve), natural-language
   search (AG1–AG4)
 - Track O: an impact summary of a model change, an account of what changed in a workspace, and
   opt-in notification digests, each with its cited facts (AO1–AO3)
-- Instruction-driven tasks (AP6): a person attaches a workbook and writes what they want in loose
-  English; the assistant plans it from steps the engine already has, shows its reading and a dry run
-  of every row, and runs it into a change set on confirmation; the saved profile repeats it next month
-- Not included: a free-running agent, fine-tuning, a prompt editor, live writes by
-  an agent or a proposal
+- The assistant (AP8–AP13): a person attaches a workbook and writes what they want in loose English; a
+  Claude Code session works through the API with what its grants allow (AP-D29, approved 2026-10-31),
+  proposes a model with every row checked, goes on with the person's words, and on acceptance installs a
+  release and loads into a change set; a person activates and publishes; the saved profile repeats it next month
+- A workspace's model changed from the workspace (WM1, not AI)
+- Not included: an agent that activates, publishes or writes live, fine-tuning, a prompt editor, live
+  writes by a proposal
 
 ### Exit gate
 
 - With no provider and MCP off, nothing AI appears and nothing leaves the instance.
-- No value above the configured send level reaches a provider; every accepted proposal is recorded as
-  machine-proposed with its approver.
+- No value above the configured send level reaches a provider; every accepted proposal, a session's
+  changes included, is recorded as machine-proposed with who asked and who approved.
+- A session stops at a change set: the engine refuses it activation and publication.
 - No agent tool approves, publishes, withdraws, administers or deletes; every call is audited with its channel.
 - Every summary statement cites a fact that exists; a failing provider never fails a deterministic result.
+
+## Product release 0.17 — The plain path
+
+_Approved 2026-10-31 by the user_, straight after 0.16. Plan: [BASE_0_17_IMPLEMENTATION_PLAN](BASE_0_17_IMPLEMENTATION_PLAN.md),
+with the findings and principles in [PLAIN_PATH_PLAN](PLAIN_PATH_PLAN.md).
+
+### Product outcome
+
+The everyday journeys are short and friendly, with every capability still one step away. A workbook becomes
+a workspace in one go, and a person shapes its model by dragging on one screen beside the live result.
+
+### Delivery scope
+
+- The principles as reference rules, change sets in two clicks, plain add and edit (PL0–PL2)
+- The workspace page (PL3)
+- The workbook canvas: sheets and columns dragged into lists, fields, relationships, hierarchies, filters
+  and navigation groups, each drop applied at once with undo (PL3b)
+- New workspace from a workbook, plain words, collection import and export (PL4–PL6)
+
+### Exit gate
+
+- A real workbook is shaped on the canvas without a dialog and without AI, every row checked, and becomes a
+  workspace in one confirmed step.
+- Every drag has a menu and keyboard path, and each drop is available through the API.
+- No capability is removed.
 
 ## Product release 1.0 — Self-service model authoring and extensions
 
