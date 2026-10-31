@@ -14,6 +14,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed (the AI import)
 
+- **The same words give the same kind of model:** a session separates what a workbook repeats into types of its own and
+  raises it as a question if it keeps it flat; what the workspace holds decides whether it adds to the model or may start
+  anew. The proposal shows attributes and records per type from the engine's figures, counts relationships apart from
+  records, and warns when a model leaves out types holding records.
 - **A session's own jobs run:** an assistant's session held the only job worker while it worked, so a
   job it queued, such as profiling its workbook, waited until the session ended and then failed because
   the session's grants had ended too. Sessions now run on an assistant worker of their own (reported as

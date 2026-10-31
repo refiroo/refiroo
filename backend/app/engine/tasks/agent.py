@@ -51,7 +51,7 @@ from ..identity import tokens
 from ..identity.clients import create_client
 from ..identity.settings import IdentitySettings
 from ..model.workspace_models import load_assignment
-from .store import finish, load_task, note
+from .store import finish, held_counts, load_task, note
 
 TIMEOUT_SECONDS = 1800
 LAST_LINE = "CHANGE_SET:"
@@ -77,7 +77,29 @@ def _connection(workspace: str, url: str, *, workbook: bool = True) -> str:
     )
 
 
-def _propose_prompt(words: str | None, workspace: str, url: str, *, workbook: bool = True) -> str:
+def _starting_point(held: dict[str, int]) -> str:
+    """Whether the session adds to the model or may start anew: what the workspace holds decides."""
+    total = sum(held.values())
+    if total:
+        return (
+            f"The workspace holds {total} records: keep its model and add to it, unless the words "
+            "ask otherwise."
+        )
+    return (
+        "The workspace holds no records: if the words ask for a model, it may be a new one with "
+        "only what this needs."
+    )
+
+
+_SHAPE = (
+    "What the file repeats across columns or rows becomes types of its own, related to each other, "
+    "unless the words ask otherwise; if you keep such a repetition flat, raise that as a question."
+)
+
+
+def _propose_prompt(
+    words: str | None, workspace: str, url: str, held: dict[str, int], *, workbook: bool = True
+) -> str:
     check = (
         "Build the model in a model draft and check every row with the draft's dry run"
         if workbook
@@ -86,7 +108,8 @@ def _propose_prompt(words: str | None, workspace: str, url: str, *, workbook: bo
     )
     return (
         f"{(words or '').strip() or DEFAULT_WORDS}\n\n"
-        f"{_connection(workspace, url, workbook=workbook)} {check}; install, activate, load and "
+        f"{_connection(workspace, url, workbook=workbook)} {_starting_point(held)} "
+        f"{_SHAPE + ' ' if workbook else ''}{check}; install, activate, load and "
         f"publish nothing yet: the person reviews first. Then write {PROPOSAL}: "
         '{"draftId": ..., "summary": two sentences a person reads, "questions": [{"text", "options", '
         '"assumed"}] for what only a person can decide}.'
@@ -533,6 +556,72 @@ def _retention(ctx: Any) -> int:
     return ctx.ai.task_retention_days if ctx.ai else 90
 
 
+def _plural(number: int, word: str) -> str:
+    return f"{number:,} {word}{'' if number == 1 else 's'}"
+
+
+def _shape(model: dict[str, Any], base: dict[str, Any], records: dict[str, int]) -> list[dict[str, Any]]:
+    """The proposal's shape from the draft and its dry run, not from the session's account: each type
+    it adds, changes or loads, with its attributes and the records the check would write."""
+    before = {found.get("key"): found for found in base.get("objectTypes") or []}
+    shape = []
+    for found in model.get("objectTypes") or []:
+        key = found.get("key")
+        attributes = found.get("attributes") or []
+        earlier = before.get(key)
+        change = (
+            "New type"
+            if earlier is None
+            else None
+            if (earlier.get("attributes") or []) == attributes
+            else "Changed type"
+        )
+        written = records.get(key, 0)
+        if change is None and not written:
+            continue
+        parts = [*([change] if change else []), _plural(len(attributes), "attribute")]
+        if written:
+            parts.append(_plural(written, "record"))
+        shape.append({"objectTypeKey": key, "name": found.get("name") or key, "text": ", ".join(parts)})
+    return shape
+
+
+def _left_out(
+    model: dict[str, Any], base: dict[str, Any], held: dict[str, int]
+) -> list[dict[str, Any]]:
+    """Types the workspace holds records of and the proposed model no longer has: the person is told
+    before accepting, whatever the session said."""
+    kept = {found.get("key") for found in model.get("objectTypes") or []}
+    names = {found.get("key"): found.get("name") for found in base.get("objectTypes") or []}
+    gone = [f"{names.get(key) or key} ({count:,})" for key, count in sorted(held.items()) if key not in kept]
+    if not gone:
+        return []
+    return [
+        {
+            "id": "types-left-out",
+            "kind": "leftOut",
+            "text": "This model leaves out types the workspace holds records of: " + ", ".join(gone),
+            "open": True,
+        }
+    ]
+
+
+def _records_per_type(session: Session, job_id: str | None) -> dict[str | None, int]:
+    """What a dry run would write per type; under ``None``, the relationships, which have no type."""
+    if job_id is None:
+        return {}
+    return dict(
+        session.execute(
+            text(
+                "SELECT i.outcome ->> 'objectTypeKey', count(*) FROM job_items i"
+                " JOIN jobs j ON j.sequence_id = i.job_id"
+                " WHERE j.id = :job AND i.outcome ->> 'action' IN ('created', 'updated') GROUP BY 1"
+            ),
+            {"job": job_id},
+        ).all()
+    )
+
+
 def _proposal_landed(
     session: Session, ctx: Any, task_id: str, folder: Path, progress: _Progress, check_of: Any
 ) -> None:
@@ -564,16 +653,28 @@ def _proposal_landed(
         for q in proposal.get("questions") or []
         if isinstance(q, dict) and q.get("text")
     ]
+    check = check_of(session, draft)
+    base = session.get(ModelRelease, load_assignment(session, task.workspace_key)[1].id).model_json
+    records = _records_per_type(session, (check or {}).get("dryRunJobId"))
+    related = records.pop(None, 0)
+    if check and related:
+        # The check counts a relationship as an item it creates; the person reads records and links.
+        check["summary"]["created"] -= related
+        check["summary"]["relationships"] = related
+    held = held_counts(session, task.workspace_key)
     task.draft_id = draft.id
     task.design = {
         **design,
         "stage": "model",
         "summary": str(proposal.get("summary") or ""),
         "questions": questions,
-        "origin": {"kind": "ai", "provider": "claude-code", "model": None, "promptVersion": "agent/1"},
+        # A draft on no release is a new model: a type sharing a key with the old one is not a change.
+        "outline": _shape(draft.model_json, base if draft.base_model_release_id else {}, records),
+        "checks": _left_out(draft.model_json, base, held),
+        "origin": {"kind": "ai", "provider": "claude-code", "model": None, "promptVersion": "agent/2"},
         "outcome": {},
     }
-    task.check = check_of(session, draft)
+    task.check = check
     note(task, "note", _said(progress))
     finish(task, "checked", _retention(ctx))
     task.finished_at = None
@@ -597,7 +698,9 @@ def start(session: Session, job: Job, ctx: Any, task_id: str, workbook_path: Pat
     task.design = {**(task.design or {}), "stage": "model", "agentSession": session_id}
     task.state = "reading"
     session.commit()
-    prompt = _propose_prompt(words, workspace, url, workbook=workbook_path is not None)
+    prompt = _propose_prompt(
+        words, workspace, url, held_counts(session, workspace), workbook=workbook_path is not None
+    )
     progress = _run_turn(session, job, ctx, task_id, folder, prompt, session_id, first=True)
     if progress is not None:
         _proposal_landed(session, ctx, task_id, folder, progress, check_of)

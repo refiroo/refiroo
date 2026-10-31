@@ -14,7 +14,7 @@ cancelled job to the task, and a finished import to ``loaded``, wherever the tas
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, text
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
@@ -27,6 +27,17 @@ KINDS = ("note", "warning", "refused")
 # States in which the task waits for a job, and the ones that end it.
 WAITING = ("reading", "checking", "loading")
 ENDED = ("loaded", "failed", "cancelled")
+
+
+def held_counts(session: Session, workspace: str) -> dict[str, int]:
+    return dict(
+        session.execute(
+            text(
+                "SELECT object_type_key, count(*) FROM objects WHERE workspace_key = :w GROUP BY 1"
+            ),
+            {"w": workspace},
+        ).all()
+    )
 
 _KEYS = (integer_key("id", AiTask.id, "id", descending=True),)
 

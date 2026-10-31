@@ -76,6 +76,7 @@ SQL_ROW_WRITERS = {
 # ``session.delete`` elsewhere, and what it deletes instead of a record-graph row.
 SESSION_DELETES = {
     "app.engine.change_sets.lifecycle": "discarding a change set deletes the change set row",
+    "app.engine.tasks.design_job": "discarding an assistant's proposal deletes its model draft",
 }
 
 # Violations present when a rule was introduced, each removed by the package it names. An entry

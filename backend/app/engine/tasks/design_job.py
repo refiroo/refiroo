@@ -44,17 +44,6 @@ from . import agent, design, design_checks, draft_plan, links, matching
 from .store import claim, finish, load_task, note, require_state, touch
 
 
-def held_counts(session: Session, workspace: str) -> dict[str, int]:
-    return dict(
-        session.execute(
-            text(
-                "SELECT object_type_key, count(*) FROM objects WHERE workspace_key = :w GROUP BY 1"
-            ),
-            {"w": workspace},
-        ).all()
-    )
-
-
 def task_source(session: Session, task: AiTask) -> SourceFile:
     source = session.scalar(select(SourceFile).where(SourceFile.task_id == task.id))
     assert source is not None

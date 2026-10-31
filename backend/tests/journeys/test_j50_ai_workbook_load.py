@@ -575,6 +575,9 @@ def test_a_session_proposes_on_a_draft_goes_on_with_the_persons_words_and_loads_
     assert task["design"]["questions"][0]["text"] == "Which?" and task["result"] is None
     first = json.loads(log.read_text().splitlines()[0])
     assert first["prompt"].startswith("Make it so")
+    assert "holds 10 records" in first["prompt"] and "types of its own" in first["prompt"]
+    # The draft keeps none of the workspace's types: the person is told, and may still accept.
+    assert [item["kind"] for item in task["design"]["checks"]] == ["leftOut"]
     assert {"workbook.xlsx", "model.json", "openapi.json"} <= set(first["files"])
     # The engine's guards go with every session, whatever the command says.
     assert first["args"][first["args"].index("--permission-mode") + 1] == "dontAsk"
@@ -638,6 +641,7 @@ def test_a_session_proposes_on_a_draft_goes_on_with_the_persons_words_and_loads_
     assert alone["state"] == "checked" and alone["draftId"] == draft["id"]
     said = json.loads(log.read_text().splitlines()[-1])
     assert said["prompt"].startswith("Rename the ledgers") and "There is no file" in said["prompt"]
+    assert "types of its own" not in said["prompt"]
     assert "workbook.xlsx" not in said["files"]
 
     gone = ok(world.api.post(f"/ai/tasks/{stopped['id']}/discard", {}), 200)

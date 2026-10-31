@@ -35,6 +35,14 @@ const render_ = (task: AiTask, extra: Partial<Parameters<typeof ModelProposal>[0
 };
 
 describe("ModelProposal", () => {
+  it("shows a type the workspace's model does not have yet by the name the engine gave", () => {
+    const task = proposal();
+    task.design!.outline = [{ objectTypeKey: "pc-offer", name: "Offer", text: "New type, 5 attributes, 12 records" }];
+    render_(task);
+    expect(screen.getByText("Offer")).toBeInTheDocument();
+    expect(screen.queryByText("pc-offer")).not.toBeInTheDocument();
+  });
+
   it("shows the outline, the checks and the earlier corrections", () => {
     render_(proposal());
     expect(screen.getByText(/is one booked visit/)).toBeInTheDocument();

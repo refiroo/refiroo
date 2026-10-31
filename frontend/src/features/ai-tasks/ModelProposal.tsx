@@ -84,7 +84,7 @@ export function ModelProposal({
           <ul className="task-sheet-list" aria-label="The types it proposes">
             {outline.map((item) => (
               <li key={item.objectTypeKey}>
-                <strong>{names.type(item.objectTypeKey)}</strong> {item.text}
+                <strong>{item.name ?? names.type(item.objectTypeKey)}</strong> {item.text}
               </li>
             ))}
           </ul>
@@ -92,7 +92,9 @@ export function ModelProposal({
         <p className="task-reason">Nothing is installed or loaded before you accept the model.</p>
         {check && (
           <Notice tone={check.summary.refused > 0 ? "warning" : "success"} title="The check of every row">
-            {count(check.summary.created)} new, {count(check.summary.updated)} changed,{" "}
+            {count(check.summary.created)} new,{" "}
+            {!!check.summary.relationships && <>{count(check.summary.relationships)} relationships, </>}
+            {count(check.summary.updated)} changed,{" "}
             {count(check.summary.unchanged)} unchanged, {count(check.summary.refused)} refused.
             {check.refused.length > 0 && (
               <ul className="task-sheet-list">

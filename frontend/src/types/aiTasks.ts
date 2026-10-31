@@ -287,7 +287,7 @@ export interface AiTaskLinkCheck {
 /** What the assistant designed for a workbook (0.16 AP6). */
 export interface AiTaskDesignCheckItem {
   id: string;
-  kind: "reuse" | "grouping" | "translations" | "bothEnds";
+  kind: "reuse" | "grouping" | "translations" | "bothEnds" | "leftOut";
   text: string;
   /** Needs the person's attention. */
   open: boolean;
@@ -298,7 +298,7 @@ export interface AiTaskDesign {
   /** "model": the proposed model awaits the person; "load" (and absent): the sheets are mapped and checked. */
   stage?: "model" | "load";
   /** One plain sentence per proposed type. */
-  outline?: { objectTypeKey: string; text: string }[];
+  outline?: { objectTypeKey: string; name?: string; text: string }[];
   checks?: AiTaskDesignCheckItem[];
   /** The person's corrections to the proposal, newest last. */
   corrections?: string[];

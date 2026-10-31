@@ -5,7 +5,7 @@ import subprocess
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-from app.engine.tasks.agent import _steps, _stop_earlier
+from app.engine.tasks.agent import _left_out, _shape, _starting_point, _steps, _stop_earlier
 
 NOW = datetime(2026, 10, 31, 12, tzinfo=UTC)
 
@@ -69,3 +69,39 @@ def test_a_session_left_by_a_stopped_worker_is_ended_and_another_process_is_not(
         other.wait()
         if left.poll() is None:
             left.kill()
+
+
+def _type(key, *attributes):
+    return {"key": key, "name": key.title(), "attributes": [{"key": a} for a in attributes]}
+
+
+def test_the_shape_names_what_a_proposal_adds_changes_or_loads_and_leaves_the_rest_out():
+    base = {"objectTypes": [_type("kept", "a"), _type("grown", "a"), _type("loaded", "a")]}
+    model = {
+        "objectTypes": [
+            _type("kept", "a"),
+            _type("grown", "a", "b"),
+            _type("loaded", "a"),
+            _type("fresh", "a", "b", "c"),
+        ]
+    }
+    shape = _shape(model, base, {"loaded": 1, "fresh": 1200})
+    assert [(item["name"], item["text"]) for item in shape] == [
+        ("Grown", "Changed type, 2 attributes"),
+        ("Loaded", "1 attribute, 1 record"),
+        ("Fresh", "New type, 3 attributes, 1,200 records"),
+    ]
+
+
+def test_types_holding_records_that_a_model_drops_are_flagged_and_empty_ones_are_not():
+    base = {"objectTypes": [_type("held"), _type("empty")]}
+    assert _left_out({"objectTypes": [_type("held")]}, base, {"held": 3}) == []
+    assert _left_out({"objectTypes": []}, base, {}) == []
+    found = _left_out({"objectTypes": []}, base, {"held": 3})
+    assert found[0]["open"] and "Held (3)" in found[0]["text"]
+
+
+def test_what_the_workspace_holds_decides_whether_the_session_adds_or_may_start_anew():
+    assert "add to it" in _starting_point({"a": 2, "b": 1})
+    assert "3 records" in _starting_point({"a": 2, "b": 1})
+    assert "new one" in _starting_point({})
