@@ -158,7 +158,7 @@ export const security = {
     ),
   client: (clientId: string) => request<Client>(`/api/v1/clients/${id(clientId)}`),
   /** A client and its first secret, answered this once. */
-  createClient: (body: { name: string }) => request<ClientWithSecret>("/api/v1/clients", json("POST", body)),
+  createClient: (body: { name: string; kind?: "api" | "agent" }) => request<ClientWithSecret>("/api/v1/clients", json("POST", body)),
   updateClient: (clientId: string, body: { expectedVersion: number; name?: string; active?: boolean }) =>
     request<Client>(`/api/v1/clients/${id(clientId)}`, json("PATCH", body)),
   /** A new secret, answered once; the others keep working for `overlapHours` (0 stops them now). */

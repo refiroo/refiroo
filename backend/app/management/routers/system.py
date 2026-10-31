@@ -38,6 +38,7 @@ from ..projections.operations import (
     rehearsal_response,
     summary_response,
 )
+from ..schemas.agent_access import McpSystemInfo
 from ..schemas.system import (
     ActiveModelRelease,
     BackupRehearsalPage,
@@ -80,6 +81,7 @@ def get_system(request: Request, session: DbSession) -> SystemResponse:
         ),
         product=_instance_product(session),
         ai=ai_projection.system_info(request.app.state.ai),
+        mcp=McpSystemInfo(enabled=request.app.state.identity_settings.agent_access),
     )
 
 

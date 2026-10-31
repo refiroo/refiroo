@@ -15,6 +15,7 @@ export type * from "@/types/operations";
 export type * from "@/types/mail";
 export type * from "@/types/ai";
 export type * from "@/types/aiTasks";
+export type * from "@/types/agentAccess";
 export type * from "@/types/security";
 export type * from "@/types/inbox";
 export type * from "@/types/ui";

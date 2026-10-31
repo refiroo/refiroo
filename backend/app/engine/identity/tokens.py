@@ -1,7 +1,7 @@
 """Access tokens: JWTs signed with ES256 that prove who calls, never what they may do (D226, D258).
 
-Claims: ``iss`` (``PUBLIC_URL``), ``sub`` (the principal's public ID), ``aud`` (``management`` or
-``consumer``), ``iat``, ``exp``, ``jti``, ``principalKind`` and, for a person, ``sid``, the browser
+Claims: ``iss`` (``PUBLIC_URL``), ``sub`` (the principal's public ID), ``aud`` (``management``,
+``consumer`` or ``agent``), ``iat``, ``exp``, ``jti``, ``principalKind`` and, for a person, ``sid``, the browser
 session the token was issued in (I2). Verification accepts ES256 alone and
 requires every claim; what PyJWT refuses becomes a reason the API names.
 """
@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 from . import keys
 from .settings import IdentitySettings
 
-Audience = Literal["management", "consumer"]
-AUDIENCES: tuple[Audience, ...] = ("management", "consumer")
+Audience = Literal["management", "consumer", "agent"]
+AUDIENCES: tuple[Audience, ...] = ("management", "consumer", "agent")
 PrincipalKind = Literal["user", "client"]
 PRINCIPAL_KINDS: tuple[PrincipalKind, ...] = ("user", "client")
 ALGORITHM = "ES256"

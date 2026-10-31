@@ -6,9 +6,11 @@ instance (Z1).
 """
 
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Query, Request, Response
 
+from ...engine.agent_access import applications
 from ...engine.identity import (
     keys,
     links,
@@ -108,7 +110,10 @@ def list_my_sessions(
 ) -> SessionPage:
     """Where the caller is signed in: their open sessions, ``current`` marking this one."""
     page = sessions.session_page(session, _person(principal), page=paging, page_size=page_size)
-    return present.session_page(page, principal.session_id)
+    names = applications.names(
+        session, {i.agent_application_id for i in page.items if i.agent_application_id}
+    )
+    return present.session_page(page, principal.session_id, names)
 
 
 @router.delete("/me/sessions/{session_id}", status_code=204)
@@ -438,11 +443,14 @@ def list_clients(
     paging: PageQuery,
     q: str | None = Query(default=None, max_length=200),
     active: bool | None = None,
+    kind: Literal["api", "agent"] | None = None,
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> ClientPage:
-    """OAuth clients in the order they were created; ``q`` matches the name (D300)."""
+    """OAuth clients in the order they were created; ``q`` matches the name (D300), ``kind`` keeps
+    API or agent clients (0.16 AG-D14)."""
     return present.client_page(
-        session, client_page(session, q=q, active=active, page=paging, page_size=page_size)
+        session,
+        client_page(session, q=q, active=active, kind=kind, page=paging, page_size=page_size),
     )
 
 

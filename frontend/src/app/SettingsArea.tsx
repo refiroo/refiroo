@@ -24,6 +24,7 @@ import { ClientsPage } from "@/features/security/ClientsPage";
 import { SignInPage } from "@/features/security/SignInPage";
 import { SigningKeysPage } from "@/features/security/SigningKeysPage";
 import { AiTaskPage } from "@/features/ai-tasks/AiTaskPage";
+import { AgentAccessPage } from "@/features/settings/AgentAccessPage";
 import { AiPage } from "@/features/settings/AiPage";
 import { MailPage } from "@/features/settings/MailPage";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
@@ -169,6 +170,8 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
         <SignInPage route={route} onNavigate={(next) => navigate(next)} />
       ) : route.page === "signing-keys" ? (
         <SigningKeysPage />
+      ) : route.page === "agent-access" ? (
+        <AgentAccessPage onNavigate={(next) => navigate(next)} />
       ) : route.page === "ai" ? (
         <AiPage />
       ) : route.page === "mail" ? (

@@ -321,6 +321,9 @@ export function securityEventTitle(event: SecurityEvent, labels: ReadonlyMap<str
       if (event.action === "identity-unlinked") return `Sign-in with ${text(details.provider)} unlinked`;
       return USER_ACTIONS[event.action] ?? event.action;
     case "client": {
+      if (event.action === "application-registered") return `Registered the assistant ${text(details.name)}`;
+      if (event.action === "application-blocked") return `Blocked the assistant ${text(details.name)}`;
+      if (event.action === "application-restored") return `Restored the assistant ${text(details.name)}`;
       if (event.action === "created") return "Client created";
       if (event.action === "secret-added") {
         const hours = typeof details.overlapHours === "number" ? details.overlapHours : undefined;

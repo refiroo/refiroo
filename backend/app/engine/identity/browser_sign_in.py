@@ -14,6 +14,7 @@ from typing import Literal
 from sqlalchemy.orm import Session
 
 from ...models.database import User
+from ..agent_access import applications
 from . import providers, second_factor, sign_in
 from .settings import IdentitySettings
 
@@ -42,13 +43,21 @@ class RequestRefused:
 
 
 def check_request(
-    settings: IdentitySettings, fields: dict[str, str | None]
+    settings: IdentitySettings, fields: dict[str, str | None], session: Session | None = None
 ) -> dict[str, str] | RequestRefused:
-    """The authorization request's fields when the engine may serve it; otherwise why not."""
+    """The authorization request's fields when the engine may serve it; otherwise why not. With
+    ``session``, the client may also be an assistant people sign in with (0.16 AG-D12); the
+    application's own sign-in screen passes none."""
     redirect_uri = fields.get("redirect_uri") or ""
-    if fields.get("client_id") != sign_in.BROWSER_CLIENT_ID or (
-        redirect_uri not in settings.redirect_uris()
-    ):
+    client_id = fields.get("client_id")
+    if client_id == sign_in.BROWSER_CLIENT_ID:
+        known = redirect_uri in settings.redirect_uris()
+    else:
+        application = (
+            applications.usable(session, settings, client_id) if session is not None else None
+        )
+        known = application is not None and applications.accepts(application, redirect_uri)
+    if not known:
         return RequestRefused("unknown_client")
     state = fields.get("state")
     if fields.get("response_type") != "code":
@@ -91,6 +100,7 @@ def _issue(session: Session, checked: dict[str, str], user: User, now: datetime)
         code_challenge=checked["code_challenge"],
         signed_in_with="password",
         now=now,
+        client_id=checked["client_id"],
     )
     return SignedIn(code, checked)
 
@@ -170,7 +180,7 @@ def second_factor_step(
     if loaded is None:
         return StepGone()
     row, user = loaded
-    checked = check_request(settings, dict(row.request))
+    checked = check_request(settings, dict(row.request), session)
     if isinstance(checked, RequestRefused):
         return checked
 

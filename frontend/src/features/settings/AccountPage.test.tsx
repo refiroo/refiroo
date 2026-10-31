@@ -35,10 +35,11 @@ const firefox = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:131.0) Gecko/20
 const iphone =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 
-const session = (id: string, current: boolean, userAgent: string) => ({
+const session = (id: string, current: boolean, userAgent: string, application: string | null = null) => ({
   id,
   current,
   signedInWith: "password",
+  application,
   userAgent,
   createdAt: "2026-10-23T08:12:00Z",
   lastUsedAt: "2026-10-23T09:00:00Z",
@@ -153,6 +154,16 @@ describe("Settings › Account (0.12 I2)", () => {
     );
     fireEvent.click(within(table).getByRole("button", { name: "Sign out Firefox on macOS, this browser" }));
     expect(signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the assistant a session was opened for", async () => {
+    vi.mocked(api.mySessions).mockResolvedValue([
+      session("s1", true, firefox),
+      session("s3", false, "", "Claude Code"),
+    ]);
+    renderPage();
+    const list = await screen.findByRole("list", { name: "Where you’re signed in" });
+    expect(within(list).getByText("Claude Code (assistant)")).toBeInTheDocument();
   });
 
   it("signs out everywhere after confirming", async () => {

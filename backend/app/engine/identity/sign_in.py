@@ -210,6 +210,7 @@ def issue_code(
     signed_in_with: str,
     now: datetime,
     provider_id_token: bytes | None = None,
+    client_id: str = BROWSER_CLIENT_ID,
 ) -> str:
     """A one-time code for a person who has just proved who they are; with the provider's ID token
     (sealed) when its provider signs people out too (I4a). Commits."""
@@ -218,7 +219,7 @@ def issue_code(
         AuthorizationCode(
             code_hash=digest(code),
             user_id=user.id,
-            client_id=BROWSER_CLIENT_ID,
+            client_id=client_id,
             redirect_uri=redirect_uri,
             code_challenge=code_challenge,
             signed_in_with=signed_in_with,
@@ -244,6 +245,8 @@ def redeem_code(
     redirect_uri: str,
     user_agent: str | None,
     now: datetime | None = None,
+    client_id: str = BROWSER_CLIENT_ID,
+    application_id: int | None = None,
 ) -> tuple[UserSession, User, str]:
     """Exchange a code and its PKCE verifier for a new session and its first refresh token. A code
     presented a second time ends the session the first started (RFC 6749 §4.1.2). Commits."""
@@ -268,6 +271,7 @@ def redeem_code(
     held, stored.provider_id_token = stored.provider_id_token, None
     valid = (
         now < stored.expires_at
+        and stored.client_id == client_id
         and stored.redirect_uri == redirect_uri
         and _VERIFIER.match(verifier) is not None
         and challenge_of(verifier) == stored.code_challenge
@@ -284,6 +288,7 @@ def redeem_code(
         user_agent=user_agent,
         now=now,
         provider_id_token=held,
+        application_id=application_id,
     )
     stored.session_id = user_session.id
     session.commit()

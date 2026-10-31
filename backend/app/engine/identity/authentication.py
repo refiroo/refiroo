@@ -10,6 +10,7 @@ the reason otherwise.
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -55,6 +56,8 @@ class Principal:
     generation: int = 0
     # The API the token is for (D260): the consumer routes read it (Z3, D308).
     audience: Audience = "management"
+    # The assistant a person's ``agent`` session was started for (0.16 AG-D12); never shown.
+    application_row_id: int | None = None
 
 
 def required() -> ApiError:
@@ -144,6 +147,7 @@ def authenticate(
             principal.id,
             row[2],
             _audience(claims),
+            user_session.agent_application_id,
         )
     return Principal(
         "client",
@@ -162,4 +166,5 @@ def _audience(claims: dict[str, object]) -> Audience:
     """The token's one audience (``aud`` is a string or a one-item list)."""
     audience = claims["aud"]
     value = audience[0] if isinstance(audience, list) else audience
-    return "consumer" if value == "consumer" else "management"
+    assert value in tokens.AUDIENCES
+    return cast(Audience, value)

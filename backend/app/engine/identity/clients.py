@@ -89,7 +89,7 @@ def create_client(
     secret = _new_secret()
 
     def change() -> OAuthClient:
-        client = OAuthClient(name=payload.name, active=True)
+        client = OAuthClient(name=payload.name, active=True, kind=payload.kind)
         session.add(client)
         session.flush()
         session.add(
@@ -102,7 +102,7 @@ def create_client(
         session.flush()
         security_events.record(
             session, "client", client.public_id, "created", about=[client.public_id],
-            details={"name": client.name, "roles": list(roles)},
+            details={"name": client.name, "kind": client.kind, "roles": list(roles)},
         )  # fmt: skip
         return client
 
@@ -251,6 +251,7 @@ def client_page(
     active: bool | None,
     page: PageRequest,
     page_size: int,
+    kind: str | None = None,
 ) -> Page[OAuthClient]:
     """Clients in the order they were created; ``q`` matches the name (D300)."""
     statement = select(OAuthClient)
@@ -258,12 +259,14 @@ def client_page(
         statement = statement.where(name_contains(OAuthClient.name, q))
     if active is not None:
         statement = statement.where(OAuthClient.active.is_(active))
+    if kind is not None:
+        statement = statement.where(OAuthClient.kind == kind)
     return paginate_statement(
         session,
         statement,
         keys=_KEYS,
         scope="clients",
-        filters={"q": q, "active": active},
+        filters={"q": q, "active": active, **({"kind": kind} if kind else {})},
         page=page,
         page_size=page_size,
         message="Client list cursor is invalid",

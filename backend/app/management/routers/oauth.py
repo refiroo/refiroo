@@ -14,15 +14,16 @@ import base64
 import binascii
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import unquote, urlencode, urlsplit
 
-from fastapi import APIRouter, Depends, Form, Header, Query, Request, Response
+from fastapi import APIRouter, Body, Depends, Form, Header, Query, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...common.route_markers import reads_own_parameters
+from ...engine.agent_access import applications
 from ...engine.identity import (
     browser_sign_in,
     keys,
@@ -44,7 +45,7 @@ from ...models.commands import (
     PasskeyRegistration,
     PasskeyRegistrationStart,
 )
-from ...models.database import SignInProvider, User
+from ...models.database import AgentApplication, SignInProvider, User
 from .. import sign_in_pages as pages
 from ..dependencies import DbSession, started
 
@@ -96,10 +97,47 @@ def server_metadata(request: Request) -> dict[str, object]:
         "grant_types_supported": GRANT_TYPES,
         "token_endpoint_auth_methods_supported": AUTH_METHODS,
         "revocation_endpoint_auth_methods_supported": ["none"],
-        "scopes_supported": list(tokens.AUDIENCES),
+        "scopes_supported": _scopes(_settings(request)),
         "response_types_supported": ["code"],
         "code_challenge_methods_supported": ["S256"],
+        **(
+            {"registration_endpoint": f"{issuer}/oauth/register"}
+            if _settings(request).agent_access and _settings(request).agent_open_registration
+            else {}
+        ),
     }
+
+
+def _scopes(settings: IdentitySettings) -> list[str]:
+    """The tokens this instance issues: ``agent`` only with agent access on."""
+    return [item for item in tokens.AUDIENCES if item != "agent" or settings.agent_access]
+
+
+def _protected_resource(request: Request) -> Response:
+    settings = _settings(request)
+    if not settings.agent_access:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return JSONResponse(
+        {
+            "resource": applications.endpoint(settings),
+            "authorization_servers": [settings.issuer],
+            "scopes_supported": ["agent"],
+            "bearer_methods_supported": ["header"],
+        }
+    )
+
+
+@router.get("/.well-known/oauth-protected-resource")
+def protected_resource(request: Request) -> Response:
+    """The MCP endpoint as a protected resource (RFC 9728), with agent access on (0.16 AG-D12):
+    which authorization server signs an assistant in."""
+    return _protected_resource(request)
+
+
+@router.get("/.well-known/oauth-protected-resource/mcp")
+def protected_resource_of_mcp(request: Request) -> Response:
+    """The same document at the address RFC 9728 derives from ``/mcp``."""
+    return _protected_resource(request)
 
 
 # Checked before the request's session is opened: in maintenance mode the database may be unusable.
@@ -122,10 +160,23 @@ def _product(session: Session) -> str:
     return second_factor.product_name(session, "Sign in")
 
 
-def _origins(settings: IdentitySettings) -> tuple[str, ...]:
-    return tuple(
-        f"{urlsplit(uri).scheme}://{urlsplit(uri).netloc}" for uri in settings.redirect_uris()
-    )
+def _origins(settings: IdentitySettings, checked: dict[str, str] | None = None) -> tuple[str, ...]:
+    """Where the page's form may lead: the browser's addresses and, for a sign-in an assistant
+    asked for, the checked address it returns to."""
+    uris = list(settings.redirect_uris())
+    if checked is not None and checked.get("client_id") != sign_in.BROWSER_CLIENT_ID:
+        uris.append(checked["redirect_uri"])
+    return tuple(f"{urlsplit(uri).scheme}://{urlsplit(uri).netloc}" for uri in uris)
+
+
+def _assistant(
+    session: Session, settings: IdentitySettings, checked: dict[str, str]
+) -> tuple[str, str] | None:
+    """Who asks and where they return, for a sign-in an assistant asked for (AG-D13)."""
+    application = applications.usable(session, settings, checked.get("client_id"))
+    if application is None:
+        return None
+    return application.name, applications.returns_to(checked["redirect_uri"])
 
 
 def _redirect(redirect_uri: str, **params: str | None) -> RedirectResponse:
@@ -139,7 +190,7 @@ def _authorization_request(
     """The authorization request's fields when the page may serve it; otherwise its answer: an
     explanation for an unknown client or address, which is never redirected to (RFC 6749 §4.1.2.1),
     or a redirect carrying the error. The rules are ``browser_sign_in.check_request`` (D415)."""
-    checked = browser_sign_in.check_request(settings, fields)
+    checked = browser_sign_in.check_request(settings, fields, session)
     if not isinstance(checked, browser_sign_in.RequestRefused):
         return checked
     return _refusal(session, settings, checked)
@@ -176,10 +227,14 @@ def authorize_page(
     state: str | None = None,
     session_ended: Annotated[str | None, Query(alias="session")] = None,
     local: str | None = None,
+    scope: str | None = None,
+    resource: str | None = None,
 ) -> Response:
     """The engine's sign-in page for the browser (the authorization code flow with PKCE ``S256``).
     ``session=ended`` adds that the person's session ended; ``local=1`` shows the password form
-    while local sign-in is off (D365)."""
+    while local sign-in is off (D365). ``scope`` and ``resource`` are what an assistant sends (0.16
+    AG-D12): an assistant's token is always ``agent``, and ``resource`` must name this instance."""
+    del scope
     settings = _settings(request)
     fields = {
         "response_type": response_type,
@@ -192,12 +247,21 @@ def authorize_page(
     checked = _authorization_request(session, settings, fields)
     if isinstance(checked, Response):
         return checked
+    assistant = _assistant(session, settings, checked)
+    if assistant and resource and not applications.names_this_instance(settings, resource):
+        return _redirect(
+            checked["redirect_uri"],
+            error="invalid_target",
+            error_description="resource does not name this instance's /mcp",
+            state=checked.get("state"),
+        )
     local_on = providers.local_enabled(session)
     return pages.sign_in(
         _product(session),
         checked,
         issuer=settings.issuer,
-        redirect_origins=_origins(settings),
+        redirect_origins=_origins(settings, checked),
+        assistant=assistant,
         ended=session_ended == "ended",
         providers=_buttons(session, checked),
         local=local_on,
@@ -287,7 +351,8 @@ def authorize_form(
             _product(session),
             checked,
             issuer=settings.issuer,
-            redirect_origins=origins,
+            redirect_origins=_origins(settings, checked),
+            assistant=_assistant(session, settings, checked),
             username=username,
             wrong=not slowed,
             wait_seconds=outcome.wait_seconds,
@@ -335,7 +400,7 @@ def _factor_page(
     """The page of a sign-in's second step: the code, or the set-up that the requirement asks of a
     person without a second factor (I4b, D388)."""
     status = 429 if wait_seconds else 401 if wrong else 200
-    common = {"issuer": settings.issuer, "redirect_origins": _origins(settings)}
+    common = {"issuer": settings.issuer, "redirect_origins": _origins(settings, checked)}
     if stage == "setup":
         try:
             made = second_factor.begin(session, settings, user, product, now, restart=fresh)
@@ -567,6 +632,7 @@ def provider_callback(
         signed_in_with=provider.key,
         now=now,
         provider_id_token=id_token,
+        client_id=checked["client_id"],
     )
     response = _redirect(checked["redirect_uri"], code=issued, state=checked.get("state"))
     response.delete_cookie(
@@ -810,6 +876,7 @@ def passkey_authentication_verify(
     code = sign_in.issue_code(
         session,
         done.user,
+        client_id=checked["client_id"],
         redirect_uri=checked["redirect_uri"],
         code_challenge=checked["code_challenge"],
         signed_in_with="password" if done.second_step else "passkey",
@@ -897,6 +964,75 @@ def _person_token(
     return response
 
 
+@router.post("/oauth/register", dependencies=_STARTED, status_code=201)
+def register_assistant(
+    request: Request, session: DbSession, payload: Annotated[dict[str, Any], Body()]
+) -> Response:
+    """An assistant registers itself (RFC 7591), with agent access on and ``MCP_OPEN_REGISTRATION``
+    (0.16 AG-D12). It is always a public client: it proves each sign-in with PKCE, holds no secret,
+    and returns only to this computer or a host in ``MCP_REDIRECT_HOSTS``. Errors are RFC 7591's
+    ``invalid_redirect_uri`` and ``invalid_client_metadata``; ``403`` with registration off; ``429``
+    while a thousand registrations are unused."""
+    settings = _settings(request)
+    if not settings.agent_access:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    if not settings.agent_open_registration:
+        return _error(403, "access_denied", "An administrator registers assistants here")
+    try:
+        application = applications.register(
+            session, settings, payload.get("client_name"), payload.get("redirect_uris")
+        )
+    except applications.RegistrationRefused as refused:
+        status = 429 if refused.error == "temporarily_unavailable" else 400
+        return _error(status, refused.error, refused.description)
+    return JSONResponse(
+        {
+            "client_id": application.public_id,
+            "client_id_issued_at": int(application.created_at.timestamp()),
+            "client_name": application.name,
+            "redirect_uris": application.redirect_uris,
+            "grant_types": ["authorization_code", "refresh_token"],
+            "response_types": ["code"],
+            "token_endpoint_auth_method": "none",
+            "scope": "agent",
+        },
+        status_code=201,
+        headers=_NO_STORE,
+    )
+
+
+def _assistant_token(
+    request: Request,
+    session: Session,
+    application: AgentApplication,
+    user_session_id: str,
+    user_public_id: str,
+    refresh_token: str,
+) -> JSONResponse:
+    """An assistant's token: ``agent`` only, its refresh token in the answer, not a cookie."""
+    settings = _settings(request)
+    application.last_used_at = datetime.now(UTC)
+    access_token = tokens.issue(
+        session,
+        settings,
+        subject=user_public_id,
+        kind="user",
+        audience="agent",
+        session_id=user_session_id,
+    )
+    session.commit()
+    return JSONResponse(
+        {
+            "access_token": access_token,
+            "token_type": "Bearer",
+            "expires_in": settings.access_token_seconds,
+            "scope": "agent",
+            "refresh_token": refresh_token,
+        },
+        headers=_NO_STORE,
+    )
+
+
 @router.post("/oauth/token", dependencies=_STARTED)
 def token(
     request: Request,
@@ -909,6 +1045,7 @@ def token(
     code_verifier: Annotated[str | None, Form()] = None,
     redirect_uri: Annotated[str | None, Form()] = None,
     refresh_token: Annotated[str | None, Form()] = None,
+    resource: Annotated[str | None, Form()] = None,
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> JSONResponse:
     """An access token. ``client_credentials``: a client's credentials, sent as
@@ -917,7 +1054,9 @@ def token(
     starts a session. ``refresh_token``: the session's refresh token, from the cookie (or the
     form), ``client_id=browser``; each is used once. The browser's grants answer a new refresh
     cookie. ``scope`` is ``management`` (the default) or ``consumer``, the API the token is for
-    (D260). The answer is RFC 6749's: ``access_token``, ``token_type: "Bearer"``, ``expires_in``
+    (D260). With agent access on (0.16 AG-D12, AG-D14), ``agent`` is the only token of an agent client
+    and of an assistant, whose ``client_id`` is its own and whose refresh token comes in the answer;
+    no other client or browser session gets it. The answer is RFC 6749's: ``access_token``, ``token_type: "Bearer"``, ``expires_in``
     and ``scope``."""
     if not grant_type:
         return _error(400, "invalid_request", "grant_type is required")
@@ -925,20 +1064,38 @@ def token(
         return _error(
             400, "unsupported_grant_type", f"This server issues tokens for {', '.join(GRANT_TYPES)}"
         )
-    audience = scope.strip() if scope and scope.strip() else "management"
-    if audience not in tokens.AUDIENCES:
-        return _error(
-            400, "invalid_scope", f"scope is one of {', '.join(tokens.AUDIENCES)}, not {scope!r}"
-        )
     settings = _settings(request)
+    asked = scope.strip() if scope and scope.strip() else None
+    audience = asked or "management"
+    if audience not in _scopes(settings):
+        return _error(
+            400, "invalid_scope", f"scope is one of {', '.join(_scopes(settings))}, not {scope!r}"
+        )
     if grant_type != "client_credentials":
-        if authorization or client_secret or client_id != sign_in.BROWSER_CLIENT_ID:
+        application = (
+            applications.usable(session, settings, client_id)
+            if client_id != sign_in.BROWSER_CLIENT_ID
+            else None
+        )
+        if (
+            authorization
+            or client_secret
+            or (client_id != sign_in.BROWSER_CLIENT_ID and application is None)
+        ):
             return _error(
                 401,
                 "invalid_client",
                 f"This grant is for the browser's client, client_id={sign_in.BROWSER_CLIENT_ID}, "
                 "with no secret",
             )
+        if application is not None:
+            if asked not in (None, "agent"):
+                return _error(400, "invalid_scope", "An assistant's token is always agent")
+            audience = "agent"
+            if resource and not applications.names_this_instance(settings, resource):
+                return _error(400, "invalid_target", "resource does not name this instance's /mcp")
+        elif audience == "agent":
+            return _error(400, "invalid_scope", "A browser session has no agent token")
         if grant_type == "authorization_code":
             if not code or not code_verifier or not redirect_uri:
                 return _error(
@@ -952,12 +1109,18 @@ def token(
                     verifier=code_verifier,
                     redirect_uri=redirect_uri,
                     user_agent=request.headers.get("user-agent"),
+                    client_id=client_id or sign_in.BROWSER_CLIENT_ID,
+                    application_id=application.id if application is not None else None,
                 )
             except sign_in.CodeRefused:
                 return _error(
                     400,
                     "invalid_grant",
                     "The code is unknown, expired or used, or its verifier or address differs",
+                )
+            if application is not None:
+                return _assistant_token(
+                    request, session, application, user_session.public_id, user.public_id, refresh
                 )
             return _person_token(
                 request,
@@ -968,15 +1131,33 @@ def token(
                 refresh,
                 user_session.ends_at,
             )
-        presented = refresh_token or request.cookies.get(REFRESH_COOKIE)
+        presented = refresh_token or (
+            None if application is not None else request.cookies.get(REFRESH_COOKIE)
+        )
         if not presented:
             return _error(400, "invalid_request", "No refresh token was sent")
         try:
-            renewed = sessions.renew(session, settings, presented, datetime.now(UTC))
+            renewed = sessions.renew(
+                session,
+                settings,
+                presented,
+                datetime.now(UTC),
+                application_id=application.id if application is not None else None,
+            )
         except sessions.SessionRefused:
             response = _error(400, "invalid_grant", "The session has ended; sign in again")
-            _clear_refresh_cookie(response, settings)
+            if application is None:
+                _clear_refresh_cookie(response, settings)
             return response
+        if application is not None:
+            return _assistant_token(
+                request,
+                session,
+                application,
+                renewed.user_session.public_id,
+                renewed.user.public_id,
+                renewed.refresh_token,
+            )
         return _person_token(
             request,
             session,
@@ -1010,6 +1191,14 @@ def token(
             "The client is unknown, inactive or its secret is wrong",
             challenge,
         )
+    if client.kind == "agent":
+        audience = "agent" if asked in (None, "agent") else ""
+    if not audience or (audience == "agent") != (client.kind == "agent"):
+        return _error(
+            400, "invalid_scope", "An agent client holds only agent tokens, and only it holds them"
+        )
+    if audience == "agent" and not settings.agent_access:
+        return _error(400, "invalid_scope", "Agent access is off on this instance")
     access_token = tokens.issue(
         session, settings, subject=client.public_id, kind="client", audience=audience
     )

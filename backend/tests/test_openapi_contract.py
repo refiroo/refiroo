@@ -368,9 +368,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # POST /ai/tasks/{id}/model and /accept, TaskDesign.stage, outline, checks and corrections.
     # Re-baselined for the assistant worker (additive): the thread name assistantWorker on
     # ProcessThread; with it removed the document hashes to the previous lock.
+    # Re-baselined for 0.16 AG1 (additive, diffed against HEAD in a worktree): the agent-access
+    # routes and schemas, the protected resource metadata, /oauth/register; resource on the token
+    # form, kind on clients, application on sessions and mcp on the system read.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "4b4bfdad32eeb795ddf277789e58914366b5a8403b789a6057992ce8d9f302a3"
+        "49f446b49b4f7ae04cf1262f2b0b8dc4cee0723050614c58eed3720c27339272"
     )
 
 
@@ -417,8 +420,8 @@ def test_paging_openapi_inventory():
     # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets; 0.12
     # Z6 the changes across workspaces; 0.12 I3 the sign-in providers; 0.12 I4c a person's passkeys,
     # their own and an administrator's; 0.12 M1 the mail outbox; 0.12 A1 the publication requests; 0.12 A2 the inbox;
-    # 0.16 AP1 the AI provider's calls; 0.16 AP6a the assistant's tasks and a task's changes.
-    assert seekable <= paged and len(paged) == 68
+    # 0.16 AP1 the AI provider's calls; 0.16 AP6a the assistant's tasks and a task's changes; 0.16 AG1 agent clients, assistants and calls.
+    assert seekable <= paged and len(paged) == 71
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",
@@ -747,6 +750,9 @@ OPEN_OPERATIONS = {
     ("get", "/health"),
     ("get", "/health/live"),
     ("get", "/.well-known/oauth-authorization-server"),
+    ("get", "/.well-known/oauth-protected-resource"),
+    ("get", "/.well-known/oauth-protected-resource/mcp"),
+    ("post", "/oauth/register"),
     ("get", "/oauth/jwks"),
     ("post", "/oauth/token"),
     ("post", "/oauth/revoke"),

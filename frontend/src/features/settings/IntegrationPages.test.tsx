@@ -33,6 +33,7 @@ const system = {
     activatedAt: "2026-10-07T08:00:00Z",
   },
   ai: { configured: false, provider: null, sendLevel: "structure" },
+  mcp: { enabled: false },
 } satisfies SystemResponse;
 
 // Two consumer APIs, one on each page of the index.

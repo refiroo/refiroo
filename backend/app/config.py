@@ -165,6 +165,16 @@ class Settings(BaseModel):
     # kept after it finished or was last changed (AP-D24).
     ai_max_steps: int = Field(default=40, ge=1)
     ai_task_retention_days: int = Field(default=90, ge=1)
+    # The assistant's Claude Code session (0.16 AP8); read where it starts (``engine/tasks/agent``).
+    ai_agent_command: str = ""
+    ai_agent_api_url: str = ""
+    ai_agent_sandbox: str = ""
+    # Agent access (0.16 AG1): ``/mcp`` exists only with it on.
+    mcp_enabled: bool = False
+    mcp_rate_per_minute: int = Field(default=120, ge=1)
+    mcp_open_registration: bool = True
+    mcp_redirect_hosts: tuple[str, ...] = ()
+    mcp_calls_days: int = Field(default=90, ge=1)
     # Export files and, from J2, uploads (D12, D55): one directory, created at start.
     job_file_dir: Path = DEFAULT_JOB_FILE_DIR
     # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
@@ -272,6 +282,19 @@ class Settings(BaseModel):
             ),
             ai_max_steps=_positive(env, "AI_MAX_STEPS", 40),
             ai_task_retention_days=_positive(env, "AI_TASK_RETENTION_DAYS", 90),
+            ai_agent_command=env.get("AI_AGENT_COMMAND", "").strip(),
+            ai_agent_api_url=env.get("AI_AGENT_API_URL", "").strip(),
+            ai_agent_sandbox=env.get("AI_AGENT_SANDBOX", "").strip(),
+            mcp_enabled=env.get("MCP_ENABLED", "false").strip().lower() in TRUTHY,
+            mcp_rate_per_minute=_positive(env, "MCP_RATE_PER_MINUTE", 120),
+            mcp_open_registration=env.get("MCP_OPEN_REGISTRATION", "true").strip().lower()
+            in TRUTHY,
+            mcp_redirect_hosts=tuple(
+                host.strip().lower()
+                for host in env.get("MCP_REDIRECT_HOSTS", "").split(",")
+                if host.strip()
+            ),
+            mcp_calls_days=_positive(env, "MCP_CALLS_DAYS", 90),
             job_file_dir=Path(env.get("JOB_FILE_DIR", "").strip() or DEFAULT_JOB_FILE_DIR),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
             consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
@@ -762,6 +785,57 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "ai",
         "Days an assistant task is kept after it finished (loaded, failed or cancelled) or was "
         "last changed; then it and its file are deleted",
+    ),
+    CatalogueEntry(
+        "AI_AGENT_COMMAND",
+        "ai_agent_command",
+        "runtime",
+        "The command that starts the assistant's Claude Code session, for example: claude --model "
+        "sonnet; empty, the assistant runs no session",
+    ),
+    CatalogueEntry(
+        "AI_AGENT_SANDBOX",
+        "ai_agent_sandbox",
+        "runtime",
+        "container when the engine runs in a container, where Claude Code's own sandbox cannot run; "
+        "empty, the operating system's sandbox",
+    ),
+    CatalogueEntry(
+        "AI_AGENT_API_URL",
+        "ai_agent_api_url",
+        "runtime",
+        "The API address the assistant's session uses; empty, this instance's own",
+    ),
+    CatalogueEntry(
+        "MCP_ENABLED",
+        "mcp_enabled",
+        "ai",
+        "Whether assistants can reach the instance at /mcp; off, the endpoint does not exist",
+    ),
+    CatalogueEntry(
+        "MCP_RATE_PER_MINUTE",
+        "mcp_rate_per_minute",
+        "ai",
+        "Tool calls one person or client may make through /mcp in a minute",
+    ),
+    CatalogueEntry(
+        "MCP_OPEN_REGISTRATION",
+        "mcp_open_registration",
+        "ai",
+        "Whether an assistant may register itself; off, only those an administrator registers "
+        "can sign people in",
+    ),
+    CatalogueEntry(
+        "MCP_REDIRECT_HOSTS",
+        "mcp_redirect_hosts",
+        "ai",
+        "HTTPS hosts a self-registered assistant may return to, besides this computer",
+    ),
+    CatalogueEntry(
+        "MCP_CALLS_DAYS",
+        "mcp_calls_days",
+        "ai",
+        "Days a record of a tool call through /mcp is kept",
     ),
 )
 

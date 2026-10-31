@@ -39,6 +39,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
 | F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
 | F28 | Send mail | Settings › Integration › Mail | The organisation's mail server saved with its password sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1 |
+| F30 | Reach refiroo from an assistant | Settings › Security › Agent access; an assistant, at `/mcp` | An assistant signs in or uses an agent client, works within what its person or client may do, and never approves or publishes |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
 (`frontend/e2e/`). The acceptance runs are recorded in the release plans.
@@ -1547,3 +1548,11 @@ Limits:
 Evidence: [AI contract](../API.md#ai-proposals-product-016), [OPERATIONS](../OPERATIONS.md#ai-proposals),
 [provider](../../backend/app/engine/proposals/), [AI page](../../frontend/src/features/settings/AiPage.tsx),
 [J48](../../backend/tests/journeys/test_j48_ai_proposals.py), [AP1 runner](../../frontend/e2e/ap1-ai.mjs).
+
+## F30 — Reach refiroo from an assistant
+
+With agent access on, an assistant that speaks MCP connects to this instance's address. A person adds the address to their assistant and signs in on refiroo's own page, which says who asks and where it returns. A system's assistant uses an agent client, created under Settings › Security › **Agent access**, where its access is set like any client's.
+
+Either way the assistant works within what its person or client may do, cut down to reading and preparing changes. It never approves or publishes. So far it can say who it acts as and list the workspaces it may read; reading data and preparing changes come with the next packages.
+
+On the same page a security administrator sees how to connect, the agent clients, the assistants people sign in with, and each call with the names of its arguments. Blocking an assistant or deactivating a client stops it on its next call. A person sees their assistant among their sessions and can end it there.

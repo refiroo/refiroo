@@ -8,7 +8,7 @@ test process talks to many databases cloned from one seed, whose principals shar
 """
 
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from threading import Lock
 from typing import Literal
 
@@ -16,7 +16,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from ...models.database import Grant, Role, RoleActionGroup, UserGroup, UserGroupMember
-from .catalogue import GROUPS, PREDEFINED_ROLES
+from .catalogue import AGENT_CEILING, GROUPS, PREDEFINED_ROLES
 
 PrincipalKind = Literal["user", "client"]
 
@@ -114,6 +114,16 @@ class Permissions:
             applications=frozenset(key for item in granting for key in item.applications),
             record_types=frozenset(key for item in granting for key in item.record_types),
         )
+
+    def within_agent_ceiling(self) -> Permissions:
+        """What an ``agent`` token may do of these: each grant cut down to the ceiling, and a grant
+        with nothing left dropped; consumer API grants stand (0.16 AG-D15)."""
+        holdings = (
+            replace(holding, groups=kept)
+            for holding in self.holdings
+            if (kept := tuple(group for group in holding.groups if group in AGENT_CEILING))
+        )
+        return Permissions(tuple(holdings), self.consumer_apis)
 
     def groups_in(self, workspace_key: str | None) -> list[Holding]:
         """The holdings that apply in ``workspace_key`` (instance ones included)."""

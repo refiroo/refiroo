@@ -14,7 +14,7 @@ const certificate = process.env.DEV_HTTPS_CERT && process.env.DEV_HTTPS_KEY;
 // The engine's paths, which the application calls on its own address (0.12 DP1, D404, D406): the dev
 // server forwards them to the engine at `ENGINE_URL`, so one address serves a browser, a phone on the
 // network and the sign-in cookie alike. Everything else is the application. `/metrics` stays inside.
-const enginePaths = ["/api", "/oauth", "/.well-known", "/docs", "/openapi.json", "/health"];
+const enginePaths = ["/api", "/oauth", "/mcp", "/.well-known", "/docs", "/openapi.json", "/health"];
 const engine = process.env.ENGINE_URL || "http://localhost:8000";
 // Why the engine could not be reached, in words an operator can act on, from the proxy's error code.
 function unreachable(cause: NodeJS.ErrnoException): string {

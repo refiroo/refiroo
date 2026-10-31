@@ -170,6 +170,17 @@ def wait_text(seconds: int) -> str:
     return f"{minutes} minute{'s' if minutes != 1 else ''}"
 
 
+def _assistant_note(assistant: tuple[str, str]) -> str:
+    name, returns_to = assistant
+    return (
+        '<div class="note info" role="note"><p><strong>An assistant asks to work as you.</strong> '
+        f"It calls itself <strong>{escape(name)}</strong>. After you sign in it returns to "
+        f"<strong>{escape(returns_to)}</strong>.</p><p>It can read what you can read and prepare "
+        "changes for approval. It can't approve or publish. If you didn't start this, close this "
+        "page.</p></div>"
+    )
+
+
 def sign_in(
     product: str,
     request_fields: dict[str, str],
@@ -185,17 +196,22 @@ def sign_in(
     local: bool = True,
     local_link: str | None = None,
     passkey: bool = False,
+    assistant: tuple[str, str] | None = None,
 ) -> HTMLResponse:
     """The sign-in page: the authorization request's fields travel in the form, hidden. With
+    ``assistant`` (the name it claims, where it returns) the page says who asks and signing in is
+    the consent (0.16 AG-D13). With
     ``passkey`` it offers **Sign in with a passkey** above the form (I4c) and loads the engine's
     script. Each of
     ``providers`` (name, start address) is a "Continue with" button below the form (I3). With local
     sign-in off the page shows the buttons and a link to ``local_link``, where the form is shown
     with ``local`` false for the administrators who keep it (D365)."""
+    allow = " and allow" if assistant else ""
     buttons = "".join(
-        f'<a class="button" href="{escape(url)}">Continue with {escape(name)}</a>'
+        f'<a class="button" href="{escape(url)}">Continue with {escape(name)}{allow}</a>'
         for name, url in providers
     )
+    asking = _assistant_note(assistant) if assistant else ""
     if local_link is not None:
         ended_note = (
             _note("info", "Your session ended. Sign in again to return to where you were.")
@@ -204,6 +220,7 @@ def sign_in(
         )
         body = (
             "<h1>Sign in</h1>"
+            + asking
             + ended_note
             + buttons.replace('class="button"', 'class="button primary"')
             + f'<p class="aside"><a href="{escape(local_link)}">Sign in with a local administrator '
@@ -240,7 +257,7 @@ def sign_in(
         notes[-1] = notes[-1].replace("<p ", '<p id="sign-in-problem" ', 1)
     offer = (
         '<button type="button" class="button primary" data-passkey="login">'
-        f"{_PASSKEY_ICON}Sign in with a passkey</button>"
+        f"{_PASSKEY_ICON}Sign in with a passkey{allow}</button>"
         + _PASSKEY_NOTE
         + '<p class="or">or with a password</p>'
         if passkey
@@ -248,6 +265,7 @@ def sign_in(
     )
     body = (
         "<h1>Sign in</h1>"
+        + asking
         + "".join(notes)
         + offer
         + '<form method="post" action="/oauth/authorize">'
@@ -262,7 +280,7 @@ def sign_in(
         + f'autocomplete="current-password" required{invalid}'
         + (" autofocus" if username else "")
         + "></div>"
-        + '<button type="submit">Sign in</button></form>'
+        + f'<button type="submit">Sign in{allow}</button></form>'
         + (
             ""
             if local

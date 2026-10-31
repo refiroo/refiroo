@@ -309,6 +309,18 @@ ACTIONS: dict[str, Action] = {
             doing="Security administration",
         ),
         Action(
+            "agent-access.read",
+            ("security-admin",),
+            "Read agent access: its settings, assistants, agent clients and calls",
+            doing="Reading agent access",
+        ),
+        Action(
+            "agent-access.write",
+            ("security-admin",),
+            "Register, block and restore the assistants people sign in with",
+            doing="Changing agent access",
+        ),
+        Action(
             "jobs.use",
             ("bulk", "browse", "copy-move", "model-release", "change-sets", "model-authoring"),
             "Read, follow, cancel and confirm a job, by the group that starts its kind (D285)",
@@ -346,7 +358,12 @@ PREDEFINED_ROLES: dict[str, tuple[str, ...]] = {
     "integration-admin": ("integration-admin", "feed", "ai-proposals"),
     "operator": ("operations",),
     "security-admin": ("security-admin",),
+    # The most any ``agent`` token holds, whoever it is for (0.16 AG-D15): reading and preparing
+    # changes, never publishing or approving.
+    "agent": ("browse", "change-sets"),
 }
+
+AGENT_CEILING: frozenset[str] = frozenset(PREDEFINED_ROLES["agent"])
 
 # What the first administrator holds at the instance (D282); the migration granted the same to
 # every principal that existed before Z1.

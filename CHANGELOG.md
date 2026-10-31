@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (agent access)
+
+- **An assistant can reach refiroo (0.16 AG1).** With `MCP_ENABLED`, an assistant that speaks MCP connects at `/mcp`. A person adds the address and signs in on refiroo's own page, which says who asks and where it returns; a system uses an agent client. It works within what its person or client may do, cut down to reading and preparing changes, and can never approve or publish. Two tools so far: who it acts as, and the workspaces it may read.
+- **Settings › Security › Agent access** shows how to connect, the agent clients, the assistants people sign in with and each call, with argument names and never their values. Blocking an assistant or deactivating a client stops it on its next call. People see their assistant among their sessions.
+- API: `/agent-access` and its lists, `kind` on clients, `application` on sessions, `mcp` on `GET /system`, `/.well-known/oauth-protected-resource`, `POST /oauth/register`. Settings: `MCP_ENABLED`, `MCP_RATE_PER_MINUTE`, `MCP_OPEN_REGISTRATION`, `MCP_REDIRECT_HOSTS`, `MCP_CALLS_DAYS`.
+
 ### Fixed (the AI import)
 
 - **A session's own jobs run:** an assistant's session held the only job worker while it worked, so a

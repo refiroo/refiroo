@@ -73,9 +73,12 @@ from sqlalchemy.orm import Session
 
 from ...common.outage import OutageLog, database_unavailable
 from ...common.time import as_utc
+from ...config import get_settings
 from ...errors import ApiError, api_error
 from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job, SourceFile
+from ..agent_access import applications
+from ..agent_access import calls as agent_calls
 from ..authorization.requesters import job_writer
 from ..authorization.writes import set_writer
 from ..imports.binding import ImportLimits, bind_import
@@ -282,6 +285,8 @@ class JobWorker:
             # A task and its file go once its retention is over (0.16 AP6a, AP-D24).
             superseded_files += task_store.expire(session, now)
             inbox.expire(session, now)
+            agent_calls.expire(session, now, get_settings().mcp_calls_days)
+            applications.expire(session, now)
             session.commit()
             if self.files is not None:
                 for source_file_id in superseded_files:

@@ -91,13 +91,16 @@ def me_response(session: Session, principal: Principal) -> MeResponse:
     )
 
 
-def session_page(page: Page[UserSession], current: str | None) -> SessionPage:
+def session_page(
+    page: Page[UserSession], current: str | None, applications: dict[int, str] | None = None
+) -> SessionPage:
     return SessionPage(
         items=[
             SessionResponse(
                 id=item.public_id,
                 current=item.public_id == current,
                 signedInWith=item.signed_in_with,
+                application=(applications or {}).get(item.agent_application_id or 0),
                 userAgent=item.user_agent,
                 createdAt=item.created_at,
                 lastUsedAt=item.last_used_at,
@@ -204,6 +207,7 @@ def _client_responses(session: Session, clients: list[OAuthClient]) -> list[Clie
             id=client.public_id,
             name=client.name,
             active=client.active,
+            kind=client.kind,
             version=client.version,
             createdAt=client.created_at,
             updatedAt=client.updated_at,

@@ -3538,3 +3538,16 @@ a.account-reach-app:hover {
     flex: none;
   }
 }
+
+/* The command line that connects Claude Code, on Agent access (0.16 AG1). */
+.agent-command {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  overflow-x: auto;
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre;
+}

@@ -3,9 +3,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, Request, status
 from sqlalchemy import Integer, select
+from sqlalchemy.orm import Session
 
-from ...common.pagination import integer_key, paginate_statement, text_key
+from ...common.pagination import PageRequest, integer_key, paginate_statement, text_key
 from ...engine.authorization.administration import known_groups
+from ...engine.authorization.permissions import Permissions
 from ...engine.authorization.visibility import in_workspaces
 from ...engine.model.workspace_models import assignments_of, load_assignment
 from ...engine.reads.feed import read_feed
@@ -54,20 +56,17 @@ read_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["wo
 admin_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["workspaces"])
 
 
-@read_router.get("/workspaces", response_model=WorkspacePage)
-@requires("workspaces.list", at=SIGNED_IN)
-def list_workspaces(
-    session: DbSession,
-    permissions: CurrentPermissions,
-    paging: PageQuery,
-    search: str | None = None,
-    workspace_status: Literal["active", "retired", "all"] = Query(default="active", alias="status"),
-    holding: str | None = Query(
-        default=None,
-        description="Only the workspaces where the caller holds this action group (D327)",
-    ),
-    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+def workspace_page(
+    session: Session,
+    permissions: Permissions,
+    paging: PageRequest,
+    *,
+    search: str | None,
+    workspace_status: Literal["active", "retired", "all"],
+    holding: str | None,
+    page_size: int,
 ) -> WorkspacePage:
+    """A page of the workspaces the caller may see; the route's and the agent tool's one query."""
     statement, filters = build_workspace_query(search, workspace_status)
     groups = frozenset(known_groups([holding])) if holding is not None else None
     if holding is not None:
@@ -86,6 +85,31 @@ def list_workspaces(
         message="Workspace cursor is invalid",
     )
     return WorkspacePage(items=workspace_page_items(session, page.items), **page.links())
+
+
+@read_router.get("/workspaces", response_model=WorkspacePage)
+@requires("workspaces.list", at=SIGNED_IN)
+def list_workspaces(
+    session: DbSession,
+    permissions: CurrentPermissions,
+    paging: PageQuery,
+    search: str | None = None,
+    workspace_status: Literal["active", "retired", "all"] = Query(default="active", alias="status"),
+    holding: str | None = Query(
+        default=None,
+        description="Only the workspaces where the caller holds this action group (D327)",
+    ),
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> WorkspacePage:
+    return workspace_page(
+        session,
+        permissions,
+        paging,
+        search=search,
+        workspace_status=workspace_status,
+        holding=holding,
+        page_size=page_size,
+    )
 
 
 @read_router.get("/me/workspaces", response_model=OwnWorkspacePage)

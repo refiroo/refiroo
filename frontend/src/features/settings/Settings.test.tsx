@@ -45,6 +45,7 @@ const system: SystemResponse = {
     activatedAt: "2026-10-06T08:00:00Z",
   },
   ai: { configured: false, provider: null, sendLevel: "structure" },
+  mcp: { enabled: false },
 };
 
 const configuration: SystemConfiguration = {

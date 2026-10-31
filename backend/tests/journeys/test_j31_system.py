@@ -71,7 +71,7 @@ def test_read_what_the_deployment_runs(world):
     }
     # What the deployment runs is for anyone signed in; how it is configured is not in it (D246).
     # The instance's product, which a person with no workspace reads too (0.12 HM1, D338).
-    assert set(system) == {"engine", "schemaLanguages", "activeModelRelease", "product", "ai"}
+    assert set(system) == {"engine", "schemaLanguages", "activeModelRelease", "product", "ai", "mcp"}
     # Whether an AI provider is set, for a client to offer an AI action only then (0.16 AP1).
     assert system["ai"] == {
         "configured": False,

@@ -611,6 +611,10 @@ class ClientCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: PrincipalName
+    kind: Literal["api", "agent"] = Field(
+        default="api",
+        description="agent: holds only agent tokens, for /mcp; api: management or consumer tokens",
+    )
 
 
 class ClientUpdate(BaseModel):

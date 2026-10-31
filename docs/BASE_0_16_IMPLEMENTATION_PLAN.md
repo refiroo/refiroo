@@ -1136,6 +1136,105 @@ predefined role and its action group in the catalogue, the audit `channel` colum
 reporting `mcp: {enabled}`, Settings › Agent access (clients, last use, counts, how to connect
 including the URL and the sign-in), `MCP_ENABLED`, `MCP_RATE_PER_MINUTE` in OPERATIONS.md.
 
+### AG1 in detail (planned 2026-10-31, approved by the user the same day with the mock-up)
+
+Mock-up: [AG1 Agent access](https://claude.ai/artifact/TqCG2VCdQV1Cti6Y6cgnCo) (a Design canvas, not kept in the
+repository). Reference patterns: the AI page (`AiPage`) for a setting read from the environment, the Clients page for
+a client's detail, secret and access, which are reused and not copied.
+
+**Checked against the code and the MCP specification of 2025-11-25.** Four things in the scope above do not hold as written:
+
+- **"The existing OAuth flow" cannot sign in an assistant.** `check_request` and `/oauth/token` accept only
+  `client_id=browser` and the configured redirect addresses, and the refresh token goes in a cookie. The specification
+  also requires protected resource metadata (RFC 9728), which the engine does not have. AG-D2's person sign-in needs AG-D12.
+- **An `agent` token would read as `management`:** `_audience()` in `authentication.py` turns every value but
+  `consumer` into `management`. It must name each audience.
+- **A session is not tied to an audience:** `/oauth/token` issues whichever `scope` is asked for on a refresh, so a
+  refresh token held by an assistant could obtain a management token (AG-D12).
+- **The current MCP SDK breaks the test harness:** `mcp` 2.x requires `httpx2`, which Starlette's test client then
+  prefers. AP1 found this break with the Anthropic SDK (AG-D11).
+
+| # | Decision | Why |
+| --- | --- | --- |
+| AG-D11 | **`mcp>=1.30,<2`.** A dry run against the shared environment adds `mcp`, `httpx-sse` and `sse-starlette` and moves nothing. 1.30 speaks protocol 2025-11-25. Stateless, JSON answers, a session manager per application started in `lifespan`, `Origin` and `Host` checked from `PUBLIC_URL`. | 2.x would change the test client for everyone using the environment. Stateless needs no affinity between processes. Moving to 2.x waits until the harness moves to `httpx2`. |
+| AG-D12 | **An assistant is a registered application, and a person signs in for it.** New: `/.well-known/oauth-protected-resource` and its `/mcp` form, the 401's `resource_metadata`, `POST /oauth/register` (RFC 7591), the table `agent_applications`, and `user_sessions.agent_application_id`. A public client with PKCE; `resource` must be this instance's `/mcp` when sent. Open registration (`MCP_OPEN_REGISTRATION`, default on) accepts loopback addresses and HTTPS hosts in `MCP_REDIRECT_HOSTS` (default none); anything else is registered by an administrator. Unused registrations are removed after 30 days. Client ID Metadata Documents are not built. **A session is bound:** one started for an application issues only `agent`, with its refresh token in the answer's body and rotated by the existing `sessions.renew`; a browser session never issues `agent`. | Registration is what Claude Code uses by default; a metadata document makes the engine fetch addresses an unknown caller names, a request-forgery risk and outbound traffic a closed deployment may not have. The session rows give sign-in rules, ending a session and "revoked on the next call" with no new mechanism. |
+| AG-D13 | **The sign-in page is the consent.** When an application sent the person, the page says who asks (its own claimed name), where it returns (the host, which the specification requires shown), what it can and cannot do, and the buttons read "… and allow". Password, passkey, provider and second factor run unchanged. | Every sign-in route ends in `issue_code`; one banner in `check_request`'s page needs no extra state or step. An open registration can claim any name, so the page says the name is claimed. |
+| AG-D14 | **`oauth_clients.kind`: `api` (existing) or `agent`.** An agent client gets only `scope=agent`, an API client never does. The AP8 session's client stays `api`. | An agent principal can then never hold a token that reaches an approve route (AG-D5), enforced at issue and not by each route. |
+| AG-D15 | **The `agent` role holds `browse` and `change-sets`; the same set is the ceiling** for every `agent` token, applied to the permissions read after the cache. A person needs no new grant: their own roles cut down to the ceiling. A client needs a grant as usual. `publish` and `approve` are not in it; consumer API grants pass unchanged. | AG-D3 as code, one definition. `change-sets` carries no capability until AG3 adds tools, and only the tools are reachable on this audience. |
+| AG-D16 | **Revises AG-D6. Each call is a row in a new `agent_calls` table, not an audit event:** who, application, tool, argument names (never values), outcome, duration, request ID; removed after `MCP_CALLS_DAYS` (90). **The audit `channel` column moves to AG3**, its first writer. | Today reads write no audit entry, and rows per read in `audit_events` would be permanent and sit in the trail that holds changes. `ai_calls` is the precedent; so is AP1 moving `origin` to its first writer, because nothing could write or test it earlier. |
+| AG-D17 | **The rate limit is a count over `agent_calls` in the last minute,** per principal, on tool calls: `MCP_RATE_PER_MINUTE` (120), a tool error with the seconds to wait. | One statement, right across processes, no new store. |
+| AG-D18 | **Two tools prove the registry:** `describe_access` (always: who I am, my ceiling, my workspaces) and `list_workspaces` (needs Browse somewhere, paged, the service function of `GET /workspaces`). A tool declares the group it needs; one the principal lacks is not listed and is refused if called. | The journey "lists only the tools its grants allow" cannot run with no tools. AG2 adds to the same registry. |
+
+**Scope.**
+
+- **Engine:** `engine/agent_access/` (settings, applications and registration, the call log, the limit, the ceiling, the
+  tool registry); `tokens.py` and `_audience()`; `/oauth/token`, `check_request` and `issue_code` for applications; the
+  `agent` scope offered only while MCP is on.
+- **Endpoint:** `management/routers/mcp.py` mounted only with `MCP_ENABLED`. The token is checked by `authenticate` on
+  every request, so revoking applies on the next call. `/mcp` joins the proxy paths in `frontend/nginx/snippets/locations.inc.template`
+  and `frontend/vite.config.ts`.
+- **API:** `GET /agent-access` (status and totals), `GET /agent-access/calls`, `GET` and `POST /agent-access/applications`,
+  `POST …/applications/{id}/block` and `/restore`; `kind` on `POST` and `GET /clients`; `application` on `GET /me/sessions`;
+  `mcp: {enabled}` on `GET /system`. Action `agent-access.read` and the writes under Security administration.
+- **Migration, one file:** `agent_applications`, `agent_calls`, `oauth_clients.kind`,
+  `user_sessions.agent_application_id`, the `agent` role row.
+- **Frontend:** Settings › Security › Agent access as in the mock-up. An agent client opens the existing client page, and
+  New agent client reuses the existing dialog with its one-time secret. The person's sessions list names the assistant.
+- **Documents:** API.md, OPERATIONS.md (settings, and the prompt-injection stance of AG-D8), ARCHITECTURE.md, USER_JOURNEYS
+  J51, API_JOURNEYS, CURRENT_FUNCTIONALITY, PRODUCT, UI_ACCEPTANCE, EXECUTION_GUIDE, CHANGELOG.
+
+**Out of scope:** reading data and the model (AG2), writing and `channel` (AG3), Client ID Metadata Documents, a stdio bridge.
+
+**Tests, J51, through the endpoint with the SDK's client on two model configurations:**
+
+1. **Off:** `/mcp`, the resource metadata and `/oauth/register` answer 404, and `scope=agent` is refused.
+2. **A client:** made as `agent`, granted, connects and lists its tools; without Browse, `list_workspaces` is neither
+   listed nor callable. Deactivated, it is refused on the next call.
+3. **Audiences, in every direction:** an `agent` token is refused by `/api/v1` and the consumer API; management and
+   consumer tokens are refused by `/mcp`; an agent client asking for `management` and an API client asking for `agent` are refused.
+4. **A person through an assistant:** a 401 leads to metadata, registration, sign-in with PKCE, a tool call and a rotated
+   refresh. The same refresh token asking for `management` is refused, and a browser session asking for `agent` is refused.
+   Ending the session, or blocking the application, stops it on the next call.
+5. **The ceiling:** a person holding Approve and Publish keeps neither on this audience (`describe_access`).
+6. **Registration:** an outside HTTP or unlisted HTTPS address is refused; with open registration off, only a registered
+   application signs in.
+7. **Limit and log:** the call past the limit is refused with its wait; a row names the argument, not its value.
+
+One browser runner: the page at 1440px and 390px, by keyboard, with the sign-in banner.
+
+**The real try:** one sign-in with Claude Code through the dev server, since the SDK's client cannot prove a real client's
+discovery. It needs `MCP_ENABLED=true` in `.dev/settings.env` and the user's restart, and the user's own password in the
+browser. The bounded R try stays as AG-D10 says.
+
+**Working beside other sessions:** install the packages first, as the dev server imports what `main.py` names on save. The
+migration's `down_revision` and `HEAD` in `test_startup.py` are taken from the head at the moment of writing, the file
+written in one go (WM1 also adds a migration). The OpenAPI lock is re-baselined last and diffed for AG1's additions only. J51 is
+checked for being free before use. Commits hold AG1's hunks only.
+
+**Door check (ADR-032):** identity gains a client kind and an application on a session, additive; audit and history are untouched
+in AG1. No door closes.
+
+**What the user cannot do after AG1:** ask an assistant about data or the model (AG2), or have it prepare a change (AG3). An
+assistant connects, signs in and sees where it may work, nothing more.
+
+### AG1 record (2026-10-31)
+
+**Delivered as planned**, with the build's tests below; the one real sign-in is the user's step and has not happened yet. Frontend built by a Sonnet agent from a brief.
+
+**Where it differs from the plan:**
+
+- `GET /agent-access/clients` was added: the page's call counts per client need it.
+- The five `MCP_*` settings sit in the `ai` settings group, beside the rest of this release's settings.
+- AG-D11's `Host` check is left out: only `Origin` is checked. A proxy's forwarded host differs by deployment, and a bearer token carries no ambient authority.
+- Registrations use the `client` security events (`application-registered`, `-blocked`, `-restored`), so the audit index's aggregate list stays as it is.
+- `/mcp` loads the SDK on every start, flag or not: the boundary test refuses a deferred import in `app.main`.
+
+**Checks:** J51: 16 passed (two configurations). J39, J40, J41 with J51: 168 passed; an earlier run of the same set had one J51 failure under parallel load (`test_an_assistant_never_holds_approve_or_publish`, generated-b), whose log was not kept; it passed alone three times and in the rerun, cause not established. `contract` and `startup`: 284 passed, 4 failed, all from WM1's uncommitted migration `20261120_02` (the `HEAD` pin and the `model_drafts` rule). OpenAPI lock re-baselined, additive, diffed against HEAD. Frontend: `tsc -b`, `npm run build`, focused Vitest, `test:browser:agent-access` (18 checks, axe 0 violations).
+
+**Not verified:** a real assistant's sign-in and discovery. Claude Desktop's and claude.ai's return addresses.
+
+**What the user cannot do yet:** ask an assistant about data or the model (AG2), or have it prepare a change (AG3).
+
 ## AG2: Read tools and resources
 
 **Journeys:** "what is the code of this value in the webshop system?" is answered from a consumer

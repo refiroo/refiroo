@@ -166,6 +166,8 @@ export type SettingsRoute =
   /** Integration › Mail: the SMTP connection and the outbox (0.12 M1). */
   | { kind: "settings"; page: "mail" }
   | { kind: "settings"; page: "ai" }
+  /** Security › Agent access (0.16 AG1). */
+  | { kind: "settings"; page: "agent-access" }
   | {
       kind: "settings";
       page: "webhooks";

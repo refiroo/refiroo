@@ -2,7 +2,7 @@
 
 ## In progress — Base 0.16 (AI integration)
 
-[Planned](BASE_0_16_IMPLEMENTATION_PLAN.md) 2026-10-27. **AP1, the proposal provider, is delivered
+[Planned](BASE_0_16_IMPLEMENTATION_PLAN.md) 2026-10-27. **AG1, agent access, is delivered (2026-10-31)** ([plan and record](BASE_0_16_IMPLEMENTATION_PLAN.md#ag1-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-the-mock-up)): `/mcp`, assistant sign-in, agent clients, Settings › Security › Agent access; reading (AG2) and preparing changes (AG3) follow. **AP1, the proposal provider, is delivered
 (2026-10-28)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap1-record-2026-10-28)): `AI_*` settings and the send
 levels, the Claude and OpenAI-compatible adapters, the call record, Use AI proposals, Settings › AI, the
 inference's assistant on the provider with provenance. **AP2, targets for unmapped values, is delivered

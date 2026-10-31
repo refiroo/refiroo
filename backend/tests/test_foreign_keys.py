@@ -94,6 +94,10 @@ RULES = {
     # deleted (D237), so a row naming one keeps it.
     ("jobs", "requested_by_user_id"): ("users", "RESTRICT"),
     # 0.16 AP1: who asked the AI provider, kept as a job keeps its requester.
+    ("agent_calls", "application_id"): ("agent_applications", "SET NULL"),
+    ("agent_calls", "client_id"): ("oauth_clients", "RESTRICT"),
+    ("agent_calls", "user_id"): ("users", "RESTRICT"),
+    ("user_sessions", "agent_application_id"): ("agent_applications", "CASCADE"),
     ("ai_calls", "requested_by_user_id"): ("users", "RESTRICT"),
     ("ai_calls", "requested_by_client_id"): ("oauth_clients", "RESTRICT"),
     # An assistant task (0.16 AP6a): its requester is kept; its workbook goes with it.

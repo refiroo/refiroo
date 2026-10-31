@@ -46,7 +46,7 @@ type ClientsRoute = Extract<SettingsRoute, { page: "clients" }>;
 const CLIENTS: ClientsRoute = { kind: "settings", page: "clients" };
 
 /** A new secret, and whether it came with a new client or replaced earlier ones. */
-type Made = { client: ClientWithSecret; created: boolean; overlapHours?: number };
+export type Made = { client: ClientWithSecret; created: boolean; overlapHours?: number };
 
 /** Clients read in a page of this size. */
 const CATALOGUE_PAGE = 50;
@@ -111,6 +111,13 @@ export function ClientsPage({ route, onNavigate }: { route: ClientsRoute; onNavi
             <CatalogueEntry
               icon="api"
               title={client.name}
+              pill={
+                client.kind === "agent" ? (
+                  <StatusPill tone="neutral" marker={false}>
+                    Agent
+                  </StatusPill>
+                ) : undefined
+              }
               subtitle={
                 <>
                   {clientAccessLine(client)}
@@ -176,7 +183,7 @@ export function ClientsPage({ route, onNavigate }: { route: ClientsRoute; onNavi
 }
 
 /** The secret just made, shown once with the client ID it goes with (D350, D352). */
-function SecretDialog({ client, created, overlapHours, onClose }: Made & { onClose: () => void }) {
+export function SecretDialog({ client, created, overlapHours, onClose }: Made & { onClose: () => void }) {
   const previous = client.secrets.find((secret) => secret.id !== client.secretId && secret.expiresAt);
   return (
     <ShownOnceDialog
@@ -211,10 +218,13 @@ function SecretDialog({ client, created, overlapHours, onClose }: Made & { onClo
   );
 }
 
-function NewClientDialog({
+/** The New client dialog; an agent client (0.16 AG1) is made from Agent access and starts with no access too. */
+export function NewClientDialog({
+  kind = "api",
   onClose,
   onCreated,
 }: {
+  kind?: "api" | "agent";
   onClose: () => void;
   onCreated: (client: ClientWithSecret) => void;
 }) {
@@ -226,7 +236,7 @@ function NewClientDialog({
     setPending(true);
     setError("");
     try {
-      onCreated(await security.createClient({ name: name.trim() }));
+      onCreated(await security.createClient({ name: name.trim(), kind }));
     } catch (cause) {
       setError(errorMessage(cause));
       setPending(false);
@@ -234,7 +244,14 @@ function NewClientDialog({
   }
 
   return (
-    <Modal title="New client" eyebrow="Security" size="compact" busy={pending} dirty={!!name} onClose={onClose}>
+    <Modal
+      title={kind === "agent" ? "New agent client" : "New client"}
+      eyebrow="Security"
+      size="compact"
+      busy={pending}
+      dirty={!!name}
+      onClose={onClose}
+    >
       <form
         noValidate
         onSubmit={(event) => {
@@ -242,7 +259,14 @@ function NewClientDialog({
           void create();
         }}
       >
-        <FormField label="Name" help="The system that will call the API, as people will recognise it.">
+        <FormField
+          label="Name"
+          help={
+            kind === "agent"
+              ? "The system whose assistant will connect, as people will recognise it."
+              : "The system that will call the API, as people will recognise it."
+          }
+        >
           {(control) => (
             <input
               {...control}
@@ -254,7 +278,10 @@ function NewClientDialog({
             />
           )}
         </FormField>
-        <p className="admin-hint">It starts with no access: grant it a role or a consumer API on its page.</p>
+        <p className="admin-hint">
+          It starts with no access: grant it {kind === "agent" ? "the Agent role" : "a role"} or a consumer API on its
+          page.
+        </p>
         {error && (
           <Notice tone="error" title="The client was not created">
             {error}
@@ -369,6 +396,11 @@ function ClientDetail({
               <StatusPill tone="success">Active</StatusPill>
             ) : (
               <StatusPill tone="neutral">Deactivated</StatusPill>
+            )}
+            {client.kind === "agent" && (
+              <StatusPill tone="neutral" marker={false}>
+                Agent
+              </StatusPill>
             )}
             <StatusPill tone="neutral" marker={false}>
               {client.lastUsedAt ? `Last token ${formatServerDayTime(client.lastUsedAt)}` : "No token yet"}

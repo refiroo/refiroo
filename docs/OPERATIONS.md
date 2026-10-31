@@ -858,6 +858,11 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
 | `AI_REASONING_EFFORT` | empty | `openai-compatible` only: sends `reasoning_effort` (`none`, `low`, `medium`, `high`), how much the model reasons before it answers. Empty sends nothing. A local thinking model (Qwen through Ollama) can reason for minutes on a short request: `none` makes it answer directly |
 | `AI_CONTEXT_TOKENS` | empty | The model's context window in tokens, for a model with a small one (a local model): a feature sizes each call to half of it, sending fewer records per call. The workbook assistant's design needs at least 65536: below it the model goes out without its attributes. Leave it empty for a hosted model. Empty: no limit beyond the feature's own batch. Ollama serves a model with its own window (4,096 by default, `OLLAMA_CONTEXT_LENGTH` when it starts), whatever the model supports: set this to that number |
 | `AI_MAX_STEPS` | 40 | The calls to the provider one job of an assistant task (a workbook loaded with the assistant) may make: its reading, its meaning matches and its fixes each count. Reached, the task keeps what the rules read and the assistant had proposed, with a warning |
+| `MCP_ENABLED` | off | Whether assistants can reach the instance at `/mcp` ([Agent access](#agent-access)); off, the endpoint, its metadata and registration do not exist and no `agent` token is issued |
+| `MCP_RATE_PER_MINUTE` | 120 | Tool calls one person or client may make through `/mcp` in a minute; past it a call is refused with how long to wait |
+| `MCP_OPEN_REGISTRATION` | on | Whether an assistant may register itself; off, only those an administrator registers can sign people in |
+| `MCP_REDIRECT_HOSTS` | none | HTTPS hosts a self-registered assistant may return to, comma separated, besides this computer |
+| `MCP_CALLS_DAYS` | 90 | Days a record of a tool call through `/mcp` is kept |
 | `AI_TASK_RETENTION_DAYS` | 90 | Days an assistant task is kept after it finished (loaded, failed or cancelled) or was last changed; then the worker's sweep deletes it and its workbook. What was sent to the provider is never kept on a task (`AI_LOG_CONTENT` keeps it on the call record only) |
 | `AI_TIMEOUT_SECONDS` | 60 | Seconds one call may take; the Claude adapter tries a passing failure (overloaded, rate-limited, a server error, a timeout) up to three times |
 
@@ -899,6 +904,17 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
 - **Data protection:** a provider outside the organisation receives what the send level allows, under
   the organisation's own agreement with that provider. For data that may not leave, use
   `openai-compatible` with a model run inside the organisation, or `AI_SEND_LEVEL=structure`.
+
+## Agent access
+
+An assistant that speaks MCP can reach the instance at `/mcp`, with `MCP_ENABLED=true` and a restart; off, nothing of it exists. A reverse proxy in front of the engine must pass `/mcp` and `/.well-known/`; the shipped web image does. Security administrators see the address, the agent clients, the assistants and each call on Settings › Security › **Agent access**.
+
+- **A system's assistant** uses an agent client (made on that page), with a grant like any client, and asks for a token with `scope=agent`. An agent client holds no other token and no other client holds this one.
+- **A person's assistant** is added by its address and opens this instance's sign-in page. The page says who asks and where it returns; signing in is the consent. The person needs no new grant. The session appears in their sessions and ending it stops the assistant.
+- **What an assistant can do** is what its person or client may do, cut down to Browse and Work in change sets. It can never approve or publish, whatever the roles behind it.
+- **Registration:** with `MCP_OPEN_REGISTRATION` on, an assistant registers itself and may return only to this computer or a host in `MCP_REDIRECT_HOSTS`. The name it gives is its own claim, and the sign-in page says so. At most a thousand registrations may stand unused; those unused for 30 days with no open session are removed. Turned off, or for any other HTTPS address, an administrator registers it on the page. Blocking an assistant ends its sessions on their next call.
+- **Records:** each tool call is kept for `MCP_CALLS_DAYS` with its argument names, never their values. Nothing else about reads is written to the audit trail.
+- **Prompt injection:** reference data is data. Text in a record can reach an assistant through a tool answer, and an assistant may be misled by it. No tool follows text found in a record, the server tells the assistant so, and an assistant cannot approve, publish or write live, so the worst it can do is propose something a person then reviews. Treat what an assistant says about the data with that in mind.
 
 ## Webhook subscriptions
 

@@ -2442,6 +2442,7 @@ class OAuthClient(Base):
     """
 
     __tablename__ = "oauth_clients"
+    __table_args__ = (CheckConstraint("kind IN ('api', 'agent')", name="ck_oauth_clients_kind"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
@@ -2457,6 +2458,10 @@ class OAuthClient(Base):
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # ``agent``: holds only ``agent`` tokens, so it can never reach an approve route (0.16 AG-D14).
+    kind: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="api", server_default="api"
+    )
 
 
 class OAuthClientSecret(Base):
@@ -2521,7 +2526,14 @@ class UserSession(Base):
     """
 
     __tablename__ = "user_sessions"
-    __table_args__ = (Index("ix_user_sessions_user", "user_id", "id"),)
+    __table_args__ = (
+        Index("ix_user_sessions_user", "user_id", "id"),
+        Index(
+            "ix_user_sessions_agent_application",
+            "agent_application_id",
+            postgresql_where=text("agent_application_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
@@ -2536,6 +2548,11 @@ class UserSession(Base):
     ends_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
     ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     ended_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # The assistant the person signed in for: such a session issues only ``agent`` tokens, and a
+    # browser session never does (0.16 AG-D12).
+    agent_application_id: Mapped[int | None] = mapped_column(
+        ForeignKey("agent_applications.id", ondelete="CASCADE"), nullable=True
+    )
     # The provider's ID token, sealed, kept while the session is open when its provider signs
     # people out too (I4a, D380).
     provider_id_token: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
@@ -2853,6 +2870,84 @@ class AuthorizationState(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class AgentApplication(Base):
+    """An assistant people sign in with (0.16 AG-D12): a public OAuth client that registered itself
+    or that an administrator registered. ``name`` is what it says of itself. Its ``public_id`` is
+    the ``client_id``."""
+
+    __tablename__ = "agent_applications"
+    __table_args__ = (
+        CheckConstraint(
+            "source IN ('registered', 'administrator')", name="ck_agent_applications_source"
+        ),
+        Index("ix_agent_applications_order", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    redirect_uris: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
+    blocked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class AgentCall(Base):
+    """One tool call through ``/mcp`` (0.16 AG-D16): who, through which assistant, the tool, the
+    names of its arguments and never their values, how it ended. Removed after ``MCP_CALLS_DAYS``."""
+
+    __tablename__ = "agent_calls"
+    __table_args__ = (
+        CheckConstraint(
+            "num_nonnulls(user_id, client_id) = 1", name="ck_agent_calls_one_principal"
+        ),
+        CheckConstraint(
+            "outcome IN ('answered', 'refused', 'limited', 'failed')", name="ck_agent_calls_outcome"
+        ),
+        Index("ix_agent_calls_occurred", "occurred_at", "id"),
+        Index(
+            "ix_agent_calls_user",
+            "user_id",
+            "occurred_at",
+            postgresql_where=text("user_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_agent_calls_client",
+            "client_id",
+            "occurred_at",
+            postgresql_where=text("client_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_agent_calls_application",
+            "application_id",
+            postgresql_where=text("application_id IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
+    client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
+    )
+    application_id: Mapped[int | None] = mapped_column(
+        ForeignKey("agent_applications.id", ondelete="SET NULL"), nullable=True
+    )
+    tool: Mapped[str] = mapped_column(String(120), nullable=False)
+    arguments: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
 
 
 class AiCall(Base):

@@ -322,6 +322,13 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
         SECURITY,
         [
             "get /api/v1/action-groups",
+            "get /api/v1/agent-access",
+            "get /api/v1/agent-access/applications",
+            "post /api/v1/agent-access/applications",
+            "post /api/v1/agent-access/applications/{application_id}/block",
+            "post /api/v1/agent-access/applications/{application_id}/restore",
+            "get /api/v1/agent-access/calls",
+            "get /api/v1/agent-access/clients",
             "get /api/v1/clients",
             "post /api/v1/clients",
             "get /api/v1/clients/{client_id}",

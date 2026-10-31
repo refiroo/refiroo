@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from .agent_access import McpSystemInfo
 from .ai import AiSystemInfo
 from .common import CollectionPage
 
@@ -62,6 +63,8 @@ class SystemResponse(BaseModel):
     # Whether an AI provider is set, the most that may leave the instance (0.16 AP1); a client
     # offers an AI action only then.
     ai: AiSystemInfo
+    # Whether assistants can reach the instance at /mcp (0.16 AG1).
+    mcp: McpSystemInfo
 
 
 class SystemConfiguration(BaseModel):

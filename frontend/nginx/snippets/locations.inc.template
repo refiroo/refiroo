@@ -1,6 +1,6 @@
 # The engine's public paths are forwarded to the engine; everything else is the application
 # (0.12 DP2, D405, D406). /metrics is not public: monitoring reaches the engine's own port.
-location ~ ^/(api/|oauth/|\.well-known/|docs(/|$)|openapi\.json$|health(/|$)) {
+location ~ ^/(api/|oauth/|mcp$|\.well-known/|docs(/|$)|openapi\.json$|health(/|$)) {
     proxy_pass ${ENGINE_UPSTREAM};
     proxy_http_version 1.1;
     proxy_set_header Host $host;

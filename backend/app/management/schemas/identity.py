@@ -41,6 +41,9 @@ class SessionResponse(BaseModel):
     id: str
     current: bool = Field(description="The session the request's token was issued in")
     signedInWith: str
+    application: str | None = Field(
+        default=None, description="The assistant this session was started for (0.16 AG1)"
+    )
     userAgent: str | None = Field(description="The browser that signed in, as it named itself")
     createdAt: datetime
     lastUsedAt: datetime = Field(description="When the session was last renewed")
@@ -165,6 +168,9 @@ class ClientResponse(BaseModel):
     id: str = Field(description="The OAuth client_id")
     name: str
     active: bool = Field(description="False once deactivated; a client is never deleted")
+    kind: Literal["api", "agent"] = Field(
+        description="agent: holds only agent tokens, for /mcp (0.16 AG-D14)"
+    )
     version: int
     createdAt: datetime
     updatedAt: datetime

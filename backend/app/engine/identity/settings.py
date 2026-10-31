@@ -19,6 +19,11 @@ class IdentitySettings:
     session_days: int = 14
     password_reset_hours: int = 24
     password_min_length: int = 15
+    # Agent access (0.16 AG1): whether ``/mcp`` exists, whether an assistant may register itself and
+    # the HTTPS hosts it may then return to.
+    agent_access: bool = False
+    agent_open_registration: bool = True
+    agent_redirect_hosts: tuple[str, ...] = ()
 
     @property
     def secure_cookies(self) -> bool:

@@ -35,6 +35,7 @@ EndReason = Literal[
     "passwordReset",
     "providerDisabled",
     "identityUnlinked",
+    "applicationBlocked",
 ]
 
 # A used refresh token presented again within this long of its use renews from its successor once
@@ -89,6 +90,7 @@ def start(
     user_agent: str | None,
     now: datetime,
     provider_id_token: bytes | None = None,
+    application_id: int | None = None,
 ) -> tuple[UserSession, str]:
     """A new session for a person who has just signed in, with its first refresh token. The caller
     commits."""
@@ -98,6 +100,7 @@ def start(
         signed_in_with=signed_in_with,
         user_agent=(user_agent or None) and user_agent[:512],
         provider_id_token=provider_id_token,
+        agent_application_id=application_id,
         created_at=now,
         last_used_at=now,
         idle_ends_at=min(now + timedelta(hours=settings.session_idle_hours), ends_at),
@@ -151,12 +154,18 @@ def end_all(
 
 
 def renew(
-    session: Session, settings: IdentitySettings, refresh_token: str, now: datetime
+    session: Session,
+    settings: IdentitySettings,
+    refresh_token: str,
+    now: datetime,
+    *,
+    application_id: int | None = None,
 ) -> Renewed:
     """Use a refresh token once: the session goes on with a new one. A used token presented again
     ends its session (D251), except within ``REFRESH_REUSE_GRACE`` of its use while its successor is
     unused: then the session renews from the successor. A token presented after the session lapsed
-    also ends it. Commits either way."""
+    also ends it. A token of a session started for another assistant, or for the browser, renews
+    nothing and spends nothing (0.16 AG-D12). Commits either way."""
     row = session.execute(
         select(SessionRefreshToken, UserSession, User)
         .join(UserSession, UserSession.id == SessionRefreshToken.session_id)
@@ -167,6 +176,8 @@ def renew(
     if row is None:
         raise SessionRefused
     token, user_session, user = row
+    if user_session.agent_application_id != application_id:
+        raise SessionRefused
     if token.used_at is not None:
         # The successor is the session's next token: renewing issues it as the token is used.
         successor = (

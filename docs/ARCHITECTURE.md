@@ -1210,6 +1210,16 @@ warning, never a failed task:
   after the import (the worker's hook) writes the relationship rules as one background batch whose
   inputs are built by `INSERT … SELECT`.
 
+### Agent access (0.16)
+
+`/mcp` (`management/routers/mcp.py`) is the MCP SDK's stateless Streamable HTTP transport behind a token check, in the same process and mounted only with `MCP_ENABLED`, so any process serves any request. Tokens gain the audience `agent`; each request authenticates as any other, so a revocation applies on the next call.
+
+Two rules keep an assistant from ever holding more. An agent client (`oauth_clients.kind`) is issued only `agent` tokens, at the token endpoint rather than route by route. A person's session started for an assistant (`user_sessions.agent_application_id`) renews only for that assistant and issues only `agent`, while a browser session never does. On this audience a caller's permissions are cut to the `agent` role's groups after the cache (`Permissions.within_agent_ceiling`).
+
+Assistants are public OAuth clients in `agent_applications` (`engine/agent_access/applications.py`). Tools are a registry (`management/mcp_tools.py`) naming the action group each needs and calling what its route calls. Each call is a row in `agent_calls`, outside the audit trail since reads write no audit entry; the rate limit is a count over those rows, so it holds across processes.
+
+The SDK stays on 1.x: 2.x needs `httpx2`, which Starlette's test client then prefers, changing the whole test harness.
+
 ### Workspace migrations (0.11 V1)
 
 A migration (`engine/model/migrations.py`) is a background job of one workspace naming a target

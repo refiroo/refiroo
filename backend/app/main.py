@@ -69,6 +69,7 @@ from .management.errors import (
 from .management.query_parameters import refuse_unknown_parameters
 from .management.reference import api_reference_router
 from .management.routers import (
+    agent_access,
     ai,
     ai_tasks,
     attributes,
@@ -82,6 +83,7 @@ from .management.routers import (
     jobs,
     mail,
     mapping,
+    mcp,
     model,
     model_management,
     model_mappings,
@@ -345,6 +347,13 @@ async def lifespan(application: FastAPI):
         model_threads.stop()
 
 
+@asynccontextmanager
+async def _serving_mcp(application: FastAPI):
+    """The application's lifespan with the MCP transport running around it (0.16 AG1)."""
+    async with mcp.running(application), lifespan(application):
+        yield
+
+
 def create_app() -> FastAPI:
     settings = reload_settings()
     configure_logging(settings.log_format, settings.log_level)
@@ -358,7 +367,7 @@ def create_app() -> FastAPI:
         version=ENGINE_VERSION,
         license_info={"name": "GNU AGPL v3 or later", "identifier": ENGINE_LICENSE},
         description="The API of refiroo, an application built on the RDM engine: API-first, model-driven reference data management.",
-        lifespan=lifespan,
+        lifespan=_serving_mcp if settings.mcp_enabled else lifespan,
         # Every route accepts only the query parameters it declares (D-3).
         dependencies=[Depends(refuse_unknown_parameters)],
         # /docs is the Scalar reference page (api_reference_router), not Swagger UI or ReDoc.
@@ -427,6 +436,9 @@ def create_app() -> FastAPI:
         session_days=settings.session_days,
         password_reset_hours=settings.password_reset_hours,
         password_min_length=settings.password_min_length,
+        agent_access=settings.mcp_enabled,
+        agent_open_registration=settings.mcp_open_registration,
+        agent_redirect_hosts=settings.mcp_redirect_hosts,
     )
     application.state.subscription_settings = (
         SubscriptionSettings(
@@ -599,6 +611,7 @@ def create_app() -> FastAPI:
     application.include_router(identity.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(mail.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(ai.router, dependencies=MANAGEMENT_DEPENDENCIES)
+    application.include_router(agent_access.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(notifications.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(authorization.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(model.router, dependencies=MANAGEMENT_DEPENDENCIES)
@@ -648,6 +661,8 @@ def create_app() -> FastAPI:
             consumer_subscriptions.router, dependencies=MANAGEMENT_DEPENDENCIES
         )
     application.include_router(consumer_router.router)
+    if settings.mcp_enabled:
+        mcp.mount(application)
     return application
 
 

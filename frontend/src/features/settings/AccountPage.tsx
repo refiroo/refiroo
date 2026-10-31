@@ -288,7 +288,7 @@ function Sessions() {
         <div className="account-panel">
           <ul className="account-list" aria-label="Where you’re signed in">
             {sessions.map((session) => {
-              const name = browserName(session.userAgent);
+              const name = session.application ? `${session.application} (assistant)` : browserName(session.userAgent);
               return (
                 <li key={session.id} className="account-row">
                   <span className={session.current ? "account-tile current" : "account-tile"} aria-hidden="true">

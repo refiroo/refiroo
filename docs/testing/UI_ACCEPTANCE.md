@@ -412,6 +412,15 @@ Settings › AI on the Mail page's pattern. (The Propose dialog's assistant choi
 | AP1-2 | **Test request** and its result | `/settings/ai` | M1-2's test and `ui/Notice` | — | — | **C** (Sending…) | **B** (sent with Enter; "Answered in N ms by the model" and listed) | **C** (a failed call names what failed; the unit test shows it) | — | — | **B** | **B** (button focused and sent by Enter) | `ap1-ai`, `AiPage.test` |
 | AP1-3 | **Calls**: every request made, with Load more and the content on demand | `/settings/ai` | M1-3's settings table | **C** (Loading calls) | **B** (no call yet) | — | **B** (a test, who asked, tokens, duration), **C** (Failed with its sentence; the content disclosure when kept) | **C** (InlineError, Retry) | — | **C** | **B** (390px: the rows stack under their column names) | **C** (the content disclosure is a native details element, its scrolling block focusable; the run keeps no content, so only `AiPage.test` shows it) | `ap1-ai`, `AiPage.test` |
 
+### Surfaces added in 0.16 AG1
+
+Settings › Security › Agent access on the AI page's pattern; a client's detail is the Clients page's.
+
+| # | Surface | Route | Reference pattern | Loading | Empty | Pending | Success | Error | Conflict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| AG1-1 | **Agent access**: how to connect, agent clients, assistants, calls; off, one notice | `/settings/agent-access` | AI | Skeleton | Each table's empty state | Button busy | New client's secret shown once; a block shows in the row | Inline, with retry; a refused address in the dialog | — |
+| AG1-2 | **Sign-in for an assistant**: who asks, where it returns, the buttons "… and allow" | `/oauth/authorize` | Sign-in page | — | — | — | Returns to the assistant | The page's own | — |
+
 ### Surfaces added in 0.16 AP2
 
 The mapping grid's AI proposals and the record history's mark. Evidence `ap1-ai` is the AP2 part of the runner (the starter's outgoing and incoming mapping views, the fake provider); `MappingProposals.test` and `HistoryPanel.test` hold the unit cases.

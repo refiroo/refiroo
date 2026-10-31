@@ -2617,6 +2617,18 @@ AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409
 AI_TASK_NOTHING_TO_LOAD`, `409 IMPORT_PROFILE_EXISTS`, `413 IMPORT_TOO_LARGE`, `422
 UNSUPPORTED_FILE_FORMAT`.
 
+### J51 — Reach the engine from an assistant
+
+An operator turns agent access on (`MCP_ENABLED`). A system's assistant connects with an agent client; a person's assistant finds the sign-in from the protocol's own metadata and the person signs in for it. Either sees only what its grants allow, cut down to reading and preparing changes, and stops on its next call once revoked.
+
+- **J51.1 Off, nothing exists**: without `MCP_ENABLED`, `/mcp`, its metadata and registration do not exist, and no `agent` token is issued.
+- **J51.2 An agent client**: it lists only the tools its grants allow and a hidden tool is refused; each call is recorded with its argument names and never their values; deactivated, it stops on the next request.
+- **J51.3 Each token its own API**: an `agent` token is refused by the management and consumer APIs, theirs by `/mcp`; an agent client holds only `agent` tokens and only it does. A request with no token is told where to read how to sign in.
+- **J51.4 A person through an assistant**: metadata, registration, sign-in with PKCE on a page saying who asks, a tool call, a rotated refresh. The assistant's refresh token never gets another token, a browser session never gets `agent`; the person's sessions name the assistant, and ending that session stops it.
+- **J51.5 The ceiling**: a person holding Approve and Publish keeps neither through an assistant.
+- **J51.6 Registration**: a self-registered assistant returns only to this computer or a listed host; with `MCP_OPEN_REGISTRATION` off only one an administrator registered signs in; a blocked assistant signs nobody in and its sessions end.
+- **J51.7 The limit**: the call past `MCP_RATE_PER_MINUTE` is refused with its wait, and recorded.
+
 ## Guardrails kept from 0.7
 
 In J10, clear is offered only where empty is valid. Search continues beyond page one; large ambiguous

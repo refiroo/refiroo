@@ -97,6 +97,8 @@ export interface SystemResponse {
   product?: { name: string; description: string | null } | null;
   /** The AI provider, if one is set (0.16 AP1). */
   ai: AiSystemInfo;
+  /** Whether assistants can reach the instance (0.16 AG1). */
+  mcp: { enabled: boolean };
 }
 
 /** How the deployment is configured, for operators (`GET /api/v1/system/configuration`, D246). */

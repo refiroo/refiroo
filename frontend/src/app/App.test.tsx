@@ -68,6 +68,7 @@ describe("App", () => {
     // Import offers the AI assistant where a provider is set (0.16 AP6a): none is, here.
     vi.mocked(api.system).mockResolvedValue({
       ai: { configured: false, provider: null, sendLevel: "structure" },
+      mcp: { enabled: false },
     } as SystemResponse);
     const stored = new Map<string, string>();
     vi.stubGlobal("localStorage", {
@@ -310,6 +311,7 @@ describe("App", () => {
         activatedAt: "2026-09-05T00:00:00Z",
       },
       ai: { configured: false, provider: null, sendLevel: "structure" },
+      mcp: { enabled: false },
     });
     visit("/apps/test-app/views/domains?workspaceKey=west&search=cli");
     render(<App />);

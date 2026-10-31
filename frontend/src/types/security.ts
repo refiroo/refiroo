@@ -64,6 +64,8 @@ export interface SignInSession {
   id: string;
   current: boolean;
   signedInWith: string;
+  /** The assistant this session was opened for; null for a browser (0.16 AG1). */
+  application: string | null;
   userAgent: string | null;
   createdAt: string;
   lastUsedAt: string;
@@ -270,6 +272,8 @@ export interface ClientSecret {
 
 /** An OAuth client as Settings › Security › Clients shows it (0.12 I1, SP2). */
 export interface Client extends ClientSummary {
+  /** `agent`: holds only agent tokens, for the assistants' address (0.16 AG1). */
+  kind: "api" | "agent";
   version: number;
   createdAt: string;
   updatedAt: string;

@@ -7042,3 +7042,24 @@ code are kept in the design (`history`) and sent with the design so far.
   its items built in the database; after the design's import when it has one (`result.linksJobId`;
   the task stays `loading` until the batch finishes). A design of relationships alone is checked by
   these counts, with no dry run (`check.dryRunJobId` `null`).
+
+## Agent access (Product 0.16)
+
+An assistant reaches the instance at `/mcp` (MCP Streamable HTTP, protocol 2025-11-25, stateless, JSON answers) with `MCP_ENABLED`; off, `/mcp`, the resource metadata and `/oauth/register` answer `404` and no `agent` token is issued.
+
+**Tokens.** `/mcp` takes only `agent` tokens, and they reach nothing else. An agent client (`POST /clients` with `kind: "agent"`) asks with `scope=agent` or no scope, and any other scope is `invalid_scope`; an API client asking for `agent` is too. A person's assistant follows the protocol's discovery: a `401` from `/mcp` names `resource_metadata` and `scope="agent"`; `GET /.well-known/oauth-protected-resource/mcp` (also at the root form) names the authorization server; `POST /oauth/register` (RFC 7591: `client_name`, `redirect_uris`; always a public client) answers its `client_id`; `/oauth/authorize` and `/oauth/token` run the authorization code flow with PKCE. `resource`, when sent, must name this instance's `/mcp` (`invalid_target`). The token answer holds `refresh_token`, rotated on use; such a session issues only `agent`, and a browser session never does.
+
+**What an `agent` token may do** is the caller's grants, each cut down to Browse and Work in change sets. Consumer API grants stand. Tools a caller may not use are not listed and are refused if called.
+
+**Tools.** `describe_access`: who the connection acts as, its grants and consumer APIs. `list_workspaces` (needs Browse somewhere): the active workspaces it may read, with `search`, `cursor` and `pageSize`, paged like `GET /workspaces`. A refusal or the limit (`MCP_RATE_PER_MINUTE`) is a tool result with `isError` and the reason.
+
+**Administration** (Security administration):
+
+- `GET /agent-access`: `enabled`, `url`, `ratePerMinute`, `openRegistration`, `redirectHosts`, `callsDays`, `calls30Days`, `lastCallAt`.
+- `GET /agent-access/clients`: agent clients as `GET /clients` answers them, with `calls30Days` and `lastCallAt`.
+- `GET /agent-access/applications`: the assistants people sign in with: `id` (the `client_id`), `name` (its own claim), `source`, `returnsTo`, `blocked`, `signedIn`, `createdAt`, `lastUsedAt`.
+- `POST /agent-access/applications` (`name`, `redirectUris`: HTTPS or loopback, else `422 AGENT_APPLICATION_INVALID`).
+- `POST /agent-access/applications/{id}/block`: no one signs in with it and its sessions end. `POST …/restore`: people may sign in again; ended sessions stay ended. `404 AGENT_APPLICATION_NOT_FOUND`.
+- `GET /agent-access/calls`: each tool call, newest first: `principal`, `principalKind`, `principalId`, `application`, `tool`, `arguments` (names, never values), `outcome` (`answered`, `refused`, `limited`, `failed`), `durationMs`, `requestId`.
+
+`GET /clients` takes `kind`; a client answers `kind`. `GET /me/sessions` answers `application`, the assistant a session was started for. `GET /system` answers `mcp: {enabled}`.
