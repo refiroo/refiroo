@@ -35,7 +35,14 @@ from .engine.jobs.events import THREAD_NAME as LISTENER_THREAD
 from .engine.jobs.events import JobListener
 from .engine.jobs.files import JobFiles
 from .engine.jobs.inline import BatchLimits
-from .engine.jobs.worker import EXPORT_KINDS, EXPORT_THREAD_NAME, JobWorker, WorkerSettings
+from .engine.jobs.worker import (
+    ASSISTANT_KINDS,
+    ASSISTANT_THREAD_NAME,
+    EXPORT_KINDS,
+    EXPORT_THREAD_NAME,
+    JobWorker,
+    WorkerSettings,
+)
 from .engine.mail.sender import THREAD_NAME as MAIL_SENDER_THREAD
 from .engine.mail.sender import MailSender
 from .engine.model.bootstrap import BootstrapReleaseConflict, bootstrap_model
@@ -140,7 +147,7 @@ def database_reachable() -> bool:
 
 
 class ModelThreads:
-    """The background threads that need a servable model: the job worker and exporter, the job
+    """The background threads that need a servable model: the job, export and assistant workers, the job
     listener, the event deriver and the webhook dispatcher. Started once, when the process can serve
     some workspace, now or after a raising makes it so (0.12 R, R-F9); stopped with the service."""
 
@@ -151,7 +158,8 @@ class ModelThreads:
         self._lock = threading.Lock()
         self._stopped = False
         self._started = False
-        self.worker = self.exporter = self.listener = self.deriver = self.dispatcher = None
+        self.worker = self.exporter = self.assistant = None
+        self.listener = self.deriver = self.dispatcher = None
 
     def start(self) -> None:
         state = self.application.state
@@ -168,6 +176,9 @@ class ModelThreads:
                 self.worker.start()
             if self.exporter is not None:
                 self.exporter.start()
+            self.assistant = state.assistant_worker if state.run_job_worker else None
+            if self.assistant is not None:
+                self.assistant.start()
             self.listener = state.job_listener if state.run_job_listener else None
             if self.listener is not None:
                 self.listener.start()
@@ -192,6 +203,7 @@ class ModelThreads:
             for name, thread in (
                 (self.worker.thread_name if self.worker else "", self.worker),
                 (self.exporter.thread_name if self.exporter else "", self.exporter),
+                (self.assistant.thread_name if self.assistant else "", self.assistant),
                 (LISTENER_THREAD, self.listener),
                 (DERIVER_THREAD, self.deriver),
                 (DISPATCHER_THREAD, self.dispatcher),
@@ -203,7 +215,14 @@ class ModelThreads:
     def stop(self) -> None:
         with self._lock:
             self._stopped = True
-            running = [self.dispatcher, self.deriver, self.listener, self.exporter, self.worker]
+            running = [
+                self.dispatcher,
+                self.deriver,
+                self.listener,
+                self.assistant,
+                self.exporter,
+                self.worker,
+            ]
         for thread in running:
             if thread is not None:
                 thread.stop()
@@ -463,11 +482,32 @@ def create_app() -> FastAPI:
         if settings.integration_jobs_enabled
         else None
     )
+    # An assistant's session runs on a worker of its own too: the jobs it queues run while it waits.
+    application.state.assistant_worker = (
+        JobWorker(
+            SessionLocal,
+            worker_settings,
+            kinds=ASSISTANT_KINDS,
+            files=application.state.job_files,
+            sweeps=False,
+            thread_name=ASSISTANT_THREAD_NAME,
+        )
+        if settings.integration_jobs_enabled
+        else None
+    )
     application.state.run_job_worker = True
     # The job event stream's listener (0.9 J1u, D58): it only listens, so tests keep it running.
     application.state.session_factory = SessionLocal
     # It also wakes this process's workers when any process queues or changes a job (0.11 N2).
-    workers = [w for w in (application.state.job_worker, application.state.export_worker) if w]
+    workers = [
+        w
+        for w in (
+            application.state.job_worker,
+            application.state.export_worker,
+            application.state.assistant_worker,
+        )
+        if w
+    ]
 
     def wake_workers() -> None:
         for worker in workers:

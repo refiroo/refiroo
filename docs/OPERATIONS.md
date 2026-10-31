@@ -134,7 +134,7 @@ database server for deployments of several nodes.
 
 Each process has one pool of connections (`DATABASE_POOL_SIZE`, plus up to
 `DATABASE_POOL_MAX_OVERFLOW` more while busy), shared by everything it runs: requests, each one
-holding a connection while it is served; the job worker and the export worker, each holding one
+holding a connection while it is served; the job, export and assistant workers, each holding one
 while it runs a step of a job; their heartbeats, briefly every third of `JOB_LEASE_SECONDS`; the
 event deriver and the webhook dispatcher, briefly each round. The job listener holds one more
 connection of its own, outside the pool, and startup one more while it checks and migrates.

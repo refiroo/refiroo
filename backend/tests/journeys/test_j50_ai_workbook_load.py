@@ -15,6 +15,8 @@ thread, so a test runs the engine's job worker itself.
 import copy
 import io
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -38,7 +40,11 @@ def _fresh_fake():
 
 
 def _run(world):
-    return world.api.client.app.state.job_worker.run_until_idle()
+    state = world.api.client.app.state
+    chunks = 0
+    while ran := state.assistant_worker.run_until_idle() + state.job_worker.run_until_idle():
+        chunks += ran
+    return chunks
 
 
 def _workspace(world):
@@ -613,6 +619,83 @@ def test_a_session_proposes_on_a_draft_goes_on_with_the_persons_words_and_loads_
 
     gone = ok(world.api.post(f"/ai/tasks/{stopped['id']}/discard", {}), 200)
     assert gone["state"] == "cancelled" and gone["draftId"] is None
+
+
+WAITING_STAND_IN = """#!/usr/bin/env python3
+import json, os, time
+folder = os.path.dirname(os.path.realpath(__file__))
+config = json.load(open(os.path.join(folder, "config.json")))
+open(os.path.join(folder, "token"), "w").write(os.environ["REFIROO_TOKEN"])
+while not os.path.exists(os.path.join(folder, "go")):
+    time.sleep(0.1)
+json.dump({"draftId": config["draft"], "summary": "A plan."}, open("proposal.json", "w"))
+print(json.dumps({"type": "result", "result": "Ready."}))
+"""
+
+
+@pytest.mark.journey("J50.30")
+@pytest.mark.structures(*STRUCTURES)
+@pytest.mark.settings(AI_PROVIDER=FAKE)
+def test_a_job_the_session_queues_runs_under_its_grants_even_when_the_session_has_stopped(
+    world, tmp_path, monkeypatch
+):
+    """Given a session that uploads a workbook to its draft and stops before the profile ran, when
+    the job worker reaches the job, then it completes: the session does not hold that worker, and
+    its grants stay until the job is done, ending after that."""
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.engine.tasks import agent
+    from app.models.database import Job
+
+    ledgers = Ledgers(world)
+    state = world.api.client.app.state
+    script = tmp_path / "stand_in.py"
+    script.write_text(WAITING_STAND_IN)
+    script.chmod(0o755)
+    draft = ok(world.api.post("/model-drafts", {"name": "A proposal", "model": {}}), 201)
+    (tmp_path / "config.json").write_text(json.dumps({"draft": draft["id"]}))
+    monkeypatch.setenv("AI_AGENT_COMMAND", str(script))
+    monkeypatch.setattr(agent, "_openapi", lambda url: b"{}")
+    task = ok(_create(world, ledgers.workspace, ledgers.book()), 202)
+
+    with ThreadPoolExecutor(1) as pool:
+        session = pool.submit(state.assistant_worker.run_until_idle)
+        deadline = time.monotonic() + 30
+        while not (tmp_path / "token").exists():
+            assert time.monotonic() < deadline and not session.done()
+            time.sleep(0.1)
+        token = (tmp_path / "token").read_text()
+        upload = world.api.client.post(
+            "/api/v1/source-files",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"file": ("ledgers.xlsx", ledgers.book(), XLSX)},
+            data={
+                "request": json.dumps(
+                    {"owner": {"draftId": draft["id"]}, "workspaceKey": ledgers.workspace}
+                )
+            },
+        )
+        assert upload.status_code == 201, upload.text
+        (tmp_path / "go").touch()
+        with SessionLocal() as db:
+            queued = select(Job).where(
+                Job.parameters["sourceFileId"].as_string() == upload.json()["id"]
+            )
+            job_id = db.scalar(queued).id
+        time.sleep(3)
+        assert not session.done()
+        state.job_worker.run_until_idle()
+        session.result(timeout=30)
+
+    with SessionLocal() as db:
+        job = db.scalar(select(Job).where(Job.id == job_id))
+        assert job.state == "completed", job.error
+    assert _task(world, task)["state"] == "checked"
+    answer = world.api.client.get(
+        f"/api/v1/workspaces/{ledgers.workspace}/model", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert answer.status_code == 403
 
 
 @pytest.mark.journey("J50.30")

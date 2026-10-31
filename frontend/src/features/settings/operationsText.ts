@@ -17,6 +17,7 @@ import type { StatusTone } from "@/ui/StatusPill";
 export const THREAD_LABELS: Record<ProcessThread["name"], string> = {
   jobWorker: "Job worker",
   exportWorker: "Export worker",
+  assistantWorker: "Assistant worker",
   jobListener: "Job listener",
   eventDeriver: "Event deriver",
   webhookDispatcher: "Webhook dispatcher",

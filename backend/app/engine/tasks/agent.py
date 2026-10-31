@@ -8,7 +8,7 @@ run; the person reads that, edits the draft or says what to change, and the same
 When the person accepts, it installs one release and loads into a change set. It never activates or
 publishes: the person does, from the change set.
 
-The session is a process of the worker in a folder of its own, kept for the task's next turn. Its
+The session is a process of the assistant worker in a folder of its own, kept for the task's next turn. Its
 stream is the task's progress: what its calls reached, read from what it actually did.
 """
 
@@ -245,6 +245,24 @@ def _end(session: Session, grants: list[str]) -> None:
         delete_grant(session, grant)
 
 
+def _await_its_jobs(session: Session, ctx: Any, started: float) -> None:
+    """The session has stopped: the jobs it queued run as its client, so its grants stay until they
+    are done, or until the session's time is over."""
+    client = select(OAuthClient.id).where(OAuthClient.name == CLIENT).scalar_subquery()
+    waiting = select(Job.id).where(
+        Job.requested_by_client_id == client,
+        Job.kind != "aiTask",
+        Job.state.in_(("queued", "running")),
+    )
+    while session.scalar(waiting.limit(1)) is not None:
+        session.commit()
+        ctx.check()
+        if time.monotonic() - started > TIMEOUT_SECONDS:
+            return
+        time.sleep(2)
+    session.commit()
+
+
 def _api_url() -> str:
     return os.environ.get("AI_AGENT_API_URL", "").strip() or get_settings().public_url
 
@@ -397,6 +415,7 @@ def _run_turn(
                     task.design = {**(task.design or {}), "progress": progress.view(started)}
                     session.commit()
                 time.sleep(2)
+            _await_its_jobs(session, ctx, started)
         except BaseException:
             process.kill()
             raise

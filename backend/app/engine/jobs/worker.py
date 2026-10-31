@@ -136,6 +136,7 @@ SWEEP_SECONDS = 3600.0
 # The worker threads' names, which a measurement of one request's statements leaves out.
 THREAD_NAME = "rdm-job-worker"
 EXPORT_THREAD_NAME = "rdm-export-worker"
+ASSISTANT_THREAD_NAME = "rdm-assistant-worker"
 BATCH_KINDS = (
     "batch",
     "import",
@@ -147,9 +148,10 @@ BATCH_KINDS = (
     "mappingInference",
     "move",
     "aiProposal",
-    "aiTask",
 )
 EXPORT_KINDS = ("export",)
+# A session holds its job for as long as it works, and waits on the jobs it queues.
+ASSISTANT_KINDS = ("aiTask",)
 _ITEM = TypeAdapter(BatchItem)
 # The jobs that bind a source file's staged cells rather than a job file (0.10 A3, A5c).
 _STAGED_KINDS = ("dryRun", "profileCheck")

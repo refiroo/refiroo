@@ -366,9 +366,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # import profile's RelatedParent.valueMap (a parent column's cell mapped before it is matched);
     # TaskDesign.leftOut (the columns no source loads, with the assistant's reason); 0.16 AP6r:
     # POST /ai/tasks/{id}/model and /accept, TaskDesign.stage, outline, checks and corrections.
+    # Re-baselined for the assistant worker (additive): the thread name assistantWorker on
+    # ProcessThread; with it removed the document hashes to the previous lock.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "a2acd612ad692c9684b71f1ec4a9267b7965f7419b7c15c6f861c4ef418179e4"
+        "ad2ac80530b349a521fa832c9ab9f6d61c8b11e8e712776535fe7bfecaebfa95"
     )
 
 

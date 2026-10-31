@@ -6,6 +6,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (the AI import)
+
+- **A session's own jobs run:** an assistant's session held the only job worker while it worked, so a
+  job it queued, such as profiling its workbook, waited until the session ended and then failed because
+  the session's grants had ended too. Sessions now run on an assistant worker of their own (reported as
+  `assistantWorker` among a process's threads), and their grants stay until the jobs they queued are done.
+
 ### Changed (model editor, released elements)
 
 - **A released element nothing uses can be changed:** a removal or other draft-only change applies when

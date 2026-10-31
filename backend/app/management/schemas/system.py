@@ -76,6 +76,7 @@ class ProcessThread(BaseModel):
     name: Literal[
         "jobWorker",
         "exportWorker",
+        "assistantWorker",
         "jobListener",
         "eventDeriver",
         "webhookDispatcher",

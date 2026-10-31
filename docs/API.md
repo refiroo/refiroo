@@ -331,7 +331,7 @@ report ([OPERATIONS § Monitoring](OPERATIONS.md#monitoring)). Behind no capabil
 - `GET /api/v1/system/processes` pages every process in ID order: `id` (`host:pid:random`, as a job's
   `leaseOwner` begins), `host`, `pid`, `engineVersion`, `startedAt`, `heartbeatAt`, `state` (`live`,
   or `silent` after three heartbeats without one), `ready`, `threads` (each `{name, state, reason,
-  since}`: `jobWorker`, `exportWorker`, `jobListener`, `eventDeriver`, `webhookDispatcher`,
+  since}`: `jobWorker`, `exportWorker`, `assistantWorker`, `jobListener`, `eventDeriver`, `webhookDispatcher`,
   `mailSender`, `heartbeat`; `running`, `failing` or `off`), `pool` (`size`, `maxOverflow`, `inUse`),
   `unavailableReleases` (each `{releaseId, schemaVersion, reason}`) and `counters` (`requests`,
   `serverErrors`, `databaseUnavailable` by reason). A stopped process leaves the list; one that died

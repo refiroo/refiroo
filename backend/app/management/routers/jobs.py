@@ -236,7 +236,7 @@ def create_export(payload: ExportRequest, request: Request, session: DbSession) 
 
 
 def _wake_worker(request: Request) -> None:
-    for name in ("job_worker", "export_worker"):
+    for name in ("job_worker", "export_worker", "assistant_worker"):
         worker = getattr(request.app.state, name, None)
         if worker is not None:
             worker.wake()

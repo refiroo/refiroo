@@ -22,7 +22,7 @@ from ...config import get_settings
 from ..events.dispatcher import THREAD_NAME as DISPATCHER_THREAD
 from ..events.worker import THREAD_NAME as DERIVER_THREAD
 from ..jobs.events import THREAD_NAME as LISTENER_THREAD
-from ..jobs.worker import EXPORT_THREAD_NAME
+from ..jobs.worker import ASSISTANT_THREAD_NAME, EXPORT_THREAD_NAME
 from ..jobs.worker import THREAD_NAME as JOB_WORKER_THREAD
 from ..mail.sender import THREAD_NAME as MAIL_SENDER_THREAD
 from ..model.registry import UnavailableWorkspaceModel, model_registry
@@ -32,6 +32,7 @@ HEARTBEAT_THREAD = "rdm-process-heartbeat"
 THREADS: dict[str, str] = {
     JOB_WORKER_THREAD: "jobWorker",
     EXPORT_THREAD_NAME: "exportWorker",
+    ASSISTANT_THREAD_NAME: "assistantWorker",
     LISTENER_THREAD: "jobListener",
     DERIVER_THREAD: "eventDeriver",
     DISPATCHER_THREAD: "webhookDispatcher",

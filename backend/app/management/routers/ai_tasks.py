@@ -42,7 +42,7 @@ write_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["a
 
 
 def _wake(request: Request) -> None:
-    worker = getattr(request.app.state, "job_worker", None)
+    worker = getattr(request.app.state, "assistant_worker", None)
     if worker is not None:
         worker.wake()
 
