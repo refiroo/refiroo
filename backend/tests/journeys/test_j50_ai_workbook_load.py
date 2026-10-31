@@ -514,15 +514,16 @@ def _outline(world, text):
 STAND_IN = """#!/usr/bin/env python3
 import json, os, sys
 prompt = sys.argv[sys.argv.index("-p") + 1]
-log = os.environ["STAND_IN_LOG"]
+config = json.load(open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "config.json")))
+log = config["log"]
 open(log, "a").write(json.dumps({"prompt": prompt, "args": sys.argv[1:], "files": sorted(os.listdir("."))}) + "\\n")
 call = {"type": "assistant", "message": {"content": [
     {"type": "tool_use", "input": {"command": "curl -X POST x/api/v1/model-drafts/d/dry-run"}}]}}
 print(json.dumps(call))
 if "accepted" in prompt:
-    print(json.dumps({"type": "result", "result": "Done.\\nCHANGE_SET: " + os.environ["STAND_IN_CHANGE_SET"]}))
+    print(json.dumps({"type": "result", "result": "Done.\\nCHANGE_SET: " + config["changeSet"]}))
 else:
-    json.dump({"draftId": os.environ["STAND_IN_DRAFT"], "summary": "A plan.",
+    json.dump({"draftId": config["draft"], "summary": "A plan.",
                "questions": [{"text": "Which?", "options": ["A", "B"], "assumed": "A"}]},
               open("proposal.json", "w"))
     print(json.dumps({"type": "result", "result": "Ready."}))
@@ -555,9 +556,9 @@ def test_a_session_proposes_on_a_draft_goes_on_with_the_persons_words_and_loads_
         201,
     )
     monkeypatch.setenv("AI_AGENT_COMMAND", str(script))
-    monkeypatch.setenv("STAND_IN_LOG", str(log))
-    monkeypatch.setenv("STAND_IN_DRAFT", draft["id"])
-    monkeypatch.setenv("STAND_IN_CHANGE_SET", change_set["id"])
+    config = tmp_path / "config.json"
+    settings = {"log": str(log), "draft": draft["id"], "changeSet": change_set["id"]}
+    config.write_text(json.dumps(settings))
     monkeypatch.setattr(agent, "_openapi", lambda url: b"{}")
 
     task = ok(_create(world, ledgers.workspace, ledgers.book(), words="Make it so"), 202)
@@ -569,6 +570,9 @@ def test_a_session_proposes_on_a_draft_goes_on_with_the_persons_words_and_loads_
     first = json.loads(log.read_text().splitlines()[0])
     assert first["prompt"].startswith("Make it so")
     assert {"workbook.xlsx", "model.json", "openapi.json"} <= set(first["files"])
+    # The engine's guards go with every session, whatever the command says.
+    assert first["args"][first["args"].index("--permission-mode") + 1] == "dontAsk"
+    assert "--restricted" in first["args"]
     session_id = first["args"][first["args"].index("--session-id") + 1]
 
     ok(
@@ -589,7 +593,81 @@ def test_a_session_proposes_on_a_draft_goes_on_with_the_persons_words_and_loads_
     task = _task(world, task)
     assert task["state"] == "loaded" and task["result"]["changeSetId"] == change_set["id"]
 
-    other = ok(_create(world, ledgers.workspace, ledgers.book()), 202)
+    # A session that stops can be tried again, from where it was.
+    stopped = ok(_create(world, ledgers.workspace, ledgers.book()), 202)
+    config.write_text(json.dumps({**settings, "draft": "no-such-draft"}))
     _run(world)
-    gone = ok(world.api.post(f"/ai/tasks/{other['id']}/discard", {}), 200)
+    stopped = _task(world, stopped)
+    assert stopped["state"] == "failed"
+    config.write_text(json.dumps(settings))
+    ok(
+        world.api.post(
+            f"/ai/tasks/{stopped['id']}/retry", {"expectedVersion": stopped["version"]}
+        ),
+        202,
+    )
+    _run(world)
+    stopped = _task(world, stopped)
+    assert stopped["state"] == "checked"
+    assert "--resume" in json.loads(log.read_text().splitlines()[-1])["args"]
+
+    gone = ok(world.api.post(f"/ai/tasks/{stopped['id']}/discard", {}), 200)
     assert gone["state"] == "cancelled" and gone["draftId"] is None
+
+
+@pytest.mark.journey("J50.30")
+@pytest.mark.structures(*STRUCTURES)
+@pytest.mark.settings(AI_PROVIDER=FAKE)
+def test_a_session_cannot_publish_activate_or_reach_another_workspace(world, monkeypatch):
+    """Given the session's own token, then the engine refuses publishing, activating a model and
+    reading another workspace, whatever the session tries, and the grants end with the turn."""
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.engine.tasks import agent
+    from app.models.database import Job
+
+    ledgers = Ledgers(world)
+    other = _workspace(world)
+    change_set = ok(
+        world.api.post(
+            f"/workspaces/{ledgers.workspace}/change-sets", {"name": "Its load", "source": "currentLive"}
+        ),
+        201,
+    )
+    task = ok(_create(world, ledgers.workspace, ledgers.book()), 202)
+    with SessionLocal() as session:
+        job = session.scalar(select(Job).where(Job.id == task["jobId"]))
+        token, grants = agent._access(session, job, ledgers.workspace)
+        session.commit()
+    headers = {"Authorization": f"Bearer {token}"}
+    client = world.api.client
+
+    assert (
+        client.get(f"/api/v1/workspaces/{ledgers.workspace}/model", headers=headers).status_code
+        == 200
+    )
+    assert client.get(f"/api/v1/workspaces/{other}/model", headers=headers).status_code == 403
+    assert (
+        client.post(
+            f"/api/v1/change-sets/{change_set['id']}/publication",
+            headers=headers,
+            json={"expectedChangeSetVersion": change_set["version"]},
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            f"/api/v1/workspaces/{ledgers.workspace}/model/activation",
+            headers=headers,
+            json={"releaseId": "x", "expectedVersion": 1, "expectedReleaseId": "y"},
+        ).status_code
+        == 403
+    )
+    with SessionLocal() as session:
+        agent._end(session, grants)
+        session.commit()
+    assert (
+        client.get(f"/api/v1/workspaces/{ledgers.workspace}/model", headers=headers).status_code
+        == 403
+    )

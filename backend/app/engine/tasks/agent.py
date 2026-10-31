@@ -1,8 +1,9 @@
 """An assistant task run by Claude Code (Product 0.16, the user's decision of 2026-10-31).
 
 The person's words, the workbook, the workspace's model and the API's OpenAPI document go to one
-Claude Code session, which works through the API as the person who asked. It is told where to stop,
-nothing about how to work. First it builds a model draft and checks every row with the draft's dry
+Claude Code session, which works through the API under a client that may read and load in this
+workspace and author and install a model, and no more. It is told where to stop, nothing about how
+to work. First it builds a model draft and checks every row with the draft's dry
 run; the person reads that, edits the draft or says what to change, and the same session goes on.
 When the person accepts, it installs one release and loads into a change set. It never activates or
 publishes: the person does, from the change set.
@@ -18,19 +19,33 @@ import shlex
 import shutil
 import ssl
 import subprocess
+import sys
 import time
 import urllib.request
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
-from ...models.database import AiTask, ChangeSet, Job, ModelDraft, ModelRelease, OAuthClient, User
-from ..identity import sessions, tokens
+from ...models.commands import ClientCreate, GrantCreate, GrantPrincipal, GrantScope, RoleCreate
+from ...models.database import (
+    AiTask,
+    AuthorizationState,
+    ChangeSet,
+    Job,
+    ModelDraft,
+    ModelRelease,
+    OAuthClient,
+    Role,
+)
+from ..authorization.administration import create_grant, create_role, delete_grant
+from ..authorization.permissions import permissions_of
+from ..identity import tokens
+from ..identity.clients import create_client
 from ..identity.settings import IdentitySettings
 from ..model.workspace_models import load_assignment
 from .store import finish, load_task, note
@@ -58,7 +73,7 @@ def enabled() -> bool:
 def _connection(workspace: str, url: str) -> str:
     return (
         "workbook.xlsx is the file, model.json the workspace's model, openapi.json the API of the "
-        f"engine at {url}, with the header 'Authorization: Bearer $REFIROO_TOKEN' (curl -k). The "
+        f"engine at {url}, with the header 'Authorization: Bearer $REFIROO_TOKEN' (curl -k --noproxy ''). The "
         f"data comes from this workbook alone. Work only in the workspace {workspace}: no other "
         "workspace is read or changed."
     )
@@ -103,37 +118,131 @@ def _identity() -> IdentitySettings:
     )
 
 
-def _token(session: Session, job: Job) -> tuple[str, Any]:
-    """A token of who asked: a person, in a session of its own that ends with the turn; a client."""
-    settings = _identity()
-    if job.requested_by_client_id is not None:
-        client = session.get(OAuthClient, job.requested_by_client_id)
-        return (
-            tokens.issue(
-                session, settings, subject=client.public_id, kind="client", audience="management"
-            ),
-            None,
-        )
-    user = session.get(User, job.requested_by_user_id)
-    if user is None:
+DATA_ROLE = "AI assistant: data"
+MODEL_ROLE = "AI assistant: model"
+CLIENT = "AI assistant"
+DATA_GROUPS = ["browse", "change-sets", "bulk"]
+MODEL_GROUPS = ["model-authoring", "model-install"]
+
+
+def _role(session: Session, name: str, groups: list[str]) -> str:
+    found = session.scalar(select(Role).where(Role.name == name))
+    if found is None:
+        found = create_role(session, RoleCreate(name=name, actionGroups=groups))
+    return found.key
+
+
+def _access(session: Session, job: Job, workspace: str) -> tuple[str, list[str]]:
+    """A token that can only do the session's work: read and load in this workspace, author and
+    install a model, and no more of it than who asked may do. Publishing and activating are refused
+    by the engine, whatever the session tries. The grants end with the turn."""
+    kind, row = (
+        ("client", job.requested_by_client_id)
+        if job.requested_by_client_id is not None
+        else ("user", job.requested_by_user_id)
+    )
+    if row is None:
         raise ValueError("The task names no one who asked for it")
-    opened, _ = sessions.start(
-        session, settings, user, signed_in_with="password", user_agent="AI task", now=datetime.now(UTC)
-    )
+    generation = session.scalar(select(AuthorizationState.generation)) or 0
+    asked = permissions_of(session, kind, row, generation)
+    data = _role(session, DATA_ROLE, DATA_GROUPS)
+    model = _role(session, MODEL_ROLE, MODEL_GROUPS)
+    client = session.scalar(select(OAuthClient).where(OAuthClient.name == CLIENT))
+    if client is None:
+        client, _ = create_client(session, ClientCreate(name=CLIENT))
+    principal = GrantPrincipal(kind="client", id=client.public_id)
+    grants = [
+        create_grant(
+            session,
+            GrantCreate(principal=principal, role=data, scope=GrantScope(workspaceKey=workspace)),
+        ).grant.public_id
+    ]
+    if asked.allows("model-authoring", None) and (
+        asked.allows("model-release", workspace) or asked.allows("model-install", None)
+    ):
+        grants.append(
+            create_grant(
+                session, GrantCreate(principal=principal, role=model, scope=GrantScope(instance=True))
+            ).grant.public_id
+        )
     token = tokens.issue(
-        session,
-        settings,
-        subject=user.public_id,
-        kind="user",
-        audience="management",
-        session_id=opened.public_id,
+        session, _identity(), subject=client.public_id, kind="client", audience="management"
     )
-    return token, opened
+    return token, grants
 
 
-def _end(session: Session, opened: Any) -> None:
-    if opened is not None:
-        sessions.end(session.merge(opened), "signedOut", datetime.now(UTC))
+TOOLS = "Bash,Read,Write,Edit,Glob,Grep"
+
+
+def _base_command() -> list[str]:
+    """The configured command, without a permission mode: the engine sets that itself."""
+    words = shlex.split(os.environ["AI_AGENT_COMMAND"].strip().strip("\"'"))
+    kept: list[str] = []
+    skip = False
+    for word in words:
+        if skip:
+            skip = False
+        elif word == "--permission-mode":
+            skip = True
+        elif word != "--dangerously-skip-permissions" and not word.startswith("--permission-mode="):
+            kept.append(word)
+    return kept
+
+
+def _safeguards(url: str, folder: Path) -> list[str]:
+    """What the session may touch, whatever its command says: its tools, its folder, and this
+    engine on the network. The sandbox is the operating system's, so a script it writes is held too;
+    a machine where it cannot run refuses to start the session."""
+    parsed = urlparse(url)
+    host = parsed.hostname or "localhost"
+    port = f":{parsed.port}" if parsed.port else ""
+    # In a container the container is the boundary: the sandbox's own isolation cannot run inside it.
+    contained = os.environ.get("AI_AGENT_SANDBOX", "").strip().lower() == "container"
+    settings = {
+        "sandbox": {
+            "enabled": not contained,
+            "failIfUnavailable": not contained,
+            "allowUnsandboxedCommands": False,
+            "autoAllowBashIfSandboxed": True,
+            "filesystem": {"denyRead": ["~/"], "allowRead": [str(folder), sys.prefix]},
+            "network": {"allowedDomains": [host, f"{host}{port}"]},
+        },
+        "permissions": {"blockReadsOutsideWorkingDirectories": True},
+    }
+    return [
+        "--restricted",
+        "--tools",
+        TOOLS,
+        "--allowedTools",
+        TOOLS,
+        "--disallowedTools",
+        "Agent",
+        "WebFetch",
+        "WebSearch",
+        "mcp__*",
+        "--strict-mcp-config",
+        "--permission-mode",
+        "dontAsk",
+        "--settings",
+        json.dumps(settings),
+    ]
+
+
+# Of the server's environment, only what Claude Code itself needs: never its database or secrets.
+PASSED = re.compile(r"^(HOME|USER|LANG|LC_\w+|TMPDIR|SHELL|ANTHROPIC_\w+|CLAUDE_\w+|AWS_\w+|NODE_\w+)$")
+
+
+def _session_environment(token: str) -> dict[str, str]:
+    return {
+        **{name: value for name, value in os.environ.items() if PASSED.match(name)},
+        "REFIROO_TOKEN": token,
+        "PATH": f"{Path(sys.prefix) / 'bin'}:{os.environ.get('PATH', '')}",
+    }
+
+
+def _end(session: Session, grants: list[str]) -> None:
+    for grant in grants:
+        delete_grant(session, grant)
 
 
 def _api_url() -> str:
@@ -242,10 +351,11 @@ def _run_turn(
     """One turn of the session, the task's progress written as it goes; ``None`` when it could not
     start, with the reason on the task."""
     task_key = task_id
-    token, opened = _token(session, job)
+    token, opened = _access(session, job, load_task(session, task_key).workspace_key)
     session.commit()
     command = [
-        *shlex.split(os.environ["AI_AGENT_COMMAND"].strip().strip("\"'")),
+        *_base_command(),
+        *_safeguards(_api_url(), folder),
         "-p",
         prompt,
         "--output-format",
@@ -261,7 +371,7 @@ def _run_turn(
             process = subprocess.Popen(
                 command,
                 cwd=folder,
-                env={**os.environ, "REFIROO_TOKEN": token},
+                env=_session_environment(token),
                 stdin=subprocess.DEVNULL,
                 stdout=output,
                 stderr=subprocess.STDOUT,

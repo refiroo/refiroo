@@ -84,6 +84,12 @@ GROUPS: dict[str, ActionGroup] = {
             "instance",
         ),
         ActionGroup(
+            "model-install",
+            "Install a model",
+            "Install a draft as a release, without activating it anywhere",
+            "instance",
+        ),
+        ActionGroup(
             "model-release",
             "Model release",
             "Install a draft as a release, activate a release in a workspace, migrate a workspace",
@@ -256,7 +262,7 @@ ACTIONS: dict[str, Action] = {
         ),
         Action(
             "model.install",
-            ("model-release",),
+            ("model-release", "model-install"),
             "Install a model draft as a release",
             doing="Installing a model release",
         ),
@@ -335,7 +341,7 @@ PREDEFINED_ROLES: dict[str, tuple[str, ...]] = {
         "copy-move",
         "ai-proposals",
     ),
-    "model-admin": ("model-authoring", "model-release", "ai-proposals"),
+    "model-admin": ("model-authoring", "model-install", "model-release", "ai-proposals"),
     "workspace-admin": ("workspace-admin", "ai-proposals"),
     "integration-admin": ("integration-admin", "feed", "ai-proposals"),
     "operator": ("operations",),

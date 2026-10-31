@@ -1030,6 +1030,33 @@ def queue_accept(
     )
 
 
+def queue_retry(
+    session: Session,
+    task_id: str,
+    expected_version: int,
+    *,
+    retention_days: int,
+    task_retention_days: int,
+) -> AiTask:
+    """A session that stopped goes on from where it was: its load after an acceptance, its proposal
+    otherwise. Commits."""
+    task = load_task(session, task_id, for_update=True)
+    require_state(task, "failed")
+    if not (task.design or {}).get("agentSession"):
+        raise api_error(409, "AI_TASK_STATE", "Only an assistant's session can be tried again")
+    task.state = "checked"
+    task.finished_at = None
+    session.flush()
+
+    def change(current: dict[str, Any]) -> None:
+        if current.get("stage") != "load":
+            current["pendingWords"] = "That stopped. Go on from where you were."
+
+    return _design_again(
+        session, task_id, expected_version, change, retention_days, task_retention_days
+    )
+
+
 def discard(session: Session, task_id: str, files: Any, retention_days: int) -> AiTask:
     """The person discards a proposal: the task ends and its draft and folder go. Commits."""
     task = load_task(session, task_id, for_update=True)
@@ -1057,7 +1084,7 @@ def _design_again(
     task = load_task(session, task_id, for_update=True)
     claim(task, expected_version)
     require_state(task, "checked")
-    if task.draft_id is None:
+    if task.draft_id is None and not (task.design or {}).get("agentSession"):
         raise api_error(409, "AI_TASK_STATE", "The task has no design to answer")
     current = dict(task.design or {})
     change(current)

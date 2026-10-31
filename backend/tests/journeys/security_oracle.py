@@ -185,6 +185,7 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
             "post /api/v1/ai/tasks/{task_id}/model",
             "post /api/v1/ai/tasks/{task_id}/accept",
             "post /api/v1/ai/tasks/{task_id}/discard",
+            "post /api/v1/ai/tasks/{task_id}/retry",
             "post /api/v1/ai/tasks/{task_id}/run",
             "post /api/v1/ai/tasks/{task_id}/cancel",
             "get /api/v1/import-profiles",

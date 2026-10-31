@@ -254,6 +254,7 @@ for _test, _routes in {
         "post /ai/tasks/{task_id}/model",
         "post /ai/tasks/{task_id}/accept",
         "post /ai/tasks/{task_id}/discard",
+        "post /ai/tasks/{task_id}/retry",
         "post /ai/tasks/{task_id}/cancel",
     ],
     _NO_RECORD + ": an import profile holds a column layout": [

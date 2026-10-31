@@ -40,6 +40,10 @@ export function readContinueAddress(personId: string): ContinueAddress | undefin
   return readLocalPreference<ContinueAddress | undefined>(key(personId), undefined, isAddress);
 }
 
+export function forgetContinueAddress(personId: string) {
+  writeLocalPreference(key(personId), undefined);
+}
+
 export function rememberContinueAddress(personId: string, address: ContinueAddress) {
   writeLocalPreference(key(personId), address);
 }

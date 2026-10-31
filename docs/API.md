@@ -4248,6 +4248,8 @@ can be read, beside its diagnostics.
   are those the class check reads, so a draft-only operation is refused on exactly the elements marked
   `released` or `changed`.
 - **`navigation.ungrouped`** lists the application's collections in no group, in their sidebar order.
+- **`uniquePer`** on an allowed relation names the ancestor type under which a source may hold only one
+  target (`features.uniqueToAncestorTypeKey`); absent without that rule.
 - **`relations[].candidates`**: which records the relationship may choose at each end (0.9 K7), as the
   model declares it; absent when it has none.
 - **`diagnostics`** are the compiler's, as `POST /model-validations` gives them for the draft's model,

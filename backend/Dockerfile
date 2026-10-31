@@ -3,6 +3,13 @@
 FROM python:3.14-slim
 
 # The engine runs as a user of its own, never root.
+# The AI assistant's session (AI_AGENT_COMMAND): Claude Code, with curl for the API. It stays unused
+# until that setting is given. Set AI_AGENT_SANDBOX=container here: its own sandbox cannot run in a
+# container, so this container is the boundary, which is why it runs as the engine's user below.
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates nodejs npm \
+    && npm install -g @anthropic-ai/claude-code \
+    && apt-get purge -y npm && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin rdm \
     && mkdir -p /app /data/job-files \
     && chown rdm:rdm /data/job-files

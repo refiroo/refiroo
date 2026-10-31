@@ -58,6 +58,8 @@ export const ai = {
   /** Accepts the proposed model; the load stage maps the sheets and checks every row (`202`). */
   acceptModel: (id: string, body: { expectedVersion: number }) => request<AiTask>(`${taskPath(id)}/accept`, post(body)),
   /** Asks the job the task waits for to stop. */
+  /** Tries a stopped session again, from where it was. */
+  retryTask: (id: string, body: { expectedVersion: number }) => request<AiTask>(`${taskPath(id)}/retry`, post(body)),
   /** Throws a proposal away: its draft goes, nothing was installed or loaded. */
   discardTask: (id: string) => request<AiTask>(`${taskPath(id)}/discard`, post({})),
   cancelTask: (id: string) => request<AiTask>(`${taskPath(id)}/cancel`, post({})),

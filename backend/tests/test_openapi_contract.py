@@ -368,7 +368,7 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # POST /ai/tasks/{id}/model and /accept, TaskDesign.stage, outline, checks and corrections.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "3c6a8da965815d289a38753da3b1d7662b8e88f91c9db21836a6bc2ce1bd282b"
+        "a2acd612ad692c9684b71f1ec4a9267b7965f7419b7c15c6f861c4ef418179e4"
     )
 
 

@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (model editor, choosing a relation)
+
+- **Types and relation types sharing a name can be told apart:** in the model editor's pickers, a type
+  whose name another type shares shows the applications listing it, and its key where those match too,
+  with a note that the two hold separate records. A relation type shows the types it stands between;
+  those already reaching the chosen type come first, and a note says how it reads in reverse, which
+  pairs use it with their rules, and what choosing a new one leaves out. The draft's outline gives a
+  relation's `uniquePer` where it has one.
+
 ### Added (0.16 AP6, the assistant designs and loads)
 
 - **The assistant is a Claude Code session:** with `AI_AGENT_COMMAND` set, the person's words, the
@@ -15,6 +24,7 @@ All notable changes to this project are documented in this file. The format foll
   set; activation stays with publishing. The page shows what the session has reached while it works, and
   has Discard and Close. The turn loop, its answer format and `unpivots` are gone. A saved layout that
   still fits needs no AI; `key.storedUnique` keys a source by an attribute whose stored values are unique.
+- **Guards on the assistant's session, for sessions refiroo starts only:** the operating system's sandbox holds it to its folder and this engine, it has only file and shell tools and none of the server's secrets, and its client cannot publish, activate or reach another workspace. A stopped session can be tried again. The engine image holds Claude Code (`AI_AGENT_SANDBOX=container`).
 - **Switching workspace:** a page the other workspace's model lacks no longer shows "not in this
   workspace's model"; its start opens. An address asking for that page still says so.
 - **The assistant designs the load:** with AI proposals offered, a task's assistant decides how the

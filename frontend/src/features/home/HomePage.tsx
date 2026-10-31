@@ -16,7 +16,7 @@ import { changeWhere } from "@/features/changes/changeText";
 import { useHeldAnywhere } from "@/features/security/permissions";
 import { formatServerAgo } from "@/lib/dates";
 import { emptyModel } from "@/model/emptyModel";
-import { changeReviewFor, parseRoute, routePath } from "@/routing/routes";
+import { changeReviewFor, missingElement, parseRoute, routePath } from "@/routing/routes";
 import type { Hue } from "@/model/hues";
 import type {
   ChangeEntry,
@@ -37,7 +37,7 @@ import { RouteLink } from "@/ui/RouteLink";
 import { BrandMascot } from "@/ui/ProductMark";
 import { Skeleton } from "@/ui/Skeleton";
 import { appPath, openApplication, openIn, openWorkspace, workspacePathOf, type Navigate } from "./openWorkspace";
-import { continueLines, readContinueAddress, type ContinueAddress } from "./continueAddress";
+import { continueLines, forgetContinueAddress, readContinueAddress, type ContinueAddress } from "./continueAddress";
 import { greeting, openLabel, ownLabel, quietNote, roleLine, rolePills, summary } from "./homeText";
 
 export function HomePage({ model, onNavigate }: { model: EngineModel; onNavigate: Navigate }) {
@@ -135,7 +135,27 @@ function Continue({
   workspaces: OwnWorkspace[];
   onNavigate: Navigate;
 }) {
-  const [address] = useState<ContinueAddress | undefined>(() => readContinueAddress(personId));
+  const [address, setAddress] = useState<ContinueAddress | undefined>(() => readContinueAddress(personId));
+  // An address the workspace's model no longer has is forgotten, not offered.
+  useEffect(() => {
+    if (!address) return;
+    let active = true;
+    api
+      .workspaceModel(address.workspaceKey)
+      .then((runtime) => api.modelRelease(runtime.releaseId, true))
+      .then((release) => {
+        const path = new URL(address.path, window.location.origin);
+        if (active && release.model && missingElement(release.model as unknown as EngineModel, path)) {
+          forgetContinueAddress(personId);
+          setAddress(undefined);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const shown = address && workspaces.some((item) => item.key === address.workspaceKey) ? address : undefined;
   const [recordName, setRecordName] = useState<string>();
   useEffect(() => {

@@ -351,6 +351,30 @@ def accept_ai_task_model(
     return _accepted(session, task)
 
 
+@write_router.post("/ai/tasks/{task_id}/retry", response_model=AiTaskResponse, status_code=202)
+@requires("bulk.write", at=AI_TASK_PATH)
+def retry_ai_task(
+    task_id: str,
+    payload: AiTaskAcceptRequest,
+    request: Request,
+    session: DbSession,
+    principal: CurrentPrincipal,
+) -> JSONResponse:
+    """Try a stopped session again (0.16): it goes on from where it was, its folder and session
+    kept. ``409 AI_TASK_STATE`` unless the task failed and has a session."""
+    _visible(request, session, principal, task_id)
+    limits: BatchLimits = request.app.state.batch_limits
+    task = design_job.queue_retry(
+        session,
+        task_id,
+        payload.expectedVersion,
+        retention_days=limits.retention_days,
+        task_retention_days=configuration(request).task_retention_days,
+    )
+    _wake(request)
+    return _accepted(session, task)
+
+
 @write_router.post("/ai/tasks/{task_id}/discard", response_model=AiTaskResponse)
 @requires("bulk.write", at=AI_TASK_PATH)
 def discard_ai_task(

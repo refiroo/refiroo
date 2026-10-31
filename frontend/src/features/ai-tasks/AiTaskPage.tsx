@@ -321,6 +321,16 @@ export function AiTaskPage({
             {jobError || (task.state === "failed" ? "The assistant could not finish." : "Nothing was changed.")}
           </Notice>
           <div className="task-actions">
+            {task.state === "failed" && design?.agentSession && (
+              <button
+                type="button"
+                className="primary"
+                disabled={pending}
+                onClick={() => void write(() => ai.retryTask(task.id, { expectedVersion: task.version }))}
+              >
+                Try again
+              </button>
+            )}
             <button type="button" className="secondary" onClick={() => onOpenWorkspace(task.workspaceKey)}>
               Back to the workspace
             </button>
