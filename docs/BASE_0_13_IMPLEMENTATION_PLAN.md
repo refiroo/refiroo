@@ -149,6 +149,10 @@ coverage matrix decides completeness):
   view; define a consumer API in the model (J25)
 - Create and activate a model release (J08); read a release diff; know when a change needs a new contract
   version; roll back
+- Add a relation matrix in the editor: an overview of records against an ancestor type's values, listing
+  an existing type in another application for it. State clearly: types or relation types sharing a name
+  are separate, each with its own records or pairs, so a view over one does not show the other; a new pair
+  on an existing relation type does not take over its one-per rule
 - Onboard a workbook (J34); load the next version of a workbook (J35)
 - Run a workspace on a model of its own (J36); move a workspace to another release (J37); move data
   between workspaces whose models differ (J38)

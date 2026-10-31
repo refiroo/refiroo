@@ -1,3 +1,4 @@
+import { fieldOptions } from "@/features/model-editor/operations";
 import { describe, expect, it } from "vitest";
 import {
   chooseList,
@@ -188,7 +189,7 @@ describe("layout operations", () => {
     const choices = (operation: ReturnType<typeof tableColumnsSpec>) =>
       operation
         .fields?.(undefined as never, undefined as never)
-        .flatMap((field) => (field.type === "checkboxes" ? field.options : []));
+        .flatMap((field) => (field.type === "checkboxes" ? fieldOptions(field, {}) : []));
     const offered = [
       { value: "name", label: "Name" },
       { value: "related:entry-in-group", label: "In group" },

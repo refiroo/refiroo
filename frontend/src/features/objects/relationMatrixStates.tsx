@@ -100,6 +100,19 @@ export function StateMark({ state, conflict = false }: { state: MatrixStateKey; 
   );
 }
 
+/** What a cell shows of a record: the first of the view's cell fields with a value to read (a yes or
+ * no says nothing alone), or its name when none has. */
+export function cellRecordLabel(
+  record: { name: string; fields: Record<string, unknown> },
+  cellFields: readonly string[],
+) {
+  for (const field of cellFields) {
+    const value = record.fields[field];
+    if ((typeof value === "string" && value.trim()) || typeof value === "number") return String(value);
+  }
+  return record.name;
+}
+
 /** A column's heading: its label field's value, or its name when that is empty. */
 export function columnLabel(column: RelationMatrixColumn) {
   return column.label === null || column.label === undefined || column.label === ""

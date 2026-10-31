@@ -176,6 +176,10 @@ export function describeOperation(
       return `Added view ${str((p.view as { name?: string } | undefined)?.name) || str((p.view as { key?: string } | undefined)?.key)}`;
     case "removeView":
       return `Removed view ${str(p.view)}`;
+    case "listObjectType":
+      return `Listed ${type(p.objectType)} in ${str(p.applicationKey)}`;
+    case "unlistObjectType":
+      return `Stopped listing ${type(p.objectType)} in ${str(p.applicationKey)}`;
     case "addDetailPage":
       return `Added a detail page for ${type(p.objectType)}`;
     case "removeDetailPage":

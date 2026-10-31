@@ -10,6 +10,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import type { DraftOperation, ModelDraftOutline } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { FormField } from "@/ui/FormField";
+import { MatrixPreviewPane } from "@/features/model-editor/MatrixPreviewPane";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import {
@@ -108,12 +109,18 @@ export function OperationDialog({
     );
 
   const missing = missingField(operation, target, outline, values);
-  const fields = visibleFields(operation, target, outline, values);
+  const fields = visibleFields(operation, target, outline, values).map((field) => ({
+    ...field,
+    hint: typeof field.hint === "function" ? field.hint(values) : field.hint,
+  }));
   // A select whose options follow an earlier choice moves to its first option when its value is no
   // longer offered (a related record's field after another block is chosen).
   const set = (name: string, value: FieldValues[string]) =>
     setValues((current) => {
-      const next = { ...current, [name]: value };
+      const next = operation.follow?.({ ...current, [name]: value }, current, name, outline) ?? {
+        ...current,
+        [name]: value,
+      };
       for (const field of operation.fields?.(target as never, outline) ?? [])
         if (field.type === "select" && typeof field.options === "function" && field.name !== name) {
           const offered = field.options(next);
@@ -126,8 +133,18 @@ export function OperationDialog({
     if (!missing) void send();
   };
   return (
-    <Modal title={title} eyebrow="Change the model" size="compact" busy={pending} onClose={onClose}>
-      <form className="dialog-body operation-form" onSubmit={submit}>
+    <Modal
+      title={title}
+      eyebrow="Change the model"
+      size={operation.preview ? "wide" : "compact"}
+      busy={pending}
+      onClose={onClose}
+    >
+      <form
+        className={`dialog-body operation-form${operation.preview ? " operation-form-beside" : ""}`}
+        onSubmit={submit}
+      >
+        {operation.preview && <MatrixPreviewPane preview={operation.preview(values, target as never, outline)} />}
         {fields.map((field, index) => {
           if (field.type === "checkbox")
             return (
@@ -158,7 +175,7 @@ export function OperationDialog({
               <FormField key={field.name} label={field.label} help={field.hint} group>
                 {() => (
                   <div className="operation-checkboxes">
-                    {field.options.map((option) => (
+                    {fieldOptions(field, values).map((option) => (
                       <label key={option.value} className="checkbox">
                         <input
                           type="checkbox"

@@ -42,6 +42,25 @@ export function typeName(outline: ModelDraftOutline, key: string): string {
   return objectTypeOf(outline, key)?.name ?? key;
 }
 
+export const sameName = (outline: ModelDraftOutline, key: string) => {
+  const name = objectTypeOf(outline, key)?.name.toLowerCase();
+  return outline.objectTypes.filter((item) => item.name.toLowerCase() === name);
+};
+
+const listedIn = (outline: ModelDraftOutline, key: string) =>
+  outline.applications.filter((item) => item.objectTypeKeys.includes(key)).map((item) => item.name);
+
+/** A type's name, with what tells it apart where other types share the name: its applications, and
+ * its key where those are the same too. */
+export function typeLabel(outline: ModelDraftOutline, key: string) {
+  const name = typeName(outline, key);
+  const others = sameName(outline, key).filter((item) => item.key !== key);
+  if (!others.length) return name;
+  const applications = listedIn(outline, key).join(", ");
+  const told = others.every((item) => listedIn(outline, item.key).join(", ") !== applications);
+  return `${name} · ${told && applications ? applications : `${applications ? `${applications}, ` : ""}${key}`}`;
+}
+
 /** The type's hue by its position in the draft's types, as the record pages colour a type (ADR-040). */
 export function draftTypeHue(outline: ModelDraftOutline, key: string): Hue | undefined {
   const index = outline.objectTypes.findIndex((item) => item.key === key);

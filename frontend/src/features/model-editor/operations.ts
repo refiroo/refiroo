@@ -10,11 +10,35 @@
  * affect (D39, AP-D28). A released key stays fixed.
  */
 
-import type { ConsumerDefinition, DraftOperation, ModelDraftOutline } from "@/types";
+import type {
+  ConsumerDefinition,
+  DraftOperation,
+  ModelDraftOutline,
+  OutlineRelation,
+  OutlineRelationType,
+} from "@/types";
 import type { ChoiceOption } from "@/features/model-editor/ChoiceListField";
 import type { ActionMenuItem } from "@/ui/ActionMenu";
 import type { IconName } from "@/ui/Icon";
 import { cleaned, type Candidates, type End } from "@/features/model-editor/candidates";
+import {
+  actionHint,
+  actionOptions,
+  addMatrix,
+  cellFieldOptions,
+  cellHint,
+  cellOptions,
+  changeMatrix,
+  columnLabelOptions,
+  columnOptions,
+  followMatrix,
+  matrixPreview,
+  matrixValues,
+  newMatrixValues,
+  rowColumnOptions,
+  rowOptions,
+  type MatrixPreview,
+} from "@/features/model-editor/matrixView";
 import {
   exposesOf,
   FILTER_VERBS,
@@ -47,6 +71,8 @@ import {
   keysOf,
   objectTypeOf,
   relationTypeOf,
+  sameName,
+  typeLabel,
   typeName,
 } from "@/features/model-editor/outline";
 
@@ -54,7 +80,9 @@ import {
 export type OperationTarget =
   | { on: "draft" }
   | { on: "application"; applicationKey: string }
-  | { on: "objectType"; objectType: string }
+  /** With the application it is read in, where a row of that application's types opened it. */
+  | { on: "objectType"; objectType: string; applicationKey?: string }
+  | { on: "view"; applicationKey: string; view: string }
   | { on: "attribute"; objectType: string; attributeType: string }
   | { on: "attributeType"; attributeType: string }
   | { on: "relationType"; relationType: string }
@@ -85,7 +113,8 @@ export type OperationField = {
   label: string;
   /** Shown only while it returns true for the values entered so far. */
   when?: (values: FieldValues) => boolean;
-  hint?: string;
+  /** May follow the values entered so far (what the chosen option means). */
+  hint?: string | ((values: FieldValues) => string | undefined);
 } & (
   | { type: "text"; required?: boolean }
   /** Options may follow the values chosen so far (a related record's fields after its block). */
@@ -105,7 +134,7 @@ export type OperationField = {
     }
   /** Output names each reading a source picked from a list, as `output=source` (a related block). */
   | { type: "pairs"; options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]); required?: boolean }
-  | { type: "checkboxes"; options: { value: string; label: string }[] }
+  | { type: "checkboxes"; options: ChoiceOption[] | ((values: FieldValues) => ChoiceOption[]) }
   /** Which records a relationship may choose (0.9 K7), per end; an end without a type offers its name. */
   | { type: "criteria"; ends: Record<End, { typeKey?: string; label: string }> }
 );
@@ -129,6 +158,10 @@ export interface OperationSpec {
   direct?: boolean;
   fields?: (target: never, outline: ModelDraftOutline) => OperationField[];
   initial?: (target: never, outline: ModelDraftOutline) => FieldValues;
+  /** The values after `changed` moved, for what depends on it beyond a select's own options. */
+  follow?: (next: FieldValues, previous: FieldValues, changed: string, outline: ModelDraftOutline) => FieldValues;
+  /** What the form will make, shown beside it. */
+  preview?: (values: FieldValues, target: never, outline: ModelDraftOutline) => MatrixPreview;
   build: (values: FieldValues, target: never, outline: ModelDraftOutline) => DraftOperation[];
 }
 
@@ -173,7 +206,7 @@ const NEW = "__new__";
 function spec<T extends OperationTarget>(
   item: Omit<
     OperationSpec,
-    "label" | "title" | "available" | "draftOnly" | "confirm" | "fields" | "initial" | "build"
+    "label" | "title" | "available" | "draftOnly" | "confirm" | "fields" | "initial" | "preview" | "build"
   > & {
     on: T["on"];
     label: string | ((target: T, outline: ModelDraftOutline) => string);
@@ -183,6 +216,7 @@ function spec<T extends OperationTarget>(
     confirm?: (target: T, outline: ModelDraftOutline) => string;
     fields?: (target: T, outline: ModelDraftOutline) => OperationField[];
     initial?: (target: T, outline: ModelDraftOutline) => FieldValues;
+    preview?: (values: FieldValues, target: T, outline: ModelDraftOutline) => MatrixPreview;
     build: (values: FieldValues, target: T, outline: ModelDraftOutline) => DraftOperation[];
   },
 ): OperationSpec {
@@ -200,7 +234,62 @@ const applicationOptions = (outline: ModelDraftOutline) =>
   outline.applications.map((item) => ({ value: item.key, label: item.name }));
 
 const typeOptions = (outline: ModelDraftOutline, except?: string) =>
-  outline.objectTypes.filter((item) => item.key !== except).map((item) => ({ value: item.key, label: item.name }));
+  outline.objectTypes
+    .filter((item) => item.key !== except)
+    .map((item) => ({ value: item.key, label: typeLabel(outline, item.key) }));
+
+/** What choosing a type that shares its name means: the types are separate, whatever they read. */
+const typeHint = (outline: ModelDraftOutline, key: unknown) => {
+  const count = typeof key === "string" ? sameName(outline, key).length : 0;
+  return count > 1
+    ? `${count} types have this name. They are separate types, each with its own records; this one's key is ${String(key)}.`
+    : undefined;
+};
+
+const relationPairs = (outline: ModelDraftOutline, relationType: string) =>
+  outline.relations.filter((item) => item.relationType === relationType);
+
+const firstTwo = (names: string[]) =>
+  names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", ");
+
+/** A relation type's name with the types it stands between, which tell apart those sharing a name. */
+function relationTypeLabel(outline: ModelDraftOutline, relationType: OutlineRelationType) {
+  const pairs = relationPairs(outline, relationType.key);
+  if (!pairs.length) return `${relationType.name}: not used yet`;
+  const ends = (end: "from" | "to") => [...new Set(pairs.map((pair) => typeLabel(outline, pair[end])))];
+  return `${relationType.name}: ${firstTwo(ends("from"))} → ${firstTwo(ends("to"))}`;
+}
+
+const pairRules = (outline: ModelDraftOutline, pair: OutlineRelation) => {
+  const rules = [pair.required && "required", pair.uniquePer && `one per ${typeName(outline, pair.uniquePer)}`].filter(
+    Boolean,
+  );
+  return rules.length ? ` (${rules.join(", ")})` : "";
+};
+
+/** What the chosen relation type already does, or what a new one leaves out of those towards `to`. */
+function relationTypeHint(outline: ModelDraftOutline, values: FieldValues) {
+  const chosen = String(values.relationType ?? "");
+  const to = String(values.to ?? "");
+  if (!chosen || chosen === NEW) {
+    const towards = [
+      ...new Set(
+        outline.relations.filter((item) => item.to === to && !item.containment).map((item) => item.relationType),
+      ),
+    ].map((key) => relationTypeOf(outline, key)?.name ?? key);
+    return towards.length
+      ? `A new relation type stands apart from those already reaching ${typeName(outline, to)} (${firstTwo([...new Set(towards)])}): records and views of one do not include the other.`
+      : undefined;
+  }
+  const relationType = relationTypeOf(outline, chosen);
+  const pairs = relationPairs(outline, chosen);
+  const used = pairs.map(
+    (pair) => `${typeLabel(outline, pair.from)} → ${typeLabel(outline, pair.to)}${pairRules(outline, pair)}`,
+  );
+  const reverse = relationType?.reverseName ? `Reads "${relationType.reverseName}" in reverse. ` : "";
+  const carried = pairs.some((pair) => pair.uniquePer) ? " A new pair does not take over the one-per rule." : "";
+  return `${reverse}${used.length ? `Used for ${used.join("; ")}.` : "Not used by any types yet."}${carried}`;
+}
 
 /** The fields of a new type, its application chosen or fixed. */
 function newTypeFields(outline: ModelDraftOutline, applicationKey?: string): OperationField[] {
@@ -234,7 +323,7 @@ function newTypeFields(outline: ModelDraftOutline, applicationKey?: string): Ope
       type: "select",
       options: [
         { value: NEW, label: "A new containment relation" },
-        ...containment.map((r) => ({ value: r.key, label: r.name })),
+        ...containment.map((r) => ({ value: r.key, label: relationTypeLabel(outline, r) })),
       ],
       when: (values) => Boolean(values.parent),
     },
@@ -334,15 +423,38 @@ const binding = (target: On<"attribute">, outline: ModelDraftOutline) =>
   objectTypeOf(outline, target.objectType)?.attributes.find((a) => a.attributeType === target.attributeType);
 
 const relationFields = (outline: ModelDraftOutline, from: string): OperationField[] => [
-  { name: "to", label: "To", type: "select", options: typeOptions(outline), required: true },
+  {
+    name: "to",
+    label: "To",
+    type: "select",
+    options: typeOptions(outline),
+    required: true,
+    hint: (values) => typeHint(outline, values.to),
+  },
   {
     name: "relationType",
     label: "Relation type",
     type: "select",
-    options: [
-      { value: NEW, label: "A new relation type" },
-      ...outline.relationTypes.filter((r) => !r.containment).map((r) => ({ value: r.key, label: r.name })),
-    ],
+    // Those already reaching the chosen type come first: reusing one is usually what is meant.
+    options: (values) => {
+      const reaching = new Set(outline.relations.filter((r) => r.to === values.to).map((r) => r.relationType));
+      return [
+        { value: NEW, label: "A new relation type" },
+        ...outline.relationTypes
+          .filter((r) => !r.containment)
+          .map((r) => ({
+            value: r.key,
+            label: relationTypeLabel(outline, r),
+            reaches: reaching.has(r.key),
+          }))
+          .sort((a, b) => Number(b.reaches) - Number(a.reaches))
+          .map(({ reaches, ...option }) => ({
+            ...option,
+            group: reaches ? `Already reaching ${typeName(outline, String(values.to))}` : "Other relation types",
+          })),
+      ];
+    },
+    hint: (values) => relationTypeHint(outline, values),
   },
   {
     name: "name",
@@ -382,6 +494,67 @@ export function allowRelation(values: FieldValues, from: string, outline: ModelD
   });
   return operations;
 }
+
+const viewOf = (t: On<"view">, o: ModelDraftOutline) =>
+  o.applications.find((item) => item.key === t.applicationKey)?.views.find((item) => item.key === t.view);
+
+const matrixFields = (outline: ModelDraftOutline): OperationField[] => [
+  {
+    name: "row",
+    label: "Rows",
+    type: "select",
+    options: rowOptions(outline),
+    required: true,
+    hint: "Types connected to another type that sits under a parent.",
+  },
+  {
+    name: "cell",
+    label: "Each cell shows",
+    type: "select",
+    options: (v) => cellOptions(outline, String(v.row ?? "")),
+    required: true,
+    hint: (v) => cellHint(outline, v),
+  },
+  {
+    name: "column",
+    label: "Columns",
+    type: "select",
+    options: (v) => columnOptions(outline, v.cell),
+    required: true,
+    hint: "One column per record of a type the cell's records sit under.",
+  },
+  {
+    name: "columnLabel",
+    label: "Column heading",
+    type: "select",
+    options: (v) => columnLabelOptions(outline, v.column),
+    required: true,
+  },
+  {
+    name: "cellFields",
+    label: "Fields in a cell",
+    type: "choices",
+    ordered: true,
+    options: (v) => cellFieldOptions(outline, v.cell),
+    required: true,
+  },
+  {
+    name: "rowColumns",
+    label: "Row columns",
+    type: "choices",
+    ordered: true,
+    options: (v) => rowColumnOptions(outline, v.row),
+    required: true,
+  },
+  {
+    name: "actions",
+    label: "What people can do in a cell",
+    type: "checkboxes",
+    options: (v) => actionOptions(outline, v),
+    hint: (v) => actionHint(outline, v),
+  },
+  { name: "name", label: "Name", type: "text", required: true },
+];
 
 export const RELATION_DEFAULTS: FieldValues = { relationType: NEW, cardinality: "many-to-one" };
 
@@ -484,6 +657,45 @@ export const OPERATIONS: OperationSpec[] = [
     build: (values, t) => addType(values, t.applicationKey),
   }),
   spec<On<"application">>({
+    id: "application-add-matrix",
+    on: "application",
+    label: "Add a relation matrix…",
+    title: (t, o) =>
+      `Add a relation matrix to ${o.applications.find((a) => a.key === t.applicationKey)?.name ?? t.applicationKey}`,
+    available: (_, o) => rowOptions(o).length > 0,
+    fields: (_, o) => matrixFields(o),
+    initial: (_, o) => newMatrixValues<FieldValues>(o),
+    follow: (next, previous, changed, o) => followMatrix(o, next, previous, changed),
+    preview: (values, t, o) => matrixPreview(o, t.applicationKey, values),
+    build: (values, t, o) => addMatrix(o, t.applicationKey, values),
+  }),
+  spec<On<"application">>({
+    id: "application-list-type",
+    on: "application",
+    label: "List an existing type…",
+    title: (t, o) =>
+      `List an existing type in ${o.applications.find((a) => a.key === t.applicationKey)?.name ?? t.applicationKey}`,
+    available: (t, o) =>
+      o.objectTypes.some(
+        (type) => !o.applications.find((a) => a.key === t.applicationKey)?.objectTypeKeys.includes(type.key),
+      ),
+    fields: (t, o) => [
+      {
+        name: "objectType",
+        label: "Type",
+        type: "select",
+        options: typeOptions(o).filter(
+          (option) => !o.applications.find((a) => a.key === t.applicationKey)?.objectTypeKeys.includes(option.value),
+        ),
+        required: true,
+        hint: "Its records stay in the application they stand in. Here it can be used in a relation matrix.",
+      },
+    ],
+    build: (values, t) => [
+      { kind: "listObjectType", applicationKey: t.applicationKey, objectType: text(values, "objectType") },
+    ],
+  }),
+  spec<On<"application">>({
     id: "application-add-group",
     on: "application",
     label: "Add a navigation group…",
@@ -500,7 +712,56 @@ export const OPERATIONS: OperationSpec[] = [
     build: (_, t) => [{ kind: "removeApplication", applicationKey: t.applicationKey }],
   }),
 
+  // --- a view of an application ---
+  spec<On<"view">>({
+    id: "view-rename",
+    on: "view",
+    label: "Rename…",
+    title: (t, o) => `Rename ${viewOf(t, o)?.name ?? t.view}`,
+    fields: () => [{ name: "name", label: "Name", type: "text", required: true }],
+    initial: (t, o) => ({ name: viewOf(t, o)?.name ?? "" }),
+    build: (values, t) => [
+      {
+        kind: "setViewProperty",
+        applicationKey: t.applicationKey,
+        view: t.view,
+        property: "name",
+        value: text(values, "name"),
+      },
+    ],
+  }),
+  spec<On<"view">>({
+    id: "view-matrix-change",
+    on: "view",
+    label: "Change…",
+    title: (t, o) => `Change ${viewOf(t, o)?.name ?? t.view}`,
+    available: (t, o) => viewOf(t, o)?.type === "relationMatrix",
+    fields: (_, o) => matrixFields(o),
+    initial: (t, o) => matrixValues<FieldValues>(viewOf(t, o) ?? { name: t.view }),
+    follow: (next, previous, changed, o) => followMatrix(o, next, previous, changed),
+    preview: (values, t, o) => matrixPreview(o, t.applicationKey, values),
+    build: (values, t, o) => changeMatrix(o, t.applicationKey, t.view, values),
+  }),
+  spec<On<"view">>({
+    id: "view-matrix-remove",
+    on: "view",
+    label: "Remove relation matrix",
+    available: (t, o) => viewOf(t, o)?.type === "relationMatrix",
+    confirm: (t, o) => `Remove ${viewOf(t, o)?.name ?? t.view}? Types only it needed stop being listed here.`,
+    build: (_, t) => [{ kind: "removeView", applicationKey: t.applicationKey, view: t.view, unlist: true }],
+  }),
+
   // --- an object type ---
+  spec<On<"objectType">>({
+    id: "type-unlist",
+    on: "objectType",
+    label: "Stop listing in this application",
+    available: (t, o) =>
+      o.applications.find((a) => a.key === t.applicationKey)?.unlistable.includes(t.objectType) ?? false,
+    confirm: (t, o) =>
+      `Stop listing ${typeName(o, t.objectType)} in ${o.applications.find((a) => a.key === t.applicationKey)?.name ?? ""}? Its records and other applications are not affected.`,
+    build: (_, t) => [{ kind: "unlistObjectType", applicationKey: t.applicationKey, objectType: t.objectType }],
+  }),
   spec<On<"objectType">>({
     id: "type-rename",
     on: "objectType",
@@ -1063,8 +1324,22 @@ export const OPERATIONS: OperationSpec[] = [
     title: (t, o) => `Allow ${relationTypeOf(o, t.relationType)?.name ?? t.relationType} between two types`,
     available: (t, o) => !relationTypeOf(o, t.relationType)?.containment && o.objectTypes.length > 0,
     fields: (_, o) => [
-      { name: "from", label: "From", type: "select", options: typeOptions(o), required: true },
-      { name: "to", label: "To", type: "select", options: typeOptions(o), required: true },
+      {
+        name: "from",
+        label: "From",
+        type: "select",
+        options: typeOptions(o),
+        required: true,
+        hint: (values) => typeHint(o, values.from),
+      },
+      {
+        name: "to",
+        label: "To",
+        type: "select",
+        options: typeOptions(o),
+        required: true,
+        hint: (values) => typeHint(o, values.to),
+      },
       { name: "cardinality", label: "Cardinality", type: "select", options: CARDINALITIES, required: true },
       { name: "required", label: "Required", type: "checkbox" },
     ],

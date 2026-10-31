@@ -16,6 +16,8 @@ function twoApplications(): ModelDraftOutline {
     objectTypeKeys: ["bin"],
     tree: [{ objectType: "bin", children: [] }],
     navigation: { groups: [], ungrouped: ["bin"] },
+    views: [],
+    unlistable: [],
     mark: "new",
   });
   return outline;

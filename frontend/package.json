@@ -15,6 +15,7 @@
     "test:browser:authoring": "node e2e/wp9-authoring.mjs",
     "test:browser:authoring-n1": "node e2e/authoring-n1-navigation-groups.mjs",
     "test:browser:authoring-a4a": "node e2e/authoring-a4a-model-editor.mjs",
+    "test:browser:authoring-matrix": "node e2e/authoring-matrix-editor.mjs",
     "test:browser:authoring-a4b": "node e2e/authoring-a4b-preview-layout.mjs",
     "test:browser:authoring-a4c": "node e2e/authoring-a4c-consumer-apis.mjs",
     "test:browser:authoring-t1": "node e2e/authoring-t1-designer.mjs",

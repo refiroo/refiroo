@@ -249,7 +249,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(within(grid).getByRole("columnheader", { name: /^Domain$/ })).toBeInTheDocument();
     expect(within(grid).getByRole("columnheader", { name: /EA.*Region East/ })).toBeInTheDocument();
     expect(gridCell("Connections", 1)).toHaveTextContent("One");
-    expect(gridCell("Connections", 1)).toHaveTextContent("Connections EA");
+    expect(gridCell("Connections", 1)).toHaveTextContent("CL-EA");
     expect(gridCell("Connections", 2)).toHaveTextContent("None");
     expect(gridCell("Finance", 1)).toHaveTextContent("Conflict (2)");
     expect(gridCell("Finance", 2)).toHaveTextContent("History only");
@@ -263,8 +263,8 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
   });
 
   it.each([
-    [notesView, "domain", "Connections", "Connections EA"],
-    [tagsView, "codelist", "Sizes", "Size tag"],
+    [notesView, "domain", "Connections", "CL-EA"],
+    [tagsView, "codelist", "Sizes", "SZ"],
   ])(
     "colours the header by the row type and a cell's record by its own (UA6): %s",
     async (view, rowType, rowName, record) => {
@@ -296,7 +296,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     const legend = screen.getByRole("list", { name: "Cell states" });
     expect(within(legend).queryByText("Inactive")).toBeNull();
     expect(within(legend).queryByText("Conflict")).toBeNull();
-    expect(gridCell("Sizes", 1)).toHaveTextContent("Size tag");
+    expect(gridCell("Sizes", 1)).toHaveTextContent("SZ");
   });
 
   it("moves across cells by keyboard, keeps the column between rows, and opens and cancels a cell", async () => {
@@ -436,7 +436,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       expect.objectContaining({ columnIds: ["c-west"], seek: "Connections", pageSize: 20 }),
     );
     expect(gridCell("Connections", 2)).toHaveTextContent("One");
-    expect(gridCell("Connections", 2)).toHaveTextContent("Connections WE");
+    expect(gridCell("Connections", 2)).toHaveTextContent("CL-WE");
     expect(gridCell("Finance", 2)).toHaveTextContent("History only");
   });
 
@@ -502,7 +502,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(gridCell("Connections", 2)).toHaveTextContent("Connections WE");
+    expect(gridCell("Connections", 2)).toHaveTextContent("CL-WE");
     // A second save cannot find its row in the short re-read, so the page reloads; meanwhile the
     // first cell's record was removed elsewhere, and the reload must show that.
     fireEvent.click(gridCell("Finance", 2));
@@ -513,7 +513,7 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(gridCell("Connections", 2)).toHaveTextContent("None"));
-    expect(gridCell("Connections", 2)).not.toHaveTextContent("Connections WE");
+    expect(gridCell("Connections", 2)).not.toHaveTextContent("CL-WE");
   });
 
   it("keeps the entered value and links to the conflicting record when an edit breaks uniqueness", async () => {

@@ -61,6 +61,7 @@ ELEMENT_FIELDS: dict[str, tuple[str, ...]] = {
     "detail": ("applicationKey", "detail"),
     "panel": ("applicationKey", "detail", "panel"),
     "group": ("applicationKey", "group"),
+    "listing": ("applicationKey", "objectType"),
     "consumerApi": ("consumerApi",),
 }
 
@@ -274,7 +275,7 @@ def restoring(context: Context, operation: dict[str, Any], applied: Applied) -> 
     return applied
 
 
-_RELEASABLE = {"application", "objectType", "attributeType", "relationType", "attributeBinding", "relationBinding"}
+_RELEASABLE = {"application", "objectType", "attributeType", "relationType", "attributeBinding", "relationBinding", "listing"}
 
 
 # --- names ---
@@ -1823,21 +1824,88 @@ def add_view(context: Context, raw: dict[str, Any]) -> Applied:
 
 @kind("removeView")
 def remove_view(context: Context, raw: dict[str, Any]) -> Applied:
-    Params(raw, ("applicationKey", "view"))
+    """A view out of its application; with ``unlist``, the types it named that the application then
+    lists for nothing, so a matrix leaves as it came."""
+    Params(raw, ("applicationKey", "view", "unlist"))
     app = raw.get("applicationKey")
     path = _view_path(context, app, raw.get("view"))
     application = context.application(app)
     views = application.get("views") or []
     position = next(i for i, v in enumerate(views) if v.get("key") == raw["view"])
     was_default = application.get("defaultView") == raw["view"]
+    needed = _members_needed(context.document, path)
     removed = context.document.remove(path[:-1], path[-1])
     if was_default:
         remaining = [v.get("key") for v in context.document.at(application_path(app)).get("views") or []]
         context.document.set(application_path(app), "defaultView", remaining[0] if remaining else "")
+    named = {atom("view", app, raw["view"])}
+    leaving = needed & set(unlistable_types(context.document, app, context.released)) if raw.get("unlist") is True else set()
+    if leaving:
+        for type_key in sorted(leaving):
+            context.document.remove(application_path(app) + ["objectTypeKeys"], type_key)
+        return restoring(context, {"kind": "removeView", **raw}, Applied(raw, {}, named=named))
     return Applied(
         raw,
         {"kind": "addView", "applicationKey": app, "view": removed, "position": position, "default": was_default},
-        named={atom("view", app, raw["view"])},
+        named=named,
+    )
+
+
+def unlistable_types(document: Document, app: str, released: Callable[[str], bool]) -> list[str]:
+    """The types ``app`` lists that it could stop listing: nothing in it needs them, another
+    application keeps them, and no release has them here, where records may stand."""
+    path = application_path(app)
+    application = document.at(path)
+    needed = set(_members_needed(document, path + ["navigation"]))
+    for name, by in (("views", "key"), ("details", "objectTypeKey")):
+        for item in application.get(name) or []:
+            needed |= _members_needed(document, path + [name, {by: item.get(by)}])
+    return [
+        key
+        for key in application.get("objectTypeKeys") or []
+        if key not in needed
+        and not released(atom("listing", app, key))
+        and any(key in (other.get("objectTypeKeys") or []) for other in document.items("applications") if other.get("key") != app)
+    ]
+
+
+@kind("listObjectType")
+def list_object_type(context: Context, raw: dict[str, Any]) -> Applied:
+    """An existing type in one more application: its records keep the application they stand in."""
+    params = Params(raw, ("applicationKey", "objectType"))
+    app = params.text("applicationKey")
+    application = context.application(app)
+    key = params.text("objectType")
+    context.object_type(key)
+    if key in (application.get("objectTypeKeys") or []):
+        raise Refusal("objectType", "invalidValue", f"'{app}' already lists '{key}'")
+    context.document.insert(application_path(app) + ["objectTypeKeys"], key)
+    return Applied(
+        raw,
+        {"kind": "unlistObjectType", "applicationKey": app, "objectType": key},
+        created={atom("listing", app, key)},
+        named={atom("application", app), atom("objectType", key)},
+    )
+
+
+@kind("unlistObjectType")
+def unlist_object_type(context: Context, raw: dict[str, Any]) -> Applied:
+    params = Params(raw, ("applicationKey", "objectType"))
+    app = params.text("applicationKey")
+    application = context.application(app)
+    key = params.text("objectType")
+    context.object_type(key)
+    keys = application.get("objectTypeKeys") or []
+    if key not in keys:
+        raise Refusal("objectType", "unknownElement", f"'{app}' does not list '{key}'")
+    context.unreleased(atom("listing", app, key))
+    if key not in unlistable_types(context.document, app, context.in_use):
+        raise Refusal("objectType", "invalidValue", f"'{app}' still needs '{key}', or no other application lists it")
+    context.document.remove(application_path(app) + ["objectTypeKeys"], key)
+    return restoring(
+        context,
+        {"kind": "unlistObjectType", **raw},
+        Applied(raw, {}, named={atom("application", app), atom("objectType", key)}),
     )
 
 

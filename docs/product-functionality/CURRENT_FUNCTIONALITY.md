@@ -349,7 +349,11 @@ Translations are ordinary records and relationships: a translation is created wi
 and content in one valid operation, and a second active translation for the same target and language
 is refused.
 
-A relation matrix shows records against the values of an ancestor type, for example values by
+A relation matrix can be added to any application in the model editor, from the application's Views
+section. The types it needs are listed in that application, and their records stay in the application
+they stand in, so the matrix shows them all; a table in a second application lists only records stored
+there. A cell shows the first of the view's cell fields holding text or a number, or the record's name
+when none does. A relation matrix shows records against the values of an ancestor type, for example values by
 language, each cell current, missing, inactive or held only in history, with its record as a chip in
 the record type's colour. It filters to gaps across the
 whole list. From a cell the steward creates, corrects or restores a translation, live or in a change

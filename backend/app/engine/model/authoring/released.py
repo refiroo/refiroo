@@ -91,6 +91,8 @@ def released_atoms(model: dict[str, Any] | None) -> frozenset[str]:
     found = set()
     for item in model.get("applications") or []:
         found.add(atom("application", item["key"]))
+        for type_key in item.get("objectTypeKeys") or []:
+            found.add(atom("listing", item["key"], type_key))
     for item in model.get("attributeTypes") or []:
         found.add(atom("attributeType", item["key"]))
     for item in model.get("relationTypes") or []:
@@ -125,6 +127,18 @@ def impact(session: Session, element: str, model_key: str | None) -> dict[str, i
             if kind == "objectType"
             else ChangeSetObject.application_key == keys[0]
         )
+        return {
+            "records": _sum(session, select(RdmObject.id).where(live), staged_objects.where(staged)),
+            "values": _sum(
+                session,
+                select(AttributeValue.id).join(RdmObject, RdmObject.id == AttributeValue.object_id).where(live),
+                staged_values.where(staged),
+            ),
+            "relationships": _sum(session, *_relationships(live, staged, staged_relations)),
+        }
+    if kind == "listing":
+        live = and_(RdmObject.application_key == keys[0], RdmObject.object_type_key == keys[1], in_scope)
+        staged = and_(ChangeSetObject.application_key == keys[0], ChangeSetObject.object_type_key == keys[1])
         return {
             "records": _sum(session, select(RdmObject.id).where(live), staged_objects.where(staged)),
             "values": _sum(

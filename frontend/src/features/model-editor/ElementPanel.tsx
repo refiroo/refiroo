@@ -106,6 +106,13 @@ export function OperationButton({
   );
 }
 
+const VIEW_KINDS: Record<string, string> = {
+  table: "Table",
+  tree: "Tree",
+  relationMatrix: "Relation matrix",
+  mappingGrid: "Mapping grid",
+};
+
 /** An element's key, and whether it can still change (A-D6): fixed once released, labels always free. */
 const keyFacts = (key: string, mark: OutlineMark | undefined, extra: Fact[] = []) => (
   <Facts
@@ -504,7 +511,7 @@ export function ElementPanel({
           menu={(key) => (
             <OperationsMenu
               label={`Operations for ${typeName(outline, key)}`}
-              target={{ on: "objectType", objectType: key }}
+              target={{ on: "objectType", objectType: key, applicationKey: application.key }}
               outline={outline}
               onOperation={onOperation}
             />
@@ -543,6 +550,48 @@ export function ElementPanel({
         <div className="element-tab-actions">
           <OperationButton id="application-add-type" target={target} outline={outline} onOperation={onOperation}>
             <Icon name="plus" /> Object type
+          </OperationButton>
+          <OperationButton id="application-list-type" target={target} outline={outline} onOperation={onOperation}>
+            List an existing type…
+          </OperationButton>
+        </div>
+        <h3 className="element-subheading">Views</h3>
+        <EditorTable
+          editing={editing}
+          scope="application-views"
+          label={`Views of ${application.name}`}
+          noun={["view", "views"]}
+          rows={application.views}
+          rowKey={(view) => view.key}
+          menu={(view) => (
+            <OperationsMenu
+              label={`Operations for the view ${view.name}`}
+              target={{ on: "view", applicationKey: application.key, view: view.key }}
+              outline={outline}
+              onOperation={onOperation}
+            />
+          )}
+          emptyMessage="No views yet."
+          columns={[
+            { key: "view", label: "View", cell: (view) => view.name },
+            { key: "kind", label: "Kind", cell: (view) => VIEW_KINDS[view.type ?? ""] ?? view.type },
+            {
+              key: "shows",
+              label: "Shows",
+              cell: (view) => (
+                <span className="type-links">
+                  {view.shows.map((key) => (
+                    <TypeLink key={key} outline={outline} typeKey={key} onSelect={onSelect} />
+                  ))}
+                </span>
+              ),
+            },
+            { key: "state", label: "State", cell: (view) => <MarkPill mark={view.mark} /> },
+          ]}
+        />
+        <div className="element-tab-actions">
+          <OperationButton id="application-add-matrix" target={target} outline={outline} onOperation={onOperation}>
+            <Icon name="plus" /> Relation matrix
           </OperationButton>
         </div>
         <h3 className="element-subheading">Navigation groups</h3>

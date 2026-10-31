@@ -4112,7 +4112,9 @@ the layout places the change took.
 | `disallowRelation` | relation binding | draft-only | `restoreElements` |
 | `setRelationRule` | relation binding; `cardinality`, `required`, `candidates`, `uniqueToAncestorTypeKey` | draft-only; additive for `candidates` alone (compatible in a release, 0.9 K7; corrected in A4a) | `setRelationRule` back |
 | `addView` | `applicationKey`, `view` (a declaration; a table view may give only `objectTypeKey`, with `key` and `name` optional, and the rest is generated), `position`, `default` | additive | `removeView` |
-| `removeView` | view | additive | `addView` with its declaration |
+| `removeView` | view, `unlist`? (also the types it named that the application then lists for nothing) | additive | `addView` with its declaration; `restoreElements` when types left with it |
+| `listObjectType` | `applicationKey`, `objectType` (a type it does not list yet). Records keep the application they stand in: a matrix there reads them, a table there lists only records stored there | additive | `unlistObjectType` |
+| `unlistObjectType` | `applicationKey`, `objectType` (nothing in the application needs it and another lists it) | draft-only | `restoreElements` |
 | `insertViewItem` | view or panel, `list` (`columns`, `filterFields`, `sortFields`, `fields`, `panels`, …), `item`, `position` (D19) | additive | `removeViewItem` |
 | `moveViewItem` | view or panel, `list`, `item`, `position` | additive | `moveViewItem` back; `restoreElements` when the move changed a panel's `order` |
 | `removeViewItem` | view or panel, `list`, `item` | additive | `insertViewItem` at its old position |
@@ -4251,6 +4253,10 @@ can be read, beside its diagnostics.
   are those the class check reads, so a draft-only operation is refused on exactly the elements marked
   `released` or `changed`.
 - **`navigation.ungrouped`** lists the application's collections in no group, in their sidebar order.
+- **`views`** lists an application's views: `key`, `name`, `type`, the types each `shows`, its `mark`, and
+  for a relation matrix its configuration as `matrix`. **`unlistable`** names the types `unlistObjectType`
+  would accept: nothing in the application needs them, another application lists them, and the base
+  release does not list them here.
 - **`uniquePer`** on an allowed relation names the ancestor type under which a source may hold only one
   target (`features.uniqueToAncestorTypeKey`); absent without that rule.
 - **`relations[].candidates`**: which records the relationship may choose at each end (0.9 K7), as the

@@ -10,6 +10,7 @@ import {
   operationsFor,
   visibleFields,
   type FieldValues,
+  type OperationField,
   type OperationTarget,
 } from "@/features/model-editor/operations";
 import { keyFromLabel, suggestedVersion } from "@/features/model-editor/outline";
@@ -44,6 +45,11 @@ const KINDS = new Set([
   "removeNavigationGroup",
   "setNavigationGroup",
   "placeCollection",
+  "addView",
+  "removeView",
+  "setViewProperty",
+  "listObjectType",
+  "unlistObjectType",
   // The consumer API kinds (0.10 A4c, D51).
   "addConsumerApi",
   "removeConsumerApi",
@@ -62,6 +68,7 @@ const TARGETS: Record<OperationTarget["on"], OperationTarget> = {
   attributeType: { on: "attributeType", attributeType: "colour" },
   relationType: { on: "relationType", relationType: "stores" },
   relation: { on: "relation", relationType: "stores", from: "shelf", to: "bin" },
+  view: { on: "view", applicationKey: "shop", view: "bins" },
   group: { on: "group", applicationKey: "shop", group: "lists" },
   consumerApis: { on: "consumerApis" },
   consumerApi: { on: "consumerApi", consumerApi: "shop-feed", definition: consumerDefinitionFixture() },
@@ -127,6 +134,60 @@ describe("the editor's operation descriptors (D38)", () => {
       features: { sortable: true },
     });
     expect(attach).toEqual({ kind: "attachAttribute", objectType: "bin", attributeType: "depth-2", required: true });
+  });
+
+  it("tells apart types and relation types that share a name, with what each is for", () => {
+    const named: typeof outline = {
+      ...outline,
+      applications: [
+        { ...outline.applications[0], key: "a", name: "Sales", objectTypeKeys: ["lang", "text"] },
+        { ...outline.applications[0], key: "b", name: "Stock", objectTypeKeys: ["lang-2", "text"] },
+      ],
+      objectTypes: [
+        { ...outline.objectTypes[0], key: "lang", name: "Language" },
+        { ...outline.objectTypes[0], key: "lang-2", name: "language" },
+        { ...outline.objectTypes[0], key: "text", name: "Text" },
+        { ...outline.objectTypes[0], key: "item", name: "Item" },
+      ],
+      relationTypes: [
+        { key: "has-text", name: "Has text", reverseName: "Text of", containment: false, mark: "released" },
+        { key: "has-text-2", name: "Has text", reverseName: "Text of", containment: false, mark: "new" },
+        { key: "other", name: "Other", containment: false, mark: "new" },
+      ],
+      relations: [
+        {
+          relationType: "has-text",
+          from: "item",
+          to: "text",
+          required: true,
+          uniquePer: "lang",
+          containment: false,
+          mark: "released",
+        },
+        { relationType: "has-text-2", from: "item", to: "lang-2", required: false, containment: false, mark: "new" },
+      ],
+    };
+    const fields = operationById("type-allow")!.fields!({ on: "objectType", objectType: "item" } as never, named);
+    const to = fields.find((field) => field.name === "to") as Extract<OperationField, { type: "select" }>;
+    const relation = fields.find((field) => field.name === "relationType") as Extract<
+      OperationField,
+      { type: "select" }
+    >;
+
+    expect(fieldOptions(to, {}).map((option) => option.label)).toEqual([
+      "Language · Sales",
+      "language · Stock",
+      "Text",
+      "Item",
+    ]);
+    expect(fieldOptions(relation, { to: "text" }).slice(0, 2)).toEqual([
+      { value: "__new__", label: "A new relation type" },
+      { value: "has-text", label: "Has text: Item → Text", group: "Already reaching Text" },
+    ]);
+    const hint = relation.hint as (values: FieldValues) => string;
+    expect(hint({ to: "text", relationType: "has-text" })).toContain("Item → Text (required, one per Language)");
+    expect(hint({ to: "text", relationType: "__new__" })).toContain("stands apart");
+    expect((to.hint as (values: FieldValues) => string)({ to: "lang-2" })).toContain("key is lang-2");
   });
 
   it("allows a relation of a new relation type in the same step, or of an existing one", () => {

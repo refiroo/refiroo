@@ -27,6 +27,7 @@ import { objectTypeFor } from "@/model/lookup";
 import { RelationMatrixCellDialog } from "@/features/objects/RelationMatrixCellDialog";
 import { RelationMatrixFilter } from "@/features/objects/RelationMatrixFilter";
 import {
+  cellRecordLabel,
   columnLabel,
   matrixBinding,
   MATRIX_STATES,
@@ -505,6 +506,7 @@ export function RelationMatrixView({
                                   key={column.id}
                                   cell={cell}
                                   cellHue={cellHue}
+                                  cellFields={config.cellFields}
                                   column={index + 1}
                                   tabbable={tabRow === item.row.id && tabColumn === index + 1}
                                   onFocus={() => setActive({ rowId: item.row.id, column: index + 1 })}
@@ -559,6 +561,7 @@ export function RelationMatrixView({
 function MatrixCell({
   cell,
   cellHue,
+  cellFields,
   column,
   tabbable,
   onFocus,
@@ -567,6 +570,7 @@ function MatrixCell({
   cell: RelationMatrixCell | undefined;
   /** The cell records' type colour: a record in the matrix's data is a chip (ADR-040). */
   cellHue: Hue | undefined;
+  cellFields: readonly string[];
   column: number;
   tabbable: boolean;
   onFocus: () => void;
@@ -593,7 +597,7 @@ function MatrixCell({
       </span>
       {summary && (
         <span className="matrix-cell-record">
-          <RecordChip hue={cellHue}>{summary.name}</RecordChip>
+          <RecordChip hue={cellHue}>{cellRecordLabel(summary, cellFields)}</RecordChip>
           {more > 0 && <span className="muted">+{more}</span>}
         </span>
       )}

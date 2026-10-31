@@ -491,6 +491,16 @@ class OutlineNavigation(BaseModel):
     ungrouped: list[str]
 
 
+class OutlineView(BaseModel):
+    key: str
+    name: str
+    type: str | None = None
+    shows: list[str]
+    # A relation matrix's configuration, as the model declares it; absent on other kinds.
+    matrix: dict[str, Any] | None = None
+    mark: OutlineMark
+
+
 class OutlineApplication(BaseModel):
     key: str
     name: str
@@ -499,6 +509,9 @@ class OutlineApplication(BaseModel):
     objectTypeKeys: list[str]
     tree: list[OutlineTypeNode]
     navigation: OutlineNavigation
+    views: list[OutlineView]
+    # The types it could stop listing: unused here, listed elsewhere, not in the base release here.
+    unlistable: list[str]
     mark: OutlineMark
 
 
@@ -550,6 +563,8 @@ class OutlineRelation(BaseModel):
     cardinality: str | None = None
     required: bool
     containment: bool
+    # The ancestor type under which a source may hold only one target; absent without the rule.
+    uniquePer: str | None = None
     # Which records may be chosen at each end (0.9 K7), as the model declares it; absent without.
     candidates: dict[str, Any] | None = None
     mark: OutlineMark

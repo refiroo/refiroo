@@ -675,3 +675,97 @@ def test_a_move_between_applications_that_cannot_apply_says_why(world):
         answer = refused(_apply(world, draft, draft["version"], operation), 422, "INVALID_OPERATION")
         assert parameter in str(answer), answer
     assert _model(world, draft) == start
+
+
+@pytest.mark.journey("J33.16", "J08")
+@pytest.mark.structures("R")
+def test_a_relation_matrix_over_a_listed_type_shows_the_records_where_they_stand(world):
+    """Given R records in R's application and a second application holding a column type over a cell
+    type. When a matrix of R by that column is added there with R listed in one step. Then the draft
+    is valid, the matrix reads the R record though it stands in the other application, and a cell can
+    be created from it. A type still needed cannot be unlisted; a released listing needs a migration;
+    a draft's matrix removed with ``unlist`` leaves as it came, and undo returns it."""
+    draft = _draft_of_active(world)
+    model = _model(world, draft)
+    r_key, r_app = world.key("R"), world.app("R")
+    parent = {"relationType": {"key": "j33-holds", "name": "Holds", "reverseName": "Held by"}}
+    built = ok(
+        _apply(
+            world,
+            draft,
+            draft["version"],
+            {"kind": "addApplication", "key": "j33-words", "name": "Words"},
+            {"kind": "addObjectType", "applicationKey": "j33-words", "key": "j33-tongue", "name": "Tongue", "parent": None},
+            {"kind": "addObjectType", "applicationKey": "j33-words", "key": "j33-word", "name": "Word", "parent": {**parent, "objectTypes": ["j33-tongue"]}},
+            _attribute("j33-text", "Text"),
+            {"kind": "attachAttribute", "objectType": "j33-word", "attributeType": "j33-text"},
+            {"kind": "addRelationType", "key": "j33-worded", "name": "Worded", "reverseName": "Words of"},
+            {"kind": "allowRelation", "relationType": "j33-worded", "from": r_key, "to": "j33-word", "cardinality": "one-to-many"},
+        )
+    )
+    matrix = {
+        "key": "j33-words-by-tongue",
+        "name": "Words by tongue",
+        "type": "relationMatrix",
+        "config": {
+            "relationTypeKey": "j33-worded",
+            "direction": "outgoing",
+            "rowObjectTypeKey": r_key,
+            "columnObjectTypeKey": "j33-tongue",
+            "cellObjectTypeKey": "j33-word",
+            "rowColumns": ["name"],
+            "columnLabelField": "name",
+            "cellFields": ["j33-text"],
+            "searchFields": ["name"],
+            "cellActions": ["create", "edit"],
+            "pageSize": 20,
+        },
+    }
+    listed = {"kind": "listObjectType", "applicationKey": "j33-words", "objectType": r_key}
+    added = ok(_apply(world, draft, built["version"], listed, {"kind": "addView", "applicationKey": "j33-words", "view": matrix}))
+    assert added["valid"] is True, added["diagnostics"]
+    outline = _outline(world, draft)
+    words = next(a for a in outline["applications"] if a["key"] == "j33-words")
+    assert next(v for v in words["views"] if v["key"] == matrix["key"])["shows"] == [r_key, "j33-tongue", "j33-word"]
+    assert r_key not in words["unlistable"]
+
+    refused(_apply(world, draft, added["version"], {"kind": "unlistObjectType", "applicationKey": "j33-words", "objectType": r_key}), 422, "INVALID_OPERATION")
+    removed = ok(_apply(world, draft, added["version"], {"kind": "removeView", "applicationKey": "j33-words", "view": matrix["key"], "unlist": True}))
+    assert r_key not in _application(_model(world, draft), "j33-words")["objectTypeKeys"]
+    undone = ok(_undo(world, draft, removed["version"]))
+    assert r_key in _application(_model(world, draft), "j33-words")["objectTypeKeys"]
+
+    versioned = ok(
+        _apply(world, draft, undone["version"], {"kind": "setRelease", "key": model["release"]["key"], "name": model["release"]["name"], "version": model["release"]["version"] + "-j33m"})
+    )
+    release = ok(world.api.post(f"/model-drafts/{draft['id']}/installation", {"expectedVersion": versioned["version"]}), 201)
+    ok(world.activate(release["id"]))
+
+    row = world.made("R", "Row standing elsewhere")
+    tongue = ok(world.api.post("/objects", {"applicationKey": "j33-words", "objectTypeKey": "j33-tongue", "name": "First tongue", "workspaceKey": "default"}), 201)
+    page = ok(world.api.get("/workspaces/default/relation-matrix", applicationKey="j33-words", viewKey=matrix["key"], search="Row standing elsewhere"))
+    assert [item["row"]["id"] for item in page["items"]] == [row["id"]]
+    assert row["applicationKey"] == r_app
+    assert [column["id"] for column in page["columns"]] == [tongue["id"]]
+    word = ok(
+        world.api.post(
+            "/objects",
+            {
+                "applicationKey": "j33-words",
+                "objectTypeKey": "j33-word",
+                "name": "A word",
+                "workspaceKey": "default",
+                "parentObjectId": tongue["id"],
+                "attributes": [{"attributeTypeKey": "j33-text", "value": "A word"}],
+            },
+        ),
+        201,
+    )
+    ok(world.api.post("/relations", {"relationTypeKey": "j33-worded", "fromObjectId": row["id"], "toObjectId": word["id"]}), 201)
+    (read,) = ok(world.api.get("/workspaces/default/relation-matrix", applicationKey="j33-words", viewKey=matrix["key"], search="Row standing elsewhere"))["items"]
+    assert [cell["state"] for cell in read["cells"]] == ["one"]
+
+    current = _draft(world, draft)
+    error = refused(_apply(world, draft, current["version"], {"kind": "unlistObjectType", "applicationKey": r_app, "objectType": r_key}), 409, "OPERATION_REQUIRES_MIGRATION")
+    assert error["details"]["element"] == {"applicationKey": r_app, "objectType": r_key}
+    assert error["details"]["impact"]["records"] >= 1

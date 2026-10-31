@@ -85,6 +85,13 @@ def test_an_unreadable_document_is_outlined_empty():
     assert build_outline({"objectTypes": "nonsense", "applications": [1]}, None)["objectTypes"] == []
 
 
+def test_a_relation_carries_its_uniqueness_scope():
+    draft = copy.deepcopy(DOCUMENT)
+    draft["objectTypeRelations"][0]["features"] = {"uniqueToAncestorTypeKey": "area"}
+    assert build_outline(draft, None)["relations"][0]["uniquePer"] == "area"
+    assert "uniquePer" not in build_outline(DOCUMENT, None)["relations"][0]
+
+
 def test_a_relation_carries_which_records_it_may_choose():
     draft = copy.deepcopy(DOCUMENT)
     criteria = {"to": [{"field": "name", "op": "startsWith", "value": "A"}]}

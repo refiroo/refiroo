@@ -560,6 +560,68 @@
   gap: var(--space-3);
   margin-top: var(--space-3);
 }
+.operation-form-beside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2) var(--space-5);
+}
+.operation-form-beside > *:not(.matrix-preview) {
+  grid-column: 1;
+}
+/* A form this long scrolls under its actions, which stay in reach. */
+.operation-form-beside.dialog-body:last-child {
+  padding-bottom: 0;
+}
+.operation-form-beside > .dialog-actions {
+  grid-column: 1 / -1;
+  position: sticky;
+  bottom: 0;
+  padding-bottom: 20px;
+  background: var(--surface-raised);
+}
+.matrix-preview {
+  grid-column: 2;
+  grid-row: 1 / span 20;
+  position: sticky;
+  top: 0;
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.matrix-preview-eyebrow {
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.matrix-preview-scroll {
+  overflow-x: auto;
+}
+.matrix-preview table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.matrix-preview th,
+.matrix-preview td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  white-space: nowrap;
+}
+.matrix-preview-field {
+  display: block;
+}
+@media (max-width: 720px) {
+  .operation-form-beside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .matrix-preview {
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+  }
+}
 .operation-checkboxes {
   display: grid;
   gap: var(--space-1);

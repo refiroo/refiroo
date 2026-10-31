@@ -339,6 +339,16 @@ export interface OutlineTypeNode {
   children: OutlineTypeNode[];
 }
 
+export interface OutlineView {
+  key: string;
+  name: string;
+  type?: string | null;
+  shows: string[];
+  /** A relation matrix's configuration, as the model declares it. */
+  matrix?: Record<string, unknown> | null;
+  mark: OutlineMark;
+}
+
 export interface OutlineApplication {
   key: string;
   name: string;
@@ -350,6 +360,9 @@ export interface OutlineApplication {
     groups: { key: string; label: string; collapsed: boolean; collections: string[]; mark: OutlineMark }[];
     ungrouped: string[];
   };
+  views: OutlineView[];
+  /** The types it could stop listing: unused here, listed elsewhere, not released here. */
+  unlistable: string[];
   mark: OutlineMark;
 }
 
@@ -401,6 +414,8 @@ export interface OutlineRelation {
   cardinality?: string | null;
   required: boolean;
   containment: boolean;
+  /** The ancestor type under which a source may hold only one target; absent without the rule. */
+  uniquePer?: string | null;
   /** Which records may be chosen at each end (0.9 K7); absent without criteria. */
   candidates?: {
     from?: { field: string; op: string; value: string | number | boolean }[];

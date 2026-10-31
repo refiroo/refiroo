@@ -40,7 +40,7 @@ from ..consumer_expansion import public_name
 from ..diagnostics import ModelDiagnostic
 from ..placements import model_placements
 from .document import Document
-from .kinds import atom
+from .kinds import atom, unlistable_types
 from .layout import contained_types
 from .released import base_release, released_atoms
 
@@ -158,6 +158,8 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                 "objectTypeKeys": types,
                 "tree": _tree(document, types),
                 "navigation": _navigation(application, base, types),
+                "views": _views(application, base),
+                "unlistable": unlistable_types(document, app_key, released.__contains__),
                 "mark": mark.of(atom("application", app_key), application, ("applications", app_key)),
             }
         )
@@ -214,6 +216,7 @@ def build_outline(data: dict[str, Any], base: dict[str, Any] | None) -> dict[str
                 "cardinality": b.get("cardinality"),
                 "required": bool(b.get("required", False)),
                 "containment": b.get("relationTypeKey") in containment,
+                **({"uniquePer": _unique_per(b)} if _unique_per(b) else {}),
                 **({"candidates": b["candidates"]} if isinstance(b.get("candidates"), dict) else {}),
                 "mark": mark.relation(b),
             }
@@ -445,6 +448,40 @@ def _collections(application: dict[str, Any]) -> list[str]:
         if isinstance(source, str) and source not in result:
             result.append(source)
     return result
+
+
+def _views(application: dict[str, Any], base: dict[str, Any]) -> list[dict[str, Any]]:
+    before = _item(base, "applications", application.get("key")) or {}
+    result = []
+    for view in _items(application, "views"):
+        config = view.get("config") or {}
+        kind = view.get("type")
+        if kind == "table":
+            shows = [view.get("objectTypeKey")]
+        elif kind == "relationMatrix":
+            shows = [config.get(name) for name in ("rowObjectTypeKey", "columnObjectTypeKey", "cellObjectTypeKey")]
+        elif kind == "tree":
+            shows = list(config.get("objectTypeKeys") or [])
+        else:
+            shows = [config.get("fromObjectTypeKey"), config.get("toObjectTypeKey")]
+        old = _item(before, "views", view.get("key"))
+        result.append(
+            {
+                "key": view.get("key"),
+                "name": view.get("name") or view.get("key"),
+                "type": kind,
+                "shows": [key for key in shows if isinstance(key, str)],
+                # What the editor changes a matrix from; the other kinds change in the preview.
+                **({"matrix": config} if kind == "relationMatrix" else {}),
+                "mark": "new" if old is None else "released" if old == view else "changed",
+            }
+        )
+    return result
+
+
+def _unique_per(binding: dict[str, Any]) -> str | None:
+    features = binding.get("features")
+    return features.get("uniqueToAncestorTypeKey") if isinstance(features, dict) else None
 
 
 def _is_containment(relation_type: dict[str, Any]) -> bool:

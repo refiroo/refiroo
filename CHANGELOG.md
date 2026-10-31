@@ -13,6 +13,23 @@ All notable changes to this project are documented in this file. The format foll
   the session's grants had ended too. Sessions now run on an assistant worker of their own (reported as
   `assistantWorker` among a process's threads), and their grants stay until the jobs they queued are done.
 
+### Fixed (relation matrix cells)
+
+- **A matrix cell shows the view's cell fields:** a cell now reads the first of "Fields in a cell" with a
+  text or number value, and the record's name only when none has one. It always showed the name before,
+  so records named by a code showed the code.
+
+### Added (model editor, relation matrices)
+
+- **Add a relation matrix in the editor:** an application's panel has a Views section listing its views.
+  "Relation matrix" there opens a dialog offering only rows, cells, columns and actions that can work,
+  with a preview of the shape chosen. The types the matrix needs are listed in the application in the
+  same step; their records stay where they stand. A matrix can be changed, renamed and removed, and a
+  removal takes along the types only it needed.
+- **List a type in another application:** `listObjectType` and `unlistObjectType`, and "List an existing
+  type" in the editor. A released listing is not taken away without a migration. `removeView` takes
+  `unlist`; the draft's outline gives each application's `views` and `unlistable`.
+
 ### Changed (model editor, released elements)
 
 - **A released element nothing uses can be changed:** a removal or other draft-only change applies when

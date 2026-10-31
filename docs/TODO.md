@@ -1022,3 +1022,7 @@ Each becomes work only if the user decides it is needed.
   0.27 s for one holding the whole workspace (2,000: 3.7 s against 2.6 s); the narrowed run came second, on a larger
   workspace. Separate the narrowing's cost from the size's with one paired measurement, and look at the narrowed
   publish's statements if it is the narrowing.
+- [ ] **Relation matrix, record names (2026-10-31):** a matrix cell now shows the view's first filled cell field, but
+  search, sorting, the records listed in the cell dialog and record chips elsewhere still use the record's name, so a
+  record named by a code (imported `CODE · language`) still shows the code there. Check each place and decide whether
+  it should read the type's display attribute or the view's fields.
