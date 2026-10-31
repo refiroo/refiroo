@@ -54,6 +54,7 @@ export function ObjectDetail({
   refreshToken = 0,
   onChanged = () => undefined,
   onTypeChanged,
+  onOtherApplication,
   onPropose,
   onOpenChanges,
 }: {
@@ -79,6 +80,8 @@ export function ObjectDetail({
    * follows it there, replacing the old route so Back does not return to it.
    */
   onTypeChanged?: (objectTypeKey: string) => void;
+  /** The record stands in this application of the model: the route opens it there (a matrix's row). */
+  onOtherApplication?: (applicationKey: string) => void;
   /**
    * A record the person cannot change live but can propose a change to, through their own change
    * set (0.12 Z5, D324): the way to do it for a record of this type, if any.
@@ -131,8 +134,10 @@ export function ObjectDetail({
 
   // Read through a ref, so a new callback from the parent does not read the record again.
   const typeChanged = useRef(onTypeChanged);
+  const otherApplication = useRef(onOtherApplication);
   useEffect(() => {
     typeChanged.current = onTypeChanged;
+    otherApplication.current = onOtherApplication;
   });
 
   useEffect(() => {
@@ -143,6 +148,18 @@ export function ObjectDetail({
       .object(objectTypeKey, objectId, workspaceKey)
       .then((loaded) => {
         if (!active) return;
+        if (
+          loaded.applicationKey !== application.key &&
+          otherApplication.current &&
+          model.applications.some(
+            (item) => item.key === loaded.applicationKey && item.objectTypeKeys.includes(objectTypeKey),
+          )
+        ) {
+          // Still loading: the route opens the record where it stands.
+          following = true;
+          otherApplication.current(loaded.applicationKey);
+          return;
+        }
         if (loaded.applicationKey !== application.key) throw new Error("This object belongs to another application.");
         if (loaded.workspaceKey !== workspaceKey)
           throw new Error(`This object does not belong to workspace “${workspaceKey}”.`);

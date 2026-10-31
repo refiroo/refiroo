@@ -13,6 +13,12 @@ All notable changes to this project are documented in this file. The format foll
   the session's grants had ended too. Sessions now run on an assistant worker of their own (reported as
   `assistantWorker` among a process's threads), and their grants stay until the jobs they queued are done.
 
+### Fixed (opening a record from another application)
+
+- **A record opens where it stands:** opening a record from an application that lists its type but does
+  not hold it, such as from a matrix row, now goes to the record's own application. It said "This object
+  belongs to another application" before.
+
 ### Fixed (relation matrix cells)
 
 - **A matrix cell shows the view's cell fields:** a cell now reads the first of "Fields in a cell" with a

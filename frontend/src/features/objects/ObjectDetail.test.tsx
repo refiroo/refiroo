@@ -57,6 +57,46 @@ describe("ObjectDetail lifecycle controls", () => {
       expect(input).toHaveValue("unsaved");
     },
   );
+  it("opens a record in the application it stands in, and says so when the model has none", async () => {
+    const [here] = testModel.applications;
+    const there = { ...here, key: "elsewhere", name: "Elsewhere" };
+    const stored = { ...codelistObject, applicationKey: there.key };
+    vi.spyOn(api, "object").mockResolvedValue(stored);
+    const listed = { ...testModel, applications: [here, { ...there, objectTypeKeys: ["codelist"] }] };
+    const onOtherApplication = vi.fn();
+    const { unmount } = render(
+      <ObjectDetail
+        model={listed}
+        application={here}
+        objectTypeKey="codelist"
+        objectId={stored.id}
+        workspaceKey="default"
+        onOpen={vi.fn()}
+        onBack={vi.fn()}
+        onOtherApplication={onOtherApplication}
+      />,
+    );
+    await waitFor(() => expect(onOtherApplication).toHaveBeenCalledWith(there.key));
+    expect(screen.queryByText("Object unavailable")).not.toBeInTheDocument();
+    unmount();
+
+    const unlisted = { ...testModel, applications: [here, { ...there, objectTypeKeys: [] }] };
+    render(
+      <ObjectDetail
+        model={unlisted}
+        application={here}
+        objectTypeKey="codelist"
+        objectId={stored.id}
+        workspaceKey="default"
+        onOpen={vi.fn()}
+        onBack={vi.fn()}
+        onOtherApplication={onOtherApplication}
+      />,
+    );
+    expect(await screen.findByText("Object unavailable")).toBeInTheDocument();
+    expect(onOtherApplication).toHaveBeenCalledTimes(1);
+  });
+
   it("follows a record whose type changed to its current type (D42)", async () => {
     const read = vi.spyOn(api, "object").mockRejectedValue(
       new ApiError(409, "OBJECT_TYPE_CHANGED", "The record is a domain in this change set.", {

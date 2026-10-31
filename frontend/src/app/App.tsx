@@ -810,6 +810,7 @@ function AppContent({
                     onOpen={openObjectById}
                     onOpenChanges={navigate}
                     onTypeChanged={(objectTypeKey) => navigate({ ...activeRoute, objectTypeKey }, true)}
+                    onOtherApplication={(applicationKey) => navigate({ ...activeRoute, applicationKey }, true)}
                     showBackToList={activeRoute.collectionOrigin !== null}
                     onBack={backToCollection}
                   />
