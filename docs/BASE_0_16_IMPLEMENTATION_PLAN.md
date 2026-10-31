@@ -1231,7 +1231,9 @@ assistant connects, signs in and sees where it may work, nothing more.
 
 **Checks:** J51: 16 passed (two configurations). J39, J40, J41 with J51: 168 passed; an earlier run of the same set had one J51 failure under parallel load (`test_an_assistant_never_holds_approve_or_publish`, generated-b), whose log was not kept; it passed alone three times and in the rerun, cause not established. `contract` and `startup`: 284 passed, 4 failed, all from WM1's uncommitted migration `20261120_02` (the `HEAD` pin and the `model_drafts` rule). OpenAPI lock re-baselined, additive, diffed against HEAD. Frontend: `tsc -b`, `npm run build`, focused Vitest, `test:browser:agent-access` (18 checks, axe 0 violations).
 
-**Not verified:** a real assistant's sign-in and discovery. Claude Desktop's and claude.ai's return addresses.
+**The real try (the user, 2026-10-31):** Claude Code through the dev server at `PUBLIC_URL`: discovery, self-registration, sign-in and both tools worked. The person's Data owner role showed only Browse and Work in change sets. On a development certificate Claude Code needs `NODE_EXTRA_CA_CERTS` with mkcert's root.
+
+**Not verified:** Claude Desktop's and claude.ai's return addresses.
 
 **What the user cannot do yet:** ask an assistant about data or the model (AG2), or have it prepare a change (AG3).
 
