@@ -766,6 +766,18 @@ def get_object(
         return change_set_object_response(
             item, context.id, model, path=object_path(session, context, item)
         ).model_copy(update={"workspaceKey": context.workspace_key})
+    return live_object(session, model, object_type_key, object_id, workspace_key)
+
+
+def live_object(
+    session: Session,
+    model: EngineModel,
+    object_type_key: str,
+    object_id: str,
+    workspace_key: str | None,
+) -> ObjectResponse:
+    """A live record in the workspace; the route's and the agent tool's one read."""
+    get_object_type(model, object_type_key)
     selected_workspace_key = resolve_workspace(session, workspace_key).key
     item = load_active_projection(session, object_id, object_type_key)
     if item.workspace_key != selected_workspace_key:
@@ -881,9 +893,28 @@ def get_object_history(
         return audit_event_page(
             session, events, history_origin(session, item.object_id, events.items), item.object_id
         )
+    return live_object_history(
+        session, object_type_key, object_id, None, paging, page_size, kind, actor_id
+    )
+
+
+def live_object_history(
+    session: Session,
+    object_type_key: str,
+    object_id: str,
+    workspace_key: str | None,
+    paging: PageRequest,
+    page_size: int,
+    kind: Literal["values", "relationships", "structure"] | None,
+    actor_id: str | None,
+) -> AuditEventPage:
+    """A live record's history, in ``workspace_key`` when named; the route's and the agent tool's
+    one read."""
     snapshot = resolve_record_snapshot(session, object_id)
     get_object_type(snapshot.model, object_type_key)
     item = load_object(session, object_id, object_type_key)
+    if workspace_key is not None and item.workspace_key != workspace_key:
+        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
     events = object_history(
         session,
         object_id=item.id,

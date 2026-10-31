@@ -2,7 +2,7 @@
 
 ## In progress — Base 0.16 (AI integration)
 
-[Planned](BASE_0_16_IMPLEMENTATION_PLAN.md) 2026-10-27. **AG1, agent access, is delivered (2026-10-31)** ([plan and record](BASE_0_16_IMPLEMENTATION_PLAN.md#ag1-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-the-mock-up)): `/mcp`, assistant sign-in, agent clients, Settings › Security › Agent access; reading (AG2) and preparing changes (AG3) follow. **AP1, the proposal provider, is delivered
+[Planned](BASE_0_16_IMPLEMENTATION_PLAN.md) 2026-10-27. **AG1, agent access, is delivered (2026-10-31)** ([plan and record](BASE_0_16_IMPLEMENTATION_PLAN.md#ag1-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-the-mock-up)): `/mcp`, assistant sign-in, agent clients, Settings › Security › Agent access; **AG2, reading, is delivered (2026-10-31)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ag2-record-2026-10-31)); preparing changes (AG3) follows. **AP1, the proposal provider, is delivered
 (2026-10-28)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap1-record-2026-10-28)): `AI_*` settings and the send
 levels, the Claude and OpenAI-compatible adapters, the call record, Use AI proposals, Settings › AI, the
 inference's assistant on the provider with provenance. **AP2, targets for unmapped values, is delivered
@@ -11,7 +11,7 @@ mapping grid, a job asking the provider among the grid's own candidates and writ
 provenance on change-set relations through publication into history, the Proposed filter,
 `AI_CONTEXT_TOKENS`. **AP6a, loading a workbook with the assistant, is delivered (2026-10-29)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap6a-record-2026-10-29)): the naming helper removed; Import offers the assistant first; a task reads the workbook (a stored profile that fits followed first), shows what needs the person, checks every row in a dry run, has the assistant fix refused values and loads into a change set.
 
-**The assistant is now a Claude Code session (AP8, the user's decision of 2026-10-31)**, built and tried on real files; it supersedes AP3–AP7, which are kept as [history](BASE_0_16_IMPLEMENTATION_PLAN.md#history-of-the-assistant). The plan was [reconciled](BASE_0_16_IMPLEMENTATION_PLAN.md#where-each-decision-stands) with the code on 2026-10-31. **Open:** WM1 (planned, not built); [AP9–AP13](BASE_0_16_IMPLEMENTATION_PLAN.md#ap8-the-assistant-is-a-claude-code-session) (who did it, one path, good models in time, reshaping, the real-file tries); Track A (AG1 planned, not built) and Track O (not started); R.
+**The assistant is now a Claude Code session (AP8, the user's decision of 2026-10-31)**, built and tried on real files; it supersedes AP3–AP7, which are kept as [history](BASE_0_16_IMPLEMENTATION_PLAN.md#history-of-the-assistant). The plan was [reconciled](BASE_0_16_IMPLEMENTATION_PLAN.md#where-each-decision-stands) with the code on 2026-10-31. **Open:** WM1 (planned, not built); [AP9–AP13](BASE_0_16_IMPLEMENTATION_PLAN.md#ap8-the-assistant-is-a-claude-code-session) (who did it, one path, good models in time, reshaping, the real-file tries); Track A (AG3, AG4) and Track O (not started); R.
 
 ## Current development baseline — Base 0.12 complete (2026-10-28)
 

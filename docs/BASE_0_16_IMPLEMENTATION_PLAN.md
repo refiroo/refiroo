@@ -142,7 +142,7 @@ keeps the reasoning.
 | AP-D27 One assistant | Kept | AP2's helper stays until a real case moves it. AP4 and AP5 are removed from 0.16 |
 | AP-D28 Draft-only change nothing holds | Kept | |
 | AP-D29 How far the session may go | New, approved | Replaces AP-D12 |
-| AG-D1 to AG-D10 | Kept | Except as [AG1 in detail](#ag1-in-detail-planned-2026-10-31-for-approval-with-the-mock-up) revises them, for approval there |
+| AG-D1 to AG-D10 | Kept | Except as [AG1 in detail](#ag1-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-the-mock-up) and [AG2 in detail](#ag2-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day) revise them |
 | AO-D1 to AO-D9 | Kept | They use the provider, not the session |
 
 ### Track P: proposals
@@ -798,7 +798,7 @@ authorization from its grant), the curated tools (AG-D4), the model, application
 views as MCP resources, structured results with IDs, cursor paging. Proven on two definitions whose
 types differ (the generic-capability rule), not on the example model's keys.
 
-### AG2 in detail (planned 2026-10-31, for approval)
+### AG2 in detail (planned 2026-10-31, approved by the user the same day)
 
 No screen changes, so no mock-up: Settings › Security › Agent access already lists whatever tool is called, and the client
 page already grants a consumer API to an agent client.
@@ -973,6 +973,32 @@ each only on the user's go-ahead with its cost stated first (AP-D11, AG-D10); th
 ## Exit gate
 
 - A few words and a workbook give the model and the import, with as many applications, types and
+### AG2 record (2026-10-31)
+
+**Delivered as planned.** AG-D19 was taken as recommended: the user approved the plan without answering it separately, so it stands open to their correction.
+
+**Where it differs from the plan:**
+
+- The moved check is in a new module, `engine/reads/consumer_request.py`, not `consumer_parameters.py`, which `consumer_lists` imports: the check needs `consumer_lists`.
+- **AG-D24 revised by the real try:** `resources/list` names each workspace's model only, and applications, record types and views are resource templates. Listing every part made 208.5 KB on the user's 15 workspaces, more than Claude Code shows inline. The list is now 15 entries.
+- `_run` writes its record in a session of its own and applies the read guard, as a tool's read may hold a snapshot.
+- EXECUTION_GUIDE is unchanged: its group table has no row for J51 or J52, and J52 runs by its file.
+
+**Checks:** J52: 14 passed (seven cases, each on two configurations). `consumer`, `contract`, `startup`: 715 passed. J51, J52, J41, J31, J13, J07 and `test_boundaries`: 94 passed. The OpenAPI lock is unchanged. No frontend file changed, so no frontend build or browser runner.
+
+**The real tries (Claude Code on Sonnet, through the dev server, the user's stored sign-in):**
+
+| Try | Result | Tokens | API price |
+| --- | --- | --- | --- |
+| Tool list, `describe_model`, a lookup, `mapping_coverage`, resources | All worked, no tool error. `lookup_timetables` gave a value's code. Two keys differing across workspaces got hashed names. `mapping_coverage` with `state=unmapped` found 0 on the view it chose, so a non-empty list was seen only in J52 | 10 in, 1,596 out, 224,698 cache read | $0.197 |
+| The resource list after the change | 15 entries, whole | 8 in, 200 out, 114594 cache read | $0.114 |
+
+**The two limits taken from memory:** Claude Code did not refuse a long answer: it saved the 98.5 KB model resource to a file and showed the first 2 KB, so AG-D23's reason is weaker than written. The cap stays, as a page that fits is still what an assistant can use. No tool answer reached it in the try. Claude's refusal of a top-level `oneOf` was not tested, as the schemas are flat.
+
+**Not verified:** Claude Desktop's and claude.ai's use of these tools; reading a part through a resource template in a real assistant (J52 reads one through the SDK's client).
+
+**What the user cannot do yet:** have an assistant prepare a change or read a change set (AG3); ask in words in the built-in search box (AG4). An older publication is not read through an assistant, which is not planned.
+
   relations (across applications too) as the workbook needs; tried on the user's own workbooks (AP-D22).
 - With no provider and MCP off, no screen shows an AI action, no request leaves the instance, `/mcp`
   does not exist, the existing inference behaves as before, and digests are the plain list.
@@ -982,7 +1008,7 @@ each only on the user's go-ahead with its cost stated first (AP-D11, AG-D10); th
   machine-proposed with who asked and who approved (AP9).
 - An agent token works on `/mcp` only; no tool approves, publishes, withdraws, administers the model or security,
   or deletes; an agent's change set leaves live data unchanged until a person approves it; every call
-  is in the audit trail with its channel.
+  is recorded in `agent_calls`, and a change in the audit trail with its channel (AG-D16).
 - Every summary statement cites a fact that exists; the facts equal the database for the period; a
   summary never contains what its requester may not read and changes nothing.
 - A failing provider never fails a deterministic result.

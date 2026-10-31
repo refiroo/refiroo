@@ -1218,6 +1218,8 @@ Two rules keep an assistant from ever holding more. An agent client (`oauth_clie
 
 Assistants are public OAuth clients in `agent_applications` (`engine/agent_access/applications.py`). Tools are a registry (`management/mcp_tools.py`) naming the action group each needs and calling what its route calls. Each call is a row in `agent_calls`, outside the audit trail since reads write no audit entry; the rate limit is a count over those rows, so it holds across processes.
 
+AG2's reads: `engine/agent_access/lookup.py` generates a tool per distinct consumer API definition the caller may read, grouping equal definitions across workspaces, and reads through the routes' functions and `engine/reads/consumer_request.py`, the parameter check moved out of the route. The curated tools share functions split from their routes (`live_object`, `live_relation_page`, `live_object_history`). `_run` records each call in a session of its own, as a tool's read may hold a snapshot, and halves a page until the answer fits `MCP_ANSWER_BYTES`.
+
 The SDK stays on 1.x: 2.x needs `httpx2`, which Starlette's test client then prefers, changing the whole test harness.
 
 ### Workspace migrations (0.11 V1)

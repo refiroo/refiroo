@@ -1560,6 +1560,8 @@ Evidence: [AI contract](../API.md#ai-proposals-product-016), [OPERATIONS](../OPE
 
 With agent access on, an assistant that speaks MCP connects to this instance's address. A person adds the address to their assistant and signs in on refiroo's own page, which says who asks and where it returns. A system's assistant uses an agent client, created under Settings › Security › **Agent access**, where its access is set like any client's.
 
+It reads, with Browse in a workspace: the model, records with their relationships and history, a mapping view's unmapped values, the workspace's changes, and each consumer API through a lookup tool of its own. A client holding only a consumer API's grant reads that API alone. Everything is live data; it cannot read a change set or an older publication yet.
+
 Either way the assistant works within what its person or client may do, cut down to reading and preparing changes. It never approves or publishes. So far it can say who it acts as and list the workspaces it may read; reading data and preparing changes come with the next packages.
 
 On the same page a security administrator sees how to connect, the agent clients, the assistants people sign in with, and each call with the names of its arguments. Blocking an assistant or deactivating a client stops it on its next call. A person sees their assistant among their sessions and can end it there.

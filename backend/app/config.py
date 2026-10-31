@@ -175,6 +175,7 @@ class Settings(BaseModel):
     mcp_open_registration: bool = True
     mcp_redirect_hosts: tuple[str, ...] = ()
     mcp_calls_days: int = Field(default=90, ge=1)
+    mcp_answer_bytes: int = Field(default=40000, ge=1)
     # Export files and, from J2, uploads (D12, D55): one directory, created at start.
     job_file_dir: Path = DEFAULT_JOB_FILE_DIR
     # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
@@ -295,6 +296,7 @@ class Settings(BaseModel):
                 if host.strip()
             ),
             mcp_calls_days=_positive(env, "MCP_CALLS_DAYS", 90),
+            mcp_answer_bytes=_positive(env, "MCP_ANSWER_BYTES", 40000),
             job_file_dir=Path(env.get("JOB_FILE_DIR", "").strip() or DEFAULT_JOB_FILE_DIR),
             feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
             consumer_resolve_max_items=_positive(env, "CONSUMER_RESOLVE_MAX_ITEMS", 1_000),
@@ -836,6 +838,12 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "mcp_calls_days",
         "ai",
         "Days a record of a tool call through /mcp is kept",
+    ),
+    CatalogueEntry(
+        "MCP_ANSWER_BYTES",
+        "mcp_answer_bytes",
+        "ai",
+        "The longest answer of a tool through /mcp; past it a page comes back smaller, with a cursor",
     ),
 )
 

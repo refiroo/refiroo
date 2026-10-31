@@ -863,6 +863,7 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
 | `MCP_OPEN_REGISTRATION` | on | Whether an assistant may register itself; off, only those an administrator registers can sign people in |
 | `MCP_REDIRECT_HOSTS` | none | HTTPS hosts a self-registered assistant may return to, comma separated, besides this computer |
 | `MCP_CALLS_DAYS` | 90 | Days a record of a tool call through `/mcp` is kept |
+| `MCP_ANSWER_BYTES` | 40000 | The longest answer of a tool through `/mcp`; past it a page comes back smaller with a cursor, and an answer that is no page is refused. A resource answers whole |
 | `AI_TASK_RETENTION_DAYS` | 90 | Days an assistant task is kept after it finished (loaded, failed or cancelled) or was last changed; then the worker's sweep deletes it and its workbook. What was sent to the provider is never kept on a task (`AI_LOG_CONTENT` keeps it on the call record only) |
 | `AI_TIMEOUT_SECONDS` | 60 | Seconds one call may take; the Claude adapter tries a passing failure (overloaded, rate-limited, a server error, a timeout) up to three times |
 
@@ -913,6 +914,7 @@ An assistant that speaks MCP can reach the instance at `/mcp`, with `MCP_ENABLED
 - **A person's assistant** is added by its address and opens this instance's sign-in page. The page says who asks and where it returns; signing in is the consent. The person needs no new grant. The session appears in their sessions and ending it stops the assistant.
 - **What an assistant can do** is what its person or client may do, cut down to Browse and Work in change sets. It can never approve or publish, whatever the roles behind it.
 - **Registration:** with `MCP_OPEN_REGISTRATION` on, an assistant registers itself and may return only to this computer or a host in `MCP_REDIRECT_HOSTS`. The name it gives is its own claim, and the sign-in page says so. At most a thousand registrations may stand unused; those unused for 30 days with no open session are removed. Turned off, or for any other HTTPS address, an administrator registers it on the page. Blocking an assistant ends its sessions on their next call.
+- **What an assistant reads:** with Browse in a workspace, its model, records, relationships, mapping coverage, history and changes, and a lookup tool for each of its consumer APIs. A client holding only a consumer API's grant has that API's tool alone. The consumer API's own routes still need a `consumer` token and a grant.
 - **Records:** each tool call is kept for `MCP_CALLS_DAYS` with its argument names, never their values. Nothing else about reads is written to the audit trail.
 - **Prompt injection:** reference data is data. Text in a record can reach an assistant through a tool answer, and an assistant may be misled by it. No tool follows text found in a record, the server tells the assistant so, and an assistant cannot approve, publish or write live, so the worst it can do is propose something a person then reviews. Treat what an assistant says about the data with that in mind.
 

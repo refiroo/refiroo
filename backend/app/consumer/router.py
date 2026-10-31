@@ -12,10 +12,8 @@ serves its own at ``…/openapi.json``, and ``GET /api/consumer`` lists them (C6
 """
 
 import json
-import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
-from datetime import date
 from typing import Annotated, Any
 from urllib.parse import unquote_plus, urlencode
 
@@ -48,10 +46,25 @@ from ..engine.reads.consumer_events import (
     derived_head,
     read_consumer_events,
 )
-from ..engine.reads.consumer_lists import PAGE_SIZE, consumer_list, read_consumer_list
+from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
 from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
-from ..engine.reads.consumer_parameters import TARGET_PREFIX, consumer_filter, target_names
+from ..engine.reads.consumer_parameters import consumer_filter, target_names
 from ..engine.reads.consumer_publications import read_publications
+from ..engine.reads.consumer_request import (
+    DEFAULT_PAGE_SIZE,
+    EVENTS_NAMES,
+    LIST_NAMES,
+    OBJECT_NAMES,
+    PUBLICATIONS_NAMES,
+    ROUTE_NAMES,
+    XREF_NAMES,
+    XREF_ONE_NAMES,
+    ReadParameters,
+    is_target,
+    multiple_targets,
+    read_page,
+    targetable,
+)
 from ..engine.reads.consumer_resolve import ResolveItem, item_error, read_resolve
 from ..engine.reads.consumer_source import PUBLICATION_SCOPE, ConsumerSource
 from ..engine.reads.consumer_xref import read_xref, xref_terms
@@ -67,28 +80,11 @@ WORKSPACE_HEADER = "RDM-Workspace"
 RELEASE_HEADER = "X-Model-Release-Id"
 PUBLICATION_HEADER = "RDM-Publication"
 AS_OF_HEADER = "RDM-As-Of-Applied"
-# A business date: a calendar day, written YYYY-MM-DD and nothing else (C-D79).
-_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # The value of ``publication`` that reads the workspace's active publication (C-D61).
 LATEST = "latest"
-# The names that select a list's page (ADR-030, C-D30).
-_PAGING = frozenset({"pageSize", "cursor", "position", "from", "seek", "includeTotal"})
-# The names each route serves besides the definition's parameters. XREF pages by score, which no
-# caller seeks, and always counts its total (C-D39); with expect=one it reads no page (C-D40).
-_OBJECT = frozenset({"workspace", "publication", "asOf"})
-_LIST = _OBJECT | _PAGING
-_XREF_ONE = _OBJECT | {"query", "expect"}
-_XREF = _XREF_ONE | (_PAGING - {"seek", "includeTotal"})
-# The publications list reads live data in the order of publication, which no caller seeks (C-D66).
-_PUBLICATIONS = frozenset({"workspace"}) | (_PAGING - {"seek"})
-# The pull feed pages by position and cursor (C-D91) and chooses its payload (C-D7 revised).
-_EVENTS = frozenset({"workspace", "event", "after", "cursor", "pageSize", "payload"})
-# Every name a route of the API serves.
-_ROUTE_NAMES = _LIST | _XREF | _EVENTS
 # The names a batch resolve item holds besides the definition's parameters (C-D47).
 _ITEM = frozenset({"ref", "query", "id"})
 _REF_LENGTH = (1, 200)
-_MIN_PAGE_SIZE, _MAX_PAGE_SIZE, _DEFAULT_PAGE_SIZE = PAGE_SIZE
 # The shared paging refusals answer 400 here, the consumer tier's status for a request error.
 _PAGING_CODES = frozenset({"INVALID_CURSOR", "CONFLICTING_PAGE_PARAMETERS", "INVALID_POSITION", "INVALID_SEEK"})
 
@@ -175,7 +171,7 @@ class _Read:
     model: EngineModel
     definition: ConsumerApiDefinition
     source: ConsumerSource
-    parameters: _Parameters
+    parameters: ReadParameters
     tag: str
     # The filter, once built: the answer's ``RDM-As-Of-Applied`` header reads it.
     built: dict[str, Any] = field(default_factory=dict, compare=False)
@@ -192,9 +188,9 @@ def _reading(
     session: Session,
     active: ModelSnapshot,
     definition: ConsumerApiDefinition,
-    parameters: _Parameters,
+    parameters: ReadParameters,
     workspace: Workspace,
-    recheck: Callable[[ConsumerApiDefinition], _Parameters],
+    recheck: Callable[[ConsumerApiDefinition], ReadParameters],
 ) -> Callable[[], _Read]:
     """How the read is resolved, run where its refusals name the workspace: live data, shaped by the
     active release; or the publication ``publication`` names, shaped by the release it was published
@@ -274,8 +270,8 @@ def get_object(
     definition = consumer_definition(active.model, consumer_api, contract_version)
     _offered(definition, "objects")
 
-    def check(declared: ConsumerApiDefinition) -> _Parameters:
-        return _Parameters.check(request, declared, serves=_OBJECT)
+    def check(declared: ConsumerApiDefinition) -> ReadParameters:
+        return _checked(request, declared, serves=OBJECT_NAMES)
 
     parameters = check(definition)
     workspace = _workspace(session, parameters.single("workspace"))
@@ -301,13 +297,13 @@ def get_list(
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = consumer_definition(active.model, consumer_api, contract_version)
 
-    def check(declared: ConsumerApiDefinition) -> _Parameters:
+    def check(declared: ConsumerApiDefinition) -> ReadParameters:
         listed = consumer_list(declared, list_key)
         parent = listed.parentParameter.name if listed.parentParameter else None
-        return _Parameters.check(request, declared, serves=_LIST, parent=parent)
+        return _checked(request, declared, serves=LIST_NAMES, parent=parent)
 
     parameters = check(definition)
-    page_size, page = _page(parameters)
+    page_size, page = read_page(parameters)
     workspace = _workspace(session, parameters.single("workspace"))
 
     def read(current: _Read) -> dict[str, Any]:
@@ -342,12 +338,12 @@ def get_xref(
     expect = request.query_params.getlist("expect")
     expect_one = _expect_one(expect[-1] if expect else None)
 
-    def check(declared: ConsumerApiDefinition) -> _Parameters:
-        return _Parameters.check(request, declared, serves=_XREF_ONE if expect_one else _XREF)
+    def check(declared: ConsumerApiDefinition) -> ReadParameters:
+        return _checked(request, declared, serves=XREF_ONE_NAMES if expect_one else XREF_NAMES)
 
     parameters = check(definition)
     terms = xref_terms(parameters.listed.get("query", []))
-    page_size, page = (_DEFAULT_PAGE_SIZE, PageRequest()) if expect_one else _page(parameters)
+    page_size, page = (DEFAULT_PAGE_SIZE, PageRequest()) if expect_one else read_page(parameters)
     workspace = _workspace(session, parameters.single("workspace"))
     return _answer(
         request,
@@ -383,8 +379,8 @@ def post_resolve(
     definition = consumer_definition(active.model, consumer_api, contract_version)
     _offered(definition, "resolve")
 
-    def check(declared: ConsumerApiDefinition) -> _Parameters:
-        return _Parameters.check(request, declared, serves=_OBJECT, applies_definition=False)
+    def check(declared: ConsumerApiDefinition) -> ReadParameters:
+        return _checked(request, declared, serves=OBJECT_NAMES, applies_definition=False)
 
     parameters = check(definition)
     workspace = _workspace(session, parameters.single("workspace"))
@@ -414,8 +410,8 @@ def get_publications(
     from after reading it (C-D66)."""
     active = resolve_model_snapshot(session, request.query_params.get("workspace"))
     definition = consumer_definition(active.model, consumer_api, contract_version)
-    parameters = _Parameters.check(request, definition, serves=_PUBLICATIONS, applies_definition=False)
-    page_size, page = _page(parameters)
+    parameters = _checked(request, definition, serves=PUBLICATIONS_NAMES, applies_definition=False)
+    page_size, page = read_page(parameters)
     workspace = _workspace(session, parameters.single("workspace"))
 
     def live() -> _Read:
@@ -447,7 +443,7 @@ def get_events(
             "EVENTS_NOT_DECLARED",
             f"Consumer API '{definition.key}' declares no events at contract version {definition.contractVersion}",
         )
-    parameters = _Parameters.check(request, definition, serves=_EVENTS, crosswalk=False)
+    parameters = _checked(request, definition, serves=EVENTS_NAMES, crosswalk=False)
     workspace = _workspace(session, parameters.single("workspace"))
     asked = _events_request(parameters, definition, workspace.key)
     derived, _start = derived_head(session, workspace.key)
@@ -489,7 +485,7 @@ def _offered(definition: ConsumerApiDefinition, operation: str) -> None:
         )
 
 
-def _events_request(parameters: _Parameters, definition: ConsumerApiDefinition, workspace_key: str) -> EventsRequest:
+def _events_request(parameters: ReadParameters, definition: ConsumerApiDefinition, workspace_key: str) -> EventsRequest:
     """The pull feed's request, checked: its events, payload and page size, and where it starts,
     from ``after`` or a cursor issued for the same API, workspace, events and parameters."""
     declared = {event.key for event in definition.events}
@@ -569,10 +565,10 @@ def get_index(request: Request, response: Response, session: DbSession) -> dict[
     document (C-D69), which carries the ``workspace`` asked for. A definition key may mean another
     contract in another workspace (0.11 D27): the headers name the workspace and release described.
     A ``consumer`` token sees the APIs it is granted there (0.12 Z3, D308)."""
-    parameters = _plain(request, _PUBLICATIONS)
+    parameters = _plain(request, PUBLICATIONS_NAMES)
     listed: frozenset[str] | None = request.state.listed_apis
     workspace, active = _described(response, session, request.query_params.get("workspace"))
-    page_size, page = _page(parameters)
+    page_size, page = read_page(parameters)
     root_path = _root_path(request)
     suffix = _workspace_query(request)
     entries = [
@@ -646,11 +642,11 @@ def _root_path(request: Request) -> str:
     return str(request.scope.get("root_path", "")).rstrip("/")
 
 
-def _plain(request: Request, serves: frozenset[str]) -> _Parameters:
+def _plain(request: Request, serves: frozenset[str]) -> ReadParameters:
     """The query parameters of a route that reads no definition parameters: a name it does not serve
     is ``UNKNOWN_PARAMETER``, or ``PARAMETER_NOT_SUPPORTED`` for one a consumer read serves."""
     raw = {name: request.query_params.getlist(name) for name in sorted(set(request.query_params))}
-    unknown = [name for name in raw if name not in serves and name not in _ROUTE_NAMES]
+    unknown = [name for name in raw if name not in serves and name not in ROUTE_NAMES]
     if unknown:
         raise api_error(
             400,
@@ -666,7 +662,7 @@ def _plain(request: Request, serves: frozenset[str]) -> _Parameters:
             f"Parameter '{unsupported[0]}' is not supported on this read",
             {"parameters": unsupported, "path": f"/query/{unsupported[0]}"},
         )
-    return _Parameters(raw=raw, listed={}, definition={}, parents=[])
+    return ReadParameters(raw=raw, listed={}, definition={}, parents=[])
 
 
 def _document(
@@ -717,7 +713,7 @@ def _resolve_items(raw: bytes, definition: ConsumerApiDefinition, max_items: int
     shaped = [_shaped_item(item, f"/items/{index}") for index, item in enumerate(items)]
 
     targets = target_names(definition)
-    known = _ROUTE_NAMES | _ITEM | set(definition.parameters) | set(targets) | {
+    known = ROUTE_NAMES | _ITEM | set(definition.parameters) | set(targets) | {
         item.parentParameter.name for item in definition.lists if item.parentParameter is not None
     }
     applied = set(definition.parameters) | set(targets)
@@ -749,7 +745,7 @@ def _resolve_items(raw: bytes, definition: ConsumerApiDefinition, max_items: int
         inherited = {
             name: given
             for name, given in default_values.items()
-            if name not in own and not (_is_target(name) and any(_is_target(key) for key in own))
+            if name not in own and not (is_target(name) and any(is_target(key) for key in own))
         }
         pointers = {name: f"/defaults/{name}" for name in inherited}
         found = ResolveItem(
@@ -805,7 +801,7 @@ def _names_refused(
         return api_error(
             400,
             "UNKNOWN_PARAMETER",
-            f"Unknown parameter '{unknown[0]}'{_targetable(unknown[0], targets)}",
+            f"Unknown parameter '{unknown[0]}'{targetable(unknown[0], targets)}",
             {"parameters": unknown, "pointer": f"{at}/{unknown[0]}"},
         )
     unsupported = [name for name in names if name not in applied]
@@ -816,34 +812,7 @@ def _names_refused(
             f"Parameter '{unsupported[0]}' is not supported in batch resolve",
             {"parameters": unsupported, "pointer": f"{at}/{unsupported[0]}"},
         )
-    return _multiple_targets(names, "pointer", at)
-
-
-def _is_target(name: str) -> bool:
-    return name.startswith(TARGET_PREFIX)
-
-
-def _targetable(name: str, targets: list[str]) -> str:
-    """The end of an unknown ``to.`` name's message: the names this API can target (C-D57)."""
-    if not _is_target(name):
-        return ""
-    if not targets:
-        return "; this API has no targetable parameter"
-    return f"; this API targets {', '.join(targets)}"
-
-
-def _multiple_targets(names: list[str], key: str, at: str) -> ApiError | None:
-    """``MULTIPLE_TARGETS`` when ``names`` hold more than one ``to.`` name: a read has one target
-    (C-D56)."""
-    given = [name for name in names if _is_target(name)]
-    if len(given) < 2:
-        return None
-    return api_error(
-        400,
-        "MULTIPLE_TARGETS",
-        f"A read has one target, but {' and '.join(given)} are given",
-        {"parameters": given, key: f"{at}/{given[1]}"},
-    )
+    return multiple_targets(names, "pointer", at)
 
 
 def _shape(pointer: str, message: str) -> ApiError:
@@ -900,100 +869,13 @@ def _answer(
     return body
 
 
-@dataclass(frozen=True)
-class _Parameters:
-    """A request's query parameters, checked against the names its route serves."""
-
-    raw: dict[str, list[str]]
-    # Each name's values, split as OpenAPI's form style lists them (C-D32, C3b).
-    listed: dict[str, list[str]]
-    # The definition parameters the route applies, by name, with a ``to.`` target among them.
-    definition: dict[str, list[str]]
-    parents: list[str]
-    # The business date of ``asOf``, on a route that serves it (C16).
-    as_of: date | None = None
-
-    @classmethod
-    def check(
-        cls,
-        request: Request,
-        definition: ConsumerApiDefinition,
-        *,
-        serves: frozenset[str],
-        parent: str | None = None,
-        applies_definition: bool = True,
-        crosswalk: bool = True,
-    ) -> _Parameters:
-        """Refuse a name the API does not know (``UNKNOWN_PARAMETER``), then one it knows that this
-        route does not apply (``PARAMETER_NOT_SUPPORTED``): one outside ``serves``, a list's parent
-        parameter off its list, or a definition parameter on a route that takes them in its body
-        (batch resolve's ``defaults``). A ``to.`` name is a definition parameter's crosswalk target,
-        one per read (C-D56, C-D57); a read without ``crosswalk`` (the pull feed) applies none."""
-        targets = target_names(definition)
-        applied = set(serves) | (
-            set(definition.parameters) | (set(targets) if crosswalk else set())
-            if applies_definition
-            else set()
-        )
-        if parent is not None:
-            applied.add(parent)
-        known = applied | _ROUTE_NAMES | set(definition.parameters) | set(targets) | {
-            item.parentParameter.name for item in definition.lists if item.parentParameter is not None
-        }
-        raw = {name: request.query_params.getlist(name) for name in sorted(set(request.query_params))}
-        listed = _listed_values(request.scope.get("query_string", b""))
-        unknown = [name for name in raw if name not in known]
-        if unknown:
-            raise api_error(
-                400,
-                "UNKNOWN_PARAMETER",
-                f"Unknown query parameter '{unknown[0]}'{_targetable(unknown[0], targets)}",
-                {"parameters": unknown, "path": f"/query/{unknown[0]}"},
-            )
-        unsupported = [name for name in raw if name not in applied]
-        if unsupported:
-            raise api_error(
-                400,
-                "PARAMETER_NOT_SUPPORTED",
-                f"Parameter '{unsupported[0]}' is not supported on this read",
-                {"parameters": unsupported, "path": f"/query/{unsupported[0]}"},
-            )
-        multiple = _multiple_targets(list(raw), "path", "/query")
-        if multiple is not None:
-            raise multiple
-        # On its list, a parent parameter sharing a definition parameter's name addresses the parent.
-        return cls(
-            raw=raw,
-            listed=listed,
-            definition={
-                name: listed[name]
-                for name in raw
-                if name in applied and (name in definition.parameters or _is_target(name)) and name != parent
-            },
-            parents=list(dict.fromkeys(listed[parent])) if parent in raw else [],
-            as_of=_as_of(raw.get("asOf"), listed.get("asOf")) if "asOf" in raw else None,
-        )
-
-    def single(self, name: str) -> str | None:
-        values = self.raw.get(name)
-        return values[-1] if values else None
-
-
-def _as_of(raw: list[str] | None, listed: list[str] | None) -> date:
-    """``asOf`` as a date: one calendar day, ``YYYY-MM-DD`` (C-D79). A time, a zone, an impossible
-    day or several values are ``400 INVALID_AS_OF``: a read answers for one date."""
-    values = listed or raw or []
-    if len(values) == 1 and _DATE.match(values[0]):
-        try:
-            return date.fromisoformat(values[0])
-        except ValueError:
-            pass
-    raise api_error(
-        400,
-        "INVALID_AS_OF",
-        "asOf must be one calendar date, written YYYY-MM-DD",
-        {"path": "/query/asOf"},
-    )
+def _checked(
+    request: Request, definition: ConsumerApiDefinition, **options: Any
+) -> ReadParameters:
+    """The request's query checked against ``definition``."""
+    raw = {name: request.query_params.getlist(name) for name in sorted(set(request.query_params))}
+    listed = _listed_values(request.scope.get("query_string", b""))
+    return ReadParameters.check(raw, listed, definition, **options)
 
 
 def _listed_values(query_string: bytes) -> dict[str, list[str]]:
@@ -1009,57 +891,6 @@ def _listed_values(query_string: bytes) -> dict[str, list[str]]:
         decoded = unquote_plus(name)
         listed.setdefault(decoded, []).extend(unquote_plus(piece) for piece in value.split(","))
     return listed
-
-
-def _page(parameters: _Parameters) -> tuple[int, PageRequest]:
-    """The page size and the page a list read asks for (C-D30)."""
-    raw_size = parameters.single("pageSize")
-    try:
-        page_size = _DEFAULT_PAGE_SIZE if raw_size is None else int(raw_size)
-    except ValueError:
-        page_size = 0
-    if not _MIN_PAGE_SIZE <= page_size <= _MAX_PAGE_SIZE:
-        raise api_error(
-            400,
-            "INVALID_PAGE_SIZE",
-            f"pageSize must be a whole number from 1 to {_MAX_PAGE_SIZE}",
-            {"path": "/query/pageSize"},
-        )
-    raw_position = parameters.single("position")
-    try:
-        position = None if raw_position is None else int(raw_position)
-    except ValueError:
-        raise api_error(
-            400, "INVALID_POSITION", "position must be a whole number", {"path": "/query/position"}
-        ) from None
-    start = _choice(parameters, "from", {"start": False, "end": True}, False)
-    include_total = _choice(parameters, "includeTotal", {"false": False, "true": True}, False)
-    try:
-        page = PageRequest(
-            cursor=parameters.single("cursor"),
-            position=position,
-            seek=parameters.single("seek"),
-            from_end=start,
-            include_total=include_total,
-        )
-    except ApiError as exc:
-        exc.status = 400
-        raise
-    return page_size, page
-
-
-def _choice(parameters: _Parameters, name: str, choices: dict[str, bool], default: bool) -> bool:
-    raw = parameters.single(name)
-    if raw is None:
-        return default
-    if raw not in choices:
-        raise api_error(
-            400,
-            "INVALID_PAGE_PARAMETER",
-            f"{name} must be one of {', '.join(choices)}",
-            {"path": f"/query/{name}"},
-        )
-    return choices[raw]
 
 
 def _workspace(session: Session, key: str | None) -> Workspace:

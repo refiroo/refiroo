@@ -194,7 +194,7 @@ def test_a_client_connects_sees_what_its_grants_allow_and_stops_when_deactivated
     assert hidden.isError and "no tool named" in hidden.content[0].text
 
     _grant(world, "client", client["id"], "agent")
-    assert _tools(world, token) == ["describe_access", "list_workspaces"]
+    assert {"describe_access", "list_workspaces"} <= set(_tools(world, token))
     listed = _call(world, token, "list_workspaces", {"search": "a secret word"})
     assert not listed.isError
     assert listed.structuredContent["items"] == []
@@ -275,7 +275,7 @@ def test_a_person_signs_in_through_an_assistant_and_can_end_it(world):
     )
     assert tokens["scope"] == "agent" and tokens["refresh_token"]
     assert "oauth_refresh" not in browser.cookies
-    assert _tools(world, tokens["access_token"]) == ["describe_access", "list_workspaces"]
+    assert {"describe_access", "list_workspaces"} <= set(_tools(world, tokens["access_token"]))
     described = _call(world, tokens["access_token"], "describe_access").structuredContent
     assert (described["name"], described["through"]) == ("Petra", "Claude Code")
 

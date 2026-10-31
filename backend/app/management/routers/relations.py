@@ -2,8 +2,9 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response, status
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from ...common.pagination import paginate_statement
+from ...common.pagination import PageRequest, paginate_statement
 from ...engine.change_sets.records import (
     delete_change_set_relation,
     put_change_set_relation,
@@ -41,6 +42,7 @@ from ...models.commands import (
     RelationUpdate,
 )
 from ...models.database import RdmObject
+from ...models.schema import EngineModel
 from ..access import (
     CONTEXT,
     RELATION_CREATE,
@@ -150,17 +152,52 @@ def list_relations(
         paths = object_paths(session, context, objects.values())
         relation_sets = _relation_sets(session, snapshot.model, workspace_key=context.workspace_key, change_set_id=context.id, anchor_type_key=anchor.object_type_key, anchor_id=object_id, direction=direction, relation_type_keys=relation_type_keys) if change_set_id else None
         return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_change_set_response(row), object=change_set_object_response(objects[row.related_id], context.id, snapshot.model, path=paths[row.related_id]).model_copy(update={"workspaceKey": context.workspace_key})) for row in page.items if row.related_id in objects], relationSets=relation_sets, **page.links())
+    return live_relation_page(
+        session,
+        snapshot.model,
+        object_id,
+        workspace_key,
+        paging,
+        page_size,
+        direction=direction,
+        relation_type_keys=relation_type_keys,
+        search=search,
+        sort=sort,
+    )
+
+
+def live_relation_page(
+    session: Session,
+    model: EngineModel,
+    object_id: str,
+    workspace_key: str | None,
+    paging: PageRequest,
+    page_size: int,
+    *,
+    direction: Literal["outgoing", "incoming", "both"] = "both",
+    relation_type_keys: list[str] | None = None,
+    search: str | None = None,
+    sort: str | None = None,
+) -> RelationPage:
+    """A page of a live record's relationships; the route's and the agent tool's one read."""
+    options = {
+        "object_id": object_id,
+        "direction": direction,
+        "relation_type_keys": relation_type_keys or None,
+        "search": search or None,
+        "sort": sort,
+    }
     anchor = load_active_projection(session, object_id)
     workspace = resolve_workspace(session, workspace_key)
     if anchor.workspace_key != workspace.key:
         raise api_error(404, "OBJECT_NOT_FOUND", "Object not found in the selected workspace")
-    query = build_relation_query(snapshot.model, anchor_type_key=anchor.object_type_key, workspace_key=anchor.workspace_key, **options)
+    query = build_relation_query(model, anchor_type_key=anchor.object_type_key, workspace_key=anchor.workspace_key, **options)
     page = paginate_statement(session, query.statement, keys=query.keys, scope=relation_scope(None), filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
     related_ids = list(dict.fromkeys(row.related_id for row in page.items))
     related_rows = list(session.scalars(select(RdmObject).where(RdmObject.id.in_(related_ids))))
     # One batched build for the page, not one per row (S1 finding).
-    related = {item.id: item for item in build_object_responses(session, snapshot.model, related_rows)}
-    relation_sets = _relation_sets(session, snapshot.model, workspace_key=anchor.workspace_key, change_set_id=None, anchor_type_key=anchor.object_type_key, anchor_id=object_id, direction=direction, relation_type_keys=relation_type_keys)
+    related = {item.id: item for item in build_object_responses(session, model, related_rows)}
+    relation_sets = _relation_sets(session, model, workspace_key=anchor.workspace_key, change_set_id=None, anchor_type_key=anchor.object_type_key, anchor_id=object_id, direction=direction, relation_type_keys=relation_type_keys)
     return RelationPage(items=[RelationExpansion(direction="outgoing" if row.ObjectRelation.from_object_id == object_id else "incoming", relation=build_relation_response(row.ObjectRelation), object=related[row.related_id]) for row in page.items], relationSets=relation_sets, **page.links())
 
 @router.get("/relations/held", response_model=HeldRecordPage)

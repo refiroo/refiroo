@@ -2638,6 +2638,17 @@ An operator turns agent access on (`MCP_ENABLED`). A system's assistant connects
 - **J51.6 Registration**: a self-registered assistant returns only to this computer or a listed host; with `MCP_OPEN_REGISTRATION` off only one an administrator registered signs in; a blocked assistant signs nobody in and its sessions end.
 - **J51.7 The limit**: the call past `MCP_RATE_PER_MINUTE` is refused with its wait, and recorded.
 
+### J52 — An assistant reads
+
+An assistant connected as in J51 answers from what the engine holds, in the API's own shape, on live data.
+
+- **J52.1 A value's code**: a tool generated from a consumer API definition answers by terms, by list and by ID as the consumer API does. It is offered with Browse or the API's grant in the workspace; a client holding only the grant lists nothing else, and a workspace it may not read is refused.
+- **J52.2 Unmapped values**: naming only a mapping view, `mapping_coverage` with `state=unmapped` pages through the sources the route lists.
+- **J52.3 From the model to a record**: the model, a type, a query, a record with its relationships, its history and the workspace's changes. A workspace the caller cannot read is refused in the words of one that does not exist.
+- **J52.4 Tools and workspaces**: equal definitions in two workspaces share one tool; a key whose definitions differ gives one tool each; a name stays within 48 characters.
+- **J52.5 A long answer**: past `MCP_ANSWER_BYTES` a page comes back smaller with a cursor, and reading on gives every record once.
+- **J52.6 Resources**: each readable workspace's model is listed, its applications, types and views are reached by templates, all read only where the caller may read, and recorded by argument name.
+
 ## Guardrails kept from 0.7
 
 In J10, clear is offered only where empty is valid. Search continues beyond page one; large ambiguous
