@@ -5,7 +5,8 @@ import type { PageNavigation } from "@/types/runtime";
 /** What may leave the process: names and types, also sample values, also the values a feature needs. */
 export type AiSendLevel = "structure" | "samples" | "values";
 /** `workbookLoad` is kept for the call rows recorded by older versions; it is no longer a feature. */
-export type AiPurpose = "connectionTest" | "mappingTarget" | "queryTranslation" | "workbookLoad" | "assistantSession";
+export type AiPurpose =
+  "connectionTest" | "mappingTarget" | "queryTranslation" | "impactSummary" | "workbookLoad" | "assistantSession";
 export type AiFailureKind =
   | "unreachable"
   | "unauthorized"
@@ -169,4 +170,33 @@ export interface QueryTranslation {
   search: string;
   notExpressed: { part: string; reason: string }[];
   applied: boolean;
+}
+
+/** `POST /model-releases/{id}/impact-summary` and `POST /model-drafts/{id}/impact-summary`: the workspace the change is for (0.16 AO1). */
+export interface ImpactSummaryRequest {
+  workspaceKey: string;
+  /** A draft's version, which the account is of; the release's route takes none. */
+  expectedVersion?: number;
+  language?: string;
+}
+
+/** One fact of a model change, written by the engine; its `id` is what a statement cites. */
+export interface ImpactFact {
+  id: string;
+  kind: "blocked" | "data" | "contract" | "change" | "records";
+  text: string;
+  path: string | null;
+  count: number | null;
+}
+
+/** The account of a model change: every fact, and the statements that word them (empty when the provider failed). */
+export interface ImpactSummary {
+  facts: ImpactFact[];
+  /** Each cites the facts it rests on: a fact's id, or `more-<kind>` for the facts of a kind the provider was not sent. */
+  statements: { text: string; factIds: string[] }[];
+  /** Statements dropped because they cited no fact that exists. */
+  removedStatements: number;
+  failure: string | null;
+  cached: boolean;
+  callId: string | null;
 }

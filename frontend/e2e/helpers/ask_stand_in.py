@@ -10,10 +10,17 @@ sent, as a real model would, and names nothing the context does not hold.
     by <name>                 a part no filter can say (who changed a record)
     slowly                    the answer comes after three seconds
     fail                      the provider is unreachable
+
+It also words the facts of a model change for the 0.16 AO1 runner (`ao1-impact-summary.mjs`), by the mode
+written in the file `STAND_IN_MODE_FILE` names (read at each call, so the runner changes it between
+steps): `ok` (statements citing the first fact, the last fact and the group of the facts not shown),
+`unsourced` (one statement citing a fact that does not exist, one that is right) or `fail`.
 """
 
+import os
 import re
 import time
+from pathlib import Path
 
 from app.engine.proposals.provider import ProposalRequest, ProviderAnswer, ProviderError
 
@@ -22,7 +29,24 @@ class AskStandIn:
     name = "ask-stand-in"
     model = "stand-in-1"
 
+    def _summary(self, request: ProposalRequest) -> ProviderAnswer:
+        path = os.environ.get("STAND_IN_MODE_FILE")
+        mode = Path(path).read_text().strip() if path and Path(path).exists() else "ok"
+        if mode == "fail":
+            raise ProviderError("unreachable", "The provider could not be reached")
+        facts = request.context["facts"]
+        statements = [{"text": f"{facts[0]['text']}.", "factIds": [facts[0]["id"]]}]
+        if mode == "unsourced":
+            statements.append({"text": "Nothing backs this.", "factIds": ["ch-00000000"]})
+        else:
+            last = facts[-1]["id"]
+            more = [group["id"] for group in request.context["more"]]
+            statements.append({"text": f"{facts[-1]['text']}.", "factIds": [last, *more]})
+        return ProviderAnswer({"statements": statements}, self.model, tokens_in=10, tokens_out=10)
+
     def propose(self, request: ProposalRequest) -> ProviderAnswer:
+        if request.purpose == "impactSummary":
+            return self._summary(request)
         question = request.context["question"]
         fields = request.context["fields"]
         if "slowly" in question:

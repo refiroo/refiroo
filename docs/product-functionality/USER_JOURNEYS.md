@@ -50,7 +50,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Workspace models | J36 run a workspace on a model of its own, J37 move a workspace to another release, J38 move data between workspaces whose models differ |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
-| AI proposals | J48 use AI proposals, J49 targets for unmapped values, J50 load with the assistant, J51 reach the engine from an assistant, J52 an assistant reads, J53 an assistant prepares a change, J54 ask in words |
+| AI proposals | J48 use AI proposals, J49 targets for unmapped values, J50 load with the assistant, J51 reach the engine from an assistant, J52 an assistant reads, J53 an assistant prepares a change, J54 ask in words, J55 an account of a model change |
 | Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key, J45 start from home, J46 send mail, J47 check the security model |
 
 ## Records and structure
@@ -2695,6 +2695,51 @@ parameters, including `filter.related:<key>.under` and `.notUnder`). **Status:**
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404 VIEW_NOT_FOUND`,
 `422 QUERY_TRANSLATION_VIEW_UNSUPPORTED`, `502 QUERY_TRANSLATION_FAILED`, `422 INVALID_FILTER`.
+
+### J55 — An account of a model change
+
+**Actor:** a model administrator who may activate releases in a workspace and holds Use AI proposals
+there. **Channel:** UI (Explain this change in the activation dialog and in Apply), API
+(`POST /model-releases/{id}/impact-summary`, `POST /model-drafts/{id}/impact-summary`). **Status:**
+delivered by 0.16 AO1 (2026-11-01).
+
+1. The administrator opens the activation dialog of a release for a workspace, or Apply for a draft.
+   The check of the workspace's data and the consumer APIs stand as before; nothing is sent to a
+   provider.
+2. They press Explain this change. The engine states the facts: each difference between the models, each
+   rule the workspace's data would break with its count, what the consumer APIs would notice, whether
+   activation is refused and how many records of each touched type the workspace holds, counted over the
+   whole set. The provider is sent them (at most 40 of a kind, with each kind's true total) and no record,
+   and words them.
+3. The dialog shows the statements. Each cites the facts it rests on, and a citation leads to the fact's
+   line, which the engine wrote. A note under the account says it was written by AI and can be wrong. It
+   never says a change is safe.
+4. When the provider fails or answers out of shape, the facts stand alone with one sentence saying so. The
+   same facts asked again within the hour are answered with no second call.
+
+**Variants:**
+
+- **J55.1 The account**: each statement cites facts the answer holds; the change facts are the diff's; the
+  record count of a touched type equals a count taken directly; the call is recorded; no record name is
+  sent.
+- **J55.2 A draft**: the same from a draft, its changes those of its compilation; an invalid draft is
+  `422 IMPACT_SUMMARY_DRAFT_INVALID`, a stale `expectedVersion` `409 VERSION_CONFLICT`.
+- **J55.3 Whole set**: with more than 40 changes of a kind, the answer holds every fact, the provider 40 with
+  the true count and a group a statement may cite.
+- **J55.4 No source**: a statement citing no fact that exists is dropped and counted; with none left the
+  facts stand alone.
+- **J55.5 The provider fails**: a failing provider and an answer out of shape each give `200`, the facts,
+  `failure` and a failed call record; no transaction is held while the provider answers.
+- **J55.6 Same facts**: a second request makes no provider call and says `cached`; a changed record count
+  asks again.
+- **J55.7 Blocked and migration**: a release needing a migration gives a blocked fact and data facts with
+  the check's counts, and the workspace is unchanged.
+- **J55.8 Who may ask**: `403 FORBIDDEN` without Model release or without Use AI proposals in the
+  workspace, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`.
+
+**Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
+MODEL_RELEASE_NOT_FOUND`, `404 MODEL_DRAFT_NOT_FOUND`, `409 VERSION_CONFLICT`, `422
+IMPACT_SUMMARY_DRAFT_INVALID`.
 
 ## Guardrails kept from 0.7
 

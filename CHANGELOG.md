@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (an account of a model change, AO1)
+
+- **"What this change does" in the activation dialog and in Apply (0.16 AO1).** Where a provider is set and the person may activate releases and holds Use AI proposals in the workspace, pressing Explain this change puts the change into a few plain statements, each followed by numbers that lead to the facts it rests on. The engine writes the facts (each difference between the models, each rule the workspace's data would break with its count, what the consumer APIs would notice, whether activation is refused, the workspace's records per touched type, counted over the whole set); the provider only words them, is sent at most 40 of a kind with each kind's true total and no record, and is told never to judge. A statement with no source is dropped and counted; when the provider fails the facts stand alone with Try again. The same facts asked within the hour are answered without a second call. Nothing is sent until the person asks.
+- `POST /model-releases/{id}/impact-summary` and `POST /model-drafts/{id}/impact-summary` (the second where model drafts are), the purpose `impactSummary` (offered at every send level), the table `ai_summaries` (migration `20261121_01`, an hour's cache) and `IMPACT_SUMMARY_DRAFT_INVALID`. Use AI proposals now also covers summaries.
+
 ### Changed (a hint beside the relationship panel's heading)
 
 - Why a record is not offered a relationship ("Only … can have this relationship.") is no longer text under the panel's toolbar: a small blue circled "i" beside the panel's heading shows it on hover, on keyboard focus and on a tap, one reason per line. The hint is a shared `InfoHint`; it appears only when the reason applies to that record.

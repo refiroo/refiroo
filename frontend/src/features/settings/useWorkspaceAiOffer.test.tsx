@@ -1,7 +1,12 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AiSystemInfo, MyPermissions } from "@/types";
-import { useAssistantOfferIn, useWorkspaceAiOffer, useWorkspaceAssistantOffer } from "./useWorkspaceAiOffer";
+import {
+  impactSummaryOffer,
+  useAssistantOfferIn,
+  useWorkspaceAiOffer,
+  useWorkspaceAssistantOffer,
+} from "./useWorkspaceAiOffer";
 
 const state = vi.hoisted(() => ({ ai: undefined as unknown, permissions: undefined as unknown }));
 vi.mock("@/features/settings/useSystem", () => ({ useSystem: () => ({ system: { ai: state.ai } }) }));
@@ -45,5 +50,16 @@ describe("the AI offers in a workspace (AP-D38)", () => {
     state.permissions = holding("ai-proposals");
     state.ai = info({ assistant: true, configured: true, sendLevel: "samples" });
     expect(renderHook(() => useWorkspaceAssistantOffer()).result.current).toBeUndefined();
+  });
+
+  it("offers the account of a model change at any send level to those who use AI proposals and may activate (AO1)", () => {
+    const set = info({ configured: true, provider: "claude", sendLevel: "structure" });
+    expect(impactSummaryOffer(set, holding("ai-proposals", "model-release"))).toBe(set);
+    expect(impactSummaryOffer(set, holding("ai-proposals"))).toBeUndefined();
+    expect(impactSummaryOffer(set, holding("model-release"))).toBeUndefined();
+    expect(
+      impactSummaryOffer(info({ sendLevel: "structure" }), holding("ai-proposals", "model-release")),
+    ).toBeUndefined();
+    expect(impactSummaryOffer(undefined, holding("ai-proposals", "model-release"))).toBeUndefined();
   });
 });

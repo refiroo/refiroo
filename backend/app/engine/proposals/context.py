@@ -24,6 +24,8 @@ FEATURE_LEVELS: dict[Purpose, SendLevel] = {
     # The question and the list's fields, conditions and relationships; the names of short lists
     # only at samples or values (AG-D35, revised 2026-11-01).
     "queryTranslation": "structure",
+    # The facts of a model change and counts of records, no record (AO-D1).
+    "impactSummary": "structure",
 }
 
 

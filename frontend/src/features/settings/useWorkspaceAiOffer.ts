@@ -1,5 +1,5 @@
 import type { MyPermissions } from "@/types";
-import { holds } from "@/features/security/permissions";
+import { holds, useWorkspacePermissions } from "@/features/security/permissions";
 import { useSystem } from "@/features/settings/useSystem";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import type { AiSystemInfo } from "@/types";
@@ -39,6 +39,22 @@ export function useQueryTranslationOffer(): AiSystemInfo | undefined {
 /** The rule alone: a provider is configured and ai-proposals is held. */
 export function queryTranslationOffer(ai: AiSystemInfo | undefined, permissions: MyPermissions | undefined) {
   return ai?.configured && holds(permissions, "ai-proposals") ? ai : undefined;
+}
+
+/**
+ * The provider, when an account of a model change may be asked for in `workspaceKey` (0.16 AO1): a provider
+ * is set, at any send level (the facts and record counts are the least a send level allows), and the person
+ * holds ai-proposals and may activate releases there; otherwise nothing, and nothing is drawn.
+ */
+export function useImpactSummaryOffer(workspaceKey: string | undefined): AiSystemInfo | undefined {
+  const { system } = useSystem();
+  const permissions = useWorkspacePermissions(workspaceKey);
+  return impactSummaryOffer(system?.ai, permissions);
+}
+
+/** The rule alone: a provider is configured, and ai-proposals and model-release are held. */
+export function impactSummaryOffer(ai: AiSystemInfo | undefined, permissions: MyPermissions | undefined) {
+  return ai?.configured && holds(permissions, "ai-proposals") && holds(permissions, "model-release") ? ai : undefined;
 }
 
 /** The assistant's offer for a page outside the workspace data context, with the workspace's permissions. */

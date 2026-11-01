@@ -18,6 +18,8 @@ vi.mock("@/api/client", () => ({
   },
 }));
 vi.mock("@/features/settings/useSystem", () => ({ useCapabilities: vi.fn() }));
+// No provider here: the account of the change is not drawn (ImpactSummary.test.tsx draws it).
+vi.mock("@/features/settings/useWorkspaceAiOffer", () => ({ useImpactSummaryOffer: () => undefined }));
 
 const model = { releaseId: "r1", releaseKey: "m", releaseName: "Model", releaseVersion: "1.0", version: 3 };
 const north = { key: "north", label: "North", status: "active", model };

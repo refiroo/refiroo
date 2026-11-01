@@ -3020,6 +3020,22 @@ class AiCall(Base):
     content_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
+class AiSummary(Base):
+    """The answer to one summary request, kept an hour under the hash of what was asked (0.16 AO1,
+    AO-D15): the facts, the language, the send level, the provider, the model and the prompt's
+    version. The same request inside the hour makes no provider call."""
+
+    __tablename__ = "ai_summaries"
+    __table_args__ = (Index("ix_ai_summaries_expires", "expires_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    purpose: Mapped[str] = mapped_column(String(40), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    answer: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    call_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+
+
 class AiTask(Base):
     """An assistant task: a workbook read against a workspace and planned into a load (0.16 AP6a,
     AP-D23 to AP-D26). The reading, the plan and the check are the assistant's and the rules' work

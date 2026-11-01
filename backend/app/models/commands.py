@@ -210,6 +210,27 @@ class QueryTranslationRequest(BaseModel):
         return self
 
 
+class ImpactSummaryRequest(BaseModel):
+    """Ask the AI provider for an account of what activating a release, or a draft, in a workspace
+    does (0.16 AO1): the facts of the change, with the workspace's data checked against it, worded
+    in ``language`` (a language tag; English without one). ``sendLevel`` a lower level than the
+    instance's ceiling."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    workspaceKey: str
+    sendLevel: Literal["structure", "samples", "values"] | None = None
+    language: str | None = Field(
+        default=None, max_length=35, pattern=r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+    )
+
+
+class DraftImpactSummaryRequest(ImpactSummaryRequest):
+    """The draft's version the account is of; another is ``409 VERSION_CONFLICT``."""
+
+    expectedVersion: int = Field(ge=1)
+
+
 class MappingProposalRequest(BaseModel):
     """Ask the AI provider for targets for the unmapped sources of a mapping view, into a change
     set (0.16 AP2, AP2-D1): ``changeSetId`` with ``expectedChangeSetVersion``, or ``changeSetName``

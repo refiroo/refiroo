@@ -7,8 +7,10 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
+import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
 import { LeftBehindChangeSets, MigrationReasons, openChangeSets } from "@/features/model-admin/ActivateDialog";
+import { ImpactSummary } from "@/features/model-admin/ImpactSummary";
 import {
   activationRefusal,
   ConsumerContracts,
@@ -208,6 +210,11 @@ export function ApplyDialog({
                     No record, value or relationship of {label} needs to move.
                   </Notice>
                 )}
+                <ImpactSummary
+                  key={`${draftId}:${outline.version}`}
+                  workspaceKey={workspaceKey}
+                  ask={(signal) => ai.explainDraft(draftId, { workspaceKey, expectedVersion: latestVersion() }, signal)}
+                />
                 {compilation.consumerContracts && (
                   <ConsumerContracts
                     outline={outline}

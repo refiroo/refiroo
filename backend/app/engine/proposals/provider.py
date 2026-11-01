@@ -14,8 +14,9 @@ from pydantic import BaseModel
 # What a feature asks for. ``connectionTest`` is the operator's test of the settings (Settings › AI);
 # ``mappingTarget`` the target a mapping source's name says it maps to (0.16 AP2), ``workbookLoad``
 # the assistant that reads a workbook against a workspace's records and plans its load (0.16 AP6a),
-# ``queryTranslation`` the filters a question in words becomes on a table view (0.16 AG4).
-Purpose = Literal["connectionTest", "mappingTarget", "queryTranslation"]
+# ``queryTranslation`` the filters a question in words becomes on a table view (0.16 AG4),
+# ``impactSummary`` the account of a model change's facts (0.16 AO1).
+Purpose = Literal["connectionTest", "mappingTarget", "queryTranslation", "impactSummary"]
 
 # Why a call failed, for the operator: the provider was not reached, it refused the key, it limited
 # the rate, it declined the request, it answered out of shape, or it failed otherwise.

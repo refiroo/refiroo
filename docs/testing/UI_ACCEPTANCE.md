@@ -449,6 +449,19 @@ A filter on a relationship the view does not declare (an answer may use any rela
 
 Not exercised in a browser: Ask in a publication; the person's own edit of a proposed pill through its editor (Vitest holds the editor).
 
+### Surfaces added in 0.16 AO1
+
+The account of a model change, beside the check in the activation dialog and in Apply. One component (`features/model-admin/ImpactSummary`), two places. Reference patterns: the dialogs' own sections (`install-heading`), `ui/Notice`, `ui/Skeleton`, `link-button`. Evidence `ao1-impact-summary` (the starter and generated-b, the stand-in provider `e2e/helpers/ask_stand_in.py`); `ImpactSummary.test` holds the unit cases.
+
+| # | Surface | Route | Reference pattern | Loading | Empty | Pending | Success | Error | Conflict | Retry | Narrow | Keyboard | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| AO1-1 | **Before asking**: "What this change does", the line saying what is sent (changes and record counts, no record value) and **Explain this change**; nothing is sent until it is pressed | the activation dialog, Apply | the dialogs' sections | — | **B** (not drawn without a provider, without ai-proposals or model-release in the workspace: `impactSummaryOffer` and the no-provider run) | **B** (Skeleton "Writing the account") | — | — | — | — | **B** (390px: the line above a full-width button, no sideways scroll) | **B** (Enter on the button) | `ao1-impact-summary`, `ImpactSummary.test` |
+| AO1-2 | **The account**: statements, each followed by numbers that lead to the facts it rests on; the note "Written by AI from the facts below, by <provider>. It can be wrong", "N statements removed: no source" when any; the facts (all of them, ten shown) with **Show the other N**; a number below the fold opens the rest and puts focus on the fact | the same | `link-button`, ordered list | — | **B** (no statement left: the facts stand alone with one sentence) | — | **B** (the run, light and dark, axe) | — | — | — | **B** (390px) | **B** (a citation by keyboard lands on its fact) | `ao1-impact-summary` |
+| AO1-3 | **The provider failed**: a warning naming the failure, "The facts below do not depend on it", **Try again**, the facts | the same | `ui/Notice` (warning) | — | — | — | **B** (Try again writes the account) | **B** (the run) | — | **B** | **B** | **B** | `ao1-impact-summary` |
+| AO1-4 | **The request refused** (a revoked right, no provider since the page opened): the error and **Try again** | the same | `ui/Notice` (error) | — | — | — | — | **B** (`ImpactSummary.test`) | — | **B** | **C** | **C** | `ImpactSummary.test` |
+
+The account clears when the check starts again (another release or workspace chosen, the draft changed): the component is keyed by the check. Not exercised in a browser: AO1-4 (Vitest only); an account in German (0.15 is not built).
+
 ### Surfaces added in 0.16 AP6a
 
 Loading a workbook with the assistant: a dialog that a collection's Import opens first where the assistant is offered, and one page, `/settings/ai-tasks/{id}`, in four states. Evidence `ap1-ai` is the AP6a part of the runner (the starter's Domains by keyboard and Systems by pointer, the fake provider, every state in light and dark at 1440px and 390px with axe); `AiTaskPage.test`, `LoadWorkbookDialog.test` and `ImportDialog.test` hold the unit cases.

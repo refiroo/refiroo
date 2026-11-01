@@ -23,6 +23,7 @@ from ..schemas.ai import (
 FEATURE_NAMES = {
     "mappingTarget": "Targets for the unmapped values of a mapping view",
     "queryTranslation": "A question in words becomes the filters of a list",
+    "impactSummary": "An account of what a model change does, beside its check",
 }
 
 

@@ -43,17 +43,25 @@ def _targets(context: dict[str, Any]) -> dict[str, Any]:
     return {"answers": answers}
 
 
-
-
 def _translation(context: dict[str, Any]) -> dict[str, Any]:
     """A question the list cannot filter by is searched for as it stands."""
     return {"filters": [], "search": context.get("question", ""), "notExpressed": []}
+
+
+def _summary(context: dict[str, Any]) -> dict[str, Any]:
+    """One statement for each of the first three facts, citing it."""
+    return {
+        "statements": [
+            {"text": fact["text"], "factIds": [fact["id"]]} for fact in context.get("facts", [])[:3]
+        ]
+    }
 
 
 DEFAULTS: dict[Purpose, Callable[[dict[str, Any]], Any]] = {
     "connectionTest": lambda context: {"ready": True},
     "mappingTarget": _targets,
     "queryTranslation": _translation,
+    "impactSummary": _summary,
 }
 
 _script: dict[str, Any] = {}

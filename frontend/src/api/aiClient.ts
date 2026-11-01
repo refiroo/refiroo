@@ -10,6 +10,8 @@ import type {
   AiTaskChangePage,
   AiTaskRequest,
   AiTaskRunRequest,
+  ImpactSummary,
+  ImpactSummaryRequest,
   QueryTranslation,
   QueryTranslationRequest,
 } from "@/types";
@@ -44,6 +46,21 @@ export const ai = {
    */
   translateQuery: (workspaceKey: string, body: QueryTranslationRequest, signal?: AbortSignal) =>
     request<QueryTranslation>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/query-translations`, {
+      ...post(body),
+      signal,
+    }),
+  /**
+   * The facts of activating a release in a workspace, worded (0.16 AO1). A provider that fails is not an error:
+   * `failure` is set and the facts stand alone. `409 AI_NOT_CONFIGURED`, `403 FORBIDDEN`.
+   */
+  explainRelease: (releaseId: string, body: ImpactSummaryRequest, signal?: AbortSignal) =>
+    request<ImpactSummary>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/impact-summary`, {
+      ...post(body),
+      signal,
+    }),
+  /** The same for a draft at `expectedVersion`; `422 IMPACT_SUMMARY_DRAFT_INVALID` for an invalid draft. */
+  explainDraft: (draftId: string, body: ImpactSummaryRequest, signal?: AbortSignal) =>
+    request<ImpactSummary>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/impact-summary`, {
       ...post(body),
       signal,
     }),

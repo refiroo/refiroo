@@ -13,6 +13,7 @@ export const PURPOSE: Record<AiCall["purpose"], string> = {
   connectionTest: "Test request",
   mappingTarget: "Targets for unmapped values",
   queryTranslation: "A question in words",
+  impactSummary: "An account of a model change",
   // Only on call rows recorded by older versions; it is no longer a feature.
   workbookLoad: "Load a workbook (no longer offered)",
   assistantSession: "Assistant session",

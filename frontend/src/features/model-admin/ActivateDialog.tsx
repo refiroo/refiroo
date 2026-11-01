@@ -9,9 +9,11 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
+import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
 import { activationRefusal } from "@/features/model-editor/InstallDialog";
 import { workspaceModelLabel } from "@/features/workspaces/WorkspaceSelector";
+import { ImpactSummary } from "@/features/model-admin/ImpactSummary";
 import { releasesByModel } from "@/features/model-admin/modelLines";
 import type {
   ChangeSet,
@@ -313,6 +315,11 @@ export function ActivateDialog({
                 {current.diff.consumerContracts?.diagnostics.map((item) => item.message).join(" ")}
               </Notice>
             )}
+            <ImpactSummary
+              key={checkKey}
+              workspaceKey={workspace.key}
+              ask={(signal) => ai.explainRelease(release.id, { workspaceKey: workspace.key }, signal)}
+            />
             {fits && (
               <LeftBehindChangeSets
                 workspaceLabel={workspace.label}

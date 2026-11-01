@@ -131,6 +131,8 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/health/
 | `GET /workspaces/{key}/mapping-coverage` (`state`, `proposed` with a change set) | J10, J49.7 |
 | `POST /workspaces/{key}/mapping-proposals` (a job of kind `aiProposal`; `changeSetId` or `changeSetName`, `sendLevel`) | J49.1–J49.7 (0.16 AP2) |
 | `POST /workspaces/{key}/query-translations` (`applicationKey`, `viewKey`, `question`, `changeSetId` or `publicationId`, `sendLevel`; answered directly: `filters`, `search`, `notExpressed`, `applied`) | J54.1–J54.7, J54.9 (0.16 AG4) |
+| `POST /model-releases/{id}/impact-summary` (`workspaceKey`, `sendLevel`, `language`; the facts of activating a release in a workspace, worded: `facts`, `statements`, `removedStatements`, `failure`, `cached`, `callId`) | J55.1, J55.3–J55.8 (0.16 AO1) |
+| `POST /model-drafts/{id}/impact-summary` (the same with `expectedVersion`; present where model drafts are) | J55.2 (0.16 AO1) |
 | `GET /objects/{type}` `filter.related:<key>.under` and `.notUnder` (a record ID; each entry must hold), live and in a change set or publication; the same condition as a related hop with `ancestor:<type>` in a query and an export | J54.8 (0.16 AG4) |
 | `GET /workspaces/{key}/mapping-candidates`, `GET /workspaces/{key}/mapping-targets` (`sourceObjectId`, `mappingVersion`) | J10, J10.3 |
 | `PUT /workspaces/{key}/mappings` | J10 |
@@ -300,6 +302,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J50.32 (0.16 AP9) | `CLIENT_HAS_NO_SECRETS` (`409`: a secret for an assistant task's client) |
 | J49 (0.16 AP2) | `MAPPING_PROPOSED_NEEDS_CHANGE_SET` (`422`, coverage `proposed` without `changeSetId`, J49.7); `AI_SEND_LEVEL_TOO_LOW` also when a request's `sendLevel` is above the ceiling (`details.ceiling`) or below what the feature needs (`details.needs`), J49.6 |
 | J54 (0.16 AG4) | `QUERY_TRANSLATION_FAILED` (`502`, `details.callId`: a provider that fails, an answer out of shape, a field or condition the list does not take, or a value its validation refuses, J54.5), `QUERY_TRANSLATION_VIEW_UNSUPPORTED` (`422`, `details.viewType`, J54.6), `VIEW_NOT_FOUND` (`404`, J54.6); `INVALID_FILTER` (`422`) also for an unknown relationship condition or an empty ancestor record, J54.8; `AI_SEND_LEVEL_TOO_LOW` and `AI_NOT_CONFIGURED` as J49.6 |
+| J55 (0.16 AO1) | `IMPACT_SUMMARY_DRAFT_INVALID` (`422`, the draft's diagnostics, J55.2); `VERSION_CONFLICT` (`409`) for a stale `expectedVersion`, J55.2; `MODEL_RELEASE_NOT_FOUND`, `MODEL_DRAFT_NOT_FOUND` (`404`); `AI_SEND_LEVEL_TOO_LOW`, `AI_NOT_CONFIGURED` and `FORBIDDEN` as J54.6, J55.8 |
 | J11, J24 | `BATCH_TOO_LARGE`, `INVALID_BATCH_CONTEXT`, `IDEMPOTENCY_KEY_REUSED`, `IDEMPOTENCY_IN_PROGRESS`, `MISSING_RECORD_KEY`, `INVALID_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH`, `JOB_NOT_FOUND`, `JOB_FINISHED`, `JOB_FAILED` |
 
 ## Operator surface (J12)

@@ -13,14 +13,19 @@ from pydantic import BaseModel
 
 from ...config import get_settings
 from ...engine.model.registry import resolve_request_model
-from ...engine.proposals import calls, query_translation
+from ...engine.proposals import calls, impact_summary, query_translation
 from ...engine.proposals.context import Policy
 from ...engine.proposals.provider import ProposalRequest
 from ...engine.reads.snapshot_reads import change_set_context, publication_context
 from ...errors import api_error
-from ...models.commands import QueryTranslationRequest
+from ...models.commands import (
+    DraftImpactSummaryRequest,
+    ImpactSummaryRequest,
+    QueryTranslationRequest,
+)
 from ...models.database import AiCall
-from ..access import INSTANCE, QUERY_TRANSLATION, AuthorizedRoute, requires
+from .. import impact_summary as impact_inputs
+from ..access import BODY, INSTANCE, QUERY_TRANSLATION, AuthorizedRoute, requires
 from ..ai import ai_requested, configuration
 from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
@@ -29,12 +34,15 @@ from ..schemas.ai import (
     AiCallPage,
     AiCallResponse,
     AiStatusResponse,
+    ImpactSummaryResponse,
     QueryTranslationFilter,
     QueryTranslationResponse,
     QueryTranslationUnexpressed,
 )
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["ai"])
+# The draft's account is part of model management: present when model drafts are (MODEL_ADMIN_MUTATIONS_ENABLED).
+draft_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["ai"])
 
 TEST_PROMPT_VERSION = "connection-test/1"
 
@@ -188,3 +196,74 @@ def post_query_translation(
         ],
         applied=translation.applied,
     )
+
+
+def _summarise(
+    request: Request,
+    principal: CurrentPrincipal,
+    session: DbSession,
+    body: ImpactSummaryRequest,
+    inputs: impact_inputs.Inputs,
+) -> ImpactSummaryResponse:
+    ai = impact_summary.with_level(configuration(request), body.sendLevel)
+    facts = impact_inputs.facts_of(session, inputs)
+    requester = calls.Requester(
+        principal.row_id if principal.kind == "user" else None,
+        principal.row_id if principal.kind == "client" else None,
+    )
+    summary = impact_summary.explain(
+        session,
+        ai,
+        facts,
+        language=body.language or impact_summary.DEFAULT_LANGUAGE,
+        requester=requester,
+    )
+    session.commit()
+    return impact_inputs.response(summary)
+
+
+@router.post("/model-releases/{release_id}/impact-summary", response_model=ImpactSummaryResponse)
+@requires("model.activate", at=BODY)
+def post_release_impact_summary(
+    release_id: str,
+    body: ImpactSummaryRequest,
+    request: Request,
+    principal: CurrentPrincipal,
+    session: DbSession,
+) -> ImpactSummaryResponse:
+    """Words for what activating a release in a workspace does (0.16 AO1), compared with the release
+    the workspace runs. The engine writes the facts: each difference between the models, each rule
+    the workspace's data would break with its count, what the consumer APIs would notice, whether
+    activation is refused and the workspace's records per touched type, counted over the whole set.
+    The provider is sent them (at most 40 of a kind, with each kind's true total) and no record; it
+    words them, and a statement that cites no fact that exists is dropped and counted. The answer
+    always carries every fact: a provider that fails or answers out of shape is a `200` with
+    `failure` and no statements, recorded as a failed call. The same request within an hour is
+    answered with no call (`cached`). Needs Activate model releases and Use AI proposals in
+    `workspaceKey`. Refused: `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`,
+    `404 MODEL_RELEASE_NOT_FOUND`."""
+    ai_requested(
+        request, "impactSummary", True, workspace_key=body.workspaceKey, send_level=body.sendLevel
+    )
+    inputs = impact_inputs.release_inputs(session, release_id, body.workspaceKey)
+    return _summarise(request, principal, session, body, inputs)
+
+
+@draft_router.post("/model-drafts/{draft_id}/impact-summary", response_model=ImpactSummaryResponse)
+@requires("model.activate", at=BODY)
+def post_draft_impact_summary(
+    draft_id: str,
+    body: DraftImpactSummaryRequest,
+    request: Request,
+    principal: CurrentPrincipal,
+    session: DbSession,
+) -> ImpactSummaryResponse:
+    """The same for a model draft, compared with the release it is based on (as its compilation is)
+    and with `expectedVersion` claiming the draft's version. Refused as the release's route is, and
+    `404 MODEL_DRAFT_NOT_FOUND`, `409 VERSION_CONFLICT`, `422 IMPACT_SUMMARY_DRAFT_INVALID` (an invalid
+    draft has no change to describe)."""
+    ai_requested(
+        request, "impactSummary", True, workspace_key=body.workspaceKey, send_level=body.sendLevel
+    )
+    inputs = impact_inputs.draft_inputs(session, draft_id, body.expectedVersion, body.workspaceKey)
+    return _summarise(request, principal, session, body, inputs)

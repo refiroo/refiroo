@@ -13,7 +13,7 @@ SendLevel = Literal["structure", "samples", "values"]
 class AiFeature(BaseModel):
     """A feature that asks the provider: whether it is offered, and the least it needs sent."""
 
-    purpose: Literal["mappingTarget", "queryTranslation"]
+    purpose: Literal["mappingTarget", "queryTranslation", "impactSummary"]
     name: str
     needs: SendLevel
     available: bool
@@ -42,6 +42,7 @@ class AiCallResponse(BaseModel):
         "connectionTest",
         "mappingTarget",
         "queryTranslation",
+        "impactSummary",
         "workbookLoad",
         "assistantSession",
         "modelNames",
@@ -64,7 +65,17 @@ class AiCallResponse(BaseModel):
     taskId: str | None = Field(default=None, description="The task a session's turn belongs to")
     outcome: Literal["answered", "failed"]
     failureKind: (
-        Literal["unreachable", "unauthorized", "rateLimited", "declined", "malformed", "failed", "timeout", "cancelled", "interrupted"]
+        Literal[
+            "unreachable",
+            "unauthorized",
+            "rateLimited",
+            "declined",
+            "malformed",
+            "failed",
+            "timeout",
+            "cancelled",
+            "interrupted",
+        ]
         | None
     )
     failure: str | None
@@ -134,3 +145,36 @@ class QueryTranslationResponse(BaseModel):
     search: str
     notExpressed: list[QueryTranslationUnexpressed]
     applied: bool
+
+
+class ImpactFact(BaseModel):
+    """One fact of a model change, written by the engine from the diff, the check of the
+    workspace's data, the consumer API check and a count of its records (AO-D12). ``id`` is stable:
+    the same fact keeps it."""
+
+    id: str
+    kind: Literal["blocked", "data", "contract", "change", "records"]
+    text: str
+    path: str | None = Field(default=None, description="The model element's JSON pointer")
+    count: int | None = None
+
+
+class ImpactStatement(BaseModel):
+    text: str
+    factIds: list[str] = Field(description="The facts the statement rests on; at least one")
+
+
+class ImpactSummaryResponse(BaseModel):
+    """The account of a model change (0.16 AO1). ``facts`` are every fact, whatever the provider
+    did; ``statements`` word them, each citing ``factIds`` (a fact's ID, or ``more-<kind>`` for the
+    facts of a kind the provider was not sent). A provider that fails or answers out of shape is
+    not an error: ``statements`` is empty and ``failure`` says what failed. ``removedStatements``
+    counts those dropped for citing no fact that exists; ``cached`` is true when the same request
+    was answered within the hour and no call was made; ``callId`` is the call that made the words."""
+
+    facts: list[ImpactFact]
+    statements: list[ImpactStatement]
+    removedStatements: int
+    failure: str | None
+    cached: bool
+    callId: str | None

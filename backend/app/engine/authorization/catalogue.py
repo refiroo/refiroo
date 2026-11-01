@@ -125,7 +125,7 @@ GROUPS: dict[str, ActionGroup] = {
         ActionGroup(
             "ai-proposals",
             "Use AI proposals",
-            "Ask the configured AI provider for proposals the person then edits, keeps or removes",
+            "Ask the configured AI provider for proposals the person then edits, keeps or removes, and for summaries",
             "workspace",
         ),
     )

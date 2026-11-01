@@ -457,6 +457,7 @@ def test_a_send_level_too_low_for_the_feature_or_above_the_ceiling_is_refused(wo
     assert {f["purpose"]: f["available"] for f in status["features"]} == {
         "mappingTarget": False,
         "queryTranslation": True,
+        "impactSummary": True,
     }
     refused(_propose(world, "Vnn", changeSetName="Low"), 409, "AI_SEND_LEVEL_TOO_LOW")
     error = refused(

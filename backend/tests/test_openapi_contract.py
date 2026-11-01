@@ -392,9 +392,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # call, and under and notUnder in the list filter's description.
     # Re-baselined for the 0.16 AG4 revision (2026-11-01): only the description of the route
     # query-translations (the names of short lists, every relationship); no schema moved.
+    # Re-baselined for 0.16 AO1 (additive, diffed against HEAD): the route model-releases/{id}/impact-summary
+    # (model-drafts/{id}/impact-summary only where model drafts are, as the enabled document test says), its
+    # schemas (ImpactSummaryRequest, DraftImpactSummaryRequest, ImpactSummaryResponse, ImpactFact,
+    # ImpactStatement) and impactSummary as a purpose of AiFeature and of a call.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "3038b25bddd0ed7d917c1100b22b45b5083e480dc34d1633ae26a2e44cdc82c9"
+        "bb33dcfd2683d7c406a8a8853dbfcf149bbb019747c3cd05f3bd46f9cb3c83ba"
     )
 
 
@@ -601,6 +605,7 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         "/api/v1/model-drafts": frozenset({"get", "post"}),
         "/api/v1/model-drafts/{draft_id}": frozenset({"get", "patch", "delete"}),
         "/api/v1/model-drafts/{draft_id}/compile": frozenset({"post"}),
+        "/api/v1/model-drafts/{draft_id}/impact-summary": frozenset({"post"}),
         "/api/v1/model-drafts/{draft_id}/installation": frozenset({"post"}),
         # 0.10 A2: operations, their history, undo and redo (ADR-041).
         "/api/v1/model-drafts/{draft_id}/operations": frozenset({"get", "post"}),

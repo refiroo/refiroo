@@ -1584,16 +1584,17 @@ Limits:
   still use one attribute. A model cannot yet declare a combination unique, so only an import checks it.
 - A change made only through batches, or a file with no key at all, cannot be repeated without the
   assistant.
-- Values for empty fields and plain-language summaries follow in later releases.
+- Values for empty fields follow in a later release. Plain-language summaries exist for a model change only (below); the account of what changed in history and the notification digests follow.
 - The assistant and the provider are set in the environment, not on the page.
 - A question in words works on table lists only (not on mapping grids, trees or the Changes page, and no package is planned for them); it cannot ask for an order or for who changed a record, or compare with a value that is not a record's name (a list of more than 50 records is not read by the provider, so only exact or partial names answer there).
+- **An account of a model change.** Where a provider is set and the person may activate releases and holds Use AI proposals in the workspace, the activation dialog and Apply show a section "What this change does". Nothing is sent until the person presses Explain this change; the line beside it says what goes: the model's changes and record counts, no record value. The engine writes the facts (each difference, each rule the workspace's data would break with its count, what the consumer APIs would notice, whether activation is refused, the workspace's records per touched type); the provider words them in short statements, each followed by numbers that lead to the facts it rests on. A note under says it was written by AI and can be wrong; it never says a change is safe. A statement with no source is dropped and counted; when the provider fails the facts stand alone with one sentence and Try again. The same facts asked again within the hour are answered without a second call. Limits: English only until the interface is translated; not on the migration page (which lists every conversion itself) or in the install dialog; an account is not kept beyond the hour or attached to a release; there is no follow-up question.
 - Proposals for mapping targets have been tried only with a stand-in provider. The design was tried
   with Claude Sonnet on real workbooks: an update of a known layout, a new model in an empty
   workspace, and a relationship from words alone.
 
 Evidence: [AI contract](../API.md#ai-proposals-product-016), [OPERATIONS](../OPERATIONS.md#ai-proposals),
 [provider](../../backend/app/engine/proposals/), [AI page](../../frontend/src/features/settings/AiPage.tsx),
-[J48](../../backend/tests/journeys/test_j48_ai_proposals.py), [AP1 runner](../../frontend/e2e/ap1-ai.mjs), [J54](../../backend/tests/journeys/test_j54_ask_in_words.py), [AG4 runner](../../frontend/e2e/ag4-ask-in-words.mjs).
+[J48](../../backend/tests/journeys/test_j48_ai_proposals.py), [AP1 runner](../../frontend/e2e/ap1-ai.mjs), [J54](../../backend/tests/journeys/test_j54_ask_in_words.py), [AG4 runner](../../frontend/e2e/ag4-ask-in-words.mjs), [J55](../../backend/tests/journeys/test_j55_impact_summary.py), [AO1 runner](../../frontend/e2e/ao1-impact-summary.mjs).
 
 ## F30 — Reach refiroo from an assistant
 

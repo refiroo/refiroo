@@ -97,13 +97,13 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
 | [AG2](#ag2-read-tools-and-resources) | AG1 | Read tools generated from the consumer API definitions plus a curated set; the model as resources |
 | [AG3](#ag3-changes-prepared-and-submitted-for-approval) | AG1, AG2 | Write tools that create a change set, add validated changes and submit it for approval; no approve or publish tool |
 | [AG4](#ag4-natural-language-search) | AG2, AP1 | A question turned into the existing search and filter parameters, explained back. **Closed 2026-11-01, accepted by the user** |
-| [AO1](#ao1-model-change-impact-summary) | AP1 | A plain-language impact summary of a release diff or activation preview, with its facts |
+| [AO1](#ao1-model-change-impact-summary) | AP1 | **Delivered 2026-11-01.** A plain-language impact summary of a release diff or activation preview, with its facts |
 | [AO2](#ao2-what-changed-an-account-of-history) | AP1 | An account of a workspace's history over a period, with citations |
 | [AO3](#ao3-notification-digests) | AP1 (the AI sentence only) | A daily or weekly digest of a person's inbox notices by mail, opt-in; useful without a provider |
 | [WM1](#wm1-change-a-workspaces-model-from-the-workspace) | 0.12 | **Not AI.** Edit a workspace's model from the workspace: a draft made for it, one "Apply to this workspace" |
 | [R](#r-build-acceptance-and-release) | all | Full review of every change since 0.15, the gates, one bounded real-provider try and one real-assistant try, the release |
 
-**Order (revised 2026-10-31).** Delivered: AP1, AP2. Built: AP8. Next: WM1, then AP9 to AP13 with the tries already running, and Tracks A and O beside them, as they touch little of the same code; then R. Track A is an additional route for organisations that bring their own assistant, never a precondition of the built-in one.
+**Order (revised 2026-10-31).** Delivered: AP1, AP2, AO1. Built: AP8. Next: WM1, then AP9 to AP13 with the tries already running, and Tracks A and O beside them, as they touch little of the same code; then R. Track A is an additional route for organisations that bring their own assistant, never a precondition of the built-in one.
 
 **Tracks A and O stay in 0.16 (decided by the user 2026-10-31).**
 
@@ -1352,6 +1352,88 @@ definition. It never says a change is safe; it says what the facts are.
 **Scope.** The fact set from the existing diff and preview (operations, affected counts, consumer
 definition changes, mapping changes, blocked items), the `impactSummary` purpose, `POST …/releases/{id}
 /impact-summary`. Send level `structure`. Also available on a model draft's validation result.
+
+### AO1 in detail (planned 2026-11-01, approved by the user the same day with the mock-up)
+
+Mock-up: [AO1 Impact summary](https://claude.ai/artifact/9cvJxd3mTPfcKE2LwtwJyv) (a Design canvas, not kept in the repository; three boards: the account beside the check, before asking and when it fails, a phone). **Requirement served:** the Outcome's "a model administrator reads a plain-language impact summary beside the activation preview".
+
+**What the code does today (read 2026-11-01; nothing was run):**
+
+- **The facts exist, in three places.** `GET /model-releases/{id}/diff` gives `changes` (`semantic_diff`, each a kind, a path, before and after), `compatibility` (the workspace's data against the release, whose diagnostics hold a `count` for a rule the data breaks) and `consumerContracts`. `POST /model-drafts/{id}/compile` gives the same for a draft. Diagnostics name keys, not record values.
+- **The activation dialog shows no list of operations.** The spec says "beside the counts and the list of operations", but `ActivateDialog` shows only the compatibility notice and the contract notice. `ApplyDialog` shows `summarizeChanges`. A citation therefore has nothing to link to in the activation dialog until AO1 draws the facts.
+- **No count exists for a compatible change.** "None of its 340 records changes" has no source: compatibility counts only records that break a rule.
+- **The model has no mappings section.** A mapping in a release is a relationship (`objectTypeRelations`) or an application's view. A saved model mapping (`model_mappings`) stands between two models outside any release, so a release does not change it.
+- **0.15 is not built.** `frontend/package.json` holds no translation library and no language is sent on a request, so AO-D8's "0.15's setting passed to the request" has nothing to pass.
+- **`ai_requested`, `calls.ask` and `FEATURE_LEVELS` serve this as they stand.** AG4's route shows the pattern: read, release the transaction, ask, then check the answer.
+
+**Decisions (recommended, approved with this plan):**
+
+| # | Decision | Why and what it costs |
+| --- | --- | --- |
+| AO-D10 | **Two direct routes, no job.** `POST /api/v1/model-releases/{id}/impact-summary` and `POST /api/v1/model-drafts/{id}/impact-summary`, with `workspaceKey`, optional `sendLevel` and `language`; the release's route compares with the release the workspace runs, the draft's route also takes `expectedVersion`. An invalid draft is `422 IMPACT_SUMMARY_DRAFT_INVALID`. No transaction is held while the provider answers. | One short call with nothing to resume, as AG-D34. Revises AP-D8 for this purpose. |
+| AO-D11 | **The answer always carries every fact.** `facts: [{id, kind, text, path, count}]`, `statements: [{text, factIds}]`, `removedStatements`, `failure`, `cached`, `callId`. A provider that fails or answers out of shape is a `200` with `statements` empty and `failure` set, not a `502`. | AO-D9 asks for "facts alone" on a failure, so the route still has something true to give. Differs from AG4, where a failed call had nothing to show. |
+| AO-D12 | **A fact's text and ID come from the engine.** Kinds: `change` (one per diff entry), `data` (a compatibility diagnostic with its count), `contract` (a contract diagnostic), `blocked` (a diagnostic that refuses the activation) and `records` (records per touched type). The ID derives from kind, code and path, so the same fact keeps its ID. The text is built from the model's labels. | The reader checks the sentence against a line the AI did not write. `count` per touched type is one new `GROUP BY` over the workspace, whole set (AO-D3). |
+| AO-D13 | **"Mapping changes" are relationship and view facts.** No separate kind, and saved model mappings stay out. | That is what a release can change, as found above. The sentence in the journey still reads as written, since a relationship's fact names its types. |
+| AO-D14 | **The provider gets at most 40 facts per kind, each with its true count; the person gets all.** The largest counts and blocked items come first; the rest is "and N more" in the context, and a statement may cite the group. | AO-D3. A release of another model can hold hundreds of changes. Text in `before` and `after` is cut at 200 characters in the context and sent as it stands in the model. |
+| AO-D15 | **The cache is a small table.** `ai_summaries`: `purpose`, `input_hash` (unique), `answer` JSON, `call_id`, `expires_at`, one hour on. The hash covers the facts, language, send level, provider, model and prompt version. A hit makes no call and returns `cached: true`. Expired rows are removed in one statement when a row is written. Migration: one table. | AO-D4's "same facts, same text, no second call" must hold across worker processes, which an in-process cache cannot. One hour is the preview's session in AO-D4. AO2 and AO3 reuse it. |
+| AO-D16 | **No new permission group.** AO-D5's "second action" would not be separately grantable, as grants are by group, so a holder of `model.activate` in the workspace who also holds Use AI proposals may ask. The group's description gains "and summaries". Hidden otherwise. | Grants are by group (ADR-044), so a second action changes nothing a person can see. The roles that hold Model release already hold the group. |
+| AO-D17 | **One component, only on request.** `ImpactSummary` in `features/model-admin`, in `ActivateDialog` and `ApplyDialog`, after the compatibility notice. Nothing is sent until the person presses **Explain this change**; the line beside it says what is sent. A new check clears the account. | A dialog opening must not spend money or send anything. One component, no copies. Facts appear only after asking, so with no provider the dialogs are as they are today (AP-D3: hidden). |
+| AO-D18 | **The prompt says what the facts are and never judges.** It asks for short statements in the given language, each citing fact IDs, and forbids "safe", "risky" and advice. A check drops a statement with no valid ID (AO-D2). It does not scan words: the wording rule rests on the prompt, the citations and the note under the account. | Filtering words would give false comfort in any language. "Written by AI … It can be wrong" stays under the account. |
+| AO-D19 | **`language` is optional in the API and the UI sends none until 0.15 is built.** The default is English. A German account beside English facts is left for when 0.15 converts these dialogs. | Changes AO-D8's route to it, not its aim: an integrator can already ask for a language. |
+| AO-D20 | **One bounded real try in this package, not in R.** It changes AO-D9's "in R". | AG4's real problems appeared only on a real provider, and it is one short call. |
+
+**Journey cases (for approval, J55, fake provider, on two model configurations):**
+
+- **J55.1 The account.** Given a release adding two optional attributes and a consumer change, when a model administrator asks, then each statement cites facts, the facts equal what the diff, the check and the database give, and the call is recorded.
+- **J55.2 A draft.** The same from a draft in Apply; an invalid draft and a stale `expectedVersion` are refused.
+- **J55.3 Whole set.** Given more than 40 changes of a kind, the response holds every fact, the context 40 and the true count, and the record count equals a count taken directly (AO-D9's completeness test).
+- **J55.4 No source.** An answer with an uncited or unknown citation loses that statement and counts it; with none left, the facts stand alone.
+- **J55.5 The provider fails.** A failure and an out-of-shape answer each give `200`, the facts, `failure` and a failed call record, and no transaction is held during the call.
+- **J55.6 Same facts.** A second request makes no provider call and says `cached`; a changed record count makes a new call.
+- **J55.7 Blocked and migration.** A release needing a migration gives `blocked` and `data` facts with counts, and nothing in the workspace changes.
+- **J55.8 Who may ask.** Without Model release in that workspace, or without Use AI proposals: `403`. No provider: `409 AI_NOT_CONFIGURED`. A chosen level above the ceiling: `409 AI_SEND_LEVEL_TOO_LOW`.
+
+Unit tests: no record value in the context at `structure` (a stored value planted and looked for), fact IDs stable between two runs, the bound of AO-D14, the cache's hash. Vitest: `ImpactSummary` in each state, hidden without the offer, cleared by another release.
+
+**Real try, announced and run without a stop.** The provider in `.dev/settings.env` (Claude Code, `sonnet`), on an existing pair of releases of a scratch workspace, with one activation and one migration-needing release. Read by me for statements that judge or that the facts do not carry; tokens and cost in the usage log. The 200 and 2,000-record basics are timed for the fact set.
+
+**Browser:** one runner on two configurations with the fake provider: asking, citation to fact, failure, Show the rest, in both dialogs, by keyboard at 1440px and 390px, light and dark, axe, no 5xx. Screenshots inspected.
+
+**Checks:** J55, the activation journeys' group as the execution guide names it, `contract` with the OpenAPI lock (re-baselined last, diff read for AO1's additions only), `test_boundaries`, the migration's upgrade, Ruff on the named files, Vitest for `features/model-admin` and `ApplyDialog`, lint, the production build. **Door check (ADR-032):** none affected: a summary is derived and stays outside history, the model and the records.
+
+**Scope.** **Engine:** `engine/proposals/impact_summary.py` (facts, context, prompt, answer check), `impactSummary` in `Purpose`, `FEATURE_LEVELS` at `structure`, the fake's default, the cache in `calls.py`'s neighbourhood. **Management:** the two routes, schemas, `FEATURE_NAMES`, `AiCallResponse`'s purpose, the group's description. **Frontend:** `ImpactSummary`, `useImpactSummaryOffer` in `useWorkspaceAiOffer.ts`, the two dialogs, `api`, types. **Documents:** `API.md`, `API_JOURNEYS.md`, `USER_JOURNEYS.md` (J55), `CURRENT_FUNCTIONALITY.md`, `OPERATIONS.md` (the send level's reach), `UI_ACCEPTANCE`, the execution guide, `PROJECT_STATUS`, `CHANGELOG.md`, this plan, the usage log.
+
+**Working beside other sessions.** **AP12 is in delivery or about to be:** both touch `ActivateDialog` and `ApplyDialog`. AO1 adds one component call and one state to each and stays out of opening with choices and the way back to the task; whichever comes second takes the other's saved file. AO1 does not touch `agent.py` or `MigrationPage`. Shared: this document, `CHANGELOG.md`, `useWorkspaceAiOffer.ts` (one added function), the OpenAPI lock, re-baselined last. AO1 alone adds a migration, written in one go as the dev server applies it on save. `pytest` runs go one at a time. Commits hold AO1's hunks only.
+
+**What the user cannot do after AO1:** read the account in German (0.15, not built); read it on the migration preview page, which lists every conversion and loss itself, and the account stands in the dialog before it (no package); read it in the install dialog, which belongs to no workspace, so nothing there changes data (no package); keep an account, as it is gone after an hour and is not part of a release (AO-D4); ask a follow-up question (not a chat, AO-D7).
+
+### AO1 record (2026-11-01)
+
+**Delivered as planned**, with the differences below. The tests were written after the first backend pass, not before it, so "confirmed to fail first" was not shown.
+
+**Where it differs from, or fills, the plan:**
+
+- **Which models are compared.** A release is compared with the release the workspace runs; a draft with the release it is based on (the newest of its model without a base), as its compilation is. The workspace's data is checked against the candidate by `analyze_compatibility` against the workspace's own release in both routes, so a draft whose base is not what the workspace runs is compared in two ways, each as the dialogs already draw it.
+- **The kinds, fixed.** `blocked` is one fact per cause that refuses activation (the data needs a migration; a consumer API changes without a higher contract version), without a count; each compatibility diagnostic is a `data` fact with its count; each contract diagnostic is a `contract` fact, whatever its severity. AO-D12's "(a diagnostic that refuses the activation)" left this open: J55.7's "blocked and data facts with counts" is met this way.
+- **Facts the provider is not sent are still citable.** `more-<kind>` stands for a kind's facts beyond 40; the check accepts it, and the interface leads it to the first fact of that kind.
+- **No facts, no call.** A release with no difference to describe answers with no facts and statements and makes no provider call.
+- **All statements dropped is not a failure.** `failure` stays empty; the interface says no statement cited a fact and shows the facts. The account is cached only when a statement survived.
+- **The draft route exists only where model drafts do** (`MODEL_ADMIN_MUTATIONS_ENABLED`): it is on its own router (`draft_router`), included beside `model_management`, so the OpenAPI document without model administration has none; the release's route is always there.
+- **The interface.** `ImpactSummary` takes what to ask and is keyed by the check, so another release, workspace or draft version clears it. Ten facts are listed, then "Show the other N". A number is the fact's place in the list.
+- **Mock-up.** The provider's name stands in "by <provider>"; the "Not changed" and "Change sets left" lines stay where the dialogs have them, the section sits after the check's notices.
+- **After the real try (`impact-summary/2`).** The account said facts were "not shown" (the provider's view, not the reader's), counted a list wrongly once ("seven … eight in total") and one fact read "changes from its definition to its definition". The prompt now says "and N more" and to take numbers from the facts and totals, the group's text no longer says "not shown", and a change of a definition reads "changes". Not tried again on the real provider (one try, no loop).
+- **The browser runner's stand-in.** `e2e/helpers/ask_stand_in.py` also answers `impactSummary` by a mode a file names (`STAND_IN_MODE_FILE`), because the fake provider cannot be scripted from another process.
+
+**Checks:** J55: 18 passed (eight cases on generated A and B, plus the no-provider case), and `tests/unit/engine/proposals` with the new unit cases: 6. J48 (12 passed) and J49 with the third feature (the feature lists now name three). `test_j54_ask_in_words`, `contract` (82 passed; the OpenAPI lock re-baselined last, hash `bb33dcfd…`: the lock's document held AP12's schemas (`TaskMigration` and changes to `TaskDesign` and `TaskResult`) when it was re-baselined, so AP12 re-baselines it again; diffed against HEAD, AO1's additions are the release route, the five schemas and `impactSummary` in two enums, the draft route being in the model-administration document only), `test_boundaries`, `test_error_codes`, `test_api_reference`, `test_api_journeys` (the new routes and code listed), `test_startup` (11 passed: the head is `20261121_01`, a clean bootstrap and the upgrade from `20261120_04`; the dev server applied the migration on save). The `workspace_models` group and J08: 162 passed and 30 passed, **2 failed**: `test_j36_12_workspace_draft` (an assistant task refused `AI_NOT_CONFIGURED`, `AI_AGENT_COMMAND`), the file untouched by AO1 and in AP12's area. Ruff on the changed files. Frontend: Vitest for `features/model-admin`, `ApplyDialog`, `features/settings` and `features/security` (222 passed; `ImpactSummary.test` has 7 cases: hidden, the line, the account and a citation landing on its fact, a removed statement, failure and Try again, ten facts then the rest, a refused request, a new check clearing it; `impactSummaryOffer` in `useWorkspaceAiOffer.test`), `npm run lint` (0 errors), `npm run format` on the changed files, `npm run build`. Browser: `test:browser:ao1`, 37 checks on the starter and generated-b (axe 0 violations on each state, light and dark, 1440px by keyboard and 390px, no console error or 4xx/5xx); screenshots inspected against the mock-up. Not run: the full suites, `test:a11y`, `test:visual`, the other runners.
+
+**The 200 and 2,000-record basics.** On generated A and B, with 0, 200 and 2,000 more records of the touched type (created through `POST /batches`), the whole route with the fake provider (the diff, the check of the data, the contract check, the grouped count and the facts) took 17 to 25 ms at 200 and at 2,000 records, 18 to 43 ms with none: the counts are set statements, so the time does not follow the records. The record fact equalled the number added each time, and the check's counts equalled it for the release that made an attribute required.
+
+
+**Not verified:** an account in the browser on the dev server with the real provider (the runner uses a stand-in; the dev server answers the route behind a sign-in); a person's wording of a German account (0.15 is not built); the prompt `/2` on the real provider.
+
+**What the user still cannot do:** as under "What the user cannot do after AO1" above.
+
+**Collisions with AP12:** none in the dialogs (only AO1's hunks stand in `ActivateDialog` and `ApplyDialog`); the OpenAPI lock hash carries AP12's schemas (above); `test_j36_12_workspace_draft` fails in AP12's area.
 
 ## AO2: What changed, an account of history
 

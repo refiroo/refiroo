@@ -52,6 +52,7 @@ def test_an_operator_sees_the_provider_ready_and_every_call_it_made(world):
     assert [(f["purpose"], f["available"]) for f in status["features"]] == [
         ("mappingTarget", True),
         ("queryTranslation", True),
+        ("impactSummary", True),
     ]
     assert status["assistant"] is False
     assert "apiKey" not in str(status).replace("keySet", "")
@@ -87,7 +88,7 @@ def test_without_a_provider_nothing_is_sent_and_no_ai_action_is_offered(world):
     assert ok(world.api.get("/system"))["ai"]["configured"] is False
     status = ok(world.api.get("/ai/status"))
     assert status["configured"] is False
-    assert [f["available"] for f in status["features"]] == [False, False]
+    assert [f["available"] for f in status["features"]] == [False, False, False]
     before = len(_calls(world))
     refused(world.api.post("/ai/test", {}), 409, "AI_NOT_CONFIGURED")
     assert len(_calls(world)) == before

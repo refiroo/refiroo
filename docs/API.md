@@ -6258,7 +6258,7 @@ D278).
 | Feed | `feed` | The workspace's change feed | Workspace |
 | Operations | `operations` | Processes, readiness detail, summary, backup rehearsals, `/metrics`, `GET /system/configuration` | Instance |
 | Security administration | `security-admin` | Users, groups, roles, grants, clients, token signing keys, sign-in providers | Instance |
-| Use AI proposals | `ai-proposals` | Ask the configured AI provider for proposals the person then edits, keeps or removes (0.16 AP1, AP-D7). It allows no write: what a proposal changes is written under the group that allows it | Instance or workspace |
+| Use AI proposals | `ai-proposals` | Ask the configured AI provider for proposals the person then edits, keeps or removes, and for summaries (0.16 AP1, AP-D7; AO1). It allows no write: what a proposal changes is written under the group that allows it | Instance or workspace |
 
 Rules the catalogue applies:
 
@@ -6931,6 +6931,42 @@ set's or publication's) and Use AI proposals.
   `502 QUERY_TRANSLATION_FAILED` with `details.callId`; nothing comes back to apply.
 - The call is in `GET /ai/calls` like any (`purpose` `queryTranslation`); no transaction is held while
   the provider answers.
+
+### An account of a model change (AO1)
+
+`POST /api/v1/model-releases/{releaseId}/impact-summary` and `POST /api/v1/model-drafts/{draftId}/impact-summary`
+(the second only where model drafts are, `MODEL_ADMIN_MUTATIONS_ENABLED`) put into words what activating
+a release, or applying a draft, in a workspace does. They are answered directly, not as jobs. The engine
+writes the **facts**; the provider only words them. A release is compared with the release the workspace
+runs, a draft with the release it is based on (as its compilation is); either way the workspace's data
+is checked against the candidate as activating it there would. The provider is sent the facts, at most
+40 of each kind with each kind's true total, and no record: a record count is a number and nothing else.
+Purpose `impactSummary`, offered at every send level. It needs Activate model releases (`model.activate`)
+and Use AI proposals in `workspaceKey`.
+
+- **Body:** `workspaceKey`, optional `sendLevel` (a level below the instance's), optional `language` (a
+  language tag; English without one), and for a draft `expectedVersion`.
+- **Answer `200`:** `facts` (every fact: `id`, `kind`, `text`, `path`, `count`), `statements` (each `text` with the
+  `factIds` it rests on), `removedStatements`, `failure`, `cached`, `callId`. The kinds: `change` (one per
+  difference of the two models), `data` (a rule the workspace's data would break, with its count),
+  `contract` (what the consumer APIs would notice), `blocked` (activation is refused: a migration is
+  needed, or a consumer API changes without a higher contract version) and `records` (the workspace's
+  records of each touched type, counted over the whole set). A fact's `id` derives from its kind, code and
+  path, so the same fact keeps it; its `text` is the engine's, from the model's labels.
+- **A statement** that cites no fact, or one that does not exist, is dropped and counted in
+  `removedStatements`; a citation may be `more-<kind>` for the facts of a kind the provider was not
+  sent. The prompt forbids judging ("safe", "risky") and advice; no word list is applied.
+- **A provider that fails or answers out of shape** is not an error: `200` with `statements` empty,
+  `failure` saying what failed, every fact present, and a failed call recorded.
+- **The same request** (the facts, language, send level, provider, model and prompt version) within an
+  hour is answered from the cache with no provider call (`cached: true`, the first call's `callId`);
+  an account with nothing left after the check, and a failure, are not kept.
+- **Refusals:** `403 FORBIDDEN` (`details.groups`: `model-release`, or `ai-proposals`), `409
+  AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404 MODEL_RELEASE_NOT_FOUND`, `404
+  MODEL_DRAFT_NOT_FOUND`, `409 VERSION_CONFLICT` (a stale `expectedVersion`), `422
+  IMPACT_SUMMARY_DRAFT_INVALID` (an invalid draft has no change to describe).
+- The call is in `GET /ai/calls` (`purpose` `impactSummary`); no transaction is held while the provider
+  answers.
 
 ### Loading a workbook, or changing records, with the assistant
 

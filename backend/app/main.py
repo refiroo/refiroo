@@ -625,6 +625,7 @@ def create_app() -> FastAPI:
     application.include_router(changes.router, dependencies=MANAGEMENT_DEPENDENCIES)
     if mutations_enabled:
         application.include_router(model_management.router, dependencies=MANAGEMENT_DEPENDENCIES)
+        application.include_router(ai.draft_router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(objects.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(queries.router, dependencies=MANAGEMENT_DEPENDENCIES)
     application.include_router(attributes.router, dependencies=MANAGEMENT_DEPENDENCIES)
