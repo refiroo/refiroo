@@ -68,23 +68,40 @@ const OPERATORS: Record<string, string> = {
   gte: "is at least",
 };
 
+/** A piece of a sentence; a mark says which pieces a reader's eye should find first. */
+export interface WordPart {
+  text: string;
+  mark?: "parent" | "value";
+}
+
 /** The criteria in words: "under a Category whose name contains “Reserved”, whose Code starts with
  * “OK”". Alternatives on one field are joined with "or". */
 export function describeCriteria(model: EngineModel, criteria: CandidateCriterion[]): string {
-  const parts: string[] = [];
+  return plainText(criteriaParts(model, criteria));
+}
+
+function criteriaParts(model: EngineModel, criteria: CandidateCriterion[]): WordPart[] {
+  const parts: WordPart[] = [];
   const grouped = new Map<string, CandidateCriterion[]>();
   for (const criterion of criteria) grouped.set(criterion.field, [...(grouped.get(criterion.field) ?? []), criterion]);
   for (const [field, items] of grouped) {
     const ancestor = /^ancestor:([^.]+)\.(.+)$/.exec(field);
     const subject = fieldLabel(model, ancestor ? ancestor[2] : field);
-    const conditions = items.map((item) => condition(model, subject, ancestor ? ancestor[2] : field, item));
-    const text = conditions.join(" or ");
+    if (parts.length) parts.push({ text: ", " });
     if (ancestor) {
       const type = objectTypeFor(model, ancestor[1])?.name ?? ancestor[1];
-      parts.push(`under a ${type} ${text}`);
-    } else parts.push(text);
+      parts.push({ text: `under a ${type}`, mark: "parent" }, { text: " " });
+    }
+    items.forEach((item, index) => {
+      if (index) parts.push({ text: " or " });
+      parts.push(...condition(model, subject, ancestor ? ancestor[2] : field, item));
+    });
   }
-  return parts.join(", ");
+  return parts;
+}
+
+function plainText(parts: WordPart[]) {
+  return parts.map((part) => part.text).join("");
 }
 
 function fieldLabel(model: EngineModel, field: string) {
@@ -92,11 +109,16 @@ function fieldLabel(model: EngineModel, field: string) {
   return model.attributeTypes.find((item) => item.key === field)?.name ?? field;
 }
 
-function condition(model: EngineModel, subject: string, field: string, item: CandidateCriterion) {
-  if (item.op === "isNull" || item.op === "isUnset") return item.value ? `with no ${subject}` : `with a ${subject}`;
+function condition(model: EngineModel, subject: string, field: string, item: CandidateCriterion): WordPart[] {
+  if (item.op === "isNull" || item.op === "isUnset")
+    return [{ text: item.value ? `with no ${subject}` : `with a ${subject}` }];
   const valueType = model.attributeTypes.find((attribute) => attribute.key === field)?.valueType;
-  if (valueType === "boolean") return `with ${subject}: ${item.value ? "Yes" : "No"}`;
-  return `whose ${subject} ${OPERATORS[item.op] ?? item.op} “${String(item.value)}”`;
+  if (valueType === "boolean")
+    return [{ text: `with ${subject}: ` }, { text: item.value ? "Yes" : "No", mark: "value" }];
+  return [
+    { text: `whose ${subject} ${OPERATORS[item.op] ?? item.op} ` },
+    { text: `“${String(item.value)}”`, mark: "value" },
+  ];
 }
 
 /** What a picker for the far end offers, in words, or nothing when it takes any record. */
@@ -110,11 +132,25 @@ export function candidateHint(model: EngineModel, binding: ObjectTypeRelationDef
 
 /** Why a record cannot hold the relationship from its own end (D172), or nothing when it may. */
 export function ownEndReason(model: EngineModel, binding: ObjectTypeRelationDefinition, direction: Direction) {
+  const parts = ownEndReasonParts(model, binding, direction);
+  return parts && plainText(parts);
+}
+
+/** The same reason in pieces, for a place that sets its marked pieces apart. */
+export function ownEndReasonParts(
+  model: EngineModel,
+  binding: ObjectTypeRelationDefinition,
+  direction: Direction,
+): WordPart[] | undefined {
   const criteria = criteriaAt(binding, direction, "own");
   if (!criteria.length) return undefined;
   const own = direction === "outgoing" ? binding.fromObjectTypeKey : binding.toObjectTypeKey;
   const plural = objectTypeFor(model, own)?.pluralName ?? own;
-  return `Only ${plural.toLowerCase()} ${describeCriteria(model, criteria)} can have this relationship.`;
+  return [
+    { text: `Only ${plural.toLowerCase()} ` },
+    ...criteriaParts(model, criteria),
+    { text: " can have this relationship." },
+  ];
 }
 
 /** The scope for a relation key read from `anchorTypeKey` (a filter's `related:<key>`), or none when

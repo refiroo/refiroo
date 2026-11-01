@@ -5383,3 +5383,10 @@ form.install-dialog .dialog-actions {
 .info-hint-popover p + p {
   margin-top: 6px;
 }
+.info-hint-parent {
+  color: var(--link);
+  font-weight: 550;
+}
+.info-hint-value {
+  font-weight: 700;
+}

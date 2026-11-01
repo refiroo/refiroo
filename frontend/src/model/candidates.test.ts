@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { candidateHint, candidateScope, describeCriteria, ownEndScope } from "@/model/candidates";
+import {
+  candidateHint,
+  candidateScope,
+  describeCriteria,
+  ownEndReason,
+  ownEndReasonParts,
+  ownEndScope,
+} from "@/model/candidates";
 import { testModel } from "@/test/fixtures";
 import type { EngineModel, ObjectTypeRelationDefinition } from "@/types";
 
@@ -42,5 +49,18 @@ describe("which records a relationship may choose (0.9 K7)", () => {
       ]),
     ).toBe("under a Domain whose name contains “Reserved”, with Flag: Yes, whose name is “A” or whose name is “B”");
     expect(candidateHint(testModel, binding, "outgoing")).toBe("Offers only codelists whose name contains “Res”.");
+  });
+
+  it("marks the parent and the value in a reason's pieces", () => {
+    const limited: ObjectTypeRelationDefinition = {
+      ...binding,
+      candidates: { from: [{ field: "ancestor:domain.name", op: "eq", value: "Reserved" }] },
+    };
+    const parts = ownEndReasonParts(testModel, limited, "outgoing");
+    expect(parts?.filter((part) => part.mark)).toEqual([
+      { text: "under a Domain", mark: "parent" },
+      { text: "“Reserved”", mark: "value" },
+    ]);
+    expect(ownEndReason(testModel, limited, "outgoing")).toBe(parts?.map((part) => part.text).join(""));
   });
 });

@@ -1,4 +1,4 @@
-import { ownEndReason, ownEndScope } from "@/model/candidates";
+import { ownEndReasonParts, ownEndScope, type WordPart } from "@/model/candidates";
 import { useEffect, useMemo, useState } from "react";
 import { useDataApi, useRecordWrites, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
@@ -132,11 +132,12 @@ export function RelationsPanel({
   );
   const offered = useMemo(() => choices.filter((choice) => !refused.has(choiceKind(choice))), [choices, refused]);
   const refusedReasons = [
-    ...new Set(
+    ...new Map(
       choices
         .filter((choice) => refused.has(choiceKind(choice)))
-        .map((choice) => ownEndReason(model, choice.relation, choice.direction))
-        .filter((reason): reason is string => Boolean(reason)),
+        .map((choice) => ownEndReasonParts(model, choice.relation, choice.direction))
+        .filter((parts): parts is WordPart[] => Boolean(parts))
+        .map((parts) => [parts.map((part) => part.text).join(""), parts] as const),
     ),
   ];
   // Where the record holds at most one of a kind (0.9 K3a, D139) it is set, not added to: Set while
@@ -340,8 +341,18 @@ export function RelationsPanel({
         {panel.title}
         {!readOnly && refusedReasons.length > 0 && (
           <InfoHint label={`About ${panel.title}`}>
-            {refusedReasons.map((reason) => (
-              <p key={reason}>{reason}</p>
+            {refusedReasons.map(([reason, parts]) => (
+              <p key={reason}>
+                {parts.map((part, index) =>
+                  part.mark ? (
+                    <strong key={index} className={`info-hint-${part.mark}`}>
+                      {part.text}
+                    </strong>
+                  ) : (
+                    part.text
+                  ),
+                )}
+              </p>
             ))}
           </InfoHint>
         )}
