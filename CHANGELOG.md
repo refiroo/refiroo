@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (a hint beside the relationship panel's heading)
+
+- Why a record is not offered a relationship ("Only … can have this relationship.") is no longer text under the panel's toolbar: a small blue circled "i" beside the panel's heading shows it on hover, on keyboard focus and on a tap, one reason per line. The hint is a shared `InfoHint`; it appears only when the reason applies to that record.
+
 ### Changed (the model's language in the API, AP11)
 
 - The API's OpenAPI document now describes the model: the `model` field of model requests and responses names `EngineModel` and its definitions. Validation is unchanged, so a wrong model still gets the compiler's diagnostics.

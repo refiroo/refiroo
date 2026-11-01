@@ -121,6 +121,7 @@ try {
   // 2. An inactive value: no Add, and why.
   await page.goto(`${uiUrl}${recordPath(off.id)}`);
   await page.getByRole("heading", { level: 1, name: "K7 Value Off" }).waitFor();
+  await page.getByRole("button", { name: /^About / }).first().hover({ timeout: 10000 }).catch(() => undefined);
   await page.getByText(reason).waitFor({ timeout: 10000 }).catch(() => failures.push("the inactive value's panel does not say why"));
   expect(!(await page.getByRole("button", { name: "Add relationship" }).count()), "the inactive value is offered Add relationship");
   await shot("k7-refused-panel-wide");

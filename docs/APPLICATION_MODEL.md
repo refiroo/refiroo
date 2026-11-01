@@ -241,8 +241,8 @@ criterion's pointer (`/objectTypeRelations/<key>/<from>/<to>/candidates/to/0/fie
 - A mapping grid lists as sources only the records meeting the criteria at its source end (coverage, its
   counts and filters, and the sources an AI proposal asks about), unless the record already holds the
   relationship, which stays listed and editable.
-- A record that does not meet its own end is not offered the relationship on its panel, which says
-  why ("Only bookable services can have this relationship."); in Change relationships the preview
+- A record that does not meet its own end is not offered the relationship on its panel; the info hint
+  beside the panel's heading says why ("Only bookable services can have this relationship."); in Change relationships the preview
   refuses such records by name.
 - The API lists the same candidates (`candidateFor` and `anchorTypeKey` on the per-type list) and
   refuses a new relationship that does not meet the criteria (`422 RELATION_CANDIDATE_REFUSED`), alone,

@@ -531,9 +531,13 @@ describe("a relationship the record does not meet its own end of (0.9 K7, D172)"
   it("offers no Add and says why, asking whether the record is a candidate from the other end", async () => {
     vi.mocked(api.objects).mockResolvedValue({ items: [], nextCursor: null });
     render(<RelationsPanel model={model} object={domainObject} panel={citing} onOpen={vi.fn()} />);
+    const hint = await screen.findByRole("button", { name: `About ${citing.title}` });
+    expect(screen.queryByText(/can have this relationship/)).toBeNull();
+    fireEvent.click(hint);
     expect(
       await screen.findByText("Only domains whose name starts with “Res” can have this relationship."),
     ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Add relationship" })).toBeNull();
     expect(api.objects).toHaveBeenCalledWith(
       "domain",
@@ -550,5 +554,6 @@ describe("a relationship the record does not meet its own end of (0.9 K7, D172)"
     render(<RelationsPanel model={model} object={domainObject} panel={citing} onOpen={vi.fn()} />);
     expect(await screen.findByRole("button", { name: "Add relationship" })).toBeInTheDocument();
     expect(screen.queryByText(/can have this relationship/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /^About / })).toBeNull();
   });
 });

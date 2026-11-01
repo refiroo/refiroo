@@ -5263,3 +5263,57 @@ form.install-dialog .dialog-actions {
   min-height: 24px;
   color: inherit;
 }
+
+/* A hint beside a heading (InfoHint): a small blue circled i. The touch target grows to 40px
+   around it without moving the heading. */
+.info-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: -2px 0 0 8px;
+  padding: 0;
+  vertical-align: middle;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--link) 14%, transparent);
+  color: var(--link);
+  cursor: help;
+}
+.info-hint:hover,
+.info-hint[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--link) 26%, transparent);
+}
+.info-hint:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .info-hint::after {
+    content: "";
+    position: absolute;
+    inset: -11px;
+  }
+}
+.info-hint-popover {
+  z-index: 100;
+  max-width: min(360px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+.info-hint-popover p {
+  margin: 0;
+}
+.info-hint-popover p + p {
+  margin-top: 6px;
+}

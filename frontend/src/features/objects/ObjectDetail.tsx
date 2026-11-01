@@ -312,7 +312,8 @@ export function ObjectDetail({
     const Component = panelComponentRegistry[panel.type] as React.ComponentType<PanelProps>;
     return (
       <Card as="section" flush className="panel" key={panel.key}>
-        <h2>{panel.title}</h2>
+        {/* A relationships panel draws its own heading, to put its hint beside it. */}
+        {panel.type !== "relations" && <h2>{panel.title}</h2>}
         <Component
           model={model}
           application={application}

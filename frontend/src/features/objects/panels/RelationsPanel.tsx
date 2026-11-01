@@ -14,6 +14,7 @@ import { attributeName, isQueryableField, listSortFields } from "@/model/fields"
 import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
 import { IconButton } from "@/ui/IconButton";
+import { InfoHint } from "@/ui/InfoHint";
 import { DataTable, type DataColumn } from "@/ui/DataTable";
 import { objectTypeHue } from "@/model/hues";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
@@ -334,6 +335,17 @@ export function RelationsPanel({
 
   return (
     <>
+      {/* The heading is drawn here, not by the record page, so the hint can sit beside it. */}
+      <h2>
+        {panel.title}
+        {!readOnly && refusedReasons.length > 0 && (
+          <InfoHint label={`About ${panel.title}`}>
+            {refusedReasons.map((reason) => (
+              <p key={reason}>{reason}</p>
+            ))}
+          </InfoHint>
+        )}
+      </h2>
       <div className="embedded-toolbar relation-toolbar">
         <label className="search-box compact">
           <Icon name="search" />
@@ -377,12 +389,6 @@ export function RelationsPanel({
           </button>
         )}
       </div>
-      {!readOnly &&
-        refusedReasons.map((reason) => (
-          <p key={reason} className="admin-hint">
-            {reason}
-          </p>
-        ))}
       {error && <InlineError message={error} onRetry={retry} />}
       {(!error || relations.length > 0) && (
         <DataTable<RelationItem>
