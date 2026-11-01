@@ -1155,60 +1155,63 @@ would not fit with one source; a source with no candidate is not sent. Provenanc
 `change_set_relations` and `change_set_objects` (migration `20261118_01`), read by coverage and copied
 into the publication's relation audit event, where record history answers it.
 
-Loading a workbook with the assistant (AP6a, `engine/tasks/`) is a task, `ai_tasks` (migration
-`20261119_01`): the person's words, the reading, the plan, the latest check, the notes shown to the
-person, the result and the job it waits for, with a `version` every change claims. The workbook is the
-task's own source file (`source_files.task_id`, deleted with the task by cascade; the worker's sweep
-deletes tasks past `AI_TASK_RETENTION_DAYS` and removes the files). A task's work is jobs of kind
-`aiTask`, one phase each (`job.py`), never holding a transaction while the provider answers and
-checking for a cancel between calls; a provider failure, an answer out of shape or `AI_MAX_STEPS` is a
-warning, never a failed task:
+The assistant (`engine/tasks/`) is a task, `ai_tasks` (migration `20261119_01`): the person's words, the
+reading, the proposal, the latest check, the notes shown to the person, the result and the job it waits
+for, with a `version` every change claims. It calls no provider: `AI_AGENT_COMMAND` alone turns it on
+(`tasks/agent.enabled`), and `AI_PROVIDER` serves mapping targets only. The workbook is the task's own
+source file (`source_files.task_id`, deleted with the task by cascade). A task's work is jobs of kind
+`aiTask`, one phase each (`job.py`), never holding a transaction while the session runs and checking for a
+cancel while it does:
 
-- **read**: the job profiles the file (`sources/profiling`), then `workbook.py` reads it. A stored
-  import profile of the workspace's model that fits the file (`profile_reading.py`: the profile
-  check's column comparison, `sources/profile_check.compare_columns`) is followed first, one table
-  per source. The other tables are read by `reading.py` against the workspace by set statements over
-  the staged cells and the live records (a list's note and second header row are no record, a block
-  of a header with no rows is a title; `translations.py` reads a language-headed column as related
-  records where the model gives the type one such relationship; `placement.py` finds the parent new
-  rows go under from where the stored records stand; `catalog.py` holds the model as these need it):
-  for each column and type, how many distinct texts are stored keys (a unique text attribute) or
-  names. The best (type, column) holding half the column's texts is an update of that type, with its
-  bindings and the counts of keys matched, new, missing and names that differ; a sheet with no
-  table is not data. `turns.py` answers the reads the assistant's design asks for (cells by range, a
-  column's values, a type's records by a word) and gives the reading in short.
-- **plan**: the person's choices (`owner: person`) are applied, `plan.py` builds the import profile
-  (one upsert source per table to load, new keys left out, stored names kept), `check_profile` checks it against the workspace's model (a
-  problem refuses the table, not the task) and a `dryRun` job of the task (its parameters name `taskId`
-  and the task's version, not a draft) previews every row on the workspace's live data. The worker,
-  once it recorded the dry run (`sources/dry_run.py` knows nothing of tasks), calls `tasks.job.checked`:
-  the check is the summary per table with the refusals grouped by code and column and their cell values
-  read from the staged cells in SQL. This is the path of a task read without the assistant; with the
-  assistant offered, the task is designed (`design_job.py`, below) and has no plan.
-- **run**: a change set, the saved profile if asked, and the task's file imported through the plan
-  into it (`imports/submit`, `onExisting: overwrite`); the task reads `loaded` from the import job.
-  `changes.py` lists a page of the records the check would change, reading what the load would write
-  from the row's staged cells through the plan's value maps, or, for a design, through its dry run's
-  profile from the working copy against the draft's model.
-- **design** (AP6, with the assistant offered): after the rules' reading, `design_job.py` opens a
-  model draft of the workspace's model owned by the task (`ai_tasks.draft_id`, migration
-  `20261119_03`) and asks the provider for the whole design in turns (`design.py`: the
-  instructions, the model in short with what the draft added, the reading, the profile the rules
-  give, the answers to its questions and reads, and the engine's last outcome). An answer's model
-  operations go to the draft through the draft's own history (all or none); its structure records
-  and data sheets are written into a working copy of the workbook (`draft_plan.py`: the file
-  streamed with the added sheets, staged and profiled); its profile is checked against the compiled
-  draft; its relationship rules (`links.py`) are counted in PostgreSQL by model-aware queries. A
-  refusal goes back next turn with its message and up to three examples, kept until the next dry
-  run. A clean design is a `dryRun` job of every row of the working copy against the draft
-  (`taskId` and `draftId` in its parameters); refused rows start another round, within
-  `AI_MAX_STEPS` calls. Since 2026-10-31 the assistant is a Claude Code session (`tasks/agent.py`) run by
-  the worker in a folder of its own, kept between turns, free to explore through the API: it stops at a
-  draft for the person's review, goes on with their words, and on acceptance installs one release and
-  loads a change set. Only a saved layout still takes this dry-run path, with no AI. The load installs and activates the draft as the next release when it
-  changed the model, imports the working copy into a change set, saves the person's profile, and
-  after the import (the worker's hook) writes the relationship rules as one background batch whose
-  inputs are built by `INSERT … SELECT`.
+- **read**: the job profiles the file (`sources/profiling`), then `workbook.py` reads it against the
+  workspace with set statements over the staged cells and the live records (`reading.py`; `translations.py`,
+  `placement.py` and `catalog.py` serve it). A stored import profile of the workspace's model that fits the
+  file (`profile_reading.py`: the profile check's column comparison, `sources/profile_check.compare_columns`)
+  is followed first. If that profile reads the file as well as the engine's own match does
+  (`design_job.saved_layout_fits`), the task takes the engine's path below; otherwise a session starts.
+  A task given words and no file starts the session at once.
+- **session** (`agent.py`): one Claude Code process of the assistant worker, in a folder of the task's own
+  that is kept for its next turn. It is given the words, the workbook, the workspace's model and the
+  OpenAPI document, and works through the API under a client of its own (`ai_tasks.client_id`, kind
+  `session`) whose grants are made per turn from what the person holds in the workspace (Browse, Work in
+  change sets, Bulk and import, and model authoring and installation if held) and ended with the turn. Its
+  tools, its folder and the network it reaches are fixed by the engine (`_safeguards`), and the engine's
+  environment is not passed to it. It builds a model draft and checks every row with the draft's dry run,
+  then writes `proposal.json`. `_proposal_landed` shows the proposal from the draft and the dry run, not
+  from the session's account: the outline (`_shape`), the checks the engine makes whatever the session
+  said (`_left_out`, `_beside_held`), the questions. A proposal that names a draft another task holds fails
+  the task, and the engine refuses a session a write to such a draft (`store.refuse_draft_of_another_task`,
+  called by the route guard), so one task's end cannot delete a draft another person reviews. The
+  person's words and acceptance resume the same session (`said`, `accepted`); on acceptance it installs
+  one release without activating it and makes a change set on it. It is never given publishing,
+  approving or activating. What a session's changes carry as `origin` is stamped by a `before_flush` listener in
+  `records/proposed.py`; a submission by a session is recorded as the asker. The worker's sweep removes an
+  expired task's folder and Claude Code's transcript with it. Each turn writes one `ai_calls` row.
+- **load of a session** (`agent.accepted`): the change set must belong to the workspace and hold changes,
+  else the task fails. The engine then saves the profile of the load (`_saved_profile`): the profile
+  definitions of the change set's completed import jobs whose file hash is the task's workbook, joined,
+  checked against the release the change set runs and saved as that release's profile (`imports.profiles.
+  save_for_release`), so the same layout loaded next month takes the saved-layout path. It saves none, and
+  says why in `result.profileNotSaved`, when no import read the workbook, when the import read it through
+  a profile already saved, or when a source has no key. Releases the task's client installed that no
+  workspace or change set runs are retired (`retire_unused_releases`), and its client is retired.
+- **saved layout** (`design_job.py`): the engine's own proposal with no AI. A sheet the file the profile
+  read before also had, and the profile does not read, was left out on purpose and does not stop the fit;
+  a sheet that file did not have sends the task to a session. The summary gives the profile's own figures.
+  `matching.py` finds the differences from the stored records, which become the person's questions; after the person
+  accepts, `draft_plan.py` writes the working copy of the workbook, a `dryRun` job (`taskId` and `draftId`
+  in its parameters) checks every row against the draft, and the worker, once it recorded the dry run
+  (`sources/dry_run.py` knows nothing of tasks), calls `tasks.job.checked`. `queue_load` installs and
+  activates the draft as the next release when it changed the model, imports the working copy into a new
+  change set (`imports/submit`, `onExisting: overwrite`) and saves the profile the person asked for.
+  `changes.py` lists a page of the records a check would change, reading what the load would write from
+  the staged cells through the check's profile and the draft's model. A check's `summary.skipped` counts
+  rows skipped for an empty key, apart from `refused`; `draftChanged` says the draft moved after that dry run.
+
+A source key may span several attributes (`SourceKey.attributeTypeKeys`): `binding.py` stages the
+combination of each row as a JSON object of the attribute values, finds the stored record in SQL over the
+import's temporary tables, in live data and in a change set alike, and refuses a row whose combination two
+records hold (`KEY_AMBIGUOUS`). It lives in a profile's JSON, so no migration.
 
 ### Agent access (0.16)
 
@@ -1219,6 +1222,8 @@ Two rules keep an assistant from ever holding more. An agent client (`oauth_clie
 Assistants are public OAuth clients in `agent_applications` (`engine/agent_access/applications.py`). Tools are a registry (`management/mcp_tools.py`) naming the action group each needs and calling what its route calls. Each call is a row in `agent_calls`, outside the audit trail since reads write no audit entry; the rate limit is a count over those rows, so it holds across processes.
 
 AG2's reads: `engine/agent_access/lookup.py` generates a tool per distinct consumer API definition the caller may read, grouping equal definitions across workspaces, and reads through the routes' functions and `engine/reads/consumer_request.py`, the parameter check moved out of the route. The curated tools share functions split from their routes (`live_object`, `live_relation_page`, `live_object_history`). `_run` records each call in a session of its own, as a tool's read may hold a snapshot, and halves a page until the answer fits `MCP_ANSWER_BYTES`.
+
+AG3's writes (AG-D26 to AG-D32): a tool that writes declares the action it runs as (`Tool.writes`). `_run` then sets the writer the routes' checks set (`set_writer`: the ceiling's permissions, group `change-sets`, that action, the principal), never allows a withdrawal, and runs the tool once without `_fitted`'s halving, as the engine's write functions commit themselves and a size refusal after a commit would report a saved change as refused. The tools call route bodies split out for the purpose (`new_change_set`, `validated_change_set`, `change_set_object_created` and the like, as `workspace_page` was), so route and tool run one function. Every tool naming a change set goes through `_own_change_set`, which finds it only among those the caller's own principal created (`created_by`) and where it holds Work in change sets; any other is `CHANGE_SET_NOT_FOUND`. `_run` also sets two things on the session: `set_agent_origin` (`records/proposed.py`), which stamps `origin = {kind: "agent", application, proposedBy}` (`AgentOrigin`, beside `ProposalOrigin`) on the change-set rows written during the call and is read before a task's origin, so AP-D32's stamp has one place; and `set_channel` (`records/audit.py`), which writes `audit_events.channel` = `mcp` (migration `20261120_04`) for every entry the ORM inserts during the call. A refused call is reported as `CODE: message` and the details as JSON, on every tool. The `agent` role's ceiling is unchanged, so no approve, publish, `bulk`, model or deletion route is reachable on this audience.
 
 The SDK stays on 1.x: 2.x needs `httpx2`, which Starlette's test client then prefers, changing the whole test harness.
 

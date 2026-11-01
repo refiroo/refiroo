@@ -114,7 +114,7 @@ export function HistoryPanel({
             title: historyLine(item, model),
             at: item.occurredAt,
             tone: item.kind,
-            after: ` · ${lineActor(item.actor)}${item.origin ? " · proposed by the AI" : ""}`,
+            after: ` · ${lineActor(item.actor)}${item.origin ? (item.origin.kind === "agent" ? " · prepared by an assistant" : " · proposed by the AI") : ""}`,
             details: <HistoryDetails item={item} model={model} onOpenChanges={onOpenChanges} people={seen} />,
           }))}
         />

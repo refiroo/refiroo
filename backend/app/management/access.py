@@ -33,6 +33,7 @@ from ..engine.events.subscriptions import load_subscription
 from ..engine.identity.authentication import Principal
 from ..engine.jobs.store import load_job
 from ..engine.model.workspace_models import default_workspace_key
+from ..engine.tasks.store import refuse_draft_of_another_task
 from ..engine.workspaces.catalogue import load_workspace
 from ..errors import api_error
 from ..models.database import AiTask, ChangeSet, ModelDraft, ObjectRelation, Publication, RdmObject
@@ -449,6 +450,9 @@ def _allowed(
     # ``withdrawSubmission=true`` on any request lets a write to a submitted change set withdraw its
     # submission instead of being refused (0.12 A1, D426); the write unit decides it.
     allow_withdrawal(session, request.query_params.get("withdrawSubmission", "").lower() == "true")
+    draft_id = request.path_params.get("draft_id")
+    if draft_id is not None and request.method != "GET" and principal.kind == "client":
+        refuse_draft_of_another_task(session, draft_id, principal.row_id)
     if not check.groups:
         return permissions
     if check.anywhere:

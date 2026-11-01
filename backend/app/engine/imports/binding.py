@@ -955,6 +955,33 @@ class _ProfileBinding:
                             column=key_column,
                         )
                     )
+            elif source.key is not None and source.key.attributeTypeKeys is not None:
+                # 0.16 AP-D43: the values of several attributes together; one empty cell leaves the
+                # row without a key. The row holds the attribute keys and the columns as JSON lists
+                # in the key's order, and the values as an object by attribute key.
+                keys = source.key.attributeTypeKeys
+                columns = [
+                    next(b.column for b in source.columns if b.attributeTypeKey == attribute)
+                    for attribute in keys
+                ]
+                key_kind = "combination"
+                key_attr, key_column = json.dumps(keys), json.dumps(columns)
+                values = {attribute: state.attributes.get(attribute) for attribute in keys}
+                empty = [
+                    column
+                    for attribute, column in zip(keys, columns, strict=True)
+                    if values[attribute] is None
+                ]
+                if not empty:
+                    key_value = values
+                elif not all(column in failed for column in empty):
+                    raise _RowError(
+                        _error(
+                            "MISSING_RECORD_KEY",
+                            f"The key column {empty[0]} is empty",
+                            column=empty[0],
+                        )
+                    )
             elif source.key is not None and source.key.field == "name":
                 # 0.10 A8a (D117): the record of the type named as the row names it.
                 key_kind = "name"
@@ -1525,18 +1552,36 @@ class _ProfileBinding:
             source = plan.source
             if source.key is None or source.record == "existing":
                 continue
-            attribute = source.key.attributeTypeKey
+            # A combination (AP-D43): ``attr`` is the JSON list of its attribute keys, as a row of
+            # the combination holds it, and ``keys`` the same list as jsonb (NULL for the others).
+            combination = source.key.attributeTypeKeys
+            attribute = (
+                json.dumps(combination) if combination is not None else source.key.attributeTypeKey
+            )
+            # Through the context's values, on plain equalities, so it stays a hash anti-join; left
+            # out for any other key, as a statement here runs over every record of the type.
+            named_by_combination = (
+                """AND NOT EXISTS (SELECT 1 FROM import_rows r JOIN import_context_values v
+                          ON v.object_type_key = r.object_type_key AND v.attr = r.key_attr
+                            AND v.value = r.key_value
+                          WHERE r.key_kind = 'combination' AND v.object_id = c.object_id)"""
+                if combination is not None
+                else ""
+            )
             self.session.execute(
                 text(
-                    """
+                    f"""
                     INSERT INTO import_missing (src, object_id, name, key_value, version)
                     SELECT :src, c.object_id, c.name,
-                        CASE WHEN k.attr IS NULL THEN to_jsonb(c.object_id)
+                        CASE WHEN k.keys IS NOT NULL THEN {_COMBINATION_VALUE.format(c="c")}
+                            WHEN k.attr IS NULL THEN to_jsonb(c.object_id)
                             ELSE c.attributes -> k.attr END,
                         c.version
-                    FROM import_context c, (SELECT CAST(:attr AS text) AS attr) k
+                    FROM import_context c,
+                        (SELECT CAST(:attr AS text) AS attr, CAST(:combo AS jsonb) AS keys) k
                     WHERE c.object_type_key = :type
-                      AND (k.attr IS NULL OR c.attributes -> k.attr IS NOT NULL)
+                      AND (CASE WHEN k.keys IS NOT NULL THEN {_COMBINATION_HELD.format(c="c")}
+                            ELSE k.attr IS NULL OR c.attributes -> k.attr IS NOT NULL END)
                       -- Four anti-joins on plain equalities, so each is a hash anti-join: a
                       -- row that found the record, a row naming its key, its ID or its name. A
                       -- row keyed by name finds no record when its name is ambiguous or the row
@@ -1545,15 +1590,21 @@ class _ProfileBinding:
                       AND NOT EXISTS (SELECT 1 FROM import_rows r
                           WHERE r.key_kind = 'attribute' AND r.object_type_key = c.object_type_key
                             AND r.key_attr = k.attr AND r.key_value = c.attributes -> k.attr)
+                      {named_by_combination}
                       AND NOT EXISTS (SELECT 1 FROM import_rows r
-                          WHERE r.key_kind = 'id' AND r.key_value #>> '{}' = c.object_id)
+                          WHERE r.key_kind = 'id' AND r.key_value #>> '{{}}' = c.object_id)
                       AND NOT EXISTS (SELECT 1 FROM import_rows r
                           WHERE r.key_kind = 'name' AND r.object_type_key = c.object_type_key
-                            AND r.key_value #>> '{}' = c.name)
+                            AND r.key_value #>> '{{}}' = c.name)
                     ON CONFLICT (object_id) DO NOTHING
                     """
                 ),
-                {"src": plan.order, "attr": attribute, "type": source.objectTypeKey},
+                {
+                    "src": plan.order,
+                    "attr": attribute,
+                    "combo": json.dumps(combination) if combination is not None else None,
+                    "type": source.objectTypeKey,
+                },
             )
             if source.missing == "delete":
                 self.session.execute(
@@ -1670,31 +1721,31 @@ class _ProfileBinding:
         """Each row's record: found by its key in the context, or a new ID; a member row of a
         repeated key takes its first row's."""
         self._sql(
-            """
+            f"""
             INSERT INTO import_context_values (object_type_key, attr, value, object_id)
-            SELECT c.object_type_key, k.attr, c.attributes -> k.attr, c.object_id
-            FROM (SELECT DISTINCT object_type_key, key_attr AS attr FROM import_rows
-                  WHERE key_kind = 'attribute') k
+            SELECT c.object_type_key, k.attr, {_KEY_OF_RECORD}, c.object_id
+            FROM {_KEYS_USED} k
             JOIN import_context c ON c.object_type_key = k.object_type_key
-            WHERE c.attributes -> k.attr IS NOT NULL
+            WHERE {_RECORD_HOLDS_KEY}
             ON CONFLICT DO NOTHING
             """
         )
         self._sql("ANALYZE import_context_values")
         # A stored-unique key two records now hold finds neither: the row says so (0.16 AP7).
         self._sql(
-            """
+            f"""
             UPDATE import_rows r SET error = jsonb_build_object(
                 'code', 'KEY_AMBIGUOUS',
-                'message', 'Several records hold this key: ' || (r.key_value #>> '{}'),
-                'column', r.key_column)
-            FROM (SELECT c.object_type_key, k.attr, c.attributes -> k.attr AS value
-                  FROM (SELECT DISTINCT object_type_key, key_attr AS attr FROM import_rows
-                        WHERE key_kind = 'attribute') k
+                'message', CASE WHEN r.key_kind = 'combination'
+                    THEN 'Several records hold this combination: ' || {_COMBINATION_TEXT.format(r="r")}
+                    ELSE 'Several records hold this key: ' || (r.key_value #>> '{{}}') END,
+                'column', {_KEY_COLUMN.format(r="r")})
+            FROM (SELECT c.object_type_key, k.attr, {_KEY_OF_RECORD} AS value
+                  FROM {_KEYS_USED} k
                   JOIN import_context c ON c.object_type_key = k.object_type_key
-                  WHERE c.attributes -> k.attr IS NOT NULL
+                  WHERE {_RECORD_HOLDS_KEY}
                   GROUP BY 1, 2, 3 HAVING count(*) > 1) d
-            WHERE r.error IS NULL AND r.key_kind = 'attribute'
+            WHERE r.error IS NULL AND r.key_kind IN ('attribute', 'combination')
               AND d.object_type_key = r.object_type_key AND d.attr = r.key_attr
               AND d.value = r.key_value
             """
@@ -1703,7 +1754,7 @@ class _ProfileBinding:
             """
             UPDATE import_rows r SET record_id = c.object_id, existing = true, current_name = c.name
             FROM import_context_values v JOIN import_context c ON c.object_id = v.object_id
-            WHERE r.error IS NULL AND r.rep_id IS NULL AND r.key_kind = 'attribute'
+            WHERE r.error IS NULL AND r.rep_id IS NULL AND r.key_kind IN ('attribute', 'combination')
               AND v.object_type_key = r.object_type_key AND v.attr = r.key_attr
               AND v.value = r.key_value
             """
@@ -1760,10 +1811,10 @@ class _ProfileBinding:
                       object_type_key, key_attr, key_value, record_id
                   FROM import_rows
                   WHERE error IS NULL AND rep_id IS NULL AND mode = 'upsert' AND NOT existing
-                    AND key_kind = 'attribute'
+                    AND key_kind IN ('attribute', 'combination')
                   ORDER BY object_type_key, key_attr, key_value, src, row_number) f
             WHERE r.error IS NULL AND r.rep_id IS NULL AND r.mode = 'upsert' AND NOT r.existing
-              AND r.key_kind = 'attribute' AND r.object_type_key = f.object_type_key
+              AND r.key_kind IN ('attribute', 'combination') AND r.object_type_key = f.object_type_key
               AND r.key_attr = f.key_attr AND r.key_value = f.key_value
               AND r.record_id <> f.record_id
             """
@@ -1774,9 +1825,9 @@ class _ProfileBinding:
             """
             UPDATE import_rows r SET record_id = f.record_id FROM import_rows f
             WHERE r.error IS NULL AND r.rep_id IS NULL AND r.mode = 'existing' AND NOT r.existing
-              AND r.key_kind = 'attribute' AND f.mode = 'upsert' AND f.error IS NULL
-              AND f.rep_id IS NULL AND f.object_type_key = r.object_type_key
-              AND f.key_kind = 'attribute' AND f.key_attr = r.key_attr AND f.key_value = r.key_value
+              AND r.key_kind IN ('attribute', 'combination') AND f.mode = 'upsert'
+              AND f.error IS NULL AND f.rep_id IS NULL AND f.object_type_key = r.object_type_key
+              AND f.key_kind = r.key_kind AND f.key_attr = r.key_attr AND f.key_value = r.key_value
             """
         )
         # Or by the value another row of the file writes into the key's attribute, whatever that row
@@ -1800,11 +1851,11 @@ class _ProfileBinding:
             """
         )
         self._sql(
-            """
+            f"""
             UPDATE import_rows r SET error = jsonb_build_object(
                 'code', 'REFERENCE_NOT_FOUND',
                 'message', format('No %s record has the key %s', r.object_type_key, r.key_value),
-                'details', jsonb_build_object('column', r.key_column))
+                'details', jsonb_build_object('column', {_KEY_COLUMN.format(r="r")}))
             WHERE r.error IS NULL AND r.rep_id IS NULL AND r.mode = 'existing' AND NOT r.existing
               AND NOT EXISTS (
                   SELECT 1 FROM import_rows f WHERE f.mode = 'upsert' AND f.error IS NULL
@@ -2294,6 +2345,40 @@ class _ProfileBinding:
 # A row keyed by name under a parent (0.10 A8c, D142), found among the parent's children; {r} is
 # the row's alias.
 _UNDER_PARENT = "{r}.mode = 'upsert' AND {r}.key_kind = 'name' AND {r}.parent IS NOT NULL"
+# A key of several attributes (AP-D43) is held by a row as ``key_attr`` (the JSON list of the
+# attribute keys), ``key_column`` (the JSON list of their columns) and ``key_value`` (an object by
+# attribute key). Where a statement joins a record of the context to the keys the file uses
+# (``k``, with ``k.keys`` the list as jsonb, NULL for a single attribute), the record's value of
+# the combination, and whether the record holds every attribute of it:
+_COMBINATION_VALUE = (
+    "(SELECT jsonb_object_agg(a, {c}.attributes -> a) FROM jsonb_array_elements_text(k.keys) a)"
+)
+_COMBINATION_HELD = (
+    "jsonb_exists_all({c}.attributes, ARRAY(SELECT jsonb_array_elements_text(k.keys)))"
+)
+# The attribute keys the rows of the file use to find records, each once per type.
+_KEYS_USED = (
+    "(SELECT DISTINCT object_type_key, key_attr AS attr,"
+    " CASE WHEN key_kind = 'combination' THEN CAST(key_attr AS jsonb) END AS keys"
+    " FROM import_rows WHERE key_kind IN ('attribute', 'combination'))"
+)
+# The key's value of a record of the context, and whether it holds one (``k`` as above).
+_KEY_OF_RECORD = (
+    "CASE WHEN k.keys IS NOT NULL THEN " + _COMBINATION_VALUE + " ELSE c.attributes -> k.attr END"
+).format(c="c")
+_RECORD_HOLDS_KEY = (
+    "CASE WHEN k.keys IS NOT NULL THEN "
+    + _COMBINATION_HELD
+    + " ELSE c.attributes -> k.attr IS NOT NULL END"
+).format(c="c")
+# The column a key error points at: a combination's first.
+_KEY_COLUMN = "CASE WHEN {r}.key_kind = 'combination' THEN {r}.key_column::jsonb ->> 0 ELSE {r}.key_column END"
+# The columns and values of a combination, for a message.
+_COMBINATION_TEXT = (
+    "(SELECT string_agg(c.col || ' = ' || coalesce({r}.key_value ->> a.attr, ''), ', ' ORDER BY c.i)"
+    " FROM jsonb_array_elements_text({r}.key_column::jsonb) WITH ORDINALITY c(col, i)"
+    " JOIN jsonb_array_elements_text({r}.key_attr::jsonb) WITH ORDINALITY a(attr, i2) ON a.i2 = c.i)"
+)
 # What makes rows one key (D69): the source and the key, or for rows keyed by name under a parent,
 # the type, the parent the row names and the name, across sources (D142).
 _KEY_GROUP = (

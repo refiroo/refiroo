@@ -168,8 +168,9 @@ class ClientResponse(BaseModel):
     id: str = Field(description="The OAuth client_id")
     name: str
     active: bool = Field(description="False once deactivated; a client is never deleted")
-    kind: Literal["api", "agent"] = Field(
-        description="agent: holds only agent tokens, for /mcp (0.16 AG-D14)"
+    kind: Literal["api", "agent", "session"] = Field(
+        description="agent: holds only agent tokens, for /mcp (0.16 AG-D14); session: an assistant "
+        "task's own client, with no secret (AP-D30)"
     )
     version: int
     createdAt: datetime

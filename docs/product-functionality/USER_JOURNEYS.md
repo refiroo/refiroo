@@ -2497,134 +2497,105 @@ mapping grid's Propose targets and Proposed segment), API (`POST /workspaces/{ke
 CHANGE_SET_VERSION_CONFLICT`, `404 CHANGE_SET_NOT_FOUND`, `404 MAPPING_VIEW_NOT_FOUND`, `422
 MAPPING_PROPOSED_NEEDS_CHANGE_SET`.
 
-### J50 — Load a workbook into a workspace with the assistant
+### J50 — Load a workbook, or change records, with the assistant
 
-**Actor:** a steward holding Use AI proposals and Bulk and import in the workspace (and, when the
-design changes the model, Model release). **Channel:** API (`POST /ai/tasks`, `GET /ai/tasks`, `GET
-/ai/tasks/{id}`, `POST /ai/tasks/{id}/answers`, `POST /ai/tasks/{id}/run`, `POST
-/ai/tasks/{id}/cancel`, and the draft the task opens at `GET /model-drafts/{id}`); the task page
-follows in a later package. **Status:** the backend delivered by 0.16 AP6a (2026-10-29) and AP6 (the
-assistant designs how the workbook lives in the engine: the five cases, an update of existing data, additions,
-a new relation to existing data, something new but related, something totally new).
+**Actor:** a steward holding Use AI proposals and Bulk and import in the workspace (and Work in change
+sets to accept; Model release to activate what the load installs). **Channel:** API (`POST /ai/tasks`,
+`GET /ai/tasks`, `GET /ai/tasks/{id}`, `POST /ai/tasks/{id}/answers`, `/model`, `/accept`, `/retry`,
+`/discard`, `/cancel`, `GET /ai/tasks/{id}/changes`, and the draft the task opens at `GET
+/model-drafts/{id}`); the task page is the same journey in the browser. **Status:** delivered in 0.16. The
+assistant is one Claude Code session (`AI_AGENT_COMMAND`, which alone turns it on) working through the
+API; it calls no AI provider.
 
-1. The steward gives a workbook, the workspace it goes into and optionally a few words. Nothing
-   changes until they confirm.
-2. The rules read each table of the file against the workspace's records (a sheet whose keys or
-   names match a type's records is an update of that type; a column the type does not have is named
-   and left out; a sheet of notes is not data). The assistant then designs from that reading, the
-   workbook profiled over every row and the model in short: it may add attribute types, object
-   types, applications and relationships to a **draft of the workspace's model**, name the records
-   the structure needs that no row gives, write the import profile that loads the workbook and ask
-   only what the data cannot answer (each question with its choices and the one assumed meanwhile).
-   The engine applies the draft's operations all or none, checks the profile against the draft and
-   reports what it refused, which the assistant answers.
-3. A complete design is checked by one dry run of every row of the workbook (and of the sheets the
-   engine adds for the structure records) against the draft. What it refuses goes back to the
-   assistant, up to three rounds; then the task is `checked`: the design, the draft and the check
-   per sheet (created, updated, unchanged, refused) are the steward's to read. The steward answers
-   its questions, which makes another round, or opens the draft in the model editor.
-4. The steward loads it. A design that changes the model needs Model release (at the instance and
-   in the workspace): the draft is installed as a new release and activated in the workspace; then
-   the workbook is imported into a new change set, optionally saving the profile of the person's
-   sheets. Live data is unchanged. The next file of the layout loads through the profile without the
+1. The steward gives a workbook, or only a few words about the records the workspace holds, and the
+   workspace it goes into. Nothing changes until they accept.
+2. The engine reads the workbook against the workspace's records. If a saved import profile reads it as
+   well as the engine's own match does, the engine proposes with no session (J50.12). Otherwise a session
+   starts with the words, the workbook, the workspace's model and the API's OpenAPI document. It works
+   under a client of its own that holds no more than the steward holds: it builds a **draft of the
+   workspace's model** (a new model, or additions to the current one), checks every row of the workbook
+   against the draft with the draft's dry run, gives each source a key that will find its records in the
+   next file (of several columns if no one column does), and writes a proposal: two sentences, and the
+   questions only a person can decide.
+3. The task is `checked` and the steward reads the proposal: the sentences, one line per type the model
+   adds, changes or loads with the records the check would write, the check per sheet (created, updated,
+   unchanged, refused, and the records each sheet would change), the engine's own warnings (a type the
+   workspace holds records of that the model leaves out; new records beside records of the same type
+   already held, which reads as an update whose rows did not find their records) and the questions with
+   the answer assumed. They answer the questions, say in words what to change, edit the draft in the
+   model editor, or discard the proposal with its draft. The same session goes on and rereads the draft.
+4. The steward accepts. The session installs one release without activating it and makes the load in a new
+   change set; it never activates, approves or publishes. The task is `loaded` and names the change set
+   and its counts. The engine also saves the load as an import profile (`result.profileKey`), or says
+   why it could not (`result.profileNotSaved`). The next file of the layout loads through the profile with no
    assistant.
 
 **Variants:**
 
-- **J50.1 An update**: the default design (no model change) is checked (created, updated,
-  unchanged) and loaded into a change set holding exactly the creates and updates; live unchanged,
-  no new release. The reading says update of the type keyed by its unique column (matched, new,
-  names that differ). The sheet's changed records list what each holds now and after. A task is kept
-  `AI_TASK_RETENTION_DAYS` after it finished or was last changed, then it and its workbook go.
-- **J50.2 The reading corrected**: the assistant asks a question with its options and the one it
-  assumes; the person's answer reaches its next design, which uses it (another key column).
-- **J50.3 Matched by meaning**: a value map in the design maps a new key to the stored key, so the
-  row updates the stored record and nothing is created twice.
-- **J50.4 Conflicts**: the design keeps the stored names (the column is not loaded) or takes the
-  file's.
-- **J50.5 Missing records**: the design reports them (they stay) or deletes them in the change set.
-- **J50.6 Other cases recognised**: the model changes. A new column becomes an attribute type attached
-  to the type (additions); a sheet of something new becomes an object type of a new application
-  related to the stored type, with the records its structure needs and a profile that loads it. The
-  load installs the draft as a release, activates it in the workspace (other workspaces keep theirs)
-  and the change set holds the new records.
-- **J50.7 Every sheet**: the assistant reads cells of a sheet before it decides; the next request
-  carries what it read.
-- **J50.8 Fixes itself**: the dry run refuses cells (a text in an integer column); the assistant's
-  next design call is told the code with examples and its design so far, maps the cells, and the
-  check refuses nothing. Rows a source skips for an empty key are refused as `ROWS_SKIPPED` and go
-  back the same way.
-- **J50.9 Failure**: a failing provider, an answer out of shape and the step limit give a warning,
-  the task `checked` without a profile and nothing written; a slow provider holds no transaction
-  open.
-- **J50.10 Not offered**: `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `403 FORBIDDEN`; a
-  task is visible to its requester and the workspace's administrators, otherwise `404
+- **J50.1 An update**: a session proposes no model change; the check shows the updates and creates; accepting
+  loads a change set holding exactly those, live data unchanged, no new release. The sheet's changed records
+  list what each holds now and after. A task is kept `AI_TASK_RETENTION_DAYS` after it finished or was last
+  changed.
+- **J50.10 Not offered**: without `AI_AGENT_COMMAND`, `POST /ai/tasks` is `409 AI_NOT_CONFIGURED` whether or
+  not `AI_PROVIDER` is set, and a provider alone does not offer the assistant; `409 AI_SEND_LEVEL_TOO_LOW`,
+  `403 FORBIDDEN`; a task is visible to its requester and the workspace's administrators, otherwise `404
   AI_TASK_NOT_FOUND`.
-- **J50.11 Next file**: `POST /imports` naming the saved profile, with no provider call.
-- **J50.12 A profile that fits**: a stored import profile of the workspace's model whose sheets and
-  columns the file has is followed: one table per profile source (`owner: profile`, its bindings of
-  every kind, the file's other columns listed as left out), the design starts from the source as
-  stored, and the load gives what an import through the profile gives.
-- **J50.13 Note, heading and title rows**: a list's note row and second header row are never
-  counted, new or loaded (the profile maps the note text to nothing and skips rows without a key); a
-  block with a header and no rows is a title shown apart, not a table.
-- **J50.14 Translations**: where the model gives the type one related-record structure, a column
-  headed by a language is bound as a related record under that language (a missing language record
-  is created); where it does not, the column stays left out with the reason.
-- **J50.15 Under their parents**: new rows load under the parent the type's stored records share;
-  a table carries its application, type and the types it may stand under; rows that cannot be
-  placed are left out by default with a note.
-- **J50.16 A large workbook**: of 33 lists the reading's summary and each table's attention name the
-  few that need a decision, the check's summary totals the rest, and the provider's request stays
-  within the model's window.
-- **J50.17 Records not stored yet**: a list of records the workspace does not hold yet is loaded as
-  new records of its type by a profile the assistant writes; an answer that only repeats the last
-  one ends the turns.
-- **J50.18 A design that changes the model needs Model release**: a caller with Bulk and Use AI
-  proposals but not Model release is refused `403 FORBIDDEN` naming `model-release` and the task is
-  unchanged; with it (at the instance and in the workspace) the design is installed, activated and
-  loaded.
+- **J50.11 Next file**: `POST /imports` naming the saved profile, with no assistant.
+- **J50.12 A profile that fits**: a stored import profile of the workspace's model whose sheets and columns the
+  file has takes the engine's path: no session starts, the engine proposes from the profile as stored (what
+  differs from the stored records is a question), and the load gives what an import through the profile
+  gives.
 - **J50.19 Answers**: `POST /ai/tasks/{id}/answers` is allowed only on a `checked` task (`409
   AI_TASK_STATE`) and claims the version (`409 AI_TASK_VERSION_CONFLICT`).
-- **J50.20 The draft is the person's**: the task's `draftId` opens through `GET /model-drafts/{id}`
-  and holds the operations the assistant applied (`GET /model-drafts/{id}/operations`).
-- **J50.21 An instruction without a workbook**: a task may come with only words (`422
-  AI_TASK_NEEDS_WORDS` without either). The assistant designs relationships between records the
-  workspace holds, where a condition holds (a field criterion or a related hop): every record one
-  query finds related to every record the other finds. A rule for a relation the model does not
-  allow between the types is refused with its reason in the next call. The task is checked at once
-  with the pairs counted (no dry run); loading puts exactly those relationships into a change set;
-  live data is unchanged. Where a record may hold only one record of the other end (a many-to-one
-  relation), the rule gives it that record and the change set replaces what it held (the check
-  counts these as replaces); a rule that finds more than one such record is refused.
-- **J50.22 A workbook and relationships**: a design with a profile and a rule imports the
-  workbook first; then the relationships' batch runs into the same change set, and the task ends
-  loaded naming both jobs.
-- **J50.23 The proposal**: a new task stops at `checked` in the model stage (`design.stage` is
-  `model`) with the assistant's outline (`design.outline`), no dry run (`check` is empty) and
-  nothing installed. `POST /ai/tasks/{id}/run` is refused `409 AI_TASK_STATE` (the design has not
-  been checked yet). `POST /ai/tasks/{id}/accept` moves the task to the load stage: the sheets are
-  mapped onto the accepted model, every row is dry-run, the task is `checked` with a check, and the
-  run loads it.
-- **J50.24 A correction in words**: `POST /ai/tasks/{id}/model` with a correction proposes the model
-  again; the assistant's call is in the model stage and carries the words (`corrections`, newest
-  last), which win over its own choices. A stale version is refused `409
-  AI_TASK_VERSION_CONFLICT`; `accept` on a task past the proposal is refused `409 AI_TASK_STATE`.
-- **J50.25 The engine's design checks**: every design turn is checked for the workbook, whatever it
-  holds, in `design.checks` (`reuse`, `grouping`, `translations`, `bothEnds`): a column naming
-  records the workspace holds but loaded as a plain value, a column of few values over many rows
-  loaded as a plain value. The open ones go to the assistant in the next call's `outcome.checks`;
-  an answer's `explains` closes a check with its explanation, which the steward sees.
-- **J50.30 Claude Code as the assistant**: with `AI_AGENT_COMMAND` set, the person's words, the workbook,
-  the model and the OpenAPI document go to one session working through the API. It stops at a model
-  draft with every row checked, nothing installed; the person edits the draft or says what to change
-  and the same session goes on; accepting installs one release and loads into a change set; a proposal
-  can be discarded with its draft. A saved layout that still fits needs no session.
+- **J50.20 The draft is the person's**: the task's `draftId` opens through `GET /model-drafts/{id}` and holds
+  the operations the session applied; the person's edits are read by the session before it goes on.
+- **J50.21 An instruction without a workbook**: a task may come with only words (`422 AI_TASK_NEEDS_WORDS`
+  without either); the session starts at once and works out the records the words touch.
+- **J50.23 The proposal**: a new task stops at `checked` in the model stage (`design.stage` is `model`) with
+  the outline and its dry run, and nothing installed or loaded. `POST /ai/tasks/{id}/accept` has the same
+  session install and load; `accept` without a proposal is `409 AI_TASK_STATE`.
+- **J50.24 A correction in words**: `POST /ai/tasks/{id}/model` with a correction has the same session change
+  the proposal as the words say (`corrections`, newest last); a stale version is `409
+  AI_TASK_VERSION_CONFLICT`.
+- **J50.30 Claude Code as the assistant**: with `AI_AGENT_COMMAND` set, the person's words, the workbook, the
+  model and the OpenAPI document go to one session working through the API. It stops at a model draft with
+  every row checked, nothing installed; the person edits the draft or says what to change and the same
+  session goes on; accepting installs one release and loads into a change set; a proposal can be discarded
+  with its draft. A session that stopped can be tried again from where it was. A saved layout that still
+  fits needs no session.
+- **J50.31 Who did it, to the publication**: every row a session writes in a change set says it was proposed by the
+  AI and who asked, on the record in the change set and, after publication, in its history, with the person as the
+  actor; a person's edit keeps the mark and adds who edited; it reads the same once the task has expired.
+- **J50.32 Two tasks at once**: each has a client of its own, reaches only its workspace, waits for its own jobs and
+  shows its own steps. A task's client is not listed unless asked for and holds no secret.
+- **J50.33 No more than the person**: a session holds what the person who asked holds, with its narrowing, and never
+  publishes or activates, whoever asked.
+- **J50.34 Four-eyes**: what a session submits is submitted by the person who asked, who cannot also decide it.
+- **J50.35 The call record**: every turn leaves one row of `GET /ai/calls`, however it ended, with its tokens and its
+  own cost; no content unless `AI_LOG_CONTENT` is on.
+- **J50.36 Retention**: a task's folder and Claude Code's transcript go with the task; the sweep removes what no task holds.
+- **J50.37 The load leaves a profile**: a session's load into a change set leaves a saved import profile
+  (`result.profileKey`) that is valid under the change set's release. After the change set is published, a
+  second file of the same layout takes the saved-layout path and, with the same content, changes nothing.
+- **J50.38 Not saved, and why**: when the change came only through batches, when a source has no key, or when
+  the workbook was read through a profile already saved, no profile is saved and `result.profileNotSaved`
+  says why in a sentence; the load stands.
+- **J50.42 A key of several columns**: a re-import whose key is the values of two or
+  more columns finds each stored record by the combination, updating it and creating none, live and in a
+  change set. Two records holding the combination refuse the row (`KEY_AMBIGUOUS`); an empty cell in any of
+  them is a row without a key.
+- **J50.39 The warning beside held records**: a proposal whose check would create records of a type the
+  workspace already holds shows `design.checks` of kind `besideHeld` with the counts of the whole dry run;
+  accepting stays possible.
+- **J50.40 Another task's draft**: a session that writes to a model draft another assistant task holds is refused
+  `409 AI_TASK_DRAFT_HELD`; it makes a draft of its own and goes on. A person's draft that no task holds is open to it.
+- **J50.41 Nothing left behind**: when a task is loaded or discarded, a release its session installed that no
+  workspace or change set uses is retired; one in use is not.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409
-AI_TASK_NOTHING_TO_LOAD`, `409 IMPORT_PROFILE_EXISTS`, `413 IMPORT_TOO_LARGE`, `422
-UNSUPPORTED_FILE_FORMAT`.
+AI_TASK_NOTHING_TO_LOAD`, `409 AI_TASK_DRAFT_HELD`, `413 IMPORT_TOO_LARGE`, `422
+UNSUPPORTED_FILE_FORMAT`, `422 AI_TASK_NEEDS_WORDS`.
 
 ### J51 — Reach the engine from an assistant
 
@@ -2648,6 +2619,16 @@ An assistant connected as in J51 answers from what the engine holds, in the API'
 - **J52.4 Tools and workspaces**: equal definitions in two workspaces share one tool; a key whose definitions differ gives one tool each; a name stays within 48 characters.
 - **J52.5 A long answer**: past `MCP_ANSWER_BYTES` a page comes back smaller with a cursor, and reading on gives every record once.
 - **J52.6 Resources**: each readable workspace's model is listed, its applications, types and views are reached by templates, all read only where the caller may read, and recorded by argument name.
+
+### J53 — An assistant prepares a change
+
+An assistant connected as in J51 prepares a change in a change set of its own and submits it. Live data changes only when a person approves. No tool approves, publishes, withdraws, removes or writes live.
+
+- **J53.1 Five missing values**: a person through an assistant creates a change set, adds five records, validates and submits; live data is unchanged. A steward has the inbox notice, edits one value and publishes, and live data changes then. History says the assistant prepared it, who asked and who edited, and the entries made through the assistant have the channel `mcp`.
+- **J53.2 Four-eyes**: under `secondPerson`, the person whose assistant submitted is refused the decision and a second person approves. An agent client's token reaches no approve or publish route.
+- **J53.3 Fixing it**: a refusal gives the engine's code and details: an invalid change set with its diagnostics, a stale version, a submitted change set. One sent back shows its comment, and is fixed and submitted again.
+- **J53.4 Limits**: a colleague's change set reads as not found; a person narrowed to one record type is refused on another; no tool writes without a change set; a caller with only Browse lists no change-set tool.
+- **J53.5 Reading its own change set**: `find_records`, `read_record` and `describe_type` with `changeSetId` show the unpublished rows and the pinned release; without it, live data.
 
 ## Guardrails kept from 0.7
 

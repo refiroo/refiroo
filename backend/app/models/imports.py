@@ -262,8 +262,9 @@ class Block(BaseModel):
 
 class SourceKey(BaseModel):
     """What finds a row's existing record: one unique attribute (its value from the column that
-    binds it), a column holding the public ID (D2), or the record's name (``field: name``, its value
-    from the column that binds the name; 0.10 A8a, D117: a list of names without codes).
+    binds it), several attributes whose values together find it (``attributeTypeKeys``, 0.16 AP-D43),
+    a column holding the public ID (D2), or the record's name (``field: name``, its value from the
+    column that binds the name; 0.10 A8a, D117: a list of names without codes).
 
     ``versionColumn`` holds the version the row claims for the record it finds, so a record changed
     since the file was written is refused (0.9 J6, D186). ``nameColumn``, with an ID column and
@@ -283,12 +284,28 @@ class SourceKey(BaseModel):
             " identify one record each; a value two records hold refuses the row"
         ),
     )
+    attributeTypeKeys: list[str] | None = Field(
+        default=None,
+        description=(
+            "Two or more attributes whose values together find one record (0.16 AP-D43). Like"
+            " storedUnique, none needs to be declared unique; a combination two stored records"
+            " hold refuses the row, and an empty cell in any of them makes it a row without a key"
+        ),
+    )
 
     @model_validator(mode="after")
     def one_form(self) -> SourceKey:
-        forms = [self.attributeTypeKey, self.column, self.field]
+        forms = [self.attributeTypeKey, self.attributeTypeKeys, self.column, self.field]
         if sum(form is not None for form in forms) != 1:
-            raise ValueError("A source key is one of {attributeTypeKey}, {column} or {field: name}")
+            raise ValueError(
+                "A source key is one of {attributeTypeKey}, {attributeTypeKeys}, {column} or"
+                " {field: name}"
+            )
+        if self.attributeTypeKeys is not None and (
+            len(self.attributeTypeKeys) < 2
+            or len(set(self.attributeTypeKeys)) != len(self.attributeTypeKeys)
+        ):
+            raise ValueError("attributeTypeKeys holds two or more distinct attribute keys")
         if self.nameColumn is not None and self.column is None:
             raise ValueError("nameColumn finds a record whose ID column is empty")
         return self

@@ -1,6 +1,6 @@
 """Publishing a change set onto live data, and withdrawing a publication (ADR-026/027/031)."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -48,6 +48,8 @@ class MergedObject:
     parent_object_id: str | None
     attributes: dict[str, Any]
     version: int
+    # Who proposed it when the AI did (0.16 AP9): copied into its audit entry.
+    origin: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,12 @@ class LiveMerge:
     # Live data before the publish, for what it changes (D15, D32).
     live_objects: dict[str, MergedObject]
     live_relations: dict[str, MergedRelation]
+    # Who proposed a removal when the AI did, by record or relation ID (0.16 AP9).
+    removal_origins: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+def _with_origin(changes: dict[str, Any], origin: dict[str, Any] | None) -> dict[str, Any]:
+    return {**changes, "origin": origin} if origin else changes
 
 
 def _changed_values(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
@@ -112,7 +120,10 @@ def publish_entries(merge: LiveMerge, model: Any) -> list[AuditEntry]:
                     object_id,
                     "created",
                     after.version,
-                    {"changedFields": fields, "attributeTypeKeys": sorted(after.attributes)},
+                    _with_origin(
+                        {"changedFields": fields, "attributeTypeKeys": sorted(after.attributes)},
+                        after.origin,
+                    ),
                     (object_id,),
                     object_subject(after),
                 )
@@ -141,7 +152,7 @@ def publish_entries(merge: LiveMerge, model: Any) -> list[AuditEntry]:
                 object_id,
                 "reclassified" if retyped else "updated",
                 after.version,
-                {"changedFields": fields, "attributeTypeKeys": values},
+                _with_origin({"changedFields": fields, "attributeTypeKeys": values}, after.origin),
                 (object_id,),
                 object_subject(
                     after,
@@ -155,7 +166,9 @@ def publish_entries(merge: LiveMerge, model: Any) -> list[AuditEntry]:
         before = merge.live_relations[relation_id]
         if contains(before):
             continue
-        entries.append(_relation_entry(before, "deleted", [], []))
+        entries.append(
+            _relation_entry(before, "deleted", [], [], merge.removal_origins.get(relation_id))
+        )
     for relation_id in sorted(merge.authored_relation_ids):
         after, before = merged_relations[relation_id], merge.live_relations.get(relation_id)
         if contains(after):
@@ -178,7 +191,10 @@ def publish_entries(merge: LiveMerge, model: Any) -> list[AuditEntry]:
                 object_id,
                 "deleted",
                 before.version,
-                {"changedFields": [], "attributeTypeKeys": []},
+                _with_origin(
+                    {"changedFields": [], "attributeTypeKeys": []},
+                    merge.removal_origins.get(object_id),
+                ),
                 (object_id,),
                 object_subject(before),
             )
@@ -187,11 +203,16 @@ def publish_entries(merge: LiveMerge, model: Any) -> list[AuditEntry]:
 
 
 def _relation_entry(
-    relation: MergedRelation, action: str, fields: list[str], attribute_type_keys: list[str]
+    relation: MergedRelation,
+    action: str,
+    fields: list[str],
+    attribute_type_keys: list[str],
+    origin: dict[str, Any] | None = None,
 ) -> AuditEntry:
-    changes: dict[str, Any] = {"changedFields": fields, "attributeTypeKeys": attribute_type_keys}
-    if relation.origin and action != "deleted":
-        changes["origin"] = relation.origin
+    changes = _with_origin(
+        {"changedFields": fields, "attributeTypeKeys": attribute_type_keys},
+        origin or (relation.origin if action != "deleted" else None),
+    )
     return AuditEntry(
         "relation",
         relation.relation_id,
@@ -444,11 +465,14 @@ def _merge_change_set_over_live(
             .where(ChangeSetObject.change_set_id == change_set.id)
         )
     )
+    removal_origins: dict[str, dict[str, Any]] = {}
     for object_id, row in change_set_objects.items():
         base = base_objects.get(object_id)
         if row.is_deleted:
             if base is None:
                 continue  # created then deleted inside the change set: never reached live
+            if row.origin:
+                removal_origins[object_id] = row.origin
             live = live_objects.get(object_id)
             if live is not None and live.version != base.version:
                 conflicts.append(
@@ -467,6 +491,7 @@ def _merge_change_set_over_live(
             parent_object_id=row.parent_object_id,
             attributes=dict(row.attributes or {}),
             version=row.version,
+            origin=row.origin,
         )
         if base is not None:
             live = live_objects.get(object_id)
@@ -511,6 +536,8 @@ def _merge_change_set_over_live(
         if row.is_deleted:
             if base is None:
                 continue
+            if row.origin:
+                removal_origins[relation_id] = row.origin
             live = live_relations.get(relation_id)
             if live is not None and live.version != base.version:
                 conflicts.append(
@@ -610,6 +637,7 @@ def _merge_change_set_over_live(
         authored_relation_ids=authored_relation_ids,
         removed_object_ids=set(live_objects) - set(merged_objects),
         removed_relation_ids=set(live_relations) - set(merged_relations),
+        removal_origins=removal_origins,
         live_objects=live_state,
         live_relations=live_relation_state,
     )

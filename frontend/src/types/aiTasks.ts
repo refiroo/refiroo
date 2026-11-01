@@ -1,10 +1,10 @@
-/** Loading a workbook with the AI assistant (0.16 AP6a): the task, its reading, plan, check and result. */
+/** Loading a workbook with the AI assistant (0.16 AP6a): the task, its design, check and result. */
 
 import type { AiOrigin } from "@/types/ai";
 import type { PageNavigation } from "@/types/runtime";
 import type { Principal } from "@/types/security";
 
-export type AiTaskState = "reading" | "read" | "checking" | "checked" | "loading" | "loaded" | "failed" | "cancelled";
+export type AiTaskState = "reading" | "checking" | "checked" | "loading" | "loaded" | "failed" | "cancelled";
 export type AiTaskPhase = "profiling" | "reading" | "designing" | "checking";
 /** Who made a choice: the rules, the assistant, or the person (a person's choice is never overwritten). */
 export type AiTaskOwner = "rules" | "assistant" | "person";
@@ -141,17 +141,6 @@ export interface AiTaskReading {
   summary?: AiTaskReadingSummary;
 }
 
-export interface AiTaskPlan {
-  profile: Record<string, unknown>;
-  steps: {
-    kind: "profileSource" | "valueMap" | "destination";
-    owner: AiTaskOwner;
-    reason: string;
-    origin?: AiOrigin | null;
-    params: Record<string, unknown>;
-  }[];
-}
-
 export interface AiTaskRefusal {
   code: string | null;
   rows: number;
@@ -215,16 +204,6 @@ export interface AiTaskOperation {
   [member: string]: unknown;
 }
 
-/** A record the structure needs, created in the same change set as the load. */
-export interface AiTaskDesignRecord {
-  ref: string;
-  objectTypeKey: string;
-  applicationKey: string | null;
-  name: string;
-  attributes: Record<string, unknown>;
-  parent: { objectTypeKey: string; name: string } | null;
-}
-
 /** A source of the design's import profile: a sheet, the type it loads and its columns' bindings. */
 export interface AiTaskDesignSource {
   sheet?: string | null;
@@ -254,42 +233,15 @@ export interface AiTaskDesignOutcome {
   draftErrors?: unknown[];
   profileProblems?: unknown[];
   modelOperations?: unknown[];
-  links?: AiTaskLinkCheck[];
   [member: string]: unknown;
-}
-
-/** One criterion of a link rule's query: a field test, or a hop over a relationship (`not` negates either). */
-export interface AiTaskCriterion {
-  field?: string;
-  op?: string;
-  value?: unknown;
-  related?: { relationTypeKey: string; direction?: "outgoing" | "incoming"; where?: AiTaskCriterion[] };
-  not?: boolean;
-}
-
-/** Relationships between stored records where a condition holds (AP-D17/D18). */
-export interface AiTaskLinkRule {
-  relationTypeKey: string;
-  from: { objectTypeKey: string; where?: AiTaskCriterion[] };
-  to: { objectTypeKey: string; where?: AiTaskCriterion[] };
-  reason?: string;
-}
-
-/** The engine's check of one link rule: the records each end finds and the pairs, or why it is refused. */
-export interface AiTaskLinkCheck {
-  rule: AiTaskLinkRule;
-  from?: number;
-  to?: number;
-  pairs?: number;
-  refused?: string;
 }
 
 /** What the assistant designed for a workbook (0.16 AP6). */
 export interface AiTaskDesignCheckItem {
   id: string;
-  kind: "reuse" | "grouping" | "translations" | "bothEnds" | "leftOut";
+  kind: "reuse" | "grouping" | "translations" | "bothEnds" | "leftOut" | "besideHeld";
   text: string;
-  /** Needs the person's attention. */
+  /** Needs the person's attention. A `besideHeld` check warns that new records of a type the workspace holds may be an update that did not find its records. */
   open: boolean;
   explanation?: string;
 }
@@ -313,10 +265,7 @@ export interface AiTaskDesign {
   } | null;
   summary: string;
   operations: AiTaskOperation[];
-  records: AiTaskDesignRecord[];
   profile: AiTaskDesignProfile | null;
-  /** Relationships between stored records where a condition holds. */
-  links?: AiTaskLinkRule[];
   questions: AiTaskQuestion[];
   answers: Record<string, string>;
   rounds: number;
@@ -358,8 +307,16 @@ export interface AiTaskDesignCheck {
   rounds: number;
   sheets: AiTaskDesignCheckSheet[];
   refused: AiTaskDesignRefusal[];
-  links?: AiTaskLinkCheck[];
-  summary: { created: number; updated: number; unchanged: number; refused: number; relationships?: number };
+  summary: {
+    created: number;
+    updated: number;
+    unchanged: number;
+    refused: number;
+    skipped?: number;
+    relationships?: number;
+  };
+  /** The draft changed after this dry run, so it does not cover the model as it stands. */
+  draftChanged?: boolean;
 }
 
 export interface AiTaskNote {
@@ -376,8 +333,8 @@ export interface AiTaskResult {
   counts?: Record<string, number> | null;
   /** The model release the load installed and activated, when the design changed the model. */
   releaseId?: string | null;
-  /** The background batch that writes the design's relationships after the import. */
-  linksJobId?: string | null;
+  /** Why a session's load left no saved profile (AP-D41), in words a person reads; absent when it did or the load is older. */
+  profileNotSaved?: string | null;
 }
 
 export interface AiTask {
@@ -395,7 +352,6 @@ export interface AiTask {
   updatedAt: string;
   requestedBy: Principal | null;
   reading: AiTaskReading | null;
-  plan: AiTaskPlan | null;
   check: AiTaskCheck | AiTaskDesignCheck | null;
   /** The task's model draft, when the assistant designs. */
   draftId?: string | null;
@@ -408,21 +364,6 @@ export interface AiTask {
 export interface AiTaskRequest {
   workspaceKey: string;
   words?: string;
-}
-
-/** The person's choices for one table in a plan: only what they changed. */
-export interface AiTaskTableChoices {
-  table: string;
-  keyColumn?: string;
-  newRecords?: "create" | "leaveOut";
-  names?: "file" | "stored";
-  missing?: "leave" | "remove";
-  load?: boolean;
-}
-
-export interface AiTaskPlanRequest {
-  expectedVersion: number;
-  tables: AiTaskTableChoices[];
 }
 
 export interface AiTaskRunRequest {

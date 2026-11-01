@@ -20,6 +20,7 @@ _HISTORY_KEYS = (
     integer_key("sequenceId", AuditEvent.sequence_id, "sequence_id", descending=True),
 )
 _CAUSE = "audit_cause"
+_CHANNEL = "audit_channel"
 _TRIAL = "audit_trial_run"
 
 
@@ -54,6 +55,11 @@ def audit_cause_of(session: Session) -> tuple[str | None, str | None]:
     return session.info.get(_CAUSE, (None, None))
 
 
+def set_channel(session: Session, channel: str) -> None:
+    """What the session's audit entries name as their channel from now on (0.16 AG-D30)."""
+    session.info[_CHANNEL] = channel
+
+
 def audit_actor_of(session: Session) -> dict[str, Any]:
     """Who the session's audit entries name as their actor (0.12 Z4, D313), as the three
     columns: the caller whose writes the session makes (a request's, or a job step's requester),
@@ -77,7 +83,9 @@ def _name_actors(session: Session, _context: Any, _instances: Any) -> None:
     if not added:
         return
     actor = audit_actor_of(session)
+    channel = session.info.get(_CHANNEL)
     for item in added:
+        item.channel = channel
         for column, value in actor.items():
             setattr(item, column, value)
 

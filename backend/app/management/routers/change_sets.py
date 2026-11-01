@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query, Request, status
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from ...common.pagination import (
     PageRequest,
@@ -11,6 +12,7 @@ from ...common.pagination import (
 )
 from ...db import begin_snapshot_read
 from ...engine.authorization.administration import holders_of
+from ...engine.authorization.permissions import Permissions
 from ...engine.authorization.visibility import in_workspaces
 from ...engine.change_sets import approvals
 from ...engine.change_sets.access import effective_change_set_membership
@@ -22,6 +24,7 @@ from ...engine.change_sets.pinning import (
 )
 from ...engine.change_sets.publish import withdraw_publication
 from ...engine.change_sets.validation import validate_change_set
+from ...engine.identity.authentication import Principal
 from ...engine.identity.principals import named, named_by, ref
 from ...engine.model.change_set_migrations import submit_change_set_migration
 from ...engine.model.registry import resolve_model_snapshot, resolve_pinned_release
@@ -128,7 +131,7 @@ router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["change-
 migration_router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["change-sets"])
 
 
-def _change_set_response(
+def change_set_response(
     session, item: ChangeSet, submissions: dict[str, PublicationRequestResponse] | None = None
 ) -> ChangeSetResponse:
     if submissions is None:
@@ -212,7 +215,7 @@ def list_change_sets(
     )
     submissions = submission_responses(session, [x.id for x in page.items])
     return ChangeSetPage(
-        items=[_change_set_response(session, x, submissions) for x in page.items], **page.links()
+        items=[change_set_response(session, x, submissions) for x in page.items], **page.links()
     )
 
 
@@ -228,10 +231,27 @@ def list_own_change_sets(
     """The open change sets the caller created, in every workspace where they hold Browse, newest
     change first, each with its workspace's label and how many records and relations it changes
     (0.12 HM1, D333). Change sets stay shared (D255); this only finds the caller's."""
+    return own_change_set_page(session, principal, permissions, paging, page_size)
+
+
+def own_change_set_page(
+    session: Session,
+    principal: Principal,
+    permissions: Permissions,
+    paging: PageRequest,
+    page_size: int,
+    *,
+    holding: str = "browse",
+    workspace_key: str | None = None,
+) -> OwnChangeSetPage:
+    """A page of the change sets the caller created, in the workspaces where they hold ``holding``
+    (one of them with ``workspace_key``); the route's and the agent tool's one query."""
     statement = select(ChangeSet).where(created_by(principal))
-    visible = in_workspaces(ChangeSet.workspace_key, permissions, frozenset({"browse"}))
+    visible = in_workspaces(ChangeSet.workspace_key, permissions, frozenset({holding}))
     if visible is not None:
         statement = statement.where(visible)
+    if workspace_key is not None:
+        statement = statement.where(ChangeSet.workspace_key == workspace_key)
     page = paginate_statement(
         session,
         statement,
@@ -240,7 +260,7 @@ def list_own_change_sets(
             text_key("id", ChangeSet.id, "id", descending=True),
         ),
         scope="own-change-sets",
-        filters={},
+        filters={} if workspace_key is None else {"workspaceKey": workspace_key},
         page=paging,
         page_size=page_size,
         message="Change set cursor is invalid",
@@ -274,7 +294,7 @@ def list_own_change_sets(
     counts = count_changes_many(session, list(change_set_contexts(session, page.items).values()))
     items = [
         OwnChangeSetResponse(
-            **_change_set_response(session, item, submissions).model_dump(),
+            **change_set_response(session, item, submissions).model_dump(),
             workspaceLabel=labels[item.workspace_key],
             changeCount=counts[item.id],
         )
@@ -305,6 +325,14 @@ def post_change_set(
         and not permissions.allows("model-install", None)
     ):
         raise forbidden("change-sets.write", ("model-release", "model-install"), workspace_key)
+    return new_change_set(session, workspace_key, payload)
+
+
+def new_change_set(
+    session: Session, workspace_key: str, payload: ChangeSetCreate
+) -> ChangeSetResponse:
+    """Start a change set in the workspace; the route's and the agent tool's one function. The
+    caller has checked who may choose a model version."""
     active_release_id = load_assignment(session, workspace_key)[1].id
     selected = (
         selected_change_set_release(session, str(payload.modelReleaseId), kept=(active_release_id,))
@@ -313,7 +341,7 @@ def post_change_set(
     )
     if not selected:
         resolve_model_snapshot(session, workspace_key)
-    return _change_set_response(
+    return change_set_response(
         session,
         create_change_set(
             session,
@@ -338,7 +366,7 @@ def get_change_set(change_set_id: str, session: DbSession) -> ChangeSetResponse:
     item = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
     if item is None:
         raise api_error(404, "CHANGE_SET_NOT_FOUND", "Change set not found")
-    return _change_set_response(session, item)
+    return change_set_response(session, item)
 
 
 @router.patch("/change-sets/{change_set_id}", response_model=ChangeSetResponse)
@@ -346,7 +374,7 @@ def get_change_set(change_set_id: str, session: DbSession) -> ChangeSetResponse:
 def patch_change_set(
     change_set_id: str, payload: ChangeSetUpdate, session: DbSession
 ) -> ChangeSetResponse:
-    return _change_set_response(
+    return change_set_response(
         session, update_change_set(session, change_set_id, payload.expectedVersion, payload.name)
     )
 
@@ -356,7 +384,7 @@ def patch_change_set(
 def patch_change_set_model_release(
     change_set_id: str, payload: ChangeSetModelReleaseUpdate, session: DbSession
 ) -> ChangeSetResponse:
-    return _change_set_response(
+    return change_set_response(
         session,
         set_change_set_model_release(
             session,
@@ -507,6 +535,18 @@ def get_object_changes(
     object_type_key: list[str] | None = _OBJECT_TYPE_KEY,
 ) -> ObjectChangePage:
     """The records the change set adds, changes or removes against its source (Base 0.8 P2a)."""
+    return object_change_page(session, change_set_id, paging, page_size, kind, object_type_key)
+
+
+def object_change_page(
+    session: Session,
+    change_set_id: str,
+    paging: PageRequest,
+    page_size: int,
+    kind: list[ChangeKind] | None = None,
+    object_type_key: list[str] | None = None,
+) -> ObjectChangePage:
+    """A page of the change set's record changes; the route's and the agent tool's one read."""
     # The page, its paths and the pinned model read one snapshot: a write landing between them
     # would otherwise mix two states of the change set in one page.
     begin_snapshot_read(session)
@@ -544,6 +584,21 @@ def get_relation_changes(
     ),
 ) -> RelationChangePage:
     """The relations the change set adds, changes or removes against its source (Base 0.8 P2a)."""
+    return relation_change_page(
+        session, change_set_id, paging, page_size, kind, relation_type_key, containment
+    )
+
+
+def relation_change_page(
+    session: Session,
+    change_set_id: str,
+    paging: PageRequest,
+    page_size: int,
+    kind: list[ChangeKind] | None = None,
+    relation_type_key: list[str] | None = None,
+    containment: bool | None = None,
+) -> RelationChangePage:
+    """A page of the change set's relation changes; the route's and the agent tool's one read."""
     begin_snapshot_read(session)
     context = change_set_context(session, change_set_id)
     model = _pinned_model(session, context)
@@ -676,8 +731,18 @@ def post_restructuring(
 @router.post("/change-sets/{change_set_id}/validation", response_model=ChangeSetValidation)
 @requires("change-sets.write", at=CHANGE_SET_PATH)
 def post_change_set_validation(change_set_id: str, session: DbSession) -> ChangeSetValidation:
+    return validated_change_set(session, change_set_id)
+
+
+def validated_change_set(
+    session: Session, change_set_id: str, *, record: bool = True
+) -> ChangeSetValidation:
+    """Check the change set; the route's and the agent tool's one function. It records the check
+    and commits, unless ``record`` is off (a tool reading on through the same diagnostics)."""
     change_set, change_set_model = pinned_model(session, change_set_id)
     diagnostics = validate_change_set(session, change_set_id, change_set_model)
+    if not record:
+        return ChangeSetValidation(valid=not diagnostics, diagnostics=diagnostics)
     # A validation never mutates the change set graph or bumps its version; the audit record is its only
     # side effect and is bounded to identity metadata plus counts (see D3a).  The conflict
     # short-circuit can leave a corrupt base unresolved, so fall back to zero counts instead of
@@ -780,7 +845,7 @@ def post_change_set_decision(
     )
     if isinstance(result, Publication):
         return _publication_response(session, result)
-    return _change_set_response(session, result)
+    return change_set_response(session, result)
 
 
 @router.get(

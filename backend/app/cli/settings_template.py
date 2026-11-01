@@ -36,7 +36,7 @@ HEADINGS = {
     "capabilities": "Capability groups: what the engine serves",
     "limits": "Batch and job limits",
     "webhooks": "Webhook subscriptions",
-    "ai": "AI proposals: off unless AI_PROVIDER is set (OPERATIONS § AI proposals)",
+    "ai": "AI: the assistant is off unless AI_AGENT_COMMAND is set, proposals unless AI_PROVIDER is (OPERATIONS § AI proposals)",
 }
 
 # Settings a target writes itself, so its template leaves them out. The developer file sets the

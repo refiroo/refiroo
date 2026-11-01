@@ -1,24 +1,15 @@
-"""An assistant task that designs (Product 0.16 AP6, the user's five cases).
+"""A task's way through the engine, beside the session (Product 0.16 AP8).
 
-The task's reading phase profiles the workbook and reads it by the rules (AP6a); with the assistant
-offered, it opens a draft of the workspace's model, the engine matches the workbook with the
-workspace (``matching.py``) and drafts the profile, and the AI is asked only about what the engine
-left open or what the person said (``design.py``, AP7). The person reviews the proposal. An accepted
-design is checked by a dry run of every row of the working copy against the draft (a ``dryRun`` job
-naming the task and the draft); what it refuses goes to the AI in up to :data:`REPAIRS` calls, then
-to the person. The load
-installs the draft as a release and activates it in the workspace when the model changed, then
-imports the working copy into a new change set and saves the profile of the person's sheets.
-
-A turn never holds a transaction while the provider answers (each is preceded by a commit).
+A session (``agent.py``) does its own designing and loading through the API. What is here is what
+surrounds it: its next turn, the person's answers and acceptance, and the saved layout's path: a
+file a saved profile still fits gets the engine's own proposal, no AI, and after the person accepts
+one dry run of every row and the import into a new change set.
 """
 
 import re
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -30,8 +21,8 @@ from ...models.imports import (
     ImportRequest,
     InlineProfile,
 )
-from ..change_sets.access import load_change_set
 from ..change_sets.lifecycle import create_change_set
+from ..identity.clients import retire_session_client
 from ..imports.profiles import load_profile, parsed, source_order
 from ..imports.profiles import save_profile as save_import_profile
 from ..imports.submit import submit_import
@@ -39,8 +30,10 @@ from ..jobs.store import start_job
 from ..model.compiler import compile_model
 from ..model.releases import activate_model_release, install_model_release
 from ..model.workspace_models import load_assignment
+from ..sources.profile_check import previous_file
 from ..sources.store import stored_upload
-from . import agent, design, design_checks, draft_plan, links, matching
+from . import agent, design_checks, draft_plan, matching
+from .profile_reading import headers_of
 from .store import claim, finish, load_task, note, require_state, touch
 
 
@@ -149,34 +142,39 @@ def dry_run_check(session: Session, draft: ModelDraft) -> dict[str, Any] | None:
     )
     if job is None or job.state != "completed":
         return None
-    return check_of_job(session, job, draft, 0, [])
+    # A check from before the draft's last change does not cover the model as it stands.
+    return {
+        **check_of_job(session, job, draft, 0),
+        "draftChanged": job.parameters.get("draftVersion") != draft.version,
+    }
 
 
-def _engine_outline(found: dict[str, Any], types: Any) -> list[dict[str, str]]:
+def _followed(tables: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The tables the saved profile reads: what it found, by its own key."""
+    return [t for t in tables if t.get("profile") is not None]
+
+
+def _engine_outline(tables: list[dict[str, Any]], types: Any) -> list[dict[str, str]]:
     return [
         {
-            "objectTypeKey": fact["type"],
-            "text": (
-                f"from “{fact['sheet']}”: {fact['found']} of {fact['rows']} rows are stored "
-                f"records found by “{fact['key']}”, {fact['new']} are new"
-            ),
+            "objectTypeKey": t["objectTypeKey"],
+            "text": f"from “{t['sheet']}”: {t['matched']} rows are stored records, {t['new']} are new",
         }
-        for fact in found.get("facts") or []
-        if fact.get("type") in types
+        for t in _followed(tables)
+        if t.get("objectTypeKey") in types
     ]
 
 
-def _engine_summary(found: dict[str, Any]) -> str:
-    parts = []
-    for fact in found.get("facts") or []:
-        if fact.get("type"):
-            parts.append(
-                f"“{fact['sheet']}”: {fact['found']} of {fact['rows']} rows match stored records "
-                f"by “{fact['key']}”, {fact['new']} are new."
-            )
-        else:
-            parts.append(f"“{fact['sheet']}”: {fact['rows']} rows, {fact['found']}.")
-    return " ".join(parts)
+def _engine_summary(tables: list[dict[str, Any]], name: str) -> str:
+    parts = [
+        f"“{t['sheet']}”: {t['matched']} of {int(t['matched']) + int(t['new'])} rows match stored "
+        f"records, {t['new']} are new."
+        for t in _followed(tables)
+    ]
+    left_out = [t["sheet"] for t in tables if t.get("profile") is None]
+    if left_out:
+        parts.append("Not read, as before: " + ", ".join(f"“{sheet}”" for sheet in left_out) + ".")
+    return f"The saved profile “{name}” reads this file. " + " ".join(parts)
 
 
 def _set_outcome(
@@ -195,38 +193,11 @@ def _set_outcome(
     checked = draft_plan.check(draft, full_profile(current, draft.model_json, kept))
     if current.get("stage") == "model" and current.get("profile") is None:
         checked.pop("profileProblems", None)
-    compiled = compile_model(draft.model_json).model
-    found_links = []
-    for raw in current.get("links") or []:
-        try:
-            rule = links.LinkRule.model_validate(raw)
-        except ValidationError as error:
-            found_links.append({"rule": raw, "refused": str(error)[:300]})
-            continue
-        if compiled is None:
-            found_links.append({"rule": raw, "refused": "The draft does not compile"})
-            continue
-        found_links.append({"rule": raw, **links.check(session, compiled, task.workspace_key, rule)})
-    if found_links:
-        checked["links"] = found_links
-        if current.get("profile") is None and source is None:
-            # An instruction on the workspace's records: nothing to import.
-            checked.pop("profileProblems", None)
-    problems = draft_plan.derived_problems(session, source, current)
-    if problems:
-        checked["profileProblems"] = [*(checked.get("profileProblems") or []), *problems]
     unresolved = draft_plan.unresolved_links(
-        session,
-        source,
-        task.workspace_key,
-        current.get("profile"),
-        current.get("records") or [],
+        session, source, task.workspace_key, current.get("profile"), []
     )
     if unresolved:
         checked["unresolved"] = unresolved
-    unloaded = sheets_not_loaded(task, current)
-    if unloaded:
-        checked["sheetsNotLoaded"] = unloaded
     left_out = columns_left_out(task, current)
     current["leftOut"] = left_out
     current["checks"] = design_checks.run(
@@ -287,8 +258,9 @@ def _propose(session: Session, job: Job, ctx: Any, task_id: str, record_call: An
     }
     current["match"] = found
     current["engineQuestions"] = found["questions"]
-    current["summary"] = _engine_summary(found)
-    current["outline"] = _engine_outline(found, types)
+    tables = (task.reading or {}).get("tables", [])
+    current["summary"] = _engine_summary(tables, task.reading["profile"]["name"])
+    current["outline"] = _engine_outline(tables, types)
     current["questions"] = found["questions"]
     _set_outcome(session, task, current, draft, released, {"applied": 0, "draftErrors": []}, source)
     task = load_task(session, task_id, for_update=True)
@@ -313,12 +285,20 @@ def saved_layout_fits(
         model=model,
         answers={},
     )
-    fits = _same_layout(task, found, {}) and not _new_columns(task, found)
+    # What the file the profile read before also had and the profile did not read was left out on
+    # purpose: a helper sheet no more decides the fit than a column does.
+    key = reading_found["profile"]["key"]
+    earlier = headers_of(session, previous_file(session, key, source))
+    fits = _same_layout(task, found, {}, set(earlier)) and not _new_columns(
+        task, found, set(earlier)
+    )
     session.rollback()
     return fits
 
 
-def _new_columns(task: AiTask, found: dict[str, Any]) -> list[dict[str, Any]]:
+def _new_columns(
+    task: AiTask, found: dict[str, Any], sheets_before: set[str] = frozenset()
+) -> list[dict[str, Any]]:
     """Of the columns the match could not place, those the file the saved profile read before did
     not have: what that profile left out it left out on purpose."""
     earlier = {
@@ -327,10 +307,23 @@ def _new_columns(task: AiTask, found: dict[str, Any]) -> list[dict[str, Any]]:
         for c in t.get("columns") or []
         if c.get("known") or c.get("binding") is not None
     }
-    return [u for u in found["unplaced"] if (u["sheet"], u["column"]) not in earlier]
+    followed = {
+        t["sheet"] for t in (task.reading or {}).get("tables", []) if t.get("profile") is not None
+    }
+    left_out = sheets_before - followed
+    return [
+        u
+        for u in found["unplaced"]
+        if (u["sheet"], u["column"]) not in earlier and u["sheet"] not in left_out
+    ]
 
 
-def _same_layout(task: AiTask, found: dict[str, Any], answers: dict[str, str]) -> bool:
+def _same_layout(
+    task: AiTask,
+    found: dict[str, Any],
+    answers: dict[str, str],
+    sheets_before: set[str] = frozenset(),
+) -> bool:
     """Whether the saved profile the reading followed finds as many stored records as the match,
     on every table: one that would make new what the match finds stored is no such profile. An
     answer against what the match assumed needs the match's own profile."""
@@ -340,20 +333,12 @@ def _same_layout(task: AiTask, found: dict[str, Any], answers: dict[str, str]) -
         return False
     new_by_sheet = {f["sheet"]: f.get("new", 0) for f in found["facts"]}
     tables = (task.reading or {}).get("tables", [])
-    return all(
-        t.get("profile") is not None and int(t.get("new") or 0) <= new_by_sheet.get(t["sheet"], 0)
+    followed = [t for t in tables if t.get("profile") is not None]
+    return bool(followed) and all(
+        (t.get("profile") is not None and int(t.get("new") or 0) <= new_by_sheet.get(t["sheet"], 0))
+        or (t.get("profile") is None and t["sheet"] in sheets_before)
         for t in tables
     )
-
-
-def sheets_not_loaded(task: AiTask, current: dict[str, Any]) -> list[str]:
-    """The workbook's sheets with a table that no source of the design reads (the quiet tables'
-    sheets are read by their kept sources)."""
-    found = (task.reading or {}).get("tables", [])
-    read = {s.get("sheet") for s in (current.get("profile") or {}).get("sources") or []}
-    read |= {s.get("sheet") for s in kept_sources(task)}
-    read |= {s for d in current.get("derived") or [] for s in d.get("sheets") or []}
-    return sorted({t["sheet"] for t in found} - read)
 
 
 def columns_left_out(task: AiTask, current: dict[str, Any]) -> list[dict[str, Any]]:
@@ -396,11 +381,10 @@ def _model_complete(current: dict[str, Any]) -> bool:
 def _complete(current: dict[str, Any]) -> bool:
     outcome = current.get("outcome") or {}
     return (
-        (current.get("profile") is not None or bool(current.get("links")))
+        current.get("profile") is not None
         and "refused" not in (outcome.get("modelOperations") or {})
         and not outcome.get("draftErrors")
         and not outcome.get("profileProblems")
-        and not any("refused" in item for item in outcome.get("links") or [])
     )
 
 
@@ -415,86 +399,27 @@ def _same_place(a: dict[str, Any], b: dict[str, Any]) -> bool:
 def full_profile(
     current: dict[str, Any], model: dict[str, Any], kept: list[dict[str, Any]] | None = None
 ) -> dict[str, Any] | None:
-    """The structure sheets' sources first, then the quiet tables' sources the design does not
-    replace (``kept``), then the design's; the rules' value maps under the design's."""
+    """The quiet tables' sources the design does not replace (``kept``), then the design's; the
+    rules' value maps under the design's."""
     profile = current.get("profile")
     if profile is None:
         return None
-    records = [design.StructureRecord.model_validate(r) for r in current.get("records") or []]
-    structure = draft_plan.structure_sources(records, model)
     own = list(profile.get("sources") or [])
     kept = [k for k in kept or [] if not any(_same_place(k, s) for s in own)]
     maps = {
         **((current.get("rulesProfile") or {}).get("valueMaps") or {}),
         **(profile.get("valueMaps") or {}),
     }
-    return {**profile, "sources": structure + kept + own, "valueMaps": maps}
-
-
-def design_so_far(current: dict[str, Any], rules: dict[str, Any] | None = None) -> dict[str, Any]:
-    """The design the engine holds, sent back every turn: the profile, the records and the links
-    whole, each data sheet by its columns, row count and first rows (the model's changes are in
-    the model, marked new). A part the answer leaves out is kept, so a fix changes only what the
-    outcome refused."""
-    profile = current.get("profile")
-    # ``rules``: the rules' profile as the request sends it (its quiet tables' sources left out).
-    rules = rules if rules is not None else current.get("rulesProfile") or {}
-    same = bool(profile) and all(
-        (profile or {}).get(part) == rules.get(part) for part in ("sources", "valueMaps")
-    )
-    return {
-        # Still the rules' profile: named, not sent twice.
-        "profile": "rulesProfile" if same else profile,
-        "records": current.get("records") or [],
-        "links": current.get("links") or [],
-        "rounds": current.get("history") or [],
-        "derived": current.get("derived") or [],
-        "sheets": [
-            {
-                "name": sheet["name"],
-                "columns": sheet["columns"],
-                "rowCount": len(sheet["rows"]),
-                "firstRows": sheet["rows"][:5],
-            }
-            for sheet in current.get("sheets") or []
-        ],
-    }
+    return {**profile, "sources": kept + own, "valueMaps": maps}
 
 
 def queue_check(session: Session, task: AiTask, files: Any, retention_days: int) -> Job | None:
-    """Stage the working copy as the draft's file and queue its dry run against the draft. A
-    design that imports nothing (relationships between stored records only) is checked by the
-    counts of its rules: the task is ``checked`` at once."""
+    """Stage the file as the draft's and queue its dry run against the draft."""
     draft = session.get(ModelDraft, task.draft_id)
     assert draft is not None
     current = task.design or {}
-    if current.get("profile") is None:
-        found = (current.get("outcome") or {}).get("links") or []
-        task.check = {
-            "dryRunJobId": None,
-            "ranAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            "sheets": [],
-            "refused": [],
-            "links": found,
-            "summary": {
-                "created": 0,
-                "updated": 0,
-                "unchanged": 0,
-                "refused": 0,
-                "relationships": sum(int(item.get("pairs") or 0) for item in found),
-            },
-            "rounds": int(current.get("rounds", 0)),
-        }
-        task.state = "checked"
-        touch(task, 90, bump=False)
-        return None
-    records = [design.StructureRecord.model_validate(r) for r in current.get("records") or []]
     original = task_source(session, task)
-    data = [design.DataSheet.model_validate(d) for d in current.get("sheets") or []]
-    derived = draft_plan.derived_sheets(session, original, current.get("derived") or [])
-    content, _ = draft_plan.working_book(
-        files.upload(original.public_id), records, draft.model_json, data, derived
-    )
+    content = files.upload(original.public_id).read_bytes()
     work = draft_plan.stage(
         session, draft, content, original.name, task.workspace_key, files, lambda: None
     )
@@ -547,6 +472,8 @@ SELECT o.source_index, o.status, o.outcome ->> 'action' AS action, count(*) AS i
     count(DISTINCT o.row_number) AS rows
 FROM job_items o JOIN jobs j ON j.sequence_id = o.job_id
 WHERE j.id = :job AND o.source_index IS NOT NULL
+  -- A relationship found as it should be is no record unchanged, and on a new one it was just made.
+  AND NOT (o.outcome ->> 'action' = 'unchanged' AND o.outcome ->> 'relationId' IS NOT NULL)
 GROUP BY 1, 2, 3
 """
 )
@@ -562,7 +489,7 @@ WHERE j.id = :job AND o.source_index IS NOT NULL GROUP BY 1
 
 
 def check_of_job(
-    session: Session, job: Job, draft: ModelDraft | None, rounds: int, found_links: list[Any]
+    session: Session, job: Job, draft: ModelDraft | None, rounds: int
 ) -> dict[str, Any]:
     """A dry run's check per sheet from its outcomes."""
     definition = (job.parameters.get("profile") or {}).get("definition")
@@ -586,7 +513,6 @@ def check_of_job(
                 "source": index,
                 "sheet": source.get("sheet"),
                 "objectTypeKey": source.get("objectTypeKey"),
-                "structure": str(source.get("sheet") or "").startswith(draft_plan.STRUCTURE),
                 "rows": 0,
                 "created": 0,
                 "updated": 0,
@@ -639,13 +565,13 @@ def check_of_job(
         "ranAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "sheets": [figures[k] for k in sorted(figures)],
         "refused": refused,
-        "links": found_links,
         "summary": {
             "created": sum(f["created"] for f in figures.values()),
             "updated": sum(f["updated"] for f in figures.values()),
             "unchanged": sum(f["unchanged"] for f in figures.values()),
-            "refused": sum(r["rows"] for r in refused),
-            "relationships": sum(int(item.get("pairs") or 0) for item in found_links),
+            # A row skipped for an empty key was not refused: it wrote nothing, as the source says.
+            "refused": sum(r["rows"] for r in refused if r.get("code") != "ROWS_SKIPPED"),
+            "skipped": sum(f["skipped"] for f in figures.values()),
         },
         "rounds": rounds,
     }
@@ -656,10 +582,8 @@ def checked(session: Session, task: AiTask, job: Job, *, ai: Any, retention_days
     task is ``checked``. The caller commits."""
     if task.job_id != job.id:
         return
-    current = dict(task.design or {})
-    found_links = (current.get("outcome") or {}).get("links") or []
     draft = session.get(ModelDraft, task.draft_id)
-    task.check = check_of_job(session, job, draft, 0, found_links)
+    task.check = check_of_job(session, job, draft, 0)
     task.state = "checked"
     touch(task, ai.task_retention_days if ai else 90)
 
@@ -743,26 +667,13 @@ def person_profile(task: AiTask) -> dict[str, Any] | None:
     profile = current.get("profile")
     if profile is None:
         return None
-    # The next file holds the person's sheets, not the sheets this design derived or wrote.
-    written = {d["name"] for d in current.get("derived") or []} | {
-        s["name"] for s in current.get("sheets") or []
-    }
-    own = [s for s in profile.get("sources") or [] if s.get("sheet") not in written]
+    own = list(profile.get("sources") or [])
     kept = [k for k in kept_sources(task) if not any(_same_place(k, s) for s in own)]
     maps = {
         **((current.get("rulesProfile") or {}).get("valueMaps") or {}),
         **(profile.get("valueMaps") or {}),
     }
     return {**profile, "sources": kept + own, "valueMaps": maps}
-
-
-def working_file(session: Session, task: AiTask, files: Any) -> tuple[SourceFile, Path]:
-    draft = session.get(ModelDraft, task.draft_id)
-    assert draft is not None
-    work = working_source(session, draft.id)
-    if work is None:
-        raise api_error(409, "AI_TASK_STATE", "The design has not been checked yet")
-    return work, files.upload(work.public_id)
 
 
 def queue_load(
@@ -786,7 +697,7 @@ def queue_load(
     require_state(task, "checked")
     draft = session.get(ModelDraft, task.draft_id)
     design_now = task.design or {}
-    if draft is None or not (design_now.get("profile") or design_now.get("links")):
+    if draft is None or not design_now.get("profile"):
         raise api_error(409, "AI_TASK_NOTHING_TO_LOAD", "The design loads nothing yet")
     release_id = None
     if changes_model(session, draft):
@@ -810,23 +721,6 @@ def queue_load(
         source="currentLive",
         expected_model_runtime_release_id=assignment_release.id,
     )
-    if profile is None:
-        # Relationships between stored records only: one batch into the change set.
-        task.state = "loading"
-        task.result = {
-            "changeSetId": change_set.id,
-            "changeSetName": change_set.name,
-            "importJobId": None,
-            "profileKey": None,
-            **({"releaseId": release_id} if release_id else {}),
-        }
-        touch(task, task_retention_days)
-        job = queue_links(session, task, change_set, retention_days)
-        if job is None:
-            raise api_error(409, "AI_TASK_NOTHING_TO_LOAD", "The design's rules relate nothing")
-        task.job_id = job.id
-        session.commit()
-        return task
     work = working_source(session, draft.id)
     if work is None:
         raise api_error(409, "AI_TASK_STATE", "The design has not been checked yet")
@@ -865,7 +759,6 @@ def queue_load(
     task.result = {
         **(task.result or {}),
         "importJobId": job.id,
-        **({"linksPending": True} if (task.design or {}).get("links") else {}),
     }
     session.commit()
     own = person_profile(task)
@@ -906,48 +799,6 @@ def queue_load(
                 }
         session.commit()
     return task
-
-
-def queue_links(session: Session, task: AiTask, change_set: Any, retention_days: int) -> Job | None:
-    """The design's relationships as a batch into the task's change set (``links.py``); the caller
-    commits."""
-    snapshot = load_assignment(session, task.workspace_key)[1]
-    model = compile_model(snapshot.model_json).model
-    assert model is not None
-    return links.queue(
-        session,
-        model,
-        workspace=task.workspace_key,
-        change_set=change_set,
-        model_release_id=snapshot.id,
-        rules=links.rules_of(task.design or {}),
-        retention_days=retention_days,
-    )
-
-
-def import_finished(session: Session, job_id: str, retention_days: int) -> None:
-    """The worker finished an import: when it was a design's with relationships, their batch
-    follows into the same change set and the task waits for it. The caller commits."""
-    task = session.scalar(
-        select(AiTask).where(AiTask.job_id == job_id, AiTask.state == "loading").with_for_update()
-    )
-    if task is not None and (task.result or {}).get("linksPending"):
-        after_import(session, task, retention_days)
-
-
-def after_import(session: Session, task: AiTask, retention_days: int) -> bool:
-    """Queue the relationships of a design whose import finished into the same change set; the
-    task waits for them. ``False`` when there is none to run. The caller commits."""
-    result = dict(task.result or {})
-    if not result.pop("linksPending", False):
-        return False
-    change_set = load_change_set(session, result["changeSetId"])
-    job = queue_links(session, task, change_set, retention_days)
-    task.result = {**result, **({"linksJobId": job.id} if job is not None else {})}
-    if job is None:
-        return False
-    task.job_id = job.id
-    return True
 
 
 def queue_answers(
@@ -1060,6 +911,8 @@ def discard(session: Session, task_id: str, files: Any, retention_days: int) -> 
     if draft is not None:
         session.delete(draft)
     agent.remove_folder(files, task)
+    agent.retire_unused_releases(session, task)
+    retire_session_client(session, task.client_id)
     finish(task, "cancelled", retention_days)
     session.commit()
     return task

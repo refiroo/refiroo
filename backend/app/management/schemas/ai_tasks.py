@@ -166,19 +166,6 @@ class TaskReading(BaseModel):
     summary: ReadingSummary | None = None
 
 
-class PlanStep(BaseModel):
-    kind: Literal["profileSource", "valueMap", "destination"]
-    owner: Owner
-    reason: str
-    origin: TaskOrigin | None = None
-    params: dict[str, Any]
-
-
-class TaskPlan(BaseModel):
-    profile: dict[str, Any]
-    steps: list[PlanStep]
-
-
 class RefusedGroup(BaseModel):
     code: str | None
     rows: int
@@ -258,8 +245,6 @@ class TaskDesign(BaseModel):
     operations: list[dict[str, Any]] = []
     records: list[DesignRecord] = []
     profile: dict[str, Any] | None = None
-    # Relationships between the records two queries find (``{relationTypeKey, from, to, reason}``).
-    links: list[dict[str, Any]] = []
     questions: list[DesignQuestion] = []
     answers: dict[str, str] = {}
     rounds: int = 0
@@ -306,10 +291,10 @@ class DesignCheck(BaseModel):
     ranAt: str
     sheets: list[DesignSheet]
     refused: list[dict[str, Any]]
-    # Each relationship rule with how many records each side finds and the pairs it makes.
-    links: list[dict[str, Any]] = []
     summary: dict[str, int]
     rounds: int
+    # The draft changed after this dry run, so it does not cover the model as it stands.
+    draftChanged: bool = False
 
 
 class TaskNote(BaseModel):
@@ -322,16 +307,16 @@ class TaskResult(BaseModel):
     changeSetId: str
     # The release a design's draft was installed as and activated in the workspace (0.16 AP6).
     releaseId: str | None = None
-    # The batch writing a design's relationships into the change set after its import.
-    linksJobId: str | None = None
     changeSetName: str | None = None
     importJobId: str | None = None
     profileKey: str | None = None
+    # Why a session's load left no saved profile (AP-D41), in words a person reads.
+    profileNotSaved: str | None = None
     counts: dict[str, int] | None = None
 
 
 class AiTaskResponse(BaseModel):
-    """An assistant task: the workbook, the reading per table, the plan, the latest check and the
+    """An assistant task: the workbook, the reading per table, the latest check and the
     result of the load."""
 
     id: str
@@ -347,7 +332,6 @@ class AiTaskResponse(BaseModel):
     updatedAt: datetime
     requestedBy: PrincipalResponse | None
     reading: TaskReading | None
-    plan: TaskPlan | None
     check: TaskCheck | DesignCheck | None
     design: TaskDesign | None = None
     # The task's draft of the workspace's model (0.16 AP6), opened in the model editor.

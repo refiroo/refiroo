@@ -63,55 +63,41 @@ export function DesignCheckView({
   const design = task.design;
   const model = !!design && changesModel(design);
   const { summary } = check;
-  const hasLinks = (design?.links?.length ?? 0) > 0 || (check.links?.length ?? 0) > 0;
   const hasProfile = (design?.profile?.sources.length ?? 0) > 0;
-  const relationships =
-    summary.relationships ??
-    (check.links ?? []).reduce((total, link) => total + (link.refused ? 0 : (link.pairs ?? 0)), 0);
-  const linksOnly = check.sheets.length === 0 && !check.dryRunJobId;
-  const rows = summary.created + summary.updated + summary.unchanged + summary.refused;
+  const relationships = summary.relationships ?? 0;
+  const rows = summary.created + summary.updated + summary.unchanged + summary.refused + (summary.skipped ?? 0);
   const allowed = canLoad && (!model || canRelease);
   const changing = check.sheets.filter((sheet) => sheet.updated > 0 && sheet.source != null && !sheet.structure);
   return (
     <div className="task-check">
-      <Section title="What the load would do" description={linksOnly ? undefined : "Every row checked"}>
+      <Section title="What the load would do" description="Every row checked">
         <Card as="section" className="task-summary" aria-label="What the check found">
           <p>
             <strong>
-              {linksOnly ? (
-                <>
-                  No rows to check: the instruction makes {plural(relationships, "relationship")} between stored
-                  records.
-                </>
-              ) : (
-                <>
-                  {plural(rows, "row")} checked: {count(summary.created)} created, {count(summary.updated)} changed,{" "}
-                  {count(summary.unchanged)} unchanged, {count(summary.refused)} refused
-                  {hasLinks ? `, ${plural(relationships, "relationship")}` : ""}.
-                </>
-              )}
+              {plural(rows, "row")} checked: {count(summary.created)} created, {count(summary.updated)} changed,{" "}
+              {count(summary.unchanged)} unchanged, {count(summary.refused)} refused
+              {summary.skipped ? `, ${count(summary.skipped)} skipped` : ""}
+              {relationships > 0 ? `, ${plural(relationships, "relationship")}` : ""}.
             </strong>
           </p>
         </Card>
-        {!linksOnly && (
-          <SettingsTable
-            label="Check per sheet"
-            columns={["Sheet", "Rows", "Created", "Changed", "Unchanged", "Refused"]}
-          >
-            {checkRows(check).map((row) => (
-              <tr key={row.label}>
-                <th scope="row" data-label="Sheet">
-                  {row.label}
-                </th>
-                <td data-label="Rows">{count(row.rows)}</td>
-                <td data-label="Created">{count(row.created)}</td>
-                <td data-label="Changed">{count(row.updated)}</td>
-                <td data-label="Unchanged">{count(row.unchanged)}</td>
-                <td data-label="Refused">{count(row.refused)}</td>
-              </tr>
-            ))}
-          </SettingsTable>
-        )}
+        <SettingsTable
+          label="Check per sheet"
+          columns={["Sheet", "Rows", "Created", "Changed", "Unchanged", "Refused"]}
+        >
+          {checkRows(check).map((row) => (
+            <tr key={row.label}>
+              <th scope="row" data-label="Sheet">
+                {row.label}
+              </th>
+              <td data-label="Rows">{count(row.rows)}</td>
+              <td data-label="Created">{count(row.created)}</td>
+              <td data-label="Changed">{count(row.updated)}</td>
+              <td data-label="Unchanged">{count(row.unchanged)}</td>
+              <td data-label="Refused">{count(row.refused)}</td>
+            </tr>
+          ))}
+        </SettingsTable>
       </Section>
       {changing.length > 0 && (
         <Section title="The changes" headingLevel={2}>
@@ -160,7 +146,6 @@ export function DesignCheckView({
         <ol className="task-order">
           {model && <li>Installs the model change and activates it in {workspaceLabel}.</li>}
           <li>Loads into a change set; live data is unchanged until it is published.</li>
-          {hasLinks && <li>Writes the relationships into the same change set.</li>}
           {hasProfile && <li>Saves the import, so the next file of this layout loads without the assistant.</li>}
         </ol>
       </Section>

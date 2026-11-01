@@ -8,7 +8,7 @@ from ...models.commands import RelationCreate
 from .common import (
     ActorResponse,
     CollectionPage,
-    ProposalOrigin,
+    ChangeOrigin,
     omitted_when_none,
     optional_origin,
     without_default,
@@ -42,6 +42,8 @@ class ObjectResponse(BaseModel):
     createdAt: datetime | None
     updatedAt: datetime | None
     changeSetVersion: int | None = None
+    # In a change set: who proposed it when the AI did (0.16 AP9); the mark stays after a person's edit.
+    origin: ChangeOrigin | SkipJsonSchema[None] = optional_origin()
 
 
 class LookupObject(ObjectResponse):
@@ -204,9 +206,13 @@ class AuditEventResponse(BaseModel):
     related: HistoryRelated | SkipJsonSchema[None] = Field(
         default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
     )
+    # ``mcp`` for an assistant's change (0.16 AG-D30), omitted otherwise.
+    channel: str | SkipJsonSchema[None] = Field(
+        default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
+    )
     # Who proposed the change when the AI did, a publication's entry for a proposed mapping
     # (0.16 AP2); the actor stays the person who published.
-    origin: ProposalOrigin | SkipJsonSchema[None] = optional_origin()
+    origin: ChangeOrigin | SkipJsonSchema[None] = optional_origin()
 
 
 class AuditEventPage(CollectionPage[AuditEventResponse]):

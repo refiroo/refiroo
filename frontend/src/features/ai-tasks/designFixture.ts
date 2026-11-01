@@ -74,7 +74,6 @@ export const designTask = (): AiTask => ({
   updatedAt: "2026-10-29T10:00:00Z",
   requestedBy: null,
   reading: null,
-  plan: null,
   check: designCheck,
   draftId: "draft-1",
   notes: [],
@@ -103,17 +102,6 @@ export const designTask = (): AiTask => ({
       },
       { kind: "setRelease", name: "scheduling" },
     ],
-    records: [
-      { ref: "r1", objectTypeKey: "domain", applicationKey: null, name: "Scheduling", attributes: {}, parent: null },
-      {
-        ref: "r2",
-        objectTypeKey: "codelist",
-        applicationKey: null,
-        name: "Timetable categories",
-        attributes: {},
-        parent: null,
-      },
-    ],
     profile: {
       sources: [
         {
@@ -136,14 +124,6 @@ export const designTask = (): AiTask => ({
         },
       ],
     },
-    links: [
-      {
-        relationTypeKey: "has-category",
-        from: { objectTypeKey: "timetable", where: [{ field: "name", op: "contains", value: "Visit" }] },
-        to: { objectTypeKey: "codelist" },
-        reason: "Every visit is categorised.",
-      },
-    ],
     questions: [
       { text: "Is a visit one timetable?", options: ["Yes", "No"], assumed: "Yes" },
       { text: "Keep walk-ins?", options: ["Keep", "Drop"], assumed: null },
@@ -151,6 +131,6 @@ export const designTask = (): AiTask => ({
     answers: { "Keep walk-ins?": "Drop" },
     rounds: 1,
     origin: null,
-    outcome: { links: [{ rule: {}, from: 3, to: 1, pairs: 3 }] } as never,
+    outcome: null,
   },
 });

@@ -13,6 +13,7 @@ stream says what it is doing now; what it has reached is read from what the engi
 """
 
 import json
+import logging
 import os
 import re
 import shlex
@@ -23,7 +24,8 @@ import subprocess
 import sys
 import time
 import urllib.request
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -33,27 +35,38 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
-from ...models.commands import ClientCreate, GrantCreate, GrantPrincipal, GrantScope, RoleCreate
+from ...errors import ApiError
+from ...models.commands import GrantCreate, GrantPrincipal, GrantScope, RoleCreate
 from ...models.database import (
+    AiCall,
     AiTask,
     AuditEvent,
     AuthorizationState,
     ChangeSet,
+    ImportProfile,
     Job,
     ModelDraft,
     ModelRelease,
     OAuthClient,
     Role,
+    SourceFile,
+    WorkspaceModel,
 )
 from ..authorization.administration import create_grant, create_role, delete_grant
 from ..authorization.permissions import permissions_of
 from ..identity import tokens
-from ..identity.clients import create_client
+from ..identity.clients import create_session_client, retire_session_client
 from ..identity.settings import IdentitySettings
+from ..imports.profiles import model_key_of, save_for_release
+from ..jobs.batches import JobCancelled
+from ..model.release_lifecycle import set_release_status
 from ..model.workspace_models import load_assignment
-from .store import finish, held_counts, load_task, note
+from .store import finish, held_by_another, held_counts, load_task, note
+
+log = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 1800
+PROMPT_VERSION = "agent/3"
 LAST_LINE = "CHANGE_SET:"
 DEFAULT_WORDS = "Create a model for this or map it to the current model, and import it."
 PROPOSAL = "proposal.json"
@@ -91,9 +104,25 @@ def _starting_point(held: dict[str, int]) -> str:
     )
 
 
+_KEYS = (
+    "Give each source of a load a key that finds its records in the next file, of several columns "
+    "(attributeTypeKeys) if no one column does; if the file has none, raise that as a question. "
+    "An empty cell is no value: never call its row skipped or left out."
+)
+
+
 _SHAPE = (
     "What the file repeats across columns or rows becomes types of its own, related to each other, "
     "unless the words ask otherwise; if you keep such a repetition flat, raise that as a question."
+)
+
+
+_WORDS = (
+    "Build everything the words ask for, as they place it, also what the file has no data for (an "
+    "empty type): the words go before the file's shape, and a question does not replace building. "
+    "What the words name as a group holds its members as records under it; a field's candidate "
+    "filter can name that group by a fixed value of an ancestor (ancestor:<type>.<field>). Say a "
+    "thing cannot be built only after trying it on the draft."
 )
 
 
@@ -109,7 +138,7 @@ def _propose_prompt(
     return (
         f"{(words or '').strip() or DEFAULT_WORDS}\n\n"
         f"{_connection(workspace, url, workbook=workbook)} {_starting_point(held)} "
-        f"{_SHAPE + ' ' if workbook else ''}{check}; install, activate, load and "
+        f"{_WORDS} {_SHAPE + ' ' + _KEYS + ' ' if workbook else ''}{check}; install, activate, load and "
         f"publish nothing yet: the person reviews first. Then write {PROPOSAL}: "
         '{"draftId": ..., "summary": two sentences a person reads, "questions": [{"text", "options", '
         '"assumed"}] for what only a person can decide}.'
@@ -146,7 +175,6 @@ def _identity() -> IdentitySettings:
     )
 
 
-DATA_ROLE = "AI assistant: data"
 MODEL_ROLE = "AI assistant: model"
 CLIENT = "AI assistant"
 DATA_GROUPS = ["browse", "change-sets", "bulk"]
@@ -160,10 +188,12 @@ def _role(session: Session, name: str, groups: list[str]) -> str:
     return found.key
 
 
-def _access(session: Session, job: Job, workspace: str) -> tuple[str, list[str]]:
-    """A token that can only do the session's work: read and load in this workspace, author and
-    install a model, and no more of it than who asked may do. Publishing and activating are refused
-    by the engine, whatever the session tries. The grants end with the turn."""
+def _access(session: Session, job: Job, task: AiTask) -> tuple[str, int, list[str]]:
+    """A token that can only do the session's work, as the task's own client (AP-D30): of reading
+    and loading in this workspace and authoring and installing a model, what who asked may do, with
+    the record types they are narrowed to (AP-D31). Publishing and activating are refused by the
+    engine, whatever the session tries and whoever asked. The grants end with the turn."""
+    workspace = task.workspace_key
     kind, row = (
         ("client", job.requested_by_client_id)
         if job.requested_by_client_id is not None
@@ -173,21 +203,28 @@ def _access(session: Session, job: Job, workspace: str) -> tuple[str, list[str]]
         raise ValueError("The task names no one who asked for it")
     generation = session.scalar(select(AuthorizationState.generation)) or 0
     asked = permissions_of(session, kind, row, generation)
-    data = _role(session, DATA_ROLE, DATA_GROUPS)
-    model = _role(session, MODEL_ROLE, MODEL_GROUPS)
-    client = session.scalar(select(OAuthClient).where(OAuthClient.name == CLIENT))
-    if client is None:
-        client, _ = create_client(session, ClientCreate(name=CLIENT))
+    if task.client_id is None:
+        task.client_id = create_session_client(session, CLIENT).id
+    client = session.get(OAuthClient, task.client_id)
     principal = GrantPrincipal(kind="client", id=client.public_id)
-    grants = [
-        create_grant(
-            session,
-            GrantCreate(principal=principal, role=data, scope=GrantScope(workspaceKey=workspace)),
-        ).grant.public_id
-    ]
+    grants = []
+    for group in DATA_GROUPS:
+        narrowing = asked.narrowing(group, workspace)
+        if narrowing is None:
+            continue
+        scope = GrantScope(
+            workspaceKey=workspace,
+            applications=sorted(narrowing.applications),
+            recordTypes=sorted(narrowing.record_types),
+        )
+        role = _role(session, f"{CLIENT}: {group}", [group])
+        grants.append(
+            create_grant(session, GrantCreate(principal=principal, role=role, scope=scope)).grant.public_id
+        )
     if asked.allows("model-authoring", None) and (
         asked.allows("model-release", workspace) or asked.allows("model-install", None)
     ):
+        model = _role(session, MODEL_ROLE, MODEL_GROUPS)
         grants.append(
             create_grant(
                 session, GrantCreate(principal=principal, role=model, scope=GrantScope(instance=True))
@@ -196,7 +233,7 @@ def _access(session: Session, job: Job, workspace: str) -> tuple[str, list[str]]
     token = tokens.issue(
         session, _identity(), subject=client.public_id, kind="client", audience="management"
     )
-    return token, grants
+    return token, client.id, grants
 
 
 TOOLS = "Bash,Read,Write,Edit,Glob,Grep"
@@ -273,10 +310,9 @@ def _end(session: Session, grants: list[str]) -> None:
         delete_grant(session, grant)
 
 
-def _await_its_jobs(session: Session, ctx: Any, started: float) -> None:
+def _await_its_jobs(session: Session, ctx: Any, started: float, client: int) -> None:
     """The session has stopped: the jobs it queued run as its client, so its grants stay until they
     are done, or until the session's time is over."""
-    client = select(OAuthClient.id).where(OAuthClient.name == CLIENT).scalar_subquery()
     waiting = select(Job.id).where(
         Job.requested_by_client_id == client,
         Job.kind != "aiTask",
@@ -307,8 +343,43 @@ def folder_of(ctx_files: Any, task: AiTask) -> Path:
     return Path(ctx_files.directory) / "agent" / task.public_id
 
 
+def _transcripts() -> Path:
+    """Where Claude Code keeps a session's transcript: outside the folder and any retention."""
+    home = os.environ.get("CLAUDE_CONFIG_DIR", "").strip()
+    return (Path(home) if home else Path.home() / ".claude") / "projects"
+
+
+def _transcript_name(folder: Path) -> str:
+    """Claude Code names the directory after the folder's path, each other character a hyphen."""
+    return re.sub(r"[^A-Za-z0-9]", "-", os.path.realpath(folder))
+
+
 def remove_folder(files: Any, task: AiTask) -> None:
-    shutil.rmtree(folder_of(files, task), ignore_errors=True)
+    """The session's folder and its transcript (AP-D37). A session that ran and left no transcript
+    where one is expected is said in the log: the name is Claude Code's, and may change."""
+    folder = folder_of(files, task)
+    transcript = _transcripts() / _transcript_name(folder)
+    if (task.design or {}).get("agentSession") and _transcripts().is_dir() and not transcript.is_dir():
+        log.warning("No transcript at %s for task %s", transcript, task.public_id)
+    shutil.rmtree(folder, ignore_errors=True)
+    shutil.rmtree(transcript, ignore_errors=True)
+
+
+def sweep(session: Session, files: Any) -> None:
+    """What no task holds any more: the folder of a task that expired, and a transcript of this
+    instance's folders whose folder is gone (AP-D37). Removed after the expiry's commit."""
+    root = Path(files.directory) / "agent"
+    if root.is_dir():
+        names = [path.name for path in root.iterdir() if path.is_dir()]
+        known = set(session.scalars(select(AiTask.public_id).where(AiTask.public_id.in_(names))))
+        for name in names:
+            if name not in known:
+                shutil.rmtree(root / name, ignore_errors=True)
+    prefix = _transcript_name(root) + "-"
+    if _transcripts().is_dir():
+        for path in _transcripts().iterdir():
+            if path.name.startswith(prefix) and not (root / path.name[len(prefix) :]).exists():
+                shutil.rmtree(path, ignore_errors=True)
 
 
 def _plain(command: str) -> str:
@@ -370,9 +441,8 @@ def _steps(
 
 
 def _reached(
-    session: Session, load: bool, drafted: bool, workspace: str, since: datetime
+    session: Session, client: int, load: bool, drafted: bool, workspace: str, since: datetime
 ) -> tuple[list[dict[str, Any]], int | None]:
-    client = select(OAuthClient.id).where(OAuthClient.name == CLIENT).scalar_subquery()
     audited = session.execute(
         select(AuditEvent.aggregate_type, AuditEvent.action, func.max(AuditEvent.occurred_at))
         .where(
@@ -403,6 +473,9 @@ class _Progress:
         self.position = 0
         self.now = "Starting"
         self.result: dict[str, Any] = {}
+        self.model: str | None = None
+        # Each message's usage by its ID, as the stream repeats a message while it grows (AP-D36).
+        self.usage: dict[str, tuple[int, int]] = {}
 
     def read(self) -> bool:
         if not self.log.exists():
@@ -415,19 +488,51 @@ class _Progress:
                 if not line or not line.endswith("\n"):
                     break
                 self.position = handle.tell()
-                moved = self._line(line) or moved
+                try:
+                    moved = self._line(line) or moved
+                except (AttributeError, TypeError, KeyError):
+                    # The stream is another program's: a line of a shape not known only shows less.
+                    log.warning("A session's log line could not be read", exc_info=True)
         return moved
+
+    def tokens(self) -> tuple[int | None, int | None]:
+        if not self.usage:
+            return None, None
+        # The stream's lines hold a message's output before it is written (939 of 27,542 on a real
+        # run): the result line's figure stands, and a run stopped before it has only the stream's.
+        written = (self.result.get("usage") or {}).get("output_tokens")
+        return (
+            sum(found[0] for found in self.usage.values()),
+            written if written is not None else sum(found[1] for found in self.usage.values()),
+        )
 
     def _line(self, line: str) -> bool:
         try:
             event = json.loads(line)
         except ValueError:
             return False
+        if not isinstance(event, dict):
+            return False
         if event.get("type") == "result":
             self.result = event
             return False
+        if event.get("type") == "system" and event.get("model"):
+            self.model = str(event["model"])
+        # A system event's message is plain text (a permission refused, say): only an object is a turn.
+        message = event.get("message")
+        if not isinstance(message, dict):
+            return False
+        if message.get("id") and message.get("usage"):
+            usage = message["usage"]
+            self.usage[message["id"]] = (
+                (usage.get("input_tokens") or 0)
+                + (usage.get("cache_creation_input_tokens") or 0)
+                + (usage.get("cache_read_input_tokens") or 0),
+                usage.get("output_tokens") or 0,
+            )
         moved = False
-        for block in (event.get("message") or {}).get("content") or []:
+        content = message.get("content")
+        for block in content if isinstance(content, list) else []:
             if not isinstance(block, dict):
                 continue
             if block.get("type") == "text" and block.get("text", "").strip():
@@ -459,16 +564,99 @@ def _stop_earlier(earlier: dict[str, Any] | None) -> None:
         pass
 
 
+def _provider() -> str:
+    command = _base_command()
+    return "claude-code" if Path(command[0]).name == "claude" else Path(command[0]).name
+
+
+def _record_turn(
+    session: Session,
+    task_id: str,
+    job_id: str | None,
+    progress: _Progress,
+    started_at: datetime,
+    prompt: str,
+    failure: tuple[str, str] | None,
+) -> None:
+    """One row per turn however it ended (AP-D36). The session reports its cost as a running total
+    over its turns, so a turn's is the difference from the task's last figure; a run with no result
+    line has none. With ``AI_LOG_CONTENT`` on, the prompt and the final answer, never the stream."""
+    settings = get_settings()
+    task = load_task(session, task_id, for_update=True)
+    design = dict(task.design or {})
+    total = progress.result.get("total_cost_usd")
+    cost = None
+    if total is not None:
+        before = design.get("agentCost") or 0
+        cost = total - before if total >= before else total
+        design["agentCost"] = total
+    model = progress.model or design.get("agentModel")
+    if model:
+        design["agentModel"] = model
+    design.pop("agentProcess", None)
+    task.design = design
+    answer = str(progress.result.get("result") or "")
+    tokens_in, tokens_out = progress.tokens()
+    row = AiCall(
+        public_id=str(uuid4()),
+        purpose="assistantSession",
+        provider=design.get("agentProvider") or _provider(),
+        model=model or "unknown",
+        send_level=settings.ai_send_level,
+        prompt_version=PROMPT_VERSION,
+        requested_by_user_id=task.requested_by_user_id,
+        requested_by_client_id=task.requested_by_client_id,
+        job_id=job_id,
+        task_id=task.public_id,
+        started_at=started_at,
+        duration_ms=round((datetime.now(UTC) - started_at).total_seconds() * 1000),
+        bytes_in=len(prompt.encode()),
+        bytes_out=len(answer.encode()),
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+        cost_usd=Decimal(str(round(cost, 4))) if cost is not None else None,
+        outcome="failed" if failure else "answered",
+        failure_kind=failure[0] if failure else None,
+        failure=failure[1] if failure else None,
+    )
+    if settings.ai_log_content:
+        row.content = {"instructions": prompt, "context": None, "answer": answer}
+        row.content_expires_at = started_at + timedelta(days=settings.ai_log_content_days)
+    session.add(row)
+    session.commit()
+
+
+def _record_interrupted(
+    session: Session, task_id: str, folder: Path, earlier: dict[str, Any] | None
+) -> None:
+    """A worker that died recorded nothing of its turn: the next turn does, from its log."""
+    if not earlier or not earlier.get("log") or not earlier.get("startedAt"):
+        return
+    progress = _Progress(folder / str(earlier["log"]))
+    progress.read()
+    _record_turn(
+        session,
+        task_id,
+        earlier.get("job"),
+        progress,
+        datetime.fromisoformat(earlier["startedAt"]),
+        "",
+        ("interrupted", "The worker stopped while the session ran."),
+    )
+
+
 def _run_turn(
     session: Session, job: Job, ctx: Any, task_id: str, folder: Path, prompt: str, session_id: str, *, first: bool, load: bool = False
 ) -> _Progress | None:
     """One turn of the session, the task's progress written as it goes; ``None`` when it could not
     start, with the reason on the task."""
     task_key = task_id
-    _stop_earlier((load_task(session, task_key).design or {}).get("agentProcess"))
+    earlier = (load_task(session, task_key).design or {}).get("agentProcess")
+    _stop_earlier(earlier)
+    _record_interrupted(session, task_key, folder, earlier)
     if first:
         (folder / PROPOSAL).unlink(missing_ok=True)
-    token, opened = _access(session, job, load_task(session, task_key).workspace_key)
+    token, client, opened = _access(session, job, load_task(session, task_key, for_update=True))
     session.commit()
     command = [
         *_base_command(),
@@ -498,16 +686,26 @@ def _run_turn(
             )
         except OSError as error:
             _end(session, opened)
+            _record_turn(
+                session, task_key, job.id, progress, since, prompt, ("failed", f"Could not start: {error}")
+            )
             task = load_task(session, task_key, for_update=True)
             note(task, "warning", f"AI_AGENT_COMMAND could not start: {error}")
-            finish(task, "failed", ctx.ai.task_retention_days if ctx.ai else 90)
+            finish(task, "failed", _retention(ctx))
             session.commit()
             return None
+        failure: tuple[str, str] | None = None
         try:
             task = load_task(session, task_key, for_update=True)
             task.design = {
                 **(task.design or {}),
-                "agentProcess": {"pid": process.pid, "session": session_id},
+                "agentProcess": {
+                    "pid": process.pid,
+                    "session": session_id,
+                    "log": log.name,
+                    "startedAt": since.isoformat(),
+                    "job": job.id,
+                },
             }
             session.commit()
             shown = -10.0
@@ -520,7 +718,7 @@ def _run_turn(
                     shown = time.monotonic()
                     task = load_task(session, task_key, for_update=True)
                     milestones, refused = _reached(
-                        session, load, task.draft_id is not None, task.workspace_key, since
+                        session, client, load, task.draft_id is not None, task.workspace_key, since
                     )
                     task.design = {
                         **(task.design or {}),
@@ -533,14 +731,25 @@ def _run_turn(
                     }
                     session.commit()
                 time.sleep(2)
-            _await_its_jobs(session, ctx, started)
-        except BaseException:
+            _await_its_jobs(session, ctx, started, client)
+        except BaseException as error:
             _stop_earlier({"pid": process.pid, "session": session_id})
+            failure = (
+                ("timeout", "The session took too long.")
+                if isinstance(error, TimeoutError)
+                else ("cancelled", "Cancelled by a person.")
+                if isinstance(error, JobCancelled)
+                else ("failed", f"The session's turn failed ({type(error).__name__}).")
+            )
             raise
         finally:
+            session.rollback()
             _end(session, opened)
             session.commit()
-    progress.read()
+            progress.read()
+            if failure is None and (not progress.result or progress.result.get("is_error")):
+                failure = ("failed", "The session ended without an answer.")
+            _record_turn(session, task_key, job.id, progress, since, prompt, failure)
     return progress
 
 
@@ -552,8 +761,8 @@ def _said(progress: _Progress) -> str:
     return f"{words[:6000]} ({seconds} s" + (f", ${cost:.2f})" if cost else ")")
 
 
-def _retention(ctx: Any) -> int:
-    return ctx.ai.task_retention_days if ctx.ai else 90
+def _retention(_ctx: Any) -> int:
+    return get_settings().ai_task_retention_days
 
 
 def _plural(number: int, word: str) -> str:
@@ -606,6 +815,38 @@ def _left_out(
     ]
 
 
+def _beside_held(
+    session: Session, job_id: str | None, model: dict[str, Any], held: dict[str, int]
+) -> list[dict[str, Any]]:
+    """New records of a type the workspace already holds: rows that did not find their records read
+    as an update gone wrong, and the person is told before accepting (AP-D42)."""
+    if job_id is None:
+        return []
+    created = session.execute(
+        text(
+            "SELECT i.outcome ->> 'objectTypeKey', count(*) FROM job_items i"
+            " JOIN jobs j ON j.sequence_id = i.job_id"
+            " WHERE j.id = :job AND i.outcome ->> 'action' = 'created'"
+            " AND i.outcome ->> 'objectTypeKey' IS NOT NULL GROUP BY 1"
+        ),
+        {"job": job_id},
+    ).all()
+    names = {found.get("key"): found.get("name") for found in model.get("objectTypes") or []}
+    return [
+        {
+            "id": f"beside-held-{key}",
+            "kind": "besideHeld",
+            "text": (
+                f"{count:,} new {names.get(key) or key} beside the {held[key]:,} held. "
+                "If this is an update, the rows did not find their records."
+            ),
+            "open": True,
+        }
+        for key, count in sorted(created)
+        if held.get(key)
+    ]
+
+
 def _records_per_type(session: Session, job_id: str | None) -> dict[str | None, int]:
     """What a dry run would write per type; under ``None``, the relationships, which have no type."""
     if job_id is None:
@@ -637,6 +878,12 @@ def _proposal_landed(
         if isinstance(proposal, dict)
         else None
     )
+    if draft is not None and held_by_another(session, draft.id, task.id):
+        # Reading it is not refused, and a proposal must not name it either (AP-D44).
+        note(task, "warning", "The session proposed a draft another task holds; try again")
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return
     if draft is None:
         note(task, "warning", _said(progress) or "The session ended without a proposal")
         finish(task, "failed", _retention(ctx))
@@ -670,8 +917,11 @@ def _proposal_landed(
         "questions": questions,
         # A draft on no release is a new model: a type sharing a key with the old one is not a change.
         "outline": _shape(draft.model_json, base if draft.base_model_release_id else {}, records),
-        "checks": _left_out(draft.model_json, base, held),
-        "origin": {"kind": "ai", "provider": "claude-code", "model": None, "promptVersion": "agent/2"},
+        "checks": [
+            *_left_out(draft.model_json, base, held),
+            *_beside_held(session, (check or {}).get("dryRunJobId"), draft.model_json, held),
+        ],
+        "origin": {"kind": "ai", "provider": "claude-code", "model": None, "promptVersion": PROMPT_VERSION},
         "outcome": {},
     }
     task.check = check
@@ -695,7 +945,14 @@ def start(session: Session, job: Job, ctx: Any, task_id: str, workbook_path: Pat
     (folder / "model.json").write_text(json.dumps(release.model_json))
     (folder / "openapi.json").write_bytes(_openapi(url))
     session_id = str(uuid4())
-    task.design = {**(task.design or {}), "stage": "model", "agentSession": session_id}
+    design = {key: value for key, value in (task.design or {}).items() if key != "agentCost"}
+    task.design = {
+        **design,
+        "stage": "model",
+        "agentSession": session_id,
+        "agentProvider": _provider(),
+        "agentPrompt": PROMPT_VERSION,
+    }
     task.state = "reading"
     session.commit()
     prompt = _propose_prompt(
@@ -761,10 +1018,102 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
             "changeSetId": change_set.id,
             "changeSetName": change_set.name,
             "counts": counts,
+            **_saved_profile(session, task, change_set),
         }
         finish(task, "loaded", _retention(ctx))
         remove_folder(ctx.files, task)
+        retire_unused_releases(session, task)
+        retire_session_client(session, task.client_id)
     session.commit()
+
+
+def _profile_key(session: Session, name: str, release: ModelRelease) -> str:
+    """The file's name as a key; a key another model's profile holds gets the release's model too."""
+    stem = re.sub(r"[^a-z0-9]+", "-", Path(name).stem.lower()).strip("-")[:100] or "workbook"
+    found = session.scalar(select(ImportProfile).where(ImportProfile.key == stem))
+    if found is None or model_key_of(session, found) == release.release_key:
+        return stem
+    return f"{stem}-{release.release_key}"[:160]
+
+
+def _saved_profile(session: Session, task: AiTask, change_set: ChangeSet) -> dict[str, str]:
+    """What the load leaves for the next file: the profile of the imports it ran on the task's
+    workbook, saved by the engine whatever route the session took (AP-D41), or why there is none."""
+    source = session.scalar(select(SourceFile).where(SourceFile.task_id == task.id))
+    if source is None:
+        return {}
+    jobs = list(
+        session.scalars(
+            select(Job)
+            .where(
+                Job.kind == "import",
+                Job.state == "completed",
+                Job.change_set_id == change_set.id,
+                Job.parameters["file"]["sha256"].as_string() == source.sha256,
+            )
+            .order_by(Job.sequence_id)
+        )
+    )
+    if not jobs:
+        return {"profileNotSaved": "This load did not import the workbook, so it cannot be repeated."}
+    definitions = [(job.parameters.get("profile") or {}).get("definition") for job in jobs]
+    if not all(definitions):
+        return {"profileNotSaved": "This load read the workbook through a profile already saved."}
+    sources = [found for definition in definitions for found in definition["sources"]]
+    keyless = sorted(
+        {
+            str(found.get("sheet") or "the file")
+            for found in sources
+            if not found.get("key") and found.get("record") != "existing"
+        }
+    )
+    if keyless:
+        names = ", ".join(f"“{sheet}”" for sheet in keyless)
+        return {
+            "profileNotSaved": f"Not saved as a profile: {names} has no key, so a second load would "
+            "create its rows again."
+        }
+    definition = {
+        **definitions[-1],
+        "sources": sources,
+        "valueMaps": {k: v for found in definitions for k, v in (found.get("valueMaps") or {}).items()},
+    }
+    release = session.get(ModelRelease, change_set.model_release_id)
+    key = _profile_key(session, source.name, release)
+    try:
+        save_for_release(session, key, source.name[:200], definition, release)
+    except ApiError as error:
+        return {"profileNotSaved": f"Not saved as a profile: {error.message}"}
+    # The import read this layout: the next file is compared with this one's headers, however the
+    # session sent the file.
+    for job in jobs:
+        job.parameters = {
+            **job.parameters,
+            "sourceFileId": source.public_id,
+            "profile": {**job.parameters["profile"], "key": key},
+        }
+    return {"profileKey": key}
+
+
+def retire_unused_releases(session: Session, task: AiTask) -> None:
+    """A release the task's client installed that no workspace or change set runs is retired, as
+    "exactly one release" is only a prompt (AP-D45); history may name it, so it stays."""
+    if task.client_id is None:
+        return
+    installed = select(AuditEvent.aggregate_id).where(
+        AuditEvent.aggregate_type == "model_release",
+        AuditEvent.action == "installed",
+        AuditEvent.actor_client_id == task.client_id,
+    )
+    for release in session.scalars(
+        select(ModelRelease).where(
+            ModelRelease.public_id.in_(installed),
+            ModelRelease.status != "retired",
+            ~ModelRelease.id.in_(select(WorkspaceModel.model_release_id)),
+            ~ModelRelease.id.in_(select(ChangeSet.model_release_id)),
+        )
+    ):
+        set_release_status(session, release.public_id, "retired", release.status_version)
 
 
 def _counts(session: Session, change_set_id: str) -> dict[str, int]:

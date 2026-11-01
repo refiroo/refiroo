@@ -463,6 +463,15 @@ def evidence(table: dict[str, Any]) -> str:
         (c["header"] for c in table["columns"] if c["column"] == table["keyColumn"]),
         table["keyColumn"],
     )
+    wanted = table["key"].get("attributeTypeKeys")
+    if wanted:
+        # AP-D43: the key is the values of several columns together.
+        header = "' + '".join(
+            c["header"]
+            for attribute in wanted
+            for c in table["columns"]
+            if c["binding"] == {"attributeTypeKey": attribute}
+        )
     meant = len(table.get("meaning") or [])
     distinct = table["matched"] + table["new"] + meant
     if table["key"].get("field") == "name":
@@ -561,6 +570,56 @@ def counts(
         parameters_of(place, file_id, workspace, type_key, key_column, key, name_column),
     ).one()
     return {"distinct": row[0], "matched": row[1], "missing": row[2], "differ": row[3]}
+
+
+def combination_counts(
+    session: Session,
+    file_id: int,
+    place: dict[str, Any],
+    workspace: str,
+    type_key: str,
+    key_columns: list[int],
+    attributes: list[str],
+) -> dict[str, int]:
+    """:func:`counts` for a key of several attributes (AP-D43): a row of the file has a key when
+    every key column is filled, and the stored records of the type with every attribute filled hold
+    one. A key is the texts of the columns, or of the attributes, in the key's order; names are not
+    compared."""
+    row = session.execute(
+        text(
+            """
+            WITH f AS (
+                SELECT string_agg(k.text, CAST(:sep AS text) ORDER BY u.ord) AS key
+                FROM source_file_cells k
+                JOIN unnest(CAST(:key_columns AS integer[])) WITH ORDINALITY u(col, ord)
+                    ON u.col = k.column_number
+                WHERE k.source_file_id = :file AND k.sheet_index = :sheet
+                  AND k.row_number > :header AND k.row_number <= :last AND k.row_number <> :note
+                  AND btrim(k.text) <> ''
+                GROUP BY k.row_number HAVING count(*) = :n),
+            s AS (
+                SELECT string_agg(a.text_value, CAST(:sep AS text) ORDER BY u.ord) AS key
+                FROM objects o
+                JOIN attribute_values a ON a.object_id = o.id AND a.text_value IS NOT NULL
+                JOIN unnest(CAST(:attributes AS text[])) WITH ORDINALITY u(attr, ord)
+                    ON u.attr = a.attribute_type_key
+                WHERE o.workspace_key = :workspace AND o.object_type_key = :type
+                GROUP BY o.id HAVING count(*) = :n)
+            SELECT
+                (SELECT count(DISTINCT key) FROM f),
+                (SELECT count(DISTINCT f.key) FROM f JOIN s ON s.key = f.key),
+                (SELECT count(*) FROM s WHERE NOT EXISTS (SELECT 1 FROM f WHERE f.key = s.key))
+            """
+        ),
+        {
+            **parameters_of(place, file_id, workspace, type_key, key_columns[0], {}, None),
+            "key_columns": key_columns,
+            "attributes": attributes,
+            "n": len(attributes),
+            "sep": "\x1f",
+        },
+    ).one()
+    return {"distinct": row[0], "matched": row[1], "missing": row[2], "differ": 0}
 
 
 def new_keys(

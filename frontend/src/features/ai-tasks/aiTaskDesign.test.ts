@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EngineModel } from "@/types";
-import { columnTargets, describeCriteria, describeLink, modelNames } from "./aiTaskDesign";
+import { columnTargets, modelNames } from "./aiTaskDesign";
 import { notLoadedEntries } from "./aiTaskText";
 import { designTask } from "./designFixture";
 
@@ -18,60 +18,6 @@ const model = {
   ],
 } as unknown as EngineModel;
 const names = modelNames(model, []);
-
-describe("describeCriteria", () => {
-  it("reads a field criterion in the model's names", () => {
-    expect(describeCriteria([{ field: "domain-code", op: "eq", value: "A1" }], names)).toBe(
-      "whose Domain code is “A1”",
-    );
-    expect(describeCriteria([{ field: "name", op: "contains", value: "North" }], names)).toBe(
-      "whose Name contains “North”",
-    );
-  });
-
-  it("reads an ancestor criterion as the ancestor type's field", () => {
-    expect(describeCriteria([{ field: "ancestor:domain.name", op: "eq", value: "Care" }], names)).toBe(
-      "whose Domain's Name is “Care”",
-    );
-  });
-
-  it("reads a relationship hop, its direction, its own criteria and not", () => {
-    const hop = { related: { relationTypeKey: "assigned", direction: "outgoing" as const } };
-    expect(describeCriteria([hop], names)).toBe("that has the relationship “Assigned”");
-    expect(
-      describeCriteria(
-        [
-          { related: { ...hop.related, direction: "incoming", where: [{ field: "name", op: "eq", value: "Dr X" }] } },
-          { ...hop, not: true },
-          { field: "name", op: "eq", value: "Old", not: true },
-        ],
-        names,
-      ),
-    ).toBe(
-      "that has the relationship “Assigned to” to a record whose Name is “Dr X” and that has no relationship “Assigned” and excluding those whose Name is “Old”",
-    );
-  });
-
-  it("reads no criteria as nothing", () => {
-    expect(describeCriteria(undefined, names)).toBe("");
-  });
-});
-
-describe("describeLink", () => {
-  it("is one sentence with the pairs the engine found", () => {
-    const rule = {
-      relationTypeKey: "has-duration",
-      from: { objectTypeKey: "station", where: [{ related: { relationTypeKey: "assigned" } }] },
-      to: { objectTypeKey: "duration" },
-    };
-    expect(describeLink(rule, names, { rule, from: 4, to: 46, pairs: 100 })).toBe(
-      "Has duration: every Station that has the relationship “Assigned”, with every Duration (100 pairs).",
-    );
-    expect(describeLink(rule, names)).toBe(
-      "Has duration: every Station that has the relationship “Assigned”, with every Duration.",
-    );
-  });
-});
 
 describe("columnTargets", () => {
   it("reads a column that is its own attribute or the record's name by what it is", () => {

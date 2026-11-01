@@ -1,21 +1,10 @@
 /**
  * The assistant's design in the words a steward reads (0.16 AP6): the model-draft operations as
- * what changes in the model, the records the structure needs by type, and a profile source's
- * columns in plain words. Unknown shapes read as what they are, never fail.
+ * what changes in the model and a profile source's columns in plain words. Unknown shapes read as what they are, never fail.
  */
 
-import type {
-  AiTask,
-  AiTaskCriterion,
-  AiTaskDesign,
-  AiTaskDesignRecord,
-  AiTaskDesignSource,
-  AiTaskLinkCheck,
-  AiTaskLinkRule,
-  AiTaskOperation,
-  EngineModel,
-} from "@/types";
-import { plural, shown } from "./aiTaskText";
+import type { AiTask, AiTaskDesign, AiTaskDesignSource, AiTaskOperation, EngineModel } from "@/types";
+import { shown } from "./aiTaskText";
 
 const text = (value: unknown): string => (typeof value === "string" ? value : "");
 const record = (value: unknown): Record<string, unknown> =>
@@ -158,20 +147,6 @@ export function modelChanges(operations: AiTaskOperation[], names?: ModelNames):
   return [...rows, ...other];
 }
 
-/** The records the structure needs, grouped by type: "Domain: Scheduling, Billing". */
-export function recordGroups(
-  records: AiTaskDesignRecord[],
-  model: ModelNames,
-): { typeKey: string; label: string; names: string[] }[] {
-  const groups = new Map<string, string[]>();
-  for (const item of records) groups.set(item.objectTypeKey, [...(groups.get(item.objectTypeKey) ?? []), item.name]);
-  return [...groups].map(([typeKey, names]) => ({
-    typeKey,
-    label: model.type(typeKey),
-    names,
-  }));
-}
-
 /** "Key: code", "Key: the name", for a source's key. */
 export function sourceKey(source: AiTaskDesignSource, names: ModelNames): string {
   const key = record(source.key);
@@ -217,65 +192,6 @@ export function columnTargets(
     const own = same && (column.field ? "the record's name" : column.attributeTypeKey ? "its attribute" : "");
     return { column: header, target, line: `${header} → ${own || target}` };
   });
-}
-
-const OPERATORS: Record<string, string> = {
-  eq: "is",
-  ne: "is not",
-  contains: "contains",
-  startsWith: "starts with",
-  endsWith: "ends with",
-  gt: "is above",
-  gte: "is at least",
-  lt: "is below",
-  lte: "is at most",
-  in: "is one of",
-  empty: "is empty",
-  notEmpty: "is not empty",
-};
-
-const valueText = (value: unknown): string =>
-  Array.isArray(value) ? value.map(valueText).join(", ") : typeof value === "string" ? `“${value}”` : String(value);
-
-/** "Domain code" for an attribute key, "Name" for the name, "Domain's Name" for `ancestor:domain.name`. */
-function fieldText(field: string, names: ModelNames): string {
-  const own = (key: string) => (key === "name" ? "Name" : names.attribute(key));
-  const ancestor = /^ancestor:([^.]+)\.(.+)$/.exec(field);
-  return ancestor ? `${names.type(ancestor[1])}'s ${own(ancestor[2])}` : own(field);
-}
-
-/**
- * A link rule's `where` in words, the criteria joined by "and": `whose Name is “x”`,
- * `whose Domain's Name is “x”`, `that has the relationship “assigned” to a record whose …`; `not`
- * turns a criterion into its opposite. No criteria read as an empty string.
- */
-export function describeCriteria(where: AiTaskCriterion[] | undefined, names: ModelNames): string {
-  return (where ?? [])
-    .map((criterion) => {
-      if (criterion.related) {
-        const hop = criterion.related;
-        const inner = describeCriteria(hop.where, names);
-        return `${criterion.not ? "that has no" : "that has the"} relationship “${names.relation(hop.relationTypeKey, hop.direction)}”${
-          inner ? ` to a record ${inner}` : ""
-        }`;
-      }
-      const op = OPERATORS[text(criterion.op)] ?? text(criterion.op);
-      const value = criterion.op === "empty" || criterion.op === "notEmpty" ? "" : ` ${valueText(criterion.value)}`;
-      return `${criterion.not ? "excluding those whose" : "whose"} ${fieldText(text(criterion.field), names)} ${op}${value}`;
-    })
-    .join(" and ");
-}
-
-const capital = (value: string) => value.replace(/^./, (c) => c.toUpperCase());
-
-/** One link rule as a sentence: "Has duration: every Station that …, with every Duration (100 pairs)." */
-export function describeLink(rule: AiTaskLinkRule, names: ModelNames, found?: AiTaskLinkCheck): string {
-  const end = (side: AiTaskLinkRule["from"]) => {
-    const where = describeCriteria(side.where, names);
-    return `every ${names.type(side.objectTypeKey)}${where ? ` ${where}` : ""}`;
-  };
-  const pairs = found && found.pairs !== undefined && !found.refused ? ` (${plural(found.pairs, "pair")})` : "";
-  return `${capital(names.relation(rule.relationTypeKey))}: ${end(rule.from)}, with ${end(rule.to)}${pairs}.`;
 }
 
 /** Why the engine could not apply the proposed model, or `null` when the proposal stands and can be accepted. */

@@ -36,7 +36,7 @@ def _calls(world) -> list[dict[str, Any]]:
 def test_an_operator_sees_the_provider_ready_and_every_call_it_made(world):
     """Given a provider set in the environment, when the operator opens Settings › AI and sends the
     test, then the status names the provider and model, says no key is shown, offers the
-    mapping targets and workbook load features at send level values, and the test is the newest call, answered, recorded
+    mapping targets feature at send level values and not the assistant (it has its own switch), and the test is the newest call, answered, recorded
     with who sent it and nothing of its content."""
     system = ok(world.api.get("/system"))
     assert system["ai"] == {
@@ -44,14 +44,13 @@ def test_an_operator_sees_the_provider_ready_and_every_call_it_made(world):
         "provider": "fake",
         "model": fake.MODEL,
         "sendLevel": "values",
+        "assistant": False,
     }
     status = ok(world.api.get("/ai/status"))
     assert (status["configured"], status["provider"], status["model"]) == (True, "fake", fake.MODEL)
     assert (status["keySet"], status["sendLevel"], status["sampleValues"]) == (False, "values", 20)
-    assert [(f["purpose"], f["available"]) for f in status["features"]] == [
-        ("mappingTarget", True),
-        ("workbookLoad", True),
-    ]
+    assert [(f["purpose"], f["available"]) for f in status["features"]] == [("mappingTarget", True)]
+    assert status["assistant"] is False
     assert "apiKey" not in str(status).replace("keySet", "")
 
     tested = ok(world.api.post("/ai/test", {}))
@@ -85,7 +84,7 @@ def test_without_a_provider_nothing_is_sent_and_no_ai_action_is_offered(world):
     assert ok(world.api.get("/system"))["ai"]["configured"] is False
     status = ok(world.api.get("/ai/status"))
     assert status["configured"] is False
-    assert [f["available"] for f in status["features"]] == [False, False]
+    assert [f["available"] for f in status["features"]] == [False]
     before = len(_calls(world))
     refused(world.api.post("/ai/test", {}), 409, "AI_NOT_CONFIGURED")
     assert len(_calls(world)) == before

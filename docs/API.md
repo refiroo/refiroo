@@ -2738,7 +2738,13 @@ fixed values it matches. A list pages in key order (ADR-030).
   holding nothing in any column the source names is no record of it and is skipped (a list or
   parent read from another type's sheet, on a row without one; 0.10 A6b, D99).
 - **`key`** finds a row's existing record: `{"attributeTypeKey"}`, an attribute declared `unique`
-  whose value the row's own column supplies, `{"column"}`, a column holding the public ID, or
+  whose value the row's own column supplies (or one that is not declared unique with `storedUnique: true`,
+  when its stored values identify one record each), `{"attributeTypeKeys": ["a", "b"]}`, two or more
+  distinct attributes whose values, each supplied by a column of the source, together find one record
+  (none needs to be declared unique; an attribute no column binds is `KEY_NOT_BOUND` at
+  `/sources/{i}/key/attributeTypeKeys`; a combination two stored records hold refuses the row
+  `KEY_AMBIGUOUS`, and an empty cell in any of them makes it a row without a key, see `rowsWithoutKey`;
+  live and in a change set alike), `{"column"}`, a column holding the public ID, or
   `{"field": "name"}` (0.10 A8a, D117), the record of the type with the name the row's `field:
   "name"` column gives (a list of names without codes): two rows with one name are one record as
   for any key, and a name two records of the type share in the context is refused
@@ -2816,7 +2822,7 @@ fixed values it matches. A list pages in key order (ADR-030).
   `missing!{id}`. It needs a source loading its records (`record: "upsert"`) by a `key`.
 - **`rowsWithoutKey`** (0.10 A7, D110) on a source with a `key`: what a load does with a row whose
   key cell is empty after its value map. `"refuse"`, the default (also when left out), refuses it
-  `MISSING_RECORD_KEY` (for an attribute key); `"skip"` reads no record from it and counts it in the
+  `MISSING_RECORD_KEY` (for an attribute key or a key of several); `"skip"` reads no record from it and counts it in the
   binding report's and the dry run's `skippedRows`, writing nothing and refusing nothing. A skipped
   row makes no item, so no outcome rows stand behind the count. `"skip"` on a source without a key
   is refused `INVALID_IMPORT_PROFILE` with `SKIP_NEEDS_KEY` at `/sources/{i}/rowsWithoutKey`. A
@@ -2922,8 +2928,8 @@ record or several, `DUPLICATE_KEY_IN_FILE` (rows with one key and different valu
 relationship columns add up, D69; an empty cell agrees with any value and the record takes every
 value the rows fill, 0.16 AP6; rows of two sources keyed alike by an attribute are also one new
 record, the first source's row creating it and the later ones updating it), `REFERENCE_CYCLE` (rows whose parent columns form a ring),
-`MISSING_RECORD_KEY` (an empty key attribute; an empty ID column creates a record, except under
-`record: "existing"`), `NAME_REQUIRED` (a new record without a name),
+`MISSING_RECORD_KEY` (an empty key attribute, or an empty cell of a key of several attributes; an empty ID column creates a record, except under
+`record: "existing"`), `KEY_AMBIGUOUS` (a stored-unique or several-attribute key two stored records hold), `NAME_REQUIRED` (a new record without a name),
 `INVALID_NAME` (over 500 characters). Rejected rows are the job's first outcomes, in row order;
 under `independent` the other rows load, under `atomic` nothing does and every item is
 `unprocessed` with `BATCH_ROLLED_BACK`. A cell left empty, or mapped to `null`, gives no value: an
@@ -6501,6 +6507,7 @@ All under `/api/v1`, needing `security-admin` at the instance; lists cursor-page
   `POST /clients` and `POST /clients/{id}/secrets` (`{expectedVersion, overlapHours}`, 24 by default,
   0 to 168; 0 stops the other secrets at once) answer the client with `secretId` and `secret`, this
   once. Missing ones are `404 CLIENT_NOT_FOUND` and `404 CLIENT_SECRET_NOT_FOUND`. _Delivered by
+  AP9:_ a client of kind `session` has no secrets, `409 CLIENT_HAS_NO_SECRETS`. _Delivered by
   SP1 (D300):_ `GET /clients` takes `q` (a case-insensitive part of the name). _Delivered by SP2
   (D348–D350):_ every read of a client answers `roles` (each role it holds, with `instance: true` or
   the workspaces by key and label; a client belongs to no group), `consumerApis` (each consumer API
@@ -6788,9 +6795,11 @@ route that sends a provider free text. The provider is set in the environment an
 [mapping targets](#mapping-targets-ap2).
 
 - `GET /api/v1/system` answers `ai: {configured, provider, sendLevel, assistant}` to every signed-in caller, so
-  a client offers an AI action only when one can run; `assistant` says the assistant's session is set up
-  (`AI_AGENT_COMMAND`), without which a workbook is read by the rules alone.
-- `GET /api/v1/ai/status` (Operations at the instance): `configured`, `provider`, `model`,
+  a client offers an AI action only when one can run. `configured` and `provider` are the provider
+  (`AI_PROVIDER`: mapping targets, later search and summaries); `assistant` says the assistant's session is
+  set up (`AI_AGENT_COMMAND`), which alone turns the assistant on and needs no provider. A client offers
+  the assistant when `assistant` is true and a provider feature when `configured` is.
+- `GET /api/v1/ai/status` (Operations at the instance): `configured`, `assistant` (as in `/system`), `provider`, `model`,
   `endpoint` (`AI_BASE_URL`, or null for the provider's own), `keySet`, `sendLevel`, `sampleValues`,
   `minConfidence`, `logContent`, `logContentDays`, `timeoutSeconds`; `features`, each `{purpose,
   name, needs, available}` (`needs` the least send level it works at); `lastCall`; and `totals` over
@@ -6803,6 +6812,10 @@ route that sends a provider free text. The provider is set in the environment an
   `outcome` (`answered`, `failed`), `failureKind` (`unreachable`, `unauthorized`, `rateLimited`,
   `declined`, `malformed`, `failed`), `failure` (the sentence) and `content` (`instructions`,
   `context`, `answer`), null unless `AI_LOG_CONTENT` keeps it and only for `AI_LOG_CONTENT_DAYS`.
+  _Delivered by AP9:_ a session's run is a call too: `purpose` `assistantSession`, `costUsd` (null when the
+  command reports none), `taskId`, and the failure kinds `timeout`, `cancelled` and `interrupted`. A
+  session's tokens count cache reads and writes; its `bytesIn` and `bytesOut` are the prompt and the final
+  answer only. `totals` gains `costUsd`.
 - `POST /api/v1/ai/test` (Operations at the instance, action `ai.test`): sends the provider a fixed
   request that holds no data and answers the call it made, answered or failed with what failed;
   recorded like any call. `409 AI_NOT_CONFIGURED` without a provider.
@@ -6846,7 +6859,13 @@ and Use AI proposals in the workspace, and send level `values` (purpose `mapping
   record is its name and the fields the view shows, without a field that repeats the name or holds a
   generated identifier.
 - **Provenance:** each written relation carries `origin = {kind: "ai", provider, model, promptVersion,
-  confidence, reason, proposedBy}` (`proposedBy` the requester's ID). Coverage target summaries in the
+  confidence, reason, proposedBy}` (`proposedBy` the requester's ID). _Delivered by AP9:_ `ProposalOrigin`
+  also answers `proposedByName`, `editedBy` and `editedByName` (the person who changed the proposed
+  entry afterwards, else absent) and `taskId` (the assistant task, for a session's changes); `confidence`,
+  `reason` and `model` are optional and omitted when a session gives none. A record read in a change set
+  answers `origin` the same way: `GET` of one names `proposedByName` and `editedByName`, a list gives the
+  IDs only. Publication copies the origin into the record's and the relationship's history entries,
+  removals included. Coverage target summaries in the
   change set answer it, and `GET …/mapping-coverage` takes `proposed=true` (with `changeSetId` only,
   else `422 MAPPING_PROPOSED_NEEDS_CHANGE_SET`) for the sources with a proposed target. Changing the
   target makes a new relation without `origin`. Published, the relation's history entry
@@ -6855,214 +6874,144 @@ and Use AI proposals in the workspace, and send level `values` (purpose `mapping
   right), `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404 CHANGE_SET_NOT_FOUND`, `409
   CHANGE_SET_VERSION_CONFLICT`, `404 MAPPING_VIEW_NOT_FOUND`, `404 MAPPING_PARENT_NOT_FOUND`.
 
-### Loading a workbook with the assistant (AP6a)
+### Loading a workbook, or changing records, with the assistant
 
-An assistant task reads a workbook against a workspace's records, shows what it makes of each table,
-plans the load as an import profile, checks it with one dry run of every row and loads it into a new
-change set. Live data is never changed. Every route needs Bulk and import (`bulk.write`) and Use AI
-proposals in the task's workspace, and send level `values` (purpose `workbookLoad`); creating a task is
-refused otherwise as the mapping proposals are. A task is visible to its requester and to those who
-administer its workspace; anyone else reads `404 AI_TASK_NOT_FOUND`. The routes of the writes are
+An assistant task is carried out by one Claude Code session (`AI_AGENT_COMMAND`) that works through this
+API. It is given the person's words, the workbook if there is one, the workspace's model and this OpenAPI
+document, and it calls the routes as an API client of its own: a client of kind `session`, granted for the turn
+only Browse, Work in change sets and Bulk and import in the workspace, each as far as the person who asked
+holds it (narrowed to their applications and record types), and Model authoring and installation if they
+hold those. It reads, writes drafts, dry runs and change sets, and stops at a change set. Publishing,
+approving and activating are not among its rights. It calls no AI provider: `AI_PROVIDER` plays no part. Every route needs Bulk and import
+(`bulk.write`) and Use AI proposals in the task's workspace; creating a task also needs send level
+`values` and is refused otherwise as the mapping proposals are. A task is visible to its requester and to
+those who administer its workspace; anyone else reads `404 AI_TASK_NOT_FOUND`. The routes of the writes are
 registered with `INTEGRATION_JOBS_ENABLED`.
 
 | Route | Does |
 | --- | --- |
-| `POST /ai/tasks` | `multipart/form-data`: `file` (XLSX or CSV) and `request` JSON `{workspaceKey, words?, sendLevel?}`. `202` with the task (state `reading`, `jobId`). `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `403 FORBIDDEN` |
+| `POST /ai/tasks` | `multipart/form-data`: `file` (XLSX or CSV, optional) and `request` JSON `{workspaceKey, words?, sendLevel?}`. `202` with the task (state `reading`, `jobId`). `409 AI_NOT_CONFIGURED` without `AI_AGENT_COMMAND`, `409 AI_SEND_LEVEL_TOO_LOW`, `403 FORBIDDEN`, `413 IMPORT_TOO_LARGE`, `422 UNSUPPORTED_FILE_FORMAT`, `422 AI_TASK_NEEDS_WORDS` (neither a file nor words) |
 | `GET /ai/tasks` | The caller's tasks and those of the workspaces they administer, newest first (paging) |
 | `GET /ai/tasks/{id}` | The task |
-| `POST /ai/tasks/{id}/plan` | `{expectedVersion, tables: [{table, keyColumn?, newRecords?: create\|leaveOut, names?: file\|stored, missing?: leave\|remove, load?}]}`. Allowed when `read` or `checked`; `202`, state `checking`. The choices are the person's (`owner: person`) and never overwritten by the assistant. `409 AI_TASK_VERSION_CONFLICT` (`details.currentVersion`), `409 AI_TASK_STATE` (`details.state`), `422 AI_TASK_TABLE_UNKNOWN`, `422 AI_TASK_COLUMN_UNKNOWN` (a `keyColumn` that is not one of the table's `keyOptions`) |
-| `GET /ai/tasks/{id}/changes?table=t1` or `?source=0` | The records the latest check would change in a table of the plan (`table`) or a sheet of the design (`source`, the sheet's `source` in `check.sheets`; read through the dry run's own profile and the draft's model) (paging): `{recordId, name, table, fields: [{field, label, now, after}]}`, `field` the attribute key or `name`, values typed as records give them. `409 AI_TASK_STATE` before a check, `422 AI_TASK_TABLE_UNKNOWN` |
-| `POST /ai/tasks/{id}/run` | `{expectedVersion, changeSetName?, saveProfile?: {key, name}}`. Allowed when `checked`; needs Work in change sets. Creates a change set (named after the file by default), saves the profile when asked (under a key that holds a profile of the same model, as its next version; a profile it cannot save is a `warning` note, the load stands) and queues the import of the workbook through the plan into it (`independent`, `overwrite`). `202`, state `loading`. `409 AI_TASK_NOTHING_TO_LOAD` for a plan loading no table |
-| `POST /ai/tasks/{id}/cancel` | Asks the job the task waits for (its reading or its check) to stop; the task becomes `cancelled` when it does. A `loading` task's import is cancelled through the job routes |
+| `GET /ai/tasks/{id}/changes?source=0` | The records the latest check would change in a sheet of the check (`source`, the sheet's `source` in `check.sheets`; read through the dry run's own profile and the draft's model) (paging): `{recordId, name, table, fields: [{field, label, now, after}]}`, `field` the attribute key or `name`, values typed as records give them. `409 AI_TASK_STATE` before a check, `422 AI_TASK_TABLE_UNKNOWN` for a source the check has no figures for |
+| `POST /ai/tasks/{id}/answers` | `{expectedVersion, answers: {questionText: answer}}`. Allowed when `checked`; `202`, state `checking`: the same session goes on with the answers, rereads the draft in case the person edited it, and the check is made again. `409 AI_TASK_VERSION_CONFLICT` (`details.currentVersion`), `409 AI_TASK_STATE` (`details.state`) |
+| `POST /ai/tasks/{id}/model` | `{expectedVersion, correction}`. Allowed when `checked`; `202`, state `checking`: the session changes the proposed model as the person's words say (kept in `design.corrections`, the newest last) and proposes again. Same refusals |
+| `POST /ai/tasks/{id}/accept` | `{expectedVersion}`. Allowed when `checked` with a proposal (`design.stage: model`); `202`, state `checking`: the same session rereads the draft, installs one release without activating it, makes the change in a new change set on that release and ends with its ID. The task becomes `loaded` and `result` names the change set. It never activates or publishes. `409 AI_TASK_STATE` without a proposal |
+| `POST /ai/tasks/{id}/retry` | `{expectedVersion}`. A task that `failed` after a session started goes on from where the session was, its folder and session kept. `409 AI_TASK_STATE` otherwise |
+| `POST /ai/tasks/{id}/discard` | A proposal the person throws away: the task ends `cancelled`, its draft and working folder go, and a release its session installed that nothing uses is retired. `409 AI_TASK_STATE` unless the task waits for the person |
+| `POST /ai/tasks/{id}/cancel` | Asks the job the task waits for to stop; the task becomes `cancelled` when it does. Allowed while `reading` or `checking`. `409 AI_TASK_STATE` otherwise |
+| `POST /ai/tasks/{id}/run` | `{expectedVersion, changeSetName?, saveProfile?: {key, name}}`. The load of a saved layout's proposal (below); a session's task is loaded by `accept`. Needs Work in change sets. When the draft differs from the release it was opened from it needs Model release at the instance and in the workspace (`403 FORBIDDEN` naming `model-release`), names the draft's release with the next free version, installs and activates it in the workspace, then imports the working copy into a new change set (`independent`, `overwrite`); `saveProfile` saves the profile of the person's sheets, and a profile that cannot be saved is a `warning` note, the load stands. `202`, state `loading`. `409 AI_TASK_NOTHING_TO_LOAD` |
+
+There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `plan` on the task and
+`?table=` on `/changes` do not exist (`404`; the query parameter is ignored).
 
 **The task** (`id`, `workspaceKey`, `fileName`, `sourceFileId`, `words`, `state`, `version`, `jobId`,
-`phase`, `createdAt`, `updatedAt`, `requestedBy`, `reading`, `plan`, `check`, `notes`, `result`):
+`phase`, `createdAt`, `updatedAt`, `requestedBy`, `reading`, `design`, `draftId`, `check`, `notes`,
+`result`):
 
-- `state`: `reading`, `read`, `checking`, `checked`, `loading`, `loaded`, `failed`, `cancelled`.
-  `version` moves with every change; a request names the version it read. `phase` while a job runs:
-  `profiling`, `reading`, `designing`, `checking`; else `null`. A failed or
-  cancelled job ends the task; a finished import makes it `loaded` (derived wherever the task is read).
-- `reading`: `tables[]`, `sheets[]` (sheets with no table, `as: notData`), `titles[]` (`{sheet, range,
-  text}`: a block of a header with no rows below it is a title, not a table), `profile` (`{key, name,
-  version}` of the stored import profile the reading follows, else `null`) and `summary` (`{tables,
-  sheets, updates, notLoaded, needDecision, types, applications}`, counts: the tables, the sheets that
-  are no table, the tables read as updates, the tables not loaded, the tables that need the person, the
-  distinct types and applications of the updates).
-- `reading.tables[]`: `table` (`t1`...), `sheet`, `range`, `list`, `rows` (a list's note row and
-  second header row are no row), `as` (`update`, `newData`, `notData`), `objectTypeKey`,
-  `applicationKey` and `parentTypeKeys` (the types the type may be contained in, from the model's
-  placements: a client groups tables by application and type, and puts a type's tables under its
-  parent's), `typeName`, `reason`, `evidence`, `owner` (`rules`, `assistant`, `person`, `profile`),
-  `profile` (`{key, name, version, source}` when the table is read by a stored profile's source, else
-  `null`), `origin` (`{kind: "ai", provider, model, promptVersion, confidence, reason}`), `keyColumn`
-  (a column letter) and `key` (`{attributeTypeKey}`, `{field: "name"}` or, for a profile keyed by a
-  column of IDs, `{column: header}`; `null` for a profile source with no key), `keyOptions`
-  (`{column, header, key, matched}` for each column matching the type's records), `matched`, `new`,
-  `missing`, `namesDiffer` (the counts follow the key; none for a keyless profile source), `meaning`
-  (kept for the shape, always empty: the assistant now maps keys by meaning in its design's value
-  maps), `parent` (the source's fixed parent `{objectTypeKey, matchBy, value, source}`, `source`
-  `records`, `title` or `profile`, else `null`), `notes[]` (plain sentences, such as that new rows have
-  no place to go), `attention[]` (what still needs the person: `newKeys`, `namesDiffer`, `missing`,
-  `meaning`, `leftOutColumns`, `notLoaded`, `noParent`; empty when nothing does or the person has
-  decided), `leftOut[]` (`{column, header, reason}`), `columns` (`{column, header, binding, kind,
-  label, evidence, leftOut, owner, origin}`: `kind` is the binding's kind (`field`, `attributeTypeKey`,
-  `parent`, `relation`, `relationFlags`, `relatedRecord`, `ignore`, or `other` for a column read with
-  another's binding), `label` a plain sentence of what it fills, `binding` the binding as an import
-  profile writes it without its column; a column the type does not have is `leftOut` with its reason;
-  `known` marks a column the followed profile does not read and its earlier file had too, which needs
-  no decision, so it does not count in `attention`)
-  and `choices` (`newRecords`, `names`, `missing`, `load`, each `{value, owner}`). Only an update of
-  an existing type is loaded in this version; new data and sheets with no table are named and left out.
-  - **A profile that fits** is followed first. Of the stored import profiles written for the workspace's
-    model and valid under its release, one fits when each of its sources finds its sheet and a table of
-    the file at its place and none of the columns it names is missing (a renamed column is read under
-    its new header, as the profile check does); of several, the one with the most sources, then the
-    newest last load. Each source is one table (`owner: profile`, `reason` "Read as the profile “…”
-    reads this layout"); the file's columns it does not name are `leftOut` ("The profile “…” does not
-    read it"). The tables of the file no source covers are read by the rules. The plan of a profile
-    table is the source exactly as stored (and the profile's value maps) with the person's choices
-    added; when nothing was added and every source of the profile is loaded, `result.profileKey`
-    names the profile. The assistant's design starts from this reading and may load a table another
-    way.
-  - **Notes, headings and titles.** A list's note row (`(Multiple answer)`) and second header row are
-    never a record: the rules' counts leave them out and the plan maps their text to nothing on the key
-    and name columns with `rowsWithoutKey: skip`.
-  - **Translations.** A textual column the rules would leave out is read as translations when the
-    model gives the type exactly one relationship to a type contained in a parent type, and the
-    column's header names a language: a stored record of that parent type named as the header (case
-    and punctuation ignored), else a language word of the header (the language's record is then
-    created when the parent type may stand at the top and is the one the table's other language
-    columns use or the only such type). The column's `binding` is a `relatedRecord` with `parent.value`
-    the language and `evidence` says so. With none or several relationships the column stays left out
-    and the reason says which.
-  - **Under their parents.** For a type contained in a parent type the source gets a fixed `parent`
-    when the stored records the file's keys match share one (`source: records`: "Its records sit under
-    “X”; new rows go there too"), else when the list's title or the sheet's name equals a stored
-    record of a type that may contain it (`source: title`). Else, if the type may stand at the top, no
-    parent; otherwise new rows cannot be placed: the default for the new keys becomes `leaveOut`, a
-    `notes[]` sentence says so and `attention` holds `noParent`.
-- `plan`: `profile` (an import profile definition, as `POST /imports` takes inline) and `steps` (`profileSource`,
-  `valueMap`, `destination`, each with `owner`, `reason`, `origin`, `params`).
-- `check`: `dryRunJobId`, `ranAt`, `tables[]` (`table`, `sheet`, `typeName`, `rows`, `changed`,
-  `unchanged`, `created`, `removed`, `skipped`, `translations` (the related records the load writes:
-  the translations and the language records it creates), `nothingToDo` (no change and no refusal),
-  `refused` as `{code, rows, column, header, values}` with the cell values most often refused,
-  `leftOut`), `summary` (`{changed, unchanged, created, removed, refused (rows), translations,
-  tablesWithChanges}`, totals over the tables), `fixes` and `rounds` (kept for the shape: always
-  empty and 0; a task read without the assistant has no fix rounds).
-- `notes[]`: `{kind: note|warning|refused, text, at}`: what the assistant said, a provider failure or
-  the step limit (`warning`), an operation the engine refused with its reason (`refused`).
-- `result`: `changeSetId`, `changeSetName`, `importJobId`, `profileKey`, and `counts` once loaded.
+- `state`: `reading` (the workbook is read and the session starts), `checking` (the session works, or a
+  saved layout's dry run), `checked` (a proposal waits for the person), `loading`, `loaded`, `failed`,
+  `cancelled`. The schema also lists `read`, which no task reaches. `version` moves with every change; a
+  request names the version it read. `phase` while a job runs: `profiling`, `reading`, `designing`,
+  `checking`; else `null`. A failed or cancelled job ends the task.
+- `draftId`: the task's draft of the workspace's model, opened in the model editor. A session writes only a
+  draft it made or a person's draft that no task holds: a write to a draft another task holds is `409
+  AI_TASK_DRAFT_HELD` (`details.draftId`), and a proposal that names one fails the task. A person may edit
+  the task's draft; the session rereads it before it goes on.
+- `reading`: the engine's reading of the workbook, `tables[]`, `sheets[]`, `titles[]`, `profile` (`{key,
+  name, version}` of the stored import profile the reading follows, else `null`) and `summary`. It is what
+  decides whether a saved layout fits; a client has no need to show it.
+- `design` (`null` until a session has proposed): `summary` (two sentences a person reads), `questions`
+  (`{text, options, assumed}`: what only a person can decide, with the option assumed), `answers`,
+  `outline` (`{objectTypeKey, name, text}`, one plain line per type the proposal adds, changes or loads,
+  with its attributes and the records the check would write, computed by the engine from the draft and the
+  dry run), `checks`, `stage` (`model` while the proposal waits; `load` once accepted), `corrections`,
+  `progress` (`{now, seconds, refused, milestones}` while the session works: where it is, read from what
+  the engine recorded of it), `origin` (`{kind: "ai", provider, model, promptVersion}`) and
+  `agentSession`.
+- `check.summary.skipped` counts rows skipped for an empty key, apart from `refused`. `check.draftChanged` is
+  true when the draft changed after that dry run, which then does not cover the model as it stands.
+- `design.checks` are the engine's remarks on a proposal, `{id, kind, text, open, explanation?}`, made
+  whatever the session said: `leftOut` (the model leaves out a type the workspace holds records of),
+  `besideHeld` (the check would create records of a type the workspace already holds: "667 new Items
+  beside the 667 held. If this is an update, the rows did not find their records." The count is from the
+  dry run of every row; accepting stays possible). A saved layout's proposal carries the checks `reuse`,
+  `grouping`, `translations` and `bothEnds` instead.
+- `check`: `{dryRunJobId, ranAt, rounds, sheets: [{source, sheet, objectTypeKey, structure, rows, created,
+  updated, unchanged, refused, skipped}], refused: [{sheet, objectTypeKey, code, rows, examples: [{row,
+  message, details}]}], summary: {created, updated, unchanged, refused, relationships?}}`: the draft's
+  latest dry run of every row, whoever started it. `skipped` counts, for a source that skips rows
+  without a key (`rowsWithoutKey: skip`), the rows it wrote nothing for and whose data is lost: a value it
+  reads there that no other source holds, or a row no source reads anything on. An empty cell in a column
+  the source makes records of is no value and counts nothing. When they are most of the source's rows they
+  are also refused as `ROWS_SKIPPED`. `unchanged` counts records; a relationship found in place is not one. `relationships` counts the relationships the
+  check creates, kept apart from records.
+- `notes[]`: `{kind: note|warning|refused, text, at}`: what the session said as it ended, and why a task
+  failed.
+- `result`, once `loaded`: `changeSetId`, `changeSetName`, `counts` (`applied`, `created`, `updated`, `unchanged`, `rejected`), and
+  for a saved layout's load `importJobId` and `releaseId`. **A saved profile:** the engine saves one from
+  the load, whichever route the session took, and `result.profileKey` names it; the same layout of file
+  next time is read by it with no assistant (below), and a second load of the key is its next version. When
+  none is saved, `result.profileNotSaved` says why in a sentence, and the load stands: the change came only
+  through batches, so there is no import to repeat ("This load did not import the workbook, so it cannot be
+  repeated."); the load read the workbook through a profile already saved; a source has no key ("Not saved
+  as a profile: “Prices” has no key, so a second load would create its rows again."); or the profile
+  could not be saved against the change set's release. The profile is saved and checked against the
+  release the change set runs, which a session's new model is not yet the workspace's.
 
-**The job** (`kind: aiTask`, one phase per job: reading, designing, planning; `GET /jobs?kind=aiTask`)
-holds no database transaction open while the provider answers and looks for a cancel between calls. A
-provider failure, an answer out of shape or `AI_MAX_STEPS` calls reached is a `warning` in `notes`, never
-a failed task: the rules' reading stands. The requester's inbox hears of a task's job when its reading
-is ready (`job.completed`, the reading phase only) and when one fails; a planning job completes before
-its check, so it says nothing. The dry run of the plan is a `dryRun` job of the task's
-workspace (its parameters name `taskId`, not a draft), run under the requester's Bulk and import.
-What is sent goes through the context builder at the send level in force: record names and keys are
-values, so a task needs `values`.
+**An empty change set is no load.** A session that ends without a change set of the workspace, or with one
+that holds nothing, fails the task.
 
-#### The assistant's design (AP6)
+**When a task ends** (`loaded` or discarded), its client is retired and its folder removed, and a release
+its session installed that no workspace or change set uses is retired (not deleted; history may name
+it). A task that ends otherwise keeps its folder and the session's transcript until
+`AI_TASK_RETENTION_DAYS` have passed (OPERATIONS).
 
-With the assistant offered, a task designs how the workbook lives in the workspace instead of
-offering per-table choices (the user's five cases: an update, additions, a new relation, something
-new but related, something totally new). The reading phase reads the workbook by the rules as above,
-then opens **a model draft of the workspace's model** (`draftId`, the person's like any draft: the
-model editor opens it) and asks the provider for a design (prompt `workbook-design/7`; its
-instructions carry this document's table of operation kinds and its import profile section), turn
-by turn:
-model-draft operations, applied to the draft all or none as the editor applies them; the records the
-structure needs that no row gives; data sheets of its own for rows the workbook's shape cannot load;
-the import profile of the person's sheets and its own, checked against the draft; relationship rules;
-questions with the option assumed; reads of cells, values, stored records and model-aware queries.
-Each turn is sent the design so far (the profile, records and links whole, each data sheet by its
-columns, row count and first rows; a part the answer leaves out is kept) and the engine's last
-outcome: what it refused, with messages and up to three examples per code, kept until the next dry
-run. A complete design is checked by one dry run of every row of the **working copy** (the workbook
-with its formulas' last values, the data sheets, and a `Structure …` sheet per type of the records,
-loaded first) against the draft; refused rows go back to the provider in another round, within
-`AI_MAX_STEPS` calls; then `checked`. With `AI_AGENT_COMMAND` set, the task is carried out by one Claude Code session working through this
-API as whoever asked: it receives the person's words, the workbook, the workspace's model and this
-OpenAPI document. It stops at a model draft (`draftId`) with every row checked by the draft's dry run
-(`check`), having installed and loaded nothing; `design.summary` and `design.questions` say what it
-needs, and `design.progress` (`{now, seconds, refused, milestones}`) shows where it is while it works.
-`POST /ai/tasks/{id}/answers` and `/model` continue the same session, which rereads the draft in case
-the person edited it. `POST /ai/tasks/{id}/accept` has it install one release, unactivated, and load
-into a new change set, which the task's `result` names. It never activates or publishes. `POST
-/ai/tasks/{id}/discard` throws a waiting proposal away with its draft. A saved profile that reads the
-file as well as the engine's match does, with no new column, needs no session. Without the setting
-the file is read by the rules alone. `design.leftOut` lists the columns of the sheets the design
-reads that no source of their sheet loads, each `{sheet, column, reason}` (the assistant's reason;
-`null` when it gave none); the engine asks for the missing reasons once (`outcome.columnsLeftOut`,
-by sheet). A dry run that cannot run at all (the file does not fit the
-profile: a header row or a column it names is not there) goes back the same way, as
-`outcome.dryRun.failed` with its problems, and never fails the task. Each round's refused rows by
-code are kept in the design (`history`) and sent with the design so far.
+**The job** (`kind: aiTask`, one phase per job: reading, then the session's turns; `GET /jobs?kind=aiTask`)
+holds no database transaction open while the session works and looks for a cancel while it does. The
+requester's inbox hears of a task's job when its reading is ready and when one fails. The draft's dry run
+is a `dryRun` job naming both `taskId` and `draftId`, run against the draft's model under the session's
+client.
 
-| Route | Does |
-| --- | --- |
-| `POST /ai/tasks/{id}/model` | `{expectedVersion, correction}` (0.16 AP6r). Allowed when `checked` with a design; `202`, state `checking`: the assistant proposes the model again, the steward's words (kept in `design.corrections`, the newest last) winning over its own choices. `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE` |
-| `POST /ai/tasks/{id}/accept` | `{expectedVersion}` (0.16 AP6r). Allowed when `checked` with `design.stage: model`; `202`, state `checking`: the load stage maps the sheets onto the accepted model and every row is checked in a dry run, as below; nothing is installed or loaded before `/run`. `409 AI_TASK_STATE` without a proposal |
-| `POST /ai/tasks/{id}/answers` | `{expectedVersion, answers: {questionText: answer}}`. Allowed when `checked` and the task has a design; `202`, state `checking`: the assistant designs again with the answers, and the design is checked again. `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE` |
-| `POST /ai/tasks/{id}/run` | On a design: when the draft differs from the release it was opened from, needs Model release at the instance and in the workspace (`403 FORBIDDEN` naming `model-release`), names the draft's release with the next free version, installs it and activates it in the workspace (refused as installation and activation are), then imports the working copy into a new change set; `saveProfile` saves the profile of the person's sheets. `result.releaseId` names the release |
+**An instruction without a workbook.** `POST /ai/tasks` may leave out `file`: the words are then the whole
+instruction ("relate durations and stations, but only where a driver is assigned"). The session starts at
+once, with no reading.
 
-- **Two stages (0.16 AP6r).** A task's design starts in `design.stage: model`: the assistant
-  proposes the model (model-draft operations, `design.outline` — `{objectTypeKey, text}`, one plain
-  sentence per type: what it is, what it sits under, which stored records it reuses, what it is
-  related to and why — and questions) and the task is `checked` with no dry run. The steward
-  corrects it in words (`/model`) or accepts it (`/accept`); the load stage (`design.stage: load`)
-  then maps the sheets and runs the dry run. A design from before the stages is in its load stage.
-- **Unpivots** (`unpivots` in the assistant's answer): a sheet the engine derives from a wide one
-  (`{name, sheet, headerRow, keep, groups: [{values, cells}]}`, cells by column letter), a row per
-  source row and group, in the working copy: the assistant describes the shape, the engine writes
-  every row.
-- **Design checks** (`design.checks`, every turn, for any workbook): `{id, kind, text, open,
-  explanation?}` — `reuse` (a column most of whose values are the names of records the workspace
-  holds, not linked to them), `grouping` (a text column with few distinct values over its rows loaded
-  as a plain value), `translations` (a column the rules read as a translation not loaded as one),
-  `bothEnds` (a relationship the draft allows that no page of its `to` type shows). Each is computed
-  in PostgreSQL over the staged cells and the stored records; the open ones go to the assistant
-  (`outcome.checks`), whose `explains` (`{check, text}`) closes one with its explanation.
-- `design`: `summary`, `operations` (the operations applied, in order), `records` (`{ref,
-  objectTypeKey, applicationKey, name, attributes, parent: {objectTypeKey, name} | null}`), `profile`,
-  `questions` (`{text, options, assumed}`), `answers`, `rounds`, `origin` (`{kind: "ai", provider,
-  model, promptVersion}`) and `outcome` (the engine's last check: `draftErrors`, `profileProblems`,
-  `modelOperations`).
-- `check` of a design: `{dryRunJobId, ranAt, rounds, sheets: [{source, sheet, objectTypeKey,
-  structure, rows, created, updated, unchanged, refused, skipped}], refused: [{sheet, objectTypeKey,
-  code, rows, examples: [{row, message, details}]}], summary: {created, updated, unchanged,
-  refused}}`. `skipped` counts the filled rows of a source that skips rows without a key
-  (`rowsWithoutKey: skip`) the dry run wrote nothing for; when they are most of the source's rows
-  they are also refused as `ROWS_SKIPPED` (a key the rows do not fill) and go back to the assistant.
-- `phase` is `designing` while the assistant designs. The design's dry run is a `dryRun` job naming
-  both `taskId` and `draftId`, run against the draft's model.
-- **An instruction without a workbook.** `POST /ai/tasks` may leave out `file`: the words are then
-  the whole instruction ("relate durations and stations, but only where a driver is assigned"); `422
-  AI_TASK_NEEDS_WORDS` without either. The task opens its draft and designs at once (no reading).
-- **Relationships where a condition holds** (`design.links`, AP-D17/D18): `{relationTypeKey, from:
-  {objectTypeKey, where}, to: {objectTypeKey, where}, reason}`, every live record `from` finds
-  related to every one `to` finds; `where` is the [model-aware query](#model-aware-query-base-09-q3)'s
-  criteria (field, ancestor and one relation hop, `not`, ANDed). Each rule is checked against the
-  draft's model on every turn: the binding must be allowed, the queries valid, and the pairs at most
-  100,000 (`check.links[]`: `{rule, from, to, pairs}` or `{rule, refused}`; `check.summary.relationships`).
-  The load writes them as one background batch of `ensureRelation` items into the task's change set,
-  its items built in the database; after the design's import when it has one (`result.linksJobId`;
-  the task stays `loading` until the batch finishes). A design of relationships alone is checked by
-  these counts, with no dry run (`check.dryRunJobId` `null`).
+**A saved layout.** When a stored import profile written for the workspace's model reads the workbook as
+well as the engine's own match does, with no column the profile's earlier file did not have, the task
+takes the engine's path and no session starts: `design` is the engine's proposal (`stage: model`, the
+differences from the stored records as `questions`), `answers` and `model` are the person's, and `run` loads
+it. Otherwise a session starts.
+
+**A key of several columns.** In an [import profile](#import-profiles), a source's `key` may be
+`{"attributeTypeKeys": ["…", "…"]}`: two or more distinct attributes, each bound by a column of the source,
+whose values together find one record. None needs to be declared unique. The combination must find one
+stored record: when two hold it the row is refused `KEY_AMBIGUOUS` (as a stored-unique single key is),
+when a cell of the combination is empty the row has no key (`MISSING_RECORD_KEY`, or counted under
+`rowsWithoutKey: skip`), and an attribute no column of the source binds is `KEY_NOT_BOUND` at
+`/sources/{i}/key/attributeTypeKeys`. It works the same live and in a change set, and `missing` follows it.
+It is a key of import profiles only: batch `upsert` keys and consumer `match` are unchanged. The session is
+told to give each source a key that finds its records in the next file, of several columns if no one column
+does, and to raise it as a question when the file has none.
 
 ## Agent access (Product 0.16)
 
 An assistant reaches the instance at `/mcp` (MCP Streamable HTTP, protocol 2025-11-25, stateless, JSON answers) with `MCP_ENABLED`; off, `/mcp`, the resource metadata and `/oauth/register` answer `404` and no `agent` token is issued.
 
-**Tools and resources.** All read live data and answer in their route's shape. `describe_access`; with Browse, `list_workspaces`, `describe_model`, `describe_type`, `find_records` (the body of `POST …/queries/objects`), `read_record`, `mapping_coverage`, `record_history`, `list_changes`; and `lookup_<key>` per consumer API definition, offered with Browse or the API's grant in the workspace, taking `workspace`, `operation` (`xref`, `lists`, `objects`, as the definition offers), the definition's parameters and `to.` targets, `asOf`, `cursor` and `pageSize`. Equal definitions in several workspaces share one tool; a key whose definitions differ, or a name past 48 characters, ends in a short hash. Resources, with Browse: `refiroo://workspaces/{key}/model` is listed per workspace; `…/applications/{key}`, `…/object-types/{key}` and `…/views/{application}/{key}` are resource templates. A paged answer past `MCP_ANSWER_BYTES` comes back smaller with a cursor. A workspace the caller cannot read is refused in the words of one that does not exist.
+**Tools and resources.** The reads below answer live data in their route's shape (with `changeSetId`, see _Writing_ below, a change set's). `describe_access`; with Browse, `list_workspaces`, `describe_model`, `describe_type`, `find_records` (the body of `POST …/queries/objects`), `read_record`, `mapping_coverage`, `record_history`, `list_changes`; and `lookup_<key>` per consumer API definition, offered with Browse or the API's grant in the workspace, taking `workspace`, `operation` (`xref`, `lists`, `objects`, as the definition offers), the definition's parameters and `to.` targets, `asOf`, `cursor` and `pageSize`. Equal definitions in several workspaces share one tool; a key whose definitions differ, or a name past 48 characters, ends in a short hash. Resources, with Browse: `refiroo://workspaces/{key}/model` is listed per workspace; `…/applications/{key}`, `…/object-types/{key}` and `…/views/{application}/{key}` are resource templates. A paged answer past `MCP_ANSWER_BYTES` comes back smaller with a cursor. A workspace the caller cannot read is refused in the words of one that does not exist.
 
 **Tokens.** `/mcp` takes only `agent` tokens, and they reach nothing else. An agent client (`POST /clients` with `kind: "agent"`) asks with `scope=agent` or no scope, and any other scope is `invalid_scope`; an API client asking for `agent` is too. A person's assistant follows the protocol's discovery: a `401` from `/mcp` names `resource_metadata` and `scope="agent"`; `GET /.well-known/oauth-protected-resource/mcp` (also at the root form) names the authorization server; `POST /oauth/register` (RFC 7591: `client_name`, `redirect_uris`; always a public client) answers its `client_id`; `/oauth/authorize` and `/oauth/token` run the authorization code flow with PKCE. `resource`, when sent, must name this instance's `/mcp` (`invalid_target`). The token answer holds `refresh_token`, rotated on use; such a session issues only `agent`, and a browser session never does.
 
 **What an `agent` token may do** is the caller's grants, each cut down to Browse and Work in change sets. Consumer API grants stand. Tools a caller may not use are not listed and are refused if called.
 
 **Tools.** `describe_access`: who the connection acts as, its grants and consumer APIs. `list_workspaces` (needs Browse somewhere): the active workspaces it may read, with `search`, `cursor` and `pageSize`, paged like `GET /workspaces`. A refusal or the limit (`MCP_RATE_PER_MINUTE`) is a tool result with `isError` and the reason.
+
+
+**Writing (0.16 AG3, [plan](BASE_0_16_IMPLEMENTATION_PLAN.md#ag3-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-ag-d27-as-written), AG-D26 to AG-D32).** Eleven more tools, each needing Work in change sets in the workspace (a caller with Browse alone lists none of them). Reading: `my_change_sets` (the open ones, with state and version), `read_change_set` (version, release, submission state, the last decision's outcome and comment, such as why it was sent back), `change_set_changes` (`kind` `records` or `relationships`, paged), `validate_change_set` (diagnostics cut to fit, with a `cursor`). Writing: `create_change_set`, `add_record`, `change_record`, `set_field`, `add_relation`, `change_relation`, `submit_change_set`. Every write names `changeSetId` and `expectedChangeSetVersion`, and a change to an existing row its `expectedVersion` too; it answers with IDs and the new versions. `changeSetId` is also an input of `find_records`, `read_record` and `describe_type`, which then read that change set's rows and the model release it is pinned to. A write runs once, as the route would for the same person or client (the same grants, record-type limits and audit actor), and is committed by the engine; no size cut-down applies to it. Choosing a release is not offered.
+
+An assistant works only in change sets its own person or client created; any other answers `404 CHANGE_SET_NOT_FOUND`, as does one in a workspace it cannot work in. A person's own change set counts. This is narrower than the routes, where anyone holding the group may write to any open change set. Nothing here approves, publishes, removes, clears a value (`value` may not be null), withdraws a submission, discards a change set, batches, restructures the model or chooses a release; a submitted change set stays frozen to an assistant. Change reaches live data only when a person approves it, and under `secondPerson` a second person decides. Every refused tool call says `CODE: message` and then the engine's `details` as JSON, on every tool, reads included, so a stale write (`CHANGE_SET_VERSION_CONFLICT`, and `VERSION_CONFLICT` on `submit_change_set`) shows `currentVersion` and `CHANGE_SET_INVALID` its diagnostics.
+
+**`channel` and `origin`.** `GET /changes` entries and a record's history entries answer `channel`: `mcp` for an entry written while an assistant's tool ran, omitted otherwise (earlier entries are omitted). A record or relationship an assistant prepared answers `origin = {kind: "agent", application, proposedBy}`, with `proposedByName`, `editedBy` and `editedByName` as `ProposalOrigin` has them; `proposedBy` is the person's or client's ID, and `application` the name the assistant gave itself (a claim, copied into the row). It is copied into the history entry at publication like `kind: "ai"`. A person's own edit in the browser carries no `origin`. No filter takes `channel`.
 
 **Administration** (Security administration):
 
@@ -7073,4 +7022,4 @@ An assistant reaches the instance at `/mcp` (MCP Streamable HTTP, protocol 2025-
 - `POST /agent-access/applications/{id}/block`: no one signs in with it and its sessions end. `POST …/restore`: people may sign in again; ended sessions stay ended. `404 AGENT_APPLICATION_NOT_FOUND`.
 - `GET /agent-access/calls`: each tool call, newest first: `principal`, `principalKind`, `principalId`, `application`, `tool`, `arguments` (names, never values), `outcome` (`answered`, `refused`, `limited`, `failed`), `durationMs`, `requestId`.
 
-`GET /clients` takes `kind`; a client answers `kind`. `GET /me/sessions` answers `application`, the assistant a session was started for. `GET /system` answers `mcp: {enabled}`.
+`GET /clients` takes `kind`; a client answers `kind`. _Delivered by AP9:_ `session` is a third kind, the client of one assistant task; it is left out of `GET /clients` unless `kind=session`, and `POST /clients/{id}/secrets` on it is `409 CLIENT_HAS_NO_SECRETS`. `GET /me/sessions` answers `application`, the assistant a session was started for. `GET /system` answers `mcp: {enabled}`.

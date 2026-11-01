@@ -2,7 +2,7 @@ import re
 from datetime import date
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter
 from pydantic.json_schema import SkipJsonSchema
 
 _CALENDAR_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -27,6 +27,11 @@ def omitted_when_none(value: object) -> bool:
     return value is None
 
 
+def _when_known() -> Any:
+    """Omitted from the body rather than null."""
+    return Field(default=None, exclude_if=omitted_when_none, json_schema_extra=without_default)
+
+
 class ProposalOrigin(BaseModel):
     """Who proposed a change when a person did not (0.16 AP2, AP-D5): the provider and model that
     answered, the prompt's version, how confident it was and why, and the person or client whose
@@ -34,11 +39,37 @@ class ProposalOrigin(BaseModel):
 
     kind: Literal["ai"]
     provider: str
-    model: str
+    model: str | None = None
     promptVersion: str
-    confidence: float
-    reason: str
+    # A session gives neither (0.16 AP9, AP-D32).
+    confidence: float | SkipJsonSchema[None] = _when_known()
+    reason: str | SkipJsonSchema[None] = _when_known()
     proposedBy: str | None = None
+    proposedByName: str | SkipJsonSchema[None] = _when_known()
+    editedBy: str | SkipJsonSchema[None] = _when_known()
+    editedByName: str | SkipJsonSchema[None] = _when_known()
+    taskId: str | SkipJsonSchema[None] = _when_known()
+
+
+class AgentOrigin(BaseModel):
+    """A change an assistant prepared through a tool (0.16 AG-D29): the name it gave itself, and the
+    person or client it acted for."""
+
+    kind: Literal["agent"]
+    application: str
+    proposedBy: str | None = None
+    proposedByName: str | SkipJsonSchema[None] = _when_known()
+    editedBy: str | SkipJsonSchema[None] = _when_known()
+    editedByName: str | SkipJsonSchema[None] = _when_known()
+
+
+ChangeOrigin = Annotated[ProposalOrigin | AgentOrigin, Field(discriminator="kind")]
+_CHANGE_ORIGIN: TypeAdapter[ProposalOrigin | AgentOrigin] = TypeAdapter(ChangeOrigin)
+
+
+def change_origin(found: dict[str, Any]) -> ProposalOrigin | AgentOrigin:
+    """A stored origin as a read shows it, of whichever kind."""
+    return _CHANGE_ORIGIN.validate_python(found)
 
 
 def optional_origin() -> Any:

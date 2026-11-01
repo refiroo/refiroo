@@ -48,7 +48,6 @@ def _design(session: Session, task: AiTask) -> dict[str, Any] | None:
 
 def task_response(session: Session, task: AiTask) -> AiTaskResponse:
     source = session.scalar(select(SourceFile).where(SourceFile.task_id == task.id))
-    plan = {"profile": task.plan["profile"], "steps": task.plan["steps"]} if task.plan else None
     return AiTaskResponse.model_validate(
         {
             "id": task.public_id,
@@ -66,7 +65,6 @@ def task_response(session: Session, task: AiTask) -> AiTaskResponse:
                 session, ref(task.requested_by_user_id, task.requested_by_client_id)
             ),
             "reading": task.reading,
-            "plan": plan,
             "check": task.check,
             "design": _design(session, task),
             "draftId": (

@@ -263,6 +263,15 @@ describe("a workspace's own model (0.11 M5, D48, D49)", () => {
     });
     await waitFor(() => expect(router.result.current.modelWorkspaceKey).toBe("east"));
     expect(router.result.current.problem).toBeUndefined();
+    // The address names the start that is shown, not the carried page, so a reload opens the same.
+    const start = routePath(router.result.current.route!);
+    expect(`${window.location.pathname}${window.location.search}`).toBe(start);
+    expect(window.location.pathname).not.toBe("/apps/test-app/views/domains");
+    router.unmount();
+    const reloaded = renderHook(useRouter);
+    await waitFor(() => expect(reloaded.result.current.model).toBe(otherModel));
+    expect(reloaded.result.current.problem).toBeUndefined();
+    expect(routePath(reloaded.result.current.route!)).toBe(start);
   });
 
   it("says what another workspace's model lacks instead of opening its start silently", async () => {

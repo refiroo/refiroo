@@ -1,9 +1,9 @@
 /**
  * One assistant task's page (0.16 AP6a, `/settings/ai-tasks/{id}`): loading a workbook with the AI
- * assistant. It follows the task while a job runs (reading, checking, loading), shows what the
- * assistant read per table with the choices the person may change, what the load would do per table
- * after one check of every row, and where the load went. Live data is never changed from here; the
- * load lands in a change set.
+ * assistant. It follows the task while a job runs (reading, checking, loading), shows the proposed
+ * model, what the load would do per sheet after one check of every row, and where the load went. Live
+ * data is never changed from here; the load lands in a change set. A task recorded by an older
+ * version that rests in a state this page no longer draws reads as stopped.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -12,7 +12,7 @@ import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useWorkspacePermissions, holds } from "@/features/security/permissions";
 import { changeReviewFor, routePath } from "@/routing/routes";
-import type { AiTask, ApplicationDefinition, EngineModel, JourneyRef, RouteState } from "@/types";
+import type { AiTask, EngineModel, JourneyRef, RouteState } from "@/types";
 import { Breadcrumbs } from "@/ui/Breadcrumbs";
 import { InlineError } from "@/ui/InlineError";
 import { Notice } from "@/ui/Notice";
@@ -20,21 +20,18 @@ import { RouteLink } from "@/ui/RouteLink";
 import { Section } from "@/ui/Section";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
-import { CheckView } from "./CheckView";
 import { DesignCheckView } from "./DesignCheckView";
 import { DesignView } from "./DesignView";
 import type { LoadChoice } from "./LoadFoot";
 import { ModelProposal } from "./ModelProposal";
 import { SessionProgress } from "./SessionProgress";
 import { LoadedView } from "./LoadedView";
-import { ReadingView } from "./ReadingView";
 import { taskApplicationKey } from "./aiTaskJourney";
 import { rememberModelReviewed } from "./AiTaskJourneyBar";
 import { isDesignCheck, runningText, taskTitle } from "./aiTaskText";
 import { useAiTask } from "./useAiTask";
 
-const CONFLICT =
-  "The reading changed while you were choosing, so the page shows its latest reading. Check your choices and prepare the load again.";
+const CONFLICT = "The task changed while you were working, so the page shows its latest state. Check it and try again.";
 
 export function AiTaskPage({
   taskId,
@@ -77,11 +74,7 @@ export function AiTaskPage({
   const [pending, setPending] = useState(false);
   const [problem, setProblem] = useState("");
   const [conflict, setConflict] = useState(false);
-  // "Back to the reading": the reading again while the task stays checked until a new plan.
-  const [reading, setReading] = useState(false);
   const [jobError, setJobError] = useState("");
-  // The model's applications name the groups tables are shown in; without them every list is "Other lists".
-  const [applications, setApplications] = useState<ApplicationDefinition[]>();
   // The design shows the model's names for types and attributes, never their keys.
   const [model, setModel] = useState<EngineModel>();
 
@@ -103,12 +96,8 @@ export function AiTaskPage({
     let current = true;
     api
       .model({ workspaceKey })
-      .then((loaded) => {
-        if (!current) return;
-        setModel(loaded);
-        setApplications(loaded.applications ?? []);
-      })
-      .catch(() => current && setApplications([]));
+      .then((loaded) => current && setModel(loaded))
+      .catch(() => undefined);
     return () => {
       current = false;
     };
@@ -157,7 +146,6 @@ export function AiTaskPage({
     } catch (cause) {
       if (isApiError(cause, "AI_TASK_VERSION_CONFLICT")) {
         setConflict(true);
-        setReading(false);
         await followed.reload();
       } else setProblem(errorMessage(cause));
     } finally {
@@ -265,7 +253,7 @@ export function AiTaskPage({
             })
           }
         />
-      ) : design && task.state === "checked" && applications ? (
+      ) : design && task.state === "checked" ? (
         <>
           {designView}
           {designCheck && (
@@ -280,33 +268,6 @@ export function AiTaskPage({
             />
           )}
         </>
-      ) : !applications && (task.state === "read" || task.state === "checked" || task.state === "loaded") ? (
-        <Skeleton label="Reading the model" />
-      ) : task.state === "read" || (task.state === "checked" && reading) ? (
-        <ReadingView
-          key={`${task.version}-${reading}`}
-          task={task}
-          applications={applications ?? []}
-          pending={pending}
-          onCancel={() => (workspaceKey ? onOpenWorkspace(workspaceKey) : undefined)}
-          onPrepare={(tables) =>
-            void write(async () => {
-              const planned = await ai.planTask(task.id, { expectedVersion: task.version, tables });
-              // Not before the answer: the stale check would show for a moment.
-              setReading(false);
-              return planned;
-            })
-          }
-        />
-      ) : task.state === "checked" ? (
-        <CheckView
-          task={task}
-          applications={applications ?? []}
-          pending={pending}
-          canLoad={holds(permissions, "change-sets")}
-          onBack={() => setReading(true)}
-          onLoad={run}
-        />
       ) : task.state === "loaded" ? (
         <LoadedView
           task={task}

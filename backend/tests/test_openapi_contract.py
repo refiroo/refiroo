@@ -373,9 +373,19 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # form, kind on clients, application on sessions and mcp on the system read.
     # Re-baselined for the assistant's offer: assistant on AiSystemInfo; with it removed the document
     # hashes to the previous lock.
+    # Re-baselined for 0.16 AP9 (diffed against HEAD in a worktree): origin on a record in a change set,
+    # who asked and edited on ProposalOrigin, whose confidence, reason and model become optional; the
+    # session purpose, its failure kinds, costUsd and taskId on a call; the session kind on clients.
+    # Re-baselined for 0.16 AP10 (diffed against AP9's in a worktree): /ai/tasks/{id}/plan, plan on a
+    # task, table on its changes, links and linksJobId gone; assistant on the AI status, a source key's
+    # attributeTypeKeys, profileNotSaved on a task's result.
+    # Re-baselined for 0.16 AG3 (additive, diffed against HEAD in a worktree): channel on a change's
+    # entry and on an audit event, and AgentOrigin (the assistant's name and the person or client it
+    # acted for) as a third origin kind; nothing else of AG3 moved the document.
+    # Re-baselined for 0.16 AP10 (diffed against AG3's): draftChanged on a design's check.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "ce0472508dd1af2c63c83aa3a381cd447b3a6fc03985d25fd95c89ba8c1e2da9"
+        "1eb5f3b6d9712b6970dbd08acd7323b04f2c72bcd18bc86f647d5888b7c0f85d"
     )
 
 

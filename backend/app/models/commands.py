@@ -1031,26 +1031,6 @@ class AiTaskRequest(BaseModel):
     sendLevel: Literal["structure", "samples", "values"] | None = None
 
 
-class AiTaskTableChoices(BaseModel):
-    """The person's choices for one table of the reading; what is left out stays as it is."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    table: str = Field(min_length=1)
-    keyColumn: str | None = Field(default=None, min_length=1, max_length=3)
-    newRecords: Literal["create", "leaveOut"] | None = None
-    names: Literal["file", "stored"] | None = None
-    missing: Literal["leave", "remove"] | None = None
-    load: bool | None = None
-
-
-class AiTaskPlanRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    expectedVersion: int = Field(ge=1)
-    tables: list[AiTaskTableChoices] = Field(default_factory=list)
-
-
 class AiTaskSaveProfile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

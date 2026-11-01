@@ -12,7 +12,11 @@
 // (`helpers/session-stand-in.py`): Import → Load a workbook (Import without the assistant… takes the ordinary
 // dialog) → the session's proposal → the person's words → Accept the model → the change set holds the load and
 // the workspace's release and live data do not change; each page in light and dark at 1440px and 390px with
-// axe; and no such action on a backend without a provider.
+// axe. The assistant is switched on by its command alone (AI_AGENT_COMMAND, no AI_PROVIDER): Settings › AI says
+// what each switch gives; a provider without the command offers no assistant and `POST /ai/tasks` is
+// `409 AI_NOT_CONFIGURED`. The proposal warns of new records beside held ones (`besideHeld`) and Accept still
+// works; the loaded page names the saved profile the engine saved from a keyed load, or says why none was
+// saved. Each by keyboard and at 390px with axe.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -80,7 +84,10 @@ async function journey(label, source, level) {
     await page.getByRole("heading", { level: 1, name: "AI" }).waitFor();
     await page.getByRole("navigation", { name: "Settings" }).getByRole("link", { name: "AI", exact: true }).waitFor();
     const settings = page.getByRole("region", { name: "Settings", exact: true });
-    await settings.getByText("fake", { exact: true }).first().waitFor();
+    // What is switched on: the provider, and no assistant (no command is set on this backend).
+    await page.getByText(/^On: fake/).waitFor();
+    await page.getByText("Asked for mapping targets, search and summaries.", { exact: true }).waitFor();
+    await page.getByText("Loading a workbook with the assistant is not offered.", { exact: true }).waitFor();
     await settings.getByText("fake-1", { exact: true }).waitFor();
     await settings
       .getByText(
@@ -95,7 +102,7 @@ async function journey(label, source, level) {
       .first()
       .waitFor();
     await page.getByText(/No call has been made yet/).waitFor();
-    assert.equal(await page.getByText("No AI provider is set up").count(), 0);
+    assert.equal(await page.getByText("Neither the assistant nor an AI provider is set up").count(), 0);
     await shot(page, "configured-1440");
     await accessible(page, `ap1-${label}-configured`);
     checks.push(`${label}: AI is listed under Administration; the provider's settings, its feature and no call yet`);
@@ -337,7 +344,7 @@ async function withoutProvider() {
   const shot = (name) => page.screenshot({ path: resolve(harness.output, `ap1-none-${name}.png`), fullPage: true });
   try {
     await page.goto(`${uiUrl}/settings/ai`);
-    await page.getByText("No AI provider is set up", { exact: true }).waitFor();
+    await page.getByText("Neither the assistant nor an AI provider is set up", { exact: true }).waitFor();
     assert.equal(await page.getByRole("button", { name: "Send a test request" }).count(), 0);
     await shot("not-configured-1440");
     await accessible(page, "ap1-not-configured");
@@ -687,6 +694,8 @@ const LOADS = [
       ["domain-9", "Domain 09", "", "checked"],
     ],
     newRecord: "Domain 09",
+    // Through the keyed profile (code and name): the renamed domain-1 and the new domain-9.
+    keyedChanges: 2,
     keyboard: true,
   },
   {
@@ -707,6 +716,8 @@ const LOADS = [
       ["system-9", "System 09", "CRM", "checked"],
     ],
     newRecord: "System 09",
+    // Through the keyed profile (code and name): the new system-9 alone; the system type is not mapped.
+    keyedChanges: 1,
     keyboard: false,
   },
 ];
@@ -860,9 +871,16 @@ async function workbookLoad(harness, load) {
   const loaded = await api(`/ai/tasks/${taskId}`);
   assert.equal(loaded.state, "loaded");
   await page.getByText(/Live data is unchanged until the change set is approved and published/).waitFor();
+  // The session wrote the rows one by one, so there was no import to repeat: no profile, and the page says why.
+  assert.equal(loaded.result.profileKey ?? null, null, "no profile is saved when no import read the workbook");
+  assert.equal(loaded.result.profileNotSaved, "This load did not import the workbook, so it cannot be repeated.");
+  await page.getByText(loaded.result.profileNotSaved, { exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Open the profile" }).count(), 0, "no profile to open");
+  assert.equal(await page.getByText(/the next file of this layout loads without the assistant/).count(), 0);
   await page.waitForTimeout(300);
   await shot(page, "loaded-1440");
   await accessible(page, `ap6-${load.label}-loaded`);
+  checks.push(`${load.label}: a load with no import saves no profile, and the loaded page says why`);
   const changeSetId = loaded.result.changeSetId;
   const objectChanges = (await api(`/change-sets/${changeSetId}/object-changes?pageSize=100`)).items;
   assert.equal(objectChanges.length, 1, "the change set holds the new row");
@@ -873,6 +891,10 @@ async function workbookLoad(harness, load) {
   assert.equal((await api("/workspaces/default/model")).releaseId, running, "the session activates nothing");
   assert.deepEqual(Object.keys(await liveRecords(harness, typeKey)), Object.keys(before), "live records unchanged");
   checks.push(`${load.label}: accepted, the change set holds ${load.newRecord}; the workspace's release and live data unchanged`);
+  // Who did it (0.16 AP9): the session's run is on Settings › AI, with its cost.
+  const sessionCalls = (await api("/ai/calls?pageSize=10")).items.filter((call) => call.purpose === "assistantSession");
+  assert.ok(sessionCalls.some((call) => call.taskId === taskId && call.costUsd > 0), "the session's turns are on record with their cost");
+  checks.push(`${load.label}: the session's turns are in the call record with their cost`);
 
   // 6. Review the change set from the page.
   await press(page.getByRole("button", { name: "Review the change set" }));
@@ -928,7 +950,174 @@ async function workbookStates(harness, load) {
   checks.push(`${load.label}: proposal and loaded pages in light and dark at 1440px and 390px: no sideways scroll, axe 0 violations`);
 }
 
-/** A provider without a session: nothing could read the workbook but the rules, so Import is the ordinary dialog. */
+
+/** A new viewport and scheme on the app, for one page. */
+async function view(harness, scheme, width, height) {
+  const context = await harness.browser.newContext({ viewport: { width, height }, colorScheme: scheme, hasTouch: width < 500 });
+  const page = await context.newPage();
+  page.setDefaultTimeout(30_000);
+  return { context, page };
+}
+
+async function noSidewaysScroll(page, name, width) {
+  if (width >= 500) return;
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  assert.ok(overflow <= 0, `${name}: the page scrolls sideways at ${width}px`);
+}
+
+/**
+ * A proposal whose check would create records of a type the workspace holds: the engine warns, whatever the
+ * session said, and Accept still works. 390px in dark, then 1440px in light by keyboard.
+ */
+async function besideHeld(harness, load) {
+  const { uiUrl, api } = harness;
+  const task = await createTask(harness, load, "BESIDE: the rows do not find their records.");
+  const proposed = await taskIn(harness, task.id, ["checked"]);
+  const warning = proposed.design.checks.find((check) => check.kind === "besideHeld");
+  assert.ok(warning, `${load.label}: the proposal carries a besideHeld check`);
+  assert.equal(warning.open, true);
+  const sentence = new RegExp(
+    `^[\\d,]+ new ${load.typeName} beside the [\\d,]+ held\\. If this is an update, the rows did not find their records\\.$`,
+  );
+  assert.match(warning.text, sentence);
+  const heading = "The assistant’s proposal";
+  const warned = async (page) => {
+    await page.getByRole("heading", { level: 2, name: heading }).waitFor();
+    const list = page.getByRole("list", { name: "The assistant’s checks" });
+    const item = list.getByRole("listitem").filter({ hasText: /beside the .* held/ });
+    await item.waitFor();
+    await item.getByText("Needs attention", { exact: true }).waitFor();
+    assert.match((await item.innerText()).replace(/\s+/g, " "), new RegExp(`new ${load.typeName} beside the`));
+    return item;
+  };
+
+  const phone = await view(harness, "dark", 390, 844);
+  try {
+    await phone.page.goto(`${uiUrl}/settings/ai-tasks/${task.id}`);
+    await warned(phone.page);
+    await noSidewaysScroll(phone.page, `${load.label} beside held`, 390);
+    await phone.page.screenshot({ path: resolve(harness.output, `ap10-${load.label}-beside-held-dark-390.png`), fullPage: true });
+    await accessible(phone.page, `ap10-${load.label}-beside-held-dark-390`);
+  } finally {
+    await phone.context.close();
+  }
+
+  const desk = await view(harness, "light", 1440, 900);
+  try {
+    const page = desk.page;
+    await page.goto(`${uiUrl}/settings/ai-tasks/${task.id}`);
+    await warned(page);
+    await page.screenshot({ path: resolve(harness.output, `ap10-${load.label}-beside-held-light-1440.png`), fullPage: true });
+    await accessible(page, `ap10-${load.label}-beside-held-light-1440`);
+    // By keyboard: Accept the model is reachable and enabled with the warning open, and Enter accepts.
+    const accept = page.getByRole("region", { name: heading }).getByRole("button", { name: "Accept the model" });
+    assert.equal(await accept.isEnabled(), true, "the warning does not block Accept");
+    await accept.focus();
+    assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Accept the model");
+    await page.keyboard.press("Enter");
+    await page.getByRole("heading", { level: 2, name: /^Loaded into the change set/ }).waitFor({ timeout: 60_000 });
+    assert.equal((await api(`/ai/tasks/${task.id}`)).state, "loaded");
+  } finally {
+    await desk.context.close();
+  }
+  checks.push(
+    `${load.label}: new records beside held ones are warned of on the proposal (“${warning.text}”), at 390px and by keyboard, and Accept still loads`,
+  );
+}
+
+/**
+ * A load whose import had a keyed source: the engine saves the profile and the loaded page names it, offers
+ * it, and the profile is on the server with its key. 390px in dark, then 1440px in light by keyboard.
+ */
+async function loadedWithProfile(harness, load) {
+  const { uiUrl, api } = harness;
+  const task = await createTask(harness, load, "KEYED: load it as an update.");
+  const proposed = await taskIn(harness, task.id, ["checked"]);
+  await api(`/ai/tasks/${task.id}/accept`, { expectedVersion: proposed.version });
+  const loaded = await taskIn(harness, task.id, ["loaded"]);
+  const key = loaded.result.profileKey;
+  assert.equal(typeof key, "string", "a keyed import leaves a saved profile");
+  assert.equal(loaded.result.profileNotSaved ?? null, null);
+  const saved = await api(`/import-profiles/${key}`);
+  assert.equal(saved.valid, true, "the saved profile is valid under the release the workspace runs");
+  assert.equal(saved.sources[0].key.attributeTypeKey, `${load.typeName.toLowerCase()}-code`);
+  const changes = (await api(`/change-sets/${loaded.result.changeSetId}/object-changes?pageSize=100`)).items;
+  assert.equal(changes.length, load.keyedChanges, `${load.label}: the keyed import updates the records it finds`);
+  assert.ok(changes.some((item) => (item.after ?? item.before)?.name === load.newRecord));
+  const line = `Saved the profile “${key}”: the next file of this layout loads without the assistant.`;
+
+  const phone = await view(harness, "dark", 390, 844);
+  try {
+    await phone.page.goto(`${uiUrl}/settings/ai-tasks/${task.id}`);
+    await phone.page.getByRole("heading", { level: 2, name: /^Loaded into the change set/ }).waitFor();
+    await phone.page.getByText(line, { exact: true }).waitFor();
+    await noSidewaysScroll(phone.page, `${load.label} loaded with a profile`, 390);
+    await phone.page.screenshot({ path: resolve(harness.output, `ap10-${load.label}-profile-dark-390.png`), fullPage: true });
+    await accessible(phone.page, `ap10-${load.label}-profile-dark-390`);
+  } finally {
+    await phone.context.close();
+  }
+
+  const desk = await view(harness, "light", 1440, 900);
+  try {
+    const page = desk.page;
+    await page.goto(`${uiUrl}/settings/ai-tasks/${task.id}`);
+    await page.getByText(line, { exact: true }).waitFor();
+    assert.equal(await page.getByText(/Not saved as a profile|cannot be repeated/).count(), 0);
+    await page.screenshot({ path: resolve(harness.output, `ap10-${load.label}-profile-light-1440.png`), fullPage: true });
+    await accessible(page, `ap10-${load.label}-profile-light-1440`);
+    const open = page.getByRole("button", { name: "Open the profile" });
+    await open.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForURL(/\/settings\/import-profiles/);
+  } finally {
+    await desk.context.close();
+  }
+  checks.push(
+    `${load.label}: a keyed load leaves the saved profile “${key}”; the loaded page names it and Open the profile (Enter) goes to it; no sideways scroll at 390px, axe clean`,
+  );
+}
+
+/**
+ * Settings › AI with the command alone: the assistant is on, the provider is not, and each says what it gives. By
+ * keyboard to the page, at 390px, with axe.
+ */
+async function assistantAlone(harness) {
+  const { uiUrl, api } = harness;
+  const system = await api("/system");
+  assert.equal(system.ai.assistant, true);
+  assert.equal(system.ai.configured, false, "no provider is set");
+  const status = await api("/ai/status");
+  assert.equal(status.assistant, true);
+  assert.equal(status.configured, false);
+  for (const [scheme, width, height] of [
+    ["light", 1440, 900],
+    ["dark", 390, 844],
+  ]) {
+    const { context, page } = await view(harness, scheme, width, height);
+    try {
+      await page.goto(`${uiUrl}/settings/ai`);
+      await page.getByRole("heading", { level: 1, name: "AI" }).waitFor();
+      await page.getByText("Reads workbooks and words, up to a change set.", { exact: false }).waitFor();
+      await page.getByText("Mapping targets, search and summaries are not offered.", { exact: true }).waitFor();
+      assert.equal(await page.getByText("Neither the assistant nor an AI provider is set up").count(), 0);
+      assert.equal(await page.getByRole("button", { name: "Send a test request" }).count(), 0, "no provider to test");
+      await noSidewaysScroll(page, "Settings › AI with the command alone", width);
+      await page.screenshot({ path: resolve(harness.output, `ap10-ai-command-only-${scheme}-${width}.png`), fullPage: true });
+      await accessible(page, `ap10-ai-command-only-${scheme}-${width}`);
+    } finally {
+      await context.close();
+    }
+  }
+  // The command alone is enough for a task.
+  const task = await createTask(harness, LOADS[0], "A task needs no provider.");
+  assert.equal(task.state, "reading");
+  await taskIn(harness, task.id, ["checked"]);
+  await harness.api(`/ai/tasks/${task.id}/discard`, {});
+  checks.push("the command alone: Settings › AI says the assistant is on and the provider is not (390px, axe clean), and a task runs with no provider");
+}
+
+/** A provider without a session: no assistant is offered, a task is refused naming the command, and Settings › AI says so. */
 async function providerWithoutSession() {
   const harness = await bootHarness({ backendEnv: { AI_PROVIDER: FAKE } });
   try {
@@ -936,7 +1125,23 @@ async function providerWithoutSession() {
     await workspaceAction(harness.page, "Import…");
     await harness.page.getByRole("dialog", { name: "Import" }).getByRole("button", { name: "Preview" }).waitFor();
     assert.equal(await harness.page.getByRole("dialog", { name: "Load a workbook" }).count(), 0);
-    checks.push("a provider without a session: Import opens the ordinary dialog");
+    const system = await harness.api("/system");
+    assert.equal(system.ai.configured, true);
+    assert.equal(system.ai.assistant, false);
+    // The provider alone does not start a task: the refusal names the command.
+    const form = new FormData();
+    form.append("file", new Blob([xlsx({ [LOADS[0].sheet]: LOADS[0].rows })], { type: XLSX }), LOADS[0].file);
+    form.append("request", JSON.stringify({ workspaceKey: "default" }));
+    const refused = await fetch(`${harness.apiUrl}/api/v1/ai/tasks`, { method: "POST", body: form });
+    assert.equal(refused.status, 409);
+    const body = await refused.json();
+    assert.equal(body.error?.code ?? body.code, "AI_NOT_CONFIGURED");
+    assert.match(JSON.stringify(body), /AI_AGENT_COMMAND/);
+    await harness.page.goto(`${harness.uiUrl}/settings/ai`);
+    await harness.page.getByText("Loading a workbook with the assistant is not offered.", { exact: true }).waitFor();
+    checks.push(
+      "a provider without a session: Import opens the ordinary dialog, POST /ai/tasks is 409 AI_NOT_CONFIGURED naming AI_AGENT_COMMAND, and Settings › AI says the assistant is not offered",
+    );
   } finally {
     harness.cleanup();
   }
@@ -944,11 +1149,15 @@ async function providerWithoutSession() {
 
 /** The assistant: a stand-in session, two object types, the whole journey and every state. */
 async function workbookLoads() {
-  const harness = await bootHarness({ backendEnv: { AI_PROVIDER: FAKE, AI_AGENT_COMMAND: SESSION } });
+  // The command alone: no AI_PROVIDER is set, and the assistant works.
+  const harness = await bootHarness({ backendEnv: { AI_AGENT_COMMAND: SESSION } });
   try {
+    await assistantAlone(harness);
     for (const load of LOADS) {
       await workbookLoad(harness, load);
       await workbookStates(harness, load);
+      await besideHeld(harness, load);
+      await loadedWithProfile(harness, load);
     }
     // Without a way back the assistant's jobs are listed by their kind.
     const jobs = (await harness.api("/jobs?kind=aiTask&pageSize=100")).items;
@@ -974,7 +1183,7 @@ async function workbookLoads() {
 }
 
 try {
-  // ONLY=ap6a runs the assistant's load of a workbook (and the backend without a provider) alone.
+  // ONLY=ap6a runs the assistant's load of a workbook (and the backend with a provider alone) alone.
   if (process.env.ONLY !== "ap6a") {
     await journey("renamed-example", renamed);
     await journey("generated-b", generatedB, "structure");

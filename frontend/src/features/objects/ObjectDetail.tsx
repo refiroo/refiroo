@@ -21,6 +21,7 @@ import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ObjectDeleteDialog } from "@/features/objects/ObjectDeleteDialog";
 import { ConnectedList } from "./panels/ConnectedList";
 import { HistoryPanel } from "./panels/HistoryPanel";
+import { AiOriginMark } from "@/ui/AiOriginMark";
 import { CopyValue } from "@/ui/CopyValue";
 import { HueTile } from "@/ui/HueTile";
 import { Icon } from "@/ui/Icon";
@@ -411,6 +412,7 @@ export function ObjectDetail({
         <p className="record-meta">
           <CopyValue label="ID" value={object.id} />
         </p>
+        {object.origin && <AiOriginMark origin={object.origin} variant="history" />}
       </div>
       <div
         key={panelRefresh}

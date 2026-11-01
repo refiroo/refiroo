@@ -310,6 +310,10 @@ export interface ModelDraftOperationEntry {
     proposalId?: string;
     pattern?: string;
     summary?: string;
+    /** A step a session made: who asked for it, named as they are now (0.16 AP9). */
+    proposedBy?: string;
+    proposedByName?: string;
+    taskId?: string;
   };
 }
 

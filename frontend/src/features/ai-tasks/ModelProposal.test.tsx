@@ -53,6 +53,23 @@ describe("ModelProposal", () => {
     expect(screen.getByText("You asked: Visits belong to operators")).toBeInTheDocument();
   });
 
+  it("warns of new records beside the held ones, and Accept stays available (AP-D42)", () => {
+    const task = proposal();
+    task.design!.checks = [
+      {
+        id: "beside-held-product",
+        kind: "besideHeld",
+        text: "667 new Products beside the 667 held. If this is an update, the rows did not find their records.",
+        open: true,
+      },
+    ];
+    const { onAccept } = render_(task);
+    expect(screen.getByText(/667 new Products beside the 667 held/)).toBeInTheDocument();
+    expect(screen.getByText("Needs attention")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Accept the model" }));
+    expect(onAccept).toHaveBeenCalled();
+  });
+
   it("sends the words only when there are some", () => {
     const { onCorrect } = render_(proposal());
     const send = screen.getByRole("button", { name: "Send to the assistant" });

@@ -11,7 +11,7 @@ import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
 import { JourneyBar } from "@/app/JourneyBar";
 import { useWorkspacePermissions } from "@/features/security/permissions";
-import { useAiOfferIn } from "@/features/settings/useWorkspaceAiOffer";
+import { useAssistantOfferIn } from "@/features/settings/useWorkspaceAiOffer";
 import { workspaceModel } from "@/model/workspaceModels";
 import { changeReviewFor } from "@/routing/routes";
 import type { JourneyRef, RouteState } from "@/types";
@@ -62,7 +62,7 @@ export function AiTaskJourneyBar({
   const followed = useAiTask(taskId);
   const { task } = followed;
   const permissions = useWorkspacePermissions(task?.workspaceKey);
-  const offer = useAiOfferIn(task?.workspaceKey, permissions);
+  const offer = useAssistantOfferIn(task?.workspaceKey, permissions);
   const [problem, setProblem] = useState("");
   const [pending, setPending] = useState(false);
   const [restarting, setRestarting] = useState(false);

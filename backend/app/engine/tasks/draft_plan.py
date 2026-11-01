@@ -10,13 +10,10 @@ them (``model/authoring``), all or none; the profile is checked against the draf
 
 import copy
 import io
-import re
 import shutil
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
-from openpyxl import load_workbook
 from pydantic import ValidationError
 from sqlalchemy import text, update
 from sqlalchemy.orm import Session
@@ -33,7 +30,6 @@ from ..model.drafts import create_draft
 from ..model.workspace_models import load_assignment
 from ..sources.profiling import profile_source_file
 from ..sources.staged import StagedFile
-from .design import DataSheet, Derived, StructureRecord
 
 STRUCTURE = "Structure"
 NAME, PARENT = "Name", "Parent"
@@ -71,102 +67,6 @@ def apply(
     }
 
 
-def _sheet_name(info: dict[str, Any], taken: set[str]) -> str:
-    base = f"{STRUCTURE} {info.get('name') or info['key']}"[:31]
-    name, number = base, 2
-    while name in taken:
-        suffix = f" {number}"
-        name, number = base[: 31 - len(suffix)] + suffix, number + 1
-    taken.add(name)
-    return name
-
-
-def _ordered(records: list[StructureRecord]) -> list[StructureRecord]:
-    """Parents before the records under them, as far as the list names them."""
-    by_name = {(r.objectTypeKey, r.name): r for r in records}
-    depth: dict[str, int] = {}
-
-    def level(record: StructureRecord, seen: frozenset[str] = frozenset()) -> int:
-        if record.ref in depth:
-            return depth[record.ref]
-        parent = record.parent
-        above = by_name.get((parent.objectTypeKey, parent.name)) if parent else None
-        found = 0 if above is None or above.ref in seen else level(above, seen | {record.ref}) + 1
-        depth[record.ref] = found
-        return found
-
-    return sorted(records, key=level)
-
-
-def _unique(model: dict[str, Any], type_key: str, record: StructureRecord) -> str | None:
-    unique = {
-        a["key"]
-        for a in model.get("attributeTypes") or []
-        if (a.get("features") or {}).get("unique")
-    }
-    item = next((t for t in model.get("objectTypes") or [] if t["key"] == type_key), None)
-    for binding in (item or {}).get("attributes") or []:
-        if binding["attributeTypeKey"] in unique and record.attributes.get(
-            binding["attributeTypeKey"]
-        ):
-            return binding["attributeTypeKey"]
-    return None
-
-
-def _sheets(
-    records: list[StructureRecord], model: dict[str, Any], taken: set[str]
-) -> list[tuple[str, str, list[StructureRecord], list[str], str | None]]:
-    """Per type of the records, in parent order: its sheet's name, the type, its records, its
-    attribute columns and the parent type."""
-    types = {t["key"]: t for t in model.get("objectTypes") or []}
-    groups: dict[str, list[StructureRecord]] = {}
-    for record in _ordered(records):
-        groups.setdefault(record.objectTypeKey, []).append(record)
-    found = []
-    for type_key, members in groups.items():
-        name = _sheet_name(types.get(type_key) or {"key": type_key}, taken)
-        attributes = sorted({k for r in members for k in r.attributes})
-        parent_type = next((r.parent.objectTypeKey for r in members if r.parent), None)
-        found.append((name, type_key, members, attributes, parent_type))
-    return found
-
-
-def structure_sources(
-    records: list[StructureRecord], model: dict[str, Any], taken: set[str] | None = None
-) -> list[dict[str, Any]]:
-    """The profile sources that load the structure sheets (first, in parent order). ``taken``: the
-    workbook's own sheet names, which a structure sheet's name avoids."""
-    applications = {
-        key: app["key"]
-        for app in model.get("applications") or []
-        for key in app.get("objectTypeKeys") or []
-    }
-    sources = []
-    for name, type_key, members, attributes, parent_type in _sheets(
-        records, model, set(taken or ())
-    ):
-        key_attribute = _unique(model, type_key, members[0])
-        columns: list[dict[str, Any]] = [{"column": NAME, "field": "name"}]
-        columns += [{"column": k, "attributeTypeKey": k} for k in attributes]
-        if parent_type:
-            columns.append(
-                {
-                    "column": PARENT,
-                    "parent": {"objectTypeKey": parent_type, "matchBy": {"field": "name"}},
-                }
-            )
-        sources.append(
-            {
-                "sheet": name,
-                "applicationKey": members[0].applicationKey or applications.get(type_key, ""),
-                "objectTypeKey": type_key,
-                "key": {"attributeTypeKey": key_attribute} if key_attribute else {"field": "name"},
-                "columns": columns,
-            }
-        )
-    return sources
-
-
 # A derived sheet's rows, and how long its query may run.
 DERIVED_MAX_ROWS = 200_000
 DERIVED_TIMEOUT = "30s"
@@ -179,116 +79,6 @@ FROM source_file_cells c JOIN source_file_sheets s
     ON s.source_file_id = c.source_file_id AND s.sheet_index = c.sheet_index
 WHERE c.source_file_id = {file}
 """
-
-
-def _one_select(sql: str) -> str:
-    """The query without its comments and last semicolon; refused when it is more than one
-    statement or does not read: a semicolon outside a quoted text ends a statement."""
-    without = re.sub(r"--[^\n]*|/\*.*?\*/", " ", sql, flags=re.DOTALL).strip().rstrip(";").strip()
-    outside = re.sub(r"'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"", "", without)
-    if ";" in outside or not re.match(r"\(*\s*(select|with|values)\b", without, re.IGNORECASE):
-        raise ValueError("A derived sheet's query is one SELECT")
-    return without
-
-
-def run_derived(
-    session: Session, file_id: int, spec: Derived
-) -> tuple[list[str], list[tuple[Any, ...]]]:
-    """The query's headers and rows. It runs as a role granted nothing but the file's cells, read
-    only and with a time limit, in a savepoint undone afterwards: one statement, a SELECT."""
-    query = _one_select(spec.sql)
-    savepoint = session.begin_nested()
-    try:
-        connection = session.connection()
-        connection.exec_driver_sql(_CELLS_VIEW.format(file=int(file_id)))
-        connection.exec_driver_sql("REVOKE ALL ON cells FROM PUBLIC")
-        connection.exec_driver_sql(f"GRANT SELECT ON cells TO {READER}")
-        schema = connection.exec_driver_sql("SELECT pg_my_temp_schema()::regnamespace::text").scalar()
-        connection.exec_driver_sql(f"GRANT USAGE ON SCHEMA {schema} TO {READER}")
-        connection.exec_driver_sql(f"SET LOCAL statement_timeout = '{DERIVED_TIMEOUT}'")
-        connection.exec_driver_sql(f"SET LOCAL ROLE {READER}")
-        connection.exec_driver_sql("SET LOCAL transaction_read_only = on")
-        result = connection.exec_driver_sql(
-            f"SELECT * FROM ({query}) derived LIMIT {DERIVED_MAX_ROWS + 1}"
-        )
-        headers = list(result.keys())
-        rows = [tuple(row) for row in result]
-    finally:
-        savepoint.rollback()
-    if len(rows) > DERIVED_MAX_ROWS:
-        raise ValueError(f"The query gives more than {DERIVED_MAX_ROWS} rows")
-    return headers, rows
-
-
-def derived_problems(
-    session: Session, source: SourceFile | None, current: dict[str, Any]
-) -> list[dict[str, str]]:
-    """What is wrong with the design's derived sheets, as a profile's problems."""
-    problems = []
-    for raw in current.get("derived") or []:
-        spec = Derived.model_validate(raw)
-        if source is None:
-            continue
-        try:
-            run_derived(session, source.id, spec)
-        except Exception as error:  # noqa: BLE001 - any failure of the query goes back as words
-            message = str(getattr(error, "orig", error)).split("\n")[0][:400]
-            problems.append(
-                {"code": "DERIVED_QUERY", "message": f"Derived sheet {spec.name}: {message}"}
-            )
-    return problems
-
-
-def derived_sheets(
-    session: Session, source: SourceFile, specs: list[dict[str, Any]]
-) -> list[tuple[str, list[str], list[tuple[Any, ...]]]]:
-    return [
-        (spec.name, *run_derived(session, source.id, spec))
-        for spec in (Derived.model_validate(raw) for raw in specs)
-    ]
-
-
-def working_book(
-    original: Path,
-    records: list[StructureRecord],
-    model: dict[str, Any],
-    data: list[DataSheet] | None = None,
-    derived: list[tuple[str, list[str], list[tuple[Any, ...]]]] | None = None,
-) -> tuple[bytes, list[dict[str, Any]]]:
-    """The person's workbook followed by the assistant's data sheets and the structure sheets, and
-    the profile sources that load the structure sheets (the data sheets' are the design's own)."""
-    # Opened as a file, not by name: openpyxl judges a name by its extension, and a stored upload
-    # has none (as ``imports/readers.py``). With the formulas' last values, as the upload was staged:
-    # a copy saved with the formulas alone holds no value in those cells.
-    with original.open("rb") as handle:
-        book = load_workbook(handle, data_only=True)
-    taken = set(book.sheetnames)
-    for sheet_data in data or []:
-        if sheet_data.name in taken:
-            continue
-        sheet = book.create_sheet(sheet_data.name)
-        sheet.append(list(sheet_data.columns))
-        for row in sheet_data.rows:
-            sheet.append(list(row))
-        taken.add(sheet_data.name)
-    for name, headers, rows in derived or []:
-        if name not in taken:
-            sheet = book.create_sheet(name)
-            sheet.append(headers)
-            for row in rows:
-                sheet.append(row)
-            taken.add(name)
-    for name, _, members, attributes, parent_type in _sheets(records, model, set(taken)):
-        sheet = book.create_sheet(name)
-        sheet.append([NAME, *attributes] + ([PARENT] if parent_type else []))
-        for record in members:
-            row: list[Any] = [record.name, *(record.attributes.get(k) for k in attributes)]
-            if parent_type:
-                row.append(record.parent.name if record.parent else None)
-            sheet.append(row)
-    buffer = io.BytesIO()
-    book.save(buffer)
-    return buffer.getvalue(), structure_sources(records, model, taken)
 
 
 def stage(
@@ -574,54 +364,110 @@ WHERE f.public_id = :file AND sh.name = :sheet AND btrim(h.text) = btrim(:header
 """)
 
 
-def _key_header(source: dict[str, Any]) -> str | None:
-    """The column a source's key reads."""
+_READ_ROWS = text("""
+SELECT DISTINCT c.row_number FROM source_file_cells c
+JOIN source_files f ON f.id = c.source_file_id
+JOIN source_file_sheets sh ON sh.source_file_id = f.id AND sh.sheet_index = c.sheet_index
+JOIN source_file_cells h ON h.source_file_id = c.source_file_id AND h.sheet_index = c.sheet_index
+    AND h.column_number = c.column_number AND h.row_number = :headerRow
+WHERE f.public_id = :file AND sh.name = :sheet AND c.row_number = ANY(:rows)
+  AND btrim(c.text) <> '' AND btrim(h.text) = ANY(:headers)
+""")
+
+
+_NOT_HELD = text("""
+WITH col AS (
+    SELECT c.source_file_id, c.sheet_index, c.row_number, c.text
+    FROM source_file_cells c
+    JOIN source_files f ON f.id = c.source_file_id
+    JOIN source_file_sheets sh ON sh.source_file_id = f.id AND sh.sheet_index = c.sheet_index
+    JOIN source_file_cells h ON h.source_file_id = c.source_file_id
+        AND h.sheet_index = c.sheet_index AND h.column_number = c.column_number
+        AND h.row_number = :headerRow
+    WHERE f.public_id = :file AND sh.name = :sheet AND btrim(h.text) = btrim(:header)
+      AND c.row_number > :headerRow AND btrim(c.text) <> ''
+), held AS (
+    SELECT DISTINCT col.text FROM col
+    JOIN job_items o ON o.row_number = col.row_number AND o.source_index = ANY(CAST(:others AS int[]))
+    JOIN jobs j ON j.sequence_id = o.job_id AND j.id = :job
+)
+SELECT col.row_number FROM col
+WHERE col.row_number = ANY(:rows) AND col.text NOT IN (SELECT text FROM held)
+""")
+
+
+def _key_headers(source: dict[str, Any]) -> list[str]:
+    """The columns a source's key reads: one, or each of a combination's."""
     key = source.get("key") or {}
     if key.get("column"):
-        return key["column"]
+        return [key["column"]]
+    found = []
+    for attribute in key.get("attributeTypeKeys") or [key.get("attributeTypeKey")]:
+        for binding in source.get("columns") or []:
+            if attribute and binding.get("attributeTypeKey") == attribute:
+                found.append(binding.get("column"))
+                break
+    if not found and key.get("field") == "name":
+        found = [b.get("column") for b in source.get("columns") or [] if b.get("field") == "name"]
+    return [header for header in found if header]
+
+
+def _reads(source: dict[str, Any]) -> set[str]:
+    """The columns a source reads."""
+    found: set[str] = set()
     for binding in source.get("columns") or []:
-        if key.get("field") == "name" and binding.get("field") == "name":
-            return binding.get("column")
-        if key.get("attributeTypeKey") and binding.get("attributeTypeKey") == key["attributeTypeKey"]:
-            return binding.get("column")
-    return None
+        if not binding.get("ignore"):
+            found.update(binding.get("columns") or [binding.get("column")])
+    return found - {None}
 
 
 def skipped(session: Session, job: Any, sources: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
-    """The rows of each source that skips rows without a key (``rowsWithoutKey: skip``) the dry run
-    wrote nothing for: the filled rows below the header with no outcome, by source, with the first
-    three row numbers. A source of a block is not counted (its rows are not the whole sheet's)."""
+    """The rows of each source that skips rows without a key (``rowsWithoutKey: skip``) whose data
+    the dry run did not hold: with the first three row numbers, by source. An empty cell in a column
+    a source makes records of is no value, not a row left out: the row counts only when a value the
+    source reads on it is held by no other source, or no source reads anything on it (a note). A
+    source of a block is not counted (its rows are not the whole sheet's)."""
     found: dict[int, dict[str, Any]] = {}
     for index, source in enumerate(sources):
         if source.get("rowsWithoutKey") != "skip" or source.get("block") or not source.get("sheet"):
             continue
+        place = {
+            "file": job.parameters["sourceFileId"],
+            "sheet": source["sheet"],
+            "headerRow": int(source.get("headerRow") or 1),
+        }
         rows = session.scalars(
             _SKIPPED,
-            {
-                "file": job.parameters["sourceFileId"],
-                "sheet": source["sheet"],
-                "header": int(source.get("headerRow") or 1),
-                "job": job.id,
-                "source": index,
-            },
+            {**place, "header": place["headerRow"], "job": job.id, "source": index},
         ).all()
         # A row whose key is filled repeats a key another row wrote: it is that record, not skipped.
-        header = _key_header(source)
-        if rows and header is not None:
-            filled = set(
+        filled: set[int] | None = None
+        for header in _key_headers(source) if rows else []:
+            cells = set(session.scalars(_KEY_FILLED, {**place, "header": header}))
+            filled = cells if filled is None else filled & cells
+        rows = [row for row in rows if row not in (filled or ())]
+        if not rows:
+            continue
+        same_sheet = {
+            i: _reads(s) for i, s in enumerate(sources) if s.get("sheet") == source["sheet"]
+        }
+        kept = set(rows) - set(
+            session.scalars(
+                _READ_ROWS,
+                {**place, "rows": rows, "headers": sorted(set().union(*same_sheet.values()))},
+            )
+        )
+        for header in same_sheet[index]:
+            others = [i for i, reads in same_sheet.items() if i != index and header in reads]
+            kept.update(
                 session.scalars(
-                    _KEY_FILLED,
-                    {
-                        "file": job.parameters["sourceFileId"],
-                        "sheet": source["sheet"],
-                        "headerRow": int(source.get("headerRow") or 1),
-                        "header": header,
-                    },
+                    _NOT_HELD,
+                    {**place, "rows": rows, "header": header, "job": job.id, "others": others},
                 )
             )
-            rows = [row for row in rows if row not in filled]
-        if rows:
-            found[index] = {"rows": len(rows), "examples": list(rows[:3])}
+        if kept:
+            ordered = sorted(kept)
+            found[index] = {"rows": len(ordered), "examples": ordered[:3]}
     return found
 
 

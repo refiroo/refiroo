@@ -1,4 +1,4 @@
-/** The records the latest check would change in one table of the plan or one sheet of the design: one row per changed field, a page at a time (0.16 AP6a, AP6). */
+/** The records the latest check would change in one sheet of the design: one row per changed field, a page at a time (0.16 AP6a, AP6). */
 
 import { ai } from "@/api/aiClient";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
@@ -14,15 +14,12 @@ export function TableChanges({
   checkedAt,
 }: {
   taskId: string;
-  /** The plan's table, or the design's source in the check's sheets. */
-  table: string | number;
+  /** The design's source in the check's sheets. */
+  table: number;
   sheet: string;
   checkedAt: string;
 }) {
-  const feed = useCursorFeed(
-    (cursor) => ai.taskChanges(taskId, typeof table === "number" ? { source: table } : { table }, cursor),
-    [taskId, table, checkedAt],
-  );
+  const feed = useCursorFeed((cursor) => ai.taskChanges(taskId, { source: table }, cursor), [taskId, table, checkedAt]);
   if (feed.error) return <InlineError message={feed.error} onRetry={feed.retry} />;
   if (feed.loading && feed.items.length === 0) return <Skeleton label={`Reading the changes of ${sheet}`} lines={3} />;
   if (feed.items.length === 0) return <p className="admin-hint">No stored record changes in this sheet.</p>;

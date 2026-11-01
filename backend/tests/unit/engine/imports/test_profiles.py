@@ -239,3 +239,25 @@ def test_sources_referencing_each_other_have_no_order():
     assert problems(source("H", branch_to_token), source("K", token_from_branch)) == {
         ("/sources", "SOURCE_CYCLE")
     }
+
+
+def test_a_key_of_several_attributes_needs_no_unique_one_but_each_must_be_bound():
+    """AP-D43: the attributes of a combination are checked as a single key is, except that none
+    needs to be declared unique."""
+    both = {"attributeTypeKeys": [k("H.code"), k("H.rank")]}
+    code = {"column": "Code", "attributeTypeKey": k("H.code")}
+    rank = {"column": "Rank", "attributeTypeKey": k("H.rank")}
+    assert problems(source("H", code, rank, key=both)) == set()
+    assert problems(source("H", code, key=both)) == {
+        ("/sources/0/key/attributeTypeKeys", "KEY_NOT_BOUND")
+    }
+    found = problems(
+        source("H", code, rank, key={"attributeTypeKeys": [k("H.code"), "nope"]}),
+        source("H", code, rank, key={"attributeTypeKeys": [k("H.code"), k("K.code")]}),
+    )
+    assert found == {
+        ("/sources/0/key/attributeTypeKeys", "UNKNOWN_ATTRIBUTE"),
+        ("/sources/0/key/attributeTypeKeys", "KEY_NOT_BOUND"),
+        ("/sources/1/key/attributeTypeKeys", "ATTRIBUTE_NOT_BOUND"),
+        ("/sources/1/key/attributeTypeKeys", "KEY_NOT_BOUND"),
+    }

@@ -6,6 +6,50 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (one path for the assistant, AP10)
+
+- A session builds everything the words ask for, as they place it and also with no data in the file; a question no longer replaces building.
+- Switching workspace from a page the other workspace's model lacks now writes the start page it opens to the address, so a reload no longer says the page is not in the model.
+- A session no longer stops with an internal error when its stream carries a system event whose message is text, as a refused permission does.
+- An assistant check counts a row skipped only when a value on it is lost: an empty cell in a list's column no longer reads as a skipped row, and `unchanged` counts records, not links.
+
+- **`AI_AGENT_COMMAND` alone turns the assistant on.** `POST /ai/tasks` is `409 AI_NOT_CONFIGURED` without it
+  and no longer needs `AI_PROVIDER`, which serves mapping targets and later features only. `GET /ai/status`
+  answers `assistant`; Settings › AI says what each setting gives and opens if either is set.
+- **The rules-only task path is removed:** `POST /ai/tasks/{id}/plan`, `plan` on a task, `table` on
+  `GET /ai/tasks/{id}/changes`, the relationship rules (`design.links`, `check.links`, `result.linksJobId`),
+  `AI_MAX_STEPS` and the provider purpose `workbookLoad`, with their Reading and Check pages. A saved layout
+  that still fits takes the engine's path with no AI.
+- **A load leaves a saved profile.** The engine saves it from the change set's imports (`result.profileKey`),
+  checked against the change set's release, or says why it did not (`result.profileNotSaved`): a source with
+  no key, a change made only through batches, a profile already saved.
+- **A proposal warns of new records beside held ones** (`design.checks` kind `besideHeld`).
+- **A check tells skipped rows and an old check apart:** `check.summary.skipped` no longer counts as refused, and
+  `check.draftChanged` says the draft moved after that dry run.
+- **A saved layout fits a workbook with sheets its profile left out**, if the earlier file had them too; its
+  summary gives the profile's own figures.
+- **A session is refused a draft another task holds** (`409 AI_TASK_DRAFT_HELD`), and unused releases a task
+  installed are retired when it loads or is discarded.
+
+### Added (a key of several columns, AP10)
+
+- **`SourceKey.attributeTypeKeys`** in an import profile: two or more attributes, each bound by a column, whose
+  values together find one record, live and in a change set. A combination two records hold refuses the row
+  (`KEY_AMBIGUOUS`); an empty cell is a row without a key (`MISSING_RECORD_KEY`, or `rowsWithoutKey`); an
+  unbound attribute is `KEY_NOT_BOUND`. The assistant gives each source such a key. Batch `upsert` keys are
+  unchanged.
+
+### Added (who did the assistant's changes, AP9)
+
+- **Provenance on a session's changes:** a record or relationship the assistant proposed carries `origin` (who asked,
+  who edited it afterwards, the task) in the change set and, once published, in history, removals included.
+  `ProposalOrigin` gains `editedBy`, `editedByName`, `proposedByName` and `taskId`.
+- **One client per task:** `ai_tasks.client_id`, client kind `session`, left out of `GET /clients` unless
+  `kind=session`; `409 CLIENT_HAS_NO_SECRETS`.
+- **The call record holds a session's runs:** purpose `assistantSession`, `costUsd`, `taskId`, failure kinds `timeout`,
+  `cancelled` and `interrupted`; Settings › AI shows them with their cost.
+- **Retention** removes a task's folder and Claude Code's transcript with the task.
+
 ### Added (changing a workspace's model)
 
 - **Edit model from the workspace:** a ⋯ menu beside the workspace selector, and a button on the workspace's page
@@ -28,6 +72,7 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added (agent access)
 
+- **An assistant can prepare a change (0.16 AG3).** With Work in change sets, an assistant creates a change set, adds and changes records and relationships, sets a field's value, reads the validation and submits it for approval, in change sets its own person or client created and never a colleague's. It cannot remove or clear anything, withdraw, discard, batch, restructure, approve or publish; change reaches live data only when a person approves it. A refused call tells the assistant the engine's code and details. Its rows say "Prepared by an assistant" with the name it gave itself (`origin` of kind `agent`), and `channel` `mcp` is on `GET /changes` and a record's history for what was done through an assistant. `changeSetId` joins `find_records`, `read_record` and `describe_type`. No new setting.
 - **An assistant can read (0.16 AG2).** A signed-in assistant or agent client can look up a value through a tool generated from each consumer API, list a mapping view's unmapped values, find and read records with their relationships and history, read a workspace's changes, and read the model as tools and as resources. New setting: `MCP_ANSWER_BYTES`.
 - **An assistant can reach refiroo (0.16 AG1).** With `MCP_ENABLED`, an assistant that speaks MCP connects at `/mcp`. A person adds the address and signs in on refiroo's own page, which says who asks and where it returns; a system uses an agent client. It works within what its person or client may do, cut down to reading and preparing changes, and can never approve or publish. Two tools so far: who it acts as, and the workspaces it may read.
 - **Settings › Security › Agent access** shows how to connect, the agent clients, the assistants people sign in with and each call, with argument names and never their values. Blocking an assistant or deactivating a client stops it on its next call. People see their assistant among their sessions.

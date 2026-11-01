@@ -129,6 +129,7 @@ export function IssuesAndHistory({
                       <span className="editor-history-text">{describeStep(step, names)}</span>
                       <span className="editor-history-at">
                         {formatServerTime(step.at)} <ActorName actor={step.entries[0]?.author ?? null} />
+                        {step.origin.proposedByName && `, asked for by ${step.origin.proposedByName}`}
                       </span>
                       <span className="editor-history-state">
                         {step.undone ? "Undone" : step.origin.type === "patch" ? "JSON edit" : "Applied"}

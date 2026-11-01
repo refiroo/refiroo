@@ -50,6 +50,7 @@ from ...engine.records.rules import get_object_type
 from ...engine.workspaces.catalogue import resolve_workspace
 from ...errors import api_error
 from ...models.commands import (
+    AttributeInput,
     ChangeSetObjectUpdate,
     ChangeSetObjectWrite,
     ObjectCreate,
@@ -114,44 +115,81 @@ def _require_change_set_context(change_set_id: str, expected: int | None) -> int
     return expected
 
 
+def refuse_repeated_attributes(attributes: list[AttributeInput] | None) -> None:
+    """``422 DUPLICATE_ATTRIBUTE`` for a write naming an attribute twice."""
+    keys = [item.attributeTypeKey for item in attributes or ()]
+    if len(keys) != len(set(keys)):
+        raise api_error(422, "DUPLICATE_ATTRIBUTE", "Object attributes must not repeat a key")
+
+
+def change_set_object_created(session, payload: ObjectCreate):
+    """A new record written into the change set ``payload`` names; the route's and the agent tool's
+    one function. Commits."""
+    change_set_id = str(payload.changeSetId)
+    expected = _require_change_set_context(change_set_id, payload.expectedChangeSetVersion)
+    context = change_set_context(session, change_set_id)
+    if payload.workspaceKey is not None and payload.workspaceKey != context.workspace_key:
+        raise api_error(
+            422,
+            "WORKSPACE_CONTEXT_MISMATCH",
+            "workspaceKey does not match changeSetId",
+            {
+                "workspaceKey": payload.workspaceKey,
+                "contextWorkspaceKey": context.workspace_key,
+            },
+        )
+    return put_change_set_object(
+        session,
+        change_set_id,
+        ChangeSetObjectWrite(
+            id=payload.id,
+            applicationKey=payload.applicationKey,
+            objectTypeKey=payload.objectTypeKey,
+            name=payload.name,
+            parentObjectId=payload.parentObjectId,
+            attributes={item.attributeTypeKey: item.value for item in payload.attributes},
+            initialRelations=payload.initialRelations,
+            expectedChangeSetVersion=expected,
+            expectedRecordVersion=None,
+        ),
+    )
+
+
+def change_set_object_updated(session, object_type_key: str, object_id: str, payload: ObjectUpdate):
+    """A record of the change set ``payload`` names, edited; the route's and the agent tool's one
+    function. Commits."""
+    fields = payload.model_dump(
+        exclude={"expectedVersion", "changeSetId", "expectedChangeSetVersion"},
+        exclude_unset=True,
+    )
+    if "attributes" in fields:
+        fields["attributes"] = {
+            item["attributeTypeKey"]: item["value"] for item in fields["attributes"]
+        }
+    change_set_id = str(payload.changeSetId)
+    expected = _require_change_set_context(change_set_id, payload.expectedChangeSetVersion)
+    return update_change_set_object(
+        session,
+        change_set_id,
+        object_id,
+        ChangeSetObjectUpdate(
+            expectedChangeSetVersion=expected,
+            expectedRecordVersion=payload.expectedVersion,
+            **fields,
+        ),
+        object_type_key=object_type_key,
+    )
+
+
 @router.post("/objects", response_model=ObjectResponse, status_code=status.HTTP_201_CREATED)
 @requires("records.write", at=RECORD_CREATE)
 def create_object(
     payload: ObjectCreate, session: DbSession
 ) -> ObjectResponse:
-    attribute_keys = [item.attributeTypeKey for item in payload.attributes]
-    if len(attribute_keys) != len(set(attribute_keys)):
-        raise api_error(422, "DUPLICATE_ATTRIBUTE", "Object attributes must not repeat a key")
+    refuse_repeated_attributes(payload.attributes)
     if payload.changeSetId:
-        change_set_id = str(payload.changeSetId)
-        expected = _require_change_set_context(change_set_id, payload.expectedChangeSetVersion)
-        context = change_set_context(session, change_set_id)
-        if payload.workspaceKey is not None and payload.workspaceKey != context.workspace_key:
-            raise api_error(
-                422,
-                "WORKSPACE_CONTEXT_MISMATCH",
-                "workspaceKey does not match changeSetId",
-                {
-                    "workspaceKey": payload.workspaceKey,
-                    "contextWorkspaceKey": context.workspace_key,
-                },
-            )
-        row = put_change_set_object(
-            session,
-            change_set_id,
-            ChangeSetObjectWrite(
-                id=payload.id,
-                applicationKey=payload.applicationKey,
-                objectTypeKey=payload.objectTypeKey,
-                name=payload.name,
-                parentObjectId=payload.parentObjectId,
-                attributes={item.attributeTypeKey: item.value for item in payload.attributes},
-                initialRelations=payload.initialRelations,
-                expectedChangeSetVersion=expected,
-                expectedRecordVersion=None,
-            ),
-        )
-        return _change_set_write_response(session, change_set_id, row)
+        row = change_set_object_created(session, payload)
+        return _change_set_write_response(session, str(payload.changeSetId), row)
     if payload.workspaceKey is None:
         raise api_error(
             422,
@@ -172,24 +210,9 @@ def update_object(
     payload: ObjectUpdate,
     session: DbSession,
 ) -> ObjectResponse:
-    fields = payload.model_dump(
-        exclude={"expectedVersion", "changeSetId", "expectedChangeSetVersion"},
-        exclude_unset=True,
-    )
-    if "attributes" in fields:
-        fields["attributes"] = {
-            item["attributeTypeKey"]: item["value"] for item in fields["attributes"]
-        }
     if payload.changeSetId:
-        change_set_id = str(payload.changeSetId)
-        expected = _require_change_set_context(change_set_id, payload.expectedChangeSetVersion)
-        change_set_payload = ChangeSetObjectUpdate(
-            expectedChangeSetVersion=expected, expectedRecordVersion=payload.expectedVersion, **fields
-        )
-        row = update_change_set_object(
-            session, change_set_id, object_id, change_set_payload, object_type_key=object_type_key
-        )
-        return _change_set_write_response(session, change_set_id, row)
+        row = change_set_object_updated(session, object_type_key, object_id, payload)
+        return _change_set_write_response(session, str(payload.changeSetId), row)
     snapshot = resolve_record_snapshot(session, object_id)
     item = update_object_record(session, snapshot.model, object_type_key, object_id, payload)
     return build_object_responses(session, snapshot.model, [item])[0]
@@ -760,13 +783,24 @@ def get_object(
             if change_set_id
             else publication_context(session, publication_id)
         )
-        item = find_object(session, context, object_id, object_type_key)
-        if item is None:
-            raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
-        return change_set_object_response(
-            item, context.id, model, path=object_path(session, context, item)
-        ).model_copy(update={"workspaceKey": context.workspace_key})
+        return snapshot_object(session, model, context, object_type_key, object_id)
     return live_object(session, model, object_type_key, object_id, workspace_key)
+
+
+def snapshot_object(
+    session: Session,
+    model: EngineModel,
+    context: SnapshotContext,
+    object_type_key: str,
+    object_id: str,
+) -> ObjectResponse:
+    """A record as a change set or publication holds it; the route's and the agent tool's one read."""
+    item = find_object(session, context, object_id, object_type_key)
+    if item is None:
+        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
+    return change_set_object_response(
+        item, context.id, model, path=object_path(session, context, item), session=session
+    ).model_copy(update={"workspaceKey": context.workspace_key})
 
 
 def live_object(

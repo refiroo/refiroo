@@ -105,6 +105,7 @@ from ..sources.profile_check import (
 )
 from ..sources.profiling import profile_source_file
 from ..sources.store import expire_superseded, load_source_file
+from ..tasks import agent as session_files
 from ..tasks import design_job
 from ..tasks import job as ai_task
 from ..tasks import store as task_store
@@ -293,6 +294,7 @@ class JobWorker:
                     self.files.upload(source_file_id).unlink(missing_ok=True)
             if self.files is not None:
                 self.files.reconcile(session)
+                session_files.sweep(session, self.files)
         return expired
 
     def _claim(self) -> int | None:
@@ -804,11 +806,6 @@ class JobWorker:
     def _finished_import(self, job: Job) -> None:
         if job.kind == "import" and job.state in FINISHED and self.files is not None:
             self.files.remove(job.id)
-        if job.kind == "import" and job.state == "completed":
-            # A design's relationships follow its import into the same change set (0.16 AP6).
-            with self.session_factory() as session:
-                design_job.import_finished(session, job.id, self.settings.retention_days)
-                session.commit()
 
     def _hold_lease(self, session: Session, sequence_id: int, *, cancellable: bool = False) -> None:
         """Lock the job row for the commit that ends a step, holding the lease; with

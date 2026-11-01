@@ -43,23 +43,11 @@ def _targets(context: dict[str, Any]) -> dict[str, Any]:
     return {"answers": answers}
 
 
-def _workbook(context: dict[str, Any]) -> dict[str, Any]:
-    """A workbook task's turn (0.16 AP6): ``design`` takes the rules' profile and changes no model."""
-    turn = context.get("turn")
-    if turn == "design":
-        # 0.16 AP6: no model change; the rules' profile as the design.
-        return {
-            "profile": context.get("rulesProfile"),
-            "done": True,
-            "summary": "The workbook updates what the workspace holds.",
-        }
-    return {"operations": [], "note": ""}
 
 
 DEFAULTS: dict[Purpose, Callable[[dict[str, Any]], Any]] = {
     "connectionTest": lambda context: {"ready": True},
     "mappingTarget": _targets,
-    "workbookLoad": _workbook,
 }
 
 _script: dict[str, Any] = {}

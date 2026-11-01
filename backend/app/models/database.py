@@ -1493,6 +1493,8 @@ class AuditEvent(Base):
     actor_client_id: Mapped[int | None] = mapped_column(
         ForeignKey("oauth_clients.id", ondelete="RESTRICT"), nullable=True
     )
+    # ``mcp`` for a change an assistant made through a tool (0.16 AG-D30), else none.
+    channel: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # The workspace an entry belongs to, live or in one of its change sets (0.12 Z6, D341); a
     # change to live data also takes the next position of its feed (Base 0.9 F1), other entries
     # have none. ``subject`` names what a record or relationship entry changed (record type,
@@ -2460,7 +2462,7 @@ class OAuthClient(Base):
     """
 
     __tablename__ = "oauth_clients"
-    __table_args__ = (CheckConstraint("kind IN ('api', 'agent')", name="ck_oauth_clients_kind"),)
+    __table_args__ = (CheckConstraint("kind IN ('api', 'agent', 'session')", name="ck_oauth_clients_kind"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
@@ -3008,6 +3010,9 @@ class AiCall(Base):
     bytes_out: Mapped[int] = mapped_column(Integer, nullable=False)
     tokens_in: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tokens_out: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # A session's turn (0.16 AP9, AP-D36): what it reported costing, and its task.
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 4), nullable=True)
+    task_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     outcome: Mapped[str] = mapped_column(String(16), nullable=False)
     failure_kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
     failure: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -3037,6 +3042,12 @@ class AiTask(Base):
         Index("ix_ai_tasks_workspace", "workspace_key", "id"),
         Index("ix_ai_tasks_expires", "expires_at"),
         Index("ix_ai_tasks_draft", "draft_id"),
+        Index(
+            "uq_ai_tasks_client",
+            "client_id",
+            unique=True,
+            postgresql_where=text("client_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -3058,6 +3069,10 @@ class AiTask(Base):
     design: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     draft_id: Mapped[int | None] = mapped_column(
         ForeignKey("model_drafts.id", ondelete="SET NULL"), nullable=True
+    )
+    # The client its session works as (0.16 AP9, AP-D30), one per task.
+    client_id: Mapped[int | None] = mapped_column(
+        ForeignKey("oauth_clients.id", ondelete="SET NULL"), nullable=True
     )
     notes: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
     result: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)

@@ -39,7 +39,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
 | F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
 | F28 | Send mail | Settings › Integration › Mail | The organisation's mail server saved with its password sealed; a test message that names what failed; messages sent in the background and retried for 24 hours, with the failed ones listed and their reason; nothing is sent without it | 0.12 M1 |
-| F30 | Reach refiroo from an assistant | Settings › Security › Agent access; an assistant, at `/mcp` | An assistant signs in or uses an agent client, works within what its person or client may do, and never approves or publishes |
+| F30 | Reach refiroo from an assistant | Settings › Security › Agent access; an assistant, at `/mcp` | An assistant signs in or uses an agent client, reads, prepares changes in change sets of its own and submits them, works within what its person or client may do, and never approves or publishes |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
 (`frontend/e2e/`). The acceptance runs are recorded in the release plans.
@@ -1483,15 +1483,22 @@ Evidence: [mail contract](../API.md#mail), [OPERATIONS](../OPERATIONS.md#sending
 **User outcome:** An organisation lets an AI provider suggest improvements in the screens people
 already use, decides how much of its data may leave, and can see every request that was made.
 
+Two server settings switch AI on, each for its own work. The assistant, which loads a workbook or changes
+records from a few words, is switched on by the command that starts its session alone; it needs no provider.
+The AI provider, set separately, serves the suggestions in the screens (today, targets in the mapping grid)
+and nothing else. Either can be on without the other.
+
 An operator sets the provider in the server's settings: the Claude API with the organisation's key,
 or any endpoint that speaks the common chat-completions protocol, which also covers a model the
 organisation runs on its own machines. They choose how much may be sent: names, headers and types
 only; also a few sample values; or also the record values a feature needs, up to a set number. A
-setting that cannot work stops the server from starting and names the setting. Without a provider
-nothing is sent anywhere and no AI action appears.
+setting that cannot work stops the server from starting and names the setting. With neither the
+assistant's command nor a provider, nothing is sent anywhere and no AI action appears.
 
-On Settings › Administration › **AI**, a person with Operations sees the provider and model, whether a
-key is set (never the key), what may be sent and which features are offered; **Send a test request**
+On Settings › Administration › **AI**, a person with Operations first sees what is switched on: the assistant
+(its command is set or not) and the provider (set or not), each with a line on what it gives. With neither,
+the page says so and nothing is offered. They also see the provider and model, whether a key is set
+(never the key), what may be sent and which features are offered; **Send a test request**
 sends a request that holds no data and says whether it was answered or what failed (the key refused,
 the provider not reached, an answer it could not read). Below, every call is listed: when, what for,
 who asked, the model, how much went each way and how it ended; and the totals of the last 30 days.
@@ -1513,41 +1520,56 @@ unmapped because no target was likely enough, and how many were changed by someo
 alone. Published through the normal approval, the relationship's history says the AI proposed it, with
 the model, and who published it. It needs the send level that allows record values.
 
-**Loading a workbook with the assistant.** When AI proposals are offered, **Import** in a collection
-opens the assistant first; "Import without the assistant…" opens the manual import as before. The
-person chooses a file, adds a few words about it, or gives words alone ("relate the lab durations to
-the 15-minute slot"). The assistant designs the load the way a person building it by hand would: it
-decides per sheet whether the rows update stored records, add to them, relate to them, or are
-something new, and changes the model where the data needs it — an attribute on a type, a new type,
-a new application — in a model draft of the task's own. It reads the sheets and the stored records it
-needs, writes extra sheets of its own for rows the workbook's shape cannot load (one translation per
-record and language, pairs of IDs), and can ask the person a question with options. Every row is
-then checked in a dry run against the draft; what is refused goes back to the assistant, which fixes
-it and checks again within the call budget. The page shows the summary, the model change, the
-records the structure needs, where each sheet goes, the relationships it will make, and the check per
-sheet with each sheet's changed records behind a button. **Activate the model and load** (or **Load
-into a change set** when the model does not change) installs and activates the model change first,
-which needs Model release, then writes everything into one change set, reviewed and published as
-usual; the import can be saved as a profile for the next file. The inbox says once when the design is
-ready.
+**Loading a workbook with the assistant.** Where the assistant is switched on, **Import** in a collection
+opens the assistant first; "Import without the assistant…" opens the manual import as before. The person
+chooses a file, adds a few words about it, or gives words alone ("relate the lab durations to the
+15-minute slot"). One working session of the assistant then reads the file and the records it needs through
+the same interface any program uses, with the rights the person has in that workspace and no more. It never
+approves, publishes or activates. It builds the model in a model draft of the task's own (a new model, or
+additions to the current one), checks every row of the file against the draft, and chooses for each sheet a
+key that will find the same records in next month's file, from several columns together if no single
+column does. It asks the person only what the data cannot answer.
 
-A bar below the top bar follows the load from step to step: the file and words, the design, the
+The page then shows the proposal: two sentences on what it understood, one line per type the model adds or
+changes, with its attributes and the records it would write, the check of every row, and the questions with
+the answer assumed meanwhile. Under **Checks** it also warns of what it finds on its own: a type that
+already holds records and that the model leaves out, and new records beside records of the same type
+already held ("667 new Items beside the 667 held. If this is an update, the rows did not find their
+records."). The person can answer, say in words what to change, open the draft in the model editor and
+edit it, or discard the proposal with its draft; the same session goes on, and reads the draft again in case
+it was edited. If the engine cannot apply the proposal, the page says why and the person tells the assistant what to change. **Accept the model**
+makes the session install one release (not yet activated) and load into a new change set, reviewed and
+published as usual. A session that stopped can be tried again from where it was. A draft another
+assistant task is using cannot be written by a second task, which makes a draft of its own. When a task ends,
+a release its session installed that nothing uses is retired.
+
+When the load is done the page says what the change set holds and, if a profile was saved, that the next
+file of this layout loads without the assistant. The assistant saves that profile itself when every
+sheet it loaded has a key; when it cannot, the page says why (for example "Not saved as a profile: sheet
+“Prices” has no key, so a second load would create its rows again") and the load stands. A file that a
+saved profile already reads as well as the engine's own matching does is proposed by the engine with no
+assistant and no AI cost; a sheet the earlier file also had and the profile left out does not stop that, and
+a new sheet goes to the assistant.
+
+The check says rows skipped for an empty key apart from rows refused, and says so when it ran before the
+draft's last change, as it then does not cover the model as it stands.
+
+A bar below the top bar follows the load from step to step: the file and words, the proposal, the
 model change, the assistant's questions, the check, the load, and the change set's review and
 publication. It says what to do now and offers the next action (open the model change in the
-editor, answer the questions, load, open the change set), and Stop while the assistant works or
+editor, answer the questions, accept, open the change set), and Stop while the assistant works or
 Start again after a failure. It stays on the model editor and the change set opened from the task;
 Close in the editor goes back to the task.
-
-Without the assistant offered, the task is read by the rules: a stored profile that fits is
-followed, the lists with a choice to make are shown under **Needs you**, **Prepare the load** checks
-every row and **Load into a change set** loads it.
 
 Limits:
 - The assistant works through one task at a time; there is no free-text conversation after the
   design beyond answering its questions.
-- Values for empty fields, assistant access through MCP and plain-language summaries follow in later
-  0.16 packages.
-- The provider is set in the environment, not on the page.
+- A several-column key is something only an import profile can have; a batch upsert and a consumer match
+  still use one attribute. A model cannot yet declare a combination unique, so only an import checks it.
+- A change made only through batches, or a file with no key at all, cannot be repeated without the
+  assistant.
+- Values for empty fields and plain-language summaries follow in later releases.
+- The assistant and the provider are set in the environment, not on the page.
 - Proposals for mapping targets have been tried only with a stand-in provider. The design was tried
   with Claude Sonnet on real workbooks: an update of a known layout, a new model in an empty
   workspace, and a relationship from words alone.
@@ -1560,8 +1582,10 @@ Evidence: [AI contract](../API.md#ai-proposals-product-016), [OPERATIONS](../OPE
 
 With agent access on, an assistant that speaks MCP connects to this instance's address. A person adds the address to their assistant and signs in on refiroo's own page, which says who asks and where it returns. A system's assistant uses an agent client, created under Settings › Security › **Agent access**, where its access is set like any client's.
 
-It reads, with Browse in a workspace: the model, records with their relationships and history, a mapping view's unmapped values, the workspace's changes, and each consumer API through a lookup tool of its own. A client holding only a consumer API's grant reads that API alone. Everything is live data; it cannot read a change set or an older publication yet.
+It reads, with Browse in a workspace: the model, records with their relationships and history, a mapping view's unmapped values, the workspace's changes, and each consumer API through a lookup tool of its own. A client holding only a consumer API's grant reads that API alone. Reads are of live data, except those naming a change set the assistant itself prepared (below); it cannot read an older publication.
 
-Either way the assistant works within what its person or client may do, cut down to reading and preparing changes. It never approves or publishes. So far it can say who it acts as and list the workspaces it may read; reading data and preparing changes come with the next packages.
+Either way the assistant works within what its person or client may do, cut down to reading and preparing changes. It never approves or publishes.
+
+With Work in change sets in a workspace, it prepares a change: it creates a change set, adds and changes records and relationships and sets a field's value in it, reads the change set's validation, and submits it for approval ([plan, AG3](BASE_0_16_IMPLEMENTATION_PLAN.md#ag3-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-ag-d27-as-written)). It works only in change sets its own person or client created, never a colleague's, and it can read such a change set's rows and the model release it is pinned to, and why a person sent it back. It cannot remove or clear anything, withdraw a submission, discard a change set, batch, restructure the model, approve or publish. Change reaches live data only when a person approves it: they open the change set as usual, may edit it (which withdraws the submission) and publish, and under a second-person rule another person decides. A record's history says it was prepared by an assistant, with the name the assistant gave itself, and an entry made through an assistant answers `channel` `mcp` on the API. No screen filters by it and the Changes page does not mark it.
 
 On the same page a security administrator sees how to connect, the agent clients, the assistants people sign in with, and each call with the names of its arguments. Blocking an assistant or deactivating a client stops it on its next call. A person sees their assistant among their sessions and can end it there.

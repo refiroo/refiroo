@@ -1,7 +1,6 @@
 /**
  * The foot of a check (0.16 AP6a, AP6): the change set's name, saving the import as a profile and
- * the button that loads. One foot for the check of a reading and the check of a design; they differ
- * in the button's words, the note above it and whether saving starts ticked.
+ * the button that loads: the button's words, the note above it and whether saving starts ticked.
  */
 
 import { useState, type ReactNode } from "react";
@@ -25,7 +24,6 @@ export function LoadFoot({
   canSave = true,
   note,
   noLoad,
-  onBack,
   onLoad,
 }: {
   fileName: string;
@@ -40,7 +38,6 @@ export function LoadFoot({
   note?: ReactNode;
   /** Shown instead of the load button when the person cannot load. */
   noLoad?: ReactNode;
-  onBack?: () => void;
   onLoad: (choice: LoadChoice) => void;
 }) {
   const [save, setSave] = useState(saveByDefault && canSave);
@@ -90,11 +87,6 @@ export function LoadFoot({
       )}
       {!canLoad && noLoad}
       <div className="task-actions">
-        {onBack && (
-          <button type="button" className="secondary" disabled={pending} onClick={onBack}>
-            Back to the reading
-          </button>
-        )}
         {canLoad && (
           <button
             type="button"

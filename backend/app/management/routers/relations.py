@@ -18,6 +18,7 @@ from ...engine.reads.relation_queries import (
     relation_scope,
 )
 from ...engine.reads.snapshot_reads import (
+    SnapshotContext,
     change_set_context,
     find_object,
     find_objects,
@@ -86,15 +87,28 @@ def _ctx(change_set: str, expected: int | None) -> int:
         )
     return expected
 
+def change_set_relation_created(session, payload: RelationCreate):
+    """A new relation staged in the change set ``payload`` names, with its claimed set's new
+    version; the route's and the agent tool's one function. Commits."""
+    claim = set_claim(payload.expectedRelationSetVersion, payload.relationSetDirection)
+    change_set = str(payload.changeSetId)
+    expected = _ctx(change_set, payload.expectedChangeSetVersion)
+    return put_change_set_relation(session, change_set, ChangeSetRelationWrite(id=None, relationTypeKey=payload.relationTypeKey, fromObjectId=payload.fromObjectId, toObjectId=payload.toObjectId, attributes=payload.attributes, expectedChangeSetVersion=expected, expectedRecordVersion=None), claim)
+
+def change_set_relation_updated(session, relation_id: str, payload: RelationUpdate):
+    """A staged relation's attributes replaced in the change set ``payload`` names; the route's and
+    the agent tool's one function. Commits."""
+    change_set = str(payload.changeSetId)
+    expected = _ctx(change_set, payload.expectedChangeSetVersion)
+    return update_change_set_relation(session, change_set, relation_id, ChangeSetRelationUpdate(attributes=payload.attributes, expectedChangeSetVersion=expected, expectedRecordVersion=payload.expectedVersion))
+
 @router.post("/relations", response_model=RelationResponse, status_code=status.HTTP_201_CREATED)
 @requires("records.write", at=RELATION_CREATE)
 def create_relation(payload: RelationCreate, session: DbSession) -> RelationResponse:
     claim = set_claim(payload.expectedRelationSetVersion, payload.relationSetDirection)
     if payload.changeSetId:
-        change_set = str(payload.changeSetId)
-        expected = _ctx(change_set, payload.expectedChangeSetVersion)
-        row, set_version = put_change_set_relation(session, change_set, ChangeSetRelationWrite(id=None, relationTypeKey=payload.relationTypeKey, fromObjectId=payload.fromObjectId, toObjectId=payload.toObjectId, attributes=payload.attributes, expectedChangeSetVersion=expected, expectedRecordVersion=None), claim)
-        return _change_set_response(row).model_copy(update={"changeSetVersion": change_set_context(session, change_set).change_set.version, "relationSetVersion": set_version})
+        row, set_version = change_set_relation_created(session, payload)
+        return _change_set_response(row).model_copy(update={"changeSetVersion": change_set_context(session, str(payload.changeSetId)).change_set.version, "relationSetVersion": set_version})
     row, set_version = create_live_relation(session, resolve_record_snapshot(session, str(payload.fromObjectId)).model, payload, claim)
     return build_relation_response(row).model_copy(update={"relationSetVersion": set_version})
 
@@ -134,24 +148,9 @@ def list_relations(
 ) -> RelationPage:
     if sum(value is not None for value in (change_set_id, publication_id)) > 1:
         raise api_error(422, "MUTUALLY_EXCLUSIVE_CONTEXT", "Workspace contexts cannot be combined")
-    options = {
-        "object_id": object_id,
-        "direction": direction,
-        "relation_type_keys": relation_type_keys or None,
-        "search": search or None,
-        "sort": sort,
-    }
     if change_set_id or publication_id:
         context = change_set_context(session, change_set_id) if change_set_id else publication_context(session, publication_id)
-        anchor = find_object(session, context, object_id)
-        if anchor is None:
-            raise api_error(404, "OBJECT_NOT_FOUND", "Object not found")
-        query = build_snapshot_relation_query(snapshot.model, context, anchor_type_key=anchor.object_type_key, **options)
-        page = paginate_statement(session, query.statement, keys=query.keys, scope=relation_scope(context), filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
-        objects = find_objects(session, context, (row.related_id for row in page.items))
-        paths = object_paths(session, context, objects.values())
-        relation_sets = _relation_sets(session, snapshot.model, workspace_key=context.workspace_key, change_set_id=context.id, anchor_type_key=anchor.object_type_key, anchor_id=object_id, direction=direction, relation_type_keys=relation_type_keys) if change_set_id else None
-        return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_change_set_response(row), object=change_set_object_response(objects[row.related_id], context.id, snapshot.model, path=paths[row.related_id]).model_copy(update={"workspaceKey": context.workspace_key})) for row in page.items if row.related_id in objects], relationSets=relation_sets, **page.links())
+        return snapshot_relation_page(session, snapshot.model, context, object_id, paging, page_size, direction=direction, relation_type_keys=relation_type_keys, search=search, sort=sort)
     return live_relation_page(
         session,
         snapshot.model,
@@ -164,6 +163,39 @@ def list_relations(
         search=search,
         sort=sort,
     )
+
+
+def snapshot_relation_page(
+    session: Session,
+    model: EngineModel,
+    context: SnapshotContext,
+    object_id: str,
+    paging: PageRequest,
+    page_size: int,
+    *,
+    direction: Literal["outgoing", "incoming", "both"] = "both",
+    relation_type_keys: list[str] | None = None,
+    search: str | None = None,
+    sort: str | None = None,
+) -> RelationPage:
+    """A page of a record's relationships as a change set or publication holds them; the route's and
+    the agent tool's one read."""
+    options = {
+        "object_id": object_id,
+        "direction": direction,
+        "relation_type_keys": relation_type_keys or None,
+        "search": search or None,
+        "sort": sort,
+    }
+    anchor = find_object(session, context, object_id)
+    if anchor is None:
+        raise api_error(404, "OBJECT_NOT_FOUND", "Object not found")
+    query = build_snapshot_relation_query(model, context, anchor_type_key=anchor.object_type_key, **options)
+    page = paginate_statement(session, query.statement, keys=query.keys, scope=relation_scope(context), filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
+    objects = find_objects(session, context, (row.related_id for row in page.items))
+    paths = object_paths(session, context, objects.values())
+    relation_sets = _relation_sets(session, model, workspace_key=context.workspace_key, change_set_id=context.id, anchor_type_key=anchor.object_type_key, anchor_id=object_id, direction=direction, relation_type_keys=relation_type_keys) if context.kind == "change_set" else None
+    return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_change_set_response(row), object=change_set_object_response(objects[row.related_id], context.id, model, path=paths[row.related_id]).model_copy(update={"workspaceKey": context.workspace_key})) for row in page.items if row.related_id in objects], relationSets=relation_sets, **page.links())
 
 
 def live_relation_page(
@@ -289,10 +321,8 @@ def get_relation(relation_id: str, session: DbSession, snapshot: RequestModelSna
 @requires("records.write", at=RELATION_WRITE)
 def update_relation(relation_id: str, payload: RelationUpdate, session: DbSession) -> RelationResponse:
     if payload.changeSetId:
-        change_set = str(payload.changeSetId)
-        expected = _ctx(change_set, payload.expectedChangeSetVersion)
-        row = update_change_set_relation(session, change_set, relation_id, ChangeSetRelationUpdate(attributes=payload.attributes, expectedChangeSetVersion=expected, expectedRecordVersion=payload.expectedVersion))
-        return _change_set_response(row).model_copy(update={"changeSetVersion": change_set_context(session, change_set).change_set.version})
+        row = change_set_relation_updated(session, relation_id, payload)
+        return _change_set_response(row).model_copy(update={"changeSetVersion": change_set_context(session, str(payload.changeSetId)).change_set.version})
     row = update_live_relation(session, resolve_relation_snapshot(session, relation_id).model, relation_id, payload)
     return build_relation_response(row)
 

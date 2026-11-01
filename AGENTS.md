@@ -349,8 +349,9 @@ affects theme tokens or a new surface. Do not update baselines merely to hide an
 
 ## Agent orchestration
 
-The primary agent implements, validates, reviews and reports directly by default. Do not delegate
-routine discovery, implementation, testing or review merely to follow a workflow.
+The primary agent reasons with the user, plans, decides and reports. Delivery goes to one `implementer`
+subagent on Sonnet; the primary agent does only trivial edits itself and checks the result. Do not
+delegate other routine discovery, testing or review merely to follow a workflow.
 
 Use one subagent only when it materially improves the result:
 
@@ -361,11 +362,30 @@ Use one subagent only when it materially improves the result:
 - a large public-contract package's journey test cases are written from the specification, which is
   done in a separate context from the implementation ([Testing](#testing)).
 
-Use at most one subagent during a normal work package. Multiple subagents require an explicit user
+Beyond the `implementer`, use at most one subagent during a normal work package; an `explorer` does
+not count towards this limit, since it keeps reading out of the main session. Multiple subagents
+require an explicit user
 request or clearly independent work whose time saving outweighs their token and coordination cost.
 The primary agent remains responsible for the completed implementation and final validation.
 
 ### Model allocation
+
+Claude models: the user talks to Opus; Sonnet delivers. Use Sonnet whenever possible for the work
+itself. Opus always runs at medium reasoning.
+
+| Work | Model | Reasoning |
+| --- | --- | --- |
+| Main session: talking with the user, planning, architecture, product decisions, release (R) review, deciding failures | Opus (project default) | Medium |
+| `implementer` subagent: delivery of an approved plan or a bounded piece of work | Sonnet | Medium |
+| `reviewer` subagent | Opus | Medium |
+| `explorer` subagent | Sonnet | Low |
+| `journey-writer` subagent | Sonnet | Medium |
+| `test-runner` subagent, release runs only | Sonnet | Low |
+| Any other subagent, for a bounded fix from a precise brief | Sonnet | Medium |
+
+Roles are defined in `.claude/agents/`. Do not use higher reasoning levels unless the user asks.
+
+Other agents' tiers:
 
 - Use Luna only for narrow, repeatable searches or mechanical checks.
 - Use Terra for a bounded implementation or focused review.
@@ -374,18 +394,18 @@ The primary agent remains responsible for the completed implementation and final
 
 ### Proportional use
 
-- Small and normal changes: the primary agent works directly.
+- Trivial edits: the primary agent works directly. Everything else: one `implementer`.
 - Unfamiliar code path: one explorer returns a short map, then the primary agent continues.
 - Genuine architectural ambiguity: one architect returns a decision, then the primary agent continues.
 - High-risk completed change: one reviewer examines the final diff.
-- Test execution stays with the primary agent unless the user explicitly requests a test runner.
+- A package's targeted tests run in the `implementer`. A release's runs may use `test-runner`.
 
 Do not spawn multiple agents to analyse the same code or repeat work the primary agent has completed.
 
 ### Editing and concurrency
 
-Only one agent may write during a work package. Prefer the primary agent as the implementation
-owner; if implementation is delegated, give one agent the complete bounded ownership unit.
+Only one agent may write during a work package. Give the `implementer` the complete bounded ownership
+unit, and do not edit alongside it.
 
 Do not run implementation and review concurrently. Review the completed diff.
 

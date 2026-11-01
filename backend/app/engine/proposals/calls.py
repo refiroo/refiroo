@@ -173,11 +173,12 @@ class Totals:
     tokens_out: int
     bytes_in: int
     bytes_out: int
+    cost_usd: float
 
 
 def totals(session: Session, now: datetime | None = None) -> Totals:
     since = (now or datetime.now(UTC)) - timedelta(days=TOTALS_DAYS)
-    calls, failed, tokens_in, tokens_out, bytes_in, bytes_out = session.execute(
+    calls, failed, tokens_in, tokens_out, bytes_in, bytes_out, cost_usd = session.execute(
         select(
             func.count(),
             func.count().filter(AiCall.outcome == "failed"),
@@ -185,6 +186,9 @@ def totals(session: Session, now: datetime | None = None) -> Totals:
             func.coalesce(func.sum(AiCall.tokens_out), 0),
             func.coalesce(func.sum(AiCall.bytes_in), 0),
             func.coalesce(func.sum(AiCall.bytes_out), 0),
+            func.coalesce(func.sum(AiCall.cost_usd), 0),
         ).where(AiCall.started_at >= since)
     ).one()
-    return Totals(TOTALS_DAYS, calls, failed, tokens_in, tokens_out, bytes_in, bytes_out)
+    return Totals(
+        TOTALS_DAYS, calls, failed, tokens_in, tokens_out, bytes_in, bytes_out, float(cost_usd)
+    )

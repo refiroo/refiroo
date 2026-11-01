@@ -44,7 +44,7 @@ import { JobNotificationsProvider, useJobEnded, useJobNotifications } from "@/fe
 import { ExportDialog, type ExportStart } from "@/features/jobs/ExportDialog";
 import { ImportDialog, type ImportStart } from "@/features/jobs/ImportDialog";
 import { LoadWorkbookDialog, type LoadWorkbookStart } from "@/features/ai-tasks/LoadWorkbookDialog";
-import { useWorkspaceAiOffer } from "@/features/settings/useWorkspaceAiOffer";
+import { useWorkspaceAssistantOffer } from "@/features/settings/useWorkspaceAiOffer";
 import { BrandMascot } from "@/ui/ProductMark";
 import { useCapabilities } from "@/features/settings/useSystem";
 
@@ -173,7 +173,7 @@ function AppContent({
   const collectionExport = useRef<() => ExportStart>(undefined);
   const [importStart, setImportStart] = useState<ImportStart>();
   // The AI assistant loads a workbook where a provider is set and the person may use it (0.16 AP6a).
-  const aiOffer = useWorkspaceAiOffer();
+  const aiOffer = useWorkspaceAssistantOffer();
   const [workbookStart, setWorkbookStart] = useState<LoadWorkbookStart>();
   const importTrigger = useRef<HTMLElement | null>(null);
   // The page's data Import was opened on, kept for the ordinary import chosen from the assistant's dialog.

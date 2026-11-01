@@ -44,7 +44,8 @@ const refusedRows = (task: AiTask) =>
 export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } = {}): TaskJourney {
   const { state } = task;
   const design = task.design ?? null;
-  const ended = state === "failed" || state === "cancelled";
+  // A task of an older version may rest in a state this one no longer has (`read`): it reads as stopped.
+  const ended = !(["reading", "checking", "checked", "loading", "loaded"] as string[]).includes(state);
   const checked = state === "checked";
   const proposing = checked && design?.stage === "model";
   const designing = state === "reading" || (state === "checking" && task.phase !== "checking");
@@ -119,13 +120,6 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } =
         ? "Checking every row of the file. You can leave this page."
         : "The assistant is designing the load. You can leave this page.",
       primary: { label: "Show progress", action: "openTask" },
-    };
-  if (state === "read")
-    return {
-      ...base,
-      steps: steps.map((step) => (step.key === "check" ? { ...step, status: "current" } : step)),
-      sentence: "Choose what to load from each table, then prepare the check.",
-      primary: { label: "Open the reading", action: "openTask" },
     };
   if (proposing)
     return proposalRefusal(task)

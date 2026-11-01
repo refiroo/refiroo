@@ -31,8 +31,6 @@ describe("DesignView", () => {
     expect(within(model).getByText(/Timetable → Codelist \(many to one\)/)).toBeInTheDocument();
     fireEvent.click(within(model).getByRole("button", { name: "Open in the model editor" }));
     expect(onOpenEditor).toHaveBeenCalledWith("draft-1");
-    const records = screen.getByRole("region", { name: "Records the structure needs" });
-    expect(within(records).getByText(/Timetable categories/)).toBeInTheDocument();
     const sheets = screen.getByRole("region", { name: "Where each sheet goes" });
     expect(within(sheets).getByText("Adds to Codelists")).toBeInTheDocument();
     expect(screen.queryByText("Note → Left out")).not.toBeInTheDocument();
@@ -62,32 +60,6 @@ describe("DesignView", () => {
     expect(screen.queryByRole("button", { name: "Answer and design again" })).not.toBeInTheDocument();
   });
 
-  it("lists the relationships to make as sentences and shows a refused rule's reason", () => {
-    const task = designTask();
-    task.design = {
-      ...task.design!,
-      outcome: {
-        links: [
-          { rule: {} as never, from: 3, to: 1, pairs: 3 },
-          { rule: {} as never, refused: "The rule makes 200,000 relationships, more than 100,000: narrow it" },
-        ],
-      },
-      links: [
-        ...task.design!.links!,
-        { relationTypeKey: "has-category", from: { objectTypeKey: "timetable" }, to: { objectTypeKey: "codelist" } },
-      ],
-    };
-    render(<DesignView task={task} pending={false} model={activeModel} onAnswer={vi.fn()} />);
-    const links = screen.getByRole("region", { name: "Relationships to make" });
-    expect(
-      within(links).getByText(
-        "Has category: every Timetable whose Name contains “Visit”, with every Codelist (3 pairs).",
-      ),
-    ).toBeInTheDocument();
-    expect(within(links).getByText("Every visit is categorised.")).toBeInTheDocument();
-    expect(within(links).getByText(/more than 100,000: narrow it/)).toBeInTheDocument();
-  });
-
   it("reports the engine's problems when the design stands, not while the assistant still works", () => {
     const task = designTask();
     task.design = {
@@ -98,12 +70,5 @@ describe("DesignView", () => {
     expect(screen.getByText(/No profile was given/)).toBeInTheDocument();
     rerender(<DesignView task={{ ...task, state: "checking" }} pending={false} onAnswer={vi.fn()} />);
     expect(screen.queryByText(/No profile was given/)).not.toBeInTheDocument();
-  });
-
-  it("shows no relationships card without rules", () => {
-    const task = designTask();
-    task.design = { ...task.design!, links: [] };
-    render(<DesignView task={task} pending={false} onAnswer={vi.fn()} />);
-    expect(screen.queryByRole("region", { name: "Relationships to make" })).not.toBeInTheDocument();
   });
 });

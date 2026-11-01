@@ -12,15 +12,27 @@ import type { AiSystemInfo } from "@/types";
 export function useWorkspaceAiOffer(): AiSystemInfo | undefined {
   const { system } = useSystem();
   const { permissions } = useWorkspaceData();
-  return aiOffer(system?.ai, permissions);
+  return aiOffer(system?.ai, permissions, true);
 }
 
-/** The same offer for a page outside the workspace data context, with the workspace's permissions. */
-export function useAiOfferIn(workspaceKey: string | undefined, permissions: MyPermissions | undefined) {
+/**
+ * The assistant, when its session may be offered in the workspace shown (AP-D38): `AI_AGENT_COMMAND`
+ * is set, the send level is `values` and the person holds ai-proposals; whatever the provider.
+ */
+export function useWorkspaceAssistantOffer(): AiSystemInfo | undefined {
   const { system } = useSystem();
-  return workspaceKey ? aiOffer(system?.ai, permissions) : undefined;
+  const { permissions } = useWorkspaceData();
+  return aiOffer(system?.ai, permissions, false);
 }
 
-function aiOffer(ai: AiSystemInfo | undefined, permissions: MyPermissions | undefined) {
-  return ai?.configured && ai.sendLevel === "values" && holds(permissions, "ai-proposals") ? ai : undefined;
+/** The assistant's offer for a page outside the workspace data context, with the workspace's permissions. */
+export function useAssistantOfferIn(workspaceKey: string | undefined, permissions: MyPermissions | undefined) {
+  const { system } = useSystem();
+  return workspaceKey ? aiOffer(system?.ai, permissions, false) : undefined;
+}
+
+/** One rule for both offers: the send level and the permission; the provider only for what calls it. */
+function aiOffer(ai: AiSystemInfo | undefined, permissions: MyPermissions | undefined, needsProvider: boolean) {
+  if (!ai || ai.sendLevel !== "values" || !holds(permissions, "ai-proposals")) return undefined;
+  return (needsProvider ? ai.configured : ai.assistant) ? ai : undefined;
 }

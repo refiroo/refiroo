@@ -13,12 +13,17 @@ from ..engine.authorization.catalogue import FEATURE_GROUPS
 from ..engine.proposals.context import FEATURE_LEVELS, Policy
 from ..engine.proposals.provider import Purpose
 from ..engine.proposals.registry import AiConfiguration
+from ..engine.tasks import agent
 from ..errors import api_error
 
 GROUP = FEATURE_GROUPS[0]
+# Record names and codes are values (AP6a).
+ASSISTANT_NEEDS: SendLevel = "values"
 
 
-def _chosen_level_serves(ai: AiConfiguration, purpose: Purpose, send_level: SendLevel | None) -> bool:
+def _chosen_level_serves(
+    ai: AiConfiguration, purpose: Purpose, send_level: SendLevel | None
+) -> bool:
     """Whether the level a request chose (the ceiling when it chose none) gives the feature what it
     needs."""
     return send_level is None or Policy(send_level, ai.policy.samples).offers(purpose)
@@ -75,3 +80,40 @@ def ai_requested(
             {"action": "ai-proposals", "groups": [GROUP], "workspaceKey": workspace_key},
         )
     return True
+
+
+def assistant_requested(
+    request: Request, *, workspace_key: str, send_level: SendLevel | None = None
+) -> None:
+    """A task needs the assistant's session (``AI_AGENT_COMMAND``, AP-D38), the send level ``values``
+    and Use AI proposals. ``AI_PROVIDER`` plays no part: a session is not a provider call."""
+    ai = configuration(request)
+    if not agent.enabled():
+        raise api_error(
+            409,
+            "AI_NOT_CONFIGURED",
+            "The assistant is not set up on this instance (AI_AGENT_COMMAND)",
+        )
+    if send_level is not None and not ai.policy.allows(send_level):
+        raise api_error(
+            409,
+            "AI_SEND_LEVEL_TOO_LOW",
+            f"sendLevel '{send_level}' is above this instance's ceiling AI_SEND_LEVEL "
+            f"'{ai.policy.level}'; a request may choose a lower level, never a higher one",
+            {"sendLevel": send_level, "ceiling": ai.policy.level},
+        )
+    level = send_level or ai.policy.level
+    if level != ASSISTANT_NEEDS:
+        raise api_error(
+            409,
+            "AI_SEND_LEVEL_TOO_LOW",
+            f"Send level '{level}' does not allow what the assistant needs to read ({ASSISTANT_NEEDS})",
+            {"sendLevel": level, "ceiling": ai.policy.level, "needs": ASSISTANT_NEEDS},
+        )
+    if not request.state.permissions.allows(GROUP, workspace_key):
+        raise api_error(
+            403,
+            "FORBIDDEN",
+            f"Using the assistant in workspace '{workspace_key}' needs Use AI proposals",
+            {"action": "ai-proposals", "groups": [GROUP], "workspaceKey": workspace_key},
+        )

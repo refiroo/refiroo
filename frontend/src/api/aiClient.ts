@@ -8,7 +8,6 @@ import type {
   AiStatus,
   AiTask,
   AiTaskChangePage,
-  AiTaskPlanRequest,
   AiTaskRequest,
   AiTaskRunRequest,
 } from "@/types";
@@ -38,14 +37,9 @@ export const ai = {
     return request<AiTask>("/api/v1/ai/tasks", { method: "POST", body: form });
   },
   task: (id: string) => request<AiTask>(taskPath(id)),
-  /** Prepares the load with the choices the person changed; `409 AI_TASK_VERSION_CONFLICT` when the task moved. */
-  planTask: (id: string, body: AiTaskPlanRequest) => request<AiTask>(`${taskPath(id)}/plan`, post(body)),
-  /** The records the latest check would change in a table of the plan or a sheet (source) of the design, a page at a time. */
-  taskChanges: (id: string, where: { table: string } | { source: number }, cursor?: string) => {
-    const search = new URLSearchParams({
-      ...("table" in where ? { table: where.table } : { source: String(where.source) }),
-      pageSize: "25",
-    });
+  /** The records the latest check would change in a sheet (source) of the design, a page at a time. */
+  taskChanges: (id: string, where: { source: number }, cursor?: string) => {
+    const search = new URLSearchParams({ source: String(where.source), pageSize: "25" });
     if (cursor) search.set("cursor", cursor);
     return request<AiTaskChangePage>(`${taskPath(id)}/changes?${search}`);
   },

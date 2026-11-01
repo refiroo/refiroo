@@ -88,8 +88,8 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
 | [AP2](#ap2-targets-for-unmapped-values) | AP1 | Ranked target candidates for the unmapped rows of a mapping view, landing as edits in a change set |
 | AP3, AP4, AP5, AP6, AP7 | — | **Superseded by AP8.** See [History](#history-of-the-assistant). AP4 and AP5 are removed from 0.16 (the user, 2026-10-31) |
 | [AP8](#ap8-the-assistant-is-a-claude-code-session) | AP1 | **Built.** A few words and a workbook go to a Claude Code session; proposal, the person's words, then install and load into a change set |
-| [AP9](#ap9-who-did-it) | AP8 | Provenance on a session's changes, one client per session, the call record, retention |
-| [AP10](#ap10-one-path) | AP8 | One switch, the old design removed, a saved profile from a load, updating from a file, the session's leftovers, the proposal page, the documents |
+| [AP9](#ap9-who-did-it) | AP8 | **Built.** Provenance on a session's changes, one client per session, the call record, retention |
+| [AP10](#ap10-one-path) | AP8 | **Delivered 2026-10-31.** One switch, the old design removed, a saved profile from a load, updating from a file, the session's leftovers, the proposal page, the documents |
 | [AP11](#ap11-good-models-in-time) | AP8 | Model shape from the same words, and the time limits |
 | [AP12](#ap12-reshaping-and-asking-from-the-workspace) | AP8, WM1 | Moving records between types through a session, and "Change this model…" from the workspace |
 | [AP13](#ap13-acceptance-on-real-files-ap-d22) | AP9–AP12 | The remaining real-file tries, judged by the user |
@@ -116,33 +116,34 @@ keeps the reasoning.
 
 | Decision | Stands? | Now |
 | --- | --- | --- |
-| AP-D1 One interface | Changed | Holds for AP2, AG4 and Track O. A session is not a provider call (AP10) |
-| AP-D2 Providers | Kept | Plus `AI_AGENT_COMMAND` for the session (AP10) |
+| AP-D1 One interface | Changed | Holds for AP2, AG4 and Track O. A session is not a provider call; `AI_PROVIDER` serves those only (AP10, AP-D38) |
+| AP-D2 Providers | Kept | Plus `AI_AGENT_COMMAND`, which alone turns the assistant on (AP10, AP-D38) |
 | AP-D3 Send levels | Changed | A task below `values` is refused, so the level holds. For a session the boundary is the refusal, its grants and the sandbox, not the context builder |
-| AP-D4 Call record | **Not met** for sessions | AP9 |
-| AP-D5 Provenance | **Not met** for sessions | AP9. Met for AP2 |
+| AP-D4 Call record | Kept | Met for sessions by AP9 |
+| AP-D5 Provenance | Kept | Met for AP2, and for sessions by AP9 |
 | AP-D6 The editor, not a list | Kept | A session's draft opens in the editor. Confidence and its floor apply to AP2 only |
-| AP-D7 The group | Kept, **part not met** | The group is checked. "Made by the person's own request" is not met: AP9 |
+| AP-D7 The group | Kept | The group is checked. "Made by the person's own request" is met by AP9 |
 | AP-D8 Jobs | Kept | A session runs on the assistant worker |
 | AP-D9, AP-D10, AP-D11 | Kept | J50.30 scripts the session's command, as the fake provider cannot drive it |
 | AP-D12 Five step kinds | **Replaced** | By AP-D29 |
-| AP-D13 Change set, saved profile | Kept, **part not met** | The change set holds. The saved profile: AP10. "Live only when the person says so" is not offered to a session |
+| AP-D13 Change set, saved profile | Kept | The change set holds. A load leaves a saved profile that the engine saves, or says why not (AP10, AP-D41). "Live only when the person says so" is not offered to a session |
 | AP-D14 What the provider sees | Kept | The session reads what it needs within its folder and the API |
 | AP-D15 The loop | **Replaced** | By the session. `AI_MAX_STEPS` does not bound it |
 | AP-D16 Questions back | Kept | In the proposal |
-| AP-D17, AP-D18 Relations where a condition holds | Changed | The query's limits hold as the API's. `links.py` is reached only by the old design (AP10); set work: AP11 |
+| AP-D17, AP-D18 Relations where a condition holds | Changed | The query's limits hold as the API's. `links.py` and the relationship rules are removed (AP10, AP-D40); set work: AP11 |
 | AP-D19 One set of tools, two drivers | **Dropped** | The two drivers share the API instead. Track A is unaffected: AG-D4 calls the routes' service functions |
 | AP-D20 What the person sees | Changed | A proposal, its check, the questions and the draft in the editor. Not a plan of steps |
-| AP-D21 Providers that cannot do this | Changed | What it needs is a session command (AP10) |
+| AP-D21 Providers that cannot do this | Changed | What it needs is a session command; without it `POST /ai/tasks` is `409 AI_NOT_CONFIGURED` (AP10, AP-D38) |
 | AP-D22 Real-file try | Kept | AP13 |
 | AP-D23 Who sees a task | Kept | |
-| AP-D24 Retention | Kept, to check | AP9 |
+| AP-D24 Retention | Kept | Met by AP9 |
 | AP-D25 Files per task | Changed | One file is built; up to three is not. Kept to one unless a real case asks |
 | AP-D26 A person's edits | Changed | There are no steps to own. The person's edits are in the draft, and the session reads it again before installing |
 | AP-D27 One assistant | Kept | AP2's helper stays until a real case moves it. AP4 and AP5 are removed from 0.16 |
 | AP-D28 Draft-only change nothing holds | Kept | |
 | AP-D29 How far the session may go | New, approved | Replaces AP-D12 |
-| AG-D1 to AG-D10 | Kept | Except as [AG1 in detail](#ag1-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-the-mock-up) and [AG2 in detail](#ag2-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day) revise them |
+| AP-D38 to AP-D45 The one path | Delivered | The command alone switches the assistant on. The rules-only path, `/plan`, `table` on `/changes`, relationship rules and `AI_MAX_STEPS` are removed. The engine saves a profile from a load (`result.profileKey`, or `profileNotSaved` with why). A proposal warns of new records beside held ones. A source key may span several columns. A session is refused a draft another task holds. Unused releases a task installed are retired when it ends. Real tries: open |
+| AG-D1 to AG-D10 | Kept | Except as [AG1 in detail](#ag1-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-the-mock-up), [AG2 in detail](#ag2-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day) and [AG3 in detail](#ag3-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-ag-d27-as-written) revise them. AG-D5 and AG-D6 are now met with revisions (AG-D29's origin, AG-D30's `channel`) |
 | AO-D1 to AO-D9 | Kept | They use the provider, not the session |
 
 ### Track P: proposals
@@ -451,7 +452,7 @@ the session, and every fix they made to the import engine (listed in the AP6 pro
 
 | Case | Under AP8 |
 | --- | --- |
-| A, an update | Words only: works (185 records). "Update from this file": **wrong**, 667 duplicates, as the file has no single-column key (AP10). The acceptance workbook: not tried |
+| A, an update | Words only: works (185 records). "Update from this file": works since AP10, by a key of two columns: 0 new, and a changed price changes that price alone, no AI on a saved layout. The acceptance workbook: not tried |
 | B, C, additions and new relations | Not tried. They worked on the earlier design only |
 | D, E, new or related application | Loaded on two workbooks, nothing refused. Over the time limits, and the same words gave very different models (AP11) |
 | Reshaping | One try: 6,816 created, 667 changed. Values not checked by a before/after count, and it took 922 s (AP12) |
@@ -470,6 +471,87 @@ the session, and every fix they made to the import engine (listed in the AP6 pro
   show them and hosting estimates lack their tokens.
 - **Retention (AP-D24).** Check that a failed or abandoned task's folder goes with its task.
 
+#### AP9 in detail (planned 2026-10-31, for approval)
+
+Mock-up: [AP9 Who did it](https://claude.ai/artifact/DSPUiWVd2DJUncrCkAxXkT) (a Design canvas, not kept in the repository).
+
+**Checked against the code.** The four items above hold, and six more things belong to them:
+
+- **The folder does not go with its task.** `task_store.expire` returns only source files, and `remove_folder` is called only on a load and
+  on a discard. A failed or abandoned task leaves its workbook copy and session logs on disk for good.
+- **Claude Code keeps its own copy.** Each session leaves a transcript in `~/.claude/projects/<the folder's path>`, outside the folder and
+  outside any retention: 15 on this machine, up to 1.5 MB each. What it holds was not opened for this plan; a session reads the workbook, so it should be assumed to hold values.
+- **The shared client reaches further than the grants.** `_await_its_jobs` waits for every session's jobs, and `_reached` counts every session's
+  draft and release events, so overlapping tasks wait for each other and can show each other's steps.
+- **The session can hold more than the person.** `_access` narrows only the model grant. The data grant always gives Browse, change sets and Bulk
+  on the whole workspace, though "who asked" may hold writes to two record types only (D243).
+- **Four-eyes can be passed through a session.** The session holds `change-sets.submit`, so it can submit, and `_require_second_person`
+  compares the submitter with the approver. The person who asked could then approve their own request under `secondPerson`.
+- **A record's origin stops short of history.** `MergedObject` has no origin and publication copies only a relationship's. `ProposalOrigin` requires
+  `confidence` and `reason`, which a session does not have. `change_set_objects.origin` has no writer.
+
+| # | Decision | Why |
+| --- | --- | --- |
+| AP-D30 | **One client per task, of a new kind `session`, recorded as `ai_tasks.client_id`.** Named "AI assistant". It has no secret, so it can hold only the token the engine issues it, and it is left out of the client lists unless asked for by `kind`. It goes inactive when the task is loaded, discarded or expired, not on a failure, which may be tried again; the row stays, as audit entries name it. Grants still open and end per turn, so each turn re-reads what the person may do. The shared client is made inactive by the migration. `_await_its_jobs` and `_reached` read the task's client. | A grant, a job and an audit entry then belong to one task with no further rule. A task, not a turn, because its turns continue one session. |
+| AP-D31 | **A session holds what the person holds, and of that no more than the session's groups.** The data grant carries only the groups the person holds in the workspace, with their `applications` and `recordTypes`. Publish, Approve and activation stay out whatever the person holds (AP-D29). | AP-D7: "the change is made by the person's own request", and `_access`'s own comment promises this. A person narrowed to two types must not widen through a session. |
+| AP-D32 | **The engine stamps the origin at the write, on every change-set row a session's client writes,** in `ChangeSetWrites` and the tombstones in `deletion.py`, the only places that make these rows: `{kind: "ai", provider, model, promptVersion, proposedBy, taskId}`. `proposedBy` is copied, so it outlives the task. `confidence` and `reason` become optional, and the mark omits the percentage when there is none. | It holds for whatever route the session chooses (AP-D29), where stamping after the turn would miss other change sets and any row a person touched meanwhile. Set work: the value goes in the existing multi-row statements. AG3's `kind: "agent"` uses the same place. |
+| AP-D33 | **A person's edit of a marked row keeps the origin and adds `editedBy`,** as AP-D5 says. A session's write over a person's row marks it. Publication copies the origin into the audit entry of records and relationships, removals included. | The history then says what happened: proposed, edited, published. AP2's "a changed target loses its mark" is unaffected, as a new target is a new row. |
+| AP-D34 | **"Approved by" is what history already records: the publication's actor and the approval's decider.** A session's submission is recorded as submitted by the person who asked, so `_require_second_person` holds. | No second record of the same fact, and it closes the four-eyes gap at its one comparison. |
+| AP-D35 | **The session's model steps say who asked too:** a step written by a session's client gets `proposedBy` and `taskId` in its `origin`, and the editor's history shows it. No element is marked Proposed for it. | AP-D5 names steps. The draft is the person's to review as a whole (AP-D6), and marking every element would add noise to a draft that is all proposed. |
+| AP-D36 | **One `ai_calls` row per turn,** purpose `assistantSession`, written when the turn ends however it ends: answered, or failed with kind `failed`, `timeout`, `cancelled` or `interrupted`. A worker that died leaves no row at the time, so the next turn writes it from the log named in `agentProcess`. New columns `cost_usd` and `task_id`. **Tokens** are summed from the stream's messages by message ID, so a killed run has them too; cache reads and writes count as tokens in. **Cost** comes from the result line, as the difference from the task's last figure, because the usage log found it cumulative over turns; a run with no result line has none. `bytes_in` and `bytes_out` are the prompt and the final answer only, as the session's own API traffic is not measured. With `AI_LOG_CONTENT` on, `content` holds those two, never the stream. | The exit gate asks for "every run, with its tokens and cost". Summing the stream gives one path for finished and killed runs. `usage.jsonl` stays a tool of the development provider. |
+| AP-D37 | **The folder and the transcript go with the task.** `expire` also returns the task's folder, removed after the commit as its files are. `remove_folder` also removes the transcript directory, honouring `CLAUDE_CONFIG_DIR`. The sweep removes an `agent/` folder with no task, and a transcript directory of this instance's `agent/` path whose folder is gone. A failed task keeps its folder until it expires, because a person may still try it again (`queue_retry`). Retention reads `AI_TASK_RETENTION_DAYS` from settings, since `ctx.ai` is empty with no provider and the fallback ignored the setting. | AP-D24: "never the rows or samples sent to the provider". A separate config directory per session would avoid the transcript but breaks the session's sign-in. The directory's name is Claude Code's own convention, so the real try confirms it; another command has none and nothing happens. |
+
+**Scope.**
+
+- **Migration `20261120_03`,** written in one go as the dev server applies it on save: the `session` kind, `ai_tasks.client_id`, `ai_calls.cost_usd` and `task_id`, the shared client made inactive.
+- **Engine:** `tasks/agent.py` (client, grants, record, stream), `tasks/store.py` (`expire`), `jobs/worker.py` (the sweep), `records/writes.py`, `records/deletion.py`, `change_sets/publish.py`, `change_sets/approvals.py`, `model/authoring/history.py`, `identity/clients.py`, `proposals/calls.py`.
+- **API, additive:** `origin` on a record in a change set and on a record's history entry; `ProposalOrigin` gains `taskId` and `editedBy`, and its `confidence` and `reason` become optional; `purpose`, `costUsd` and `taskId` on a call, `costUsd` in the totals. OpenAPI lock re-baselined.
+- **Frontend, as in the mock-up:** the mark without a percentage and with who asked and who edited, on a record's history and its panel in a change set; Settings › AI's new purpose, a cost column and total; the editor's history line. No new screen.
+- **Documents:** API, ARCHITECTURE, OPERATIONS (the transcript and what retention covers), USER_JOURNEYS J50, API_JOURNEYS, CURRENT_FUNCTIONALITY, PROJECT_STATUS, CHANGELOG, and the "Where each decision stands" table (AP-D4, D5, D7, D24 met).
+
+**Out of scope:** marking earlier sessions' change sets, which stay unmarked as nothing recorded who asked per row; a filter for machine-proposed rows; the one switch and whether Settings › AI is reachable with only `AI_AGENT_COMMAND` set (AP10); a saved profile (AP10).
+
+**Tests, J50, through the API with the scripted session on two model configurations, within the package's quarter:**
+
+1. **The whole trail:** a session loads into a change set; every row carries the origin. A person edits one value and publishes. A created record's history reads proposed by the AI, asked for by the person, edited by them, published by them, and still does after the task expires.
+2. **Two tasks at once, in two workspaces:** one's token is refused in the other's workspace, a turn does not wait for the other's job, and each task's steps are its own.
+3. **A narrowed person:** with writes to one record type, the session is refused on another; publish and activation stay refused for a person holding both.
+4. **Four-eyes:** the session submits; the person who asked is refused the decision, and a second person approves.
+5. **The call record:** a finished turn, a failed one, a cancelled one and a worker that died each leave a row; cost over two turns is the difference, not the running total; no content unless `AI_LOG_CONTENT` is on.
+6. **Retention:** an expired failed task's folder and transcript go (with a test `CLAUDE_CONFIG_DIR`); another task's stay.
+
+The scripted session (`helpers/session-stand-in.py`, and J50.30's command) gains stream lines with usage and a result with cost. `AiPage.test`, one check in the `ap1-ai` browser runner, and the frontend production build. Groups to run: J49, J50, the change-set publication and approval groups, `contract`, `test_boundaries`, each alone in a window, as AG2's runs also use the test database.
+
+**One measurement:** a 2,000-record load into a change set, timed before and after the stamp (the basics rule). Nothing larger, as the stamp is one more value in existing statements.
+
+**The real try:** one real Claude Code session in a scratch workspace on the Timetables workbook, up to publication there, as a person. It confirms what was taken from memory (the stream's message IDs and usage, the result's `usage` and cost, the session's model in its first line, the transcript's path) and compares the recorded tokens and cost with what the session reported, logged in the [usage log](#ai-usage-log-for-hosting-cost-planning).
+
+**Working beside other sessions:** AG2 is being delivered in this checkout. Its code files do not overlap with these, and AG2 adds no migration. Several documents do overlap, so commits hold AP9's hunks only.
+
+**Door check (ADR-032):** additive, and the first real use of the value-provenance door beyond relationships, kept outside a record's values. `session` joins `api` and `agent` as a client kind. No door closes.
+
+**What the user cannot do after AP9:** see a filtered list of machine-proposed rows; read a per-row reason, as a session gives none; read a cost from a command that does not report one; reach Settings › AI with only `AI_AGENT_COMMAND` set, if that holds (AP10).
+
+#### AP9 record (built 2026-10-31; the real try is open)
+
+Built as planned, with three changes found in the work:
+
+- **AP-D32:** the stamp is one `before_flush` listener in `records/proposed.py`, not code in `ChangeSetWrites`, so every row those writes make is covered from one place. Tombstones take it in `deletion.py`. The origin holds public IDs, and a read names them as they are now, as `principals.py` does for everyone. A list's records carry the mark without names.
+- **AP-D37:** expiry does not return folders. The sweep removes any folder without a task, which also covers a crash between the commit and the removal. A session that ran and left no transcript where one is expected logs a warning, as the path is Claude Code's convention.
+- **A record's panel:** J50.31 found that reading a record in a change set returned no origin (`object_projection`); fixed.
+
+**Checked:** J49, J50 (30, with J50.31 to J50.36 new), `change_sets`, `contract` and `startup`, J51, J52, the settings and history frontend tests, the production build, and `ap1-ai` with its new check of the call record. The API diff against HEAD in a worktree is the additions listed in the lock's comment. Not run after the last lock move: the full suite, which is R's.
+
+**Found beside AP9, not caused by it:** `test_batch_statements` (8 cases over budget) and J38.1's `test_a_mapping_proposed_with_evidence` (2 cases, `'Bsrc'` missing) fail the same way at commit `136d3cb6`, without AP9. Their cause was not looked for; they must be settled by R. AP9 adds one statement per database session for a client's change-set writes, the lookup of its task (for example 44 to 45), constant whatever the size.
+
+**One measurement,** a 2,000-record batch into a change set: 1.77 and 1.79 s as a person, 1.89 and 1.83 s as a session, about 4%. 200 records: 0.20 to 0.34 s.
+
+**The user's own try, task `e5f1f1e2`, first turn (2026-10-31):** one call row, `claude-sonnet-5-5`, $1.113 equal to the session's figure, 2,330,341 tokens in equal to its result line. Tokens out read 939 against its 27,542, as the stream holds a message's output before it is written; fixed, the result line's figure now stands.
+
+**Not done: the rest of the real try.** Still unseen with real Claude Code: whether cost and tokens out are running totals over turns, the marks after a real load and publication, and the transcript's removal. A person's token needs a real sign-in, and creating a client with instance roles for the try was refused by the permission check. **It waits for the user.** Until then AP-D36's figures and AP-D37's transcript removal hold only against a scripted session.
+
+**What the user cannot do yet:** see the mark on a relationship's own read (`GET /relations` has no origin; publication's history does carry it); filter for machine-proposed rows; see the mark on earlier sessions' change sets.
+
 ### AP10: One path
 
 - **One switch and one assistant.** `AI_PROVIDER` and `AI_AGENT_COMMAND` are separate today: with only the provider
@@ -480,12 +562,99 @@ the session, and every fix they made to the import engine (listed in the AP6 pro
   The saved-layout path and the rules-only path keep what they use.
 - **Repeating next month (AP-D13).** The session is not asked to save a profile, so the no-AI path may never apply to
   its loads. A load leaves a saved profile.
-- **Updating from a file.** A key may span several columns, or such a file is refused re-import matching.
-  **Waiting for the user's decision**, asked in the session delivering the tries.
+- **Updating from a file.** A key may span several columns (AP-D43).
 - **The session's leftovers.** Unused releases (0.10.3, 0.10.5), and sessions reusing another task's draft (tasks 53, 57).
 - **The proposal page** looked at in a browser, and journeys only where the tries showed a need. J50 is 9 tests, 3 on
   sessions.
 - **Documents:** `API.md` and `USER_JOURNEYS.md` J50 still describe the turns, `ARCHITECTURE.md` both designs.
+
+#### AP10 in detail (planned 2026-10-31, approved by the user 2026-10-31 with AP-D39 and AP-D43)
+
+**Checked against the code and the development database; nothing was changed or run for this plan.**
+
+- **The switches.** `POST /ai/tasks` needs `AI_PROVIDER` (`ai_requested`, `409 AI_NOT_CONFIGURED`), and Settings › AI shows "No AI provider" without it, though a session uses no provider. With only `AI_PROVIDER`, words alone reach `_propose`, which reads a saved profile from a reading the task does not have, so it looks set to fail; not run.
+- **The old design is mostly gone already.** Nothing writes `links`, `derived`, `sheets`, `records` or `explains` into a task's design any more, but `design_job.py`, `draft_plan.py` and the page still read them. Reading the imports alone calls most of this code reachable, so each removal is confirmed by its field having no writer.
+- **The rules-only path has no configuration left.** It runs only when `AI_AGENT_COMMAND` is empty and `AI_PROVIDER` is set. With one switch, nothing reaches it. This differs from the list above, which keeps it: see AP-D39.
+- **A session's profile can be recovered.** Every import job holds its profile in `parameters.profile.definition`, and all the sessions' import jobs in tasks 53 to 67 loaded a file of the workbook's name and size. A saved profile is checked against the workspace's running release, which a session's new model is not yet, so it must be checked against the change set's release.
+- **Most session loads would not repeat as they are.** Of the 9 tasks from 53 to 67 with a completed import, 6 have an `upsert` source with no key (56, 57, 62, 63, 64, 66), so a second run would create those rows again.
+- **Leftovers.** Tasks 52 and 53 share draft 103, and tasks 56 and 57 share draft 106. Releases 0.10.3 and 0.10.5 are on no workspace and no change set.
+
+| # | Decision | Why |
+| --- | --- | --- |
+| AP-D38 | **`AI_AGENT_COMMAND` alone turns the assistant on.** `POST /ai/tasks` needs it and no longer `AI_PROVIDER`; `AI_NOT_CONFIGURED` names the command. `AI_SEND_LEVEL` and Use AI proposals still apply. Settings › AI opens if either is set and says what each gives. Without the command, no assistant action is drawn and the task page's route answers not found in the shell. `AI_PROVIDER` serves AP2, AG4 and Track O only. | AP-D21 and the exit gate's "no screen shows an AI action". A session calls no provider, so the provider cannot be its precondition. |
+| AP-D39 | **Approved by the user 2026-10-31. The rules-only task path is removed: it overrides "the rules-only path keeps what it uses" above.** `POST /ai/tasks/{id}/plan`, `queue_plan`, `queue_run`, `run_plan` and their helpers, and the Reading and Check views go. The ordinary import and its profile dialog are not touched. | No configuration reaches it under AP-D38. It is removed because nothing can run it, not because the UI does not use it, which the API-first rule forbids. Cost: a client that called `/plan` gets 404; before 1.0 that is allowed. |
+| AP-D40 | **The old design goes.** All of `links.py` and `turns.py` (its one constant moves or goes with its reader), `design.py` and the unreached parts of `design_job.py`, `draft_plan.py`, `design_checks.py`, `matching.py`, `plan.py`, `job.py`; `workbookLoad` as a provider purpose and the fake's answer for it; `AI_MAX_STEPS`; `DesignLinks`, `DesignRecords` and what only they use. What J50.12's saved-layout path and J50.30's session run stays. Old rows in `ai_calls` stay readable. | The list above. A dead branch here reads as design and has already misled plans. |
+| AP-D41 | **The engine saves a profile from the load,** in `accepted`, after the non-empty check. It reads the change set's completed import jobs whose file's hash is the task's workbook, joins their sources and value maps, checks them against the change set's release, and stores `checked_release_id` as that release. The same key next time is the next version. The session is not asked to save it. **No profile is saved, and the task says why, when:** the change came only through batches, another file was loaded, or a source has no key. | It holds whatever route the session took (AP-D29). A keyless source would create its rows again next month, so saving it would promise a repeat that duplicates. |
+| AP-D42 | **The session is told each source needs a key** that finds its records on the next file, several columns if needed, and to raise it as a question if none exists. **The proposal warns** when a type the workspace holds records of would get new ones: "667 new Products beside the 667 held: if this is an update, the rows did not find their records." Accept stays available. | A prompt alone does not hold, so task 57's mistake also shows before anything is installed. Whole-set figures come from the dry run. |
+| AP-D44 | **A session may not write a draft another task holds:** `409 AI_TASK_DRAFT_HELD` on its model-draft writes, by AP-D30's client and `ai_tasks.draft_id`, and the same check when a proposal lands. The session then makes a draft of its own. A person's draft that no task holds stays open to it. | Enforced by the engine, as a prompt would not hold. Otherwise one task's session can change a draft another person is reviewing, and one task's expiry deletes the other's draft. |
+| AP-D45 | **When a task ends, a release its client installed that no workspace or change set uses is retired,** not deleted, as history may name it. Existing ones are left. | "Exactly one release" is only a prompt. A retry or a failed load must not leave a release behind. |
+
+**Scope.**
+
+- **Engine:** `imports/` (`SourceKey`, `binding.py`, `profiles.py`, a save against a named release), `tasks/` (AP-D40's removals; `agent.py`: `_propose_prompt`, `_ACCEPTED`, `_proposal_landed`, `_left_out`, `accepted`), the model-draft write path, `jobs/worker.py` (one call goes), `proposals/`. No migration: a key lives in a profile's JSON.
+- **API:** `attributeTypeKeys` on a source key; `/plan` removed and `table` off `/changes`; `AI_TASK_DRAFT_HELD`; `result.profileKey` or `result.profileNotSaved` with its reason. OpenAPI lock re-baselined.
+- **Frontend:** Settings › AI's assistant section; the offer read from `assistant`; the warning on the proposal; the loaded page's profile line; the Reading, Check and links views removed.
+- **Documents:** API, ARCHITECTURE, OPERATIONS (settings, and what `AI_PROVIDER` no longer does), USER_JOURNEYS J50 rewritten to the session, API_JOURNEYS, CURRENT_FUNCTIONALITY, PROJECT_STATUS, CHANGELOG, the "Where each decision stands" table.
+
+**Mock-up (the existing proposal and loaded pages; only the marked lines are new).**
+
+```
+Settings › AI
+  Assistant   On   AI_AGENT_COMMAND: claude --model sonnet        <- new
+                   Reads workbooks and words, up to a change set
+  Provider    Not set   AI_PROVIDER                               <- new wording
+                   Mapping targets, search and summaries are not offered
+
+Proposal
+  Two sentences · shape per type · questions · Accept | Say what to change
+  ! 667 new Products beside the 667 held. If this is an update,   <- new
+    the rows did not find their records.
+
+Loaded
+  Change set "…": 667 updated
+  Saved the profile "…": the next file of this layout loads       <- exists
+  without the assistant.
+  Not saved as a profile: sheet "Packages" has no key, so         <- new
+  a second load would create its rows again.
+```
+
+**Tests, within the package's quarter, through the API with the scripted session on two model configurations.**
+
+1. **One switch:** given only the command, a task runs; given only the provider, `POST /ai/tasks` is `409 AI_NOT_CONFIGURED`, `GET /system` says so, and AP2 still works.
+2. **The load leaves a profile:** given a session's load, a profile exists and validates against the change-set release. After activation and publication the same file takes the no-AI path and changes nothing.
+3. **Not saved, with the reason:** a keyless source; a batches-only change.
+4. **A key of two columns:** given a stored set where one column repeats, a re-import updates each record, and creates none. A stored duplicate of the combination refuses its row, an empty cell follows `rowsWithoutKey`. Live and in a change set.
+5. **The warning:** a session's dry run creating rows of a held type shows it on the proposal, and Accept still works.
+6. **Leftovers:** a second task's session is refused on the first's draft and goes on with its own; a failed load's unused release is retired, one in use is not.
+
+Unit tests for the key's validation in `check_profile`. `AiTaskPage.test` and `AiPage.test`, cut to what stays. Groups to run: J48 to J50, the import groups, `contract`, `test_boundaries`, each alone in an agreed window with AP9. The frontend production build, and `ap1-ai`.
+
+**One measurement:** a 2,000-record import by a two-column key against a single-column one (the basics rule). Nothing larger.
+
+**The proposal page in a browser:** the `ap1-ai` runner with the stand-in session on two models, covering the proposal with its warning, the loaded page with and without a profile, keyboard and 390px, with screenshots inspected. Reference: the existing proposal page.
+
+**The real try, before and after on the real model:** in a scratch workspace, Tariff File with few words through a session to publication, recording records, values and relationships. Then the same file with "Update from this file", which must give no new products. Then a copy with one price changed, which must take the no-AI path and change only that. Logged in the [usage log](#ai-usage-log-for-hosting-cost-planning) with tokens and cost.
+
+**Working beside other sessions:** needs AP9's `ai_tasks.client_id` and `session` kind, so the build starts once those are saved in the checkout. AP9 holds `_access`, `_end`, `_await_its_jobs`, `_reached`, `_run_turn`, `_Progress`, `_retention` and `remove_folder` in `agent.py`, `store.expire`, the worker's sweep and `AiPage`; AP10 adds to `AiPage` after it, and keeps the line AP9 adds to `accepted` and `discard` that retires the task's client. AG2 is being delivered too, and backend `pytest` runs go one at a time across AG2, AP9 and AP10, in agreed windows. Commits hold AP10's hunks only. AP11 reads the same prompts.
+
+**Door check (ADR-032):** identity and the import's key are touched additively. A combination finds a record only during an import, and the `unique` declaration, public IDs and the consumer `match` are unchanged. No door closes.
+
+**What the user cannot do after AP10:** declare a combination unique in the model, so only an import checks it; use a several-column key in a batch `upsert` or a consumer `match`; repeat a change made only through batches without the assistant; repeat a load whose file has no key at all. Once the task that loaded a profile's file has expired, a sheet that profile left out sends the next file to a session, as nothing holds the earlier file any more.
+
+#### AP10 record (2026-10-31)
+
+
+| The same words again | AI | Result |
+| --- | --- | --- |
+| The same file, before the fit fix | one session, $1.52, 6 min | Every row unchanged, no duplicates; the saved layout was not taken |
+| The same file | none, 11 s to the proposal | 0 created, 0 updated, 19,919 unchanged; live data identical |
+| A copy with one price changed (200 to 201) | none | 1 updated, 19,910 unchanged: `price-amount` on that price alone |
+
+**What the try found, each fixed with its test:** the fit refused any workbook with a sheet its profile left out; a session's direct upload left the next file nothing to compare with; the page's summary gave the generic matcher's figures ("8 are new") in place of the profile's; rows skipped for an empty key read as refused, and a check from before the draft's last change read as current (both found in the user's try, task e5f1f1e2). **An earlier try is not evidence:** task 2e5867a6 ran on the dev server's old code, as its reloader had stopped; the server was restarted by the user.
+
+**Checks exercised:** J48, J49, J50 (with J50.31, J50.37 to J50.42), J27, J34, J35, J36, boundaries, error codes, API journeys and the OpenAPI lock, passing; `ap1-ai` on two object types, 1440px and 390px, light and dark, keyboard, axe 70 states with 0 violations, screenshots of Settings › AI, the proposal's warning and the loaded page inspected; Vitest for `features/ai-tasks` and `AiPage`, lint 0 errors, the production build. The 2,000-record basics: an update by two columns 2.18 s, by one 1.91 s. **Deferred to R:** the full suites. **Failing without AP10, for R:** `test_batch_statements` (8), `test_j38_1_model_mapping::test_a_mapping_proposed_with_evidence` (2), `test_export_volume::test_an_export_holds_its_statements_as_the_data_grows`; the cause is not known. The jobs and contract groups took 3 min 56 s, over the 3-minute ceiling, as they include the several-process journeys.
+
+**Not exercised:** Timetables or another workbook under this path; a session on a workspace where the key is already declared unique. A session's model is not always the same, so the key it chooses may differ (AP11). The saved layout still asks the file's own conflicting values as questions on each repeat; they are kept as asked (the user's rule), and a person answering them each month may want that changed.
 
 ### AP11: Good models, in time
 
@@ -607,6 +776,13 @@ page for records that must move.
 **What already works and stays:** the draft operations and editor, `compile` (its `compatibility.workspaces` gives
 each workspace's check before anything is installed), `installation`, `activation`, the migration preview and
 confirmation, and `Install and activate…`, which moves into ⋯ on a draft opened from a workspace.
+
+
+**What the words ask for comes before the file's shape (2026-11-01, prompt `agent/3`).** The shape line of `8ea24e14` made sessions turn what the words placed under a named category into a type of its own, so the requested field filter had nothing to filter and sessions reported it impossible. It was never an engine limit: the fixed `ancestor:` filter does it, as the earlier runs in `harbour` show. The session is now told to build everything the words ask, as they place it, also with no data, and to say a thing cannot be built only after trying it. Real run in `ap-full-2`: proposal 817 s, $2.99 (over the limit, AP11), 0 refused, 0 skipped; accepted, 2,134 records in 80 s, $0.52, 0 rejected; 7,835 cell checks, 0 wrong; station and driver types present and empty; category translations linked to the categories. Not published.
+
+**A session stopped by its own log, and the file then loaded (2026-11-01).** A session in `harbour-2` failed with an internal error after 284 s: a refused write comes as a system event whose `message` is text, and the log reader expected an object. The reader has done so since 31 October, before AP9 and AP10. It now leaves any line it cannot read. A real run with the same words and the Timetables workbook in the scratch workspace `ap-full-1`, on `harbour-2`'s model: proposal in 661 s ($2.37, over the limit, AP11), 0 refused, 0 skipped; accepted, 3,540 records created in 62 s ($0.41), 0 rejected, profile saved; not published. Every filled cell compared with the change set, 7,817 checks, 0 wrong. Not met from the words: no station and driver types, category translations linked to the types rather than the categories, slot picker unfiltered. Each was raised as a question with an assumption.
+
+**Empty cells read as skipped rows, found on a real try (2026-11-01).** A workbook that imports whole reported 100 rows skipped and 3,024 unchanged on a new model. The check counted per source, so a row with no value in one list's column read as skipped although other sources wrote it, and links written with their translation read as unchanged records. A row now counts only when a value a source reads there is held by no other source, or no source reads anything on it; `unchanged` counts records only. The same dry run recomputed: 0 skipped, 0 refused, 0 unchanged, 4,244 created (3,537 records, 707 links). The session's prompt says an empty cell is no skipped row. A `unchanged` figure above that predates this also counts links.
 
 #### Decisions (recommended, approved with this plan)
 
@@ -868,6 +1044,32 @@ checked for being free before use.
 **What the user cannot do after AG2:** have an assistant prepare a change (AG3) or read a change set through it (AG3); read an older
 publication through it (not planned, the consumer API does this); ask in words in the built-in search box (AG4).
 
+### AG2 record (2026-10-31)
+
+**Delivered as planned.** AG-D19 was taken as recommended: the user approved the plan without answering it separately, so it stands open to their correction.
+
+**Where it differs from the plan:**
+
+- The moved check is in a new module, `engine/reads/consumer_request.py`, not `consumer_parameters.py`, which `consumer_lists` imports: the check needs `consumer_lists`.
+- **AG-D24 revised by the real try:** `resources/list` names each workspace's model only, and applications, record types and views are resource templates. Listing every part made 208.5 KB on the user's 15 workspaces, more than Claude Code shows inline. The list is now 15 entries.
+- `_run` writes its record in a session of its own and applies the read guard, as a tool's read may hold a snapshot.
+- EXECUTION_GUIDE is unchanged: its group table has no row for J51 or J52, and J52 runs by its file.
+
+**Checks:** J52: 14 passed (seven cases, each on two configurations). `consumer`, `contract`, `startup`: 715 passed. J51, J52, J41, J31, J13, J07 and `test_boundaries`: 94 passed. The OpenAPI lock is unchanged. No frontend file changed, so no frontend build or browser runner.
+
+**The real tries (Claude Code on Sonnet, through the dev server, the user's stored sign-in):**
+
+| Try | Result | Tokens | API price |
+| --- | --- | --- | --- |
+| Tool list, `describe_model`, a lookup, `mapping_coverage`, resources | All worked, no tool error. `lookup_timetables` gave a value's code. Two keys differing across workspaces got hashed names. `mapping_coverage` with `state=unmapped` found 0 on the view it chose, so a non-empty list was seen only in J52 | 10 in, 1,596 out, 224,698 cache read | $0.197 |
+| The resource list after the change | 15 entries, whole | 8 in, 200 out, 114594 cache read | $0.114 |
+
+**The two limits taken from memory:** Claude Code did not refuse a long answer: it saved the 98.5 KB model resource to a file and showed the first 2 KB, so AG-D23's reason is weaker than written. The cap stays, as a page that fits is still what an assistant can use. No tool answer reached it in the try. Claude's refusal of a top-level `oneOf` was not tested, as the schemas are flat.
+
+**Not verified:** Claude Desktop's and claude.ai's use of these tools; reading a part through a resource template in a real assistant (J52 reads one through the SDK's client).
+
+**What the user cannot do yet:** have an assistant prepare a change or read a change set (AG3); ask in words in the built-in search box (AG4). An older publication is not read through an assistant, which is not planned.
+
 ## AG3: Changes prepared and submitted for approval
 
 **Journey:** an agent asked to add five missing values creates a change set, adds the five, reads the
@@ -877,6 +1079,100 @@ live data changes only at that approval.
 **Scope.** Tools: create/select change set, add or change an object, set a field, add a relation, read
 the change set's validation. Optimistic concurrency applies (versions are inputs); conflicts return the
 engine's own error code and message. No approve, publish, delete, model or security tool exists, and the agent principal cannot approve through any route (AG-D5).
+
+### AG3 in detail (planned 2026-10-31, approved by the user the same day, with AG-D27 as written)
+
+**Checked against the code; nothing was changed or run for this plan.** Seven things in the scope above do not hold as written, or need a rule:
+
+- **`_run` cannot write.** It never calls `set_writer`, and without a writer a change-set write is refused `WRITER_UNKNOWN`. It always rolls back at the end, and the engine's write functions commit themselves (AG-D28).
+- **`_fitted` is unsafe for a write.** It runs a tool again to shrink a page, and refuses a long answer after the tool has run, which after a commit would report a saved change as refused (AG-D28).
+- **A refusal loses the engine's code.** `_run` passes on `refusal.message` only, so `VERSION_CONFLICT`, `currentVersion` and `CHANGE_SET_INVALID`'s diagnostics never reach an assistant. The scope requires the code (AG-D31).
+- **AP-D32's stamp recognises a task's client, not an assistant.** `proposed.py` finds its origin from the principal. A person signing in through an assistant has the same principal as in the browser, so the stamp must come from the call (AG-D29).
+- **`ProposalOrigin` cannot hold this origin.** `kind` is `"ai"` only, with `provider` and `promptVersion` required (AG-D29).
+- **`POST /change-sets` and validation hold logic in the route,** and the single-record reads' change-set forms are inline in `get_object` and `list_relations`. `_write` in `attributes.py` holds the present-or-absent checks. These are split as `workspace_page` was, so route and tool run one function.
+- **The journey's "edits one value and approves" is two steps in the engine.** A submitted change set is frozen, and a person's edit withdraws the submission (`withdrawSubmission=true`, D426). The steward then publishes, which records an approval as their own decision, unless `secondPerson` is on, when they submit it again and a second person decides. `ChangeSets.tsx` already offers this. Nothing changes here; J53 covers both.
+
+| # | Decision | Why |
+| --- | --- | --- |
+| AG-D26 | **Eleven tools, all needing Work in change sets in the workspace.** Reading: `my_change_sets` (open ones, with state and version), `read_change_set` (version, release, submission state, the last decision's comment), `change_set_changes` (rows, `kind` records or relationships, paged), `validate_change_set`. Writing: `create_change_set`, `add_record`, `change_record`, `set_field`, `add_relation`, `change_relation`, `submit_change_set`. Every write names `changeSetId` and `expectedChangeSetVersion`, and a change to a row its version too. **`changeSetId` joins `find_records`, `read_record` and `describe_type`** (AG-D22), which then read that change set and its pinned release. A write answers with IDs and the new versions. | The scope, with what an assistant needs to know that a person sent it back and why. `describe_type` must read the pinned release, or a change set on another release would be filled from the wrong model. Choosing a release needs `model-release`, which the ceiling excludes, so it is not offered. |
+| AG-D27 | **An assistant reads and writes only change sets its own principal created;** any other answers `CHANGE_SET_NOT_FOUND`. A person's own change set counts, so "add these to my change set" works. Narrower than the API, where anyone holding the group may write to any open change set. | AG-D8: text in a record could otherwise steer an assistant into a colleague's change set, under review by someone who did not ask for it. **Cost:** an assistant cannot help on a colleague's change set. Opening this later is additive. |
+| AG-D28 | **A tool declares it writes.** `_run` then sets the writer (the ceiling's permissions, group `change-sets`, the tool's action, the principal), never allows withdrawal, and runs the tool once with no size check. Reads stay as they are. `validate_change_set` writes its audit entry once and cuts its own diagnostics to fit, with a cursor. `annotations` become per tool: writes and validation are not `readOnlyHint`, and no tool is `destructiveHint`. | The one writer the routes use gives the same grants, record-type limits (D243), audit actor and `created_by`. A retry after a lost answer cannot apply twice, as the version it names has moved. |
+| AG-D29 | **`origin = {kind: "agent", application, proposedBy}`, a type of its own beside `ProposalOrigin`.** `proposedBy` is the person or client's public ID, and `application` the assistant's name, copied as its row may be removed. `_run` sets it on the session, and `proposed.py` reads it before a task's, so AP-D32 and AP-D33 hold with no second place. Revises AG-D5's `{kind, client}`. | A person's browser edit and their assistant's edit must differ, so the principal cannot decide. AG-D13's "claimed" name stays claimed, so the mark says so. |
+| AG-D30 | **`audit_events.channel`, nullable, written `mcp` only,** set in `_name_actors` from the session, for every entry the ORM inserts during a call. Shown as `channel` on `GET /changes` and a record's history, additive. Null means not through an assistant; earlier rows stay null. No screen shows it, as the mark says it for records and relationships. | AG-D16 moved it here. The tools reach only ORM-built events, and one hook covers them. **My proposal:** no line on the Changes page, because a change-set event's actor already names a client, though for a person it does not say it came through an assistant. |
+| AG-D31 | **A refused tool call says `CODE: message`, then `details` as JSON,** on every tool, reads included. `_run` records it as now. | The scope, and an assistant needs `currentVersion` and diagnostics to correct itself. The refusal for a missing and an unreadable workspace stays identical. |
+| AG-D32 | **Left out on purpose:** removing a record, relation or value; clearing a field (`value` may not be null); withdrawing; discarding a change set; batches (`bulk` is outside the ceiling); restructuring. | AG-D3's "no deletion of anything", and the exit gate. A row added by mistake is corrected by a person, or the assistant starts a new change set. |
+
+**Scope.**
+
+- **Migration, one file, written in one go:** `audit_events.channel`. `down_revision` and `HEAD` in `test_startup.py` are taken from the head at the moment of writing, at present AP9's `20261120_03`.
+- **Management:** `mcp_tools.py` (the eleven tools, the writes flag, AG-D27's check), `routers/mcp.py` (`_run`, `_listed`, instructions saying a change reaches live data only when a person approves it), route bodies split in `change_sets.py`, `objects.py`, `relations.py`, `attributes.py`; `schemas/common.py` (`AgentOrigin`); `channel` on the two reads.
+- **Engine:** `records/proposed.py`, `records/audit.py`, the `AuditEvent` column.
+- **Frontend:** `AiOriginMark` and the types, one component for both kinds.
+- **Documents:** API, ARCHITECTURE, OPERATIONS (AG-D8's stance and what an assistant can write), USER_JOURNEYS J53, API_JOURNEYS, CURRENT_FUNCTIONALITY, PRODUCT, PROJECT_STATUS, CHANGELOG, this plan's decision table and record.
+
+**Mock-up (the existing record history and change-set panel; only the marked lines are new).**
+
+```
+History of "Value 12"
+  [Prepared by an assistant: Claude Code]                       <- new
+  Asked for by Anna Steward. Edited by Ben Owner.               <- exists (AP9)
+  (the name is the one the assistant gave itself)               <- new
+
+Change set panel, a row
+  [Prepared by an assistant: Claude Code] Asked for by Anna…    <- new
+
+A client with no application
+  [Prepared by an assistant: Nightly agent]                     <- new
+```
+
+**Out of scope:** AG4; a filter for an assistant's rows; a line on the Changes page; the bounded R try (AG-D10).
+
+**Tests, J53, through the endpoint with the SDK's client on J51's two model configurations, within the package's quarter:**
+
+1. **The journey:** a person through an assistant creates a change set, adds five records, validates and submits; live data is unchanged; a steward has the inbox notice, edits one value and publishes; live data changes only then. History says prepared by the assistant, asked for by the person, edited by the steward, and each change-set entry has `channel` `mcp`.
+2. **Four-eyes:** under `secondPerson`, the person refused the decision on what their assistant submitted; a second person approves. An agent client's token cannot reach any approve or publish route.
+3. **Fixing it:** an invalid change set's submission is refused with its code and diagnostics; a stale version with `CHANGE_SET_VERSION_CONFLICT`; a submitted one with `CHANGE_SET_SUBMITTED`; a sent-back one shows the comment, and is fixed and submitted again.
+4. **Limits:** a colleague's change set is not found; a person narrowed to one record type is refused on another; no tool writes without a change set; a caller with only Browse lists no change-set tool.
+5. **Reads:** `find_records`, `read_record` and `describe_type` with `changeSetId` show the unpublished rows and the pinned release, and without it, live data.
+
+`AiOriginMark` test, the frontend production build, one check in an existing browser runner at 1440px and 390px. Groups to run: J51, J52, J53, the change-set and approval groups, `contract`, `startup`, `test_boundaries`, each alone in an agreed window.
+
+**No measurement:** no set path changes, and the column adds one value to entries already written.
+
+**The real try:** one Claude Code session on Sonnet through the dev server, signed in as a person, in a scratch workspace, asked in words to add five missing values and submit them. It then opens in the browser for the edit and the approval. It needs the user reconnecting `/mcp` after the dev server reloads. Tokens and price are logged in the [usage log](#ai-usage-log-for-hosting-cost-planning).
+
+**Who builds:** Sonnet from precise briefs for the tools, the route splits, the mark, J53 and the test runs; Opus for `_run`, the origin and the review.
+
+**Working beside other sessions:** AG3 starts once AP9 has saved `proposed.py`, `audit.py` hooks, `schemas/common.py`, `AiOriginMark` and its migration, as AG3 builds on all of them. AP10 touches `imports/`, `tasks/` and the model-draft path, which AG3 does not, and adds no migration. Shared with both: documents and the OpenAPI lock, re-baselined last and diffed for AG3's additions only. `pytest` runs go one at a time across AP9, AP10 and AG3. Commits hold AG3's hunks only.
+
+**Door check (ADR-032):** additive. A second origin kind on the value-provenance door, and a column on the audit trail. A later stdio bridge would call the same tools. No door closes.
+
+**What the user cannot do after AG3:** have an assistant remove or clear anything, withdraw, discard, batch or restructure; have it work on a colleague's change set; filter an assistant's rows; see on the Changes page that a person's change came through an assistant; ask in words in the built-in search box (AG4).
+
+### AG3 record (2026-10-31)
+
+**Delivered as planned; the real try passed and the user accepted it (2026-11-01).** Tools, route splits, frontend, tests and documents built by Sonnet agents from briefs; `_run`, the origin, the channel and the review by Opus.
+
+**Where it differs from the plan:**
+
+- A stale version answers two codes: `CHANGE_SET_VERSION_CONFLICT` on a write, and `VERSION_CONFLICT` with `currentVersion` on a submission. Each is the engine's existing code, and J53 asserts both. Test 3 above names the first only.
+- `change_record` refuses a repeated key in a list (`DUPLICATE_ATTRIBUTE`), where the update route lets the last win.
+- `add_record` takes no `initialRelations` and no `id`; relationships are added with `add_relation`.
+- The browser check is a small runner of its own, `test:browser:ag3`, not a check in an existing one: `ap1-ai` is about tasks.
+- A mapping grid's target also accepts the new origin, as a relationship an assistant adds would otherwise fail to read.
+- **A record's history shows the mark on the publication's entry only.** The entry for the write inside the change set has `channel` but no mark, as AP9's origin reaches an entry at publication. Decided: left so, as the published entry is the one that tells the record's story.
+
+**Checks:** J53: 10 passed (five cases on two configurations; the example configuration skipped). J51 and J52: 30 passed. J42 and the two J44 files: 44 passed. `change_sets`: 479 and 2 serial passed. `contract or startup`: one failure, the OpenAPI lock, re-baselined; then `test_openapi_contract.py` and `test_boundaries.py`: 15 passed; the rest of that run's count was not recorded. The lock's diff holds AG3's `AgentOrigin`, the two `channel` fields and the origin unions, beside AP9's and AP10's own uncommitted additions. Frontend: `tsc -b`, 25 Vitest tests, `npm run build`, taken before the browser runner was added; `test:browser:ag3` 10 checks, axe 0 violations, 1440px and 390px. `feed`, run at delivery: 217 passed, one failed in the parallel run: `test_events_expired_while_active_suspend_and_a_reset_starts_from_the_head[generated-a]`. It passed four times out of four alone (both configurations each time); the cause of the parallel failure was not located. `serial and feed` selects no test, though the parallel run's footer says 14 were left out.
+
+**The real try, first attempt:** Claude Code on Sonnet through the dev server in the scratch workspace `shape-ap-1` listed read tools only, because the dev server's worker had not reloaded since before the tools were saved. It changed nothing and said so plainly. 10 in, 942 out, 177,087 cache read, 47,340 cache written; $0.234.
+
+**The real try, after the restart:** the same words in the same workspace. The session read the model, chose a type with no required attributes or parent, created a change set, added five records, validated and submitted, with no refusal reported. 27 turns, 47 seconds; 34 in, 4,142 out, 915,472 cache read, 39,963 cache written; $0.385.
+
+**The person's half:** the user approved and published the change set in the browser at 01:29:39 on 2026-11-01, without editing it, and said it was good. Audit holds `channel` `mcp` on the assistant's writes and none on the publication; a published value's history, read through the assistant's tool, gives `origin` of kind `agent`, "Claude Code (refiroo)", asked by the user. The change set then answers `CHANGE_SET_NOT_FOUND`, as a published change set no longer exists.
+
+**Not verified:** a person's edit withdrawing an assistant's submission on the real change set, as the user published without editing; Claude Desktop and claude.ai.
+
+**What the user cannot do yet:** as under "What the user cannot do after AG3" above.
 
 ## AG4: Natural-language search
 
@@ -957,6 +1253,8 @@ published prices, and the date of those prices is given.
 
 | Date | Package, what was tried | Provider, model | Calls | Tokens in (plain / cache write / cache read) | Tokens out | Time | Cost at API prices | Note |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-31 | AG3, first attempt: an assistant asked to prepare a change, before the dev server had reloaded | Claude Code session, `sonnet` | 1 session | 10 / 47,340 / 177,087 | 942 | not recorded | $0.234 | saw read tools only, changed nothing and said so |
+| 2026-10-31 | AG3 after the restart: the same words; five records prepared, validated and submitted | Claude Code session, `sonnet` | 1 session, 27 turns | 34 / 39,963 / 915,472 | 4,142 | 47 s | $0.385 | published by the user; see the AG3 record |
 
 **What a hosting estimate needs from these rows:** the cost per task kind (e.g. loading one workbook of
 N rows and M sheets), how it grows with the file (the reading is sent as column profiles, so it grows
@@ -973,32 +1271,6 @@ each only on the user's go-ahead with its cost stated first (AP-D11, AG-D10); th
 ## Exit gate
 
 - A few words and a workbook give the model and the import, with as many applications, types and
-### AG2 record (2026-10-31)
-
-**Delivered as planned.** AG-D19 was taken as recommended: the user approved the plan without answering it separately, so it stands open to their correction.
-
-**Where it differs from the plan:**
-
-- The moved check is in a new module, `engine/reads/consumer_request.py`, not `consumer_parameters.py`, which `consumer_lists` imports: the check needs `consumer_lists`.
-- **AG-D24 revised by the real try:** `resources/list` names each workspace's model only, and applications, record types and views are resource templates. Listing every part made 208.5 KB on the user's 15 workspaces, more than Claude Code shows inline. The list is now 15 entries.
-- `_run` writes its record in a session of its own and applies the read guard, as a tool's read may hold a snapshot.
-- EXECUTION_GUIDE is unchanged: its group table has no row for J51 or J52, and J52 runs by its file.
-
-**Checks:** J52: 14 passed (seven cases, each on two configurations). `consumer`, `contract`, `startup`: 715 passed. J51, J52, J41, J31, J13, J07 and `test_boundaries`: 94 passed. The OpenAPI lock is unchanged. No frontend file changed, so no frontend build or browser runner.
-
-**The real tries (Claude Code on Sonnet, through the dev server, the user's stored sign-in):**
-
-| Try | Result | Tokens | API price |
-| --- | --- | --- | --- |
-| Tool list, `describe_model`, a lookup, `mapping_coverage`, resources | All worked, no tool error. `lookup_timetables` gave a value's code. Two keys differing across workspaces got hashed names. `mapping_coverage` with `state=unmapped` found 0 on the view it chose, so a non-empty list was seen only in J52 | 10 in, 1,596 out, 224,698 cache read | $0.197 |
-| The resource list after the change | 15 entries, whole | 8 in, 200 out, 114594 cache read | $0.114 |
-
-**The two limits taken from memory:** Claude Code did not refuse a long answer: it saved the 98.5 KB model resource to a file and showed the first 2 KB, so AG-D23's reason is weaker than written. The cap stays, as a page that fits is still what an assistant can use. No tool answer reached it in the try. Claude's refusal of a top-level `oneOf` was not tested, as the schemas are flat.
-
-**Not verified:** Claude Desktop's and claude.ai's use of these tools; reading a part through a resource template in a real assistant (J52 reads one through the SDK's client).
-
-**What the user cannot do yet:** have an assistant prepare a change or read a change set (AG3); ask in words in the built-in search box (AG4). An older publication is not read through an assistant, which is not planned.
-
   relations (across applications too) as the workbook needs; tried on the user's own workbooks (AP-D22).
 - With no provider and MCP off, no screen shows an AI action, no request leaves the instance, `/mcp`
   does not exist, the existing inference behaves as before, and digests are the plain list.

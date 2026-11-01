@@ -207,8 +207,8 @@ def test_an_assistant_finds_its_way_from_the_model_to_a_record_and_its_changes(w
     ):
         closed = _refusal(world, token, tool, workspace=W2, **more)
         missing = _refusal(world, token, tool, workspace="no-such", **more)
-        assert closed == f"Workspace '{W2}' not found"
-        assert missing == "Workspace 'no-such' not found"
+        assert closed == f"WORKSPACE_NOT_FOUND: Workspace '{W2}' not found"
+        assert missing == "WORKSPACE_NOT_FOUND: Workspace 'no-such' not found"
 
 
 @pytest.mark.journey("J52.4")

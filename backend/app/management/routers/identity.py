@@ -443,7 +443,7 @@ def list_clients(
     paging: PageQuery,
     q: str | None = Query(default=None, max_length=200),
     active: bool | None = None,
-    kind: Literal["api", "agent"] | None = None,
+    kind: Literal["api", "agent", "session"] | None = None,
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> ClientPage:
     """OAuth clients in the order they were created; ``q`` matches the name (D300), ``kind`` keeps

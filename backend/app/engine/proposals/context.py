@@ -21,8 +21,6 @@ FEATURE_LEVELS: dict[Purpose, SendLevel] = {
     "connectionTest": "structure",
     # Record names are values (AP2-D3).
     "mappingTarget": "values",
-    # Record names and codes are values (AP6a).
-    "workbookLoad": "values",
 }
 
 

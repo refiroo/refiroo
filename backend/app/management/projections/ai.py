@@ -22,7 +22,6 @@ from ..schemas.ai import (
 
 FEATURE_NAMES = {
     "mappingTarget": "Targets for the unmapped values of a mapping view",
-    "workbookLoad": "Load a workbook into a workspace",
 }
 
 
@@ -42,6 +41,8 @@ def call_response(session: Session, row: AiCall) -> AiCallResponse:
         bytesOut=row.bytes_out,
         tokensIn=row.tokens_in,
         tokensOut=row.tokens_out,
+        costUsd=float(row.cost_usd) if row.cost_usd is not None else None,
+        taskId=row.task_id,
         outcome=row.outcome,  # type: ignore[arg-type]
         failureKind=row.failure_kind,  # type: ignore[arg-type]
         failure=row.failure,
@@ -59,6 +60,7 @@ def status(session: Session, ai: AiConfiguration, settings: Settings) -> AiStatu
     found = calls.totals(session)
     return AiStatusResponse(
         configured=provider is not None,
+        assistant=agent.enabled(),
         provider=provider_label(provider) if provider else None,
         model=model_label(provider) if provider else None,
         endpoint=settings.ai_base_url or None,
@@ -88,6 +90,7 @@ def status(session: Session, ai: AiConfiguration, settings: Settings) -> AiStatu
             tokensOut=found.tokens_out,
             bytesIn=found.bytes_in,
             bytesOut=found.bytes_out,
+            costUsd=found.cost_usd,
         ),
     )
 

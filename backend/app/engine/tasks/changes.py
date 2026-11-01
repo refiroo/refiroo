@@ -36,29 +36,6 @@ from ..records.values import row_value
 from ..sources.values import unstaged
 
 
-def table_of(task: AiTask, table_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The reading's table and the check's figures for it; ``422 AI_TASK_TABLE_UNKNOWN`` for a table
-    the latest check did not cover, ``409 AI_TASK_STATE`` before there is a check."""
-    if not task.check or not task.plan:
-        raise api_error(
-            409,
-            "AI_TASK_STATE",
-            f"AI task '{task.public_id}' has no check yet; prepare the load first",
-            {"state": task.state},
-        )
-    figures = next((f for f in task.check["tables"] if f["table"] == table_id), None)
-    if figures is None:
-        raise api_error(
-            422,
-            "AI_TASK_TABLE_UNKNOWN",
-            f"The latest check has no table '{table_id}' "
-            f"(tables: {', '.join(f['table'] for f in task.check['tables'])})",
-            {"table": table_id},
-        )
-    table = next(t for t in task.reading["tables"] if t["table"] == table_id)
-    return table, figures
-
-
 def _changed(task: AiTask, job: Job, source: int) -> Select[Any]:
     items = (
         select(JobItem.item_index, JobItem.row_number, JobItem.outcome)
@@ -76,20 +53,16 @@ def _changed(task: AiTask, job: Job, source: int) -> Select[Any]:
 def change_page(
     session: Session,
     task: AiTask,
-    table_id: str | None,
     model: EngineModel,
     *,
     source_index: int | None = None,
     page: PageRequest,
     page_size: int,
 ) -> tuple[list[dict[str, Any]], Page[Any]]:
-    """A page of the changed records of a table of the plan (``table_id``), or of a source of a
-    design's working copy (``source_index``, 0.16 AP6), read against the draft's model."""
-    if task.draft_id is not None:
-        where = _design_place(session, task, source_index)
-        model = where.model
-    else:
-        where = _plan_place(session, task, table_id)
+    """A page of the changed records of a source of the check (``source_index``), read against the
+    draft's model."""
+    where = _design_place(session, task, source_index)
+    model = where.model
     job = where.job
     sub = _changed(task, job, where.index).subquery()
     found: Page[Any] = paginate_statement(
@@ -188,26 +161,6 @@ def _check_job(session: Session, task: AiTask) -> Job:
     if job is None:
         raise api_error(409, "AI_TASK_STATE", "The check's dry run is no longer kept")
     return job
-
-
-def _plan_place(session: Session, task: AiTask, table_id: str | None) -> _Place:
-    if table_id is None:
-        raise api_error(422, "AI_TASK_TABLE_UNKNOWN", "Name the reading's table, such as t1")
-    table, figures = table_of(task, table_id)
-    job = _check_job(session, task)
-    source = task.plan["profile"]["sources"][
-        next(s["index"] for s in task.plan["sources"] if s["table"] == table_id)
-    ]
-    return _Place(
-        job,
-        figures["source"],
-        table_id,
-        source,
-        task.plan["profile"]["valueMaps"],
-        {c["header"]: c["number"] for c in table["columns"]},
-        None,
-        table["place"]["sheetIndex"],
-    )
 
 
 def _design_place(session: Session, task: AiTask, source_index: int | None) -> _Place:

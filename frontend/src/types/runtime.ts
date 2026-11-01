@@ -3,7 +3,7 @@
  * runtime state.
  */
 
-import type { ProposalOrigin } from "@/types/ai";
+import type { ChangeOrigin } from "@/types/ai";
 import type { ValueType } from "@/types/model";
 import type { WorkspaceModel } from "@/types/modelAdmin";
 import type { Actor, Principal } from "@/types/security";
@@ -36,6 +36,8 @@ export interface ObjectItem {
   updatedAt: string | null;
   /** The list's relation columns, one per `expand` in its order (0.9 K5); absent when none. */
   expanded?: ExpandedRelations[];
+  /** In a change set: who proposed this record when the AI did (0.16 AP9). */
+  origin?: ChangeOrigin;
 }
 
 /** A row's first related records of one relationship in name order, and how many there are. */
@@ -231,7 +233,9 @@ export interface AuditEventItem {
   /** A relationship's other record, read from this record (D392). */
   related?: HistoryRelated;
   /** Who proposed the change when the AI did; the actor stays the publisher (0.16 AP2). */
-  origin?: ProposalOrigin;
+  origin?: ChangeOrigin;
+  /** `mcp` when an assistant made it through the MCP endpoint (0.16 AG3). */
+  channel?: "mcp";
 }
 
 export type HistoryKind = "values" | "relationships" | "structure";
@@ -368,6 +372,8 @@ export interface ChangeEntry {
   attributes: { key: string; name: string }[];
   cause: { kind: string; id?: string };
   actor: Actor | null;
+  /** `mcp` when an assistant made it through the MCP endpoint (0.16 AG3). */
+  channel?: "mcp";
 }
 
 export interface ChangeEntryPage extends PageNavigation {
@@ -437,7 +443,7 @@ export interface MappingTargetSummary {
   attributes: Record<string, unknown>;
   object: MappingObjectSummary;
   /** Set while the AI's proposal stands: nobody has changed the target since (0.16 AP2). */
-  origin?: ProposalOrigin;
+  origin?: ChangeOrigin;
 }
 
 export interface MappingCoverageRow {

@@ -25,6 +25,7 @@ change set.
 from __future__ import annotations
 
 import hmac
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -65,6 +66,7 @@ from ..workspaces.catalogue import resolve_workspace
 from .audit import audit_actor_of, audit_cause_of
 from .context import load_object
 from .feed import take_positions
+from .proposed import session_origin
 from .writes import LiveWrites
 
 _TABLES = """
@@ -312,23 +314,26 @@ _CHANGE_SET_TOMBSTONES = (
     text(
         """
         INSERT INTO change_set_objects (change_set_id, object_id, application_key,
-            object_type_key, name, parent_object_id, attributes, version, is_deleted)
+            object_type_key, name, parent_object_id, attributes, version, is_deleted, origin)
         SELECT CAST(:change_set AS varchar), object_id, application_key, object_type_key, name,
-            parent_object_id, coalesce(attributes, '{}'::json), version + 1, true
+            parent_object_id, coalesce(attributes, '{}'::json), version + 1, true,
+            CAST(:origin AS json)
         FROM deletion_objects
         ON CONFLICT ON CONSTRAINT uq_change_set_object
-        DO UPDATE SET version = EXCLUDED.version, is_deleted = true
+        DO UPDATE SET version = EXCLUDED.version, is_deleted = true,
+            origin = coalesce(EXCLUDED.origin, change_set_objects.origin)
         """
     ),
     text(
         """
         INSERT INTO change_set_relations (change_set_id, relation_id, relation_type_key,
-            from_object_id, to_object_id, attributes, version, is_deleted)
+            from_object_id, to_object_id, attributes, version, is_deleted, origin)
         SELECT CAST(:change_set AS varchar), relation_id, relation_type_key, from_object_id,
-            to_object_id, coalesce(attributes, '{}'::json), version + 1, true
+            to_object_id, coalesce(attributes, '{}'::json), version + 1, true, CAST(:origin AS json)
         FROM deletion_relations
         ON CONFLICT ON CONSTRAINT uq_change_set_relation
-        DO UPDATE SET version = EXCLUDED.version, is_deleted = true
+        DO UPDATE SET version = EXCLUDED.version, is_deleted = true,
+            origin = coalesce(EXCLUDED.origin, change_set_relations.origin)
         """
     ),
     # The typed value index holds no row of a tombstone (``snapshot_values``).
@@ -567,8 +572,12 @@ class ChangeSetScope(DeletionScope):
         )
         if matrix_states.has_built(session, "change_set", self.change_set_id):
             _note_matrix(session, self.change_set_id)
-        for statement in _CHANGE_SET_TOMBSTONES:
-            session.execute(statement, {"change_set": self.change_set_id})
+        origin = session_origin(session)
+        marks = {"origin": json.dumps(origin) if origin else None}
+        objects, relations, values = _CHANGE_SET_TOMBSTONES
+        session.execute(objects, {"change_set": self.change_set_id, **marks})
+        session.execute(relations, {"change_set": self.change_set_id, **marks})
+        session.execute(values, {"change_set": self.change_set_id})
 
 
 def delete_records(

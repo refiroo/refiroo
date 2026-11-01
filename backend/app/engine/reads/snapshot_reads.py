@@ -17,14 +17,17 @@ from types import SimpleNamespace
 from typing import Any, Literal
 
 from sqlalchemy import (
+    JSON,
     Row,
     Select,
     String,
     and_,
     case,
+    cast,
     exists,
     func,
     literal,
+    null,
     select,
     union_all,
 )
@@ -264,6 +267,8 @@ def object_projection(
             entity.version,
             literal(owner_id, String).label("values_owner_id"),
             entity.sequence_id.label("row_sequence_id"),
+            # Who proposed a change set's row when the AI did (0.16 AP9); a snapshot's has no such.
+            getattr(entity, "origin", cast(null(), JSON)).label("origin"),
         ]
         if sort_value is None:
             return select(*columns).where(*where)

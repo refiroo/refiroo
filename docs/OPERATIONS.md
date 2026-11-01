@@ -66,7 +66,7 @@ to the engine.
 | `DATABASE_URL` | required | PostgreSQL URL, `postgresql+psycopg://…`. See [Database](#database) |
 | `RDM_MODEL_PATH` | `model/rdm-starter.json` | Bootstrap model file. Not the active-model setting; see [Model releases](#model-releases-and-rollback) |
 | `RDM_CURSOR_SIGNING_KEY` | ephemeral | Secret that signs pagination cursors. Without it each process generates its own key, so cursors stop working after a restart and between instances |
-| `AI_AGENT_COMMAND` | none | The command of the AI assistant's session, such as `claude --model sonnet --permission-mode bypassPermissions`; the provider's key and base URL come from the environment. It runs as a process of the worker. The engine adds its guards to every session: its own folder, its tools, this engine on the network, a client that cannot publish or activate, and none of the server's secrets in its environment. Empty: files are read by the rules alone. |
+| `AI_AGENT_COMMAND` | none | The command of the AI assistant's session, such as `claude --model sonnet --permission-mode bypassPermissions`; the provider's key and base URL come from the environment. It runs as a process of the worker. The engine adds its guards to every session: its own folder, its tools, this engine on the network, a client that cannot publish or activate, and none of the server's secrets in its environment. **This setting alone turns the assistant on**: it needs no `AI_PROVIDER`, and Settings › AI and `POST /ai/tasks` treat an empty value as "no assistant" (`409 AI_NOT_CONFIGURED`). Empty: no assistant action is offered. |
 | `AI_AGENT_SANDBOX` | operating system sandbox | `container` when the engine runs in a container, where Claude Code's own sandbox cannot run. The container is then the boundary: give the session's network only what it needs. |
 | `AI_AGENT_API_URL` | `PUBLIC_URL` | The address the session reaches this engine's API at. |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API. They are also where a person's sign-in may return: `<origin>/signed-in` for each (0.12 D267), so the browser application is served at the root of one of them. **The API reference at `/docs` is a browser page too:** when it calls the engine from an origin not listed here (for example `Try it` on `/oauth/token`), the browser's preflight answers `400 Disallowed CORS origin` before the request is sent. List the origin the reference is opened at; `scripts/dev.sh engine` lists the engine's own addresses |
@@ -839,10 +839,21 @@ setting and takes no workspace lock: writes never wait for it.
 
 ## AI proposals
 
-An AI provider makes proposals people then review in the screens they already use (0.16 AP1): today
-targets for a mapping view's unmapped values (AP2); later 0.16 packages add values for empty fields and more, all on the same provider. A proposal never writes
-live data and never publishes; it arrives as a step or a change a person edits, keeps or removes.
-With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action is offered.
+Two settings switch AI on, each for its own work, and neither needs the other:
+
+- **`AI_AGENT_COMMAND` switches the assistant on.** The assistant reads a workbook, or words about the
+  stored records, in one Claude Code session and proposes a model and a load that a person reviews; it
+  stops at a change set and never activates or publishes. It calls no provider. It needs `AI_SEND_LEVEL`
+  `values` (a session reads the file and the records it needs) and the action group Use AI proposals.
+  Without the command, `POST /ai/tasks` is `409 AI_NOT_CONFIGURED` and no screen offers the assistant. The
+  command's own settings are in [Runtime](#runtime).
+- **`AI_PROVIDER` switches the provider on.** It serves mapping targets for a mapping view's unmapped values,
+  and later features (search, summaries) on the same provider. It does not serve the assistant. Without it,
+  nothing is sent to a provider and no provider action is offered.
+
+A proposal never writes live data and never publishes; it arrives as a step or a change a person edits,
+keeps or removes. With both settings empty, the default, nothing is sent anywhere and no AI action is
+offered.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -856,15 +867,14 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
 | `AI_LOG_CONTENT` | off | Keep each call's request and answer with its record, for an operator debugging a prompt. They hold reference data: switch it on only while needed |
 | `AI_LOG_CONTENT_DAYS` | 7 | Days a kept request and answer stay; then they are emptied and the record stays |
 | `AI_REASONING_EFFORT` | empty | `openai-compatible` only: sends `reasoning_effort` (`none`, `low`, `medium`, `high`), how much the model reasons before it answers. Empty sends nothing. A local thinking model (Qwen through Ollama) can reason for minutes on a short request: `none` makes it answer directly |
-| `AI_CONTEXT_TOKENS` | empty | The model's context window in tokens, for a model with a small one (a local model): a feature sizes each call to half of it, sending fewer records per call. The workbook assistant's design needs at least 65536: below it the model goes out without its attributes. Leave it empty for a hosted model. Empty: no limit beyond the feature's own batch. Ollama serves a model with its own window (4,096 by default, `OLLAMA_CONTEXT_LENGTH` when it starts), whatever the model supports: set this to that number |
-| `AI_MAX_STEPS` | 40 | The calls to the provider one job of an assistant task (a workbook loaded with the assistant) may make: its reading, its meaning matches and its fixes each count. Reached, the task keeps what the rules read and the assistant had proposed, with a warning |
+| `AI_CONTEXT_TOKENS` | empty | The model's context window in tokens, for a model with a small one (a local model): a feature sizes each call to half of it, sending fewer records per call. Leave it empty for a hosted model. Empty: no limit beyond the feature's own batch. Ollama serves a model with its own window (4,096 by default, `OLLAMA_CONTEXT_LENGTH` when it starts), whatever the model supports: set this to that number |
 | `MCP_ENABLED` | off | Whether assistants can reach the instance at `/mcp` ([Agent access](#agent-access)); off, the endpoint, its metadata and registration do not exist and no `agent` token is issued |
 | `MCP_RATE_PER_MINUTE` | 120 | Tool calls one person or client may make through `/mcp` in a minute; past it a call is refused with how long to wait |
 | `MCP_OPEN_REGISTRATION` | on | Whether an assistant may register itself; off, only those an administrator registers can sign people in |
 | `MCP_REDIRECT_HOSTS` | none | HTTPS hosts a self-registered assistant may return to, comma separated, besides this computer |
 | `MCP_CALLS_DAYS` | 90 | Days a record of a tool call through `/mcp` is kept |
 | `MCP_ANSWER_BYTES` | 40000 | The longest answer of a tool through `/mcp`; past it a page comes back smaller with a cursor, and an answer that is no page is refused. A resource answers whole |
-| `AI_TASK_RETENTION_DAYS` | 90 | Days an assistant task is kept after it finished (loaded, failed or cancelled) or was last changed; then the worker's sweep deletes it and its workbook. What was sent to the provider is never kept on a task (`AI_LOG_CONTENT` keeps it on the call record only) |
+| `AI_TASK_RETENTION_DAYS` | 90 | Days an assistant task is kept after it finished (loaded, failed or cancelled) or was last changed; then the worker's sweep deletes the task, its workbook, its folder and Claude Code's transcript (under `$CLAUDE_CONFIG_DIR/projects`, else `~/.claude/projects`; a warning is logged if a transcript is not where expected). A failed task keeps its folder until it expires, as it can be retried. A session's call record counts cache reads and writes in its tokens; its bytes are the prompt and the final answer only. What was sent to the provider is never kept on a task (`AI_LOG_CONTENT` keeps it on the call record only) |
 | `AI_TIMEOUT_SECONDS` | 60 | Seconds one call may take; the Claude adapter tries a passing failure (overloaded, rate-limited, a server error, a timeout) up to three times |
 
 - **Where to set them:** in the reference installation, in `.env` (`.env.example` lists them, commented
@@ -875,16 +885,25 @@ With `AI_PROVIDER` empty, the default, nothing is sent anywhere and no AI action
   `propose`) refuses the start and names the setting. `INFERENCE_ASSISTANT` and
   `INFERENCE_ASSISTANT_ROWS`, the 0.10 naming helper's settings, are retired: the start is refused while
   either is set, naming `AI_PROVIDER` or `AI_SAMPLE_VALUES`.
-- **Settings › Administration › AI** (Operations) shows the provider, the model, the address,
+- **Settings › Administration › AI** (Operations) opens when either setting is on. It first says what each
+  gives: the assistant (`AI_AGENT_COMMAND`: on or not set) and the provider (`AI_PROVIDER`: mapping targets,
+  search and summaries, or not offered). With neither it says nothing is sent and no AI action is offered.
+  With the provider on it shows the provider, the model, the address,
   whether a key is set, the send level and which features are offered; **Send a test request** sends
   a fixed request that holds no data and says whether it was answered or what failed (the key
   refused, the provider not reached, the answer out of shape). The page lists every call: who asked,
   for what, the model, the sizes each way, the tokens and the outcome; the totals cover the last 30
-  days. The same is `GET /api/v1/ai/status`, `GET /api/v1/ai/calls` and `POST /api/v1/ai/test`.
+  days; an assistant session's turn is one call with its tokens and cost. The same is `GET /api/v1/ai/status`, `GET /api/v1/ai/calls` and `POST /api/v1/ai/test`.
 - **Who may ask** is a role's business: the action group **Use AI proposals**, held by the
   predefined Data steward, Data owner, Model administrator, Workspace administrator and Integration
   administrator roles. A person without it is never offered an AI action, and a proposal is still
   written by the person's own request, under their other rights.
+- **The assistant's session** runs as a process of the worker with the guards in `AI_AGENT_COMMAND`'s row; a
+  turn that takes more than 30 minutes is stopped and the task fails (it can be tried again). A saved
+  import profile that fits a file loads it without a session. A load by the assistant leaves such a profile
+  when its sources have keys; the task says why when it cannot (`result.profileNotSaved`). Unused model
+  releases the session installed are retired when its task ends, and a session may not write a model draft
+  another task holds.
 - **What is sent** is built in one place and held to `AI_SEND_LEVEL`. For mapping targets (needs `values`): the names and the view's displayed fields of
   the unmapped sources, 25 per call, and of their candidate targets (all eligible targets up to 100,
   otherwise each source's 20 closest by name). Reference data is treated as data: the instructions tell the model not to follow
@@ -915,8 +934,9 @@ An assistant that speaks MCP can reach the instance at `/mcp`, with `MCP_ENABLED
 - **What an assistant can do** is what its person or client may do, cut down to Browse and Work in change sets. It can never approve or publish, whatever the roles behind it.
 - **Registration:** with `MCP_OPEN_REGISTRATION` on, an assistant registers itself and may return only to this computer or a host in `MCP_REDIRECT_HOSTS`. The name it gives is its own claim, and the sign-in page says so. At most a thousand registrations may stand unused; those unused for 30 days with no open session are removed. Turned off, or for any other HTTPS address, an administrator registers it on the page. Blocking an assistant ends its sessions on their next call.
 - **What an assistant reads:** with Browse in a workspace, its model, records, relationships, mapping coverage, history and changes, and a lookup tool for each of its consumer APIs. A client holding only a consumer API's grant has that API's tool alone. The consumer API's own routes still need a `consumer` token and a grant.
+- **What an assistant can write** (0.16 AG3, [plan](BASE_0_16_IMPLEMENTATION_PLAN.md#ag3-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-ag-d27-as-written)): with Work in change sets in a workspace, it can create a change set, add and change records and relationships and set a field's value in it, read its validation, and submit it for approval. It works only in change sets its own person or client created, never a colleague's, and a person's own change set counts. It cannot remove anything, clear a value, withdraw a submission, discard a change set, batch, restructure the model, approve or publish. Change reaches live data only when a person approves it, and under `secondPerson` a second person decides. A person who asked an assistant to prepare a change may be refused the decision under `secondPerson`, as for a change they made themselves. The assistant's rows are marked "Prepared by an assistant" with the name the assistant gave itself, and the audit entries of a change made through an assistant carry `channel` `mcp`. No new setting.
 - **Records:** each tool call is kept for `MCP_CALLS_DAYS` with its argument names, never their values. Nothing else about reads is written to the audit trail.
-- **Prompt injection:** reference data is data. Text in a record can reach an assistant through a tool answer, and an assistant may be misled by it. No tool follows text found in a record, the server tells the assistant so, and an assistant cannot approve, publish or write live, so the worst it can do is propose something a person then reviews. Treat what an assistant says about the data with that in mind.
+- **Prompt injection:** reference data is data. Text in a record can reach an assistant through a tool answer, and an assistant may be misled by it. No tool follows text found in a record, the server tells the assistant so, and an assistant cannot approve, publish or write live, so the worst it can do is propose something a person then reviews. This stance extends to writes (AG-D8): a tool that writes follows no text found in a record either, and only in the caller's own change sets, so text in a record cannot steer an assistant into a colleague's change set. Treat what an assistant says about the data with that in mind.
 
 ## Webhook subscriptions
 

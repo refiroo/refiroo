@@ -1,7 +1,8 @@
 /**
- * Settings › Administration › AI (0.16 AP1): the AI provider the application asks for proposals people
- * then review. It is set in the server's environment and read at start, so nothing here changes it;
- * the page shows what is set, what may be sent, a test request and every call made.
+ * Settings › Administration › AI (0.16 AP1, AP-D38): the assistant (`AI_AGENT_COMMAND`) and the AI
+ * provider (`AI_PROVIDER`), each of which people review the proposals of. Both are set in the server's
+ * environment and read at start, so nothing here changes them; the page shows what is set, what may
+ * be sent, a test request of the provider and every call made.
  */
 
 import { useEffect, useState } from "react";
@@ -44,26 +45,65 @@ export function AiPage() {
     <SettingsLayout
       eyebrow="Administration"
       title="AI"
-      description="The AI provider the application asks for proposals that people then review, keep, edit or remove. It is set in the server's environment (the AI_ settings) and read when the server starts; nothing here changes it. The key is never shown."
+      description="The assistant and the AI provider the application asks for proposals that people then review, keep, edit or remove. They are set in the server's environment (the AI_ settings) and read when the server starts; nothing here changes them. The key is never shown."
     >
       {error ? (
         <InlineError message={error} onRetry={load} />
       ) : !status ? (
         <Skeleton label="Loading the AI settings" lines={6} />
-      ) : !status.configured ? (
-        <Notice tone="info" title="No AI provider is set up">
-          Nothing is sent anywhere and no AI action is offered. Set <code>AI_PROVIDER</code> (and its key) in the
-          server&apos;s environment and restart it.
+      ) : !status.configured && !status.assistant ? (
+        <Notice tone="info" title="Neither the assistant nor an AI provider is set up">
+          Nothing is sent anywhere and no AI action is offered. Set <code>AI_AGENT_COMMAND</code> (the assistant) or{" "}
+          <code>AI_PROVIDER</code> (and its key) in the server&apos;s environment and restart it.
         </Notice>
       ) : (
         <>
+          <SwitchesSection status={status} />
           <SettingsSection status={status} />
-          <FeaturesSection status={status} />
-          <TestSection onCalled={() => setRefresh((n) => n + 1)} />
+          {status.configured && <FeaturesSection status={status} />}
+          {status.configured && <TestSection onCalled={() => setRefresh((n) => n + 1)} />}
           <CallsSection status={status} refresh={refresh} />
         </>
       )}
     </SettingsLayout>
+  );
+}
+
+/** The two switches (AP-D38): the assistant needs no provider, and the provider needs no assistant. */
+function SwitchesSection({ status }: { status: AiStatus }) {
+  return (
+    <Section title="What is switched on">
+      <DescriptionList
+        items={[
+          {
+            term: "Assistant",
+            value: (
+              <>
+                {status.assistant ? "On" : "Not set"} (<code>AI_AGENT_COMMAND</code>)
+                <div className="admin-hint">
+                  {status.assistant
+                    ? "Reads workbooks and words, up to a change set. It sends what the send level below allows and needs no provider."
+                    : "Loading a workbook with the assistant is not offered."}
+                </div>
+              </>
+            ),
+          },
+          {
+            term: "Provider",
+            value: (
+              <>
+                {status.configured ? `On: ${status.provider ?? "set"}` : "Not set"} (<code>AI_PROVIDER</code>)
+                <div className="admin-hint">
+                  {status.configured
+                    ? "Asked for mapping targets, search and summaries."
+                    : "Mapping targets, search and summaries are not offered."}
+                </div>
+              </>
+            ),
+          },
+        ]}
+      />
+    </Section>
   );
 }
 
@@ -72,17 +112,22 @@ function SettingsSection({ status }: { status: AiStatus }) {
     <Section title="Settings">
       <DescriptionList
         items={[
-          { term: "Provider", value: status.provider ?? "—" },
-          { term: "Model", value: status.model ?? "The provider's own" },
-          { term: "Endpoint", value: status.endpoint ?? "The provider's own" },
-          { term: "Key", value: status.keySet ? "Set" : "Not set" },
+          ...(status.configured
+            ? [
+                { term: "Model", value: status.model ?? "The provider's own" },
+                { term: "Endpoint", value: status.endpoint ?? "The provider's own" },
+                { term: "Key", value: status.keySet ? "Set" : "Not set" },
+              ]
+            : []),
           { term: "What may be sent", value: sendLevelText(status.sendLevel, status.sampleValues) },
-          { term: "Confidence floor", value: `${Math.round(status.minConfidence * 100)}%` },
+          ...(status.configured
+            ? [{ term: "Confidence floor", value: `${Math.round(status.minConfidence * 100)}%` }]
+            : []),
           {
             term: "Content kept",
             value: status.logContent ? `For ${status.logContentDays} days` : "No",
           },
-          { term: "Timeout", value: `${status.timeoutSeconds} seconds` },
+          ...(status.configured ? [{ term: "Timeout", value: `${status.timeoutSeconds} seconds` }] : []),
         ]}
       />
     </Section>
@@ -166,10 +211,14 @@ function CallsSection({ status, refresh }: { status: AiStatus; refresh: number }
   const { totals } = status;
   const feed = useCursorFeed((cursor) => ai.calls({ cursor }), [refresh]);
   return (
-    <Section title="Calls" description="Every request made to the AI provider, newest first.">
+    <Section
+      title="Calls"
+      description="Every request made to the AI provider and every assistant session's turn, newest first."
+    >
       <p className="section-description">
         Last {totals.days} days: {number(totals.calls)} {totals.calls === 1 ? "call" : "calls"}, {number(totals.failed)}{" "}
-        failed; {number(totals.tokensIn)} tokens in, {number(totals.tokensOut)} out.
+        failed; {number(totals.tokensIn)} tokens in, {number(totals.tokensOut)} out
+        {totals.costUsd > 0 && `; $${totals.costUsd.toFixed(2)}`}.
       </p>
       {feed.error ? (
         <InlineError message={feed.error} onRetry={feed.retry} />
@@ -177,12 +226,12 @@ function CallsSection({ status, refresh }: { status: AiStatus; refresh: number }
         <Skeleton label="Loading calls" lines={4} />
       ) : !feed.items.length ? (
         <EmptyState>
-          No call has been made yet. A test request or an inference that asks for names appears here.
+          No call has been made yet. A test request, a request for mapping targets or an assistant session appears here.
         </EmptyState>
       ) : (
         <SettingsTable
           label="Calls"
-          columns={["When", "What for", "Asked by", "Model", "Outcome", "Tokens in / out", "Duration"]}
+          columns={["When", "What for", "Asked by", "Model", "Outcome", "Tokens in / out", "Cost", "Duration"]}
         >
           {feed.items.map((call) => (
             <CallRow key={call.id} call={call} />
@@ -222,6 +271,7 @@ function CallRow({ call }: { call: AiCall }) {
       <td data-label="Tokens in / out">
         {call.tokensIn === null && call.tokensOut === null ? "—" : `${call.tokensIn ?? "—"} / ${call.tokensOut ?? "—"}`}
       </td>
+      <td data-label="Cost">{call.costUsd == null ? "—" : `$${call.costUsd.toFixed(2)}`}</td>
       <td data-label="Duration">{number(call.durationMs)} ms</td>
     </tr>
   );

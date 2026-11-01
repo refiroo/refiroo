@@ -14,12 +14,12 @@ cancelled job to the task, and a finished import to ``loaded``, wherever the tas
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, or_, select, text
+from sqlalchemy import delete, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
-from ...models.database import AiTask, Job, ModelDraft, SourceFile
+from ...models.database import AiTask, Job, ModelDraft, OAuthClient, SourceFile
 from ..authorization.permissions import Permissions, PrincipalKind
 from ..authorization.writes import requester_of
 
@@ -231,7 +231,44 @@ def expire(session: Session, now: datetime) -> list[str]:
             )
         )
     )
+    session.execute(
+        update(OAuthClient)
+        .where(OAuthClient.id.in_(select(AiTask.client_id).where(AiTask.id.in_(ids))))
+        .values(active=False)
+        .execution_options(synchronize_session=False)
+    )
     session.execute(delete(AiTask).where(AiTask.id.in_(ids)))
     if drafts:
         session.execute(delete(ModelDraft).where(ModelDraft.id.in_(drafts)))
     return files
+
+
+def held_by_another(session: Session, draft_id: int, task_id: int) -> bool:
+    """Whether a task other than ``task_id`` holds the draft."""
+    return (
+        session.scalar(
+            select(AiTask.id).where(AiTask.draft_id == draft_id, AiTask.id != task_id).limit(1)
+        )
+        is not None
+    )
+
+
+def refuse_draft_of_another_task(session: Session, draft_public_id: str, client_row: int) -> None:
+    """A session writes no draft another task holds (AP-D44): one person may be reviewing it, and
+    that task's end deletes it. ``409 AI_TASK_DRAFT_HELD``. Any other client is not asked about."""
+    own = session.scalar(
+        select(AiTask.id)
+        .join(OAuthClient, OAuthClient.id == AiTask.client_id)
+        .where(AiTask.client_id == client_row, OAuthClient.kind == "session")
+    )
+    if own is None:
+        return
+    draft = session.scalar(select(ModelDraft.id).where(ModelDraft.public_id == draft_public_id))
+    if draft is not None and held_by_another(session, draft, own):
+        raise api_error(
+            409,
+            "AI_TASK_DRAFT_HELD",
+            "Another assistant task holds this draft: make a new draft, from the same release if "
+            "it should start the same",
+            {"draftId": draft_public_id},
+        )

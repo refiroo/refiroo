@@ -299,6 +299,7 @@ def _entry(event: AuditEvent, names: _Names, actor: dict[str, str] | None) -> Ch
         attributes=list(_attributes(attribute_keys, model)),
         cause=ChangeCause(kind=event.cause_kind or "user", id=event.cause_id),
         actor=actor_response(actor),
+        channel=event.channel,
     )
 
 

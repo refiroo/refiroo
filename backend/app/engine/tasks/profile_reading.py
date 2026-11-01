@@ -136,7 +136,7 @@ def fit(
             )
             rank = (float(_last_load(session, profile.key)), named)
             if rank > best_rank:
-                best = Fitted(profile, definition, sources, _headers(session, earlier_file))
+                best = Fitted(profile, definition, sources, headers_of(session, earlier_file))
                 best_rank = rank
     return best
 
@@ -148,7 +148,7 @@ _HEADERS = text(
 )
 
 
-def _headers(session: Session, earlier_file: SourceFile | None) -> dict[str, set[str]]:
+def headers_of(session: Session, earlier_file: SourceFile | None) -> dict[str, set[str]]:
     found: dict[str, set[str]] = {}
     if earlier_file is not None:
         for sheet, header in session.execute(_HEADERS, {"file": earlier_file.id}):
@@ -199,7 +199,22 @@ def table_of(
     key_column = None
     key_shown: dict[str, Any] | None = None
     by_id = False
-    if key is not None:
+    key_columns: list[dict[str, Any]] = []
+    if key is not None and "attributeTypeKeys" in key:
+        # AP-D43: the key is the columns that bind its attributes together; the first stands for
+        # it where a single column is shown, and the figures count the combinations.
+        key_shown = {"attributeTypeKeys": list(key["attributeTypeKeys"])}
+        for attribute in key["attributeTypeKeys"]:
+            found = next(
+                (c for c in table["columns"] if c["binding"] == {"attributeTypeKey": attribute}),
+                None,
+            )
+            if found is not None:
+                key_columns.append(found)
+        key_column = key_columns[0] if key_columns else None
+        if len(key_columns) != len(key["attributeTypeKeys"]):
+            key_column = None
+    elif key is not None:
         if "attributeTypeKey" in key:
             key_shown = {"attributeTypeKey": key["attributeTypeKey"]}
             wanted: dict[str, Any] | None = key_shown
@@ -250,16 +265,27 @@ def table_of(
         (c for c in table["columns"] if c["binding"] == {"field": "name"} and c is not key_column),
         None,
     )
-    figures = reading.counts(
-        session,
-        file_id,
-        table["place"],
-        workspace,
-        followed["objectTypeKey"],
-        key_column["number"],
-        key_shown or {},
-        name_column["number"] if name_column else None,
-    )
+    if key_columns:
+        figures = reading.combination_counts(
+            session,
+            file_id,
+            table["place"],
+            workspace,
+            followed["objectTypeKey"],
+            [c["number"] for c in key_columns],
+            list(key_shown["attributeTypeKeys"]),
+        )
+    else:
+        figures = reading.counts(
+            session,
+            file_id,
+            table["place"],
+            workspace,
+            followed["objectTypeKey"],
+            key_column["number"],
+            key_shown or {},
+            name_column["number"] if name_column else None,
+        )
     table.update(
         {
             "keyColumn": key_column["column"],

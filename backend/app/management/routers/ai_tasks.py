@@ -25,13 +25,12 @@ from ...models.commands import (
     AiTaskAcceptRequest,
     AiTaskAnswersRequest,
     AiTaskCorrectionRequest,
-    AiTaskPlanRequest,
     AiTaskRequest,
     AiTaskRunRequest,
 )
 from ...models.database import AiTask, ModelDraft
 from ..access import AI_TASK_PATH, IMPORT_FORM, SIGNED_IN, AuthorizedRoute, forbidden, requires
-from ..ai import GROUP, ai_requested, configuration
+from ..ai import GROUP, assistant_requested, configuration
 from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..projections import ai_tasks as present
@@ -95,13 +94,7 @@ def create_ai_task(
     AI_NOT_CONFIGURED``, ``409 AI_SEND_LEVEL_TOO_LOW``, ``413 IMPORT_TOO_LARGE``, ``422
     UNSUPPORTED_FILE_FORMAT``.
     """
-    ai_requested(
-        request,
-        "workbookLoad",
-        True,
-        workspace_key=payload.workspaceKey,
-        send_level=payload.sendLevel,
-    )
+    assistant_requested(request, workspace_key=payload.workspaceKey, send_level=payload.sendLevel)
     ai = configuration(request)
     limits: BatchLimits = request.app.state.batch_limits
     upload = (
@@ -176,47 +169,19 @@ def list_ai_task_changes(
     session: DbSession,
     principal: CurrentPrincipal,
     paging: PageQuery,
-    table: str | None = Query(default=None, description="The reading's table, such as t1"),
     source: int | None = Query(
         default=None, description="A design's sheet: its source in the check's sheets"
     ),
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> TaskChangePage:
-    """The records the latest check would change in a table of the plan (``table``) or a sheet of
-    the design (``source``), each with the fields that differ and what it holds now and after.
+    """The records the latest check would change in a sheet of the check (``source``), each with the fields that differ and what it holds now and after.
     ``409 AI_TASK_STATE`` before a check, ``422 AI_TASK_TABLE_UNKNOWN``."""
     task = _visible(request, session, principal, task_id)
     model = resolve_model_snapshot(session, task.workspace_key).model
     items, page = changes.change_page(
-        session, task, table, model, source_index=source, page=paging, page_size=page_size
+        session, task, model, source_index=source, page=paging, page_size=page_size
     )
     return present.change_page(items, page)
-
-
-@write_router.post("/ai/tasks/{task_id}/plan", response_model=AiTaskResponse, status_code=202)
-@requires("bulk.write", at=AI_TASK_PATH)
-def plan_ai_task(
-    task_id: str,
-    payload: AiTaskPlanRequest,
-    request: Request,
-    session: DbSession,
-    principal: CurrentPrincipal,
-) -> JSONResponse:
-    """Prepare the load with the person's choices (they stay theirs, AP-D26): a job builds the plan
-    and one dry run checks every row. Allowed when the task is ``read`` or ``checked``. Refused:
-    ``409 AI_TASK_VERSION_CONFLICT`` (``details.currentVersion``), ``409 AI_TASK_STATE``
-    (``details.state``), ``422 AI_TASK_TABLE_UNKNOWN``, ``422 AI_TASK_COLUMN_UNKNOWN``."""
-    _visible(request, session, principal, task_id)
-    task = task_job.queue_plan(
-        session,
-        task_id,
-        payload.expectedVersion,
-        [choice.model_dump(exclude_none=True) for choice in payload.tables],
-        retention_days=request.app.state.batch_limits.retention_days,
-        task_retention_days=configuration(request).task_retention_days,
-    )
-    _wake(request)
-    return _accepted(session, task)
 
 
 @write_router.post("/ai/tasks/{task_id}/run", response_model=AiTaskResponse, status_code=202)
@@ -236,9 +201,9 @@ def run_ai_task(
     if not request.state.permissions.allows("change-sets", task.workspace_key):
         raise forbidden("records.write", ("change-sets",), task.workspace_key)
     limits: BatchLimits = request.app.state.batch_limits
-    if task.draft_id is not None:
-        draft = session.get(ModelDraft, task.draft_id)
-        if draft is not None and design_job.changes_model(session, draft):
+    draft = session.get(ModelDraft, task.draft_id) if task.draft_id is not None else None
+    if draft is not None:
+        if design_job.changes_model(session, draft):
             # A design that changes the model installs it and activates it in the workspace.
             permissions = request.state.permissions
             if not permissions.allows("model-release", None):
@@ -259,19 +224,7 @@ def run_ai_task(
         )
         _wake(request)
         return _accepted(session, task)
-    task = task_job.queue_run(
-        session,
-        task_id,
-        payload.expectedVersion,
-        change_set_name=payload.changeSetName,
-        save_profile=payload.saveProfile.model_dump() if payload.saveProfile else None,
-        files=request.app.state.job_files,
-        import_max_bytes=limits.import_max_bytes,
-        retention_days=limits.retention_days,
-        task_retention_days=configuration(request).task_retention_days,
-    )
-    _wake(request)
-    return _accepted(session, task)
+    raise api_error(409, "AI_TASK_NOTHING_TO_LOAD", "The task holds nothing to load")
 
 
 @write_router.post("/ai/tasks/{task_id}/answers", response_model=AiTaskResponse, status_code=202)

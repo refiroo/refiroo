@@ -24,6 +24,7 @@ from ..authorization.writes import requester_of
 from ..identity import security_events
 from ..identity.principals import Ref, columns, ref
 from ..model.registry import resolve_model_snapshot
+from ..records.proposed import asker_of
 from ..workspaces.catalogue import load_workspace
 from ..workspaces.workspace_audit import record_submission_event
 from .access import change_set_model, load_change_set
@@ -156,7 +157,7 @@ def submit(
         version_submitted=change_set.version,
         comment=comment,
         state=SUBMITTED,
-        **columns(requester_of(session), "submitted_by"),
+        **columns(asker_of(session), "submitted_by"),
     )
     session.add(submission)
     session.flush()

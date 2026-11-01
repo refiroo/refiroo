@@ -86,6 +86,10 @@ class ChangeEntry(BaseModel):
     attributes: list[ChangeAttribute]
     cause: ChangeCause
     actor: ActorResponse | None
+    # ``mcp`` for an assistant's change (0.16 AG-D30), omitted otherwise.
+    channel: str | SkipJsonSchema[None] = Field(
+        default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
+    )
 
 
 class ChangePage(CollectionPage[ChangeEntry]):

@@ -13,7 +13,7 @@ SendLevel = Literal["structure", "samples", "values"]
 class AiFeature(BaseModel):
     """A feature that asks the provider: whether it is offered, and the least it needs sent."""
 
-    purpose: Literal["mappingTarget", "workbookLoad"]
+    purpose: Literal["mappingTarget"]
     name: str
     needs: SendLevel
     available: bool
@@ -27,6 +27,7 @@ class AiTotals(BaseModel):
     tokensOut: int
     bytesIn: int
     bytesOut: int
+    costUsd: float
 
 
 class AiCallResponse(BaseModel):
@@ -37,7 +38,7 @@ class AiCallResponse(BaseModel):
     id: str
     # A call keeps the purpose it was made for: ``modelNames`` (the inference's names, removed in
     # 0.16 AP6a) stays readable on the calls recorded before.
-    purpose: Literal["connectionTest", "mappingTarget", "workbookLoad", "modelNames"]
+    purpose: Literal["connectionTest", "mappingTarget", "workbookLoad", "assistantSession", "modelNames"]
     provider: str
     model: str
     sendLevel: SendLevel
@@ -50,9 +51,13 @@ class AiCallResponse(BaseModel):
     bytesOut: int
     tokensIn: int | None
     tokensOut: int | None
+    costUsd: float | None = Field(
+        default=None, description="What a session's turn reported costing; none from a provider"
+    )
+    taskId: str | None = Field(default=None, description="The task a session's turn belongs to")
     outcome: Literal["answered", "failed"]
     failureKind: (
-        Literal["unreachable", "unauthorized", "rateLimited", "declined", "malformed", "failed"]
+        Literal["unreachable", "unauthorized", "rateLimited", "declined", "malformed", "failed", "timeout", "cancelled", "interrupted"]
         | None
     )
     failure: str | None
@@ -70,6 +75,8 @@ class AiStatusResponse(BaseModel):
     which features it offers, the last call and the totals of the last ``totals.days`` days."""
 
     configured: bool
+    # Whether the assistant's session can run (``AI_AGENT_COMMAND``, AP-D38); it needs no provider.
+    assistant: bool = False
     provider: str | None
     model: str | None
     endpoint: str | None

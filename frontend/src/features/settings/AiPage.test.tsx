@@ -9,6 +9,7 @@ vi.mock("@/api/aiClient", () => ({ ai: { status: vi.fn(), calls: vi.fn(), test: 
 
 const off: AiStatus = {
   configured: false,
+  assistant: false,
   provider: null,
   model: null,
   endpoint: null,
@@ -21,10 +22,11 @@ const off: AiStatus = {
   timeoutSeconds: 30,
   features: [],
   lastCall: null,
-  totals: { days: 30, calls: 0, failed: 0, tokensIn: 0, tokensOut: 0, bytesIn: 0, bytesOut: 0 },
+  totals: { days: 30, calls: 0, failed: 0, tokensIn: 0, tokensOut: 0, bytesIn: 0, bytesOut: 0, costUsd: 0 },
 };
 const on: AiStatus = {
   ...off,
+  assistant: false,
   configured: true,
   provider: "anthropic",
   model: "claude-test",
@@ -41,7 +43,7 @@ const on: AiStatus = {
       available: true,
     },
   ],
-  totals: { days: 30, calls: 2, failed: 1, tokensIn: 1200, tokensOut: 300, bytesIn: 1, bytesOut: 1 },
+  totals: { days: 30, calls: 2, failed: 1, tokensIn: 1200, tokensOut: 300, bytesIn: 1, bytesOut: 1, costUsd: 1.26 },
 };
 
 const call = (overrides: Partial<AiCall>): AiCall => ({
@@ -59,6 +61,8 @@ const call = (overrides: Partial<AiCall>): AiCall => ({
   bytesOut: 10,
   tokensIn: 12,
   tokensOut: 3,
+  costUsd: null,
+  taskId: null,
   outcome: "answered",
   failureKind: null,
   failure: null,
@@ -75,11 +79,39 @@ function open(status: AiStatus, items: AiCall[] = []) {
 describe("Settings › AI (0.16 AP1)", () => {
   beforeEach(() => vi.resetAllMocks());
 
-  it("says no provider is set up, and shows nothing to send", async () => {
+  it("with neither switch set, says nothing is sent and names both settings", async () => {
     open(off);
-    await screen.findByText("No AI provider is set up");
+    await screen.findByText("Neither the assistant nor an AI provider is set up");
+    expect(screen.getByText("AI_AGENT_COMMAND")).toBeTruthy();
+    expect(screen.getByText("AI_PROVIDER")).toBeTruthy();
+    expect(screen.getByText(/no AI action is offered/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Send a test request" })).toBeNull();
     expect(ai.calls).not.toHaveBeenCalled();
+  });
+
+  it("with only the assistant on, shows it on and the provider not set, and the calls (AP-D38)", async () => {
+    open({ ...off, assistant: true, sendLevel: "values" }, [
+      call({ id: "s", purpose: "assistantSession", costUsd: 0.86, taskId: "t1" }),
+    ]);
+    const assistant = (await screen.findByText("Assistant")).closest("div")!;
+    expect(within(assistant).getByText(/On/)).toBeTruthy();
+    expect(within(assistant).getByText("AI_AGENT_COMMAND")).toBeTruthy();
+    expect(within(assistant).getByText(/Reads workbooks and words, up to a change set/)).toBeTruthy();
+    const provider = screen.getByText("Provider").closest("div")!;
+    expect(within(provider).getByText(/Not set/)).toBeTruthy();
+    expect(within(provider).getByText(/Mapping targets, search and summaries are not offered/)).toBeTruthy();
+    expect(screen.queryByText("Neither the assistant nor an AI provider is set up")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Send a test request" })).toBeNull();
+    const row = (await screen.findAllByRole("row")).find((r) => within(r).queryByText("Assistant session"))!;
+    expect(within(row).getByText("$0.86")).toBeTruthy();
+  });
+
+  it("with only the provider set, shows the assistant not set and the provider's settings", async () => {
+    open(on);
+    const assistant = (await screen.findByText("Assistant")).closest("div")!;
+    expect(within(assistant).getByText(/Not set/)).toBeTruthy();
+    expect(within(assistant).getByText(/is not offered/)).toBeTruthy();
+    expect(screen.getByText("claude-test", { selector: "dd" })).toBeTruthy();
   });
 
   it("shows the settings, the features and the calls, with the content on demand", async () => {
@@ -106,6 +138,15 @@ describe("Settings › AI (0.16 AP1)", () => {
     expect(within(failed).getByText("The provider could not be reached.")).toBeTruthy();
     expect(within(failed).getByText("Show what was sent and answered")).toBeTruthy();
     expect(screen.getByText(/1,200 tokens in, 300 out/)).toBeTruthy();
+  });
+
+  it("lists an assistant session's turn with its cost, and the cost in the totals (0.16 AP9)", async () => {
+    open(on, [
+      call({ id: "s", purpose: "assistantSession", costUsd: 0.86, taskId: "t1", tokensIn: 230, tokensOut: 40 }),
+    ]);
+    const row = (await screen.findAllByRole("row")).find((r) => within(r).queryByText("Assistant session"))!;
+    expect(within(row).getByText("$0.86")).toBeTruthy();
+    expect(screen.getByText(/1,200 tokens in, 300 out; \$1.26/)).toBeTruthy();
   });
 
   it("sends a test request and says it was answered, then reads the list again", async () => {

@@ -49,6 +49,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
+from . import proposed as _proposed  # noqa: F401 - marks what a session writes (AP-D32)
 from ...models.database import (
     AttributeValue,
     AuditEvent,

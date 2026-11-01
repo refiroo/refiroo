@@ -91,40 +91,9 @@ describe("DesignCheckView", () => {
     expect(screen.getByText(/a model administrator runs this load/)).toBeInTheDocument();
   });
 
-  it("counts the relationships and lists writing them in the order", () => {
+  it("counts the relationships in the figures and lists saving the import in the order", () => {
     show(true);
     expect(screen.getByText(/2 refused, 3 relationships\./)).toBeInTheDocument();
-    expect(screen.getByText("Writes the relationships into the same change set.")).toBeInTheDocument();
     expect(screen.getByText(/Saves the import/)).toBeInTheDocument();
-  });
-
-  it("reads a design of relationships alone without a table or a saved import", () => {
-    const task = designTask();
-    task.fileName = "";
-    task.design = { ...task.design!, profile: null };
-    render(
-      <DesignCheckView
-        task={task}
-        check={{
-          ...designCheck,
-          dryRunJobId: null,
-          sheets: [],
-          refused: [],
-          summary: { created: 0, updated: 0, unchanged: 0, refused: 0, relationships: 100 },
-        }}
-        workspaceLabel="West"
-        pending={false}
-        canLoad
-        canRelease
-        onLoad={vi.fn()}
-      />,
-    );
-    expect(
-      screen.getByText("No rows to check: the instruction makes 100 relationships between stored records."),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "Check per sheet" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Saves the import/)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Save as a new profile/)).not.toBeInTheDocument();
-    expect(screen.getByText("Writes the relationships into the same change set.")).toBeInTheDocument();
   });
 });

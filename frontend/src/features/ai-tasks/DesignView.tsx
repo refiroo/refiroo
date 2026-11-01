@@ -1,6 +1,6 @@
 /**
  * The assistant's design (0.16 AP6, board 8, state `checked` and, with what is there so far, while
- * `checking`): what it understood, the model change it proposes, the records the structure needs,
+ * `checking`): what it understood, the model change it proposes,
  * where each sheet goes, its questions and the problems the engine still reports. Nothing is
  * written until the person confirms in the check below.
  */
@@ -8,10 +8,8 @@
 import type { AiTask, EngineModel } from "@/types";
 import { Card } from "@/ui/Card";
 import { Notice } from "@/ui/Notice";
-import { DesignLinks } from "./DesignLinks";
 import { DesignModel } from "./DesignModel";
 import { DesignQuestions } from "./DesignQuestions";
-import { DesignRecords } from "./DesignRecords";
 import { DesignSheets } from "./DesignSheets";
 import { TaskNotes } from "./TaskNotes";
 import { modelNames } from "./aiTaskDesign";
@@ -77,9 +75,7 @@ export function DesignView({
         names={names}
         onOpenEditor={draftId && onOpenEditor ? () => onOpenEditor(draftId) : undefined}
       />
-      <DesignRecords design={design} names={names} />
       <DesignSheets design={design} names={names} />
-      <DesignLinks design={design} names={names} />
       <DesignQuestions
         key={questionsKey}
         questions={design.questions}

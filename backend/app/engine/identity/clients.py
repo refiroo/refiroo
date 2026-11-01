@@ -109,6 +109,27 @@ def create_client(
     return _changing(session, change), secret
 
 
+def create_session_client(session: Session, name: str) -> OAuthClient:
+    """A task's client (0.16 AP-D30): it has no secret, so it holds only the token the engine issues
+    it. The caller commits."""
+    client = OAuthClient(name=name, active=True, kind="session")
+    session.add(client)
+    session.flush()
+    security_events.record(
+        session, "client", client.public_id, "created", about=[client.public_id],
+        details={"name": client.name, "kind": client.kind, "roles": []},
+    )  # fmt: skip
+    return client
+
+
+def retire_session_client(session: Session, client_id: int | None) -> None:
+    """A finished task's client goes inactive and stays, as audit entries name it. The caller commits."""
+    client = session.get(OAuthClient, client_id) if client_id is not None else None
+    if client is not None and client.active:
+        client.active = False
+        _touch(client)
+
+
 def update_client(session: Session, public_id: str, payload: ClientUpdate) -> OAuthClient:
     def change() -> OAuthClient:
         client = _claimed(session, public_id, payload.expectedVersion)
@@ -136,6 +157,10 @@ def add_secret(
 
     def change() -> tuple[OAuthClient, OAuthClientSecret]:
         client = _claimed(session, public_id, payload.expectedVersion)
+        if client.kind == "session":
+            raise api_error(
+                409, "CLIENT_HAS_NO_SECRETS", "An assistant task's client holds no secret"
+            )
         now = datetime.now(UTC)
         ends = now + timedelta(hours=payload.overlapHours)
         session.execute(
@@ -259,8 +284,10 @@ def client_page(
         statement = statement.where(name_contains(OAuthClient.name, q))
     if active is not None:
         statement = statement.where(OAuthClient.active.is_(active))
-    if kind is not None:
-        statement = statement.where(OAuthClient.kind == kind)
+    # A task's client is asked for by name: one per task would crowd the list (AP-D30).
+    statement = statement.where(
+        OAuthClient.kind == kind if kind is not None else OAuthClient.kind != "session"
+    )
     return paginate_statement(
         session,
         statement,

@@ -14,7 +14,6 @@ import { Section } from "@/ui/Section";
 import { StatusPill } from "@/ui/StatusPill";
 import { DesignModel } from "./DesignModel";
 import { DesignQuestions } from "./DesignQuestions";
-import { DesignRecords } from "./DesignRecords";
 import { TaskNotes } from "./TaskNotes";
 import { modelNames, proposalRefusal } from "./aiTaskDesign";
 import { isDesignCheck, notLoadedEntries } from "./aiTaskText";
@@ -92,16 +91,22 @@ export function ModelProposal({
         )}
         <p className="task-reason">Nothing is installed or loaded before you accept the model.</p>
         {check && (
-          <Notice tone={check.summary.refused > 0 ? "warning" : "success"} title="The check of every row">
+          <Notice
+            tone={check.summary.refused > 0 || !!check.summary.skipped || check.draftChanged ? "warning" : "success"}
+            title={check.draftChanged ? "The check from before the draft's last change" : "The check of every row"}
+          >
+            {check.draftChanged && <p>It does not cover the model as it stands now.</p>}
             {count(check.summary.created)} new,{" "}
             {!!check.summary.relationships && <>{count(check.summary.relationships)} relationships, </>}
-            {count(check.summary.updated)} changed,{" "}
-            {count(check.summary.unchanged)} unchanged, {count(check.summary.refused)} refused.
+            {count(check.summary.updated)} changed, {count(check.summary.unchanged)} unchanged,{" "}
+            {count(check.summary.refused)} refused
+            {!!check.summary.skipped && <>, {count(check.summary.skipped)} skipped for an empty key</>}.
             {check.refused.length > 0 && (
               <ul className="task-sheet-list">
                 {check.refused.map((group, index) => (
                   <li key={index}>
-                    <strong>{group.sheet}:</strong> {count(group.rows)} rows, {group.examples?.[0]?.message ?? group.code}
+                    <strong>{group.sheet}:</strong> {count(group.rows)} rows,{" "}
+                    {group.examples?.[0]?.message ?? group.code}
                   </li>
                 ))}
               </ul>
@@ -109,13 +114,12 @@ export function ModelProposal({
           </Notice>
         )}
       </Section>
-      <Disclosure variant="button" label="Show the model change and its records" openLabel="Hide the model change">
+      <Disclosure variant="button" label="Show the model change" openLabel="Hide the model change">
         <DesignModel
           design={design}
           names={names}
           onOpenEditor={draftId && onOpenEditor ? () => onOpenEditor(draftId) : undefined}
         />
-        <DesignRecords design={design} names={names} />
       </Disclosure>
       {checks.length > 0 && (
         <Section title="Checks" headingLevel={3}>

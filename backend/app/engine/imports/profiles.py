@@ -41,6 +41,7 @@ from ...models.imports import (
     Source,
 )
 from ...models.schema import EngineModel
+from ..model.compiler import compile_model
 from ..model.registry import ModelSnapshot, resolve_model_snapshot
 from ..model.traversal import parent_type_keys
 
@@ -193,6 +194,20 @@ def _source_problems(
                     f"No column of the source binds the key attribute '{key}'",
                 )
             )
+    if source.key is not None and source.key.attributeTypeKeys is not None:
+        # AP-D43: each attribute is checked as a single key is; none needs to be declared unique.
+        for key in source.key.attributeTypeKeys:
+            problems += _attribute_problems(
+                model, source.objectTypeKey, key, f"{path}/key/attributeTypeKeys"
+            )
+            if not any(binding.attributeTypeKey == key for binding in source.columns):
+                problems.append(
+                    Problem(
+                        f"{path}/key/attributeTypeKeys",
+                        "KEY_NOT_BOUND",
+                        f"No column of the source binds the key attribute '{key}'",
+                    )
+                )
     if source.parent is not None:
         problems += _parent_problems(model, source.objectTypeKey, source.parent, f"{path}/parent")
         if any(binding.parent is not None for binding in source.columns):
@@ -593,6 +608,39 @@ def save_profile(session: Session, payload: ImportProfileCreate) -> StoredProfil
             }
         ),
     )
+
+
+def save_for_release(
+    session: Session, key: str, name: str, definition: dict[str, Any], release: ModelRelease
+) -> ImportProfile:
+    """The profile saved as checked against a named release, which no workspace need run yet (a
+    session's load, AP-D41); the same key of the same model is its next version. ``422`` when it does
+    not fit the release, ``409 IMPORT_PROFILE_EXISTS`` for another model's key. The caller commits."""
+    parsed_definition = ImportProfileDefinition.model_validate(definition)
+    model = compile_model(release.model_json).model
+    assert model is not None
+    require_valid(model, parsed_definition)
+    now = datetime.now(UTC)
+    stored_definition = definition_of(parsed_definition)
+    existing = session.scalar(
+        select(ImportProfile).where(ImportProfile.key == key).with_for_update()
+    )
+    if existing is None:
+        existing = ImportProfile(key=key, version=0, created_at=now)
+        session.add(existing)
+    elif model_key_of(session, existing) != release.release_key:
+        raise api_error(
+            409,
+            "IMPORT_PROFILE_EXISTS",
+            f"An import profile '{key}' already exists for another model",
+        )
+    existing.name = name
+    existing.version += 1
+    existing.definition = stored_definition
+    existing.checked_release_id = release.id
+    existing.updated_at = now
+    session.flush()
+    return existing
 
 
 def load_profile(session: Session, key: str, *, for_update: bool = False) -> ImportProfile:

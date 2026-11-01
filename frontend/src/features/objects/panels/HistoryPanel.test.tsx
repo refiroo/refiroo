@@ -93,6 +93,41 @@ describe("HistoryPanel", () => {
     expect(screen.getByText("The name says so. Asked for by Ana Varga.")).toBeInTheDocument();
   });
 
+  it("marks a session's change with who asked and who edited, and no percentage (0.16 AP9)", async () => {
+    vi.mocked(api.objectHistory).mockResolvedValueOnce({
+      items: [
+        {
+          id: "event-4",
+          aggregateType: "object",
+          aggregateId: domainObject.id,
+          action: "created",
+          version: 1,
+          changedFields: [],
+          attributeTypeKeys: [],
+          occurredAt: "2026-09-05T10:00:00Z",
+          actor: { kind: "user", id: "p1", name: "Ana Varga" },
+          origin: {
+            kind: "ai",
+            provider: "claude-code",
+            model: "claude-test-1",
+            promptVersion: "agent",
+            proposedBy: "p1",
+            proposedByName: "Ana Varga",
+            editedBy: "p2",
+            editedByName: "Bo Kiss",
+            taskId: "t1",
+          },
+        },
+      ],
+      nextCursor: null,
+    });
+    render(<HistoryPanel objectTypeKey="domain" objectId={domainObject.id} />);
+    fireEvent.click(await screen.findByRole("button", { name: /proposed by the AI/ }));
+    expect(screen.getByText("Proposed by the AI assistant (claude-test-1)")).toBeInTheDocument();
+    expect(screen.getByText(/Asked for by Ana Varga\. Edited by Bo Kiss\./)).toBeInTheDocument();
+    expect(screen.queryByText(/%/)).toBeNull();
+  });
+
   it("retries the same older-history cursor after a paging failure", async () => {
     vi.mocked(api.objectHistory)
       .mockResolvedValueOnce({

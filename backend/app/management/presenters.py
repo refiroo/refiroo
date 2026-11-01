@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from ..common.pagination import Page
 from ..common.time import as_utc
@@ -36,11 +36,13 @@ from ..engine.reads.object_query import live_object_paths
 from ..engine.records.attributes import load_attribute_values
 from ..engine.records.feed import changed_names
 from ..engine.records.history_details import HistoryDetails, history_details
+from ..engine.records.proposed import origin_with_names
 from ..engine.records.values import row_value
 from ..engine.workspaces.catalogue import delete_blocker, load_workspace_runtime_state
 from ..models.database import (
     AttributeValue,
     AuditEvent,
+    ChangeSetObject,
     ConsumerSubscription,
     Job,
     JobItem,
@@ -51,7 +53,7 @@ from ..models.database import (
     WorkspaceRuntimeState,
 )
 from ..models.schema import EngineModel
-from .schemas.common import ActorResponse, PrincipalResponse, ProposalOrigin
+from .schemas.common import ActorResponse, AgentOrigin, PrincipalResponse, ProposalOrigin, change_origin
 from .schemas.consumer_subscriptions import (
     DeliveryAttempt,
     DeliveryAttemptError,
@@ -372,10 +374,14 @@ def actor_response(actor: dict[str, str] | None) -> ActorResponse | None:
     return ActorResponse.model_validate(actor) if actor else None
 
 
-def _origin_of(event: AuditEvent) -> ProposalOrigin | None:
-    """The AI's provenance a publication copied into a relationship's entry (0.16 AP2)."""
+def _origin_of(event: AuditEvent) -> ProposalOrigin | AgentOrigin | None:
+    """The AI's provenance a publication copied into an entry (0.16 AP2, AP9), who asked and who
+    edited named as they are now."""
     found = event.changes.get("origin") if isinstance(event.changes, dict) else None
-    return ProposalOrigin.model_validate(found) if isinstance(found, dict) else None
+    if not isinstance(found, dict):
+        return None
+    session = object_session(event)
+    return change_origin(origin_with_names(session, found) if session else found)
 
 
 def _audit_response(
@@ -407,6 +413,7 @@ def _audit_response(
             else None
         ),
         actor=actor_response(actor),
+        channel=event.channel,
         origin=_origin_of(event),
         **(
             {
@@ -506,8 +513,13 @@ def feed_page(session: Session, page: FeedRead) -> FeedPage:
     )
 
 
-def change_set_object_response(item, change_set_id: str, model, *, path=None) -> ObjectResponse:
+def change_set_object_response(
+    item, change_set_id: str, model, *, path=None, session: Session | None = None
+) -> ObjectResponse:
     attrs = snapshot_attributes(model, item.object_id, item.attributes)
+    origin = getattr(item, "origin", None)
+    # A list's rows read the mark without names; one record, or a written row, names who asked.
+    session = session or (object_session(item) if isinstance(item, ChangeSetObject) else None)
     return ObjectResponse(
         id=item.object_id,
         workspaceKey=(getattr(item, "workspace_key", None) or ""),
@@ -521,6 +533,9 @@ def change_set_object_response(item, change_set_id: str, model, *, path=None) ->
         # Not recorded for change set and history rows (WP-10K); never substitute the current time.
         createdAt=None,
         updatedAt=None,
+        origin=change_origin(origin_with_names(session, origin) if session else origin)
+        if origin
+        else None,
     )
 
 

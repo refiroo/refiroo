@@ -311,8 +311,14 @@ export function useRouter(): Router {
         ? missingElement(loaded, new URL(path, window.location.origin))
         : undefined;
       const shownRoute = missing ? defaultRoute(loaded, workspaceKey) : destination;
+      // A carried page the model lacks is not the page shown, so the address names the start; a page asked for keeps its address.
+      const address = missing && carried ? routePath(shownRoute) : path;
       if (!replace) historyIndex.current += 1;
-      window.history[replace ? "replaceState" : "pushState"](historyState(shownRoute, historyIndex.current), "", path);
+      window.history[replace ? "replaceState" : "pushState"](
+        historyState(shownRoute, historyIndex.current),
+        "",
+        address,
+      );
       show(loaded, workspaceKey, shownRoute, missing && !carried ? { ...missing, workspaceKey } : undefined);
     },
     [show],

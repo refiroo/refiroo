@@ -106,6 +106,7 @@ RULES = {
     ("ai_tasks", "requested_by_client_id"): ("oauth_clients", "RESTRICT"),
     # A design's draft is the person's too: deleting it leaves the task without it (0.16 AP6).
     ("ai_tasks", "draft_id"): ("model_drafts", "SET NULL"),
+    ("ai_tasks", "client_id"): ("oauth_clients", "SET NULL"),
     ("source_files", "task_id"): ("ai_tasks", "CASCADE"),
     ("jobs", "requested_by_client_id"): ("oauth_clients", "RESTRICT"),
     ("source_files", "uploaded_by_user_id"): ("users", "RESTRICT"),

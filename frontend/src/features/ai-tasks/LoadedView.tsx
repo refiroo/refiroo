@@ -4,43 +4,32 @@ import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
-import type { AiTask, AiTaskCheckSummary, RouteState } from "@/types";
+import type { AiTask, RouteState } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
-import { count } from "@/features/settings/limits";
 import { NotLoaded } from "./NotLoaded";
-import { checkSummary } from "./CheckView";
-import { isDesignCheck, notLoadedEntries, plainCheck, plural, skippedText } from "./aiTaskText";
+import { notLoadedEntries, plural, skippedText } from "./aiTaskText";
 
-/** What was loaded, in a sentence: the new and changed records and translations, in how many lists. */
+/** What was loaded, in a sentence: the new, changed and removed records the import counted. */
 export function loadedSentence(task: AiTask): { done: string; rest: string } {
   const counts = task.result?.counts;
-  const check = plainCheck(task);
-  const summary: AiTaskCheckSummary | undefined = check ? checkSummary(check.tables, check.summary) : undefined;
-  const created = counts?.created ?? summary?.created ?? 0;
-  const changed = counts?.updated ?? summary?.changed ?? 0;
-  const removed = counts?.deleted ?? summary?.removed ?? 0;
-  const unchanged = counts?.unchanged ?? summary?.unchanged ?? 0;
-  const translations = summary?.translations ?? 0;
+  const created = counts?.created ?? 0;
+  const changed = counts?.updated ?? 0;
+  const removed = counts?.deleted ?? 0;
+  const unchanged = counts?.unchanged ?? 0;
   const said = [
     created > 0 && `${plural(created, "record")} new`,
     changed > 0 && `${plural(changed, "record")} changed`,
     removed > 0 && `${plural(removed, "record")} removed`,
-    translations > 0 && `${plural(translations, "translation")} new or changed`,
   ].filter((part): part is string => !!part);
-  const lists = check ? ` in ${count(summary?.tablesWithChanges ?? 0)} of ${plural(check.tables.length, "list")}` : "";
   const joined = said.length > 1 ? `${said.slice(0, -1).join(", ")} and ${said[said.length - 1]}` : said[0];
-  // An instruction on stored records writes relationships, not records: the list item says so.
-  const relationshipsOnly = !joined && !!task.result?.linksJobId;
   return {
-    done: joined ? `${joined}${lists}` : "",
-    rest: relationshipsOnly
-      ? ""
-      : joined
-        ? unchanged > 0
-          ? `The other ${plural(unchanged, "record")} ${unchanged === 1 ? "was" : "were"} already as the file says.`
-          : ""
-        : `Nothing changed: ${unchanged > 0 ? `all ${plural(unchanged, "record")} were` : "the records were"} already as the file says.`,
+    done: joined ?? "",
+    rest: joined
+      ? unchanged > 0
+        ? `The other ${plural(unchanged, "record")} ${unchanged === 1 ? "was" : "were"} already as the file says.`
+        : ""
+      : `Nothing changed: ${unchanged > 0 ? `all ${plural(unchanged, "record")} were` : "the records were"} already as the file says.`,
   };
 }
 
@@ -74,7 +63,6 @@ export function LoadedView({
     }
   };
   const sentence = loadedSentence(task);
-  const relationships = isDesignCheck(task.check) ? (task.check.summary.relationships ?? 0) : 0;
   const entries = notLoadedEntries(task, true);
   const columns = entries.filter((entry) => entry.text.startsWith("Column “")).length;
   const sheets = entries.length - columns;
@@ -92,17 +80,12 @@ export function LoadedView({
         )}
         {sentence.rest && `${sentence.rest} `}Live data is unchanged until the change set is approved and published.
         {/* A session's changes do not carry this yet (AP9). */}
-        {!task.design?.agentSession && " Each change notes that the AI assistant prepared the load and that you confirmed it."}
+        {!task.design?.agentSession &&
+          " Each change notes that the AI assistant prepared the load and that you confirmed it."}
       </Notice>
       <ul className="task-next">
         {result?.releaseId && (
           <li>The model change was installed and activated in {workspaceLabel ?? task.workspaceKey}.</li>
-        )}
-        {result?.linksJobId && (
-          <li>
-            {relationships > 0 ? `${plural(relationships, "relationship")} written` : "The relationships written"} into
-            the same change set, after the load.
-          </li>
         )}
         {review && <li>Review the change set, and submit it for approval from there.</li>}
         {profile && (
@@ -112,6 +95,7 @@ export function LoadedView({
               : `Saved the profile “${result?.profileKey}”: the next file of this layout loads without the assistant.`}
           </li>
         )}
+        {result?.profileNotSaved && <li>{result.profileNotSaved}</li>}
       </ul>
       {(review || profile || onClose) && (
         <div className="task-actions">

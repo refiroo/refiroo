@@ -6,3 +6,8 @@ architecture documents before changing the application model, API contracts or p
 When a prompt conflicts with a product invariant, explain the conflict before implementing it. Keep
 the work in small vertical slices and verify both backend tests and the frontend production build.
 
+The user talks to Opus at medium reasoning; Sonnet delivers. Hand delivery to the `implementer` role and
+do only trivial edits in the main session. `AGENTS.md`, Model allocation, lists the model and reasoning
+for each role. Spawn the roles in `.claude/agents/` by name; pass `model: "sonnet"` when spawning any
+other agent.
+

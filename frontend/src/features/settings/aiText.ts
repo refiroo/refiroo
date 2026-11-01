@@ -12,7 +12,9 @@ export function sendLevelText(level: AiSendLevel, sampleValues: number): string 
 export const PURPOSE: Record<AiCall["purpose"], string> = {
   connectionTest: "Test request",
   mappingTarget: "Targets for unmapped values",
-  workbookLoad: "Load a workbook",
+  // Only on call rows recorded by older versions; it is no longer a feature.
+  workbookLoad: "Load a workbook (no longer offered)",
+  assistantSession: "Assistant session",
   modelNames: "Names for an inference (no longer offered)",
 };
 
