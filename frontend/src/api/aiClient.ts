@@ -10,6 +10,8 @@ import type {
   AiTaskChangePage,
   AiTaskRequest,
   AiTaskRunRequest,
+  QueryTranslation,
+  QueryTranslationRequest,
 } from "@/types";
 
 const taskPath = (id: string) => `/api/v1/ai/tasks/${encodeURIComponent(id)}`;
@@ -36,6 +38,15 @@ export const ai = {
     form.append("request", JSON.stringify(body));
     return request<AiTask>("/api/v1/ai/tasks", { method: "POST", body: form });
   },
+  /**
+   * Turns a question in words into the filters of a table view, answered directly (0.16 AG4); aborted by `signal`.
+   * `502 QUERY_TRANSLATION_FAILED` when the provider fails or answers what the list cannot take.
+   */
+  translateQuery: (workspaceKey: string, body: QueryTranslationRequest, signal?: AbortSignal) =>
+    request<QueryTranslation>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/query-translations`, {
+      ...post(body),
+      signal,
+    }),
   task: (id: string) => request<AiTask>(taskPath(id)),
   /** The records the latest check would change in a sheet (source) of the design, a page at a time. */
   taskChanges: (id: string, where: { source: number }, cursor?: string) => {

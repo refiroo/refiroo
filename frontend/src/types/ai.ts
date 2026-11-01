@@ -5,7 +5,7 @@ import type { PageNavigation } from "@/types/runtime";
 /** What may leave the process: names and types, also sample values, also the values a feature needs. */
 export type AiSendLevel = "structure" | "samples" | "values";
 /** `workbookLoad` is kept for the call rows recorded by older versions; it is no longer a feature. */
-export type AiPurpose = "connectionTest" | "mappingTarget" | "workbookLoad" | "assistantSession";
+export type AiPurpose = "connectionTest" | "mappingTarget" | "queryTranslation" | "workbookLoad" | "assistantSession";
 export type AiFailureKind =
   | "unreachable"
   | "unauthorized"
@@ -152,4 +152,21 @@ export interface AiProposalTally {
   notAnswered: number;
   changeSetId: string;
   warnings: string[];
+}
+
+/** `POST /workspaces/{key}/query-translations`: a question about a table view, in a change set or publication when one is named (0.16 AG4). */
+export interface QueryTranslationRequest {
+  applicationKey: string;
+  viewKey: string;
+  question: string;
+  changeSetId?: string;
+  publicationId?: string;
+}
+
+/** What a question became: the list's own filters and search, and the parts no filter can say. Applied only when nothing is left out. */
+export interface QueryTranslation {
+  filters: { field: string; operator: string; value: string }[];
+  search: string;
+  notExpressed: { part: string; reason: string }[];
+  applied: boolean;
 }

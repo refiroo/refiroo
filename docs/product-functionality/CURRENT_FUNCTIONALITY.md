@@ -1508,6 +1508,22 @@ Who may ask is set by role: **Use AI proposals** is part of the Data steward, Da
 administrator, Workspace administrator and Integration administrator roles. A person without it is
 never offered an AI action.
 
+**Ask a list in words.** On a table list, where a provider is set and the person holds Use AI proposals
+in the workspace, a Search | Ask switch sits beside the search box (it is not drawn on mapping grids, trees
+or the Changes page). In Ask, Enter sends the question, "Asking…" shows with Cancel, and the answer becomes
+ordinary filters: pills the person edits or removes, and the line "Your question became these filters.
+Change or remove any of them." The provider is sent the question, today's date and the list's field
+names, every relationship of the type included whether the list offers it in + Filter or not; where the
+instance allows values to be sent (not at the lowest send level) it is also sent the names of a
+relationship's records when there are at most 50, so "above 30 minutes" can pick "45 min", "60 min" and
+"180 min" by their meaning. The records a question names ("under Webshop") are found by refiroo, by exact
+name first and otherwise a single partial match. A part the list cannot express (an order, who changed a record, a record
+not found or named by several) is named, nothing is applied, and the filters that could be built are shown
+as dashed pills with **Use these filters**; a failed question is one sentence and the words stay. It works
+in a change set and a publication too, where the list has no created or updated time to filter by. Lists
+also filter, in the filter bar, by records with **none under** or **any under** a record in a relationship
+(at any depth), and a live list by **Created** and **Updated**.
+
 The feature there is in the mapping grid: **Propose targets** asks the assistant for a target for each
 unmapped value of the view (within its search and parent, if set), into the change set that is open or
 a new one. The assistant is given only the targets the grid itself would offer: all of them when
@@ -1570,13 +1586,14 @@ Limits:
   assistant.
 - Values for empty fields and plain-language summaries follow in later releases.
 - The assistant and the provider are set in the environment, not on the page.
+- A question in words works on table lists only (not on mapping grids, trees or the Changes page, and no package is planned for them); it cannot ask for an order or for who changed a record, or compare with a value that is not a record's name (a list of more than 50 records is not read by the provider, so only exact or partial names answer there).
 - Proposals for mapping targets have been tried only with a stand-in provider. The design was tried
   with Claude Sonnet on real workbooks: an update of a known layout, a new model in an empty
   workspace, and a relationship from words alone.
 
 Evidence: [AI contract](../API.md#ai-proposals-product-016), [OPERATIONS](../OPERATIONS.md#ai-proposals),
 [provider](../../backend/app/engine/proposals/), [AI page](../../frontend/src/features/settings/AiPage.tsx),
-[J48](../../backend/tests/journeys/test_j48_ai_proposals.py), [AP1 runner](../../frontend/e2e/ap1-ai.mjs).
+[J48](../../backend/tests/journeys/test_j48_ai_proposals.py), [AP1 runner](../../frontend/e2e/ap1-ai.mjs), [J54](../../backend/tests/journeys/test_j54_ask_in_words.py), [AG4 runner](../../frontend/e2e/ag4-ask-in-words.mjs).
 
 ## F30 — Reach refiroo from an assistant
 

@@ -23,13 +23,19 @@ function queryValue(valueType: ValueType | undefined, operator: string, value: s
   return value;
 }
 
-export function criteriaFromFilters(model: EngineModel, filters: CollectionFilter[]): ExportCriterion[] {
+export function criteriaFromFilters(
+  model: EngineModel,
+  filters: CollectionFilter[],
+  /** The type of each record a "has none under" or "has any under" filter names, by ID. */
+  records: ReadonlyMap<string, { objectTypeKey: string }> = new Map(),
+): ExportCriterion[] {
   const related = filters.filter((filter) => filter.field.startsWith(RELATED_FIELD_PREFIX));
   const hops = [...new Set(related.map((filter) => filter.field))].flatMap((field) =>
     relatedCriteria(
       model,
       field,
       related.filter((filter) => filter.field === field),
+      records,
     ),
   );
   return [
@@ -51,9 +57,15 @@ export function criteriaFromFilters(model: EngineModel, filters: CollectionFilte
 /**
  * A relationship filter (0.9 K6) as the query's `related` hop, as the list applies it: records
  * related to any of the chosen ones (their IDs as alternatives), or, for `isNull`, to none (`not`)
- * or to any.
+ * or to any. "Under" is a hop whose records stand below the named one, by the ancestor criterion of
+ * the record's own type (0.16 AG4); a record of unknown type adds none, so callers wait for the names.
  */
-function relatedCriteria(model: EngineModel, field: string, entries: CollectionFilter[]): ExportCriterion[] {
+function relatedCriteria(
+  model: EngineModel,
+  field: string,
+  entries: CollectionFilter[],
+  records: ReadonlyMap<string, { objectTypeKey: string }>,
+): ExportCriterion[] {
   const column = relatedColumn(model, field);
   if (!column) return [];
   const hop = { relationTypeKey: column.relationTypeKey, direction: column.direction };
@@ -62,6 +74,18 @@ function relatedCriteria(model: EngineModel, field: string, entries: CollectionF
   return [
     ...(ids.length ? [{ related: { ...hop, where: ids.map((id) => ({ field: "id", op: "eq", value: id })) } }] : []),
     ...flags.map((flag) => ({ related: { ...hop, where: [] }, ...(flag === "true" ? { not: true } : {}) })),
+    ...entries
+      .filter((entry) => entry.operator === "under" || entry.operator === "notUnder")
+      .flatMap((entry) => {
+        const type = records.get(entry.value)?.objectTypeKey;
+        if (!type) return [];
+        return [
+          {
+            related: { ...hop, where: [{ field: `ancestor:${type}`, op: "eq", value: entry.value }] },
+            ...(entry.operator === "notUnder" ? { not: true } : {}),
+          },
+        ];
+      }),
   ];
 }
 

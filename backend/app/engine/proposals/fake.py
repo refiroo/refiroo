@@ -45,9 +45,15 @@ def _targets(context: dict[str, Any]) -> dict[str, Any]:
 
 
 
+def _translation(context: dict[str, Any]) -> dict[str, Any]:
+    """A question the list cannot filter by is searched for as it stands."""
+    return {"filters": [], "search": context.get("question", ""), "notExpressed": []}
+
+
 DEFAULTS: dict[Purpose, Callable[[dict[str, Any]], Any]] = {
     "connectionTest": lambda context: {"ready": True},
     "mappingTarget": _targets,
+    "queryTranslation": _translation,
 }
 
 _script: dict[str, Any] = {}

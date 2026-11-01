@@ -50,6 +50,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Workspace models | J36 run a workspace on a model of its own, J37 move a workspace to another release, J38 move data between workspaces whose models differ |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
+| AI proposals | J48 use AI proposals, J49 targets for unmapped values, J50 load with the assistant, J51 reach the engine from an assistant, J52 an assistant reads, J53 an assistant prepares a change, J54 ask in words |
 | Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key, J45 start from home, J46 send mail, J47 check the security model |
 
 ## Records and structure
@@ -2591,7 +2592,6 @@ API; it calls no AI provider.
   `409 AI_TASK_DRAFT_HELD`; it makes a draft of its own and goes on. A person's draft that no task holds is open to it.
 - **J50.41 Nothing left behind**: when a task is loaded or discarded, a release its session installed that no
   workspace or change set uses is retired; one in use is not.
-
 - **J50.43 The model language is in the API**: the OpenAPI document names the model's definitions
   (`components.schemas.EngineModel`: types, relations, a binding's candidates) wherever a model is read or
   written. A model written from them with a candidate filter validates; a field no definition names in
@@ -2602,6 +2602,7 @@ API; it calls no AI provider.
   neither the folder nor the log.
 - **J50.45 A worker that stopped**: when the worker stopped during a turn, the next turn records it as
   interrupted, from the log beside the folder.
+
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409
 AI_TASK_NOTHING_TO_LOAD`, `409 AI_TASK_DRAFT_HELD`, `413 IMPORT_TOO_LARGE`, `422
@@ -2639,6 +2640,61 @@ An assistant connected as in J51 prepares a change in a change set of its own an
 - **J53.3 Fixing it**: a refusal gives the engine's code and details: an invalid change set with its diagnostics, a stale version, a submitted change set. One sent back shows its comment, and is fixed and submitted again.
 - **J53.4 Limits**: a colleague's change set reads as not found; a person narrowed to one record type is refused on another; no tool writes without a change set; a caller with only Browse lists no change-set tool.
 - **J53.5 Reading its own change set**: `find_records`, `read_record` and `describe_type` with `changeSetId` show the unpublished rows and the pinned release; without it, live data.
+
+### J54 — Ask in words
+
+**Actor:** a steward who may browse a workspace and holds Use AI proposals there. **Channel:** UI (a table
+list's Search | Ask switch), API (`POST /workspaces/{key}/query-translations`, and the list's `filter.`
+parameters, including `filter.related:<key>.under` and `.notUnder`). **Status:** delivered by 0.16 AG4
+(2026-11-01).
+
+1. On a table list the steward switches the search box to Ask and types a question ("values changed last
+   month without a webshop mapping"), then presses Enter.
+2. The provider is sent the question, today's date and the list's fields, conditions and relationships
+   with their labels. The fields are every relationship the listed type has (in either direction,
+   declared by the view or not), the view's filter fields and, live, the two stamps. At send level
+   `samples` or `values` it is also sent the record names of a relationship's types when they hold at
+   most 50 records in the list's context, so it can choose records by meaning ("above 30 minutes" from
+   "45 min"); at `structure`, or for a longer list, no record value. The engine finds a record the
+   question names in words in the database, in the list's context, and builds the answer from the list's
+   own filters.
+3. When every part was expressed, the list shows the filters as ordinary pills (and the search words)
+   under the line "Your question became these filters. Change or remove any of them." The steward edits
+   or removes any of them as if they had been typed.
+4. When a part cannot be expressed, nothing is applied: a panel names the part and why, shows the filters
+   it could build as dashed pills and offers Use these filters. The list stays as it was.
+
+**Variants:**
+
+- **J54.1 A whole question**: a date filter and a "has none under" filter come back, the region found by
+  its name; the list with them shows exactly the records that hold; the call is recorded; no record value
+  was sent at send level `structure`; no transaction was held while the provider answered.
+- **J54.2 Editing**: one filter is changed or removed and the list follows; the answer is only the list's
+  own filters.
+- **J54.3 A part it cannot express**: `applied` is false, `notExpressed` names the part and the reason,
+  the proposed filters are still returned. A sort, or who changed a record, is such a part.
+- **J54.4 A record not found, or several**: a name that matches no record, or several, is a part not
+  expressed with that reason, never a guess; the exact name (any case) is taken first, otherwise the one
+  record whose name contains it.
+- **J54.5 A failed call**: a field the list does not offer, a condition it does not take, a value the
+  list refuses, or a failing provider is a recorded failed call (`502 QUERY_TRANSLATION_FAILED`), and
+  nothing is applied.
+- **J54.6 Hidden and refused**: `403 FORBIDDEN` without Use AI proposals, `409 AI_NOT_CONFIGURED`, `409
+  AI_SEND_LEVEL_TOO_LOW` for a level above the ceiling, `422 QUERY_TRANSLATION_VIEW_UNSUPPORTED` for a
+  view that is not a table, `404 VIEW_NOT_FOUND`. The Ask switch is not drawn where it would be refused.
+- **J54.7 In a change set**: `createdAt` and `updatedAt` are not offered (a change set records no times),
+  so a date part is not expressed; the other filters, and the records they name, read the change set.
+- **J54.8 Under an ancestor**: a list filters by records with some related record under a record at any
+  depth (`.under`), or none (`.notUnder`), live and in a change set; selection, bulk actions and export
+  read the same filter.
+- **J54.9 Names of short lists, and every relationship**: at `values` the provider is sent the names of a
+  relationship's records (and of the records they can stand under) when that type set holds at most 50
+  records; picking several by one `eq` filter each lists the records related to any of them; at
+  `structure`, or above 50 records, no name is sent; a relationship the view does not declare is offered
+  and filters like a declared one, and its pill is an ordinary editable pill.
+
+**Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404 VIEW_NOT_FOUND`,
+`422 QUERY_TRANSLATION_VIEW_UNSUPPORTED`, `502 QUERY_TRANSLATION_FAILED`, `422 INVALID_FILTER`.
 
 ## Guardrails kept from 0.7
 

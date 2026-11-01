@@ -204,7 +204,7 @@ try {
   await filterMenu.getByRole("button", { name: /^Is represented by system value/ }).focus();
   await page.keyboard.press("Enter");
   const sheet = page.getByLabel("Filter by Is represented by system value");
-  await sheet.getByRole("radio", { name: "Has none" }).focus();
+  await sheet.getByRole("radio", { name: "Has none", exact: true }).focus();
   await page.keyboard.press("Space");
   const show = sheet.getByRole("button", { name: "Show 1 master value" });
   await show.waitFor({ timeout: 10000 }).catch(() => failures.push("the sheet does not count its draft (Show 1 master value)"));

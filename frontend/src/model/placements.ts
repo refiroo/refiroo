@@ -50,3 +50,24 @@ export function possibleTypes(
   if (parentObjectTypeKey === null) return places(model, application)?.topLevelObjectTypeKeys ?? [];
   return parent(model, application, parentObjectTypeKey)?.possibleObjectTypeKeys ?? [];
 }
+
+/**
+ * Every object type a record of `objectTypeKey` can stand under, at any depth, from the served
+ * placements of the applications that hold the type (0.16 AG4).
+ */
+export function ancestorObjectTypeKeys(model: EngineModel, objectTypeKey: string): string[] {
+  const found: string[] = [];
+  const pending = [objectTypeKey];
+  while (pending.length) {
+    const current = pending.pop()!;
+    for (const application of model.applications.filter((item) => item.objectTypeKeys.includes(current))) {
+      for (const key of parentObjectTypeKeys(model, application, current)) {
+        if (!found.includes(key)) {
+          found.push(key);
+          pending.push(key);
+        }
+      }
+    }
+  }
+  return found;
+}

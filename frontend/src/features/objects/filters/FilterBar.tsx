@@ -7,15 +7,21 @@
  *
  * The filters stay `query.filters` entries ({field, operator, value}), so the address, the
  * selection, the bulk actions and Export read them as before; a relationship filter is several
- * entries of one field (K6).
+ * entries of one field (K6). A field of another kind may hold several entries, such as the two ends
+ * of a date range, each its own pill (0.16 AG4).
  */
 
 import { keyScope } from "@/model/candidates";
 import { useEffect, useState } from "react";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
-import { relationFilterEntries, relationFilterMode, type NamedRecord } from "@/features/objects/RelationFilter";
+import {
+  relationFilterEntries,
+  relationFilterMode,
+  type NamedRecord,
+  type RelationMode,
+} from "@/features/objects/RelationFilter";
 import { attributeName } from "@/model/fields";
-import { RELATED_FIELD_PREFIX, relatedTargetTypes } from "@/model/lookup";
+import { RELATED_FIELD_PREFIX, relatedAncestorTypes, relatedTargetTypes } from "@/model/lookup";
 import type { CollectionFilter, EngineModel, ValueType } from "@/types";
 import { Choice } from "@/ui/Choice";
 import { ControlPopover } from "@/ui/ControlPopover";
@@ -144,6 +150,11 @@ export function pillText(
     const mode = relationFilterMode(entries);
     if (mode === "none") return { label: spec.label, value: "none" };
     if (mode === "some") return { label: spec.label, value: "any" };
+    if (mode === "under" || mode === "notUnder")
+      return {
+        label: spec.label,
+        value: `${mode === "under" ? "has any under" : "has none under"} ${names.get(entries[0].value)?.name ?? "…"}`,
+      };
     const chosen = entries.map((entry) => names.get(entry.value)?.name ?? "…");
     return {
       label: spec.label,
@@ -158,6 +169,21 @@ export function pillText(
   }
   if (spec.kind === "boolean") return { label: spec.label, value: entry.value === "true" ? "Yes" : "No" };
   return { label: `${spec.label} ${conditionWord(spec.kind, entry.operator)}`, value: entry.value };
+}
+
+/**
+ * The pills a set of filters makes: one per field, a relationship's records together; any other
+ * field's entries are a pill each, such as the two ends of a date range (0.16 AG4).
+ */
+export function filterPills(fields: readonly FilterField[], filters: readonly CollectionFilter[]) {
+  return fields.flatMap((spec) => {
+    const entries = filters.filter((filter) => filter.field === spec.field);
+    return spec.kind === "relation"
+      ? entries.length
+        ? [{ spec, entries }]
+        : []
+      : entries.map((entry) => ({ spec, entries: [entry] }));
+  });
 }
 
 /** Below this width the editors are drawn as a bottom sheet (D163). */
@@ -187,14 +213,18 @@ export function FilterBar({
   onChange: (filters: CollectionFilter[]) => void;
 }) {
   const active = fields.filter((spec) => filters.some((filter) => filter.field === spec.field));
-  const replace = (field: string, entries: CollectionFilter[]) =>
-    onChange([...filters.filter((filter) => filter.field !== field), ...entries]);
-  const editorProps = (spec: FilterField) => ({
+  const pills = filterPills(fields, filters);
+  const replace = (taken: readonly CollectionFilter[], entries: CollectionFilter[]) =>
+    onChange([...filters.filter((filter) => !taken.includes(filter)), ...entries]);
+  /** What a new filter on the field replaces: its entries where it holds one condition only, else nothing. */
+  const replaced = (spec: FilterField) =>
+    spec.kind === "relation" || spec.kind === "boolean" ? filters.filter((f) => f.field === spec.field) : [];
+  const editorProps = (spec: FilterField, taken: readonly CollectionFilter[]) => ({
     model,
     objectTypeKey,
     spec,
-    entries: filters.filter((filter) => filter.field === spec.field),
-    others: filters.filter((filter) => filter.field !== spec.field),
+    entries: taken,
+    others: filters.filter((filter) => !taken.includes(filter)),
     names,
     workspaceKey,
     noun,
@@ -203,11 +233,10 @@ export function FilterBar({
 
   return (
     <div className="filter-bar" role="group" aria-label="Filters">
-      {active.map((spec) => {
-        const entries = filters.filter((filter) => filter.field === spec.field);
+      {pills.map(({ spec, entries }, index) => {
         const text = pillText(spec, entries, names);
         return (
-          <span key={spec.field} className="filter-pill">
+          <span key={`${spec.field}:${index}`} className="filter-pill">
             <ControlPopover
               label={`${text.label}: ${text.value}. Change this filter`}
               trigger={
@@ -223,9 +252,9 @@ export function FilterBar({
             >
               {(close) => (
                 <FilterEditor
-                  {...editorProps(spec)}
+                  {...editorProps(spec, entries)}
                   onApply={(next) => {
-                    replace(spec.field, next);
+                    replace(entries, next);
                     close();
                   }}
                   onCancel={close}
@@ -236,7 +265,7 @@ export function FilterBar({
               type="button"
               className="filter-pill-remove"
               aria-label={`Remove the ${spec.label} filter`}
-              onClick={() => replace(spec.field, [])}
+              onClick={() => replace(entries, [])}
             >
               <Icon name="close" size={13} />
             </button>
@@ -262,9 +291,9 @@ export function FilterBar({
               active={new Set(active.map((spec) => spec.field))}
               editor={(spec, back) => (
                 <FilterEditor
-                  {...editorProps(spec)}
+                  {...editorProps(spec, replaced(spec))}
                   onApply={(next) => {
-                    replace(spec.field, next);
+                    replace(replaced(spec), next);
                     close();
                   }}
                   onCancel={back}
@@ -347,6 +376,17 @@ function FilterEditor({
         return { id: entry.value, name: named?.name ?? "…", objectTypeKey: named?.objectTypeKey ?? "" };
       }),
   );
+  // "Has none under" and "has any under" choose one record above the related ones (0.16 AG4); the
+  // mode is kept here, as that draft holds no entry until a record is chosen.
+  const [mode, setMode] = useState<RelationMode>(() => relationFilterMode(entries));
+  const [under, setUnder] = useState<ChecklistRecord[]>(() =>
+    entries
+      .filter((entry) => entry.operator === "under" || entry.operator === "notUnder")
+      .map((entry) => {
+        const named = names.get(entry.value);
+        return { id: entry.value, name: named?.name ?? "…", objectTypeKey: named?.objectTypeKey ?? "" };
+      }),
+  );
   const [count, setCount] = useState<{ of: string; total: number | undefined }>();
   const draftKey = JSON.stringify([...others, ...draft]);
   useEffect(() => {
@@ -377,9 +417,20 @@ function FilterEditor({
   );
 
   if (spec.kind === "relation") {
-    const mode = relationFilterMode(draft);
     const chosen = picked;
     const targets = relatedTargetTypes(model, objectTypeKey, spec.field);
+    const ancestors = relatedAncestorTypes(model, objectTypeKey, spec.field);
+    const beneath = mode === "under" || mode === "notUnder";
+    const choose = (next: RelationMode) => {
+      setMode(next);
+      setDraft(
+        relationFilterEntries(
+          spec.field,
+          next,
+          next === "any" ? picked : next === "under" || next === "notUnder" ? under : [],
+        ),
+      );
+    };
     return (
       <form
         className="filter-editor"
@@ -397,10 +448,38 @@ function FilterEditor({
             ["any", "Is any of"],
             ["none", "Has none"],
             ["some", "Has any"],
+            ...(ancestors.length
+              ? ([
+                  ["notUnder", "Has none under"],
+                  ["under", "Has any under"],
+                ] as const)
+              : []),
           ]}
-          onChange={(next) => setDraft(relationFilterEntries(spec.field, next, next === "any" ? chosen : []))}
+          onChange={choose}
         />
-        {mode === "any" ? (
+        {beneath ? (
+          <>
+            <RecordChecklist
+              model={model}
+              label={ancestors.length === 1 ? ancestors[0].pluralName : "Records"}
+              objectTypeKeys={ancestors.map((type) => type.key)}
+              workspaceKey={workspaceKey}
+              chosen={under}
+              onChange={(next) => {
+                // One record: the one just ticked replaces the one before.
+                const added = next.find((record) => !under.some((item) => item.id === record.id));
+                const one = added ? [added] : next.slice(0, 1);
+                setUnder(one);
+                setDraft(relationFilterEntries(spec.field, mode, one));
+              }}
+            />
+            <p className="filter-editor-explain">
+              {mode === "notUnder"
+                ? `Shows the ${pluralName.toLowerCase()} with no ${spec.label.toLowerCase()} record at any depth below the chosen one.`
+                : `Shows the ${pluralName.toLowerCase()} with some ${spec.label.toLowerCase()} record at any depth below the chosen one.`}
+            </p>
+          </>
+        ) : mode === "any" ? (
           <RecordChecklist
             model={model}
             label={targets.length === 1 ? targets[0].pluralName : "Records"}
@@ -424,7 +503,9 @@ function FilterEditor({
           <button type="button" className="ghost" onClick={onCancel}>
             Cancel
           </button>
-          <button className="primary">{applyLabel}</button>
+          <button className="primary" disabled={beneath && under.length === 0}>
+            {applyLabel}
+          </button>
         </div>
       </form>
     );

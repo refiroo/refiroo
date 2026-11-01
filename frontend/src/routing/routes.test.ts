@@ -368,6 +368,22 @@ describe("routes", () => {
   });
 });
 
+it("keeps a filter on a relationship the view does not declare, in either direction, and drops one the type lacks", () => {
+  const filter = "filter.related%3Adomain-contains-codelist.isNull=true";
+  window.history.pushState(
+    {},
+    "",
+    `/apps/test-app/views/domains?workspaceKey=west&${filter}&filter.related%3Acodelist-belongs-to-domain.isNull=true`,
+  );
+  const route = parseRoute(testModel);
+  expect(route).toMatchObject({
+    kind: "list",
+    filters: [{ field: "related:domain-contains-codelist", operator: "isNull", value: "true" }],
+  });
+  expect(decodeURIComponent(routePath(route))).toContain("filter.related:domain-contains-codelist.isNull=true");
+  window.history.pushState({}, "", "/");
+});
+
 it("round-trips change-set collections, detail bookmarks and the separate change-set catalogue", () => {
   for (const path of [
     "/apps/test-app/views/domains?workspaceKey=west&changeSetId=change-set-1",

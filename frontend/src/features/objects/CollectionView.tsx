@@ -331,6 +331,7 @@ export function ObjectCollectionView({
           onChange={(next) => onQueryChange({ ...next, anchor: undefined })}
           placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
           workspaceKey={workspaceKey}
+          applicationKey={application.key}
           noun={[objectType.name, objectType.pluralName]}
           countDraft={countDraft}
         />

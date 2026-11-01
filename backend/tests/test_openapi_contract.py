@@ -387,9 +387,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # names (35 schemas) as the schema of the model document in ModelDocumentRequest and
     # ModelReleaseResponse, and in the draft schemas of the model-management group when it is on;
     # the field stays an open object at runtime.
+    # Re-baselined for 0.16 AG4 (additive, diffed against HEAD and against AP11's): the route
+    # query-translations and its four schemas, queryTranslation as a purpose of AiFeature and of a
+    # call, and under and notUnder in the list filter's description.
+    # Re-baselined for the 0.16 AG4 revision (2026-11-01): only the description of the route
+    # query-translations (the names of short lists, every relationship); no schema moved.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "dbbbafe31efe46d6612d7864d9723de391351295cda23f8cfec26e93cfc1c5d6"
+        "3038b25bddd0ed7d917c1100b22b45b5083e480dc34d1633ae26a2e44cdc82c9"
     )
 
 

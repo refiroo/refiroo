@@ -25,7 +25,7 @@ import type {
   WorkspaceTab,
 } from "@/types";
 import { DEFAULT_COLLECTION_QUERY, DEFAULT_WORKSPACE } from "@/model/defaults";
-import { applicationFor, objectTypeFor } from "@/model/lookup";
+import { applicationFor, objectTypeFor, relationshipFilterFields } from "@/model/lookup";
 import { listSortFields } from "@/model/fields";
 import { navigationGroupFor } from "@/model/collections";
 
@@ -489,13 +489,22 @@ export function parseRoute(
           : []
         ).flatMap((field) => [field, `-${field}`]),
       );
+      // A relationship of the listed type filters whether or not the view declares it (0.16 AG4).
+      const relationships = new Set(
+        view.type === "table" && view.objectTypeKey ? relationshipFilterFields(model, view.objectTypeKey) : [],
+      );
       const filters = Array.from(query.entries())
         .filter(([key]) => key.startsWith("filter."))
         .flatMap(([key, value]) => {
           const separator = key.lastIndexOf(".");
           const field = key.slice("filter.".length, separator);
           const operator = key.slice(separator + 1);
-          return field && operator && (tableConfig?.filterFields ?? []).includes(field)
+          // A live list also filters by the two stamps without declaring them (0.16 AG4); a change set or
+          // publication records none.
+          const stamp = !changeSetId && !publicationId && ["createdAt", "updatedAt"].includes(field);
+          return field &&
+            operator &&
+            (stamp || relationships.has(field) || (tableConfig?.filterFields ?? []).includes(field))
             ? [{ field, operator, value }]
             : [];
         });

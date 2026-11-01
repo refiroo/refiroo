@@ -21,6 +21,7 @@ import type {
   ExportRequest,
   Job,
 } from "@/types";
+import { useRelationFilterNames } from "@/features/objects/RelationFilter";
 import { attributeName } from "@/model/fields";
 import { RELATED_FIELD_PREFIX } from "@/model/lookup";
 import { Choice } from "@/ui/Choice";
@@ -128,6 +129,18 @@ export function ExportDialog({
 
   const dated = types.some((type) => chosen.includes(type.key) && type.effectivePeriod);
   const filtered = start.filters && chosen.includes(start.filters.objectTypeKey) ? start.filters : undefined;
+  // A "has none under" filter names a record; its criterion needs the record's type (0.16 AG4).
+  const filterNames = useRelationFilterNames(
+    model,
+    start.filters?.objectTypeKey ?? "",
+    start.filters?.filters ?? [],
+    start.workspaceKey ?? workspaceKey,
+  );
+  const awaitingNames = Boolean(
+    filtered?.filters.some(
+      (filter) => (filter.operator === "under" || filter.operator === "notUnder") && !filterNames.has(filter.value),
+    ),
+  );
   // The page's scope is a criterion on its own type, as the page reads it: direct children only.
   const scoped = filtered && start.parentObjectId && belowParent ? start.parentObjectId : undefined;
   const context = start.changeSetId ? "the change set" : start.publicationId ? "the publication" : "live data";
@@ -145,7 +158,7 @@ export function ExportDialog({
             where:
               filtered?.objectTypeKey === type.key
                 ? [
-                    ...criteriaFromFilters(model, filtered.filters),
+                    ...criteriaFromFilters(model, filtered.filters, filterNames),
                     ...(scoped ? [{ field: "parentObjectId", op: "eq", value: scoped }] : []),
                   ]
                 : [],
@@ -304,7 +317,10 @@ export function ExportDialog({
           <button
             className="primary"
             disabled={
-              pending || !workspaceKey || (forPeople ? !columns.some((column) => column.shown) : !chosen.length)
+              pending ||
+              !workspaceKey ||
+              awaitingNames ||
+              (forPeople ? !columns.some((column) => column.shown) : !chosen.length)
             }
           >
             {pending ? "Starting…" : "Start export"}

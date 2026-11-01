@@ -25,7 +25,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, NoReturn
 
-from sqlalchemy import Select, and_, select
+from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import aliased
 
 from ...errors import ApiError, api_error
@@ -362,9 +362,30 @@ def _ancestor_predicate(
     ancestor_type_key = field.removeprefix(ANCESTOR_FIELD_PREFIX)
     if criterion.not_:
         _invalid("'not' applies to a related criterion only", f"{pointer}/not")
-    if ancestor_type_key not in ancestor_type_keys(model, object_type.key):
+    return _under_ancestor(
+        model, (object_type,), criterion, ancestor_type_key, pointer, workspace_key, context
+    )
+
+
+def _under_ancestor(
+    model: EngineModel,
+    object_types: Sequence[ObjectTypeDefinition],
+    criterion: QueryCriterion,
+    ancestor_type_key: str,
+    pointer: str,
+    workspace_key: str,
+    context: SnapshotContext | None,
+) -> SetFilter:
+    """The parent condition of ``ancestor:<type> eq <ID>`` over ``object_types``: the queried type,
+    or the types at the other end of a hop (AG4), whose parent column the caller applies it to."""
+    field = criterion.field or ""
+    reaching = [
+        item for item in object_types if ancestor_type_key in ancestor_type_keys(model, item.key)
+    ]
+    if not reaching:
+        names = ", ".join(f"'{item.key}'" for item in object_types)
         _invalid(
-            f"Object type '{object_type.key}' has no ancestor of type '{ancestor_type_key}'",
+            f"Object type {names} has no ancestor of type '{ancestor_type_key}'",
             f"{pointer}/field",
         )
     if criterion.op != "eq":
@@ -384,14 +405,19 @@ def _ancestor_predicate(
         )
         start = select(origin.c.object_id.label("id"))
     containers = _containers_below(
-        model, object_type.key, ancestor_type_key, start, workspace_key=workspace_key, context=context
+        model,
+        [item.key for item in reaching],
+        ancestor_type_key,
+        start,
+        workspace_key=workspace_key,
+        context=context,
     )
     return SetFilter("parent", lambda column: column.in_(containers))
 
 
 def _containers_below(
     model: EngineModel,
-    object_type_key: str,
+    object_type_keys: Sequence[str],
     ancestor_type_key: str,
     start: Select[Any],
     *,
@@ -399,14 +425,19 @@ def _containers_below(
     context: SnapshotContext | None,
 ) -> Select[Any]:
     """The ancestors ``start`` selects (as ``id``) and the containers below them of the types that
-    can stand between ``ancestor_type_key`` and ``object_type_key``: a record of that type is under
-    one of the ancestors when its parent is one of these."""
+    can stand between ``ancestor_type_key`` and any of ``object_type_keys``: a record of one of those
+    types is under one of the ancestors when its parent is one of these."""
     through = sorted(
-        key
-        for key in ancestor_type_keys(model, object_type_key)
-        if ancestor_type_key in ancestor_type_keys(model, key)
+        {
+            key
+            for object_type_key in object_type_keys
+            for key in ancestor_type_keys(model, object_type_key)
+            if ancestor_type_key in ancestor_type_keys(model, key)
+        }
     )
-    walk = start.cte("ancestor_descendants", recursive=True)
+    # Anonymous, so several ancestor criteria (a hop's types, repeated conditions) can stand in one
+    # statement.
+    walk = start.cte(recursive=True)
     if context is None:
         child = aliased(RdmObject, name="descendant")
         # UNION, not UNION ALL: a record met twice ends the walk, whatever the data holds. Each
@@ -489,7 +520,7 @@ def ancestor_field_sets(
             )
             start = select(others.c.object_id.label("id")).select_from(others).where(*predicates)
         containers = _containers_below(
-            model, object_type.key, ancestor_type_key, start, workspace_key=workspace_key, context=context
+            model, [object_type.key], ancestor_type_key, start, workspace_key=workspace_key, context=context
         )
         sets.append(SetFilter("parent", lambda column, containers=containers: column.in_(containers)))
     return sets
@@ -567,12 +598,28 @@ def _related_predicate(
         _invalid("A related criterion names no field, operator or value", f"{pointer}/related")
     targets = _binding_targets(model, object_type, hop.relationTypeKey, hop.direction, f"{pointer}/related")
     criteria = []
+    under: list[SetFilter] = []
     for index, nested in enumerate(hop.where):
         nested_pointer = f"{pointer}/related/where/{index}"
         if nested.related is not None:
             _invalid("A related criterion takes no further hop", f"{nested_pointer}/related")
         if nested.field is not None and nested.field.startswith(ANCESTOR_FIELD_PREFIX):
-            _invalid("A related criterion takes no ancestor criterion", f"{nested_pointer}/field")
+            # The related record sits under the ancestor (AG4): its parent is in the ancestor's
+            # containers, the same walk as the queried record's own ancestor criterion.
+            if nested.not_:
+                _invalid("'not' applies to a related criterion only", f"{nested_pointer}/not")
+            under.append(
+                _under_ancestor(
+                    model,
+                    targets,
+                    nested,
+                    nested.field.removeprefix(ANCESTOR_FIELD_PREFIX),
+                    nested_pointer,
+                    workspace_key,
+                    context,
+                )
+            )
+            continue
         criteria.append(_field_filter(model, targets, nested, nested_pointer, context))
     target_keys = sorted(item.key for item in targets)
     if context is None:
@@ -587,6 +634,7 @@ def _related_predicate(
                 other.workspace_key == workspace_key,
                 other.object_type_key.in_(target_keys),
                 *predicates,
+                *(item.predicate(other.parent_object_id) for item in under),
             )
         )
     else:
@@ -606,7 +654,7 @@ def _related_predicate(
             select(anchor)
             .select_from(relations)
             .join(others, others.c.object_id == far)
-            .where(*predicates)
+            .where(*predicates, *(item.predicate(others.c.parent_object_id) for item in under))
         )
     if criterion.not_:
         # NOT EXISTS, an anti-join, not NOT IN, a subplan hashed only while it fits in `work_mem`;
@@ -756,7 +804,9 @@ def list_relation_filters(
     (``true``: related to none, ``false``: to any), as conditions on the listed record's ID built by
     Q3's hop (D155, D156), so the list and the query mean the same in every context. Filters on one
     relationship are alternatives when they name records; different relationships combine with AND.
-    Anything else is ``INVALID_FILTER``.
+    ``.under=<record ID>`` keeps records with some related record under that ancestor record at any
+    depth, ``.notUnder=<record ID>`` those with none (AG4); each such entry must hold, and the hop
+    is Q3's ``ancestor:<type>`` criterion inside a hop. Anything else is ``INVALID_FILTER``.
     """
     if not filters:
         return RelationFilters(None, ())
@@ -778,11 +828,14 @@ def list_relation_filters(
                 " field of its records",
                 parameter,
             )
-        if operator not in {"eq", "isNull"}:
+        if operator not in {"eq", "isNull", "under", "notUnder"}:
             _invalid_filter(
-                f"Operator '{operator}' is not supported for relationship '{key}': eq or isNull",
+                f"Operator '{operator}' is not supported for relationship '{key}': eq, isNull,"
+                " under or notUnder",
                 parameter,
             )
+        if operator in {"under", "notUnder"} and not value.strip():
+            _invalid_filter(f"{operator} takes the ancestor record's ID", parameter)
         if operator == "isNull" and value not in {"true", "false"}:
             _invalid_filter(f"isNull takes true or false, not '{value}'", parameter)
         by_key.setdefault(key, []).append((operator, value))
@@ -803,11 +856,71 @@ def list_relation_filters(
             conditions.append(
                 _hop_condition(model, object_type, plain, flag == "true", workspace_key, context)
             )
+        for operator in ("under", "notUnder"):
+            for ancestor_id in sorted({value for name, value in items if name == operator}):
+                conditions.append(
+                    _under_condition(
+                        model,
+                        object_type,
+                        hop,
+                        ancestor_id,
+                        operator == "notUnder",
+                        workspace_key,
+                        context,
+                    )
+                )
 
     def id_filter(column: Any) -> Any:
         return and_(*(condition(column) for condition in conditions))
 
     return RelationFilters(id_filter, tuple(sorted((f, o, v) for f, o, v in filters)))
+
+
+def _under_condition(
+    model: EngineModel,
+    object_type: ObjectTypeDefinition,
+    hop: RelatedCriterion,
+    ancestor_id: str,
+    inverted: bool,
+    workspace_key: str,
+    context: SnapshotContext | None,
+) -> Callable[[Any], Any]:
+    """``.under`` (some related record under the ancestor record) or ``.notUnder`` (none), at any
+    depth (AG4). The list names the ancestor by ID alone, so the ancestor's type is whichever of the
+    related records' ancestor types it has: one hop per such type, each starting from the ID of
+    that type only, so the others select nothing. They combine as the set statements they are."""
+    targets = _binding_targets(
+        model, object_type, hop.relationTypeKey, hop.direction, "/filter/related"
+    )
+    ancestor_types = sorted(
+        {key for item in targets for key in ancestor_type_keys(model, item.key)}
+    )
+    if not ancestor_types:
+        _invalid_filter(
+            f"The records of relationship '{hop.relationTypeKey}' have no ancestors to be under",
+            "filter",
+        )
+    conditions = [
+        _hop_condition(
+            model,
+            object_type,
+            hop.model_copy(
+                update={
+                    "where": [
+                        QueryCriterion(
+                            field=f"{ANCESTOR_FIELD_PREFIX}{type_key}", op="eq", value=ancestor_id
+                        )
+                    ]
+                }
+            ),
+            inverted,
+            workspace_key,
+            context,
+        )
+        for type_key in ancestor_types
+    ]
+    combine = and_ if inverted else or_
+    return lambda column: combine(*(condition(column) for condition in conditions))
 
 
 def _hop_condition(

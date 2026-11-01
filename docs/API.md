@@ -1284,7 +1284,17 @@ combine with AND, and with the search and the other filters. An ID no record has
 Totals, positions and cursors hold, and a cursor binds the filter. Another operator, an unknown key,
 a key the type has no binding of or a field form (`related:<key>.<field>`) is `422 INVALID_FILTER`.
 The condition is the [model-aware query](#model-aware-query-base-09-q3)'s `related` hop, so the list
-and the query, and an export with that criterion, select the same records in every context. On the
+and the query, and an export with that criterion, select the same records in every context.
+
+_Added by AG4:_ `filter.related:<key>.under=<record ID>` keeps the records with some related record
+under that ancestor record, at any depth, and `filter.related:<key>.notUnder=<record ID>` those with
+none. The record is of a type the related records can stand under; each `under` or `notUnder` entry
+must hold, beside the others. In the query it is the hop's `where` with `{"field": "ancestor:<type>",
+"op": "eq", "value": <ID>}` (and `"not": true` for none), now accepted inside a hop, so an export says
+the same. An ID that names no record of such a type matches nothing for `under` and everything for
+`notUnder`. Live, in a change set and in a publication, as set statements in PostgreSQL. An empty ID is
+`422 INVALID_FILTER`. A live list also filters by `createdAt` and `updatedAt` whatever its view
+declares; a change set and a publication record neither, so a filter on them there is refused as before. On the
 0.1 volume fixture a 100-row page with its total took 11–26 ms live and in a publication and 32–54 ms
 in a change set.
 
@@ -6880,6 +6890,47 @@ and Use AI proposals in the workspace, and send level `values` (purpose `mapping
 - **Refusals before a job:** `403 FORBIDDEN` (`details.groups: ["ai-proposals"]`, or the change-set
   right), `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404 CHANGE_SET_NOT_FOUND`, `409
   CHANGE_SET_VERSION_CONFLICT`, `404 MAPPING_VIEW_NOT_FOUND`, `404 MAPPING_PARENT_NOT_FOUND`.
+
+### A question in words (AG4)
+
+`POST /api/v1/workspaces/{workspaceKey}/query-translations` turns a question about a table view into
+that view's own filters. It is answered directly, not as a job. The provider is sent the question,
+today's date and the list's fields with their labels, kinds and conditions: every relationship the
+listed type has in either direction (whether the view declares it in `filterFields` or not), the
+view's `filterFields` and, on a live list, `createdAt` and `updatedAt`. For a relationship it is sent
+the names of the types it reaches and the types its records can stand under and, at send level
+`samples` or `values`, also the record names of those types when they hold at most 50 records in the
+context asked about (`recordNames`, `ancestorNames`), so it can choose records by meaning ("above 30
+minutes" from "45 min"); it answers one `eq` filter per chosen record. At `structure`, or for a longer
+list, it is sent no record name, value or ID. The call record's `sendLevel` is the level in force.
+Purpose `queryTranslation`, offered at every level. It needs Browse in the workspace (or the change
+set's or publication's) and Use AI proposals.
+
+- **Body:** `applicationKey`, `viewKey` (a `table` view), `question` (1 to 500 characters), optional
+  `changeSetId` or `publicationId` (not both), optional `sendLevel`. The list is read in that context:
+  a change set offers no `createdAt` or `updatedAt`.
+- **Answer `200`:** `filters` (each `{field, operator, value}`, the list's own `filter.<field>.<operator>=<value>`;
+  a record named in words is its ID), `search` (words for the name search, possibly empty), `notExpressed`
+  (each `{part, reason}`) and `applied`. `applied` is false when any part is not expressed: the filters
+  and search are then only what could be built, and a client applies nothing without the person's say.
+- **A record named in words** is found by the engine in the database, in the context asked about,
+  among the types the condition takes (`eq` the types the relationship reaches, `under` and `notUnder`
+  the types its records can stand under): the exact name, ignoring case, first; otherwise the one
+  record whose name contains it. None, or several, is a part in `notExpressed` with the reason.
+- **Several `eq` filters on one relationship** mean any of those records (as `filter.related:<key>.eq`
+  repeated). The engine does not turn several name matches into that: a name that matches several
+  records is still a part in `notExpressed`; only the model may choose several from the names it was
+  sent.
+- **A sort**, who changed a record, or a field the list does not offer is a part in `notExpressed`.
+- **Refusals:** `403 FORBIDDEN` (`details.groups: ["ai-proposals"]`), `409 AI_NOT_CONFIGURED`, `409
+  AI_SEND_LEVEL_TOO_LOW`, `404 VIEW_NOT_FOUND`, `422 QUERY_TRANSLATION_VIEW_UNSUPPORTED`
+  (`details.viewType`: not a table view), `404 CHANGE_SET_NOT_FOUND`, `404 PUBLICATION_NOT_FOUND`, `422
+  WORKSPACE_CONTEXT_MISMATCH`.
+- **A failed call:** a provider that fails, an answer out of shape, a field or condition the list does
+  not offer, or a value the list's own validation refuses, is recorded as a failed call and answered
+  `502 QUERY_TRANSLATION_FAILED` with `details.callId`; nothing comes back to apply.
+- The call is in `GET /ai/calls` like any (`purpose` `queryTranslation`); no transaction is held while
+  the provider answers.
 
 ### Loading a workbook, or changing records, with the assistant
 

@@ -25,6 +25,22 @@ export function useWorkspaceAssistantOffer(): AiSystemInfo | undefined {
   return aiOffer(system?.ai, permissions, false);
 }
 
+/**
+ * The provider, when a question in words may be asked of a list (0.16 AG4): a provider is set and the
+ * person holds ai-proposals in this workspace. The question and the list's field names are the least
+ * a send level allows, so any level offers it; otherwise nothing, and nothing is drawn.
+ */
+export function useQueryTranslationOffer(): AiSystemInfo | undefined {
+  const { system } = useSystem();
+  const { permissions } = useWorkspaceData();
+  return queryTranslationOffer(system?.ai, permissions);
+}
+
+/** The rule alone: a provider is configured and ai-proposals is held. */
+export function queryTranslationOffer(ai: AiSystemInfo | undefined, permissions: MyPermissions | undefined) {
+  return ai?.configured && holds(permissions, "ai-proposals") ? ai : undefined;
+}
+
 /** The assistant's offer for a page outside the workspace data context, with the workspace's permissions. */
 export function useAssistantOfferIn(workspaceKey: string | undefined, permissions: MyPermissions | undefined) {
   const { system } = useSystem();

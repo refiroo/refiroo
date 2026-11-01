@@ -13,7 +13,7 @@ SendLevel = Literal["structure", "samples", "values"]
 class AiFeature(BaseModel):
     """A feature that asks the provider: whether it is offered, and the least it needs sent."""
 
-    purpose: Literal["mappingTarget"]
+    purpose: Literal["mappingTarget", "queryTranslation"]
     name: str
     needs: SendLevel
     available: bool
@@ -38,7 +38,14 @@ class AiCallResponse(BaseModel):
     id: str
     # A call keeps the purpose it was made for: ``modelNames`` (the inference's names, removed in
     # 0.16 AP6a) stays readable on the calls recorded before.
-    purpose: Literal["connectionTest", "mappingTarget", "workbookLoad", "assistantSession", "modelNames"]
+    purpose: Literal[
+        "connectionTest",
+        "mappingTarget",
+        "queryTranslation",
+        "workbookLoad",
+        "assistantSession",
+        "modelNames",
+    ]
     provider: str
     model: str
     sendLevel: SendLevel
@@ -102,3 +109,28 @@ class AiSystemInfo(BaseModel):
     sendLevel: SendLevel
     # Whether the assistant's session can run (``AI_AGENT_COMMAND``, AP8).
     assistant: bool = False
+
+
+class QueryTranslationFilter(BaseModel):
+    """One filter as the list takes it (``filter.<field>.<operator>=<value>``); a record named in
+    words is its ID."""
+
+    field: str
+    operator: str
+    value: str
+
+
+class QueryTranslationUnexpressed(BaseModel):
+    part: str = Field(description="The words of the question the list cannot express")
+    reason: str
+
+
+class QueryTranslationResponse(BaseModel):
+    """What a question became on a table view (0.16 AG4). ``applied`` is true when every part was
+    expressed; otherwise the client applies nothing, and ``filters`` and ``search`` are what could
+    be built, for the person to take or change."""
+
+    filters: list[QueryTranslationFilter]
+    search: str
+    notExpressed: list[QueryTranslationUnexpressed]
+    applied: bool

@@ -4996,6 +4996,72 @@ form.install-dialog .dialog-actions {
   padding-top: 12px;
   border-top: 1px solid var(--border-faint);
 }
+/* Asking in words (0.16 AG4): the Search | Ask switch beside the box, what the question became, and
+   what could not be said. A held-back filter is a dashed pill that does nothing. */
+.ask-switch {
+  display: flex;
+}
+.ask-status {
+  padding: 0 12px 10px;
+}
+.ask-status .notice p {
+  margin: 4px 0;
+}
+.ask-note {
+  margin: 0;
+  padding: 0 12px 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.ask-proposed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+.ask-proposed-label {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.filter-pill.proposed {
+  gap: 6px;
+  padding: 0 12px;
+  border-style: dashed;
+  background: transparent;
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .ask-switch .theme-choice {
+    width: 100%;
+  }
+  .ask-switch,
+  .ask-switch .theme-choice label {
+    flex: 1;
+    min-height: 44px;
+  }
+  .object-toolbar .search-box {
+    min-height: 44px;
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .object-toolbar .filter-pill,
+  .object-toolbar .filter-pill-open,
+  .object-toolbar .filter-add,
+  .ask-status button {
+    min-height: 44px;
+  }
+  .filter-pill.proposed {
+    min-height: 44px;
+  }
+  /* A pill says all of it on a phone: "has none under Webshop", not "has none un…". */
+  .object-toolbar .filter-pill-value,
+  .ask-proposed .filter-pill-value {
+    max-width: none;
+    white-space: normal;
+    text-align: left;
+  }
+}
 @media (max-width: 600px) {
   /* The editor as a bottom sheet over a dimmed page (D163). */
   .filter-popover {

@@ -296,7 +296,10 @@ _EXPAND = Query(
                     "the model-declared field type and filterable capability. A relationship "
                     "(0.9 K6): filter.related:<key>.eq=<record ID>, repeatable, keeps records "
                     "related to any of them; filter.related:<key>.isNull=true those related to "
-                    "none, =false those related to any."
+                    "none, =false those related to any; filter.related:<key>.under=<record ID> keeps "
+                    "records with some related record under that ancestor record at any depth, "
+                    ".notUnder=<record ID> those with none (each entry must hold). The same "
+                    "conditions apply in a change set or publication."
                 ),
                 "schema": {"type": "string"},
             }

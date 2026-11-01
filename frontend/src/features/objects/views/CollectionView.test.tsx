@@ -15,7 +15,7 @@ const render: typeof renderBase = ((ui: Parameters<typeof renderBase>[0], option
 
 vi.mock("@/api/client", () => ({
   ApiError: class ApiError extends Error {},
-  api: { objects: vi.fn(), object: vi.fn(), relationMatrix: vi.fn() },
+  api: { objects: vi.fn(), object: vi.fn(), relationMatrix: vi.fn(), system: vi.fn() },
 }));
 
 describe("CollectionView", () => {
@@ -23,6 +23,10 @@ describe("CollectionView", () => {
     vi.clearAllMocks();
     vi.mocked(api.objects).mockResolvedValue({ items: [domainObject], nextCursor: null });
     vi.mocked(api.object).mockResolvedValue(domainObject);
+    // No provider: the list's Ask switch (0.16 AG4) reads `GET /system` and is not drawn.
+    vi.mocked(api.system).mockResolvedValue({
+      ai: { configured: false, provider: null, sendLevel: "values" },
+    } as never);
   });
 
   it("uses one generic component with workspace and URL-derived query state", async () => {
@@ -86,6 +90,29 @@ describe("CollectionView", () => {
     expect(onQueryChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ filters: [{ field: "code", operator: "startsWith", value: "CLI" }] }),
     );
+  });
+
+  it("draws a filter on a relationship the view does not declare as a pill that can be removed", () => {
+    const onQueryChange = vi.fn();
+    render(
+      <CollectionView
+        model={testModel}
+        application={testModel.applications[0]}
+        view={testModel.applications[0].views[0]}
+        workspaceKey="west"
+        query={{
+          search: "",
+          sort: "name",
+          pageSize: 20,
+          filters: [{ field: "related:domain-contains-codelist", operator: "isNull", value: "true" }],
+        }}
+        onQueryChange={onQueryChange}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Contains: none. Change this filter" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove the Contains filter" }));
+    expect(onQueryChange).toHaveBeenLastCalledWith(expect.objectContaining({ filters: [] }));
   });
 
   it("clears search and typed filters together", () => {

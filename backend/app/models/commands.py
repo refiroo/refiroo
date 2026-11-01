@@ -189,6 +189,27 @@ class MappingReplacementRequest(BaseModel):
     expectedChangeSetVersion: int | None = Field(default=None, ge=1)
 
 
+class QueryTranslationRequest(BaseModel):
+    """Ask the AI provider what filters a question in words means on a table view (0.16 AG4):
+    ``changeSetId`` or ``publicationId`` reads the list in that context, otherwise it is live;
+    ``sendLevel`` a lower level than the instance's ceiling."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    applicationKey: str
+    viewKey: str
+    question: str = Field(min_length=1, max_length=500)
+    changeSetId: UUID4 | None = None
+    publicationId: UUID4 | None = None
+    sendLevel: Literal["structure", "samples", "values"] | None = None
+
+    @model_validator(mode="after")
+    def one_context(self) -> QueryTranslationRequest:
+        if self.changeSetId is not None and self.publicationId is not None:
+            raise ValueError("changeSetId and publicationId cannot be combined")
+        return self
+
+
 class MappingProposalRequest(BaseModel):
     """Ask the AI provider for targets for the unmapped sources of a mapping view, into a change
     set (0.16 AP2, AP2-D1): ``changeSetId`` with ``expectedChangeSetVersion``, or ``changeSetName``

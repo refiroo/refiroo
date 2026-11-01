@@ -555,7 +555,11 @@ def generated(variant: str) -> Configuration:
             "objectTypeKey": k[structure],
             "config": {
                 "columns": ["name", display],
-                "filterFields": [display],
+                # R's list also filters by the permits it is related to (J54: a relationship
+                # filter, including under an ancestor).
+                "filterFields": [display, f"related:{k['Bassoc']}"]
+                if structure == "R"
+                else [display],
                 "sortFields": ["name", display],
                 "defaultSort": "name",
                 "pageSize": 20,

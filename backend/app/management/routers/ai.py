@@ -5,20 +5,34 @@ which builds the context within the send level (AP-D3). The provider is set in t
 read at start; nothing here changes it, and the key is never answered.
 """
 
+from dataclasses import replace
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
 from ...config import get_settings
-from ...engine.proposals import calls
+from ...engine.model.registry import resolve_request_model
+from ...engine.proposals import calls, query_translation
+from ...engine.proposals.context import Policy
 from ...engine.proposals.provider import ProposalRequest
+from ...engine.reads.snapshot_reads import change_set_context, publication_context
 from ...errors import api_error
+from ...models.commands import QueryTranslationRequest
 from ...models.database import AiCall
-from ..access import INSTANCE, AuthorizedRoute, requires
-from ..ai import configuration
+from ..access import INSTANCE, QUERY_TRANSLATION, AuthorizedRoute, requires
+from ..ai import ai_requested, configuration
 from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..projections import ai as present
-from ..schemas.ai import AiCallPage, AiCallResponse, AiStatusResponse
+from ..schemas.ai import (
+    AiCallPage,
+    AiCallResponse,
+    AiStatusResponse,
+    QueryTranslationFilter,
+    QueryTranslationResponse,
+    QueryTranslationUnexpressed,
+)
 
 router = APIRouter(route_class=AuthorizedRoute, prefix="/api/v1", tags=["ai"])
 
@@ -87,3 +101,90 @@ def test_ai_provider(
     )
     session.commit()
     return present.call_response(session, recorded[0])
+
+
+@router.post(
+    "/workspaces/{workspace_key}/query-translations", response_model=QueryTranslationResponse
+)
+@requires("records.read", at=QUERY_TRANSLATION)
+def post_query_translation(
+    workspace_key: str,
+    body: QueryTranslationRequest,
+    request: Request,
+    principal: CurrentPrincipal,
+    session: DbSession,
+) -> QueryTranslationResponse:
+    """Turn a question in words into the filters of a table view, answered directly (0.16 AG4).
+
+    The provider is sent the question, today's date and the list's fields, conditions and
+    relationships with their labels. At send level ``samples`` or ``values`` it is also sent the
+    record names of a relationship's types when they hold at most 50 records in the context asked
+    about, so it can choose records by meaning; at ``structure`` it is sent no record value. The answer is
+    the list's own filters, a search text and the parts of the question the list cannot express; a
+    record named in words is its ID, found in the database in the context asked about, or the part
+    is not expressed. With any part not expressed ``applied`` is false: a client applies nothing.
+    The fields it may use are every relationship the listed type has, the view's ``filterFields``,
+    and on a live list ``createdAt`` and ``updatedAt``. Requires Browse and Use AI proposals in the workspace. Refused: ``403 FORBIDDEN``,
+    ``409 AI_NOT_CONFIGURED``, ``409 AI_SEND_LEVEL_TOO_LOW``, ``404 VIEW_NOT_FOUND``, ``422
+    QUERY_TRANSLATION_VIEW_UNSUPPORTED`` (not a table view), ``404 CHANGE_SET_NOT_FOUND``, ``404
+    PUBLICATION_NOT_FOUND``. A provider that fails, answers out of shape, or answers with a field or
+    condition the list does not take is a recorded failed call: ``502 QUERY_TRANSLATION_FAILED``
+    (``details.callId``), with nothing applied."""
+    ai_requested(
+        request, "queryTranslation", True, workspace_key=workspace_key, send_level=body.sendLevel
+    )
+    change_set_id = str(body.changeSetId) if body.changeSetId else None
+    publication_id = str(body.publicationId) if body.publicationId else None
+    snapshot = resolve_request_model(session, workspace_key, change_set_id, publication_id)
+    ai = configuration(request)
+    if body.sendLevel is not None:
+        ai = replace(ai, policy=Policy(body.sendLevel, ai.policy.samples))
+    context = (
+        change_set_context(session, change_set_id)
+        if change_set_id
+        else publication_context(session, publication_id)
+        if publication_id
+        else None
+    )
+    prepared = query_translation.prepare(
+        snapshot.model,
+        body.applicationKey,
+        body.viewKey,
+        body.question,
+        live=not (change_set_id or publication_id),
+        today=datetime.now(UTC).date(),
+    )
+    # At samples or values a short list's record names are read, in this transaction, in one
+    # statement per type set; at structure none is.
+    prepared = query_translation.with_names(
+        session, prepared, ai.policy, workspace_key=snapshot.workspace_key, context=context
+    )
+    requester = calls.Requester(
+        principal.row_id if principal.kind == "user" else None,
+        principal.row_id if principal.kind == "client" else None,
+    )
+    # The provider can take seconds: no transaction is held while it answers (J48.8).
+    session.commit()
+    translation = query_translation.finish(
+        session,
+        ai,
+        prepared,
+        snapshot.model,
+        workspace_key=snapshot.workspace_key,
+        context=context,
+        application_key=body.applicationKey,
+        requester=requester,
+    )
+    session.commit()
+    return QueryTranslationResponse(
+        filters=[
+            QueryTranslationFilter(field=item.field, operator=item.operator, value=item.value)
+            for item in translation.filters
+        ],
+        search=translation.search,
+        notExpressed=[
+            QueryTranslationUnexpressed(part=item.part, reason=item.reason)
+            for item in translation.not_expressed
+        ],
+        applied=translation.applied,
+    )

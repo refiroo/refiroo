@@ -8,6 +8,7 @@ export function SearchField({
   label = "Search",
   placeholder,
   clearOnEscape = false,
+  onSubmit,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -15,6 +16,8 @@ export function SearchField({
   placeholder: string;
   /** Escape empties a non-empty box instead of reaching the page. */
   clearOnEscape?: boolean;
+  /** Enter sends the words (a question to ask, 0.16 AG4); nothing is sent as the person types. */
+  onSubmit?: (value: string) => void;
 }) {
   return (
     <label className="search-box">
@@ -24,11 +27,14 @@ export function SearchField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={
-          clearOnEscape
+          clearOnEscape || onSubmit
             ? (event) => {
-                if (event.key === "Escape" && value) {
+                if (clearOnEscape && event.key === "Escape" && value) {
                   event.preventDefault();
                   onChange("");
+                } else if (onSubmit && event.key === "Enter" && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  onSubmit(value);
                 }
               }
             : undefined

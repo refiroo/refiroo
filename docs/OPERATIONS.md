@@ -861,7 +861,7 @@ offered.
 | `AI_MODEL` | empty | The model asked. Empty with `claude` means `claude-opus-5-5`; required with `openai-compatible` |
 | `AI_API_KEY` | empty | The provider's key; required with `claude`, optional with `openai-compatible`. Read from the environment only, never stored in the database, never shown or answered |
 | `AI_BASE_URL` | empty | The provider's address: required with `openai-compatible` (for example `http://models.internal:8080/v1`); with `claude`, empty for Anthropic's own API or a gateway's address |
-| `AI_SEND_LEVEL` | `values` | The most that may leave the instance: `structure` (keys, names, headers and types; no value), `samples` (also values, at most `AI_SAMPLE_VALUES` per column or attribute) or `values` (as many values as a feature needs: an agent reads as much of a file as its task needs, 0.16 AP-D14). A feature needing more than the level is not offered |
+| `AI_SEND_LEVEL` | `values` | The most that may leave the instance: `structure` (keys, names, headers and types; no value), `samples` (also values, at most `AI_SAMPLE_VALUES` per column or attribute) or `values` (as many values as a feature needs: an agent reads as much of a file as its task needs, 0.16 AP-D14). A feature needing more than the level is not offered; a question in words (0.16 AG4) needs only `structure` and is offered at every level; at `samples` or `values` it also sends the record names of a relationship's types when they hold at most 50 records in the list's context, at `structure` none |
 | `AI_SAMPLE_VALUES` | 20 | At send level `samples`, the most values per column or attribute, that are sent; no limit at `values`. Replaces `INFERENCE_ASSISTANT_ROWS` |
 | `AI_MIN_CONFIDENCE` | 0.5 | The provider's confidence, 0 to 1, below which a proposal is not offered |
 | `AI_LOG_CONTENT` | off | Keep each call's request and answer with its record, for an operator debugging a prompt. They hold reference data: switch it on only while needed |
@@ -904,7 +904,7 @@ offered.
   when its sources have keys; the task says why when it cannot (`result.profileNotSaved`). Unused model
   releases the session installed are retired when its task ends, and a session may not write a model draft
   another task holds.
-- **What is sent** is built in one place and held to `AI_SEND_LEVEL`. For mapping targets (needs `values`): the names and the view's displayed fields of
+- **What is sent** is built in one place and held to `AI_SEND_LEVEL`. For a question in words (needs `structure`): the question, today's date and the list's fields, conditions and relationships with their labels and the names of the types they reach, never a record name, value or ID; the record a question names is found in the database after the answer. For mapping targets (needs `values`): the names and the view's displayed fields of
   the unmapped sources, 25 per call, and of their candidate targets (all eligible targets up to 100,
   otherwise each source's 20 closest by name). Reference data is treated as data: the instructions tell the model not to follow
   text found in it, and nothing it answers is applied unasked.

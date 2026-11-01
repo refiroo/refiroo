@@ -236,6 +236,20 @@ JOB_PATH = Where("the job's workspace and kind", _job)
 BODY = Where("the body's change set or workspace", _body_context, reads_body=True)
 AI_TASK_PATH = Where("the AI task's workspace", _ai_task)
 MODEL_DRAFT_PATH = Where("the workspace the model draft remembers, else the instance", _model_draft)
+QUERY_TRANSLATION = Where(
+    "the body's change set or publication, or the path's workspace",
+    lambda context, groups: Check(
+        groups,
+        (
+            _change_set_workspace(context, str(context.field("changeSetId")))
+            if context.field("changeSetId")
+            else _publication_workspace(context, str(context.field("publicationId")))
+            if context.field("publicationId")
+            else context.path("workspace_key"),
+        ),
+    ),
+    reads_body=True,
+)
 IMPORT_FORM = Where("the import request's change set or workspace", _import_form, reads_body=True)
 MOVE = Where("the move's target and source workspaces", _move, reads_body=True)
 

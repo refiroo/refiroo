@@ -5,24 +5,36 @@
  * the bulk actions and Export all read it: "is any of" is one `eq` entry per chosen record, "has
  * none" and "has any" one `isNull` entry. The address keeps the records' IDs; their names are read
  * back by ID for the pill (D157). Its editor is the filter bar's (K6a, `filters/FilterBar`).
+ *
+ * Two more conditions name a record by ID too (0.16 AG4): "has none under" and "has any under" keep
+ * the records with no related record, or some, standing below that record at any depth (`notUnder`
+ * and `under`). One entry each; the record is of a type the related records can stand under.
  */
 
 import { useEffect, useState } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
-import { relatedTargetTypes } from "@/model/lookup";
+import { relatedAncestorTypes, relatedTargetTypes } from "@/model/lookup";
 import type { CollectionFilter, EngineModel } from "@/types";
 import type { ChosenRecord } from "@/ui/RecordListField";
 
-type Mode = "any" | "none" | "some";
+export type RelationMode = "any" | "none" | "some" | "notUnder" | "under";
 
-const MODE_LABELS: Record<Mode, string> = { any: "is any of", none: "has none", some: "has any" };
+const MODE_LABELS: Record<RelationMode, string> = {
+  any: "is any of",
+  none: "has none",
+  some: "has any",
+  notUnder: "has none under",
+  under: "has any under",
+};
 
 export interface NamedRecord extends ChosenRecord {
   objectTypeKey: string;
 }
 
 /** What a relationship filter's entries ask. */
-export function relationFilterMode(entries: readonly CollectionFilter[]): Mode {
+export function relationFilterMode(entries: readonly CollectionFilter[]): RelationMode {
+  const under = entries.find((entry) => entry.operator === "under" || entry.operator === "notUnder");
+  if (under) return under.operator as "under" | "notUnder";
   const flag = entries.find((entry) => entry.operator === "isNull");
   if (flag) return flag.value === "true" ? "none" : "some";
   return "any";
@@ -31,13 +43,21 @@ export function relationFilterMode(entries: readonly CollectionFilter[]): Mode {
 /** The chip's words: "is any of Alpha, Bravo", "has none", "has any". */
 export function relationFilterText(entries: readonly CollectionFilter[], names: ReadonlyMap<string, NamedRecord>) {
   const mode = relationFilterMode(entries);
+  if (mode === "under" || mode === "notUnder")
+    return `${MODE_LABELS[mode]} ${names.get(entries[0].value)?.name ?? "…"}`;
   if (mode !== "any") return MODE_LABELS[mode];
   const chosen = entries.map((entry) => names.get(entry.value)?.name ?? "…");
   return `${MODE_LABELS.any} ${chosen.join(", ")}`;
 }
 
 /** The entries a relationship filter stores for a mode and the chosen records. */
-export function relationFilterEntries(field: string, mode: Mode, chosen: readonly ChosenRecord[]): CollectionFilter[] {
+export function relationFilterEntries(
+  field: string,
+  mode: RelationMode,
+  chosen: readonly ChosenRecord[],
+): CollectionFilter[] {
+  if (mode === "under" || mode === "notUnder")
+    return chosen.length ? [{ field, operator: mode, value: chosen[0].id }] : [];
   if (mode === "none") return [{ field, operator: "isNull", value: "true" }];
   if (mode === "some") return [{ field, operator: "isNull", value: "false" }];
   return chosen.map((record) => ({ field, operator: "eq", value: record.id }));
@@ -54,16 +74,26 @@ export function useRelationFilterNames(
   workspaceKey?: string,
 ): ReadonlyMap<string, NamedRecord> {
   const api = useDataApi();
-  const wanted = filters.filter((filter) => filter.field.startsWith("related:") && filter.operator === "eq");
-  const signature = JSON.stringify(wanted.map((filter) => [filter.field, filter.value]));
+  const wanted = filters.filter(
+    (filter) => filter.field.startsWith("related:") && ["eq", "under", "notUnder"].includes(filter.operator),
+  );
+  const signature = JSON.stringify(wanted.map((filter) => [filter.field, filter.value, filter.operator]));
   const [names, setNames] = useState<{ of: string; map: Map<string, NamedRecord> }>();
   useEffect(() => {
-    const pairs = JSON.parse(signature) as [string, string][];
+    const pairs = JSON.parse(signature) as [string, string, string][];
     if (!pairs.length) return;
     let cancelled = false;
     const ids = [...new Set(pairs.map(([, id]) => id))];
+    // A record named by eq is of a type at the other end; one named by under is of a type above it.
     const types = [
-      ...new Set(pairs.flatMap(([field]) => relatedTargetTypes(model, objectTypeKey, field).map((type) => type.key))),
+      ...new Set(
+        pairs.flatMap(([field, , operator]) =>
+          (operator === "eq"
+            ? relatedTargetTypes(model, objectTypeKey, field)
+            : relatedAncestorTypes(model, objectTypeKey, field)
+          ).map((type) => type.key),
+        ),
+      ),
     ];
     Promise.all(
       types.map((type) =>

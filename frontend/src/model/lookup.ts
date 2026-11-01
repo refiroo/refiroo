@@ -3,6 +3,7 @@
  * panel, or a bulk change of a selection, may offer for an object type.
  */
 
+import { ancestorObjectTypeKeys } from "@/model/placements";
 import type {
   EngineModel,
   ObjectTypeDefinition,
@@ -175,6 +176,26 @@ export function relatedColumn(model: EngineModel, field: string): RelatedColumn 
   };
 }
 
+/**
+ * `related:<key>` of every relationship the type has, in either direction: the relation's key where
+ * the type is at the `from` end of a binding, its reverse key where it is at the `to` end. The list
+ * filters by any of them whether or not the view declares it (0.16 AG4).
+ */
+export function relationshipFilterFields(model: EngineModel, objectTypeKey: string): string[] {
+  const fields = model.relationTypes.flatMap((relation) => {
+    const bindings = model.objectTypeRelations.filter((binding) => binding.relationTypeKey === relation.key);
+    return [
+      ...(bindings.some((binding) => binding.fromObjectTypeKey === objectTypeKey)
+        ? [`${RELATED_FIELD_PREFIX}${relation.key}`]
+        : []),
+      ...(relation.reverseKey && bindings.some((binding) => binding.toObjectTypeKey === objectTypeKey)
+        ? [`${RELATED_FIELD_PREFIX}${relation.reverseKey}`]
+        : []),
+    ];
+  });
+  return [...new Set(fields)];
+}
+
 /** The object types at the other end of a `related:<key>` field for records of `objectTypeKey`. */
 export function relatedTargetTypes(model: EngineModel, objectTypeKey: string, field: string): ObjectTypeDefinition[] {
   const column = relatedColumn(model, field);
@@ -187,6 +208,17 @@ export function relatedTargetTypes(model: EngineModel, objectTypeKey: string, fi
         : relation.toObjectTypeKey === objectTypeKey,
     )
     .map((relation) => (column.direction === "outgoing" ? relation.toObjectTypeKey : relation.fromObjectTypeKey));
+  return [...new Set(keys)].flatMap((key) => objectTypeFor(model, key) ?? []);
+}
+
+/**
+ * The object types the records of a `related:<key>` field can stand under, at any depth (0.16 AG4):
+ * what "has none under" and "has any under" choose a record of. None where the records stand at the top.
+ */
+export function relatedAncestorTypes(model: EngineModel, objectTypeKey: string, field: string): ObjectTypeDefinition[] {
+  const keys = relatedTargetTypes(model, objectTypeKey, field).flatMap((type) =>
+    ancestorObjectTypeKeys(model, type.key),
+  );
   return [...new Set(keys)].flatMap((key) => objectTypeFor(model, key) ?? []);
 }
 
