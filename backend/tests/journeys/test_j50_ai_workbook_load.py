@@ -1302,7 +1302,7 @@ def test_every_turn_of_a_session_leaves_one_call_with_its_tokens_and_cost(
 
     # A worker that died leaves a log and its process record; the next turn writes its call.
     folder = Path(files.directory) / "agent" / task["id"]
-    (folder / "dead.log").write_text(
+    (folder.parent / f"{task['id']}.dead.log").write_text(
         json.dumps(
             {
                 "type": "assistant",
@@ -1318,7 +1318,7 @@ def test_every_turn_of_a_session_leaves_one_call_with_its_tokens_and_cost(
             "agentProcess": {
                 "pid": 2**22 + 1,
                 "session": "gone",
-                "log": "dead.log",
+                "log": f"{task['id']}.dead.log",
                 "startedAt": (datetime.now(UTC) - timedelta(minutes=5)).isoformat(),
                 "job": None,
             },
@@ -1747,3 +1747,91 @@ def test_a_release_the_session_installed_and_nothing_uses_is_retired_when_the_ta
     assert status[f"{version}-used"] == "active" and status[f"{version}-unused"] == "retired"
     used = ok(world.api.get(f"/change-sets/{settings['changeSet']}"))["modelReleaseId"]
     assert ok(world.api.get(f"/model-releases/{used}"))["version"] == f"{version}-used"
+
+
+# --- AP11: a session's log lies beside its folder ---------------------------------------------------
+
+
+@pytest.mark.journey("J50.44")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_sessions_folder_holds_no_log_and_a_discarded_task_leaves_neither(
+    world, tmp_path, monkeypatch
+):
+    """Given a session turn on the test command, when it runs, then the folder holds the workbook,
+    model and OpenAPI and no log, the turn is in the call record, and a discarded task leaves
+    neither the folder nor the log."""
+    ledgers = Ledgers(world)
+    settings = _assistant(world, tmp_path, monkeypatch, ledgers.workspace)
+    files = world.api.client.app.state.job_worker.files
+    task = ok(_create(world, ledgers.workspace, ledgers.book()), 202)
+    _run(world)
+    task = _task(world, task)
+    assert task["state"] == "checked"
+    seen = json.loads(Path(settings["log"]).read_text().splitlines()[0])["files"]
+    assert {"workbook.xlsx", "model.json", "openapi.json"} <= set(seen)
+    assert not [name for name in seen if name.endswith(".log")]
+    root = Path(files.directory) / "agent"
+    folder = root / task["id"]
+    assert folder.is_dir() and not list(folder.glob("*.log"))
+    assert [c["outcome"] for c in _all(world, "/ai/calls") if c.get("taskId") == task["id"]] == [
+        "answered"
+    ]
+    ok(world.api.post(f"/ai/tasks/{task['id']}/discard", {}), 200)
+    assert not folder.exists() and not list(root.glob(f"{task['id']}.*"))
+
+
+@pytest.mark.journey("J50.45")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_turn_a_worker_stopped_in_is_recorded_from_its_log_in_the_new_place(
+    world, tmp_path, monkeypatch
+):
+    """Given a worker stopped during a turn, when the job comes back, then the turn is recorded as
+    interrupted from its log, which lies beside the session's folder."""
+    from app.db import SessionLocal
+    from app.engine.tasks import agent
+
+    ledgers = Ledgers(world)
+    _assistant(world, tmp_path, monkeypatch, ledgers.workspace)
+    files = world.api.client.app.state.job_worker.files
+    task = ok(_create(world, ledgers.workspace, ledgers.book()), 202)
+    _run(world)
+    task = _task(world, task)
+    assert task["state"] == "checked"
+    name = f"{task['id']}.session-dead.log"
+    folder = Path(files.directory) / "agent" / task["id"]
+    (folder.parent / name).write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {"id": "m9", "usage": {"input_tokens": 7, "output_tokens": 3}},
+            }
+        )
+        + "\n"
+    )
+    with SessionLocal() as session:
+        row = agent.load_task(session, task["id"], for_update=True)
+        row.design = {
+            **row.design,
+            "agentProcess": {
+                "pid": 2**22 + 1,
+                "session": "gone",
+                "log": name,
+                "startedAt": (datetime.now(UTC) - timedelta(minutes=5)).isoformat(),
+                "job": None,
+            },
+        }
+        session.commit()
+    ok(
+        world.api.post(
+            f"/ai/tasks/{task['id']}/model",
+            {"expectedVersion": task["version"], "correction": "Again"},
+        ),
+        202,
+    )
+    _run(world)
+    [died] = [
+        c
+        for c in _all(world, "/ai/calls")
+        if c.get("taskId") == task["id"] and c["failureKind"] == "interrupted"
+    ]
+    assert died["outcome"] == "failed" and (died["tokensIn"], died["tokensOut"]) == (7, 3)

@@ -90,7 +90,7 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
 | [AP8](#ap8-the-assistant-is-a-claude-code-session) | AP1 | **Built.** A few words and a workbook go to a Claude Code session; proposal, the person's words, then install and load into a change set |
 | [AP9](#ap9-who-did-it) | AP8 | **Built.** Provenance on a session's changes, one client per session, the call record, retention |
 | [AP10](#ap10-one-path) | AP8 | **Delivered 2026-10-31.** One switch, the old design removed, a saved profile from a load, updating from a file, the session's leftovers, the proposal page, the documents |
-| [AP11](#ap11-good-models-in-time) | AP8 | Model shape from the same words, and the time limits |
+| [AP11](#ap11-good-models-in-time) | AP8 | Model shape from the same words, and the time limits. **Fixes built 2026-11-01; the time limits are not met** |
 | [AP12](#ap12-reshaping-and-asking-from-the-workspace) | AP8, WM1 | Moving records between types through a session, and "Change this model…" from the workspace |
 | [AP13](#ap13-acceptance-on-real-files-ap-d22) | AP9–AP12 | The remaining real-file tries, judged by the user |
 | [AG1](#ag1-the-server-and-its-authority) | 0.12 | The MCP endpoint, its setting, sign-in with the existing OAuth, audit channel, the agent role, Settings › Agent access |
@@ -677,6 +677,93 @@ Unit tests for the key's validation in `check_profile`. `AiTaskPage.test` and `A
   failed try.
 
 ### AP12: Reshaping, and asking from the workspace
+#### AP11 in detail (planned 2026-11-01, for approval)
+
+Model shape is built; this plan is the rest: the time limits. **Requirement served:** "a few words + workbook → the model and the import", within 1 to 2 minutes for a workbook like Timetables and 5 at most for a complex one, without the person's wait. Reached from the existing task page; no other capability calls it. No screen changes, so no mock-up.
+
+**Where the time goes (read from the session logs still on disk and `ai_calls`, `jobs`; no new AI run):**
+
+| Run | Total | Model generating | Engine jobs | Output tokens |
+| --- | --- | --- | --- | --- |
+| Timetables, `agent/2`, task 6dbb584b | 660 s | 550 s | not summed for this run; all commands 95 s | 68,438 |
+| Tariff File update, `agent/2`, task a2108859 | 351 s | 314 s | 7 s dry run; all commands 38 s | 41,008 |
+| Timetables, `agent/3`, `ap-full-2`, proposal | 818 s | log removed by the load | 33 s, 13 dry runs | 81,394 |
+| The same, load | 81 s | log removed | 14 s | 5,778 |
+
+- **The engine is not the bottleneck, and set work is not sent row by row.** Every load was one import job: Timetables 14 to 16 s, Tariff File 20,039 items 21 s. The `atomic` refusal at 10,000 items cost 1 s each, twice, then `independent`. **Decided:** no engine change to imports or the limit.
+- **Time follows output tokens,** at 124 to 130 tokens a second. So 120 s is about 15,000 tokens, against 41,000 to 81,000 now. In run 6dbb584b about 20,000 tokens are visible (estimated from 66,000 characters), so most are likely thinking, which the stream does not show. That is inferred, not measured.
+- **The API does not describe the model language.** `ModelDocumentRequest.model` is an open object in the OpenAPI document, though `EngineModel` has a 31 KB schema in the code. Run 6dbb584b searched the OpenAPI text and probed the validator from 142 s to 376 s (234 s, 35% of the run), including a binding feature named `bogus` that came back valid. It concluded the filter "could not be expressed", which the engine can do. Under the API-first invariant this is a defect, whatever the assistant.
+- **Walls in the session's environment.** Python cannot open a socket in the sandbox, only curl can: in run 6dbb584b one probe waited 40.7 s and the session then moved to curl; the other two logs do not show it. Two of the three logs start by reading the session's own log file in the folder. Another session tried to read the engine's source and the sandbox refused it, as it should.
+- **Not known:** how much of this `agent/3` removed, as it names the filter's syntax, yet its run was slower and its log is gone.
+
+**The work:**
+
+1. **The model language in the API.** The `model` field of model requests and responses in the OpenAPI document names `EngineModel` and its definitions. Only the document changes: at runtime the field stays an open object, so a wrong model still gets the compiler's diagnostics with their JSON pointers, not a generic 422. Rules a schema cannot state ("not filterable") stay in the validator. **Decided:** `extra="allow"` and open `features` stay as they are, so `bogus` still passes; tightening them could refuse existing models, and it is not what costs the time.
+2. **The session's environment.** The log moves out of the session's folder, beside it, and retention removes it with the folder (AP-D37); the interrupted-turn record reads it there. Prompt `agent/4` gains two facts in its connection sentence, not instructions on how to work: the network is reached with curl, and the model's language is `components.schemas.EngineModel` in `openapi.json`. Nothing else is added to the prompt.
+3. **Each turn's split.** The worker logs one line per turn: total, model (`duration_api_ms`) and jobs seconds. No migration and no API change. The figures go in the usage log, as a load removes the folder and its log.
+4. **Tries, each announced and run without a stop.** Fresh scratch workspaces, the user's words, none published, each logged. `ai_calls.prompt_version = agent/4` is the proof the server runs the new code (AP10's old-code mistake).
+
+| Try | File | Command | Why |
+| --- | --- | --- | --- |
+| 1 | Timetables | as now, `claude --model sonnet` | The 1 to 2 minute limit |
+| 2 | Tariff File | as now | The 5-minute limit |
+
+Two sessions with their loads, about $6 at API prices going by the runs so far. **Lower effort or a smaller model is not tried (the user, 2026-11-01):** they trade the result's quality for speed. **Higher effort is not used either (the user, 2026-11-01):** sessions run at Sonnet 5.5's default, medium, as restricted mode ignores settings files. One `--effort high` try with the same words on Timetables was stopped at 706 s, having written its first model at 693 s, before any dry run; the medium run 6dbb584b wrote its model at 397 s. One run, so not proof, and no second one is planned.
+
+**A try counts only if the result holds:** 0 rejected; every filled cell compared with the change set, 0 wrong; Timetables has the station and driver types, the filter the words ask for, and category translations on the categories; Tariff File finds its next file by its key. A faster run that loses these is reported as such, not used.
+
+**If no try meets the limits:** AP11 stops there and is recorded as not met, with the figures and the cause, and the user decides. No further runs (one measure, then ask). The fixes above remove at most about 235 s of a 660 s run, so **they are not expected to meet the limits alone**. The report then says where the remaining tokens went, from the tries' logs (the rounds of dry-run fixes took about 235 s of that run), and what could shorten them without lowering the model.
+
+**Journey cases (for approval, J50):**
+
+- **J50.43 The model language is in the API.** Given the API's OpenAPI document, when a client reads a model draft's `model`, then it finds the definitions of types, relations and a binding's candidates; a model it writes from them with a candidate filter validates; a field no definition names in `candidates` is refused with its pointer, on two model configurations.
+- **J50.44 A session's folder holds no log.** Given a session turn on the test command, when it runs, then the folder holds the workbook, model and OpenAPI and no log, the turn is in the call record, and a discarded task leaves neither.
+- **J50.45 A worker that stopped.** Given a worker stopped during a turn, when the job comes back, then the turn is recorded as interrupted from its log in the new place.
+
+Unit tests: none beyond these; the split's line has no edge cases that are not covered by `_Progress`'s.
+
+**Checks:** J50, `contract` with the OpenAPI lock (re-baselined, diff read for AP11's additions only), `test_boundaries`, Ruff on the named files, the frontend production build. **Migration:** none. **Door check (ADR-032):** none affected.
+
+**Working beside other sessions:** AP11 holds `_connection`, the log's path and `_record_turn` in `agent.py`. AP12 also touches the session's flow, so they do not overlap in a window. `pytest` runs go one at a time; commits hold AP11's hunks only.
+
+**What the user cannot do after AP11:** rely on the same structure from the same words, which still varies by design; have reshaping within the limits (AP12); see the time split in Settings › AI, as it is a log line and the usage log.
+
+#### AP11 record (2026-11-01)
+
+**The time limits are not met.** The fixes are built and the results hold, but the time did not move; AP11 stays open for the user's decision. Sonnet at medium, prompt `agent/4`, the user's words, fresh workspaces, none published.
+
+| Try | Proposal + load | Limit | Model generating, proposal | Engine jobs | Output tokens, proposal | Cost at API prices | Earlier run |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Timetables, `ap11-mot` | 821 + 66 = 887 s | 120 s | 699 of 811 s | 26 + 13 s | 86,395 | $2.79 + $0.43 | 817 + 80 s, `agent/3` |
+| Tariff File, `ap11-price` | 384 + 66 = 450 s | 300 s | 321 of 378 s | 33 + 22 s | 39,065 | $1.22 + $0.26 | 324 + 76 s, `agent/2` |
+
+**Where Timetables' time went:** the first model at 334 s (397 s in run 6dbb584b, an older prompt), compiled at 394 s; then 14 dry runs to 789 s, about 395 s, 9 of them with rejected rows, as it added the sources sheet by sheet. **So the time moved from working out the syntax to the rounds of fixing a load,** and these are mostly the model's own generation: the jobs took 26 s. One run each, and such runs vary.
+
+**The results:** 0 rejected on both. Timetables: 2,138 records and 2,466 relationships; 107 category translations on the categories and 1,500 on the types. Tariff File: 10,386 records and 9,670 relationships, profile saved. Every filled cell of the columns each profile reads was looked for in the change set: Timetables 10,429, Tariff File 12,180, 0 not found. **That check is weaker than the plan's:** it finds a value in the change set, not on its own record, and on Tariff File it misses repeated headings such as `Currency #2`, so those columns are not compared.
+
+**Not met from the words on Timetables:** the field filter is fixed to the reserved slots group and does not narrow to the slot's own category, raised as a question; stations and drivers have relations and filters, but their groups were not created, so the filters name groups that do not exist, also raised. The earlier run had built them as empty types. **Not exercised:** Tariff File finding its next file by its key, which needs publishing; the per-turn log line in a real run's output.
+
+**Decided:** both try workspaces stay as unpublished scratch, as earlier tries' do.
+
+**Built (items 1 to 3 of "The work").**
+1. `model` in the model requests and responses names `EngineModel` (`ModelDocumentRequest`,
+   `ModelDraftCreate`, `ModelDraftUpdate`, `ModelDraftResponse`, `ModelDraftModelResponse`,
+   `ModelCompilationResponse`, `ModelReleaseResponse`) through `ModelDocument` in
+   `app/management/schemas/model.py`, a JSON-schema annotation only: the field is still `dict[str, Any]` when
+   validated, `extra="allow"` and open `features` unchanged. The lock gains `EngineModel` and its 34
+   definitions in `components.schemas` and changes the `model` property of the two schemas the locked
+   (model-management off) document holds; no path, no other schema changed, no name collision.
+2. `agent/4`: the session's log is `agent/<task>.session-<id>.log`, beside the folder; `agentProcess.log` and
+   `_record_interrupted` read it there, `remove_folder` and `sweep` remove it with the folder; the sandbox's read
+   list is still the folder only. `_connection` gains the two facts (curl; `components.schemas.EngineModel`).
+3. `_log_split` logs one line per turn: total, model (`duration_api_ms`) and jobs seconds.
+
+**Checks run:** J50.43 to J50.45 failed on HEAD's code first (all six cases), then passed; J50.35 and J50.36
+passed (J50.35's stopped-worker step now writes its log in the new place); `test_boundaries`, `test_api_journeys`,
+`test_openapi_contract` (lock re-baselined); Ruff check on the changed files, Ruff format on the changed files
+but `agent.py`, which was unformatted before AP11 (only its new function is formatted by hand); the frontend
+production build.
+
 
 - **Moving records between types.** The exit gate asks for it. The 0.8 restructuring does it. Prove it through a
   session with a before/after count on a real model, and make the reshaping's three phases work under AP-D29.

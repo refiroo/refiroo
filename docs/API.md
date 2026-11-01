@@ -595,6 +595,13 @@ unchanged.
 - `PATCH /api/v1/model-drafts/{draftId}`
 - `DELETE /api/v1/model-drafts/{draftId}?expectedVersion=...`
 - `POST /api/v1/model-validations`
+
+The `model` of a draft, a release, a validation, a compilation and an installation is one document, the
+engine's model language: `/openapi.json` names it `components.schemas.EngineModel`, with the definitions of
+types, relations, a binding's candidates and the rest (0.16 AP11). That is the description only: the field is
+an open object when sent, so a wrong model is answered with the compiler's diagnostics and their JSON
+pointers, never a generic `422`; rules a schema cannot state stay in the validator.
+
 - `POST /api/v1/model-drafts/{draftId}/compile`
 - `POST /api/v1/model-drafts/{draftId}/installation`: action `model.install`, checked at the workspace the
   draft remembers, or at the instance for a draft remembering none (0.16 WM1).

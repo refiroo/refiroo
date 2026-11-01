@@ -383,9 +383,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # entry and on an audit event, and AgentOrigin (the assistant's name and the person or client it
     # acted for) as a third origin kind; nothing else of AG3 moved the document.
     # Re-baselined for 0.16 AP10 (diffed against AG3's): draftChanged on a design's check.
+    # Re-baselined for 0.16 AP11 (additive, diffed against HEAD): EngineModel and the definitions it
+    # names (35 schemas) as the schema of the model document in ModelDocumentRequest and
+    # ModelReleaseResponse, and in the draft schemas of the model-management group when it is on;
+    # the field stays an open object at runtime.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "1eb5f3b6d9712b6970dbd08acd7323b04f2c72bcd18bc86f647d5888b7c0f85d"
+        "dbbbafe31efe46d6612d7864d9723de391351295cda23f8cfec26e93cfc1c5d6"
     )
 
 

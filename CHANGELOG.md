@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (the model's language in the API, AP11)
+
+- The API's OpenAPI document now describes the model: the `model` field of model requests and responses names `EngineModel` and its definitions. Validation is unchanged, so a wrong model still gets the compiler's diagnostics.
+- An assistant session's log is kept beside its folder rather than inside it, and goes with the folder.
+
 ### Changed (one path for the assistant, AP10)
 
 - A session builds everything the words ask for, as they place it and also with no data in the file; a question no longer replaces building.

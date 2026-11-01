@@ -66,7 +66,7 @@ from .store import finish, held_by_another, held_counts, load_task, note
 log = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 1800
-PROMPT_VERSION = "agent/3"
+PROMPT_VERSION = "agent/4"
 LAST_LINE = "CHANGE_SET:"
 DEFAULT_WORDS = "Create a model for this or map it to the current model, and import it."
 PROPOSAL = "proposal.json"
@@ -83,6 +83,8 @@ def _connection(workspace: str, url: str, *, workbook: bool = True) -> str:
     return (
         f"{file}model.json the workspace's model, openapi.json the API of the "
         f"engine at {url}, with the header 'Authorization: Bearer $REFIROO_TOKEN' (curl -k --noproxy ''). "
+        "The network is reached with curl: Python cannot open a socket in the sandbox. The "
+        "language of a model is components.schemas.EngineModel in openapi.json. "
         f"{data}Work only in the workspace {workspace}: no other "
         "workspace is read or changed. Where the data gives one thing two names or values, that "
         "is intended: keep them all as they are, correct nothing and do not keep only the most "
@@ -363,6 +365,8 @@ def remove_folder(files: Any, task: AiTask) -> None:
         log.warning("No transcript at %s for task %s", transcript, task.public_id)
     shutil.rmtree(folder, ignore_errors=True)
     shutil.rmtree(transcript, ignore_errors=True)
+    for log_file in folder.parent.glob(f"{folder.name}.*.log"):
+        log_file.unlink(missing_ok=True)
 
 
 def sweep(session: Session, files: Any) -> None:
@@ -375,6 +379,10 @@ def sweep(session: Session, files: Any) -> None:
         for name in names:
             if name not in known:
                 shutil.rmtree(root / name, ignore_errors=True)
+        # A turn's log lies beside its folder, named after the task; it goes with the folder.
+        for path in root.glob("*.log"):
+            if not (root / path.name.split(".")[0]).is_dir():
+                path.unlink(missing_ok=True)
     prefix = _transcript_name(root) + "-"
     if _transcripts().is_dir():
         for path in _transcripts().iterdir():
@@ -626,13 +634,42 @@ def _record_turn(
     session.commit()
 
 
+def _log_split(
+    session: Session,
+    task_id: str,
+    client: int,
+    since: datetime,
+    started: float,
+    progress: _Progress,
+) -> None:
+    """One line per turn: where its time went, as a load removes the folder and its log (AP11)."""
+    jobs = session.scalar(
+        select(
+            func.coalesce(func.sum(func.extract("epoch", Job.finished_at - Job.started_at)), 0)
+        ).where(
+            Job.requested_by_client_id == client,
+            Job.kind != "aiTask",
+            Job.created_at >= since,
+            Job.finished_at.is_not(None),
+        )
+    )
+    model = (progress.result.get("duration_api_ms") or 0) / 1000
+    log.info(
+        "Session turn of task %s: total %.0f s, model %.0f s, jobs %.0f s",
+        task_id,
+        time.monotonic() - started,
+        model,
+        float(jobs or 0),
+    )
+
+
 def _record_interrupted(
     session: Session, task_id: str, folder: Path, earlier: dict[str, Any] | None
 ) -> None:
     """A worker that died recorded nothing of its turn: the next turn does, from its log."""
     if not earlier or not earlier.get("log") or not earlier.get("startedAt"):
         return
-    progress = _Progress(folder / str(earlier["log"]))
+    progress = _Progress(folder.parent / str(earlier["log"]))
     progress.read()
     _record_turn(
         session,
@@ -668,7 +705,7 @@ def _run_turn(
         "--verbose",
         *(["--session-id", session_id] if first else ["--resume", session_id]),
     ]
-    log = folder / f"session-{uuid4().hex[:8]}.log"
+    log = folder.parent / f"{folder.name}.session-{uuid4().hex[:8]}.log"
     progress = _Progress(log)
     started = time.monotonic()
     since = datetime.now(UTC)
@@ -750,6 +787,7 @@ def _run_turn(
             if failure is None and (not progress.result or progress.result.get("is_error")):
                 failure = ("failed", "The session ended without an answer.")
             _record_turn(session, task_key, job.id, progress, since, prompt, failure)
+            _log_split(session, task_key, client, since, started, progress)
     return progress
 
 

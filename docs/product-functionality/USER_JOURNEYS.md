@@ -2592,6 +2592,16 @@ API; it calls no AI provider.
 - **J50.41 Nothing left behind**: when a task is loaded or discarded, a release its session installed that no
   workspace or change set uses is retired; one in use is not.
 
+- **J50.43 The model language is in the API**: the OpenAPI document names the model's definitions
+  (`components.schemas.EngineModel`: types, relations, a binding's candidates) wherever a model is read or
+  written. A model written from them with a candidate filter validates; a field no definition names in
+  `candidates` is refused with its JSON pointer by the compiler, not by a generic `422`, as the field itself
+  stays an open object.
+- **J50.44 A session's folder holds no log**: a session turn's folder holds the workbook, the model and the
+  OpenAPI document; its log lies beside the folder. The turn is in the call record. A discarded task leaves
+  neither the folder nor the log.
+- **J50.45 A worker that stopped**: when the worker stopped during a turn, the next turn records it as
+  interrupted, from the log beside the folder.
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409
 AI_TASK_NOTHING_TO_LOAD`, `409 AI_TASK_DRAFT_HELD`, `413 IMPORT_TOO_LARGE`, `422

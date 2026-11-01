@@ -1,9 +1,28 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, GetJsonSchemaHandler, model_validator
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import CoreSchema
+
+from app.models.schema import EngineModel
 
 from .common import ActorResponse, CollectionPage, PrincipalResponse
+
+
+class _ModelLanguage:
+    """The OpenAPI document names ``EngineModel`` and its definitions for a model document
+    (0.16 AP11). Only the document: at runtime the field stays an open object, so a wrong model gets
+    the compiler's diagnostics with their JSON pointers, not a generic 422."""
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, _core: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        return handler(EngineModel.__pydantic_core_schema__)
+
+
+ModelDocument = Annotated[dict[str, Any], _ModelLanguage]
 
 
 class ModelPlacementParent(BaseModel):
@@ -135,7 +154,7 @@ class ModelReleaseSummary(BaseModel):
 
 
 class ModelReleaseResponse(ModelReleaseSummary):
-    model: dict[str, Any] | None = None
+    model: ModelDocument | None = None
 
 
 class InstalledImportProfile(BaseModel):
@@ -175,7 +194,7 @@ class ModelReleaseActivationPage(CollectionPage[ModelReleaseActivationResponse])
 class ModelDocumentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    model: dict[str, Any]
+    model: ModelDocument
 
 
 class ModelDiagnosticResponse(BaseModel):
@@ -343,7 +362,7 @@ class ModelDraftCreate(BaseModel):
 
     name: str = Field(min_length=1, max_length=300)
     baseReleaseId: UUID4 | None = None
-    model: dict[str, Any]
+    model: ModelDocument
 
 
 class ModelDraftUpdate(BaseModel):
@@ -351,7 +370,7 @@ class ModelDraftUpdate(BaseModel):
 
     expectedVersion: int = Field(ge=1)
     name: str | None = Field(default=None, min_length=1, max_length=300)
-    model: dict[str, Any] | None = None
+    model: ModelDocument | None = None
 
     @model_validator(mode="after")
     def require_change(self) -> ModelDraftUpdate:
@@ -372,7 +391,7 @@ class ModelDraftResponse(BaseModel):
     baseReleaseId: str | None
     # The workspace it was opened from, which it applies to (0.16 WM1).
     workspaceKey: str | None = None
-    model: dict[str, Any]
+    model: ModelDocument
     version: int
     createdAt: datetime
     updatedAt: datetime
@@ -651,13 +670,13 @@ class ModelDraftModelResponse(BaseModel):
     version: int
     valid: bool
     diagnostics: list[OutlineDiagnostic]
-    model: dict[str, Any] | None = None
+    model: ModelDocument | None = None
     placements: ModelPlacements | None = None
 
 
 class ModelCompilationResponse(BaseModel):
     valid: bool
-    model: dict[str, Any] | None = None
+    model: ModelDocument | None = None
     modelHash: str | None = None
     diagnostics: list[ModelDiagnosticResponse]
     compatibility: CandidateCompatibilityResponse
