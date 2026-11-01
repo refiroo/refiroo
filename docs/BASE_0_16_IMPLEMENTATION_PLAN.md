@@ -90,7 +90,7 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
 | [AP8](#ap8-the-assistant-is-a-claude-code-session) | AP1 | **Built.** A few words and a workbook go to a Claude Code session; proposal, the person's words, then install and load into a change set |
 | [AP9](#ap9-who-did-it) | AP8 | **Built.** Provenance on a session's changes, one client per session, the call record, retention |
 | [AP10](#ap10-one-path) | AP8 | **Delivered 2026-10-31.** One switch, the old design removed, a saved profile from a load, updating from a file, the session's leftovers, the proposal page, the documents |
-| [AP11](#ap11-good-models-in-time) | AP8 | Model shape from the same words, and the time limits. **Fixes built 2026-11-01; the time limits are not met** |
+| [AP11](#ap11-good-models-in-time) | AP8 | Model shape from the same words, and the time limits. **Closed 2026-11-01, accepted by the user with the time limits not met** |
 | [AP12](#ap12-reshaping-and-asking-from-the-workspace) | AP8, WM1 | Moving records between types through a session, and "Change this model…" from the workspace |
 | [AP13](#ap13-acceptance-on-real-files-ap-d22) | AP9–AP12 | The remaining real-file tries, judged by the user |
 | [AG1](#ag1-the-server-and-its-authority) | 0.12 | The MCP endpoint, its setting, sign-in with the existing OAuth, audit channel, the agent role, Settings › Agent access |
@@ -731,7 +731,7 @@ Unit tests: none beyond these; the split's line has no edge cases that are not c
 
 #### AP11 record (2026-11-01)
 
-**The time limits are not met.** The fixes are built and the results hold, but the time did not move; AP11 stays open for the user's decision. Sonnet at medium, prompt `agent/4`, the user's words, fresh workspaces, none published.
+**The time limits are not met.** The fixes are built and the results hold, but the time did not move. **Accepted and closed by the user on 2026-11-01 with the limits unmet.** Sonnet at medium, prompt `agent/4`, the user's words, fresh workspaces, none published.
 
 | Try | Proposal + load | Limit | Model generating, proposal | Engine jobs | Output tokens, proposal | Cost at API prices | Earlier run |
 | --- | --- | --- | --- | --- | --- | --- | --- |
