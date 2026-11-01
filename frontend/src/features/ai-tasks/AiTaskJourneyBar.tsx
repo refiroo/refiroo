@@ -121,11 +121,18 @@ export function AiTaskJourneyBar({
   return (
     <>
       <JourneyBar
-        label="Import with the assistant"
+        label={task.fileName ? "Import with the assistant" : "Change this model"}
         steps={plan.steps}
         sentence={problem || plan.sentence}
         primary={plan.primary && onClick ? { label: plan.primary.label, onClick } : undefined}
-        back={place === "task" ? undefined : { label: "Back to the import", onClick: () => onNavigate(toTask) }}
+        back={
+          place === "task"
+            ? undefined
+            : {
+                label: task.fileName ? "Back to the import" : "Back to the proposal",
+                onClick: () => onNavigate(toTask),
+              }
+        }
         stop={plan.stoppable ? { label: "Stop", onClick: () => void stop(), disabled: pending } : undefined}
       />
       {restarting && offer?.assistant && (

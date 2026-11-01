@@ -70,6 +70,7 @@
     "test:browser:agent-access": "node e2e/ag1-agent-access.mjs",
     "test:browser:ag3": "node e2e/ag3-assistant-change.mjs",
     "test:browser:ag4": "node e2e/ag4-ask-in-words.mjs",
+    "test:browser:ap12": "node e2e/ap12-change-model.mjs",
     "test:browser:ao1": "node e2e/ao1-impact-summary.mjs",
     "test:browser:reset": "node e2e/i6-reset.mjs",
     "test:browser:one-address": "node e2e/dp1-one-address.mjs",

@@ -60,4 +60,19 @@ describe("the assistant load as a journey", () => {
     expect(again.primary).toEqual({ label: "Start again", action: "restart" });
     expect(again.stoppable).toBe(false);
   });
+
+  it("ends a whole-type move on the task, where the migration is previewed and confirmed (AP12)", () => {
+    const moved = {
+      ...designTask(),
+      state: "loaded" as const,
+      result: { migration: { releaseId: "rel-1", typeMappings: [] } },
+    };
+    const plan = taskJourney(moved, { modelReviewed: true });
+    expect(plan.steps.find((step) => step.key === "review")).toMatchObject({
+      label: "Confirm the migration",
+      status: "current",
+    });
+    expect(plan.sentence).toContain("no record has moved");
+    expect(plan.primary).toEqual({ label: "Open the steps", action: "openTask" });
+  });
 });

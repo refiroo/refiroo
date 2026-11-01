@@ -249,6 +249,8 @@ export interface AiTaskDesignCheckItem {
 export interface AiTaskDesign {
   /** "model": the proposed model awaits the person; "load" (and absent): the sheets are mapped and checked. */
   stage?: "model" | "load";
+  /** The types the proposal turns into others, with the records each holds. */
+  moves?: AiTaskMove[];
   /** One plain sentence per proposed type. */
   outline?: { objectTypeKey: string; name?: string; text: string }[];
   checks?: AiTaskDesignCheckItem[];
@@ -325,8 +327,33 @@ export interface AiTaskNote {
   at: string;
 }
 
+/** What a proposal moves as whole types: the engine's own figures (AP-D47). */
+export interface AiTaskMove {
+  from: string;
+  fromName: string;
+  to: string;
+  toName: string;
+  /** The records the workspace holds of the type that moves. */
+  records: number;
+  attributes?: { attributeTypeKey: string; from: string | null }[];
+}
+
+/** A task that moved whole types ends in a migration the person confirms, not in a change set (AP-D49). */
+export interface AiTaskMigration {
+  releaseId: string;
+  typeMappings: {
+    fromObjectTypeKey: string;
+    toObjectTypeKey: string;
+    attributes?: { attributeTypeKey: string; from: string | null }[];
+  }[];
+}
+
 export interface AiTaskResult {
-  changeSetId: string;
+  /** Absent when the task ended in a migration (`migration`). */
+  changeSetId?: string | null;
+  /** The final release of a part-of-a-type reshaping, activated last (AP-D48). */
+  thenReleaseId?: string | null;
+  migration?: AiTaskMigration | null;
   changeSetName?: string | null;
   importJobId?: string | null;
   profileKey?: string | null;

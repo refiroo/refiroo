@@ -1567,6 +1567,22 @@ saved profile already reads as well as the engine's own matching does is propose
 assistant and no AI cost; a sheet the earlier file also had and the profile left out does not stop that, and
 a new sheet goes to the assistant.
 
+**Changing a workspace's model from words.** Where the assistant is switched on and the person holds Use AI
+proposals, Model authoring and Model release in the workspace, its ⋯ menu offers **Change this model…** (not
+for a retired workspace). The dialog names the workspace, asks what should change, and takes a workbook if
+there is one. The same task then proposes the new model and says what happens to the records. Two ways, by
+what moves. **A whole type becoming another** (a rename, a merge, into another application): the proposal
+lists each type, what it becomes and how many records it holds, from the engine's own counts; accepting
+installs the new model and moves nothing; **Preview the migration** opens the migration page with the
+assistant's choices filled in, **Back to the proposal** returns, and one confirmation by someone holding Model
+release moves every record with its ID, values, relationships and history. There is no change set to review,
+and it goes live at that confirmation. **Part of a type** (a split by a value): the records change type in a
+change set, and the task shows three steps one at a time: activate the release that has the new types beside
+the old (nothing moves), review and publish the change set as usual with the workspace's approval rules, then
+activate the release you accepted, which removes the emptied types once they hold no record. A person without
+Model release is told who can do a step. A split of thousands of top-level records goes one record at a time,
+so it is slow.
+
 The check says rows skipped for an empty key apart from rows refused, and says so when it ran before the
 draft's last change, as it then does not cover the model as it stands.
 

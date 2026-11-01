@@ -14,6 +14,7 @@ import { Section } from "@/ui/Section";
 import { StatusPill } from "@/ui/StatusPill";
 import { DesignModel } from "./DesignModel";
 import { DesignQuestions } from "./DesignQuestions";
+import { ProposalMoves } from "./ProposalMoves";
 import { TaskNotes } from "./TaskNotes";
 import { modelNames, proposalRefusal } from "./aiTaskDesign";
 import { isDesignCheck, notLoadedEntries } from "./aiTaskText";
@@ -89,7 +90,11 @@ export function ModelProposal({
             ))}
           </ul>
         )}
-        <p className="task-reason">Nothing is installed or loaded before you accept the model.</p>
+        <p className="task-reason">
+          {design.moves?.length
+            ? "Nothing is installed before you accept the model, and no record moves before you confirm the migration."
+            : "Nothing is installed or loaded before you accept the model."}
+        </p>
         {check && (
           <Notice
             tone={check.summary.refused > 0 || !!check.summary.skipped || check.draftChanged ? "warning" : "success"}
@@ -114,6 +119,7 @@ export function ModelProposal({
           </Notice>
         )}
       </Section>
+      <ProposalMoves task={task} />
       <Disclosure variant="button" label="Show the model change" openLabel="Hide the model change">
         <DesignModel
           design={design}

@@ -179,7 +179,7 @@ keeps the reasoning.
 | AP-D26 | How does a revision treat the person's edits? | **Approved by the user 2026-10-27. A step the person edited or removed is theirs: a revision never overwrites it.** Each step has an `owner` (`assistant` or `person`); the assistant may propose an alternative for a person-owned step in its reply, as text, never in place. A person-owned step also keeps its mark off. This is the rule that makes the editor feel like an editor and not a regenerate button. |
 | AP-D27 | One assistant or a helper per feature? | **Approved by the user 2026-10-28. One assistant, every AI capability a tool of it, offered where its situation occurs.** The AP6 loop is the only AI that plans: it starts from the rules' result, reads through tools (the profile over every row, any sheet by range including skipped ones, distinct values, overlaps, the model and records, AP2's matcher, the dry run) and writes only the editor's operation catalogue and profile operations, as proposals in the editor's Proposed list. A question is answered in the thread from what it read; an action becomes a plan that runs on one confirmation (AP-D13). AP-D12 gains a sixth step kind, **a capability's job** (AP2's matcher, value drafts, the dry-run grouping). Entries: the task page, the editor's pane and **New from a workbook**, whose AI path is the workbook and an optional words field (the assistant proposes the dialog's choices with reasons); without a provider the dialog stays as it is. AP1's rename becomes step 3 of the workbook flow; AP3, AP4 and AP5 are folded in. Why: the separate helpers did not reach each other (AP2 could not serve a workbook load), and a capable provider (Claude, ChatGPT) can be called as often as a task needs. |
 | AP-D28 | A draft-only change to a released element nothing holds | **Approved by the user 2026-10-31. It applies when it would affect 0 records, values and relationships**, counted in every workspace running the model and their change sets; above 0 it is refused as before. Amends 0.10 D17 and the roadmap's "blocked until 1.0". Why: activation checks the workspace's data again (`*_IN_USE`, required checks) and consumer contracts, so the refusal at edit time protected no data, and a released model with no data could not be edited. A key change stays refused whatever the count: "public IDs and model keys are stable", and an integration names elements by key where no guard sees it. Cost: one count per released element an operation touches, once per request. The menu cannot know the count without counting every element on each outline read, so a released element's actions stay listed, reading "Refused if data uses it" |
-| AP-D29 | How far may the session go? | **Approved by the user 2026-10-31. Replaces AP-D12. The session may use whatever its API grants allow, and always stops at a change set; a person activates and publishes.** It is held by the engine, not by the prompt: the session's client holds no group that publishes or activates (J50.30). Why: each limit added around the working setup was the limit that failed (AP8). What it costs: "only known steps" can no longer be promised, so the guarantee rests on the grants, the dry run of every row and the change set. |
+| AP-D29 | How far may the session go? | **Approved by the user 2026-10-31. Replaces AP-D12. The session may use whatever its API grants allow, and stops at what a person confirms: a change set, which a person publishes, or (AP-D46, 2026-11-01) for a whole type that becomes another, a release and its migration, which a person with Model release previews and confirms; a person activates and publishes.** It is held by the engine, not by the prompt: the session's client holds no group that publishes, activates or migrates (J50.30, J50.50). Why: each limit added around the working setup was the limit that failed (AP8). What it costs: "only known steps" can no longer be promised, so the guarantee rests on the grants, the dry run of every row and the change set. |
 
 ### Track A: agent access
 
@@ -442,7 +442,7 @@ own, set up by `AI_AGENT_COMMAND`. It works through the API as the client "AI as
    session goes on.
 3. **Accepted.** It installs one release, does not activate it, and loads into a new change set. An empty change set
    is not a load.
-4. **The person** activates and publishes from the change set. The engine refuses the session both (AP-D29).
+4. **The person** activates and publishes from the change set. The engine refuses the session both (AP-D29). A whole type that becomes another ends in a release and a migration instead, which the person confirms (AP-D46).
 
 Words without a workbook work the same way. A file whose saved profile still fits takes the engine's path with no AI.
 
@@ -677,7 +677,6 @@ Unit tests for the key's validation in `check_profile`. `AiTaskPage.test` and `A
   atomic import is refused at the 10,000-item limit, so the session falls back to row-by-row success, and pays for the
   failed try.
 
-### AP12: Reshaping, and asking from the workspace
 #### AP11 in detail (planned 2026-11-01, for approval)
 
 Model shape is built; this plan is the rest: the time limits. **Requirement served:** "a few words + workbook → the model and the import", within 1 to 2 minutes for a workbook like Timetables and 5 at most for a complex one, without the person's wait. Reached from the existing task page; no other capability calls it. No screen changes, so no mock-up.
@@ -765,6 +764,7 @@ passed (J50.35's stopped-worker step now writes its log in the new place); `test
 but `agent.py`, which was unformatted before AP11 (only its new function is formatted by hand); the frontend
 production build.
 
+### AP12: Reshaping, and asking from the workspace
 
 - **Moving records between types.** The exit gate asks for it. The 0.8 restructuring does it. Prove it through a
   session with a before/after count on a real model, and make the reshaping's three phases work under AP-D29.
@@ -772,6 +772,136 @@ production build.
   the existing task, offered there, and lands in the proposal page. WM1's Apply does not serve it: a session
   installs without activating, and WM-D2 keeps a task's draft, finished or not, away from WM1. The package decides how
   an accepted task's release reaches activation from there.
+
+#### AP12 in detail (planned 2026-11-01, approved by the user the same day with the mock-up and AP-D46's two ways)
+
+Mock-up: [AP12 Change this model](https://claude.ai/artifact/9U4YPasLC7NZADihz9rXiT) (a Design canvas, not kept in the repository). **Requirement served:** the exit gate's "reshaping a workspace's model is an instruction too": words from the workspace become a proposal, a person never needs the editor's draft, install and activate path, and a before/after count on a real model shows nothing lost.
+
+**What the code does today (read 2026-11-01; nothing was run):**
+
+- **The session stops short of a reshaping.** It holds Browse, Work in change sets, Bulk, Model authoring and Model install (`agent.py`, `DATA_GROUPS`, `MODEL_GROUPS`), so it can restructure in a change set on an installed release. It cannot activate, and a migration needs `model.activate` too (`catalogue.py`), so it cannot start one. `accepted` installs one release and needs a non-empty change set. After that the task is finished and its client retired, so nothing carries out the gate's third phase.
+- **The restructuring is per record.** One operation changes at most 500 records (`RECORD_LIMIT`). `changeTypeUnder` needs a parent, so records at the top level change type one operation at a time, each a preview and an apply. A batch cannot change a record's type. For a whole type this is row by row through the API.
+- **The migration is set work.** `typeMappings` moves a whole type to another in PostgreSQL. Records keep their IDs; a preview lists every conversion, loss and refusal; the data and the release switch in one transaction. It has no per-record condition, and containment the target has no place for is refused. Its code does not forbid two types mapping to one, but no test covers that merge.
+- **The way from a change set to activation exists:** a change set on a release its workspace does not run offers **Move ‹workspace› to ‹release› and publish…**, refused where the workspace requires approval (`require_direct_publication`). Activating a release that fits, then publishing as usual, also works, approval included.
+- **Task 61 (the one reshaping try) created 6,816 records.** Its log is gone, so whether anything kept its ID is not known. Nothing tells a session that a record can change type and keep its ID.
+
+**Decisions (recommended, approved with this plan):**
+
+| # | Decision | Why and what it costs |
+| --- | --- | --- |
+| AP-D46 | **Two ways, chosen by what moves.** A whole type becoming another (a rename, a merge, into another application) goes by migration: one release, the proposal's `moves` as `typeMappings`, one confirmation. Part of a type (a split by value, a new level, a new parent) goes by the gate's three phases. A task may need both only by being asked twice. | **It changes the gate's wording and AP-D29's "always stops at a change set":** a whole-type move has no change set, and it goes live at the confirmation of someone holding Model release, without the approval a change set needs. The session writes no data, so AP-D29's limit holds, and a person sees the full preview. The gate's route alone would send a merge of thousands of top-level records through the API one by one, against the rule that set work runs in PostgreSQL. |
+| AP-D47 | **The proposal says what moves.** `proposal.json` gains `moves`: `[{"from", "to", "attributes"}]`. The engine checks them against the draft with `plan_migration`'s own rules when the proposal lands, drops a type it maps from `_left_out`'s warning, and adds each type's held records. A move the plan refuses fails the landing with the reason, as a held draft does. | The person reads "1,420 Suppliers become Partners" from the engine's figures, not the session's. No migration: `ai_tasks.design` is JSON. |
+| AP-D48 | **The proposal is the final model.** For part of a type, the person reviews the final draft. On acceptance the session installs it, installs a second release holding the final model with the old types beside it, restructures on that one in a new change set, and ends with `CHANGE_SET:` and `THEN_RELEASE:`. | The person reviews the shape they asked for, not a scaffold. "Exactly one release" and J50.30's wording change for this case only. The engine holds `result.thenReleaseId` and leaves it out of `retire_unused_releases`, so AP-D45 still catches anything else. |
+| AP-D49 | **A task's end without a change set.** `state` stays `loaded`; `result.changeSetId` becomes optional and `result.migration` holds `{releaseId, typeMappings}`. "An empty change set is no load" still holds for every task whose proposal had no `moves`. | A new state would touch every journey function and the database check for no gain. A client reads which case it is from the result. |
+| AP-D50 | **Everything the person does is an existing route.** Whole type: `POST /workspaces/{key}/model/migrations` with `result.migration`, on the existing migration page, opened with those choices. Part of a type: `model/activation` of the release with both, the change set's normal review, approval and publication, then `model/activation` of `thenReleaseId`. Activation's own check refuses that last step while the old type holds a record. The task page shows each step when it can be done; a person without Model release in the workspace is told who can do it. | API-first with no new route and no second check. The approval rules hold for the change set. A task that expires before the last step leaves the empty types in place and the release installed; Settings › Model can still activate it. |
+| AP-D51 | **"Change this model…" is the existing task.** A fourth item on the workspace ⋯ menu (`WM-D5`), `LoadWorkbookDialog` with the workspace fixed, the words first and required, and the workbook optional. It is shown where the assistant is on and the person holds Use AI proposals, Model authoring and Model release there, and not for a retired workspace. The task page's title and crumb stop saying "Load a workbook" for a task with no file. | One dialog, no copy. Without the model groups the session could not install, so the flow could not finish, and the item is hidden. Words-only tasks already work (J50.21), so the API does not change here. |
+| AP-D52 | **Prompt `agent/5` gains facts only:** a record changes type and keeps its ID through a change set's `restructurings` or, for a whole type, the proposal's `moves`; creating new records and removing the old loses IDs and history. Nothing else is added. | Task 61's route is what this stops. The prompt cannot enforce it, so AP12's real tries count IDs. |
+| AP-D53 | **No new engine capability for a large split.** Part of a type at the top level stays one restructuring per record, so a split of thousands is slow, and it is reported rather than built. | A per-record condition on `typeMappings` touches every statement of the migration, and no real case has asked for it yet. A try on a few hundred records gives the figure. |
+
+**The time limits are not a condition.** AP11 said reshaping within the limits is AP12, but the user accepted AP11 with the limits unmet, and their cause is the model's generation, which AP12 does not change. The tries report the figures and the split; no further fix is planned.
+
+**Journey cases (for approval, J50, each on two model configurations):**
+
+- **J50.46 A merge from words.** Given a workspace with records of two types, when a session proposes them as one and the person accepts and confirms the migration, then every record is under the new type with its ID, values, relationships and history, the old types are gone, and the workspace runs the release.
+- **J50.47 The proposal says what moves.** Given `moves`, the proposal holds each type's record count and no left-out warning for those types. Given a move naming a type the draft lacks, the task fails with the reason and nothing is installed.
+- **J50.48 Part of a type.** Given records of one type, when a session restructures part into a new type on an installed release the workspace does not run, then live data is unchanged, the change set holds them with their IDs, and the session is refused activation.
+- **J50.49 The three steps.** Continuing J50.48: the person activates the release with both and nothing moves; publishes, and the records are live under the new type; activates the final release, and the old type is gone. Before the publication that last activation is refused, nothing changed.
+- **J50.50 Under an approval policy.** Part of a type goes through approval as any change set. A whole-type migration confirms as a migration does, by a holder of Model release; without it, `FORBIDDEN`.
+- **J50.51 A move the session cannot finish.** A person without Model release or Model authoring: a task can still be read, but the session holds no model grant and nothing is installed.
+- **J50.52 What stays out.** The release with both is retired if the task is discarded before the change set; `thenReleaseId` survives the end of a loaded task, and any other release the session installed is retired (AP-D45).
+
+Unit tests: the `moves` check, `_left_out` with a mapped type, reading `THEN_RELEASE:`, the task page's steps per result, the menu's item shown and hidden.
+
+**Tries, each announced and run without a stop.** On scratch copies, so no real workspace changes; a scratch tool counts per type before and after: records, IDs kept, values per attribute and relationships. The 200 and 2,000-record basics are timed first.
+
+| Try | Data | Words | Holds only if |
+| --- | --- | --- | --- |
+| 1 | A copy of `default` (2,141 records) | Two of its types made one | The migration moves all, 0 lost, every ID kept |
+
+Two sessions with their loads, about $3 to $6 at API prices going by task 61 and AP11. Each is logged.
+
+**Browser:** one runner on two configurations with a stand-in session: the menu, the dialog, the proposal's moves, the migration page and back, the three steps, by keyboard at 1440px and 390px, light and dark, axe, no 5xx. Screenshots inspected.
+
+**Checks:** J50, J37, J15, `contract` with the OpenAPI lock (re-baselined last, diff read for AP12's additions only), `test_boundaries`, Ruff on the named files, Vitest for `features/ai-tasks` and the workspace menu, lint, the production build. **Migration:** none. **Door check (ADR-032):** none affected: identity is kept, and the generic restructuring and migration are used as they are.
+
+**Documents:** `API.md`, `API_JOURNEYS.md`, `USER_JOURNEYS.md` (J50), `CURRENT_FUNCTIONALITY.md`, `PRODUCT.md`, the exit gate's wording and AP-D29 as AP-D46 changes them, `CHANGELOG.md`, the usage log.
+
+**Working beside other sessions.** AG4 is running and AO1 is starting. **AG4:** it has `useWorkspaceAiOffer.ts` and `aiText.ts` open; AP12 only reads the offer. **AO1:** it adds the summary beside the activation preview and may touch `ActivateDialog`, `ApplyDialog` and the migration page, which AP12 also touches (opening with choices, the way back to the task). Whichever comes second takes the other's saved file. Shared by all: this document, `CHANGELOG.md`, the OpenAPI lock, re-baselined last. `pytest` runs go one at a time. AP12 holds `_propose_prompt`, `_proposal_landed`, `accepted` and `retire_unused_releases` in `agent.py`. Commits hold AP12's hunks only.
+
+**What the user cannot do after AP12:** split thousands of top-level records quickly (AP-D53; no package); do a whole-type move and a part-of-a-type move in one task (two tasks); review a whole-type move in a change set or send it for approval (AP-D46); have a reshaping within the time limits (accepted in AP11).
+
+#### AP12 record (2026-11-01)
+
+**Built as planned, with the changes below.** Journey cases J50.46 to J50.52 were written from the plan's text
+first (`backend/tests/journeys/test_j50_ai_reshape.py`, 7 cases on two configurations, a stand-in session working through
+the API with the token the engine gives it) and run before the engine changed: J50.46 to J50.50 and the retiring half of
+J50.52 failed, as the engine did not know `moves`, `RELEASE:` or `THEN_RELEASE:`. J50.51 and the discard half of J50.52 passed
+before any change, as the grants and AP-D45 already hold them; they stay as guards.
+
+**The unverified points.**
+
+- **J50.46, two types mapped to one: held, no engine change.** The migration merges two types into a new one with IDs, values,
+  relationships and history kept (the journey on both configurations). On a scratch copy of the dev database `duration`
+  (6 records) merged into `role` (10): 16 records, 0 IDs lost, 0 names changed, the values of 4 attributes hashed record by
+  record before and after, 0 differing, 4,562 relationships of the workspace before and after, all kept. **What the first
+  attempt showed:** with a final model that only drops `duration`, the preview refused its 6 records
+  (`PARENT_RELATION_SEMANTICS_CHANGED`) and listed 208 relationships as lost (`RELATION_PAIR_IN_USE`), and so could not be confirmed. The
+  engine is right: the target type had no place for them. A merged model must give the target type the places of the type it
+  absorbs. A consumer API that exposes a removed type needs its `contractVersion` raised
+  (`CONSUMER_CONTRACT_VERSION_REQUIRED`), and a draft's `removeObjectType` on a type data holds is refused with
+  `OPERATION_REQUIRES_MIGRATION`, so a session writes the final model whole. These are the session's modelling work; the preview
+  tells it each one.
+- **J50.48, restructuring on an installed release the workspace does not run: held, with one condition.** The change set must
+  be started with `source: "currentLive"` and the release; without `source` the live records are not in it and the
+  restructuring is refused (`notInChangeSet`). Prompt `agent/5` says so. The session is refused activation (`403`).
+
+**Changes from the plan, and why.**
+
+- **The session ends with a line, as the change set does:** `RELEASE: <id>` for a whole-type move and `THEN_RELEASE: <id>`
+  beside `CHANGE_SET:` for part of a type. The engine takes a release only if its own audit shows the task's client installed it, so
+  a session's word is not enough. A task whose line fails that ends `failed` with a note.
+- **A release named by `result.migration` or `result.thenReleaseId` is not retired with the task** (AP-D45 would
+  otherwise retire the migration's target, which no workspace runs yet). Any other release the session installed is.
+- **The engine re-checks the moves against the release the session installed,** not only against the draft when the
+  proposal landed, since the person may have edited the draft in between.
+- **The mock-up's strip "The proposal › Records moved › Done" is the existing journey bar** (one component, no copy): its
+  label reads "Change this model" for a task with no file, its last step "Confirm the migration", and the way back is "Back to the
+  proposal". Boards 2 and 3 are built as drawn otherwise; the migration page is the existing page with its choices filled in
+  and a **Back to the proposal** button, also after it is done.
+- **Steps 1 and 3 of a part-of-a-type move open the release's page,** where the existing activation dialog is; the task page reads
+  the workspace's release and whether the change set still exists (a published change set is gone) when the person comes
+  back, and shows the next step. No second activation dialog was built.
+- **The change set's own Review button is shown at step 2, not above,** so the review is not offered before step 1.
+
+**Tries (engine side, scratch copy of the dev database restored into its own database and dropped afterwards; the
+
+| Try | Before | After | Time |
+| --- | --- | --- | --- |
+| Basics, 200 records, two types into one | 200 records | 200 under the new type, 0 lost, 0 values changed | preview 0.5 s, confirm 0.5 s |
+| Basics, 2,000 records, two types into one | 2,000 | 2,000, 0 lost, 0 values changed | preview 0.5 s, confirm 1.0 s |
+| Basics, 200 records split by a value, one restructuring each | 200 | 200 under two types, 0 lost, 0 changed | 15.7 s (79 ms a record), publish 0.5 s |
+| Basics, 2,000 records split | 2,000 | 2,000, 0 lost, 0 changed | 186.5 s (93 ms a record), publish 3.9 s |
+| Copy of `default`: `duration` into `role` | 10 + 6 records | 16 `role`, 0 lost, 0 names or values changed, 4,562 relationships kept | preview 0.5 s, confirm 0.5 s |
+
+AP-D53's figure: a split goes one record at a time at about 80 to 140 ms each, so 2,000 records take about 3 minutes and 10,000 about
+13 to 23 minutes; the migration moves the same records in about a second. Reported, not built.
+
+**Not run: the two tries with a Claude Code session** (the user's words to the proposal, accepting, the steps in the browser). They
+need the dev server (its client or a person's sign-in) or a second server, and neither was in this package's rules to make. The
+proposal's counts, the migration and the steps are proved through the stand-in session in the journeys and the browser runner, and
+the engine's side on the copies above. To run them: on the dev instance, reloaded on this code, choose **Change this model…** on a scratch copy of the workspace
+(never the real one), and check `ai_calls.prompt_version` is `agent/5`.
+
+**Checks run.** J50, J37 and J15 journeys: 168 passed (14 of them AP12's, on two configurations). `test_boundaries`,
+`test_openapi_contract` and `test_api_journeys`: 20 passed; the lock already holds AP12's schema additions, as AO1's commit was made with AP12's
+schema file in the tree (its hash is that of both), so AP12's commit adds the schema file and no new hash. Ruff check and format on the
+changed files. Vitest for `features/ai-tasks`, `features/model-admin`, `routing` and `app`: 268 passed (new:
+`ReshapeSteps`, `useChangeModelOffer`, the proposal's moves, the dialog's change mode, the journey's migration end). Lint 0 errors
+(the 10 warnings are earlier ones), the production build, and the browser runner `ap12-change-model` (29 checks: both
+configurations, the menu by keyboard and by pointer, the dialog, the proposal, the migration page and back, the steps one at a time, light and dark,
+390px, axe 0 violations on every state, and a backend with no assistant offering no item); its screenshots were inspected against the mock-up.
+
+**What stays manual:** the real sessions above; nothing else.
 
 ### AP13: Acceptance on real files (AP-D22)
 
@@ -1533,11 +1663,14 @@ each only on the user's go-ahead with its cost stated first (AP-D11, AG-D10); th
   translations and relations, and its import, judged by the user.
 - **Reshaping a workspace's model is an instruction too** (AP12): from the workspace, "reorganise this model" (or a
   narrower change) becomes a proposal like a new workbook's, so a person never needs the model editor's draft, install
-  and activate path to fix a model. Merging types that hold data needs no wait for 1.0: the 0.8 restructuring
-  (`changeType`, `changeTypeUnder`, `move`, `insertLevel`, `removeLevel` in a change set, records keeping their IDs,
-  previewed first) does it, in three phases: a model version with the target types beside the old, a change set
-  restructuring every record into them, a version without the emptied types. A before/after count on the real model
-  shows nothing lost.
+  and activate path to fix a model. Merging types that hold data needs no wait for 1.0, and there are two ways,
+  chosen by what moves (AP-D46). **A whole type becoming another** (a rename, a merge, into another application)
+  goes by one migration: a model version with the new types, the proposal's `moves` as `typeMappings`, the person's
+  one confirmation, records keeping their IDs. **Part of a type** (a split by value, a new level, a new parent) goes
+  by the 0.8 restructuring (`changeType`, `changeTypeUnder`, `move`, `insertLevel`, `removeLevel` in a change set,
+  records keeping their IDs, previewed first), in three phases: a model version with the target types beside the
+  old, a change set restructuring the records into them, a version without the emptied types. A before/after count
+  on the real model shows nothing lost.
 
 ## History of the assistant
 

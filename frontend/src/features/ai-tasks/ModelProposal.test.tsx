@@ -43,6 +43,26 @@ describe("ModelProposal", () => {
     expect(screen.queryByText("pc-offer")).not.toBeInTheDocument();
   });
 
+  it("says what happens to the records of the types it turns into others, from the engine's counts (AP-D47)", () => {
+    const task = proposal();
+    task.design!.moves = [
+      { from: "supplier", fromName: "Suppliers", to: "partner", toName: "Partners", records: 1420 },
+      { from: "vendor", fromName: "Vendors", to: "partner", toName: "Partners", records: 720 },
+    ];
+    render_(task);
+    const table = screen.getByRole("group", { name: "Types that become others" });
+    expect(within(table).getByText("Suppliers")).toBeInTheDocument();
+    expect(within(table).getByText("1,420")).toBeInTheDocument();
+    expect(within(table).getByText("720")).toBeInTheDocument();
+    expect(screen.getByText(/2,140 records keep their IDs, history and relationships/)).toBeInTheDocument();
+    expect(screen.getByText(/no record moves before you confirm the migration/)).toBeInTheDocument();
+  });
+
+  it("shows no table of moves when it moves no whole type", () => {
+    render_(proposal());
+    expect(screen.queryByText("What happens to the records")).not.toBeInTheDocument();
+  });
+
   it("shows the outline, the checks and the earlier corrections", () => {
     render_(proposal());
     expect(screen.getByText(/is one booked visit/)).toBeInTheDocument();

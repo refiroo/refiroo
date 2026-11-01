@@ -26,6 +26,7 @@ import type { LoadChoice } from "./LoadFoot";
 import { ModelProposal } from "./ModelProposal";
 import { SessionProgress } from "./SessionProgress";
 import { LoadedView } from "./LoadedView";
+import { ReshapeSteps } from "./ReshapeSteps";
 import { taskApplicationKey } from "./aiTaskJourney";
 import { rememberModelReviewed } from "./AiTaskJourneyBar";
 import { isDesignCheck, runningText, taskTitle } from "./aiTaskText";
@@ -132,7 +133,7 @@ export function AiTaskPage({
               </RouteLink>
             ),
           },
-        { key: "page", content: "Load a workbook", current: true },
+        { key: "page", content: task && !task.fileName ? "Change this model" : "Load a workbook", current: true },
       ]}
     />
   );
@@ -169,7 +170,7 @@ export function AiTaskPage({
   const application = taskApplicationKey(task) ?? ownApplication;
   // The change set opens with the journey carried, so its bar shows there.
   const review =
-    task.result && application
+    task.result?.changeSetId && application
       ? { ...changeReviewFor(application, task.workspaceKey, task.result.changeSetId), journey }
       : undefined;
   const design = task.design;
@@ -269,13 +270,36 @@ export function AiTaskPage({
           )}
         </>
       ) : task.state === "loaded" ? (
-        <LoadedView
-          task={task}
-          review={review}
-          workspaceLabel={label ?? task.workspaceKey}
-          onNavigate={onNavigate}
-          onClose={() => onOpenWorkspace(task.workspaceKey)}
-        />
+        <>
+          {task.result?.changeSetId ? (
+            <LoadedView
+              task={task}
+              // A reshaping reviews its change set at its own step, after the first.
+              review={task.result.thenReleaseId ? undefined : review}
+              workspaceLabel={label ?? task.workspaceKey}
+              onNavigate={onNavigate}
+              onClose={() => onOpenWorkspace(task.workspaceKey)}
+            />
+          ) : (
+            <Section title="The new model is ready">
+              <Notice tone="success">
+                The assistant installed the model you accepted. Nothing has moved yet: live data is as it was.
+              </Notice>
+              <div className="task-actions">
+                <button type="button" className="secondary" onClick={() => onOpenWorkspace(task.workspaceKey)}>
+                  Close
+                </button>
+              </div>
+            </Section>
+          )}
+          <ReshapeSteps
+            task={task}
+            workspaceLabel={label ?? task.workspaceKey}
+            canRelease={holds(permissions, "model-release")}
+            review={review}
+            onNavigate={onNavigate}
+          />
+        </>
       ) : (
         <Section title={task.state === "failed" ? "The reading failed" : "The reading was stopped"}>
           <Notice tone={task.state === "failed" ? "error" : "info"}>

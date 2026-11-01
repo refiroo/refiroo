@@ -242,6 +242,9 @@ class TaskDesign(BaseModel):
     questions with the option assumed, the person's answers and the engine's last outcome."""
 
     summary: str = ""
+    # What the proposal moves, whole types: ``{from, fromName, to, toName, records, attributes}``
+    # from the engine's own plan and counts (AP-D47).
+    moves: list[dict[str, Any]] = []
     operations: list[dict[str, Any]] = []
     records: list[DesignRecord] = []
     profile: dict[str, Any] | None = None
@@ -303,8 +306,21 @@ class TaskNote(BaseModel):
     at: str
 
 
+class TaskMigration(BaseModel):
+    """A task that moved whole types ends here instead of in a change set (AP-D49): the release the
+    session installed and the type mappings, as the migration at
+    ``POST /workspaces/{key}/model/migrations`` takes them."""
+
+    releaseId: str
+    typeMappings: list[dict[str, Any]]
+
+
 class TaskResult(BaseModel):
-    changeSetId: str
+    # Absent when the task's proposal moved whole types: ``migration`` holds its end.
+    changeSetId: str | None = None
+    # The final release of a part-of-a-type reshaping, which the person activates last (AP-D48).
+    thenReleaseId: str | None = None
+    migration: TaskMigration | None = None
     # The release a design's draft was installed as and activated in the workspace (0.16 AP6).
     releaseId: str | None = None
     changeSetName: str | None = None

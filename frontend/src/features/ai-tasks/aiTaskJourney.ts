@@ -95,7 +95,11 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } =
       : []),
     { key: "check", label: "Check", status: status("check", checking, (checked && !proposing) || past) },
     { key: "load", label: "Load", status: status("load", loadNow || state === "loading", state === "loaded") },
-    { key: "review", label: "Review and publish", status: status("review", state === "loaded", false) },
+    {
+      key: "review",
+      label: task.result?.migration ? "Confirm the migration" : "Review and publish",
+      status: status("review", state === "loaded", false),
+    },
   ];
   // A step before the one that failed is done unless it never ran.
   if (failedAt === "load")
@@ -151,9 +155,17 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } =
       primary: { label: "Load into a change set", action: "load" },
     };
   if (state === "loading") return { ...base, sentence: "Loading into the change set. You can leave this page." };
+  if (!task.result?.changeSetId)
+    return {
+      ...base,
+      sentence: "The new model is installed and no record has moved. Preview the migration and confirm it on the task.",
+      primary: { label: "Open the steps", action: "openTask" },
+    };
   return {
     ...base,
-    sentence: "Loaded into a change set; nothing is live until it is published. To undo, discard the change set.",
+    sentence: task.result.thenReleaseId
+      ? "Moved into a change set; nothing is live until it is published. Three steps are yours, shown on the task."
+      : "Loaded into a change set; nothing is live until it is published. To undo, discard the change set.",
     primary: { label: "Open the change set", action: "openChangeSet" },
   };
 }

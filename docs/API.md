@@ -6990,7 +6990,7 @@ registered with `INTEGRATION_JOBS_ENABLED`.
 | `GET /ai/tasks/{id}/changes?source=0` | The records the latest check would change in a sheet of the check (`source`, the sheet's `source` in `check.sheets`; read through the dry run's own profile and the draft's model) (paging): `{recordId, name, table, fields: [{field, label, now, after}]}`, `field` the attribute key or `name`, values typed as records give them. `409 AI_TASK_STATE` before a check, `422 AI_TASK_TABLE_UNKNOWN` for a source the check has no figures for |
 | `POST /ai/tasks/{id}/answers` | `{expectedVersion, answers: {questionText: answer}}`. Allowed when `checked`; `202`, state `checking`: the same session goes on with the answers, rereads the draft in case the person edited it, and the check is made again. `409 AI_TASK_VERSION_CONFLICT` (`details.currentVersion`), `409 AI_TASK_STATE` (`details.state`) |
 | `POST /ai/tasks/{id}/model` | `{expectedVersion, correction}`. Allowed when `checked`; `202`, state `checking`: the session changes the proposed model as the person's words say (kept in `design.corrections`, the newest last) and proposes again. Same refusals |
-| `POST /ai/tasks/{id}/accept` | `{expectedVersion}`. Allowed when `checked` with a proposal (`design.stage: model`); `202`, state `checking`: the same session rereads the draft, installs one release without activating it, makes the change in a new change set on that release and ends with its ID. The task becomes `loaded` and `result` names the change set. It never activates or publishes. `409 AI_TASK_STATE` without a proposal |
+| `POST /ai/tasks/{id}/accept` | `{expectedVersion}`. Allowed when `checked` with a proposal (`design.stage: model`); `202`, state `checking`: the same session rereads the draft, installs one release without activating it, makes the change in a new change set on that release and ends with its ID. The task becomes `loaded` and `result` names the change set. It never activates, migrates or publishes. When the proposal has `design.moves` (whole types that become others) the session only installs the release, no change set is made, and `result.migration` holds the release and the type mappings for the migration the person confirms. `409 AI_TASK_STATE` without a proposal |
 | `POST /ai/tasks/{id}/retry` | `{expectedVersion}`. A task that `failed` after a session started goes on from where the session was, its folder and session kept. `409 AI_TASK_STATE` otherwise |
 | `POST /ai/tasks/{id}/discard` | A proposal the person throws away: the task ends `cancelled`, its draft and working folder go, and a release its session installed that nothing uses is retired. `409 AI_TASK_STATE` unless the task waits for the person |
 | `POST /ai/tasks/{id}/cancel` | Asks the job the task waits for to stop; the task becomes `cancelled` when it does. Allowed while `reading` or `checking`. `409 AI_TASK_STATE` otherwise |
@@ -7020,6 +7020,11 @@ There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `pla
   `outline` (`{objectTypeKey, name, text}`, one plain line per type the proposal adds, changes or loads,
   with its attributes and the records the check would write, computed by the engine from the draft and the
   dry run), `checks`, `stage` (`model` while the proposal waits; `load` once accepted), `corrections`,
+  `moves` (`{from, fromName, to, toName, records, attributes}` for each whole type the proposal turns into
+  another: the session's `proposal.json` names `from`, `to` and optionally `attributes` as a migration's
+  `typeMappings` do, the engine checks them against the draft with the migration's own plan and counts
+  `records` itself; a move the plan refuses fails the task with the reason, and a type a move names is not
+  `leftOut`; `[]` when none),
   `progress` (`{now, seconds, refused, milestones}` while the session works: where it is, read from what
   the engine recorded of it), `origin` (`{kind: "ai", provider, model, promptVersion}`) and
   `agentSession`.
@@ -7042,8 +7047,13 @@ There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `pla
   check creates, kept apart from records.
 - `notes[]`: `{kind: note|warning|refused, text, at}`: what the session said as it ended, and why a task
   failed.
-- `result`, once `loaded`: `changeSetId`, `changeSetName`, `counts` (`applied`, `created`, `updated`, `unchanged`, `rejected`), and
-  for a saved layout's load `importJobId` and `releaseId`. **A saved profile:** the engine saves one from
+- `result`, once `loaded`: `changeSetId` (absent when the task ended in a migration), `changeSetName`, `counts` (`applied`, `created`, `updated`, `unchanged`, `rejected`), and
+  for a saved layout's load `importJobId` and `releaseId`. **A reshaping (0.16 AP12):** `thenReleaseId`, the
+  final release of a part-of-a-type move, which the person activates after publishing the change set (the
+  change set sits on a second release holding both shapes; activating the final release is refused while an
+  old type holds a record); and `migration` (`{releaseId, typeMappings}`), a whole-type move's end: the person
+  starts `POST /workspaces/{key}/model/migrations` with these, confirms it with Model release, and no change
+  set exists. Neither release is retired with the task; any other the session installed is. **A saved profile:** the engine saves one from
   the load, whichever route the session took, and `result.profileKey` names it; the same layout of file
   next time is read by it with no assistant (below), and a second load of the key is its next version. When
   none is saved, `result.profileNotSaved` says why in a sentence, and the load stands: the change came only

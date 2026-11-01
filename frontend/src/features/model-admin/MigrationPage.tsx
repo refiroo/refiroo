@@ -182,6 +182,7 @@ export function MigrationPage({
   onMigrated,
   onOpenChangeSet,
   onReturnToWorkspace,
+  onBackToProposal,
 }: {
   jobId: string;
   workspaces: Workspace[];
@@ -195,6 +196,8 @@ export function MigrationPage({
   onOpenChangeSet?: (workspaceKey: string, changeSetId: string) => void;
   /** Opened from a workspace (0.16 WM1): the way back once it is done or cancelled. */
   onReturnToWorkspace?: () => void;
+  /** Opened from an assistant's proposal (0.16 AP12): the way back to it. */
+  onBackToProposal?: () => void;
 }) {
   const [job, setJob] = useState<Job>();
   const [models, setModels] = useState<{ current: EngineModel; target: EngineModel }>();
@@ -480,10 +483,19 @@ export function MigrationPage({
             title={`${label} runs ${target?.name ?? "the release"} ${version}${changeSetId ? `, and ${changeSetName} is live` : ""}`}
             focusOnMount
             actions={
-              onReturnToWorkspace && (
-                <button type="button" className="primary" onClick={onReturnToWorkspace}>
-                  Back to {label}
-                </button>
+              (onReturnToWorkspace || onBackToProposal) && (
+                <>
+                  {onReturnToWorkspace && (
+                    <button type="button" className="primary" onClick={onReturnToWorkspace}>
+                      Back to {label}
+                    </button>
+                  )}
+                  {onBackToProposal && (
+                    <button type="button" className="secondary" onClick={onBackToProposal}>
+                      Back to the proposal
+                    </button>
+                  )}
+                </>
               )
             }
           >
@@ -636,6 +648,11 @@ export function MigrationPage({
                 : `If anything in ${label} changes before you confirm, you are asked to preview again.`}
             </small>
           </div>
+          {onBackToProposal && (
+            <button type="button" className="secondary" onClick={onBackToProposal} disabled={pending}>
+              Back to the proposal
+            </button>
+          )}
           <button type="button" className="secondary" onClick={cancel} disabled={pending}>
             Cancel
           </button>

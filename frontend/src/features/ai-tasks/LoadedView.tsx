@@ -53,7 +53,7 @@ export function LoadedView({
   const [discardError, setDiscardError] = useState("");
   const result = task.result;
   const discard = async () => {
-    if (!result) return;
+    if (!result?.changeSetId) return;
     try {
       const held = await api.changeSet(result.changeSetId);
       await api.discardChangeSet(result.changeSetId, held.version);

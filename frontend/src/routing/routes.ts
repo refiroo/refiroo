@@ -248,7 +248,8 @@ function settingsRoute(parts: string[], query: URLSearchParams): SettingsRoute |
       const modelTab = MODEL_TABS.find((item) => item === parts[4] && item !== "overview");
       return { kind: "settings", page, modelKey: id, ...(modelTab ? { modelTab } : {}) };
     }
-    if (kind === "migrations" && id) return { kind: "settings", page, migrationJobId: id, ...forWorkspaceIn(query) };
+    if (kind === "migrations" && id)
+      return { kind: "settings", page, migrationJobId: id, ...forWorkspaceIn(query), ...journeyIn(query) };
     if (kind === "drafts" && id && parts[4] === "editor") {
       return {
         kind: "settings",
@@ -409,9 +410,9 @@ function settingsPath(route: SettingsRoute) {
     return route.modelTab && route.modelTab !== "overview" ? `${base}/${route.modelTab}` : base;
   }
   if (route.page === "model" && route.migrationJobId)
-    return withForWorkspace(
-      `/settings/model/migrations/${encodeURIComponent(route.migrationJobId)}`,
-      route.forWorkspace,
+    return withJourney(
+      withForWorkspace(`/settings/model/migrations/${encodeURIComponent(route.migrationJobId)}`, route.forWorkspace),
+      route.journey,
     );
   return `/settings/${route.page}`;
 }

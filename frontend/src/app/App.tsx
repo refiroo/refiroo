@@ -44,6 +44,7 @@ import { JobNotificationsProvider, useJobEnded, useJobNotifications } from "@/fe
 import { ExportDialog, type ExportStart } from "@/features/jobs/ExportDialog";
 import { ImportDialog, type ImportStart } from "@/features/jobs/ImportDialog";
 import { LoadWorkbookDialog, type LoadWorkbookStart } from "@/features/ai-tasks/LoadWorkbookDialog";
+import { useChangeModelOffer } from "@/features/ai-tasks/useChangeModelOffer";
 import { useWorkspaceAssistantOffer } from "@/features/settings/useWorkspaceAiOffer";
 import { BrandMascot } from "@/ui/ProductMark";
 import { useCapabilities } from "@/features/settings/useSystem";
@@ -218,6 +219,10 @@ function AppContent({
       (routeChangeSetId(route) || ((route.kind === "list" || route.kind === "detail") && route.publicationId))
     );
   const [workspace, setWorkspace] = useState<Workspace>();
+  const canChangeModel = useChangeModelOffer(
+    route.workspaceKey,
+    workspace?.key === route.workspaceKey ? workspace.status : undefined,
+  );
   const actionSequence = useRef(0);
   // What the person may do here (0.12 Z5): record writes of this context, and in live data without
   // Edit live but with Work in change sets, a proposal through their own change set (D324).
@@ -315,6 +320,18 @@ function AppContent({
           setImportStart({ context });
         }
       : undefined;
+
+  // Asking the assistant to change the workspace's model: the same task, with the workspace fixed (AP12).
+  const changeModel = canChangeModel
+    ? () => {
+        importTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        setWorkbookStart({
+          workspaceKey: activeRoute.workspaceKey,
+          changeModel: true,
+          workspaceLabel: workspace?.label ?? activeRoute.workspaceKey,
+        });
+      }
+    : undefined;
 
   const exportFromMenu =
     capabilities?.integrationJobs.createJobs && application
@@ -599,6 +616,7 @@ function AppContent({
       onHome={goHome}
       onImport={onImport}
       onExport={exportFromMenu}
+      onChangeModel={changeModel}
       onOpenObject={(item) => openObject(item, undefined, "hierarchy")}
       contextActions={contextActions}
       permissionNote={permissionNote}

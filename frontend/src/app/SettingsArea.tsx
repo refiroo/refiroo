@@ -203,6 +203,7 @@ export function SettingsArea({ router, model, route }: { router: Router; model: 
           onActiveModelChange={router.reloadModel}
           onOpenWorkspace={(workspaceKey) => navigate({ kind: "settings", page: "workspaces", workspaceKey })}
           onReturnToWorkspace={router.openWorkspace}
+          onReturnToTask={(taskId) => navigate({ kind: "settings", page: "ai-tasks", taskId })}
           onOpenChangeSet={openChangeSet}
         />
       ) : null}

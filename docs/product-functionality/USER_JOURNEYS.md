@@ -2530,6 +2530,11 @@ API; it calls no AI provider.
    and its counts. The engine also saves the load as an import profile (`result.profileKey`), or says
    why it could not (`result.profileNotSaved`). The next file of the layout loads through the profile with no
    assistant.
+5. A task may also change the workspace's model from words alone, asked from the workspace's menu, and move
+   records between types. A whole type that becomes another ends in the release the session installed and the
+   type mappings (`result.migration`), which a person with Model release previews and confirms as a migration
+   (J37); part of a type ends in a change set on a release holding both shapes and a final release
+   (`result.thenReleaseId`), which the person activates, publishes and activates in turn (J50.46 to J50.52).
 
 **Variants:**
 
@@ -2602,6 +2607,25 @@ API; it calls no AI provider.
   neither the folder nor the log.
 - **J50.45 A worker that stopped**: when the worker stopped during a turn, the next turn records it as
   interrupted, from the log beside the folder.
+- **J50.46 A merge from words**: records of two types, a session proposes them as one and the person
+  accepts and confirms the migration; every record is under the new type with its ID, values,
+  relationships and history, the old types are gone and the workspace runs the release.
+- **J50.47 The proposal says what moves**: a proposal's `moves` show each type's record count and no
+  left-out warning for those types; a move naming a type the draft lacks fails the task with the reason and
+  installs nothing.
+- **J50.48 Part of a type**: a session restructures part of a type into a new type in a change set on an
+  installed release the workspace does not run; live data is unchanged, the change set holds the records with
+  their IDs and the session is refused activation.
+- **J50.49 The three steps**: the person activates the release holding both shapes (nothing moves), publishes
+  (the records are live under the new type), then activates the final release (the old type is gone); before
+  the publication that last activation is refused and nothing changes.
+- **J50.50 Under an approval policy**: part of a type goes through approval as any change set; a whole-type
+  migration is confirmed as a migration is, by a holder of Model release, otherwise `403 FORBIDDEN`.
+- **J50.51 A move the session cannot finish**: a person without Model release or Model authoring can read the
+  task, but the session holds no model grant and installs nothing.
+- **J50.52 What stays out**: the release with both shapes is retired if the task is discarded before the change
+  set; the final release (`result.thenReleaseId`) survives the end of a loaded task, and any other release the
+  session installed is retired.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409

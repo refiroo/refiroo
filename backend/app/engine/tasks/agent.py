@@ -59,6 +59,9 @@ from ..identity.clients import create_session_client, retire_session_client
 from ..identity.settings import IdentitySettings
 from ..imports.profiles import model_key_of, save_for_release
 from ..jobs.batches import JobCancelled
+from ..model.compiler import parse_model
+from ..model.diagnostics import ModelValidationError
+from ..model.migrations import parse_type_mappings, plan_migration
 from ..model.release_lifecycle import set_release_status
 from ..model.workspace_models import load_assignment
 from .store import finish, held_by_another, held_counts, load_task, note
@@ -66,8 +69,10 @@ from .store import finish, held_by_another, held_counts, load_task, note
 log = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 1800
-PROMPT_VERSION = "agent/4"
+PROMPT_VERSION = "agent/5"
 LAST_LINE = "CHANGE_SET:"
+THEN_LINE = "THEN_RELEASE:"
+RELEASE_LINE = "RELEASE:"
 DEFAULT_WORDS = "Create a model for this or map it to the current model, and import it."
 PROPOSAL = "proposal.json"
 _CALL = re.compile(r"(?:-X\s*(GET|POST|PUT|PATCH|DELETE)\b[^\n]*?)?/api/v1/([A-Za-z0-9_\-/{}$.]+)")
@@ -119,6 +124,13 @@ _SHAPE = (
 )
 
 
+_RECORDS = (
+    "A record changes type and keeps its ID, values, relationships and history through a change set's "
+    "restructurings or, for every record of a type, through the proposal's moves; creating new "
+    "records and removing the old ones loses them."
+)
+
+
 _WORDS = (
     "Build everything the words ask for, as they place it, also what the file has no data for (an "
     "empty type): the words go before the file's shape, and a question does not replace building. "
@@ -140,18 +152,37 @@ def _propose_prompt(
     return (
         f"{(words or '').strip() or DEFAULT_WORDS}\n\n"
         f"{_connection(workspace, url, workbook=workbook)} {_starting_point(held)} "
-        f"{_WORDS} {_SHAPE + ' ' + _KEYS + ' ' if workbook else ''}{check}; install, activate, load and "
-        f"publish nothing yet: the person reviews first. Then write {PROPOSAL}: "
-        '{"draftId": ..., "summary": two sentences a person reads, "questions": [{"text", "options", '
-        '"assumed"}] for what only a person can decide}.'
+        f"{_WORDS} {_RECORDS} {_SHAPE + ' ' + _KEYS + ' ' if workbook else ''}{check}; install, "
+        "activate, load and publish nothing yet: the person reviews first. Then write "
+        f'{PROPOSAL}: {{"draftId": ..., "summary": two sentences a person reads, "questions": '
+        '[{"text", "options", "assumed"}] for what only a person can decide, "moves": '
+        '[{"from": a type key, "to": its type key in the draft, "attributes": [{"attributeTypeKey", '
+        '"from"}]}] only for a whole type that becomes another, kept in order}.'
     )
+
+
+_PART = (
+    " If instead you move part of a type's records to other types, install the draft (the final "
+    "model) and a second release that holds the final model with the old types beside it, make "
+    "the change set on the second release (source currentLive, modelReleaseId), restructure the "
+    f"records in it, and end with the lines {LAST_LINE} <its id> and {THEN_LINE} <the final "
+    "release's id>."
+)
 
 
 _ACCEPTED = (
     "The person accepted. They may have edited the draft in the model editor: read it again. Install "
     "it as exactly one new release and do not activate it, make the change (a workbook's rows, or "
     "what the words ask of the stored records) in a new change set "
-    f"on that release, do not publish it, and end with the line {LAST_LINE} <its id>."
+    f"on that release, do not publish it, and end with the line {LAST_LINE} <its id>.{_PART}"
+)
+
+
+_MOVED = (
+    "The person accepted. They may have edited the draft in the model editor: read it again. Install "
+    "it as exactly one new release and do not activate it, and end with the line "
+    f"{RELEASE_LINE} <its id>. The records of the proposal's moves are moved by a migration the "
+    "person confirms: do not move or create them."
 )
 
 
@@ -834,11 +865,14 @@ def _shape(model: dict[str, Any], base: dict[str, Any], records: dict[str, int])
 
 
 def _left_out(
-    model: dict[str, Any], base: dict[str, Any], held: dict[str, int]
+    model: dict[str, Any],
+    base: dict[str, Any],
+    held: dict[str, int],
+    moved: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
     """Types the workspace holds records of and the proposed model no longer has: the person is told
-    before accepting, whatever the session said."""
-    kept = {found.get("key") for found in model.get("objectTypes") or []}
+    before accepting, whatever the session said. A type the proposal moves is not left out."""
+    kept = {found.get("key") for found in model.get("objectTypes") or []} | moved
     names = {found.get("key"): found.get("name") for found in base.get("objectTypes") or []}
     gone = [f"{names.get(key) or key} ({count:,})" for key, count in sorted(held.items()) if key not in kept]
     if not gone:
@@ -882,6 +916,55 @@ def _beside_held(
         }
         for key, count in sorted(created)
         if held.get(key)
+    ]
+
+
+def _requested_moves(proposal: dict[str, Any]) -> list[dict[str, Any]]:
+    """The proposal's ``moves`` as a migration's ``typeMappings`` (AP-D47); anything else in it is
+    not a move."""
+    found = []
+    raw = proposal.get("moves")
+    for move in raw if isinstance(raw, list) else []:
+        if not isinstance(move, dict):
+            continue
+        found.append(
+            {
+                "fromObjectTypeKey": str(move.get("from") or ""),
+                "toObjectTypeKey": str(move.get("to") or ""),
+                "attributes": [
+                    {"attributeTypeKey": str(a.get("attributeTypeKey")), "from": a.get("from")}
+                    for a in move.get("attributes") or []
+                    if isinstance(a, dict)
+                ],
+            }
+        )
+    return found
+
+
+def _planned_moves(
+    mappings: list[dict[str, Any]],
+    base: dict[str, Any],
+    model: dict[str, Any],
+    held: dict[str, int],
+) -> list[dict[str, Any]]:
+    """What the proposal's moves would do, checked against the draft by the migration's own plan
+    (AP-D47): each with the records the workspace holds of the type. A move the plan refuses raises
+    its ``ApiError``; a model that does not compile, ``ModelValidationError``."""
+    if not mappings:
+        return []
+    plan_migration(parse_model(base), parse_model(model), parse_type_mappings(mappings))
+    old = {found.get("key"): found.get("name") for found in base.get("objectTypes") or []}
+    new = {found.get("key"): found.get("name") for found in model.get("objectTypes") or []}
+    return [
+        {
+            "from": move["fromObjectTypeKey"],
+            "fromName": old.get(move["fromObjectTypeKey"]) or move["fromObjectTypeKey"],
+            "to": move["toObjectTypeKey"],
+            "toName": new.get(move["toObjectTypeKey"]) or move["toObjectTypeKey"],
+            "records": held.get(move["fromObjectTypeKey"], 0),
+            "attributes": move["attributes"],
+        }
+        for move in mappings
     ]
 
 
@@ -947,16 +1030,25 @@ def _proposal_landed(
         check["summary"]["created"] -= related
         check["summary"]["relationships"] = related
     held = held_counts(session, task.workspace_key)
+    try:
+        moves = _planned_moves(_requested_moves(proposal), base, draft.model_json, held)
+    except (ApiError, ModelValidationError) as error:
+        reason = error.message if isinstance(error, ApiError) else "the draft does not compile"
+        note(task, "warning", f"The proposed moves cannot be made: {reason}")
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return
     task.draft_id = draft.id
     task.design = {
         **design,
         "stage": "model",
         "summary": str(proposal.get("summary") or ""),
+        "moves": moves,
         "questions": questions,
         # A draft on no release is a new model: a type sharing a key with the old one is not a change.
         "outline": _shape(draft.model_json, base if draft.base_model_release_id else {}, records),
         "checks": [
-            *_left_out(draft.model_json, base, held),
+            *_left_out(draft.model_json, base, held, frozenset(m["from"] for m in moves)),
             *_beside_held(session, (check or {}).get("dryRunJobId"), draft.model_json, held),
         ],
         "origin": {"kind": "ai", "provider": "claude-code", "model": None, "promptVersion": PROMPT_VERSION},
@@ -1020,33 +1112,108 @@ def said(session: Session, job: Job, ctx: Any, task_id: str, words: str, check_o
         _proposal_landed(session, ctx, task_id, folder, progress, check_of)
 
 
+def _last_line(words: str, label: str) -> str | None:
+    return next(
+        (
+            line.split(label, 1)[1].strip().strip("`*")
+            for line in reversed(words.splitlines())
+            if label in line
+        ),
+        None,
+    )
+
+
+def _installed_by(session: Session, task: AiTask, public_id: str | None) -> ModelRelease | None:
+    """A release the task's own client installed (AP-D45): a session's word for an ID counts only
+    if the engine recorded the installation."""
+    if not public_id or task.client_id is None:
+        return None
+    done = session.scalar(
+        select(AuditEvent.aggregate_id).where(
+            AuditEvent.aggregate_type == "model_release",
+            AuditEvent.action == "installed",
+            AuditEvent.actor_client_id == task.client_id,
+            AuditEvent.aggregate_id == public_id,
+        )
+    )
+    if done is None:
+        return None
+    return session.scalar(select(ModelRelease).where(ModelRelease.public_id == public_id))
+
+
+def _migration_result(session: Session, task: AiTask, words: str) -> dict[str, Any] | None:
+    """The end of a task whose proposal moved whole types (AP-D49): the release the session
+    installed and the type mappings, re-checked against that release as the person may have edited
+    the draft. ``None`` when the session installed nothing the mappings fit."""
+    release = _installed_by(session, task, _last_line(words, RELEASE_LINE))
+    if release is None:
+        return None
+    mappings = [
+        {
+            "fromObjectTypeKey": move["from"],
+            "toObjectTypeKey": move["to"],
+            "attributes": move.get("attributes") or [],
+        }
+        for move in (task.design or {}).get("moves") or []
+    ]
+    current = session.get(ModelRelease, load_assignment(session, task.workspace_key)[1].id)
+    try:
+        plan_migration(
+            parse_model(current.model_json),
+            parse_model(release.model_json),
+            parse_type_mappings(mappings),
+        )
+    except ApiError, ModelValidationError:
+        return None
+    return {"migration": {"releaseId": release.public_id, "typeMappings": mappings}}
+
+
 def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
-    """The person accepted: the same session installs one release and loads into a change set."""
+    """The person accepted: the same session installs one release and loads into a change set, or,
+    when the proposal moved whole types, installs the release a migration will move to (AP-D46)."""
     task = load_task(session, task_id)
     workspace = task.workspace_key
     folder = folder_of(ctx.files, task)
+    moves = (task.design or {}).get("moves")
     progress = _run_turn(
-        session, job, ctx, task_id, folder, _ACCEPTED, (task.design or {})["agentSession"], first=False, load=True
+        session,
+        job,
+        ctx,
+        task_id,
+        folder,
+        _MOVED if moves else _ACCEPTED,
+        (task.design or {})["agentSession"],
+        first=False,
+        load=True,
     )
     if progress is None:
         return
     words = str(progress.result.get("result") or "")
-    change_set_id = next(
-        (
-            line.split(LAST_LINE, 1)[1].strip().strip("`*")
-            for line in reversed(words.splitlines())
-            if LAST_LINE in line
-        ),
-        None,
-    )
-    change_set = (
-        session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id)) if change_set_id else None
-    )
     task = load_task(session, task_id, for_update=True)
     design = dict(task.design or {})
     design.pop("progress", None)
     task.design = design
     note(task, "note", _said(progress))
+    if moves:
+        # No change set, and the data is not touched: the person confirms the migration (AP-D49).
+        result = _migration_result(session, task, words)
+        if result is None:
+            note(task, "warning", "The session installed no release the moves fit")
+            finish(task, "failed", _retention(ctx))
+        else:
+            task.result = result
+            finish(task, "loaded", _retention(ctx))
+            remove_folder(ctx.files, task)
+            retire_unused_releases(session, task)
+            retire_session_client(session, task.client_id)
+        session.commit()
+        return
+    change_set_id = _last_line(words, LAST_LINE)
+    change_set = (
+        session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
+        if change_set_id
+        else None
+    )
     counts = _counts(session, change_set.id) if change_set is not None else None
     # An empty change set is no load, whatever the session's last line says.
     if change_set is None or change_set.workspace_key != workspace or not counts["applied"]:
@@ -1057,12 +1224,26 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
             "changeSetName": change_set.name,
             "counts": counts,
             **_saved_profile(session, task, change_set),
+            **_then_release(session, task, words),
         }
         finish(task, "loaded", _retention(ctx))
         remove_folder(ctx.files, task)
         retire_unused_releases(session, task)
         retire_session_client(session, task.client_id)
     session.commit()
+
+
+def _then_release(session: Session, task: AiTask, words: str) -> dict[str, str]:
+    """The final release of a part-of-a-type reshaping: the third step, the person's, activates it
+    once the old types hold no record (AP-D48)."""
+    named = _last_line(words, THEN_LINE)
+    if named is None:
+        return {}
+    release = _installed_by(session, task, named)
+    if release is None:
+        note(task, "warning", "The session named a final release it did not install")
+        return {}
+    return {"thenReleaseId": release.public_id}
 
 
 def _profile_key(session: Session, name: str, release: ModelRelease) -> str:
@@ -1138,6 +1319,11 @@ def retire_unused_releases(session: Session, task: AiTask) -> None:
     "exactly one release" is only a prompt (AP-D45); history may name it, so it stays."""
     if task.client_id is None:
         return
+    result = task.result or {}
+    kept = {
+        result.get("thenReleaseId"),
+        (result.get("migration") or {}).get("releaseId"),
+    } - {None}
     installed = select(AuditEvent.aggregate_id).where(
         AuditEvent.aggregate_type == "model_release",
         AuditEvent.action == "installed",
@@ -1146,6 +1332,7 @@ def retire_unused_releases(session: Session, task: AiTask) -> None:
     for release in session.scalars(
         select(ModelRelease).where(
             ModelRelease.public_id.in_(installed),
+            ModelRelease.public_id.not_in(kept),
             ModelRelease.status != "retired",
             ~ModelRelease.id.in_(select(WorkspaceModel.model_release_id)),
             ~ModelRelease.id.in_(select(ChangeSet.model_release_id)),

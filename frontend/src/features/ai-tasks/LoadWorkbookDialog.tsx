@@ -22,6 +22,12 @@ export interface LoadWorkbookStart {
   file?: File;
   /** The words to start with, as when a task is started again. */
   words?: string;
+  /**
+   * "Change this model…" (0.16 AP12): the workspace is fixed, the words come first and are required, the
+   * workbook is optional. `workspaceLabel` names the workspace in the dialog.
+   */
+  changeModel?: boolean;
+  workspaceLabel?: string;
 }
 
 const ACCEPT = ".xlsx,.csv";
@@ -52,11 +58,12 @@ export function LoadWorkbookDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [wordsError, setWordsError] = useState("");
+  const changing = !!start.changeModel;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     const trimmed = words.trim();
-    if ((!file && !trimmed) || !workspaceKey || pending) return;
+    if ((changing ? !trimmed : !file && !trimmed) || !workspaceKey || pending) return;
     setPending(true);
     setError("");
     setWordsError("");
@@ -69,57 +76,85 @@ export function LoadWorkbookDialog({
     }
   }
 
-  return (
-    <Modal title="Load a workbook" size="wide" busy={pending} onClose={onClose}>
-      <form className="dialog-form" onSubmit={(event) => void submit(event)}>
-        <p>
-          The AI assistant reads the whole workbook against the workspace&apos;s model and records, tells you what each
-          sheet is, and prepares the load. Nothing changes until you confirm.
-        </p>
-        <p className="admin-hint">
-          Without a workbook, your words are the whole instruction: &ldquo;Ask the assistant&rdquo; designs from them at
-          once.
-        </p>
-        <FormField label="Workbook" help={file ? `${file.name} · ${bytes(file.size)}` : "XLSX or CSV."}>
-          {(control) => (
-            <FileField control={control} accept={ACCEPT} disabled={pending} onFile={(chosen) => setFile(chosen)} />
-          )}
-        </FormField>
-        <WorkspaceField
-          label="Into"
-          holding="ai-proposals"
-          value={workspaceKey}
+  const workbookField = (
+    <FormField
+      label={changing ? "A workbook (optional)" : "Workbook"}
+      help={file ? `${file.name} · ${bytes(file.size)}` : "XLSX or CSV."}
+    >
+      {(control) => (
+        <FileField control={control} accept={ACCEPT} disabled={pending} onFile={(chosen) => setFile(chosen)} />
+      )}
+    </FormField>
+  );
+  const wordsField = (
+    <FormField
+      label={changing ? "What should change?" : "Tell the assistant about this file (optional)"}
+      help={file || changing ? undefined : "Required without a workbook."}
+      error={wordsError || undefined}
+    >
+      {(control) => (
+        <textarea
+          {...control}
+          rows={changing ? 4 : 3}
+          maxLength={4000}
+          value={words}
           disabled={pending}
-          onChange={setWorkspaceKey}
-          onError={setError}
+          onChange={(event) => {
+            setWords(event.target.value);
+            setWordsError("");
+          }}
         />
-        <FormField
-          label="Tell the assistant about this file (optional)"
-          help={file ? undefined : "Required without a workbook."}
-          error={wordsError || undefined}
-        >
-          {(control) => (
-            <textarea
-              {...control}
-              rows={3}
-              maxLength={4000}
-              value={words}
+      )}
+    </FormField>
+  );
+  const ready = changing ? !!words.trim() : !!file || !!words.trim();
+  return (
+    <Modal title={changing ? "Change this model" : "Load a workbook"} size="wide" busy={pending} onClose={onClose}>
+      <form className="dialog-form" onSubmit={(event) => void submit(event)}>
+        {changing ? (
+          <p>
+            Say what should change in the model of <strong>{start.workspaceLabel ?? start.workspaceKey}</strong>. The
+            assistant proposes it and says what happens to the records. Nothing changes until you confirm.
+          </p>
+        ) : (
+          <>
+            <p>
+              The AI assistant reads the whole workbook against the workspace&apos;s model and records, tells you what
+              each sheet is, and prepares the load. Nothing changes until you confirm.
+            </p>
+            <p className="admin-hint">
+              Without a workbook, your words are the whole instruction: &ldquo;Ask the assistant&rdquo; designs from
+              them at once.
+            </p>
+          </>
+        )}
+        {changing ? (
+          <>
+            {wordsField}
+            {workbookField}
+          </>
+        ) : (
+          <>
+            {workbookField}
+            <WorkspaceField
+              label="Into"
+              holding="ai-proposals"
+              value={workspaceKey}
               disabled={pending}
-              onChange={(event) => {
-                setWords(event.target.value);
-                setWordsError("");
-              }}
+              onChange={setWorkspaceKey}
+              onError={setError}
             />
-          )}
-        </FormField>
-        <p className="admin-hint">{file || !words.trim() ? SENT_WITH_WORKBOOK : SENT_WITH_WORDS}</p>
+            {wordsField}
+          </>
+        )}
+        <p className="admin-hint">{file || (!changing && !words.trim()) ? SENT_WITH_WORKBOOK : SENT_WITH_WORDS}</p>
         {error && (
           <Notice tone="error" title="The workbook was not sent" focusOnMount>
             {error}
           </Notice>
         )}
         <div className="dialog-actions">
-          {onImportManually && (
+          {onImportManually && !changing && (
             <>
               <button type="button" className="secondary" disabled={pending} onClick={() => onImportManually(file)}>
                 Import without the assistant…
@@ -130,8 +165,8 @@ export function LoadWorkbookDialog({
           <button type="button" className="secondary" disabled={pending} onClick={onClose}>
             Cancel
           </button>
-          <button className="primary" disabled={pending || (!file && !words.trim()) || !workspaceKey}>
-            {pending ? "Sending…" : file ? "Read the workbook" : "Ask the assistant"}
+          <button className="primary" disabled={pending || !ready || !workspaceKey}>
+            {pending ? "Sending…" : file && !changing ? "Read the workbook" : "Ask the assistant"}
           </button>
         </div>
       </form>

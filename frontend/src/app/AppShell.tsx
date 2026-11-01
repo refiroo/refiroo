@@ -47,6 +47,7 @@ export function AppShell({
   ownChangeSet,
   onImport,
   onExport,
+  onChangeModel,
   fill = false,
   children,
 }: {
@@ -65,6 +66,8 @@ export function AppShell({
   /** The workspace ⋯ menu's Import and Export, where each is offered (0.16 WM1). */
   onImport?: () => void;
   onExport?: () => void;
+  /** The workspace ⋯ menu's Change this model…, where the assistant may be asked for it (0.16 AP12). */
+  onChangeModel?: () => void;
   onOpenObject: (item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) => void;
   /** Records were written from the shell itself, such as moved in the sidebar (UA9). */
   onChanged?: () => void;
@@ -88,6 +91,7 @@ export function AppShell({
     ...(onImport ? [{ id: "import", label: "Import…", onAction: onImport }] : []),
     ...(onExport ? [{ id: "export", label: "Export…", onAction: onExport }] : []),
     ...(editModel ? [{ id: "edit-model", label: "Edit model", onAction: editModel }] : []),
+    ...(onChangeModel ? [{ id: "change-model", label: "Change this model…", onAction: onChangeModel }] : []),
   ];
   // Capabilities only decide whether Manage workspaces is offered; a failed read leaves it hidden,
   // and the Workspaces page itself reports the capability state.

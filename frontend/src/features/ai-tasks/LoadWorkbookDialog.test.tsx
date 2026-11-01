@@ -18,12 +18,7 @@ const workspace = (key: string, label: string) => ({ key, label }) as Workspace;
 function open(start: { workspaceKey?: string; file?: File } = {}, onStarted = vi.fn(), onClose = vi.fn()) {
   const onImportManually = vi.fn();
   render(
-    <LoadWorkbookDialog
-      start={start}
-      onClose={onClose}
-      onStarted={onStarted}
-      onImportManually={onImportManually}
-    />,
+    <LoadWorkbookDialog start={start} onClose={onClose} onStarted={onStarted} onImportManually={onImportManually} />,
   );
   return { onStarted, onClose, onImportManually };
 }
@@ -127,5 +122,34 @@ describe("Load a workbook (0.16 AP6a)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Ask the assistant" }));
     expect(await screen.findByText("Give a workbook or some words.")).toHaveClass("field-error");
+  });
+
+  it("changes a workspace's model from words: the workspace fixed, the words first and required, the workbook optional (AP12)", async () => {
+    const task = { id: "t1" } as AiTask;
+    vi.mocked(ai.createTask).mockResolvedValue(task);
+    const onStarted = vi.fn();
+    render(
+      <LoadWorkbookDialog
+        start={{ workspaceKey: "west", changeModel: true, workspaceLabel: "West" }}
+        onClose={vi.fn()}
+        onStarted={onStarted}
+        onImportManually={vi.fn()}
+      />,
+    );
+    expect(await screen.findByRole("dialog", { name: "Change this model" })).toBeInTheDocument();
+    expect(screen.getByText("West")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Into")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Import without the assistant/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/Sent to Claude Code: your words and the workspace's model/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask the assistant" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("What should change?"), {
+      target: { value: "Merge Suppliers and Vendors" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ask the assistant" }));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith(task));
+    expect(ai.createTask).toHaveBeenCalledWith(undefined, {
+      workspaceKey: "west",
+      words: "Merge Suppliers and Vendors",
+    });
   });
 });

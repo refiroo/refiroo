@@ -160,6 +160,7 @@ can complete the task in the application; "API" means another system can.
   profile that fits already reads it, or works out which lists update which types, asks only about what
   needs a person (new keys, names that differ, records missing from the file), checks every row and
   loads into a change set for review.
+- Change a workspace's model from words: **Change this model…** on the workspace's ⋯ menu proposes the new model and says what happens to the records. A whole type that becomes another (a rename, a merge) moves by one migration the person confirms; part of a type (a split by a value) moves in a change set, then the person activates the release with both shapes, publishes, and activates the final release. Records keep their IDs and history either way.
 
 ### Manage workspaces — browser and API
 
