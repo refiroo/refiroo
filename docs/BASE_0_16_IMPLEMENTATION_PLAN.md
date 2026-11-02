@@ -99,7 +99,7 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
 | [AG4](#ag4-natural-language-search) | AG2, AP1 | A question turned into the existing search and filter parameters, explained back. **Closed 2026-11-01, accepted by the user** |
 | [AO1](#ao1-model-change-impact-summary) | AP1 | **Delivered 2026-11-01.** A plain-language impact summary of a release diff or activation preview, with its facts |
 | [AO2](#ao2-what-changed-an-account-of-history) | AP1 | An account of a workspace's history over a period, with citations |
-| [AO3](#ao3-notification-digests) | AP1 (the AI sentence only) | A daily or weekly digest of a person's inbox notices by mail, opt-in; useful without a provider |
+| [AO3](#ao3-notification-digests) | 0.12 | A daily or weekly digest of a person's inbox notices by mail, opt-in, with no AI (AO-D32); publications in followed workspaces (AO-D38). **Delivered 2026-11-02** ([record](#ao3-record-2026-11-02)) |
 | [WM1](#wm1-change-a-workspaces-model-from-the-workspace) | 0.12 | **Not AI.** Edit a workspace's model from the workspace: a draft made for it, one "Apply to this workspace" |
 | [R](#r-build-acceptance-and-release) | all | Full review of every change since 0.15, the gates, one bounded real-provider try and one real-assistant try, the release |
 
@@ -200,11 +200,11 @@ keeps the reasoning.
 
 | # | Question | Recommendation |
 | --- | --- | --- |
-| AO-D1 | What does the model see? | **The facts, not the data.** AO1 sees the diff's operations and the counts the preview already computes (records affected per type, mappings touched, consumer definitions changed). AO2 sees change records (kind, type, field, count, actor, time) grouped in the database, and record names only at send level `values`. AO3 sees notice kinds, counts and titles. Send level per feature is stated in its package; below it the feature is hidden (AP-D3). |
+| AO-D1 | What does the model see? | **The facts, not the data.** AO1 sees the diff's operations and the counts the preview already computes (records affected per type, mappings touched, consumer definitions changed). AO2 sees change records (kind, type, field, count, actor, time) grouped in the database, and record names only at send level `values`. *(AO3 sends nothing to a provider: AO-D32.)* Send level per feature is stated in its package; below it the feature is hidden (AP-D3). |
 | AO-D2 | Citations | **Every statement cites at least one fact by its ID,** and the interface renders the citation as a link. The prompt requires it; the answer schema carries `statements: [{text, factIds[]}]`; a statement without a valid fact ID is dropped and counted ("2 statements removed: no source"). Why: the reader can check, and a hallucinated sentence cannot survive without a source. |
 | AO-D3 | Whole set, not a sample | **The facts are computed over every change in the period** (aggregates in PostgreSQL), the user's rule for checks and dry runs (D67). The model receives the aggregates and a bounded number of top items per group, with the group's true count, and the account says "and N more" instead of implying completeness. |
 | AO-D4 | Stored or on demand? | **On demand, cached per input.** The summary is keyed by the hash of its facts; the same facts return the same text without a second call. Not stored in history and not part of a release: it is a reading aid. A model release's summary is cached on the release preview only for the session of the preview. |
-| AO-D5 | Who may ask? | **AO1: model administrators** (those who may activate). **AO2: those who may read the history of the scope** being summarised, and the facts are filtered by what they may read (visibility, ADR-044): the summary cannot say what the person cannot see. **AO3: the recipient, for their own inbox.** A summary is not a proposal, so a second action joins "Use AI proposals" in the AP1 group: "Use AI summaries". |
+| AO-D5 | Who may ask? | **AO1: model administrators** (those who may activate). **AO2: those who may read the history of the scope** being summarised, and the facts are filtered by what they may read (visibility, ADR-044): the summary cannot say what the person cannot see. *(AO3 has no AI: AO-D32.)* A summary is not a proposal, so a second action joins "Use AI proposals" in the AP1 group: "Use AI summaries". |
 | AO-D6 | Digest opt-in and shape | **Opt-in per person, off by default,** in the notification settings beside the existing per-kind choice (D434): `none`, `daily` or `weekly`, replacing the per-notice mails for the kinds the person has switched to digest. A digest is built by a scheduled job from the person's unread notices, sent through the existing outbox and templates; the plain list of notices is always in the mail below the summary. Quiet when there is nothing to say: no mail. |
 | AO-D7 | Where does AO2 live? | **A "What changed" panel on the workspace and on a record's history,** a period picker, and a route `POST …/history/account` (job when the period is large) returning statements and facts. Not a chat. The same route is reachable by the AG2 tools (the API is the product). |
 | AO-D8 | Language | **The account is written in the person's interface language** (0.15's setting passed to the request), English if the language is not one the provider writes well, noted on the account. |
@@ -312,7 +312,7 @@ browser (Vitest only); Load more on the calls list. The development database was
 `uvicorn --reload` server (health answered `ok` after it); no side server was started.
 
 **What the user cannot do yet:** get AI proposals anywhere but the inference's names (AP2–AP6), reach the
-engine from an outside assistant (AG1–AG4), read plain-language summaries (AO1–AO3); choose a lower send
+engine from an outside assistant (AG1–AG4), read plain-language summaries (AO1, AO2); choose a lower send
 level per request (AP-D3, decided 2026-10-28; built from AP2).
 
 ## AP2: Targets for unmapped values
@@ -424,7 +424,7 @@ pill, as it hides the Action column already.
 
 **What the user cannot do yet:** values for empty fields and missing related records (AP4), dry-run triage
 (AP5), instruction-driven tasks (AP6), AI in model authoring beyond names (AP3), assistant access (AG1–AG4),
-summaries (AO1–AO3).
+summaries (AO1, AO2).
 
 ## AP8: The assistant is a Claude Code session
 
@@ -1899,6 +1899,131 @@ rules: one digest per person per period, no duplicates across nodes), the `diges
 counts, titles; send level `structure`), the mail template, the outbox. With the provider off, the
 digest is the plain list with counts, which is already an improvement over many mails; AI only writes
 the opening sentence. (This makes AO3 useful without a provider: recommended to build it so.)
+
+### AO3 in detail (planned 2026-11-02, approved by the user the same day with the mock-up; AO-D38 and its place on the home page decided by the user)
+
+Mock-up: [AO3 Notification digests](https://claude.ai/artifact/FMHbeBUsYt7ErMCXrPnd7M) (a Design canvas, not kept in the repository; three boards: Settings › Notifications › Email with the three-way choice, the digest's time and the followed workspaces; the daily digest as plain text; the home page's workspace cards with Follow).
+
+**Requirement served:** the Outcome's "a person who opted in receives one digest instead of many mails", and the exit
+gate's "with no provider … digests are the plain list".
+
+**What the code does today (read 2026-11-02; nothing was run):**
+
+- **One mail per notice, nothing in it but its kind.** `engine/notifications/mailing.py` (`queue_notices`) runs at
+  the start of every round of the mail sender (`engine/mail/sender.py`, every 2 seconds, one sender per process). It
+  takes unread notices not yet handled (`mailed_at` empty), under 24 hours old, made since the person switched mail
+  on (`users.notice_mail_since`), of a kind not switched off (`users.notice_mail_kinds_off`), locks them `FOR UPDATE
+  SKIP LOCKED`, queues one message each and sets `mailed_at` in the same transaction. Two processes therefore never
+  mail the same notice.
+- **The mail carries no content, by decision.** `templates.notice` names the kind and links to the application only:
+  "no record, change set, workspace or person content" (D239, D421, D432). The settings panel promises it to the
+  person: "it never names a record or a change set" (`NoticeMailPanel.tsx`).
+- **A notice holds little.** `details` holds the change set's name, version, comment and actor, or for a job only
+  `jobKind` and `state` (the `jobs_inbox` trigger). A job's counts (`jobs.counts`, `processed`) are on the job, which
+  is removed `JOB_RETENTION_DAYS` (7) after it ends; a notice is kept 90 days.
+- **No person has a time zone,** and nothing in the engine runs at a time of day. "The next morning" has nothing to
+  go by yet.
+- **The inbox page** (`/notifications`) is filtered by kind, workspace and read state on the page.
+
+**A conflict with a product decision, stated before the plan (CLAUDE.md).** The journey's "1 job failed (import of
+the … file, 14 rows rejected)" and AO-D1's "AO3 sees notice kinds, counts and titles" put a file's name and change
+sets' titles in a mail and, for the opening sentence, in a provider's context. D432 keeps every name out of mail, and
+the panel promises it. AO3 as recommended below keeps D432: kinds, counts and links, no names. The journey then reads
+"3 change sets wait for your approval; 1 import you started failed, 14 rows rejected".
+
+**Decisions (approved with this plan):**
+
+| # | Decision | Why and what it costs |
+| --- | --- | --- |
+| AO-D31 | **The digest keeps D432: kinds, counts and links, no names.** A line names the kind in its label's words; a job's line adds its job kind and counts (rows applied, rejected) read from the job while it exists. No change set, file, workspace or person name. | The rule protects mail that travels and sits in mailboxes, and a digest is the same mail, only fewer. Cost: the reader opens the inbox to see which change set; the journey loses "of the … file". |
+| AO-D32 | **No AI in AO3.** The opening sentence is built by the engine from the counts, in the kinds' labels ("3 change sets wait for your approval; 1 job you started failed"). No `digest` purpose, send level or permission; AO-D5's AO3 clause and AO-D1's AO3 sentence fall. | Under AO-D31 a provider would see only kinds and counts and could only restate them, so the sentence adds nothing a template does not, and a call per person per day is a running cost at hosting scale for no gain. The Outcome and the exit gate do not ask for the AI here. Cost: no prose beyond the template; if names are later allowed in mail, AI wording can come with that decision. |
+| AO-D33 | **Each kind is mailed at once, in the digest, or not at all;** one digest frequency per person, daily or weekly. The existing switch "Email me when something arrives in my inbox" stays the master switch. Every kind stays "at once" until the person changes it, so nobody's mail changes by the release. | AO-D6's "replacing the per-notice mails for the kinds the person has switched to digest": a person may want a confirmation at once and approvals once a day. Cost: the per-kind switch becomes a three-way choice. |
+| AO-D34 | **Daily at 07:00 in the person's time zone, weekly on Monday at 07:00.** The page sends the browser's time zone when the person chooses a digest; the API takes `timeZone` (IANA, `422 UNKNOWN_TIME_ZONE` otherwise) and answers the next send time. No choice of hour. | "The next morning" needs a time zone, and none exists. One fixed hour keeps the setting to one question. Cost: a person who wants evenings cannot have them (no package). |
+| AO-D35 | **Queued in the mail sender's round, beside `queue_notices`, one person per transaction.** `queue_digests` takes people whose `notice_digest_due_at` has passed, `FOR UPDATE SKIP LOCKED`, gathers their unread, unhandled notices of digest kinds made since `notice_mail_since` in one statement (counts grouped in PostgreSQL), queues one message, sets those notices' `mailed_at` and moves `notice_digest_due_at` to the next send time, all in one commit. Nothing to say: no mail, the time still moves on. Mail not set up: nothing is queued and nothing moves. `queue_notices` skips digest kinds. | The plan's "one digest per person per period, no duplicates across nodes" comes from the row lock and the moved due time, as the notice mail already does it; no new worker, lease or schedule. A notice read before the digest leaves it, as the person has seen it. |
+| AO-D36 | **The mail:** subject "<product>: N notices in your inbox"; the opening sentence; then one line per notice, newest first, its kind, when, and a link `/notifications?notice=<id>` that opens the notice's subject; at most 50 lines, then "and N more" with a link to the inbox; the closing paragraph as today, naming Settings › Notifications. The counts are over every notice, not the 50. | The plan's "lists the notices as today with their links": a notice's ID is no name (AO-D31). The inbox page learns to open a notice from the address if it does not yet. |
+| AO-D37 | **API:** `GET`/`PUT /me/notification-mail` gain `digest: {every: "daily" \| "weekly", timeZone, nextAt}`; each kind answers `delivery: "now" \| "digest" \| "off"`, and `kinds` in `PUT` takes those words in place of `true`/`false` (pre-1.0, the UI is the one client). Choosing `digest` for a kind with no `digest` set is `422 DIGEST_NOT_SET`. Migration: `users.notice_mail_kinds_digest` (array), `notice_digest_every`, `notice_digest_zone`, `notice_digest_due_at`. | One setting, one route, as D434. |
+| AO-D38 | **Decided by the user 2026-11-02 (the recommendation accepted).** **A publication reaches those who follow the workspace.** A person follows workspaces they may Browse, off by default. **Where (the user, 2026-11-02): on the home page,** a "Follow" toggle on each workspace card (the cards are the workspaces the person may Browse, `GET /me/workspaces`, which gains `following`); Settings › Notifications lists the followed workspaces with "Stop following". Not on the workspace's Activity, which sits under Settings › Administration › Workspaces and which a reader may never reach. A change set published in a followed workspace, from an approved request or directly, puts a notice of the new kind `change-set.published` ("A change set was published in a workspace you follow") in each follower's inbox, but not the publisher's, in the publication's transaction, one `INSERT … SELECT` over the followers who still hold Browse there. From there it is a kind like the others: at once, in the digest or no mail (AO-D33), its line without names (AO-D31). Publications only, not withdrawals. People only: clients have the webhooks and the change feed. API: `GET /me/followed-workspaces`, `PUT` and `DELETE /me/followed-workspaces/{workspaceKey}` (`404` for a workspace the person cannot Browse, repeat harmless). Migration: `workspace_followers` (`user_id`, `workspace_key`, `created_at`; both keys cascade). | Every other kind is about something that needs the person or is theirs; a publication is others' work, and the inbox keeps every notice (D434), so sending it to every reader would fill each reader's inbox with no way to stop it. Following keeps the inbox as it is for everyone who does not ask. Cost: one table, one small control, one notice per follower at publication. |
+
+**Journey cases (approved, J57, two model configurations, the sender driven by `run_once(now)`):**
+
+- **J57.1 The digest.** A person sets approvals and failed jobs to a daily digest in a time zone; three change sets
+  are submitted and an import fails with rejected rows; before 07:00 there, no mail; at 07:00 one message, its
+  counts equal the notices made, the job's line carries its counts, and no per-notice mail went.
+- **J57.2 No names.** A change set's name, a workspace's name, a person's name and a file's name, each planted, are
+  in no message's subject or body.
+- **J57.3 Quiet.** Nothing new, or everything read before 07:00: no mail, and the next day's time is set.
+- **J57.4 Once.** Two senders in one round: one message; a notice in a digest is never mailed again.
+- **J57.5 Mixed.** A kind left "at once" is mailed as today beside the digest; a kind "off" is in neither; the inbox
+  keeps every notice.
+- **J57.6 Weekly.** A week's notices in one message on Monday; a job removed by retention gives its line without
+  counts.
+- **J57.7 Refused and off.** Unknown time zone, unknown kind, `digest` without a frequency: `422`, nothing changes.
+  Switching mail off, mail not set up, no address, an inactive person: no digest.
+- **J57.8 Following.** Two people follow a workspace and a third does not; a change set is published there by a
+  request and one directly: each follower gets one notice per publication, the publisher and the third none. A
+  follower whose Browse was taken away gets none; following a workspace one cannot Browse is `404`; unfollowing
+  stops the notices. In the digest the line names no change set or workspace (planted names looked for).
+
+Unit tests: the next send time across a daylight-saving change, for daily and weekly. Vitest: the panel's three-way
+choice and frequency, the browser's time zone sent, the next send time shown.
+
+**Mail sample first.** Before the template is built, one rendered digest (plain text, from the J57.1 data) is shown
+to the user beside the panel's mock-up, and read in a real mail program from the dev outbox once it exists.
+
+**Browser:** Settings › Notifications and the home page (Follow on a card, then Stop following in Settings) at 1440px
+by keyboard and 390px, light and dark, axe, no 5xx; opening a digest link lands on the notice's subject.
+
+**Checks:** J57, the notice-mail journeys as the execution guide names them, `contract` with the OpenAPI lock
+(re-baselined last, diff read for AO3's changes only), `test_boundaries`, `test_error_codes`, the migration's
+upgrade, Ruff on the named files, Vitest for `features/settings` and `features/inbox`, lint, format on the changed
+files, the production build. **Door check (ADR-032):** none affected; a digest reads notices and jobs and changes
+only `mailed_at`, as the notice mail does.
+
+**Scope.** **Engine:** `notifications/mailing.py` (`queue_digests`, the kind choice), `notifications/kinds.py`,
+`mail/templates.py` (`digest`), `mail/sender.py` (one call), `notifications/following.py` and the call in
+`change_sets/publish.py` (AO-D38), the migration. **Management:** the `notification-mail` schemas, projection and
+route; the followed-workspaces routes; `following` on `OwnWorkspaceResponse`. **Frontend:** `NoticeMailPanel`, the
+followed workspaces in Settings › Notifications, the follow toggle on `WorkspaceCard` in `features/home/HomePage.tsx`,
+`NotificationsPage` (a notice from the address), `api`, types. Vitest adds `features/home`. **Documents:** `API.md`, `API_JOURNEYS.md`, `USER_JOURNEYS.md` (J57), `CURRENT_FUNCTIONALITY.md`,
+`OPERATIONS.md` (when digests go), `UI_ACCEPTANCE`, the execution guide, `PROJECT_STATUS`, `CHANGELOG.md`, this plan
+(AO-D1, AO-D5 and the Packages row amended once approved).
+
+**Working beside other sessions.** AO3 touches none of AP12's or AP13's files. Shared: this document,
+`CHANGELOG.md`, the API documents, the OpenAPI lock, re-baselined last. The migration is written in one go (the dev
+server applies it on save). `pytest` runs one at a time. Commits hold AO3's hunks only.
+
+**What the user cannot do after AO3:** see names in a digest (D432; AO-D31); choose the hour or an evening digest
+(AO-D34); get a digest as a client (clients have no mail); have AI word the digest (AO-D32); be told of a
+withdrawn publication, or follow as a client (AO-D38). None has a package.
+
+### AO3 record (2026-11-02)
+
+**Delivered as planned** (AO-D31 to AO-D38 as approved, no AI, no new permission). The journey cases J57.1 to J57.8 were written first and confirmed to fail (16 failed, the digest and the follow routes being absent) before the code; no assertion was weakened afterwards (the subject comparison was made independent of the product's name, below).
+
+**Where it differs from, or fills, the plan:**
+
+- **The product's name in the subject** is the one every mail uses (`templates.product`: the model's name where it gives one, else `refiroo`), so a digest on a model with a name reads "Journey model A: 4 notices in your inbox". The cases compare the part after the colon.
+- **`digest: null` before a digest is chosen,** and `nextAt` is the next send time only while mail is switched on, else null. Switching mail on again recomputes the first digest from that moment, so no digest is owed from before.
+- **A changed frequency or time zone moves `nextAt`; the same choice repeated keeps it.** Choosing the first kind as `digest` in the panel sends a daily digest in the browser's time zone with it; changing the frequency sends the browser's zone again, so travelling moves the digest.
+- **What a digest holds.** The notices of the digest kinds that are unread, unhandled and made since the person switched mail on, with no 24-hour window (a week's digest holds a week); the counts are over all of them, the lines the newest 50. The set is locked and fixed first (`FOR UPDATE` over its sequence IDs), then counted, listed and marked in three statements, so the three agree. A job's line reads `applied` and `rejected` from `jobs.counts` (rows for an import, items for the others, rejected only when above zero) and falls back to the job's kind from the notice when the job is gone.
+- **The opening sentence follows the approved mock-up's wording** ("1 job you started failed"), not the journey's "1 import you started failed"; the job kind is on the line below.
+- **One route is added that the plan did not list, and kept:** `GET /me/notifications/{id}`. The inbox page needs to read one notice to open it from `?notice=<id>` (AO-D36), and no route read one. It is the caller's own (`404` for another's).
+- **A `change-set.published` notice** has the published change set as its subject (gone by then, as for an approval) and names the publication in `details.publicationId`; its words are "Published: ‘name’", by the publisher. **Opening it, from the inbox or a digest's `?notice=<id>` link, opens the publication** on the workspace's first application's default view, the route the Publications page opens one by (`publicationId`); when the publication is no longer the active one or the person can no longer browse the workspace, it is only marked read and the inbox stays. J57.8 checks the notice names the active publication and that a superseded one reads `withdrawn`; the inbox's Vitest and `test:browser:ao3` (28 checks) the navigation. The followed-workspaces list shows only workspaces the person may still browse, and `following` is false for a client.
+- **Browse for the followers** is checked in the same statement through `administration.active_holders` (the SQL form of `holders_of`'s people), so a follower who lost Browse, or was deactivated, gets nothing; the follow row is kept and the notices resume if Browse returns.
+- **Interface.** The kinds' three-way choice is the settings pages' segmented `Choice`, one per row, not the mock-up's aligned radio columns (one component, no copy); Follow on a home card is a pressed toggle in the card's head. Both are 44px at 390px.
+- **Older tests changed** because `enabled` per kind became `delivery` and a seventh kind exists: J46.10, `test_kinds`, the foreign-key inventory, the startup head and the paging inventory.
+
+**Checks:** J57: 16 passed (eight cases on generated A and B). In the same run: J46 (`test_j46_inbox_mail`, `test_j46_mail`), J42 (`test_j42_inbox`, `test_j42_approvals`), J45 (`test_j45_home`), J05/J06 (`test_j05_j06_publish`), `tests/unit/engine/notifications` and `tests/unit/engine/mail`, `test_startup`, `test_foreign_keys` and `test_schema_drift`: 213 passed and one `DATABASE_UNAVAILABLE` (a connection dropped mid-run, a collision on the shared server: `test_j42_inbox` alone, rerun at once, 32 passed). `contract` (the OpenAPI lock, `test_boundaries`, `test_error_codes`, `test_api_reference`, `test_api_journeys`): 82 passed. The OpenAPI lock was re-baselined last (hash `742823eb…`), diffed against HEAD in a worktree: the three routes and `GET /me/notifications/{id}`, `DigestResponse`, `DigestUpdate`, `FollowedWorkspacePage`, `FollowedWorkspaceResponse`, the changed `NoticeKindResponse`, `NoticeMailResponse`, `NoticeMailUpdate`, `NotificationResponse` (description) and `OwnWorkspaceResponse` (`following`), nothing else. The migration `20261123_01` upgrades (`test_startup`, `test_schema_drift`). Ruff on the changed files (three files, `administration.py`, `publish.py` and `database.py`, were not Ruff-formatted before and only checked). Frontend: Vitest for `features/settings`, `features/inbox`, `features/home` and `routing`: 227 passed; `npm run lint` 0 errors, `npm run build`, prettier on the changed files. Browser: `test:browser:ao3`, 28 checks on the starter and generated-b: axe 0 violations on each state, light and dark, 1440px by keyboard and 390px, no sideways scroll, no console error or 4xx/5xx beyond the missing notice's 404; screenshots inspected against the mock-up (the segmented choice replaces the radio columns, the digest's line and the followed list match, the card's head is crowded on the harness person's ten roles). Not run: the full suites, `test:a11y`, `test:visual`, the other runners.
+
+**The 200 and 2,000-record basics.** One person with 200 or 2,000 unread notices of two digest kinds, the whole round (`run_until_idle`: the digest queued, the message handed to the harness SMTP server): 56 to 77 ms at 200 and 75 to 80 ms at 2,000 notices on generated A and B; the subject read "200 notices" and "2,000 notices"; a second round with nothing due 3 to 9 ms. One publication of a change set with five followers, the whole publish call: 233 to 241 ms (the notices are one `INSERT … SELECT`, not timed alone).
+
+**The sample mail.** The J57.1 shape rendered through the template and the engine's own message builder, written as an `.eml` (Tuesday 3 November 2026, 07:00 Budapest; three approvals and a failed import of 1,286 rows applied and 14 rejected): `/private/tmp/claude-502/-Users-krisztian-Documents-Projects-rdm-engine/a891749c-ee7b-4f57-8df8-76337369cdbf/scratchpad/ao3-digest-sample.eml`. It was not read in a mail program by me.
+
+**Not verified:** a digest sent through a real SMTP server and read in a mail program (the journey cases use the harness server); the dev database's own users (the migration was applied by the dev server on save, not read); a digest at the real 07:00 (the cases drive the sender's clock); the time zone sent by a browser in a zone that is not in the engine's tz database (`422 UNKNOWN_TIME_ZONE` is the answer, shown as the engine's sentence); a notice link opened while signed out (the sign-in page, as for any link).
+
+**What the user still cannot do:** as under "What the user cannot do after AO3" above.
+
+**Collisions with other sessions:** none in files. The shared documents (`CHANGELOG.md`, this plan, the API documents, the execution guide) hold AO3's hunks beside the others'; the OpenAPI lock carried none of theirs in the diff.
 
 ## Door check (ADR-032)
 

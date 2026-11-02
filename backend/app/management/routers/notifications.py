@@ -9,17 +9,25 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
+from sqlalchemy import select
 
+from ...common.pagination import paginate_statement, text_key
+from ...engine.authorization.visibility import in_workspaces
 from ...engine.identity.principals import Ref
 from ...engine.jobs.events import JobListener
-from ...engine.notifications import inbox
-from ..access import SIGNED_IN, AuthorizedRoute, requires
+from ...engine.notifications import following, inbox
+from ...errors import api_error
+from ...models.database import Workspace, WorkspaceFollower
+from ..access import SIGNED_IN, AuthorizedRoute, CurrentPermissions, requires
 from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
 from ..projections import notifications as present
 from ..schemas.notifications import (
+    FollowedWorkspacePage,
+    FollowedWorkspaceResponse,
     NotificationPage,
+    NotificationResponse,
     NotificationsRead,
     NotificationsReadResult,
     NotificationsRemoval,
@@ -104,6 +112,115 @@ def remove_my_notifications(
     )
 
 
+def _follower(principal: CurrentPrincipal) -> int:
+    if principal.kind != "user":
+        raise api_error(403, "NOT_A_PERSON", "Only a signed-in person can follow a workspace")
+    return principal.row_id
+
+
+def _followed(session: DbSession, user_id: int, key: str) -> FollowedWorkspaceResponse:
+    row = session.execute(
+        select(WorkspaceFollower.created_at, Workspace.label)
+        .join(Workspace, Workspace.key == WorkspaceFollower.workspace_key)
+        .where(WorkspaceFollower.user_id == user_id, WorkspaceFollower.workspace_key == key)
+    ).one()
+    return FollowedWorkspaceResponse(workspaceKey=key, label=row.label, since=row.created_at)
+
+
+def _browsable(session: DbSession, permissions: CurrentPermissions, key: str) -> None:
+    """`404 NOT_FOUND` unless the workspace is active and the caller may browse it."""
+    active = session.scalar(
+        select(Workspace.key).where(Workspace.key == key, Workspace.status == "active")
+    )
+    if active is None or not permissions.allows("browse", key):
+        raise api_error(404, "NOT_FOUND", "There is no such workspace you may browse")
+
+
+@router.get("/me/followed-workspaces", response_model=FollowedWorkspacePage)
+@requires("signed-in", at=SIGNED_IN)
+def list_followed_workspaces(
+    principal: CurrentPrincipal,
+    session: DbSession,
+    permissions: CurrentPermissions,
+    paging: PageQuery,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> FollowedWorkspacePage:
+    """The workspaces the caller follows and still may browse, by label (0.16 AO3, AO-D38). A client
+    has none."""
+    statement = (
+        select(Workspace)
+        .join(WorkspaceFollower, WorkspaceFollower.workspace_key == Workspace.key)
+        .where(
+            WorkspaceFollower.user_id == (principal.row_id if principal.kind == "user" else -1),
+            Workspace.status == "active",
+        )
+    )
+    visible = in_workspaces(Workspace.key, permissions, frozenset({"browse"}))
+    if visible is not None:
+        statement = statement.where(visible)
+    page = paginate_statement(
+        session,
+        statement,
+        keys=(text_key("label", Workspace.label, "label"), text_key("key", Workspace.key, "key")),
+        scope="followed-workspaces",
+        filters={},
+        page=paging,
+        page_size=page_size,
+        message="Followed workspace cursor is invalid",
+    )
+    since = dict(
+        session.execute(
+            select(WorkspaceFollower.workspace_key, WorkspaceFollower.created_at).where(
+                WorkspaceFollower.user_id == (principal.row_id if principal.kind == "user" else -1),
+                WorkspaceFollower.workspace_key.in_([item.key for item in page.items]),
+            )
+        ).all()
+    )
+    return FollowedWorkspacePage(
+        items=[
+            FollowedWorkspaceResponse(
+                workspaceKey=item.key, label=item.label, since=since[item.key]
+            )
+            for item in page.items
+        ],
+        **page.links(),
+    )
+
+
+@router.put("/me/followed-workspaces/{workspace_key}", response_model=FollowedWorkspaceResponse)
+@requires("signed-in", at=SIGNED_IN)
+def follow_workspace(
+    workspace_key: str,
+    principal: CurrentPrincipal,
+    session: DbSession,
+    permissions: CurrentPermissions,
+) -> FollowedWorkspaceResponse:
+    """Follow a workspace: a notice arrives in the caller's inbox when a change set is published
+    there (0.16 AO3, AO-D38). `404 NOT_FOUND` for a workspace the caller may not browse, `403
+    NOT_A_PERSON` for a client; repeating is harmless."""
+    user_id = _follower(principal)
+    _browsable(session, permissions, workspace_key)
+    following.follow(session, user_id, workspace_key)
+    return _followed(session, user_id, workspace_key)
+
+
+@router.delete("/me/followed-workspaces/{workspace_key}", status_code=204)
+@requires("signed-in", at=SIGNED_IN)
+def unfollow_workspace(
+    workspace_key: str,
+    principal: CurrentPrincipal,
+    session: DbSession,
+    permissions: CurrentPermissions,
+) -> Response:
+    """Stop following a workspace; harmless when the caller did not. `404 NOT_FOUND` for a workspace
+    that does not exist."""
+    user_id = _follower(principal)
+    if session.scalar(select(Workspace.key).where(Workspace.key == workspace_key)) is None:
+        raise api_error(404, "NOT_FOUND", "There is no such workspace")
+    following.unfollow(session, user_id, workspace_key)
+    return Response(status_code=204)
+
+
 @router.get(
     "/me/notifications/events",
     response_class=StreamingResponse,
@@ -162,6 +279,19 @@ async def my_notification_events(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.get("/me/notifications/{notification_id}", response_model=NotificationResponse)
+@requires("signed-in", at=SIGNED_IN)
+def get_my_notification(
+    notification_id: str, principal: CurrentPrincipal, session: DbSession
+) -> NotificationResponse:
+    """One of the caller's notices by ID: where a digest's link leads (0.16 AO3). `404 NOT_FOUND`
+    for an unknown notice or another's."""
+    found = inbox.find(session, _owner(principal), notification_id)
+    if found is None:
+        raise api_error(404, "NOT_FOUND", "There is no such notification")
+    return present.notification_response(found)
 
 
 def _position(request: Request, owner: Ref) -> tuple[int, int]:

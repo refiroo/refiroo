@@ -1,5 +1,5 @@
 /**
- * Settings › Notification email (0.12 M2 follow-up, D434; renamed in NT1, D463): what reaches the
+ * Settings › Notification email (0.12 M2 follow-up, D434; renamed in NT1, D463; digests and followed workspaces 0.16 AO3): what reaches the
  * person by e-mail. The notices themselves are on the Notifications page; this page only chooses
  * the mail. Where nothing can be chosen (mail is not set up, the person has no address, a client) it
  * says so in one sentence and offers no control.
@@ -12,6 +12,7 @@ import type { NoticeMail } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { SettingsLayout } from "@/ui/SettingsLayout";
 import { Skeleton } from "@/ui/Skeleton";
+import { FollowedWorkspaces } from "./FollowedWorkspaces";
 import { NoticeMailPanel } from "./NoticeMailPanel";
 
 const NOTHING_TO_CHOOSE: Record<string, string> = {
@@ -42,7 +43,7 @@ export function NotificationsPage() {
     <SettingsLayout
       eyebrow="General"
       title="Notification email"
-      description="Choose which notices reach you by email. Your inbox keeps all of them."
+      description="Choose which notices reach you by email, and which workspaces you follow. Your inbox keeps all notices."
     >
       {error ? (
         <InlineError
@@ -57,9 +58,17 @@ export function NotificationsPage() {
       ) : shown ? (
         <div className="account-page">
           <NoticeMailPanel state={state} onChange={setState} />
+          <FollowedWorkspaces />
         </div>
       ) : (
-        <p className="account-muted">{NOTHING_TO_CHOOSE[state.reason ?? ""] ?? "There is nothing to choose here."}</p>
+        <>
+          <p className="account-muted">{NOTHING_TO_CHOOSE[state.reason ?? ""] ?? "There is nothing to choose here."}</p>
+          {state.reason !== "not-a-person" && (
+            <div className="account-page">
+              <FollowedWorkspaces />
+            </div>
+          )}
+        </>
       )}
     </SettingsLayout>
   );

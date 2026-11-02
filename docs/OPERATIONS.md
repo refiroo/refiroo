@@ -562,6 +562,13 @@ message from the same page: it names what failed (the connection, TLS, the login
   or mail not set up never sends a pile of old notices. A message names the kind of event and links to the
   application address above; it holds no record, change-set or person content. Messages of this kind show as
   `notice` in the outbox.
+- **Digests go at 07:00** (0.16 AO3): a person who put kinds of notice in the digest (Settings › Notifications) is mailed
+  one `digest` message every morning, or on Monday, at 07:00 in the time zone their browser reported when they chose it
+  (the zone is the person's, not the server's; a daylight-saving change keeps 07:00). The mail sender makes it in its
+  round, once the time has passed: the person's row is locked and the next time moved in the same commit, so several
+  processes make one digest, and a sender that was down sends one, not one per missed morning. With nothing unread to say
+  there is no message; with mail not set up nothing is queued and the time does not move, so the digest goes once mail is
+  saved. Messages show as `digest` in the outbox. No setting and no AI provider is involved.
 - **Sender reputation is the organisation's:** the from address's domain needs SPF and DKIM for the
   sending server, or mailboxes may file the messages as junk. The engine does neither.
 - **Several processes** each run a sender; leases keep them off the same message.

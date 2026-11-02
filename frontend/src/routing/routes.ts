@@ -442,7 +442,10 @@ export function parseRoute(
   if (!parts.length && !query.get("workspaceKey")?.trim()) return HOME;
   const changes = changesRoute(parts, query);
   if (changes) return changes;
-  if (parts.length === 1 && parts[0] === "notifications") return NOTIFICATIONS;
+  if (parts.length === 1 && parts[0] === "notifications") {
+    const noticeId = query.get("notice")?.trim();
+    return noticeId ? { kind: "notifications", noticeId } : NOTIFICATIONS;
+  }
   const workspaceKey = query.get("workspaceKey")?.trim() || defaultWorkspaceKey;
   const changeSetId = query.get("changeSetId")?.trim() || undefined;
   const publicationId = changeSetId ? undefined : query.get("publicationId")?.trim() || undefined;
@@ -596,7 +599,9 @@ export function addressWorkspaceKey(fallback: string, location: Pick<Location, "
 export function routePath(route: RouteState) {
   if (route.kind === "home") return "/";
   if (route.kind === "changes") return changesPath(route);
-  if (route.kind === "notifications") return "/notifications";
+  if (route.kind === "notifications") {
+    return route.noticeId ? `/notifications?${new URLSearchParams({ notice: route.noticeId })}` : "/notifications";
+  }
   if (route.kind === "settings") return settingsPath(route);
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });

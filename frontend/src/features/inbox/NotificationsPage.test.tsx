@@ -12,9 +12,17 @@ vi.mock("@/api/client", () => ({
     markNotificationsRead: vi.fn(),
     removeNotifications: vi.fn(),
     myWorkspaces: vi.fn(),
+    notification: vi.fn(),
+    publication: vi.fn(),
   },
 }));
 // The top bar is the one every page shows (its own tests); here only the page's content.
+vi.mock("@/features/home/openWorkspace", () => ({
+  appPath: () => "/apps/plants",
+  openIn: (_key: string, _path: string, go: (route: unknown) => void, route: (model: unknown) => unknown) =>
+    go(route({ applications: [{ key: "plants", defaultView: "all", views: [] }] })),
+}));
+vi.mock("@/model/lookup", () => ({ applicationFor: (model: { applications: unknown[] }) => model.applications[0] }));
 vi.mock("@/app/TopBar", () => ({ TopBar: () => null }));
 
 const notice = (id: string, kind: Notification["kind"], details: Notification["details"], read = false) =>
@@ -33,8 +41,8 @@ const waiting = notice("n1", "change-set.submitted", { changeSetName: "Spring up
 const finished = notice("n2", "job.completed", { jobKind: "export" }, true);
 const onNavigate = vi.fn();
 
-function renderPage() {
-  return render(<NotificationsPage model={emptyModel()} onNavigate={onNavigate} />);
+function renderPage(noticeId?: string) {
+  return render(<NotificationsPage model={emptyModel()} noticeId={noticeId} onNavigate={onNavigate} />);
 }
 
 beforeEach(() => {
@@ -175,5 +183,65 @@ describe("The Notifications page (0.12 NT1)", () => {
     expect(onNavigate).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "changeSetChanges", applicationKey: "plants", changeSetId: "s-n1" }),
     );
+  });
+});
+
+describe("Opening a notice from a digest's link (0.16 AO3, AO-D36)", () => {
+  it("opens the notice named in the address: marks it read and goes to its subject", async () => {
+    vi.mocked(api.notification).mockResolvedValue(waiting);
+    renderPage("n1");
+    await waitFor(() => expect(api.notification).toHaveBeenCalledWith("n1"));
+    await waitFor(() => expect(api.markNotificationsRead).toHaveBeenCalledWith({ ids: ["n1"] }));
+    expect(onNavigate).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "changeSetChanges", changeSetId: "s-n1", workspaceKey: "herbarium" }),
+    );
+  });
+
+  it("says so when the notice is gone, and stays on the list", async () => {
+    vi.mocked(api.notification).mockRejectedValue(new Error("There is no such notification"));
+    renderPage("gone");
+    expect(await screen.findByText(/no longer in your inbox/)).toBeInTheDocument();
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(api.markNotificationsRead).not.toHaveBeenCalled();
+  });
+
+  it("words a followed publication and opens the publication while it is the active one", async () => {
+    const published = notice("n3", "change-set.published", {
+      changeSetName: "Spring update",
+      publicationId: "p-1",
+      actor: { kind: "user", id: "u", name: "Ana" },
+    });
+    vi.mocked(api.notification).mockResolvedValue(published);
+    vi.mocked(api.publication).mockResolvedValue({ id: "p-1", status: "active" } as never);
+    vi.mocked(api.notifications).mockResolvedValue({
+      items: [published],
+      nextCursor: null,
+      totalCount: 1,
+      startIndex: 0,
+      unreadCount: 1,
+    });
+    renderPage("n3");
+    expect(await screen.findByText("Published: ‘Spring update’")).toBeInTheDocument();
+    await waitFor(() => expect(api.markNotificationsRead).toHaveBeenCalledWith({ ids: ["n3"] }));
+    await waitFor(() =>
+      expect(onNavigate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "list",
+          applicationKey: "plants",
+          workspaceKey: "herbarium",
+          publicationId: "p-1",
+        }),
+      ),
+    );
+  });
+
+  it("only marks a followed publication read once it was withdrawn", async () => {
+    const published = notice("n4", "change-set.published", { changeSetName: "Old", publicationId: "p-0" });
+    vi.mocked(api.notification).mockResolvedValue(published);
+    vi.mocked(api.publication).mockResolvedValue({ id: "p-0", status: "withdrawn" } as never);
+    renderPage("n4");
+    await waitFor(() => expect(api.markNotificationsRead).toHaveBeenCalledWith({ ids: ["n4"] }));
+    await waitFor(() => expect(api.publication).toHaveBeenCalledWith("p-0"));
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 });

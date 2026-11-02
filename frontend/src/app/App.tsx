@@ -85,7 +85,7 @@ export default function App() {
             <ChangesPage model={model} route={route} onNavigate={router.navigate} />
           ) : route.kind === "notifications" ? (
             // The person's notices span workspaces too (0.12 NT1).
-            <NotificationsPage model={model} onNavigate={router.navigate} />
+            <NotificationsPage model={model} noticeId={route.noticeId} onNavigate={router.navigate} />
           ) : (
             <WorkspaceDataProvider
               key={`${route.workspaceKey}:${routeChangeSetId(route) ?? routePublicationId(route) ?? "live"}`}

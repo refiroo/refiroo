@@ -6,7 +6,8 @@ export type NotificationKind =
   | "change-set.sent-back"
   | "job.completed"
   | "job.failed"
-  | "job.awaiting-confirmation";
+  | "job.awaiting-confirmation"
+  | "change-set.published";
 
 export interface NotificationActor {
   kind: string;

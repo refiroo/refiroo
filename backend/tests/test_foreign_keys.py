@@ -131,6 +131,8 @@ RULES = {
     ("notifications", "client_id"): ("oauth_clients", "CASCADE"),
     ("notifications", "workspace_key"): ("workspaces", "CASCADE"),
     ("workspace_event_heads", "workspace_key"): ("workspaces", "CASCADE"),
+    ("workspace_followers", "user_id"): ("users", "CASCADE"),
+    ("workspace_followers", "workspace_key"): ("workspaces", "CASCADE"),
     ("workspace_events", "workspace_key"): ("workspaces", "CASCADE"),
     ("change_set_submissions", "workspace_key"): ("workspaces", "CASCADE"),
     ("change_set_submissions", "submitted_by_user_id"): ("users", "RESTRICT"),

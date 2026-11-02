@@ -372,14 +372,27 @@ export interface NoticeMail {
   available: boolean;
   reason: "mail-not-set-up" | "no-email" | "not-a-person" | null;
   email: string | null;
-  /** Every kind of notice with the engine's label, and whether it is mailed (D434). */
+  /** Every kind of notice with the engine's label, and how it is mailed (D434, AO-D33). */
   kinds: NoticeMailKind[];
+  /** How often the digest comes, once chosen (0.16 AO3). */
+  digest: NoticeDigest | null;
 }
+
+/** How a kind of notice reaches the person: one mail at once, in the digest, or no mail. */
+export type NoticeDelivery = "now" | "digest" | "off";
 
 export interface NoticeMailKind {
   kind: string;
   label: string;
-  enabled: boolean;
+  delivery: NoticeDelivery;
+}
+
+/** The digest: every morning or on Mondays at 07:00 in the time zone, and when the next is due. */
+export interface NoticeDigest {
+  every: "daily" | "weekly";
+  timeZone: string;
+  /** The next send time while mail is on, else null. */
+  nextAt: string | null;
 }
 
 /** The caller's second factor (0.12 I4b). */

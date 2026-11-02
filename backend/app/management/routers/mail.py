@@ -127,21 +127,26 @@ def get_my_notification_mail(principal: CurrentPrincipal, session: DbSession) ->
 def put_my_notification_mail(
     payload: NoticeMailUpdate, principal: CurrentPrincipal, session: DbSession
 ) -> NoticeMailResponse:
-    """Switch mail for the caller's inbox on or off (`enabled`) and choose which kinds of notice
-    are mailed (`kinds`, kind -> bool; the kinds not named stay as they are). Switching on needs
-    mail set up (`409 MAIL_NOT_SET_UP`) and an address on the person (`409 NO_EMAIL`); a client is
-    refused (`403 NOT_A_PERSON`). An unknown kind is `422 UNKNOWN_NOTICE_KIND`; a body with
-    neither field is `422`. Kinds may be chosen while mail is off or not set up. Only notices made
-    after switching on are mailed. Switching off always works and repeats harmlessly. Only the mail
-    stops for a kind switched off: the inbox keeps the notice. None of it is a security event."""
+    """Switch mail for the caller's inbox on or off (`enabled`), choose how often the digest comes
+    and in which time zone (`digest`: `every` daily or weekly, `timeZone`; 07:00 there, Mondays for
+    weekly) and how each kind of notice is mailed (`kinds`, kind -> `now`, `digest` or `off`; the
+    kinds not named stay as they are). Switching on needs mail set up (`409 MAIL_NOT_SET_UP`) and an
+    address on the person (`409 NO_EMAIL`); a client is refused (`403 NOT_A_PERSON`). An unknown kind
+    is `422 UNKNOWN_NOTICE_KIND`, an unknown time zone `422 UNKNOWN_TIME_ZONE`, a kind put in the
+    digest with no digest set `422 DIGEST_NOT_SET`; a body with none of the fields is `422`, and
+    nothing changes when any part is refused. Choices may be made while mail is off or not set up.
+    Only notices made after switching on are mailed. Switching off always works and repeats
+    harmlessly. Only the mail changes for a kind in the digest or off: the inbox keeps the notice.
+    None of it is a security event."""
     if principal.kind != "user":
         raise api_error(403, "NOT_A_PERSON", "Only a signed-in person can be sent mail")
     user = load_user(session, principal.id, for_update=True)
+    now = datetime.now(UTC)
+    if payload.digest is not None:
+        mailing.set_digest(user, payload.digest.every, payload.digest.timeZone, now)
     if payload.kinds is not None:
         mailing.choose_kinds(session, user, payload.kinds)
     if payload.enabled is None:
         session.commit()
         return present.notice_mail_response(mailing.state(session, user))
-    return present.notice_mail_response(
-        mailing.switch(session, user, payload.enabled, datetime.now(UTC))
-    )
+    return present.notice_mail_response(mailing.switch(session, user, payload.enabled, now))

@@ -109,6 +109,8 @@ export interface HomeRoute {
 /** The person's notices of the last 90 days (0.12 NT1, D463): `/notifications`, outside any workspace. */
 export interface NotificationsRoute {
   kind: "notifications";
+  /** A notice a digest's link names (`?notice=<id>`, 0.16 AO3): opened when the page loads. */
+  noticeId?: string;
 }
 
 /** How far back a person's changes are shown (0.12 Z6, D344); none is any time. */

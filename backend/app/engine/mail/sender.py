@@ -1,6 +1,7 @@
 """The mail sender's thread (Product 0.12 M1, D419): sends what the outbox holds.
 
-Every couple of seconds it queues the mail of due inbox notices (``notifications.mailing``, M2),
+Every couple of seconds it queues the mail of due inbox notices and the digests that have come due
+(``notifications.mailing``, M2, AO3),
 gives up on messages older than 24 hours, leases the ones that are due
 and hands each to the SMTP server. A message that fails waits longer each time (30 seconds,
 doubling, at most an hour); one the server refuses for good (an address that does not exist) fails
@@ -132,6 +133,8 @@ class MailSender:
         self.expire(at)
         with self.session_factory() as session:
             mailing.queue_notices(session, self.identity, at)
+        with self.session_factory() as session:
+            mailing.queue_digests(session, self.identity, at)
         claimed = self.claim(at)
         if not claimed:
             return 0

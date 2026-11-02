@@ -171,6 +171,9 @@ class OwnWorkspaceResponse(BaseModel):
     ownChangeSets: int
     # Every open change set here, for a caller holding Publish; null otherwise.
     openChangeSets: int | None
+    # Whether the caller follows the workspace: a notice when a change set is published there (0.16
+    # AO3). Always false for a client, who has no follows.
+    following: bool
 
 
 class OwnWorkspacePage(CollectionPage[OwnWorkspaceResponse]):

@@ -70,11 +70,23 @@ class MailMessagePage(CollectionPage[MailMessageResponse]):
 
 
 class NoticeKindResponse(BaseModel):
-    """One kind of inbox notice and whether the caller is mailed it."""
+    """One kind of inbox notice and how the caller is mailed it."""
 
     kind: str = Field(description="For example `change-set.submitted` or `job.failed`")
     label: str = Field(description="What the notice says, in a plain sentence")
-    enabled: bool
+    delivery: Literal["now", "digest", "off"] = Field(
+        description="`now`: one mail when it arrives (until changed); `digest`: in the digest; "
+        "`off`: no mail"
+    )
+
+
+class DigestResponse(BaseModel):
+    """The caller's digest (0.16 AO3): how often it comes, the time zone 07:00 is read in and when
+    the next is due. `nextAt` is the next send time while mail is switched on, else null."""
+
+    every: Literal["daily", "weekly"] = Field(description="Every morning, or on Mondays, at 07:00")
+    timeZone: str = Field(description="An IANA time zone, such as `Europe/Budapest`")
+    nextAt: datetime | None
 
 
 class NoticeMailResponse(BaseModel):
@@ -88,23 +100,37 @@ class NoticeMailResponse(BaseModel):
     reason: Literal["mail-not-set-up", "no-email", "not-a-person"] | None
     email: str | None = Field(description="Where the mail goes; none without an address")
     kinds: list[NoticeKindResponse] = Field(
-        description="Every kind of notice, in the order to show them, with whether the person is "
-        "mailed it. Everything is on until switched off; it is listed even where mail is not "
-        "`available`. Only the mail stops: the inbox keeps every notice"
+        description="Every kind of notice, in the order to show them, with how the person is mailed "
+        "it. Everything is `now` until changed; it is listed even where mail is not `available`. "
+        "Only the mail changes: the inbox keeps every notice"
     )
+    digest: DigestResponse | None = Field(
+        description="The digest, once the person has chosen how often it comes; else null"
+    )
+
+
+class DigestUpdate(BaseModel):
+    """Choose how often the digest comes and the time zone it is read in."""
+
+    every: Literal["daily", "weekly"]
+    timeZone: str = Field(min_length=1, max_length=64, description="An IANA time zone")
 
 
 class NoticeMailUpdate(BaseModel):
-    """Change the caller's notice mail: ``enabled`` switches it on or off, ``kinds`` switches the
-    named kinds on or off and leaves the others. Both are optional; at least one is needed."""
+    """Change the caller's notice mail: ``enabled`` switches it on or off, ``kinds`` sets how the
+    named kinds are mailed and leaves the others, ``digest`` sets the digest's frequency and time
+    zone. All are optional; at least one is needed."""
 
     enabled: bool | None = None
-    kinds: dict[str, bool] | None = Field(
-        default=None, description="Kind -> whether to be mailed it; an unknown kind is refused"
+    kinds: dict[str, Literal["now", "digest", "off"]] | None = Field(
+        default=None,
+        description="Kind -> `now`, `digest` or `off`; an unknown kind is refused, and `digest` "
+        "needs a digest set (here or earlier)",
     )
+    digest: DigestUpdate | None = None
 
     @model_validator(mode="after")
     def _something_to_change(self) -> NoticeMailUpdate:
-        if self.enabled is None and self.kinds is None:
-            raise ValueError("Send `enabled`, `kinds` or both")
+        if self.enabled is None and self.kinds is None and self.digest is None:
+            raise ValueError("Send `enabled`, `kinds`, `digest` or more")
         return self

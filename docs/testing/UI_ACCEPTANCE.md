@@ -475,6 +475,18 @@ What changed in a period, above a workspace's Activity and on a record's History
 
 Changing the period clears the account. Not exercised in a browser: an account in German (0.15 is not built); the real provider's wording (the real try is in the package record).
 
+### Surfaces added in 0.16 AO3
+
+Notification digests and following a workspace. Settings › Notifications › Email gains a three-way choice per kind and the digest; a new "Workspaces I follow" section; a Follow toggle on each home workspace card; the inbox opens a notice from the address. Reference patterns: `ui/Choice` (the segmented choice, one per kind; the mock-up's radio columns are drawn as the settings pages draw a choice), `ui/Section`, `account-panel` rows, `ui/Switch`, the home card's head, `ui/InlineError`. Evidence `ao3-digests` (the starter and generated-b); `NotificationsPage.test` (settings and inbox) and `FollowToggle.test` hold the unit cases.
+
+| # | Surface | Route | Reference pattern | Loading | Empty | Pending | Success | Error | Conflict | Retry | Narrow | Keyboard | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| AO3-1 | **How each kind reaches me**: per kind At once, Digest, Off, saved at once; the first Digest starts a daily digest in the browser's time zone | Settings › Notifications | `ui/Choice` | — | — | **B** (controls wait for the save) | **B** (light and dark, axe) | **B** (the engine's refusal shown, the choice stays) | — | — | **B** (390px: full-width, 44px) | **B** (Space on the radio) | `ao3-digests`, `NotificationsPage.test` |
+| AO3-2 | **The digest**: Every morning / Mondays at 07:00, the time zone and the next time | the same | `ui/Choice` | — | **B** ("Choose Digest for a kind to start one.") | **B** | **B** (light and dark, axe) | **B** | — | — | **B** | **B** | `ao3-digests`, `NotificationsPage.test` |
+| AO3-3 | **Workspaces I follow** with Stop following | the same | `account-list` rows | **B** ("Loading…") | **B** ("You do not follow a workspace.") | **B** (the button waits) | **B** (light and dark, axe) | **B** (`InlineError` with Retry; a refused stop shown) | — | **B** | **B** | **B** (Enter) | `ao3-digests`, `NotificationsPage.test` |
+| AO3-4 | **Follow / Following** on a workspace card, a pressed toggle | Home | `button.secondary` | — | — | **B** (disabled while it acts) | **B** (light and dark, axe) | **B** (the engine's sentence beside it) | — | — | **B** (44px) | **B** (Enter) | `ao3-digests`, `FollowToggle.test` |
+| AO3-5 | **A digest's link** opens the notice's subject and marks it read; a notice that is gone says so | `/notifications?notice=<id>` | the inbox | — | — | — | **B** (lands on the change set's review) | **B** ("That notification is no longer in your inbox.") | — | — | — | — | `ao3-digests`, `NotificationsPage.test` |
+
 ### Surfaces added in 0.16 AP6a
 
 Loading a workbook with the assistant: a dialog that a collection's Import opens first where the assistant is offered, and one page, `/settings/ai-tasks/{id}`, in four states. Evidence `ap1-ai` is the AP6a part of the runner (the starter's Domains by keyboard and Systems by pointer, the fake provider, every state in light and dark at 1440px and 390px with axe); `AiTaskPage.test`, `LoadWorkbookDialog.test` and `ImportDialog.test` hold the unit cases.

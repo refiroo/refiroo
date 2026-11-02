@@ -50,7 +50,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Workspace models | J36 run a workspace on a model of its own, J37 move a workspace to another release, J38 move data between workspaces whose models differ |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
-| AI proposals | J48 use AI proposals, J49 targets for unmapped values, J50 load with the assistant, J51 reach the engine from an assistant, J52 an assistant reads, J53 an assistant prepares a change, J54 ask in words, J55 an account of a model change, J56 what changed in a period |
+| AI proposals | J48 use AI proposals, J49 targets for unmapped values, J50 load with the assistant, J51 reach the engine from an assistant, J52 an assistant reads, J53 an assistant prepares a change, J54 ask in words, J55 an account of a model change, J56 what changed in a period, J57 notification digests |
 | Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key, J45 start from home, J46 send mail, J47 check the security model |
 
 ## Records and structure
@@ -2376,7 +2376,7 @@ password by I6 and inbox notices by M2 (2026-10-27).
   kind of notice, which kinds are mailed (all are, until switched off): a kind switched off stops the
   mail only, the notice still reaches the inbox, and notices of the kind made while it was off are
   mailed if the kind is switched back on while they are still unread and under 24 hours old. The
-  choice can be made before mail is set up or while mail is off; an unknown kind is refused by code.
+  choice can be made before mail is set up or while mail is off; an unknown kind is refused by code. Since 0.16 AO3 each kind is also choosable as "in the digest" (J57); the at-once mail above is what every kind stays until changed.
 
 **Refusals:** `403 FORBIDDEN`, `403 NOT_A_PERSON`, `422 UNKNOWN_NOTICE_KIND`, `409 VERSION_CONFLICT`, `409 MAIL_NOT_SET_UP`, `409 NO_EMAIL`, `422
 MAIL_INSECURE_LOGIN`, `422 MAIL_PASSWORD_REQUIRED`, `422 MAIL_SEND_FAILED` (`details.kind`), `404 NOT_FOUND`, `409 MESSAGE_NOT_WAITING`, `409 MESSAGE_BEING_SENT`.
@@ -2836,6 +2836,47 @@ changed, above the workspace's Activity and on a record's History), API
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `422
 HISTORY_PERIOD_INVALID`, `404 OBJECT_NOT_FOUND`.
+
+### J57 — Notification digests and following a workspace
+
+**Actor:** a person who is mailed for their inbox (J46.10). **Channel:** UI (Settings › Notifications › Email; Follow on a
+workspace card on Home), API (`GET`/`PUT /me/notification-mail`, `GET /me/followed-workspaces`, `PUT`/`DELETE
+/me/followed-workspaces/{workspaceKey}`, `following` on `GET /me/workspaces`). **Status:** delivered by 0.16 AO3 (2026-11-02).
+
+1. On Settings › Notifications the person chooses, for each kind of notice, whether it is mailed at once (as
+   today, and what every kind stays until changed), in the digest or not at all, and whether the digest comes
+   every morning or on Mondays, at 07:00 in the time zone their browser reports. The page says when the next
+   digest is.
+2. At that time one message says in a sentence how many notices of each kind wait ("3 change sets wait for
+   your approval; 1 job you started failed"), then lists up to 50 of them newest first, each with its kind, when,
+   and a link that opens the notice, and says how many more there are. A job's line adds its kind and the rows
+   it applied and rejected while the job is kept. The message names no record, change set, workspace, person or file
+   (D432). No notice, or only ones the person read, gives no message; the next time still moves on.
+3. A person may follow a workspace they may browse from its card on Home. A change set published there, from an
+   approved request or directly, puts a notice in the inbox of each follower who can still browse it, but not of the
+   publisher; from there it is a kind like the others. Settings › Notifications lists the followed workspaces with
+   Stop following.
+
+**Variants:**
+
+- **J57.1 The digest**: approvals and failed jobs in a daily digest; before 07:00 no mail; at 07:00 one message whose
+  counts equal the notices made, the job's line has its counts, and no per-notice mail went.
+- **J57.2 No names**: a change set's name and comment, a workspace, a person, a client and a file name, planted, are in no
+  digest.
+- **J57.3 Quiet**: nothing new, or everything read before 07:00: no mail, and the next time is set.
+- **J57.4 Once**: two senders in one round make one message; a notice in a digest is never mailed again.
+- **J57.5 Mixed**: a kind left "at once" is mailed as today beside the digest; a kind "off" is in neither; the inbox keeps
+  every notice.
+- **J57.6 Weekly**: a week's notices in one message on Monday; a job removed by retention gives its line without counts.
+- **J57.7 Refused and off**: an unknown time zone, kind or frequency, and a kind in the digest with no digest set, are
+  `422` and change nothing; mail switched off, not set up, no address, an inactive person: no digest, and the time does
+  not move where mail is not set up.
+- **J57.8 Following**: followers have one notice per publication (by request or directly), the publisher and others
+  none; a follower who lost Browse none; following a workspace one cannot browse is `404`; unfollowing stops the
+  notices; the digest line names no change set or workspace.
+
+**Refusals:** `422 UNKNOWN_TIME_ZONE`, `422 UNKNOWN_NOTICE_KIND`, `422 DIGEST_NOT_SET`, `403 NOT_A_PERSON`, `404 NOT_FOUND`
+(a workspace one cannot browse; a notice that is not the caller's).
 
 ## Guardrails kept from 0.7
 

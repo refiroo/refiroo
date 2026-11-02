@@ -58,6 +58,8 @@ describe("routes", () => {
     });
 
   it.each<[string, RouteState]>([
+    ["/notifications", { kind: "notifications" }],
+    ["/notifications?notice=n-1", { kind: "notifications", noticeId: "n-1" }],
     ["/settings/about", { kind: "settings", page: "about" }],
     ["/settings/appearance", { kind: "settings", page: "appearance" }],
     ["/settings/notifications", { kind: "settings", page: "notifications" }],

@@ -55,3 +55,29 @@ def test_a_notice_names_its_kind_and_the_link_and_nothing_else(kind, words):
     assert message.kind == templates.NOTICE and message.kind in templates.KINDS
     assert words in message.body and "https://refiroo.example.org" in message.body
     assert "Hello" not in message.body
+
+
+def test_a_digest_counts_by_kind_lists_the_newest_with_links_and_names_nothing():
+    from datetime import UTC, datetime
+
+    when = datetime(2026, 11, 2, 17, 30, tzinfo=UTC)
+    lines = [
+        templates.DigestLine("n-1", "change-set.published", when),
+        templates.DigestLine(
+            "n-2", "job.failed", when, "import", {"applied": 1286, "rejected": 14}
+        ),
+        templates.DigestLine("n-3", "job.failed", when, "export", None),
+    ]
+    counts = {"change-set.published": 1, "job.failed": 2, "change-set.submitted": 3}
+    message = templates.digest("refiroo", "https://refiroo.example.org/", "daily", counts, lines)
+    assert message.kind == templates.DIGEST in templates.KINDS
+    assert message.subject == "refiroo: 6 notices in your inbox"
+    assert message.body.startswith(
+        "3 change sets wait for your approval; 2 jobs you started failed; "
+        "1 change set was published in a workspace you follow.\n\nSince your last digest:\n"
+    )
+    assert "  An import, 1,286 rows applied, 14 rows rejected\n" in message.body
+    assert "  An export\n" in message.body and "  Monday 2 November, 17:30\n" in message.body
+    assert "https://refiroo.example.org/notifications?notice=n-1\n" in message.body
+    assert "and 3 more in your inbox." in message.body
+    assert "daily digest" in message.body and "change it to weekly" in message.body

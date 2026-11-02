@@ -1480,8 +1480,16 @@ The switch is not shown where it cannot work: mail not set up, no address on the
 an inbox but no mail). Notices from before switching on, ones already read and a client's are not mailed; while mail
 is not set up notices wait and are mailed once it is.
 
-Limits: the page has no way to send a failed message again; inbox mail has no digest
-and no mail for clients; there is no mail provider's
+**Digests and following (0.16 AO3).** Each kind is also choosable as **in the digest**: a person picks At once (what every
+kind is until changed), Digest or Off for each, and every morning or Mondays at 07:00 in their browser's time zone; the page
+says when the next digest is. One message says how many notices of each kind wait, lists up to 50 newest first with a link
+that opens the notice, and gives a job's counts while the job is kept; it names no record, change set, workspace, person or
+file, and no AI writes it. No new notice, or everything read before then, gives no mail. A Follow toggle on each workspace card
+on Home puts a notice in the person's inbox when a change set is published there (from a request or directly, not their own);
+Settings › Notifications lists the followed workspaces with Stop following. A follower who loses Browse there is no longer told.
+
+Limits: the page has no way to send a failed message again; there is no mail for clients, no choice of the digest's hour or an
+evening digest, and no names in a digest (D432); there is no mail provider's
 API, only SMTP; the organisation sets up SPF and DKIM for the from address's domain.
 
 Evidence: [mail contract](../API.md#mail), [OPERATIONS](../OPERATIONS.md#sending-mail),
@@ -1628,7 +1636,7 @@ Limits:
   still use one attribute. A model cannot yet declare a combination unique, so only an import checks it.
 - A change made only through batches, or a file with no key at all, cannot be repeated without the
   assistant.
-- Values for empty fields follow in a later release. Plain-language summaries exist for a model change only (below); the account of what changed in history and the notification digests follow.
+- Values for empty fields follow in a later release. Plain-language summaries exist for a model change only (below); the account of what changed in history exists too (AO2), and notification digests (AO3).
 - The assistant and the provider are set in the environment, not on the page.
 - A question in words works on table lists only (not on mapping grids, trees or the Changes page, and no package is planned for them); it cannot ask for an order or for who changed a record, or compare with a value that is not a record's name (a list of more than 50 records is not read by the provider, so only exact or partial names answer there).
 - **What changed in a period.** Where a provider is set and the person may browse a workspace and holds Use AI proposals there, the workspace's Activity opens with "What changed", and a record's History with the same section for the record. The person picks a period (the last 7 days on a workspace, the last 30 on a record, or dates) and presses Explain this period; nothing is sent before, and the line says what goes. The engine counts, over every change to live data in the period, the records created, changed, moved and deleted per type, the fields changed, the relationships, where the changes came from (a job, a publication with the people and the job that prepared it and who published it, or made directly), who made them, what happened to change sets, withdrawn publications and model activations. The provider words them in a few statements, each followed by numbers that lead to the facts it rests on; a note says it was written by AI and can be wrong. Names of records, people, change sets and files go to the provider only at send level `values`; the person's own lines always show them. A fact leads to the changes it counted (Show them narrows the Activity, or the record's timeline, in place), to a change set, or to a job; a job removed after its retention days has no link. A period with no change says so and sends nothing; when the provider fails the facts stand alone. Edits still sitting in an open change set are not counted, only that the set exists and what happened to it; a deleted record has no name. An assistant with Browse reads the same facts, without the words, through the `history_facts` tool (a workspace's or one record's, over a period); it calls no provider. Not available in German yet.
@@ -1639,7 +1647,7 @@ Limits:
 
 Evidence: [AI contract](../API.md#ai-proposals-product-016), [OPERATIONS](../OPERATIONS.md#ai-proposals),
 [provider](../../backend/app/engine/proposals/), [AI page](../../frontend/src/features/settings/AiPage.tsx),
-[J48](../../backend/tests/journeys/test_j48_ai_proposals.py), [AP1 runner](../../frontend/e2e/ap1-ai.mjs), [J54](../../backend/tests/journeys/test_j54_ask_in_words.py), [AG4 runner](../../frontend/e2e/ag4-ask-in-words.mjs), [J55](../../backend/tests/journeys/test_j55_impact_summary.py), [AO1 runner](../../frontend/e2e/ao1-impact-summary.mjs), [J56](../../backend/tests/journeys/test_j56_history_account.py), [AO2 runner](../../frontend/e2e/ao2-what-changed.mjs).
+[J48](../../backend/tests/journeys/test_j48_ai_proposals.py), [AP1 runner](../../frontend/e2e/ap1-ai.mjs), [J54](../../backend/tests/journeys/test_j54_ask_in_words.py), [AG4 runner](../../frontend/e2e/ag4-ask-in-words.mjs), [J55](../../backend/tests/journeys/test_j55_impact_summary.py), [AO1 runner](../../frontend/e2e/ao1-impact-summary.mjs), [J56](../../backend/tests/journeys/test_j56_history_account.py), [AO2 runner](../../frontend/e2e/ao2-what-changed.mjs), [J57](../../backend/tests/journeys/test_j57_digests.py), [AO3 runner](../../frontend/e2e/ao3-digests.mjs).
 
 ## F30 — Reach refiroo from an assistant
 

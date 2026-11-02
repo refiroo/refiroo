@@ -18,6 +18,7 @@ export const KIND_LABELS: Record<NotificationKind, string> = {
   "job.completed": "A job you started has finished",
   "job.failed": "A job you started has failed",
   "job.awaiting-confirmation": "A job you started is waiting for your confirmation",
+  "change-set.published": "A change set was published in a workspace you follow",
 };
 
 const quoted = (name: string | undefined) => (name ? `‘${name}’` : "a change set");
@@ -40,6 +41,8 @@ export function noticeText(notification: Notification): NoticeText {
       return { title: `Approved: ${quoted(changeSetName)}`, detail: [...(comment ? [comment] : []), ...by] };
     case "change-set.sent-back":
       return { title: `Sent back: ${quoted(changeSetName)}`, detail: [...(comment ? [comment] : []), ...by] };
+    case "change-set.published":
+      return { title: `Published: ${quoted(changeSetName)}`, detail: [...by] };
     case "job.completed":
       return { title: `${jobKind(notification)} finished`, detail: you };
     case "job.failed":
@@ -58,6 +61,9 @@ export function noticeText(notification: Notification): NoticeText {
  */
 export function noticeRoute(notification: Notification, applicationKey: string | undefined): RouteState | undefined {
   if (notification.subject.kind === "job") return { kind: "settings", page: "jobs", jobId: notification.subject.id };
-  if (notification.kind === "change-set.approved" || !applicationKey) return undefined;
+  // A publication consumed its change set: an approval and a followed publication lead nowhere.
+  if (notification.kind === "change-set.approved" || notification.kind === "change-set.published" || !applicationKey) {
+    return undefined;
+  }
   return changeReviewFor(applicationKey, notification.workspaceKey, notification.subject.id);
 }

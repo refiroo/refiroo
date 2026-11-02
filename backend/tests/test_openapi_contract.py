@@ -411,10 +411,16 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # reproduced with that field removed). Re-baselined for 0.16 AP13 (additive): `POST
     # /ai/tasks/{id}/proposal`, an optional `words` on the retry request (its own schema,
     # `AiTaskRetryRequest`), the task state `stopped`, `canTell` on a task and `published` and
-    # `publicationId` on its result; nothing else changed.
+    # `publicationId` on its result; nothing else changed. Re-baselined for 0.16 AO3 (a person's
+    # notice mail): each kind of `GET`/`PUT /me/notification-mail` answers `delivery` (`now`,
+    # `digest` or `off`) in place of `enabled`, the response gains `digest` (`DigestResponse`) and
+    # the update `kinds` as those words and `digest` (`DigestUpdate`); `GET /me/followed-workspaces`,
+    # `PUT` and `DELETE /me/followed-workspaces/{workspace_key}` (`FollowedWorkspacePage`,
+    # `FollowedWorkspaceResponse`), `GET /me/notifications/{notification_id}`, and `following` on
+    # `OwnWorkspaceResponse`; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "57fa44924ef681cc5a70084c87808204fcd235de6c0647eb9801f22b4ece7fdb"
+        "742823eb2e9a2929d9df334da6127aa4087ed90b67ca62ea81ac5609f59c0ce2"
     )
 
 
@@ -461,8 +467,8 @@ def test_paging_openapi_inventory():
     # grants; 0.12 Z4 the security events; 0.12 HM1 the caller's workspaces and change sets; 0.12
     # Z6 the changes across workspaces; 0.12 I3 the sign-in providers; 0.12 I4c a person's passkeys,
     # their own and an administrator's; 0.12 M1 the mail outbox; 0.12 A1 the publication requests; 0.12 A2 the inbox;
-    # 0.16 AP1 the AI provider's calls; 0.16 AP6a the assistant's tasks and a task's changes; 0.16 AG1 agent clients, assistants and calls.
-    assert seekable <= paged and len(paged) == 71
+    # 0.16 AP1 the AI provider's calls; 0.16 AP6a the assistant's tasks and a task's changes; 0.16 AG1 agent clients, assistants and calls; 0.16 AO3 the followed workspaces.
+    assert seekable <= paged and len(paged) == 72
     assert {
         "/api/v1/jobs",
         "/api/v1/jobs/{job_id}/items",

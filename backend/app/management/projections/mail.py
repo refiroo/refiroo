@@ -9,6 +9,7 @@ from ...engine.mail import outbox, settings
 from ...engine.notifications.mailing import NoticeMail
 from ...models.database import MailOutbox, MailSettings
 from ..schemas.mail import (
+    DigestResponse,
     MailCounts,
     MailMessagePage,
     MailMessageResponse,
@@ -59,13 +60,21 @@ def message_page(page: Page[MailOutbox]) -> MailMessagePage:
 
 
 def notice_mail_response(found: NoticeMail) -> NoticeMailResponse:
+    digest = found.digest
     return NoticeMailResponse(
         enabled=found.enabled,
         available=found.reason is None,
         reason=found.reason,  # type: ignore[arg-type]
         email=found.email,
         kinds=[
-            NoticeKindResponse(kind=kind, label=label, enabled=enabled)
-            for kind, label, enabled in found.kinds
+            NoticeKindResponse(kind=kind, label=label, delivery=delivery)  # type: ignore[arg-type]
+            for kind, label, delivery in found.kinds
         ],
+        digest=DigestResponse(
+            every=digest.every,  # type: ignore[arg-type]
+            timeZone=digest.time_zone,
+            nextAt=as_utc(digest.next_at) if found.enabled else None,
+        )
+        if digest
+        else None,
     )

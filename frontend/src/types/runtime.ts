@@ -401,6 +401,15 @@ export interface OwnWorkspace {
   ownChangeSets: number;
   /** Every open change set here, for a caller holding Publish; null otherwise. */
   openChangeSets: number | null;
+  /** Whether the caller follows the workspace: a notice when a change set is published there (0.16 AO3). */
+  following: boolean;
+}
+
+/** A workspace the caller follows (0.16 AO3, AO-D38). */
+export interface FollowedWorkspace {
+  workspaceKey: string;
+  label: string;
+  since: string;
 }
 
 export interface Publication {

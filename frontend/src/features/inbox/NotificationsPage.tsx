@@ -16,7 +16,9 @@ import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { useRecordSelection } from "@/lib/hooks/useRecordSelection";
 import { emptyModel } from "@/model/emptyModel";
-import { HOME, routePath } from "@/routing/routes";
+import { appPath, openIn } from "@/features/home/openWorkspace";
+import { applicationFor } from "@/model/lookup";
+import { HOME, routePath, viewRoute } from "@/routing/routes";
 import type { EngineModel, Notification, NotificationKind, OwnWorkspace, RouteState } from "@/types";
 import { CatalogueWindow } from "@/ui/CatalogueWindow";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
@@ -38,13 +40,17 @@ const SHOW: Record<Show, boolean | undefined> = { all: undefined, unread: true, 
 
 export function NotificationsPage({
   model,
+  noticeId,
   onNavigate,
 }: {
   model: EngineModel;
+  /** A notice a digest's link names (`?notice=<id>`, 0.16 AO3): opened once the workspaces are known. */
+  noticeId?: string;
   onNavigate: (route: RouteState) => void;
 }) {
   const { unreadCount, arrivals } = useInbox(false);
   const [workspaces, setWorkspaces] = useState<OwnWorkspace[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<NotificationKind | "">("");
   const [workspace, setWorkspace] = useState("");
@@ -58,8 +64,12 @@ export function NotificationsPage({
   useEffect(() => {
     let active = true;
     api.myWorkspaces().then(
-      (loaded) => active && setWorkspaces(loaded),
-      () => undefined,
+      (found) => {
+        if (!active) return;
+        setWorkspaces(found);
+        setLoaded(true);
+      },
+      () => active && setLoaded(true),
     );
     return () => {
       active = false;
@@ -122,11 +132,45 @@ export function NotificationsPage({
   const open = (notice: Notification) => {
     if (!notice.read) void act(() => api.markNotificationsRead({ ids: [notice.id] }));
     const route = noticeRoute(notice, firstApplication.get(notice.workspaceKey));
+    // A followed publication leads to the publication, as the workspace's Publications page opens it: while
+    // it is the active one and the person may still browse the workspace (else the notice is only read).
+    const publicationId = notice.details.publicationId;
+    const application = workspaces.find((item) => item.key === notice.workspaceKey)?.applications[0];
+    if (notice.kind === "change-set.published" && publicationId && application) {
+      api.publication(publicationId).then(
+        (found) => {
+          if (found.status !== "active") return;
+          openIn(notice.workspaceKey, appPath(notice.workspaceKey, application), onNavigate, (model) => {
+            const app = applicationFor(model, application.key);
+            return app && { ...viewRoute(app, app.defaultView, notice.workspaceKey), publicationId };
+          });
+        },
+        () => undefined,
+      );
+      return;
+    }
     if (route) {
       onNavigate(route);
       touchSubject(notice.subject.id);
     }
   };
+
+  // A digest's link opens the notice's subject, as a click on it in the list does (0.16 AO3, AO-D36).
+  // A notice that is gone, or not the person's, leaves the page as it is, with a sentence.
+  const [opened, setOpened] = useState("");
+  useEffect(() => {
+    if (!noticeId || opened === noticeId || !loaded) return;
+    setOpened(noticeId);
+    let active = true;
+    api.notification(noticeId).then(
+      (found) => active && open(found),
+      () => active && setProblem("That notification is no longer in your inbox."),
+    );
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noticeId, loaded]);
 
   const bar = { ...emptyModel(), product: model.product };
   const total = list.totalCount;

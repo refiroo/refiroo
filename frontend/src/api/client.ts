@@ -46,6 +46,7 @@ import type {
   WorkspaceReadiness,
   BackupRehearsalPage,
   Me,
+  Notification as InboxNotice,
   NotificationPage,
   NotificationQuery,
   NotificationSelection,
@@ -53,6 +54,8 @@ import type {
   NotificationsRemovalResult,
   SignInSession,
   MySecondFactor,
+  FollowedWorkspace,
+  NoticeDelivery,
   NoticeMail,
   Passkey,
   SecondFactorEnrolment,
@@ -504,6 +507,8 @@ export const api = {
     setPaging(params, query);
     return request<NotificationPage>(`/api/v1/me/notifications?${params}`);
   },
+  /** One of the caller's notices by ID: where a digest's link leads (0.16 AO3). */
+  notification: (id: string) => request<InboxNotice>(`/api/v1/me/notifications/${encodeURIComponent(id)}`),
   /** Mark notices read, or unread with `read` false: by ID, by what they are about, or all; idempotent. */
   markNotificationsRead: (selection: NotificationSelection, read = true) =>
     request<NotificationsReadResult>("/api/v1/me/notifications/read", {
@@ -518,6 +523,16 @@ export const api = {
     }),
   /** The workspaces the caller may browse, with what waits there, every page (0.12 HM1, D332). */
   myWorkspaces: () => allPages<OwnWorkspace>("/api/v1/me/workspaces"),
+  /** The workspaces the caller follows, every page (0.16 AO3, AO-D38). */
+  followedWorkspaces: () => allPages<FollowedWorkspace>("/api/v1/me/followed-workspaces"),
+  /** Follow a workspace the caller may browse: a notice when a change set is published there; repeating is harmless. */
+  followWorkspace: (workspaceKey: string) =>
+    request<FollowedWorkspace>(`/api/v1/me/followed-workspaces/${encodeURIComponent(workspaceKey)}`, {
+      method: "PUT",
+    }),
+  /** Stop following a workspace; harmless when the caller did not. */
+  unfollowWorkspace: (workspaceKey: string) =>
+    request<void>(`/api/v1/me/followed-workspaces/${encodeURIComponent(workspaceKey)}`, { method: "DELETE" }),
   /** A page of the caller's open change sets across workspaces, newest change first (D333). */
   myChangeSets: (cursor?: string) => {
     const query = new URLSearchParams({ pageSize: "20" });
@@ -576,7 +591,15 @@ export const api = {
   /** Whether the caller is e-mailed for the notices in their inbox, and whether they can be (0.12 M2). */
   myNoticeMail: () => request<NoticeMail>("/api/v1/me/notification-mail"),
   /** Switch mail for the caller's inbox on or off; refused where mail is not set up or there is no address. */
-  setMyNoticeMail: (change: boolean | { enabled?: boolean; kinds?: Record<string, boolean> }) =>
+  setMyNoticeMail: (
+    change:
+      | boolean
+      | {
+          enabled?: boolean;
+          kinds?: Record<string, NoticeDelivery>;
+          digest?: { every: "daily" | "weekly"; timeZone: string };
+        },
+  ) =>
     request<NoticeMail>("/api/v1/me/notification-mail", {
       method: "PUT",
       body: JSON.stringify(typeof change === "boolean" ? { enabled: change } : change),

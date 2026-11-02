@@ -104,6 +104,28 @@ def security_administrators(session: Session) -> int:
     )
 
 
+def _holding_people(group_key: str, workspace_key: str) -> Select[tuple[int]]:
+    """A statement selecting the IDs of the people who hold ``group_key`` in ``workspace_key``, by an
+    instance grant or one of that workspace, directly or through a group (active or not)."""
+    held = (
+        Grant.role_id.in_(_holding_roles(group_key))
+        & (Grant.workspace_key.is_(None) | (Grant.workspace_key == workspace_key))
+    )
+    return select(Grant.user_id).where(held, Grant.user_id.is_not(None)).union(
+        select(UserGroupMember.user_id)
+        .join(Grant, Grant.group_id == UserGroupMember.group_id)
+        .where(held)
+    )
+
+
+def active_holders(group_key: str, workspace_key: str) -> Select[tuple[int]]:
+    """A statement selecting the IDs of the active people who hold ``group_key`` in
+    ``workspace_key``: what a set of recipients is narrowed by in SQL (0.16 AO3, AO-D38)."""
+    return select(User.id).where(
+        User.active.is_(True), User.id.in_(_holding_people(group_key, workspace_key))
+    )
+
+
 def holders_of(session: Session, group_key: str, workspace_key: str) -> list[tuple[str, int]]:
     """The active people and clients who hold ``group_key`` in ``workspace_key``, by an instance
     grant or one of that workspace, directly or (for a person) through a group, as ``(kind, row
@@ -112,16 +134,11 @@ def holders_of(session: Session, group_key: str, workspace_key: str) -> list[tup
         Grant.role_id.in_(_holding_roles(group_key))
         & (Grant.workspace_key.is_(None) | (Grant.workspace_key == workspace_key))
     )
-    people = select(Grant.user_id).where(held, Grant.user_id.is_not(None)).union(
-        select(UserGroupMember.user_id)
-        .join(Grant, Grant.group_id == UserGroupMember.group_id)
-        .where(held)
-    )
     clients = select(Grant.client_id).where(held, Grant.client_id.is_not(None))
     return [
         ("user", row_id)
         for row_id in session.scalars(
-            select(User.id).where(User.active.is_(True), User.id.in_(people)).order_by(User.id)
+            active_holders(group_key, workspace_key).order_by(User.id)
         )
     ] + [
         ("client", row_id)

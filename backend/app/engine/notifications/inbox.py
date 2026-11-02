@@ -161,6 +161,14 @@ def notification_page(
     )
 
 
+def find(session: Session, found: Ref, notification_id: str) -> Notification | None:
+    """The principal's notice with this ID; None for another's or an unknown one (a digest links to
+    its notices by ID, AO-D36)."""
+    return session.scalar(
+        select(Notification).where(_column(found) == found[1], Notification.id == notification_id)
+    )
+
+
 def unread_count(session: Session, found: Ref) -> int:
     return (
         session.scalar(

@@ -802,6 +802,24 @@ class Notification(Base):
     mailed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
+class WorkspaceFollower(Base):
+    """A person who follows a workspace they may browse (0.16 AO3, AO-D38): a change set published
+    there puts a notice in their inbox. Off by default; both keys cascade."""
+
+    __tablename__ = "workspace_followers"
+    __table_args__ = (Index("ix_workspace_followers_workspace", "workspace_key"),)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
 class WorkspaceEventHead(Base):
     """How far a workspace's events are numbered (0.12 A2): the position of the newest one."""
 
@@ -2266,6 +2284,22 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         Index("ux_users_username", func.lower(literal_column("username")), unique=True),
+        CheckConstraint(
+            "notice_digest_every IS NULL OR notice_digest_every IN ('daily', 'weekly')",
+            name="ck_users_notice_digest_every",
+        ),
+        CheckConstraint(
+            "(notice_digest_every IS NULL) = (notice_digest_zone IS NULL) "
+            "AND (notice_digest_every IS NULL) = (notice_digest_due_at IS NULL)",
+            name="ck_users_notice_digest_set",
+        ),
+        Index(
+            "ix_users_notice_digest_due",
+            "notice_digest_due_at",
+            postgresql_where=text(
+                "notice_digest_due_at IS NOT NULL AND notice_mail_since IS NOT NULL"
+            ),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -2292,6 +2326,15 @@ class User(Base):
     notice_mail_kinds_off: Mapped[list[str]] = mapped_column(
         ARRAY(String(160)), nullable=False, default=list, server_default="{}"
     )
+    # The kinds mailed once in a digest rather than at once (0.16 AO3, AO-D33); the digest's
+    # frequency (`daily`, `weekly`), the IANA time zone it is read in and when the next is due
+    # (07:00 there, AO-D34). The three are set together or not at all.
+    notice_mail_kinds_digest: Mapped[list[str]] = mapped_column(
+        ARRAY(String(160)), nullable=False, default=list, server_default="{}"
+    )
+    notice_digest_every: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    notice_digest_zone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    notice_digest_due_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class SignInProvider(Base):

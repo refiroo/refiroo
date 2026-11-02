@@ -28,6 +28,7 @@ from ..authorization.writes import requester_of
 from ..identity.principals import columns
 from ..indexes import matrix_states
 from ..indexes.snapshot_values import copy_live
+from ..notifications.following import announce_publication
 from ..records.attributes import load_workspace_attribute_values
 from ..records.audit import AuditEntry, audit_cause
 from ..records.feed import object_subject, relation_subject
@@ -789,6 +790,8 @@ def apply_publication(
     publication.published_at = datetime.now(UTC)
     workspace.active_publication_id = publication.id
     merge_change_set_relation_set_versions_to_live(session, change_set.id, change_set.workspace_key)
+    # Those who follow the workspace are told, in this transaction, before the change set is gone.
+    announce_publication(session, publication, change_set)
     delete_change_set_and_base(session, change_set)
     matrix_states.record_publication(session, publication)
     session.flush()

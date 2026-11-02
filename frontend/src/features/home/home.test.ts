@@ -25,6 +25,7 @@ function workspace(key: string, label: string, own: number, open: number | null)
     applications: [],
     ownChangeSets: own,
     openChangeSets: open,
+    following: false,
   };
 }
 

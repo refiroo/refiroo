@@ -17,7 +17,8 @@ class NotificationSubject(BaseModel):
 
 class NotificationResponse(BaseModel):
     """A notice. ``kind`` is ``change-set.submitted`` (a request waiting for your approval),
-    ``change-set.approved`` or ``change-set.sent-back`` (a decision on yours), or ``job.completed``,
+    ``change-set.approved`` or ``change-set.sent-back`` (a decision on yours), ``change-set.published``
+    (a change set was published in a workspace you follow, AO3), or ``job.completed``,
     ``job.failed`` or ``job.awaiting-confirmation`` (a job you started). ``details`` holds what a
     client words it from: for a change set ``changeSetName``, ``version``, ``comment``, ``actor``
     (who submitted or decided: kind, id, name) and ``publicationId``; for a job ``jobKind`` and
@@ -31,6 +32,19 @@ class NotificationResponse(BaseModel):
     read: bool
     readAt: datetime | None
     createdAt: datetime
+
+
+class FollowedWorkspaceResponse(BaseModel):
+    """A workspace the caller follows (0.16 AO3, AO-D38): a notice arrives in their inbox when a
+    change set is published there."""
+
+    workspaceKey: str
+    label: str
+    since: datetime
+
+
+class FollowedWorkspacePage(CollectionPage[FollowedWorkspaceResponse]):
+    pass
 
 
 class NotificationPage(CollectionPage[NotificationResponse]):

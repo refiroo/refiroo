@@ -8,7 +8,7 @@ URL = "https://refiroo.example.org"
 
 def test_every_listed_kind_has_a_label_and_its_label_is_the_mail_sentence():
     listed = [kind for kind, _ in kinds.NOTICE_KINDS]
-    assert len(listed) == len(set(listed)) == 6
+    assert len(listed) == len(set(listed)) == 7
     for kind, label in kinds.NOTICE_KINDS:
         assert label and not label.endswith(".")
         assert f"{label}.\n" in templates.notice("refiroo", kind, URL).body

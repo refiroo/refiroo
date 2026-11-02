@@ -16,6 +16,7 @@ from ...engine.model.registry import (
     model_registry,
 )
 from ...engine.model.workspace_models import assignments_of
+from ...engine.notifications.following import followed_among
 from ...models.database import ChangeSet, Workspace
 from ..presenters import workspace_model_response
 from ..schemas.workspaces import OwnWorkspaceResponse, WorkspaceApplication
@@ -67,6 +68,9 @@ def own_workspace_items(
         )
     }
     assignments = assignments_of(session, keys)
+    following = (
+        followed_among(session, principal.row_id, keys) if principal.kind == "user" else set()
+    )
     items = []
     for workspace in workspaces:
         own, open_ = counts.get(workspace.key, (0, 0))
@@ -79,6 +83,7 @@ def own_workspace_items(
                 applications=_applications(session, workspace.key),
                 ownChangeSets=own,
                 openChangeSets=open_ if permissions.allows("publish", workspace.key) else None,
+                following=workspace.key in following,
             )
         )
     return items

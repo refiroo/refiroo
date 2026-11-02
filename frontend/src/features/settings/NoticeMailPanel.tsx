@@ -1,25 +1,66 @@
 /**
- * Settings › Notifications › Email (0.12 M2, D432, D433; kinds D434, D435): the switch "Email me
- * when something arrives in my inbox", with the address the mail goes to, and under it one switch for
- * each kind of notice the engine makes (its list and its labels; nothing is listed here). Everything
- * is on until switched off; a kind switched off stops the e-mail only. The page decides whether to
- * show the panel at all: nothing here is disabled with a reason.
+ * Settings › Notifications › Email (0.12 M2, D432, D433; kinds D434, D435; digests 0.16 AO3): the
+ * switch "Email me when something arrives in my inbox", with the address the mail goes to, and under
+ * it one three-way choice for each kind of notice the engine makes (its list and its labels; nothing
+ * is listed here): mailed at once (until changed), in the digest, or no mail. The digest comes every
+ * morning or on Mondays at 07:00 in the time zone the browser reports, and the page says when the next
+ * is due. Only the mail changes: the inbox keeps every notice. The page decides whether to show the
+ * panel at all: nothing here is disabled with a reason.
  */
 
 import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
-import type { NoticeMail } from "@/types";
+import type { NoticeDelivery, NoticeMail } from "@/types";
+import { Choice } from "@/ui/Choice";
 import { Icon } from "@/ui/Icon";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { Switch } from "@/ui/Switch";
 
+const DELIVERIES = [
+  ["now", "At once"],
+  ["digest", "Digest"],
+  ["off", "Off"],
+] as const;
+const FREQUENCIES = [
+  ["daily", "Every morning at 07:00"],
+  ["weekly", "Mondays at 07:00"],
+] as const;
+
+/** The time zone the browser reports, which the digest's 07:00 is read in. */
+export function browserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+/** "Tuesday 3 November, 07:00" in the given zone. */
+export function digestTime(at: string, timeZone: string): string {
+  const moment = new Date(at);
+  try {
+    const day = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone }).format(
+      moment,
+    );
+    const time = new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone,
+    }).format(moment);
+    return `${day.replace(",", "")}, ${time}`;
+  } catch {
+    return moment.toISOString();
+  }
+}
+
 export function NoticeMailPanel({ state, onChange }: { state: NoticeMail; onChange: (next: NoticeMail) => void }) {
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState("");
 
-  async function save(change: { enabled?: boolean; kinds?: Record<string, boolean> }) {
+  async function save(change: Parameters<typeof api.setMyNoticeMail>[0]) {
     setPending(true);
     setFailure("");
     try {
@@ -30,6 +71,14 @@ export function NoticeMailPanel({ state, onChange }: { state: NoticeMail; onChan
       setPending(false);
     }
   }
+
+  /** The first kind put in the digest starts one, daily, in the browser's time zone. */
+  const choose = (kind: string, delivery: NoticeDelivery) =>
+    void save({
+      kinds: { [kind]: delivery },
+      ...(delivery === "digest" && !state.digest ? { digest: { every: "daily", timeZone: browserTimeZone() } } : {}),
+    });
+  const every = state.digest?.every ?? "daily";
 
   return (
     <Section title="Email">
@@ -42,8 +91,8 @@ export function NoticeMailPanel({ state, onChange }: { state: NoticeMail; onChan
           <div className="account-row-text">
             <strong>Email me when something arrives in my inbox</strong>
             <span className="account-muted">
-              One short message for each notice, sent to {state.email ?? "your address"}. It says what kind of notice it
-              is and links here; it never names a record or a change set.
+              Sent to {state.email ?? "your address"}. A mail says what kind of notice it is and links here; it never
+              names a record or a change set.
             </span>
           </div>
           <Switch
@@ -54,25 +103,51 @@ export function NoticeMailPanel({ state, onChange }: { state: NoticeMail; onChan
           />
         </div>
         <fieldset className="account-kinds" disabled={!state.enabled}>
-          <legend>Send me an email for</legend>
+          <legend>How each kind reaches me</legend>
           {state.kinds.map((item) => (
-            <div className="account-row" key={item.kind}>
+            <div className="account-row account-kind-row" key={item.kind}>
               <div className="account-row-text">
                 <span>{item.label}</span>
               </div>
-              <Switch
-                label={item.label}
-                checked={item.enabled}
-                disabled={pending || !state.enabled}
-                onChange={(enabled) => void save({ kinds: { [item.kind]: enabled } })}
-              />
+              <div role="radiogroup" aria-label={item.label}>
+                <Choice
+                  name={`delivery-${item.kind}`}
+                  value={item.delivery}
+                  options={DELIVERIES}
+                  onChange={(delivery) => !pending && choose(item.kind, delivery)}
+                />
+              </div>
             </div>
           ))}
-          <p className="account-muted account-kinds-note">
-            A kind you switch off is not mailed. It still arrives in your inbox. These choices apply only while the
-            switch above is on.
-          </p>
         </fieldset>
+        <fieldset className="account-kinds account-digest" disabled={!state.enabled}>
+          <legend>The digest</legend>
+          <div className="account-row">
+            <div className="account-row-text">
+              <div role="radiogroup" aria-label="How often the digest comes">
+                <Choice
+                  name="digest-every"
+                  value={every}
+                  options={FREQUENCIES}
+                  onChange={(next) => !pending && void save({ digest: { every: next, timeZone: browserTimeZone() } })}
+                />
+              </div>
+              <span className="account-muted">
+                {state.digest
+                  ? `In your time zone, ${state.digest.timeZone}.${
+                      state.digest.nextAt
+                        ? ` Next digest: ${digestTime(state.digest.nextAt, state.digest.timeZone)}.`
+                        : ""
+                    }`
+                  : "Choose Digest for a kind to start one."}{" "}
+                No mail when there is nothing new; a notice you read before then is left out.
+              </span>
+            </div>
+          </div>
+        </fieldset>
+        <p className="account-muted account-kinds-note">
+          Only the mail changes: your inbox keeps every notice. These choices apply only while the switch above is on.
+        </p>
       </div>
     </Section>
   );

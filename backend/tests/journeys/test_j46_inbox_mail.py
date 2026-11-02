@@ -60,6 +60,7 @@ def test_notice_mail_is_off_until_a_person_switches_it_on(world, smtp):  # noqa:
         "available": True,
         "reason": None,
         "email": "olga@example.org",
+        "digest": None,
     }
     _submit_one(world, _submitter(world))
     assert ok(approver.api.get("/me/notifications"))["unreadCount"] == 1
@@ -136,12 +137,13 @@ def test_switching_on_is_refused_where_it_cannot_work_and_off_always_works(world
 
     client = _submitter(world)
     found = ok(client.api.get(SWITCH))
-    assert len(found.pop("kinds")) == 6
+    assert len(found.pop("kinds")) == 7
     assert found == {
         "enabled": False,
         "available": False,
         "reason": "not-a-person",
         "email": None,
+        "digest": None,
     }
     refused(client.api.put(SWITCH, {"enabled": True}), 403, "NOT_A_PERSON")
 
@@ -217,7 +219,7 @@ def _with_two_kinds(world, smtp):  # noqa: F811
 
 
 def _kinds(found: dict) -> dict[str, bool]:
-    return {item["kind"]: item["enabled"] for item in found["kinds"]}
+    return {item["kind"]: item["delivery"] != "off" for item in found["kinds"]}
 
 
 def _texts(smtp) -> list[str]:  # noqa: F811
@@ -227,7 +229,7 @@ def _texts(smtp) -> list[str]:  # noqa: F811
 @pytest.mark.journey("J46.10")
 def test_every_kind_of_notice_is_mailed_by_default_once_mail_is_switched_on(world, smtp):  # noqa: F811
     """Given an approver who has not chosen anything. When they read their notice mail setting,
-    then the six kinds of notice are listed with a label each and all on, even where mail is not
+    then the seven kinds of notice are listed with a label each and all on, even where mail is not
     set up; when they switch mail on, a notice of each kind made afterwards is mailed."""
     _, approver = _approver(world, "zoe", "zoe@example.org")
     found = ok(approver.api.get(SWITCH))
@@ -239,6 +241,7 @@ def test_every_kind_of_notice_is_mailed_by_default_once_mail_is_switched_on(worl
         ("job.completed", True),
         ("job.failed", True),
         ("job.awaiting-confirmation", True),
+        ("change-set.published", True),
     ]
     assert found["kinds"][0]["label"] == "A change set is waiting for your approval"
 
@@ -260,10 +263,10 @@ def test_a_kind_switched_off_is_not_mailed_but_stays_in_the_inbox(world, smtp): 
     still does; both notices are in the inbox, and the switch is not undone by another."""
     olga, pavel, own = _with_two_kinds(world, smtp)
     ok(pavel.api.put(SWITCH, {"enabled": True}))
-    changed = ok(pavel.api.put(SWITCH, {"kinds": {"change-set.submitted": False}}))
+    changed = ok(pavel.api.put(SWITCH, {"kinds": {"change-set.submitted": "off"}}))
     assert changed["enabled"] is True and _kinds(changed)["change-set.submitted"] is False
-    assert sum(_kinds(changed).values()) == 5
-    ok(pavel.api.put(SWITCH, {"kinds": {"job.failed": True}}))
+    assert sum(_kinds(changed).values()) == 6
+    ok(pavel.api.put(SWITCH, {"kinds": {"job.failed": "now"}}))
     assert _kinds(ok(pavel.api.get(SWITCH)))["change-set.submitted"] is False
 
     _submit_one(world, _submitter(world))
@@ -288,12 +291,12 @@ def test_switching_a_kind_back_on_mails_the_notices_made_afterwards(world, smtp)
     on, then the sender mails the notice that was left alone (it is still unread and recent) and
     one made afterwards."""
     _, pavel, _ = _with_two_kinds(world, smtp)
-    ok(pavel.api.put(SWITCH, {"enabled": True, "kinds": {"change-set.submitted": False}}))
+    ok(pavel.api.put(SWITCH, {"enabled": True, "kinds": {"change-set.submitted": "off"}}))
     submitter = _submitter(world)
     _submit_one(world, submitter, "While off")
     assert send_mail(world) == 0 and smtp.messages == []
 
-    ok(pavel.api.put(SWITCH, {"kinds": {"change-set.submitted": True}}))
+    ok(pavel.api.put(SWITCH, {"kinds": {"change-set.submitted": "now"}}))
     _submit_one(world, submitter, "After on")
     assert send_mail(world) == 2
     assert len(_texts(smtp)) == 2
@@ -308,7 +311,7 @@ def test_choosing_kinds_is_refused_for_unknown_kinds_empty_bodies_and_clients(wo
     while it is off, and the choice is kept when they switch on."""
     _, approver = _approver(world)
     error = refused(
-        approver.api.put(SWITCH, {"kinds": {"job.failed": False, "nonsense": False}}),
+        approver.api.put(SWITCH, {"kinds": {"job.failed": "off", "nonsense": "off"}}),
         422,
         "UNKNOWN_NOTICE_KIND",
     )
@@ -317,10 +320,10 @@ def test_choosing_kinds_is_refused_for_unknown_kinds_empty_bodies_and_clients(wo
     refused(approver.api.put(SWITCH, {}), 422, "REQUEST_VALIDATION_ERROR")
     refused(approver.api.put(SWITCH, {"kinds": None}), 422, "REQUEST_VALIDATION_ERROR")
     refused(
-        _submitter(world).api.put(SWITCH, {"kinds": {"job.failed": False}}), 403, "NOT_A_PERSON"
+        _submitter(world).api.put(SWITCH, {"kinds": {"job.failed": "off"}}), 403, "NOT_A_PERSON"
     )
 
-    found = ok(approver.api.put(SWITCH, {"kinds": {"job.failed": False}}))
+    found = ok(approver.api.put(SWITCH, {"kinds": {"job.failed": "off"}}))
     assert found["available"] is False and found["enabled"] is False
     assert _kinds(found)["job.failed"] is False
 

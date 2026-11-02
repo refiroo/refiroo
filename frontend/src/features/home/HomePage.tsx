@@ -247,6 +247,7 @@ function WorkspaceCard({
           </span>
           {role && <span className="account-muted">{role}</span>}
         </div>
+        <FollowToggle workspace={workspace} />
       </div>
       {workspace.applications.length ? (
         <ul className="home-apps" aria-label={`Applications in ${workspace.label}`}>
@@ -291,6 +292,52 @@ function WorkspaceCard({
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * Follow / Following on a workspace's card (0.16 AO3, AO-D38): a pressed toggle. Following puts a notice
+ * in the person's inbox when a change set is published in the workspace; what is mailed is chosen on
+ * Settings › Notifications. It acts at once and says so when it fails.
+ */
+export function FollowToggle({ workspace }: { workspace: OwnWorkspace }) {
+  // What the person just did wins over what the page loaded.
+  const [chosen, setFollowing] = useState<boolean>();
+  const following = chosen ?? workspace.following;
+  const [pending, setPending] = useState(false);
+  const [failure, setFailure] = useState("");
+  async function toggle() {
+    setPending(true);
+    setFailure("");
+    try {
+      if (following) await api.unfollowWorkspace(workspace.key);
+      else await api.followWorkspace(workspace.key);
+      setFollowing(!following);
+    } catch (cause) {
+      setFailure(errorMessage(cause));
+    } finally {
+      setPending(false);
+    }
+  }
+  return (
+    <div className="home-follow">
+      <button
+        type="button"
+        className="secondary home-follow-button"
+        aria-pressed={following}
+        aria-label={`Follow ${workspace.label}`}
+        disabled={pending}
+        onClick={() => void toggle()}
+      >
+        <Icon name="bell" size={16} />
+        {following ? "Following" : "Follow"}
+      </button>
+      {failure && (
+        <span className="account-muted" role="alert">
+          {failure}
+        </span>
+      )}
+    </div>
   );
 }
 

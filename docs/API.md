@@ -6219,19 +6219,35 @@ a success clears the username's count (D271). Passwords and client secrets are h
 - `GET /api/v1/me/notifications/events` (`text/event-stream`, read with `fetch`, D247): `event: unread`
   `{unreadCount}` at once and after every change, `event: notification` with each new notice as the list answers it;
   a comment every 15 s keeps it open. Nothing is polled.
-- `GET /api/v1/me/notification-mail` and `PUT /api/v1/me/notification-mail` `{enabled?, kinds?}` (delivered, M2,
+- `GET /api/v1/me/notification-mail` and `PUT /api/v1/me/notification-mail` `{enabled?, kinds?, digest?}` (delivered, M2,
   D432, D434): whether the caller is e-mailed when a notice arrives in their inbox, and which kinds of notice; for
   anyone signed in. Both answer `{enabled, available, reason, email, kinds}`: `available` is false where it cannot work and `reason` says why
   (`mail-not-set-up`, `no-email`, `not-a-person` for a client, who has no mail); `email` is where it goes. It is off
   until switched on. Switching on is refused `409 MAIL_NOT_SET_UP` and `409 NO_EMAIL`, and `403 NOT_A_PERSON` for a
   client (for any `PUT`); switching on again keeps the first time; switching off always works and repeats harmlessly.
-  `kinds` is always the full list, `[{kind, label, enabled}]` in the order to show it (`change-set.submitted`,
-  `change-set.approved`, `change-set.sent-back`, `job.completed`, `job.failed`, `job.awaiting-confirmation`), with
-  every kind on until switched off and listed even where mail is not `available`. `PUT` takes `enabled`, `kinds`
-  (`{<kind>: bool}`, changing only the kinds named) or both; a body with neither is `422`; an unknown kind is `422
-  UNKNOWN_NOTICE_KIND` naming it, and nothing changes. Kinds may be chosen while mail is off or not set up (they are the
-  person's preference). A kind switched off stops the e-mail only: the inbox, the notices and the workspace events
-  keep it (D434). Neither is a security event. See [Mail](#mail) for what is sent.
+  `kinds` is always the full list, `[{kind, label, delivery}]` in the order to show it (`change-set.submitted`,
+  `change-set.approved`, `change-set.sent-back`, `job.completed`, `job.failed`, `job.awaiting-confirmation`,
+  `change-set.published`), `delivery` being `now` (one mail when it arrives; what every kind is until changed),
+  `digest` or `off`, and listed even where mail is not `available`. `digest` is `{every: "daily" | "weekly",
+  timeZone, nextAt}` once chosen, else `null`; `nextAt` is the next send time while mail is on (07:00 in the zone, on a
+  Monday for `weekly`; AO3, AO-D33, AO-D34). `PUT` takes `enabled`, `kinds` (`{<kind>: "now" | "digest" | "off"}`,
+  changing only the kinds named), `digest` (`{every, timeZone}`, an IANA zone: `422 UNKNOWN_TIME_ZONE`; a repeat of the
+  same choice keeps `nextAt`) or any of them; a body with none is `422`; an unknown kind is `422 UNKNOWN_NOTICE_KIND`
+  naming it, and a kind put in the digest while no digest is set (here or earlier) is `422 DIGEST_NOT_SET` with
+  `details.kinds`; nothing changes when a part is refused. Kinds may be chosen while mail is off or not set up (they are
+  the person's preference). A kind in the digest or switched off stops the at-once mail only: the inbox, the notices and
+  the workspace events keep it (D434). Neither is a security event. See [Mail](#mail) for what is sent.
+- `GET /api/v1/me/notifications/{id}` (0.16 AO3): one of the caller's notices, as the list answers it, where a digest's
+  link leads; `404 NOT_FOUND` for an unknown one or another's. `change-set.published` (AO-D38) is a notice kind too:
+  `subject` is the published change set (gone by then; a client opens the publication named in `details.publicationId` instead), `details` carry `changeSetName`, `version`, `actor` (the
+  publisher) and `publicationId`.
+- `GET /api/v1/me/followed-workspaces`, `PUT` and `DELETE /api/v1/me/followed-workspaces/{workspaceKey}` (0.16 AO3,
+  AO-D38): the workspaces the caller follows and still may browse (`{workspaceKey, label, since}`, by label, paged),
+  following one (`404 NOT_FOUND` for a workspace that is not active or the caller may not browse; a repeat keeps the first
+  time) and stopping (`204`, harmless when not followed; `404` for a workspace that does not exist); `403 NOT_A_PERSON` for
+  a client. Following puts a `change-set.published` notice in the inbox of each follower who still holds Browse there when
+  a change set is published there, by an approved request or directly, except the publisher's. `GET /me/workspaces`
+  items carry `following`.
 
 ### Authorization
 
@@ -6692,6 +6708,14 @@ switched `PUT /me/notification-mail` on: a notice that is unread, made after the
 old, for an active person with an address and not of a kind they switched off. The message names the kind of event and links to the application; it
 carries no record, change-set, workspace or person content. Without saved mail settings notices wait and are mailed
 once mail is saved, while they are under 24 hours old.
+
+**Digests (0.16 AO3, AO-D31 to AO-D37):** a person who chose `digest` for kinds gets, once their `nextAt` has passed, one
+`digest` message in the sender's round: the unread notices of those kinds made since they switched mail on and not yet
+handled (not limited to 24 hours), the subject "<product>: N notices in your inbox", a sentence counting each kind, up to 50
+lines (newest first: the kind's label, a job's kind with `applied` and `rejected` counts while the job is kept, the time in
+their zone, the link `/notifications?notice=<id>`), "and N more in your inbox" and the application address. The counts are
+over every notice. It names no record, change set, workspace, person or file. Nothing to say makes no message and still moves
+the time; with mail not set up nothing is queued and nothing moves. The notices are marked handled in the same commit.
 
 ### Approvals (Track A)
 

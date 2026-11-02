@@ -117,6 +117,29 @@
   flex: none;
   text-decoration: none;
 }
+.home-follow {
+  display: grid;
+  flex: none;
+  justify-items: end;
+  gap: 4px;
+  align-self: flex-start;
+}
+.home-follow-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+}
+.home-follow-button[aria-pressed="true"] {
+  border-color: var(--state-selected-line);
+  background: var(--state-selected);
+  color: var(--state-selected-text);
+}
+@media (max-width: 640px) {
+  .home-follow-button {
+    min-height: 44px;
+  }
+}
 .home-card-title {
   display: grid;
   flex: 1;
