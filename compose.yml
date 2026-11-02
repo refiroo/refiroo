@@ -45,7 +45,7 @@ services:
       # `web` is the only caller (the engine is not published), and it replaces what callers send.
       FORWARDED_ALLOW_IPS: "*"
     volumes:
-      - job-files:/data/job-files
+      - job-files:/opt/refiroo/rdm-engine/data/job-files
     depends_on:
       database:
         condition: service_healthy
@@ -69,7 +69,7 @@ services:
       - "${WEB_HTTPS_PORT:-443}:8443"
     volumes:
       # The certificate and key (fullchain.pem, privkey.pem); WEB_CERTS_DIR names another folder.
-      - ${WEB_CERTS_DIR:-./certs}:/certs:ro
+      - ${WEB_CERTS_DIR:-./certs}:/opt/refiroo/rdm-engine/frontend/certs:ro
     depends_on:
       engine:
         condition: service_healthy

@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (image layout)
+
+- **The images keep everything under `/opt/refiroo/rdm-engine`**, laid out as the repository is (`backend/`, `model/`, `data/`, and in the web image `frontend/dist`, `frontend/certs`, `frontend/nginx`), and add nothing at `/`. An existing installation mounts the job-files volume at `/opt/refiroo/rdm-engine/data/job-files` and the certificate folder at `/opt/refiroo/rdm-engine/frontend/certs`; `compose.yml` does both. `AI_AGENT_FOLDERS` defaults to `/opt/refiroo/rdm-engine/data/assistant`.
+
 ## [0.16.0] - 2026-11-02
 
 The assistant and the agents: a person says a few words, uploads a workbook and gets the model and the import, with an

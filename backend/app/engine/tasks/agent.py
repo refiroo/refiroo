@@ -358,7 +358,10 @@ def _agent_root(files: Any) -> Path:
     """Where the sessions' folders are. In a container they cannot lie in the job files, which only
     the engine's user may enter: they lie in a folder shared by the group of the two users."""
     if _container():
-        return Path(os.environ.get("AI_AGENT_FOLDERS", "").strip() or "/data/assistant")
+        return Path(
+            os.environ.get("AI_AGENT_FOLDERS", "").strip()
+            or "/opt/refiroo/rdm-engine/data/assistant"
+        )
     return Path(files.directory) / "agent"
 
 

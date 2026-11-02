@@ -12,19 +12,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
     && npm install -g @anthropic-ai/claude-code && test -x /usr/local/bin/claude \
     && apt-get purge -y npm && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin rdm \
-    && mkdir -p /app /data/job-files \
-    && chown rdm:rdm /data/job-files && chmod 0700 /data/job-files
+# Everything of the application lies under one folder that mirrors the repository: backend/,
+# model/ and data/ (the job files and the assistant's folders). Nothing is added at /.
+RUN useradd --system --uid 10001 --home-dir /opt/refiroo/rdm-engine/backend --shell /usr/sbin/nologin rdm \
+    && mkdir -p /opt/refiroo/rdm-engine/backend /opt/refiroo/rdm-engine/data/job-files \
+    && chown rdm:rdm /opt/refiroo/rdm-engine/data/job-files && chmod 0700 /opt/refiroo/rdm-engine/data/job-files
 # The session's user, with a home of its own. Its folders and Claude Code's transcripts lie in two
 # folders shared by the group of the two users (set-group-ID, so what either creates is the group's);
 # the job files stay the engine's alone.
 RUN groupadd --system assistant \
-    && useradd --system --gid assistant --home-dir /home/assistant --create-home \
-        --shell /usr/sbin/nologin assistant \
+    && useradd --system --gid assistant --home-dir /opt/refiroo/rdm-engine/data/assistant-home \
+        --no-create-home --shell /usr/sbin/nologin assistant \
     && usermod --append --groups assistant rdm \
-    && mkdir -p /data/assistant /data/assistant-claude \
-    && chown rdm:assistant /data/assistant /data/assistant-claude \
-    && chmod 2770 /data/assistant /data/assistant-claude
+    && mkdir -p /opt/refiroo/rdm-engine/data/assistant /opt/refiroo/rdm-engine/data/assistant-claude /opt/refiroo/rdm-engine/data/assistant-home \
+    && chown rdm:assistant /opt/refiroo/rdm-engine/data/assistant /opt/refiroo/rdm-engine/data/assistant-claude \
+    && chmod 2770 /opt/refiroo/rdm-engine/data/assistant /opt/refiroo/rdm-engine/data/assistant-claude \
+    && chown assistant:assistant /opt/refiroo/rdm-engine/data/assistant-home && chmod 0750 /opt/refiroo/rdm-engine/data/assistant-home
 # The engine's user may run the Claude Code binary as `assistant` and nothing else; the environment is
 # reset and only what the engine passes is kept (never HOME: the session gets its own). Mode 0440 as
 # sudo requires.
@@ -34,18 +37,20 @@ RUN printf '%s\n' \
     'rdm ALL=(assistant) NOPASSWD: /usr/local/bin/claude' \
     > /etc/sudoers.d/rdm-assistant \
     && chmod 0440 /etc/sudoers.d/rdm-assistant && visudo -cf /etc/sudoers.d/rdm-assistant
-WORKDIR /app
+WORKDIR /opt/refiroo/rdm-engine/backend
 # Readable by the engine's user whatever the modes on the machine that builds (a file kept 600 there).
 COPY --chmod=u=rwX,go=rX backend/pyproject.toml .
 COPY --chmod=u=rwX,go=rX backend/app ./app
 RUN pip install --no-cache-dir .
-COPY --chmod=u=rwX,go=rX model/rdm-starter.json /model/rdm-starter.json
+COPY --chmod=u=rwX,go=rX model/rdm-starter.json /opt/refiroo/rdm-engine/model/rdm-starter.json
 
-ENV RDM_MODEL_PATH=/model/rdm-starter.json \
-    JOB_FILE_DIR=/data/job-files \
+ENV RDM_MODEL_PATH=/opt/refiroo/rdm-engine/model/rdm-starter.json \
+    JOB_FILE_DIR=/opt/refiroo/rdm-engine/data/job-files \
+    AI_AGENT_FOLDERS=/opt/refiroo/rdm-engine/data/assistant \
+    CLAUDE_CONFIG_DIR=/opt/refiroo/rdm-engine/data/assistant-claude \
     PYTHONUNBUFFERED=1
 # Export and import files wait here; mount a volume to keep them across a new container.
-VOLUME /data/job-files
+VOLUME /opt/refiroo/rdm-engine/data/job-files
 USER rdm
 EXPOSE 8000
 
@@ -58,5 +63,3 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=6 \
 # (the sign-in throttle counts per address, D271). Uvicorn trusts forwarded addresses only from
 # FORWARDED_ALLOW_IPS (127.0.0.1 unless set): name the proxy's address there.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--timeout-graceful-shutdown", "10"]
-    AI_AGENT_FOLDERS=/data/assistant \
-    CLAUDE_CONFIG_DIR=/data/assistant-claude \

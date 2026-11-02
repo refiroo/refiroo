@@ -57,8 +57,8 @@ trust_proxies() {
 
 case "${WEB_TLS:-files}" in
   files)
-    if [ ! -r /certs/fullchain.pem ] || [ ! -r /certs/privkey.pem ]; then
-      echo "web: WEB_TLS=files needs /certs/fullchain.pem and /certs/privkey.pem (the organisation's certificate and key)." >&2
+    if [ ! -r /opt/refiroo/rdm-engine/frontend/certs/fullchain.pem ] || [ ! -r /opt/refiroo/rdm-engine/frontend/certs/privkey.pem ]; then
+      echo "web: WEB_TLS=files needs /opt/refiroo/rdm-engine/frontend/certs/fullchain.pem and /opt/refiroo/rdm-engine/frontend/certs/privkey.pem (the organisation's certificate and key)." >&2
       echo "web: Mount them, or set WEB_TLS=proxy when a load balancer in front ends HTTPS." >&2
       exit 1
     fi
@@ -70,5 +70,5 @@ case "${WEB_TLS:-files}" in
 esac
 : "${PUBLIC_URL:?web: PUBLIC_URL, the address people open (for example https://rdm.example.org), is not set.}"
 
-cp "/etc/nginx/templates-available/$template" /etc/nginx/templates/default.conf.template
+cp "/opt/refiroo/rdm-engine/frontend/nginx/$template" /etc/nginx/templates/default.conf.template
 echo "web: serving $PUBLIC_URL (WEB_TLS=${WEB_TLS:-files}), engine at $ENGINE_UPSTREAM"

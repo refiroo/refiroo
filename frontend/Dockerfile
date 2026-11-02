@@ -17,15 +17,18 @@ RUN npm run build
 # Not root: this nginx listens on 8080 (HTTP) and 8443 (HTTPS); publish them as 80 and 443.
 FROM nginxinc/nginx-unprivileged:1.28-alpine
 USER root
-COPY --from=build /repo/frontend/dist /usr/share/nginx/html
-COPY frontend/nginx/tls.conf.template frontend/nginx/proxy.conf.template /etc/nginx/templates-available/
+COPY --from=build /repo/frontend/dist /opt/refiroo/rdm-engine/frontend/dist
+COPY frontend/nginx/tls.conf.template frontend/nginx/proxy.conf.template /opt/refiroo/rdm-engine/frontend/nginx/
 COPY frontend/nginx/snippets /etc/nginx/templates/snippets
-COPY frontend/nginx/05-choose-mode.sh /docker-entrypoint.d/05-choose-mode.sh
-RUN chmod +x /docker-entrypoint.d/05-choose-mode.sh \
-    && chown -R nginx:nginx /etc/nginx/templates /etc/nginx/templates-available
+COPY frontend/nginx/05-choose-mode.sh /opt/refiroo/rdm-engine/frontend/nginx/05-choose-mode.sh
+# The entrypoint runs what lies in /docker-entrypoint.d: a link to the script kept with the application.
+RUN chmod +x /opt/refiroo/rdm-engine/frontend/nginx/05-choose-mode.sh \
+    && ln -s /opt/refiroo/rdm-engine/frontend/nginx/05-choose-mode.sh /docker-entrypoint.d/05-choose-mode.sh \
+    && mkdir -p /opt/refiroo/rdm-engine/frontend/certs \
+    && chown -R nginx:nginx /etc/nginx/templates /opt/refiroo/rdm-engine/frontend/nginx
 USER nginx
 
-# WEB_TLS=files (default): HTTPS ended here with /certs/fullchain.pem and /certs/privkey.pem, plain
+# WEB_TLS=files (default): HTTPS ended here with certs/fullchain.pem and certs/privkey.pem under /opt/refiroo/rdm-engine/frontend, plain
 # HTTP redirected to PUBLIC_URL. WEB_TLS=proxy: plain HTTP on 8080 behind a load balancer that ends HTTPS.
 ENV WEB_TLS=files \
     ENGINE_UPSTREAM=http://engine:8000 \

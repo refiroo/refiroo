@@ -15,7 +15,7 @@ client_max_body_size ${WEB_MAX_BODY};
 server {
     listen 8080;
     server_name _;
-    root /usr/share/nginx/html;
+    root /opt/refiroo/rdm-engine/frontend/dist;
 
     location = /web-health {
         access_log off;

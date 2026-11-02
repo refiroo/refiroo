@@ -201,7 +201,7 @@ try {
 
   // 8. web refuses to start without a certificate, and says what to do.
   const webImage = `${project}-web`;
-  const bare = spawnSync("docker", ["run", "--rm", "-e", `PUBLIC_URL=${publicUrl}`, "-v", `${emptyCerts}:/certs:ro`, webImage], { encoding: "utf8" });
+  const bare = spawnSync("docker", ["run", "--rm", "-e", `PUBLIC_URL=${publicUrl}`, "-v", `${emptyCerts}:/opt/refiroo/rdm-engine/frontend/certs:ro`, webImage], { encoding: "utf8" });
   expect(bare.status !== 0 && /fullchain\.pem/.test(bare.stderr), `web started without a certificate or did not say why (${bare.status}): ${bare.stderr.slice(0, 200)}`);
   checks.push("web refused to start without a certificate, naming the files and WEB_TLS=proxy");
 

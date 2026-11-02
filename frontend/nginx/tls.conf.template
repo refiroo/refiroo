@@ -26,10 +26,10 @@ server {
     listen 8443 ssl;
     http2 on;
     server_name _;
-    root /usr/share/nginx/html;
+    root /opt/refiroo/rdm-engine/frontend/dist;
 
-    ssl_certificate /certs/fullchain.pem;
-    ssl_certificate_key /certs/privkey.pem;
+    ssl_certificate /opt/refiroo/rdm-engine/frontend/certs/fullchain.pem;
+    ssl_certificate_key /opt/refiroo/rdm-engine/frontend/certs/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_session_cache shared:ssl:10m;
 
