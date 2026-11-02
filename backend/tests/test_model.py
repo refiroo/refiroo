@@ -346,7 +346,7 @@ def test_detail_composition_changes_are_preserved_without_renderer_changes():
             lambda source: source["applications"][0]["details"][2]["panels"][1]["config"].update(
                 {"direction": "outgoing"}
             ),
-            "is incompatible",
+            "no longer has",
         ),
         (
             lambda source: source["applications"][0]["details"][0]["panels"][0].update(
@@ -905,10 +905,11 @@ def test_relation_matrix_edit_needs_one_writable_cell_field():
     for field in ("value-code", "value-name", "active"):
         _attribute(source, "system-value", field)["readOnly"] = True
     result = compile_model(source)
-    assert [(item.code, item.path) for item in result.diagnostics] == [
-        ("INVALID_MODEL", f"{_matrix_path(*_REPRESENTATIONS)}/config/cellActions/1")
+    # Every view with the problem reports it, not only the first.
+    assert ("INVALID_MODEL", f"{_matrix_path(*_REPRESENTATIONS)}/config/cellActions/1") in [
+        (item.code, item.path) for item in result.diagnostics
     ]
-    assert "read-only" in result.diagnostics[0].message
+    assert all("read-only" in item.message for item in result.diagnostics)
 
 
 def test_relation_matrix_is_read_only_without_cell_actions():

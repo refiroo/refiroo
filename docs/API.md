@@ -4292,11 +4292,13 @@ can be read, beside its diagnostics.
   target (`features.uniqueToAncestorTypeKey`); absent without that rule.
 - **`relations[].candidates`**: which records the relationship may choose at each end (0.9 K7), as the
   model declares it; absent when it has none.
-- **`diagnostics`** are the compiler's, as `POST /model-validations` gives them for the draft's model,
-  each with **`element`**: the element its pointer falls in, named as operations name elements
+- **`diagnostics`** are the compiler's, as `POST /model-validations` gives them for the draft's model
+  (every problem of the views and detail pages together, the first one of any other rule), each with
+  **`element`**: the element its pointer falls in, named as operations name elements
   (`{"objectType"}`, `{"objectType", "attributeType"}`, `{"relationType", "from", "to"}`,
-  `{"applicationKey", "view"}`, `{"applicationKey", "detail"}`, `{"applicationKey", "group"}`,
-  `{"consumerApi"}`, …), or `null` for a pointer in no element (the release, the product).
+  `{"applicationKey", "view"}`, `{"applicationKey", "detail"}`,
+  `{"applicationKey", "detail", "panel"}`, `{"applicationKey", "group"}`, `{"consumerApi"}`, …), or
+  `null` for a pointer in no element (the release, the product).
 - **`consumerApis`** (A4c): each definition as `key`, `name`, `description`, `contractVersion`,
   `exposes` (each type with its `publicName`, the default written out), `counts` (`fields`, `related`,
   `lists`, `filters`, `events`), `mark` (against the base release's definition of that key) and

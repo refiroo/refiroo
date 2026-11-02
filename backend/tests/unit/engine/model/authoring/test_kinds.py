@@ -191,6 +191,30 @@ def test_a_draft_only_kind_on_a_released_element_is_refused_before_anything_chan
     assert data == MODELS["example"]
 
 
+def test_a_removal_drops_the_relation_types_left_unbound_and_keeps_the_bound_ones_released_or_not():
+    """A relation type with no binding left goes, released or not, unless data holds it; one that
+    still has a binding stays, with no data (D31)."""
+    original = MODELS["example"]
+    for type_key in [t["key"] for t in original["objectTypes"]][:6]:
+        data = copy.deepcopy(original)
+        released = lambda _atom: True
+        apply_operation(
+            Context(Document(data), released, in_use=lambda _atom: False),
+            {"kind": "removeObjectType", "objectType": type_key},
+        )
+        bound = {b["relationTypeKey"] for b in data["objectTypeRelations"]}
+        kept = {r["key"] for r in data["relationTypes"]}
+        before = {b["relationTypeKey"] for b in original["objectTypeRelations"]}
+        assert bound <= kept
+        assert kept == {r["key"] for r in original["relationTypes"] if r["key"] in bound or r["key"] not in before}
+        held = copy.deepcopy(original)
+        apply_operation(
+            Context(Document(held), released, in_use=lambda atom: atom.startswith("relationType:")),
+            {"kind": "removeObjectType", "objectType": type_key},
+        )
+        assert {r["key"] for r in held["relationTypes"]} == {r["key"] for r in original["relationTypes"]}
+
+
 def test_a_released_element_data_does_not_hold_changes_but_its_key_stays_fixed():
     type_key = MODELS["example"]["objectTypes"][0]["key"]
     released = lambda atom: atom == f"objectType:{type_key}"

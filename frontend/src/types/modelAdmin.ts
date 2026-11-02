@@ -339,7 +339,7 @@ export interface ModelDraftStep {
 /** Whether an element is absent from the draft's base release, declared differently, or as it was. */
 export type OutlineMark = "new" | "changed" | "released";
 
-/** An element as operations name it: `{objectType}`, `{objectType, attributeType}`, `{applicationKey, group}`… */
+/** An element as operations name it: `{objectType}`, `{objectType, attributeType}`, `{applicationKey, group}`, `{applicationKey, detail, panel}`… */
 export type OutlineElement = Record<string, string>;
 
 export interface OutlineTypeNode {

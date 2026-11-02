@@ -532,6 +532,106 @@ def test_a_draft_left_invalid_between_steps_reports_the_compilers_diagnostics(wo
     )
 
 
+def _hub_model_operations() -> list[dict[str, Any]]:
+    """A page ("hub") in one application whose relations panels list relations that types of another
+    application have to it: one panel lists both relations, one lists a single one."""
+    panel = lambda key, title, relations: {
+        "kind": "insertViewItem",
+        "applicationKey": "j33-core",
+        "detail": "j33-hub",
+        "list": "panels",
+        "item": {
+            "key": key,
+            "title": title,
+            "type": "relations",
+            "region": "main",
+            "order": 9,
+            "visible": True,
+            "config": {"relationTypeKeys": relations, "direction": "incoming", "columns": ["name", "objectType"]},
+        },
+    }
+    top = {"parent": None}
+    return [
+        {"kind": "addApplication", "name": "J33 Core"},
+        {"kind": "addApplication", "name": "J33 Extra"},
+        {"kind": "addObjectType", "applicationKey": "j33-core", "name": "J33 Hub", "pluralName": "J33 Hubs", **top},
+        {"kind": "addObjectType", "applicationKey": "j33-extra", "name": "J33 Left", "pluralName": "J33 Lefts", **top},
+        {"kind": "addObjectType", "applicationKey": "j33-extra", "name": "J33 Right", "pluralName": "J33 Rights", **top},
+        {"kind": "addRelationType", "name": "J33 Feeds", "reverseName": "J33 Fed by"},
+        {"kind": "addRelationType", "name": "J33 Serves", "reverseName": "J33 Served by"},
+        {"kind": "allowRelation", "relationType": "j33-feeds", "from": "j33-left", "to": "j33-hub"},
+        {"kind": "allowRelation", "relationType": "j33-serves", "from": "j33-right", "to": "j33-hub"},
+        panel("j33-both", "Both", ["j33-feeds", "j33-serves"]),
+        panel("j33-serving", "Serving", ["j33-serves"]),
+    ]
+
+
+@pytest.mark.journey("J33.17")
+@pytest.mark.structures("A1")
+def test_a_removal_takes_the_panels_of_other_pages_that_depended_on_it_and_undoes_whole(world):
+    """Given pages in one application listing relations from types of another. When a type of the
+    other application is removed, then a panel listing its relation and another is left with the other
+    and a panel listing only it goes, the relation type nothing uses goes, and the draft is valid.
+    When the application is removed, no panel of the page is left. Each undo restores the draft
+    exactly."""
+    draft = _empty_draft(world)
+    answer = ok(_apply(world, draft, draft["version"], *_hub_model_operations()))
+    assert answer["valid"] is True, answer["diagnostics"]
+    before = _model(world, draft)
+
+    removed = ok(_apply(world, draft, answer["version"], {"kind": "removeObjectType", "objectType": "j33-right"}))
+    assert removed["valid"] is True, removed["diagnostics"]
+    page = _by_key(_application(_model(world, draft), "j33-core")["details"], "j33-hub", "objectTypeKey")
+    panels = {p["key"]: p for p in page["panels"] if p["type"] == "relations"}
+    assert panels["j33-both"]["config"]["relationTypeKeys"] == ["j33-feeds"]
+    assert "j33-serving" not in panels
+    kept = [r["key"] for r in _model(world, draft)["relationTypes"]]
+    assert "j33-serves" not in kept
+    assert "j33-feeds" in kept  # still bound, with no data: it stays
+    undone = ok(_undo(world, draft, removed["version"]))
+    assert _model(world, draft) == before
+
+    removed = ok(_apply(world, draft, undone["version"], {"kind": "removeApplication", "applicationKey": "j33-extra"}))
+    assert removed["valid"] is True, removed["diagnostics"]
+    page = _by_key(_application(_model(world, draft), "j33-core")["details"], "j33-hub", "objectTypeKey")
+    assert [p for p in page["panels"] if p["type"] == "relations"] == []
+    assert _model(world, draft)["relationTypes"] == []
+    ok(_undo(world, draft, removed["version"]))
+    assert _model(world, draft) == before
+
+
+@pytest.mark.journey("J33.17")
+@pytest.mark.structures("A1")
+def test_a_draft_with_broken_panels_reports_them_all_and_a_panel_is_removed_from_the_invalid_draft(world):
+    """Given a draft whose pages list a relation their type no longer has in several panels (a binding
+    removed by a whole-model edit). Then its diagnostics name every panel in plain words, each tied to
+    its page and panel; and while the draft is invalid a panel is removed from its page by the
+    operation the issue offers, which leaves the other issue and undoes."""
+    draft = _empty_draft(world)
+    answer = ok(_apply(world, draft, draft["version"], *_hub_model_operations()))
+    broken = copy.deepcopy(_model(world, draft))
+    broken["objectTypeRelations"] = [b for b in broken["objectTypeRelations"] if b["relationTypeKey"] != "j33-serves"]
+    patched = ok(world.api.patch(f"/model-drafts/{draft['id']}", {"expectedVersion": answer["version"], "model": broken}))
+    def hub_issues() -> list[dict[str, Any]]:
+        found = ok(world.api.get(f"/model-drafts/{draft['id']}/outline"))["diagnostics"]
+        assert all("panel" in i["element"] for i in found)  # the generated page of the far type breaks too
+        return [i for i in found if i["element"]["detail"] == "j33-hub"]
+
+    issues = hub_issues()
+    assert sorted(i["element"]["panel"] for i in issues) == ["j33-both", "j33-serving"]
+    assert all(i["element"]["applicationKey"] == "j33-core" for i in issues)
+    serving = next(i for i in issues if i["element"]["panel"] == "j33-serving")
+    assert serving["message"].startswith("The Serving panel on the J33 Hub page lists a relation J33 Hub no longer has")
+    assert serving["message"].endswith("Remove the panel or restore the relation.")
+
+    remove = {"kind": "removeViewItem", "applicationKey": "j33-core", "detail": "j33-hub", "list": "panels", "item": "j33-serving"}
+    removed = ok(_apply(world, draft, patched["version"], remove))
+    assert removed["valid"] is False
+    assert [i["element"]["panel"] for i in hub_issues()] == ["j33-both"]
+    ok(_undo(world, draft, removed["version"]))
+    assert len(hub_issues()) == 2
+
+
 @pytest.mark.journey("J33.12", "J08.9")
 @pytest.mark.structures("A1")
 def test_a_whole_model_edit_is_one_step_and_operations_continue_on_it(world):

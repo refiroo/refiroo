@@ -23,10 +23,14 @@ import { columnsOfIssue } from "@/features/model-editor/mapping";
 import { ActorName } from "@/ui/ActorName";
 import { PROFILE_KEY_MISMATCH, PROFILE_KEY_POINTER, UseFreeKey } from "@/features/model-editor/ProfileKeyConflict";
 
-/** Where an issue's link goes: the element's own panel, the matrix for a relation between two types. */
+/**
+ * Where an issue's link goes: the element's own panel, the matrix for a relation between two types,
+ * a detail page or one of its panels to the page's type.
+ */
 export function selectionFor(element: OutlineElement): EditorSelection {
   if (element.consumerApi) return { show: "consumerApi", key: element.consumerApi };
   if (element.objectType) return { show: "type", key: element.objectType };
+  if (element.applicationKey && element.detail) return { show: "type", key: element.detail };
   if (element.relationType && element.from) return { show: "matrix" };
   if (element.relationType) return { show: "relationType", key: element.relationType };
   if (element.attributeType) return { show: "attributeType", key: element.attributeType };
@@ -45,6 +49,7 @@ export function IssuesAndHistory({
   dryRun,
   onUseProfileKey,
   onGoToProfileKey,
+  onRemovePanel,
 }: {
   outline: ModelDraftOutline;
   tab: string;
@@ -60,6 +65,8 @@ export function IssuesAndHistory({
   onUseProfileKey?: (key: string) => void;
   /** Moves to the profile key's field in the source pane. */
   onGoToProfileKey?: () => void;
+  /** Takes a panel off its page; without it the issue offers no such action. */
+  onRemovePanel?: (page: { applicationKey: string; detail: string; panel: string }) => void;
 }) {
   const names = nameOf(outline);
   const steps = historySteps(history.items);
@@ -78,7 +85,13 @@ export function IssuesAndHistory({
           content: count ? (
             <ul className="editor-issues">
               {issues.map((issue, index) => (
-                <Issue key={`${issue.path}:${index}`} issue={issue} outline={outline} onSelect={onSelect} />
+                <Issue
+                  key={`${issue.path}:${index}`}
+                  issue={issue}
+                  outline={outline}
+                  onSelect={onSelect}
+                  onRemovePanel={onRemovePanel}
+                />
               ))}
               {profileIssues.map((issue, index) => {
                 const [column] = profile?.profile ? columnsOfIssue(profile.profile, issue) : [];
@@ -168,12 +181,15 @@ function Issue({
   issue,
   outline,
   onSelect,
+  onRemovePanel,
 }: {
   issue: OutlineDiagnostic;
   outline: ModelDraftOutline;
   onSelect: (selection: EditorSelection) => void;
+  onRemovePanel?: (page: { applicationKey: string; detail: string; panel: string }) => void;
 }) {
   const target = issue.element ? selectionFor(issue.element) : {};
+  const { applicationKey, detail, panel } = issue.element ?? {};
   return (
     <li>
       <StatusPill tone={issue.severity === "error" ? "error" : "warning"}>
@@ -187,6 +203,11 @@ function Issue({
       ) : (
         <code className="element-key">{issue.path}</code>
       )}
+      {onRemovePanel && applicationKey && detail && panel ? (
+        <button type="button" className="link-button" onClick={() => onRemovePanel({ applicationKey, detail, panel })}>
+          Remove from page
+        </button>
+      ) : null}
     </li>
   );
 }

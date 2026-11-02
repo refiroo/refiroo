@@ -167,6 +167,7 @@ export function InstallDialog({
   onActivated,
   onInstalledOnly,
   onClose,
+  onShowIssues,
 }: {
   draftId: string;
   outline: ModelDraftOutline;
@@ -179,6 +180,8 @@ export function InstallDialog({
   onActivated: (release: ModelRelease, workspace: Pick<Workspace, "key" | "label">) => Promise<void>;
   onInstalledOnly: () => void;
   onClose: () => void;
+  /** Closes the dialog and opens the editor's Issues tab; without it the issues are only named. */
+  onShowIssues?: () => void;
 }) {
   const [compilation, setCompilation] = useState<ModelCompilation>();
   const [loadError, setLoadError] = useState("");
@@ -399,8 +402,14 @@ export function InstallDialog({
                 </Notice>
               ) : (
                 <Notice tone="error" title="Not valid">
-                  {errors.length} {errors.length === 1 ? "issue stops" : "issues stop"} this step. Each is in the Issues
-                  list.
+                  {errors.length} {errors.length === 1 ? "issue stops" : "issues stop"} this step.{" "}
+                  {onShowIssues ? (
+                    <button type="button" className="link-button" onClick={onShowIssues}>
+                      Show {errors.length === 1 ? "it" : "each"} in the Issues list
+                    </button>
+                  ) : (
+                    "Each is in the Issues list."
+                  )}
                 </Notice>
               )}
               {compilation.valid &&

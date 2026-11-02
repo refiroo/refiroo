@@ -6,10 +6,13 @@ import { RouteLink } from "@/ui/RouteLink";
 /** How long a toast stays once nothing holds it: no pointer over it and no focus in it. */
 export const TOAST_TIMEOUT_MS = 8000;
 
-/** A link a toast carries: a route of this application (`onNavigate`) or a file to download. */
+/** A link a toast carries: a route of this application (`onNavigate`), a file to download, or an in-page step (`onPress`). */
 export interface ToastAction {
   label: string;
-  href: string;
+  /** Not needed for an `onPress` action. */
+  href?: string;
+  /** Does something on the current page (opens a tab) and dismisses the toast. */
+  onPress?: () => void;
   onNavigate?: () => void;
   /** Saves the file `href` names through the page, with the access token (0.12 I2). */
   download?: () => Promise<void>;
@@ -87,10 +90,22 @@ function ToastItem({ toast, onDismiss }: { toast: ShownToast; onDismiss: () => v
         {toast.actions.length > 0 && (
           <span className="toast-actions">
             {toast.actions.map((action) =>
-              action.onNavigate ? (
+              action.onPress ? (
+                <button
+                  key={action.label}
+                  type="button"
+                  className="link-button"
+                  onClick={() => {
+                    action.onPress?.();
+                    onDismiss();
+                  }}
+                >
+                  {action.label}
+                </button>
+              ) : action.onNavigate ? (
                 <RouteLink
                   key={action.label}
-                  href={action.href}
+                  href={action.href ?? ""}
                   onNavigate={() => {
                     action.onNavigate?.();
                     onDismiss();
@@ -99,7 +114,7 @@ function ToastItem({ toast, onDismiss }: { toast: ShownToast; onDismiss: () => v
                   {action.label}
                 </RouteLink>
               ) : action.download ? (
-                <DownloadLink key={action.label} href={action.href} save={action.download}>
+                <DownloadLink key={action.label} href={action.href ?? ""} save={action.download}>
                   {action.label}
                 </DownloadLink>
               ) : (

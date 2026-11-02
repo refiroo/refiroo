@@ -651,10 +651,11 @@ def _remove_type(context: Context, type_key: str, gone: Gone) -> None:
 
 
 def _drop_unbound_relation(context: Context, relation_key: str, gone: Gone) -> None:
+    """Take out a relation type no binding uses any more, released or not, unless data holds it (D31)."""
     document = context.document
     if any(b.get("relationTypeKey") == relation_key for b in document.items("objectTypeRelations")):
         return
-    if context.released(atom("relationType", relation_key)):
+    if context.in_use(atom("relationType", relation_key)):
         return
     relation = document.find(["relationTypes", {"key": relation_key}])
     if relation is None:
@@ -670,7 +671,7 @@ def _drop_unbound_attribute(context: Context, attribute_key: str, gone: Gone) ->
             return
     if any(attribute_key in (b.get("attributeTypeKeys") or []) for b in document.items("objectTypeRelations")):
         return
-    if context.released(atom("attributeType", attribute_key)):
+    if context.in_use(atom("attributeType", attribute_key)):
         return
     if document.find(["attributeTypes", {"key": attribute_key}]) is not None:
         document.remove(["attributeTypes"], {"key": attribute_key})
@@ -1549,11 +1550,17 @@ def allow_relation(context: Context, raw: dict[str, Any]) -> Applied:
         if required:
             binding["required"] = True
         context.document.insert(["objectTypeRelations"], binding)
-    return Applied(
-        raw,
-        {"kind": "disallowRelation", "relationType": relation_key, "from": source, "to": target},
-        created={atom("relationBinding", relation_key, source, target)},
-        named={atom("relationType", relation_key), atom("objectType", source), atom("objectType", target)},
+    # Undone by restoring what it changed: the layout it placed (a panel, a relation added to one)
+    # goes with the binding, and a panel of the page that listed the relation before stays.
+    return restoring(
+        context,
+        {"kind": "allowRelation", **raw},
+        Applied(
+            raw,
+            {},
+            created={atom("relationBinding", relation_key, source, target)},
+            named={atom("relationType", relation_key), atom("objectType", source), atom("objectType", target)},
+        ),
     )
 
 
@@ -1565,43 +1572,11 @@ def disallow_relation(context: Context, raw: dict[str, Any]) -> Applied:
     context.unreleased(atom("relationBinding", relation_key, source, target))
     context.document.remove(["objectTypeRelations"], identity(binding))
     document = context.document
-    for type_key, direction in ((source, "outgoing"), (target, "incoming")):
-        still = any(
-            b.get("relationTypeKey") == relation_key
-            and b.get("fromObjectTypeKey" if direction == "outgoing" else "toObjectTypeKey") == type_key
-            for b in document.items("objectTypeRelations")
-        )
-        if still:
-            continue
-        for application in document.items("applications"):
-            for detail in application.get("details") or []:
-                if detail.get("objectTypeKey") != type_key:
-                    continue
-                for panel in detail.get("panels") or []:
-                    config = panel.get("config") or {}
-                    if panel.get("type") == "relations" and relation_key in (config.get("relationTypeKeys") or []):
-                        document.remove(
-                            application_path(application["key"])
-                            + ["details", {"objectTypeKey": type_key}, "panels", {"key": panel["key"]}, "config", "relationTypeKeys"],
-                            relation_key,
-                        )
     behavior = (document.at(type_path(target)).get("behavior") or {}) if document.find(type_path(target)) else {}
     if relation_key in (behavior.get("parentRelationTypeKeys") or []) and not any(
         b.get("relationTypeKey") == relation_key and b.get("toObjectTypeKey") == target for b in document.items("objectTypeRelations")
     ):
         document.remove(type_path(target) + ["behavior", "parentRelationTypeKeys"], relation_key)
-    unbound = not any(b.get("relationTypeKey") == relation_key for b in document.items("objectTypeRelations"))
-    for application in document.items("applications"):
-        for view in list(application.get("views") or []):
-            config = view.get("config") or {}
-            if config.get("relationTypeKey") != relation_key:
-                continue
-            over_binding = view.get("type") == "mappingGrid" and (
-                config.get("fromObjectTypeKey"),
-                config.get("toObjectTypeKey"),
-            ) == (source, target)
-            if over_binding or (view.get("type") == "relationMatrix" and unbound):
-                document.remove(application_path(application["key"]) + ["views"], {"key": view["key"]})
     prune(document, Gone())
     return restoring(
         context,

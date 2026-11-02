@@ -36,6 +36,7 @@ export function ApplyDialog({
   onApplied,
   onMigrationStarted,
   onClose,
+  onShowIssues,
 }: {
   draftId: string;
   outline: ModelDraftOutline;
@@ -47,6 +48,8 @@ export function ApplyDialog({
   /** The release is installed and the migration's preview started: its job. */
   onMigrationStarted: (jobId: string) => void;
   onClose: () => void;
+  /** Closes the dialog and opens the editor's Issues tab; without it the issues are only named. */
+  onShowIssues?: () => void;
 }) {
   const [compilation, setCompilation] = useState<ModelCompilation>();
   const [workspaces, setWorkspaces] = useState<Workspace[]>();
@@ -167,8 +170,14 @@ export function ApplyDialog({
           <>
             {!compilation.valid && (
               <Notice tone="error" title="Not valid">
-                {errors.length} {errors.length === 1 ? "issue stops" : "issues stop"} this step. Each is in the Issues
-                list.
+                {errors.length} {errors.length === 1 ? "issue stops" : "issues stop"} this step.{" "}
+                {onShowIssues ? (
+                  <button type="button" className="link-button" onClick={onShowIssues}>
+                    Show {errors.length === 1 ? "it" : "each"} in the Issues list
+                  </button>
+                ) : (
+                  "Each is in the Issues list."
+                )}
               </Notice>
             )}
             {nothing && (

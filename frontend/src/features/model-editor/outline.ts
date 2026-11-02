@@ -131,6 +131,8 @@ export function elementLabel(outline: ModelDraftOutline, element: OutlineElement
     const name = applicationOf(outline, element.applicationKey)?.name ?? element.applicationKey;
     if (element.group) return `${name} › group ${element.group}`;
     if (element.view) return `${name} › view ${element.view}`;
+    if (element.detail && element.panel)
+      return `${name} › ${typeName(outline, element.detail)} page › panel ${element.panel}`;
     if (element.detail) return `${name} › ${typeName(outline, element.detail)} page`;
     return name;
   }

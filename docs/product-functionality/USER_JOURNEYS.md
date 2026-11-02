@@ -884,6 +884,12 @@ invalid between steps; installation refuses an invalid draft as J08 does.
   are listed in the application in the same step, and their records stay in the application they stand
   in. It can be changed, renamed and removed there; removing it takes along the types only it needed. A
   released listing cannot be taken away without a migration (2026-10-31).
+- **J33.17 A removal leaves nothing dangling, and every broken page is named**: removing an application,
+  a type or a relation takes with it the panels and views of other pages that depended on what went (a
+  panel listing several relations loses only the gone ones and goes when none is left) and the relation
+  types nothing uses and no data holds; one undo puts it all back. A draft whose pages are broken lists
+  every broken panel as an issue in plain words, each tied to its page and panel, with a
+  Remove from page action on the issue; Edit layout stays closed while the draft is invalid.
 
 **Refusals:** `422 INVALID_OPERATION`, `409 OPERATION_REQUIRES_MIGRATION`,
 `409 OPERATION_HAS_DEPENDANTS`, `409 NOTHING_TO_UNDO`, `409 NOTHING_TO_REDO`, `409 VERSION_CONFLICT`,
@@ -896,7 +902,7 @@ activation; with administration disabled the routes are absent.
 configurations each); J33.15 through the API: `test_j33_operations` (a three-level branch moved to
 the top of another application, then under a type there, and undone; the refusals); every kind and
 its inverse, every type moved to every other application keeping the draft valid, a tree's top given a
-parent and a type merged into its parent: `tests/unit/engine/model/authoring/`. J33.16 through the API: `test_j33_operations`; in the browser: `test:browser:authoring-matrix`
+parent and a type merged into its parent: `tests/unit/engine/model/authoring/`. J33.16 and J33.17 through the API: `test_j33_operations`; in the browser: `test:browser:authoring-matrix`
 (both designer models). The
 outline: `test_j33_outline` (two configurations each). In the browser: `test:browser:authoring-a4a`
 (the renamed example and generated-b: a type, an attribute, a relation from the matrix, a group,

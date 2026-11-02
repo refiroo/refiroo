@@ -34,6 +34,15 @@ class ModelReferenceError(Exception):
         )
 
 
+class ModelReferenceErrors(Exception):
+    """Several cross-reference violations a rule found at once: a rule that can go on after one
+    (the detail pages and their panels) reports every problem it found instead of the first."""
+
+    def __init__(self, errors: list[ModelReferenceError]) -> None:
+        super().__init__("; ".join(error.message for error in errors))
+        self.errors = errors
+
+
 class ModelValidationError(Exception):
     """Raised where an invalid model must not be constructed at all."""
 

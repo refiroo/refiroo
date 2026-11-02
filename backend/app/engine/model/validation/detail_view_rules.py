@@ -10,6 +10,7 @@ from ....models.schema import (
     DetailViewDefinition,
     EngineModel,
     ObjectTypeDefinition,
+    PanelDefinition,
     RelationsPanelDefinition,
     TablePanelDefinition,
 )
@@ -24,7 +25,10 @@ def check_details(
     application: ApplicationDefinition,
     application_path: str,
     index: ModelIndex,
+    problems: list[ModelReferenceError],
 ) -> None:
+    """Check the application's detail pages, appending to ``problems`` each page's and each panel's
+    violation instead of stopping at the first."""
     seen_object_type_keys: set[str] = set()
     for detail in application.details:
         detail_path = (
@@ -33,26 +37,36 @@ def check_details(
         label = f"Application '{application.key}' detail '{detail.objectTypeKey}'"
 
         if detail.objectTypeKey in seen_object_type_keys:
-            raise ModelReferenceError("DUPLICATE_KEY", detail_path, f"{label} is duplicated")
+            problems.append(ModelReferenceError("DUPLICATE_KEY", detail_path, f"{label} is duplicated"))
+            continue
         seen_object_type_keys.add(detail.objectTypeKey)
         if detail.objectTypeKey not in index.object_types:
-            raise ModelReferenceError(
-                "UNKNOWN_OBJECT_TYPE", detail_path, f"{label} references an unknown object type"
+            problems.append(
+                ModelReferenceError(
+                    "UNKNOWN_OBJECT_TYPE", detail_path, f"{label} references an unknown object type"
+                )
             )
+            continue
         if detail.objectTypeKey not in application.objectTypeKeys:
-            raise ModelReferenceError(
-                "INVALID_MODEL", detail_path, f"{label} is not available in the application"
+            problems.append(
+                ModelReferenceError(
+                    "INVALID_MODEL", detail_path, f"{label} is not available in the application"
+                )
             )
+            continue
 
         detail_type = index.object_types[detail.objectTypeKey]
-        check_fields(
-            [detail.header.titleField, detail.header.subtitleField],
-            [detail_type],
-            index.object_types,
-            label=f"{label} header",
-            path=f"{detail_path}/header",
-        )
-        _check_panels(model, application, detail, detail_type, detail_path, label, index)
+        try:
+            check_fields(
+                [detail.header.titleField, detail.header.subtitleField],
+                [detail_type],
+                index.object_types,
+                label=f"{label} header",
+                path=f"{detail_path}/header",
+            )
+        except ModelReferenceError as error:
+            problems.append(error)
+        _check_panels(model, application, detail, detail_type, detail_path, label, index, problems)
 
 
 def _check_panels(
@@ -63,45 +77,60 @@ def _check_panels(
     detail_path: str,
     detail_label: str,
     index: ModelIndex,
+    problems: list[ModelReferenceError],
 ) -> None:
     seen_panel_keys: set[str] = set()
     for panel in detail.panels:
         panel_path = f"{detail_path}/panels/{pointer_segment(panel.key)}"
         label = f"{detail_label} panel '{panel.key}'"
         if panel.key in seen_panel_keys:
-            raise ModelReferenceError("DUPLICATE_KEY", panel_path, f"{label} is duplicated")
+            problems.append(ModelReferenceError("DUPLICATE_KEY", panel_path, f"{label} is duplicated"))
+            continue
         seen_panel_keys.add(panel.key)
+        try:
+            _check_panel(model, application, detail, detail_type, panel, panel_path, label, index)
+        except ModelReferenceError as error:
+            problems.append(error)
 
-        if isinstance(panel, AttributesPanelDefinition):
-            check_fields(
-                panel.config.fields,
-                [detail_type],
-                index.object_types,
-                label=label,
-                path=panel_path,
-            )
-        elif isinstance(panel, ChildrenPanelDefinition):
-            _check_children_panel(
-                model, application, panel, detail, panel_path, label, index
-            )
-        elif isinstance(panel, RelationsPanelDefinition):
-            _check_relations_panel(model, panel, detail, panel_path, label, index)
-        elif isinstance(panel, TablePanelDefinition):
-            check_panel_object_types(
-                [panel.config.objectTypeKey],
-                application,
-                index.object_types,
-                label=label,
-                path=panel_path,
-            )
-            check_fields(
-                panel.config.columns,
-                [index.object_types[panel.config.objectTypeKey]],
-                index.object_types,
-                label=label,
-                path=panel_path,
-                related_model=model,
-            )
+
+def _check_panel(
+    model: EngineModel,
+    application: ApplicationDefinition,
+    detail: DetailViewDefinition,
+    detail_type: ObjectTypeDefinition,
+    panel: PanelDefinition,
+    panel_path: str,
+    label: str,
+    index: ModelIndex,
+) -> None:
+    if isinstance(panel, AttributesPanelDefinition):
+        check_fields(
+            panel.config.fields,
+            [detail_type],
+            index.object_types,
+            label=label,
+            path=panel_path,
+        )
+    elif isinstance(panel, ChildrenPanelDefinition):
+        _check_children_panel(model, application, panel, detail, panel_path, label, index)
+    elif isinstance(panel, RelationsPanelDefinition):
+        _check_relations_panel(model, panel, detail, panel_path, label, index)
+    elif isinstance(panel, TablePanelDefinition):
+        check_panel_object_types(
+            [panel.config.objectTypeKey],
+            application,
+            index.object_types,
+            label=label,
+            path=panel_path,
+        )
+        check_fields(
+            panel.config.columns,
+            [index.object_types[panel.config.objectTypeKey]],
+            index.object_types,
+            label=label,
+            path=panel_path,
+            related_model=model,
+        )
 
 
 def _check_children_panel(
@@ -154,6 +183,7 @@ def _check_relations_panel(
     index: ModelIndex,
 ) -> None:
     related_types: list[ObjectTypeDefinition] = []
+    lost: list[str] = []
     for relation_key in panel.config.relationTypeKeys:
         if relation_key not in index.relation_types:
             raise ModelReferenceError(
@@ -173,12 +203,9 @@ def _check_relations_panel(
             )
         ]
         if not matches:
-            raise ModelReferenceError(
-                "INVALID_MODEL",
-                panel_path,
-                f"{label} relation '{relation_key}' is incompatible with "
-                f"'{detail.objectTypeKey}' and direction '{panel.config.direction}'",
-            )
+            relation = index.relation_types[relation_key]
+            lost.append(relation.reverseName if panel.config.direction == "incoming" else relation.name)
+            continue
         for allowed in matches:
             related_key = (
                 allowed.toObjectTypeKey
@@ -186,6 +213,15 @@ def _check_relations_panel(
                 else allowed.fromObjectTypeKey
             )
             related_types.append(index.object_types[related_key])
+    if lost:
+        page = index.object_types[detail.objectTypeKey].name
+        raise ModelReferenceError(
+            "INVALID_MODEL",
+            panel_path,
+            f"The {panel.title} panel on the {page} page lists "
+            f"{'a relation' if len(lost) == 1 else 'relations'} {page} no longer has "
+            f"({', '.join(lost)}). Remove the panel or restore the relation.",
+        )
     check_fields(
         panel.config.columns, related_types, index.object_types, label=label, path=panel_path
     )

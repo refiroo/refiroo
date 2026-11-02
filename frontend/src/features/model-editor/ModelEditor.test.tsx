@@ -270,4 +270,90 @@ describe("ModelEditor", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Go to Bin" }));
     expect(onSelect).toHaveBeenCalledWith({ show: "type", key: "bin" });
   });
+
+  it("offers Remove from page on a panel issue, which works while the draft is invalid", async () => {
+    const base = outlineFixture();
+    vi.mocked(api.modelDraftOutline).mockResolvedValue({
+      ...base,
+      diagnostics: [
+        {
+          severity: "error",
+          code: "INVALID_MODEL",
+          path: "/applications/shop/details/bin/panels/stock",
+          message:
+            "The Stock panel on the Bin page lists a relation Bin no longer has. Remove the panel or restore the relation.",
+          element: { applicationKey: "shop", detail: "bin", panel: "stock" },
+        },
+      ],
+    });
+    vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+    const onSelect = vi.fn();
+    render(
+      <ToastProvider>
+        <ModelEditor
+          draftId="d1"
+          selection={{}}
+          onSelect={onSelect}
+          onNavigate={vi.fn()}
+          onActivated={vi.fn()}
+          onOpenApplication={vi.fn()}
+          onOpenChangeSet={vi.fn()}
+          activeModel={activeModel}
+          workspaceKey="default"
+        />
+      </ToastProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /^Issues and history/ }));
+    expect(await screen.findByText(/The Stock panel on the Bin page/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Go to / }));
+    expect(onSelect).toHaveBeenCalledWith({ show: "type", key: "bin" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove from page" }));
+    await waitFor(() =>
+      expect(api.applyModelDraftOperations).toHaveBeenCalledWith("d1", 4, [
+        { kind: "removeViewItem", applicationKey: "shop", detail: "bin", list: "panels", item: "stock" },
+      ]),
+    );
+  });
+
+  it("says so in a popup when a step leaves more issues, and not on opening or when they fall", async () => {
+    const base = outlineFixture();
+    const issue = (panel: string) => ({
+      severity: "error" as const,
+      code: "INVALID_MODEL",
+      path: `/applications/shop/details/bin/panels/${panel}`,
+      message: `The ${panel} panel lists a relation Bin no longer has.`,
+      element: { applicationKey: "shop", detail: "bin", panel },
+    });
+    vi.mocked(api.modelDraftOutline).mockResolvedValue({ ...base, diagnostics: [issue("a")] });
+    vi.mocked(api.applyModelDraftOperations).mockResolvedValue(step(5));
+    render(
+      <ToastProvider>
+        <ModelEditor
+          draftId="d1"
+          selection={{}}
+          onSelect={vi.fn()}
+          onNavigate={vi.fn()}
+          onActivated={vi.fn()}
+          onOpenApplication={vi.fn()}
+          onOpenChangeSet={vi.fn()}
+          activeModel={activeModel}
+          workspaceKey="default"
+        />
+      </ToastProvider>,
+    );
+    const toggle = await screen.findByRole("button", { name: /^Issues and history/ });
+    // Opening an invalid draft is not news.
+    expect(screen.queryByRole("button", { name: "Show issues" })).toBeNull();
+    fireEvent.click(toggle);
+    // A step that leaves three issues, two more than the one before, is.
+    vi.mocked(api.modelDraftOutline).mockResolvedValue({
+      ...base,
+      version: 5,
+      diagnostics: [issue("a"), issue("b"), issue("c")],
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Remove from page" }));
+    expect(await screen.findByText("The draft now has 3 issues, 2 more than before.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Show issues" }));
+    expect(screen.queryByText(/2 more than before/)).toBeNull();
+  });
 });

@@ -5,15 +5,20 @@ together. Each rule raises :class:`ModelReferenceError` with the JSON pointer of
 failed, so a diagnostic's ``path`` is produced where the offending keys are known rather than
 recovered from the message afterwards.
 
-Rules run in a fixed order and the first violation ends the pass, matching the single-diagnostic
-contract the API has always exposed for reference errors. Collecting every violation instead would
-only mean dropping the ``return`` in :func:`validate_references`.
+Rules run in a fixed order and the first rule to find a violation ends the pass. A rule that can go
+on after a violation (the detail pages and their panels) raises :class:`ModelReferenceErrors` with
+every problem it found; the other rules still stop at their first.
 """
 
 from collections.abc import Callable
 
 from ....models.schema import EngineModel
-from ..diagnostics import ModelDiagnostic, ModelReferenceError, ModelValidationError
+from ..diagnostics import (
+    ModelDiagnostic,
+    ModelReferenceError,
+    ModelReferenceErrors,
+    ModelValidationError,
+)
 from . import (
     application_rules,
     attribute_rules,
@@ -37,13 +42,16 @@ RULES: tuple[Rule, ...] = (
 
 
 def validate_references(model: EngineModel) -> tuple[ModelDiagnostic, ...]:
-    """Return the first cross-reference violation in ``model``, or an empty tuple."""
+    """Return the cross-reference violations of the first rule that finds any in ``model`` (one, or
+    every problem of the detail pages), or an empty tuple."""
     try:
         index = build_index(model)
         for rule in RULES:
             rule(model, index)
     except ModelReferenceError as exc:
         return (exc.as_diagnostic(),)
+    except ModelReferenceErrors as exc:
+        return tuple(error.as_diagnostic() for error in exc.errors)
     return ()
 
 

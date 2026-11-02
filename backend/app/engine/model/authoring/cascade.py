@@ -18,6 +18,7 @@ from .references import (
     known_keys,
     names_in_slot,
     parse_field,
+    related_types,
     rename_field,
     slot_value,
     slots,
@@ -106,12 +107,143 @@ def _prune_once(
             continue
         changed = True
         _drop(document, slot)
+    if within is None and which is None and _prune_unbound(document):
+        changed = True
     for path in _emptied_anchors(document):
         if within is not None and not within(path):
             continue
         _remove_owner(document, path)
         changed = True
     return changed
+
+
+def _unbound(document: Document) -> set[tuple[str, str, str]]:
+    """The relation bindings (relation type, from, to) this operation took out and that stand nowhere
+    now, read from the document's change log."""
+    present = {
+        (b.get("relationTypeKey"), b.get("fromObjectTypeKey"), b.get("toObjectTypeKey"))
+        for b in document.items("objectTypeRelations")
+    }
+    removed = set()
+    for entry in document.log:
+        value = entry.get("value")
+        if (
+            entry.get("change") == "insert"
+            and entry.get("path") == ["objectTypeRelations"]
+            and "document" not in entry
+            and isinstance(value, dict)
+        ):
+            removed.add((value.get("relationTypeKey"), value.get("fromObjectTypeKey"), value.get("toObjectTypeKey")))
+    return {triple for triple in removed if triple not in present}
+
+
+def _prune_unbound(document: Document) -> bool:
+    """Take out what depended on a relation binding that is gone while its relation type stays
+    (another binding keeps it, or it was released): a relation a panel lists that its page's type no
+    longer has in the panel's direction, with the columns only the dropped related types gave it; a
+    mapping grid or matrix view over the binding; and the navigation entries a removed view leaves
+    without a collection. A panel left listing no relation goes with the anchors that follow."""
+    gone = _unbound(document)
+    if not gone:
+        return False
+    changed = False
+    relations = {triple[0] for triple in gone}
+    bindings = [
+        (b.get("relationTypeKey"), b.get("fromObjectTypeKey"), b.get("toObjectTypeKey"))
+        for b in document.items("objectTypeRelations")
+    ]
+    for application in document.items("applications"):
+        app = ["applications", {"key": application["key"]}]
+        for detail in application.get("details") or []:
+            page = detail.get("objectTypeKey")
+            for panel in detail.get("panels") or []:
+                config = panel.get("config") or {}
+                if panel.get("type") != "relations":
+                    continue
+                direction = config.get("direction", "both")
+                dropped = [
+                    key
+                    for key in config.get("relationTypeKeys") or []
+                    if key in relations
+                    and not any(
+                        rel == key
+                        and (direction in ("outgoing", "both") and source == page or direction in ("incoming", "both") and target == page)
+                        for rel, source, target in bindings
+                    )
+                ]
+                if not dropped:
+                    continue
+                panel_path = app + ["details", {"objectTypeKey": page}, "panels", {"key": panel["key"]}]
+                for key in dropped:
+                    document.remove(panel_path + ["config", "relationTypeKeys"], key)
+                changed = True
+                _drop_unreachable_columns(document, panel_path, page)
+        removed_views = False
+        for view in list(application.get("views") or []):
+            if _view_over(view, gone):
+                document.remove(app + ["views"], {"key": view["key"]})
+                removed_views = changed = True
+        if removed_views:
+            _drop_orphan_collections(document, app)
+    return changed
+
+
+def _view_over(view: dict[str, Any], gone: set[tuple[str, str, str]]) -> bool:
+    """Whether a mapping grid or matrix view stands on a binding that is gone."""
+    config = view.get("config") or {}
+    if view.get("type") == "mappingGrid":
+        return (config.get("relationTypeKey"), config.get("fromObjectTypeKey"), config.get("toObjectTypeKey")) in gone
+    if view.get("type") == "relationMatrix":
+        row, cell = config.get("rowObjectTypeKey"), config.get("cellObjectTypeKey")
+        ends = (row, cell) if config.get("direction") == "outgoing" else (cell, row)
+        return (config.get("relationTypeKey"), *ends) in gone
+    return False
+
+
+def _drop_unreachable_columns(document: Document, panel_path: Path, page: str) -> None:
+    """Columns and sort fields of a relations panel naming an attribute none of the types it still
+    reaches has; its default sort falls back to ``name``."""
+    data = document.data
+    config = document.at(panel_path + ["config"])
+    far = set(related_types(data, page, config.get("relationTypeKeys") or (), config.get("direction", "both")))
+    bound = {
+        b.get("attributeTypeKey")
+        for t in document.items("objectTypes")
+        if t.get("key") in far
+        for b in t.get("attributes") or []
+    }
+    attributes = {a.get("key") for a in document.items("attributeTypes")}
+
+    def lost(field: str) -> bool:
+        name = field.removeprefix("-")
+        return name in attributes and name not in bound
+
+    for name in ("columns", "sortFields"):
+        for column in [f for f in config.get(name) or [] if isinstance(f, str) and lost(f)]:
+            document.remove(panel_path + ["config", name], column)
+    sort = config.get("defaultSort")
+    if isinstance(sort, str) and lost(sort):
+        document.set(panel_path + ["config"], "defaultSort", "name")
+
+
+def _drop_orphan_collections(document: Document, app: Path) -> None:
+    """Navigation entries naming a collection no view of the application lists any more."""
+    application = document.at(app)
+    collections = set()
+    for view in application.get("views") or []:
+        config = view.get("config") or {}
+        if view.get("type") == "table":
+            collections.add(view.get("objectTypeKey"))
+        elif view.get("type") == "relationMatrix":
+            collections.add(config.get("rowObjectTypeKey"))
+        elif view.get("type") == "tree":
+            collections.update((config.get("rootObjectTypeKeys") or [None])[:1])
+        elif view.get("type") == "mappingGrid":
+            collections.add(config.get("fromObjectTypeKey" if config.get("direction") == "outgoing" else "toObjectTypeKey"))
+    for group in (application.get("navigation") or {}).get("groups") or []:
+        for entry in list(group.get("collections") or []):
+            if entry not in collections:
+                document.remove(app + ["navigation", "groups", {"key": group["key"]}, "collections"], entry)
 
 
 def _is_gone(gone: Gone, kind: str, key: str, slot: Slot) -> bool:

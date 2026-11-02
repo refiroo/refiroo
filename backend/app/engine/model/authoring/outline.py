@@ -329,6 +329,10 @@ def element_at(data: dict[str, Any], pointer: str) -> dict[str, str] | None:
             detail = _item(application, "details", rest[2], "objectTypeKey")
             if detail is not None:
                 element["detail"] = detail.get("objectTypeKey")
+                if len(rest) >= 5 and rest[3] == "panels":
+                    panel = _item(detail, "panels", rest[4])
+                    if panel is not None:
+                        element["panel"] = panel.get("key")
         return element
     return None
 

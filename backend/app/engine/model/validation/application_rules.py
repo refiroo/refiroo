@@ -19,7 +19,7 @@ from ....models.schema import (
     TreeViewDefinition,
     ViewDefinition,
 )
-from ..diagnostics import ModelReferenceError
+from ..diagnostics import ModelReferenceError, ModelReferenceErrors
 from ..related_columns import RELATED_FIELD_PREFIX, is_related_field, related_field_column
 from ..traversal import ancestor_type_keys, parent_type_keys
 from .detail_view_rules import check_details
@@ -28,19 +28,37 @@ from .index import ModelIndex
 
 
 def check(model: EngineModel, index: ModelIndex) -> None:
-    for application in model.applications:
-        application_path = f"/applications/{pointer_segment(application.key)}"
-        _check_object_type_keys(application, application_path, index)
-        views = _view_map(application, application_path)
-        if application.defaultView not in views:
-            raise ModelReferenceError(
-                "INVALID_MODEL",
-                f"{application_path}/defaultView",
-                f"Application '{application.key}' has unknown default view "
-                f"'{application.defaultView}'",
-            )
-        for view in application.views:
-            view_path = f"{application_path}/views/{pointer_segment(view.key)}"
+    # Views and detail pages report every problem they have; the first problem of anything else
+    # (an application's types, default view, navigation) ends the pass, with those found before it.
+    problems: list[ModelReferenceError] = []
+    try:
+        for application in model.applications:
+            _check_application(model, application, index, problems)
+    except ModelReferenceError as error:
+        raise ModelReferenceErrors([*problems, error]) from error
+    if problems:
+        raise ModelReferenceErrors(problems)
+
+
+def _check_application(
+    model: EngineModel,
+    application: ApplicationDefinition,
+    index: ModelIndex,
+    problems: list[ModelReferenceError],
+) -> None:
+    application_path = f"/applications/{pointer_segment(application.key)}"
+    _check_object_type_keys(application, application_path, index)
+    views = _view_map(application, application_path)
+    if application.defaultView not in views:
+        raise ModelReferenceError(
+            "INVALID_MODEL",
+            f"{application_path}/defaultView",
+            f"Application '{application.key}' has unknown default view "
+            f"'{application.defaultView}'",
+        )
+    for view in application.views:
+        view_path = f"{application_path}/views/{pointer_segment(view.key)}"
+        try:
             if isinstance(view, TableViewDefinition):
                 _check_table_view(model, application, view, view_path, index)
             elif isinstance(view, MappingGridViewDefinition):
@@ -49,9 +67,11 @@ def check(model: EngineModel, index: ModelIndex) -> None:
                 _check_relation_matrix_view(application, view, view_path, model, index)
             elif isinstance(view, TreeViewDefinition):
                 _check_tree_view(application, view, view_path, model, index)
-        check_details(model, application, application_path, index)
-        if application.navigation is not None:
-            _check_navigation(model, application, f"{application_path}/navigation")
+        except ModelReferenceError as error:
+            problems.append(error)
+    check_details(model, application, application_path, index, problems)
+    if application.navigation is not None:
+        _check_navigation(model, application, f"{application_path}/navigation")
 
 
 def collection_keys(application: ApplicationDefinition) -> list[str]:

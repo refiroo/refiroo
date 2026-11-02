@@ -88,6 +88,7 @@ import { ApplyDialog } from "@/features/model-editor/ApplyDialog";
 import { InstallDialog } from "@/features/model-editor/InstallDialog";
 import { ProposingProgress, type ProposingPhase } from "@/features/model-editor/ProposingProgress";
 import { IssuesAndHistory } from "@/features/model-editor/IssuesAndHistory";
+import { removePanel } from "@/features/model-editor/layout";
 import { droppedColumn, ModelPane, type PaneDrop } from "@/features/model-editor/ModelPane";
 import { MoveToDialog, topOf, typeIn, type MoveSubject } from "@/features/model-editor/MoveToDialog";
 import { OperationDialog, refusalText, type StepOutcome } from "@/features/model-editor/OperationDialog";
@@ -232,6 +233,34 @@ export function ModelEditor({
     setBottomOpen(open);
     writeLocalPreference(BOTTOM_KEY, open);
   };
+
+  /** Opens the Issues tab, leaving the layout editor (which has no pane) first. */
+  const showIssues = () => {
+    if (selection.show === "type" && selection.mode === "layout") onSelect({ show: "type", key: selection.key });
+    setBottomTab("issues");
+    // Opened for now; only the pane's own toggle is the reader's choice.
+    if (phone) setPhoneTab("issues");
+    else setBottomOpen(true);
+  };
+  const showIssuesNow = useRef(showIssues);
+  useEffect(() => {
+    showIssuesNow.current = showIssues;
+  });
+  // A step that leaves the draft with more errors than before says so, with a way to the Issues tab.
+  // Opening a draft, and errors that fall or stay, say nothing.
+  const errorsSeen = useRef<{ draftId: string; count: number }>(undefined);
+  useEffect(() => {
+    if (!outline) return;
+    const count = outline.diagnostics.filter((item) => item.severity === "error").length;
+    const before = errorsSeen.current;
+    errorsSeen.current = { draftId, count };
+    if (!before || before.draftId !== draftId || count <= before.count) return;
+    const more = count - before.count;
+    toast(`The draft now has ${count} ${count === 1 ? "issue" : "issues"}, ${more} more than before.`, {
+      tone: "info",
+      actions: [{ label: "Show issues", onPress: () => showIssuesNow.current() }],
+    });
+  }, [outline, draftId, toast]);
 
   const load = useCallback(async () => {
     const next = await api.modelDraftOutline(draftId);
@@ -677,13 +706,7 @@ export function ModelEditor({
         onDialog={(operation, objectType) =>
           setDialog({ kind: "operation", operation, target: { on: "objectType", objectType } })
         }
-        onShowIssues={() => {
-          if (shown === "layout") showType();
-          setBottomTab("issues");
-          // Opened for now; only the pane's own toggle is the reader's choice.
-          if (phone) setPhoneTab("issues");
-          else setBottomOpen(true);
-        }}
+        onShowIssues={showIssues}
         actions={actions}
       />
     );
@@ -802,6 +825,12 @@ export function ModelEditor({
       profile={source.profile}
       onUseProfileKey={proposing ? undefined : (key) => void guarded(() => run([{ kind: "setProfile", key }]))}
       onGoToProfileKey={goToProfileKey}
+      onRemovePanel={
+        proposing
+          ? undefined
+          : ({ applicationKey, detail, panel }) =>
+              void guarded(() => run(removePanel({ applicationKey, objectTypeKey: detail }, panel)))
+      }
       dryRun={
         hasSource
           ? {
@@ -1371,6 +1400,10 @@ export function ModelEditor({
             onNavigate({ kind: "settings", page: "model", migrationJobId: jobId, forWorkspace })
           }
           onClose={() => setDialog(undefined)}
+          onShowIssues={() => {
+            setDialog(undefined);
+            showIssues();
+          }}
         />
       )}
       {dialog?.kind === "install" && (
@@ -1394,6 +1427,10 @@ export function ModelEditor({
             });
           }}
           onClose={() => setDialog(undefined)}
+          onShowIssues={() => {
+            setDialog(undefined);
+            showIssues();
+          }}
         />
       )}
     </div>
