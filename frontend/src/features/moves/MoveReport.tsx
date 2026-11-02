@@ -5,23 +5,17 @@
  * listed per type and field with their counts, as the summary holds them.
  */
 
-import { api } from "@/api/client";
-import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
-import type { EngineModel, MoveRow, MoveSummary } from "@/types";
-import { DataTable, type DataColumn } from "@/ui/DataTable";
+import type { EngineModel, MoveSummary } from "@/types";
 import { EmptyState } from "@/ui/EmptyState";
 import { OutcomeCards } from "@/ui/OutcomeCards";
 import { modeWords, reasonCards, rowForAction, VALUES_NOT_CARRIED } from "./moveRun";
 import { rowId } from "./MappingPane";
-
-const ROWS_PAGE = 50;
+import { MoveRowsTable } from "./MoveRowsTable";
 
 const typeName = (model: EngineModel, key?: string) =>
   (key && model.objectTypes.find((type) => type.key === key)?.name) || key || "";
 const attributeName = (model: EngineModel, key: string) =>
   model.attributeTypes.find((item) => item.key === key)?.name ?? key;
-const relationName = (model: EngineModel, key?: string) =>
-  (key && model.relationTypes.find((item) => item.key === key)?.name) || key || "";
 
 export function MoveReport({
   jobId,
@@ -101,36 +95,15 @@ function ReasonRows({
   target: EngineModel;
   onFix: (row: string) => void;
 }) {
-  const list = useCursorWindow<MoveRow>(
-    (selector) => api.moveRows(jobId, { ...selector, reason: code, pageSize: ROWS_PAGE }),
-    [jobId, code],
-  );
-  const reasonOf = (row: MoveRow) => row.reasons.find((item) => item.code === code) ?? row.reasons[0];
-  const columns: DataColumn<MoveRow>[] = [
-    {
-      key: "record",
-      label: "Source record",
-      cell: (row) =>
-        row.kind === "relationship"
-          ? `${row.fromName ?? row.fromId ?? ""} → ${relationName(source, row.relationTypeKey)} → ${row.toName ?? row.toId ?? ""}`
-          : (row.name ?? row.sourceId ?? ""),
-    },
-    {
-      key: "type",
-      label: "Type",
-      cell: (row) =>
-        row.kind === "relationship"
-          ? "Relationship"
-          : row.targetType
-            ? `${typeName(source, row.sourceType)} → ${typeName(target, row.targetType)}`
-            : typeName(source, row.sourceType),
-    },
-    { key: "reason", label: "Reason", cell: (row) => reasonOf(row)?.message ?? "" },
-    {
-      key: "fix",
-      label: "Fix",
-      cell: (row) => {
-        const reason = reasonOf(row);
+  return (
+    <MoveRowsTable
+      jobId={jobId}
+      filter={{ reason: code }}
+      source={source}
+      target={target}
+      label={`Items that ${modeWords(mode).cannot.toLowerCase()}`}
+      emptyMessage="No item has this reason any more."
+      fix={(row, reason) => {
         // A target's refusal names no step; its fix (a default, a match, a parent) is in the type's mapping.
         const key = rowForAction(reason?.action, row.relationTypeKey) ?? (row.kind === "record" ? "type" : undefined);
         const type = row.sourceType;
@@ -141,20 +114,7 @@ function ReasonRows({
         ) : (
           ""
         );
-      },
-    },
-    { key: "code", label: "Code", cell: (row) => <span className="mono">{reasonOf(row)?.code}</span> },
-  ];
-  return (
-    <DataTable<MoveRow>
-      columns={columns}
-      list={list}
-      rowKey={(row) => String(row.index)}
-      rowAttributes={() => ({ tabIndex: -1 })}
-      label={`Items that ${modeWords(mode).cannot.toLowerCase()}`}
-      noun={["item", "items"]}
-      pageSize={ROWS_PAGE}
-      emptyMessage="No item has this reason any more."
+      }}
     />
   );
 }

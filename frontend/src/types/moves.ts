@@ -167,6 +167,9 @@ export interface MoveSummary {
   mapping: { key: string; version: number };
   sourceWorkspaceKey: string;
   targetWorkspaceKey: string;
+  /** The releases the two workspaces ran when the move read them. */
+  sourceReleaseId?: string;
+  targetReleaseId?: string;
   mode: "copy" | "move";
   targetChangeSetId: string | null;
   sourceChangeSetId: string | null;
@@ -195,6 +198,8 @@ export interface MoveRow {
   foundBy?: "origin" | "counterpart" | "match";
   relationTypeKey?: string;
   targetRelationTypeKey?: string;
+  /** The end of the relationship the record that holds it stands at. */
+  direction?: "outgoing" | "incoming";
   fromId?: string;
   toId?: string;
   /** A relationship's records by their names as they are now (0.11 X4). */

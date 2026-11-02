@@ -7065,11 +7065,18 @@ There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `pla
   `outline` (`{objectTypeKey, name, text}`, one plain line per type the proposal adds, changes or loads,
   with its attributes and the records the check would write, computed by the engine from the draft and the
   dry run), `checks`, `stage` (`model` while the proposal waits; `load` once accepted), `corrections`,
-  `moves` (`{from, fromName, to, toName, records, attributes}` for each whole type the proposal turns into
+  `moves` (`{from, fromName, to, toName, records, attributes, lost}` for each whole type the proposal turns into
   another: the session's `proposal.json` names `from`, `to` and optionally `attributes` as a migration's
   `typeMappings` do, the engine checks them against the draft with the migration's own plan and counts
-  `records` itself; a move the plan refuses fails the task with the reason, and a type a move names is not
-  `leftOut`; `[]` when none),
+  `records` itself and `lost` (`{records, values, relationships}` the migration would drop of the type, from
+  the migration preview's own check over every record); a move the plan refuses fails the task with the
+  reason, so does records the preview would refuse (such as a moved type with no place under the parent its
+  records have) after the session was sent them twice, and a type a move names is not `leftOut`; `[]` when
+  none),
+  `consumerChanges` (`{api, name, from, to, changes}` for each consumer API whose `contractVersion` the draft
+  raises: the engine's own diff of what its consumers stop reading or read differently; a draft that breaks a
+  consumer API without raising it is sent back to the session, and fails the task if it still does; `[]` when
+  none),
   `progress` (`{now, seconds, refused, milestones}` while the session works: where it is, read from what
   the engine recorded of it), `origin` (`{kind: "ai", provider, model, promptVersion}`) and
   `agentSession`.
@@ -7093,7 +7100,8 @@ There is no route that plans a task's tables: `POST /ai/tasks/{id}/plan`, a `pla
 - `notes[]`: `{kind: note|warning|refused, text, at}`: what the session said as it ended, and why a task
   failed.
 - `result`, once `loaded`: `changeSetId` (absent when the task ended in a migration), `changeSetName`, `counts` (`applied`, `created`, `updated`, `unchanged`, `rejected`), and
-  for a saved layout's load `importJobId` and `releaseId`. **A reshaping (0.16 AP12):** `thenReleaseId`, the
+  for a saved layout's load `importJobId` and `releaseId`. **A reshaping (0.16 AP12):** `thenReleaseId` (with `changeSetReleaseId`,
+  the release the change set sits on; when the two are equal the old types stay and there is no activation after publishing), the
   final release of a part-of-a-type move, which the person activates after publishing the change set (the
   change set sits on a second release holding both shapes; activating the final release is refused while an
   old type holds a record); and `migration` (`{releaseId, typeMappings}`), a whole-type move's end: the person

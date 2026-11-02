@@ -500,6 +500,28 @@ p.job-state {
 .rows-filter {
   margin-bottom: var(--space-3);
 }
+/* A move's or migration's page: the sentence over its counts, the filters over its items. */
+.job-sentence {
+  margin: 0 0 var(--space-3);
+  line-height: 1.5;
+}
+.job-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.job-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.job-attention {
+  font-weight: 600;
+  color: var(--status-warning-text);
+}
 /* A bulk change's preview and result in its dialog (0.9 K2): sections spaced as on a settings page. */
 .dialog-form > .section + .section {
   margin-top: var(--space-6);

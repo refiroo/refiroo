@@ -251,6 +251,8 @@ export interface AiTaskDesign {
   stage?: "model" | "load";
   /** The types the proposal turns into others, with the records each holds. */
   moves?: AiTaskMove[];
+  /** The consumer APIs the proposal raises the contractVersion of, with what their consumers read differently. */
+  consumerChanges?: AiTaskConsumerChange[];
   /** One plain sentence per proposed type. */
   outline?: { objectTypeKey: string; name?: string; text: string }[];
   checks?: AiTaskDesignCheckItem[];
@@ -336,6 +338,17 @@ export interface AiTaskMove {
   /** The records the workspace holds of the type that moves. */
   records: number;
   attributes?: { attributeTypeKey: string; from: string | null }[];
+  /** What the migration would drop of this type, counted by the engine over every record. */
+  lost?: { records?: number; values?: number; relationships?: number };
+}
+
+/** A consumer API whose contractVersion the proposal raises: the engine's account of the change. */
+export interface AiTaskConsumerChange {
+  api: string;
+  name: string;
+  from: number;
+  to: number;
+  changes: string[];
 }
 
 /** A task that moved whole types ends in a migration the person confirms, not in a change set (AP-D49). */
@@ -353,6 +366,8 @@ export interface AiTaskResult {
   changeSetId?: string | null;
   /** The final release of a part-of-a-type reshaping, activated last (AP-D48). */
   thenReleaseId?: string | null;
+  /** The release the change set sits on; equal to `thenReleaseId` when the old types stay (two steps). */
+  changeSetReleaseId?: string | null;
   migration?: AiTaskMigration | null;
   changeSetName?: string | null;
   importJobId?: string | null;

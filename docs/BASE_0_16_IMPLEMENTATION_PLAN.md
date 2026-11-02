@@ -849,8 +849,10 @@ before any change, as the grants and AP-D45 already hold them; they stay as guar
   engine is right: the target type had no place for them. A merged model must give the target type the places of the type it
   absorbs. A consumer API that exposes a removed type needs its `contractVersion` raised
   (`CONSUMER_CONTRACT_VERSION_REQUIRED`), and a draft's `removeObjectType` on a type data holds is refused with
-  `OPERATION_REQUIRES_MIGRATION`, so a session writes the final model whole. These are the session's modelling work; the preview
-  tells it each one.
+  `OPERATION_REQUIRES_MIGRATION`, so a session writes the final model whole. These are the session's modelling work; the
+  engine's checks tell it each one: the move check (the migration's plan) and the consumer contract check
+  (`contract_diagnostics`, as the preview and an activation apply it) run when the proposal lands, and a contract error goes
+  back to the session (see "Fixed after the real try").
 - **J50.48, restructuring on an installed release the workspace does not run: held, with one condition.** The change set must
   be started with `source: "currentLive"` and the release; without `source` the live records are not in it and the
   restructuring is refused (`notInChangeSet`). Prompt `agent/5` says so. The session is refused activation (`403`).
@@ -886,11 +888,30 @@ before any change, as the grants and AP-D45 already hold them; they stay as guar
 AP-D53's figure: a split goes one record at a time at about 80 to 140 ms each, so 2,000 records take about 3 minutes and 10,000 about
 13 to 23 minutes; the migration moves the same records in about a second. Reported, not built.
 
-**Not run: the two tries with a Claude Code session** (the user's words to the proposal, accepting, the steps in the browser). They
-need the dev server (its client or a person's sign-in) or a second server, and neither was in this package's rules to make. The
-proposal's counts, the migration and the steps are proved through the stand-in session in the journeys and the browser runner, and
-the engine's side on the copies above. To run them: on the dev instance, reloaded on this code, choose **Change this model…** on a scratch copy of the workspace
-(never the real one), and check `ai_calls.prompt_version` is `agent/5`.
+**The two tries with a Claude Code session (2026-11-02, prompt `agent/6`; stopped after try 1's preview).** Run through the
+API by a client with owner, model-admin and workspace-admin (a client cannot follow the browser journey; the steps are the
+same routes), on the running dev server with its real `AI_AGENT_COMMAND`. Scratch copies were made through the API: a workspace
+on the same release, an inference mapping applied, a move in copy mode, a publish. `ai_calls.prompt_version` of the first session
+reads `agent/6`.
+
+- **Try 1, a copy of `default` (`ap12-merge-2`), "Durations and roles are really the same kind of thing: make them one type."**
+  *The copy:* 2,141 records, as `default` (same count per type, same names; values 7,035 against 7,034: the copy's target
+  model filled `active=true` on one record, "Administrative - Other", that `default` leaves empty); relationships 4,554 against
+  4,562: 8 `alternative-for` relationships were refused by the move (`RELATION_CANDIDATE_REFUSED`: the model's own candidate
+  rule is not met by `default`'s data), so the job page said "Partly applied". *The session (proposal, 200 s, 1,355,857 tokens
+  in and 17,846 out, $0.72):* it landed with the consumer API `rdm` raised 2 to 3 in `design.consumerChanges` (the fix works: the
+  list names the two types, two lists and two events no longer exposed), the two moves `duration` (6) and `role` (10) into a new
+  type `timetable-list-value`, and no left-out warning. It also added a group type `timetable-list` with records "Durations"
+  and "Roles" and changed the containment, which was not asked. *Accept (38 s, 478,616 in and 2,219 out, $0.13; $0.85 for the
+  whole session, 238 s):* task `loaded`, `result.migration` with the two mappings. *The preview answered 202 in 1.1 s but cannot be
+  confirmed:* 16 reclassified, 0 loss, **16 refused, all `PARENT_RELATION_SEMANTICS_CHANGED`** ("The target release has no place
+  for this record under its parent"): the records sit under the catalogue and the session's final model gives
+  `timetable-list-value` a place only under `timetable-list`, a type with no records, which a migration does not create. The
+  confirmation answered `409 MIGRATION_HAS_REFUSALS`. Nothing moved: the workspace still holds 2,141 records, the 6 and 10 under
+  their old types, 0 IDs lost, every ID kept (no change). Cause: the session's model, not the engine; the move check at landing
+  (`plan_migration`) did not catch it, since it runs on the draft and the refusal comes from the preview against the live records.
+  Not fixed or worked around by hand. The session also read `default` once by mistake (no workspace named on a records read, and
+  an impact summary), both refused by the grants.
 
 **Checks run.** J50, J37 and J15 journeys: 168 passed (14 of them AP12's, on two configurations). `test_boundaries`,
 `test_openapi_contract` and `test_api_journeys`: 20 passed; the lock already holds AP12's schema additions, as AO1's commit was made with AP12's
@@ -902,6 +923,71 @@ configurations, the menu by keyboard and by pointer, the dialog, the proposal, t
 390px, axe 0 violations on every state, and a backend with no assistant offering no item); its screenshots were inspected against the mock-up.
 
 **What stays manual:** the real sessions above; nothing else.
+
+**Fixed after the real try (2026-11-02).** On a copy of `default`, the assistant merged `duration` and `role` into one type; accepting
+installed a release and the task ended `loaded`, but "Preview the migration" answered `409 CONSUMER_CONTRACT_VERSION_REQUIRED`: the
+consumer API `rdm` no longer exposed the types, their lists and events. The session's checks ran `plan_migration` only, never the
+contract check that the preview and activation apply, so nothing told the session. Now `_proposal_landed` runs
+`contract_diagnostics(workspace model, draft)` when the proposal moves types or the draft is based on a release; its errors go back
+to the session in a further turn (up to two), which raises the `contractVersion` and makes the definition expose the new type; a
+draft still in error fails the task naming the consumer API. The proposal shows each consumer API whose version it raises
+(`design.consumerChanges`: name, old to new version, what its consumers stop reading or read differently, from the engine's diff
+`raised_contracts`) as a line under "What happens to the records". `_migration_result` and `_then_release` re-check the contract on the
+installed release and fail the task with a warning naming the API instead of ending `loaded` with an action the engine refuses.
+Prompt `agent/6` tells the session that a consumer API exposing a moved type needs its version raised in the draft. Tests: J50 gains
+two cases (the contract error sent back and the migration then previewing; a draft that keeps breaking fails the task). A split that keeps the old type beside the new gives a final release equal to the change set's own (`result.thenReleaseId` = `changeSet.modelReleaseId`; the engine accepts it, `_then_release` only requires an installed release); `ReshapeSteps` then shows two steps, with no "Remove the emptied types", and finishes as done once the change set is published. The task result carries `changeSetReleaseId` (the change set's release) for that comparison, so the page is right when opened after publishing too.
+
+The second try then showed the same shape for the records: the draft gave the merged type a place only under a new group type that holds no
+records, the landing check (`plan_migration`, model level) passed, and the preview refused all 16 records with
+`PARENT_RELATION_SEMANTICS_CHANGED`. Now `_proposal_landed` also runs `check_landing` (`engine/model/migrations.py`): the preview's own
+preparation, application and refusals over a draft as the target model, with no job or installed release, over every record of the
+workspace as set work, inside a savepoint that is rolled back, and the preview's refused containment edges from the same SQL. The refusals
+go back to the session with code, message, count per type and example record names, in the same loop as the contract errors
+(`LANDING_ROUNDS`, two); a draft still refused fails the task with the engine's reason and count. Losses are not refusals: the proposal shows
+what each moved type would lose (`design.moves[].lost`: records, values, relationships) under "What happens to the records".
+`_migration_result` re-runs the check on the installed release and fails the task with a warning if it refuses. Prompt `agent/7` adds that a
+merged type must give its records the places they have now and that a migration creates no records. Tests: J50 gains two cases (the
+refusal sent back, the corrected draft previewing with 0 refusals and the records moved with their IDs; a session that never corrects fails).
+
+**The two tries, third run (2026-11-02, prompt `agent/7`, both through the API by a client with owner, model-admin, workspace-admin
+and security-admin; the browser journey's steps are the same routes, driven through the API; running dev server, real
+`AI_AGENT_COMMAND`).** `ai_calls.prompt_version` of the first session reads `agent/7`. Copies were made through the API as before
+(a workspace on the same release, an inference mapping applied, a move in copy mode, a publish): `ap12-merge-3` from `default`
+(2,141 records and 4,554 relationships, the 8 `alternative-for` relationships refused as known; `default` holds 4,562) and
+every row (per type: record count, ID set, one value hash per record, relationships by type, from and to), taken after the copy was
+published and after the last step.
+
+- **Try 1, `ap12-merge-3`: "Durations and roles are really the same kind of thing: make them one type."** *Proposal* (147 s of
+  session, 1,435,916 tokens in and 15,274 out, $0.77): two moves, `duration` (6 records) and `role` (10) into a new type
+  `timetable-option` that keeps the six attributes they share and both places under the timetable catalogue; the 208
+  `has-duration` and 199 `requires-role` relationships kept; `design.consumerChanges` names `rdm`, 2 to 3, with the six lines (the
+  two types, two lists and two events no longer exposed); `design.moves[].lost` empty for both; no left-out warning; three
+  questions with assumed answers (unfiltered pickers, the two other empty duration types left alone, one list
+  `timetable-options`). *Accept* (22 s of session, 482,522 in and 1,832 out, $0.13): task `loaded`, `result.migration` with the
+  two mappings; the session raised the release version to `0.9.25` itself after a `RELEASE_IDENTITY_CONFLICT`. *Migration
+  preview:* 202 in 1.1 s, 16 reclassified, 0 conversions, **0 losses, 0 refusals** (the second run refused all 16);
+  confirmed without `acceptLoss` (the proposal had shown no loss), 1.1 s, 16 applied, job completed, the workspace runs
+  `0.9.25`. *Before/after:* 2,141 records before and after, **0 IDs lost**, 0 new, every ID kept; the 16 records changed type and no
+  other record did; `timetable-option` holds 16 = the 6 durations and 10 roles (the union), `duration` and `role` hold none; 0 names
+  changed, 0 parents changed, 0 value hashes differing, 0 value counts differing; 4,554 relationships before and 4,554 after, 0 lost
+  (by ID, and by type, from, to and attributes), 0 new. Against `default` minus the 8 refused: 4,562 less 8 is 4,554, as in the copy.
+  Nothing lost, so nothing the proposal had to show. *Time:* proposal 141 s to "checked", accept 24 s, preview 1.1 s, confirmation 1.1 s.
+  Session cost $0.91 at API prices. A second preview was started by mistake of the scratch tool and cancelled; it moved nothing.
+  `madrid-transport-product` with all of Product's attributes and a table view, `moves` empty on purpose, no consumer API, two
+  questions (change the type after activation; keep all attributes). *Accept* (87 s, 533,796 in and 4,712 out, $0.23; 89 s of task time):
+  `loaded`, `result.changeSetId` and `thenReleaseId`, 100 records updated, 0 rejected. *The three steps:* (1) activating the
+  release with both answered 200 in 0.1 s, nothing moved; (2) publishing the change set answered 200 in 4.7 s; (3) activating
+  `result.thenReleaseId` answered 200 in 0.05 s. **A point to know:** the final release the session installed is the same release as
+  the change set's (`thenReleaseId` equals `modelReleaseId`), because the proposal kept Product beside the new type; so step 3 is a
+  re-activation of the running release (it also answered 200 when run before the publication, which the planned refusal cannot
+  cover where no type is removed). I ran that re-activation once before publishing by the scratch tool's mistake; it changed
+  nothing. *Before/after:* 600 records before and after, **0 IDs lost**, every ID kept; 100 changed type (to
+  `madrid-transport-product`) and 469 stayed `product`, matching `transport-madrid-enabled` true and false exactly (0 in the wrong
+  type); 0 names, 0 parents, 0 value hashes and 0 value counts differing across all 600 records; no relationships exist. Nothing
+  lost, so nothing to show. *Time:* proposal 57 s, accept 89 s, steps 0.1 s, 4.7 s and 0.05 s: about 151 s from the words to the
+  third step. Session cost $0.51.
+- **Both tries:** 2 sessions each, 4 calls, 2,890,944 tokens in and 27,635 out, $1.41 at API prices. Both reached the end with
+  nothing refused and nothing lost. Not changed or edited by hand: the proposals, drafts and releases are the session's own.
 
 ### AP13: Acceptance on real files (AP-D22)
 

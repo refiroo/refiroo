@@ -105,22 +105,56 @@ def _workspace(world, release_id):
     return key
 
 
-def _record(world, workspace, type_key, name, values):
-    return ok(
-        world.api.post(
-            "/objects",
+def _record(world, workspace, type_key, name, values, parent=None):
+    body = {
+        "workspaceKey": workspace,
+        "applicationKey": world.app("R"),
+        "objectTypeKey": type_key,
+        "name": name,
+        "attributes": [{"attributeTypeKey": key, "value": value} for key, value in values.items()],
+    }
+    if parent is not None:
+        body["parentObjectId"] = parent
+    return ok(world.api.post("/objects", body), 201)
+
+
+def _placed(world, model, kinds, group_key, contains_key):
+    """``model`` with a group type holding the records of ``kinds``: each lists the group as its
+    parent through the containment relation type, so a record of it is created under a group."""
+    application = next(a for a in model["applications"] if a["key"] == world.app("R"))
+    if not any(r["key"] == contains_key for r in model["relationTypes"]):
+        model["relationTypes"].append(
             {
-                "workspaceKey": workspace,
-                "applicationKey": world.app("R"),
-                "objectTypeKey": type_key,
-                "name": name,
-                "attributes": [
-                    {"attributeTypeKey": key, "value": value} for key, value in values.items()
-                ],
-            },
-        ),
-        201,
-    )
+                "key": contains_key,
+                "reverseKey": f"{contains_key}--rev",
+                "name": "contains",
+                "reverseName": "contained in",
+                "features": {"parentOf": True},
+            }
+        )
+    if not any(t["key"] == group_key for t in model["objectTypes"]):
+        model["objectTypes"].append(
+            {
+                "key": group_key,
+                "name": "Group",
+                "pluralName": "Groups",
+                "displayAttributeTypeKey": _keys(world).label,
+                "attributes": [{"attributeTypeKey": _keys(world).label, "order": 10}],
+                "features": {"rootCreatable": True},
+            }
+        )
+        application["objectTypeKeys"].append(group_key)
+    for kind, parent_key in kinds:
+        item = next(t for t in model["objectTypes"] if t["key"] == kind)
+        item.setdefault("behavior", {})["parentRelationTypeKeys"] = [contains_key]
+        model["objectTypeRelations"].append(
+            {
+                "relationTypeKey": contains_key,
+                "fromObjectTypeKey": parent_key,
+                "toObjectTypeKey": kind,
+                "cardinality": "one-to-many",
+            }
+        )
 
 
 def _inventory(world, workspace, type_keys):
@@ -180,13 +214,14 @@ log.close()
 if "accepted" not in prompt:
     if config.get("early"):
         install(config["both"], name="Early")
-    proposal = {"draftId": config["draft"], "summary": "A plan.", "questions": []}
+    again = "refuses the draft" in prompt and config.get("fixed")
+    proposal = {"draftId": config["fixed"] if again else config["draft"], "summary": "A plan.", "questions": []}
     if config.get("moves") is not None:
         proposal["moves"] = config["moves"]
     json.dump(proposal, open("proposal.json", "w"))
     print(json.dumps({"type": "result", "result": "Ready."}))
 elif config["mode"] == "merge":
-    release = install(draft=config["draft"])
+    release = install(draft=config.get("fixed") or config["draft"])
     print(json.dumps({"type": "result", "result": "Done.\\nRELEASE: " + release}))
 else:
     workspace = config["workspace"]
@@ -240,23 +275,52 @@ def _release_status(world, release_id):
 class Merge:
     """A workspace holding suppliers and vendors, and the model that makes them one type."""
 
-    def __init__(self, world, tmp_path, monkeypatch, *, moves="both"):
+    def __init__(
+        self, world, tmp_path, monkeypatch, *, moves="both", consumer=False, parented=False
+    ):
         self.world = world
         k = self.k = _keys(world)
-        x1 = world.install(
-            _shaped(
-                world,
-                "merge-1",
-                [
-                    (k.supplier, "Supplier", [k.label, k.note]),
-                    (k.vendor, "Vendor", [k.label, k.extra]),
-                ],
-            ),
-            name="Suppliers and vendors",
+        first = _shaped(
+            world,
+            "merge-1",
+            [
+                (k.supplier, "Supplier", [k.label, k.note]),
+                (k.vendor, "Vendor", [k.label, k.extra]),
+            ],
         )
-        self.workspace = _workspace(world, x1["id"])
         self.final = _shaped(world, "merge-2", [(k.partner, "Partner", [k.label, k.note, k.extra])])
+        fixed = None
+        group, contains, other = f"{k.item}-group", f"{k.item}-contains", f"{k.item}-other"
+        if parented:
+            # Suppliers and vendors sit under a group. The session's first draft puts the merged type
+            # under another group type, which holds no records; the corrected draft under theirs.
+            _placed(world, first, [(k.supplier, group), (k.vendor, group)], group, contains)
+            _placed(world, self.final, [], group, contains)
+            _placed(world, self.final, [(k.partner, other)], other, contains)
+            fixed = copy.deepcopy(self.final)
+            fixed["objectTypeRelations"] = [
+                {**pair, "fromObjectTypeKey": group}
+                if pair["toObjectTypeKey"] == k.partner and pair["relationTypeKey"] == contains
+                else pair
+                for pair in fixed["objectTypeRelations"]
+            ]
+            fixed["release"]["version"] += "-placed"
+        if consumer:
+            # A consumer API exposes the types that become one; the proposal's draft exposes the new
+            # type without raising the version, then (the fixed draft) with it raised.
+            first["consumerApis"].append(self.api([k.supplier, k.vendor], 1))
+            self.final["consumerApis"].append(self.api([k.partner], 1))
+            fixed = copy.deepcopy(self.final)
+            fixed["consumerApis"][-1]["contractVersion"] = 2
+            fixed["release"]["version"] += "-raised"
+        x1 = world.install(first, name="Suppliers and vendors")
+        self.workspace = _workspace(world, x1["id"])
         anchor = world.made("R", "Anchor", workspace=self.workspace)
+        parent = (
+            _record(world, self.workspace, group, "Group", {k.label: "G"})["id"]
+            if parented
+            else None
+        )
         self.records = {}
         for n in range(3):
             self.records[f"s{n}"] = _record(
@@ -265,6 +329,7 @@ class Merge:
                 k.supplier,
                 f"Supplier {n}",
                 {k.label: f"S{n}", k.note: f"note {n}"},
+                parent,
             )
         for n in range(2):
             self.records[f"v{n}"] = _record(
@@ -273,6 +338,7 @@ class Merge:
                 k.vendor,
                 f"Vendor {n}",
                 {k.label: f"V{n}", k.extra: f"extra {n}"},
+                parent,
             )
         for name in ("s0", "v0"):
             ok(
@@ -305,7 +371,24 @@ class Merge:
             api=True,
             mode="merge",
             moves=self.moves,
+            fixed=(
+                ok(world.api.post("/model-drafts", {"name": "Raised", "model": fixed}), 201)["id"]
+                if fixed
+                else None
+            ),
         )
+
+    @staticmethod
+    def api(types, version):
+        return {
+            "key": "merge-api",
+            "name": "Merge API",
+            "contractVersion": version,
+            "exposes": types,
+            "publicNames": {key: key.rsplit("-", 1)[-1].title() for key in types},
+            "object": {"fields": {"id": {"role": "id"}, "name": {"role": "name", "from": "name"}}},
+            "operations": {"objects": {}},
+        }
 
     def before(self):
         return _inventory(self.world, self.workspace, (self.k.supplier, self.k.vendor))
@@ -369,6 +452,113 @@ def test_a_merge_from_words_moves_every_record_by_one_migration(
     moved = {(t, f, o) for t, f, o in _relations(world, merge.workspace)}
     assert {(f, o) for _, f, o in moved} == {(f, o) for _, f, o in relations_before}
     assert all(t == k.cites for t, _, _ in moved)
+
+
+@pytest.mark.journey("J50.46")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_merge_the_consumers_would_notice_is_sent_back_until_the_version_is_raised(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a consumer API that exposes the types that become one, when the session's draft does not
+    raise its contractVersion, then the engine sends the contract error back and the session raises
+    it; the proposal says the version change, and the migration the task ends with previews."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    merge = Merge(world, tmp_path, monkeypatch, consumer=True)
+    task = _proposed(world, merge.workspace)
+    assert task["state"] == "checked", task["notes"]
+    prompts = [json.loads(line) for line in (tmp_path / "log.jsonl").read_text().splitlines()]
+    sent = [p["prompt"] for p in prompts if "prompt" in p and "refuses the draft" in p["prompt"]]
+    assert len(sent) == 1 and "Merge API" not in sent[0] and "merge-api" in sent[0]
+    (change,) = task["design"]["consumerChanges"]
+    assert (change["api"], change["from"], change["to"]) == ("merge-api", 1, 2)
+    assert any("Supplier" in text or merge.k.supplier in text for text in change["changes"])
+
+    task = _accept(world, task)
+    assert task["state"] == "loaded", task["notes"]
+    migration = task["result"]["migration"]
+    job = _previewed(
+        world, merge.workspace, migration["releaseId"], typeMappings=migration["typeMappings"]
+    )
+    assert job["state"] == "awaiting_confirmation", job
+
+
+@pytest.mark.journey("J50.46")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_draft_that_keeps_breaking_the_consumers_fails_the_task_naming_the_api(
+    world, tmp_path, monkeypatch
+):
+    """Given a session that never raises the version, then the task fails with a warning naming the
+    consumer API, and nothing is installed."""
+    merge = Merge(world, tmp_path, monkeypatch, consumer=True)
+    merge.settings["fixed"] = None
+    (tmp_path / "config.json").write_text(json.dumps(merge.settings))
+    releases = len(_all(world, "/model-releases"))
+    task = _proposed(world, merge.workspace)
+    assert task["state"] == "failed"
+    assert any("merge-api" in note["text"] for note in task["notes"])
+    assert len(_all(world, "/model-releases")) == releases
+
+
+@pytest.mark.journey("J50.46")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_merge_that_leaves_the_records_no_place_is_sent_back_and_then_moves_them(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given records under a group, when the session's draft gives the merged type a place only under
+    a type that holds none, then the engine sends the refusal back with the counts and example
+    names, the corrected draft lands, the migration preview refuses nothing, and confirming moves
+    every record with its ID."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    merge = Merge(world, tmp_path, monkeypatch, parented=True)
+    k = merge.k
+    before = merge.before()
+    task = _proposed(world, merge.workspace)
+    assert task["state"] == "checked", task["notes"]
+    prompts = [json.loads(line) for line in (tmp_path / "log.jsonl").read_text().splitlines()]
+    sent = [p["prompt"] for p in prompts if "prompt" in p and "refuses the draft" in p["prompt"]]
+    assert len(sent) == 1
+    assert "PARENT_RELATION_SEMANTICS_CHANGED" in sent[0] and "5 records" in sent[0]
+    assert "Supplier 0" in sent[0] and k.partner in sent[0]
+
+    task = _accept(world, task)
+    assert task["state"] == "loaded", task["notes"]
+    migration = task["result"]["migration"]
+    job = _previewed(
+        world, merge.workspace, migration["releaseId"], typeMappings=migration["typeMappings"]
+    )
+    assert job["state"] == "awaiting_confirmation", job
+    assert job["migration"]["counts"]["refused"] == 0
+    ok(_confirm(world, job), 202)
+    world.api.client.app.state.job_worker.run_until_idle()
+    assert ok(world.api.get(f"/jobs/{job['id']}"))["state"] == "completed"
+    after = _inventory(world, merge.workspace, (k.partner,))
+    assert set(after) == set(before)
+
+
+@pytest.mark.journey("J50.46")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_merge_the_session_never_places_fails_the_task_with_the_engines_reason(
+    world, tmp_path, monkeypatch
+):
+    """Given a session that never gives the merged type the records' place, then the task fails with a
+    warning carrying the engine's reason and count, and nothing is installed."""
+    merge = Merge(world, tmp_path, monkeypatch, parented=True)
+    merge.settings["fixed"] = None
+    (tmp_path / "config.json").write_text(json.dumps(merge.settings))
+    releases = len(_all(world, "/model-releases"))
+    task = _proposed(world, merge.workspace)
+    assert task["state"] == "failed"
+    assert any(
+        "PARENT_RELATION_SEMANTICS_CHANGED" in note["text"] and "5 records" in note["text"]
+        for note in task["notes"]
+    ), task["notes"]
+    assert len(_all(world, "/model-releases")) == releases
 
 
 # --- the proposal says what moves -------------------------------------------------------------------
@@ -517,6 +707,7 @@ def test_the_three_steps_activate_both_publish_and_activate_the_final_release(
     task = _split_loaded(world, split)
     both = ok(world.api.get(f"/change-sets/{task['result']['changeSetId']}"))["modelReleaseId"]
     final = task["result"]["thenReleaseId"]
+    assert task["result"]["changeSetReleaseId"] == both
 
     ok(world.activate(both, split.workspace))
     assert split.unchanged(before)

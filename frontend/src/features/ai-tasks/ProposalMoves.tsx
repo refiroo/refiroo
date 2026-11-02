@@ -14,9 +14,47 @@ export function movesSentence(task: Pick<AiTask, "design">): string | undefined 
   return `${count(records)} ${records === 1 ? "record keeps" : "records keep"} ${records === 1 ? "its" : "their"} IDs, history and relationships.`;
 }
 
+/** What changes for the consumers of the model: each consumer API whose version the proposal raises. */
+export function ConsumerChanges({ task }: { task: Pick<AiTask, "design"> }) {
+  const raised = task.design?.consumerChanges ?? [];
+  if (raised.length === 0) return null;
+  return (
+    <>
+      {raised.map((item) => (
+        <p key={item.api} className="task-reason">
+          Consumer API {item.name}: version {item.from} → {item.to}.
+          {item.changes.length > 0 && ` What changes for its consumers: ${item.changes.join("; ")}.`}
+        </p>
+      ))}
+    </>
+  );
+}
+
+/** What the migration would drop of each moved type (values, relationships, records), from the engine's check. */
+export function MoveLosses({ task }: { task: Pick<AiTask, "design"> }) {
+  const lines = (task.design?.moves ?? []).flatMap((move) => {
+    const lost = move.lost ?? {};
+    const parts = [
+      [lost.records, "record", "records"],
+      [lost.values, "value", "values"],
+      [lost.relationships, "relationship", "relationships"],
+    ].flatMap(([n, one, many]) => (typeof n === "number" && n > 0 ? [`${count(n)} ${n === 1 ? one : many}`] : []));
+    return parts.length > 0 ? [{ key: move.from, text: `${move.fromName}: ${parts.join(", ")} would be lost.` }] : [];
+  });
+  return (
+    <>
+      {lines.map((line) => (
+        <p key={line.key} className="task-reason">
+          {line.text}
+        </p>
+      ))}
+    </>
+  );
+}
+
 export function ProposalMoves({ task }: { task: Pick<AiTask, "design"> }) {
   const moves = task.design?.moves ?? [];
-  if (moves.length === 0) return null;
+  if (moves.length === 0) return <ConsumerChanges task={task} />;
   return (
     <Card as="section" title="What happens to the records" className="task-table">
       <SettingsTable label="Types that become others" columns={["Now", "Becomes", "Records"]}>
@@ -34,6 +72,8 @@ export function ProposalMoves({ task }: { task: Pick<AiTask, "design"> }) {
         The counts are the engine&apos;s. {movesSentence(task)} Before anything moves, a preview lists every value
         converted, and anything that would be lost or refused.
       </p>
+      <MoveLosses task={task} />
+      <ConsumerChanges task={task} />
     </Card>
   );
 }

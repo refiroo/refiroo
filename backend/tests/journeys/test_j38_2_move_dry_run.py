@@ -324,6 +324,38 @@ def test_a_relationship_whose_other_end_stays_behind(world):
     assert owner["outcome"] == "notMoved" and _codes(owner) == {"RELATION_TARGET_LEFT_BEHIND"}
 
 
+@pytest.mark.journey("J38.4")
+@pytest.mark.structures(*BOTH)
+def test_the_jobs_page_reads_what_the_move_did_from_the_job(world):
+    """Given a dry run of permits and their owners' relationship, a permit refused and the
+    relationship not moved. When the job is read. Then its ``move`` summary counts the relationship
+    type with its not-moved row beside the record types' counts, and the rows filtered by outcome
+    return the refused permits and the relationship (0.16: the job page's one call and its filters)."""
+    _other, target, key = _mapped(world)
+    _every_type(world)
+    placed = {"types": [{"objectTypeKey": world.key(s)} for s in ("G", "M", "D")]}
+    job, _rows_all = _dry_run(world, key, target, placed)
+
+    summary = ok(world.api.get(f"/jobs/{job['id']}"))["move"]
+    [owned] = [
+        item for item in summary["relationships"] if item["relationTypeKey"] == world.key("Bown")
+    ]
+    assert owned["counts"]["notMoved"] >= 1
+    assert (
+        sum(item["counts"]["refused"] for item in summary["types"]) == summary["counts"]["refused"]
+    )
+    assert summary["counts"]["refused"] >= 1
+
+    refused_rows = _rows(world, job["id"], outcome="refused")
+    assert refused_rows and all(row["outcome"] == "refused" for row in refused_rows)
+    unmoved = _rows(world, job["id"], outcome="notMoved")
+    assert any(
+        row["kind"] == "relationship" and row["relationTypeKey"] == world.key("Bown")
+        for row in unmoved
+    )
+    assert len(refused_rows) == summary["counts"]["refused"]
+
+
 @pytest.mark.journey("J38.5")
 @pytest.mark.structures(*BOTH)
 def test_a_unique_value_already_held_in_the_target(world):

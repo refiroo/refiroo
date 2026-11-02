@@ -599,9 +599,16 @@ _FILL = (
     """,
 )
 
+_PARENT_REFUSAL = "PARENT_RELATION_SEMANTICS_CHANGED"
+_PARENT_REFUSAL_MESSAGE = "The target release has no place for this record under its parent"
+_PARENT_REFUSED = """
+FROM migration_relations r JOIN migration_objects o ON o.object_id = r.to_object_id
+WHERE r.refused
+"""
+
 # The rows of a preview or an execution, in one order: type changes, values, relationship values,
 # lost records, lost relationships, refused containment edges.
-_ROWS = """
+_ROWS = f"""
 INSERT INTO job_items (job_id, item_index, ref, status, outcome)
 SELECT CAST(:job AS integer), CAST(:offset AS integer) + row_number() OVER (ORDER BY rank, a, b) - 1,
     NULL, CASE WHEN outcome ->> 'outcome' = 'refused' THEN 'rejected' ELSE 'applied' END, outcome
@@ -642,12 +649,11 @@ FROM (
     FROM migration_relations WHERE lost_code IS NOT NULL AND NOT containment
     UNION ALL
     SELECT 5, r.to_object_id, r.relation_id, json_build_object(
-        'outcome', 'refused', 'code', 'PARENT_RELATION_SEMANTICS_CHANGED',
+        'outcome', 'refused', 'code', '{_PARENT_REFUSAL}',
         'objectId', r.to_object_id, 'objectName', o.name, 'objectTypeKey', o.object_type_key,
         'relationTypeKey', r.relation_type_key,
-        'message', 'The target release has no place for this record under its parent')
-    FROM migration_relations r JOIN migration_objects o ON o.object_id = r.to_object_id
-    WHERE r.refused
+        'message', '{_PARENT_REFUSAL_MESSAGE}')
+    {_PARENT_REFUSED}
 ) rows
 """
 
@@ -1070,6 +1076,20 @@ class _Migration:
             target_release,
         )
 
+    @classmethod
+    def of_models(
+        cls,
+        session: Session,
+        workspace_key: str,
+        current: EngineModel,
+        target: EngineModel,
+        mappings: Sequence[dict[str, Any]],
+    ) -> _Migration:
+        """A migration between two parsed models, which no job or installed release backs: it can
+        be prepared, applied and checked (inside a savepoint), never written or confirmed."""
+        job = Job(workspace_key=workspace_key, parameters={"typeMappings": list(mappings)})
+        return cls(session, job, current, target, ModelRelease(public_id="draft"))
+
     @property
     def workspace_key(self) -> str:
         return self.job.workspace_key
@@ -1199,6 +1219,88 @@ class _Migration:
     def counts(self) -> dict[str, int]:
         found = dict(self.session.execute(text(COUNTS), {"job": self.job.sequence_id}).all())
         return {outcome: int(found.get(outcome, 0)) for outcome in OUTCOMES}
+
+
+@dataclass(frozen=True)
+class LandingRefusal:
+    """Records the migration preview would refuse for one reason: ``count`` of them under the type
+    ``type_key``, with a few ``examples`` of their names."""
+
+    type_key: str | None
+    code: str
+    message: str
+    count: int
+    examples: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class LandingCheck:
+    """What a migration to a model would do to the workspace's live records, without doing it:
+    ``refusals`` (the preview's own, every record checked) and, per type of the current model,
+    ``losses`` (``records``, ``values`` and ``relationships`` it would drop)."""
+
+    refusals: tuple[LandingRefusal, ...] = ()
+    losses: dict[str, dict[str, int]] = field(default_factory=dict)
+
+
+_LOSSES = """
+SELECT 'records', object_type_key, count(*) FROM migration_objects
+    WHERE lost_code IS NOT NULL GROUP BY 2
+UNION ALL SELECT 'values', o.object_type_key, count(*) FROM migration_value_changes c
+    JOIN migration_objects o ON o.object_id = c.object_id
+    WHERE c.outcome = 'loss' AND o.lost_code IS NULL GROUP BY 2
+UNION ALL SELECT 'relationships', from_type, count(*) FROM migration_relations
+    WHERE lost_code IS NOT NULL AND NOT containment GROUP BY 2
+"""
+
+_REFUSED_BY_TYPE = """
+SELECT m.target_type_key, listed.code, listed.message, count(*),
+    (array_agg(m.name ORDER BY m.name))[1:3]
+FROM unnest(CAST(:ids AS text[]), CAST(:codes AS text[]), CAST(:messages AS text[]))
+    AS listed(object_id, code, message)
+LEFT JOIN migration_objects m ON m.object_id = listed.object_id
+GROUP BY 1, 2, 3 ORDER BY 1, 2
+"""
+
+
+def check_landing(
+    session: Session,
+    workspace_key: str,
+    current: EngineModel,
+    target: EngineModel,
+    mappings: Sequence[dict[str, Any]],
+) -> LandingCheck:
+    """The migration preview's record-level check of a migration from ``current`` to ``target``
+    (typeMappings as the route takes them), over every record of the workspace and as set work in
+    PostgreSQL, with nothing written: the preview's own preparation, application and refusals run
+    inside a savepoint that is rolled back."""
+    savepoint = session.begin_nested()
+    try:
+        migration = _Migration.of_models(session, workspace_key, current, target, mappings)
+        migration.prepare()
+        losses: dict[str, dict[str, int]] = {}
+        for kind, type_key, count in session.execute(text(_LOSSES)):
+            if type_key is not None:
+                losses.setdefault(type_key, {})[kind] = int(count)
+        migration.apply(audit=False)
+        refused = migration.refusals(listing=True)
+        # The records the target has no place for under their parent, which the preview lists too.
+        refused += [
+            (str(item), _PARENT_REFUSAL, "", _PARENT_REFUSAL_MESSAGE)
+            for item in session.scalars(text(f"SELECT DISTINCT r.to_object_id {_PARENT_REFUSED}"))
+        ]
+        found: list[LandingRefusal] = []
+        if refused:
+            ids, codes, _paths, messages = (list(column) for column in zip(*refused, strict=True))
+            for type_key, code, message, count, examples in session.execute(
+                text(_REFUSED_BY_TYPE), {"ids": ids, "codes": codes, "messages": messages}
+            ):
+                found.append(
+                    LandingRefusal(type_key, code, message, int(count), tuple(examples or ()))
+                )
+    finally:
+        savepoint.rollback()
+    return LandingCheck(tuple(found), losses)
 
 
 def publication_refusal_items(

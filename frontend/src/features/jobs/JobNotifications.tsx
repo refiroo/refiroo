@@ -198,7 +198,11 @@ function modelOf(job: Job, model: EngineModel): EngineModel {
 export function jobTitle(model: EngineModel, job: Job): string {
   if (job.kind === "import") return importTitle(job);
   if (job.kind === "profile" || job.kind === "dryRun") return sourceTitle(job);
-  if (job.kind === "aiProposal" || job.kind === "aiTask") return KIND[job.kind];
+  if (job.kind === "move") {
+    const into = job.parameters.targetWorkspaceKey;
+    return `${job.parameters.mode === "move" ? "Move" : "Copy"}${typeof into === "string" ? ` into ${into}` : ""}`;
+  }
+  if (job.kind !== "export" && job.kind !== "batch") return KIND[job.kind];
   if (job.kind !== "export") return "Batch";
   const scope = job.parameters.scope as { types?: { objectTypeKey: string }[] } | undefined;
   const names = (scope?.types ?? []).map(

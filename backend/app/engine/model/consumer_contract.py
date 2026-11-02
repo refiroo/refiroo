@@ -338,6 +338,28 @@ def contract_diagnostics(active: EngineModel, candidate: EngineModel) -> list[Mo
     return diagnostics
 
 
+def raised_contracts(active: EngineModel, candidate: EngineModel) -> list[dict[str, Any]]:
+    """The consumer APIs ``candidate`` raises the contractVersion of, each with what its consumers
+    stop reading or read differently: the engine's own account of the breaking changes."""
+    before = {item.key: item for item in consumer_apis(active)}
+    raised = []
+    for item in consumer_apis(candidate):
+        old = before.get(item.key)
+        if old is None or item.contractVersion <= old.contractVersion:
+            continue
+        changes = _breaking_changes(output_contract(active, old), output_contract(candidate, item))
+        raised.append(
+            {
+                "api": item.key,
+                "name": item.name,
+                "from": old.contractVersion,
+                "to": item.contractVersion,
+                "changes": [change for _, change in changes],
+            }
+        )
+    return raised
+
+
 def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[str, str]]:
     """``(path within the definition, what changed)`` for each breaking change."""
     changes: list[tuple[str, str]] = [

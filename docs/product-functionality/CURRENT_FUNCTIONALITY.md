@@ -1002,6 +1002,16 @@ their state, result and item counts, and cancels a queued or running job after c
 the deployment lets jobs be created). It also shows the batch and job limits and how long the
 change feed is kept.
 
+A job's own page says what the job did. A **copy or move** between workspaces shows one sentence and
+four counts (records made, relationships made, refused, not moved), its record types and relationship
+types with what was made and refused in each, and its items: refused ones first, filtered by outcome
+and by reason, each with the engine's reason. A name opens the record in the source workspace, and a
+refusal by a rule of the model leads to the model's page for people who open it. A job stored before
+relationship types were counted shows the record types only. A **migration** shows its four counts
+(converted, type changed, removed, must be fixed) and its items by outcome. A job with no items of
+its own, such as an assistant's reading of a workbook, a model draft's check or a mapping proposal,
+says what it belongs to and links to it where the person can open it.
+
 An integration also exports a stated scope of a workspace as a job: live data, a change set or a
 publication; chosen types, each with its own criteria; only below one record; on a business date;
 with or without relationships; as JSON Lines, CSV or an Excel workbook. Everything in the file is

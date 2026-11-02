@@ -22,8 +22,15 @@ export function reshapeStates(
   workspace: Pick<WorkspaceModel, "releaseId"> | undefined,
   changeSet: Pick<ChangeSet, "modelReleaseId"> | null | undefined,
   finalReleaseId: string,
+  /** The change set sits on the final release itself: the old types stay, so there is no third step. */
+  sameRelease = false,
 ): [StepState, StepState, StepState] {
   if (!workspace || changeSet === undefined) return ["later", "later", "later"];
+  if (sameRelease) {
+    const done = changeSet === null;
+    const added = done || workspace.releaseId === finalReleaseId;
+    return [added ? "done" : "next", done ? "done" : added ? "next" : "later", done ? "done" : "later"];
+  }
   const finished = workspace.releaseId === finalReleaseId;
   // A published change set is gone; it could only be published on the release holding both.
   const published = changeSet === null;
@@ -173,7 +180,9 @@ export function ReshapeSteps({
 
   const finalReleaseId = result.thenReleaseId;
   if (!finalReleaseId) return null;
-  const [added, published, removed] = reshapeStates(workspace, changeSet, finalReleaseId);
+  // The result names both releases, so this holds whenever the page is opened, after publishing too.
+  const twoSteps = result.changeSetReleaseId === finalReleaseId;
+  const [added, published, removed] = reshapeStates(workspace, changeSet, finalReleaseId, twoSteps);
   const bothReleaseId = changeSet?.modelReleaseId;
   const records = result.counts?.applied;
   const openRelease = (releaseId: string) =>
@@ -192,7 +201,7 @@ export function ReshapeSteps({
     );
   return (
     <Section
-      title="Three steps are yours"
+      title={twoSteps ? "Two steps are yours" : "Three steps are yours"}
       description="The assistant prepared the move in a change set. Each step is shown when it can be done."
     >
       {problem && <Notice tone="error">{problem}</Notice>}
@@ -206,8 +215,12 @@ export function ReshapeSteps({
       >
         <p>
           {added === "done"
-            ? `${workspaceLabel} runs a release that has the new types beside the old.`
-            : `Activate the release that holds both shapes in ${workspaceLabel}. No record moves.`}
+            ? twoSteps
+              ? `${workspaceLabel} runs the new model.`
+              : `${workspaceLabel} runs a release that has the new types beside the old.`
+            : twoSteps
+              ? `Activate the new release in ${workspaceLabel}. No record moves.`
+              : `Activate the release that holds both shapes in ${workspaceLabel}. No record moves.`}
         </p>
         {added === "next" && bothReleaseId && openRelease(bothReleaseId)}
       </Section>
@@ -231,21 +244,23 @@ export function ReshapeSteps({
           </div>
         )}
       </Section>
-      <Section
-        title={
-          <>
-            3. Remove the emptied types <State state={removed} />
-          </>
-        }
-        headingLevel={3}
-      >
-        <p>
-          {removed === "done"
-            ? `${workspaceLabel} runs the release you accepted.`
-            : `After publishing, activate the release you accepted: the old types go once they hold no record. A record added to one meanwhile stops this, and names the record.`}
-        </p>
-        {removed === "next" && openRelease(finalReleaseId)}
-      </Section>
+      {!twoSteps && (
+        <Section
+          title={
+            <>
+              3. Remove the emptied types <State state={removed} />
+            </>
+          }
+          headingLevel={3}
+        >
+          <p>
+            {removed === "done"
+              ? `${workspaceLabel} runs the release you accepted.`
+              : `After publishing, activate the release you accepted: the old types go once they hold no record. A record added to one meanwhile stops this, and names the record.`}
+          </p>
+          {removed === "next" && openRelease(finalReleaseId)}
+        </Section>
+      )}
     </Section>
   );
 }

@@ -245,6 +245,9 @@ class TaskDesign(BaseModel):
     # What the proposal moves, whole types: ``{from, fromName, to, toName, records, attributes}``
     # from the engine's own plan and counts (AP-D47).
     moves: list[dict[str, Any]] = []
+    # The consumer APIs the draft raises the contractVersion of, from the engine's diff:
+    # ``{api, name, from, to, changes}``.
+    consumerChanges: list[dict[str, Any]] = []
     operations: list[dict[str, Any]] = []
     records: list[DesignRecord] = []
     profile: dict[str, Any] | None = None
@@ -320,6 +323,8 @@ class TaskResult(BaseModel):
     changeSetId: str | None = None
     # The final release of a part-of-a-type reshaping, which the person activates last (AP-D48).
     thenReleaseId: str | None = None
+    # The release the change set sits on; equal to ``thenReleaseId`` when the old types stay (no third step).
+    changeSetReleaseId: str | None = None
     migration: TaskMigration | None = None
     # The release a design's draft was installed as and activated in the workspace (0.16 AP6).
     releaseId: str | None = None

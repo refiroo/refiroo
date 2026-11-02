@@ -60,8 +60,9 @@ from ..identity.settings import IdentitySettings
 from ..imports.profiles import model_key_of, save_for_release
 from ..jobs.batches import JobCancelled
 from ..model.compiler import parse_model
+from ..model.consumer_contract import contract_diagnostics, raised_contracts
 from ..model.diagnostics import ModelValidationError
-from ..model.migrations import parse_type_mappings, plan_migration
+from ..model.migrations import LandingRefusal, check_landing, parse_type_mappings, plan_migration
 from ..model.release_lifecycle import set_release_status
 from ..model.workspace_models import load_assignment
 from .store import finish, held_by_another, held_counts, load_task, note
@@ -69,7 +70,7 @@ from .store import finish, held_by_another, held_counts, load_task, note
 log = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 1800
-PROMPT_VERSION = "agent/5"
+PROMPT_VERSION = "agent/7"
 LAST_LINE = "CHANGE_SET:"
 THEN_LINE = "THEN_RELEASE:"
 RELEASE_LINE = "RELEASE:"
@@ -127,7 +128,11 @@ _SHAPE = (
 _RECORDS = (
     "A record changes type and keeps its ID, values, relationships and history through a change set's "
     "restructurings or, for every record of a type, through the proposal's moves; creating new "
-    "records and removing the old ones loses them."
+    "records and removing the old ones loses them. A consumer API that exposes a type the proposal "
+    "moves or removes needs its contractVersion raised in the draft, and its definition to expose the "
+    "new type where it exposed the old one: the engine refuses the release otherwise. A type that "
+    "merges others must give their records the places they have now, their parents and "
+    "relationships, or the engine refuses to move them; a migration creates no records."
 )
 
 
@@ -946,6 +951,7 @@ def _planned_moves(
     base: dict[str, Any],
     model: dict[str, Any],
     held: dict[str, int],
+    losses: dict[str, dict[str, int]] | None = None,
 ) -> list[dict[str, Any]]:
     """What the proposal's moves would do, checked against the draft by the migration's own plan
     (AP-D47): each with the records the workspace holds of the type. A move the plan refuses raises
@@ -963,9 +969,61 @@ def _planned_moves(
             "toName": new.get(move["toObjectTypeKey"]) or move["toObjectTypeKey"],
             "records": held.get(move["fromObjectTypeKey"], 0),
             "attributes": move["attributes"],
+            "lost": (losses or {}).get(move["fromObjectTypeKey"], {}),
         }
         for move in mappings
     ]
+
+
+def _contract_errors(base: dict[str, Any], model: dict[str, Any]) -> list[Any]:
+    """What the draft breaks for the consumers of the workspace's model, which the migration's preview
+    and an activation refuse (C-D17): the errors of the contract diagnostics."""
+    return [
+        found
+        for found in contract_diagnostics(parse_model(base), parse_model(model))
+        if found.severity == "error"
+    ]
+
+
+def _contract_words(errors: list[Any]) -> str:
+    return "; ".join(found.message for found in errors)
+
+
+def _contract_prompt(errors: list[Any]) -> str:
+    return (
+        "The engine refuses the draft for the consumers of the workspace's model: "
+        f"{_contract_words(errors)}. Raise the contractVersion of each consumer API named, and make "
+        "its definition expose the new type where it exposed a type the proposal moves or removes. "
+        f"Check the draft again and write {PROPOSAL} again."
+    )
+
+
+def _refusal_words(refusals: tuple[LandingRefusal, ...], names: dict[str, str]) -> str:
+    """The engine's refusals with their counts per type and a few example records."""
+    return "; ".join(
+        f"{found.code}: {found.message} ({found.count} record{'s' if found.count != 1 else ''}"
+        + (f" of type '{found.type_key}' ({names[found.type_key]})" if found.type_key in names else "")
+        + (f", for example {', '.join(repr(name) for name in found.examples)}" if found.examples else "")
+        + ")"
+        for found in refusals
+    )
+
+
+def _refusal_prompt(words: str) -> str:
+    return (
+        "The engine refuses the draft for the records the workspace holds: "
+        f"{words}. Change the draft so the records the proposal moves keep the places they have "
+        "now: give the type they become the parents and relationships they have, as the types they "
+        f"come from do. Check the draft again and write {PROPOSAL} again."
+    )
+
+
+def _consumer_changes(base: dict[str, Any], model: dict[str, Any]) -> list[dict[str, Any]]:
+    """The consumer APIs the draft raises the contractVersion of, from the engine's own diff."""
+    try:
+        return raised_contracts(parse_model(base), parse_model(model))
+    except ModelValidationError:
+        return []
 
 
 def _records_per_type(session: Session, job_id: str | None) -> dict[str | None, int]:
@@ -984,8 +1042,40 @@ def _records_per_type(session: Session, job_id: str | None) -> dict[str | None, 
     )
 
 
+# How many times the engine's findings about a landed draft (the consumer contract, the records it
+# would refuse to move) go back to the session before the task fails.
+LANDING_ROUNDS = 2
+
+
+def _send_back(
+    session: Session,
+    job: Job,
+    ctx: Any,
+    task_id: str,
+    folder: Path,
+    check_of: Any,
+    prompt: str,
+    round_: int,
+) -> None:
+    """Another turn of the session with the engine's findings; the proposal it writes lands again."""
+    task = load_task(session, task_id)
+    session_id = (task.design or {})["agentSession"]
+    session.commit()
+    (folder / PROPOSAL).unlink(missing_ok=True)
+    again = _run_turn(session, job, ctx, task_id, folder, prompt, session_id, first=False)
+    if again is not None:
+        _proposal_landed(session, ctx, task_id, folder, again, check_of, job, round_ + 1)
+
+
 def _proposal_landed(
-    session: Session, ctx: Any, task_id: str, folder: Path, progress: _Progress, check_of: Any
+    session: Session,
+    ctx: Any,
+    task_id: str,
+    folder: Path,
+    progress: _Progress,
+    check_of: Any,
+    job: Job,
+    round_: int = 0,
 ) -> None:
     """The proposal the session wrote: the task shows it and waits, or fails with what was said."""
     task = load_task(session, task_id, for_update=True)
@@ -1021,29 +1111,74 @@ def _proposal_landed(
         for q in proposal.get("questions") or []
         if isinstance(q, dict) and q.get("text")
     ]
-    check = check_of(session, draft)
     base = session.get(ModelRelease, load_assignment(session, task.workspace_key)[1].id).model_json
-    records = _records_per_type(session, (check or {}).get("dryRunJobId"))
-    related = records.pop(None, 0)
-    if check and related:
-        # The check counts a relationship as an item it creates; the person reads records and links.
-        check["summary"]["created"] -= related
-        check["summary"]["relationships"] = related
+    errors: list[Any] = []
+    # A draft on no release is a new model, compared with the workspace's only if it moves types.
+    compared = bool(proposal.get("moves") or draft.base_model_release_id)
+    if compared:
+        try:
+            errors = _contract_errors(base, draft.model_json)
+        except ModelValidationError:
+            errors = []  # a draft that does not compile is the checks' to report
+    if errors and round_ < LANDING_ROUNDS:
+        # The session fixes the draft as it does any finding of the checks (AP-D47).
+        _send_back(session, job, ctx, task_id, folder, check_of, _contract_prompt(errors), round_)
+        return
+    if errors:
+        note(task, "warning", f"The proposal still breaks consumers of the model: {_contract_words(errors)}")
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return
     held = held_counts(session, task.workspace_key)
+    mappings = _requested_moves(proposal)
+    refusals: tuple[LandingRefusal, ...] = ()
+    losses: dict[str, dict[str, int]] = {}
     try:
-        moves = _planned_moves(_requested_moves(proposal), base, draft.model_json, held)
+        moves = _planned_moves(mappings, base, draft.model_json, held)
+        if mappings:
+            # The records are the engine's to check, as the migration's preview will (AP-D47).
+            landing = check_landing(
+                session,
+                task.workspace_key,
+                parse_model(base),
+                parse_model(draft.model_json),
+                mappings,
+            )
+            refusals, losses = landing.refusals, landing.losses
+            moves = _planned_moves(mappings, base, draft.model_json, held, losses)
     except (ApiError, ModelValidationError) as error:
         reason = error.message if isinstance(error, ApiError) else "the draft does not compile"
         note(task, "warning", f"The proposed moves cannot be made: {reason}")
         finish(task, "failed", _retention(ctx))
         session.commit()
         return
+    if refusals:
+        names = {
+            item["key"]: item.get("name") or item["key"]
+            for item in draft.model_json.get("objectTypes") or []
+        }
+        words = _refusal_words(refusals, names)
+        if round_ < LANDING_ROUNDS:
+            _send_back(session, job, ctx, task_id, folder, check_of, _refusal_prompt(words), round_)
+            return
+        note(task, "warning", f"The proposal still has records the engine would refuse to move: {words}")
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return
+    check = check_of(session, draft)
+    records = _records_per_type(session, (check or {}).get("dryRunJobId"))
+    related = records.pop(None, 0)
+    if check and related:
+        # The check counts a relationship as an item it creates; the person reads records and links.
+        check["summary"]["created"] -= related
+        check["summary"]["relationships"] = related
     task.draft_id = draft.id
     task.design = {
         **design,
         "stage": "model",
         "summary": str(proposal.get("summary") or ""),
         "moves": moves,
+        "consumerChanges": _consumer_changes(base, draft.model_json) if compared else [],
         "questions": questions,
         # A draft on no release is a new model: a type sharing a key with the old one is not a change.
         "outline": _shape(draft.model_json, base if draft.base_model_release_id else {}, records),
@@ -1090,7 +1225,7 @@ def start(session: Session, job: Job, ctx: Any, task_id: str, workbook_path: Pat
     )
     progress = _run_turn(session, job, ctx, task_id, folder, prompt, session_id, first=True)
     if progress is not None:
-        _proposal_landed(session, ctx, task_id, folder, progress, check_of)
+        _proposal_landed(session, ctx, task_id, folder, progress, check_of, job)
 
 
 def said(session: Session, job: Job, ctx: Any, task_id: str, words: str, check_of: Any) -> None:
@@ -1109,7 +1244,7 @@ def said(session: Session, job: Job, ctx: Any, task_id: str, words: str, check_o
         first=False,
     )
     if progress is not None:
-        _proposal_landed(session, ctx, task_id, folder, progress, check_of)
+        _proposal_landed(session, ctx, task_id, folder, progress, check_of, job)
 
 
 def _last_line(words: str, label: str) -> str | None:
@@ -1163,7 +1298,23 @@ def _migration_result(session: Session, task: AiTask, words: str) -> dict[str, A
             parse_model(release.model_json),
             parse_type_mappings(mappings),
         )
+        errors = _contract_errors(current.model_json, release.model_json)
+        landing = check_landing(
+            session,
+            task.workspace_key,
+            parse_model(current.model_json),
+            parse_model(release.model_json),
+            mappings,
+        )
     except ApiError, ModelValidationError:
+        return None
+    if errors:
+        note(task, "warning", f"The installed release breaks consumers of the model: {_contract_words(errors)}")
+        return None
+    if landing.refusals:
+        names = {item.key: item.name for item in parse_model(release.model_json).objectTypes}
+        words = _refusal_words(landing.refusals, names)
+        note(task, "warning", f"The installed release has records the engine would refuse to move: {words}")
         return None
     return {"migration": {"releaseId": release.public_id, "typeMappings": mappings}}
 
@@ -1219,23 +1370,38 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
     if change_set is None or change_set.workspace_key != workspace or not counts["applied"]:
         finish(task, "failed", _retention(ctx))
     else:
-        task.result = {
-            "changeSetId": change_set.id,
-            "changeSetName": change_set.name,
-            "counts": counts,
-            **_saved_profile(session, task, change_set),
-            **_then_release(session, task, words),
-        }
-        finish(task, "loaded", _retention(ctx))
-        remove_folder(ctx.files, task)
-        retire_unused_releases(session, task)
-        retire_session_client(session, task.client_id)
+        then = _then_release(session, task, words)
+        if then is None:
+            finish(task, "failed", _retention(ctx))
+        else:
+            task.result = {
+                "changeSetId": change_set.id,
+                "changeSetName": change_set.name,
+                "counts": counts,
+                **_saved_profile(session, task, change_set),
+                **then,
+                **_change_set_release(session, change_set, then),
+            }
+            finish(task, "loaded", _retention(ctx))
+            remove_folder(ctx.files, task)
+            retire_unused_releases(session, task)
+            retire_session_client(session, task.client_id)
     session.commit()
 
 
-def _then_release(session: Session, task: AiTask, words: str) -> dict[str, str]:
+def _change_set_release(session: Session, change_set: ChangeSet, then: dict[str, str]) -> dict[str, str]:
+    """The change set's own release, next to the final one: when they are the same, the old types
+    stay and there is no third step."""
+    if not then:
+        return {}
+    release = session.get(ModelRelease, change_set.model_release_id)
+    return {"changeSetReleaseId": release.public_id} if release is not None else {}
+
+
+def _then_release(session: Session, task: AiTask, words: str) -> dict[str, str] | None:
     """The final release of a part-of-a-type reshaping: the third step, the person's, activates it
-    once the old types hold no record (AP-D48)."""
+    once the old types hold no record (AP-D48). ``None`` when the engine would refuse that
+    activation for the consumers of the model (C-D17); the warning names them."""
     named = _last_line(words, THEN_LINE)
     if named is None:
         return {}
@@ -1243,6 +1409,14 @@ def _then_release(session: Session, task: AiTask, words: str) -> dict[str, str]:
     if release is None:
         note(task, "warning", "The session named a final release it did not install")
         return {}
+    current = session.get(ModelRelease, load_assignment(session, task.workspace_key)[1].id)
+    try:
+        errors = _contract_errors(current.model_json, release.model_json)
+    except ModelValidationError:
+        errors = []
+    if errors:
+        note(task, "warning", f"The final release breaks consumers of the model: {_contract_words(errors)}")
+        return None
     return {"thenReleaseId": release.public_id}
 
 

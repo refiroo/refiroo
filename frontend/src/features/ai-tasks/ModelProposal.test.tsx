@@ -58,6 +58,34 @@ describe("ModelProposal", () => {
     expect(screen.getByText(/no record moves before you confirm the migration/)).toBeInTheDocument();
   });
 
+  it("says what the migration would lose of each moved type, from the engine's counts", () => {
+    const task = proposal();
+    task.design!.moves = [
+      {
+        from: "supplier",
+        fromName: "Suppliers",
+        to: "partner",
+        toName: "Partners",
+        records: 3,
+        lost: { values: 2, relationships: 1 },
+      },
+      { from: "vendor", fromName: "Vendors", to: "partner", toName: "Partners", records: 2, lost: {} },
+    ];
+    render_(task);
+    expect(screen.getByText("Suppliers: 2 values, 1 relationship would be lost.")).toBeInTheDocument();
+    expect(screen.queryByText(/Vendors:.*would be lost/)).not.toBeInTheDocument();
+  });
+
+  it("says which consumer APIs the proposal raises, from the engine's account", () => {
+    const task = proposal();
+    task.design!.consumerChanges = [
+      { api: "rdm", name: "RDM", from: 2, to: 3, changes: ["no longer exposes object type 'duration'"] },
+    ];
+    render_(task);
+    expect(screen.getByText(/Consumer API RDM: version 2 → 3/)).toBeInTheDocument();
+    expect(screen.getByText(/no longer exposes object type 'duration'/)).toBeInTheDocument();
+  });
+
   it("shows no table of moves when it moves no whole type", () => {
     render_(proposal());
     expect(screen.queryByText("What happens to the records")).not.toBeInTheDocument();

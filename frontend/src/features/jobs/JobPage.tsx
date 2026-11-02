@@ -9,6 +9,10 @@
  *
  * A batch's page (0.9 K2) shows its preview with Apply and Cancel preview while it waits, its result
  * once applied, and its items' outcomes, each linked to its record where it names one.
+ *
+ * A move's page (0.16) says what it did, by type and item by item, and a migration's what it
+ * converted, changed and removed; any other job with nothing of its own to list says what it
+ * belongs to and links to it where the caller can open it (`JobProduced`).
  */
 
 import { useWorkspaceModel } from "@/model/workspaceModels";
@@ -49,6 +53,9 @@ import {
   BatchResultSection,
   type TypeName,
 } from "./BatchOutcome";
+import { JobProduced } from "./JobProduced";
+import { MigrationOutcome } from "./MigrationOutcome";
+import { MoveOutcome } from "./MoveOutcome";
 import { RESULT, STATE, cancellable, fileSize } from "./jobText";
 import { isResting, useJobStream } from "./useJobStream";
 import { useSubjectSeen } from "@/features/inbox/useInbox";
@@ -168,10 +175,6 @@ export function JobPage({
   const imported = job.kind === "import";
   const batch = job.kind === "batch";
   const waitingName = imported ? "import" : "preview";
-  // An assistant task's job (0.16 AP6a): its page is where the reading, the check and the load are.
-  const taskId = job.kind === "aiTask" ? job.parameters.taskId : undefined;
-  const taskPage: RouteState | undefined =
-    typeof taskId === "string" ? { kind: "settings", page: "ai-tasks", taskId } : undefined;
   return (
     <SettingsLayout
       trail={back(jobTitle(model, job))}
@@ -232,15 +235,13 @@ export function JobPage({
         {!imported && <DescriptionList className="compact" items={times(job)} />}
         {imported && <ImportNotices job={job} />}
       </Section>
-      {taskPage && (
-        <Section title="The load">
-          <p>
-            This job belongs to a load of a workbook with the AI assistant.{" "}
-            <RouteLink href={routePath(taskPage)} onNavigate={() => onNavigate?.(taskPage)}>
-              Open the load
-            </RouteLink>
-          </p>
-        </Section>
+      {/* A job with neither items nor rows says what it belongs to, where the caller can open it. */}
+      <JobProduced job={job} onNavigate={onNavigate} />
+      {job.kind === "move" && job.move && (
+        <MoveOutcome job={job} summary={job.move} model={model} onNavigate={onNavigate} />
+      )}
+      {job.kind === "migration" && job.migration && (
+        <MigrationOutcome job={job} summary={job.migration} model={model} />
       )}
       {imported && (
         // What to act on first: the result or the preview, then the rows; how it was read, then its facts.

@@ -405,9 +405,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (HistoryAccountRequest, HistoryAccountResponse, HistoryFact, HistoryFactLink), historyAccount as a
     # purpose of AiFeature and of a call, the filters objectTypeKey, relationTypeKey, causeId, action,
     # attributeKey and live on GET /changes and live on a record's history.
+    # Re-baselined for 0.16 AP12 (fix after the real try, additive): `consumerChanges` on an assistant
+    # task's design; nothing else changed. Re-baselined for 0.16 AP12 (second fix, additive):
+    # `changeSetReleaseId` on an assistant task's result; nothing else changed (the old hash is
+    # reproduced with that field removed).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "d300fde68b4af37c186388a23d2c740f7a2302909692fa9d29dc2acc391efa87"
+        "79f299a0b000ef49efe5e5b419009d02be2b28413ddca5e8973ff63d05a8c8cd"
     )
 
 

@@ -108,6 +108,39 @@ describe("What is left to the person after a reshaping (0.16 AP12)", () => {
     expect(onNavigate).toHaveBeenCalledWith({ kind: "settings", page: "model", releaseId: "both" });
   });
 
+  it("shows two steps when the final release is the change set's own, also after publishing", async () => {
+    vi.mocked(api.workspaceModel).mockResolvedValue(running("rel-final"));
+    vi.mocked(api.changeSet).mockResolvedValue(open("rel-final"));
+    const review = { kind: "changeSets", applicationKey: "a", workspaceKey: "default" } as never;
+    const onNavigate = vi.fn();
+    const same = () => {
+      const task = phasedTask();
+      task.result = { ...task.result!, changeSetReleaseId: "rel-final" };
+      return task;
+    };
+    const { unmount } = render(
+      <ReshapeSteps task={same()} workspaceLabel="Items" canRelease review={review} onNavigate={onNavigate} />,
+    );
+    expect(await screen.findByText("Two steps are yours")).toBeInTheDocument();
+    expect(screen.queryByText(/Remove the emptied types/)).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Review the change set" }));
+    expect(onNavigate).toHaveBeenCalledWith(review);
+    unmount();
+
+    // Opened for the first time after publishing: the change set is gone, the page is still right.
+    vi.mocked(api.changeSet).mockRejectedValue(new ApiError(404, "CHANGE_SET_NOT_FOUND", "gone"));
+    render(<ReshapeSteps task={same()} workspaceLabel="Items" canRelease onNavigate={onNavigate} />);
+    expect(await screen.findByText("Two steps are yours")).toBeInTheDocument();
+    expect(await screen.findByText("Items runs the new model.")).toBeInTheDocument();
+    expect(screen.queryByText(/Remove the emptied types/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open the release" })).not.toBeInTheDocument();
+    expect(reshapeStates(running("rel-final"), open("rel-final"), "rel-final", true)).toEqual([
+      "done",
+      "next",
+      "later",
+    ]);
+  });
+
   it("offers the review after the first step and the removal after publication", async () => {
     vi.mocked(api.workspaceModel).mockResolvedValue(running("both"));
     const review = { kind: "changeSets", applicationKey: "a", workspaceKey: "default" } as never;
