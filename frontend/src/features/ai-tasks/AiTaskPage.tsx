@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { ai } from "@/api/aiClient";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useWorkspacePermissions, holds } from "@/features/security/permissions";
+import { useHeldAnywhere, useWorkspacePermissions, holds } from "@/features/security/permissions";
 import { changeReviewFor, routePath } from "@/routing/routes";
 import type { AiTask, EngineModel, JourneyRef, RouteState } from "@/types";
 import { Breadcrumbs } from "@/ui/Breadcrumbs";
@@ -59,6 +59,7 @@ export function AiTaskPage({
     onActiveModelChange?.(task.workspaceKey);
   }, [task, releaseId, onActiveModelChange]);
   const permissions = useWorkspacePermissions(task?.workspaceKey);
+  const heldAnywhere = useHeldAnywhere();
   // A load onto a release not active yet: the change set's own model says which application shows it.
   const [ownApplication, setOwnApplication] = useState<string>();
   const loadedChangeSet = task?.result?.changeSetId;
@@ -184,6 +185,12 @@ export function AiTaskPage({
   );
   const stop = () => void write(() => ai.cancelTask(task.id));
   const canLoad = holds(permissions, "change-sets");
+  // A proposal that moves whole types loads no change set and needs none (as the engine decides).
+  const canAccept = (task.design?.moves?.length ?? 0) > 0 || canLoad;
+  // Installing and activating a model needs the group in the workspace and at the instance.
+  const canRelease =
+    holds(permissions, "model-release") &&
+    Boolean(heldAnywhere?.some((item) => item.key === "model-release" && item.instance));
   const tell = (words: string) =>
     void write(() => ai.correctModel(task.id, { expectedVersion: task.version, correction: words }));
   const goOn = () => void write(() => ai.retryTask(task.id, { expectedVersion: task.version }));
@@ -232,7 +239,7 @@ export function AiTaskPage({
           task={task}
           pending={pending}
           model={model}
-          canLoad={canLoad}
+          canLoad={canAccept}
           workspaceLabel={label ?? task.workspaceKey}
           onOpenEditor={openEditor}
           onAnswer={answer}
@@ -257,7 +264,7 @@ export function AiTaskPage({
               workspaceLabel={label ?? task.workspaceKey}
               pending={pending}
               canLoad={canLoad}
-              canRelease={holds(permissions, "model-release")}
+              canRelease={canRelease}
               onLoad={run}
               onTell={tell}
               onBack={() => void write(() => ai.reopenProposal(task.id, { expectedVersion: task.version }))}
@@ -312,7 +319,7 @@ export function AiTaskPage({
           <ReshapeSteps
             task={task}
             workspaceLabel={label ?? task.workspaceKey}
-            canRelease={holds(permissions, "model-release")}
+            canRelease={canRelease}
             review={review}
             pending={pending}
             onNavigate={onNavigate}

@@ -237,6 +237,9 @@ try {
   const installed = await api(`/model-drafts/${next.draft.id}/installation`, {
     expectedVersion: (await api(`/model-drafts/${next.draft.id}`)).version,
   });
+  // The system and the permissions are read before a missing button means anything.
+  const system = page.waitForResponse((a) => new URL(a.url()).pathname === "/api/v1/system" && a.ok());
+  const permissions = page.waitForResponse((a) => new URL(a.url()).pathname === "/api/v1/me/permissions" && a.ok());
   await page.goto(`${uiUrl}/settings/model/models/${encodeURIComponent(installed.key)}`);
   await page
     .getByRole("list", { name: `Workspaces running ${running.releaseName}` })
@@ -244,6 +247,7 @@ try {
     .click();
   const dialog = page.getByRole("dialog", { name: `Change the model of ${label}` });
   await dialog.getByText(/Compatible with .* data/).waitFor();
+  await Promise.all([system, permissions]);
   assert.equal(await dialog.getByRole("button", { name: "Explain this change" }).count(), 0);
   assert.equal(await dialog.getByText("What this change does").count(), 0);
   checks.push("without a provider the activation dialog has no Explain button and no section");

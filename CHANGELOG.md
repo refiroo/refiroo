@@ -6,6 +6,32 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-02
+
+The assistant and the agents: a person says a few words, uploads a workbook and gets the model and the import, with an
+AI assistant that runs as a Claude Code session through the engine's own capabilities and is limited only by what they
+can express. An AI proposal provider (Claude or an OpenAI-compatible one) with a send level and call records, targets
+for unmapped values, the assistant's instruction-driven tasks that design, check and load, a change of a workspace's
+model with its records moved, always a way out of a failed task, agent access (`/mcp` with read tools, changes prepared
+and submitted for approval, and natural-language search), an account of a model change, an account of what changed in a
+period, and notification digests with following a workspace. The contract change is additive. Upgrading from 0.12: the
+migrations run with `python -m app.cli.database_upgrade` ([Upgrades](docs/OPERATIONS.md#upgrades)) or at startup; the AI and MCP settings are in [OPERATIONS](docs/OPERATIONS.md).
+
+### Fixed (the 0.16 release review)
+
+- An assistant's refresh token no longer opens the API console's management token or the engine's own pages (it is no browser session).
+- A Claude Code session never writes live data: a batch or an import naming no change set is refused `403` for it, and the write unit refuses it again. An assistant task takes a draft or a change set on its word only when its own client made it, so discarding or expiring a task never deletes a person's draft; the grants a turn leaves behind are removed first and the turn's grants end even when it fails to start; the two roles the session's grants use are checked on every turn and a changed role refuses the turn (`AI_ASSISTANT_ROLE_CHANGED`).
+- Correct, accept, retry, answers and run call the assistant's checks again, as creating a task does. The person's words are the last command argument after `--`, so none is read as an option. The engine's OpenAPI read and the session's `curl` verify TLS unless the API address is on this machine. A container's session runs as a separate user (`assistant`, through `sudo`) that cannot read the engine's environment or the job files (R-F45).
+- A load of a design is refused `409 AI_TASK_CHECK_STALE` when the draft changed after its check. A turn's words and start stay until the turn is recorded; a load turn a stopped worker left is undone before it loads again; a session's jobs that outlive the session's time are cancelled and undone; the task row is not locked while the workbook is copied and the OpenAPI read; a stop that undid nothing no longer says it did.
+- The agent access endpoint limits registrations per address, caps a registration at ten addresses of 2,000 characters, and re-checks a self-registered address against the listed hosts on every sign-in. Every call, a failed lookup included, is recorded, and tool and resource listings count against the rate limit. `create_change_set` finds the change set a retry already made.
+- An account of what changed names a job's file and links the job only for a reader who may see the job; two activations of one release are two facts; a statement may cite only facts the provider was sent; a provider's error no longer carries its address.
+- Migrations: a role of the instance's own called `agent` is kept under the next free `agent-N` key with `(custom)` in its name; only the engine's own shared assistant client is deactivated, not an integrator's of the same name.
+- Imports: a row finding its record by a value another row writes, and the merge of repeated keys, run as one pass each. A person deleting a row the assistant marked in a change set is named in its origin.
+- The assistant's task page: a stale check hides Load and says so; Accept follows Work in change sets unless the proposal moves whole types; installing a model needs the instance-level Model release; the offers need Bulk and import and job creation; one stream per task however many parts follow it; the Apply dialog never installs twice and lists every other workspace; the Follow button's name holds its visible word.
+- The deployment's `compose.yml` reads its settings from `env_file: ${RDM_ENV_FILE:-.env}` again; a 0.16 AP1 change had broken the file name the deployment runner passes, and the runner stopped.
+- The browser stand-ins for the assistant read the person's words after `--` as the prompt, as the real Claude Code does (checked once with the real one: a prompt beginning `--add-dir=/etc` was read as words).
+- With agent access off, the protected-resource documents and `/oauth/register` answer `404` in the OAuth error shape (`error`, `error_description`) instead of a bare `detail`; J47's route tables now hold them and AP13's `/proposal` (R-F46, found by the J47 cases run on the release snapshot).
+
 ### Added (notification digests and following a workspace, AO3)
 
 - **A digest instead of many mails (0.16 AO3).** On Settings › Notifications each kind of notice is mailed **at once** (what every kind stays until changed), **in the digest** or **not at all**, and the digest comes every morning or on Mondays at 07:00 in the time zone the browser reports; the page says when the next is. One message says in a sentence how many notices of each kind wait ("3 change sets wait for your approval; 1 job you started failed"), then lists up to 50 newest first with their kind, time and a link that opens the notice, and "and N more"; a job's line adds its kind and the rows applied and rejected while the job is kept. It names no record, change set, workspace, person or file (D432); there is no AI in it (AO-D32). Nothing new, or everything read before then, makes no mail; the sender's round makes the digest with the person's row locked and the next time moved in one commit, so two processes make one. `GET`/`PUT /me/notification-mail` take `kinds` as `now`, `digest` or `off` and a `digest` of `every` and `timeZone` (`422 UNKNOWN_TIME_ZONE`, `422 DIGEST_NOT_SET`) and answer `delivery` per kind and `digest.nextAt` (pre-1.0: `enabled` per kind is replaced by `delivery`). Migration `20261123_01`.

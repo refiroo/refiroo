@@ -19,10 +19,10 @@ vi.mock("@/api/client", () => ({
     })),
     system: vi.fn(async () => ({
       engine: {
-        version: "0.12.0",
+        version: "0.16.0",
         managementApi: "v1",
         license: "AGPL-3.0-or-later",
-        sourceCode: "https://github.com/refiroo/refiroo/tree/v0.12.0",
+        sourceCode: "https://github.com/refiroo/refiroo/tree/v0.16.0",
       },
     })),
     myPermissions: vi.fn(async (workspaceKey?: string) => ({
@@ -132,7 +132,7 @@ describe("AccountMenu", () => {
   it("offers the source and the licence from every page (AGPL section 13, 0.12 L1)", async () => {
     openMenu();
     const link = await screen.findByRole("link", { name: "Source code" });
-    expect(link).toHaveAttribute("href", "https://github.com/refiroo/refiroo/tree/v0.12.0");
+    expect(link).toHaveAttribute("href", "https://github.com/refiroo/refiroo/tree/v0.16.0");
     expect(link.closest("p")).toHaveTextContent("AGPL-3.0-or-later");
   });
 

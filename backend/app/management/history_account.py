@@ -6,11 +6,14 @@ the period; the provider words them; no transaction is held while it answers.
 """
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import SendLevel
+from ..engine.authorization.permissions import Permissions, PrincipalKind
+from ..engine.authorization.visibility import visible_jobs
 from ..engine.proposals import calls, history_account, summaries
 from ..engine.proposals.history_account import PeriodInvalid
 from ..engine.proposals.registry import AiConfiguration
@@ -33,15 +36,25 @@ def period_of(since: datetime, until: datetime, time_zone: str | None) -> histor
         raise api_error(422, "HISTORY_PERIOD_INVALID", str(invalid)) from None
 
 
-def workspace_scope(session: Session, workspace_key: str) -> history_account.Scope:
+def readable_jobs(permissions: Permissions, kind: PrincipalKind, row_id: int) -> Any:
+    """The condition on jobs for those the reader may see: an account names a job's file and links
+    to the job only for these (R-F15)."""
+    return visible_jobs(permissions, kind, row_id)
+
+
+def workspace_scope(
+    session: Session, workspace_key: str, jobs: Any = None
+) -> history_account.Scope:
     if session.scalar(select(Workspace.key).where(Workspace.key == workspace_key)) is None:
         raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
-    return history_account.Scope(workspace_key)
+    return history_account.Scope(workspace_key, jobs=jobs)
 
 
-def record_scope(session: Session, object_type_key: str, object_id: str) -> history_account.Scope:
+def record_scope(
+    session: Session, object_type_key: str, object_id: str, jobs: Any = None
+) -> history_account.Scope:
     item = load_object(session, object_id, object_type_key)
-    return history_account.Scope(item.workspace_key, item.id)
+    return history_account.Scope(item.workspace_key, item.id, jobs=jobs)
 
 
 def fact_models(facts: list[history_account.Fact]) -> list[HistoryFact]:

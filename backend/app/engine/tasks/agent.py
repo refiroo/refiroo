@@ -12,6 +12,7 @@ The session is a process of the assistant worker in a folder of its own, kept fo
 stream says what it is doing now; what it has reached is read from what the engine recorded of it.
 """
 
+import ipaddress
 import json
 import logging
 import os
@@ -35,7 +36,7 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
-from ...errors import ApiError
+from ...errors import ApiError, api_error
 from ...models.commands import GrantCreate, GrantPrincipal, GrantScope, RoleCreate
 from ...models.database import (
     AiCall,
@@ -43,6 +44,7 @@ from ...models.database import (
     AuditEvent,
     AuthorizationState,
     ChangeSet,
+    Grant,
     ImportProfile,
     Job,
     ModelDraft,
@@ -52,7 +54,7 @@ from ...models.database import (
     SourceFile,
     WorkspaceModel,
 )
-from ..authorization.administration import create_grant, create_role, delete_grant
+from ..authorization.administration import create_grant, create_role, delete_grant, groups_of
 from ..authorization.permissions import permissions_of
 from ..change_sets.lifecycle import discard_change_set
 from ..identity import tokens
@@ -85,12 +87,27 @@ def enabled() -> bool:
     return bool(os.environ.get("AI_AGENT_COMMAND", "").strip())
 
 
+def _loopback(url: str) -> bool:
+    """Whether the API is reached on this machine, where a certificate of its own is no risk (R-F8)."""
+    host = urlparse(url).hostname or ""
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def _connection(workspace: str, url: str, *, workbook: bool = True) -> str:
-    file = "workbook.xlsx is the file, " if workbook else "There is no file: the words are about the stored records. "
+    file = (
+        "workbook.xlsx is the file, "
+        if workbook
+        else "There is no file: the words are about the stored records. "
+    )
     data = "The data comes from this workbook alone. " if workbook else ""
     return (
         f"{file}model.json the workspace's model, openapi.json the API of the "
-        f"engine at {url}, with the header 'Authorization: Bearer $REFIROO_TOKEN' (curl -k --noproxy ''). "
+        f"engine at {url}, with the header 'Authorization: Bearer $REFIROO_TOKEN' (curl{' -k' if _loopback(url) else ''} --noproxy ''). "
         "The network is reached with curl: Python cannot open a socket in the sandbox. The "
         "language of a model is components.schemas.EngineModel in openapi.json. "
         f"{data}Work only in the workspace {workspace}: no other "
@@ -233,9 +250,19 @@ MODEL_GROUPS = ["model-authoring", "model-install"]
 
 
 def _role(session: Session, name: str, groups: list[str]) -> str:
+    """The role the session's grants name, made once. Administration may edit a custom role, so its
+    groups are checked on every use: a role changed from what the engine made refuses the turn (R-F6)."""
     found = session.scalar(select(Role).where(Role.name == name))
     if found is None:
         found = create_role(session, RoleCreate(name=name, actionGroups=groups))
+    if set(groups_of(session, found)) != set(groups):
+        raise api_error(
+            409,
+            "AI_ASSISTANT_ROLE_CHANGED",
+            f"The role '{name}' no longer holds exactly {', '.join(groups)}, so the assistant "
+            "was not started. Restore the role's action groups, or delete the role (it is made "
+            "again), and try again.",
+        )
     return found.key
 
 
@@ -258,6 +285,9 @@ def _access(session: Session, job: Job, task: AiTask) -> tuple[str, int, list[st
         task.client_id = create_session_client(session, CLIENT).id
     client = session.get(OAuthClient, task.client_id)
     principal = GrantPrincipal(kind="client", id=client.public_id)
+    # A grant left by a turn that ended without its cleanup is not this turn's to keep (R-F5).
+    for left in session.scalars(select(Grant.public_id).where(Grant.client_id == client.id)).all():
+        delete_grant(session, left)
     grants = []
     for group in DATA_GROUPS:
         narrowing = asked.narrowing(group, workspace)
@@ -270,7 +300,9 @@ def _access(session: Session, job: Job, task: AiTask) -> tuple[str, int, list[st
         )
         role = _role(session, f"{CLIENT}: {group}", [group])
         grants.append(
-            create_grant(session, GrantCreate(principal=principal, role=role, scope=scope)).grant.public_id
+            create_grant(
+                session, GrantCreate(principal=principal, role=role, scope=scope)
+            ).grant.public_id
         )
     if asked.allows("model-authoring", None) and (
         asked.allows("model-release", workspace) or asked.allows("model-install", None)
@@ -278,7 +310,8 @@ def _access(session: Session, job: Job, task: AiTask) -> tuple[str, int, list[st
         model = _role(session, MODEL_ROLE, MODEL_GROUPS)
         grants.append(
             create_grant(
-                session, GrantCreate(principal=principal, role=model, scope=GrantScope(instance=True))
+                session,
+                GrantCreate(principal=principal, role=model, scope=GrantScope(instance=True)),
             ).grant.public_id
         )
     token = tokens.issue(
@@ -305,6 +338,36 @@ def _base_command() -> list[str]:
     return kept
 
 
+ASSISTANT_USER = "assistant"
+
+
+def _container() -> bool:
+    """In a container the container is the boundary: Claude Code's own sandbox cannot run inside it."""
+    return os.environ.get("AI_AGENT_SANDBOX", "").strip().lower() == "container"
+
+
+def _as_assistant() -> list[str]:
+    """In a container the session runs as a user of its own, which cannot read the engine's
+    environment or its job files (R-F45). ``sudo`` resets the environment and keeps only the names the
+    image's sudoers rule lists; the token is passed that way and not on the command line, which any
+    process of the container can read."""
+    return ["sudo", "-n", "-u", ASSISTANT_USER, "--"]
+
+
+def _agent_root(files: Any) -> Path:
+    """Where the sessions' folders are. In a container they cannot lie in the job files, which only
+    the engine's user may enter: they lie in a folder shared by the group of the two users."""
+    if _container():
+        return Path(os.environ.get("AI_AGENT_FOLDERS", "").strip() or "/data/assistant")
+    return Path(files.directory) / "agent"
+
+
+def _share(path: Path, mode: int) -> None:
+    """In a container the session's user, of the engine's group, may read and write it."""
+    if _container():
+        os.chmod(path, mode)
+
+
 def _safeguards(url: str, folder: Path) -> list[str]:
     """What the session may touch, whatever its command says: its tools, its folder, and this
     engine on the network. The sandbox is the operating system's, so a script it writes is held too;
@@ -313,7 +376,7 @@ def _safeguards(url: str, folder: Path) -> list[str]:
     host = parsed.hostname or "localhost"
     port = f":{parsed.port}" if parsed.port else ""
     # In a container the container is the boundary: the sandbox's own isolation cannot run inside it.
-    contained = os.environ.get("AI_AGENT_SANDBOX", "").strip().lower() == "container"
+    contained = _container()
     settings = {
         "sandbox": {
             "enabled": not contained,
@@ -345,7 +408,9 @@ def _safeguards(url: str, folder: Path) -> list[str]:
 
 
 # Of the server's environment, only what Claude Code itself needs: never its database or secrets.
-PASSED = re.compile(r"^(HOME|USER|LANG|LC_\w+|TMPDIR|SHELL|ANTHROPIC_\w+|CLAUDE_\w+|AWS_\w+|NODE_\w+)$")
+PASSED = re.compile(
+    r"^(HOME|USER|LANG|LC_\w+|TMPDIR|SHELL|ANTHROPIC_\w+|CLAUDE_\w+|AWS_\w+|NODE_\w+)$"
+)
 
 
 def _session_environment(token: str) -> dict[str, str]:
@@ -357,8 +422,10 @@ def _session_environment(token: str) -> dict[str, str]:
 
 
 def _end(session: Session, grants: list[str]) -> None:
+    """Delete the turn's grants; one already gone is no error, as the turn may end twice."""
     for grant in grants:
-        delete_grant(session, grant)
+        if session.scalar(select(Grant.id).where(Grant.public_id == grant)) is not None:
+            delete_grant(session, grant)
 
 
 def _await_its_jobs(session: Session, ctx: Any, started: float, client: int) -> None:
@@ -373,7 +440,8 @@ def _await_its_jobs(session: Session, ctx: Any, started: float, client: int) -> 
         session.commit()
         ctx.check()
         if time.monotonic() - started > TIMEOUT_SECONDS:
-            return
+            # Through the stop path: the jobs are cancelled and a partial load is undone (R-F19).
+            raise TimeoutError("The session's jobs took too long")
         time.sleep(2)
     session.commit()
 
@@ -384,14 +452,16 @@ def _api_url() -> str:
 
 def _openapi(url: str) -> bytes:
     context = ssl.create_default_context()
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
+    if _loopback(url):
+        # This machine's own certificate is its own to vouch for; any other address is verified.
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
     with urllib.request.urlopen(f"{url}/openapi.json", context=context, timeout=30) as answer:
         return answer.read()
 
 
 def folder_of(ctx_files: Any, task: AiTask) -> Path:
-    return Path(ctx_files.directory) / "agent" / task.public_id
+    return _agent_root(ctx_files) / task.public_id
 
 
 def _transcripts() -> Path:
@@ -410,7 +480,11 @@ def remove_folder(files: Any, task: AiTask) -> None:
     where one is expected is said in the log: the name is Claude Code's, and may change."""
     folder = folder_of(files, task)
     transcript = _transcripts() / _transcript_name(folder)
-    if (task.design or {}).get("agentSession") and _transcripts().is_dir() and not transcript.is_dir():
+    if (
+        (task.design or {}).get("agentSession")
+        and _transcripts().is_dir()
+        and not transcript.is_dir()
+    ):
         log.warning("No transcript at %s for task %s", transcript, task.public_id)
     shutil.rmtree(folder, ignore_errors=True)
     shutil.rmtree(transcript, ignore_errors=True)
@@ -421,7 +495,7 @@ def remove_folder(files: Any, task: AiTask) -> None:
 def sweep(session: Session, files: Any) -> None:
     """What no task holds any more: the folder of a task that expired, and a transcript of this
     instance's folders whose folder is gone (AP-D37). Removed after the expiry's commit."""
-    root = Path(files.directory) / "agent"
+    root = _agent_root(files)
     if root.is_dir():
         names = [path.name for path in root.iterdir() if path.is_dir()]
         known = set(session.scalars(select(AiTask.public_id).where(AiTask.public_id.in_(names))))
@@ -547,7 +621,7 @@ class _Progress:
                 self.position = handle.tell()
                 try:
                     moved = self._line(line) or moved
-                except (AttributeError, TypeError, KeyError):
+                except AttributeError, TypeError, KeyError:
                     # The stream is another program's: a line of a shape not known only shows less.
                     log.warning("A session's log line could not be read", exc_info=True)
         return moved
@@ -732,7 +806,16 @@ def _record_interrupted(
 
 
 def _run_turn(
-    session: Session, job: Job, ctx: Any, task_id: str, folder: Path, prompt: str, session_id: str, *, first: bool, load: bool = False
+    session: Session,
+    job: Job,
+    ctx: Any,
+    task_id: str,
+    folder: Path,
+    prompt: str,
+    session_id: str,
+    *,
+    first: bool,
+    load: bool = False,
 ) -> _Progress | None:
     """One turn of the session, the task's progress written as it goes; ``None`` when it could not
     start, with the reason on the task."""
@@ -742,18 +825,62 @@ def _run_turn(
     _record_interrupted(session, task_key, folder, earlier)
     if first:
         (folder / PROPOSAL).unlink(missing_ok=True)
-    token, client, opened = _access(session, job, load_task(session, task_key, for_update=True))
-    session.commit()
+    try:
+        token, client, opened = _access(session, job, load_task(session, task_key, for_update=True))
+        session.commit()
+    except ApiError as refused:
+        session.rollback()
+        task = load_task(session, task_key, for_update=True)
+        note(task, "warning", refused.message)
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return None
+    # From here whatever fails ends the turn's grants (R-F5).
+    try:
+        return _turn(
+            session, job, ctx, task_key, folder, prompt, session_id, token, client, opened,
+            first=first, load=load,
+        )  # fmt: skip
+    except BaseException:
+        session.rollback()
+        _end(session, opened)
+        session.commit()
+        raise
+
+
+def _command(folder: Path, prompt: str, session_id: str, first: bool) -> list[str]:
+    """The session's command. The person's words are the last argument, after ``--``, so no word
+    of them is read as an option (R-F9)."""
     command = [
         *_base_command(),
         *_safeguards(_api_url(), folder),
         "-p",
-        prompt,
         "--output-format",
         "stream-json",
         "--verbose",
         *(["--session-id", session_id] if first else ["--resume", session_id]),
+        "--",
+        prompt,
     ]
+    return [*_as_assistant(), *command] if _container() else command
+
+
+def _turn(
+    session: Session,
+    job: Job,
+    ctx: Any,
+    task_key: str,
+    folder: Path,
+    prompt: str,
+    session_id: str,
+    token: str,
+    client: int,
+    opened: list[str],
+    *,
+    first: bool,
+    load: bool,
+) -> _Progress | None:
+    command = _command(folder, prompt, session_id, first)
     log = folder.parent / f"{folder.name}.session-{uuid4().hex[:8]}.log"
     progress = _Progress(log)
     started = time.monotonic()
@@ -773,7 +900,13 @@ def _run_turn(
         except OSError as error:
             _end(session, opened)
             _record_turn(
-                session, task_key, job.id, progress, since, prompt, ("failed", f"Could not start: {error}")
+                session,
+                task_key,
+                job.id,
+                progress,
+                since,
+                prompt,
+                ("failed", f"Could not start: {error}"),
             )
             task = load_task(session, task_key, for_update=True)
             note(task, "warning", f"AI_AGENT_COMMAND could not start: {error}")
@@ -838,7 +971,7 @@ def _run_turn(
             _end(session, opened)
             session.commit()
             progress.read()
-            if load and failure is not None and failure[0] == "cancelled":
+            if load and failure is not None and failure[0] in ("cancelled", "timeout"):
                 _undo_load(session, task_key, client, since)
             if failure is None and (not progress.result or progress.result.get("is_error")):
                 failure = ("failed", "The session ended without an answer.")
@@ -882,12 +1015,28 @@ def _undo_load(session: Session, task_id: str, client: int, since: datetime) -> 
             "A job the assistant started was still running when you stopped it: discard its change set from the "
             "change sets list when it ends.",
         )
+        task = load_task(session, task_id, for_update=True)
+        # Said by the stop: what it had loaded was not undone (R-F21).
+        task.design = {**(task.design or {}), "undoSkipped": True}
         session.commit()
         return
     for change_set in session.scalars(
-        select(ChangeSet).where(ChangeSet.created_by_client_id == client, ChangeSet.created_at >= since)
+        select(ChangeSet).where(
+            ChangeSet.created_by_client_id == client, ChangeSet.created_at >= since
+        )
     ).all():
         discard_change_set(session, change_set.id, change_set.version)
+
+
+def undo_interrupted_load(session: Session, task_id: str) -> None:
+    """A load turn whose worker stopped is run again: what it began is stopped and undone first, so
+    the change set it made does not stay beside the new one (R-F18)."""
+    task = load_task(session, task_id)
+    earlier = (task.design or {}).get("agentProcess")
+    if not earlier or task.client_id is None or not earlier.get("startedAt"):
+        return
+    _stop_earlier(earlier)
+    _undo_load(session, task_id, task.client_id, datetime.fromisoformat(earlier["startedAt"]))
 
 
 def _said(progress: _Progress) -> str:
@@ -906,7 +1055,9 @@ def _plural(number: int, word: str) -> str:
     return f"{number:,} {word}{'' if number == 1 else 's'}"
 
 
-def _shape(model: dict[str, Any], base: dict[str, Any], records: dict[str, int]) -> list[dict[str, Any]]:
+def _shape(
+    model: dict[str, Any], base: dict[str, Any], records: dict[str, int]
+) -> list[dict[str, Any]]:
     """The proposal's shape from the draft and its dry run, not from the session's account: each type
     it adds, changes or loads, with its attributes and the records the check would write."""
     before = {found.get("key"): found for found in base.get("objectTypes") or []}
@@ -928,7 +1079,9 @@ def _shape(model: dict[str, Any], base: dict[str, Any], records: dict[str, int])
         parts = [*([change] if change else []), _plural(len(attributes), "attribute")]
         if written:
             parts.append(_plural(written, "record"))
-        shape.append({"objectTypeKey": key, "name": found.get("name") or key, "text": ", ".join(parts)})
+        shape.append(
+            {"objectTypeKey": key, "name": found.get("name") or key, "text": ", ".join(parts)}
+        )
     return shape
 
 
@@ -942,14 +1095,19 @@ def _left_out(
     before accepting, whatever the session said. A type the proposal moves is not left out."""
     kept = {found.get("key") for found in model.get("objectTypes") or []} | moved
     names = {found.get("key"): found.get("name") for found in base.get("objectTypes") or []}
-    gone = [f"{names.get(key) or key} ({count:,})" for key, count in sorted(held.items()) if key not in kept]
+    gone = [
+        f"{names.get(key) or key} ({count:,})"
+        for key, count in sorted(held.items())
+        if key not in kept
+    ]
     if not gone:
         return []
     return [
         {
             "id": "types-left-out",
             "kind": "leftOut",
-            "text": "This model leaves out types the workspace holds records of: " + ", ".join(gone),
+            "text": "This model leaves out types the workspace holds records of: "
+            + ", ".join(gone),
             "open": True,
         }
     ]
@@ -1091,8 +1249,16 @@ def _refusal_words(refusals: tuple[LandingRefusal, ...], names: dict[str, str]) 
     """The engine's refusals with their counts per type and a few example records."""
     return "; ".join(
         f"{found.code}: {found.message} ({found.count} record{'s' if found.count != 1 else ''}"
-        + (f" of type '{found.type_key}' ({names[found.type_key]})" if found.type_key in names else "")
-        + (f", for example {', '.join(repr(name) for name in found.examples)}" if found.examples else "")
+        + (
+            f" of type '{found.type_key}' ({names[found.type_key]})"
+            if found.type_key in names
+            else ""
+        )
+        + (
+            f", for example {', '.join(repr(name) for name in found.examples)}"
+            if found.examples
+            else ""
+        )
         + ")"
         for found in refusals
     )
@@ -1156,6 +1322,23 @@ def _send_back(
         _proposal_landed(session, ctx, task_id, folder, again, check_of, job, round_ + 1)
 
 
+def _drafted_by(session: Session, task: AiTask, draft: ModelDraft) -> bool:
+    """Whether the task's own client created this draft, as the engine recorded it."""
+    if task.client_id is None:
+        return False
+    return (
+        session.scalar(
+            select(AuditEvent.sequence_id).where(
+                AuditEvent.aggregate_type == "model_draft",
+                AuditEvent.action == "created",
+                AuditEvent.aggregate_id == draft.public_id,
+                AuditEvent.actor_client_id == task.client_id,
+            )
+        )
+        is not None
+    )
+
+
 def _proposal_landed(
     session: Session,
     ctx: Any,
@@ -1171,13 +1354,21 @@ def _proposal_landed(
     path = folder / PROPOSAL
     try:
         proposal = json.loads(path.read_text())
-    except (OSError, ValueError):
+    except OSError, ValueError:
         proposal = None
     draft = (
-        session.scalar(select(ModelDraft).where(ModelDraft.public_id == str(proposal.get("draftId"))))
+        session.scalar(
+            select(ModelDraft).where(ModelDraft.public_id == str(proposal.get("draftId")))
+        )
         if isinstance(proposal, dict)
         else None
     )
+    if draft is not None and not _drafted_by(session, task, draft):
+        # The ID is the session's word: a draft it did not create is a person's, not its to name (R-F3).
+        note(task, "warning", "The session proposed a draft it did not create; try again")
+        finish(task, "failed", _retention(ctx))
+        session.commit()
+        return
     if draft is not None and held_by_another(session, draft.id, task.id):
         # Reading it is not refused, and a proposal must not name it either (AP-D44).
         note(task, "warning", "The session proposed a draft another task holds; try again")
@@ -1214,7 +1405,11 @@ def _proposal_landed(
         _send_back(session, job, ctx, task_id, folder, check_of, _contract_prompt(errors), round_)
         return
     if errors:
-        note(task, "warning", f"The proposal still breaks consumers of the model: {_contract_words(errors)}")
+        note(
+            task,
+            "warning",
+            f"The proposal still breaks consumers of the model: {_contract_words(errors)}",
+        )
         finish(task, "failed", _retention(ctx))
         session.commit()
         return
@@ -1250,7 +1445,11 @@ def _proposal_landed(
         if round_ < LANDING_ROUNDS:
             _send_back(session, job, ctx, task_id, folder, check_of, _refusal_prompt(words), round_)
             return
-        note(task, "warning", f"The proposal still has records the engine would refuse to move: {words}")
+        note(
+            task,
+            "warning",
+            f"The proposal still has records the engine would refuse to move: {words}",
+        )
         finish(task, "failed", _retention(ctx))
         session.commit()
         return
@@ -1276,7 +1475,12 @@ def _proposal_landed(
             *_beside_held(session, (check or {}).get("dryRunJobId"), draft.model_json, held),
             *_cells_left_out(session, task, (check or {}).get("dryRunJobId")),
         ],
-        "origin": {"kind": "ai", "provider": "claude-code", "model": None, "promptVersion": PROMPT_VERSION},
+        "origin": {
+            "kind": "ai",
+            "provider": "claude-code",
+            "model": None,
+            "promptVersion": PROMPT_VERSION,
+        },
         "outcome": {},
     }
     task.check = check
@@ -1297,17 +1501,25 @@ def start(
 ) -> None:
     """The session's first turn: the workbook to a draft the person reviews. ``extra`` is what the
     person said when the session starts again on a task that had none, or whose first turn never ran."""
-    task = load_task(session, task_id, for_update=True)
+    task = load_task(session, task_id)
     workspace = task.workspace_key
     words = task.words
     url = _api_url()
     release = session.get(ModelRelease, load_assignment(session, workspace)[1].id)
+    model_json = json.dumps(release.model_json)
     folder = folder_of(ctx.files, task)
+    # The task's row is not held across the copy and the call to the engine's own API (R-F20).
+    session.commit()
     folder.mkdir(parents=True, exist_ok=True)
+    _share(folder, 0o2770)
     if workbook_path is not None:
         shutil.copyfile(workbook_path, folder / "workbook.xlsx")
-    (folder / "model.json").write_text(json.dumps(release.model_json))
+    (folder / "model.json").write_text(model_json)
     (folder / "openapi.json").write_bytes(_openapi(url))
+    for name in ("workbook.xlsx", "model.json", "openapi.json"):
+        if (folder / name).exists():
+            _share(folder / name, 0o660)
+    task = load_task(session, task_id, for_update=True)
     session_id = str(uuid4())
     design = {key: value for key, value in (task.design or {}).items() if key != "agentCost"}
     task.design = {
@@ -1410,14 +1622,34 @@ def _migration_result(session: Session, task: AiTask, words: str) -> dict[str, A
     except ApiError, ModelValidationError:
         return None
     if errors:
-        note(task, "warning", f"The installed release breaks consumers of the model: {_contract_words(errors)}")
+        note(
+            task,
+            "warning",
+            f"The installed release breaks consumers of the model: {_contract_words(errors)}",
+        )
         return None
     if landing.refusals:
         names = {item.key: item.name for item in parse_model(release.model_json).objectTypes}
         words = _refusal_words(landing.refusals, names)
-        note(task, "warning", f"The installed release has records the engine would refuse to move: {words}")
+        note(
+            task,
+            "warning",
+            f"The installed release has records the engine would refuse to move: {words}",
+        )
         return None
     return {"migration": {"releaseId": release.public_id, "typeMappings": mappings}}
+
+
+def _change_set_of(session: Session, task: AiTask, change_set_id: str | None) -> ChangeSet | None:
+    """The change set the session's last line names, when the task's own client made it: the line is
+    the session's word, and a person's change set is not its to hand over (R-F4)."""
+    if not change_set_id or task.client_id is None:
+        return None
+    return session.scalar(
+        select(ChangeSet).where(
+            ChangeSet.id == change_set_id, ChangeSet.created_by_client_id == task.client_id
+        )
+    )
 
 
 def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | None = None) -> None:
@@ -1460,11 +1692,7 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
         session.commit()
         return
     change_set_id = _last_line(words, LAST_LINE)
-    change_set = (
-        session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
-        if change_set_id
-        else None
-    )
+    change_set = _change_set_of(session, task, change_set_id)
     counts = _counts(session, change_set.id) if change_set is not None else None
     # An empty change set is no load, whatever the session's last line says.
     if change_set is None or change_set.workspace_key != workspace or not counts["applied"]:
@@ -1486,7 +1714,9 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
     session.commit()
 
 
-def end_session(session: Session, files: Any, task: AiTask, *, retire_releases: bool = True) -> None:
+def end_session(
+    session: Session, files: Any, task: AiTask, *, retire_releases: bool = True
+) -> None:
     """The session's work is in the person's hands for good (AP-D56): the change set was published or
     discarded, the migration confirmed, or the task discarded. Its folder, transcript and client go,
     and a release it installed that nothing runs is retired (not after a publication, which ran on
@@ -1507,7 +1737,9 @@ def lives(task: AiTask) -> bool:
     return bool(design.get("agentSession")) and not design.get("sessionEnded")
 
 
-def _change_set_release(session: Session, change_set: ChangeSet, then: dict[str, str]) -> dict[str, str]:
+def _change_set_release(
+    session: Session, change_set: ChangeSet, then: dict[str, str]
+) -> dict[str, str]:
     """The change set's own release, next to the final one: when they are the same, the old types
     stay and there is no third step."""
     if not then:
@@ -1533,7 +1765,11 @@ def _then_release(session: Session, task: AiTask, words: str) -> dict[str, str] 
     except ModelValidationError:
         errors = []
     if errors:
-        note(task, "warning", f"The final release breaks consumers of the model: {_contract_words(errors)}")
+        note(
+            task,
+            "warning",
+            f"The final release breaks consumers of the model: {_contract_words(errors)}",
+        )
         return None
     return {"thenReleaseId": release.public_id}
 
@@ -1566,7 +1802,9 @@ def _saved_profile(session: Session, task: AiTask, change_set: ChangeSet) -> dic
         )
     )
     if not jobs:
-        return {"profileNotSaved": "This load did not import the workbook, so it cannot be repeated."}
+        return {
+            "profileNotSaved": "This load did not import the workbook, so it cannot be repeated."
+        }
     definitions = [(job.parameters.get("profile") or {}).get("definition") for job in jobs]
     if not all(definitions):
         return {"profileNotSaved": "This load read the workbook through a profile already saved."}
@@ -1587,7 +1825,9 @@ def _saved_profile(session: Session, task: AiTask, change_set: ChangeSet) -> dic
     definition = {
         **definitions[-1],
         "sources": sources,
-        "valueMaps": {k: v for found in definitions for k, v in (found.get("valueMaps") or {}).items()},
+        "valueMaps": {
+            k: v for found in definitions for k, v in (found.get("valueMaps") or {}).items()
+        },
     }
     release = session.get(ModelRelease, change_set.model_release_id)
     key = _profile_key(session, source.name, release)

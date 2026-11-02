@@ -1227,6 +1227,24 @@ AG3's writes (AG-D26 to AG-D32): a tool that writes declares the action it runs 
 
 The SDK stays on 1.x: 2.x needs `httpx2`, which Starlette's test client then prefers, changing the whole test harness.
 
+### Summaries of facts and notification digests (0.16 AO1 to AO3)
+
+An account of a model change (`engine/proposals/impact_summary.py`, AO1) and of what changed in a period
+(`history_account.py`, AO2) share `summaries.py`: the engine writes the facts (a fact's ID derives from its
+kind, code and path), the provider is sent at most `FACT_LIMIT` per kind with each kind's true total and no
+record value, and it only words them. An answer is checked as every proposal is: a statement citing no fact that
+exists is dropped and counted. The route reads, ends its transaction, asks and writes the call record, so none is held
+while the provider answers. The words are kept an hour in `ai_summaries` under the hash of everything asked, so the
+same request on another process makes no call. AO2's facts are set statements in PostgreSQL over the whole period
+and count live data (entries with a feed position), never rows loaded into Python; names go to the provider only at
+send level `values`.
+
+Digests need no AI (`engine/notifications/mailing.py`, migration `20261123_01`). Each kind is mailed at once, in
+the digest (`users.notice_mail_kinds_digest`) or not at all; `queue_digests` runs in the mail sender's round and locks the
+person's row `FOR UPDATE SKIP LOCKED`, moving `notice_digest_due_at` in the same commit so two processes make one
+digest. Following a workspace (`following.py`, `workspace_followers`) puts a `change-set.published` notice in the inbox
+of each follower who still holds Browse, in the publication's transaction, with one `INSERT … SELECT`.
+
 ### Workspace migrations (0.11 V1)
 
 A migration (`engine/model/migrations.py`) is a background job of one workspace naming a target

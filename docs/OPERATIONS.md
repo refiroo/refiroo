@@ -67,7 +67,7 @@ to the engine.
 | `RDM_MODEL_PATH` | `model/rdm-starter.json` | Bootstrap model file. Not the active-model setting; see [Model releases](#model-releases-and-rollback) |
 | `RDM_CURSOR_SIGNING_KEY` | ephemeral | Secret that signs pagination cursors. Without it each process generates its own key, so cursors stop working after a restart and between instances |
 | `AI_AGENT_COMMAND` | none | The command of the AI assistant's session, such as `claude --model sonnet --permission-mode bypassPermissions`; the provider's key and base URL come from the environment. It runs as a process of the worker. The engine adds its guards to every session: its own folder, its tools, this engine on the network, a client that cannot publish or activate, and none of the server's secrets in its environment. **This setting alone turns the assistant on**: it needs no `AI_PROVIDER`, and Settings › AI and `POST /ai/tasks` treat an empty value as "no assistant" (`409 AI_NOT_CONFIGURED`). Empty: no assistant action is offered. |
-| `AI_AGENT_SANDBOX` | operating system sandbox | `container` when the engine runs in a container, where Claude Code's own sandbox cannot run. The container is then the boundary: give the session's network only what it needs. |
+| `AI_AGENT_SANDBOX` | operating system sandbox | `container` when the engine runs in a container, where Claude Code's own sandbox cannot run. The engine image then runs the session as `assistant`, a separate user (started through `sudo`, which may run the Claude Code binary and nothing else): it cannot read the engine's environment (the database address, the encryption key) or the job files, and its folders and transcripts lie in `AI_AGENT_FOLDERS` (default `/data/assistant`) and `CLAUDE_CONFIG_DIR`, shared by the two users' group. **The container does not limit the session's network**: give it only what it needs. The records the session can reach are only those its grants allow. |
 | `AI_AGENT_API_URL` | `PUBLIC_URL` | The address the session reaches this engine's API at. |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API. They are also where a person's sign-in may return: `<origin>/signed-in` for each (0.12 D267), so the browser application is served at the root of one of them. **The API reference at `/docs` is a browser page too:** when it calls the engine from an origin not listed here (for example `Try it` on `/oauth/token`), the browser's preflight answers `400 Disallowed CORS origin` before the request is sent. List the origin the reference is opened at; `scripts/dev.sh engine` lists the engine's own addresses |
 | `PUBLIC_URL` | `http://localhost:8000` | The engine's address as callers reach it, behind any proxy: the issuer (`iss`) of its tokens and the base of the addresses in `/.well-known/oauth-authorization-server` (0.12 D259). An absolute `http` or `https` URL; anything else stops startup. Set it on every production installation, the same on every process. See [Authentication](#authentication) |
@@ -288,12 +288,12 @@ removed on their page).
 
 ### Roles and grants
 
-A **role** is a set of action groups (Browse, Edit live, Work in change sets, Publish, Bulk and
-import, Copy and move, Model authoring, Model release, Workspace administration, Integration
-administration, Feed, Operations, Security administration); `GET /api/v1/action-groups` lists them
-with the operations each allows. Nine roles are predefined and read-only (Reader, Contributor, Data
+A **role** is a set of action groups (Browse, Edit live, Work in change sets, Publish, Approve publications, Bulk and
+import, Copy and move, Model authoring, Install a model, Model release, Workspace administration, Integration
+administration, Feed, Operations, Security administration, Use AI proposals); `GET /api/v1/action-groups` lists them
+with the operations each allows. Ten roles are predefined and read-only (Reader, Contributor, Data
 steward, Data owner, Model administrator, Workspace administrator, Integration administrator,
-Operator, Security administrator); custom ones are made from scratch or copied
+Operator, Security administrator, Agent: the most an agent token holds); custom ones are made from scratch or copied
 (`/api/v1/roles`). A **grant** gives a role to a person, a client or a group of people
 (`/api/v1/groups`) at the instance, which covers every workspace, or in one workspace, optionally
 narrowing what may be changed to applications and record types (`/api/v1/grants`). Reading a
@@ -869,7 +869,7 @@ offered.
 | `AI_API_KEY` | empty | The provider's key; required with `claude`, optional with `openai-compatible`. Read from the environment only, never stored in the database, never shown or answered |
 | `AI_BASE_URL` | empty | The provider's address: required with `openai-compatible` (for example `http://models.internal:8080/v1`); with `claude`, empty for Anthropic's own API or a gateway's address |
 | `AI_SEND_LEVEL` | `values` | The most that may leave the instance: `structure` (keys, names, headers and types; no value), `samples` (also values, at most `AI_SAMPLE_VALUES` per column or attribute) or `values` (as many values as a feature needs: an agent reads as much of a file as its task needs, 0.16 AP-D14). A feature needing more than the level is not offered; a question in words (0.16 AG4) and the account of a model change (0.16 AO1, the facts of the change and a count of records per touched type, no record) and of what changed in a period (0.16 AO2, counts and the model's labels; names of records, people, change sets and files go only at `values`) need only `structure` and are offered at every level; at `samples` or `values` it also sends the record names of a relationship's types when they hold at most 50 records in the list's context, at `structure` none |
-| `AI_SAMPLE_VALUES` | 20 | At send level `samples`, the most values per column or attribute, that are sent; no limit at `values`. Replaces `INFERENCE_ASSISTANT_ROWS` |
+| `AI_SAMPLE_VALUES` | 20 | At send level `samples`, the most values per column or attribute, that are sent; no limit at `values`. Replaces `INFERENCE_ASSISTANT_ROWS`. One exception (AG-D35): a question in words sends the record names of a relationship's types whole when the list holds at most 50 records, at `samples` and `values`, whatever this is set to |
 | `AI_MIN_CONFIDENCE` | 0.5 | The provider's confidence, 0 to 1, below which a proposal is not offered |
 | `AI_LOG_CONTENT` | off | Keep each call's request and answer with its record, for an operator debugging a prompt. They hold reference data: switch it on only while needed |
 | `AI_LOG_CONTENT_DAYS` | 7 | Days a kept request and answer stay; then they are emptied and the record stays |
@@ -1043,6 +1043,8 @@ explained in `.env.example`.
 
 | Container | Image | What it does |
 | --- | --- | --- |
+`compose.yml` reads its settings from `.env`; `RDM_ENV_FILE` names another file (a test deployment's, as the browser
+runner for the deployment gives it).
 | `database` | `postgres:17-alpine` | PostgreSQL with the ICU root collation, its data in the `database` volume |
 | `engine` | built from `backend/Dockerfile` | The engine under Uvicorn as an unprivileged user, one process, `--proxy-headers`, export files in the `job-files` volume; its health check is `/health/live` |
 | `web` | built from `frontend/Dockerfile` | nginx (unprivileged, 8080 and 8443, published as 80 and 443) serving the application built once for every installation and forwarding the engine's public paths to the engine |

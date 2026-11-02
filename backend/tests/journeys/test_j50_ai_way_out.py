@@ -37,7 +37,7 @@ WAY_OUT = """#!/usr/bin/env python3
 import json, os, re, sys, time
 folder = os.path.dirname(os.path.realpath(__file__))
 config = json.load(open(os.path.join(folder, "config.json")))
-prompt = sys.argv[sys.argv.index("-p") + 1]
+prompt = sys.argv[sys.argv.index("--") + 1]
 open(config["log"], "a").write(json.dumps({
     "prompt": prompt, "args": sys.argv[1:], "files": sorted(os.listdir("."))}) + "\\n")
 print(json.dumps({"type": "assistant", "message": {"content": [
@@ -85,7 +85,6 @@ class Way:
     between turns; ``hold`` in its directory makes a turn wait until the person stops it."""
 
     def __init__(self, world, tmp_path, monkeypatch, ledgers):
-        from app.engine.tasks import agent
 
         self.world, self.dir, self.ledgers = world, tmp_path, ledgers
         path = tmp_path / "stand_in.py"
@@ -109,7 +108,9 @@ class Way:
             ],
         }
         monkeypatch.setenv("AI_AGENT_COMMAND", self.path)
-        monkeypatch.setattr(agent, "_openapi", lambda url: b"{}")
+        from test_j50_ai_workbook_load import _trust_stand_in
+
+        _trust_stand_in(monkeypatch)
         self.draft()
 
     def draft(self, **changes):

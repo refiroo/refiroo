@@ -52,7 +52,9 @@ export function ApplyDialog({
   onShowIssues?: () => void;
 }) {
   const [compilation, setCompilation] = useState<ModelCompilation>();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>();
+  // The workspace applied to, read by its key, and the other active ones, every page of them.
+  const [target, setTarget] = useState<Workspace>();
+  const [others, setOthers] = useState<Workspace[]>();
   const [changeSets, setChangeSets] = useState<ChangeSet[]>();
   const [loadError, setLoadError] = useState("");
   const [pending, setPending] = useState(false);
@@ -76,10 +78,21 @@ export function ApplyDialog({
 
   useEffect(() => {
     let active = true;
-    Promise.all([api.workspaces({ status: "active", pageSize: 100 }), openChangeSets(workspaceKey)])
-      .then(([page, open]) => {
+    const otherWorkspaces = async () => {
+      const found: Workspace[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await api.workspaces({ status: "active", pageSize: 100, cursor });
+        found.push(...page.items.filter((item) => item.key !== workspaceKey));
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor);
+      return found;
+    };
+    Promise.all([api.workspace(workspaceKey), otherWorkspaces(), openChangeSets(workspaceKey)])
+      .then(([own, rest, open]) => {
         if (!active) return;
-        setWorkspaces(page.items);
+        setTarget(own);
+        setOthers(rest);
         setChangeSets(open);
       })
       .catch((cause) => active && setLoadError(errorMessage(cause)));
@@ -88,9 +101,8 @@ export function ApplyDialog({
     };
   }, [workspaceKey]);
 
-  const workspace = workspaces?.find((item) => item.key === workspaceKey);
+  const workspace = target;
   const label = workspace?.label ?? workspaceKey;
-  const others = (workspaces ?? []).filter((item) => item.key !== workspaceKey);
   const leftBehind = (changeSets ?? []).filter((item) => item.modelReleaseId === workspace?.model.releaseId);
   const lines = compilation ? summarizeChanges(compilation.changes, outline) : [];
   const errors = compilation?.diagnostics.filter((item) => item.severity === "error") ?? [];
@@ -118,6 +130,8 @@ export function ApplyDialog({
           return;
         }
         release = await api.installModelDraft(draftId, latestVersion());
+        // Installed: whatever follows fails, a retry never installs again.
+        setInstalled(release);
       }
       const state = await api.workspaceModel(workspaceKey);
       if (moves) {
@@ -131,7 +145,6 @@ export function ApplyDialog({
       try {
         await api.activateWorkspaceModel(release.id, state);
       } catch (cause) {
-        setInstalled(release);
         setError(
           `${release.name} ${release.version} is installed, but ${label} did not change: ${activationRefusal(cause)}`,
         );
@@ -146,7 +159,7 @@ export function ApplyDialog({
     }
   }
 
-  const loading = !loadError && (!compilation || !workspaces || !changeSets);
+  const loading = !loadError && (!compilation || !target || !others || !changeSets);
   return (
     <Modal
       title={`Apply to ${label}`}
@@ -239,7 +252,7 @@ export function ApplyDialog({
                     changeSets={leftBehind}
                   />
                 )}
-                {others.length > 0 && (
+                {others && others.length > 0 && (
                   <p className="muted">
                     Not changed: {others.map((item) => `${item.label} (${workspaceModelLabel(item)})`).join(", ")}.
                   </p>

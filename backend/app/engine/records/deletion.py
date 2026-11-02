@@ -66,7 +66,7 @@ from ..workspaces.catalogue import resolve_workspace
 from .audit import audit_actor_of, audit_cause_of
 from .context import load_object
 from .feed import take_positions
-from .proposed import session_origin
+from .proposed import editor_of, session_origin
 from .writes import LiveWrites
 
 _TABLES = """
@@ -321,7 +321,12 @@ _CHANGE_SET_TOMBSTONES = (
         FROM deletion_objects
         ON CONFLICT ON CONSTRAINT uq_change_set_object
         DO UPDATE SET version = EXCLUDED.version, is_deleted = true,
-            origin = coalesce(EXCLUDED.origin, change_set_objects.origin)
+            origin = CASE
+                WHEN EXCLUDED.origin IS NOT NULL THEN EXCLUDED.origin
+                WHEN change_set_objects.origin IS NOT NULL AND CAST(:editor AS varchar) IS NOT NULL
+                THEN CAST(CAST(change_set_objects.origin AS jsonb)
+                    || jsonb_build_object('editedBy', CAST(:editor AS varchar)) AS json)
+                ELSE change_set_objects.origin END
         """
     ),
     text(
@@ -333,7 +338,12 @@ _CHANGE_SET_TOMBSTONES = (
         FROM deletion_relations
         ON CONFLICT ON CONSTRAINT uq_change_set_relation
         DO UPDATE SET version = EXCLUDED.version, is_deleted = true,
-            origin = coalesce(EXCLUDED.origin, change_set_relations.origin)
+            origin = CASE
+                WHEN EXCLUDED.origin IS NOT NULL THEN EXCLUDED.origin
+                WHEN change_set_relations.origin IS NOT NULL AND CAST(:editor AS varchar) IS NOT NULL
+                THEN CAST(CAST(change_set_relations.origin AS jsonb)
+                    || jsonb_build_object('editedBy', CAST(:editor AS varchar)) AS json)
+                ELSE change_set_relations.origin END
         """
     ),
     # The typed value index holds no row of a tombstone (``snapshot_values``).
@@ -573,7 +583,11 @@ class ChangeSetScope(DeletionScope):
         if matrix_states.has_built(session, "change_set", self.change_set_id):
             _note_matrix(session, self.change_set_id)
         origin = session_origin(session)
-        marks = {"origin": json.dumps(origin) if origin else None}
+        marks = {
+            "origin": json.dumps(origin) if origin else None,
+            # A person deleting a row the assistant marked keeps the mark and is named (AP-D33).
+            "editor": None if origin else editor_of(session),
+        }
         objects, relations, values = _CHANGE_SET_TOMBSTONES
         session.execute(objects, {"change_set": self.change_set_id, **marks})
         session.execute(relations, {"change_set": self.change_set_id, **marks})

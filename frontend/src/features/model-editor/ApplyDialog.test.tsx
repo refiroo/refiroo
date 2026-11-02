@@ -10,6 +10,7 @@ vi.mock("@/api/client", () => ({
   api: {
     compileModelDraft: vi.fn(),
     workspaces: vi.fn(),
+    workspace: vi.fn(),
     changeSets: vi.fn(),
     installModelDraft: vi.fn(),
     workspaceModel: vi.fn(),
@@ -81,6 +82,7 @@ describe("ApplyDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.workspaces).mockResolvedValue({ items: [north, south], nextCursor: null } as never);
+    vi.mocked(api.workspace).mockResolvedValue(north as never);
     vi.mocked(api.changeSets).mockResolvedValue({ items: [], nextCursor: null } as never);
     vi.mocked(api.installModelDraft).mockResolvedValue(release as never);
     vi.mocked(api.workspaceModel).mockResolvedValue({ ...model, workspaceKey: "north" } as never);

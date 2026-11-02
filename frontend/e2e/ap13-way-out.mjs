@@ -276,10 +276,14 @@ async function scenario(configuration, index) {
       retried && Number.isInteger(retried.expectedVersion) && !("words" in retried),
       "it asked the engine to go on",
     );
+    // The request was aborted: the page says so and keeps the way on.
+    await page.getByText("That did not work").waitFor();
+    assert.equal(await page.getByRole("button", { name: "Read it with the assistant" }).count(), 1, "the way on stays");
+    assert.equal(await page.getByRole("button", { name: "Back to the workspace" }).count(), 1, "the way out stays");
     await context.unroute(taskRoute);
     await context.unroute(new RegExp(`/api/v1/ai/tasks/${taskId}/retry$`));
     checks.push(
-      `${label}: a saved layout that no longer fits shows its note and Read it with the assistant asks the engine`,
+      `${label}: [client only: the task is rerouted] a saved layout that no longer fits shows its note, and Read it with the assistant asks the engine and says so when the request fails`,
     );
 
     // a permission lost during the task: who can load, no Accept
@@ -301,7 +305,7 @@ async function scenario(configuration, index) {
     await page.reload();
     await page.getByLabel("The assistant’s proposal").getByRole("button", { name: "Accept the model" }).waitFor();
     checks.push(
-      `${label}: without Work in change sets the proposal names who can load and offers the link, not Accept`,
+      `${label}: [client only: the permissions are rerouted] without Work in change sets the proposal names who can load and offers the link, not Accept`,
     );
 
     // ---- 7. a loaded task discarded ----
@@ -341,7 +345,7 @@ async function scenario(configuration, index) {
     await page.reload();
     await page.getByRole("heading", { name: "Loaded into the change set “Way load”" }).waitFor();
     checks.push(
-      `${label}: a reshape step the engine would refuse is shown on the task, from the engine's own check, with the words box`,
+      `${label}: [client only: the check is rerouted] a reshape step the engine would refuse is shown on the task with the words box`,
     );
 
     await page.getByRole("button", { name: "Discard the change set" }).click();

@@ -47,6 +47,14 @@ export function LoadFoot({
   const key = keyFromLabel(name, new Set());
   const saving = save && canSave;
   const loadable = canLoad && changeSetName.trim() !== "" && (!saving || name !== "");
+  if (!canLoad) {
+    // Nothing to fill in when the person cannot load: only why.
+    return (
+      <div className="task-foot" id="journey-load" tabIndex={-1}>
+        {noLoad}
+      </div>
+    );
+  }
   return (
     <div className="task-foot" id="journey-load" tabIndex={-1}>
       <FormField label="Change set name">
@@ -85,20 +93,17 @@ export function LoadFoot({
           )}
         </FormField>
       )}
-      {!canLoad && noLoad}
       <div className="task-actions">
-        {canLoad && (
-          <button
-            type="button"
-            className="primary"
-            disabled={pending || !loadable}
-            onClick={() =>
-              onLoad({ changeSetName: changeSetName.trim(), ...(saving ? { saveProfile: { key, name } } : {}) })
-            }
-          >
-            {pending ? "Starting…" : loadLabel}
-          </button>
-        )}
+        <button
+          type="button"
+          className="primary"
+          disabled={pending || !loadable}
+          onClick={() =>
+            onLoad({ changeSetName: changeSetName.trim(), ...(saving ? { saveProfile: { key, name } } : {}) })
+          }
+        >
+          {pending ? "Starting…" : loadLabel}
+        </button>
       </div>
     </div>
   );

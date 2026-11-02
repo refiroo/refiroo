@@ -76,6 +76,15 @@ def session_origin(session: Session) -> dict[str, Any] | None:
     return found["origin"] if found else None
 
 
+def editor_of(session: Session) -> str | None:
+    """Who edits when a person, not an assistant's session, writes: the ID a marked row records as
+    ``editedBy`` (AP-D33)."""
+    principal = requester_of(session)
+    if principal is None or _task_of(session, principal) is not None:
+        return None
+    return (named(session, principal) or {}).get("id")
+
+
 def asker_of(session: Session) -> Ref | None:
     """The caller behind the writes, and for a task's session who asked it (AP-D34): what a session
     submits is submitted by the person's own request, so they cannot also decide it."""

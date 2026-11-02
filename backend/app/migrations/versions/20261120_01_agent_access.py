@@ -15,6 +15,39 @@ branch_labels = None
 depends_on = None
 
 
+def _make_room_for_agent_role() -> None:
+    """A role of the instance's own may already be called ``agent`` or ``Agent``: it is kept, with
+    its grants (they follow by role ID), under the next free key ``agent-N`` and a name ending
+    ``(custom)``, so the predefined role takes the key and name it has everywhere."""
+    bind = op.get_bind()
+    found = bind.execute(
+        sa.text(
+            "SELECT id, name FROM roles WHERE predefined = false "
+            "AND (key = 'agent' OR lower(name) = 'agent') ORDER BY id"
+        )
+    ).all()
+    if not found:
+        return
+    keys = {row[0] for row in bind.execute(sa.text("SELECT key FROM roles"))}
+    names = {row[0].lower() for row in bind.execute(sa.text("SELECT name FROM roles"))}
+    for role_id, name in found:
+        number = 1
+        while f"agent-{number}" in keys:
+            number += 1
+        key = f"agent-{number}"
+        keys.add(key)
+        renamed = f"{name[:180]} (custom)"
+        suffix = 2
+        while renamed.lower() in names:
+            renamed = f"{name[:170]} (custom {suffix})"
+            suffix += 1
+        names.add(renamed.lower())
+        bind.execute(
+            sa.text("UPDATE roles SET key = :key, name = :name WHERE id = :id"),
+            {"key": key, "name": renamed, "id": role_id},
+        )
+
+
 def upgrade() -> None:
     op.create_table(
         "agent_applications",
@@ -101,6 +134,7 @@ def upgrade() -> None:
         ["agent_application_id"],
         postgresql_where=sa.text("agent_application_id IS NOT NULL"),
     )
+    _make_room_for_agent_role()
     op.execute(
         sa.text(
             "INSERT INTO roles (key, name, description, predefined, version, created_at, "

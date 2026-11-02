@@ -102,6 +102,15 @@ def kept_sources(task: AiTask) -> list[dict[str, Any]]:
     ]
 
 
+def _words_heard(session: Session, task_id: str) -> None:
+    """The turn is recorded: the person's words and the start are spent."""
+    task = load_task(session, task_id, for_update=True)
+    design = dict(task.design or {})
+    if design.pop("pendingWords", None) is not None or design.pop("startSession", None) is not None:
+        task.design = design
+    session.commit()
+
+
 def run_turns(
     session: Session,
     job: Job,
@@ -115,17 +124,17 @@ def run_turns(
     job."""
     task = load_task(session, task_id)
     current = dict(task.design or {})
-    words = current.pop("pendingWords", None)
-    begin = current.pop("startSession", False)
-    if words is not None or begin:
-        task = load_task(session, task_id, for_update=True)
-        task.design = current
-        session.commit()
+    # Kept until the turn is recorded: a worker that stops mid-turn finds them again (R-F18).
+    words = current.get("pendingWords")
+    begin = current.get("startSession", False)
     if current.get("agentSession") and not begin:
         if current.get("stage") == "load":
+            # A load turn the earlier worker left running is undone before it loads again.
+            agent.undo_interrupted_load(session, task_id)
             agent.accepted(session, job, ctx, task_id, words)
         else:
             agent.said(session, job, ctx, task_id, words or "", dry_run_check)
+        _words_heard(session, task_id)
         return
     source = workbook_of(session, task)
     if agent.enabled() and (begin or source is None):
@@ -133,7 +142,9 @@ def run_turns(
         # session (a saved layout that does not fit, a reading that failed) takes the person's words.
         path = ctx.files.upload(source.public_id) if source is not None else None
         agent.start(session, job, ctx, task_id, path, dry_run_check, words)
+        _words_heard(session, task_id)
         return
+    _words_heard(session, task_id)
     if current.get("stage", "load") == "model":
         _propose(session, job, ctx, task_id, record_call)
         return
@@ -146,15 +157,27 @@ def run_turns(
     session.commit()
 
 
-def dry_run_check(session: Session, draft: ModelDraft) -> dict[str, Any] | None:
-    """The check a draft's latest dry run gives, whoever asked for it."""
+def _latest_check(session: Session, draft: ModelDraft) -> Job | None:
     job = session.scalar(
         select(Job)
         .where(Job.kind == "dryRun", Job.parameters["draftId"].as_string() == draft.public_id)
         .order_by(Job.sequence_id.desc())
         .limit(1)
     )
-    if job is None or job.state != "completed":
+    return job if job is not None and job.state == "completed" else None
+
+
+def check_is_stale(session: Session, draft: ModelDraft) -> bool:
+    """Whether the draft's latest check ran on another version of the draft than the one it has
+    now (R-F17)."""
+    job = _latest_check(session, draft)
+    return job is not None and job.parameters.get("draftVersion") != draft.version
+
+
+def dry_run_check(session: Session, draft: ModelDraft) -> dict[str, Any] | None:
+    """The check a draft's latest dry run gives, whoever asked for it."""
+    job = _latest_check(session, draft)
+    if job is None:
         return None
     # A check from before the draft's last change does not cover the model as it stands.
     return {
@@ -713,6 +736,12 @@ def queue_load(
     design_now = task.design or {}
     if draft is None or not design_now.get("profile"):
         raise api_error(409, "AI_TASK_NOTHING_TO_LOAD", "The design loads nothing yet")
+    if check_is_stale(session, draft):
+        raise api_error(
+            409,
+            "AI_TASK_CHECK_STALE",
+            "The draft changed after the check; check it again",
+        )
     release_id = None
     if changes_model(session, draft):
         release_id = install_and_activate(session, task, draft, max_operations)

@@ -276,7 +276,7 @@ group_id = summaries.group_id
 
 
 def checked(answer: SummaryAnswer, facts: Sequence[Fact]) -> tuple[list[Statement], int]:
-    return summaries.checked(answer, facts, KINDS)
+    return summaries.checked(answer, context_of(facts, summaries.DEFAULT_LANGUAGE))
 
 
 def explain(

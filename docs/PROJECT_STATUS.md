@@ -1,6 +1,18 @@
 # Project status
 
-## In progress — Base 0.16 (AI integration)
+## Current development baseline — Base 0.16 complete (2026-11-02)
+
+**Base 0.16 is complete**, build acceptance R included
+([record](BASE_0_16_IMPLEMENTATION_PLAN.md#r-record-2026-11-02)), version 0.16.0; the commit and the tag `v0.16.0`
+follow the user's instruction. 0.16 was released before 0.13–0.15, which are not built (0.13, the guide, is in progress
+in another session); the version after 0.12 is 0.16.0 for that reason. The AI integration: the proposal provider and its
+settings (AP1), targets for unmapped values (AP2), the assistant as a Claude Code session that designs, checks and loads
+a workbook (AP8–AP10), the model shape (AP11), changing a workspace's model with its records moved (AP12), always a way
+out (AP13), agent access over `/mcp` with read tools, prepared changes and natural-language search (AG1–AG4), an account
+of a model change, of what changed in a period (AO1, AO2), notification digests with following a workspace (AO3) and
+the workspace-model work of WM1. R: see the plan's R record.
+
+## Earlier in 0.16 (AI integration), as built
 
 [Planned](BASE_0_16_IMPLEMENTATION_PLAN.md) 2026-10-27. **AO3, notification digests and following a workspace, is delivered (2026-11-02)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ao3-record-2026-11-02)): a three-way choice per kind (at once, in the digest, off) and a daily or Monday 07:00 digest in the person's time zone, one plain message of counts and links with no names and no AI; Follow on a home workspace card and a notice when a change set is published there; a digest's link opens the notice. Migration `20261123_01`. **AO2, what changed in a period, is delivered (2026-11-01)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ao2-record-2026-11-01)): What changed above a workspace's Activity and on a record's History, the facts counted in the database over every live change, two routes, narrowing of `GET /changes`. **AO1, an account of a model change, is delivered (2026-11-01)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ao1-record-2026-11-01)): Explain this change in the activation dialog and in Apply, the engine's facts worded by the provider with citations, two routes, the `ai_summaries` cache. **AG1, agent access, is delivered (2026-10-31)** ([plan and record](BASE_0_16_IMPLEMENTATION_PLAN.md#ag1-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-the-mock-up)): `/mcp`, assistant sign-in, agent clients, Settings › Security › Agent access; **AG2, reading, is delivered (2026-10-31)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ag2-record-2026-10-31)); **AG3, preparing changes, is delivered (2026-11-01)** ([plan](BASE_0_16_IMPLEMENTATION_PLAN.md#ag3-in-detail-planned-2026-10-31-approved-by-the-user-the-same-day-with-ag-d27-as-written)): eleven tools to create a change set, add and change records, relationships and values, validate and submit it, only in change sets the assistant's own person or client created, with `origin` of kind `agent` and `channel` `mcp` on history; no tool approves, publishes, removes, withdraws, discards, batches or restructures. **AG4, asking a list in words, is delivered and closed (2026-11-01)** ([plan and record](BASE_0_16_IMPLEMENTATION_PLAN.md#ag4-in-detail-planned-2026-11-01-approved-by-the-user-the-same-day-with-the-mock-up)): a Search | Ask switch on a table list turns a question into the list's own filters, shown as pills to edit; `POST /workspaces/{key}/query-translations`; the list gains `.under` and `.notUnder` on a relationship and `createdAt` and `updatedAt` as filters on a live list. The provider also reads the names of short lists at send level `samples` or `values`, and an answer may use any relationship of the listed type. **AP1, the proposal provider, is delivered
 (2026-10-28)** ([record](BASE_0_16_IMPLEMENTATION_PLAN.md#ap1-record-2026-10-28)): `AI_*` settings and the send
@@ -13,7 +25,7 @@ provenance on change-set relations through publication into history, the Propose
 
 **The assistant is now a Claude Code session (AP8, the user's decision of 2026-10-31)**, built and tried on real files; it supersedes AP3–AP7, which are kept as [history](BASE_0_16_IMPLEMENTATION_PLAN.md#history-of-the-assistant). The plan was [reconciled](BASE_0_16_IMPLEMENTATION_PLAN.md#where-each-decision-stands) with the code on 2026-10-31. **Open:** WM1 (planned, not built); AP9 (who did it) built 2026-10-31, its real try waiting; AP10 (one path) delivered 2026-10-31; AP11 (good models in time) closed 2026-11-01; AP12 (reshaping, "Change this model…") delivered 2026-11-01; [AP13, always a way out](BASE_0_16_IMPLEMENTATION_PLAN.md#ap13-record-2026-11-02), built 2026-11-02 (a failed or stopped turn takes words, Stop ends the turn and not the task, a wrong load takes words and loads again, the session lives until the work is published, discarded or confirmed, a published task points onward), **its one real walk-through of the acceptance workbook still waiting**; Track O (not started); R.
 
-## Current development baseline — Base 0.12 complete (2026-10-28)
+## Previous baseline — Base 0.12 complete (2026-10-28)
 
 **Base 0.12 is complete**, build acceptance R included
 ([record](BASE_0_12_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)), versions 0.12.0; the commit and the

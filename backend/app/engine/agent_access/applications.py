@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page, PageRequest, integer_key, paginate_statement
 from ...errors import api_error
 from ...models.database import AgentApplication, UserSession
-from ..identity import security_events
+from ..identity import security_events, sign_in
 from ..identity.settings import IdentitySettings
 
 Source = Literal["registered", "administrator"]
@@ -28,6 +28,9 @@ _UNUSED_DAYS = 30
 # Self-registration takes no credentials, so what it can store is bounded: registrations nobody has
 # signed in with yet, across the instance.
 MOST_UNUSED = 1000
+# What one registration may carry (R-F10).
+MOST_REDIRECT_URIS = 10
+LONGEST_REDIRECT_URI = 2000
 _KEYS = (integer_key("sequenceId", AgentApplication.id, "id"),)
 
 
@@ -67,6 +70,14 @@ def _checked(
         or not all(isinstance(uri, str) for uri in redirect_uris)
     ):
         raise RegistrationRefused("invalid_redirect_uri", "redirect_uris is a list of addresses")
+    if len(redirect_uris) > MOST_REDIRECT_URIS or any(
+        len(uri) > LONGEST_REDIRECT_URI for uri in redirect_uris
+    ):
+        raise RegistrationRefused(
+            "invalid_redirect_uri",
+            f"redirect_uris holds at most {MOST_REDIRECT_URIS} addresses of at most "
+            f"{LONGEST_REDIRECT_URI} characters",
+        )
     for uri in redirect_uris:
         if not _allowed(uri, hosts):
             raise RegistrationRefused(
@@ -83,8 +94,17 @@ def register(
     settings: IdentitySettings,
     name: str | None,
     redirect_uris: object,
+    address: str | None = None,
 ) -> AgentApplication:
-    """An assistant registering itself. The caller checked that the operator allows it. Commits."""
+    """An assistant registering itself. The caller checked that the operator allows it. Registrations
+    from one address are slowed as failed sign-ins are, with a growing wait (R-F10). Commits."""
+    now = datetime.now(UTC)
+    wait = sign_in.seconds_to_wait(session, "", address, now, sign_in.REGISTER)
+    if wait > 0:
+        raise RegistrationRefused(
+            "temporarily_unavailable",
+            f"Too many registrations from this address; try again in {wait} seconds",
+        )
     checked_name, uris = _checked(name, redirect_uris, settings.agent_redirect_hosts)
     unused = session.scalar(
         select(func.count())
@@ -97,6 +117,7 @@ def register(
         )
     application = AgentApplication(name=checked_name, redirect_uris=uris, source="registered")
     session.add(application)
+    sign_in.record_failure(session, "", address, now, sign_in.REGISTER)
     session.commit()
     return application
 
@@ -137,11 +158,19 @@ def usable(
     return application
 
 
-def accepts(application: AgentApplication, redirect_uri: str) -> bool:
+def accepts(
+    application: AgentApplication, redirect_uri: str, hosts: tuple[str, ...] | None = None
+) -> bool:
     """Whether a sign-in may return there: an address as registered, or for a loopback address the
-    same one on any port, since a local assistant takes a free port each time (RFC 8252 §7.3)."""
+    same one on any port, since a local assistant takes a free port each time (RFC 8252 §7.3). A
+    self-registered assistant's other addresses count only while their host is still one the operator
+    lists (``hosts``), as the list may have changed since it registered (R-F11)."""
     if redirect_uri in application.redirect_uris:
-        return True
+        return (
+            application.source != "registered"
+            or is_loopback(redirect_uri)
+            or _allowed(redirect_uri, hosts)
+        )
     if not is_loopback(redirect_uri):
         return False
     asked = urlsplit(redirect_uri)

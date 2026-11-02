@@ -5,14 +5,35 @@ FROM python:3.14-slim
 # The engine runs as a user of its own, never root.
 # The AI assistant's session (AI_AGENT_COMMAND): Claude Code, with curl for the API. It stays unused
 # until that setting is given. Set AI_AGENT_SANDBOX=container here: its own sandbox cannot run in a
-# container, so this container is the boundary, which is why it runs as the engine's user below.
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates nodejs npm \
-    && npm install -g @anthropic-ai/claude-code \
+# container, so this container is the boundary. The session runs as `assistant`, a user of its own
+# that cannot read the engine's environment or its job files (the engine starts it through sudo, which
+# the sudoers rule below lets run the Claude Code binary and nothing else).
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates nodejs npm sudo \
+    && npm install -g @anthropic-ai/claude-code && test -x /usr/local/bin/claude \
     && apt-get purge -y npm && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin rdm \
     && mkdir -p /app /data/job-files \
-    && chown rdm:rdm /data/job-files
+    && chown rdm:rdm /data/job-files && chmod 0700 /data/job-files
+# The session's user, with a home of its own. Its folders and Claude Code's transcripts lie in two
+# folders shared by the group of the two users (set-group-ID, so what either creates is the group's);
+# the job files stay the engine's alone.
+RUN groupadd --system assistant \
+    && useradd --system --gid assistant --home-dir /home/assistant --create-home \
+        --shell /usr/sbin/nologin assistant \
+    && usermod --append --groups assistant rdm \
+    && mkdir -p /data/assistant /data/assistant-claude \
+    && chown rdm:assistant /data/assistant /data/assistant-claude \
+    && chmod 2770 /data/assistant /data/assistant-claude
+# The engine's user may run the Claude Code binary as `assistant` and nothing else; the environment is
+# reset and only what the engine passes is kept (never HOME: the session gets its own). Mode 0440 as
+# sudo requires.
+RUN printf '%s\n' \
+    'Defaults:rdm env_reset, secure_path="/usr/local/bin:/usr/bin:/bin", umask=0007, umask_override' \
+    'Defaults:rdm env_keep = "REFIROO_TOKEN LANG LC_* TMPDIR ANTHROPIC_* CLAUDE_* AWS_* NODE_*"' \
+    'rdm ALL=(assistant) NOPASSWD: /usr/local/bin/claude' \
+    > /etc/sudoers.d/rdm-assistant \
+    && chmod 0440 /etc/sudoers.d/rdm-assistant && visudo -cf /etc/sudoers.d/rdm-assistant
 WORKDIR /app
 # Readable by the engine's user whatever the modes on the machine that builds (a file kept 600 there).
 COPY --chmod=u=rwX,go=rX backend/pyproject.toml .
@@ -37,3 +58,5 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=6 \
 # (the sign-in throttle counts per address, D271). Uvicorn trusts forwarded addresses only from
 # FORWARDED_ALLOW_IPS (127.0.0.1 unless set): name the proxy's address there.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--timeout-graceful-shutdown", "10"]
+    AI_AGENT_FOLDERS=/data/assistant \
+    CLAUDE_CONFIG_DIR=/data/assistant-claude \

@@ -315,7 +315,11 @@ def post_workspace_history_account(
         request, "historyAccount", True, workspace_key=workspace_key, send_level=body.sendLevel
     )
     period = history_inputs.period_of(body.since, body.until, body.timeZone)
-    scope = history_inputs.workspace_scope(session, workspace_key)
+    scope = history_inputs.workspace_scope(
+        session,
+        workspace_key,
+        history_inputs.readable_jobs(request.state.permissions, principal.kind, principal.row_id),
+    )
     return history_inputs.account(
         session,
         configuration(request),
@@ -344,7 +348,12 @@ def post_object_history_account(
     relationships, its moves and where they came from, and no other record's. Needs Browse and Use
     AI proposals in the record's workspace; refused as the workspace's route is, and `404
     OBJECT_NOT_FOUND`."""
-    scope = history_inputs.record_scope(session, object_type_key, object_id)
+    scope = history_inputs.record_scope(
+        session,
+        object_type_key,
+        object_id,
+        history_inputs.readable_jobs(request.state.permissions, principal.kind, principal.row_id),
+    )
     ai_requested(
         request,
         "historyAccount",

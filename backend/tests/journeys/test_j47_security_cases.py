@@ -245,15 +245,15 @@ for _test, _routes in {
         "post /change-sets/{change_set_id}/submission",
         "delete /change-sets/{change_set_id}/submission",
     ],
-    _NO_RECORD + ": an assistant task designs a load, takes answers, checks and cancels it": [
+    _NO_RECORD + ": an assistant task designs, takes answers, checks, reopens and cancels": [
         "post /ai/tasks",
         "get /ai/tasks/{task_id}",
         "get /ai/tasks/{task_id}/changes",
-        "post /ai/tasks/{task_id}/plan",
         "post /ai/tasks/{task_id}/answers",
         "post /ai/tasks/{task_id}/model",
         "post /ai/tasks/{task_id}/accept",
         "post /ai/tasks/{task_id}/discard",
+        "post /ai/tasks/{task_id}/proposal",
         "post /ai/tasks/{task_id}/retry",
         "post /ai/tasks/{task_id}/cancel",
     ],
@@ -603,6 +603,9 @@ CLASSIFICATION: dict[tuple[str, str], Route] = {
     ("post", "/oauth/sign-in/reset"): Route(OPEN, "a reset link sets a password; the token is the proof", {422}, body="json", shaped={"token": "nope", "password": "a long enough pass 1", "repeat": "a long enough pass 1"}, origin=True),
     ("post", "/oauth/console-token"): Route(SESSION, "the API console's token for the cookie's person", {401}, body="json", shaped={}, origin=True),
 }  # fmt: skip
+    ("get", "/.well-known/oauth-protected-resource"): Route(OPEN, "RFC 9728 metadata of /mcp; 404 with agent access off", {200, 404}),
+    ("get", "/.well-known/oauth-protected-resource/mcp"): Route(OPEN, "the same at the address RFC 9728 derives from /mcp", {200, 404}),
+    ("post", "/oauth/register"): Route(OPEN, "an assistant registers itself (RFC 7591); 404 with agent access off, 403 with registration off", {404, 422}, body="json", shaped={"client_name": "n", "redirect_uris": ["http://127.0.0.1/cb"]}),
 
 _COUNTED = (
     "users", "user_sessions", "session_refresh_tokens", "authorization_codes", "password_reset_links",

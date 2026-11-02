@@ -30,6 +30,10 @@ interface Shared {
   /** Counts reads and writes: a read still in flight is older than any later one. */
   latest: number;
   listeners: Set<(task: AiTask) => void>;
+  /** The one follower that holds the job's stream and the timer; the others read what it publishes. */
+  leader?: symbol;
+  /** Each follower's way to look again for a leader when the leader lets go. */
+  rechecks: Map<symbol, () => void>;
 }
 
 const shared = new Map<string, Shared>();
@@ -37,7 +41,7 @@ const shared = new Map<string, Shared>();
 function sharedOf(taskId: string): Shared {
   let entry = shared.get(taskId);
   if (!entry) {
-    entry = { latest: 0, listeners: new Set() };
+    entry = { latest: 0, listeners: new Set(), rechecks: new Map() };
     shared.set(taskId, entry);
   }
   return entry;
@@ -104,12 +108,37 @@ export function useAiTask(taskId: string): FollowedTask {
   }, [taskId]);
 
   const waiting = task && running(task);
-  useJobStream(waiting && task.state !== "loading" ? (task.jobId ?? undefined) : undefined, () => void reload());
+  // One stream and one timer for a task however many parts follow it (the page and the journey bar).
+  const [me] = useState(() => Symbol("follower"));
+  const [looked, lookAgain] = useState(0);
+  const [leading, setLeading] = useState(false);
   useEffect(() => {
-    if (!waiting) return;
+    const own = sharedOf(taskId);
+    own.rechecks.set(me, () => lookAgain((n) => n + 1));
+    return () => {
+      own.rechecks.delete(me);
+    };
+  }, [taskId, me]);
+  useEffect(() => {
+    const own = sharedOf(taskId);
+    if (!waiting || (own.leader !== undefined && own.leader !== me)) return;
+    own.leader = me;
+    setLeading(true);
+    return () => {
+      if (own.leader === me) own.leader = undefined;
+      setLeading(false);
+      own.rechecks.forEach((again, follower) => follower !== me && again());
+    };
+  }, [taskId, waiting, looked, me]);
+  useJobStream(
+    leading && waiting && task.state !== "loading" ? (task.jobId ?? undefined) : undefined,
+    () => void reload(),
+  );
+  useEffect(() => {
+    if (!waiting || !leading) return;
     const timer = setInterval(() => void reload(), 2000);
     return () => clearInterval(timer);
-  }, [waiting, reload]);
+  }, [waiting, leading, reload]);
 
   const set = useCallback(
     (next: AiTask) => {

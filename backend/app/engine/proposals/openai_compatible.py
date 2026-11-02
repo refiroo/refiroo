@@ -72,7 +72,7 @@ class OpenAICompatibleProvider:
             ) from exc
         except httpx.HTTPError as exc:
             raise ProviderError(
-                "unreachable", f"The provider could not be reached at {self._url}"
+                "unreachable", "The provider could not be reached (AI_BASE_URL)"
             ) from exc
         if response.status_code in (401, 403):
             raise ProviderError("unauthorized", "The provider refused the key (AI_API_KEY)")

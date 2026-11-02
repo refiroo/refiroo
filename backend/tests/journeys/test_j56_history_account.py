@@ -499,7 +499,12 @@ def test_an_assistant_reads_the_facts_with_browse_and_no_provider_call(world):
     assert (len(_all(world, "/ai/calls")), _audit_entries(world)) == (calls, entries)
 
     route = ok(_account(world, made["since"], until))
-    assert facts["scope"] == "workspace" and facts["facts"] == route["facts"] != []
+    # The assistant's reader may not see the batch job, so its fact has no link to it (R-F15).
+    unlinked = [
+        {**fact, "link": None} if (fact["link"] or {}).get("kind") == "job" else fact
+        for fact in route["facts"]
+    ]
+    assert facts["scope"] == "workspace" and facts["facts"] == unlinked != []
     assert {key: facts[key] for key in ("since", "until", "timeZone")} == {
         key: route[key] for key in ("since", "until", "timeZone")
     }
@@ -514,3 +519,77 @@ def test_an_assistant_reads_the_facts_with_browse_and_no_provider_call(world):
 def test_without_a_provider_the_account_is_refused(world):
     """Given no provider, then asking is 409 AI_NOT_CONFIGURED."""
     refused(_account(world, _now() - timedelta(days=1)), 409, "AI_NOT_CONFIGURED")
+
+
+@pytest.mark.journey("J56.1")
+@pytest.mark.structures(*STRUCTURES)
+@pytest.mark.settings(AI_PROVIDER=FAKE)
+def test_a_withdrawal_and_each_model_activation_are_facts_of_their_own(world):
+    """Given a publication withdrawn and a model activated, then activated back and again in the
+    period, when the account is asked, then the withdrawal is a publication fact, and each activation
+    is a model fact with an ID of its own, the same release activated twice included."""
+    first = world.workspace_model()["releaseId"]
+    model, _key = world.candidate("compatible")
+    second = world.install(model)["id"]
+    since = _now()
+    world.made("R", f"Withdrawn {uuid4().hex[:6]}")
+    publication = world.publish(world.change_set())
+    assert world.api.post(f"/publications/{publication['id']}/withdrawal").status_code == 204
+    for release in (second, first, second):
+        ok(world.activate(release))
+    answer = ok(_account(world, since))
+    withdrawal = _one(answer, "publication", publicationId=publication["id"])
+    assert "withdrawn" in withdrawal["text"]
+    models = _facts(answer, "model")
+    assert [(f["keys"]["oldReleaseId"], f["keys"]["newReleaseId"]) for f in models] == [
+        (first, second),
+        (second, first),
+        (first, second),
+    ]
+    assert len({fact["id"] for fact in models}) == 3
+
+
+@pytest.mark.journey("J56.9")
+@pytest.mark.structures(*STRUCTURES)
+@pytest.mark.settings(AI_PROVIDER=FAKE)
+def test_a_reader_who_may_not_see_a_job_is_told_neither_its_file_nor_given_its_link(world):
+    """Given a job that kept the name of its file, when a holder of Browse and Use AI proposals
+    only asks, then the job is "Batch job" with no file and no link; the person who may see the
+    job reads its file and a link to it."""
+    record = world.made("R", f"Filed {uuid4().hex[:6]}")
+    since = _now()
+    items = [
+        {
+            "op": "update",
+            "target": {"id": record["id"]},
+            "expectedVersion": record["version"],
+            "name": "Filed again",
+        }
+    ]
+    job = ok(_batch(world, items))["job"]
+    engine = create_engine(world.database, poolclass=NullPool)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE jobs SET parameters = jsonb_set(parameters::jsonb, '{file}', :f)::json "
+                "WHERE id = :i"
+            ),
+            {"f": json.dumps({"name": "Private-file.xlsx"}), "i": job["id"]},
+        )
+    engine.dispose()
+    role = ok(
+        world.api.post(
+            "/roles", {"name": "Account readers", "actionGroups": ["browse", "ai-proposals"]}
+        ),
+        201,
+    )
+    reader = _client(world, "Account reader", (role["key"], IN_W1))[1]
+
+    seen = _one(ok(_account(world, since)), "source", causeKind="job", causeId=job["id"])
+    assert "Private-file.xlsx" in seen["text"] and (seen["link"]["kind"], seen["link"]["id"]) == (
+        "job",
+        job["id"],
+    )
+    hidden = _one(ok(_account(reader, since)), "source", causeKind="job", causeId=job["id"])
+    assert "Private-file" not in json.dumps(hidden) and hidden["link"] is None
+    assert hidden["text"].startswith("Batch job")

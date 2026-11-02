@@ -44,6 +44,21 @@ ROLES = [*PREDEFINED_ROLES, NO_GRANTS]
 # to make it invalid could do what it names. They are still called when the caller is refused, and
 # without a token. The sweep computes the set of such operations (a write with no body, no path
 # parameter and no required query) and requires it to equal this table, so a new one is decided here.
+# Writes that name the workspace in their path but do something only for a person: the sweep's
+# callers are clients, so they are always refused `403 NOT_A_PERSON` and change nothing (0.16 AO3).
+PERSON_ONLY_WRITES = {
+    ("put", "/api/v1/me/followed-workspaces/{workspace_key}"),
+    ("delete", "/api/v1/me/followed-workspaces/{workspace_key}"),
+}
+
+# Opening the workspace's model draft: when the caller is allowed it creates a draft in the real
+# workspace, so it is probed only where the caller is refused (0.16 WM1).
+OPENS_A_DRAFT = {("post", "/api/v1/workspaces/{workspace_key}/model/draft")}
+
+# A write the route allows for Work in change sets alone, though its action also names live edits:
+# a proposal always goes into a change set (0.16 AP2).
+CHANGE_SET_ONLY = {("post", "/api/v1/workspaces/{workspace_key}/mapping-proposals")}
+
 SWEEP_EXCEPTIONS = {
     # Signed in, so every caller is allowed: the call ends the caller's own sessions.
     ("delete", "/api/v1/me/sessions"): "ends the caller's own sessions; nothing makes it invalid",
@@ -172,6 +187,8 @@ def needed(operation: Operation, variant: str) -> tuple[str, ...]:
     """The groups that allow the request as probed: the record writes name both of theirs and the
     request's change set picks one (D244); a job is used under the group that starts its kind
     (D285), and the sweep's job is an export."""
+    if operation.key in CHANGE_SET_ONLY:
+        return ("change-sets",)
     if operation.action == "records.write":
         return ("change-sets",) if variant == "change-set" else ("edit-live",)
     if operation.action == "jobs.use":
@@ -333,7 +350,11 @@ def collect(http, role: str, ids: dict[str, str], declared: list[Operation]) -> 
     for operation in ordered:
         for variant, workspace in variants(operation):
             holds = allowed(principal, operation, variant, workspace)
-            if holds and (operation.key in SWEEP_EXCEPTIONS or operation.key in SWEEP_STREAMS):
+            if holds and (
+                operation.key in SWEEP_EXCEPTIONS
+                or operation.key in SWEEP_STREAMS
+                or operation.key in OPENS_A_DRAFT
+            ):
                 continue
             # Allowed with nothing to make it invalid: name nothing that exists.
             real = not (holds and operation.unsafe_when_allowed)
@@ -385,9 +406,11 @@ def test_every_operation_answers_as_the_catalogue_says(world, role):
     declared, open_ = operations(world.api.client.app)
     assert set(open_) == OPEN_OPERATIONS, set(open_) ^ OPEN_OPERATIONS
     unsafe = [operation for operation in declared if operation.unsafe_when_allowed]
-    assert not [op for op in unsafe if "{workspace_key}" in op.path], (
-        "a write with a real workspace"
-    )
+    assert not [
+        op
+        for op in unsafe
+        if "{workspace_key}" in op.path and op.key not in PERSON_ONLY_WRITES | OPENS_A_DRAFT
+    ], "a write with a real workspace"
     assert {op.key for op in unsafe if not op.has_path_parameters} == set(SWEEP_EXCEPTIONS)
     assert {operation.action for operation in declared} == set(ACTIONS)
     counts = sweep(world, role, _fixtures(world), declared)
@@ -485,7 +508,7 @@ def test_the_inbox_stream_answers_as_its_class_says(world, served):  # noqa: F81
 
 
 @pytest.mark.journey("J47.1")
-@pytest.mark.settings(**SUBSCRIPTIONS)
+@pytest.mark.settings(**SUBSCRIPTIONS, MCP_ENABLED="true")
 @pytest.mark.structures(*LEDGER)
 def test_without_a_token_every_operation_but_the_open_ones_is_refused(world):
     """Given no token, when every operation the document declares an action for is called, then each

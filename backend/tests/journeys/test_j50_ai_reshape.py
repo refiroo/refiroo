@@ -187,7 +187,7 @@ def _relations(world, workspace):
 
 SESSION = """#!/usr/bin/env python3
 import json, os, re, sys, httpx
-prompt = sys.argv[sys.argv.index("-p") + 1]
+prompt = sys.argv[sys.argv.index("--") + 1]
 config = json.load(open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "config.json")))
 print(json.dumps({"type": "system", "subtype": "init", "model": "claude-test-1"}), flush=True)
 if not os.path.exists("url.txt"):

@@ -203,6 +203,7 @@ def run_ai_task(
     Allowed when the task is ``checked``. Refused: ``403 FORBIDDEN`` without Work in change sets,
     ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE``, ``409 IMPORT_PROFILE_EXISTS``."""
     task = _visible(request, session, principal, task_id)
+    assistant_requested(request, workspace_key=task.workspace_key)
     if not request.state.permissions.allows("change-sets", task.workspace_key):
         raise forbidden("records.write", ("change-sets",), task.workspace_key)
     limits: BatchLimits = request.app.state.batch_limits
@@ -244,7 +245,8 @@ def answer_ai_task(
     """Answer the design's questions (0.16 AP6): the assistant designs again with the answers and
     the design is checked again. Allowed when the task is ``checked`` and has a design. Refused:
     ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
-    _visible(request, session, principal, task_id)
+    task = _visible(request, session, principal, task_id)
+    assistant_requested(request, workspace_key=task.workspace_key)
     limits: BatchLimits = request.app.state.batch_limits
     task = design_job.queue_answers(
         session,
@@ -273,6 +275,7 @@ def correct_ai_task_model(
     discarded, which needs Work in change sets, and the session loads again. Refused: ``403
     FORBIDDEN``, ``409 AI_NOT_CONFIGURED``, ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
     task = _visible(request, session, principal, task_id)
+    assistant_requested(request, workspace_key=task.workspace_key)
     if task.state == "loaded" and not request.state.permissions.allows(
         "change-sets", task.workspace_key
     ):
@@ -305,6 +308,7 @@ def accept_ai_task_model(
     set and needs none), ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE`` (no proposal to
     accept)."""
     task = _visible(request, session, principal, task_id)
+    assistant_requested(request, workspace_key=task.workspace_key)
     if not (task.design or {}).get("moves") and not request.state.permissions.allows(
         "change-sets", task.workspace_key
     ):
@@ -334,7 +338,8 @@ def retry_ai_task(
     session kept, with the person's ``words`` when there are some; a saved layout that does not fit,
     or a task whose session never ran, is read with the assistant. ``409 AI_NOT_CONFIGURED``, ``409
     AI_TASK_STATE`` unless the task failed, was stopped, or waits with no session."""
-    _visible(request, session, principal, task_id)
+    task = _visible(request, session, principal, task_id)
+    assistant_requested(request, workspace_key=task.workspace_key)
     limits: BatchLimits = request.app.state.batch_limits
     task = design_job.queue_retry(
         session,

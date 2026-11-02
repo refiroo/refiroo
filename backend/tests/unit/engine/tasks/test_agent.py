@@ -1,5 +1,6 @@
 """The assistant's session in its folder, and its checklist from what the engine recorded."""
 
+import json
 import signal
 import subprocess
 from datetime import UTC, datetime, timedelta
@@ -105,3 +106,47 @@ def test_what_the_workspace_holds_decides_whether_the_session_adds_or_may_start_
     assert "add to it" in _starting_point({"a": 2, "b": 1})
     assert "3 records" in _starting_point({"a": 2, "b": 1})
     assert "new one" in _starting_point({})
+
+
+def test_the_persons_words_are_the_last_argument_after_the_end_of_the_options(
+    monkeypatch, tmp_path
+):
+    """Words that look like options (R-F9) are the prompt, not a flag of the command."""
+    from app.engine.tasks.agent import _command
+
+    monkeypatch.setenv("AI_AGENT_COMMAND", "claude --model sonnet")
+    monkeypatch.delenv("AI_AGENT_SANDBOX", raising=False)
+    command = _command(tmp_path, "--dangerously-skip-permissions please", "s-1", True)
+    assert command[:3] == ["claude", "--model", "sonnet"]
+    assert command[-2:] == ["--", "--dangerously-skip-permissions please"]
+    assert command.count("--dangerously-skip-permissions") == 0
+    assert command[command.index("--session-id") + 1] == "s-1"
+
+
+def test_in_a_container_the_session_runs_as_the_assistant_user_through_sudo(monkeypatch, tmp_path):
+    """R-F45: the command is prefixed to run as its own user; outside a container it is not."""
+    from app.engine.tasks.agent import _command, _session_environment
+
+    monkeypatch.setenv("AI_AGENT_COMMAND", "claude --model sonnet")
+    monkeypatch.setenv("AI_AGENT_SANDBOX", "container")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://secret")
+    command = _command(tmp_path, "Words", "s-1", False)
+    assert command[:6] == ["sudo", "-n", "-u", "assistant", "--", "claude"]
+    assert command[-2:] == ["--", "Words"] and "--resume" in command
+    # The sandbox of the operating system is off in a container, and the token is no argument.
+    settings = json.loads(command[command.index("--settings") + 1])
+    assert settings["sandbox"]["enabled"] is False
+    environment = _session_environment("tok-1")
+    assert "DATABASE_URL" not in environment and environment["REFIROO_TOKEN"] == "tok-1"
+    assert "tok-1" not in " ".join(command)
+    monkeypatch.setenv("AI_AGENT_SANDBOX", "")
+    assert _command(tmp_path, "Words", "s-1", False)[0] == "claude"
+
+
+def test_the_session_is_verified_by_tls_unless_the_api_is_on_this_machine():
+    from app.engine.tasks.agent import _connection, _loopback
+
+    assert _loopback("https://localhost:8000") and _loopback("http://127.0.0.1:8000")
+    assert not _loopback("https://192.168.0.36:8000") and not _loopback("https://rdm.example.org")
+    assert "curl -k" in _connection("w", "https://localhost:8000")
+    assert "curl -k" not in _connection("w", "https://rdm.example.org")

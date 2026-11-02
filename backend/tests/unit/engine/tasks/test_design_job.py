@@ -29,3 +29,26 @@ def test_a_session_event_whose_message_is_text_does_not_stop_the_reading(tmp_pat
     progress = agent._Progress(log)
     assert progress.read() is True
     assert progress.now == "Going on" and progress.tokens()[0] == 3
+
+
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+
+def _session(job):
+    session = MagicMock()
+    session.scalar.return_value = job
+    return session
+
+
+def test_a_check_run_on_another_version_of_the_draft_is_stale():
+    draft = SimpleNamespace(public_id="d", version=4)
+    ran_on = lambda version: SimpleNamespace(
+        state="completed", parameters={"draftVersion": version}
+    )
+    assert design_job.check_is_stale(_session(ran_on(3)), draft)
+    assert not design_job.check_is_stale(_session(ran_on(4)), draft)
+    # No completed check: nothing is stale, and the load is refused for its own reason.
+    assert not design_job.check_is_stale(_session(None), draft)
+    running = SimpleNamespace(state="running", parameters={"draftVersion": 1})
+    assert not design_job.check_is_stale(_session(running), draft)

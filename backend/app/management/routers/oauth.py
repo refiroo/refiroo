@@ -116,7 +116,7 @@ def _scopes(settings: IdentitySettings) -> list[str]:
 def _protected_resource(request: Request) -> Response:
     settings = _settings(request)
     if not settings.agent_access:
-        return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return _error(404, "not_found", "Agent access is off on this instance")
     return JSONResponse(
         {
             "resource": applications.endpoint(settings),
@@ -975,12 +975,16 @@ def register_assistant(
     while a thousand registrations are unused."""
     settings = _settings(request)
     if not settings.agent_access:
-        return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return _error(404, "not_found", "Agent access is off on this instance")
     if not settings.agent_open_registration:
         return _error(403, "access_denied", "An administrator registers assistants here")
     try:
         application = applications.register(
-            session, settings, payload.get("client_name"), payload.get("redirect_uris")
+            session,
+            settings,
+            payload.get("client_name"),
+            payload.get("redirect_uris"),
+            _address(request),
         )
     except applications.RegistrationRefused as refused:
         status = 429 if refused.error == "temporarily_unavailable" else 400

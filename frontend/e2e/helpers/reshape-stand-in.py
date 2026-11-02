@@ -13,7 +13,7 @@ from pathlib import Path
 import httpx
 
 plan = json.loads(Path(sys.argv[1]).read_text())
-prompt = sys.argv[sys.argv.index("-p") + 1]
+prompt = sys.argv[sys.argv.index("--") + 1]
 found = re.search(r"the engine at (\S+?),", prompt)
 if found:
     Path("engine-address").write_text(found.group(1))

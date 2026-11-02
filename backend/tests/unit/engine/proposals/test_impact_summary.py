@@ -55,7 +55,9 @@ def test_a_statement_needs_a_fact_that_exists_and_a_group_counts_as_one():
     answer = SummaryAnswer.model_validate(
         {
             "statements": [
-                {"text": "ok", "factIds": [facts[0].id, "more-change"]},
+                {"text": "ok", "factIds": [facts[0].id]},
+                # Few facts: no group of "more" was sent, so it cannot be cited (R-F27).
+                {"text": "group", "factIds": ["more-change"]},
                 {"text": "unknown", "factIds": ["ch-ffffffff"]},
                 {"text": "none", "factIds": []},
                 {"text": " ", "factIds": [facts[1].id]},
@@ -63,7 +65,7 @@ def test_a_statement_needs_a_fact_that_exists_and_a_group_counts_as_one():
         }
     )
     kept, removed = summary.checked(answer, facts)
-    assert [item.text for item in kept] == ["ok"] and removed == 3
+    assert [item.text for item in kept] == ["ok"] and removed == 4
 
 
 def test_a_change_is_worded_from_the_models_labels():

@@ -2059,6 +2059,8 @@ published prices, and the date of those prices is given.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-10-31 | AG3, first attempt: an assistant asked to prepare a change, before the dev server had reloaded | Claude Code session, `sonnet` | 1 session | 10 / 47,340 / 177,087 | 942 | not recorded | $0.234 | saw read tools only, changed nothing and said so |
 | 2026-10-31 | AG3 after the restart: the same words; five records prepared, validated and submitted | Claude Code session, `sonnet` | 1 session, 27 turns | 34 / 39,963 / 915,472 | 4,142 | 47 s | $0.385 | published by the user; see the AG3 record |
+| 2026-11-02 | R, a check that real Claude Code takes the person's words after `--` (R-F9): a prompt beginning `--add-dir=/etc` | Claude Code CLI, `haiku`, no tools | 1 | not recorded | not recorded | not recorded | $0.177 | answered "OK"; the words were read as the prompt, not as an option |
+| 2026-11-02 | R, try C: the built-in assistant on the dev server, scratch workspace `r016-builtin`, a few words and an 8-row workbook (categories and items), through the API to `checked`, then accepted to `loaded` | Claude Code, `sonnet`, started by the engine | 2 turns (design 106.7 s, load 52.5 s) | design 561,409 / 8,517; load 361,662 / 2,525 (`ai_calls`, purpose `assistantSession`) | design 2,942 in / 1,639 out | 159.3 s | $0.412 + $0.123 = $0.535 | draft with 2 types and a keyed load, dry run 11 created / 0 refused; accept installed the release and loaded 11 records into a change set, nothing activated or published, no live record before a person publishes |
 
 **What a hosting estimate needs from these rows:** the cost per task kind (e.g. loading one workbook of
 N rows and M sheets), how it grows with the file (the reading is sent as column profiles, so it grows
@@ -2071,6 +2073,67 @@ the contract lock marked additive (the `agent` audience, `/mcp` and the new rout
 (PRODUCT, CURRENT_FUNCTIONALITY, ARCHITECTURE, OPERATIONS for the AI and MCP settings and connecting an
 assistant, API, USER_JOURNEYS, API_JOURNEYS, PROJECT_STATUS, CHANGELOG); **one** bounded real-provider try and **one** real-assistant try,
 each only on the user's go-ahead with its cost stated first (AP-D11, AG-D10); the release.
+
+### R record (2026-11-02)
+
+**Review.** Every change since 0.12.0 (`deff1ff7`, 38 commits and AO3 uncommitted; 0.13–0.15 were never built), by
+five reviewers by area: the assistant sessions, the provider and summaries, agent access over MCP, migrations and
+digests, the frontend and its runners. 45 findings were fixed (R-F1–R-F45, listed in CHANGELOG [0.16.0] "Fixed (the
+0.16 release review)"); none turned out not to be a defect. The four that broke the release's own limits:
+
+- R-F1: an assistant turned its refresh token into a full management token at `/oauth/console-token`.
+- R-F2: a session (it holds Bulk) wrote live data through `/batches` and `/imports` without a change set.
+- R-F22: the upgrade failed on a 0.12 database holding a custom role named "Agent".
+- R-F45, decided by the user: in the container the session ran unsandboxed as the engine's user and could read
+  `DATABASE_URL` and `SECRETS_ENCRYPTION_KEY`; it now runs as `assistant` through one sudo rule.
+
+R-F6 is done as a check on every use (a changed assistant role refuses the turn), not as predefined roles, which take
+their groups from the catalogue. AG-D35's 50 names at `samples` stayed, as decided, and is now stated in `context.py`
+and OPERATIONS. Two more 0.16 defects were found by the runs: `compose.yml`'s fixed `env_file: .env` (AP1) stopped
+the deployment runner (now `${RDM_ENV_FILE:-.env}`), and stale tests and runner steps (J47's sweep tables, J38's
+relation list, the browser stand-ins reading the prompt after `-p`, the gates opening Export and Import from the
+toolbar WM1 had emptied).
+
+**What ran.**
+
+- **The full backend suite was stopped after 2½ minutes by the user's decision** (2026-11-02): it re-checks code
+  0.16 did not change, and every defect R found sat under passing tests. In its place: the boundary groups of every
+  fix (J47 39 cases, J50 J57 124, J51 J56 48, the identity journeys, `jobs`, `records`, `startup`, `contract`, the
+  engine unit tests), all passing; J38's case fixed. Vitest ran as `vitest related` on the changed files; format,
+  lint (0 errors) and build passed.
+- **Upgrade from 0.12.0:** a database made by 0.12.0's own code (a custom role "Agent" with two grants, a used API
+  client "AI assistant", records) upgraded to `20261123_01` in about 1 s: the role became `agent-1` "Agent
+  (custom)" with its grants, the predefined `agent` role was added, the client stayed active and still obtains a
+  token, the records' checksum was unchanged; the engine started and answered on it.
+- **Deployment runner** (`dp3`), on a copy of the checkout without the 0.13 guide's unfinished Docker stage: 11
+  checks passed. In the image, `assistant` runs `claude` through sudo and nothing else, cannot read `/proc/1/environ`
+  of the engine or list `/data/job-files`.
+- **Browser runners:** the 0.16 ones and the list runner, 11 runners, 418 checks, all passed (wm1 8, ai 125,
+  agent-access 18, ag3 10, ag4 43, ap12 29, ap13 58, ao1 37, ao2 43, ao3 28, s5 18). The ~70 older runners were not
+  run (unchanged pages).
+- **Accessibility gate:** 269 scenarios, 0 violations. **Visual gate:** 208 scenarios, 54 differing, each group
+  inspected and explained: the refiroo operator, bell and initials; WM1's Import and Export moved into the workspace
+  menu and the model editor's Close; AG4's "Has none under / Has any under"; AO3's Follow on Home; Settings › AI and
+  the version. 52 baselines re-recorded; `settings-about-light` and `-dark` were not, as they also show the 0.13 guide
+  session's unfinished About text. Seen in the editor at 1440px: the longer "Saved as you go…" line puts "Valid" on a
+  second row of the header.
+- **Real tries** (logged above): the provider, $0.068 (an account of a model change, all citations real; two
+  questions in words, filters right); a real assistant over MCP, $0.31 with a first run lost to a wrong tool pattern
+  (8 tool calls, a change set submitted, live data unchanged, `origin.kind = agent`, every call in `agent_calls`, the
+  agent token refused elsewhere, no approve or publish tool); real Claude Code reading words after `--` as the
+  prompt, $0.177. **The built-in assistant on the dev server was tried in R** (after `.dev/settings.env` took the loopback address `https://127.0.0.1:8000`) through the API as a throwaway management client, in the new scratch workspace `r016-builtin`: a few words and an 8-row workbook (Code, Name, Category). The session reached the API over TLS (no refusal), built a draft with Category and Item types and a keyed load, ran the dry run (3 categories and 8 items, 0 refused) and the task ended `checked` with one question. Before accepting, the workspace's model was unchanged, no change set existed and no live record existed. Accepting installed the release `stock-list` 0.1.0 (not activated) and loaded 11 records into the change set "Stock list load" (task `loaded`, nothing published); live records stayed 0, and nothing changed in other workspaces. Two `ai_calls` rows with tokens and cost, logged below. No fault found in the assistant. The task page's buttons were not driven in a browser. The throwaway client was deactivated after the try.
+
+**Before the commit**, J47's cases ran on the release snapshot (0.16's hunks without the 0.13 guide's) and found the
+route tables missing AG's protected-resource documents, `/oauth/register` and AP13's `/proposal`, and those three
+routes answering a bare `detail` with agent access off: R-F46, fixed; J47, J51, the sweep and the contract pass (94).
+
+**Lost in R.** The upgrade check's smoke start ran with `JOB_FILE_DIR` unset, so it used the dev instance's
+`var/job-files`; its startup cleanup removed all 157 dev job and source files and the assistant tasks' folders and
+transcripts, as its scratch database knew none of them. The dev database is intact; open assistant tasks there need
+their workbook again. No backup held the files. A smoke start now always gets its own folders.
+
+**Not changed for later releases.** Whether AGENTS.md's build acceptance becomes the narrowed form used here (boundary
+groups, the release's runners, the upgrade from the previous release, the gates) is the user's to decide.
 
 ## Exit gate
 

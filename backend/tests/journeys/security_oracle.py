@@ -22,6 +22,9 @@ BULK = ("bulk",)
 COPY_MOVE = ("copy-move",)
 AUTHORING = ("model-authoring",)
 RELEASE = ("model-release",)
+# Installing a release (and raising, retiring and deleting one) is allowed to the group that only
+# installs, besides Model release (0.16: the assistant's session installs what it proposes).
+INSTALL = ("model-install", "model-release")
 READ_RELEASES = ("model-authoring", "model-release")
 WORKSPACE_ADMIN = ("workspace-admin",)
 INTEGRATION = ("integration-admin",)
@@ -42,6 +45,10 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
             "get /.well-known/oauth-authorization-server",
             "get /health",
             "get /health/live",
+            # Agent access (0.16 AG1): how an assistant finds the sign-in, and registers itself.
+            "get /.well-known/oauth-protected-resource",
+            "get /.well-known/oauth-protected-resource/mcp",
+            "post /oauth/register",
             "get /oauth/jwks",
             "post /oauth/revoke",
             "post /oauth/token",
@@ -64,6 +71,11 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
             "get /api/v1/me/notifications/events",
             "post /api/v1/me/notifications/read",
             "post /api/v1/me/notifications/removal",
+            # One of the caller's own notices, and the workspaces the caller follows (0.16 AO3).
+            "get /api/v1/me/notifications/{notification_id}",
+            "get /api/v1/me/followed-workspaces",
+            "put /api/v1/me/followed-workspaces/{workspace_key}",
+            "delete /api/v1/me/followed-workspaces/{workspace_key}",
             "get /api/v1/me/passkeys",
             "delete /api/v1/me/passkeys/{passkey_id}",
             "patch /api/v1/me/passkeys/{passkey_id}",
@@ -89,6 +101,11 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
         [
             "get /api/v1/applications",
             "get /api/v1/applications/{application_key}",
+            # Accounts and questions about what the caller may browse (0.16 AO2, AG4); Use AI
+            # proposals is the handler's second check.
+            "post /api/v1/workspaces/{workspace_key}/history/account",
+            "post /api/v1/objects/{object_type_key}/{object_id}/history/account",
+            "post /api/v1/workspaces/{workspace_key}/query-translations",
             "get /api/v1/attribute-types",
             "get /api/v1/attribute-types/{attribute_type_key}",
             "get /api/v1/change-sets/{change_set_id}",
@@ -180,7 +197,7 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
             "post /api/v1/ai/tasks",
             "get /api/v1/ai/tasks/{task_id}",
             "get /api/v1/ai/tasks/{task_id}/changes",
-            "post /api/v1/ai/tasks/{task_id}/plan",
+            "post /api/v1/ai/tasks/{task_id}/proposal",
             "post /api/v1/ai/tasks/{task_id}/answers",
             "post /api/v1/ai/tasks/{task_id}/model",
             "post /api/v1/ai/tasks/{task_id}/accept",
@@ -268,12 +285,21 @@ _SECTIONS: list[tuple[tuple[str, ...] | None, list[str]]] = [
         ],
     ),
     (
-        RELEASE,
+        INSTALL,
         [
             "post /api/v1/model-drafts/{draft_id}/installation",
             "patch /api/v1/model-releases/{release_id}",
             "delete /api/v1/model-releases/{release_id}",
             "post /api/v1/model-releases/{release_id}/raising",
+        ],
+    ),
+    (
+        RELEASE,
+        [
+            # The account of a model change needs the right to activate (0.16 AO1); Use AI
+            # proposals is the handler's second check, as for every AI route.
+            "post /api/v1/model-drafts/{draft_id}/impact-summary",
+            "post /api/v1/model-releases/{release_id}/impact-summary",
             "post /api/v1/workspaces/{workspace_key}/model/activation",
             "post /api/v1/workspaces/{workspace_key}/model/migrations",
         ],

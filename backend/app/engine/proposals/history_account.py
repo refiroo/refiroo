@@ -14,12 +14,12 @@ a record is read into a fact or into the context. Its answer is checked as every
 import hashlib
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import bindparam, select, text
+from sqlalchemy import bindparam, select, text, true
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 from sqlalchemy.types import String
@@ -142,6 +142,9 @@ class Scope:
 
     workspace_key: str
     object_id: str | None = None
+    # The condition on ``Job`` for the jobs the reader may see (``visible_jobs``, D285); a job's file
+    # is named and linked only when it holds. None for the engine itself (R-F15).
+    jobs: Any = field(default=None, compare=False, repr=False)
 
     @property
     def record(self) -> bool:
@@ -316,7 +319,7 @@ class _Reads:
 
     def activations(self) -> list[Any]:
         return self.rows(
-            "SELECT e.aggregate_id AS id, e.changes->>'oldReleaseId' AS old_release,"
+            "SELECT e.aggregate_id AS id, e.sequence_id, e.changes->>'oldReleaseId' AS old_release,"
             " e.changes->>'newReleaseId' AS new_release, e.occurred_at, e.actor_kind,"
             " e.actor_user_id, e.actor_client_id FROM audit_events e"
             " WHERE e.workspace_key = :w AND e.aggregate_type = 'workspace_model'"
@@ -355,11 +358,14 @@ def _actor(row: Any) -> principals.Ref | None:
 class _Names:
     """What the facts name, read once for the whole account in a few statements."""
 
-    def __init__(self, session: Session, model: EngineModel | None) -> None:
+    def __init__(self, session: Session, model: EngineModel | None, jobs: Any = None) -> None:
         self.session = session
         self.model = model
+        self.visible = jobs
         self.people: dict[principals.Ref, dict[str, str]] = {}
+        # A job's kind and its file's name, the name only for a job the reader may see.
         self.jobs: dict[str, tuple[str, str | None]] = {}
+        self.admitted: set[str] = set()
         self.change_sets: dict[str, tuple[bool, str | None]] = {}
         self.releases: dict[str, str] = {}
 
@@ -386,10 +392,13 @@ class _Names:
         if not wanted:
             return
         file_name = Job.parameters["file"]["name"].as_string()
-        for job_id, kind, name in self.session.execute(
-            select(Job.id, Job.kind, file_name).where(Job.id.in_(wanted))
+        admits = self.visible if self.visible is not None else true()
+        for job_id, kind, name, admitted in self.session.execute(
+            select(Job.id, Job.kind, file_name, admits.label("admitted")).where(Job.id.in_(wanted))
         ):
-            self.jobs[job_id] = (kind, name)
+            self.jobs[job_id] = (kind, name if admitted else None)
+            if admitted:
+                self.admitted.add(job_id)
 
     def load_change_sets(self, ids: Iterable[str]) -> None:
         wanted = set(ids)
@@ -429,7 +438,7 @@ def _named(names: _Names, refs: Sequence[principals.Ref | None]) -> list[str]:
 def build_facts(session: Session, scope: Scope, period: Period) -> list[Fact]:
     """Every fact about ``scope`` over ``period``, in the order of ``KINDS``."""
     reads = _Reads(session, scope, period)
-    names = _Names(session, _model_of(session, scope.workspace_key))
+    names = _Names(session, _model_of(session, scope.workspace_key), scope.jobs)
     facts: list[Fact] = []
 
     records = reads.records()
@@ -613,7 +622,9 @@ def _sources(
                 plain = f"{label}, {when}: {changes}"
                 line = f"{label}, {file_name}, {when}: {changes}" if file_name else plain
                 data = {"file": file_name} if file_name else None
-                link = {"kind": "job", "id": row.cause_id}
+                link = (
+                    {"kind": "job", "id": row.cause_id} if row.cause_id in names.admitted else None
+                )
             facts.append(
                 Fact(
                     fact_id("source", "job", row.cause_id),
@@ -832,7 +843,7 @@ def _activations(period: Period, names: _Names, rows: list[Any]) -> list[Fact]:
         plain = f"The workspace's model changed from {old} to {new}, {when}"
         facts.append(
             Fact(
-                fact_id("model", row.id, row.new_release or ""),
+                fact_id("model", row.id, str(row.sequence_id), row.new_release or ""),
                 "model",
                 plain + (f", by {actor[0]}" if actor else ""),
                 None,

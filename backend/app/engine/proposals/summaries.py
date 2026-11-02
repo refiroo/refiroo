@@ -146,12 +146,11 @@ def context_of(
     return {"language": language, "totals": totals, "facts": shown, "more": groups}
 
 
-def checked(
-    answer: SummaryAnswer, facts: Sequence[Fact], kinds: Sequence[str]
-) -> tuple[list[Statement], int]:
-    """The statements that cite at least one fact and no fact that does not exist (a group of the
-    facts not shown counts as one), and how many were dropped (AO-D2)."""
-    known = {fact.id for fact in facts} | {group_id(kind) for kind in kinds}
+def checked(answer: SummaryAnswer, context: dict[str, Any]) -> tuple[list[Statement], int]:
+    """The statements that cite at least one fact the provider was sent, or a group of those not
+    shown, and no other, and how many were dropped (AO-D2). What was sent is ``context``: a fact it
+    was not sent cannot be cited, whatever its ID."""
+    known = {entry["id"] for entry in context["facts"]} | {entry["id"] for entry in context["more"]}
     kept: list[Statement] = []
     removed = 0
     for item in answer.statements:
@@ -229,7 +228,7 @@ def explain(
     if outcome.answer is None:
         return Summary(facts, [], 0, outcome.failure, False, outcome.call_id)
     assert isinstance(outcome.answer, SummaryAnswer)
-    statements, removed = checked(outcome.answer, facts, kinds)
+    statements, removed = checked(outcome.answer, context)
     if statements:
         store(
             session,

@@ -234,7 +234,7 @@ def open_session_of_refresh_token(
     session: Session, refresh_token: str, now: datetime
 ) -> tuple[UserSession, User] | None:
     """The open session and person this refresh token (the browser's cookie) belongs to, without
-    renewing it: the engine's own pages know who is signed in (the passkey page, I4c; the API
+    renewing it (never an assistant application's session, R-F1): the engine's own pages know who is signed in (the passkey page, I4c; the API
     reference, C1). None when the token is unknown or used, or its session or person is no longer
     open."""
     row = session.execute(
@@ -246,7 +246,14 @@ def open_session_of_refresh_token(
     if row is None:
         return None
     token, user_session, user = row
-    if token.used_at is None and is_open(user_session, now) and user.active:
+    # An assistant's session (an application's, 0.16) is no browser sign-in: it never opens the
+    # engine's own pages or the console's management token.
+    if (
+        token.used_at is None
+        and user_session.agent_application_id is None
+        and is_open(user_session, now)
+        and user.active
+    ):
         return user_session, user
     return None
 

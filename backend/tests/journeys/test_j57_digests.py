@@ -399,6 +399,8 @@ def test_a_publication_reaches_those_who_follow_the_workspace(world, smtp):  # n
     ok(_decide(world, pavel, submitter.current(requested), "approve"))
     assert len(published(olga)) == 1 and len(published(pavel)) == 0
     assert published(quinn) == [] and published(submitter) == []
+    # Rhea follows the workspace but lost Browse there: she is told nothing of it.
+    assert published(rhea) == []
     notice = published(olga)[0]
     assert notice["workspaceKey"] == W1 and notice["subject"]["kind"] == "change-set"
     # Opening it leads to the publication: the notice names it, and it is the workspace's active one.
@@ -410,7 +412,7 @@ def test_a_publication_reaches_those_who_follow_the_workspace(world, smtp):  # n
     owner = _client(world, "publisher", ("owner", {"workspaceKey": W1}))[1]
     ok(_publish(world, owner, direct))
     assert len(published(olga)) == 2 and len(published(pavel)) == 1
-    assert published(quinn) == [] and published(owner) == []
+    assert published(quinn) == [] and published(owner) == [] and published(rhea) == []
     # The first publication was superseded: its notice leads nowhere any more.
     assert ok(olga.api.get(f"/publications/{first}"))["status"] == "withdrawn"
 

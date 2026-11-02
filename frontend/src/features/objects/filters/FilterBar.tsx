@@ -189,6 +189,15 @@ export function filterPills(fields: readonly FilterField[], filters: readonly Co
 /** Below this width the editors are drawn as a bottom sheet (D163). */
 const NARROW = "(max-width: 600px)";
 
+/** A filter as a read-only pill: the same words as the bar's, for one that is only proposed or shown. */
+export function FilterPill({ label, value, proposed = false }: { label: string; value: string; proposed?: boolean }) {
+  return (
+    <span className={proposed ? "filter-pill proposed" : "filter-pill"}>
+      <span className="filter-pill-label">{label}</span> <span className="filter-pill-value">{value}</span>
+    </span>
+  );
+}
+
 export function FilterBar({
   model,
   objectTypeKey,

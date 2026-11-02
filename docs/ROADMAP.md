@@ -10,7 +10,16 @@ model and the import mapping, ADR-035), 0.11 for production hardening and staged
 0.12 for security (authentication and authorization across the backend, frontend and APIs), 0.13 for the documentation, 0.14 for the management API reference, 0.15 for the interface language, 0.16 for AI integration (proposals, agent access, operations summaries), 0.17 for the plain path, and 1.0 for
 migration-class model changes, protected publishing and extensions.
 
-## Current development baseline — Base 0.12 complete
+## Current development baseline — Base 0.16 complete
+
+Base 0.16 is complete (2026-11-02; build acceptance R in
+[its plan](BASE_0_16_IMPLEMENTATION_PLAN.md#r-record-2026-11-02)): the AI proposal provider, the assistant that designs and
+loads from a few words and a workbook, changing a workspace's model, agent access over `/mcp`, the accounts of a model
+change and of a period, and notification digests ([product release 0.16](#product-release-016--ai-integration)).
+**0.13, 0.14 and 0.15 are not built: 0.16 was released before them.** The next release is 0.13, documentation (in
+progress), then 0.14 and 0.15.
+
+## Base 0.12 complete
 
 Base 0.12 is complete (2026-10-28; build acceptance R in
 [its plan](BASE_0_12_IMPLEMENTATION_PLAN.md#r-build-acceptance-and-release)): security, authentication and
@@ -689,6 +698,8 @@ including the engine's error messages the interface can meet; English and German
 
 _Created 2026-10-27 by the user_ from a discussion of where AI fits the engine. Planned before 1.0 for
 now, like 0.14 and 0.15; the recommendations are for revision. Plan:
+**Complete 2026-11-02, released before 0.13–0.15** (build acceptance R in the plan).
+
 [BASE_0_16_IMPLEMENTATION_PLAN](BASE_0_16_IMPLEMENTATION_PLAN.md).
 
 ### Product outcome

@@ -27,7 +27,7 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 from ..engine.authorization.catalogue import ACTIONS, group_names
 from ..engine.authorization.permissions import Permissions, permissions_of
 from ..engine.authorization.requesters import job_group, requester
-from ..engine.authorization.writes import Writer, set_writer
+from ..engine.authorization.writes import Writer, refuses_live_data, set_writer
 from ..engine.change_sets.submissions import allow_withdrawal
 from ..engine.events.subscriptions import load_subscription
 from ..engine.identity.authentication import Principal
@@ -49,6 +49,8 @@ class Check:
     groups: tuple[str, ...]
     workspaces: tuple[str | None, ...] = (None,)
     anywhere: bool = False
+    # A write that names no change set, so it writes live data (a batch or an import, R-F2).
+    live: bool = False
 
 
 @dataclass(frozen=True)
@@ -151,7 +153,11 @@ def _body_context(context: Context, groups: tuple[str, ...]) -> Check:
     change_set_id = context.field("changeSetId")
     if change_set_id:
         return Check(groups, (_change_set_workspace(context, str(change_set_id)),))
-    return Check(groups, (context.field("workspaceKey") or context.default_workspace(),))
+    return Check(
+        groups,
+        (context.field("workspaceKey") or context.default_workspace(),),
+        live=context.request.method != "GET",
+    )
 
 
 def _import_form(context: Context, groups: tuple[str, ...]) -> Check:
@@ -464,6 +470,13 @@ def _allowed(
     # ``withdrawSubmission=true`` on any request lets a write to a submitted change set withdraw its
     # submission instead of being refused (0.12 A1, D426); the write unit decides it.
     allow_withdrawal(session, request.query_params.get("withdrawSubmission", "").lower() == "true")
+    if check.live and refuses_live_data(session, principal.kind, principal.row_id, check.groups):
+        raise api_error(
+            403,
+            "FORBIDDEN",
+            "An assistant's session works in change sets and never writes live data",
+            {"action": action.key, "groups": list(check.groups)},
+        )
     draft_id = request.path_params.get("draft_id")
     if draft_id is not None and request.method != "GET" and principal.kind == "client":
         refuse_draft_of_another_task(session, draft_id, principal.row_id)

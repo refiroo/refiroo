@@ -20,7 +20,7 @@ from test_j36_workspace_models import BOTH, _model, _on, _other
 # The relationships the configurations name as structures (configurations.py).
 RELATIONS = (
     "B11", "B1n", "Bn1", "Bnn", "Bown", "Bscope", "Ll2k", "Ll1k", "Bh1n", "Breq", "Bsk", "Bassoc",
-    "Bone", "Brev", "Bvk", "Bee", "Bcand", "Banc",
+    "Bone", "Brev", "Bvk", "Bee", "Bcand", "Banc", "Bsrc",
 )  # fmt: skip
 
 

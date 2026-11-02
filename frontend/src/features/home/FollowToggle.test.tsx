@@ -30,7 +30,8 @@ describe("Follow on a workspace card (0.16 AO3, AO-D38)", () => {
 
   it("starts as Following for a followed workspace", () => {
     render(<FollowToggle workspace={workspace(true)} />);
-    expect(screen.getByRole("button", { name: "Follow Master data" })).toHaveAttribute("aria-pressed", "true");
+    // The name holds the visible word, then the workspace.
+    expect(screen.getByRole("button", { name: "Following Master data" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("says why it could not and stays as it was", async () => {

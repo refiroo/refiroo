@@ -34,7 +34,7 @@ from ..engine.reads.snapshot_reads import change_set_context
 from ..engine.records.rules import get_application, get_object_type
 from ..errors import api_error
 from ..models.commands import ObjectCreate, ObjectUpdate, RelationCreate, RelationUpdate
-from ..models.database import ChangeSet, Workspace
+from ..models.database import ChangeSet, ModelRelease, Workspace
 from ..models.queries import ModelQuery
 from . import history_account as history_inputs
 from .projections.changes import change_page
@@ -317,14 +317,20 @@ def _history_facts(call: Call, arguments: dict[str, Any]) -> dict[str, Any]:
     """The engine's facts of a workspace, or one record, over ``[since, until)``: the account's own
     scope, period and facts, with no provider and no record of a call (AO-D28)."""
     workspace = _readable(call, arguments["workspace"])
+    # A job's file is named, and the job linked, only where the caller may see the job (R-F15).
+    jobs = history_inputs.readable_jobs(
+        call.permissions, call.principal.kind, call.principal.row_id
+    )
     if arguments.get("id") or arguments.get("objectType"):
         if not (arguments.get("id") and arguments.get("objectType")):
             raise api_error(422, "REQUEST_VALIDATION_ERROR", "objectType and id come together")
-        scope = history_inputs.record_scope(call.session, arguments["objectType"], arguments["id"])
+        scope = history_inputs.record_scope(
+            call.session, arguments["objectType"], arguments["id"], jobs
+        )
         if scope.workspace_key != workspace:
             raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{arguments['id']}' not found")
     else:
-        scope = history_inputs.workspace_scope(call.session, workspace)
+        scope = history_inputs.workspace_scope(call.session, workspace, jobs)
     since, until = _moment(arguments, "since"), _moment(arguments, "until")
     if since is None or until is None:
         raise api_error(422, "HISTORY_PERIOD_INVALID", "since and until are both needed")
@@ -456,6 +462,26 @@ def _validate_change_set(call: Call, arguments: dict[str, Any]) -> dict[str, Any
 
 def _create_change_set(call: Call, arguments: dict[str, Any]) -> dict[str, Any]:
     workspace = _readable(call, arguments["workspace"], CHANGE_SETS)
+    # A retry of a call whose answer was lost finds the change set it made, not a second one (R-F14).
+    earlier = call.session.scalar(
+        select(ChangeSet)
+        .where(
+            ChangeSet.workspace_key == workspace,
+            ChangeSet.name == arguments["name"],
+            created_by(call.principal),
+        )
+        .order_by(ChangeSet.created_at.desc())
+        .limit(1)
+    )
+    if earlier is not None:
+        release = call.session.get(ModelRelease, earlier.model_release_id)
+        return {
+            "changeSetId": earlier.id,
+            "workspace": earlier.workspace_key,
+            "name": earlier.name,
+            "version": earlier.version,
+            "modelReleaseId": release.public_id if release else str(earlier.model_release_id),
+        }
     started = new_change_set(
         call.session, workspace, ChangeSetCreate(name=arguments["name"], source="currentLive")
     )

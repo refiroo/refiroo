@@ -69,11 +69,14 @@ async def _connected(app: Any, token: str, use: Any) -> Any:
             auth=auth,
         )
 
-    async with streamablehttp_client(
-        "http://testserver/mcp",
-        headers=_bearer(token),
-        httpx_client_factory=factory,
-    ) as (read, write, _), ClientSession(read, write) as session:
+    async with (
+        streamablehttp_client(
+            "http://testserver/mcp",
+            headers=_bearer(token),
+            httpx_client_factory=factory,
+        ) as (read, write, _),
+        ClientSession(read, write) as session,
+    ):
         await session.initialize()
         return await use(session)
 
@@ -403,14 +406,72 @@ def test_with_registration_closed_only_a_registered_assistant_signs_in(world):
 @pytest.mark.settings(**ON, MCP_RATE_PER_MINUTE="2")
 def test_the_call_past_the_limit_is_refused_with_its_wait(world):
     """A caller past its calls a minute is told how long to wait; another caller is not held up, and
-    the refused call is on the list as limited."""
+    the refused call is on the list as limited. The protocol's client lists the tools before it calls
+    one, and a listing counts as a call (R-F12)."""
     first = _agent_client(world)
     token = ok(_client_token(world, first))["access_token"]
-    assert not _call(world, token, "describe_access").isError
     assert not _call(world, token, "describe_access").isError
     limited = _call(world, token, "describe_access")
     assert limited.isError and "try again in" in limited.content[0].text
     other = ok(_client_token(world, _agent_client(world, "Another")))["access_token"]
     assert not _call(world, other, "describe_access").isError
-    outcomes = [call["outcome"] for call in ok(world.api.get("/agent-access/calls"))["items"]]
-    assert sorted(outcomes) == ["answered", "answered", "answered", "limited"]
+    calls = ok(world.api.get("/agent-access/calls"))["items"]
+    assert sorted(call["outcome"] for call in calls) == ["answered"] * 4 + ["limited"]
+    assert {call["tool"] for call in calls} == {"describe_access", "tools/list"}
+
+
+@pytest.mark.journey("J51.4")
+@pytest.mark.settings(**ON)
+def test_an_assistants_refresh_token_gets_no_management_token_from_the_console(world):
+    """Given a person signed in through an assistant, when its refresh token is presented to the
+    API console as a browser's cookie, then there is no session: no management token and no page of
+    the engine opens for it; the same person's browser session still gets one."""
+    browser = _browser(world)
+    application = ok(_register(browser), 201)["client_id"]
+    person = _person(world, "petra")
+    _grant(world, "user", person["id"], "reader")
+    tokens = ok(_sign_in(browser, application, "petra"))
+    asking = _browser(world)
+    answer = asking.post(
+        "/oauth/console-token", headers={"Cookie": f"oauth_refresh={tokens['refresh_token']}"}
+    )
+    assert (answer.status_code, answer.json()["error"]) == (401, "not_signed_in")
+    own = _browser(world)
+    browser_sign_in(own, "petra")
+    assert own.post("/oauth/console-token").status_code == 200
+
+
+@pytest.mark.journey("J51.2")
+@pytest.mark.settings(**ON)
+def test_a_request_from_another_site_is_refused_before_any_token_is_read(world):
+    """Given agent access on, when a web page of another site posts to /mcp, then it is 403 with or
+    without a token; a request with no origin goes on to the token check."""
+    agent = _agent_client(world)
+    token = ok(_client_token(world, agent))["access_token"]
+    browser = _browser(world)
+    for headers in (_bearer(token), {}):
+        answer = browser.post(
+            "/mcp", json={}, headers={"Origin": "https://evil.example", **headers}
+        )
+        assert answer.status_code == 403, headers
+    assert browser.post("/mcp", json={}).status_code == 401
+
+
+@pytest.mark.journey("J51.6")
+@pytest.mark.settings(**ON)
+def test_what_a_self_registration_may_carry_and_how_often_one_address_may_register(world):
+    """Given open registration, a registration with more than ten addresses, or one longer than 2,000
+    characters, is refused; one address registering again and again is slowed with a wait."""
+    browser = _browser(world)
+    many = [f"http://localhost:{port}/callback" for port in range(40000, 40011)]
+    assert _register(browser, redirect_uris=many).json()["error"] == "invalid_redirect_uri"
+    long = "http://localhost:43123/" + "a" * 2000
+    assert _register(browser, redirect_uris=[long]).json()["error"] == "invalid_redirect_uri"
+    ok(_register(browser, redirect_uris=many[:10]), 201)
+    for _ in range(9):
+        ok(_register(browser), 201)
+    for _ in range(3):
+        _register(browser)
+    slowed = _register(browser)
+    assert slowed.status_code == 429 and slowed.json()["error"] == "temporarily_unavailable"
+    assert "try again in" in slowed.json()["error_description"]

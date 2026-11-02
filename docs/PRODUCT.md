@@ -161,6 +161,9 @@ can complete the task in the application; "API" means another system can.
   needs a person (new keys, names that differ, records missing from the file), checks every row and
   loads into a change set for review.
 - Change a workspace's model from words: **Change this model…** on the workspace's ⋯ menu proposes the new model and says what happens to the records. A whole type that becomes another (a rename, a merge) moves by one migration the person confirms; part of a type (a split by a value) moves in a change set, then the person activates the release with both shapes, publishes, and activates the final release. Records keep their IDs and history either way.
+- A failed or stopped assistant task always has a way out: the person says what to change and the same session goes on, Stop ends the turn and not the task, a wrong load takes words and loads again, and a published task points onward.
+- Read what a change does or what changed, in words: where a provider is set, **Explain this change** on the activation dialog gives an account of a model change (each difference, the rules the workspace's data would break, what the consumer APIs would notice) and **What changed** on a workspace's Activity or a record's History gives an account of a period. The engine counts, the model only words, each statement leads to the facts it rests on, and nothing is sent before the person asks.
+- Get a digest instead of many mails: each kind of notice is mailed at once, in a daily or weekly digest, or not at all, and a person can follow a workspace to be told when a change set is published there.
 
 ### Manage workspaces — browser and API
 

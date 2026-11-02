@@ -25,7 +25,7 @@ import openpyxl
 TYPES = {"Domains": ("rdm-master", "domain"), "Systems": ("rdm-systems", "system")}
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 TOKEN = os.environ["REFIROO_TOKEN"]
-prompt = sys.argv[sys.argv.index("-p") + 1]
+prompt = sys.argv[sys.argv.index("--") + 1]
 found = re.search(r"the engine at (\S+?),", prompt)
 if found:
     Path("engine-address").write_text(found.group(1))

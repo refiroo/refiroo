@@ -66,6 +66,7 @@ const compose = (args, options = {}) =>
   spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", ...args], {
     cwd: root,
     encoding: "utf8",
+    env: { ...process.env, RDM_ENV_FILE: env.file },
     ...options,
   });
 function must(result, what) {
@@ -131,13 +132,13 @@ async function failedSignIn(base, username, forwarded) {
   expect(response.status === 401, `a wrong password answered ${response.status}, not 401`);
 }
 const throttleAddresses = () =>
-  spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", "exec", "-T", "database", "psql", "-U", "rdm", "-d", "rdm", "-Atc", "select key from sign_in_failures where kind='address' order by key"], { cwd: root, encoding: "utf8" })
+  spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", "exec", "-T", "database", "psql", "-U", "rdm", "-d", "rdm", "-Atc", "select key from sign_in_failures where kind='address' order by key"], { cwd: root, encoding: "utf8", env: { ...process.env, RDM_ENV_FILE: env.file } })
     .stdout.split("\n").map((line) => line.trim()).filter(Boolean);
 const clearThrottle = () =>
-  spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", "exec", "-T", "database", "psql", "-U", "rdm", "-d", "rdm", "-Atc", "delete from sign_in_failures"], { cwd: root, encoding: "utf8" });
+  spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", "exec", "-T", "database", "psql", "-U", "rdm", "-d", "rdm", "-Atc", "delete from sign_in_failures"], { cwd: root, encoding: "utf8", env: { ...process.env, RDM_ENV_FILE: env.file } });
 
 async function cleanup() {
-  spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", "down", "-v", "--rmi", "local"], { cwd: root, encoding: "utf8" });
+  spawnSync("docker", ["compose", "-p", project, "--env-file", env.file, "-f", "compose.yml", "down", "-v", "--rmi", "local"], { cwd: root, encoding: "utf8", env: { ...process.env, RDM_ENV_FILE: env.file } });
   rmSync(work, { recursive: true, force: true });
 }
 

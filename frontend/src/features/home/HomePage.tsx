@@ -325,12 +325,11 @@ export function FollowToggle({ workspace }: { workspace: OwnWorkspace }) {
         type="button"
         className="secondary home-follow-button"
         aria-pressed={following}
-        aria-label={`Follow ${workspace.label}`}
         disabled={pending}
         onClick={() => void toggle()}
       >
         <Icon name="bell" size={16} />
-        {following ? "Following" : "Follow"}
+        {following ? "Following" : "Follow"} <span className="visually-hidden">{workspace.label}</span>
       </button>
       {failure && (
         <span className="account-muted" role="alert">

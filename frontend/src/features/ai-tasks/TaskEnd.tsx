@@ -37,7 +37,7 @@ export function TaskEnd({
   return (
     <Section title={title}>
       {reasons.length > 0 ? (
-        <TaskNotes notes={task.notes} />
+        <TaskNotes notes={reasons} />
       ) : (
         <Notice tone={failed ? "error" : "info"}>
           {failed

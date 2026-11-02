@@ -536,7 +536,7 @@ def _outline(world, text):
 
 STAND_IN = """#!/usr/bin/env python3
 import json, os, sys
-prompt = sys.argv[sys.argv.index("-p") + 1]
+prompt = sys.argv[sys.argv.index("--") + 1]
 config = json.load(open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "config.json")))
 log = config["log"]
 open(log, "a").write(json.dumps({"prompt": prompt, "args": sys.argv[1:], "files": sorted(os.listdir("."))}) + "\\n")
@@ -579,6 +579,18 @@ if "accepted" in prompt:
             version = api("GET", "/change-sets/" + change_set)["version"]
             api("PATCH", "/change-sets/" + change_set + "/model-release",
                 json={"modelReleaseId": made[0]["id"], "expectedChangeSetVersion": version})
+        if config.get("live"):
+            # A batch and an import that name no change set write live data: refused to a session.
+            live = {"workspaceKey": config["workspace"], "policy": "independent"}
+            sent = {
+                "batch": httpx.request("POST", base + "/batches", headers=head, timeout=60, json={
+                    **live, "run": "inline", "items": config["live"]["items"]}),
+                "import": httpx.request("POST", base + "/imports", headers=head, timeout=60,
+                    files=workbook(), data={"request": json.dumps({
+                        **live, "stage": "execute", "profile": config["live"]["profile"]})}),
+            }
+            open(config["live"]["out"], "w").write(json.dumps(
+                {name: [r.status_code, r.json().get("code")] for name, r in sent.items()}))
         if config.get("profile"):
             version = api("GET", "/change-sets/" + change_set)["version"]
             api("POST", "/imports", files=workbook(), data={"request": json.dumps({
@@ -601,14 +613,41 @@ else:
             "sourceFileId": source["id"], "workspaceKey": config["workspace"],
             "profile": config["profile"]})
         until("/model-drafts/" + config["draft"] + "/dry-run", lambda f: f["state"] == "completed")
-    json.dump({"draftId": config["draft"], "summary": "A plan.",
+    draft_id = config["draft"]
+    if config.get("api") and config.get("ownDraft"):
+        draft_id = api("POST", "/model-drafts", json={"name": "Its own", "model": {}})["id"]
+    json.dump({"draftId": draft_id, "summary": "A plan.",
                "questions": [{"text": "Which?", "options": ["A", "B"], "assumed": "A"}]},
               open("proposal.json", "w"))
     print(json.dumps({"type": "result", "result": "Ready."}))
 """
 
 
-def _assistant(world, tmp_path, monkeypatch, workspace, script=STAND_IN, model=None, **settings):
+def _trust_stand_in(monkeypatch):
+    """The stand-in's draft and change set are made by the test's client, not the task's own, which
+    the engine would refuse; so it takes the stand-in's word for them (R-F3, R-F4 have cases of their
+    own that do not)."""
+    from sqlalchemy import select
+
+    from app.engine.tasks import agent
+    from app.models.database import ChangeSet
+
+    monkeypatch.setattr(agent, "_openapi", lambda url: b"{}")
+    monkeypatch.setattr(agent, "_drafted_by", lambda session, task, draft: True)
+    monkeypatch.setattr(
+        agent,
+        "_change_set_of",
+        lambda session, task, change_set_id: (
+            session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
+            if change_set_id
+            else None
+        ),
+    )
+
+
+def _assistant(
+    world, tmp_path, monkeypatch, workspace, script=STAND_IN, model=None, verified=False, **settings
+):
     """``script`` as the assistant's command, with a draft of its own for the proposal and a change
     set of its own for the load; ``config.json`` is what the script reads, so a test changes it
     between tasks. Returns the settings written, with the ``log`` of what the script was asked."""
@@ -634,7 +673,10 @@ def _assistant(world, tmp_path, monkeypatch, workspace, script=STAND_IN, model=N
     }
     (tmp_path / "config.json").write_text(json.dumps(found))
     monkeypatch.setenv("AI_AGENT_COMMAND", str(path))
-    monkeypatch.setattr(agent, "_openapi", lambda url: b"{}")
+    if verified:
+        monkeypatch.setattr(agent, "_openapi", lambda url: b"{}")
+    else:
+        _trust_stand_in(monkeypatch)
     return found
 
 
@@ -748,6 +790,91 @@ def test_a_session_proposes_on_a_draft_goes_on_with_the_persons_words_and_loads_
     assert gone["state"] == "cancelled" and gone["draftId"] is None
 
 
+@pytest.mark.journey("J50.30")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_session_never_writes_live_data_by_a_batch_or_an_import(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a session whose grants include bulk, when it posts a batch and an import that name no
+    change set, then both are refused 403 and the workspace's records are as they were."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    ledgers = Ledgers(world)
+    out = tmp_path / "live.json"
+    items = [
+        {
+            "op": "update",
+            "target": {"id": record["id"]},
+            "expectedVersion": record["version"],
+            "name": "Taken live",
+        }
+        for record in ledgers.records.values()
+    ]
+    settings = _assistant(
+        world,
+        tmp_path,
+        monkeypatch,
+        ledgers.workspace,
+        api=True,
+        live={"items": items, "profile": {"sources": []}, "out": str(out)},
+    )
+    key = world.key("R")
+
+    def records():
+        page = ok(world.api.get(f"/objects/{key}", workspaceKey=ledgers.workspace, pageSize=500))
+        return sorted((item["id"], item["version"], item["name"]) for item in page["items"])
+
+    before = records()
+    task = ok(_create(world, ledgers.workspace, ledgers.book(), words="Make it so"), 202)
+    _run(world)
+    task = _task(world, task)
+    ok(world.api.post(f"/ai/tasks/{task['id']}/accept", {"expectedVersion": task["version"]}), 202)
+    _run(world)
+    answers = json.loads(out.read_text())
+    assert (answers["batch"][0], answers["import"][0]) == (403, 403), answers
+    assert records() == before and settings["workspace"] == ledgers.workspace
+
+
+@pytest.mark.journey("J50.30")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_session_is_taken_at_its_word_for_neither_a_draft_nor_a_change_set_it_did_not_make(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a session that names, in its own words, a draft and a change set another client made,
+    when its turns end, then the draft is not proposed (and stays, for discarding it would delete a
+    person's), and the change set is not handed over as the load; a draft it made itself is
+    proposed."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    ledgers = Ledgers(world)
+    settings = _assistant(world, tmp_path, monkeypatch, ledgers.workspace, verified=True, api=True)
+    config = tmp_path / "config.json"
+
+    task = ok(_create(world, ledgers.workspace, ledgers.book(), words="Make it so"), 202)
+    _run(world)
+    task = _task(world, task)
+    assert task["state"] == "failed" and task["draftId"] is None
+    assert any("did not create" in note["text"] for note in task["notes"]), task["notes"]
+    assert ok(world.api.get(f"/model-drafts/{settings['draft']}"))["id"] == settings["draft"]
+
+    config.write_text(json.dumps({**settings, "ownDraft": True}))
+    ok(world.api.post(f"/ai/tasks/{task['id']}/retry", {"expectedVersion": task["version"]}), 202)
+    _run(world)
+    task = _task(world, task)
+    assert task["state"] == "checked" and task["draftId"] != settings["draft"], task["notes"]
+
+    ok(world.api.post(f"/ai/tasks/{task['id']}/accept", {"expectedVersion": task["version"]}), 202)
+    _run(world)
+    task = _task(world, task)
+    # The change set it names was made by the test's client: not a load of the task's.
+    assert task["state"] == "failed" and task["result"] is None
+    assert ok(world.api.get(f"/change-sets/{settings['changeSet']}"))["id"] == settings["changeSet"]
+
+
 WAITING_STAND_IN = """#!/usr/bin/env python3
 import json, os, time
 folder = os.path.dirname(os.path.realpath(__file__))
@@ -782,7 +909,7 @@ def test_a_job_the_session_queues_runs_under_its_grants_even_when_the_session_ha
     draft = ok(world.api.post("/model-drafts", {"name": "A proposal", "model": {}}), 201)
     (tmp_path / "config.json").write_text(json.dumps({"draft": draft["id"]}))
     monkeypatch.setenv("AI_AGENT_COMMAND", str(script))
-    monkeypatch.setattr(agent, "_openapi", lambda url: b"{}")
+    _trust_stand_in(monkeypatch)
     task = ok(_create(world, ledgers.workspace, ledgers.book()), 202)
 
     with ThreadPoolExecutor(1) as pool:
@@ -1266,7 +1393,7 @@ def test_every_turn_of_a_session_leaves_one_call_with_its_tokens_and_cost(
     config = tmp_path / "config.json"
     config.write_text(json.dumps(settings))
     monkeypatch.setenv("AI_AGENT_COMMAND", str(script))
-    monkeypatch.setattr(agent, "_openapi", lambda url: b"{}")
+    _trust_stand_in(monkeypatch)
     files = world.api.client.app.state.job_worker.files
 
     def calls(task):

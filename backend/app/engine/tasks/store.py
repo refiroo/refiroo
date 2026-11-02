@@ -194,13 +194,20 @@ def stopped(session: Session, task: AiTask, retention_days: int) -> None:
     ``stopped`` and takes words. The caller has undone what a load wrote."""
     design = dict(task.design or {})
     design.pop("progress", None)
+    undone = not design.pop("undoSkipped", False)
     loading = task.state == "loading"
     if loading:
         task.result = None
         task.state = "checked"
         task.finished_at = None
         touch(task, retention_days)
-        note(task, "note", "You stopped the load. The change set it wrote was discarded.")
+        note(
+            task,
+            "note",
+            "You stopped the load. The change set it wrote was discarded."
+            if undone
+            else "You stopped the load.",
+        )
     elif has_proposal(task):
         was_load = design.get("stage") == "load"
         design["stage"] = "model"
@@ -210,7 +217,11 @@ def stopped(session: Session, task: AiTask, retention_days: int) -> None:
         note(
             task,
             "note",
-            "You stopped the assistant. What it had loaded was undone, and the proposal is as you accepted it."
+            (
+                "You stopped the assistant. What it had loaded was undone, and the proposal is as you accepted it."
+                if undone
+                else "You stopped the assistant, and the proposal is as you accepted it."
+            )
             if was_load
             else "You stopped the assistant. Its last proposal is as it was; what you sent was not made.",
         )

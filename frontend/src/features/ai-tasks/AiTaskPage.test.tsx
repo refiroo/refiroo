@@ -29,6 +29,7 @@ vi.mock("@/features/jobs/useJobStream", () => ({ useJobStream: vi.fn() }));
 const groups = vi.hoisted(() => ({ held: ["change-sets", "model-release"] as string[] }));
 vi.mock("@/features/security/permissions", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/security/permissions")>()),
+  useHeldAnywhere: () => [{ key: "model-release", name: "Model release", instance: true, workspaces: [] }],
   useWorkspacePermissions: () => ({
     workspaceKey: "west",
     actionGroups: groups.held.map((key) => ({ key, label: key })),

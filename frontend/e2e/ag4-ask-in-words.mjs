@@ -285,9 +285,13 @@ try {
 harness = await bootHarness();
 try {
   const { page, uiUrl } = harness;
+  // The system and the permissions are read before a missing switch means anything.
+  const system = page.waitForResponse((a) => new URL(a.url()).pathname === "/api/v1/system" && a.ok());
+  const permissions = page.waitForResponse((a) => new URL(a.url()).pathname === "/api/v1/me/permissions" && a.ok());
   await page.goto(`${uiUrl}${lists[0].path}?workspaceKey=default`);
   await page.getByRole("heading", { level: 1, name: lists[0].heading }).waitFor();
   await page.getByRole("textbox", { name: "Search", exact: true }).waitFor();
+  await Promise.all([system, permissions]);
   assert.equal(await page.getByRole("radio", { name: "Ask" }).count(), 0, "no switch without a provider");
   checks.push("without a provider the list has no Search | Ask switch");
 } finally {

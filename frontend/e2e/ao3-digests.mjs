@@ -91,7 +91,7 @@ async function walk(configuration) {
     // 1. Follow on a home card.
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`${uiUrl}/`);
-    const follow = page.getByRole("button", { name: /^Follow / }).first();
+    const follow = page.getByRole("button", { name: /^Follow(ing)? / }).first();
     await follow.waitFor();
     assert.equal(await follow.getAttribute("aria-pressed"), "false");
     await accessible(page, `ao3-${label}-home-before`);
@@ -121,12 +121,12 @@ async function walk(configuration) {
         // Back to a clean choice for the narrow walk: the digest is kept, the followed workspace too.
         await page.goto(`${uiUrl}/`);
         await page
-          .getByRole("button", { name: /^Follow / })
+          .getByRole("button", { name: /^Follow(ing)? / })
           .first()
           .waitFor();
         await noOverflow(page, `${label} home 390`);
         const height = await page
-          .getByRole("button", { name: /^Follow / })
+          .getByRole("button", { name: /^Follow(ing)? / })
           .first()
           .evaluate((node) => node.getBoundingClientRect().height);
         assert.ok(height >= 44, `${label}: Follow is at least 44px high at 390px (${height})`);
@@ -192,7 +192,7 @@ async function walk(configuration) {
     await page.getByText("You do not follow a workspace.").waitFor();
     await shot("stopped");
     await page.goto(`${uiUrl}/`);
-    const again = page.getByRole("button", { name: /^Follow / }).first();
+    const again = page.getByRole("button", { name: /^Follow(ing)? / }).first();
     await again.waitFor();
     assert.equal(await again.getAttribute("aria-pressed"), "false");
     checks.push(`${label}: Stop following removes it from the list and Home offers Follow again`);

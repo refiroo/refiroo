@@ -13,9 +13,11 @@ from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
+from ...models.database import OAuthClient
 from .catalogue import ACTIONS, group_names
 from .permissions import EVERYTHING, Narrowing, Permissions, PrincipalKind
 
@@ -182,8 +184,35 @@ def _require_route(session: Session, workspace_key: str, only: str, needs: str) 
     )
 
 
+# The groups whose writes change live data.
+LIVE_GROUPS = frozenset({"edit-live", "publish", "approve", "bulk", "copy-move"})
+
+
+def refuses_live_data(
+    session: Session, kind: PrincipalKind, row_id: int, groups: Iterable[str]
+) -> bool:
+    """Whether this caller is a Claude Code session (an assistant task's client), which proposes
+    in change sets and never writes live data, whatever groups it holds (0.16 R-F2)."""
+    if kind != "client" or not LIVE_GROUPS.intersection(groups):
+        return False
+    return session.scalar(select(OAuthClient.kind).where(OAuthClient.id == row_id)) == "session"
+
+
 def require_live(session: Session, workspace_key: str) -> None:
-    """A live write by a writer authorized only for change-set work is refused ``403 FORBIDDEN``."""
+    """A live write by a writer authorized only for change-set work, or by an assistant's session,
+    is refused ``403 FORBIDDEN``."""
+    writer = session.info.get(_WRITER)
+    if (
+        writer is not None
+        and writer.principal is not None
+        and refuses_live_data(session, writer.principal[0], writer.principal[1], writer.groups)
+    ):
+        raise api_error(
+            403,
+            "FORBIDDEN",
+            f"An assistant's session never writes live data in workspace '{workspace_key}'",
+            {"action": writer.action, "workspaceKey": workspace_key},
+        )
     _require_route(session, workspace_key, "change-sets", "edit-live")
 
 

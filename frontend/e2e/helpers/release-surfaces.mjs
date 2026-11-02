@@ -7,6 +7,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./harness.mjs";
 import { seedMappingData } from "./acceptance-data.mjs";
+import { workspaceAction } from "./workspaceMenu.mjs";
 
 const csv = (rows) => rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n") + "\n";
 const attribute = (record, key) => record.attributes.find((item) => item.attributeTypeKey === key)?.value;
@@ -193,7 +194,8 @@ export async function visitReleaseSurfaces(visit) {
         "export-dialog",
         async () => {
           await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
-          await page.getByRole("button", { name: "Export", exact: true }).click();
+          // Export is in the workspace's menu since 0.16 WM1.
+          await workspaceAction(page, "Export…");
           await dialog("Export").waitFor();
         },
       ],
@@ -218,7 +220,7 @@ export async function visitReleaseSurfaces(visit) {
         "import-dialog",
         async (scheme) => {
           await page.goto(`${uiUrl}/apps/rdm-systems/views/systems?workspaceKey=default`);
-          await page.getByRole("button", { name: "Import", exact: true }).click();
+          await workspaceAction(page, "Import…");
           await dialog("Import").getByLabel("File", { exact: true }).setInputFiles(await importFile(scheme));
           await dialog("Import").getByLabel("Profile", { exact: true }).selectOption("gate-systems");
         },

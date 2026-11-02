@@ -417,10 +417,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # the update `kinds` as those words and `digest` (`DigestUpdate`); `GET /me/followed-workspaces`,
     # `PUT` and `DELETE /me/followed-workspaces/{workspace_key}` (`FollowedWorkspacePage`,
     # `FollowedWorkspaceResponse`), `GET /me/notifications/{notification_id}`, and `following` on
-    # `OwnWorkspaceResponse`; nothing else changed.
+    # `OwnWorkspaceResponse`; nothing else changed. Re-baselined for 0.16.0: info.version 0.16.0; with
+    # 0.12.0 the document hashes to the previous lock exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "742823eb2e9a2929d9df334da6127aa4087ed90b67ca62ea81ac5609f59c0ce2"
+        "428e5d147b70e66e309931fd508568209ef80c779fc39050640b00f6813f073a"
     )
 
 

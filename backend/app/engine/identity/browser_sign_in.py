@@ -56,7 +56,9 @@ def check_request(
         application = (
             applications.usable(session, settings, client_id) if session is not None else None
         )
-        known = application is not None and applications.accepts(application, redirect_uri)
+        known = application is not None and applications.accepts(
+            application, redirect_uri, settings.agent_redirect_hosts
+        )
     if not known:
         return RequestRefused("unknown_client")
     state = fields.get("state")

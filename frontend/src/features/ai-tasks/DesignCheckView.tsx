@@ -74,7 +74,9 @@ export function DesignCheckView({
   const hasProfile = (design?.profile?.sources.length ?? 0) > 0;
   const relationships = summary.relationships ?? 0;
   const rows = summary.created + summary.updated + summary.unchanged + summary.refused + (summary.skipped ?? 0);
-  const allowed = canLoad && (!model || canRelease);
+  // A check from before the draft's last change does not cover the model as it stands (R-F32).
+  const stale = !!check.draftChanged;
+  const allowed = canLoad && !stale && (!model || canRelease);
   const changing = check.sheets.filter((sheet) => sheet.updated > 0 && sheet.source != null && !sheet.structure);
   return (
     <div className="task-check">
@@ -171,6 +173,10 @@ export function DesignCheckView({
             <Notice tone="info">
               This design changes the model, so a model administrator runs this load. They can open this task: it is
               visible to the administrators of {workspaceLabel}.
+            </Notice>
+          ) : stale ? (
+            <Notice tone="warning" title="The check from before the draft's last change">
+              <p>The draft changed after the check; check it again before you load.</p>
             </Notice>
           ) : undefined
         }

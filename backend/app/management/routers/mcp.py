@@ -91,6 +91,40 @@ def _listed(principal: Principal) -> list[types.Tool]:
         ]
 
 
+def _counted(principal: Principal, name: str, produce: Any) -> Any:
+    """A listing, counted with the calls against the rate limit and recorded like one (R-F12)."""
+    started = time.perf_counter()
+    context = current_request()
+    request_id = context.request_id if context is not None else None
+
+    def finish(outcome: calls.Outcome) -> None:
+        with SessionLocal() as session:
+            calls.record(
+                session,
+                principal,
+                tool=name,
+                arguments=[],
+                outcome=outcome,
+                duration_ms=int((time.perf_counter() - started) * 1000),
+                request_id=request_id,
+            )
+            session.commit()
+
+    with SessionLocal() as session:
+        limit = get_settings().mcp_rate_per_minute
+        wait = calls.seconds_to_wait(session, principal, limit, datetime.now(UTC))
+    if wait:
+        finish("limited")
+        raise ToolRefused(f"More than {limit} calls a minute; try again in {wait} seconds")
+    try:
+        answer = produce()
+    except Exception:
+        finish("failed")
+        raise
+    finish("answered")
+    return answer
+
+
 def _resources(principal: Principal, cursor: str | None) -> types.ListResourcesResult:
     with SessionLocal() as session:
         found = resources_for(session, _permissions(session, principal))
@@ -177,25 +211,24 @@ def _run(
         if wait:
             finish("limited")
             raise ToolRefused(f"More than {limit} calls a minute; try again in {wait} seconds")
-        permissions = _permissions(session, principal)
-        tool = fixed if fixed is not None else find_tool(session, permissions, name)
-        if tool is None or not tool.offered_to(permissions):
-            finish("refused")
-            raise ToolRefused(f"This connection has no tool named '{name}'")
+        # Everything from here is recorded however it ends, a lookup that fails included (R-F12).
         try:
-            jsonschema.validate(arguments, tool.input_schema)
-        except jsonschema.ValidationError as invalid:
-            finish("refused")
-            raise ToolRefused(f"The arguments do not fit the tool: {invalid.message}") from None
-        application = (
-            applications.names(session, [principal.application_row_id]).get(
-                principal.application_row_id
+            permissions = _permissions(session, principal)
+            tool = fixed if fixed is not None else find_tool(session, permissions, name)
+            if tool is None or not tool.offered_to(permissions):
+                raise ToolRefused(f"This connection has no tool named '{name}'")
+            try:
+                jsonschema.validate(arguments, tool.input_schema)
+            except jsonschema.ValidationError as invalid:
+                raise ToolRefused(f"The arguments do not fit the tool: {invalid.message}") from None
+            application = (
+                applications.names(session, [principal.application_row_id]).get(
+                    principal.application_row_id
+                )
+                if principal.application_row_id is not None
+                else None
             )
-            if principal.application_row_id is not None
-            else None
-        )
-        call = Call(session, principal, permissions, application)
-        try:
+            call = Call(session, principal, permissions, application)
             if tool.writes is not None:
                 _write_as_caller(session, call, tool.writes)
             answer = _fitted(tool, call, arguments)
@@ -227,8 +260,14 @@ def _server() -> Server:
         return request.scope[_PRINCIPAL]
 
     @server.list_tools()
-    async def list_tools() -> list[types.Tool]:
-        return await anyio.to_thread.run_sync(_listed, principal())
+    async def list_tools(request: types.ListToolsRequest) -> types.ListToolsResult:
+        who = principal()
+        # The SDK also lists the tools itself, with no request, to find the tool a call names: that
+        # is no call of the assistant's, so it is not counted (R-F12).
+        if request is None:
+            return types.ListToolsResult(tools=await anyio.to_thread.run_sync(_listed, who))
+        tools = await anyio.to_thread.run_sync(_counted, who, "tools/list", lambda: _listed(who))
+        return types.ListToolsResult(tools=tools)
 
     # The list differs per caller, so the SDK's one cached list cannot validate: ``_run`` does.
     @server.call_tool(validate_input=False)
@@ -238,7 +277,10 @@ def _server() -> Server:
     @server.list_resources()
     async def list_resources(request: types.ListResourcesRequest) -> types.ListResourcesResult:
         cursor = request.params.cursor if request.params is not None else None
-        return await anyio.to_thread.run_sync(_resources, principal(), cursor)
+        who = principal()
+        return await anyio.to_thread.run_sync(
+            _counted, who, "resources/list", lambda: _resources(who, cursor)
+        )
 
     @server.list_resource_templates()
     async def list_resource_templates() -> list[types.ResourceTemplate]:

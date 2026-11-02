@@ -245,14 +245,13 @@ async function walk(configuration, level) {
     await accessible(page, `ao2-${label}-record`);
     await shot("record");
     const lead = history.locator(".impact-facts li button", { hasText: /^Show (it|them)$/ }).first();
-    if ((await lead.count()) > 0) {
-      await lead.click();
-      await page
-        .locator(".scope-banner")
-        .getByText(/^Narrowed by: /)
-        .waitFor();
-      await page.locator(".scope-banner").getByRole("button", { name: "Show all history" }).click();
-    }
+    assert.ok((await lead.count()) > 0, `${label}: a record's facts offer a Show button to narrow the timeline`);
+    await lead.click();
+    await page
+      .locator(".scope-banner")
+      .getByText(/^Narrowed by: /)
+      .waitFor();
+    await page.locator(".scope-banner").getByRole("button", { name: "Show all history" }).click();
     checks.push(`${label}: a record's History offers the same section, and a fact narrows its timeline`);
     await page.setViewportSize({ width: 390, height: 844 });
     await noOverflow(page, `${label} record 390`);
@@ -265,14 +264,23 @@ async function walk(configuration, level) {
   }
 }
 
+const readSystem = (page) =>
+  page.waitForResponse((answer) => new URL(answer.url()).pathname === "/api/v1/system" && answer.ok());
+const readPermissions = (page) =>
+  page.waitForResponse((answer) => new URL(answer.url()).pathname === "/api/v1/me/permissions" && answer.ok());
+
 await walk(SHAPED_MODELS[0], "values");
 await walk(SHAPED_MODELS[1], "structure");
 
 // Without a provider the Activity has no section.
 const bare = await bootHarness();
 try {
+  // The system and the permissions are read before a missing section means anything.
+  const system = readSystem(bare.page);
+  const permissions = readPermissions(bare.page);
   await bare.page.goto(`${bare.uiUrl}/settings/workspaces/default/activity`);
   await bare.page.getByRole("group", { name: "Filter the activity" }).waitFor();
+  await Promise.all([system, permissions]);
   assert.equal(await bare.page.getByRole("heading", { name: "What changed" }).count(), 0);
   checks.push("without a provider the Activity has no What changed section");
 } finally {

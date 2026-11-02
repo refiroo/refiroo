@@ -39,10 +39,13 @@ FREE_FAILURES: dict[str, int] = {
     "reset-address": 20,
     "client-account": 5,
     "client-address": 20,
+    "register-address": 10,
 }
 RESET = "reset-"
 # A wrong client secret at the token endpoint counts against the client ID and the address (R).
 CLIENT = "client-"
+# An assistant's self-registration counts against the address (R-F10).
+REGISTER = "register-"
 LONGEST_WAIT_SECONDS = 15 * 60
 # Counts lapse after this long without a failure.
 FAILURES_LAPSE = timedelta(hours=24)

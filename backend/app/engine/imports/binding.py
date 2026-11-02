@@ -1704,13 +1704,15 @@ class _ProfileBinding:
                 FROM import_rows m
                 WHERE m.error IS NULL AND (m.rep_id IS NOT NULL OR EXISTS (
                     SELECT 1 FROM import_rows x WHERE x.rep_id = m.row_id))),
+            filled AS (
+                SELECT v.rep, jsonb_object_agg(a.key, a.value) AS attributes
+                FROM members v CROSS JOIN LATERAL jsonb_each(v.attributes) a GROUP BY v.rep),
             merged AS (
                 SELECT u.rep, max(u.name) AS name,
                        (array_agg(u.parent) FILTER (WHERE u.parent IS NOT NULL))[1] AS parent,
-                       coalesce((SELECT jsonb_object_agg(a.key, a.value)
-                                 FROM members v CROSS JOIN LATERAL jsonb_each(v.attributes) a
-                                 WHERE v.rep = u.rep), '{}'::jsonb) AS attributes
-                FROM members u GROUP BY u.rep)
+                       coalesce(f.attributes, '{}'::jsonb) AS attributes
+                FROM members u LEFT JOIN filled f ON f.rep = u.rep
+                GROUP BY u.rep, f.attributes)
             UPDATE import_rows r SET name = coalesce(r.name, g.name),
                 parent = coalesce(r.parent, g.parent), attributes = g.attributes
             FROM merged g WHERE r.row_id = g.rep
@@ -1835,13 +1837,22 @@ class _ProfileBinding:
         # keyed by the code (0.16 AP6). Only where the value names one record.
         self._sql(
             """
-            WITH written AS (
+            WITH wanted AS (
+                SELECT DISTINCT object_type_key, key_attr AS attr FROM import_rows
+                WHERE error IS NULL AND rep_id IS NULL AND mode = 'existing'
+                  AND NOT existing AND record_id IS NULL AND key_kind = 'attribute'),
+            values_written AS (
+                SELECT f.object_type_key, k.attr, f.attributes -> k.attr AS value, f.record_id,
+                    f.existing, f.current_name
+                FROM wanted k JOIN import_rows f ON f.object_type_key = k.object_type_key
+                WHERE f.mode = 'upsert' AND f.error IS NULL AND f.rep_id IS NULL
+                  AND f.attributes -> k.attr IS NOT NULL),
+            written AS (
                 SELECT r.row_id, min(f.record_id) AS one, count(DISTINCT f.record_id) AS n,
                     bool_and(f.existing) AS existing, min(f.current_name) AS current_name
-                FROM import_rows r JOIN import_rows f
-                    ON f.mode = 'upsert' AND f.error IS NULL AND f.rep_id IS NULL
-                   AND f.object_type_key = r.object_type_key
-                   AND f.attributes -> r.key_attr = r.key_value
+                FROM import_rows r JOIN values_written f
+                    ON f.object_type_key = r.object_type_key AND f.attr = r.key_attr
+                   AND f.value = r.key_value
                 WHERE r.error IS NULL AND r.rep_id IS NULL AND r.mode = 'existing'
                   AND NOT r.existing AND r.record_id IS NULL AND r.key_kind = 'attribute'
                 GROUP BY r.row_id)

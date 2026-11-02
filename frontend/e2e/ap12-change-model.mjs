@@ -372,11 +372,15 @@ async function withoutAssistant() {
   try {
     const base = await harness.api("/model");
     const application = base.applications[0];
+    // The system and the permissions are read before a missing item means anything.
+    const system = page.waitForResponse((a) => new URL(a.url()).pathname === "/api/v1/system" && a.ok());
+    const permissions = page.waitForResponse((a) => new URL(a.url()).pathname === "/api/v1/me/permissions" && a.ok());
     await page.goto(`${uiUrl}/apps/${application.key}/views/${application.defaultView}?workspaceKey=default`);
     const trigger = page.getByRole("button", { name: "Workspace actions" });
     await trigger.waitFor();
     await trigger.click();
     await page.getByRole("menuitem", { name: "Edit model" }).waitFor();
+    await Promise.all([system, permissions]);
     assert.equal(await page.getByRole("menuitem", { name: "Change this model…" }).count(), 0);
     checks.push("without AI_AGENT_COMMAND the workspace menu has no Change this model…");
   } finally {

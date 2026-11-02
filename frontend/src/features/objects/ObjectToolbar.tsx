@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
-import { FilterBar, filterFields, filterPills, pillText } from "@/features/objects/filters/FilterBar";
+import { FilterBar, FilterPill, filterFields, filterPills, pillText } from "@/features/objects/filters/FilterBar";
 import { relationshipFilterFields } from "@/model/lookup";
 import { useRelationFilterNames } from "@/features/objects/RelationFilter";
 import { useQueryTranslationOffer } from "@/features/settings/useWorkspaceAiOffer";
@@ -221,19 +221,9 @@ export function ObjectToolbar({
                   <span className="ask-proposed-label">What it could do:</span>
                   {filterPills(fields, proposed.filters).map(({ spec, entries }, index) => {
                     const text = pillText(spec, entries, proposedNames);
-                    return (
-                      <span key={`${spec.field}:${index}`} className="filter-pill proposed">
-                        <span className="filter-pill-label">{text.label}</span>{" "}
-                        <span className="filter-pill-value">{text.value}</span>
-                      </span>
-                    );
+                    return <FilterPill key={`${spec.field}:${index}`} proposed label={text.label} value={text.value} />;
                   })}
-                  {proposed.search !== "" && (
-                    <span className="filter-pill proposed">
-                      <span className="filter-pill-label">Search</span>{" "}
-                      <span className="filter-pill-value">{proposed.search}</span>
-                    </span>
-                  )}
+                  {proposed.search !== "" && <FilterPill proposed label="Search" value={proposed.search} />}
                 </div>
                 <button
                   type="button"
