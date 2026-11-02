@@ -278,8 +278,8 @@ export function PublicationBanner({ onExit }: { onExit: () => void }) {
             <>
               {" "}
               The current model is {activeModelReleaseLabel ?? "a different release"}; this publication remains on{" "}
-              {pinned}. Starting a change set preserves that pin. Publishing it requires a supported model migration,
-              which Base 0.6 does not perform.
+              {pinned}. Starting a change set preserves that pin. To publish it, move the change set to the current
+              model, or move the workspace to {pinned} and publish the change set with it.
             </>
           )}
         </p>

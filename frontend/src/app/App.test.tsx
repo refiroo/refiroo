@@ -948,7 +948,9 @@ describe("App", () => {
     expect(await screen.findByText("Viewing Publication 2")).toBeInTheDocument();
     expect(screen.getByText(/published under, test 0\.3\.0\./)).toBeInTheDocument();
     expect(screen.queryByText(/revision-2/)).not.toBeInTheDocument();
-    expect(screen.getByText(/supported model migration/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/move the change set to the current model, or move the workspace to test 0\.3\.0/),
+    ).toBeInTheDocument();
     fireEvent.click((await screen.findAllByRole("button", { name: "Historical domain" }))[0]);
     expect(await screen.findByRole("heading", { name: "Historical domain", level: 1 })).toBeInTheDocument();
     expect(api.object).toHaveBeenCalledWith("domain", domainObject.id, "west", undefined, "publication-2");
