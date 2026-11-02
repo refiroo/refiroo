@@ -26,11 +26,14 @@ import type { LoadChoice } from "./LoadFoot";
 import { ModelProposal } from "./ModelProposal";
 import { SessionProgress } from "./SessionProgress";
 import { LoadedView } from "./LoadedView";
+import { NoTask } from "./NoTask";
 import { ReshapeSteps } from "./ReshapeSteps";
+import { TaskEnd } from "./TaskEnd";
 import { taskApplicationKey } from "./aiTaskJourney";
 import { rememberModelReviewed } from "./AiTaskJourneyBar";
 import { isDesignCheck, runningText, taskTitle } from "./aiTaskText";
 import { useAiTask } from "./useAiTask";
+import { useAssistantOffers } from "./useAssistantOffers";
 
 const CONFLICT = "The task changed while you were working, so the page shows its latest state. Check it and try again.";
 
@@ -72,10 +75,11 @@ export function AiTaskPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadedChangeSet, task?.workspaceKey]);
   const [label, setLabel] = useState<string>();
+  const [status, setStatus] = useState<string>();
+  const offers = useAssistantOffers(task?.workspaceKey, status);
   const [pending, setPending] = useState(false);
   const [problem, setProblem] = useState("");
   const [conflict, setConflict] = useState(false);
-  const [jobError, setJobError] = useState("");
   // The design shows the model's names for types and attributes, never their keys.
   const [model, setModel] = useState<EngineModel>();
 
@@ -85,7 +89,11 @@ export function AiTaskPage({
     let current = true;
     api
       .workspace(workspaceKey)
-      .then((workspace) => current && setLabel(workspace.label))
+      .then((workspace) => {
+        if (!current) return;
+        setLabel(workspace.label);
+        setStatus(workspace.status);
+      })
       .catch(() => undefined);
     return () => {
       current = false;
@@ -103,20 +111,6 @@ export function AiTaskPage({
       current = false;
     };
   }, [workspaceKey]);
-
-  // A failed or cancelled task says why: the job's own error.
-  const ended = task && (task.state === "failed" || task.state === "cancelled") ? task : undefined;
-  useEffect(() => {
-    if (!ended?.jobId) return;
-    let current = true;
-    api
-      .job(ended.jobId)
-      .then((job) => current && setJobError(job.error?.message ?? ""))
-      .catch(() => undefined);
-    return () => {
-      current = false;
-    };
-  }, [ended?.jobId]);
 
   const workspace: RouteState | undefined = workspaceKey
     ? { kind: "settings", page: "workspaces", workspaceKey }
@@ -157,7 +151,9 @@ export function AiTaskPage({
   if (!task) {
     return (
       <SettingsLayout trail={trail} title="Load a workbook">
-        {followed.error ? (
+        {followed.notFound ? (
+          <NoTask onWorkspaces={() => onNavigate({ kind: "settings", page: "workspaces" })} />
+        ) : followed.error ? (
           <InlineError message={followed.error} onRetry={followed.retry} />
         ) : (
           <Skeleton label="Loading the task" />
@@ -167,7 +163,7 @@ export function AiTaskPage({
   }
 
   const journey: JourneyRef = { kind: "aiTask", taskId: task.id };
-  const application = taskApplicationKey(task) ?? ownApplication;
+  const application = taskApplicationKey(task) ?? ownApplication ?? model?.applications[0]?.key;
   // The change set opens with the journey carried, so its bar shows there.
   const review =
     task.result?.changeSetId && application
@@ -179,19 +175,21 @@ export function AiTaskPage({
     void write(() => ai.runTask(task.id, { expectedVersion: task.version, ...choice }));
   const answer = (answers: Record<string, string>) =>
     void write(() => ai.answerTask(task.id, { expectedVersion: task.version, answers }));
+  const openEditor = (draftId: string) => {
+    rememberModelReviewed(task.id);
+    onNavigate({ kind: "settings", page: "model", draftId, editor: {}, journey });
+  };
   const designView = design && (
-    <DesignView
-      task={task}
-      pending={pending}
-      model={model}
-      onOpenEditor={(draftId) => {
-        rememberModelReviewed(task.id);
-        onNavigate({ kind: "settings", page: "model", draftId, editor: {}, journey });
-      }}
-      onAnswer={answer}
-    />
+    <DesignView task={task} pending={pending} model={model} onOpenEditor={openEditor} onAnswer={answer} />
   );
   const stop = () => void write(() => ai.cancelTask(task.id));
+  const canLoad = holds(permissions, "change-sets");
+  const tell = (words: string) =>
+    void write(() => ai.correctModel(task.id, { expectedVersion: task.version, correction: words }));
+  const goOn = () => void write(() => ai.retryTask(task.id, { expectedVersion: task.version }));
+  const publications: RouteState | undefined = application
+    ? { kind: "publications", applicationKey: application, workspaceKey: task.workspaceKey }
+    : undefined;
 
   return (
     <SettingsLayout
@@ -221,13 +219,11 @@ export function AiTaskPage({
             <p className="admin-hint">
               Editing is not possible while this runs. You can leave this page: you are told when the reading is ready.
             </p>
-            {task.state !== "loading" && (
-              <div className="task-actions">
-                <button type="button" className="secondary" disabled={pending} onClick={stop}>
-                  Stop
-                </button>
-              </div>
-            )}
+            <div className="task-actions">
+              <button type="button" className="secondary" disabled={pending} onClick={stop}>
+                Stop
+              </button>
+            </div>
           </Section>
           {task.state === "checking" && !design?.agentSession && designView}
         </>
@@ -236,14 +232,11 @@ export function AiTaskPage({
           task={task}
           pending={pending}
           model={model}
-          onOpenEditor={(draftId) => {
-            rememberModelReviewed(task.id);
-            onNavigate({ kind: "settings", page: "model", draftId, editor: {}, journey });
-          }}
+          canLoad={canLoad}
+          workspaceLabel={label ?? task.workspaceKey}
+          onOpenEditor={openEditor}
           onAnswer={answer}
-          onCorrect={(correction) =>
-            void write(() => ai.correctModel(task.id, { expectedVersion: task.version, correction }))
-          }
+          onCorrect={tell}
           onAccept={() => void write(() => ai.acceptModel(task.id, { expectedVersion: task.version }))}
           onClose={() => onOpenWorkspace(task.workspaceKey)}
           onDiscard={() =>
@@ -257,16 +250,34 @@ export function AiTaskPage({
       ) : design && task.state === "checked" ? (
         <>
           {designView}
-          {designCheck && (
+          {designCheck ? (
             <DesignCheckView
               task={task}
               check={designCheck}
               workspaceLabel={label ?? task.workspaceKey}
               pending={pending}
-              canLoad={holds(permissions, "change-sets")}
+              canLoad={canLoad}
               canRelease={holds(permissions, "model-release")}
               onLoad={run}
+              onTell={tell}
+              onBack={() => void write(() => ai.reopenProposal(task.id, { expectedVersion: task.version }))}
             />
+          ) : (
+            !design.agentSession && (
+              <Section title="The saved layout does not fit this file">
+                <p>Nothing was loaded. The assistant can read this file with the layout as a start.</p>
+                <div className="task-actions">
+                  {task.canTell && (
+                    <button type="button" className="primary" disabled={pending} onClick={goOn}>
+                      Read it with the assistant
+                    </button>
+                  )}
+                  <button type="button" className="secondary" onClick={() => onOpenWorkspace(task.workspaceKey)}>
+                    Back to the workspace
+                  </button>
+                </div>
+              </Section>
+            )
           )}
         </>
       ) : task.state === "loaded" ? (
@@ -277,8 +288,14 @@ export function AiTaskPage({
               // A reshaping reviews its change set at its own step, after the first.
               review={task.result.thenReleaseId ? undefined : review}
               workspaceLabel={label ?? task.workspaceKey}
+              pending={pending}
+              canChange={canLoad}
+              offers={offers}
+              publications={publications}
               onNavigate={onNavigate}
               onClose={() => onOpenWorkspace(task.workspaceKey)}
+              onTell={tell}
+              onDiscard={() => void write(() => ai.discardTask(task.id))}
             />
           ) : (
             <Section title="The new model is ready">
@@ -297,30 +314,21 @@ export function AiTaskPage({
             workspaceLabel={label ?? task.workspaceKey}
             canRelease={holds(permissions, "model-release")}
             review={review}
+            pending={pending}
             onNavigate={onNavigate}
+            onTell={tell}
           />
         </>
       ) : (
-        <Section title={task.state === "failed" ? "The reading failed" : "The reading was stopped"}>
-          <Notice tone={task.state === "failed" ? "error" : "info"}>
-            {jobError || (task.state === "failed" ? "The assistant could not finish." : "Nothing was changed.")}
-          </Notice>
-          <div className="task-actions">
-            {task.state === "failed" && design?.agentSession && (
-              <button
-                type="button"
-                className="primary"
-                disabled={pending}
-                onClick={() => void write(() => ai.retryTask(task.id, { expectedVersion: task.version }))}
-              >
-                Try again
-              </button>
-            )}
-            <button type="button" className="secondary" onClick={() => onOpenWorkspace(task.workspaceKey)}>
-              Back to the workspace
-            </button>
-          </div>
-        </Section>
+        <TaskEnd
+          task={task}
+          pending={pending}
+          onTell={tell}
+          onGoOn={goOn}
+          onDiscard={() => void write(() => ai.discardTask(task.id))}
+          onOpenEditor={openEditor}
+          onBack={() => onOpenWorkspace(task.workspaceKey)}
+        />
       )}
     </SettingsLayout>
   );

@@ -845,9 +845,9 @@ def test_what_stays_out_a_discarded_task_retires_its_release_and_the_final_relea
     monkeypatch,
     served,  # noqa: F811
 ):
-    """The release with both is retired if the task is discarded before the change set;
-    thenReleaseId survives the end of a loaded task, and any other release the session installed is
-    retired."""
+    """The release with both is retired if the task is discarded before the change set; while a loaded
+    task's session lives (AP-D56) nothing it installed is retired, and when the task ends
+    thenReleaseId survives and any other release the session installed is retired."""
     monkeypatch.setenv("AI_AGENT_API_URL", served)
     early = Split(world, tmp_path, monkeypatch, early=True)
     before = {r["id"] for r in _all(world, "/model-releases")}
@@ -864,4 +864,8 @@ def test_what_stays_out_a_discarded_task_retires_its_release_and_the_final_relea
     change_set = ok(world.api.get(f"/change-sets/{task['result']['changeSetId']}"))
     assert _release_status(world, change_set["modelReleaseId"]) != "retired"
     extra = [r for r in _all(world, "/model-releases") if "-split-extra-" in r["version"]]
-    assert extra and all(r["status"] == "retired" for r in extra)
+    assert extra and all(r["status"] != "retired" for r in extra)
+    ok(world.api.post(f"/ai/tasks/{task['id']}/discard", {}), 200)
+    assert _release_status(world, task["result"]["thenReleaseId"]) != "retired"
+    extra = [r for r in _all(world, "/model-releases") if "-split-extra-" in r["version"]]
+    assert all(r["status"] == "retired" for r in extra)

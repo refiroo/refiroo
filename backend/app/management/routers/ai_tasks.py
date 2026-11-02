@@ -26,6 +26,7 @@ from ...models.commands import (
     AiTaskAnswersRequest,
     AiTaskCorrectionRequest,
     AiTaskRequest,
+    AiTaskRetryRequest,
     AiTaskRunRequest,
 )
 from ...models.database import AiTask, ModelDraft
@@ -62,7 +63,9 @@ def _visible(
             f"Using AI proposals in workspace '{task.workspace_key}' needs Use AI proposals",
             {"action": "ai-proposals", "groups": [GROUP], "workspaceKey": task.workspace_key},
         )
-    task_store.sync(session, task, configuration(request).task_retention_days)
+    design_job.sync(
+        session, task, configuration(request).task_retention_days, request.app.state.job_files
+    )
     session.commit()
     return task
 
@@ -147,7 +150,9 @@ def list_ai_tasks(
         page_size=page_size,
     )
     for task in page.items:
-        task_store.sync(session, task, configuration(request).task_retention_days)
+        design_job.sync(
+            session, task, configuration(request).task_retention_days, request.app.state.job_files
+        )
     session.commit()
     return present.task_page(session, page)
 
@@ -262,10 +267,16 @@ def correct_ai_task_model(
     session: DbSession,
     principal: CurrentPrincipal,
 ) -> JSONResponse:
-    """Correct the proposed model in words (0.16 AP6r): the assistant proposes the model again,
-    the correction winning over its own choices. Allowed when the task is ``checked`` and has a
-    design. Refused: ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
-    _visible(request, session, principal, task_id)
+    """Tell the assistant something (0.16 AP6r, AP13): the proposal again, the words winning over its
+    own choices. Allowed when the task is ``checked``, ``failed`` or ``stopped`` (the same session goes
+    on, or starts when none ran), or ``loaded`` with a change set not yet published: the change set is
+    discarded, which needs Work in change sets, and the session loads again. Refused: ``403
+    FORBIDDEN``, ``409 AI_NOT_CONFIGURED``, ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
+    task = _visible(request, session, principal, task_id)
+    if task.state == "loaded" and not request.state.permissions.allows(
+        "change-sets", task.workspace_key
+    ):
+        raise forbidden("records.write", ("change-sets",), task.workspace_key)
     limits: BatchLimits = request.app.state.batch_limits
     task = design_job.queue_correction(
         session,
@@ -290,8 +301,14 @@ def accept_ai_task_model(
 ) -> JSONResponse:
     """Accept the proposed model (0.16 AP6r): the assistant maps the sheets onto it and every row
     is checked in a dry run; nothing is installed or loaded before ``/run``. Refused:
-    ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE`` (no proposal to accept)."""
-    _visible(request, session, principal, task_id)
+    ``403 FORBIDDEN`` without Work in change sets (a proposal that moves whole types loads no change
+    set and needs none), ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE`` (no proposal to
+    accept)."""
+    task = _visible(request, session, principal, task_id)
+    if not (task.design or {}).get("moves") and not request.state.permissions.allows(
+        "change-sets", task.workspace_key
+    ):
+        raise forbidden("records.write", ("change-sets",), task.workspace_key)
     limits: BatchLimits = request.app.state.batch_limits
     task = design_job.queue_accept(
         session,
@@ -308,19 +325,22 @@ def accept_ai_task_model(
 @requires("bulk.write", at=AI_TASK_PATH)
 def retry_ai_task(
     task_id: str,
-    payload: AiTaskAcceptRequest,
+    payload: AiTaskRetryRequest,
     request: Request,
     session: DbSession,
     principal: CurrentPrincipal,
 ) -> JSONResponse:
-    """Try a stopped session again (0.16): it goes on from where it was, its folder and session
-    kept. ``409 AI_TASK_STATE`` unless the task failed and has a session."""
+    """Go on with a task that stopped (0.16, AP13): it goes on from where it was, its folder and
+    session kept, with the person's ``words`` when there are some; a saved layout that does not fit,
+    or a task whose session never ran, is read with the assistant. ``409 AI_NOT_CONFIGURED``, ``409
+    AI_TASK_STATE`` unless the task failed, was stopped, or waits with no session."""
     _visible(request, session, principal, task_id)
     limits: BatchLimits = request.app.state.batch_limits
     task = design_job.queue_retry(
         session,
         task_id,
         payload.expectedVersion,
+        payload.words,
         retention_days=limits.retention_days,
         task_retention_days=configuration(request).task_retention_days,
     )
@@ -336,13 +356,40 @@ def discard_ai_task(
     session: DbSession,
     principal: CurrentPrincipal,
 ) -> AiTaskResponse:
-    """Throw a proposal away: the task ends ``cancelled``, its draft and working folder go. Nothing
-    was installed or loaded. ``409 AI_TASK_STATE`` unless the task waits for the person."""
-    _visible(request, session, principal, task_id)
+    """End the task (0.16, AP13): it becomes ``cancelled`` and its draft and working folder go. A
+    loaded task's change set is discarded with it (Work in change sets); nothing else is undone.
+    Allowed when the task waits for the person, failed, was stopped or is loaded and not published.
+    ``409 AI_TASK_STATE`` otherwise."""
+    task = _visible(request, session, principal, task_id)
+    if task.state == "loaded" and not request.state.permissions.allows(
+        "change-sets", task.workspace_key
+    ):
+        raise forbidden("records.write", ("change-sets",), task.workspace_key)
     task = design_job.discard(
         session,
         task_id,
         request.app.state.job_files,
+        configuration(request).task_retention_days,
+    )
+    return present.task_response(session, task)
+
+
+@write_router.post("/ai/tasks/{task_id}/proposal", response_model=AiTaskResponse)
+@requires("bulk.write", at=AI_TASK_PATH)
+def reopen_ai_task_proposal(
+    task_id: str,
+    payload: AiTaskAcceptRequest,
+    request: Request,
+    session: DbSession,
+    principal: CurrentPrincipal,
+) -> AiTaskResponse:
+    """Back from a saved layout's load stage to the proposal it came from (0.16 AP13); no job runs.
+    ``409 AI_TASK_VERSION_CONFLICT``, ``409 AI_TASK_STATE``."""
+    _visible(request, session, principal, task_id)
+    task = design_job.queue_back(
+        session,
+        task_id,
+        payload.expectedVersion,
         configuration(request).task_retention_days,
     )
     return present.task_response(session, task)
@@ -356,8 +403,9 @@ def cancel_ai_task(
     session: DbSession,
     principal: CurrentPrincipal,
 ) -> JSONResponse:
-    """Ask the job the task waits for (its reading or its check) to stop; the task becomes
-    ``cancelled`` when it does. A task that is loading is stopped through its import job. ``409
+    """Stop what the assistant is doing (0.16, AP13): the job the task waits for (its reading, its
+    check, its turn or its load) is asked to stop. The turn ends, not the task: it returns to its last
+    proposal, or is ``stopped`` when it has none; a load's change set is discarded. ``409
     AI_TASK_STATE`` otherwise."""
     _visible(request, session, principal, task_id)
     task = task_job.request_cancel(session, task_id, None)

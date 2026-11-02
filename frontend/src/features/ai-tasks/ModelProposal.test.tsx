@@ -35,6 +35,19 @@ const render_ = (task: AiTask, extra: Partial<Parameters<typeof ModelProposal>[0
 };
 
 describe("ModelProposal", () => {
+  it("names who can load instead of showing Accept without Work in change sets, and keeps the words box (AP13)", () => {
+    render_(proposal(), { canLoad: false, workspaceLabel: "West" });
+    expect(screen.queryByRole("button", { name: "Accept the model" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Loading needs Work in change sets in West/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Tell the assistant what to change")).toBeInTheDocument();
+  });
+
+  it("leaves the words box out when the assistant cannot be told (AP13)", () => {
+    render_({ ...proposal(), canTell: false });
+    expect(screen.queryByLabelText("Tell the assistant what to change")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Accept the model" })).toBeInTheDocument();
+  });
+
   it("shows a type the workspace's model does not have yet by the name the engine gave", () => {
     const task = proposal();
     task.design!.outline = [{ objectTypeKey: "pc-offer", name: "Offer", text: "New type, 5 attributes, 12 records" }];

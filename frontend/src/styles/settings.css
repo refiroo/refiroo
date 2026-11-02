@@ -3641,3 +3641,19 @@ a.account-reach-app:hover {
     width: 100%;
   }
 }
+
+/* The words box and the ways onward of an assistant task (0.16 AP13). */
+.task-tell {
+  display: grid;
+  gap: var(--space-2);
+}
+.task-onward {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+@media (max-width: 760px) {
+  .task-onward {
+    grid-template-columns: 1fr;
+  }
+}

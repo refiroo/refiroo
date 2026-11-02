@@ -1711,14 +1711,15 @@ def test_a_session_may_not_take_the_draft_another_task_holds(world, tmp_path, mo
 
 @pytest.mark.journey("J50.41")
 @pytest.mark.structures(*STRUCTURES)
-def test_a_release_the_session_installed_and_nothing_uses_is_retired_when_the_task_loads(
+def test_a_release_the_session_installed_and_nothing_uses_is_retired_when_its_session_ends(
     world,
     tmp_path,
     monkeypatch,
     served,  # noqa: F811
 ):
     """Given a session that installs two releases and puts its change set on one, when the task
-    loads, then the release the change set runs stays active and the other is retired."""
+    loads, then both stay while the session lives (AP-D56); when the task ends, the one nothing
+    runs is retired."""
     monkeypatch.setenv("AI_AGENT_API_URL", served)
     ledgers = Ledgers(world)
     batch = [
@@ -1744,9 +1745,16 @@ def test_a_release_the_session_installed_and_nothing_uses_is_retired_when_the_ta
         for item in _all(world, "/model-releases")
         if item["version"].startswith(version)
     }
-    assert status[f"{version}-used"] == "active" and status[f"{version}-unused"] == "retired"
+    assert status[f"{version}-used"] == "active" and status[f"{version}-unused"] == "active"
     used = ok(world.api.get(f"/change-sets/{settings['changeSet']}"))["modelReleaseId"]
     assert ok(world.api.get(f"/model-releases/{used}"))["version"] == f"{version}-used"
+    ok(world.api.post(f"/ai/tasks/{task['id']}/discard", {}), 200)
+    status = {
+        item["version"]: item["status"]
+        for item in _all(world, "/model-releases")
+        if item["version"].startswith(version)
+    }
+    assert status[f"{version}-unused"] == "retired"
 
 
 # --- AP11: a session's log lies beside its folder ---------------------------------------------------

@@ -44,7 +44,7 @@ import { JobNotificationsProvider, useJobEnded, useJobNotifications } from "@/fe
 import { ExportDialog, type ExportStart } from "@/features/jobs/ExportDialog";
 import { ImportDialog, type ImportStart } from "@/features/jobs/ImportDialog";
 import { LoadWorkbookDialog, type LoadWorkbookStart } from "@/features/ai-tasks/LoadWorkbookDialog";
-import { useChangeModelOffer } from "@/features/ai-tasks/useChangeModelOffer";
+import { useAssistantOffers } from "@/features/ai-tasks/useAssistantOffers";
 import { useWorkspaceAssistantOffer } from "@/features/settings/useWorkspaceAiOffer";
 import { BrandMascot } from "@/ui/ProductMark";
 import { useCapabilities } from "@/features/settings/useSystem";
@@ -219,7 +219,7 @@ function AppContent({
       (routeChangeSetId(route) || ((route.kind === "list" || route.kind === "detail") && route.publicationId))
     );
   const [workspace, setWorkspace] = useState<Workspace>();
-  const canChangeModel = useChangeModelOffer(
+  const assistantOffers = useAssistantOffers(
     route.workspaceKey,
     workspace?.key === route.workspaceKey ? workspace.status : undefined,
   );
@@ -312,7 +312,7 @@ function AppContent({
               : {}),
           };
           // Where the assistant is offered it is the way in; the ordinary import is chosen from its dialog.
-          if (aiOffer?.assistant) {
+          if (aiOffer?.assistant && assistantOffers.askRecords) {
             importContext.current = context;
             setWorkbookStart({ workspaceKey: context.workspaceKey });
             return;
@@ -322,7 +322,7 @@ function AppContent({
       : undefined;
 
   // Asking the assistant to change the workspace's model: the same task, with the workspace fixed (AP12).
-  const changeModel = canChangeModel
+  const changeModel = assistantOffers.changeModel
     ? () => {
         importTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         setWorkbookStart({

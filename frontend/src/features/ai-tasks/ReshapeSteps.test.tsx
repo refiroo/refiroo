@@ -3,12 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import type { AiTask, ChangeSet, Job, WorkspaceModel } from "@/types";
-import { ReshapeSteps, reshapeStates } from "./ReshapeSteps";
+import { ReshapeSteps, activationRefusals, reshapeStates } from "./ReshapeSteps";
 import { designTask } from "./designFixture";
 
 vi.mock("@/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/client")>()),
-  api: { workspaceModel: vi.fn(), changeSet: vi.fn(), startWorkspaceMigration: vi.fn() },
+  api: {
+    workspaceModel: vi.fn(),
+    changeSet: vi.fn(),
+    startWorkspaceMigration: vi.fn(),
+    jobs: vi.fn(),
+    modelReleaseDiff: vi.fn(),
+  },
 }));
 
 const running = (releaseId: string) => ({ releaseId, version: 4 }) as WorkspaceModel;
@@ -56,6 +62,10 @@ describe("reshapeStates", () => {
 describe("What is left to the person after a reshaping (0.16 AP12)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(api.jobs).mockResolvedValue({ items: [] } as never);
+    vi.mocked(api.modelReleaseDiff).mockResolvedValue({
+      compatibility: { classification: "compatible", diagnostics: [] },
+    } as never);
     vi.mocked(api.workspaceModel).mockResolvedValue(running("old"));
     vi.mocked(api.changeSet).mockResolvedValue(open("both"));
   });
@@ -80,6 +90,51 @@ describe("What is left to the person after a reshaping (0.16 AP12)", () => {
       forWorkspace: "west",
       journey: { kind: "aiTask", taskId: expect.any(String) },
     });
+  });
+
+  it("shows what the engine refused in the migration and takes the person's words (AP13, AP-D60)", async () => {
+    const onTell = vi.fn();
+    vi.mocked(api.jobs).mockResolvedValue({
+      items: [
+        {
+          kind: "migration",
+          workspaceKey: "west",
+          state: "awaiting_confirmation",
+          migration: { targetReleaseId: "rel-final", counts: { refused: 16, loss: 0, conversion: 0, reclassified: 0 } },
+        },
+      ],
+    } as never);
+    const task = { ...migrationTask(), canTell: true };
+    render(<ReshapeSteps task={task} workspaceLabel="Partners" canRelease onNavigate={vi.fn()} onTell={onTell} />);
+    expect(await screen.findByText(/16 records would be refused/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Tell the assistant what to change"), {
+      target: { value: "Give the new type the place under the group." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send to the assistant" }));
+    expect(onTell).toHaveBeenCalledWith("Give the new type the place under the group.");
+  });
+
+  it("shows what the engine would refuse of the next step, from the activation's own check (AP13, AP-D60)", async () => {
+    vi.mocked(api.modelReleaseDiff).mockResolvedValue({
+      compatibility: {
+        classification: "migration_required",
+        diagnostics: [
+          { severity: "error", code: "X", path: "/", message: "12 records hold a type the release removes." },
+        ],
+      },
+      consumerContracts: { classification: "version_required", diagnostics: [] },
+    } as never);
+    const task = { ...phasedTask(), canTell: true };
+    render(<ReshapeSteps task={task} workspaceLabel="Partners" canRelease onNavigate={vi.fn()} />);
+    expect(await screen.findByText(/12 records hold a type the release removes/)).toBeInTheDocument();
+    expect(screen.getByText(/A consumer API changes what its consumers read/)).toBeInTheDocument();
+    expect(api.modelReleaseDiff).toHaveBeenCalledWith("both", "old", "west");
+  });
+
+  it("reads a compatible release as nothing to refuse", () => {
+    expect(activationRefusals({ compatibility: { classification: "compatible", diagnostics: [] } } as never)).toEqual(
+      [],
+    );
   });
 
   it("hides the button from a person without Model release and says who can do it", async () => {

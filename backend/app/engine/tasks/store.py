@@ -26,7 +26,7 @@ from ..authorization.writes import requester_of
 KINDS = ("note", "warning", "refused")
 # States in which the task waits for a job, and the ones that end it.
 WAITING = ("reading", "checking", "loading")
-ENDED = ("loaded", "failed", "cancelled")
+ENDED = ("loaded", "failed", "cancelled", "stopped")
 
 
 def held_counts(session: Session, workspace: str) -> dict[str, int]:
@@ -38,6 +38,7 @@ def held_counts(session: Session, workspace: str) -> dict[str, int]:
             {"w": workspace},
         ).all()
     )
+
 
 _KEYS = (integer_key("id", AiTask.id, "id", descending=True),)
 
@@ -180,20 +181,75 @@ def note(task: AiTask, kind: str, text: str) -> None:
     task.notes = [*task.notes, {"kind": kind, "text": text, "at": at}]
 
 
+def has_proposal(task: AiTask) -> bool:
+    """Whether a proposal the person can go back to stands: the draft, and what the session or the
+    rules said about it."""
+    design = task.design or {}
+    return task.draft_id is not None and bool(design.get("origin") or design.get("match"))
+
+
+def stopped(session: Session, task: AiTask, retention_days: int) -> None:
+    """The person stopped the job the task waited for (AP-D55): the turn ends, not the task. The
+    task goes back to its last proposal (the accepted one after a load), or, with none yet, is
+    ``stopped`` and takes words. The caller has undone what a load wrote."""
+    design = dict(task.design or {})
+    design.pop("progress", None)
+    loading = task.state == "loading"
+    if loading:
+        task.result = None
+        task.state = "checked"
+        task.finished_at = None
+        touch(task, retention_days)
+        note(task, "note", "You stopped the load. The change set it wrote was discarded.")
+    elif has_proposal(task):
+        was_load = design.get("stage") == "load"
+        design["stage"] = "model"
+        task.state = "checked"
+        task.finished_at = None
+        touch(task, retention_days)
+        note(
+            task,
+            "note",
+            "You stopped the assistant. What it had loaded was undone, and the proposal is as you accepted it."
+            if was_load
+            else "You stopped the assistant. Its last proposal is as it was; what you sent was not made.",
+        )
+        landed = design.get("turnDraftVersion")
+        if landed is not None:
+            draft = session.get(ModelDraft, task.draft_id)
+            if draft is not None and draft.version != landed:
+                note(
+                    task,
+                    "warning",
+                    "The assistant had already changed the draft when you stopped it. Check the draft in "
+                    "the model editor before you accept.",
+                )
+    else:
+        design["stage"] = "model"
+        finish(task, "stopped", retention_days)
+        note(
+            task,
+            "note",
+            "You stopped the assistant before it had a proposal. Tell it how to go on, or discard the task.",
+        )
+    task.design = design
+
+
 def sync(session: Session, task: AiTask, retention_days: int) -> None:
-    """Carry the state of the job the task waits for to the task: a failed or cancelled job ends
-    it, and a finished import is ``loaded`` (one place, wherever a task is read)."""
+    """Carry the state of the job the task waits for to the task: a failed job ends it, a stopped
+    one returns it to where the person can go on (:func:`stopped`), and a finished import is
+    ``loaded`` (one place, wherever a task is read)."""
     if task.state not in WAITING or task.job_id is None:
         return
     job = session.scalar(select(Job).where(Job.id == task.job_id))
     if job is None:
         return
-    if job.state in ("failed", "cancelled", "expired"):
-        state = "cancelled" if job.state == "cancelled" else "failed"
-        if state == "failed":
-            message = (job.error or {}).get("message") or "The job stopped"
-            note(task, "warning", f"The task stopped: {message}")
-        finish(task, state, retention_days)
+    if job.state == "cancelled":
+        stopped(session, task, retention_days)
+    elif job.state in ("failed", "expired"):
+        message = (job.error or {}).get("message") or "The job stopped"
+        note(task, "warning", f"The task stopped: {message}")
+        finish(task, "failed", retention_days)
     elif task.state == "loading" and job.state == "completed":
         if (task.result or {}).get("linksPending"):
             # A design's relationships follow its import; the worker queues them (0.16 AP6).

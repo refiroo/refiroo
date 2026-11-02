@@ -92,7 +92,7 @@ application, found 2026-10-28) is closed as part of AP3 and AP6, not handed back
 | [AP10](#ap10-one-path) | AP8 | **Delivered 2026-10-31.** One switch, the old design removed, a saved profile from a load, updating from a file, the session's leftovers, the proposal page, the documents |
 | [AP11](#ap11-good-models-in-time) | AP8 | Model shape from the same words, and the time limits. **Closed 2026-11-01, accepted by the user with the time limits not met** |
 | [AP12](#ap12-reshaping-and-asking-from-the-workspace) | AP8, WM1 | Moving records between types through a session, and "Change this model…" from the workspace |
-| [AP13](#ap13-acceptance-on-real-files-ap-d22) | AP9–AP12 | The remaining real-file tries, judged by the user |
+| [AP13](#ap13-always-a-way-out-ap-d22) | AP9–AP12 | **Delivered 2026-11-02; the walk-through ran once, in `ap13-try`, for the user to judge** ([record](#ap13-record-2026-11-02)). Every state of a task has a way out, easy to find; one walk-through of the acceptance workbook, judged by the user |
 | [AG1](#ag1-the-server-and-its-authority) | 0.12 | The MCP endpoint, its setting, sign-in with the existing OAuth, audit channel, the agent role, Settings › Agent access |
 | [AG2](#ag2-read-tools-and-resources) | AG1 | Read tools generated from the consumer API definitions plus a curated set; the model as resources |
 | [AG3](#ag3-changes-prepared-and-submitted-for-approval) | AG1, AG2 | Write tools that create a change set, add validated changes and submit it for approval; no approve or publish tool |
@@ -454,10 +454,10 @@ the session, and every fix they made to the import engine (listed in the AP6 pro
 | Case | Under AP8 |
 | --- | --- |
 | A, an update | Words only: works (185 records). "Update from this file": works since AP10, by a key of two columns: 0 new, and a changed price changes that price alone, no AI on a saved layout. The acceptance workbook: not tried |
-| B, C, additions and new relations | Not tried. They worked on the earlier design only |
+| B, C, additions and new relations | Not tried; recorded as untried (the user, 2026-11-02, AP13). They worked on the earlier design only |
 | D, E, new or related application | Loaded on two workbooks, nothing refused. Over the time limits, and the same words gave very different models (AP11) |
 | Reshaping | One try: 6,816 created, 667 changed. Values not checked by a before/after count, and it took 922 s (AP12) |
-| Scenarios as worded: translations, system variants, a new business | Not tried (AP13) |
+| Scenarios as worded: translations, system variants, a new business | Not tried; recorded as untried (the user, 2026-11-02, AP13) |
 
 **The open work, every item with one package:**
 
@@ -989,10 +989,93 @@ published and after the last step.
 - **Both tries:** 2 sessions each, 4 calls, 2,890,944 tokens in and 27,635 out, $1.41 at API prices. Both reached the end with
   nothing refused and nothing lost. Not changed or edited by hand: the proposals, drafts and releases are the session's own.
 
-### AP13: Acceptance on real files (AP-D22)
+### AP13: Always a way out (AP-D22)
 
-The remaining tries, each announced and judged by the user: the acceptance workbook, cases B and C, the scenarios as
-worded, and the other new files under the session. Done after AP9 to AP12, so they judge the finished assistant.
+**Revised by the user 2026-11-02.** Acceptance is not whether the assistant's result matches what the person had in
+mind; the person and the assistant find their common ground together. It is that the application gives them
+everything to get there: **at every state of a task there is a way out, on the page itself and easy to find, without
+a fall-back.** Starting the task again, or doing the step by hand somewhere else (the model editor's draft, install
+and activate path, a list of records changed one by one), is not a way out. The loop of tries, fixes and the same
+tries again ends here.
+
+**The review.** Every state of a task is walked in the code and in the browser with the stand-in session the journeys
+use (no provider cost), and each is recorded with its way out or as a dead end. At least: a proposal with questions,
+including questions about what the model does not hold yet; an edited draft the session goes on from; a draft or
+proposal the engine refuses (a consumer API's version, a removal that needs a migration, a dry run's refusals); a turn
+that fails, is cancelled or is interrupted by a stopped worker; an accepted load that is wrong (the change set
+discarded, the task told what to change); a published load or model found wrong afterwards (back to the assistant from
+the workspace, for the model and for the records); a refused activation or migration; a repeat whose saved profile no
+longer fits, and its conflict questions on each repeat; an expired task; a missing permission, no provider, MCP off;
+a request the API cannot do. Each dead end found is fixed in AP13, or written down as a limit of 0.16 with the package
+that removes it, the user deciding which.
+
+**One real walk-through, run once.** `Lines & Routes v2.0.xlsx` in the browser with a Claude Code session, from
+the person's words to a published change set, using the ways out where the result is not what the person wants. Judged
+by the user. It is not rerun: a loss of data is fixed and checked with a test, not a second session; anything else
+(the model's shape, wording, speed) is recorded as a known limit.
+
+#### AP13 in detail (planned 2026-11-02, approved by the user the same day with the mock-up)
+
+**The review's findings (read from the code, 2026-11-02; the failed page and the discard guard checked by hand).** A
+proposal with questions, a correction in words and a proposal the engine refuses already have their way out. Not so:
+
+| State | Today | Verified |
+| --- | --- | --- |
+| The session fails (no proposal, a consumer API it would break, moves it cannot make, an empty load) | "The assistant could not finish." The reason is in the task's notes, which this page does not show (`AiTaskPage.tsx`, the last branch). Try again sends fixed words; nothing can be said | Code |
+| Stop | The whole task is `cancelled`, with Back only, though the proposal, draft and session still exist; `queue_retry` takes `failed` only | Code |
+| A wrong load, not yet published | Discard the change set, but no words; the session's folder and client go at the load (`agent.py`); after a discard the page still offers Review the change set | Code |
+| The load stage: refused rows, or the engine still reporting problems | No words, no way back to the proposal | Code |
+| No permission to load | The Load button is hidden, with no reason | Code |
+| A saved layout that no longer fits | Probably "The reading was stopped" and Back; the note not shown | Inferred |
+| A refused activation or migration after a reshape | Shown on the model page only; the task page says nothing | Code |
+| Published, then found wrong | "Change this model…" is on the workspace menu only; nothing on the task points onward, for the model or the records | Code |
+| An expired or unknown task | An error with Retry; no way back, no word of expiry | Code |
+| Stop during a load | No Stop on the task page | Code |
+
+**The user decided (2026-11-02): fix all; there is no limitation.**
+
+Mock-up: [AP13 Always a way out](https://claude.ai/artifact/X3xqXWQrGtaKsyCoPwE3NC) (a Design canvas, not kept in the
+repository; seven boards: the assistant stopped with its reason and words, you stopped it and are back at the proposal, a
+loaded change set that still takes words, the load stage with refused rows, published with the way onward, the smaller
+states, a phone).
+
+| # | Decision | Why |
+| --- | --- | --- |
+| AP-D54 | **One words box, wherever a task can go on.** The proposal's "Tell the assistant what to change" is extracted into one component and shown on the proposal (as now), the load stage, a failed or stopped task, a loaded change set not yet published and a refused reshaping step. The words go to the same session: one route takes words in each of these states, `queue_correction`'s rule widened and `queue_retry` taking words (no words still means "go on from where you were"). | The rule: a way out on the page itself. Words are how the person and the assistant find common ground; a state without them ends the conversation. |
+| AP-D55 | **Stop ends the turn, not the task.** A stopped turn returns the task to its last proposal (`checked`) when there is one, with a note "You stopped the assistant"; with no proposal yet it is `stopped`, which takes words or Discard. A stopped load cancels its import job, discards the change set that job wrote, and returns to the accepted proposal, with Stop on the task page while it loads. Discard stays the one way to end a task. | Stop meant "wait", and it threw away the proposal and the session. |
+| AP-D56 | **The session lives until the work is in the person's hands for good** (revises AP-D37's timing). The folder and the session's client are kept after the load, until the change set is published or discarded, the migration confirmed, or the task expires; the task read (`sync`) and the sweep notice it and remove both. Words on a loaded task discard its change set, the confirmation saying any hand edits in it go, and the same session loads again from the proposal with the words. | A wrong load is when words matter most, and the session that knows the file was already gone. The client still cannot activate or publish (AP-D29). |
+| AP-D57 | **An ended or stopped task says why.** Every such page shows the task's notes, under a heading by state ("The assistant stopped", "You stopped the assistant"). A task that failed before its session started takes words too: the session starts again on the same task, file and words, with the new words added. | The reason is recorded already; the page hid it. |
+| AP-D58 | **A finished task points onward, from the task page itself.** Published: "Change this model…" and "Ask about these records" (a words-only task on the workspace), the same offers and the same hook as the workspace menu. Discarded: says so, with the words box while the session lives (AP-D56), and Back. | "Change this model…" existed, but only where a person had to know to look. |
+| AP-D59 | **No step missing in silence.** An offer to start a task shows only when the person holds every permission its steps need, loading included (the rule that a flow is offered only if every step can finish). If a permission goes during the task, the page names who can do the step, as `ReshapeSteps` does. | A hidden button with no reason is a dead end. |
+| AP-D60 | **The smaller states.** A saved layout that no longer fits shows its note and "Read it with the assistant", which starts a session on the same task and file. An expired or unknown task says it is not kept or does not exist (tasks are kept for the configured days), with a way to the workspaces. A refused activation or migration in a reshape shows the engine's refusal on the task page, with the words box (the session lives until the migration is confirmed, AP-D56). | Each is a page with nothing to do today. |
+
+**Scope.** Engine: `engine/tasks/design_job.py` (the words in each state, Stop, a loaded task's words), `agent.py`
+(the session kept after the load, removed at publication, discard or confirmation), `store.py` (`sync`, the
+sweep, the `stopped` state), the task routes and schemas (the words route, the state, the notes). Frontend:
+`features/ai-tasks` (the extracted words box, `AiTaskPage`'s ended branches, `LoadedView`, `DesignCheckView`, `DesignView`,
+`LoadFoot`, `ReshapeSteps`, the journey bar's sentences), the offers (`useWorkspaceAiOffer`, `useChangeModelOffer`, one
+hook for both menus). Documents: API, CURRENT_FUNCTIONALITY, USER_JOURNEYS, API_JOURNEYS, UI_ACCEPTANCE, OPERATIONS (the
+folder's lifetime), PROJECT_STATUS, CHANGELOG, this plan. **Migration:** none expected; `stopped` is a value of the
+task's state column (checked in delivery).
+
+**Journey cases (J50, the stand-in session, two configurations):** J50.53 a failed session's reason is shown and the
+person's words go on in the same session; J50.54 Stop during a proposal returns to the last proposal, and before any
+proposal gives `stopped`, which takes words; J50.55 Stop during a load leaves no change set and returns to the
+accepted proposal; J50.56 words on a loaded change set discard it and the same session loads again, the folder and client
+kept until publication, then removed; J50.57 words at the load stage on refused rows; J50.58 a published task offers both
+ways onward, and a discarded one says so; J50.59 an offer is not shown without the load's permission, and a permission
+removed during the task names who can; J50.60 a saved layout that no longer fits, an expired task, a refused migration.
+
+**Checks:** J50, J48 and J49, `test_boundaries`, `contract` with the OpenAPI lock (re-baselined last), Ruff on the
+changed files, Vitest for `features/ai-tasks`, `features/workspaces` and `routing`, lint, the production build, and a
+browser runner `ap13-way-out` walking every state of the table above with the stand-in (both configurations, keyboard,
+axe, 1440px and 390px), with `ap12-change-model` and `ap1-ai` rerun as they share the page. The runner settles the
+rows read only from the code. Then the one real walk-through.
+
+**Door check (ADR-032):** none affected. A session's client lives longer, with the same grants.
+
+**Recorded as untried, not run (the user, 2026-11-02):** cases B and C on the current design; the scenarios as worded
+(translations, system variants, a new business); the other new files.
 
 **Value drafts and dry-run triage (AP4, AP5): removed from 0.16 by the user, 2026-10-31.** Neither was built. A person
 asks for values in words, and the session reads the dry run's refusals itself. There is no bulk action on a filtered
@@ -1001,6 +1084,62 @@ list and no grouped summary of refusals for the person.
 **Said plainly: what a person still cannot do after AP8:** hand a task to a colleague or run one on a schedule; use a
 document or an image as data; attach more than one file (AP-D25); ask for something the API cannot do, which the
 session says so; rely on a small local model.
+
+#### AP13 record (2026-11-02)
+
+**Built as planned, with the changes below; the real walk-through was run after (below).** Journey cases J50.53 to J50.60 are in `backend/tests/journeys/test_j50_ai_way_out.py` (8 cases on the two generated configurations, 16 runs; a stand-in session working through the API with the token the engine gives it, held and stopped from outside as a person would). The cases were written from the plan's text; they were not confirmed to fail first, as the test file was written after the engine change in the same sitting (the cases J50.41 and J50.52 of earlier packages, which held the old timing of the session's end, failed first and were changed, below).
+
+**What each state of the review has now.** A failed turn, a stopped turn, a stopped load, a wrong load, a published load, a discarded task, a load stage, a saved layout that no longer fits, a refused migration, a permission lost and an expired task each have a way on, on the page. Walked in the code and, where the stand-in can reach it, in the browser (`ap13-way-out`):
+
+| State | Way on | Settled by |
+| --- | --- | --- |
+| The session fails | its reason (the task's notes), the words box, Try again as it was, Open the draft in the editor, Discard this task | browser, J50.53, `AiTaskPage.test` |
+| A session that never started | the words start it again on the same task, file and words | J50.53 |
+| Stop during a proposal or a correction | back at the last proposal, with a note, and a warning if the turn had changed the draft | browser, J50.54 |
+| Stop before any proposal | `stopped`: words, Go on as it was, Discard | browser, J50.54 |
+| Stop during a load | the change set the load made is discarded, the session's jobs are stopped, back at the accepted proposal | browser, J50.55 |
+| A wrong load, not published | words (Discard and load again, with the confirmation) or Discard the change set | browser, J50.56, J50.58 |
+| The load stage of a saved layout | Back to the proposal, the words box | J50.57, `AiTaskPage.test` |
+| No permission to load | the offers hidden; Accept and Load replaced by who can, and a link to copy; the engine refuses Accept naming the group | browser (rerouted permissions), J50.59, `ModelProposal.test`, `AiTaskPage.test`, `useAssistantOffers.test` |
+| A saved layout that no longer fits | its note and Read it with the assistant | browser (rerouted state), `AiTaskPage.test`, J50.57 |
+| A refused migration | the engine's refusal on the task (a migration's from its job, an activation's from the release check), with the words box | browser, `ReshapeSteps.test`, J50.60 |
+| Published | "Published", Open the publications, Change this model… and Ask about these records… | browser, J50.56, `AiTaskPage.test` |
+| Discarded | says so, Back, Start again in the journey bar | browser, J50.58 |
+| An expired or unknown task | says so, Go to the workspaces | browser, `AiTaskPage.test` |
+
+**Changes from the plan, and why.**
+
+- **A migration was needed** (the plan expected none): the state column's check had no `stopped`. `20261122_01` swaps the constraint in one transaction.
+- **A new route, `POST /ai/tasks/{id}/proposal`,** for "Back to the proposal" from a saved layout's load stage; nothing else can set the stage back without a job.
+- **A task carries `canTell`** (the assistant is on, and the task is where it goes on or a loaded one whose session lives), so a page hides a words box that cannot work instead of showing one that refuses; `result.published` and `result.publicationId` carry what the task read noticed. OpenAPI lock re-baselined last (`57fa4492…`).
+- **`accept` needs Work in change sets** (a proposal that only moves whole types loads no change set and needs none), so a person without it is told, not sent into a turn the session cannot finish; the same rule hides the offers. The offers (`useAssistantOffers`) now also need Work in change sets; they replace `useChangeModelOffer` and serve the workspace menu and the published page.
+- **AP-D56's timing is built as written:** `accepted()` no longer removes the folder or retires the client. `end_session` does it at the next read of the task after a publication (no release retired: the publication ran on one), a discard elsewhere (the task becomes `cancelled`), a confirmed migration, or Discard. J50.41 and J50.52 asserted the retiring at the load and now assert it at the session's end.
+- **Discard on a loaded task goes through the task** (`POST /discard`), so a discarded task says so; the page no longer discards the change set behind the task's back. A discarded task has no words box: Discard ends the session (AP-D56), and "Discard and load again" is the way with words (AP-D58 read so).
+- **A column no source reads is said before the person accepts** (found by the walk-through, not in the plan): the new check `cellsLeftOut` (`cell_coverage.py`), computed when the proposal lands; the 12 cells are why.
+- **Stop does not undo the draft.** A turn that was stopped after it changed the draft leaves the draft as it stands; the task says so in a warning and the person checks it in the editor (a draft's steps cannot be rewound safely mid-turn). The proposal text is the last the engine recorded.
+- **"Names who can" is a sentence, not names:** the engine lists no holders of a group, so the page says it needs Work in change sets and gives the task's link to copy.
+- **The refused activation of the three steps is read from the engine, not recorded.** The task page reads the activation check the release page reads (`GET /model-releases/{id}/diff` against the workspace's release) for the next step that activates a release, and shows the engine's own reasons under "The engine would refuse the next step", above the words box of the loaded view (`ReshapeSteps`, `activationRefusals`). Nothing is stored on the task, as a migration's refusal is read from its preview job.
+- **A task's notes show the newest three** and fold the earlier ones (they showed the oldest three, so the note of what the person just did was folded away), and a task that goes on from a failure or a stop clears the reasons it stood on.
+- **The journey bar offers no Accept or Load to a person without Work in change sets** (it did, which the browser run found): it says who can, as the page does.
+- **A loaded task whose folder went at its load (recorded before AP13)** is ended at its next read (`_settle`): `canTell` is false, and the loaded view says the session has ended and offers Discard the change set and the ways onward (Change this model…, Ask about these records…), never a dead end.
+- **"Stopped" at the first read, a session that never ran:** a session is resumed only if it ran (`design.agentRan`, or a proposal exists); otherwise the words start a new one.
+
+**Checks run.** J50 (`test_j50_ai_workbook_load`, `_ai_reshape`, `_ai_way_out`, `_import_key_combination`, `_model_language`), J48, J49, `test_boundaries` and `test_startup` (the head is `20261122_01`; the dev server applied the migration on save): 159 passed (after the later changes, the way-out and reshape journeys again: 40 passed; the schema did not change); `contract` (`test_openapi_contract`, `test_error_codes`, `test_api_reference`, `test_api_journeys`) with `test_boundaries`: 30 passed. Test over 10 s outside `budget`: the failed-turn case (12.8 s, three session turns, two of them process starts). Ruff check on the changed files, format on those that were clean at HEAD (`agent.py` was not format-clean before this package and is not reformatted here). Frontend: Vitest for `features/ai-tasks`, `features/workspaces` and `routing` (first run 299 passed in 23 files; `features/ai-tasks` alone after the later changes, 86 passed) (new: the stopped, failed, discarded, published, load-stage, unfit-layout, no-permission and not-here pages, `ModelProposal` without Work in change sets or with nothing to tell, the migration's refusal, the journey bar's new sentences, `useAssistantOffers`); lint 0 errors (the 10 warnings are earlier ones); the production build; `npm run format` on the changed files only. Browser: `ap13-way-out` 58 checks (starter by keyboard, generated-b by pointer: every state above, three of them with a rerouted answer; light and dark where named, 1440px and 390px without sideways scroll, axe 0 violations on each state); `ap12-change-model` 29 checks (one run failed on an instant count of "Open the release" before the steps had read the workspace, a race in that runner; it passed on the rerun) and `ap1-ai` 125 checks, rerun as they share the page. Screenshots of the failed, loaded, published, stopped-proposal and 390px pages inspected against the mock-up: the layout and wording follow it, using the app's own components.
+
+**Checks after the three gaps and the walk-through's fix:** the way-out, workbook-load and reshape journeys with `test_boundaries`: 98 passed (the new cases: a loaded task whose folder went at its load, and the unread filled column); Vitest `features/ai-tasks`, `features/workspaces`, `routing`: 303 passed; lint 0 errors; build; `ap13-way-out` 58 checks (run before the walk-through's fix, which changed no page); `ap12-change-model` 29 checks. No schema changed after the lock was re-baselined.
+
+
+- **Proposal:** 1,312 s from the words to a proposal (an interrupted first turn of 311 s, a worker restart the dev server made when I saved backend files, then the session's second turn of 993 s; the engine recorded the first as interrupted and the job came back). 14 types (Area, Section, Note, List, Entry, Sub-entry, Timetable category, Timetable type, Performer, Market, and four empty ones, Episode, Person, Timetable, Treatment), 826 records and 100 relationships to create, 0 refused, 9 questions (the name as key, a repeated test written twice, two spellings of one team, tests with two names, what N means in the availability columns, lists as one type, the empty types, a copied Spanish heading, a note awaiting a list). It is over the time limit (5 minutes for a complex workbook) and is recorded as a known limit.
+- **Accept (51 s) and publication:** `loaded`, 826 created, 0 updated, 0 rejected, a profile saved (`activities-procedures-v2-0-transport-station`); the release activated and the change set published by the client.
+- **Before and after.** Counts per type, in the published data: timetable-category 16, timetable-type 99, area 4, entry 468, list 66, market 2, note 11, performer 6, section 11, sub-entry 143 (826). Every filled cell of the workbook looked for as a record's name or text value: 1,234 filled cells, 1,042 found, 100 are the Y and N cells of the availability columns (they became relationships, not compared cell by cell), **11 not found**, all in "Calendar & Agenda", column C, rows 41 to 47 and 51 to 56 (the Spanish names of the entries of Timetable Resources and Timetable Department; C56 "IT" shares its text with a name and was found, so the engine counts 12 cells).
+- **What a person would judge.** The model is a reading of a specification, not a catalogue: lists and entries as records under areas and sections, the Spanish names as a field; the questions are fair and none blocks. The 12 unloaded cells are a data loss the page did not say: the session read each of those two lists' entries from a block with no header over column C (a profile names a column by its header, so it cannot bind one), and `leftOut` matched headers per sheet, so the header "Recursos para viaje" read in the list's own block made column C look loaded.
+- **The loss is fixed and covered by a test, not rerun.** `engine/tasks/cell_coverage.py` reads the file's staged cells in PostgreSQL and says, before the person accepts, the filled cells of the tables the design reads that no source covers (rows below its header row, to its block's last row, in the columns whose header it binds or ignores): a check `cellsLeftOut` in the proposal ("12 filled cells of “Calendar & Agenda” are read by no source of this design (for example C41, C42, C43): what they hold is not loaded"). Run over this walk-through's own design it names exactly those 12 cells and nothing else (no false cell on the other 3 sheets). Covered by `test_a_filled_column_no_source_reads_is_said_before_the_person_accepts` (J50.39, two configurations).
+- **The way onward, used once:** "Ask about these records…" on the workspace (words only) to set the 13 entries' Spanish names. The task failed twice and went on by words each time (the session made the change set in its proposal turn and wrote no proposal; then it proposed the draft the first task still holds, `AI_TASK_DRAFT_HELD`'s rule), the third turn proposed a draft of its own, accept loaded a change set of 13 updates, published. Then every filled cell is found (1,234 = 1,053 + 100), 826 records, 0 missing. That task: 4 calls, 1,448,483 tokens in and 15,097 out, 148 s, $0.66. A records task that fails because the session ignores the proposal protocol, or picks another task's draft, is a known limit of the prompt (`agent/7`), not changed here.
+- **Cost (at API prices, logged in the usage log):** the walk-through 3 calls, 9,562,679 tokens in, 121,383 out, $3.73 (the interrupted turn reported none); the way onward $0.66; in all 11,011,162 in, 136,480 out, $4.39.
+
+**What is not verified.** The walk-through was run through the API (the steps are the browser's routes), not in the browser; the person who would judge it is the user. The 100 Y and N cells and the 100 relationships were not compared cell by cell. How the assistant behaves when a person tells it to change a real proposal in the same session (not the way onward) was shown by the stand-in only. A saved layout that no longer fits and a permission lost during a task are shown in the browser with the page given the state by a rerouted answer (the stand-in cannot reach them); the engine's side is J50.57 and J50.59. The refused step in a reshape shows the engine's real refusal (the release that drops a type the workspace holds records of), with the task given a final release by a rerouted answer. A stop during a load waits up to a minute for a job the session started to end before it discards the change set, and says so if one is still running. Words after a stopped turn resume the session that was killed, so the assistant's own memory of the stopped turn is whatever Claude Code kept of it.
+
+**What the user still cannot do.** Have a proposal for a complex workbook within five minutes (1,312 s here); rely on a records task to follow the proposal protocol on the first turn; hand a task to a colleague who then tells the assistant (the task is visible to administrators, who can; a colleague with no Work in change sets is told who can load); say what to change to a task that was discarded or has expired (a new task starts from the workspace); undo the half of a stopped turn that changed the draft; see why an activation of the three steps was refused anywhere but the release page. 
 
 ## WM1: Change a workspace's model from the workspace
 
@@ -1824,12 +1963,12 @@ each only on the user's go-ahead with its cost stated first (AP-D11, AG-D10); th
   publication, and a person does both (AP-D29). Nothing is installed or loaded before the person accepts a proposal
   whose every row was checked. A load leaves a saved profile that repeats it (AP10).
 - A session's every run is in the call record, with its tokens and cost (AP9).
-- The real-file try (AP-D22) on the user's own workbooks has been run and judged by the user.
+- **Always a way out** (AP13, the user, 2026-11-02): at every state of a task a person has a way forward on the page
+  itself, easy to find, without starting again or doing the step by hand elsewhere; or the state is a recorded limit.
 - **The acceptance workbook** (the user, 2026-10-28): `Lines & Routes v2.0.xlsx`, a data dictionary laid
   out for reading (lists side by side, group headings above list headings, English and Spanish column pairs, `Y`
-  flags, notes). The rules alone made one application of 101 types and 31 relation types of it. Through AP6 it gives
-  a model a person reads as the business does, about four applications and a dozen types with group hierarchies,
-  translations and relations, and its import, judged by the user.
+  flags, notes). The rules alone made one application of 101 types and 31 relation types of it. One walk-through in the
+  browser (AP13), run once: the person and the assistant reach a model and its import together, judged by the user.
 - **Reshaping a workspace's model is an instruction too** (AP12): from the workspace, "reorganise this model" (or a
   narrower change) becomes a proposal like a new workbook's, so a person never needs the model editor's draft, install
   and activate path to fix a model. Merging types that hold data needs no wait for 1.0, and there are two ways,

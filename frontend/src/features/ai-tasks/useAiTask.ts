@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ai } from "@/api/aiClient";
-import { errorMessage } from "@/api/errors";
+import { errorMessage, isApiError } from "@/api/errors";
 import { useJobStream } from "@/features/jobs/useJobStream";
 import type { AiTask } from "@/types";
 import { running } from "./aiTaskText";
@@ -16,6 +16,8 @@ import { running } from "./aiTaskText";
 export interface FollowedTask {
   task?: AiTask;
   error: string;
+  /** The task is not kept or never existed (`404 AI_TASK_NOT_FOUND`, 0.16 AP13). */
+  notFound: boolean;
   /** Replaces the task with an answer a write returned. */
   set: (task: AiTask) => void;
   /** Reads the task again; resolves with what was read. */
@@ -50,12 +52,14 @@ export function useAiTask(taskId: string): FollowedTask {
   const entry = sharedOf(taskId);
   const [task, setTask] = useState<AiTask | undefined>(entry.task);
   const [error, setError] = useState("");
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     const own = sharedOf(taskId);
     const listener = (next: AiTask) => {
       setTask(next);
       setError("");
+      setNotFound(false);
     };
     own.listeners.add(listener);
     return () => {
@@ -73,7 +77,10 @@ export function useAiTask(taskId: string): FollowedTask {
       if (asked === own.latest) publish(own, read);
       return read;
     } catch (cause) {
-      if (asked === own.latest) setError(errorMessage(cause));
+      if (asked === own.latest) {
+        setError(errorMessage(cause));
+        setNotFound(isApiError(cause, "AI_TASK_NOT_FOUND"));
+      }
       return undefined;
     }
   }, [taskId]);
@@ -86,7 +93,11 @@ export function useAiTask(taskId: string): FollowedTask {
     const asked = own.latest;
     ai.task(taskId)
       .then((read) => current && own.latest === asked && publish(own, read))
-      .catch((cause) => current && setError(errorMessage(cause)));
+      .catch((cause) => {
+        if (!current) return;
+        setError(errorMessage(cause));
+        setNotFound(isApiError(cause, "AI_TASK_NOT_FOUND"));
+      });
     return () => {
       current = false;
     };
@@ -109,5 +120,5 @@ export function useAiTask(taskId: string): FollowedTask {
     [taskId],
   );
 
-  return { task, error, set, reload, retry: () => void reload() };
+  return { task, error, notFound, set, reload, retry: () => void reload() };
 }

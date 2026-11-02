@@ -14,14 +14,23 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
-from ...models.database import AiTask, Job, ModelDraft, ModelRelease, SourceFile
+from ...models.database import (
+    AiTask,
+    AuditEvent,
+    ChangeSet,
+    Job,
+    ModelDraft,
+    ModelRelease,
+    SourceFile,
+    WorkspaceModel,
+)
 from ...models.imports import (
     ImportProfileCreate,
     ImportProfileDefinition,
     ImportRequest,
     InlineProfile,
 )
-from ..change_sets.lifecycle import create_change_set
+from ..change_sets.lifecycle import create_change_set, discard_change_set
 from ..identity.clients import retire_session_client
 from ..imports.profiles import load_profile, parsed, source_order
 from ..imports.profiles import save_profile as save_import_profile
@@ -32,7 +41,7 @@ from ..model.releases import activate_model_release, install_model_release
 from ..model.workspace_models import load_assignment
 from ..sources.profile_check import previous_file
 from ..sources.store import stored_upload
-from . import agent, design_checks, draft_plan, matching
+from . import agent, design_checks, draft_plan, matching, store
 from .profile_reading import headers_of
 from .store import claim, finish, load_task, note, require_state, touch
 
@@ -106,19 +115,24 @@ def run_turns(
     job."""
     task = load_task(session, task_id)
     current = dict(task.design or {})
-    if current.get("agentSession"):
-        words = current.pop("pendingWords", None)
+    words = current.pop("pendingWords", None)
+    begin = current.pop("startSession", False)
+    if words is not None or begin:
         task = load_task(session, task_id, for_update=True)
         task.design = current
         session.commit()
+    if current.get("agentSession") and not begin:
         if current.get("stage") == "load":
-            agent.accepted(session, job, ctx, task_id)
+            agent.accepted(session, job, ctx, task_id, words)
         else:
             agent.said(session, job, ctx, task_id, words or "", dry_run_check)
         return
-    if agent.enabled() and workbook_of(session, task) is None:
-        # Words alone: the session starts here, as there is no file to read first.
-        agent.start(session, job, ctx, task_id, None, dry_run_check)
+    source = workbook_of(session, task)
+    if agent.enabled() and (begin or source is None):
+        # The session starts here: words alone have no file to read first, and a task that had no
+        # session (a saved layout that does not fit, a reading that failed) takes the person's words.
+        path = ctx.files.upload(source.public_id) if source is not None else None
+        agent.start(session, job, ctx, task_id, path, dry_run_check, words)
         return
     if current.get("stage", "load") == "model":
         _propose(session, job, ctx, task_id, record_call)
@@ -830,18 +844,19 @@ def queue_correction(
     retention_days: int,
     task_retention_days: int,
 ) -> AiTask:
-    """The steward's correction of the proposed model, in words: the model stage again, the words
-    winning over the assistant's own choices. Commits."""
-
-    def change(current: dict[str, Any]) -> None:
-        current["stage"] = "model"
-        current["corrections"] = [*(current.get("corrections") or []), correction]
-        current["pendingWords"] = correction
-        current["reasonsAsked"] = False
-        current["checksAsked"] = False
-
-    return _design_again(
-        session, task_id, expected_version, change, retention_days, task_retention_days
+    """The person's words wherever a task can go on (AP-D54): the proposal, a stopped or failed task,
+    a load that is wrong and not yet published (its change set is discarded and the same session
+    loads again), a saved layout's load stage. The words win over the assistant's own choices.
+    Commits."""
+    return _go_on(
+        session,
+        task_id,
+        expected_version,
+        correction,
+        ("checked", "failed", "stopped", "loaded"),
+        retention_days,
+        task_retention_days,
+        retry=False,
     )
 
 
@@ -878,33 +893,137 @@ def queue_retry(
     session: Session,
     task_id: str,
     expected_version: int,
+    words: str | None,
     *,
     retention_days: int,
     task_retention_days: int,
 ) -> AiTask:
-    """A session that stopped goes on from where it was: its load after an acceptance, its proposal
-    otherwise. Commits."""
-    task = load_task(session, task_id, for_update=True)
-    require_state(task, "failed")
-    if not (task.design or {}).get("agentSession"):
-        raise api_error(409, "AI_TASK_STATE", "Only an assistant's session can be tried again")
-    task.state = "checked"
-    task.finished_at = None
-    session.flush()
-
-    def change(current: dict[str, Any]) -> None:
-        if current.get("stage") != "load":
-            current["pendingWords"] = "That stopped. Go on from where you were."
-
-    return _design_again(
-        session, task_id, expected_version, change, retention_days, task_retention_days
+    """A task that stopped goes on from where it was: its load after an acceptance, its proposal
+    otherwise, with the person's words when there are some (AP-D54). A saved layout that does not fit
+    is read with the assistant (AP-D60). Commits."""
+    return _go_on(
+        session,
+        task_id,
+        expected_version,
+        words,
+        ("failed", "stopped", "checked"),
+        retention_days,
+        task_retention_days,
+        retry=True,
     )
 
 
-def discard(session: Session, task_id: str, files: Any, retention_days: int) -> AiTask:
-    """The person discards a proposal: the task ends and its draft and folder go. Commits."""
+def _go_on(
+    session: Session,
+    task_id: str,
+    expected_version: int,
+    words: str | None,
+    allowed: tuple[str, ...],
+    retention_days: int,
+    task_retention_days: int,
+    *,
+    retry: bool,
+) -> AiTask:
     task = load_task(session, task_id, for_update=True)
-    require_state(task, "checked", "read")
+    claim(task, expected_version)
+    require_state(task, *allowed)
+    design = dict(task.design or {})
+    state = task.state
+    lives = agent.lives(task)
+    if state in ("failed", "stopped"):
+        # Its reasons were the page's while it stood there; going on, they are no longer true.
+        task.notes = []
+    if retry and state == "checked" and design.get("agentSession"):
+        # Going on without words is for a task that stopped, or one the assistant has not read yet.
+        raise api_error(409, "AI_TASK_STATE", "Only a task that stopped can be tried again")
+    if state == "loaded":
+        if not lives:
+            raise api_error(
+                409,
+                "AI_TASK_STATE",
+                "The assistant's session has ended, so it cannot load again: start a new task",
+            )
+        _discard_loaded(session, task)
+        task = load_task(session, task_id, for_update=True)
+        task.result = None
+    ran = bool(design.get("agentSession")) and bool(design.get("agentRan") or design.get("origin"))
+    if not ran and not agent.enabled():
+        raise api_error(
+            409,
+            "AI_NOT_CONFIGURED",
+            "The assistant is not set up here, so it cannot take your words",
+        )
+    at_load = ran and design.get("stage") == "load" and state in ("failed", "loaded")
+    design["stage"] = "load" if at_load else "model"
+    if not ran:
+        design["startSession"] = True
+    if words:
+        design["corrections"] = [*(design.get("corrections") or []), words]
+        design["pendingWords"] = words
+    elif ran and not at_load:
+        design["pendingWords"] = "That stopped. Go on from where you were."
+    design["reasonsAsked"] = False
+    design["checksAsked"] = False
+    task.design = design
+    task.state = "checked"
+    task.finished_at = None
+    session.flush()
+    return _design_again(
+        session,
+        task_id,
+        expected_version,
+        lambda current: None,
+        retention_days,
+        task_retention_days,
+    )
+
+
+def _discard_loaded(session: Session, task: AiTask) -> None:
+    """The change set a loaded task holds, discarded (commits); a published one cannot be."""
+    change_set_id = (task.result or {}).get("changeSetId")
+    if not change_set_id:
+        return
+    change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
+    if change_set is None:
+        raise api_error(
+            409,
+            "AI_TASK_STATE",
+            "The change set is no longer open: it was published or discarded. Start a new task",
+        )
+    discard_change_set(session, change_set.id, change_set.version)
+
+
+def queue_back(
+    session: Session, task_id: str, expected_version: int, retention_days: int
+) -> AiTask:
+    """From a saved layout's load stage back to the proposal it came from (AP-D54); no job. Commits."""
+    task = load_task(session, task_id, for_update=True)
+    claim(task, expected_version)
+    require_state(task, "checked")
+    design = dict(task.design or {})
+    if design.get("stage") != "load" or design.get("agentSession"):
+        raise api_error(409, "AI_TASK_STATE", "The task has no load stage to go back from")
+    design["stage"] = "model"
+    task.design = design
+    touch(task, retention_days)
+    session.commit()
+    return task
+
+
+def discard(session: Session, task_id: str, files: Any, retention_days: int) -> AiTask:
+    """The person discards the task: it ends and its draft and folder go; the change set a loaded task
+    holds goes with it (AP-D55). Commits."""
+    task = load_task(session, task_id, for_update=True)
+    require_state(task, "checked", "read", "stopped", "failed", "loaded")
+    discarded_set = False
+    if task.state == "loaded":
+        change_set_id = (task.result or {}).get("changeSetId")
+        if change_set_id and session.scalar(
+            select(ChangeSet.id).where(ChangeSet.id == change_set_id)
+        ):
+            _discard_loaded(session, task)
+            discarded_set = True
+            task = load_task(session, task_id, for_update=True)
     draft = session.get(ModelDraft, task.draft_id) if task.draft_id else None
     task.draft_id = None
     session.flush()
@@ -913,9 +1032,83 @@ def discard(session: Session, task_id: str, files: Any, retention_days: int) -> 
     agent.remove_folder(files, task)
     agent.retire_unused_releases(session, task)
     retire_session_client(session, task.client_id)
+    if agent.lives(task):
+        task.design = {**(task.design or {}), "sessionEnded": True}
+    if discarded_set:
+        note(task, "note", "You discarded the change set. Live data was never changed.")
     finish(task, "cancelled", retention_days)
     session.commit()
     return task
+
+
+def sync(session: Session, task: AiTask, retention_days: int, files: Any) -> None:
+    """Bring a task up to date wherever it is read: the job it waits for (``store.sync``), what a
+    stopped load had written, and a loaded task's change set published or discarded and its migration
+    confirmed, which end the session (AP-D56)."""
+    if task.state == "loading" and task.job_id is not None:
+        job = session.scalar(select(Job).where(Job.id == task.job_id))
+        if job is not None and job.state == "cancelled":
+            _discard_written(session, task)
+    store.sync(session, task, retention_days)
+    if task.state == "loaded":
+        _settle(session, task, retention_days, files)
+        session.flush()
+
+
+def _discard_written(session: Session, task: AiTask) -> None:
+    """What a stopped load wrote into the change set it made is not kept (AP-D55). Commits."""
+    result = task.result or {}
+    change_set_id = result.get("changeSetId")
+    change_set = (
+        session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
+        if change_set_id
+        else None
+    )
+    if change_set is not None:
+        discard_change_set(session, change_set.id, change_set.version)
+    if result.get("releaseId"):
+        note(task, "note", "The model change it installed stays activated in the workspace.")
+
+
+def _settle(session: Session, task: AiTask, retention_days: int, files: Any) -> None:
+    """A loaded task whose work is now in the person's hands for good: the change set was published
+    (the task says so and points onward) or discarded elsewhere (the task ends), or the migration it
+    prepared was confirmed. The session and its folder go with it (AP-D56)."""
+    if agent.lives(task) and not agent.folder_of(files, task).exists():
+        # A task recorded before the session outlived its load: its folder went at the load, so there
+        # is no session to tell anything (AP13). The task stands; its words box is not offered.
+        agent.end_session(session, files, task, retire_releases=False)
+    result = dict(task.result or {})
+    change_set_id = result.get("changeSetId")
+    if change_set_id and not result.get("published"):
+        if session.scalar(select(ChangeSet.id).where(ChangeSet.id == change_set_id)) is not None:
+            return
+        publication = session.scalar(
+            select(AuditEvent.aggregate_id).where(
+                AuditEvent.aggregate_type == "publication",
+                AuditEvent.action == "published",
+                AuditEvent.changes["changeSetId"].as_string() == change_set_id,
+            )
+        )
+        if publication is not None:
+            task.result = {**result, "published": True, "publicationId": publication}
+            touch(task, retention_days)
+            agent.end_session(session, files, task, retire_releases=False)
+        else:
+            agent.end_session(session, files, task)
+            note(task, "note", "The change set was discarded. Live data was never changed.")
+            finish(task, "cancelled", retention_days)
+        return
+    migration = result.get("migration")
+    if migration and agent.lives(task):
+        running = session.scalar(
+            select(ModelRelease.public_id)
+            .join(WorkspaceModel, WorkspaceModel.model_release_id == ModelRelease.id)
+            .where(WorkspaceModel.workspace_key == task.workspace_key)
+        )
+        if running == migration.get("releaseId"):
+            agent.end_session(session, files, task)
+            touch(task, retention_days)
 
 
 def _design_again(
@@ -930,10 +1123,14 @@ def _design_again(
     task = load_task(session, task_id, for_update=True)
     claim(task, expected_version)
     require_state(task, "checked")
-    if task.draft_id is None and not (task.design or {}).get("agentSession"):
-        raise api_error(409, "AI_TASK_STATE", "The task has no design to answer")
     current = dict(task.design or {})
     change(current)
+    if (
+        task.draft_id is None
+        and not current.get("agentSession")
+        and not current.get("startSession")
+    ):
+        raise api_error(409, "AI_TASK_STATE", "The task has no design to answer")
     # The person has spoken: the repairs start again from what they said.
     current["rounds"] = 0
     current["history"] = []

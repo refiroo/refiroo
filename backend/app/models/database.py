@@ -3046,7 +3046,7 @@ class AiTask(Base):
     __table_args__ = (
         CheckConstraint(
             "state IN ('reading', 'read', 'checking', 'checked', 'loading', 'loaded', 'failed', "
-            "'cancelled')",
+            "'cancelled', 'stopped')",
             name="ck_ai_tasks_state",
         ),
         CheckConstraint(

@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .common import CollectionPage, PrincipalResponse
 
 TaskState = Literal[
-    "reading", "read", "checking", "checked", "loading", "loaded", "failed", "cancelled"
+    "reading", "read", "checking", "checked", "loading", "loaded", "failed", "cancelled", "stopped"
 ]
 Owner = Literal["rules", "assistant", "person", "profile"]
 Phase = Literal["profiling", "reading", "designing", "checking"]
@@ -334,6 +334,9 @@ class TaskResult(BaseModel):
     # Why a session's load left no saved profile (AP-D41), in words a person reads.
     profileNotSaved: str | None = None
     counts: dict[str, int] | None = None
+    # The change set was published (0.16 AP13): the task read noticed it, and the publication it made.
+    published: bool = False
+    publicationId: str | None = None
 
 
 class AiTaskResponse(BaseModel):
@@ -359,6 +362,9 @@ class AiTaskResponse(BaseModel):
     draftId: str | None = None
     notes: list[TaskNote]
     result: TaskResult | None
+    # Whether the person may tell the assistant something in this state (0.16 AP13, AP-D54): the
+    # assistant is on and the task's session lives or can start again.
+    canTell: bool = False
 
 
 class AiTaskPage(CollectionPage[AiTaskResponse]):

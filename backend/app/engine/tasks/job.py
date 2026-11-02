@@ -136,11 +136,12 @@ def submit(
 
 
 def request_cancel(session: Session, task_id: str, expected_version: int | None) -> AiTask:
-    """Ask the job the task waits for to stop; the task becomes ``cancelled`` when it does."""
+    """Ask the job the task waits for to stop (a load: its import). The turn ends, not the task:
+    the task goes back to where the person can go on when it does (AP-D55)."""
     task = load_task(session, task_id, for_update=True)
     if expected_version is not None:
         claim(task, expected_version)
-    require_state(task, "reading", "checking")
+    require_state(task, "reading", "checking", "loading")
     session.execute(
         update(Job)
         .where(Job.id == task.job_id, Job.state.in_(("queued", "running")))

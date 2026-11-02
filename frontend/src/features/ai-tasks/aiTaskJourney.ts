@@ -18,7 +18,7 @@ export interface JourneyStep {
 
 /** What the primary button does; the page decides how (navigate, scroll, open a dialog). */
 export type JourneyAction =
-  "openEditor" | "questions" | "load" | "acceptModel" | "openChangeSet" | "restart" | "openTask";
+  "openEditor" | "questions" | "load" | "acceptModel" | "openChangeSet" | "restart" | "openTask" | "tell";
 
 export interface TaskJourney {
   steps: JourneyStep[];
@@ -41,10 +41,11 @@ export const taskApplicationKey = (task: AiTask): string | undefined =>
 const refusedRows = (task: AiTask) =>
   task.check ? (isDesignCheck(task.check) ? task.check.summary.refused : (task.check.summary?.refused ?? 0)) : 0;
 
-export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } = {}): TaskJourney {
+export function taskJourney(task: AiTask, options: { modelReviewed?: boolean; canLoad?: boolean } = {}): TaskJourney {
+  const canLoad = options.canLoad ?? true;
   const { state } = task;
   const design = task.design ?? null;
-  // A task of an older version may rest in a state this one no longer has (`read`): it reads as stopped.
+  // A task of an older version may rest in a state this one no longer has (`read`): it reads as discarded.
   const ended = !(["reading", "checking", "checked", "loading", "loaded"] as string[]).includes(state);
   const checked = state === "checked";
   const proposing = checked && design?.stage === "model";
@@ -57,7 +58,8 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } =
   const loadNow = checked && !proposing && !reviewModel && unanswered === 0;
   // After a failure the earlier steps stand and the step it failed in shows it; one that never
   // checked failed while the assistant designed.
-  const failedAt = ended ? (task.check ? "load" : "designs") : undefined;
+  const failedAt = state === "failed" ? (task.check ? "load" : "designs") : undefined;
+  const published = !!task.result?.published;
 
   const past = state === "loading" || state === "loaded";
   const status = (key: string, current: boolean, done: boolean): StepStatus =>
@@ -65,7 +67,11 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } =
 
   const steps: JourneyStep[] = [
     { key: "file", label: "File and words", status: "done" },
-    { key: "designs", label: "The assistant designs", status: status("designs", designing, !designing && !failedAt) },
+    {
+      key: "designs",
+      label: "The assistant designs",
+      status: status("designs", designing || state === "stopped", !designing && !failedAt && state !== "stopped"),
+    },
     ...(design?.stage
       ? [
           {
@@ -98,7 +104,7 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } =
     {
       key: "review",
       label: task.result?.migration ? "Confirm the migration" : "Review and publish",
-      status: status("review", state === "loaded", false),
+      status: status("review", state === "loaded" && !published, published),
     },
   ];
   // A step before the one that failed is done unless it never ran.
@@ -106,17 +112,25 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } =
     for (const step of steps) if (step.key !== "load" && step.key !== "review") step.status = "done";
 
   const refused = refusedRows(task);
-  const base = { steps, stoppable: state === "reading" || state === "checking" };
+  const base = { steps, stoppable: state === "reading" || state === "checking" || state === "loading" };
 
-  if (ended)
+  if (ended) {
+    if (state === "failed" || state === "stopped")
+      return {
+        ...base,
+        sentence: task.canTell
+          ? `${state === "failed" ? "The assistant stopped" : "You stopped the assistant"}, and nothing was changed. Tell it how to go on, or discard the task.`
+          : "The assistant could not finish, and nothing was changed. Start again, perhaps with other words.",
+        primary: task.canTell
+          ? { label: "Tell the assistant", action: "tell" }
+          : { label: "Start again", action: "restart" },
+      };
     return {
       ...base,
-      sentence:
-        state === "failed"
-          ? "The assistant could not finish, and nothing was changed. Start again, perhaps with other words."
-          : "You stopped it, and nothing was changed. Start again when you are ready.",
+      sentence: "The task was discarded, and nothing was changed. Start again when you are ready.",
       primary: { label: "Start again", action: "restart" },
     };
+  }
   if (designing || checking)
     return {
       ...base,
@@ -124,6 +138,12 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } =
         ? "Checking every row of the file. You can leave this page."
         : "The assistant is designing the load. You can leave this page.",
       primary: { label: "Show progress", action: "openTask" },
+    };
+  if ((proposing || (checked && !design?.questions.length && !reviewModel)) && !canLoad)
+    return {
+      ...base,
+      sentence:
+        "Loading needs Work in change sets, which you do not hold. Someone who does can accept and load from this page.",
     };
   if (proposing)
     return proposalRefusal(task)
@@ -154,18 +174,25 @@ export function taskJourney(task: AiTask, options: { modelReviewed?: boolean } =
           : "Every row is checked. Load it into a change set. Nothing is live until it is published.",
       primary: { label: "Load into a change set", action: "load" },
     };
-  if (state === "loading") return { ...base, sentence: "Loading into the change set. You can leave this page." };
+  if (state === "loading")
+    return { ...base, sentence: "Loading into the change set. You can leave this page, or stop it." };
   if (!task.result?.changeSetId)
     return {
       ...base,
       sentence: "The new model is installed and no record has moved. Preview the migration and confirm it on the task.",
       primary: { label: "Open the steps", action: "openTask" },
     };
+  if (published)
+    return {
+      ...base,
+      sentence: "Published. Something not right? Change the model, or ask about the records, from the task.",
+      primary: { label: "Open the task", action: "openTask" },
+    };
   return {
     ...base,
     sentence: task.result.thenReleaseId
       ? "Moved into a change set; nothing is live until it is published. Three steps are yours, shown on the task."
-      : "Loaded into a change set; nothing is live until it is published. To undo, discard the change set.",
+      : "Loaded into a change set; nothing is live until it is published. Not what you wanted? Tell the assistant on the task, or discard the change set.",
     primary: { label: "Open the change set", action: "openChangeSet" },
   };
 }

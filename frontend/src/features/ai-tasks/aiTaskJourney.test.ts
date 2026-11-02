@@ -61,6 +61,38 @@ describe("the assistant load as a journey", () => {
     expect(again.stoppable).toBe(false);
   });
 
+  it("points a task that stopped to the words box, a stopped load to Stop, and a published one onward (AP13)", () => {
+    const failed = { ...designTask(), state: "failed" as const, check: null, canTell: true };
+    const told = taskJourney(failed);
+    expect(told.primary).toEqual({ label: "Tell the assistant", action: "tell" });
+    expect(told.sentence).toContain("Tell it how to go on");
+    const stopped = { ...designTask(), state: "stopped" as const, check: null, canTell: true };
+    expect(statuses(stopped)).toMatchObject({ designs: "current" });
+    expect(taskJourney(stopped).sentence).toContain("You stopped the assistant");
+    const discarded = { ...designTask(), state: "cancelled" as const, check: null };
+    expect(taskJourney(discarded).primary).toEqual({ label: "Start again", action: "restart" });
+    expect(taskJourney({ ...designTask(), state: "loading" as const }).stoppable).toBe(true);
+    const published = {
+      ...designTask(),
+      state: "loaded" as const,
+      result: { changeSetId: "cs-1", published: true },
+    };
+    expect(statuses(published, true)).toMatchObject({ review: "done" });
+    expect(taskJourney(published, { modelReviewed: true }).sentence).toContain("Published.");
+  });
+
+  it("offers no Accept or Load to a person without Work in change sets, and says who can", () => {
+    const proposal = { ...designTask(), check: null };
+    proposal.design = { ...proposal.design!, stage: "model" as const };
+    const told = taskJourney(proposal, { canLoad: false });
+    expect(told.primary).toBeUndefined();
+    expect(told.sentence).toContain("Someone who does can accept and load from this page");
+    expect(taskJourney(proposal).primary).toEqual({ label: "Accept the model", action: "acceptModel" });
+    const ready = designTask();
+    ready.design = { ...ready.design!, questions: [] };
+    expect(taskJourney(ready, { modelReviewed: true, canLoad: false }).primary).toBeUndefined();
+  });
+
   it("ends a whole-type move on the task, where the migration is previewed and confirmed (AP12)", () => {
     const moved = {
       ...designTask(),

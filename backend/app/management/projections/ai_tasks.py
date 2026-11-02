@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ...common.pagination import Page
 from ...common.time import as_utc
 from ...engine.identity.principals import named, ref
+from ...engine.tasks import agent
 from ...models.database import AiTask, Job, ModelDraft, ModelDraftOperation, SourceFile
 from ..schemas.ai_tasks import AiTaskPage, AiTaskResponse, TaskChange, TaskChangePage
 
@@ -46,6 +47,16 @@ def _design(session: Session, task: AiTask) -> dict[str, Any] | None:
     return {**task.design, "operations": applied}
 
 
+def _can_tell(task: AiTask) -> bool:
+    """Whether the person may tell the assistant something now (AP-D54): the assistant is on and the
+    task is where it goes on, or a loaded one whose session still lives."""
+    if not agent.enabled():
+        return False
+    if task.state in ("checked", "failed", "stopped"):
+        return True
+    return task.state == "loaded" and agent.lives(task) and not (task.result or {}).get("published")
+
+
 def task_response(session: Session, task: AiTask) -> AiTaskResponse:
     source = session.scalar(select(SourceFile).where(SourceFile.task_id == task.id))
     return AiTaskResponse.model_validate(
@@ -74,6 +85,7 @@ def task_response(session: Session, task: AiTask) -> AiTaskResponse:
             ),
             "notes": task.notes,
             "result": task.result,
+            "canTell": _can_tell(task),
         }
     )
 

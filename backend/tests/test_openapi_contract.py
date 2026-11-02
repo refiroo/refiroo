@@ -408,10 +408,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.16 AP12 (fix after the real try, additive): `consumerChanges` on an assistant
     # task's design; nothing else changed. Re-baselined for 0.16 AP12 (second fix, additive):
     # `changeSetReleaseId` on an assistant task's result; nothing else changed (the old hash is
-    # reproduced with that field removed).
+    # reproduced with that field removed). Re-baselined for 0.16 AP13 (additive): `POST
+    # /ai/tasks/{id}/proposal`, an optional `words` on the retry request (its own schema,
+    # `AiTaskRetryRequest`), the task state `stopped`, `canTell` on a task and `published` and
+    # `publicationId` on its result; nothing else changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "79f299a0b000ef49efe5e5b419009d02be2b28413ddca5e8973ff63d05a8c8cd"
+        "57fa44924ef681cc5a70084c87808204fcd235de6c0647eb9801f22b4ece7fdb"
     )
 
 

@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { ai } from "@/api/aiClient";
 import { errorMessage } from "@/api/errors";
 import { JourneyBar } from "@/app/JourneyBar";
-import { useWorkspacePermissions } from "@/features/security/permissions";
+import { holds, useWorkspacePermissions } from "@/features/security/permissions";
 import { useAssistantOfferIn } from "@/features/settings/useWorkspaceAiOffer";
 import { workspaceModel } from "@/model/workspaceModels";
 import { changeReviewFor } from "@/routing/routes";
@@ -46,7 +46,9 @@ function scrollToAndFocus(id: string) {
   const target = document.getElementById(id);
   if (!target) return;
   target.scrollIntoView?.({ block: "start" });
-  (target.querySelector<HTMLElement>("button.primary, button, input") ?? target).focus({ preventScroll: true });
+  (target.querySelector<HTMLElement>("textarea, button.primary, button, input") ?? target).focus({
+    preventScroll: true,
+  });
 }
 
 export function AiTaskJourneyBar({
@@ -72,7 +74,10 @@ export function AiTaskJourneyBar({
   }, [place, taskId]);
   if (!task) return null;
 
-  const plan = taskJourney(task, { modelReviewed: place === "editor" ? false : modelReviewed(taskId) });
+  const plan = taskJourney(task, {
+    modelReviewed: place === "editor" ? false : modelReviewed(taskId),
+    canLoad: holds(permissions, "change-sets"),
+  });
   const toTask: RouteState = { kind: "settings", page: "ai-tasks", taskId };
 
   async function openChangeSet() {
@@ -100,6 +105,7 @@ export function AiTaskJourneyBar({
     questions: place === "task" ? () => scrollToAndFocus("journey-questions") : undefined,
     acceptModel: place === "task" ? () => scrollToAndFocus("journey-accept") : undefined,
     load: place === "task" ? () => scrollToAndFocus("journey-load") : undefined,
+    tell: place === "task" ? () => scrollToAndFocus("journey-tell") : undefined,
     openChangeSet: place === "changeSet" ? undefined : () => void openChangeSet(),
     restart: offer?.assistant ? () => setRestarting(true) : undefined,
     openTask: place === "task" ? undefined : () => onNavigate(toTask),

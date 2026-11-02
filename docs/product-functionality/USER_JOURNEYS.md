@@ -2631,7 +2631,27 @@ API; it calls no AI provider.
   task, but the session holds no model grant and installs nothing.
 - **J50.52 What stays out**: the release with both shapes is retired if the task is discarded before the change
   set; the final release (`result.thenReleaseId`) survives the end of a loaded task, and any other release the
-  session installed is retired.
+  session installed is retired once the session has ended (J50.56).
+- **J50.53 A turn that failed**: a failed task shows its reason (the task's notes) and takes the person's words,
+  which go to the same session; a session that never started starts again on the same task, file and words with
+  the new words added.
+- **J50.54 Stop ends the turn, not the task**: stopping a turn returns the task to its last proposal with a note;
+  with no proposal yet the task is `stopped`, which takes words (the session goes on, or starts) or Discard.
+- **J50.55 Stop during a load**: the load's change set is discarded, nothing is loaded, and the task is back at the
+  proposal that was accepted.
+- **J50.56 A load that is wrong**: words on a loaded task whose change set is not published discard the change set
+  and the same session loads again with them. The session's folder and client stay until the change set is
+  published or discarded, the migration confirmed, or the task discarded or expired; the next read of the task
+  ends the session. A published change set shows on the task (`result.published`, `result.publicationId`) and the
+  task takes no more words.
+- **J50.57 The load stage of a saved layout**: the check before the load goes back to the layout's proposal, and
+  takes words, which start a session on the same task and file.
+- **J50.58 A task that ended**: discarding a loaded task discards its change set and ends the session; a change
+  set discarded elsewhere ends the task the same way on its next read, with a note.
+- **J50.59 A step the person cannot take**: accepting a proposal that loads needs Work in change sets, as the load
+  does; the refusal names the group and the proposal stays, taking words.
+- **J50.60 A migration that waits**: while the migration of a proposal that moves whole types waits, the task takes
+  words; the confirmed migration ends the session.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409

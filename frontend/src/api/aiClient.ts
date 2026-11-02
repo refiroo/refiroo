@@ -96,10 +96,14 @@ export const ai = {
     request<AiTask>(`${taskPath(id)}/model`, post(body)),
   /** Accepts the proposed model; the load stage maps the sheets and checks every row (`202`). */
   acceptModel: (id: string, body: { expectedVersion: number }) => request<AiTask>(`${taskPath(id)}/accept`, post(body)),
-  /** Asks the job the task waits for to stop. */
-  /** Tries a stopped session again, from where it was. */
-  retryTask: (id: string, body: { expectedVersion: number }) => request<AiTask>(`${taskPath(id)}/retry`, post(body)),
-  /** Throws a proposal away: its draft goes, nothing was installed or loaded. */
+  /** Goes on with a task that stopped, from where it was, with the person's words when there are some (0.16 AP13). */
+  retryTask: (id: string, body: { expectedVersion: number; words?: string }) =>
+    request<AiTask>(`${taskPath(id)}/retry`, post(body)),
+  /** From a saved layout's load stage back to its proposal (200, no job). */
+  reopenProposal: (id: string, body: { expectedVersion: number }) =>
+    request<AiTask>(`${taskPath(id)}/proposal`, post(body)),
+  /** Ends the task: its draft goes, and a loaded task's change set with it. */
   discardTask: (id: string) => request<AiTask>(`${taskPath(id)}/discard`, post({})),
+  /** Stops what the assistant is doing; the turn ends, not the task (0.16 AP13). */
   cancelTask: (id: string) => request<AiTask>(`${taskPath(id)}/cancel`, post({})),
 };

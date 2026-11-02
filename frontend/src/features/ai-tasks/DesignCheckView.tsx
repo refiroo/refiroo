@@ -13,8 +13,10 @@ import { Disclosure } from "@/ui/Disclosure";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { SettingsTable } from "@/ui/SettingsTable";
+import { CannotLoad } from "./CannotLoad";
 import { LoadFoot, type LoadChoice } from "./LoadFoot";
 import { TableChanges } from "./TableChanges";
+import { TellAssistant } from "./TellAssistant";
 import { changesModel } from "./aiTaskDesign";
 import { plural, refusalText, taskTitle } from "./aiTaskText";
 
@@ -49,6 +51,8 @@ export function DesignCheckView({
   canLoad,
   canRelease,
   onLoad,
+  onTell,
+  onBack,
 }: {
   task: AiTask;
   check: AiTaskDesignCheck;
@@ -59,6 +63,10 @@ export function DesignCheckView({
   /** Needs the model-release group in the task's workspace. */
   canRelease: boolean;
   onLoad: (choice: LoadChoice) => void;
+  /** The person's words go to the assistant, which starts on this task and file (0.16 AP13). */
+  onTell?: (words: string) => void;
+  /** Back to the proposal the check came from. */
+  onBack?: () => void;
 }) {
   const design = task.design;
   const model = !!design && changesModel(design);
@@ -157,7 +165,9 @@ export function DesignCheckView({
         saveByDefault
         loadLabel={model ? "Activate the model and load" : "Load into a change set"}
         noLoad={
-          canLoad && model && !canRelease ? (
+          !canLoad ? (
+            <CannotLoad workspaceLabel={workspaceLabel} />
+          ) : model && !canRelease ? (
             <Notice tone="info">
               This design changes the model, so a model administrator runs this load. They can open this task: it is
               visible to the administrators of {workspaceLabel}.
@@ -166,6 +176,33 @@ export function DesignCheckView({
         }
         onLoad={onLoad}
       />
+      {task.canTell !== false && onTell ? (
+        <TellAssistant
+          label={
+            check.refused.length > 0
+              ? "Tell the assistant what to do with the refused rows"
+              : "Tell the assistant what to change"
+          }
+          hint="The assistant reads this file with your words and proposes again; nothing is loaded before you accept."
+          rows={2}
+          pending={pending}
+          onSend={onTell}
+        >
+          {onBack && (
+            <button type="button" className="secondary" disabled={pending} onClick={onBack}>
+              Back to the proposal
+            </button>
+          )}
+        </TellAssistant>
+      ) : (
+        onBack && (
+          <div className="task-actions">
+            <button type="button" className="secondary" disabled={pending} onClick={onBack}>
+              Back to the proposal
+            </button>
+          </div>
+        )
+      )}
     </div>
   );
 }

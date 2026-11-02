@@ -1108,6 +1108,15 @@ class AiTaskCorrectionRequest(BaseModel):
     correction: str = Field(min_length=1, max_length=2000)
 
 
+class AiTaskRetryRequest(BaseModel):
+    """``POST /ai/tasks/{id}/retry``: go on, with the person's words when there are some (0.16 AP13)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=0)
+    words: str | None = Field(default=None, min_length=1, max_length=2000)
+
+
 class AiTaskAcceptRequest(BaseModel):
     """``POST /ai/tasks/{id}/accept``: the steward accepts the proposed model (0.16 AP6r)."""
 

@@ -10,10 +10,11 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { count } from "@/features/settings/limits";
-import type { AiTask, ChangeSet, RouteState, WorkspaceModel } from "@/types";
+import type { AiTask, ChangeSet, Job, ModelReleaseDiff, RouteState, WorkspaceModel } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { StatusPill } from "@/ui/StatusPill";
+import { TellAssistant } from "./TellAssistant";
 
 /** The steps of a part-of-a-type reshaping, from what the workspace runs and whether the change set is open. */
 export type StepState = "done" | "next" | "later";
@@ -42,6 +43,27 @@ export function reshapeStates(
   ];
 }
 
+/** What the engine would refuse of activating a release in the workspace, from the diff the activation dialog reads. */
+export function activationRefusals(diff: Pick<ModelReleaseDiff, "compatibility" | "consumerContracts">): string[] {
+  const reasons: string[] = [];
+  const { compatibility, consumerContracts } = diff;
+  if (compatibility.classification !== "compatible") {
+    const errors = compatibility.diagnostics.filter((item) => item.severity === "error");
+    reasons.push(
+      ...(errors.length > 0
+        ? errors.map((item) => item.message)
+        : ["The workspace's records do not fit this release: a migration is needed."]),
+    );
+  }
+  if (consumerContracts?.classification === "version_required")
+    reasons.push(
+      ...(consumerContracts.diagnostics.length > 0
+        ? consumerContracts.diagnostics.map((item) => item.message)
+        : ["A consumer API changes what its consumers read: its version must be raised."]),
+    );
+  return reasons;
+}
+
 function State({ state }: { state: StepState }) {
   return state === "done" ? (
     <StatusPill tone="success">Done</StatusPill>
@@ -55,7 +77,9 @@ export function ReshapeSteps({
   workspaceLabel,
   canRelease,
   review,
+  pending: busy = false,
   onNavigate,
+  onTell,
 }: {
   task: AiTask;
   workspaceLabel: string;
@@ -63,7 +87,11 @@ export function ReshapeSteps({
   canRelease: boolean;
   /** The change set's review, when an application to show it in is known. */
   review?: RouteState;
+  /** The task is being written to. */
+  pending?: boolean;
   onNavigate: (route: RouteState) => void;
+  /** The person's words go to the assistant, which loads again from its proposal (0.16 AP13, AP-D60). */
+  onTell?: (words: string) => void;
 }) {
   const result = task.result;
   const [workspace, setWorkspace] = useState<WorkspaceModel>();
@@ -88,6 +116,33 @@ export function ReshapeSteps({
     [workspaceKey, changeSetId],
   );
 
+  // The newest preview of this task's migration, for what the engine refused (AP-D60).
+  const [previewed, setPreviewed] = useState<Job>();
+  const migrationRelease = result?.migration?.releaseId;
+  useEffect(() => {
+    if (!migrationRelease) return;
+    let active = true;
+    const read = () =>
+      api
+        .jobs()
+        .then((page) => {
+          const found = page.items.find(
+            (job) =>
+              job.kind === "migration" &&
+              job.workspaceKey === workspaceKey &&
+              job.migration?.targetReleaseId === migrationRelease,
+          );
+          if (active) setPreviewed(found);
+        })
+        .catch(() => undefined);
+    void read();
+    window.addEventListener("focus", read);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", read);
+    };
+  }, [migrationRelease, workspaceKey]);
+
   const reshaped = !!result?.migration || !!result?.thenReleaseId;
   useEffect(() => {
     if (!reshaped) return;
@@ -109,9 +164,52 @@ export function ReshapeSteps({
     };
   }, [load, reshaped]);
 
+  // The step the person does next that activates a release: what the engine would refuse of it (AP-D60).
+  const stepsFinal = result?.thenReleaseId ?? undefined;
+  const stepStates =
+    stepsFinal && !result?.migration
+      ? reshapeStates(workspace, changeSet, stepsFinal, result?.changeSetReleaseId === stepsFinal)
+      : undefined;
+  const nextRelease = !stepStates
+    ? undefined
+    : stepStates[0] === "next"
+      ? (changeSet?.modelReleaseId ?? undefined)
+      : stepStates[2] === "next"
+        ? stepsFinal
+        : undefined;
+  const runningRelease = workspace?.releaseId;
+  const [refusals, setRefusals] = useState<{ release: string; reasons: string[] }>();
+  useEffect(() => {
+    if (!nextRelease || !runningRelease) return;
+    let active = true;
+    api
+      .modelReleaseDiff(nextRelease, runningRelease, workspaceKey)
+      .then((diff) => active && setRefusals({ release: nextRelease, reasons: activationRefusals(diff) }))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [nextRelease, runningRelease, workspaceKey]);
+
   if (!result) return null;
   const migration = result.migration;
   const moves = task.design?.moves ?? [];
+
+  const refusal = !migration
+    ? ""
+    : previewed?.state === "failed"
+      ? (previewed.error?.message ?? "The migration did not finish.")
+      : previewed && previewed.migration && previewed.migration.counts.refused > 0
+        ? `${count(previewed.migration.counts.refused)} ${previewed.migration.counts.refused === 1 ? "record" : "records"} would be refused, so the migration cannot be confirmed.`
+        : "";
+  const tell = task.canTell && onTell && (
+    <TellAssistant
+      label="Tell the assistant what to change"
+      hint="The same assistant changes the model it proposed and installs the release again. Nothing has moved."
+      pending={busy}
+      onSend={onTell}
+    />
+  );
 
   if (migration) {
     const finished = workspace?.releaseId === migration.releaseId;
@@ -161,6 +259,11 @@ export function ReshapeSteps({
           </ul>
         )}
         {problem && <Notice tone="error">{problem}</Notice>}
+        {refusal && !finished && (
+          <Notice tone="warning" title="The engine refused the migration">
+            {refusal}
+          </Notice>
+        )}
         {!finished &&
           (canRelease ? (
             <div className="task-actions">
@@ -174,6 +277,7 @@ export function ReshapeSteps({
               Model.
             </p>
           ))}
+        {!finished && tell}
       </Section>
     );
   }
@@ -205,6 +309,18 @@ export function ReshapeSteps({
       description="The assistant prepared the move in a change set. Each step is shown when it can be done."
     >
       {problem && <Notice tone="error">{problem}</Notice>}
+      {refusals && refusals.release === nextRelease && refusals.reasons.length > 0 && (
+        <Notice tone="warning" title="The engine would refuse the next step">
+          <ul className="task-sheet-list">
+            {refusals.reasons.slice(0, 3).map((reason, index) => (
+              <li key={index}>{reason}</li>
+            ))}
+          </ul>
+          {task.canTell && (
+            <p>Tell the assistant what to change in the box above; it changes the release and loads again.</p>
+          )}
+        </Notice>
+      )}
       <Section
         title={
           <>

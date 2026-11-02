@@ -4,18 +4,18 @@
  * Nothing is loaded before the model is accepted.
  */
 
-import { useState } from "react";
 import type { AiTask, EngineModel } from "@/types";
 import { Card } from "@/ui/Card";
 import { Disclosure } from "@/ui/Disclosure";
-import { FormField } from "@/ui/FormField";
 import { Notice } from "@/ui/Notice";
 import { Section } from "@/ui/Section";
 import { StatusPill } from "@/ui/StatusPill";
+import { CannotLoad } from "./CannotLoad";
 import { DesignModel } from "./DesignModel";
 import { DesignQuestions } from "./DesignQuestions";
 import { ProposalMoves } from "./ProposalMoves";
 import { TaskNotes } from "./TaskNotes";
+import { TellAssistant } from "./TellAssistant";
 import { modelNames, proposalRefusal } from "./aiTaskDesign";
 import { isDesignCheck, notLoadedEntries } from "./aiTaskText";
 import { count } from "@/features/settings/limits";
@@ -24,6 +24,8 @@ export function ModelProposal({
   task,
   pending,
   model,
+  canLoad = true,
+  workspaceLabel,
   onOpenEditor,
   onClose,
   onDiscard,
@@ -34,6 +36,9 @@ export function ModelProposal({
   task: AiTask;
   pending: boolean;
   model?: EngineModel;
+  /** Whether the person holds Work in change sets: accepting loads (0.16 AP13, AP-D59). */
+  canLoad?: boolean;
+  workspaceLabel?: string;
   onOpenEditor?: (draftId: string) => void;
   /** Back to the workspace; the proposal stays for later. */
   onClose?: () => void;
@@ -43,7 +48,6 @@ export function ModelProposal({
   onCorrect: (correction: string) => void;
   onAccept: () => void;
 }) {
-  const [words, setWords] = useState("");
   const design = task.design;
   if (!design) return null;
   const names = modelNames(model, design.operations);
@@ -52,7 +56,6 @@ export function ModelProposal({
   const checks = design.checks ?? [];
   const corrections = design.corrections ?? [];
   const leftOut = notLoadedEntries(task, true);
-  const empty = words.trim() === "";
   const refusal = proposalRefusal(task);
   const check = isDesignCheck(task.check) ? task.check : undefined;
   return (
@@ -68,9 +71,11 @@ export function ModelProposal({
                   Open in the model editor
                 </button>
               )}{" "}
-              <button type="button" className="primary" disabled={pending} onClick={onAccept}>
-                Accept the model
-              </button>
+              {canLoad && (
+                <button type="button" className="primary" disabled={pending} onClick={onAccept}>
+                  Accept the model
+                </button>
+              )}
             </span>
           )
         }
@@ -80,6 +85,7 @@ export function ModelProposal({
             The engine could not apply this proposal: {refusal} Tell the assistant what to change below.
           </Notice>
         )}
+        {!canLoad && !refusal && <CannotLoad workspaceLabel={workspaceLabel ?? task.workspaceKey} />}
         <p>{design.summary}</p>
         {outline.length > 0 && (
           <ul className="task-sheet-list" aria-label="The types it proposes">
@@ -162,36 +168,23 @@ export function ModelProposal({
           </ul>
         </Card>
       )}
-      <Section title="Correct the model" headingLevel={3}>
-        {corrections.length > 0 && (
-          <ul className="task-sheet-list" aria-label="What you asked">
-            {corrections.map((correction, index) => (
-              <li key={index}>You asked: {correction}</li>
-            ))}
-          </ul>
-        )}
-        <FormField label="Tell the assistant what to change">
-          {(control) => (
-            <textarea
-              {...control}
-              rows={3}
-              value={words}
-              placeholder="e.g. “Sponsors belong to operators, not to locations”"
-              onChange={(event) => setWords(event.target.value)}
-            />
+      {task.canTell !== false && (
+        <Section title="Correct the model" headingLevel={3}>
+          {corrections.length > 0 && (
+            <ul className="task-sheet-list" aria-label="What you asked">
+              {corrections.map((correction, index) => (
+                <li key={index}>You asked: {correction}</li>
+              ))}
+            </ul>
           )}
-        </FormField>
-        <div className="task-actions">
-          <button
-            type="button"
-            className="secondary"
-            disabled={empty || pending}
-            onClick={() => onCorrect(words.trim())}
-          >
-            Send to the assistant
-          </button>
-        </div>
-      </Section>
+          <TellAssistant
+            label="Tell the assistant what to change"
+            placeholder="e.g. “Sponsors belong to operators, not to locations”"
+            pending={pending}
+            onSend={onCorrect}
+          />
+        </Section>
+      )}
       {(onClose || onDiscard) && (
         <div className="task-actions">
           {onDiscard && (

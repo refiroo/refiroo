@@ -4,7 +4,8 @@ import type { AiOrigin } from "@/types/ai";
 import type { PageNavigation } from "@/types/runtime";
 import type { Principal } from "@/types/security";
 
-export type AiTaskState = "reading" | "checking" | "checked" | "loading" | "loaded" | "failed" | "cancelled";
+export type AiTaskState =
+  "reading" | "checking" | "checked" | "loading" | "loaded" | "failed" | "cancelled" | "stopped";
 export type AiTaskPhase = "profiling" | "reading" | "designing" | "checking";
 /** Who made a choice: the rules, the assistant, or the person (a person's choice is never overwritten). */
 export type AiTaskOwner = "rules" | "assistant" | "person";
@@ -239,7 +240,7 @@ export interface AiTaskDesignOutcome {
 /** What the assistant designed for a workbook (0.16 AP6). */
 export interface AiTaskDesignCheckItem {
   id: string;
-  kind: "reuse" | "grouping" | "translations" | "bothEnds" | "leftOut" | "besideHeld";
+  kind: "reuse" | "grouping" | "translations" | "bothEnds" | "leftOut" | "besideHeld" | "cellsLeftOut";
   text: string;
   /** Needs the person's attention. A `besideHeld` check warns that new records of a type the workspace holds may be an update that did not find its records. */
   open: boolean;
@@ -377,6 +378,9 @@ export interface AiTaskResult {
   releaseId?: string | null;
   /** Why a session's load left no saved profile (AP-D41), in words a person reads; absent when it did or the load is older. */
   profileNotSaved?: string | null;
+  /** The change set was published (0.16 AP13); the task read noticed it. */
+  published?: boolean;
+  publicationId?: string | null;
 }
 
 export interface AiTask {
@@ -400,6 +404,8 @@ export interface AiTask {
   design?: AiTaskDesign | null;
   notes: AiTaskNote[];
   result: AiTaskResult | null;
+  /** Whether the person may tell the assistant something now (0.16 AP13): its session goes on or starts again. */
+  canTell?: boolean;
 }
 
 /** `POST /ai/tasks`'s `request` part. */

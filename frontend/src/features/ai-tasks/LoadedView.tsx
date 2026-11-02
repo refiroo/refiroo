@@ -1,13 +1,16 @@
 /** The load's end (0.16 AP6a, board 7): into the change set, what it holds, where to go next, and what was not loaded (folded). */
 
 import { useState } from "react";
-import { api } from "@/api/client";
-import { errorMessage } from "@/api/errors";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import type { AiTask, RouteState } from "@/types";
 import { Notice } from "@/ui/Notice";
+import { RouteLink } from "@/ui/RouteLink";
 import { Section } from "@/ui/Section";
 import { NotLoaded } from "./NotLoaded";
+import { TellAssistant } from "./TellAssistant";
+import { WayOnward } from "./WayOnward";
+import type { AssistantOffers } from "./useAssistantOffers";
+import { routePath } from "@/routing/routes";
 import { notLoadedEntries, plural, skippedText } from "./aiTaskText";
 
 /** What was loaded, in a sentence: the new, changed and removed records the import counted. */
@@ -37,31 +40,38 @@ export function LoadedView({
   task,
   review,
   workspaceLabel,
+  pending,
+  canChange,
+  offers,
+  publications,
   onNavigate,
   onClose,
+  onTell,
+  onDiscard,
 }: {
   task: AiTask;
   /** The change set's review, when an application to show it in is known. */
   review?: RouteState;
   /** The workspace's name, for the line about an installed model change. */
   workspaceLabel?: string;
+  pending: boolean;
+  /** Whether the person holds Work in change sets: discarding the change set, or loading again, needs it. */
+  canChange: boolean;
+  /** What the assistant may be asked after a publication (AP-D58). */
+  offers: AssistantOffers;
+  /** The application's publications, where the published change set is listed. */
+  publications?: RouteState;
   onNavigate: (route: RouteState) => void;
   /** Back to the workspace, the change set kept. */
   onClose?: () => void;
+  /** The person's words: the change set is discarded and the same session loads again (AP-D56). */
+  onTell: (words: string) => void;
+  /** Discards the task with its change set. */
+  onDiscard: () => void;
 }) {
   const [discarding, setDiscarding] = useState(false);
-  const [discardError, setDiscardError] = useState("");
+  const [again, setAgain] = useState<string>();
   const result = task.result;
-  const discard = async () => {
-    if (!result?.changeSetId) return;
-    try {
-      const held = await api.changeSet(result.changeSetId);
-      await api.discardChangeSet(result.changeSetId, held.version);
-      onClose?.();
-    } catch (cause) {
-      setDiscardError(errorMessage(cause));
-    }
-  };
   const sentence = loadedSentence(task);
   const entries = notLoadedEntries(task, true);
   const columns = entries.filter((entry) => entry.text.startsWith("Column “")).length;
@@ -70,6 +80,44 @@ export function LoadedView({
   const profile: RouteState | undefined = result?.profileKey
     ? { kind: "settings", page: "import-profiles", profileKey: result.profileKey }
     : undefined;
+  if (result?.published)
+    return (
+      <>
+        <Section title={`Published: “${result.changeSetName ?? "Unnamed"}”`}>
+          <Notice tone="success">
+            <strong>Published.</strong> {sentence.done ? `${sentence.done}. ` : ""}It is live in{" "}
+            {workspaceLabel ?? task.workspaceKey}.{" "}
+            {publications && (
+              <RouteLink href={routePath(publications)} onNavigate={() => onNavigate(publications)}>
+                Open the publications
+              </RouteLink>
+            )}
+          </Notice>
+          {profile && (
+            <div className="task-actions">
+              <button type="button" className="secondary" onClick={() => onNavigate(profile)}>
+                Open the profile
+              </button>
+            </div>
+          )}
+        </Section>
+        <Section title="Something not right?">
+          <WayOnward
+            task={task}
+            workspaceLabel={workspaceLabel ?? task.workspaceKey}
+            offers={offers}
+            onNavigate={onNavigate}
+          />
+          {onClose && (
+            <div className="task-actions">
+              <button type="button" className="secondary" onClick={onClose}>
+                Back to the workspace
+              </button>
+            </div>
+          )}
+        </Section>
+      </>
+    );
   return (
     <Section title={`Loaded into the change set “${result?.changeSetName ?? "Unnamed"}”`}>
       <Notice tone="success">
@@ -109,11 +157,6 @@ export function LoadedView({
               Open the profile
             </button>
           )}
-          {onClose && result && (
-            <button type="button" className="secondary" onClick={() => setDiscarding(true)}>
-              Discard the change set
-            </button>
-          )}
           {onClose && (
             <button type="button" className="secondary" onClick={onClose}>
               Close
@@ -121,7 +164,59 @@ export function LoadedView({
           )}
         </div>
       )}
-      {discardError && <Notice tone="error">{discardError}</Notice>}
+      {result &&
+        (canChange ? (
+          <TellAssistant
+            label="Not what you wanted? Tell the assistant"
+            hint={
+              task.canTell
+                ? "The same assistant loads again from its proposal with your words. This change set is discarded first, with any edits you made in it."
+                : undefined
+            }
+            sendLabel="Discard and load again"
+            pending={pending}
+            onSend={setAgain}
+            hideSend={!task.canTell}
+          >
+            <button type="button" className="secondary" disabled={pending} onClick={() => setDiscarding(true)}>
+              Discard the change set
+            </button>
+          </TellAssistant>
+        ) : (
+          <p className="admin-hint">
+            Discarding the change set, or telling the assistant to load again, needs Work in change sets in{" "}
+            {workspaceLabel ?? task.workspaceKey}.
+          </p>
+        ))}
+      {!task.canTell && task.design?.agentSession && (
+        <>
+          <p className="admin-hint">
+            The assistant&apos;s session for this task has ended, so it cannot load again. Discard the change set above,
+            or start a new task from here.
+          </p>
+          <WayOnward
+            task={task}
+            workspaceLabel={workspaceLabel ?? task.workspaceKey}
+            offers={offers}
+            onNavigate={onNavigate}
+          />
+        </>
+      )}
+      {again !== undefined && (
+        <ConfirmDialog
+          title="Discard this change set and load again?"
+          confirmLabel="Discard and load again"
+          onCancel={() => setAgain(undefined)}
+          onConfirm={() => {
+            const words = again;
+            setAgain(undefined);
+            onTell(words);
+          }}
+        >
+          Everything loaded into “{result?.changeSetName ?? "Unnamed"}” is removed, with any edits you made in it. The
+          same assistant then loads again with your words. Live data was never changed.
+        </ConfirmDialog>
+      )}
       {discarding && (
         <ConfirmDialog
           title="Discard this change set?"
@@ -129,10 +224,11 @@ export function LoadedView({
           onCancel={() => setDiscarding(false)}
           onConfirm={() => {
             setDiscarding(false);
-            void discard();
+            onDiscard();
           }}
         >
-          Everything loaded into “{result?.changeSetName ?? "Unnamed"}” is removed. Live data was never changed.
+          Everything loaded into “{result?.changeSetName ?? "Unnamed"}” is removed and the task ends. Live data was
+          never changed.
         </ConfirmDialog>
       )}
       <NotLoaded

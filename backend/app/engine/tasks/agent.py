@@ -31,7 +31,7 @@ from typing import Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
@@ -54,6 +54,7 @@ from ...models.database import (
 )
 from ..authorization.administration import create_grant, create_role, delete_grant
 from ..authorization.permissions import permissions_of
+from ..change_sets.lifecycle import discard_change_set
 from ..identity import tokens
 from ..identity.clients import create_session_client, retire_session_client
 from ..identity.settings import IdentitySettings
@@ -65,6 +66,7 @@ from ..model.diagnostics import ModelValidationError
 from ..model.migrations import LandingRefusal, check_landing, parse_type_mappings, plan_migration
 from ..model.release_lifecycle import set_release_status
 from ..model.workspace_models import load_assignment
+from .cell_coverage import cells_left_out
 from .store import finish, held_by_another, held_counts, load_task, note
 
 log = logging.getLogger(__name__)
@@ -189,6 +191,17 @@ _MOVED = (
     f"{RELEASE_LINE} <its id>. The records of the proposal's moves are moved by a migration the "
     "person confirms: do not move or create them."
 )
+
+
+def _again(prompt: str, words: str | None) -> str:
+    """The load prompt of a second try: the person's words, and that what was loaded before is gone
+    (a failed load, or a change set the person discarded to say this)."""
+    if not words:
+        return prompt
+    return (
+        f"{prompt}\n\nThe person adds:\n{words}\n\nWhat you loaded before, if anything, failed or was "
+        "discarded: do the load again from the start, changing the draft first if the words ask for it."
+    )
 
 
 def _said_prompt(said: str) -> str:
@@ -770,8 +783,13 @@ def _run_turn(
         failure: tuple[str, str] | None = None
         try:
             task = load_task(session, task_key, for_update=True)
+            held = session.get(ModelDraft, task.draft_id) if task.draft_id is not None else None
             task.design = {
                 **(task.design or {}),
+                # The draft as the turn found it: a stop tells whether the turn had changed it.
+                "turnDraftVersion": held.version if held is not None else None,
+                # The session has run: a later turn resumes it; one that never ran starts again.
+                "agentRan": True,
                 "agentProcess": {
                     "pid": process.pid,
                     "session": session_id,
@@ -820,11 +838,56 @@ def _run_turn(
             _end(session, opened)
             session.commit()
             progress.read()
+            if load and failure is not None and failure[0] == "cancelled":
+                _undo_load(session, task_key, client, since)
             if failure is None and (not progress.result or progress.result.get("is_error")):
                 failure = ("failed", "The session ended without an answer.")
             _record_turn(session, task_key, job.id, progress, since, prompt, failure)
             _log_split(session, task_key, client, since, started, progress)
     return progress
+
+
+UNDO_SECONDS = 60
+
+
+def _undo_load(session: Session, task_id: str, client: int, since: datetime) -> None:
+    """The person stopped a load (AP-D55): what the session's client began in it is stopped, and the
+    change sets it made in this turn are discarded, so the task returns to the accepted proposal
+    with nothing loaded. A job still running after a minute is said, not forced."""
+    session.execute(
+        update(Job)
+        .where(
+            Job.requested_by_client_id == client,
+            Job.kind != "aiTask",
+            Job.state.in_(("queued", "running")),
+        )
+        .values(cancel_requested_at=datetime.now(UTC))
+        .execution_options(synchronize_session=False)
+    )
+    session.commit()
+    waiting = select(Job.id).where(
+        Job.requested_by_client_id == client,
+        Job.kind != "aiTask",
+        Job.state.in_(("queued", "running")),
+    )
+    deadline = time.monotonic() + UNDO_SECONDS
+    while session.scalar(waiting.limit(1)) is not None and time.monotonic() < deadline:
+        session.commit()
+        time.sleep(1)
+    session.commit()
+    if session.scalar(waiting.limit(1)) is not None:
+        note(
+            load_task(session, task_id, for_update=True),
+            "warning",
+            "A job the assistant started was still running when you stopped it: discard its change set from the "
+            "change sets list when it ends.",
+        )
+        session.commit()
+        return
+    for change_set in session.scalars(
+        select(ChangeSet).where(ChangeSet.created_by_client_id == client, ChangeSet.created_at >= since)
+    ).all():
+        discard_change_set(session, change_set.id, change_set.version)
 
 
 def _said(progress: _Progress) -> str:
@@ -889,6 +952,32 @@ def _left_out(
             "text": "This model leaves out types the workspace holds records of: " + ", ".join(gone),
             "open": True,
         }
+    ]
+
+
+def _cells_left_out(session: Session, task: AiTask, job_id: str | None) -> list[dict[str, Any]]:
+    """Filled cells of the tables the design reads that no source of it covers (AP13): said before
+    the person accepts, whatever the session said, as a column the profile cannot name is no error."""
+    job = session.scalar(select(Job).where(Job.id == job_id)) if job_id else None
+    if job is None or not (task.reading or {}).get("tables"):
+        return []
+    definition = (job.parameters.get("profile") or {}).get("definition")
+    file_id = session.scalar(
+        select(SourceFile.id).where(SourceFile.public_id == job.parameters.get("sourceFileId"))
+    )
+    if not definition or file_id is None:
+        return []
+    return [
+        {
+            "id": f"cells-left-out:{found['sheet']}",
+            "kind": "cellsLeftOut",
+            "text": f"{found['count']:,} filled cells of “{found['sheet']}” are read by no source of this "
+            f"design (for example {', '.join(found['cells'])}): what they hold is not loaded",
+            "open": True,
+        }
+        for found in cells_left_out(
+            session, file_id=file_id, tables=task.reading["tables"], profile=definition
+        )
     ]
 
 
@@ -1185,6 +1274,7 @@ def _proposal_landed(
         "checks": [
             *_left_out(draft.model_json, base, held, frozenset(m["from"] for m in moves)),
             *_beside_held(session, (check or {}).get("dryRunJobId"), draft.model_json, held),
+            *_cells_left_out(session, task, (check or {}).get("dryRunJobId")),
         ],
         "origin": {"kind": "ai", "provider": "claude-code", "model": None, "promptVersion": PROMPT_VERSION},
         "outcome": {},
@@ -1196,8 +1286,17 @@ def _proposal_landed(
     session.commit()
 
 
-def start(session: Session, job: Job, ctx: Any, task_id: str, workbook_path: Path | None, check_of: Any) -> None:
-    """The session's first turn: the workbook to a draft the person reviews."""
+def start(
+    session: Session,
+    job: Job,
+    ctx: Any,
+    task_id: str,
+    workbook_path: Path | None,
+    check_of: Any,
+    extra: str | None = None,
+) -> None:
+    """The session's first turn: the workbook to a draft the person reviews. ``extra`` is what the
+    person said when the session starts again on a task that had none, or whose first turn never ran."""
     task = load_task(session, task_id, for_update=True)
     workspace = task.workspace_key
     words = task.words
@@ -1223,6 +1322,8 @@ def start(session: Session, job: Job, ctx: Any, task_id: str, workbook_path: Pat
     prompt = _propose_prompt(
         words, workspace, url, held_counts(session, workspace), workbook=workbook_path is not None
     )
+    if extra:
+        prompt = f"{prompt}\n\nThe person adds:\n{extra}"
     progress = _run_turn(session, job, ctx, task_id, folder, prompt, session_id, first=True)
     if progress is not None:
         _proposal_landed(session, ctx, task_id, folder, progress, check_of, job)
@@ -1319,9 +1420,11 @@ def _migration_result(session: Session, task: AiTask, words: str) -> dict[str, A
     return {"migration": {"releaseId": release.public_id, "typeMappings": mappings}}
 
 
-def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
+def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | None = None) -> None:
     """The person accepted: the same session installs one release and loads into a change set, or,
-    when the proposal moved whole types, installs the release a migration will move to (AP-D46)."""
+    when the proposal moved whole types, installs the release a migration will move to (AP-D46).
+    ``words`` are the person's, on a second try (AP-D54). The folder and the client stay until the
+    work is in the person's hands for good (AP-D56)."""
     task = load_task(session, task_id)
     workspace = task.workspace_key
     folder = folder_of(ctx.files, task)
@@ -1332,7 +1435,7 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
         ctx,
         task_id,
         folder,
-        _MOVED if moves else _ACCEPTED,
+        _again(_MOVED if moves else _ACCEPTED, words),
         (task.design or {})["agentSession"],
         first=False,
         load=True,
@@ -1354,9 +1457,6 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
         else:
             task.result = result
             finish(task, "loaded", _retention(ctx))
-            remove_folder(ctx.files, task)
-            retire_unused_releases(session, task)
-            retire_session_client(session, task.client_id)
         session.commit()
         return
     change_set_id = _last_line(words, LAST_LINE)
@@ -1383,10 +1483,28 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str) -> None:
                 **_change_set_release(session, change_set, then),
             }
             finish(task, "loaded", _retention(ctx))
-            remove_folder(ctx.files, task)
-            retire_unused_releases(session, task)
-            retire_session_client(session, task.client_id)
     session.commit()
+
+
+def end_session(session: Session, files: Any, task: AiTask, *, retire_releases: bool = True) -> None:
+    """The session's work is in the person's hands for good (AP-D56): the change set was published or
+    discarded, the migration confirmed, or the task discarded. Its folder, transcript and client go,
+    and a release it installed that nothing runs is retired (not after a publication, which ran on
+    one). The caller commits."""
+    design = dict(task.design or {})
+    if not design.get("agentSession") or design.get("sessionEnded"):
+        return
+    remove_folder(files, task)
+    if retire_releases:
+        retire_unused_releases(session, task)
+    retire_session_client(session, task.client_id)
+    task.design = {**design, "sessionEnded": True}
+
+
+def lives(task: AiTask) -> bool:
+    """Whether the task's session can still be told something."""
+    design = task.design or {}
+    return bool(design.get("agentSession")) and not design.get("sessionEnded")
 
 
 def _change_set_release(session: Session, change_set: ChangeSet, then: dict[str, str]) -> dict[str, str]:

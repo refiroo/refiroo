@@ -1593,6 +1593,24 @@ activate the release you accepted, which removes the emptied types once they hol
 Model release is told who can do a step. A split of thousands of top-level records goes one record at a time,
 so it is slow.
 
+**A way on at every state.** A task is never left with only Back. A turn that failed or was stopped says why
+(the task's own notes), and the page takes the person's words: the same assistant goes on from where it was,
+or starts again if it never ran; **Try again as it was** goes on with no words, **Open the draft in the
+editor** and **Discard this task** are there too. **Stop** ends the turn, not the task: a stopped correction
+returns to the last proposal with a note (and a warning if the assistant had already changed the draft), a
+stopped load discards the change set it was making and returns to the proposal that was accepted, and a turn
+stopped before any proposal leaves a stopped task that takes words or Discard. A loaded change set that is
+wrong takes words too: **Discard and load again** discards it (any edits made in it go; the page says so
+first) and the same assistant loads again with them; **Discard the change set** ends the task. The
+assistant's session stays until the change set is published or discarded, the migration confirmed, or the
+task discarded or expired. A published task says so and offers **Change this model…** and **Ask about these
+records…**, the same offers as the workspace menu. The check before a saved layout's load goes **Back to the
+proposal** and takes words (the assistant then reads the file); a saved layout that no longer fits offers
+**Read it with the assistant**; a migration the engine refuses is shown on the task with the words box; a task
+that expired or never existed says so and leads to the workspaces. An offer to start a task, and the Accept or
+Load button, appear only for a person who holds Work in change sets (and the model groups for a model change);
+a person who lost it is told who can load, with a link to copy.
+
 The check says rows skipped for an empty key apart from rows refused, and says so when it ran before the
 draft's last change, as it then does not cover the model as it stands.
 
@@ -1600,7 +1618,7 @@ A bar below the top bar follows the load from step to step: the file and words, 
 model change, the assistant's questions, the check, the load, and the change set's review and
 publication. It says what to do now and offers the next action (open the model change in the
 editor, answer the questions, accept, open the change set), and Stop while the assistant works or
-Start again after a failure. It stays on the model editor and the change set opened from the task;
+loads, Tell the assistant after a failure or a stop, and Start again after a discard. It stays on the model editor and the change set opened from the task;
 Close in the editor goes back to the task.
 
 Limits:
