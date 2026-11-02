@@ -4,6 +4,7 @@ The management API takes them as request bodies unchanged, and batch items reuse
 item and its single-write route validate one shape.
 """
 
+from datetime import datetime
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
@@ -219,6 +220,23 @@ class ImpactSummaryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     workspaceKey: str
+    sendLevel: Literal["structure", "samples", "values"] | None = None
+    language: str | None = Field(
+        default=None, max_length=35, pattern=r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$"
+    )
+
+
+class HistoryAccountRequest(BaseModel):
+    """Ask the AI provider for an account of what changed over a period (0.16 AO2): ``since`` is
+    included and ``until`` is not (as `GET /changes`). ``timeZone`` (an IANA name, UTC without one)
+    says where a day begins. ``sendLevel`` a lower level than the instance's ceiling; ``language`` a
+    language tag (English without one)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    since: datetime
+    until: datetime
+    timeZone: str | None = Field(default=None, max_length=64)
     sendLevel: Literal["structure", "samples", "values"] | None = None
     language: str | None = Field(
         default=None, max_length=35, pattern=r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$"

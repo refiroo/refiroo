@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { errorMessage } from "@/api/errors";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { objectTypeFor } from "@/model/lookup";
@@ -20,20 +20,40 @@ export function ScopeBanner<Q extends CollectionQueryState>({
 }) {
   if (!query.parentObjectId) return null;
   return (
-    <div className="scope-banner">
+    <NarrowedBanner
+      clearLabel={`Show all ${pluralName.toLowerCase()}`}
+      onClear={() =>
+        onQueryChange({ ...query, parentObjectId: undefined, parentObjectTypeKey: undefined, anchor: undefined })
+      }
+    >
       <CollectionScope
         model={model}
         workspaceKey={workspaceKey}
         parentObjectId={query.parentObjectId}
         parentObjectTypeKey={query.parentObjectTypeKey}
       />
-      <button
-        className="ghost"
-        onClick={() =>
-          onQueryChange({ ...query, parentObjectId: undefined, parentObjectTypeKey: undefined, anchor: undefined })
-        }
-      >
-        Show all {pluralName.toLowerCase()}
+    </NarrowedBanner>
+  );
+}
+
+/**
+ * What a narrowed list is narrowed to, with the way back to all of it: the banner of a collection under a parent
+ * (`ScopeBanner`) and of the activity a fact of an account of history counted (0.16 AO2).
+ */
+export function NarrowedBanner({
+  children,
+  clearLabel,
+  onClear,
+}: {
+  children: ReactNode;
+  clearLabel: string;
+  onClear: () => void;
+}) {
+  return (
+    <div className="scope-banner">
+      {children}
+      <button className="ghost" onClick={onClear}>
+        {clearLabel}
       </button>
     </div>
   );

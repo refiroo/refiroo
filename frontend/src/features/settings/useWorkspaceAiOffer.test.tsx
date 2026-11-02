@@ -2,6 +2,7 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AiSystemInfo, MyPermissions } from "@/types";
 import {
+  historyAccountOffer,
   impactSummaryOffer,
   useAssistantOfferIn,
   useWorkspaceAiOffer,
@@ -61,5 +62,13 @@ describe("the AI offers in a workspace (AP-D38)", () => {
       impactSummaryOffer(info({ sendLevel: "structure" }), holding("ai-proposals", "model-release")),
     ).toBeUndefined();
     expect(impactSummaryOffer(undefined, holding("ai-proposals", "model-release"))).toBeUndefined();
+  });
+
+  it("offers the account of what changed at any send level to those who browse and use AI proposals (AO2)", () => {
+    const set = info({ configured: true, provider: "claude", sendLevel: "structure" });
+    expect(historyAccountOffer(set, holding("ai-proposals", "browse"))).toBe(set);
+    expect(historyAccountOffer(set, holding("ai-proposals"))).toBeUndefined();
+    expect(historyAccountOffer(set, holding("browse"))).toBeUndefined();
+    expect(historyAccountOffer(info({ sendLevel: "values" }), holding("ai-proposals", "browse"))).toBeUndefined();
   });
 });

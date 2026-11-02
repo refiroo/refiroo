@@ -13,7 +13,7 @@ SendLevel = Literal["structure", "samples", "values"]
 class AiFeature(BaseModel):
     """A feature that asks the provider: whether it is offered, and the least it needs sent."""
 
-    purpose: Literal["mappingTarget", "queryTranslation", "impactSummary"]
+    purpose: Literal["mappingTarget", "queryTranslation", "impactSummary", "historyAccount"]
     name: str
     needs: SendLevel
     available: bool
@@ -43,6 +43,7 @@ class AiCallResponse(BaseModel):
         "mappingTarget",
         "queryTranslation",
         "impactSummary",
+        "historyAccount",
         "workbookLoad",
         "assistantSession",
         "modelNames",
@@ -173,6 +174,74 @@ class ImpactSummaryResponse(BaseModel):
     was answered within the hour and no call was made; ``callId`` is the call that made the words."""
 
     facts: list[ImpactFact]
+    statements: list[ImpactStatement]
+    removedStatements: int
+    failure: str | None
+    cached: bool
+    callId: str | None
+
+
+class HistoryFactLink(BaseModel):
+    """Where a fact leads. ``changes``: the changes it counted, read with `GET /changes` and
+    ``query`` (a record's history takes ``history`` and its ``query`` on the history route);
+    ``changeSet``, ``job`` or ``publication``: that thing by ``id``."""
+
+    kind: Literal["changes", "history", "changeSet", "job", "publication"]
+    id: str | None = None
+    query: dict[str, Any] | None = Field(
+        default=None, description="The filters that narrow the list to what the fact counted"
+    )
+
+
+class HistoryFact(BaseModel):
+    """One fact of an account of history, counted by the engine over every live change of the
+    period (0.16 AO2). ``text`` names records, people, change sets and files, as Activity does;
+    ``keys`` says what the fact counts (its type, attribute, action, cause, people ...); ``link``
+    where the reader follows it, none when there is nowhere to follow (a job since removed)."""
+
+    id: str
+    kind: Literal[
+        "records",
+        "fields",
+        "relationships",
+        "source",
+        "people",
+        "changeSet",
+        "publication",
+        "model",
+    ]
+    text: str
+    count: int | None = None
+    keys: dict[str, Any]
+    link: HistoryFactLink | None = None
+
+
+class HistoryFactsResponse(BaseModel):
+    """The facts alone, as the assistant's `history_facts` tool answers (0.16 AO2, AO-D28): the same
+    facts the account carries, with no provider call and no statements."""
+
+    scope: Literal["workspace", "record"]
+    since: datetime
+    until: datetime
+    timeZone: str
+    facts: list[HistoryFact]
+
+
+class HistoryAccountResponse(BaseModel):
+    """The account of what changed in a period (0.16 AO2). ``facts`` are every fact, whatever the
+    provider did; ``statements`` word them, each citing ``factIds`` (a fact's ID, or
+    ``more-<kind>`` for the facts of a kind the provider was not sent). Counts are of live data:
+    work in an open change set appears only as that set's events. A provider that fails or answers
+    out of shape is not an error: ``statements`` is empty and ``failure`` says what failed. A
+    period with no change has no facts and makes no call. ``removedStatements`` counts those
+    dropped for citing no fact that exists; ``cached`` is true when the same request was answered
+    within the hour and no call was made."""
+
+    scope: Literal["workspace", "record"]
+    since: datetime
+    until: datetime
+    timeZone: str
+    facts: list[HistoryFact]
     statements: list[ImpactStatement]
     removedStatements: int
     failure: str | None

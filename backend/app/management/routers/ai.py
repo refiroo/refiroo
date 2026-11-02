@@ -20,12 +20,22 @@ from ...engine.reads.snapshot_reads import change_set_context, publication_conte
 from ...errors import api_error
 from ...models.commands import (
     DraftImpactSummaryRequest,
+    HistoryAccountRequest,
     ImpactSummaryRequest,
     QueryTranslationRequest,
 )
 from ...models.database import AiCall
+from .. import history_account as history_inputs
 from .. import impact_summary as impact_inputs
-from ..access import BODY, INSTANCE, QUERY_TRANSLATION, AuthorizedRoute, requires
+from ..access import (
+    BODY,
+    INSTANCE,
+    QUERY_TRANSLATION,
+    RECORD_READ,
+    WORKSPACE_PATH,
+    AuthorizedRoute,
+    requires,
+)
 from ..ai import ai_requested, configuration
 from ..dependencies import CurrentPrincipal, DbSession
 from ..paging import PageQuery
@@ -34,6 +44,7 @@ from ..schemas.ai import (
     AiCallPage,
     AiCallResponse,
     AiStatusResponse,
+    HistoryAccountResponse,
     ImpactSummaryResponse,
     QueryTranslationFilter,
     QueryTranslationResponse,
@@ -267,3 +278,87 @@ def post_draft_impact_summary(
     )
     inputs = impact_inputs.draft_inputs(session, draft_id, body.expectedVersion, body.workspaceKey)
     return _summarise(request, principal, session, body, inputs)
+
+
+def _requester(principal: CurrentPrincipal) -> calls.Requester:
+    return calls.Requester(
+        principal.row_id if principal.kind == "user" else None,
+        principal.row_id if principal.kind == "client" else None,
+    )
+
+
+@router.post("/workspaces/{workspace_key}/history/account", response_model=HistoryAccountResponse)
+@requires("records.read", at=WORKSPACE_PATH)
+def post_workspace_history_account(
+    workspace_key: str,
+    body: HistoryAccountRequest,
+    request: Request,
+    principal: CurrentPrincipal,
+    session: DbSession,
+) -> HistoryAccountResponse:
+    """Words for what changed in a workspace over a period (0.16 AO2). The engine counts, in the
+    database, over every live change of ``[since, until)``: the records created, changed, moved and
+    deleted per type, the fields changed per attribute, the relationships, where the changes came
+    from (a job, a publication with the job and the people who prepared it and who published it, or
+    made directly), who made them, what happened to change sets, withdrawn publications and model
+    activations. Counts are of live data; work in an open change set appears only as that set's
+    events. The provider is sent the counts and the model's labels (at most 40 facts of a kind, with
+    each kind's true total) and, at send level `values` only, names as data; it words them, and a
+    statement that cites no fact that exists is dropped and counted. The answer always carries every
+    fact, each with where it leads; a provider that fails is a `200` with `failure` and no
+    statements. A period with no change has no facts and makes no call; the same request within an
+    hour is answered with no call (`cached`). Needs Browse and Use AI proposals in the workspace.
+    Refused: `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
+    WORKSPACE_NOT_FOUND`, `422 HISTORY_PERIOD_INVALID` (an empty or reversed period, an unknown time
+    zone)."""
+    ai_requested(
+        request, "historyAccount", True, workspace_key=workspace_key, send_level=body.sendLevel
+    )
+    period = history_inputs.period_of(body.since, body.until, body.timeZone)
+    scope = history_inputs.workspace_scope(session, workspace_key)
+    return history_inputs.account(
+        session,
+        configuration(request),
+        scope,
+        period,
+        send_level=body.sendLevel,
+        language=body.language,
+        requester=_requester(principal),
+    )
+
+
+@router.post(
+    "/objects/{object_type_key}/{object_id}/history/account",
+    response_model=HistoryAccountResponse,
+)
+@requires("records.read", at=RECORD_READ)
+def post_object_history_account(
+    object_type_key: str,
+    object_id: str,
+    body: HistoryAccountRequest,
+    request: Request,
+    principal: CurrentPrincipal,
+    session: DbSession,
+) -> HistoryAccountResponse:
+    """The same for one record's live changes, read through its history: its values, its
+    relationships, its moves and where they came from, and no other record's. Needs Browse and Use
+    AI proposals in the record's workspace; refused as the workspace's route is, and `404
+    OBJECT_NOT_FOUND`."""
+    scope = history_inputs.record_scope(session, object_type_key, object_id)
+    ai_requested(
+        request,
+        "historyAccount",
+        True,
+        workspace_key=scope.workspace_key,
+        send_level=body.sendLevel,
+    )
+    period = history_inputs.period_of(body.since, body.until, body.timeZone)
+    return history_inputs.account(
+        session,
+        configuration(request),
+        scope,
+        period,
+        send_level=body.sendLevel,
+        language=body.language,
+        requester=_requester(principal),
+    )

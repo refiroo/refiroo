@@ -62,6 +62,7 @@ DEFAULTS: dict[Purpose, Callable[[dict[str, Any]], Any]] = {
     "mappingTarget": _targets,
     "queryTranslation": _translation,
     "impactSummary": _summary,
+    "historyAccount": _summary,
 }
 
 _script: dict[str, Any] = {}

@@ -462,6 +462,19 @@ The account of a model change, beside the check in the activation dialog and in 
 
 The account clears when the check starts again (another release or workspace chosen, the draft changed): the component is keyed by the check. Not exercised in a browser: AO1-4 (Vitest only); an account in German (0.15 is not built).
 
+### Surfaces added in 0.16 AO2
+
+What changed in a period, above a workspace's Activity and on a record's History. One shared account (`ui/AiAccount`, which the AO1 section uses too) and one section (`features/changes/WhatChanged`). Reference patterns: `ui/AiAccount`, `ScopeBanner`'s banner (`NarrowedBanner`), `ui/Notice`, `ui/Skeleton`, the activity chips. Evidence `ao2-what-changed` (the starter at send level `values` and generated-b at `structure`, the stand-in provider); `WhatChanged.test`, `HistoryPanel.account.test` and `WorkspaceActivity.test` hold the unit cases.
+
+| # | Surface | Route | Reference pattern | Loading | Empty | Pending | Success | Error | Conflict | Retry | Narrow | Keyboard | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| AO2-1 | **Before asking**: "What changed", Period (last 7 days, last 30 days, chosen dates; a record opens at 30), the line saying what is sent at the level that applies and **Explain this period** | a workspace's Activity, a record's History | the AO1 section | — | **B** (not drawn without a provider or without browse and ai-proposals: `historyAccountOffer`, the no-provider run; chosen dates not in order disable the button) | **B** (Skeleton) | — | — | — | — | **B** (390px) | **B** (Enter) | `ao2-what-changed`, `WhatChanged.test` |
+| AO2-2 | **The account**: statements with numbers, the AI note, the facts (all of them, ten shown, with the period and "live data"), each with where it leads (Show them, Open the job, Open the change set) | the same | `ui/AiAccount` | — | **B** (a period with no change: "Nothing changed ... Nothing was sent to the AI.") | — | **B** (light and dark, axe) | — | — | — | **B** (390px) | **B** (a citation lands on its fact) | `ao2-what-changed` |
+| AO2-3 | **Show them**: the Activity narrows in place under a banner to the changes the fact counted, **Show all activity** returns; on a record the timeline filters by kind and live changes, **Show all history** returns | the same | `NarrowedBanner` | — | — | — | **B** | — | — | **B** | **B** | **B** | `ao2-what-changed`, `WorkspaceActivity.test`, `HistoryPanel.account.test` |
+| AO2-4 | **The provider failed, or the request refused**: a warning and the facts, or the error, with **Try again** | the same | `ui/Notice` | — | — | — | **B** | **B** | — | **B** | **B** | **B** | `ao2-what-changed`, `WhatChanged.test` |
+
+Changing the period clears the account. Not exercised in a browser: an account in German (0.15 is not built); the real provider's wording (the real try is in the package record).
+
 ### Surfaces added in 0.16 AP6a
 
 Loading a workbook with the assistant: a dialog that a collection's Import opens first where the assistant is offered, and one page, `/settings/ai-tasks/{id}`, in four states. Evidence `ap1-ai` is the AP6a part of the runner (the starter's Domains by keyboard and Systems by pointer, the fake provider, every state in light and dark at 1440px and 390px with axe); `AiTaskPage.test`, `LoadWorkbookDialog.test` and `ImportDialog.test` hold the unit cases.

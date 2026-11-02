@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { ChangeTitle } from "@/features/changes/ChangesPage";
+import { periodLabel, WhatChanged, type ShownFact } from "@/features/changes/WhatChanged";
+import { NarrowedBanner } from "@/features/objects/CollectionScope";
 import { KIND_LABELS, changeSummary, changeWhere } from "@/features/changes/changeText";
 import {
   OUTCOME_PILL,
@@ -88,7 +90,8 @@ function EntryPill({ entry }: { entry: ChangeEntry }) {
  * The workspace's changes newest first, by day: the changes list narrowed to this workspace, which
  * names the record and its type, the change set and who made each (the change feed carries
  * identifiers only and reads forward). Each entry has a coloured tile and a kind pill; changes made
- * in one change set by one person on one day fold into one line that opens to its members.
+ * in one change set by one person on one day fold into one line that opens to its members. Above the filters,
+ * What changed (0.16 AO2) words a period, and a fact of it narrows this list, in place, to the changes it counted.
  */
 export function WorkspaceActivity({
   workspaceKey,
@@ -98,9 +101,30 @@ export function WorkspaceActivity({
   onNavigate: (route: RouteState) => void;
 }) {
   const [kind, setKind] = useState<ChangeEntryKind | "">("");
+  // The fact whose changes the list is narrowed to, over the account's period.
+  const [narrow, setNarrow] = useState<ShownFact>();
   const feed = useCursorFeed<ChangeEntry>(
-    (cursor) => api.changes({ workspaceKey, kinds: kind ? [kind] : undefined, cursor }),
-    [workspaceKey, kind],
+    (cursor) => {
+      const query = narrow?.fact.link?.query;
+      return api.changes({
+        workspaceKey,
+        kinds: kind ? [kind] : undefined,
+        ...(narrow && query
+          ? {
+              since: narrow.since,
+              until: narrow.until,
+              objectTypeKey: query.objectTypeKey,
+              relationTypeKey: query.relationTypeKey,
+              causeId: query.causeId,
+              action: query.action,
+              attributeKey: query.attributeKey,
+              live: query.live,
+            }
+          : {}),
+        cursor,
+      });
+    },
+    [workspaceKey, kind, narrow],
   );
   // Opening a change set or the publications needs an application of this workspace; the tiles
   // need the model's types.
@@ -202,6 +226,17 @@ export function WorkspaceActivity({
 
   return (
     <section className="workspace-activity" aria-label="Activity">
+      <WhatChanged
+        workspaceKey={workspaceKey}
+        application={application}
+        onNavigate={onNavigate}
+        onShow={(shown) => {
+          const kinds = shown.fact.link?.query?.kind;
+          const first = Array.isArray(kinds) ? kinds[0] : kinds;
+          setKind(first === "record" || first === "relationship" ? first : "");
+          setNarrow(shown);
+        }}
+      />
       <div className="activity-filters" role="group" aria-label="Filter the activity">
         <span className="activity-filters-label">What</span>
         {ACTIVITY_KINDS.map((value) => (
@@ -210,7 +245,10 @@ export function WorkspaceActivity({
             type="button"
             className="activity-chip"
             aria-pressed={kind === value}
-            onClick={() => setKind(value)}
+            onClick={() => {
+              setKind(value);
+              setNarrow(undefined);
+            }}
           >
             {value && KIND_DOT[value] && (
               <i className="activity-dot" style={{ background: KIND_DOT[value] }} aria-hidden="true" />
@@ -219,6 +257,13 @@ export function WorkspaceActivity({
           </button>
         ))}
       </div>
+      {narrow && (
+        <NarrowedBanner clearLabel="Show all activity" onClear={() => setNarrow(undefined)}>
+          <p className="context-line">
+            Narrowed by: {narrow.fact.text.split(" (")[0]}, {periodLabel(narrow.since, narrow.until)}
+          </p>
+        </NarrowedBanner>
+      )}
       {feed.error ? (
         <InlineError message={feed.error} onRetry={feed.retry} />
       ) : feed.loading && !feed.items.length ? (

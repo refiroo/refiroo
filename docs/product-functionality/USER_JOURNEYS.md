@@ -50,7 +50,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Workspace models | J36 run a workspace on a model of its own, J37 move a workspace to another release, J38 move data between workspaces whose models differ |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file, J28 consumer read, J29 consumer lookup, J30 consumer events |
 | Operations | J12 run, refuse and recover, J31 check the deployment |
-| AI proposals | J48 use AI proposals, J49 targets for unmapped values, J50 load with the assistant, J51 reach the engine from an assistant, J52 an assistant reads, J53 an assistant prepares a change, J54 ask in words, J55 an account of a model change |
+| AI proposals | J48 use AI proposals, J49 targets for unmapped values, J50 load with the assistant, J51 reach the engine from an assistant, J52 an assistant reads, J53 an assistant prepares a change, J54 ask in words, J55 an account of a model change, J56 what changed in a period |
 | Security | J39 sign in and work, J40 manage who can do what, J41 a system calls with a client, J42 propose and approve a change, J43 rotate a key, J45 start from home, J46 send mail, J47 check the security model |
 
 ## Records and structure
@@ -2770,6 +2770,52 @@ delivered by 0.16 AO1 (2026-11-01).
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 MODEL_RELEASE_NOT_FOUND`, `404 MODEL_DRAFT_NOT_FOUND`, `409 VERSION_CONFLICT`, `422
 IMPACT_SUMMARY_DRAFT_INVALID`.
+
+### J56 — What changed in a period
+
+**Actor:** a person who may browse a workspace and holds Use AI proposals there. **Channel:** UI (What
+changed, above the workspace's Activity and on a record's History), API
+(`POST /workspaces/{key}/history/account`, `POST /objects/{objectTypeKey}/{id}/history/account`), the
+`history_facts` tool of an assistant (the facts only, with Browse). **Status:** delivered by 0.16 AO2 (2026-11-01).
+
+1. The person opens the workspace's Activity, or a record's History. Nothing is sent to a provider.
+2. They pick a period (the last 7 days on a workspace, the last 30 on a record, or dates) and press
+   Explain this period. The engine states the facts in the database over every live change of the
+   period: records created, changed, moved and deleted per type, fields per attribute, relationships,
+   where the changes came from (a job, a publication, or made directly), who made them, what happened
+   to change sets, withdrawals and model activations. The provider is sent the counts and, at the send
+   level `values` only, names; at `structure` it is sent no name of a record, person, change set or file.
+3. The statements cite the facts they rest on, and a citation leads to the fact's line. A fact leads to the
+   changes it counted (Show them, which narrows the Activity in place or filters the record's history), to
+   a change set, to a job, or to nothing when a job has been removed. A publication says who prepared it
+   and who published it.
+4. When the provider fails the facts stand alone. A period with no change makes no call and says so. The same
+   facts asked again within the hour are answered with no second call.
+
+**Variants:**
+
+- **J56.1 The account**: each statement cites facts; the counts per type, field and source equal the changes
+  made.
+- **J56.2 Not counted twice**: a record staged then published counts once; an open change set's edits are not
+  counted and its events are.
+- **J56.3 Who prepared it**: a publication's source names the job and the people who prepared the change set,
+  and who published it.
+- **J56.4 A record**: its values, relationships and moves, and no other record's changes.
+- **J56.5 Names by level**: no record, person, change set or file name reaches the provider at `structure`;
+  at `values` they do, as data.
+- **J56.6 The period**: the start is included and the end is not; days are read in the given time zone; a
+  reversed or empty-ended period or an unknown time zone is `422 HISTORY_PERIOD_INVALID`; a period with no
+  change gives no facts and no call.
+- **J56.7 Whole set**: all facts reach the person, the provider 40 of a kind with the true count, and the
+  narrowing a fact links to returns what the fact counted.
+- **J56.8 No source, failure, same facts**: as J55.4 to J55.6.
+- **J56.9 Who may ask**: `403 FORBIDDEN` without Browse or without Use AI proposals in the workspace,
+  `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`; asking changes no record and adds no audit
+  entry. The `history_facts` tool, on an assistant's token: offered with Browse, refused for a workspace it
+  cannot read, returns the same facts as the route for the same period, and makes no provider call.
+
+**Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `422
+HISTORY_PERIOD_INVALID`, `404 OBJECT_NOT_FOUND`.
 
 ## Guardrails kept from 0.7
 

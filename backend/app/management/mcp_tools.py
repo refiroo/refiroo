@@ -36,6 +36,7 @@ from ..errors import api_error
 from ..models.commands import ObjectCreate, ObjectUpdate, RelationCreate, RelationUpdate
 from ..models.database import ChangeSet, Workspace
 from ..models.queries import ModelQuery
+from . import history_account as history_inputs
 from .projections.changes import change_page
 from .projections.home import created_by
 from .projections.mapping import coverage, open_mapping_read
@@ -310,6 +311,25 @@ def _moment(arguments: dict[str, Any], name: str) -> datetime | None:
         return datetime.fromisoformat(value)
     except ValueError:
         raise api_error(422, "INVALID_DATE", f"{name} must be an ISO 8601 date and time") from None
+
+
+def _history_facts(call: Call, arguments: dict[str, Any]) -> dict[str, Any]:
+    """The engine's facts of a workspace, or one record, over ``[since, until)``: the account's own
+    scope, period and facts, with no provider and no record of a call (AO-D28)."""
+    workspace = _readable(call, arguments["workspace"])
+    if arguments.get("id") or arguments.get("objectType"):
+        if not (arguments.get("id") and arguments.get("objectType")):
+            raise api_error(422, "REQUEST_VALIDATION_ERROR", "objectType and id come together")
+        scope = history_inputs.record_scope(call.session, arguments["objectType"], arguments["id"])
+        if scope.workspace_key != workspace:
+            raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{arguments['id']}' not found")
+    else:
+        scope = history_inputs.workspace_scope(call.session, workspace)
+    since, until = _moment(arguments, "since"), _moment(arguments, "until")
+    if since is None or until is None:
+        raise api_error(422, "HISTORY_PERIOD_INVALID", "since and until are both needed")
+    period = history_inputs.period_of(since, until, arguments.get("timeZone"))
+    return _dumped(history_inputs.facts_only(call.session, scope, period))
 
 
 def _list_changes(call: Call, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -714,6 +734,24 @@ TOOLS: tuple[Tool, ...] = (
         _record_history,
         group=BROWSE,
         page_size=_PAGE_SIZE,
+    ),
+    Tool(
+        "history_facts",
+        "The facts of what changed in a workspace, or in one record, over a period: what the engine "
+        "counted over every live change, each with where it leads. Give objectType and id for one "
+        "record. since is included, until is not; the days read in timeZone (UTC without one). "
+        f"{READ_ON}",
+        _schema(
+            ("workspace", "since", "until"),
+            workspace=_TEXT,
+            objectType=_TEXT,
+            id=_TEXT,
+            since={**_TEXT, "description": "ISO 8601"},
+            until={**_TEXT, "description": "ISO 8601"},
+            timeZone={**_TEXT, "description": "An IANA time zone, such as Europe/Budapest"},
+        ),
+        _history_facts,
+        group=BROWSE,
     ),
     Tool(
         "list_changes",

@@ -446,6 +446,8 @@ export function ObjectDetail({
               hue={hue}
               refreshToken={historyRefresh}
               onOpenChanges={onOpenChanges}
+              workspaceKey={workspaceKey}
+              application={application.key}
             />
           )}
         </div>

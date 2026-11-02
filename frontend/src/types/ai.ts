@@ -6,7 +6,13 @@ import type { PageNavigation } from "@/types/runtime";
 export type AiSendLevel = "structure" | "samples" | "values";
 /** `workbookLoad` is kept for the call rows recorded by older versions; it is no longer a feature. */
 export type AiPurpose =
-  "connectionTest" | "mappingTarget" | "queryTranslation" | "impactSummary" | "workbookLoad" | "assistantSession";
+  | "connectionTest"
+  | "mappingTarget"
+  | "queryTranslation"
+  | "impactSummary"
+  | "historyAccount"
+  | "workbookLoad"
+  | "assistantSession";
 export type AiFailureKind =
   | "unreachable"
   | "unauthorized"
@@ -195,6 +201,56 @@ export interface ImpactSummary {
   /** Each cites the facts it rests on: a fact's id, or `more-<kind>` for the facts of a kind the provider was not sent. */
   statements: { text: string; factIds: string[] }[];
   /** Statements dropped because they cited no fact that exists. */
+  removedStatements: number;
+  failure: string | null;
+  cached: boolean;
+  callId: string | null;
+}
+
+/** `POST /workspaces/{key}/history/account` and `POST /objects/{type}/{id}/history/account` (0.16 AO2). */
+export interface HistoryAccountRequest {
+  /** Included. */
+  since: string;
+  /** Not included. */
+  until: string;
+  /** An IANA name: where a day begins. */
+  timeZone?: string;
+  language?: string;
+}
+
+/** Where a fact leads: the changes it counted (`query` narrows `GET /changes`, or a record's history), a change set or a job. */
+export interface HistoryFactLink {
+  kind: "changes" | "history" | "changeSet" | "job" | "publication";
+  id: string | null;
+  query: {
+    kind?: string[] | string;
+    objectTypeKey?: string;
+    relationTypeKey?: string;
+    causeId?: string;
+    action?: string;
+    attributeKey?: string;
+    live?: boolean;
+  } | null;
+}
+
+/** One fact of an account of history, counted by the engine over every live change of the period. */
+export interface HistoryFact {
+  id: string;
+  kind: "records" | "fields" | "relationships" | "source" | "people" | "changeSet" | "publication" | "model";
+  text: string;
+  count: number | null;
+  keys: Record<string, unknown>;
+  link: HistoryFactLink | null;
+}
+
+/** The account of what changed in a period: every fact, and the statements that word them (empty when the provider failed). */
+export interface HistoryAccount {
+  scope: "workspace" | "record";
+  since: string;
+  until: string;
+  timeZone: string;
+  facts: HistoryFact[];
+  statements: { text: string; factIds: string[] }[];
   removedStatements: number;
   failure: string | null;
   cached: boolean;

@@ -6970,6 +6970,49 @@ and Use AI proposals in `workspaceKey`.
 - The call is in `GET /ai/calls` (`purpose` `impactSummary`); no transaction is held while the provider
   answers.
 
+### What changed in a period (AO2)
+
+`POST /api/v1/workspaces/{workspaceKey}/history/account` and
+`POST /api/v1/objects/{objectTypeKey}/{objectId}/history/account` put into words what changed in a workspace,
+or in one record, over a period. They are answered directly, not as jobs, and have no period limit. The engine
+counts the **facts** in PostgreSQL over every live change of `[since, until)`, never rows loaded into the
+application; the provider only words them. Counts are of live data: an entry that changed live data. Work in
+an open change set appears only as that set's events (created, submitted, sent back, approved, discarded); a
+published record counts once. Purpose `historyAccount`, offered at every send level. It needs Browse and Use
+AI proposals in the workspace (the record's, for a record).
+
+- **Body:** `since` (included), `until` (not included), optional `timeZone` (an IANA name where a day begins;
+  UTC without one), `sendLevel` (a level below the instance's) and `language` (a language tag; English
+  without one).
+- **Answer `200`:** `scope` (`workspace` or `record`), `since`, `until`, `timeZone`, `facts`, `statements` (each
+  `text` with the `factIds` it rests on), `removedStatements`, `failure`, `cached`, `callId`. A fact has `id`
+  (derived from its kind and keys, so it is stable), `kind`, `text` (naming records, people, change sets and
+  files, as Activity does), `count`, `keys` (what it counts) and `link` (where it leads, or none).
+- **The kinds:** `records` (per type and action, distinct records; `moved` is an update that changed the
+  parent), `fields` (per type and attribute, the records whose value changed; only keys are read, never a
+  value), `relationships` (per relation type and action), `source` (per job, publication or "made directly",
+  with its day; a publication also names the jobs and people who prepared its change set, read from the
+  entries staged in it, and who published it), `people` (changes made directly, through a job, or in
+  preparing a publication), `changeSet` (each set's events), `publication` (a withdrawal) and `model` (an
+  activation). A record's account holds `records`, `fields`, `relationships`, `source` and `people`, counting
+  that record's changes only.
+- **A link** is `changes` (the changes the fact counted: `GET /changes` with `link.query`), `history` (a record's
+  history with `kind` and `live=true`), `changeSet`, `job` or none; a job removed after `JOB_RETENTION_DAYS`
+  has none and its fact says "a job, since removed".
+- **What the provider is sent:** counts and the model's labels, at most 40 facts of a kind with each kind's true
+  total; names of records, people, change sets and files only at send level `values`, as data, never at
+  `structure` or `samples`. At `values` a `records` fact names up to 10 live records.
+- **Statements, failure and cache** as the account of a model change: an uncited statement is dropped and
+  counted, a failing provider is a `200` with the facts and a failed call recorded, the same facts, period,
+  language, send level, provider and model within an hour are answered from the cache with no call. A period
+  with no change has no facts and makes no call.
+- **Refusals:** `403 FORBIDDEN` (`details.groups`: `ai-proposals`, or Browse), `409 AI_NOT_CONFIGURED`, `409
+  AI_SEND_LEVEL_TOO_LOW`, `404 WORKSPACE_NOT_FOUND`, `404 OBJECT_NOT_FOUND`, `422 HISTORY_PERIOD_INVALID` (an
+  empty or reversed period, an unknown time zone).
+- `GET /changes` narrows to what a fact counted with `objectTypeKey`, `relationTypeKey`, `causeId` (the job or
+  publication that made the change), `action`, `attributeKey` and `live=true`; a record's history takes
+  `live=true`. The call is in `GET /ai/calls` (`purpose` `historyAccount`).
+
 ### Loading a workbook, or changing records, with the assistant
 
 An assistant task is carried out by one Claude Code session (`AI_AGENT_COMMAND`) that works through this
@@ -7104,7 +7147,7 @@ does, and to raise it as a question when the file has none.
 
 An assistant reaches the instance at `/mcp` (MCP Streamable HTTP, protocol 2025-11-25, stateless, JSON answers) with `MCP_ENABLED`; off, `/mcp`, the resource metadata and `/oauth/register` answer `404` and no `agent` token is issued.
 
-**Tools and resources.** The reads below answer live data in their route's shape (with `changeSetId`, see _Writing_ below, a change set's). `describe_access`; with Browse, `list_workspaces`, `describe_model`, `describe_type`, `find_records` (the body of `POST …/queries/objects`), `read_record`, `mapping_coverage`, `record_history`, `list_changes`; and `lookup_<key>` per consumer API definition, offered with Browse or the API's grant in the workspace, taking `workspace`, `operation` (`xref`, `lists`, `objects`, as the definition offers), the definition's parameters and `to.` targets, `asOf`, `cursor` and `pageSize`. Equal definitions in several workspaces share one tool; a key whose definitions differ, or a name past 48 characters, ends in a short hash. Resources, with Browse: `refiroo://workspaces/{key}/model` is listed per workspace; `…/applications/{key}`, `…/object-types/{key}` and `…/views/{application}/{key}` are resource templates. A paged answer past `MCP_ANSWER_BYTES` comes back smaller with a cursor. A workspace the caller cannot read is refused in the words of one that does not exist.
+**Tools and resources.** The reads below answer live data in their route's shape (with `changeSetId`, see _Writing_ below, a change set's). `describe_access`; with Browse, `list_workspaces`, `describe_model`, `describe_type`, `find_records` (the body of `POST …/queries/objects`), `read_record`, `mapping_coverage`, `record_history`, `list_changes`, `history_facts` (a workspace's or one record's facts over `[since, until)`, with `timeZone`: the facts of _What changed in a period_ with no provider call and no statements; refused as the route refuses a missing record or `HISTORY_PERIOD_INVALID`); and `lookup_<key>` per consumer API definition, offered with Browse or the API's grant in the workspace, taking `workspace`, `operation` (`xref`, `lists`, `objects`, as the definition offers), the definition's parameters and `to.` targets, `asOf`, `cursor` and `pageSize`. Equal definitions in several workspaces share one tool; a key whose definitions differ, or a name past 48 characters, ends in a short hash. Resources, with Browse: `refiroo://workspaces/{key}/model` is listed per workspace; `…/applications/{key}`, `…/object-types/{key}` and `…/views/{application}/{key}` are resource templates. A paged answer past `MCP_ANSWER_BYTES` comes back smaller with a cursor. A workspace the caller cannot read is refused in the words of one that does not exist.
 
 **Tokens.** `/mcp` takes only `agent` tokens, and they reach nothing else. An agent client (`POST /clients` with `kind: "agent"`) asks with `scope=agent` or no scope, and any other scope is `invalid_scope`; an API client asking for `agent` is too. A person's assistant follows the protocol's discovery: a `401` from `/mcp` names `resource_metadata` and `scope="agent"`; `GET /.well-known/oauth-protected-resource/mcp` (also at the root form) names the authorization server; `POST /oauth/register` (RFC 7591: `client_name`, `redirect_uris`; always a public client) answers its `client_id`; `/oauth/authorize` and `/oauth/token` run the authorization code flow with PKCE. `resource`, when sent, must name this instance's `/mcp` (`invalid_target`). The token answer holds `refresh_token`, rotated on use; such a session issues only `agent`, and a browser session never does.
 

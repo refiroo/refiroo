@@ -10,6 +10,8 @@ import type {
   AiTaskChangePage,
   AiTaskRequest,
   AiTaskRunRequest,
+  HistoryAccount,
+  HistoryAccountRequest,
   ImpactSummary,
   ImpactSummaryRequest,
   QueryTranslation,
@@ -64,6 +66,21 @@ export const ai = {
       ...post(body),
       signal,
     }),
+  /**
+   * The facts of what changed in a workspace over a period, worded (0.16 AO2). A provider that fails is not an
+   * error: `failure` is set and the facts stand alone. `409 AI_NOT_CONFIGURED`, `403 FORBIDDEN`, `422 HISTORY_PERIOD_INVALID`.
+   */
+  explainWorkspaceHistory: (workspaceKey: string, body: HistoryAccountRequest, signal?: AbortSignal) =>
+    request<HistoryAccount>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/history/account`, {
+      ...post(body),
+      signal,
+    }),
+  /** The same for one record's changes. */
+  explainRecordHistory: (objectTypeKey: string, objectId: string, body: HistoryAccountRequest, signal?: AbortSignal) =>
+    request<HistoryAccount>(
+      `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/history/account`,
+      { ...post(body), signal },
+    ),
   task: (id: string) => request<AiTask>(taskPath(id)),
   /** The records the latest check would change in a sheet (source) of the design, a page at a time. */
   taskChanges: (id: string, where: { source: number }, cursor?: string) => {

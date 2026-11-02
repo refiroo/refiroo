@@ -11,7 +11,8 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, Literal
 
-from sqlalchemy import and_, false, or_, select
+from sqlalchemy import and_, cast, false, func, or_, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from ...common.pagination import Page, PageRequest, datetime_key, integer_key, paginate_statement
@@ -65,6 +66,63 @@ def _made_by(session: Session, actor_id: str) -> Any:
     return AuditEvent.actor_client_id == client if client is not None else false()
 
 
+def narrowing(
+    *,
+    object_type_key: str | None = None,
+    relation_type_key: str | None = None,
+    cause_id: str | None = None,
+    action: str | None = None,
+    attribute_key: str | None = None,
+    live: bool = False,
+) -> list[Any]:
+    """The conditions an account of history links to (0.16 AO2, AO-D27): the changes a fact counted,
+    read in the database from the entry's ``subject`` and ``changes`` as the account reads them.
+    ``live`` keeps entries that changed live data (those with a feed position); staged entries of a
+    published change set stand beside them in the audit and are left out."""
+    changes = cast(AuditEvent.changes, JSONB)
+    conditions: list[Any] = []
+    if object_type_key is not None:
+        conditions.append(
+            func.coalesce(
+                AuditEvent.subject["objectTypeKey"].as_string(),
+                AuditEvent.changes["objectTypeKey"].as_string(),
+            )
+            == object_type_key
+        )
+    if relation_type_key is not None:
+        conditions.append(
+            func.coalesce(
+                AuditEvent.subject["relationTypeKey"].as_string(),
+                AuditEvent.changes["relationTypeKey"].as_string(),
+            )
+            == relation_type_key
+        )
+    if cause_id is not None:
+        conditions.append(AuditEvent.cause_id == cause_id)
+    if action == "moved":
+        conditions.append(
+            and_(
+                AuditEvent.action != "created",
+                or_(
+                    changes.has_key("parentObjectId"),
+                    changes["changedFields"].has_key("parentObjectId"),
+                ),
+            )
+        )
+    elif action is not None:
+        conditions.append(AuditEvent.action == action)
+    if attribute_key is not None:
+        conditions.append(
+            or_(
+                changes["attributeTypeKeys"].has_key(attribute_key),
+                changes["attributes"].has_key(attribute_key),
+            )
+        )
+    if live:
+        conditions.append(AuditEvent.feed_position.is_not(None))
+    return conditions
+
+
 def change_page(
     session: Session,
     permissions: Permissions,
@@ -76,6 +134,12 @@ def change_page(
     until: datetime | None,
     page: PageRequest,
     page_size: int,
+    object_type_key: str | None = None,
+    relation_type_key: str | None = None,
+    cause_id: str | None = None,
+    action: str | None = None,
+    attribute_key: str | None = None,
+    live: bool = False,
 ) -> Page[AuditEvent]:
     """The caller's page of changes, newest first: ``since`` included, ``until`` not."""
     aggregates = [item for kind in (kinds or KIND_AGGREGATES) for item in KIND_AGGREGATES[kind]]
@@ -93,6 +157,16 @@ def change_page(
         statement = statement.where(AuditEvent.occurred_at >= since)
     if until is not None:
         statement = statement.where(AuditEvent.occurred_at < until)
+    statement = statement.where(
+        *narrowing(
+            object_type_key=object_type_key,
+            relation_type_key=relation_type_key,
+            cause_id=cause_id,
+            action=action,
+            attribute_key=attribute_key,
+            live=live,
+        )
+    )
     return paginate_statement(
         session,
         statement,
@@ -104,6 +178,12 @@ def change_page(
             "kind": sorted(kinds),
             "since": since.isoformat() if since else None,
             "until": until.isoformat() if until else None,
+            "objectTypeKey": object_type_key,
+            "relationTypeKey": relation_type_key,
+            "causeId": cause_id,
+            "action": action,
+            "attributeKey": attribute_key,
+            "live": live,
         },
         page=page,
         page_size=page_size,

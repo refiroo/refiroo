@@ -533,6 +533,15 @@ export const api = {
     workspaceKey?: string;
     kinds?: ChangeEntryKind[];
     since?: string;
+    /** Not included. */
+    until?: string;
+    /** What an account of history counted (0.16 AO2): the type, the cause, the action, an attribute, live data only. */
+    objectTypeKey?: string;
+    relationTypeKey?: string;
+    causeId?: string;
+    action?: string;
+    attributeKey?: string;
+    live?: boolean;
     cursor?: string;
     pageSize?: number;
   }) => {
@@ -541,6 +550,13 @@ export const api = {
     if (filter.workspaceKey) query.set("workspaceKey", filter.workspaceKey);
     filter.kinds?.forEach((kind) => query.append("kind", kind));
     if (filter.since) query.set("since", filter.since);
+    if (filter.until) query.set("until", filter.until);
+    if (filter.objectTypeKey) query.set("objectTypeKey", filter.objectTypeKey);
+    if (filter.relationTypeKey) query.set("relationTypeKey", filter.relationTypeKey);
+    if (filter.causeId) query.set("causeId", filter.causeId);
+    if (filter.action) query.set("action", filter.action);
+    if (filter.attributeKey) query.set("attributeKey", filter.attributeKey);
+    if (filter.live) query.set("live", "true");
     if (filter.cursor) query.set("cursor", filter.cursor);
     return request<ChangeEntryPage>(`/api/v1/changes?${query}`);
   },
@@ -1562,12 +1578,13 @@ export const api = {
   objectHistory: (
     objectTypeKey: string,
     objectId: string,
-    options: { cursor?: string; pageSize?: number; kind?: HistoryKind; actorId?: string } = {},
+    options: { cursor?: string; pageSize?: number; kind?: HistoryKind; actorId?: string; live?: boolean } = {},
   ) => {
     const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 20) });
     if (options.cursor) params.set("cursor", options.cursor);
     if (options.kind) params.set("kind", options.kind);
     if (options.actorId) params.set("actorId", options.actorId);
+    if (options.live) params.set("live", "true");
     return request<AuditEventPage>(
       `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/history?${params}`,
     );

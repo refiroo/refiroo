@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { periodLabel, WhatChanged, type ShownFact } from "@/features/changes/WhatChanged";
+import { NarrowedBanner } from "@/features/objects/CollectionScope";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { attributeName } from "@/model/fields";
@@ -22,7 +24,9 @@ const KINDS = [
 /**
  * A record's history (0.12 RH1): its changes by day, one line each (what, who, when), opened for
  * each value with the one before (D389, D390); filtered by kind and by who made them, in the API
- * (D391); the 10 newest, then 20 more at a time, and Show fewer (D393).
+ * (D391); the 10 newest, then 20 more at a time, and Show fewer (D393). With `workspaceKey` it opens with
+ * What changed (0.16 AO2): an account of a period, whose facts lead to this history narrowed to the changes
+ * they counted.
  */
 export function HistoryPanel({
   model,
@@ -31,6 +35,8 @@ export function HistoryPanel({
   hue,
   refreshToken = 0,
   onOpenChanges,
+  workspaceKey,
+  application,
 }: {
   /** Resolves attribute keys to their model names; keys are shown when absent. */
   model?: EngineModel;
@@ -41,11 +47,17 @@ export function HistoryPanel({
   refreshToken?: number;
   /** Opens a person's or client's changes from their name (0.12 Z6); names stay text without it. */
   onOpenChanges?: (route: RouteState) => void;
+  /** The record's workspace: offers What changed, which is not drawn without it (a preview has none). */
+  workspaceKey?: string;
+  /** An application of the workspace, to open a change set from a fact. */
+  application?: string;
 }) {
   // The page's client: in the model editor's preview it answers an empty record's history itself.
   const api = useDataApi();
   const [kind, setKind] = useState<HistoryKind | "all">("all");
   const [actorId, setActorId] = useState("");
+  // The fact whose changes this history is narrowed to, which counted live changes only.
+  const [shown, setShown] = useState<ShownFact>();
   const { limit, reset, more } = useTimelineLimit();
   // The people seen in this record's history so far, for the By choice; kept across filters.
   const [seen, setSeen] = useState<ReadonlyMap<string, string>>(new Map());
@@ -56,14 +68,15 @@ export function HistoryPanel({
         pageSize: cursor ? TIMELINE_MORE : TIMELINE_FIRST,
         kind: kind === "all" ? undefined : kind,
         actorId: actorId || undefined,
+        live: shown ? true : undefined,
       });
       setSeen((current) => withActors(current, page.items));
       return page;
     },
-    [objectId, objectTypeKey, refreshToken, kind, actorId],
+    [objectId, objectTypeKey, refreshToken, kind, actorId, shown],
   );
-  const shown = items.slice(0, limit);
-  const narrowed = kind !== "all" || actorId !== "";
+  const visible = items.slice(0, limit);
+  const narrowed = kind !== "all" || actorId !== "" || shown !== undefined;
 
   return (
     <Card as="section" flush className="panel history-panel" data-hue={hue}>
@@ -89,6 +102,36 @@ export function HistoryPanel({
           </label>
         )}
       </div>
+      {workspaceKey && (
+        <WhatChanged
+          workspaceKey={workspaceKey}
+          record={{ objectTypeKey, objectId }}
+          application={application}
+          onNavigate={(route) => onOpenChanges?.(route)}
+          onShow={(fact) => {
+            const narrowing = fact.fact.link?.query?.kind;
+            setKind(
+              narrowing === "values" || narrowing === "relationships" || narrowing === "structure" ? narrowing : "all",
+            );
+            setShown(fact);
+            reset();
+          }}
+        />
+      )}
+      {shown && (
+        <NarrowedBanner
+          clearLabel="Show all history"
+          onClear={() => {
+            setShown(undefined);
+            setKind("all");
+            reset();
+          }}
+        >
+          <p className="context-line">
+            Narrowed by: {shown.fact.text.split(" (")[0]}, {periodLabel(shown.since, shown.until)}, live changes
+          </p>
+        </NarrowedBanner>
+      )}
       <div className="history-kinds">
         <Choice
           name={`history-kind-${objectId}`}
@@ -96,6 +139,7 @@ export function HistoryPanel({
           options={KINDS}
           onChange={(next) => {
             setKind(next);
+            setShown(undefined);
             reset();
           }}
         />
@@ -109,7 +153,7 @@ export function HistoryPanel({
         <Timeline
           byDay
           label="Changes"
-          entries={shown.map((item) => ({
+          entries={visible.map((item) => ({
             key: item.id,
             title: historyLine(item, model),
             at: item.occurredAt,

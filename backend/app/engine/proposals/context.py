@@ -26,6 +26,8 @@ FEATURE_LEVELS: dict[Purpose, SendLevel] = {
     "queryTranslation": "structure",
     # The facts of a model change and counts of records, no record (AO-D1).
     "impactSummary": "structure",
+    # Counts and the model's labels; names only at ``values`` (AO-D23).
+    "historyAccount": "structure",
 }
 
 

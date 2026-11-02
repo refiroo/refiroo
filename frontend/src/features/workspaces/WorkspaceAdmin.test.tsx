@@ -11,6 +11,7 @@ import { security } from "@/api/securityClient";
 import { testModel, testWorkspaceModel, testAvailability } from "@/test/fixtures";
 import { ToastProvider } from "@/ui/Toast";
 
+vi.mock("@/features/settings/useWorkspaceAiOffer", () => ({ useHistoryAccountOffer: () => undefined }));
 vi.mock("@/api/securityClient", () => ({ security: { access: vi.fn() } }));
 vi.mock("@/api/client", async (load) => {
   const actual = await load<typeof import("@/api/client")>();

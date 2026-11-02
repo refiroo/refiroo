@@ -14,10 +14,8 @@ is held while the provider answers (J48.8).
 import hashlib
 import json
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, replace
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -25,16 +23,19 @@ from ...models.database import RdmObject
 from ..model.diagnostics import ModelDiagnostic
 from ..model.diff import SemanticChange
 from . import calls, summaries
-from .provider import ProposalRequest
-from .registry import AiConfiguration, model_label, provider_label
+from .registry import AiConfiguration
+from .summaries import (
+    DEFAULT_LANGUAGE,  # noqa: F401  (the account's constants stay reachable here)
+    FACT_LIMIT,  # noqa: F401
+    TEXT_LIMIT,  # noqa: F401
+    Fact,
+    Statement,
+    Summary,
+    SummaryAnswer,
+)
 
 PROMPT_VERSION = "impact-summary/2"
 PURPOSE = "impactSummary"
-# The most facts of one kind the provider is sent; the person is given them all (AO-D14).
-FACT_LIMIT = 40
-# The longest before or after text sent for a change.
-TEXT_LIMIT = 200
-DEFAULT_LANGUAGE = "en"
 
 Kind = Literal["blocked", "data", "contract", "change", "records"]
 KINDS: tuple[Kind, ...] = ("blocked", "data", "contract", "change", "records")
@@ -53,45 +54,6 @@ Write 1 to 6 short statements in the language given by the context's language. E
 - State what changes and by how much. Never say that a change is safe, risky, harmless, breaking, recommended or advisable, and give no advice.
 - Use the names in the facts as they are written, and numbers from the facts and the totals exactly: do not count the facts yourself.
 - A statement without a fact id is discarded."""
-
-
-class _Statement(BaseModel):
-    text: str
-    factIds: list[str] = Field(default_factory=list)
-
-
-class SummaryAnswer(BaseModel):
-    """What the provider answers: statements, each citing the facts it rests on."""
-
-    statements: list[_Statement] = Field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class Fact:
-    id: str
-    kind: Kind
-    text: str
-    path: str | None = None
-    count: int | None = None
-    # A change's two sides, for the provider's context only.
-    before: Any = None
-    after: Any = None
-
-
-@dataclass(frozen=True)
-class Statement:
-    text: str
-    fact_ids: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class Summary:
-    facts: list[Fact]
-    statements: list[Statement]
-    removed: int
-    failure: str | None
-    cached: bool
-    call_id: str | None
 
 
 # --- the facts ---
@@ -140,16 +102,6 @@ def _shown(value: Any) -> str:
         return "its definition"
     text = json.dumps(value, ensure_ascii=False)
     return text if len(text) <= 60 else text[:59] + "…"
-
-
-def _cut(value: Any) -> Any:
-    """A before or after for the context: text, or a definition as JSON text, longer than
-    ``TEXT_LIMIT`` is cut."""
-    if isinstance(value, dict | list):
-        value = json.dumps(value, ensure_ascii=False, sort_keys=True)
-    if isinstance(value, str) and len(value) > TEXT_LIMIT:
-        return value[: TEXT_LIMIT - 1] + "…"
-    return value
 
 
 def describe(change: SemanticChange, names: _Names) -> str:
@@ -311,66 +263,20 @@ def build_facts(
     return facts
 
 
-# --- the context ---
+# --- the context and the answer ---
 
 
 def context_of(facts: Sequence[Fact], language: str) -> dict[str, Any]:
     """What the provider is sent: at most ``FACT_LIMIT`` facts per kind, the largest counts first
     where a kind has counts, and per kind the true total with a group a statement may cite."""
-    shown: list[dict[str, Any]] = []
-    groups: list[dict[str, Any]] = []
-    totals: dict[str, int] = {}
-    for kind in KINDS:
-        of_kind = [fact for fact in facts if fact.kind == kind]
-        if not of_kind:
-            continue
-        totals[kind] = len(of_kind)
-        if kind in ("data", "records"):
-            of_kind = sorted(of_kind, key=lambda fact: -(fact.count or 0))
-        for fact in of_kind[:FACT_LIMIT]:
-            entry: dict[str, Any] = {"id": fact.id, "kind": kind, "text": fact.text}
-            if fact.count is not None:
-                entry["count"] = fact.count
-            if fact.path:
-                entry["path"] = fact.path
-            if fact.before is not None:
-                entry["before"] = _cut(fact.before)
-            if fact.after is not None:
-                entry["after"] = _cut(fact.after)
-            shown.append(entry)
-        if len(of_kind) > FACT_LIMIT:
-            groups.append(
-                {
-                    "id": group_id(kind),
-                    "kind": kind,
-                    "count": len(of_kind) - FACT_LIMIT,
-                    "text": f"and {len(of_kind) - FACT_LIMIT} more {kind} facts",
-                }
-            )
-    return {"language": language, "totals": totals, "facts": shown, "more": groups}
+    return summaries.context_of(facts, language, KINDS, largest_first=("data", "records"))
 
 
-def group_id(kind: str) -> str:
-    return f"more-{kind}"
-
-
-# --- the answer ---
+group_id = summaries.group_id
 
 
 def checked(answer: SummaryAnswer, facts: Sequence[Fact]) -> tuple[list[Statement], int]:
-    """The statements that cite at least one fact and no fact that does not exist (a group of the
-    facts not shown counts as one), and how many were dropped (AO-D2)."""
-    known = {fact.id for fact in facts} | {group_id(kind) for kind in KINDS}
-    kept: list[Statement] = []
-    removed = 0
-    for item in answer.statements:
-        text = item.text.strip()
-        ids = tuple(dict.fromkeys(item.factIds))
-        if text and ids and all(identifier in known for identifier in ids):
-            kept.append(Statement(text, ids))
-        else:
-            removed += 1
-    return kept, removed
+    return summaries.checked(answer, facts, KINDS)
 
 
 def explain(
@@ -381,72 +287,19 @@ def explain(
     language: str,
     requester: calls.Requester,
 ) -> Summary:
-    """The facts, worded. The same request inside the hour is answered from the cache with no call;
-    otherwise the provider is asked, with no transaction held, and the call is recorded in
-    ``session`` (the caller commits)."""
-    provider = ai.provider
-    assert provider is not None
-    if not facts:
-        return Summary(facts, [], 0, None, False, None)
-    context = context_of(facts, language)
-    key = summaries.input_hash(
-        PURPOSE,
-        PROMPT_VERSION,
-        [
-            context,
-            [(fact.id, fact.kind, fact.text, fact.count) for fact in facts],
-            ai.policy.level,
-            provider_label(provider),
-            model_label(provider),
-        ],
-    )
-    hit = summaries.find(session, PURPOSE, key)
-    if hit is not None:
-        answer, call_id = hit
-        return Summary(
-            facts,
-            [Statement(item["text"], tuple(item["factIds"])) for item in answer["statements"]],
-            int(answer["removed"]),
-            None,
-            True,
-            call_id,
-        )
-    # The provider can take seconds: no transaction is held while it answers (J48.8).
-    session.commit()
-    outcome = calls.ask(
+    """The facts, worded, with the shared asking of ``summaries.explain``."""
+    return summaries.explain(
+        session,
         ai,
-        ProposalRequest(
-            purpose=PURPOSE,
-            instructions=INSTRUCTIONS,
-            prompt_version=PROMPT_VERSION,
-            context=context,
-            answer=SummaryAnswer,
-        ),
-        record=calls.record_in(session),
+        facts,
+        purpose=PURPOSE,
+        prompt_version=PROMPT_VERSION,
+        instructions=INSTRUCTIONS,
+        kinds=KINDS,
+        largest_first=("data", "records"),
+        language=language,
         requester=requester,
     )
-    if outcome.answer is None:
-        return Summary(facts, [], 0, outcome.failure, False, outcome.call_id)
-    assert isinstance(outcome.answer, SummaryAnswer)
-    statements, removed = checked(outcome.answer, facts)
-    if statements:
-        summaries.store(
-            session,
-            PURPOSE,
-            key,
-            {
-                "statements": [
-                    {"text": item.text, "factIds": list(item.fact_ids)} for item in statements
-                ],
-                "removed": removed,
-            },
-            outcome.call_id,
-        )
-    return Summary(facts, statements, removed, None, False, outcome.call_id)
 
 
-def with_level(ai: AiConfiguration, level: Any) -> AiConfiguration:
-    """``ai`` with the lower send level a request chose."""
-    if level is None:
-        return ai
-    return replace(ai, policy=replace(ai.policy, level=level))
+with_level = summaries.with_level

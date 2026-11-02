@@ -252,9 +252,11 @@ def object_history(
     page_size: int,
     kind: str | None = None,
     actor_id: str | None = None,
+    live: bool = False,
 ) -> Page[AuditEvent]:
     """A record's history, newest first; ``kind`` and ``actor_id`` (a person's or client's ID, or
-    ``engine``) narrow it in the database (0.12 RH1, D391)."""
+    ``engine``) narrow it in the database (0.12 RH1, D391), and ``live`` keeps the entries that
+    changed live data, as an account of history counts them (0.16 AO2)."""
     statement = (
         select(AuditEvent)
         .join(AuditEventSubject, AuditEventSubject.audit_event_id == AuditEvent.sequence_id)
@@ -262,6 +264,8 @@ def object_history(
     )
     if kind is not None:
         statement = statement.where(kind_condition(kind))
+    if live:
+        statement = statement.where(AuditEvent.feed_position.is_not(None))
     if actor_id == "engine":
         statement = statement.where(AuditEvent.actor_kind == "engine")
     elif actor_id is not None:
@@ -279,6 +283,7 @@ def object_history(
             "workspaceKey": workspace_key,
             "kind": kind,
             "actorId": actor_id,
+            "live": live,
         },
         page=page,
         page_size=page_size,

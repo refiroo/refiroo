@@ -14,6 +14,7 @@ export const PURPOSE: Record<AiCall["purpose"], string> = {
   mappingTarget: "Targets for unmapped values",
   queryTranslation: "A question in words",
   impactSummary: "An account of a model change",
+  historyAccount: "An account of what changed",
   // Only on call rows recorded by older versions; it is no longer a feature.
   workbookLoad: "Load a workbook (no longer offered)",
   assistantSession: "Assistant session",

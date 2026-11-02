@@ -907,6 +907,11 @@ def get_object_history(
         alias="actorId",
         description="Only the changes of one person or client, by ID, or `engine` (0.12 RH1)",
     ),
+    live: bool = Query(
+        default=False,
+        description="Only the changes that changed live data, as an account of what changed "
+        "counts them (0.16 AO2)",
+    ),
 ) -> AuditEventPage:
     """A record's history, newest first: each entry with its kind, the values it changed with
     the value before, and a relationship's other record (0.12 RH1, D389–D392)."""
@@ -931,7 +936,7 @@ def get_object_history(
             session, events, history_origin(session, item.object_id, events.items), item.object_id
         )
     return live_object_history(
-        session, object_type_key, object_id, None, paging, page_size, kind, actor_id
+        session, object_type_key, object_id, None, paging, page_size, kind, actor_id, live
     )
 
 
@@ -944,6 +949,7 @@ def live_object_history(
     page_size: int,
     kind: Literal["values", "relationships", "structure"] | None,
     actor_id: str | None,
+    live: bool = False,
 ) -> AuditEventPage:
     """A live record's history, in ``workspace_key`` when named; the route's and the agent tool's
     one read."""
@@ -961,6 +967,7 @@ def live_object_history(
         page_size=page_size,
         kind=kind,
         actor_id=actor_id,
+        live=live,
     )
     return audit_event_page(
         session, events, history_origin(session, item.id, events.items), item.id

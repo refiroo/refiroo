@@ -29,6 +29,12 @@ def list_changes(
     kind: list[ChangeKind] | None = _KIND,
     since: datetime | None = _SINCE,
     until: datetime | None = _UNTIL,
+    object_type_key: str | None = Query(default=None, alias="objectTypeKey", max_length=160),
+    relation_type_key: str | None = Query(default=None, alias="relationTypeKey", max_length=160),
+    cause_id: str | None = Query(default=None, alias="causeId", max_length=36),
+    action: str | None = Query(default=None, max_length=80),
+    attribute_key: str | None = Query(default=None, alias="attributeKey", max_length=160),
+    live: bool = Query(default=False),
     page_size: int = Query(default=50, ge=1, le=500, alias="pageSize"),
 ) -> ChangePage:
     """Data and model changes newest first, each naming its workspace, its change set, what it
@@ -36,7 +42,15 @@ def list_changes(
     person or client made; ``since`` is included and ``until`` is not (``from`` is the
     paging's, ADR-030). Always only what the caller
     may see: Browse in an entry's workspace, Model authoring at the instance for model
-    administration (D342). Security events are at ``/security-events``."""
+    administration (D342). Security events are at ``/security-events``.
+
+    The list narrows, over the whole set, to what an account of history counted (0.16 AO2):
+    ``objectTypeKey`` and ``relationTypeKey`` (the type of the record or relationship, as it stood
+    when changed), ``causeId`` (the job or publication that made the change), ``action``
+    (`created`, `updated`, `deleted`, `reclassified` or `moved`, an update that changed the
+    record's parent), ``attributeKey`` (an update that changed that attribute) and ``live=true``,
+    which keeps the changes that changed live data: a change set's staged entries, which a
+    publication repeats, are left out."""
     return change_page(
         session,
         changes.change_page(
@@ -47,6 +61,12 @@ def list_changes(
             kinds=kind or [],
             since=since,
             until=until,
+            object_type_key=object_type_key,
+            relation_type_key=relation_type_key,
+            cause_id=cause_id,
+            action=action,
+            attribute_key=attribute_key,
+            live=live,
             page=paging,
             page_size=page_size,
         ),

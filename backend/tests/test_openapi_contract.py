@@ -400,9 +400,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # task's design, `thenReleaseId` and `migration` (TaskMigration) on its result, and `changeSetId` on the
     # result no longer required. The hash was taken while AP12's schema file stood in the tree beside AO1's
     # commit, so AO1's commit holds the hash of both and AP12's commit adds no new one.
+    # Re-baselined for 0.16 AO2 (additive, diffed against HEAD in a worktree): the routes
+    # workspaces/{key}/history/account and objects/{type}/{id}/history/account, their schemas
+    # (HistoryAccountRequest, HistoryAccountResponse, HistoryFact, HistoryFactLink), historyAccount as a
+    # purpose of AiFeature and of a call, the filters objectTypeKey, relationTypeKey, causeId, action,
+    # attributeKey and live on GET /changes and live on a record's history.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "bb33dcfd2683d7c406a8a8853dbfcf149bbb019747c3cd05f3bd46f9cb3c83ba"
+        "d300fde68b4af37c186388a23d2c740f7a2302909692fa9d29dc2acc391efa87"
     )
 
 

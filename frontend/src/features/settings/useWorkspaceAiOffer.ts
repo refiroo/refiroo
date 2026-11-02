@@ -68,3 +68,19 @@ function aiOffer(ai: AiSystemInfo | undefined, permissions: MyPermissions | unde
   if (!ai || ai.sendLevel !== "values" || !holds(permissions, "ai-proposals")) return undefined;
   return (needsProvider ? ai.configured : ai.assistant) ? ai : undefined;
 }
+
+/**
+ * The provider, when an account of what changed may be asked for in `workspaceKey` (0.16 AO2): a provider is set,
+ * at any send level (the counts and the model's labels are the least a send level allows; names go at `values`
+ * only), and the person holds browse and ai-proposals there; otherwise nothing, and nothing is drawn.
+ */
+export function useHistoryAccountOffer(workspaceKey: string | undefined): AiSystemInfo | undefined {
+  const { system } = useSystem();
+  const permissions = useWorkspacePermissions(workspaceKey);
+  return historyAccountOffer(system?.ai, permissions);
+}
+
+/** The rule alone: a provider is configured, and browse and ai-proposals are held. */
+export function historyAccountOffer(ai: AiSystemInfo | undefined, permissions: MyPermissions | undefined) {
+  return ai?.configured && holds(permissions, "ai-proposals") && holds(permissions, "browse") ? ai : undefined;
+}

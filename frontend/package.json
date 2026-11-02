@@ -72,6 +72,7 @@
     "test:browser:ag4": "node e2e/ag4-ask-in-words.mjs",
     "test:browser:ap12": "node e2e/ap12-change-model.mjs",
     "test:browser:ao1": "node e2e/ao1-impact-summary.mjs",
+    "test:browser:ao2": "node e2e/ao2-what-changed.mjs",
     "test:browser:reset": "node e2e/i6-reset.mjs",
     "test:browser:one-address": "node e2e/dp1-one-address.mjs",
     "test:deployment": "node e2e/dp3-deployment.mjs",

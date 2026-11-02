@@ -11,7 +11,8 @@ sent, as a real model would, and names nothing the context does not hold.
     slowly                    the answer comes after three seconds
     fail                      the provider is unreachable
 
-It also words the facts of a model change for the 0.16 AO1 runner (`ao1-impact-summary.mjs`), by the mode
+It also words the facts of a model change for the 0.16 AO1 runner (`ao1-impact-summary.mjs`) and the facts of
+what changed in a period for the 0.16 AO2 runner (`ao2-what-changed.mjs`), by the mode
 written in the file `STAND_IN_MODE_FILE` names (read at each call, so the runner changes it between
 steps): `ok` (statements citing the first fact, the last fact and the group of the facts not shown),
 `unsourced` (one statement citing a fact that does not exist, one that is right) or `fail`.
@@ -45,7 +46,7 @@ class AskStandIn:
         return ProviderAnswer({"statements": statements}, self.model, tokens_in=10, tokens_out=10)
 
     def propose(self, request: ProposalRequest) -> ProviderAnswer:
-        if request.purpose == "impactSummary":
+        if request.purpose in ("impactSummary", "historyAccount"):
             return self._summary(request)
         question = request.context["question"]
         fields = request.context["fields"]
