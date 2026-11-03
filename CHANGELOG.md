@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (a released consumer API's key fact)
+
+- **A released consumer API no longer says "Key fixed: released".** Its key can be changed, as D55 decided, and **Change key…** stays offered; the fact now reads **Released: a new key moves its address**, and its tooltip says consumers of the old key get 404 once the draft is active (the contract check warns `CONSUMER_API_REMOVED`). An unreleased one reads **Key editable**. Model elements keep **Key fixed: released**. The guide's Define a consumer API and Consumer APIs in the model pages say the same.
+
 ### Changed (one header, 0.13 HD)
 
 - **One header for the app, the guide and the API reference.** The three bars share the height, surface, rule, mark and ink underline (`frontend/public/operator/refiroo-header.css`, served at `/operator/`); the logo leads to the app's home, Documentation | API reference come before the guide's search, and the API page drops Scalar's own dark-mode toggle. **"?"** in the app bar, left of the bell, opens the documentation in a new tab. One theme choice: the guide and the API page read and write `rdm:theme:v1` (System, Light, Dark) and, with the app, follow a change made in another open tab. A public site build sets `PUBLIC_GUIDE_SITE=1` to send the logo to the guide's home. **The public site has the API reference too:** `npm run build:public` in `guide/` (with `GUIDE_OUT` to build elsewhere) builds the guide for the public site and writes a static `/docs/api/` beside it with the engine's own page (`render_page`, in its static form: no sign-in script, no test-request button, the Content-Security-Policy in a `<meta>` element), Scalar's bundled script, the management API's document (from the code, no database) and the `stops` consumer API of the guide's reference domain (`guide/samples/model.json`), titled as the example. The module is `app.management.reference.static_site`; an instance does not use it, since the engine serves `/docs/api` from its route before the guide's files.
