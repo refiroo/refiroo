@@ -1,0 +1,140 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer/stops/v1/xref?query=Chur&workspace=graubuenden&pageSize=2",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "etag": "W/\"6d7feaf1a7d44b42750a:1\"",
+    "rdm-workspace": "graubuenden",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "af0249c5a6054fca97ff9a812de3a6f0"
+  },
+  "body": {
+    "results": [
+      {
+        "objectType": "Municipality",
+        "id": "05fd46a2-964a-4870-9d40-8bec6b4822dd",
+        "code": null,
+        "name": "Chur",
+        "validFrom": null,
+        "validTo": null,
+        "stopNumber": null,
+        "abbreviation": null,
+        "fsoNumber": 3901,
+        "latitude": null,
+        "longitude": null,
+        "height": null,
+        "sboid": null,
+        "parent": {
+          "objectType": null,
+          "id": "f8404c93-47bd-4de8-86a9-9c1674b6076b",
+          "code": null,
+          "name": "Plessur"
+        },
+        "path": "Graubünden/Plessur",
+        "operator": null,
+        "modes": [],
+        "systemCodes": [
+          {
+            "system": "Wikidata: municipalities",
+            "systemKey": "wikidata-municipalities",
+            "code": "Q69007",
+            "name": "Q69007 Chur"
+          }
+        ],
+        "translations": [
+          {
+            "languageCode": "de",
+            "translatedName": "Chur",
+            "isActive": true
+          },
+          {
+            "languageCode": "en",
+            "translatedName": "Chur",
+            "isActive": true
+          },
+          {
+            "languageCode": "fr",
+            "translatedName": "Coire",
+            "isActive": true
+          },
+          {
+            "languageCode": "it",
+            "translatedName": "Coira",
+            "isActive": true
+          },
+          {
+            "languageCode": "rm",
+            "translatedName": "Cuira",
+            "isActive": true
+          }
+        ],
+        "matchScore": 200
+      },
+      {
+        "objectType": "Stop",
+        "id": "745c1a52-8405-4158-8f3b-b9e9c8b979be",
+        "code": "ch:1:sloid:9000",
+        "name": "Chur",
+        "validFrom": "2021-04-01",
+        "validTo": null,
+        "stopNumber": 8509000,
+        "abbreviation": "CH",
+        "fsoNumber": null,
+        "latitude": "46.85308416276408",
+        "longitude": "9.528937733041323",
+        "height": "584.6",
+        "sboid": null,
+        "parent": {
+          "objectType": "Municipality",
+          "id": "05fd46a2-964a-4870-9d40-8bec6b4822dd",
+          "code": null,
+          "name": "Chur"
+        },
+        "path": "Graubünden/Plessur/Chur",
+        "operator": {
+          "id": "003ff971-bd07-4396-854c-4a6acd33dd8d",
+          "code": "SBB",
+          "name": "Schweizerische Bundesbahnen SBB"
+        },
+        "modes": [
+          {
+            "id": "0f61601d-ec0c-4944-bab9-cf0d1d8665a9",
+            "code": "TRAIN",
+            "name": "Train"
+          }
+        ],
+        "systemCodes": [
+          {
+            "system": "Wikidata: stations",
+            "systemKey": "wikidata-stations",
+            "code": "Q663869",
+            "name": "Q663869 Chur"
+          },
+          {
+            "system": "Regional ticketing (FICTIONAL)",
+            "systemKey": "ticketing",
+            "code": "T-0300",
+            "name": "T-0300 FICTIONAL: Zone 1 hub: Chur and Chur West (two stops, one code)"
+          }
+        ],
+        "translations": [],
+        "matchScore": 200
+      }
+    ],
+    "query": [
+      "Chur"
+    ],
+    "workspace": "graubuenden",
+    "publication": null,
+    "pageSize": 2,
+    "nextCursor": "eyJmaWx0ZXJzIjoiMjI5NzkwODQ3YTY0NDU4M2RhMThhNmZlZTY5ZDUxYmQzOGFjNDU2OTU5MjVkOGZjNmEyYTY2YTAyYzAxYzg5NSIsInBvc2l0aW9uIjpbIjIwMCIsIlN0b3AiLCJDaHVyIiwiNzQ1YzFhNTItODQwNS00MTU4LThmM2ItYjllOWM4Yjk3OWJlIl0sInNjb3BlIjoiY29uc3VtZXIteHJlZjpzdG9wcyIsInNvcnQiOlsiLXNjb3JlIiwidHlwZSIsIm5hbWUiLCJpZCJdLCJ2ZXJzaW9uIjoxfQ.I6zd2B99CUjYo0hHjqyMdtBVObQCcv5Vb4HvvGtzrCo",
+    "prevCursor": null,
+    "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6IjIyOTc5MDg0N2E2NDQ1ODNkYTE4YTZmZWU2OWQ1MWJkMzhhYzQ1Njk1OTI1ZDhmYzZhMmE2NmEwMmMwMWM4OTUiLCJwb3NpdGlvbiI6WyIyMDAiLCJNdW5pY2lwYWxpdHkiLCJDaHVyIiwiMDVmZDQ2YTItOTY0YS00ODcwLTlkNDAtOGJlYzZiNDgyMmRkIl0sInNjb3BlIjoiY29uc3VtZXIteHJlZjpzdG9wcyIsInNvcnQiOlsiLXNjb3JlIiwidHlwZSIsIm5hbWUiLCJpZCJdLCJ2ZXJzaW9uIjoxfQ.N69utZVbhDCDJF15_s9j1J3lR90dP4W4oHpZyezGh_A",
+    "totalCount": 149,
+    "startIndex": 0
+  },
+  "note": "A stop found by name."
+}

@@ -98,3 +98,11 @@ Following the latest user instruction, removed 15 image references for all fifte
 ## 2026-11-03T11:33:03+01:00 — second capture review complete
 
 All fifteen deferred image references are removed and listed in `screens-wanted/C10-LATER.md`; only the two retake images remain missing across 296 references. All 32 recipes pass structural checks, and `GUIDE_OUT=_build/C10-SCREENS npm run build` passed (224 pages, 3.21 seconds; existing /404 conflict warning). Next external capture is only `admin-webhook-new,admin-mail-messages`; no instance changes or commits ran in this review.
+
+## 2026-11-03T21:50:55+01:00 — Contributor proposal recipe
+
+Applied third-round steering: restored the screenshot in `guide/use/propose-a-change.md` and appended its Contributor recipe to `_waves/C10.screens.json`, with cancelled-dialog side effects in `_waves/C10.data-changes.md`. The other fourteen deferred images still need fixtures; removing this completed deferral from C10-LATER is handed off in `third-round-report.md` because that file is outside the allowed edit list. Live framing and the no-personal-change-set prerequisite await external capture.
+
+## 2026-11-03T21:51:23+01:00 — Third-round validation
+
+Steering reread; no additional correction. All 33 recipes pass structure/action checks, and the sole missing referenced image is the newly restored Contributor screen. `GUIDE_OUT=_build/C10-SCREENS npm run build` passed (225 pages, 3.84 seconds), with caddyfile-highlighting fallback and /404-conflict warnings; no live capture or instance change ran.

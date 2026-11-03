@@ -1,0 +1,60 @@
+{
+  "pages": 225,
+  "sidebar_pages": 223,
+  "guides": 111,
+  "covered_rows": 2538,
+  "all_rows": 3106,
+  "counts": {
+    "about": {
+      "covered": 43,
+      "excluded": 1,
+      "deferred": 1,
+      "open": 0
+    },
+    "administer": {
+      "covered": 238,
+      "excluded": 9,
+      "deferred": 42,
+      "open": 0
+    },
+    "examples": {
+      "covered": 6,
+      "excluded": 0,
+      "deferred": 0,
+      "open": 0
+    },
+    "integrate": {
+      "covered": 632,
+      "excluded": 30,
+      "deferred": 57,
+      "open": 0
+    },
+    "journeys": {
+      "covered": 47,
+      "excluded": 1,
+      "deferred": 9,
+      "open": 0
+    },
+    "model": {
+      "covered": 763,
+      "excluded": 19,
+      "deferred": 37,
+      "open": 0
+    },
+    "run": {
+      "covered": 150,
+      "excluded": 36,
+      "deferred": 68,
+      "open": 0
+    },
+    "use": {
+      "covered": 659,
+      "excluded": 73,
+      "deferred": 185,
+      "open": 0
+    }
+  },
+  "ignored_sidebar_placeholders": [
+    "administer/agent-access"
+  ]
+}

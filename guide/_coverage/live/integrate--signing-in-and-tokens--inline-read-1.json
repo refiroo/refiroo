@@ -1,0 +1,42 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/.well-known/oauth-authorization-server",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "8281c56371d44948adfdf1f714d80c3f"
+  },
+  "body": {
+    "issuer": "http://localhost:8480",
+    "authorization_endpoint": "http://localhost:8480/oauth/authorize",
+    "token_endpoint": "http://localhost:8480/oauth/token",
+    "revocation_endpoint": "http://localhost:8480/oauth/revoke",
+    "jwks_uri": "http://localhost:8480/oauth/jwks",
+    "grant_types_supported": [
+      "authorization_code",
+      "refresh_token",
+      "client_credentials"
+    ],
+    "token_endpoint_auth_methods_supported": [
+      "client_secret_basic",
+      "client_secret_post",
+      "none"
+    ],
+    "revocation_endpoint_auth_methods_supported": [
+      "none"
+    ],
+    "scopes_supported": [
+      "management",
+      "consumer"
+    ],
+    "response_types_supported": [
+      "code"
+    ],
+    "code_challenge_methods_supported": [
+      "S256"
+    ]
+  }
+}

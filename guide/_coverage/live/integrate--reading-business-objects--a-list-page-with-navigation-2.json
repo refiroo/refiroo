@@ -1,0 +1,62 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer/stops/v1/lists/all-stops?workspace=graubuenden&pageSize=1&includeTotal=true",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "etag": "W/\"6d7feaf1a7d44b42750a:1\"",
+    "rdm-workspace": "graubuenden",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "7d13d59f5580472faee8dcd49df3ab54"
+  },
+  "body": {
+    "items": [
+      {
+        "objectType": "Stop",
+        "id": "6583e8c9-582c-4bc5-b113-dbdbcc31a44a",
+        "code": "ch:1:sloid:4",
+        "name": "Selva, via Alpsu spv.",
+        "validFrom": "2022-11-14",
+        "validTo": null,
+        "stopNumber": 8500004,
+        "abbreviation": "SAXX",
+        "fsoNumber": null,
+        "latitude": "46.662107304536484",
+        "longitude": "8.723794590415595",
+        "height": "1553.9",
+        "sboid": null,
+        "parent": {
+          "objectType": "Municipality",
+          "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
+          "code": null,
+          "name": "Tujetsch"
+        },
+        "path": "Graubünden/Surselva/Tujetsch",
+        "operator": {
+          "id": "69907d18-f444-400a-b8a2-359bfbd405fc",
+          "code": "MGB/Autofo",
+          "name": "Automobildienst Matterhorn Gotthard Bahn (fo auto)"
+        },
+        "modes": [
+          {
+            "id": "ef9e4eea-74a4-4380-a426-b9faae4a298f",
+            "code": "BUS",
+            "name": "Bus"
+          }
+        ],
+        "systemCodes": [],
+        "translations": []
+      }
+    ],
+    "workspace": "graubuenden",
+    "publication": null,
+    "pageSize": 1,
+    "nextCursor": "eyJmaWx0ZXJzIjoiYjIzZTk0OTg0NzVlMDVmYWZmNTc1MGYzOTBkNDdlOWE3ZmJmZDQ5NWIwZWViZTc4NTY5ZDk4ZjE3ZmFkM2M1MiIsInBvc2l0aW9uIjpbIjAiLCI4NTAwMDA0IiwiU2VsdmEsIHZpYSBBbHBzdSBzcHYuIiwiNjU4M2U4YzktNTgyYy00YmM1LWIxMTMtZGJkYmNjMzFhNDRhIl0sInNjb3BlIjoiY29uc3VtZXItbGlzdDpzdG9wczphbGwtc3RvcHMiLCJzb3J0IjpbInN0b3AtbnVtYmVyOm51bGwiLCJzdG9wLW51bWJlciIsIm5hbWUiLCJpZCJdLCJ2ZXJzaW9uIjoxfQ.Xq2rRTwSbhFk87_MbE_pH5rw0C6dLWShygnYcAxwlxs",
+    "prevCursor": null,
+    "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6ImIyM2U5NDk4NDc1ZTA1ZmFmZjU3NTBmMzkwZDQ3ZTlhN2ZiZmQ0OTViMGVlYmU3ODU2OWQ5OGYxN2ZhZDNjNTIiLCJwb3NpdGlvbiI6WyIwIiwiODUwMDAwNCIsIlNlbHZhLCB2aWEgQWxwc3Ugc3B2LiIsIjY1ODNlOGM5LTU4MmMtNGJjNS1iMTEzLWRiZGJjYzMxYTQ0YSJdLCJzY29wZSI6ImNvbnN1bWVyLWxpc3Q6c3RvcHM6YWxsLXN0b3BzIiwic29ydCI6WyJzdG9wLW51bWJlcjpudWxsIiwic3RvcC1udW1iZXIiLCJuYW1lIiwiaWQiXSwidmVyc2lvbiI6MX0.JvqCknm2cJdxKet5Qn-csSed-VGI0kJdJgpKM6_DYSI",
+    "totalCount": 2443,
+    "startIndex": 0
+  }
+}

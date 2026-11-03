@@ -10,7 +10,7 @@ One engine, many applications: a model defines what people can keep and how they
 
 An **application model**, usually called a **model**, defines applications, record types, fields, relationships and views. An **application** groups relevant types and views into a working area.
 
-A **record type** defines one kind of item. A **record** is an item of that type. A **field**, also called an attribute, holds a typed value: text, a number, a date or a yes/no value. Fields can be reused across types. A **binding** says where a reusable field or relationship may be used and which rules apply there.
+A **record type**, also called an **object type** in the model editor, defines one kind of item. A **record** is an item of that type. A **field**, also called an attribute, holds a typed value: text, a number, a date or a yes/no value. Fields can be reused across types. A **binding** says where a reusable field or relationship may be used and which rules apply there.
 
 The model determines which views an application offers. A table, tree, mapping grid or relation matrix is available because the model declares it and the data's structure supports it. See [Applications](/docs/use/applications/) and [Types, attributes and relations](/docs/model/types-attributes-relations/).
 

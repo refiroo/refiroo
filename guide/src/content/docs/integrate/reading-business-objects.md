@@ -28,7 +28,7 @@ For a fixed extract, choose a publication. Selecting the current one resolves a 
 
 ## A complete object read
 
-**Reference-data example:** the requests below use the `stops` declaration explained in [Consumer APIs](/docs/integrate/consumer-apis/#from-a-declaration-to-a-running-api). Replace the host and token with your instance's values. The bodies are composed from the reference snapshot; cursors and ETags shown in angle brackets stand for opaque strings returned by your own instance. They are not tokens to paste into a request.
+**Reference-data example:** the requests below use the `stops` declaration explained in [Consumer APIs](/docs/integrate/consumer-apis/#from-a-declaration-to-a-running-api). Replace the host and token with your instance's values. The response bodies below were read from the reference instance using the 2 November 2026 dataset. Cursors and ETags are the complete values from that read. Obtain fresh values from your own responses; these strings depend on the instance and read context.
 
 The declaration's `operations.objects` exposes this request. Notice that the path uses the record UUID, while the returned `code` is a separate business identifier:
 
@@ -43,7 +43,7 @@ Accept: application/json
 HTTP/1.1 200 OK
 Content-Type: application/json
 RDM-Workspace: graubuenden
-ETag: "<etag-from-this-response>"
+ETag: W/"6d7feaf1a7d44b42750a:1"
 ```
 
 ```json
@@ -154,9 +154,9 @@ RDM-Workspace: graubuenden
   "workspace": "graubuenden",
   "publication": null,
   "pageSize": 1,
-  "nextCursor": "<next-cursor-from-this-page>",
+  "nextCursor": "eyJmaWx0ZXJzIjoiYjIzZTk0OTg0NzVlMDVmYWZmNTc1MGYzOTBkNDdlOWE3ZmJmZDQ5NWIwZWViZTc4NTY5ZDk4ZjE3ZmFkM2M1MiIsInBvc2l0aW9uIjpbIjAiLCI4NTAwMDA0IiwiU2VsdmEsIHZpYSBBbHBzdSBzcHYuIiwiNjU4M2U4YzktNTgyYy00YmM1LWIxMTMtZGJkYmNjMzFhNDRhIl0sInNjb3BlIjoiY29uc3VtZXItbGlzdDpzdG9wczphbGwtc3RvcHMiLCJzb3J0IjpbInN0b3AtbnVtYmVyOm51bGwiLCJzdG9wLW51bWJlciIsIm5hbWUiLCJpZCJdLCJ2ZXJzaW9uIjoxfQ.Xq2rRTwSbhFk87_MbE_pH5rw0C6dLWShygnYcAxwlxs",
   "prevCursor": null,
-  "anchor": "<anchor-from-this-page>",
+  "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6ImIyM2U5NDk4NDc1ZTA1ZmFmZjU3NTBmMzkwZDQ3ZTlhN2ZiZmQ0OTViMGVlYmU3ODU2OWQ5OGYxN2ZhZDNjNTIiLCJwb3NpdGlvbiI6WyIwIiwiODUwMDAwNCIsIlNlbHZhLCB2aWEgQWxwc3Ugc3B2LiIsIjY1ODNlOGM5LTU4MmMtNGJjNS1iMTEzLWRiZGJjYzMxYTQ0YSJdLCJzY29wZSI6ImNvbnN1bWVyLWxpc3Q6c3RvcHM6YWxsLXN0b3BzIiwic29ydCI6WyJzdG9wLW51bWJlcjpudWxsIiwic3RvcC1udW1iZXIiLCJuYW1lIiwiaWQiXSwidmVyc2lvbiI6MX0.JvqCknm2cJdxKet5Qn-csSed-VGI0kJdJgpKM6_DYSI",
   "totalCount": 2443,
   "startIndex": 0
 }
@@ -233,9 +233,9 @@ RDM-Workspace: graubuenden
   "workspace": "graubuenden",
   "publication": null,
   "pageSize": 1,
-  "nextCursor": "<next-cursor-for-this-operator-filter>",
+  "nextCursor": "eyJmaWx0ZXJzIjoiNTRhMTExMzQxODIzZjk3NWYzNjkyNWMzZTEwMTk2ZDNiNjg4ZWY2OGQ1YWVkZjAyNGMxZGE1YTBhNmU5NjFmOCIsInBvc2l0aW9uIjpbIjAiLCI4NTA1MTczIiwiVHNjaGFtdXQtU2VsdmEiLCI4ZDkwZWVkZS0yM2NmLTQ3YzEtOGRhYy1jYjM3OTU2ZjVmZDUiXSwic2NvcGUiOiJjb25zdW1lci1saXN0OnN0b3BzOmFsbC1zdG9wcyIsInNvcnQiOlsic3RvcC1udW1iZXI6bnVsbCIsInN0b3AtbnVtYmVyIiwibmFtZSIsImlkIl0sInZlcnNpb24iOjF9.1v9cIpsLdk52jHId-gxF6o2ZOCtL2rUovcSK_qeVVxo",
   "prevCursor": null,
-  "anchor": "<anchor-for-this-operator-filter>",
+  "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6IjU0YTExMTM0MTgyM2Y5NzVmMzY5MjVjM2UxMDE5NmQzYjY4OGVmNjhkNWFlZGYwMjRjMWRhNWEwYTZlOTYxZjgiLCJwb3NpdGlvbiI6WyIwIiwiODUwNTE3MyIsIlRzY2hhbXV0LVNlbHZhIiwiOGQ5MGVlZGUtMjNjZi00N2MxLThkYWMtY2IzNzk1NmY1ZmQ1Il0sInNjb3BlIjoiY29uc3VtZXItbGlzdDpzdG9wczphbGwtc3RvcHMiLCJzb3J0IjpbInN0b3AtbnVtYmVyOm51bGwiLCJzdG9wLW51bWJlciIsIm5hbWUiLCJpZCJdLCJ2ZXJzaW9uIjoxfQ.8FyXbvb1X-LjSKkbpn39MjxS1xGXaCaxFkbpxrQDCNc",
   "totalCount": 13,
   "startIndex": 0
 }
@@ -245,23 +245,26 @@ The reference snapshot has 13 stops for this operator. Reusing the unfiltered cu
 
 ## Reuse an unchanged answer
 
-Save the body from the object read and its exact ETag. Repeat the same request with that tag, including its quotes:
+Save the body from the earlier object GET and read its `ETag` response header. In the captured response it is `W/"6d7feaf1a7d44b42750a:1"`. Copy the whole header value into `If-None-Match`, including `W/` and both quotes; use the value from your own response rather than a placeholder:
 
 ```http
 GET /api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5?workspace=graubuenden HTTP/1.1
 Host: <instance>
 Authorization: Bearer <consumer-token>
 Accept: application/json
-If-None-Match: "<etag-from-this-response>"
+If-None-Match: W/"6d7feaf1a7d44b42750a:1"
 ```
+
+If the saved tag still matches, the conditional response is:
+
 
 ```http
 HTTP/1.1 304 Not Modified
 RDM-Workspace: graubuenden
-ETag: "<etag-from-this-response>"
+ETag: W/"6d7feaf1a7d44b42750a:1"
 ```
 
-There is **no response body**. Keep using the cached body. If the server instead returns 200, replace the cached body and tag together. A live write elsewhere in the workspace can change the tag; it is not a per-object change counter. Adding `publication=<publication-id>` pins the read, and the answer identifies it in `RDM-Publication` and collection `publication` fields.
+A matching-tag 304 has **no response body**. Keep using the cached body. If the server instead returns 200, replace the cached body and tag together. A live write elsewhere in the workspace can change the tag; it is not a per-object change counter. Adding `publication=<publication-id>` pins the read, and the answer identifies it in `RDM-Publication` and collection `publication` fields.
 
 ## A request that the declaration cannot answer
 
@@ -277,7 +280,6 @@ Accept: application/json
 ```http
 HTTP/1.1 404 Not Found
 Content-Type: application/json
-RDM-Workspace: graubuenden
 ```
 
 ```json
@@ -297,7 +299,7 @@ Correct the list name using the declaration or rediscover the intended workspace
 
 In query strings, repeat a parameter or separate its values with commas for alternatives. A literal comma inside a value must be percent-encoded as `%2C`. Comparisons are case-insensitive. For a list's special parent parameter, supply public record UUIDs, not names or codes; use a declared ancestor filter on another list to match those values instead. Without that parent parameter the list covers the whole type.
 
-Responses identify the workspace in `RDM-Workspace`. Publication reads also supply `RDM-Publication` and collection `publication`. Lists return `items`, `workspace`, `publication`, `pageSize`, `nextCursor`, `prevCursor`, `anchor`, `totalCount` and `startIndex`; totals and start index are null unless requested with `includeTotal=true`. A get-by-ID response is the bare business object. Unknown, deleted, unexposed or other-workspace records all answer `404 OBJECT_NOT_FOUND`.
+Successful data responses identify the workspace in `RDM-Workspace`. The missing-list error above does not include that header; retain the request context when handling an error. Publication reads also supply `RDM-Publication` and collection `publication`. Lists return `items`, `workspace`, `publication`, `pageSize`, `nextCursor`, `prevCursor`, `anchor`, `totalCount` and `startIndex`; totals and start index are null unless requested with `includeTotal=true`. A get-by-ID response is the bare business object. Unknown, deleted, unexposed or other-workspace records all answer `404 OBJECT_NOT_FOUND`.
 
 The contract's Publications operation lists snapshots newest first, with `id`, `publishedAt`, `status` and `eventSequence`. It supports ordinary paging but no seek. `eventSequence` can be null for an older snapshot; do not assume that is zero. Use a snapshot with a usable sequence when preparing a load-and-follow baseline. `publication=latest` selects the active publication, and fails with `PUBLICATION_NOT_FOUND` if none exists.
 

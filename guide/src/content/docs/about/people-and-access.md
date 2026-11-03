@@ -40,7 +40,7 @@ Holding Publish alone does not bypass a required approval. The exact policy also
 
 ## People and systems sign in differently
 
-People can use a local account or the organisation's configured sign-in provider. Local accounts support an authenticator app, recovery codes and passkeys. Administrators can require a second factor. Provider-only accounts use the provider's security and cannot add local second factors or passkeys.
+People can use a local account or the organisation's configured OpenID Connect sign-in provider. Local accounts support an authenticator app, recovery codes and WebAuthn passkeys. Administrators can require a second factor. Provider-only accounts use the provider's security and cannot add local second factors or passkeys.
 
 People can review and end their browser sessions on Account. A system uses its own **client**, with its own credentials and grants. Reading a consumer API requires a separate grant for that API in a workspace; no general role opens it, and these grants belong to clients, not people or groups.
 

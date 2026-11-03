@@ -124,3 +124,5 @@
 - 2026-11-03T16:26:27+01:00 — PRODUCT, How success is judged: about/what-is-refiroo.md — opening and What makes it different; use/records.md — Edit a value or create a record; guide/use/add-a-record.md; guide/use/correct-a-record.md. Reader outcome already there; internal acceptance methodology skipped, no unexercised functionality certified. (0 added, 0 corrected, 0 expanded). Steering: No steering file present.
 
 - 2026-11-03T16:27:58+01:00 — Final editorial unit: corrected about/data-quality-rules.md to distinguish unique field values from ancestor-scoped relationship counting. Added two inspected existing screenshots to use/workspaces.md and use/lists-and-filters.md and placed permission/tree details with their explanations. Steering: No steering file present.
+
+- 2026-11-03T16:30:13+01:00 — Wave complete: all 62 source headings recorded in guide/_waves/reconcile/R-FUNCTIONALITY.md, with per-page counts and concrete handoffs. Final isolated verify passed (225 pages; terms, brand and 58,132 local links/sources); no new screenshots requested, no live workflows tested. No steering file present.

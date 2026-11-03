@@ -6,7 +6,7 @@ reader: model-admin
 
 Allow a relationship in a draft before people can create it between records. You need **Model
 authoring**. A relation type gives the connection its meaning; an allowed pair determines which
-types it may join. See [Models](/docs/model/models/).
+types it may join. See [Types, attributes and relations](/docs/model/types-attributes-relations/).
 
 ## Inspect existing connections
 

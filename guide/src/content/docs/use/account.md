@@ -39,11 +39,11 @@ To change that password:
    does not change your password.
 
 Under **Passkeys**, choose **Add a passkey** and follow your browser or device's instructions.
-A passkey uses your fingerprint, face or device PIN to sign in, or to provide the second step.
+A WebAuthn passkey uses your fingerprint, face or device PIN to sign in, or to provide the second step.
 Registered passkeys can be renamed so you can tell them apart, or removed. Removal asks for your
 password or a code from your authenticator app. If the device prompt is cancelled, no passkey is added.
 
-Under **Authenticator app**, choose **Set up an authenticator app**. Scan the displayed code with
+An authenticator app supplies time-based one-time passwords (TOTP). Under **Authenticator app**, choose **Set up an authenticator app**. Scan the displayed code with
 your app, or enter its key, then enter **Code from the app** to confirm setup. Keep the recovery
 codes shown afterwards somewhere safe: each works once if you lose access to your phone.
 They are shown once. **New recovery codes…** replaces the old codes after you prove your sign-in;

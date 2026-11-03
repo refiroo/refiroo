@@ -1,0 +1,8030 @@
+[
+  {
+    "id": "C0028",
+    "section": "about",
+    "item": "Docs must explain the term: Record type / object type.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "about/how-it-works"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        1.0,
+        "use/relationships"
+      ],
+      [
+        1.0,
+        "use/records"
+      ],
+      [
+        1.0,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2233",
+    "section": "administer",
+    "item": "A person is no stronger/weaker than a client with the same role.",
+    "score": 0.6,
+    "missing": [],
+    "targets": [
+      "administer/roles-and-grants"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.5351365712184926,
+        "guide/model/define-a-consumer-api"
+      ],
+      [
+        0.29098687188096733,
+        "run/sign-in-and-mail-setup"
+      ],
+      [
+        0.29098687188096733,
+        "run/install-with-compose"
+      ]
+    ]
+  },
+  {
+    "id": "C2236",
+    "section": "administer",
+    "item": "Acceptance scenario SC-14: Establish a working area and preserve stable access.",
+    "score": 0.11,
+    "missing": [],
+    "targets": [
+      "administer/roles-and-grants"
+    ],
+    "weighted": 0.04,
+    "best": [
+      [
+        0.4753340054650029,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.3271608816720835,
+        "run/upgrades"
+      ],
+      [
+        0.3271608816720835,
+        "run/install-with-compose"
+      ]
+    ]
+  },
+  {
+    "id": "C2245",
+    "section": "administer",
+    "item": "Authenticate and authorize sensitive operations (identity, permissions).",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "administer/roles-and-grants"
+    ],
+    "weighted": 0.17,
+    "best": [
+      [
+        0.5853885603906964,
+        "run/sign-in-and-mail-setup"
+      ],
+      [
+        0.583471318621711,
+        "run/set-up-ai"
+      ],
+      [
+        0.46177669455468134,
+        "integrate/signing-in-and-tokens"
+      ]
+    ]
+  },
+  {
+    "id": "C2246",
+    "section": "administer",
+    "item": "Changes list restricted to what caller may see.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "administer/audit"
+    ],
+    "weighted": 0.31,
+    "best": [
+      [
+        0.8829312406295923,
+        "integrate/security-model-for-integrators"
+      ],
+      [
+        0.7010953784969857,
+        "run/several-processes"
+      ],
+      [
+        0.7010953784969857,
+        "run/ai"
+      ]
+    ]
+  },
+  {
+    "id": "C2251",
+    "section": "administer",
+    "item": "Collections: the table lens: Scope banner \"Within <Type>: <parent name>\" with \"Show all <plural>\" (list narrowed to children of a record).",
+    "score": 0.5,
+    "missing": [
+      "Within <Type>: <parent name>",
+      "Show all <plural>"
+    ],
+    "targets": [
+      "use/lists-and-filters"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.5793906327362828,
+        "use/records"
+      ],
+      [
+        0.4911292491225777,
+        "model/applications-and-views"
+      ],
+      [
+        0.45925682795760064,
+        "model/types-attributes-relations"
+      ]
+    ]
+  },
+  {
+    "id": "C2268",
+    "section": "administer",
+    "item": "Four-eyes workspace policy refuses approving own.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "administer/approval-policies"
+    ],
+    "weighted": 0.15,
+    "best": [
+      [
+        0.34873185752931485,
+        "run/webhook-delivery"
+      ],
+      [
+        0.336218729213724,
+        "use/account"
+      ],
+      [
+        0.3080447565529901,
+        "model/workbook-onboarding"
+      ]
+    ]
+  },
+  {
+    "id": "C2283",
+    "section": "administer",
+    "item": "Home: \"Your workspaces\": one card per workspace the person may browse: name link (opens the workspace), tile, \"Default\" pill, \"<model> <version>\", role line, application links (open that application), counters \"N your change sets\" and \"N open change sets to publish\" (link to that workspace's Change sets), or pill \"Nothing open here\" + note (\"Propose a change from any record.\" / \"You can read this workspace.\").",
+    "score": 0.6,
+    "missing": [
+      "<model> <version>",
+      "N your change sets",
+      "N open change sets to publish",
+      "Propose a change from any record.",
+      "You can read this workspace."
+    ],
+    "targets": [
+      "use/home"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.4191262170962874,
+        "use/records"
+      ],
+      [
+        0.40971014780007714,
+        "run/configure"
+      ],
+      [
+        0.4079697760384551,
+        "use/inbox-and-approvals"
+      ]
+    ]
+  },
+  {
+    "id": "C2295",
+    "section": "administer",
+    "item": "Every write route enforces the caller\u2019s narrowed grants.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "administer/roles-and-grants"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.7032812922902488,
+        "integrate/security-model-for-integrators"
+      ],
+      [
+        0.578373818909613,
+        "journeys/manage-access"
+      ],
+      [
+        0.5283819245555592,
+        "run/troubleshooting"
+      ]
+    ]
+  },
+  {
+    "id": "C2313",
+    "section": "administer",
+    "item": "Unauthenticated requests are refused; a forbidden operation identifies its required action and workspace.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "administer/roles-and-grants"
+    ],
+    "weighted": 0.31,
+    "best": [
+      [
+        0.712631010884114,
+        "integrate/signing-in-and-tokens"
+      ],
+      [
+        0.712631010884114,
+        "integrate/security-model-for-integrators"
+      ],
+      [
+        0.6481635315098994,
+        "run/troubleshooting"
+      ]
+    ]
+  },
+  {
+    "id": "C2404",
+    "section": "administer",
+    "item": "Retirement waits for live/change-set write; later writes refused.",
+    "score": 0.29,
+    "missing": [],
+    "targets": [
+      "model/managing-workspaces"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.7470558776232448,
+        "use/change-sets"
+      ],
+      [
+        0.7470558776232448,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.727845988937592,
+        "integrate/model-and-release-operations"
+      ]
+    ]
+  },
+  {
+    "id": "C2412",
+    "section": "administer",
+    "item": "Search and page the workspace catalogue.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/managing-workspaces"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        1.0,
+        "use/importing-and-exporting"
+      ],
+      [
+        1.0,
+        "administer/clients"
+      ],
+      [
+        1.0,
+        "about/what-is-refiroo"
+      ]
+    ]
+  },
+  {
+    "id": "C2423",
+    "section": "administer",
+    "item": "Shell, top bar, navigation, workspace switcher: \"There is no workspace you can open yet\" page (buttons \"People\" for a security administrator, else \"Settings\"; \"Account\").",
+    "score": 0.58,
+    "missing": [],
+    "targets": [
+      "administer/roles-and-grants"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.5212538568608366,
+        "administer/sign-in"
+      ],
+      [
+        0.4851131461884183,
+        "use/home"
+      ],
+      [
+        0.4535989328174316,
+        "use/account"
+      ]
+    ]
+  },
+  {
+    "id": "C2455",
+    "section": "administer",
+    "item": "Two admins changing default from same version: one refused.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "model/managing-workspaces"
+    ],
+    "weighted": 0.19,
+    "best": [
+      [
+        0.5011402988773761,
+        "use/records"
+      ],
+      [
+        0.5011402988773761,
+        "run/sign-in-and-mail-setup"
+      ],
+      [
+        0.5011402988773761,
+        "run/health-and-startup-checks"
+      ]
+    ]
+  },
+  {
+    "id": "C2460",
+    "section": "administer",
+    "item": "Workspace list, jobs, cross-type lookup follow caller's browse permission.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "administer/roles-and-grants"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.7313231769674104,
+        "run/troubleshooting"
+      ],
+      [
+        0.7212039428152178,
+        "integrate/workspaces-contexts-and-models"
+      ],
+      [
+        0.7089459184899572,
+        "journeys/integrate-a-system"
+      ]
+    ]
+  },
+  {
+    "id": "C2516",
+    "section": "administer",
+    "item": "Signing keys: \"Start a new key\" (immediate; the 30-day rotation also runs on its own).",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "administer/signing-keys"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.8470606336993144,
+        "integrate/security-model-for-integrators"
+      ],
+      [
+        0.7810624209335922,
+        "run/sign-in-and-mail-setup"
+      ],
+      [
+        0.7069023261783818,
+        "run/configure"
+      ]
+    ]
+  },
+  {
+    "id": "C2519",
+    "section": "administer",
+    "item": "Token signing key rotated on schedule (TOKEN_SIGNING_KEY_DAYS); old tokens verify until expiry.",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "administer/signing-keys"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.6838909469864456,
+        "run/sign-in-and-mail-setup"
+      ],
+      [
+        0.6838909469864456,
+        "run/configure"
+      ],
+      [
+        0.6838909469864456,
+        "integrate/signing-in-and-tokens"
+      ]
+    ]
+  },
+  {
+    "id": "C3962",
+    "section": "administer",
+    "item": "Deleting an unused workspace removes its feed positions and idempotency keys, retains audit entries without positions and allows its key to be created and written again.",
+    "score": 0.2,
+    "missing": [],
+    "targets": [
+      "model/managing-workspaces"
+    ],
+    "weighted": 0.18,
+    "best": [
+      [
+        0.6502271242900693,
+        "run/configure"
+      ],
+      [
+        0.607941865905308,
+        "integrate/security-model-for-integrators"
+      ],
+      [
+        0.5453948379690736,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C3861",
+    "section": "examples",
+    "item": "Use example application names only in the example section and clearly marked examples or captions.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "examples/the-starter-model"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        0.49590843451407773,
+        "examples/the-example-data"
+      ],
+      [
+        0.4326449652009383,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.38994983212788126,
+        "guide/use/find-records"
+      ]
+    ]
+  },
+  {
+    "id": "C2957",
+    "section": "integrate",
+    "item": "Acceptance scenario SC-11: Answer a business-date question.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "integrate/business-dates"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        0.5260277860956846,
+        "integrate/consumer-events-and-webhooks"
+      ],
+      [
+        0.47561804065349167,
+        "model/consumer-apis"
+      ],
+      [
+        0.47561804065349167,
+        "journeys/integrate-a-system"
+      ]
+    ]
+  },
+  {
+    "id": "C2958",
+    "section": "integrate",
+    "item": "Ask for a configured list's records applicable on a date (asOf) and page through them.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "integrate/business-dates"
+    ],
+    "weighted": 0.31,
+    "best": [
+      [
+        1.0,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.724507356024853,
+        "model/consumer-apis"
+      ],
+      [
+        0.6922754194601546,
+        "integrate/security-model-for-integrators"
+      ]
+    ]
+  },
+  {
+    "id": "C2960",
+    "section": "integrate",
+    "item": "Boundary day of an effective period answered correctly.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "integrate/business-dates"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.5234905623618988,
+        "guide/integrate/read-as-of-a-date"
+      ],
+      [
+        0.38483671793206076,
+        "integrate/business-dates"
+      ],
+      [
+        0.37771457271106923,
+        "run/monitoring"
+      ]
+    ]
+  },
+  {
+    "id": "C2967",
+    "section": "integrate",
+    "item": "Overlapping periods answered.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "integrate/business-dates"
+    ],
+    "weighted": 0.24,
+    "best": [
+      [
+        0.3779510420194977,
+        "run/set-up-ai"
+      ],
+      [
+        0.3779510420194977,
+        "guide/integrate/read-as-of-a-date"
+      ],
+      [
+        0.24409791596100455,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C2971",
+    "section": "integrate",
+    "item": "A change set starts from live data or a publication; the source parameters must fit.",
+    "score": 0.6,
+    "missing": [],
+    "targets": [
+      "integrate/changes-approvals-and-publication"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        0.8866000295822638,
+        "model/consumer-apis"
+      ],
+      [
+        0.7905970782044767,
+        "integrate/reading-business-objects"
+      ],
+      [
+        0.7905970782044767,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C3128",
+    "section": "integrate",
+    "item": "Model reads name release (X-Model-Release-Id); identifiers are stable keys/UUIDs.",
+    "score": 0.43,
+    "missing": [],
+    "targets": [
+      "integrate/discovering-the-model"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        0.9259559864925917,
+        "integrate/identifiers-paging-and-errors"
+      ],
+      [
+        0.644477053936179,
+        "model/workbook-proposals"
+      ],
+      [
+        0.644477053936179,
+        "model/workbook-onboarding"
+      ]
+    ]
+  },
+  {
+    "id": "C3170",
+    "section": "integrate",
+    "item": "Export refusals at pointer; absent with job creation off.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "integrate/files-imports-and-exports"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.7437431924056601,
+        "run/background-jobs"
+      ],
+      [
+        0.6188020416171923,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.617185693346361,
+        "integrate/security-model-for-integrators"
+      ]
+    ]
+  },
+  {
+    "id": "C3175",
+    "section": "integrate",
+    "item": "Import and export asynchronously.",
+    "score": 0.67,
+    "missing": [],
+    "targets": [
+      "integrate/files-imports-and-exports"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.3734957039646535,
+        "use/workspaces"
+      ],
+      [
+        0.3734957039646535,
+        "use/publications"
+      ],
+      [
+        0.3734957039646535,
+        "use/jobs"
+      ]
+    ]
+  },
+  {
+    "id": "C3182",
+    "section": "integrate",
+    "item": "Preview additions/updates/errors by row and field; nothing changes.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "integrate/files-imports-and-exports"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.8777810796505663,
+        "journeys/integrate-a-system"
+      ],
+      [
+        0.5892600777489095,
+        "use/importing-and-exporting"
+      ],
+      [
+        0.5892600777489095,
+        "model/issues-and-dry-run"
+      ]
+    ]
+  },
+  {
+    "id": "C3234",
+    "section": "integrate",
+    "item": "Restart after interruption at stored position; recognise repeated delivery by position.",
+    "score": 0.29,
+    "missing": [],
+    "targets": [
+      "integrate/following-changes"
+    ],
+    "weighted": 0.24,
+    "best": [
+      [
+        0.9113203571289781,
+        "journeys/integrate-a-system"
+      ],
+      [
+        0.6452801890386813,
+        "run/troubleshooting"
+      ],
+      [
+        0.6380527140438158,
+        "run/configure"
+      ]
+    ]
+  },
+  {
+    "id": "C3244",
+    "section": "integrate",
+    "item": "changeSetId requires the change set version in writes.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "integrate/versions-and-conflicts"
+    ],
+    "weighted": 0.26,
+    "best": [
+      [
+        1.0,
+        "use/change-sets"
+      ],
+      [
+        1.0,
+        "run/webhook-delivery"
+      ],
+      [
+        1.0,
+        "run/production-checklist"
+      ]
+    ]
+  },
+  {
+    "id": "C3303",
+    "section": "integrate",
+    "item": "Follow a job as it changes (GET /jobs/{id}/events SSE); browser notified on finish.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "integrate/jobs"
+    ],
+    "weighted": 0.24,
+    "best": [
+      [
+        0.5329734331459068,
+        "integrate/overview"
+      ],
+      [
+        0.43677119064986386,
+        "run/background-jobs"
+      ],
+      [
+        0.42505883197135996,
+        "run/configure"
+      ]
+    ]
+  },
+  {
+    "id": "C3353",
+    "section": "integrate",
+    "item": "Acceptance scenario SC-07: Resolve a mapping without losing the existing answer.",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "integrate/reading-records",
+      "integrate/versions-and-conflicts"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        0.5597308071116823,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.5597308071116823,
+        "integrate/consumer-events-and-webhooks"
+      ],
+      [
+        0.49876264211831606,
+        "guide/model/check-a-workbook-with-a-dry-run"
+      ]
+    ]
+  },
+  {
+    "id": "C3441",
+    "section": "integrate",
+    "item": "Request the precise dataset an integration needs (and consumer-side reads).",
+    "score": 0.57,
+    "missing": [],
+    "targets": [
+      "integrate/looking-up-and-resolving"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.8175158178541448,
+        "journeys/integrate-a-system"
+      ],
+      [
+        0.8175158178541448,
+        "journeys/index"
+      ],
+      [
+        0.6614841836047677,
+        "integrate/reading-records"
+      ]
+    ]
+  },
+  {
+    "id": "C3518",
+    "section": "integrate",
+    "item": "API GET /changes for anyone or everyone.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "integrate/security-model-for-integrators"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.6866018276505539,
+        "run/https"
+      ],
+      [
+        0.6480995246220324,
+        "administer/sign-in"
+      ],
+      [
+        0.46487118887564766,
+        "run/sign-in-and-mail-setup"
+      ]
+    ]
+  },
+  {
+    "id": "C3674",
+    "section": "integrate",
+    "item": "Racing relationships into one cell keep stored state right.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "integrate/reading-records"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.8331385529974624,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.631060253291649,
+        "use/importing-and-exporting"
+      ],
+      [
+        0.554221951035375,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C3865",
+    "section": "journeys",
+    "item": "Look after data: Correct a record (J02).",
+    "score": 1.0,
+    "missing": [],
+    "targets": [
+      "journeys/look-after-data"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.395768498154699,
+        "use/records"
+      ],
+      [
+        0.395768498154699,
+        "model/workbook-proposals"
+      ],
+      [
+        0.395768498154699,
+        "journeys/look-after-data"
+      ]
+    ]
+  },
+  {
+    "id": "C1324",
+    "section": "model",
+    "item": "The reader can new (part of arrange guide today).",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "guide/model/choose-table-columns-filters-and-sort"
+    ],
+    "weighted": 0.3,
+    "best": [
+      [
+        0.7828209380196888,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.7425091162559863,
+        "use/change-sets"
+      ],
+      [
+        0.6749876250831862,
+        "integrate/compatibility"
+      ]
+    ]
+  },
+  {
+    "id": "C1350",
+    "section": "model",
+    "item": "Confirmations; refused when data uses it (counts).",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "guide/model/remove-an-element"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.38968805120502786,
+        "use/relation-matrices"
+      ],
+      [
+        0.38968805120502786,
+        "use/records"
+      ],
+      [
+        0.38968805120502786,
+        "use/notifications-settings"
+      ]
+    ]
+  },
+  {
+    "id": "C1369",
+    "section": "model",
+    "item": "The model language defines ApplicationDefinition.color.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/applications-and-views",
+      "model/json-view"
+    ],
+    "weighted": 0.34,
+    "best": [
+      [
+        0.33748806718661667,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.33748806718661667,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.33748806718661667,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1389",
+    "section": "model",
+    "item": "The model language defines BreadcrumbDefinition.showApplication.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.13,
+    "best": [
+      [
+        0.33748806718661667,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.33748806718661667,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.33748806718661667,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1391",
+    "section": "model",
+    "item": "The model language defines ChildrenPanelConfig.objectTypeKeys.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.5414057636583001,
+        "use/records"
+      ],
+      [
+        0.5414057636583001,
+        "model/applications-and-views"
+      ],
+      [
+        0.5280230341164484,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C1400",
+    "section": "model",
+    "item": "The model language defines DetailHeaderDefinition.showObjectType.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.26,
+    "best": [
+      [
+        0.7434855205435142,
+        "model/consumer-apis"
+      ],
+      [
+        0.7038284343152368,
+        "model/the-model-editor"
+      ],
+      [
+        0.7038284343152368,
+        "guide/model/add-a-record-type-and-fields"
+      ]
+    ]
+  },
+  {
+    "id": "C1402",
+    "section": "model",
+    "item": "The model language defines DetailHeaderDefinition.titleField.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.7351097008160057,
+        "guide/model/install-and-activate-a-release"
+      ],
+      [
+        0.7351097008160057,
+        "administer/clients"
+      ],
+      [
+        0.7028679432695184,
+        "model/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1405",
+    "section": "model",
+    "item": "The model language defines DetailViewDefinition.objectTypeKey.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.18,
+    "best": [
+      [
+        1.0,
+        "model/consumer-apis"
+      ],
+      [
+        0.7305457912130446,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.7305457912130446,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1433",
+    "section": "model",
+    "item": "The model language defines PanelDefinitionBase.key.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        1.0,
+        "model/the-model-editor"
+      ],
+      [
+        1.0,
+        "guide/model/find-your-way-around-the-editor"
+      ],
+      [
+        0.7504356188647754,
+        "guide/model/start-a-draft-from-a-workbook"
+      ]
+    ]
+  },
+  {
+    "id": "C1436",
+    "section": "model",
+    "item": "The model language defines PanelDefinitionBase.title.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        1.0,
+        "model/the-model-editor"
+      ],
+      [
+        1.0,
+        "guide/model/find-your-way-around-the-editor"
+      ],
+      [
+        0.726690493330071,
+        "guide/model/start-a-draft-from-a-workbook"
+      ]
+    ]
+  },
+  {
+    "id": "C1440",
+    "section": "model",
+    "item": "The model language defines RelationMatrixViewConfig.cellObjectTypeKey.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.749572307688567,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.749572307688567,
+        "model/the-model-editor"
+      ],
+      [
+        0.749572307688567,
+        "model/applications-and-views"
+      ]
+    ]
+  },
+  {
+    "id": "C1468",
+    "section": "model",
+    "item": "The model language defines TablePanelConfig.objectTypeKey.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.6496968754498761,
+        "model/the-model-editor"
+      ],
+      [
+        0.6496968754498761,
+        "model/applications-and-views"
+      ],
+      [
+        0.5246572685993234,
+        "use/relationships"
+      ]
+    ]
+  },
+  {
+    "id": "C1482",
+    "section": "model",
+    "item": "The model language defines TableViewDefinition.config.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.596025725515743,
+        "run/ai"
+      ],
+      [
+        0.5828873418228404,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.5828873418228404,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1485",
+    "section": "model",
+    "item": "The model language defines TableViewDefinition.objectTypeKey.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        1.0,
+        "model/types-attributes-relations"
+      ],
+      [
+        1.0,
+        "model/the-model-editor"
+      ],
+      [
+        1.0,
+        "model/applications-and-views"
+      ]
+    ]
+  },
+  {
+    "id": "C1488",
+    "section": "model",
+    "item": "The model language defines TreeViewConfig.availabilityField.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.629229772326751,
+        "use/hierarchies"
+      ],
+      [
+        0.629229772326751,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.629229772326751,
+        "model/applications-and-views"
+      ]
+    ]
+  },
+  {
+    "id": "C1491",
+    "section": "model",
+    "item": "The model language defines TreeViewConfig.objectTypeKeys.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.6615298878831576,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.6329289389833327,
+        "run/ai"
+      ],
+      [
+        0.5420295876265995,
+        "run/install-with-compose"
+      ]
+    ]
+  },
+  {
+    "id": "C1493",
+    "section": "model",
+    "item": "The model language defines TreeViewConfig.rootObjectTypeKeys.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.6250755152744134,
+        "run/install-with-compose"
+      ],
+      [
+        0.6006974777946756,
+        "model/applications-and-views"
+      ],
+      [
+        0.5806372228848596,
+        "run/production-checklist"
+      ]
+    ]
+  },
+  {
+    "id": "C1494",
+    "section": "model",
+    "item": "The model language defines TreeViewConfig.secondaryField.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.44157444182274375,
+        "run/install-with-compose"
+      ],
+      [
+        0.39401512687223383,
+        "run/ai"
+      ],
+      [
+        0.2841076782464512,
+        "use/relationships"
+      ]
+    ]
+  },
+  {
+    "id": "C1499",
+    "section": "model",
+    "item": "Additions compatible; removals and lower versions reported.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis"
+    ],
+    "weighted": 0.3,
+    "best": [
+      [
+        0.7692058974153112,
+        "use/change-sets"
+      ],
+      [
+        0.6532784498217541,
+        "run/health-and-startup-checks"
+      ],
+      [
+        0.6421287380273323,
+        "model/workbook-onboarding"
+      ]
+    ]
+  },
+  {
+    "id": "C1500",
+    "section": "model",
+    "item": "Author mistakes refused at pointers (via, two verbs, duplicate role, alsoMatchThrough).",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis"
+    ],
+    "weighted": 0.2,
+    "best": [
+      [
+        0.5033859957606313,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.2947797059922242,
+        "guide/model/move-records-to-another-model"
+      ],
+      [
+        0.2789525113215055,
+        "guide/model/define-a-consumer-api"
+      ]
+    ]
+  },
+  {
+    "id": "C1506",
+    "section": "model",
+    "item": "Model change (cardinality) changing projection shape is reported.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "guide/model/define-a-consumer-api"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.855639789406077,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.7504342387600393,
+        "integrate/looking-up-and-resolving"
+      ],
+      [
+        0.6705413337718363,
+        "model/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1513",
+    "section": "model",
+    "item": "The model language defines AlsoMatchThrough.preferTypes.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.31,
+    "best": [
+      [
+        1.0,
+        "run/security-checklist"
+      ],
+      [
+        1.0,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.6909290904158406,
+        "run/troubleshooting"
+      ]
+    ]
+  },
+  {
+    "id": "C1545",
+    "section": "model",
+    "item": "The model language defines ConsumerEventWatch.projections.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        0.6994018621488629,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.5744175131073014,
+        "run/database"
+      ],
+      [
+        0.5744175131073014,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C1573",
+    "section": "model",
+    "item": "The model language defines ConsumerProjection.fields.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.25,
+    "best": [
+      [
+        1.0,
+        "journeys/integrate-a-system"
+      ],
+      [
+        1.0,
+        "integrate/reading-business-objects"
+      ],
+      [
+        1.0,
+        "integrate/looking-up-and-resolving"
+      ]
+    ]
+  },
+  {
+    "id": "C1574",
+    "section": "model",
+    "item": "The model language defines ConsumerProjection.from.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.25,
+    "best": [
+      [
+        1.0,
+        "journeys/integrate-a-system"
+      ],
+      [
+        1.0,
+        "integrate/reading-business-objects"
+      ],
+      [
+        1.0,
+        "integrate/looking-up-and-resolving"
+      ]
+    ]
+  },
+  {
+    "id": "C1576",
+    "section": "model",
+    "item": "The model language defines ConsumerPromotedMatch.preferTargetTypes.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        1.0,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.7025777853484021,
+        "integrate/looking-up-and-resolving"
+      ],
+      [
+        0.5316090968104104,
+        "run/security-checklist"
+      ]
+    ]
+  },
+  {
+    "id": "C1577",
+    "section": "model",
+    "item": "The model language defines ConsumerPromotedMatch.projection.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        1.0,
+        "integrate/looking-up-and-resolving"
+      ],
+      [
+        1.0,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.6045669591391288,
+        "journeys/integrate-a-system"
+      ]
+    ]
+  },
+  {
+    "id": "C1578",
+    "section": "model",
+    "item": "The model language defines ConsumerRelationRoute.direction.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.17,
+    "best": [
+      [
+        1.0,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.8345029766710029,
+        "use/records"
+      ],
+      [
+        0.8345029766710029,
+        "integrate/reading-records"
+      ]
+    ]
+  },
+  {
+    "id": "C1579",
+    "section": "model",
+    "item": "The model language defines ConsumerRelationRoute.relation.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.24,
+    "best": [
+      [
+        1.0,
+        "model/models"
+      ],
+      [
+        1.0,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.7568626159278088,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C1583",
+    "section": "model",
+    "item": "The model language defines EventSpec.changes.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.26,
+    "best": [
+      [
+        0.2567527857731293,
+        "use/history"
+      ],
+      [
+        0.2567527857731293,
+        "run/webhook-delivery"
+      ],
+      [
+        0.2567527857731293,
+        "run/sign-in-and-mail-setup"
+      ]
+    ]
+  },
+  {
+    "id": "C1584",
+    "section": "model",
+    "item": "The model language defines EventSpec.key.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.36267708677998434,
+        "run/webhook-delivery"
+      ],
+      [
+        0.36267708677998434,
+        "run/sign-in-and-mail-setup"
+      ],
+      [
+        0.36267708677998434,
+        "run/several-processes"
+      ]
+    ]
+  },
+  {
+    "id": "C1585",
+    "section": "model",
+    "item": "The model language defines EventSpec.objectTypes.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.39323632175185097,
+        "run/webhook-delivery"
+      ],
+      [
+        0.39323632175185097,
+        "run/monitoring"
+      ],
+      [
+        0.39323632175185097,
+        "model/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1586",
+    "section": "model",
+    "item": "The model language defines EventSpec.watch.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.18,
+    "best": [
+      [
+        0.4928789542371667,
+        "run/database"
+      ],
+      [
+        0.4928789542371667,
+        "integrate/consumer-events-and-webhooks"
+      ],
+      [
+        0.4928789542371667,
+        "examples/the-consumer-api"
+      ]
+    ]
+  },
+  {
+    "id": "C1587",
+    "section": "model",
+    "item": "The model language defines EventWatch.fields.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        1.0,
+        "run/database"
+      ],
+      [
+        1.0,
+        "integrate/consumer-events-and-webhooks"
+      ],
+      [
+        1.0,
+        "examples/the-consumer-api"
+      ]
+    ]
+  },
+  {
+    "id": "C1596",
+    "section": "model",
+    "item": "The model language defines ProjectionParameter.scoresFrom.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        1.0,
+        "integrate/looking-up-and-resolving"
+      ],
+      [
+        0.7091685563355329,
+        "journeys/integrate-a-system"
+      ],
+      [
+        0.7091685563355329,
+        "integrate/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1597",
+    "section": "model",
+    "item": "The model language defines ProjectionParameter.targetable.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.24,
+    "best": [
+      [
+        0.541039700710941,
+        "integrate/reading-business-objects"
+      ],
+      [
+        0.541039700710941,
+        "integrate/looking-up-and-resolving"
+      ],
+      [
+        0.30395459861422447,
+        "journeys/integrate-a-system"
+      ]
+    ]
+  },
+  {
+    "id": "C1607",
+    "section": "model",
+    "item": "Issues, history, undo: Compare with the active release: only on the Install/Apply dialogs (\"changes\" lines) and the release page (2.7); not a standing compare view in the editor.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/issues-and-dry-run"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.48125985968798773,
+        "model/the-model-editor"
+      ],
+      [
+        0.47202905612356766,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.47202905612356766,
+        "journeys/shape-a-model"
+      ]
+    ]
+  },
+  {
+    "id": "C1619",
+    "section": "model",
+    "item": "A workspace key is permanent (case-sensitive, trimmed, <=160) and cannot be renamed; a key taken by a retired workspace is taken.",
+    "score": 0.43,
+    "missing": [],
+    "targets": [
+      "model/managing-workspaces"
+    ],
+    "weighted": 0.25,
+    "best": [
+      [
+        0.36008947404605274,
+        "run/configure"
+      ],
+      [
+        0.36008947404605274,
+        "integrate/compatibility"
+      ],
+      [
+        0.35171591428716725,
+        "journeys/look-after-data"
+      ]
+    ]
+  },
+  {
+    "id": "C1623",
+    "section": "model",
+    "item": "Create a workspace with stable key and label; change label later.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.31,
+    "best": [
+      [
+        1.0,
+        "model/workbook-onboarding"
+      ],
+      [
+        1.0,
+        "journeys/shape-a-model"
+      ],
+      [
+        1.0,
+        "journeys/integrate-a-system"
+      ]
+    ]
+  },
+  {
+    "id": "C1624",
+    "section": "model",
+    "item": "Delete an unreferenced release (reasons running/history/importProfile/mapping); model_release_prune for all retired.",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "guide/model/retire-or-delete-a-release"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        0.6091804641364812,
+        "run/model-releases-and-rollback"
+      ],
+      [
+        0.605571834798107,
+        "run/command-line"
+      ],
+      [
+        0.5386558453644446,
+        "model/workbook-onboarding"
+      ]
+    ]
+  },
+  {
+    "id": "C1625",
+    "section": "model",
+    "item": "Each workspace resolves its own model; switching workspace switches applications and navigation.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "model/managing-workspaces"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.8027274167917141,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.546094862806294,
+        "journeys/shape-a-model"
+      ],
+      [
+        0.49335354426835837,
+        "run/configure"
+      ]
+    ]
+  },
+  {
+    "id": "C1626",
+    "section": "model",
+    "item": "Install a release of a model no workspace runs yet.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/json-view"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        1.0,
+        "run/developer-instance"
+      ],
+      [
+        1.0,
+        "run/backup-and-restore"
+      ],
+      [
+        1.0,
+        "model/models"
+      ]
+    ]
+  },
+  {
+    "id": "C1628",
+    "section": "model",
+    "item": "Migrate one workspace to a new definition before others in a controlled stage.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "model/migrations"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        0.4464802568348236,
+        "run/backup-and-restore"
+      ],
+      [
+        0.41904782180512173,
+        "guide/use/arrange-records-in-a-tree"
+      ],
+      [
+        0.41904782180512173,
+        "administer/sign-in"
+      ]
+    ]
+  },
+  {
+    "id": "C1629",
+    "section": "model",
+    "item": "New model from a workbook into a new workspace created in the same step.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "guide/model/install-and-activate-a-release"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        1.0,
+        "use/jobs"
+      ],
+      [
+        1.0,
+        "use/importing-and-exporting"
+      ],
+      [
+        1.0,
+        "model/workbook-onboarding"
+      ]
+    ]
+  },
+  {
+    "id": "C1630",
+    "section": "model",
+    "item": "New release activated into one workspace only; old-release change sets listed as left behind.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/migrations"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.8315497131964115,
+        "run/configure"
+      ],
+      [
+        0.8247006227677908,
+        "guide/model/change-a-workspaces-model"
+      ],
+      [
+        0.8196941933408652,
+        "guide/model/install-and-activate-a-release"
+      ]
+    ]
+  },
+  {
+    "id": "C1646",
+    "section": "model",
+    "item": "Activating into a workspace and migrating: Activate dialog (eyebrow \"Workspace model\"): \"Workspace\" picker, fieldset \"Release\", check results \"Compatible with <ws>'s data\" / \"A migration is needed\" / \"A different model\" / \"A consumer API needs a higher contract version\" / \"Could not be checked\" / \"Not activated\".",
+    "score": 0.24,
+    "missing": [
+      "Workspace model",
+      "Compatible with <ws>'s data",
+      "A migration is needed",
+      "A different model",
+      "A consumer API needs a higher contract version",
+      "Could not be checked",
+      "Not activated"
+    ],
+    "targets": [
+      "model/migrations"
+    ],
+    "weighted": 0.15,
+    "best": [
+      [
+        0.5789626366260668,
+        "guide/model/install-and-activate-a-release"
+      ],
+      [
+        0.5789626366260668,
+        "guide/model/change-a-workspaces-model"
+      ],
+      [
+        0.4830225940018299,
+        "integrate/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1647",
+    "section": "model",
+    "item": "Activating into a workspace and migrating: \"Apply to <workspace>\" / \"Apply to this workspace\u2026\" (editor opened from a workspace: main action, replaces Install) with notices \"Not valid\", \"Nothing to apply yet\", \"Some records must move first\", \"Your records stay as they are\", \"Not applied\"; \"Applying\u2026\".",
+    "score": 0.4,
+    "missing": [
+      "Apply to <workspace>",
+      "Apply to this workspace\u2026",
+      "Not valid",
+      "Nothing to apply yet",
+      "Some records must move first",
+      "Your records stay as they are",
+      "Not applied",
+      "Applying\u2026"
+    ],
+    "targets": [
+      "model/migrations"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.5528429091611251,
+        "guide/model/install-and-activate-a-release"
+      ],
+      [
+        0.5510894267604131,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.5383338721285379,
+        "use/importing-and-exporting"
+      ]
+    ]
+  },
+  {
+    "id": "C1649",
+    "section": "model",
+    "item": "Activating into a workspace and migrating: \"Edit model\" on a workspace (opens the editor on the draft of the model the workspace runs; hidden without Model authoring, Model release and Browse, or for a retired workspace).",
+    "score": 0.33,
+    "missing": [
+      "Edit model"
+    ],
+    "targets": [
+      "model/migrations"
+    ],
+    "weighted": 0.31,
+    "best": [
+      [
+        0.6587801898745151,
+        "run/configure"
+      ],
+      [
+        0.5988431165725518,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.5917102671445267,
+        "integrate/security-model-for-integrators"
+      ]
+    ]
+  },
+  {
+    "id": "C1653",
+    "section": "model",
+    "item": "Activating into a workspace and migrating: Workspace page shows applications of the workspace's own model and \"<model> \u00b7 schema N\".",
+    "score": 0.25,
+    "missing": [
+      "<model> \u00b7 schema N"
+    ],
+    "targets": [
+      "model/managing-workspaces"
+    ],
+    "weighted": 0.23,
+    "best": [
+      [
+        0.8661104441255515,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.6072301237339941,
+        "model/releases"
+      ],
+      [
+        0.6072301237339941,
+        "model/models"
+      ]
+    ]
+  },
+  {
+    "id": "C1681",
+    "section": "model",
+    "item": "About: Read the product text \"Reference data that stays in step.\" with three points (\"Shape it to your domain.\", \"Connect, don't copy.\", \"One API for everything.\"); link \"API reference\" opens /docs/api.",
+    "score": 0.47,
+    "missing": [
+      "Reference data that stays in step.",
+      "Shape it to your domain.",
+      "Connect, don't copy.",
+      "One API for everything."
+    ],
+    "targets": [
+      "index"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.6707303633789041,
+        "about/what-is-refiroo"
+      ],
+      [
+        0.5963211429376758,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.5242648683838166,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C1682",
+    "section": "model",
+    "item": "Acceptance scenario SC-13: Operate safely and move one workspace to new rules.",
+    "score": 0.14,
+    "missing": [],
+    "targets": [
+      "model/model-mappings"
+    ],
+    "weighted": 0.08,
+    "best": [
+      [
+        0.38592945606494367,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.3349686011516485,
+        "model/releases"
+      ],
+      [
+        0.2990806505897144,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C1685",
+    "section": "model",
+    "item": "Collections: the table lens: Row actions: \u22ef \"Actions for <name>\" (or right-click / context-menu key / Shift+F10 on a row): \"Edit record\", \"Copy link\" (toast \"Record link copied.\" or \"Could not copy the link. Open the record and copy its address from the browser.\"), \"Delete record\".",
+    "score": 0.44,
+    "missing": [
+      "Actions for <name>",
+      "Edit record",
+      "Copy link",
+      "Record link copied.",
+      "Could not copy the link. Open the record and copy its address from the browser.",
+      "Delete record"
+    ],
+    "targets": [
+      "use/lists-and-filters"
+    ],
+    "weighted": 0.32,
+    "best": [
+      [
+        0.6053975402025618,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.5550698283868322,
+        "model/the-model-editor"
+      ],
+      [
+        0.5229445873833047,
+        "use/hierarchies"
+      ]
+    ]
+  },
+  {
+    "id": "C1691",
+    "section": "model",
+    "item": "Copy and move between workspaces: \"New copy or move\" dialog: \"From workspace\", \"To workspace\" (workspaces where the person holds Copy and move), fieldset \"Mapping\": \"A new mapping, proposed\" (+ \"Name of the new mapping\") or an existing mapping between the two models; progress \"Saving the mapping\u2026\" / \"Proposing the mapping from the two models and their records\u2026\".",
+    "score": 0.47,
+    "missing": [
+      "New copy or move",
+      "From workspace",
+      "To workspace",
+      "Name of the new mapping",
+      "Saving the mapping\u2026",
+      "Proposing the mapping from the two models and their records\u2026"
+    ],
+    "targets": [
+      "model/model-mappings"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.6004050034732721,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.5361664313571142,
+        "guide/model/move-records-to-another-model"
+      ],
+      [
+        0.45993572207919414,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1702",
+    "section": "model",
+    "item": "No row-creation inside the table, no duplicate/copy-record action, no paste-from-spreadsheet, no merge of records.",
+    "score": 0.12,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.4888164627568486,
+        "integrate/files-imports-and-exports"
+      ],
+      [
+        0.48869916804719193,
+        "run/background-jobs"
+      ],
+      [
+        0.44545985825756595,
+        "guide/model/create-a-model-draft"
+      ]
+    ]
+  },
+  {
+    "id": "C1726",
+    "section": "model",
+    "item": "Unique value held in target refused with holder or matched per mapping.",
+    "score": 0.57,
+    "missing": [],
+    "targets": [
+      "model/model-mappings"
+    ],
+    "weighted": 0.34,
+    "best": [
+      [
+        0.5629631686749145,
+        "use/relationships"
+      ],
+      [
+        0.5629631686749145,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.5629631686749145,
+        "integrate/writing-in-bulk"
+      ]
+    ]
+  },
+  {
+    "id": "C1739",
+    "section": "model",
+    "item": "Acceptance scenario SC-12: Introduce a new reference-data domain.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.0,
+    "best": [
+      [
+        0.5242311259577034,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.24898652898163814,
+        "integrate/consumer-events-and-webhooks"
+      ],
+      [
+        0.24898652898163814,
+        "guide/model/check-a-workbook-with-a-dry-run"
+      ]
+    ]
+  },
+  {
+    "id": "C1740",
+    "section": "model",
+    "item": "Browser follows workspace's model: switching changes apps/nav/pages, toast on model/release difference, selector marks differing models; unknown app/collection/kind page lists workspaces with it.",
+    "score": 0.12,
+    "missing": [],
+    "targets": [
+      "guide/model/change-a-workspaces-model"
+    ],
+    "weighted": 0.05,
+    "best": [
+      [
+        0.38701661294915984,
+        "use/workspaces"
+      ],
+      [
+        0.28638490661218124,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.2809231311308278,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C1742",
+    "section": "model",
+    "item": "Browser model editor: model pane with new/changed/released marks, element operations, relationship matrix, Move to\u2026/drag, issues linked to elements, plain-language history with undo, stale-editor prompt, Install and activate, phone tabs, Open as JSON.",
+    "score": 0.28,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.2,
+    "best": [
+      [
+        0.6773448986314223,
+        "model/the-model-editor"
+      ],
+      [
+        0.47376232304905563,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.40023702953236767,
+        "journeys/shape-a-model"
+      ]
+    ]
+  },
+  {
+    "id": "C1746",
+    "section": "model",
+    "item": "Browse models, their ordering and state marks, tabs, workspace assignments and disabled-mutation state with the appropriate permissions.",
+    "score": 0.2,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.19,
+    "best": [
+      [
+        0.4310269685263922,
+        "model/releases"
+      ],
+      [
+        0.42774871706521506,
+        "model/the-model-editor"
+      ],
+      [
+        0.40397769872341277,
+        "model/managing-workspaces"
+      ]
+    ]
+  },
+  {
+    "id": "C1749",
+    "section": "model",
+    "item": "Each workspace runs its own release; create on chosen release; activate into one workspace (only its data checked, only its subscriptions suspended); change sets left behind named.",
+    "score": 0.45,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.6727766346330025,
+        "model/releases"
+      ],
+      [
+        0.6297500609344984,
+        "model/managing-workspaces"
+      ],
+      [
+        0.6288776055542159,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C1750",
+    "section": "model",
+    "item": "Edit JSON draft with conflict protection, validate, compile, install immutable release, activate compatible one; installing never activates; activation refused for non-fitting data or incompatible consumer contract.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.34,
+    "best": [
+      [
+        0.5658801679868037,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.47364840014186627,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.4452852776243059,
+        "journeys/shape-a-model"
+      ]
+    ]
+  },
+  {
+    "id": "C1751",
+    "section": "model",
+    "item": "Editor with workbook: New from a workbook, source pane with sheets as tabs and column statuses, Map to\u2026, column details.",
+    "score": 0.22,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.15,
+    "best": [
+      [
+        0.7859369167782374,
+        "model/the-model-editor"
+      ],
+      [
+        0.6711234961568775,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.5331444200290805,
+        "model/workbook-proposals"
+      ]
+    ]
+  },
+  {
+    "id": "C1752",
+    "section": "model",
+    "item": "Engine proposes model and mapping from a workbook: new application, additions to existing model (matched by name and held values), or nothing; shapes recognised (key/name, repeated parent, code+name, text lists, Y/N sets, multi-value cells, translations by row/column, GUIDs, placeholders, name drift); each proposal a \"Proposed:\" step marked Proposed with \"Proposed because\" evidence and alternatives; Propose again\u2026.",
+    "score": 0.2,
+    "missing": [
+      "Proposed:",
+      "Proposed because"
+    ],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.16,
+    "best": [
+      [
+        0.7683374053656057,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.694939229470111,
+        "model/workbook-proposals"
+      ],
+      [
+        0.5813042370772967,
+        "guide/model/start-a-draft-from-a-workbook"
+      ]
+    ]
+  },
+  {
+    "id": "C1753",
+    "section": "model",
+    "item": "Import profile belongs to one model; draft compared with its model and shows per-workspace activation needs; model from workbook installed with new workspace.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.72211475298711,
+        "model/the-model-editor"
+      ],
+      [
+        0.6869577362895998,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.5908587821070918,
+        "model/releases"
+      ]
+    ]
+  },
+  {
+    "id": "C1754",
+    "section": "model",
+    "item": "Incompatible candidate release refused at change-set creation/version change, naming records.",
+    "score": 0.57,
+    "missing": [],
+    "targets": [
+      "model/releases"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        0.8014324374768469,
+        "guide/model/define-a-consumer-api"
+      ],
+      [
+        0.7397641330747348,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.7397641330747348,
+        "model/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1756",
+    "section": "model",
+    "item": "Load a file of one category's items under that category (source sets parent of every row, created when asked); list loaded by name finds records among parent's children.",
+    "score": 0.41,
+    "missing": [],
+    "targets": [
+      "guide/model/map-a-column"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.6452266168505438,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.6382573990289392,
+        "integrate/files-imports-and-exports"
+      ],
+      [
+        0.6348788115288483,
+        "use/importing-and-exporting"
+      ]
+    ]
+  },
+  {
+    "id": "C1757",
+    "section": "model",
+    "item": "Load into a change set\u2026 from editor: installs/activates (or saves profile), opens change set named after file, loads stored file through profile, opens review.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        1.0,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.679139708209587,
+        "journeys/shape-a-model"
+      ],
+      [
+        0.6157267876679074,
+        "use/importing-and-exporting"
+      ]
+    ]
+  },
+  {
+    "id": "C1764",
+    "section": "model",
+    "item": "The current accepted model schema language is 0.10; older installed documents require the supported raising workflow.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "model/model-language-versions"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.7619742363767477,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.7250212082334244,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.7116271580271127,
+        "run/troubleshooting"
+      ]
+    ]
+  },
+  {
+    "id": "C1766",
+    "section": "model",
+    "item": "Models list, a model, its tabs: Create draft dialog: \"Draft name\"; \"Starting document\" = \"Installed release\" / \"Empty model\" / \"Import JSON\"; \"Base release\"; \"JSON document\" + \"Or choose a JSON file\"; for a workbook: \"Workbook\" (XLSX or CSV), \"Compare with the records of\", the Propose choices (see 7).",
+    "score": 0.48,
+    "missing": [
+      "Draft name",
+      "Starting document",
+      "Empty model",
+      "Import JSON",
+      "Base release",
+      "JSON document",
+      "Or choose a JSON file",
+      "Compare with the records of"
+    ],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.8024290286560724,
+        "guide/model/start-a-draft-from-a-workbook"
+      ],
+      [
+        0.7338530513165905,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.6267517939920145,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1775",
+    "section": "model",
+    "item": "Move dry run: scope (whole workspace, chosen types with export criteria, record+subtree, chosen records, publication) rows created/updated/refused/not moved with reasons; leftovers; duplicate-name warnings; summary counts.",
+    "score": 0.42,
+    "missing": [],
+    "targets": [
+      "guide/model/choose-what-moves"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.5980614977978784,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.597197880739359,
+        "integrate/files-imports-and-exports"
+      ],
+      [
+        0.5873156675048616,
+        "model/model-mappings"
+      ]
+    ]
+  },
+  {
+    "id": "C1776",
+    "section": "model",
+    "item": "Move this change set to \u2039release\u203a\u2026 converting content without touching live.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/migrations"
+    ],
+    "weighted": 0.26,
+    "best": [
+      [
+        0.6180648382810637,
+        "use/change-sets"
+      ],
+      [
+        0.6180648382810637,
+        "guide/use/prepare-under-the-next-model-version"
+      ],
+      [
+        0.32235158623433297,
+        "use/relation-matrices"
+      ]
+    ]
+  },
+  {
+    "id": "C1778",
+    "section": "model",
+    "item": "Older-schema releases stay inspectable/exportable.",
+    "score": 0.2,
+    "missing": [],
+    "targets": [
+      "model/model-language-versions"
+    ],
+    "weighted": 0.3,
+    "best": [
+      [
+        0.8977339062769589,
+        "model/releases"
+      ],
+      [
+        0.4005804258794217,
+        "run/configure"
+      ],
+      [
+        0.4005804258794217,
+        "journeys/shape-a-model"
+      ]
+    ]
+  },
+  {
+    "id": "C1798",
+    "section": "model",
+    "item": "Retire/unretire a release; Retired model list; delete unreferenced release; pickers offer only choosable releases (new workspace: newest of each model; change set: all); model_release_prune.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "guide/model/retire-or-delete-a-release"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.5529762072345819,
+        "run/model-releases-and-rollback"
+      ],
+      [
+        0.45099212206273753,
+        "model/releases"
+      ],
+      [
+        0.36628787629747145,
+        "run/command-line"
+      ]
+    ]
+  },
+  {
+    "id": "C1801",
+    "section": "model",
+    "item": "Settings \u203a Data operations \u203a Copy and move: saved mappings, recent moves, New copy or move\u2026, Copy or move data\u2026 from workspace page; move editor with figures, source types, mapping rows, Proposed marks, what cannot move, Start the move\u2026, phone tabs.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.31,
+    "best": [
+      [
+        0.9208083780652365,
+        "model/model-mappings"
+      ],
+      [
+        0.7660950734571474,
+        "guide/model/move-records-to-another-model"
+      ],
+      [
+        0.5751580462473878,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1803",
+    "section": "model",
+    "item": "Settings \u203a Model: installed releases and drafts, summaries, technical details, comparisons, JSON export; each at own address.",
+    "score": 0.45,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.6500632525936781,
+        "model/releases"
+      ],
+      [
+        0.5710286137745395,
+        "run/configure"
+      ],
+      [
+        0.5022212365894686,
+        "guide/model/export-a-release"
+      ]
+    ]
+  },
+  {
+    "id": "C1811",
+    "section": "model",
+    "item": "Typed draft operations (add/rename/re-key/split/merge/remove, containment, allowed relations, views/detail pages, groups); history, undo/redo; released-element rules.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.758649200078022,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.730871180901628,
+        "model/the-model-editor"
+      ],
+      [
+        0.534587148105076,
+        "guide/model/arrange-applications-and-views"
+      ]
+    ]
+  },
+  {
+    "id": "C1812",
+    "section": "model",
+    "item": "Unavailable/corrupt/unsupported release refused.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/model-language-versions"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.45591938508650165,
+        "run/model-releases-and-rollback"
+      ],
+      [
+        0.45591938508650165,
+        "run/health-and-startup-checks"
+      ],
+      [
+        0.45591938508650165,
+        "model/releases"
+      ]
+    ]
+  },
+  {
+    "id": "C1813",
+    "section": "model",
+    "item": "Where things are: A draft, JSON view screen: draft page \"JSON model\".",
+    "score": 0.6,
+    "missing": [
+      "JSON model"
+    ],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.8327839348625855,
+        "model/issues-and-dry-run"
+      ],
+      [
+        0.5584042026930384,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.5584042026930384,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1817",
+    "section": "model",
+    "item": "Where things are: Migration page screen: after activating a release that needs a migration.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "model/migrations"
+    ],
+    "weighted": 0.26,
+    "best": [
+      [
+        0.7793800231710196,
+        "model/issues-and-dry-run"
+      ],
+      [
+        0.5757776444338071,
+        "run/configure"
+      ],
+      [
+        0.5757776444338071,
+        "run/backup-and-restore"
+      ]
+    ]
+  },
+  {
+    "id": "C1836",
+    "section": "model",
+    "item": "Activating a release is checked against stored data: removing an application / object type / attribute in use, changing an attribute's value type, making an attribute required while records lack it, adding unique / validation / effective-period rules that records break, requiring a relationship, tightening cardinality, changing parent semantics, making a type non-root while root records exist - each is refused with counts, and needs a migration with reviewed loss.",
+    "score": 0.39,
+    "missing": [],
+    "targets": [
+      "model/releases"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.5737478215265543,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.47766213059569046,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.43845926032119814,
+        "model/applications-and-views"
+      ]
+    ]
+  },
+  {
+    "id": "C1841",
+    "section": "model",
+    "item": "Change sets: \"Publish change set\" (enabled only after a passing validation of the current version; tooltips \"Publishing is available after a successful validation.\" / \"Change set model version differs from the active release. Change the version or wait until this release is activated.\") \u2192 confirm \"Publish this change set?\" (\"Apply authored changes from change set v<n> over current live data and create the next publication. Unrelated live changes are preserved. Conflicts or an invalid merged graph publish nothing. Current publication to replace: <id>.\"; inline \"Review changes before publishing.\"), confirm button \"Publish change set\"; result toast \"Published as Publication <n>. Reviewed changes are now live.\" and the page returns to Live.",
+    "score": 0.44,
+    "missing": [
+      "Publish change set",
+      "Publishing is available after a successful validation.",
+      "Change set model version differs from the active release. Change the version or wait until this release is activated.",
+      "Publish this change set?",
+      "Apply authored changes from change set v<n> over current live data and create the next publication. Unrelated live changes are preserved. Conflicts or an invalid merged graph publish nothing. Current publication to replace: <id>.",
+      "Review changes before publishing.",
+      "Publish change set",
+      "Published as Publication <n>. Reviewed changes are now live."
+    ],
+    "targets": [
+      "model/releases"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        0.5262092175728535,
+        "use/change-sets"
+      ],
+      [
+        0.4380547238073896,
+        "guide/use/prepare-and-publish-a-change-set"
+      ],
+      [
+        0.39941714177416565,
+        "model/workbook-onboarding"
+      ]
+    ]
+  },
+  {
+    "id": "C1843",
+    "section": "model",
+    "item": "Compare two installed releases (diff incl. consumer contracts).",
+    "score": 0.57,
+    "missing": [],
+    "targets": [
+      "model/releases"
+    ],
+    "weighted": 0.32,
+    "best": [
+      [
+        0.623807815067648,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.5131582689016344,
+        "model/the-model-editor"
+      ],
+      [
+        0.49999124659234717,
+        "integrate/discovering-the-model"
+      ]
+    ]
+  },
+  {
+    "id": "C1846",
+    "section": "model",
+    "item": "Data incompatible with candidate blocks activation, naming the data.",
+    "score": 0.2,
+    "missing": [],
+    "targets": [
+      "model/releases"
+    ],
+    "weighted": 0.14,
+    "best": [
+      [
+        0.8131730815388357,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.8131730815388357,
+        "guide/model/define-a-consumer-api"
+      ],
+      [
+        0.7551510202727703,
+        "model/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1852",
+    "section": "model",
+    "item": "Model-language validity rules (draft invalid, shown as issues): duplicate keys; unknown references; display attribute must be bound; unique not on JSON; mapping grid cannot use containment/required ownership; table defaultSort among sortFields; navigation groups reference collections once; unique-scope ancestor type must exist; unique condition names a bound attribute of the target type.",
+    "score": 0.24,
+    "missing": [],
+    "targets": [
+      "model/releases"
+    ],
+    "weighted": 0.19,
+    "best": [
+      [
+        0.8164707385446329,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.6923075537233857,
+        "model/applications-and-views"
+      ],
+      [
+        0.5932066906783879,
+        "integrate/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1856",
+    "section": "model",
+    "item": "Reactivate an older compatible release.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/releases"
+    ],
+    "weighted": 0.21,
+    "best": [
+      [
+        0.5033543895454964,
+        "use/change-sets"
+      ],
+      [
+        0.5033543895454964,
+        "run/troubleshooting"
+      ],
+      [
+        0.5033543895454964,
+        "run/model-releases-and-rollback"
+      ]
+    ]
+  },
+  {
+    "id": "C1857",
+    "section": "model",
+    "item": "Read a model draft's operation history (kind, parameters, inverse, origin, time).",
+    "score": 0.38,
+    "missing": [],
+    "targets": [
+      "guide/model/undo-and-review-the-draft-history"
+    ],
+    "weighted": 0.23,
+    "best": [
+      [
+        0.5111445688009506,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.4631303861325502,
+        "run/configure"
+      ],
+      [
+        0.4074900582792848,
+        "integrate/identifiers-paging-and-errors"
+      ]
+    ]
+  },
+  {
+    "id": "C1860",
+    "section": "model",
+    "item": "Release dropping/restoring unique: restore refused while duplicates exist.",
+    "score": 0.38,
+    "missing": [],
+    "targets": [
+      "model/releases"
+    ],
+    "weighted": 0.19,
+    "best": [
+      [
+        0.7493356377944247,
+        "integrate/consumer-events-and-webhooks"
+      ],
+      [
+        0.5149376160986856,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.4798627935596643,
+        "run/upgrades"
+      ]
+    ]
+  },
+  {
+    "id": "C1891",
+    "section": "model",
+    "item": "Two activations from same runtime state: one succeeds.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/releases"
+    ],
+    "weighted": 0.09,
+    "best": [
+      [
+        0.6293126066595726,
+        "run/install-with-compose"
+      ],
+      [
+        0.4253073946666014,
+        "use/change-sets"
+      ],
+      [
+        0.39874339700971445,
+        "run/backup-and-restore"
+      ]
+    ]
+  },
+  {
+    "id": "C1893",
+    "section": "model",
+    "item": "Undo of a step that later steps build on is refused. Max 500 operations in one request.",
+    "score": 0.38,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.24,
+    "best": [
+      [
+        0.822562992251316,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.806701867559759,
+        "run/configure"
+      ],
+      [
+        0.629264859811075,
+        "integrate/jobs"
+      ]
+    ]
+  },
+  {
+    "id": "C1900",
+    "section": "model",
+    "item": "Band: one line with Workspace / Application / Data choices (1.18).",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.7062321719386796,
+        "use/records"
+      ],
+      [
+        0.7062321719386796,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.7062321719386796,
+        "about/accessibility"
+      ]
+    ]
+  },
+  {
+    "id": "C1901",
+    "section": "model",
+    "item": "Build an app from an empty draft by operations alone.",
+    "score": 0.6,
+    "missing": [],
+    "targets": [
+      "model/the-model-editor"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.8825964831587121,
+        "run/configure"
+      ],
+      [
+        0.8602822195581483,
+        "run/backup-and-restore"
+      ],
+      [
+        0.7607343966021887,
+        "guide/model/see-a-consumer-apis-documents"
+      ]
+    ]
+  },
+  {
+    "id": "C1902",
+    "section": "model",
+    "item": "Centre shows the type's real \"Record page\" and \"Table\" tabs rendered from the draft over live records of a workspace; band choices \"Workspace: <label>\" picker, \"Record: <name>\" picker and \"Show an empty record\"; message \"The draft has N issues, so it cannot be previewed\" with \"Show issues\"; buttons \"Edit layout\", \"Back to definition\". Controls are shown disabled. (TP:193-440) Ref: yes (reads the active model's records through a workspace).",
+    "score": 0.54,
+    "missing": [
+      "Workspace: <label>",
+      "Record: <name>",
+      "The draft has N issues, so it cannot be previewed"
+    ],
+    "targets": [
+      "guide/model/preview-a-type"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.504287507858096,
+        "model/the-model-editor"
+      ],
+      [
+        0.436574163140071,
+        "model/applications-and-views"
+      ],
+      [
+        0.43463169558291015,
+        "model/record-pages-and-tables"
+      ]
+    ]
+  },
+  {
+    "id": "C1920",
+    "section": "model",
+    "item": "Drag and drop, hierarchy, keyboard alternatives: Attribute row (grip, table of attributes) -> a type row in the pane.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "guide/model/reuse-and-change-attributes"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.6094785514063659,
+        "model/the-model-editor"
+      ],
+      [
+        0.45924113565461716,
+        "use/hierarchies"
+      ],
+      [
+        0.42441772677008976,
+        "guide/model/add-a-relationship"
+      ]
+    ]
+  },
+  {
+    "id": "C1924",
+    "section": "model",
+    "item": "Drag and drop, hierarchy, keyboard alternatives: Source-file column (workbook pane) -> a type row, or beside the tree.",
+    "score": 0.27,
+    "missing": [],
+    "targets": [
+      "guide/model/map-a-column"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.6364646308629196,
+        "guide/model/start-a-draft-from-a-workbook"
+      ],
+      [
+        0.5925808172665924,
+        "model/the-model-editor"
+      ],
+      [
+        0.5868779690059823,
+        "use/hierarchies"
+      ]
+    ]
+  },
+  {
+    "id": "C1926",
+    "section": "model",
+    "item": "Drag and drop, hierarchy, keyboard alternatives: Type row -> beside the tree (\"Dropping a type here puts it at the top level\").",
+    "score": 0.27,
+    "missing": [
+      "Dropping a type here puts it at the top level"
+    ],
+    "targets": [
+      "model/the-model-editor"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        0.6271469575491493,
+        "use/hierarchies"
+      ],
+      [
+        0.5219671491059648,
+        "guide/use/arrange-records-in-a-tree"
+      ],
+      [
+        0.4054250876123824,
+        "guide/use/move-several-records-together"
+      ]
+    ]
+  },
+  {
+    "id": "C1928",
+    "section": "model",
+    "item": "Editing icons or colours of applications/types/groups; default values or valid-from/valid-to on attributes; creating table or tree views or editing tree/mapping-grid views (only table columns/filters/default sort in the layout editor, and relation-matrix create/change/remove); density; translations/labels beyond the single name/plural/label per element; a rebase/merge of a draft onto a newer release; a standing \"compare draft with active release\" view in the editor (only inside Install/Apply and on the release page); mapping scores displayed.",
+    "score": 0.24,
+    "missing": [
+      "compare draft with active release"
+    ],
+    "targets": [
+      "model/json-view"
+    ],
+    "weighted": 0.19,
+    "best": [
+      [
+        0.5882841137044845,
+        "model/applications-and-views"
+      ],
+      [
+        0.5564479383042004,
+        "model/the-model-editor"
+      ],
+      [
+        0.5549562037890063,
+        "model/types-attributes-relations"
+      ]
+    ]
+  },
+  {
+    "id": "C1930",
+    "section": "model",
+    "item": "Extend the active model with new types/attributes beside released ones (released marked).",
+    "score": 0.29,
+    "missing": [],
+    "targets": [
+      "model/the-model-editor"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.6735064302485207,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.6174651687556261,
+        "model/workbook-proposals"
+      ],
+      [
+        0.5621954285170258,
+        "integrate/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1938",
+    "section": "model",
+    "item": "Rail becomes a drawer (\"Browse application\" bar opens \"Application navigation\"); Settings: \"Settings: <page>\" bar opens \"Settings navigation\" (ShellFrame.tsx:60-95).",
+    "score": 0.56,
+    "missing": [
+      "Browse application",
+      "Settings: <page>",
+      "Settings navigation"
+    ],
+    "targets": [
+      "use/appearance-and-devices"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.4905209100249037,
+        "use/hierarchies"
+      ],
+      [
+        0.3654588304760269,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.3654588304760269,
+        "about/accessibility"
+      ]
+    ]
+  },
+  {
+    "id": "C1947",
+    "section": "model",
+    "item": "Release evidence awaiting reconciliation: Rule: A draft-only change to a released element nothing holds. Approved by the user 2026-10-31. It applies when it would affect 0 records, values and relationships, counted in every workspace running the model and their change sets; above 0 it is refused as before. Amends 0.10 D17 and the roa.",
+    "score": 0.43,
+    "missing": [],
+    "targets": [
+      "model/types-attributes-relations"
+    ],
+    "weighted": 0.34,
+    "best": [
+      [
+        0.41091920027190143,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.34171179870579865,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.314020819337426,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C1957",
+    "section": "model",
+    "item": "Removal takes dependent panels/views/unused relation types; broken pages listed as issues with Remove from page; Edit layout closed while draft invalid.",
+    "score": 0.39,
+    "missing": [],
+    "targets": [
+      "guide/model/remove-an-element"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.5419346378553882,
+        "model/record-pages-and-tables"
+      ],
+      [
+        0.5199194807604299,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.5145334740797138,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1963",
+    "section": "model",
+    "item": "Tables: only the identity column plus primary columns; button \"Show all N columns\" (DataTable.tsx:280); mapping grid secondary columns hidden; filter popover becomes a bottom sheet with a count button \"Show N \u2026\" (FB); journey bar steps collapse to \"Step 3 of 6: Check\".",
+    "score": 0.26,
+    "missing": [
+      "Show all N columns",
+      "Step 3 of 6: Check"
+    ],
+    "targets": [
+      "use/appearance-and-devices"
+    ],
+    "weighted": 0.22,
+    "best": [
+      [
+        0.3443803790297833,
+        "model/the-model-editor"
+      ],
+      [
+        0.32215688153603395,
+        "model/applications-and-views"
+      ],
+      [
+        0.3191886284930304,
+        "model/record-pages-and-tables"
+      ]
+    ]
+  },
+  {
+    "id": "C1967",
+    "section": "model",
+    "item": "The model editor frame: \"Apply to <ws>\" (primary, replaces 4.5 when opened from a workspace).",
+    "score": 0.5,
+    "missing": [
+      "Apply to <ws>"
+    ],
+    "targets": [
+      "model/the-model-editor"
+    ],
+    "weighted": 0.31,
+    "best": [
+      [
+        0.5959829385865535,
+        "model/applications-and-views"
+      ],
+      [
+        0.332091207396285,
+        "use/relationships"
+      ],
+      [
+        0.3095219113094525,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1970",
+    "section": "model",
+    "item": "The model editor frame: Dialog for every operation: form from fields, \"Not applied\" error notice, confirm-style for removals; preview beside the form for matrices.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/the-model-editor"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        0.5057817164021374,
+        "use/records"
+      ],
+      [
+        0.4200114935375953,
+        "model/applications-and-views"
+      ],
+      [
+        0.41889777648382864,
+        "use/importing-and-exporting"
+      ]
+    ]
+  },
+  {
+    "id": "C1984",
+    "section": "model",
+    "item": "Undo with dependants refused naming them; undo together succeeds.",
+    "score": 0.57,
+    "missing": [],
+    "targets": [
+      "model/the-model-editor"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.9250873507000587,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.6805920037682338,
+        "model/consumer-apis"
+      ],
+      [
+        0.5873927496792853,
+        "integrate/security-model-for-integrators"
+      ]
+    ]
+  },
+  {
+    "id": "C1992",
+    "section": "model",
+    "item": "Application : header with rename in place, facts \"N object types\", \"N navigation groups\", \u22ef menu: Add an object type\u2026 (button \"Object type\").",
+    "score": 0.4,
+    "missing": [
+      "N object types",
+      "N navigation groups"
+    ],
+    "targets": [
+      "guide/model/add-a-record-type-and-fields"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.7580078390229191,
+        "model/the-model-editor"
+      ],
+      [
+        0.658237863921,
+        "model/applications-and-views"
+      ],
+      [
+        0.6459493976634804,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C1995",
+    "section": "model",
+    "item": "Application : header with rename in place, facts \"N object types\", \"N navigation groups\", \u22ef menu: Remove application.",
+    "score": 0.4,
+    "missing": [
+      "N object types",
+      "N navigation groups"
+    ],
+    "targets": [
+      "guide/model/remove-an-element"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        0.6689476593479685,
+        "model/the-model-editor"
+      ],
+      [
+        0.6287666123216642,
+        "guide/use/find-records"
+      ],
+      [
+        0.6272314156993568,
+        "use/hierarchies"
+      ]
+    ]
+  },
+  {
+    "id": "C1996",
+    "section": "model",
+    "item": "Application : header with rename in place, facts \"N object types\", \"N navigation groups\", \u22ef menu: Rename\u2026 (also inline rename of the title).",
+    "score": 0.36,
+    "missing": [
+      "N object types",
+      "N navigation groups"
+    ],
+    "targets": [
+      "guide/model/rename-or-re-key-an-element"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.610780941278881,
+        "model/the-model-editor"
+      ],
+      [
+        0.5676236457098423,
+        "run/configure"
+      ],
+      [
+        0.5226580259725196,
+        "guide/use/find-records"
+      ]
+    ]
+  },
+  {
+    "id": "C2005",
+    "section": "model",
+    "item": "Header: type tile, name (inline rename), key facts (\"Key fixed: released\"/\"Key editable until released\"), buttons \"Preview\" (opens 6.1) and \u22ef menu; line \"in <apps>\" / \"in no application\"; tabs \"Attributes (N)\" and \"Relations (N)\".",
+    "score": 0.4,
+    "missing": [
+      "Key fixed: released",
+      "Key editable until released",
+      "in <apps>",
+      "in no application",
+      "Attributes (N)",
+      "Relations (N)"
+    ],
+    "targets": [
+      "model/types-attributes-relations"
+    ],
+    "weighted": 0.32,
+    "best": [
+      [
+        0.5151483077818741,
+        "model/the-model-editor"
+      ],
+      [
+        0.3944986823616934,
+        "guide/model/rename-or-re-key-an-element"
+      ],
+      [
+        0.347400765170465,
+        "run/configure"
+      ]
+    ]
+  },
+  {
+    "id": "C2006",
+    "section": "model",
+    "item": "Many-to-one cannot be required. The current schema language is 0.10; many-to-one first appeared in schema 0.9.",
+    "score": 0.43,
+    "missing": [],
+    "targets": [
+      "model/types-attributes-relations"
+    ],
+    "weighted": 0.32,
+    "best": [
+      [
+        0.6913890355859891,
+        "guide/administer/add-a-person"
+      ],
+      [
+        0.5686716867842693,
+        "run/troubleshooting"
+      ],
+      [
+        0.5686716867842693,
+        "run/model-releases-and-rollback"
+      ]
+    ]
+  },
+  {
+    "id": "C2022",
+    "section": "model",
+    "item": "Object type: Remove type.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "guide/model/remove-an-element"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        1.0,
+        "use/relationships"
+      ],
+      [
+        1.0,
+        "use/records"
+      ],
+      [
+        1.0,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2047",
+    "section": "model",
+    "item": "The model language defines BreadcrumbDefinition.showAncestors.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.26,
+    "best": [
+      [
+        0.4350975339676523,
+        "model/consumer-apis"
+      ],
+      [
+        0.4350975339676523,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.4350975339676523,
+        "guide/model/define-a-consumer-api"
+      ]
+    ]
+  },
+  {
+    "id": "C2048",
+    "section": "model",
+    "item": "The model language defines BreadcrumbDefinition.showObjectType.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.0,
+    "best": [
+      [
+        0.382406469793052,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.382406469793052,
+        "model/the-model-editor"
+      ],
+      [
+        0.382406469793052,
+        "model/models"
+      ]
+    ]
+  },
+  {
+    "id": "C2049",
+    "section": "model",
+    "item": "The model language defines CandidateCriterion.field.",
+    "score": 0.67,
+    "missing": [],
+    "targets": [
+      "model/types-attributes-relations",
+      "model/json-view"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        1.0,
+        "integrate/reading-records"
+      ],
+      [
+        0.6492724696332833,
+        "journeys/integrate-a-system"
+      ],
+      [
+        0.6492724696332833,
+        "integrate/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C2050",
+    "section": "model",
+    "item": "The model language defines CandidateCriterion.op.",
+    "score": 0.67,
+    "missing": [],
+    "targets": [
+      "model/types-attributes-relations",
+      "model/json-view"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        1.0,
+        "integrate/reading-records"
+      ],
+      [
+        0.6492724696332833,
+        "journeys/integrate-a-system"
+      ],
+      [
+        0.6492724696332833,
+        "integrate/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C2051",
+    "section": "model",
+    "item": "The model language defines CandidateCriterion.value.",
+    "score": 0.67,
+    "missing": [],
+    "targets": [
+      "model/types-attributes-relations",
+      "model/json-view"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        1.0,
+        "integrate/reading-records"
+      ],
+      [
+        0.6492724696332833,
+        "journeys/integrate-a-system"
+      ],
+      [
+        0.6492724696332833,
+        "integrate/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C2058",
+    "section": "model",
+    "item": "The model language defines EngineModel.objectTypeRelations.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/models",
+      "model/json-view"
+    ],
+    "weighted": 0.3,
+    "best": [
+      [
+        1.0,
+        "model/the-model-editor"
+      ],
+      [
+        0.710729759511388,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.710729759511388,
+        "model/applications-and-views"
+      ]
+    ]
+  },
+  {
+    "id": "C2062",
+    "section": "model",
+    "item": "The model language defines EngineModel.release.",
+    "score": 0.67,
+    "missing": [],
+    "targets": [
+      "model/models",
+      "model/json-view"
+    ],
+    "weighted": 0.0,
+    "best": [
+      [
+        1.0,
+        "use/history"
+      ],
+      [
+        1.0,
+        "run/webhook-delivery"
+      ],
+      [
+        1.0,
+        "run/upgrades"
+      ]
+    ]
+  },
+  {
+    "id": "C2064",
+    "section": "model",
+    "item": "The model language defines FieldSpec.default.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.17,
+    "best": [
+      [
+        0.17378136307287093,
+        "use/workspaces"
+      ],
+      [
+        0.17378136307287093,
+        "use/records"
+      ],
+      [
+        0.17378136307287093,
+        "use/lists-and-filters"
+      ]
+    ]
+  },
+  {
+    "id": "C2065",
+    "section": "model",
+    "item": "The model language defines FieldSpec.description.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.1,
+    "best": [
+      [
+        0.10186428320315287,
+        "use/workspaces"
+      ],
+      [
+        0.10186428320315287,
+        "use/relationships"
+      ],
+      [
+        0.10186428320315287,
+        "use/relation-matrices"
+      ]
+    ]
+  },
+  {
+    "id": "C2066",
+    "section": "model",
+    "item": "The model language defines FieldSpec.from.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.0,
+    "best": [
+      [
+        0.0,
+        "use/workspaces"
+      ],
+      [
+        0.0,
+        "use/relationships"
+      ],
+      [
+        0.0,
+        "use/relation-matrices"
+      ]
+    ]
+  },
+  {
+    "id": "C2067",
+    "section": "model",
+    "item": "The model language defines FieldSpec.role.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.22,
+    "best": [
+      [
+        0.2214431560476147,
+        "use/relationships"
+      ],
+      [
+        0.2214431560476147,
+        "use/records"
+      ],
+      [
+        0.2214431560476147,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2068",
+    "section": "model",
+    "item": "The model language defines FilterSpec.byType.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.21,
+    "best": [
+      [
+        0.21179937041926708,
+        "use/relation-matrices"
+      ],
+      [
+        0.21179937041926708,
+        "use/records"
+      ],
+      [
+        0.21179937041926708,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2070",
+    "section": "model",
+    "item": "The model language defines FilterSpec.description.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.2764790492383407,
+        "use/relation-matrices"
+      ],
+      [
+        0.2764790492383407,
+        "use/records"
+      ],
+      [
+        0.2764790492383407,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2072",
+    "section": "model",
+    "item": "The model language defines FilterSpec.matchOn.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.36100702710549987,
+        "use/mapping-grids"
+      ],
+      [
+        0.36100702710549987,
+        "use/lists-and-filters"
+      ],
+      [
+        0.36100702710549987,
+        "use/history"
+      ]
+    ]
+  },
+  {
+    "id": "C2073",
+    "section": "model",
+    "item": "The model language defines FilterSpec.onRelated.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.34,
+    "best": [
+      [
+        0.34462403048590284,
+        "use/relation-matrices"
+      ],
+      [
+        0.34462403048590284,
+        "use/records"
+      ],
+      [
+        0.34462403048590284,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2074",
+    "section": "model",
+    "item": "The model language defines FilterSpec.through.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.21,
+    "best": [
+      [
+        0.21179937041926708,
+        "use/relation-matrices"
+      ],
+      [
+        0.21179937041926708,
+        "use/records"
+      ],
+      [
+        0.21179937041926708,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2075",
+    "section": "model",
+    "item": "The model language defines FilterSpec.under.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.3,
+    "best": [
+      [
+        0.3018201551788297,
+        "use/relation-matrices"
+      ],
+      [
+        0.3018201551788297,
+        "use/records"
+      ],
+      [
+        0.3018201551788297,
+        "use/lists-and-filters"
+      ]
+    ]
+  },
+  {
+    "id": "C2076",
+    "section": "model",
+    "item": "The model language defines ListSpec.description.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.23,
+    "best": [
+      [
+        0.23061295573868545,
+        "use/relationships"
+      ],
+      [
+        0.23061295573868545,
+        "use/relation-matrices"
+      ],
+      [
+        0.23061295573868545,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C2077",
+    "section": "model",
+    "item": "The model language defines ListSpec.of.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.16,
+    "best": [
+      [
+        0.1570560349777351,
+        "use/relationships"
+      ],
+      [
+        0.1570560349777351,
+        "use/relation-matrices"
+      ],
+      [
+        0.1570560349777351,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C2078",
+    "section": "model",
+    "item": "The model language defines ListSpec.sortBy.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.37066262926521376,
+        "use/lists-and-filters"
+      ],
+      [
+        0.37066262926521376,
+        "use/inbox-and-approvals"
+      ],
+      [
+        0.37066262926521376,
+        "model/types-attributes-relations"
+      ]
+    ]
+  },
+  {
+    "id": "C2079",
+    "section": "model",
+    "item": "The model language defines ListSpec.within.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "model/record-pages-and-tables",
+      "model/json-view"
+    ],
+    "weighted": 0.12,
+    "best": [
+      [
+        0.32988817396138453,
+        "use/records"
+      ],
+      [
+        0.32988817396138453,
+        "use/publications"
+      ],
+      [
+        0.32988817396138453,
+        "use/lists-and-filters"
+      ]
+    ]
+  },
+  {
+    "id": "C2083",
+    "section": "model",
+    "item": "The model language defines ObjectSpec.fields.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.23,
+    "best": [
+      [
+        0.23232863519698127,
+        "use/relationships"
+      ],
+      [
+        0.23232863519698127,
+        "use/records"
+      ],
+      [
+        0.23232863519698127,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2084",
+    "section": "model",
+    "item": "The model language defines ObjectSpec.hierarchy.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.39497086945459275,
+        "use/relationships"
+      ],
+      [
+        0.39497086945459275,
+        "use/records"
+      ],
+      [
+        0.39497086945459275,
+        "model/types-attributes-relations"
+      ]
+    ]
+  },
+  {
+    "id": "C2085",
+    "section": "model",
+    "item": "The model language defines ObjectSpec.parent.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.3616632721600994,
+        "use/relationships"
+      ],
+      [
+        0.3616632721600994,
+        "use/records"
+      ],
+      [
+        0.3616632721600994,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2086",
+    "section": "model",
+    "item": "The model language defines ObjectSpec.path.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.37218630694754257,
+        "use/records"
+      ],
+      [
+        0.37218630694754257,
+        "run/monitoring"
+      ],
+      [
+        0.37218630694754257,
+        "run/configure"
+      ]
+    ]
+  },
+  {
+    "id": "C2087",
+    "section": "model",
+    "item": "The model language defines ObjectSpec.related.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.35887981882287356,
+        "use/relationships"
+      ],
+      [
+        0.35887981882287356,
+        "use/records"
+      ],
+      [
+        0.35887981882287356,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2118",
+    "section": "model",
+    "item": "The model language defines ParentSpec.fields.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.21,
+    "best": [
+      [
+        0.20881729260046963,
+        "use/relationships"
+      ],
+      [
+        0.20881729260046963,
+        "use/records"
+      ],
+      [
+        0.20881729260046963,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C2122",
+    "section": "model",
+    "item": "The model language defines RelatedSpec.description.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        0.27036414771532363,
+        "use/relationships"
+      ],
+      [
+        0.27036414771532363,
+        "use/relation-matrices"
+      ],
+      [
+        0.27036414771532363,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C2123",
+    "section": "model",
+    "item": "The model language defines RelatedSpec.fields.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.2,
+    "best": [
+      [
+        0.20453682187061253,
+        "use/relationships"
+      ],
+      [
+        0.20453682187061253,
+        "use/relation-matrices"
+      ],
+      [
+        0.20453682187061253,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C2124",
+    "section": "model",
+    "item": "The model language defines RelatedSpec.via.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "model/consumer-apis",
+      "model/json-view"
+    ],
+    "weighted": 0.13,
+    "best": [
+      [
+        0.47900302769728076,
+        "integrate/reading-business-objects"
+      ],
+      [
+        0.47900302769728076,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.47900302769728076,
+        "guide/model/define-a-consumer-api"
+      ]
+    ]
+  },
+  {
+    "id": "C2126",
+    "section": "model",
+    "item": "The model language defines RelationTypeDefinition.isOriented.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/types-attributes-relations",
+      "model/json-view"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.3966590138328936,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.3966590138328936,
+        "model/the-model-editor"
+      ],
+      [
+        0.3966590138328936,
+        "model/models"
+      ]
+    ]
+  },
+  {
+    "id": "C2135",
+    "section": "model",
+    "item": "Value types convert across a release only by declared pairs; anything else is reported as loss.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "model/migrations"
+    ],
+    "weighted": 0.3,
+    "best": [
+      [
+        0.5738121645612291,
+        "model/model-mappings"
+      ],
+      [
+        0.45623536230190204,
+        "use/relationships"
+      ],
+      [
+        0.43244039438930426,
+        "use/change-sets"
+      ]
+    ]
+  },
+  {
+    "id": "C2138",
+    "section": "model",
+    "item": "Delete-missing imports delete a missing record's relationships but cannot silently delete its surviving descendants or required dependants.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "model/workbook-onboarding"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        1.0,
+        "integrate/files-imports-and-exports"
+      ],
+      [
+        0.703100456294096,
+        "use/records"
+      ],
+      [
+        0.6749861457193508,
+        "integrate/writing-in-bulk"
+      ]
+    ]
+  },
+  {
+    "id": "C2153",
+    "section": "model",
+    "item": "Layout: header bar; left pane (optional \"Source\" pane when the draft came from a workbook, then \"Model\" pane with tabs \"Model\" and \"Consumer APIs\"); centre (selected element / preview / layout editor / column / list / matrix / consumer API); bottom drawer \"Issues and history\" (or \"Issues, history and dry run\"), closed until opened, state remembered per browser (ME:BOTTOM_KEY ~l.95, drawer ~l.857). Below 760px the panes become tabs \"Source\", \"Model\", <selected name>, \"Issues N\" (ME:1197-1204). Panes are resizable (\"Resize the model pane\", \"Resize the source pane\", ME:1221-1233).",
+    "score": 0.44,
+    "missing": [
+      "Consumer APIs",
+      "Issues and history",
+      "Issues, history and dry run",
+      "Resize the model pane",
+      "Resize the source pane"
+    ],
+    "targets": [
+      "model/workbook-onboarding"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.6729739806365997,
+        "model/the-model-editor"
+      ],
+      [
+        0.4478132922463376,
+        "guide/model/find-your-way-around-the-editor"
+      ],
+      [
+        0.40077849593492776,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C2161",
+    "section": "model",
+    "item": "Pinned decisions: re-inference reports disagreements, changes nothing the admin changed.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/workbook-onboarding"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.5146666502905843,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.4641914630980571,
+        "integrate/changes-approvals-and-publication"
+      ],
+      [
+        0.4624641645575836,
+        "run/health-and-startup-checks"
+      ]
+    ]
+  },
+  {
+    "id": "C2164",
+    "section": "model",
+    "item": "Proposals per table pattern with evidence, applied as one step, changeable/undoable, nothing applied unasked.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "model/workbook-onboarding"
+    ],
+    "weighted": 0.26,
+    "best": [
+      [
+        0.3083539713339039,
+        "model/the-model-editor"
+      ],
+      [
+        0.29052743262463393,
+        "use/importing-and-exporting"
+      ],
+      [
+        0.2776379753791871,
+        "integrate/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C2182",
+    "section": "model",
+    "item": "Review change set (J17) and publish.",
+    "score": 1.0,
+    "missing": [],
+    "targets": [
+      "model/workbook-onboarding"
+    ],
+    "weighted": 0.3,
+    "best": [
+      [
+        0.2988521796037951,
+        "use/records"
+      ],
+      [
+        0.2988521796037951,
+        "use/inbox-and-approvals"
+      ],
+      [
+        0.2988521796037951,
+        "use/home"
+      ]
+    ]
+  },
+  {
+    "id": "C3924",
+    "section": "model",
+    "item": "Release history compares an earlier Before with the selected After, defaults to the recorded predecessor or a labelled preceding installed release of the same key, and offers Compare with; first release, identical content and unsupported baselines are explained separately from activation readiness.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "guide/model/compare-releases"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.498396225344304,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.43985532912343156,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.4224349903378998,
+        "model/releases"
+      ]
+    ]
+  },
+  {
+    "id": "C3925",
+    "section": "model",
+    "item": "Technical details explains and lets a model administrator copy the Release ID and normalized content hash; metadata and export remain available for an unsupported historical release even when semantic comparison and activation are refused.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "guide/model/export-a-release"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.7601525968681359,
+        "model/releases"
+      ],
+      [
+        0.471656299300777,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.4490764181848851,
+        "model/model-language-versions"
+      ]
+    ]
+  },
+  {
+    "id": "C3973",
+    "section": "model",
+    "item": "A model operation request applies up to 500 operations atomically as one recorded step at the draft version, stores inverses and diagnostics and allows intermediate invalid drafts. Impact counts cover live data and open change sets only in workspaces running that draft\u2019s model (R115)",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.5593667189145626,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.46503743375087486,
+        "run/configure"
+      ],
+      [
+        0.41049811347933285,
+        "integrate/writing-in-bulk"
+      ]
+    ]
+  },
+  {
+    "id": "C4056",
+    "section": "model",
+    "item": "Edit model from a workspace reuses its current remembered draft, otherwise an eligible draft or a new one, with at most one remembered draft per workspace; a model change elsewhere detaches the old draft without deleting it.",
+    "score": 0.45,
+    "missing": [],
+    "targets": [
+      "guide/model/edit-a-workspaces-model"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.41266224409546065,
+        "journeys/shape-a-model"
+      ],
+      [
+        0.40729423861852887,
+        "integrate/changes-approvals-and-publication"
+      ],
+      [
+        0.36464560740509677,
+        "model/types-attributes-relations"
+      ]
+    ]
+  },
+  {
+    "id": "C2613",
+    "section": "run",
+    "item": "Deliveries kept one week by default; workspace with subscriptions lists them when undeletable.",
+    "score": 0.38,
+    "missing": [],
+    "targets": [
+      "run/webhook-delivery"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.4217222764138964,
+        "administer/webhooks"
+      ],
+      [
+        0.3853477653238693,
+        "run/secrets-and-keys"
+      ],
+      [
+        0.3853477653238693,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C2621",
+    "section": "run",
+    "item": "One workspace's unloadable release makes only it unavailable.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "run/health-and-startup-checks"
+    ],
+    "weighted": 0.16,
+    "best": [
+      [
+        0.3709671388583514,
+        "use/records"
+      ],
+      [
+        0.3709671388583514,
+        "run/monitoring"
+      ],
+      [
+        0.3709671388583514,
+        "run/model-releases-and-rollback"
+      ]
+    ]
+  },
+  {
+    "id": "C2767",
+    "section": "run",
+    "item": "Out of database connections: 503 naming reason and setting (DATABASE_POOL_SIZE/MAX_OVERFLOW/TIMEOUT), startup warning on over-subscription.",
+    "score": 0.42,
+    "missing": [],
+    "targets": [
+      "run/health-and-startup-checks"
+    ],
+    "weighted": 0.34,
+    "best": [
+      [
+        0.961150708312296,
+        "run/configure"
+      ],
+      [
+        0.8612239704391477,
+        "run/database"
+      ],
+      [
+        0.7882756343044903,
+        "run/monitoring"
+      ]
+    ]
+  },
+  {
+    "id": "C2769",
+    "section": "run",
+    "item": "Receive an actionable startup refusal.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "run/health-and-startup-checks"
+    ],
+    "weighted": 0.34,
+    "best": [
+      [
+        0.8012912299882875,
+        "run/command-line"
+      ],
+      [
+        0.5395792628494299,
+        "run/troubleshooting"
+      ],
+      [
+        0.3408704928377175,
+        "run/install-with-compose"
+      ]
+    ]
+  },
+  {
+    "id": "C2805",
+    "section": "run",
+    "item": "Service reports health, controlled migrations, active model in database, refuses unsafe states with instructions; backups and rollback separate from model activation; jobs survive restarts.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "run/overview"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.4356526979161575,
+        "administer/deployment-pages"
+      ],
+      [
+        0.43173764911349877,
+        "run/backup-and-restore"
+      ],
+      [
+        0.43034348782306137,
+        "about/how-it-is-built"
+      ]
+    ]
+  },
+  {
+    "id": "C0057",
+    "section": "use",
+    "item": "People's workbook round trip, exact-change rule, someone-else-changed refusal.",
+    "score": 0.38,
+    "missing": [],
+    "targets": [
+      "guide/use/edit-in-excel-and-import-back"
+    ],
+    "weighted": 0.19,
+    "best": [
+      [
+        0.7455105456630423,
+        "integrate/files-imports-and-exports"
+      ],
+      [
+        0.35805373772765214,
+        "use/changing-many-records"
+      ],
+      [
+        0.35805373772765214,
+        "integrate/versions-and-conflicts"
+      ]
+    ]
+  },
+  {
+    "id": "C0102",
+    "section": "use",
+    "item": "Page header eyebrow \"General\", title \"Account\". Error: inline error with retry; skeleton \"Loading your account\".",
+    "score": 0.64,
+    "missing": [],
+    "targets": [
+      "use/account"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.37779110321008685,
+        "use/account"
+      ],
+      [
+        0.3567158142394443,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.3105216959906866,
+        "use/notifications-settings"
+      ]
+    ]
+  },
+  {
+    "id": "C0197",
+    "section": "use",
+    "item": "Try the API as yourself on /docs with the signed-in token, renewed in console.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/account",
+      "integrate/model-and-release-operations"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.8164251415781775,
+        "integrate/api-reference"
+      ],
+      [
+        0.4644660892454514,
+        "run/configure"
+      ],
+      [
+        0.39692011335508176,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C0217",
+    "section": "use",
+    "item": "Acceptance scenario SC-04: Delete with a truthful impact preview.",
+    "score": 0.43,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        0.449244954944952,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.3279239212737209,
+        "model/releases"
+      ],
+      [
+        0.2707753525274375,
+        "use/relationships"
+      ]
+    ]
+  },
+  {
+    "id": "C0218",
+    "section": "use",
+    "item": "Acceptance scenario SC-05: Start a design from what is live today.",
+    "score": 0.38,
+    "missing": [],
+    "targets": [
+      "model/models"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.5188159292391178,
+        "model/releases"
+      ],
+      [
+        0.36240503562107623,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.36240503562107623,
+        "model/migrations"
+      ]
+    ]
+  },
+  {
+    "id": "C0219",
+    "section": "use",
+    "item": "Acceptance scenario SC-16: Work from one model-driven application browser.",
+    "score": 0.29,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.14,
+    "best": [
+      [
+        0.41719209655981987,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.3856981174110354,
+        "integrate/consumer-events-and-webhooks"
+      ],
+      [
+        0.31076768323386567,
+        "model/workbook-onboarding"
+      ]
+    ]
+  },
+  {
+    "id": "C0232",
+    "section": "use",
+    "item": "Delete only after understanding the impact.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.0,
+    "best": [
+      [
+        0.5318209921107095,
+        "journeys/run-the-service"
+      ],
+      [
+        0.5318209921107095,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.4681790078892904,
+        "use/relationships"
+      ]
+    ]
+  },
+  {
+    "id": "C0234",
+    "section": "use",
+    "item": "Prepare changes away from live data.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.17,
+    "best": [
+      [
+        1.0,
+        "use/change-sets"
+      ],
+      [
+        1.0,
+        "run/production-checklist"
+      ],
+      [
+        1.0,
+        "guide/use/prepare-and-publish-a-change-set"
+      ]
+    ]
+  },
+  {
+    "id": "C0235",
+    "section": "use",
+    "item": "Preserve unrelated live work during activation.",
+    "score": 0.17,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.09,
+    "best": [
+      [
+        0.8412231742172902,
+        "run/backup-and-restore"
+      ],
+      [
+        0.7970069157152622,
+        "integrate/versions-and-conflicts"
+      ],
+      [
+        0.7499538440806883,
+        "run/background-jobs"
+      ]
+    ]
+  },
+  {
+    "id": "C0294",
+    "section": "use",
+    "item": "Where things are: Administration.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.14,
+    "best": [
+      [
+        0.8049151503342045,
+        "model/issues-and-dry-run"
+      ],
+      [
+        0.6610693720843558,
+        "about/compatibility-and-licence"
+      ],
+      [
+        0.3389306279156442,
+        "use/workspaces"
+      ]
+    ]
+  },
+  {
+    "id": "C0296",
+    "section": "use",
+    "item": "Where things are: Changes of a person.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.14,
+    "best": [
+      [
+        0.7989884530491982,
+        "model/issues-and-dry-run"
+      ],
+      [
+        0.6562018303924068,
+        "about/compatibility-and-licence"
+      ],
+      [
+        0.34379816960759324,
+        "use/publications"
+      ]
+    ]
+  },
+  {
+    "id": "C0297",
+    "section": "use",
+    "item": "Where things are: Data operations.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.15,
+    "best": [
+      [
+        0.811501366566077,
+        "model/issues-and-dry-run"
+      ],
+      [
+        0.6664785705905685,
+        "about/compatibility-and-licence"
+      ],
+      [
+        0.3335214294094315,
+        "use/jobs"
+      ]
+    ]
+  },
+  {
+    "id": "C0298",
+    "section": "use",
+    "item": "Where things are: General.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.13,
+    "best": [
+      [
+        0.8741260876971606,
+        "about/compatibility-and-licence"
+      ],
+      [
+        0.7043503137673843,
+        "model/issues-and-dry-run"
+      ],
+      [
+        0.42152359853545524,
+        "use/relationships"
+      ]
+    ]
+  },
+  {
+    "id": "C0299",
+    "section": "use",
+    "item": "Where things are: Integration.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.14,
+    "best": [
+      [
+        0.7827723639410359,
+        "model/issues-and-dry-run"
+      ],
+      [
+        0.6428837063144268,
+        "about/compatibility-and-licence"
+      ],
+      [
+        0.3571162936855732,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C0300",
+    "section": "use",
+    "item": "Where things are: Security.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.14,
+    "best": [
+      [
+        0.8598475779390258,
+        "about/compatibility-and-licence"
+      ],
+      [
+        0.7842483056886709,
+        "model/issues-and-dry-run"
+      ],
+      [
+        0.3559041163723036,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C0323",
+    "section": "use",
+    "item": "A change set validates the whole merged graph; it cannot be submitted while invalid. Diagnostics include identity collision, unknown type, duplicate unique value, containment cycle/missing, missing endpoint, invalid pair, cardinality, duplicate scope, missing required relation, type not in application.",
+    "score": 0.48,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.7474590463591235,
+        "integrate/changes-approvals-and-publication"
+      ],
+      [
+        0.6981938514863969,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.5633553523873969,
+        "model/types-attributes-relations"
+      ]
+    ]
+  },
+  {
+    "id": "C0329",
+    "section": "use",
+    "item": "Acceptance scenario SC-06: Publish coordinated changes while preserving normal maintenance.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.26,
+    "best": [
+      [
+        0.35945063511700076,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.35945063511700076,
+        "model/migrations"
+      ],
+      [
+        0.3532754400328285,
+        "journeys/change-with-approval"
+      ]
+    ]
+  },
+  {
+    "id": "C0337",
+    "section": "use",
+    "item": "Change set from live data frozen at start (typed values survive capture/publication).",
+    "score": 0.43,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.21,
+    "best": [
+      [
+        0.5931143869581921,
+        "journeys/integrate-a-system"
+      ],
+      [
+        0.5837121248943694,
+        "journeys/look-after-data"
+      ],
+      [
+        0.5837121248943694,
+        "integrate/model-and-release-operations"
+      ]
+    ]
+  },
+  {
+    "id": "C0340",
+    "section": "use",
+    "item": "Change sets: Open a change set: band turns amber, pill \"Change set\"; the change set bar (aria \"Change set publication\"): name, \"Version n\", source, \"Model <key> <version>\", \"Created by <name>\".",
+    "score": 0.67,
+    "missing": [
+      "Change set publication",
+      "Version n",
+      "Model <key> <version>",
+      "Created by <name>"
+    ],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.39037445596823606,
+        "run/configure"
+      ],
+      [
+        0.36193328551444065,
+        "journeys/shape-a-model"
+      ],
+      [
+        0.35910980202174175,
+        "use/change-sets"
+      ]
+    ]
+  },
+  {
+    "id": "C0343",
+    "section": "use",
+    "item": "Change sets: \"Validate change set\" (tooltip \"Check the full change set graph against the current publication\"); pass: pill \"Change set validation passed\"; notes: notice \"Validation notes\" / \"Change set needs corrections\" / \"Change set changed: validate again\" listing diagnostics (messages such as \"Record changed: expected version N, current version M\", \"A live record now uses this identity\", \"This relationship already exists in live data\").",
+    "score": 0.52,
+    "missing": [
+      "Check the full change set graph against the current publication",
+      "Validation notes",
+      "Change set needs corrections",
+      "Change set changed: validate again",
+      "Record changed: expected version N, current version M",
+      "A live record now uses this identity",
+      "This relationship already exists in live data"
+    ],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.38259633695364276,
+        "integrate/changes-approvals-and-publication"
+      ],
+      [
+        0.37938847065122533,
+        "use/change-sets"
+      ],
+      [
+        0.37498903314208976,
+        "integrate/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C0362",
+    "section": "use",
+    "item": "Make changes in the change set with normal record operations.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        1.0,
+        "run/set-up-ai"
+      ],
+      [
+        1.0,
+        "run/backup-and-restore"
+      ],
+      [
+        1.0,
+        "run/background-jobs"
+      ]
+    ]
+  },
+  {
+    "id": "C0365",
+    "section": "use",
+    "item": "Open a change set's object changes and relationship changes.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.3,
+    "best": [
+      [
+        1.0,
+        "use/relationships"
+      ],
+      [
+        1.0,
+        "use/records"
+      ],
+      [
+        1.0,
+        "use/mapping-grids"
+      ]
+    ]
+  },
+  {
+    "id": "C0366",
+    "section": "use",
+    "item": "Pin changed by someone else refused.",
+    "score": 0.75,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.8957330355620493,
+        "administer/sign-in"
+      ],
+      [
+        0.6297842232103199,
+        "use/records"
+      ],
+      [
+        0.6297842232103199,
+        "use/inbox-and-approvals"
+      ]
+    ]
+  },
+  {
+    "id": "C0372",
+    "section": "use",
+    "item": "Publish once; open immutable publication and its lineage.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.6459557502864631,
+        "guide/model/compare-releases"
+      ],
+      [
+        0.6178097623441465,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.6035908777232853,
+        "about/what-is-refiroo"
+      ]
+    ]
+  },
+  {
+    "id": "C0418",
+    "section": "use",
+    "item": "Same record changed both sides refused naming it.",
+    "score": 0.6,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.34,
+    "best": [
+      [
+        0.7582090423082031,
+        "use/mapping-grids"
+      ],
+      [
+        0.6557692751699775,
+        "run/webhook-delivery"
+      ],
+      [
+        0.6557692751699775,
+        "journeys/change-with-approval"
+      ]
+    ]
+  },
+  {
+    "id": "C0420",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Data-context band (always under the top bar, sticky): \"<workspace> / <application>\" + pill Live / Change set / Publication N, one sentence saying what an edit does, switch \"Live\" / \"Change sets\" / \"Publications\" (dots coloured per context).",
+    "score": 0.48,
+    "missing": [
+      "<workspace> / <application>"
+    ],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.2,
+    "best": [
+      [
+        0.36853983878513286,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.3567815541554355,
+        "use/lists-and-filters"
+      ],
+      [
+        0.3042710386356703,
+        "about/accessibility"
+      ]
+    ]
+  },
+  {
+    "id": "C0421",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Error pages: \"Could not load this content\" with \"Retry\" and \"Return to Live\" ; \"Loading change set\u2026\" / \"Loading publication\u2026\" ; \"Loading the model\u2026\".",
+    "score": 0.46,
+    "missing": [
+      "Could not load this content",
+      "Return to Live",
+      "Loading change set\u2026",
+      "Loading publication\u2026",
+      "Loading the model\u2026"
+    ],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.5361849719781205,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.5330376142692702,
+        "use/hierarchies"
+      ],
+      [
+        0.45259070655193756,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C0422",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Phone band: three choices in one line, \"Workspace: <ws>\", \"Application: <app>\", \"Data: <context>\" (popovers: workspace selector with its \u22ef menu, application list, the Live / Change sets / Publications switch with the sentence).",
+    "score": 0.42,
+    "missing": [
+      "Workspace: <ws>",
+      "Application: <app>",
+      "Data: <context>"
+    ],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.2,
+    "best": [
+      [
+        0.42063050165781696,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.39161953610100475,
+        "use/records"
+      ],
+      [
+        0.3872540369708497,
+        "about/accessibility"
+      ]
+    ]
+  },
+  {
+    "id": "C0423",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Switching workspace keeps the page where the other model has it (a record becomes that type's collection, a change-set list stays a list, a change set's review or a group opens the new workspace's live start) and says once, in a toast, what changed in the model: \"<ws> runs <model> <version>, another release of the model <prev> runs (<version>).\" or \"\u2026a different model from <prev>'s: its applications and navigation are shown.\".",
+    "score": 0.64,
+    "missing": [
+      "<ws> runs <model> <version>, another release of the model <prev> runs (<version>).",
+      "\u2026a different model from <prev>'s: its applications and navigation are shown."
+    ],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.5550303132009146,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.5525029170223693,
+        "model/the-model-editor"
+      ],
+      [
+        0.4765051948349878,
+        "model/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C0424",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: \"Your change set: <name> \u00b7 N changes\" button (opens that change set) shown in the band to someone who proposes.",
+    "score": 0.55,
+    "missing": [
+      "Your change set: <name> \u00b7 N changes"
+    ],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.5046135473815998,
+        "use/inbox-and-approvals"
+      ],
+      [
+        0.4765842533614101,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.46321394259987075,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C0426",
+    "section": "use",
+    "item": "The merged graph is validated again before anything is written (live additions can break the change set).",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.42249446918166295,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.38076853619297435,
+        "model/consumer-apis"
+      ],
+      [
+        0.3348860028900834,
+        "integrate/changes-approvals-and-publication"
+      ]
+    ]
+  },
+  {
+    "id": "C0428",
+    "section": "use",
+    "item": "Unique numbers/dates in change sets checked, naming holder, keying an upsert.",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.4250300149554147,
+        "integrate/files-imports-and-exports"
+      ],
+      [
+        0.3791926183098535,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.37198370718805623,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C0432",
+    "section": "use",
+    "item": "Where things are: Publications list / viewing a publication.",
+    "score": 0.67,
+    "missing": [],
+    "targets": [
+      "use/change-sets"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.6509613503256534,
+        "use/lists-and-filters"
+      ],
+      [
+        0.5415006069488499,
+        "about/compatibility-and-licence"
+      ],
+      [
+        0.5406471417123228,
+        "about/how-it-is-built"
+      ]
+    ]
+  },
+  {
+    "id": "C0439",
+    "section": "use",
+    "item": "See what a selection holds (GET /relations/held) before removing.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/changing-many-records",
+      "integrate/model-and-release-operations"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.7211322080997425,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.6691047333182655,
+        "model/the-model-editor"
+      ],
+      [
+        0.6691047333182655,
+        "integrate/reading-records"
+      ]
+    ]
+  },
+  {
+    "id": "C0442",
+    "section": "use",
+    "item": "Selection mechanics: checkbox, Space/Shift range, header checkbox, Select all N matching, Cmd/Ctrl+A, exceptions, over backgroundJobMaxItems refused and explained, absent in publication or jobs off.",
+    "score": 0.39,
+    "missing": [],
+    "targets": [
+      "use/changing-many-records"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.5465923005402687,
+        "use/inbox-and-approvals"
+      ],
+      [
+        0.5038526478029082,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.4611363816049865,
+        "run/configure"
+      ]
+    ]
+  },
+  {
+    "id": "C0443",
+    "section": "use",
+    "item": "Set one value on selected records where only one related record is allowed; record Relationships panel offers Set/Change/Remove accordingly.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "use/changing-many-records"
+    ],
+    "weighted": 0.14,
+    "best": [
+      [
+        0.624494505227743,
+        "use/relationships"
+      ],
+      [
+        0.624494505227743,
+        "use/relation-matrices"
+      ],
+      [
+        0.624494505227743,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C0446",
+    "section": "use",
+    "item": "A record cannot be moved under itself or its own descendant.",
+    "score": 0.6,
+    "missing": [],
+    "targets": [
+      "use/hierarchies"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.5492498150090546,
+        "use/jobs"
+      ],
+      [
+        0.5492498150090546,
+        "use/change-sets"
+      ],
+      [
+        0.5492498150090546,
+        "model/workbook-onboarding"
+      ]
+    ]
+  },
+  {
+    "id": "C0448",
+    "section": "use",
+    "item": "A record: Edit dialog (record): title = record name, eyebrow \"Edit object\"; fields per attribute binding (text, long text, number, yes/no checkbox, date, date and time, JSON text area; read-only ones disabled); Parent picker (type select \"Parent type\", search \"Search by name or attribute\u2026\"); relationship pickers; buttons \"Cancel\" (\"Discard your unsaved changes?\" when dirty), \"Save changes\" / \"Saving\u2026\" ; error notice \"The object was not saved\"; conflict: \"The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.\" (in a change set: \"The change set changed. Current content is loaded; your edits are preserved. Review and save again.\").",
+    "score": 0.39,
+    "missing": [
+      "Edit object",
+      "Parent type",
+      "Search by name or attribute\u2026",
+      "Discard your unsaved changes?",
+      "Save changes",
+      "The object was not saved",
+      "The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.",
+      "The change set changed. Current content is loaded; your edits are preserved. Review and save again."
+    ],
+    "targets": [
+      "use/hierarchies"
+    ],
+    "weighted": 0.23,
+    "best": [
+      [
+        0.4462492852381174,
+        "use/relation-matrices"
+      ],
+      [
+        0.39915310959307965,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.37393606954090836,
+        "use/relationships"
+      ]
+    ]
+  },
+  {
+    "id": "C0455",
+    "section": "use",
+    "item": "A write validated under a model release that was replaced before commit is refused; the client may send the release it built on.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "use/hierarchies",
+      "integrate/writing-in-bulk"
+    ],
+    "weighted": 0.18,
+    "best": [
+      [
+        0.7484680383054301,
+        "integrate/versions-and-conflicts"
+      ],
+      [
+        0.5741816104665572,
+        "run/set-up-ai"
+      ],
+      [
+        0.5135774714570542,
+        "run/secrets-and-keys"
+      ]
+    ]
+  },
+  {
+    "id": "C0456",
+    "section": "use",
+    "item": "Acceptance scenario SC-09: Fill translation gaps and maintain a deep hierarchy.",
+    "score": 0.22,
+    "missing": [],
+    "targets": [
+      "use/hierarchies"
+    ],
+    "weighted": 0.14,
+    "best": [
+      [
+        0.2594319273217605,
+        "integrate/consumer-events-and-webhooks"
+      ],
+      [
+        0.2594072260478316,
+        "guide/use/fill-in-a-relation-matrix"
+      ],
+      [
+        0.2506127290460969,
+        "about/what-is-refiroo"
+      ]
+    ]
+  },
+  {
+    "id": "C0459",
+    "section": "use",
+    "item": "Answer plan questions once per type pair or per record; apply previewed plan; review and publish.",
+    "score": 0.22,
+    "missing": [],
+    "targets": [
+      "use/hierarchies"
+    ],
+    "weighted": 0.14,
+    "best": [
+      [
+        0.7521419659115426,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.5575529294217481,
+        "run/ai"
+      ],
+      [
+        0.525473808852176,
+        "journeys/look-after-data"
+      ]
+    ]
+  },
+  {
+    "id": "C0558",
+    "section": "use",
+    "item": "Type change (restructuring) is previewed then applied with a digest; refused when the change set changed meanwhile; at most 500 records per operation.",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "use/hierarchies"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.735220497551315,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.6412708589356335,
+        "integrate/changes-approvals-and-publication"
+      ],
+      [
+        0.5732074674568691,
+        "integrate/files-imports-and-exports"
+      ]
+    ]
+  },
+  {
+    "id": "C0561",
+    "section": "use",
+    "item": "Acceptance scenario SC-08: Understand history without accidentally promising rollback.",
+    "score": 0.22,
+    "missing": [],
+    "targets": [
+      "use/history"
+    ],
+    "weighted": 0.07,
+    "best": [
+      [
+        0.26366102274050945,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.26366102274050945,
+        "model/releases"
+      ],
+      [
+        0.22120851744418274,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C0563",
+    "section": "use",
+    "item": "Change set names creator; publication names publisher and withdrawer.",
+    "score": 0.6,
+    "missing": [],
+    "targets": [
+      "use/history"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.38674493701727974,
+        "use/history"
+      ],
+      [
+        0.38674493701727974,
+        "use/change-sets"
+      ],
+      [
+        0.38674493701727974,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C0574",
+    "section": "use",
+    "item": "Know who changed governed data (authenticated actor/time).",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/history",
+      "administer/roles-and-grants"
+    ],
+    "weighted": 0.23,
+    "best": [
+      [
+        0.6169725200432883,
+        "guide/administer/find-who-changed-something"
+      ],
+      [
+        0.5355043836644373,
+        "about/security-and-trust"
+      ],
+      [
+        0.47817636631371563,
+        "about/sharing-data-with-other-systems"
+      ]
+    ]
+  },
+  {
+    "id": "C0575",
+    "section": "use",
+    "item": "Names shown as they are now.",
+    "score": 0.67,
+    "missing": [],
+    "targets": [
+      "use/history"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        1.0,
+        "use/workspaces"
+      ],
+      [
+        1.0,
+        "use/relation-matrices"
+      ],
+      [
+        1.0,
+        "use/change-sets"
+      ]
+    ]
+  },
+  {
+    "id": "C0576",
+    "section": "use",
+    "item": "No History panel inside a change set or a publication (OD:~430 draws it only in Live).",
+    "score": 0.67,
+    "missing": [],
+    "targets": [
+      "use/history"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.5615887657502857,
+        "use/workspaces"
+      ],
+      [
+        0.4722860608867557,
+        "use/lists-and-filters"
+      ],
+      [
+        0.4722860608867557,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C0605",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Read-only workspace notice \"Read-only workspace\": \"This workspace is retired. Runtime data and history remain available, but changes are disabled.\".",
+    "score": 0.27,
+    "missing": [
+      "Read-only workspace",
+      "This workspace is retired. Runtime data and history remain available, but changes are disabled."
+    ],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.18,
+    "best": [
+      [
+        0.5309980180568734,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.42469037244763885,
+        "model/models"
+      ],
+      [
+        0.4049895325964758,
+        "use/inbox-and-approvals"
+      ]
+    ]
+  },
+  {
+    "id": "C0613",
+    "section": "use",
+    "item": "Home follows the work (published leaves list; removed role removes workspace).",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "use/home"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.8767156415481971,
+        "use/relationships"
+      ],
+      [
+        0.8767156415481971,
+        "use/records"
+      ],
+      [
+        0.7593116078838137,
+        "integrate/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C0615",
+    "section": "use",
+    "item": "Home: Loading skeleton \"Loading your home page\"; error line with retry.",
+    "score": 0.57,
+    "missing": [
+      "Loading your home page"
+    ],
+    "targets": [
+      "use/home"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.640078116533535,
+        "guide/use/find-records"
+      ],
+      [
+        0.5104440042446996,
+        "run/webhook-delivery"
+      ],
+      [
+        0.48679823763948954,
+        "use/workspaces"
+      ]
+    ]
+  },
+  {
+    "id": "C0619",
+    "section": "use",
+    "item": "Sign in / open bare address / click product name to reach Home.",
+    "score": 0.56,
+    "missing": [],
+    "targets": [
+      "use/home"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        0.4690393942705303,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.4548655456590157,
+        "integrate/reading-business-objects"
+      ],
+      [
+        0.4132213067184311,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C0625",
+    "section": "use",
+    "item": "Change sets: Collections, records, trees, matrices inside a change set behave as Live but save into the change set (\"Saved to change set \u201c<name>\u201d\"); mapping grid shows \"Proposed\"; the History panel is not shown; export and import can target it.",
+    "score": 0.53,
+    "missing": [
+      "Saved to change set \u201c<name>",
+      "); mapping grid shows "
+    ],
+    "targets": [
+      "use/importing-and-exporting"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.5863732622708558,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.48464351705996106,
+        "use/relationships"
+      ],
+      [
+        0.47999244688701953,
+        "model/applications-and-views"
+      ]
+    ]
+  },
+  {
+    "id": "C0630",
+    "section": "use",
+    "item": "Home has no export/import, no search; the Changes page has no free-text search.",
+    "score": 0.2,
+    "missing": [],
+    "targets": [
+      "use/home"
+    ],
+    "weighted": 0.18,
+    "best": [
+      [
+        0.762325017010429,
+        "use/importing-and-exporting"
+      ],
+      [
+        0.7126189053537003,
+        "model/the-model-editor"
+      ],
+      [
+        0.6816900516266398,
+        "run/background-jobs"
+      ]
+    ]
+  },
+  {
+    "id": "C0651",
+    "section": "use",
+    "item": "No point-in-time or \"as of\" browsing of records in the application: only the export has \"Valid on\", and a record's History is a list of changes, not a view of an earlier state. No restore/revert of a record or value from History; no undo of data edits (undo/redo exists only in the model editor and the mapping editor).",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.618594419335807,
+        "model/the-model-editor"
+      ],
+      [
+        0.5027215753412084,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.5015372230535335,
+        "run/configure"
+      ]
+    ]
+  },
+  {
+    "id": "C0653",
+    "section": "use",
+    "item": "Publications: Viewing a publication: violet band, bar \"Viewing Publication n\" (model pinned \"<release>\"), \"Back to publications\"; the collections/records/trees read the publication's data; all write controls are left out; no History panel; Export is available; Import is not.",
+    "score": 0.56,
+    "missing": [
+      "Viewing Publication n"
+    ],
+    "targets": [
+      "use/publications"
+    ],
+    "weighted": 0.32,
+    "best": [
+      [
+        0.5522156469400804,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.4578435274966563,
+        "use/records"
+      ],
+      [
+        0.3994086444836538,
+        "use/lists-and-filters"
+      ]
+    ]
+  },
+  {
+    "id": "C0724",
+    "section": "use",
+    "item": "Audit log as such: the \"Changes\" page (features/changes/ChangesPage.tsx: eyebrow \"Changes\"; filters Workspace / What / Period; \"Load more\"; empty \"You have not changed anything in the workspaces you can read yet.\") and a person's \"Recent activity\" are the only histories; no export or settings-level audit page, and no administrator view of other people's inboxes.",
+    "score": 0.54,
+    "missing": [
+      "Recent activity"
+    ],
+    "targets": [
+      "use/history"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.4193832911537733,
+        "administer/audit"
+      ],
+      [
+        0.40498350927657406,
+        "run/troubleshooting"
+      ],
+      [
+        0.38992854354978124,
+        "use/history"
+      ]
+    ]
+  },
+  {
+    "id": "C0725",
+    "section": "use",
+    "item": "Bulk actions exist only on the table lens selection (Change values, Change relationships, Delete); none on mapping grids, matrices, trees (trees only move several nodes), relation panels or notifications beyond their own bar. No bulk export of a selection (export takes the list's filters, not its ticked rows).",
+    "score": 0.36,
+    "missing": [],
+    "targets": [
+      "use/inbox-and-approvals"
+    ],
+    "weighted": 0.29,
+    "best": [
+      [
+        0.4775954965839231,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.4633713792174418,
+        "model/record-pages-and-tables"
+      ],
+      [
+        0.45178046040050873,
+        "journeys/look-after-data"
+      ]
+    ]
+  },
+  {
+    "id": "C0729",
+    "section": "use",
+    "item": "Contributor notified of the decision.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/inbox-and-approvals"
+    ],
+    "weighted": 0.25,
+    "best": [
+      [
+        1.0,
+        "journeys/change-with-approval"
+      ],
+      [
+        0.7134133468988938,
+        "guide/use/approve-a-change-set"
+      ],
+      [
+        0.5335666785068492,
+        "use/change-sets"
+      ]
+    ]
+  },
+  {
+    "id": "C0730",
+    "section": "use",
+    "item": "Contributor prepares a change set and submits it for publication.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/inbox-and-approvals"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        1.0,
+        "journeys/change-with-approval"
+      ],
+      [
+        0.6085712778956279,
+        "guide/use/propose-a-change"
+      ],
+      [
+        0.4920848066770282,
+        "journeys/integrate-a-system"
+      ]
+    ]
+  },
+  {
+    "id": "C0733",
+    "section": "use",
+    "item": "Editors: Enter saves, Escape cancels (EditableField, EditInPlace.tsx:179); the tree lens search and the Notifications search clear on Escape (TreeView, NotificationsPage); popovers/menus close on Escape; Escape closes the full-text reveal box (CellReveal.tsx:173).",
+    "score": 0.14,
+    "missing": [],
+    "targets": [
+      "use/inbox-and-approvals"
+    ],
+    "weighted": 0.19,
+    "best": [
+      [
+        0.4009794516848204,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.329714133901625,
+        "use/records"
+      ],
+      [
+        0.29179595002675957,
+        "use/relation-matrices"
+      ]
+    ]
+  },
+  {
+    "id": "C0781",
+    "section": "use",
+    "item": "Top bar: product mark, inbox bell, Settings, Account only; application tabs gone (TOP header comment).",
+    "score": 0.18,
+    "missing": [],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.25,
+    "best": [
+      [
+        0.566947784077886,
+        "use/inbox-and-approvals"
+      ],
+      [
+        0.4452736961245239,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.42382086813570957,
+        "use/home"
+      ]
+    ]
+  },
+  {
+    "id": "C0842",
+    "section": "use",
+    "item": "Collections: the table lens: Footer of the list: \"1\u201350 of 1,234 <plural>\", \"Go to <sort field>\u2026\" seek box (jump to the first record at that value), \"Page n of N\" field, buttons \"Go to start (Ctrl+Home)\" and \"Go to end (Ctrl+End)\", edge texts \"Start of list\" / \"End \u00b7 N <plural>\", \"<Plural> unavailable\" with \"Retry\".",
+    "score": 0.39,
+    "missing": [
+      "1\u201350 of 1,234 <plural>",
+      "Go to <sort field>\u2026",
+      "Page n of N",
+      "Go to start (Ctrl+Home)",
+      "Go to end (Ctrl+End)",
+      "Start of list",
+      "End \u00b7 N <plural>",
+      "<Plural> unavailable"
+    ],
+    "targets": [
+      "use/lists-and-filters"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        0.6260486782827595,
+        "guide/use/find-records"
+      ],
+      [
+        0.45299804870322696,
+        "guide/use/continue-a-long-list"
+      ],
+      [
+        0.45205725350337134,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C0844",
+    "section": "use",
+    "item": "Collections: the table lens: Page header: tile, view name, description; primary button \"Add <Type>\" (opens New <Type> dialog); a person who only proposes sees \"Propose a new <Type>\" instead.",
+    "score": 0.53,
+    "missing": [
+      "Add <Type>",
+      "Propose a new <Type>"
+    ],
+    "targets": [
+      "use/lists-and-filters"
+    ],
+    "weighted": 0.31,
+    "best": [
+      [
+        0.4954871724460812,
+        "use/records"
+      ],
+      [
+        0.443523129078736,
+        "model/applications-and-views"
+      ],
+      [
+        0.42563256351242673,
+        "model/workbook-onboarding"
+      ]
+    ]
+  },
+  {
+    "id": "C0845",
+    "section": "use",
+    "item": "Collections: the table lens: Search box \"Search <plural>\" (debounced).",
+    "score": 0.5,
+    "missing": [
+      "Search <plural>"
+    ],
+    "targets": [
+      "use/lists-and-filters"
+    ],
+    "weighted": 0.22,
+    "best": [
+      [
+        0.40188150511956827,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.40188150511956827,
+        "guide/use/find-records"
+      ],
+      [
+        0.3550562424201756,
+        "model/types-attributes-relations"
+      ]
+    ]
+  },
+  {
+    "id": "C0846",
+    "section": "use",
+    "item": "Collections: the table lens: Selection (checkbox column \"Select <name>\", header \"Select the <plural> shown\"; Shift+click selects a range; Cmd/Ctrl+A in the table selects every record the list matches) \u2192 Selection bar \"N selected\" / \"All N matching selected\" / \"All N matching except M\" with \"Select all N matching\" and \"Clear selection\"; status line \"Nothing selected\" for screen readers.",
+    "score": 0.59,
+    "missing": [
+      "Select <name>",
+      "Select the <plural> shown",
+      "N selected",
+      "All N matching selected",
+      "All N matching except M",
+      "Select all N matching",
+      "Clear selection",
+      "Nothing selected"
+    ],
+    "targets": [
+      "use/lists-and-filters"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.547955964107012,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.438586920083765,
+        "use/changing-many-records"
+      ],
+      [
+        0.4202000048782163,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C0852",
+    "section": "use",
+    "item": "Common pattern: a catalogue (left) with a \"Search \u2026\" field, a detail (right); conflicts show a \"Not saved\" warning (\"\u2026 changed while the page was open. \u2026 choose again.\"); failures show \"The action could not be completed\".",
+    "score": 0.37,
+    "missing": [
+      "Not saved",
+      "\u2026 changed while the page was open. \u2026 choose again.",
+      "The action could not be completed"
+    ],
+    "targets": [
+      "use/lists-and-filters"
+    ],
+    "weighted": 0.23,
+    "best": [
+      [
+        0.49589668086187877,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.4891133237742466,
+        "use/importing-and-exporting"
+      ],
+      [
+        0.48411991897885326,
+        "use/change-sets"
+      ]
+    ]
+  },
+  {
+    "id": "C0863",
+    "section": "use",
+    "item": "No global shortcuts (no command palette; no key focuses search; checked: only local key handlers under src). Local ones:.",
+    "score": 0.55,
+    "missing": [],
+    "targets": [
+      "use/appearance-and-devices"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.35276805614639695,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.2323963458957424,
+        "run/https"
+      ],
+      [
+        0.20036429528601954,
+        "model/workbook-proposals"
+      ]
+    ]
+  },
+  {
+    "id": "C0866",
+    "section": "use",
+    "item": "Read a record/list in a change set or publication (staged/published content, never live).",
+    "score": 0.43,
+    "missing": [],
+    "targets": [
+      "use/lists-and-filters"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        0.8708928107647629,
+        "use/change-sets"
+      ],
+      [
+        0.7306829256379687,
+        "guide/use/prepare-and-publish-a-change-set"
+      ],
+      [
+        0.7185773086118673,
+        "journeys/look-after-data"
+      ]
+    ]
+  },
+  {
+    "id": "C0869",
+    "section": "use",
+    "item": "Relation column chips in type colour, +N more, resizes live; shows data being viewed; sortable only when at most one; hidden column not read.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/lists-and-filters"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.42707511079884974,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.40879768771545194,
+        "model/record-pages-and-tables"
+      ],
+      [
+        0.38517932326733667,
+        "use/lists-and-filters"
+      ]
+    ]
+  },
+  {
+    "id": "C0870",
+    "section": "use",
+    "item": "Relationship candidate criteria enforced everywhere records are offered; dry-run copy of workspace finds relationships the new criteria would refuse.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/relationships",
+      "model/record-pages-and-tables"
+    ],
+    "weighted": 0.38,
+    "best": [
+      [
+        0.4569860384796534,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.3774102136545362,
+        "use/relationships"
+      ],
+      [
+        0.364938095900933,
+        "integrate/model-and-release-operations"
+      ]
+    ]
+  },
+  {
+    "id": "C0921",
+    "section": "use",
+    "item": "Sticky page title takes focus when a page opens (\"focusTitle\") and after a deleted record the list heading (CV:206-217).",
+    "score": 0.44,
+    "missing": [
+      "focusTitle"
+    ],
+    "targets": [
+      "use/appearance-and-devices"
+    ],
+    "weighted": 0.33,
+    "best": [
+      [
+        0.5838913535557791,
+        "use/records"
+      ],
+      [
+        0.5838913535557791,
+        "use/lists-and-filters"
+      ],
+      [
+        0.46714576614418163,
+        "guide/use/find-records"
+      ]
+    ]
+  },
+  {
+    "id": "C0924",
+    "section": "use",
+    "item": "The Settings area is SA, inside app/SettingsShell.tsx (left rail, header \"Settings\", group headings in h2.nav-label; on narrow screens the rail folds into a toggle \"Settings: <page>\"). The rail is built from SN by navigationFor(held): a page is listed only to a person holding one of its requires action groups somewhere; a group with no page left is not shown. A direct address to a page the person may not open is refused by the engine.",
+    "score": 0.33,
+    "missing": [
+      "Settings: <page>"
+    ],
+    "targets": [
+      "use/appearance-and-devices"
+    ],
+    "weighted": 0.25,
+    "best": [
+      [
+        0.3078840738339132,
+        "run/sign-in-and-mail-setup"
+      ],
+      [
+        0.27476087045362946,
+        "model/the-model-editor"
+      ],
+      [
+        0.2731971641894314,
+        "use/hierarchies"
+      ]
+    ]
+  },
+  {
+    "id": "C0986",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Explorer \"Collections\": one entry per collection (an object type with its views); entries with a mapping view show a mapping icon (tooltip \"Includes a mapping view\"); groups fold with \"Hide <group>\" / \"Show <group>\" chevron (folding remembered per device), group name opens the group page; a folded group that holds the open collection says \"(holds the open collection)\" to screen readers.",
+    "score": 0.43,
+    "missing": [
+      "Includes a mapping view",
+      "Hide <group>",
+      "Show <group>",
+      "(holds the open collection)"
+    ],
+    "targets": [
+      "use/applications"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.4881771613805969,
+        "model/applications-and-views"
+      ],
+      [
+        0.363361338793811,
+        "use/applications"
+      ],
+      [
+        0.36089578074059814,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1006",
+    "section": "use",
+    "item": "Following is opt-in for people who can browse the workspace; a publication notifies eligible followers except its publisher.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/notifications-settings"
+    ],
+    "weighted": 0.27,
+    "best": [
+      [
+        0.531123218887137,
+        "integrate/changes-approvals-and-publication"
+      ],
+      [
+        0.4736539224354623,
+        "use/inbox-and-approvals"
+      ],
+      [
+        0.32477031342951407,
+        "use/relationships"
+      ]
+    ]
+  },
+  {
+    "id": "C1007",
+    "section": "use",
+    "item": "Following: one notice per publication to followers, not publisher; unfollow; non-browsable 404.",
+    "score": 0.43,
+    "missing": [],
+    "targets": [
+      "use/notifications-settings"
+    ],
+    "weighted": 0.18,
+    "best": [
+      [
+        0.3913133333821864,
+        "integrate/changes-approvals-and-publication"
+      ],
+      [
+        0.27678873716538177,
+        "run/sign-in-and-mail-setup"
+      ],
+      [
+        0.2438421573333226,
+        "integrate/reading-records"
+      ]
+    ]
+  },
+  {
+    "id": "C1037",
+    "section": "use",
+    "item": "Weekly digest.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/notifications-settings"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        1.0,
+        "run/sign-in-and-mail-setup"
+      ],
+      [
+        1.0,
+        "integrate/changes-approvals-and-publication"
+      ],
+      [
+        0.38667146830325844,
+        "use/notifications-settings"
+      ]
+    ]
+  },
+  {
+    "id": "C1041",
+    "section": "use",
+    "item": "Publications listed newest first, read-only snapshots browsed like live; created-from vs superseded-by; withdraw current (designation only); row menu starts change set or withdraws; violet strip. The reader can publications.",
+    "score": 0.53,
+    "missing": [],
+    "targets": [
+      "use/publications"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.4500233053266899,
+        "use/change-sets"
+      ],
+      [
+        0.35417201834560086,
+        "use/publications"
+      ],
+      [
+        0.299071790181377,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C1050",
+    "section": "use",
+    "item": "A record: Concurrent-edit protection: every save sends the record version; refusal reloads current content, keeps the person's edits and says so (6.5), cells reload the row (4.17).",
+    "score": 0.47,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.6700613380727158,
+        "use/change-sets"
+      ],
+      [
+        0.5465293572421979,
+        "use/relationships"
+      ],
+      [
+        0.5097679470373956,
+        "run/background-jobs"
+      ]
+    ]
+  },
+  {
+    "id": "C1053",
+    "section": "use",
+    "item": "A record with dependants or relationships is not deleted without an explicit, previewed cascade.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/records",
+      "integrate/reading-records"
+    ],
+    "weighted": 0.4,
+    "best": [
+      [
+        0.8828819372585262,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.7437109340630036,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.6265928713215296,
+        "integrate/files-imports-and-exports"
+      ]
+    ]
+  },
+  {
+    "id": "C1058",
+    "section": "use",
+    "item": "A value must have the attribute type's value type; numbers must lie within minimum/maximum.",
+    "score": 0.6,
+    "missing": [],
+    "targets": [
+      "use/records",
+      "integrate/reading-records"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.5803560206744321,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.4311714548095161,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.4213642351496293,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C1059",
+    "section": "use",
+    "item": "A workspace can be deleted only if not default, never published, with no records or change sets; otherwise retire it. A model release can be deleted only if nothing refers to it. A workspace with subscriptions cannot be deleted.",
+    "score": 0.36,
+    "missing": [],
+    "targets": [
+      "model/types-attributes-relations"
+    ],
+    "weighted": 0.25,
+    "best": [
+      [
+        0.7538552931138961,
+        "administer/roles-and-grants"
+      ],
+      [
+        0.7138985425492038,
+        "journeys/shape-a-model"
+      ],
+      [
+        0.694890681061863,
+        "run/model-releases-and-rollback"
+      ]
+    ]
+  },
+  {
+    "id": "C1060",
+    "section": "use",
+    "item": "Acceptance scenario SC-01: Find the correct record without losing my place.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.3,
+    "best": [
+      [
+        0.45423914415435485,
+        "run/secrets-and-keys"
+      ],
+      [
+        0.39459401166994906,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.3929853439708322,
+        "use/home"
+      ]
+    ]
+  },
+  {
+    "id": "C1061",
+    "section": "use",
+    "item": "Acceptance scenario SC-03: Add a value or translation without incomplete intermediate records.",
+    "score": 0.14,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.1,
+    "best": [
+      [
+        0.4200864716232124,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.3670080795250474,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.2688022323712306,
+        "run/https"
+      ]
+    ]
+  },
+  {
+    "id": "C1065",
+    "section": "use",
+    "item": "Add a root record.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        1.0,
+        "run/sign-in-and-mail-setup"
+      ],
+      [
+        1.0,
+        "run/set-up-ai"
+      ],
+      [
+        1.0,
+        "run/https"
+      ]
+    ]
+  },
+  {
+    "id": "C1071",
+    "section": "use",
+    "item": "Bulk actions: \"Change values\" dialog: \"Change a field\" (menu of changeable fields), each added field a card with \"Set to\" / \"Clear\" and an input, \u00d7 \"Do not change <field>\"; line \"Changes N fields on 12 \u2026\" ; \"Fields you do not add keep their values.\" ; policy \"If a record is refused\": \"Change the rest\" / \"Change none\".",
+    "score": 0.47,
+    "missing": [
+      "Do not change <field>",
+      "Changes N fields on 12 \u2026",
+      "Fields you do not add keep their values.",
+      "If a record is refused"
+    ],
+    "targets": [
+      "guide/use/change-values-of-many-records"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.5317123670152996,
+        "use/relationships"
+      ],
+      [
+        0.49555682414147323,
+        "model/workbook-onboarding"
+      ],
+      [
+        0.47054797201617166,
+        "use/inbox-and-approvals"
+      ]
+    ]
+  },
+  {
+    "id": "C1077",
+    "section": "use",
+    "item": "Create in a change set invisible to live until published.",
+    "score": 0.6,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.7357644857864909,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.700779468733624,
+        "journeys/change-with-approval"
+      ],
+      [
+        0.5431814344092459,
+        "use/jobs"
+      ]
+    ]
+  },
+  {
+    "id": "C1078",
+    "section": "use",
+    "item": "Delete a deep subtree with relationships at several levels.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.19,
+    "best": [
+      [
+        0.6191203110833592,
+        "use/hierarchies"
+      ],
+      [
+        0.40899519519655886,
+        "journeys/look-after-data"
+      ],
+      [
+        0.40899519519655886,
+        "integrate/files-imports-and-exports"
+      ]
+    ]
+  },
+  {
+    "id": "C1124",
+    "section": "use",
+    "item": "Same actions can target a selected change set.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.28,
+    "best": [
+      [
+        1.0,
+        "use/relationships"
+      ],
+      [
+        1.0,
+        "use/relation-matrices"
+      ],
+      [
+        1.0,
+        "run/upgrades"
+      ]
+    ]
+  },
+  {
+    "id": "C1127",
+    "section": "use",
+    "item": "Where things are: A record.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/records"
+    ],
+    "weighted": 0.18,
+    "best": [
+      [
+        1.0,
+        "model/issues-and-dry-run"
+      ],
+      [
+        0.8212907556900585,
+        "about/compatibility-and-licence"
+      ],
+      [
+        0.17870924430994148,
+        "use/workspaces"
+      ]
+    ]
+  },
+  {
+    "id": "C1135",
+    "section": "use",
+    "item": "Collections: the table lens: Lenses: buttons for the other views of the same object type (table, mapping, matrix, tree icons), aria-current=\"page\".",
+    "score": 0.17,
+    "missing": [],
+    "targets": [
+      "use/relation-matrices"
+    ],
+    "weighted": 0.1,
+    "best": [
+      [
+        0.6051175399860209,
+        "model/applications-and-views"
+      ],
+      [
+        0.40169574399357166,
+        "guide/use/open-an-application"
+      ],
+      [
+        0.3687546755395454,
+        "use/records"
+      ]
+    ]
+  },
+  {
+    "id": "C1140",
+    "section": "use",
+    "item": "Each binding shape: owned dependant, optional association, many-to-many read reverse.",
+    "score": 0.12,
+    "missing": [],
+    "targets": [
+      "use/relation-matrices"
+    ],
+    "weighted": 0.2,
+    "best": [
+      [
+        0.6453268179525132,
+        "use/records"
+      ],
+      [
+        0.5130413044006218,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.4376421653339403,
+        "use/relationships"
+      ]
+    ]
+  },
+  {
+    "id": "C1144",
+    "section": "use",
+    "item": "Matrix: arrows, Home/End, Enter/Space (RelationMatrixView.tsx:272-295). Pickers: arrows across pages, Enter, Ctrl+Home/End (ObjectLookup.tsx header).",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/relation-matrices"
+    ],
+    "weighted": 0.34,
+    "best": [
+      [
+        0.5290226866785388,
+        "model/the-model-editor"
+      ],
+      [
+        0.5115869517115886,
+        "use/relationships"
+      ],
+      [
+        0.49833598950608166,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C1164",
+    "section": "use",
+    "item": "Translations as ordinary records: created with group, target, content in one operation; second active translation for same target+language refused.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/relation-matrices"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.6984274322953528,
+        "examples/the-consumer-api"
+      ],
+      [
+        0.6907876120387018,
+        "about/how-it-works"
+      ],
+      [
+        0.6624860906266627,
+        "model/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1166",
+    "section": "use",
+    "item": "Where things are: A collection (table / mapping grid / relation matrix / tree lens of one object type).",
+    "score": 0.36,
+    "missing": [],
+    "targets": [
+      "use/relation-matrices"
+    ],
+    "weighted": 0.26,
+    "best": [
+      [
+        0.6130905567796971,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.6130905567796971,
+        "model/applications-and-views"
+      ],
+      [
+        0.5570185669437127,
+        "guide/model/arrange-applications-and-views"
+      ]
+    ]
+  },
+  {
+    "id": "C1170",
+    "section": "use",
+    "item": "A relationship's identity (type, from, to) never changes; only its attributes do. Re-pointing one is delete + create.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/relationships"
+    ],
+    "weighted": 0.23,
+    "best": [
+      [
+        0.7382846031722163,
+        "run/model-releases-and-rollback"
+      ],
+      [
+        0.7106683593522747,
+        "use/importing-and-exporting"
+      ],
+      [
+        0.6324739509770908,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1173",
+    "section": "use",
+    "item": "Bulk actions: \"Change relationships\" dialog: pick \"Which relationship\"; action \"Add\" (set) / \"Remove\" / \"Replace with\" / \"Set to\" / \"Clear\" depending on the relationship; tick records (checklist); notes explaining each; \"Too many changes at once\", \"Too many records to preview\".",
+    "score": 0.44,
+    "missing": [
+      "Which relationship",
+      "Too many changes at once",
+      "Too many records to preview"
+    ],
+    "targets": [
+      "guide/use/change-relationships-of-many-records"
+    ],
+    "weighted": 0.32,
+    "best": [
+      [
+        0.48083720301096544,
+        "use/records"
+      ],
+      [
+        0.38744546631942617,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.38344149180600834,
+        "use/inbox-and-approvals"
+      ]
+    ]
+  },
+  {
+    "id": "C1175",
+    "section": "use",
+    "item": "Bulk \"Change relationships\" offers every allowed relationship in both directions except containment and required ownership, with the actions the cardinality allows.",
+    "score": 0.38,
+    "missing": [],
+    "targets": [
+      "use/changing-many-records"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.8690607027634467,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.8135392139148654,
+        "use/relationships"
+      ],
+      [
+        0.6322286429261982,
+        "integrate/writing-in-bulk"
+      ]
+    ]
+  },
+  {
+    "id": "C1176",
+    "section": "use",
+    "item": "Cardinality limits enforced (1:1, 1:n; n:m unlimited).",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "use/relationships"
+    ],
+    "weighted": 0.1,
+    "best": [
+      [
+        0.33377336148651954,
+        "journeys/manage-access"
+      ],
+      [
+        0.2899086186510985,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.2899086186510985,
+        "model/consumer-apis"
+      ]
+    ]
+  },
+  {
+    "id": "C1178",
+    "section": "use",
+    "item": "Change relationship attributes against its version; remove unless required.",
+    "score": 0.5,
+    "missing": [],
+    "targets": [
+      "use/relationships"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        1.0,
+        "integrate/files-imports-and-exports"
+      ],
+      [
+        0.8371282486113689,
+        "integrate/writing-in-bulk"
+      ],
+      [
+        0.7800911865430051,
+        "use/importing-and-exporting"
+      ]
+    ]
+  },
+  {
+    "id": "C1189",
+    "section": "use",
+    "item": "Large set: bounded previews with exact counts and continuation.",
+    "score": 0.17,
+    "missing": [],
+    "targets": [
+      "use/mapping-grids"
+    ],
+    "weighted": 0.1,
+    "best": [
+      [
+        0.9003784378849843,
+        "journeys/integrate-a-system"
+      ],
+      [
+        0.9003784378849843,
+        "integrate/model-and-release-operations"
+      ],
+      [
+        0.7649354483831358,
+        "integrate/writing-in-bulk"
+      ]
+    ]
+  },
+  {
+    "id": "C1198",
+    "section": "use",
+    "item": "Relationship outlives its criteria; change set still publishes.",
+    "score": 0.25,
+    "missing": [],
+    "targets": [
+      "use/relationships"
+    ],
+    "weighted": 0.09,
+    "best": [
+      [
+        0.3333163867670028,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.3333163867670028,
+        "journeys/integrate-a-system"
+      ],
+      [
+        0.3333163867670028,
+        "integrate/reading-records"
+      ]
+    ]
+  },
+  {
+    "id": "C1203",
+    "section": "use",
+    "item": "Relationships and pickers: Bulk \"Change relationships\" (4.16).",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "guide/use/change-relationships-of-many-records"
+    ],
+    "weighted": 0.0,
+    "best": [
+      [
+        1.0,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.6722733181037817,
+        "run/model-releases-and-rollback"
+      ],
+      [
+        0.6722733181037817,
+        "model/releases"
+      ]
+    ]
+  },
+  {
+    "id": "C1208",
+    "section": "use",
+    "item": "Relationships listed both directions, created, edited (own fields), removed; types, direction, cardinality, requiredness validated.",
+    "score": 0.4,
+    "missing": [],
+    "targets": [
+      "use/relationships"
+    ],
+    "weighted": 0.36,
+    "best": [
+      [
+        0.5325227170613007,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.5233685120458179,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.5031338803485889,
+        "guide/model/add-a-relationship"
+      ]
+    ]
+  },
+  {
+    "id": "C1265",
+    "section": "use",
+    "item": "A multi-workspace lookup requires its named elements in every workspace's model; counterpart IDs require the same model key. Copying or moving between different models instead uses a reviewed model mapping.",
+    "score": 0.29,
+    "missing": [],
+    "targets": [
+      "model/managing-workspaces",
+      "use/workspaces"
+    ],
+    "weighted": 0.22,
+    "best": [
+      [
+        0.6699335941235974,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.6240904969625233,
+        "journeys/shape-a-model"
+      ],
+      [
+        0.6033212688518643,
+        "integrate/model-and-release-operations"
+      ]
+    ]
+  },
+  {
+    "id": "C1270",
+    "section": "use",
+    "item": "Manage workspace defaults, retirement, reactivation, deletion, model changes and the deployment setting that disables mutations.",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "model/managing-workspaces",
+      "use/workspaces"
+    ],
+    "weighted": 0.3,
+    "best": [
+      [
+        0.5377024314230218,
+        "run/configure"
+      ],
+      [
+        0.4979249217647038,
+        "integrate/consumer-events-and-webhooks"
+      ],
+      [
+        0.37886782739028974,
+        "model/models"
+      ]
+    ]
+  },
+  {
+    "id": "C1271",
+    "section": "use",
+    "item": "Coverage audit to resolve: Page says Reader/Contributor roles can/cannot write; consistent with CF F27.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.19,
+    "best": [
+      [
+        0.5697200646580851,
+        "use/records"
+      ],
+      [
+        0.45092846089506644,
+        "about/what-is-refiroo"
+      ],
+      [
+        0.4026458230346237,
+        "use/change-sets"
+      ]
+    ]
+  },
+  {
+    "id": "C1293",
+    "section": "use",
+    "item": "Select a workspace by label or search; key in page address; one default workspace; single workspace shows label.",
+    "score": 0.33,
+    "missing": [],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.37,
+    "best": [
+      [
+        0.8643935960105856,
+        "model/types-attributes-relations"
+      ],
+      [
+        0.8643935960105856,
+        "model/the-model-editor"
+      ],
+      [
+        0.7614415287566223,
+        "use/hierarchies"
+      ]
+    ]
+  },
+  {
+    "id": "C1295",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Application tabs (one per application, with its coloured tile; tooltip = application description); current tab underlined.",
+    "score": 0.2,
+    "missing": [],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.04,
+    "best": [
+      [
+        0.3397708919749356,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.2636376281834457,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.25917581531500644,
+        "about/accessibility"
+      ]
+    ]
+  },
+  {
+    "id": "C1297",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Keyboard help: no help screen. Keyboard works as listed in section 17.",
+    "score": 0.0,
+    "missing": [],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.0,
+    "best": [
+      [
+        0.5276878721272233,
+        "about/accessibility"
+      ],
+      [
+        0.45740697679149384,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.4555592986566951,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C1298",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: \"Manage workspaces\" (button beside the switcher, or in the combobox) \u2192 Settings \u203a Workspaces \u203a this workspace.",
+    "score": 0.44,
+    "missing": [],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.21,
+    "best": [
+      [
+        0.555736443162997,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.4402226601682507,
+        "use/home"
+      ],
+      [
+        0.4045364974790247,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C1299",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Product mark \"<product> home\" goes to Home.",
+    "score": 0.14,
+    "missing": [
+      "<product> home"
+    ],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.08,
+    "best": [
+      [
+        0.4502462277891265,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.40272583710333837,
+        "model/models"
+      ],
+      [
+        0.36159205944067724,
+        "model/the-model-editor"
+      ]
+    ]
+  },
+  {
+    "id": "C1301",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Settings gear \"Settings\".",
+    "score": 0.2,
+    "missing": [],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.05,
+    "best": [
+      [
+        0.49714924438362834,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.36411767178781695,
+        "use/appearance-and-devices"
+      ],
+      [
+        0.36411767178781695,
+        "about/accessibility"
+      ]
+    ]
+  },
+  {
+    "id": "C1304",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Workspace switcher: combobox \"Workspace\" (type to search, 150 ms debounce, lists active workspaces the person can Browse, 50 at most; each option shows \"<model> <version>\" and \"Retired\"; a pill \"Other release\" or \"Other model\" when it differs from the current workspace); the description under it names the model and \"Retired \u00b7 read only\".",
+    "score": 0.35,
+    "missing": [
+      "<model> <version>"
+    ],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.16,
+    "best": [
+      [
+        0.4072102824871484,
+        "guide/use/find-records"
+      ],
+      [
+        0.3852329990406595,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.3677322478980862,
+        "use/inbox-and-approvals"
+      ]
+    ]
+  },
+  {
+    "id": "C1305",
+    "section": "use",
+    "item": "Shell, top bar, navigation, workspace switcher: Workspace whose model cannot be read: pill \"Cannot be opened\"; page explains (schema language too old/new, release invalid); card \"Bring it up to date\" \u2192 review dialog \"Raise <model> to schema <n>\" (\"Review the change\").",
+    "score": 0.24,
+    "missing": [
+      "Cannot be opened",
+      "Bring it up to date",
+      "Raise <model> to schema <n>",
+      "Review the change"
+    ],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.12,
+    "best": [
+      [
+        0.46744280191663906,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.39885081437342257,
+        "use/inbox-and-approvals"
+      ],
+      [
+        0.38040322099558477,
+        "guide/model/raise-a-model-language-version"
+      ]
+    ]
+  },
+  {
+    "id": "C1307",
+    "section": "use",
+    "item": "Where things are: Workspace picker in the top bar: \"Workspace\" combo box, per-workspace badge \"Other release\" / \"Other model\" / \"Retired \u00b7 read only\", action \"Manage workspaces\", menu \"Workspace actions\".",
+    "score": 0.58,
+    "missing": [],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.26,
+    "best": [
+      [
+        0.39027350934838423,
+        "model/models"
+      ],
+      [
+        0.3825769313170396,
+        "use/home"
+      ],
+      [
+        0.3491358883598992,
+        "use/appearance-and-devices"
+      ]
+    ]
+  },
+  {
+    "id": "C1310",
+    "section": "use",
+    "item": "Workspaces: \"New workspace\" dialog (eyebrow \"Workspace catalogue\"): Name, Key (\"Lowercase letters and digits, separated by single hyphens. The key is permanent and appears in links and API\u2026\"), fieldset \"Model\": \"The default workspace's model\" or \"Another installed release\" with \"Installed release\"; \"The new workspace starts empty on this release\u2026\"; \"Create workspace\".",
+    "score": 0.62,
+    "missing": [
+      "Lowercase letters and digits, separated by single hyphens. The key is permanent and appears in links and API\u2026",
+      "Another installed release",
+      "The new workspace starts empty on this release\u2026",
+      "Create workspace"
+    ],
+    "targets": [
+      "use/workspaces",
+      "model/managing-workspaces"
+    ],
+    "weighted": 0.39,
+    "best": [
+      [
+        0.6878892254005834,
+        "guide/model/create-a-workspace"
+      ],
+      [
+        0.6423687315002843,
+        "integrate/consumer-apis"
+      ],
+      [
+        0.35370567016413035,
+        "integrate/consumer-events-and-webhooks"
+      ]
+    ]
+  },
+  {
+    "id": "C1311",
+    "section": "use",
+    "item": "Workspaces: Not-found pages: \"Workspace <key> cannot be opened\", \"No workspace <key>\", \"<name> is not in this workspace's model\" with \"Workspaces whose model has <name>\" list and buttons to open; \"No other workspace's model has it.\"; buttons (start, back). Shell, top bar, navigation, workspace switcher: \"Workspace <key> cannot be opened\" / \"No workspace <key>\" ; \"<name> is not in this workspace's model\" with list \"Workspaces whose model has <name>\" and \"Open\" per workspace, buttons for the start page / \"Back\".",
+    "score": 0.53,
+    "missing": [
+      "Workspace <key> cannot be opened",
+      "No workspace <key>",
+      "<name> is not in this workspace's model",
+      "Workspaces whose model has <name>",
+      "Workspace <key> cannot be opened",
+      "No workspace <key>",
+      "<name> is not in this workspace's model",
+      "Workspaces whose model has <name>"
+    ],
+    "targets": [
+      "use/workspaces"
+    ],
+    "weighted": 0.35,
+    "best": [
+      [
+        0.5195762641870658,
+        "guide/use/switch-workspace"
+      ],
+      [
+        0.47224759552994106,
+        "guide/use/open-an-application"
+      ],
+      [
+        0.44035076713672533,
+        "run/configure"
+      ]
+    ]
+  }
+]

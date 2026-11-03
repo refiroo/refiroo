@@ -1,0 +1,72 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/v1/capabilities",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "1f7442051609417dae8fa774124aa7f3"
+  },
+  "body": {
+    "modelAdmin": {
+      "readReleases": true,
+      "manageDrafts": true,
+      "install": true,
+      "activate": true,
+      "setting": "MODEL_ADMIN_MUTATIONS_ENABLED"
+    },
+    "workspaceAdmin": {
+      "manageWorkspaces": true,
+      "setting": "WORKSPACE_ADMIN_MUTATIONS_ENABLED"
+    },
+    "integrationJobs": {
+      "createJobs": true,
+      "runModes": [
+        "inline",
+        "background"
+      ],
+      "limits": {
+        "batchMaxItems": 1000,
+        "batchMaxBytes": 5242880,
+        "atomicJobMaxItems": 10000,
+        "backgroundJobMaxItems": 1000000,
+        "backgroundBatchMaxBytes": 52428800,
+        "chunkItems": 500,
+        "importMaxBytes": 209715200,
+        "previewMaxItems": 10000,
+        "retentionDays": 7
+      },
+      "setting": "INTEGRATION_JOBS_ENABLED"
+    },
+    "changeFeed": {
+      "retentionDays": 30
+    },
+    "consumerApi": {
+      "resolveMaxItems": 1000,
+      "setting": "CONSUMER_RESOLVE_MAX_ITEMS"
+    },
+    "consumerSubscriptions": {
+      "manageSubscriptions": false,
+      "logRetentionDays": 7,
+      "delivery": {
+        "maxEventsPerBatch": 1000,
+        "maxBytes": 1048576,
+        "timeoutSeconds": 10,
+        "retryWaitsSeconds": [
+          10,
+          30,
+          60,
+          120,
+          300,
+          600,
+          1800
+        ],
+        "laterWaitSeconds": 3600,
+        "retryHours": 24
+      },
+      "setting": "CONSUMER_SUBSCRIPTIONS_ENABLED"
+    }
+  }
+}

@@ -10,7 +10,21 @@ One engine serves many model-defined applications through a web front end and an
 
 The service validates the model and uses it to interpret records, fields, relationships and views. It supplies the same data rules to ordinary edits, bulk jobs, imports and publication. The browser renders the views defined by the model rather than implementing a separate application for each domain.
 
-The backend uses Python and FastAPI, with SQLAlchemy for database access and Alembic for database migrations. The web front end uses React and TypeScript, built with Vite. PostgreSQL holds model releases, reference data, history and operational state. These choices matter most to the team running or extending refiroo; the [operator overview](/docs/run/overview/) explains what they deploy.
+The backend uses Python 3.14 and FastAPI, served by Uvicorn, with Pydantic 2 for typed inputs, SQLAlchemy 2 for database access and Alembic for database migrations. PostgreSQL holds model releases, reference data, history and operational state; the reference installation uses PostgreSQL 17 with ICU text collation. The web front end uses React and TypeScript, built with Vite.
+
+Docker Compose runs the reference installation. Its nginx 1.28 web server serves the interface and forwards API requests to the engine. For automatic HTTPS, an optional Caddy 2 service obtains and renews certificates through ACME, using Let's Encrypt or ZeroSSL. An organisation can instead supply its own certificates or use its existing HTTPS proxy. The [operator overview](/docs/run/overview/) explains what to deploy.
+
+## Standards and formats
+
+People can sign in through an organisation's OpenID Connect provider or local accounts. Local accounts support WebAuthn passkeys and time-based one-time passwords (TOTP) from authenticator apps. External systems authenticate with OAuth 2.0 client credentials. See [Who can do what](/docs/about/people-and-access/).
+
+The APIs exchange JSON and publish OpenAPI 3.1 contract documents. Consumer webhooks use HMAC-SHA256 signatures and offer RDM JSON or CloudEvents 1.0 messages. File exchange supports Excel .xlsx workbooks and CSV; notifications use SMTP mail. Operators can collect Prometheus metrics. These connections are configured by the organisation; reading the interface does not require a hosted analytics service.
+
+## Open-source components
+
+refiroo uses the AGPL-3.0-or-later licence. Its dependencies have their own licences. FastAPI, Pydantic, SQLAlchemy, Alembic, React, Vite, Astro, Starlight and the Scalar API-reference viewer use the MIT licence. Uvicorn and the WebAuthn verification library use BSD-3-Clause; the psycopg PostgreSQL driver uses LGPL-3.0-only. The repository's third-party notices list the bundled components and their licence texts, including libraries bundled with the driver.
+
+See [Licence and compatibility](/docs/about/compatibility-and-licence/) for the running installation's source offer, and [Licence and source](/docs/run/licence-and-source/) for configuring it.
 
 ## Background work survives a restart
 
@@ -26,7 +40,7 @@ An operator must configure shared signing material and shared job-file storage w
 
 ## Documentation stays with the installation
 
-The guide is bundled with the installation. Its pages, fonts and scripts are served locally, so reading it needs no outside service. The [API reference](/docs/api) also bundles its viewer by default and disables hosted extras. An operator can deliberately choose an externally hosted viewer script instead; that option needs internet access.
+The guide is built with Astro and Starlight, with local Pagefind search, and bundled with the installation. Its pages, fonts and scripts are served locally, so reading it needs no outside service. The [API reference](/docs/api) also bundles its Scalar viewer by default and disables hosted extras. An operator can deliberately choose an externally hosted viewer script instead; that option needs internet access.
 
 This local delivery concerns viewing documentation and the interface. Configured sign-in providers, mail servers and webhook receivers are separate connections chosen by the organisation.
 

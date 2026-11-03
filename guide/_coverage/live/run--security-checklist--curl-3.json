@@ -1,0 +1,20 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/v1/workspaces",
+  "status": 401,
+  "headers": {
+    "content-length": "122",
+    "content-type": "application/json",
+    "vary": "Origin",
+    "www-authenticate": "Bearer",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "30fbdd6c7168425ba9eb16f2b7299ac5"
+  },
+  "body": {
+    "error": {
+      "code": "AUTHENTICATION_REQUIRED",
+      "message": "This request needs an access token: Authorization: Bearer <token>"
+    }
+  }
+}

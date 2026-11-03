@@ -1,0 +1,45 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/v1/system",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "486fa7b10c954bb4a8987d5a22ce162a"
+  },
+  "body": {
+    "engine": {
+      "version": "0.12.0",
+      "managementApi": "v1",
+      "license": "AGPL-3.0-or-later",
+      "sourceCode": "https://github.com/refiroo/refiroo/tree/v0.12.0"
+    },
+    "schemaLanguages": [
+      "0.10"
+    ],
+    "activeModelRelease": {
+      "id": "fbb5d688-60ad-4f14-ae05-a2e619ff2aa1",
+      "key": "guide-reference-swiss",
+      "name": "Public transport stops of Graubünden",
+      "version": "1.0.0",
+      "schemaVersion": "0.10",
+      "activatedAt": "2026-11-02T17:05:58.563441Z"
+    },
+    "product": {
+      "name": "refiroo guide reference: stops of Graubünden",
+      "description": "Prototype of the user guide's reference domain: real public transport stops (Didok) with Wikidata names and codes"
+    },
+    "ai": {
+      "configured": false,
+      "provider": null,
+      "model": null,
+      "sendLevel": "values",
+      "assistant": false
+    },
+    "mcp": {
+      "enabled": false
+    }
+  }
+}

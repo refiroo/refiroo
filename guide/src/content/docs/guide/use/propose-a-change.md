@@ -21,6 +21,11 @@ Read [Change sets](/docs/use/change-sets/) for shared work and publication.
 5. Submit it for publication where offered, or ask someone holding Publish in this workspace
    to publish it. Submission freezes editing until withdrawal or send-back.
 
+![Propose a change dialog with a change-set name and Start and edit above a record in Live](/docs/screens/contributor-propose-change.png)
+
+*Above: a Contributor proposes a correction to Chur Wiesental in the Network application,
+Graubünden workspace. Cancel closes the dialog without starting a change set.*
+
 A Reader sees **You can read this workspace** and whom to ask, rather than proposal controls.
 Narrowed permissions show actions only for the covered types. Check **Account › What you can do**
 if an expected offer is absent. A publication and a retired workspace remain read-only.

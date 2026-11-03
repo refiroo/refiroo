@@ -14,3 +14,7 @@ standards, protocols, formats, file formats (xlsx, CSV, JSON), providers and the
 fixes one. Evaluators get the overview on `about/how-it-is-built.md` (the components, standards and
 licences, from `THIRD_PARTY_NOTICES.md`, `compose*.yml`, the Dockerfiles and `backend/pyproject.toml`).
 Take each name from the files; never name something refiroo does not use.
+
+**Handoffs from the reconciliation jobs.** `_waves/reconcile/R-*.md` list facts each job found for pages it
+did not own (R-FUNCTIONALITY in particular hands facts to Model, Administer, Run and Integrate). Write each
+handed-off fact on its page, and mark it done in that ledger.

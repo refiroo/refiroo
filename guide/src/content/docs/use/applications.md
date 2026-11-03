@@ -67,3 +67,8 @@ not available.
 The group page's **Find a collection** searches collection names. **This group has no collections.**
 describes an empty group, rather than no records in its collections. For the shared table
 controls, see [Lists, search and filters](/docs/use/lists-and-filters/).
+
+On a wide screen, each application has a coloured tile in the top bar. The open application
+is underlined; hovering over its tab shows the model's description. The product mark returns
+to **Home**, and the gear opens **Settings**. On a phone, choose the application from the band
+beneath the top bar instead. See [Appearance and devices](/docs/use/appearance-and-devices/).

@@ -1,0 +1,16 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/health",
+  "status": 200,
+  "headers": {
+    "content-length": "15",
+    "content-type": "application/json",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "b108d4fe7e80419084dce25f96b37864"
+  },
+  "body": {
+    "status": "ok"
+  }
+}

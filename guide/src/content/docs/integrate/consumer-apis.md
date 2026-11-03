@@ -168,7 +168,7 @@ Read the authenticated index at `/api/consumer?workspace=graubuenden` in this ex
 
 In the browser, **Settings › Integration › Consumer APIs** lists the declared APIs, and **API reference** opens their interactive documents. Both describe the selected workspace's model; they do not make a contract available in another workspace. The [reference stops source](/docs/api/?api=consumer-stops-v1) is a pointer to this example's instance contract.
 
-The examples in this section use the reference snapshot of 2026-11-02. Object values were composed from that data with the engine's object renderer; they are not captures of a live HTTP session. Tokens, cursors, ETags, event positions, event IDs and delivery IDs depend on an instance and are marked as example values where used.
+The examples use the reference dataset of 2026-11-02. The worked object, list, lookup, resolution and Events response bodies on the linked pages were read from the reference instance. The comparison table above was composed with the object renderer; its operator object is not a captured Get by ID response. Cursors, ETags and event positions belong to a particular instance and read context. Obtain them from your own responses. Webhook deliveries remain explicitly illustrative.
 
 *Source: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0. Regional ticketing codes, where used, are fictional.*
 

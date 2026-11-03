@@ -6,6 +6,8 @@ reader: access-admin
 
 Use **Settings › Integration › Mail** to connect refiroo to your organisation’s mail server. You need **Security administration** for the whole instance. Mail carries password links and, when people choose them, inbox notices and digests. It never sends a password or an authenticator code.
 
+Every message includes plain text and an HTML version with the refiroo mascot and wordmark embedded in the message, so opening it does not load images from the server. If the model gives the product its own name, that name appears beside the wordmark.
+
 Without a saved server, nothing is sent. Administrators can still copy a new person’s password link and pass it on. Follow [Set up mail](/docs/guide/administer/set-up-mail/) to configure and test delivery.
 
 ## Mail server
@@ -60,7 +62,7 @@ The sign-in page offers **Forgotten your password?** when mail is configured. Pe
 
 Each person controls their own delivery under **Settings › General › Notification email › Email**. **Email me when something arrives in my inbox** uses the address shown there. Without an e-mail address, or for a client, the page explains there is nothing to choose. Administrators do not choose these preferences for others.
 
-Under **How each kind reaches me**, a person chooses **At once**, **Digest**, or **Off** for each kind. Immediate notices are plain text, sent once while under 24 hours old, and contain no record or change-set content. Turning mail on does not send a backlog of old notices.
+Under **How each kind reaches me**, a person chooses **At once**, **Digest**, or **Off** for each kind. Immediate notices include both plain text and HTML, are sent once while under 24 hours old, and contain no record, change-set, workspace or person content. Turning mail on does not send a backlog of old notices.
 
 Choosing Digest for the first kind starts a daily digest in the browser’s time zone. **The digest** offers its frequency and shows the zone and **Next digest**. Digests arrive at 07:00 daily or on Mondays; there is no mail when nothing unread remains, and notices already read are left out. **Workspaces I follow** lists followed workspaces with **Stop following**. Following is chosen from a workspace. See [Inbox and approvals](/docs/use/inbox-and-approvals/) for the person’s notices and tasks.
 

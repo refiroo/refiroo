@@ -1,0 +1,18 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer/stops/v1/lists/no-such-list?workspace=graubuenden",
+  "status": 404,
+  "headers": {
+    "content-type": "application/json",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "acddde0c7bcc4572b6c29d59f1264a17"
+  },
+  "body": {
+    "error": {
+      "code": "LIST_NOT_FOUND",
+      "message": "List 'no-such-list' not found"
+    }
+  }
+}

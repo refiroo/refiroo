@@ -6,7 +6,8 @@ reader: model-admin
 
 A dry run reads every mapped row without writing records. Model validity and row acceptance
 are separate checks. Open a workbook draft with **Model authoring** and see
-[Issues and dry runs](/docs/model/issues-and-dry-run/) for the different results.
+[Workbook onboarding](/docs/model/workbook-onboarding/#issues-and-the-dry-run-answer-different-questions)
+and [Issues and dry runs](/docs/model/issues-and-dry-run/) for the different results.
 
 1. Expand **Issues, history and dry run**. Resolve blocking **Issues** in the model or profile
    first, then choose **Dry run**.

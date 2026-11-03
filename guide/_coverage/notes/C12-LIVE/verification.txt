@@ -1,0 +1,5 @@
+PASS: 15 complete JSON response examples exactly match saved bodies, statuses and displayed headers.
+PASS: two ETag examples use real preceding GET tags and conditionally label 304 (not live-verified).
+PASS: all 70 unique request names have a final result; four writes excluded.
+PASS: JSON fences on all six edited pages parse.
+Changed pages: integrate/looking-up-and-resolving.md, integrate/reading-business-objects.md, integrate/consumer-events-and-webhooks.md, integrate/consumer-apis.md, examples/the-consumer-api.md, run/monitoring.md

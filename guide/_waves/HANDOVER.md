@@ -51,16 +51,22 @@ are completed. Pages are not moved between sections. Within a section that is on
 each described on a documentation page that links the guide pages it uses. The life-of-data concept that
 an earlier session proposed was rejected.
 
-## Delivery status (2026-11-03, stopped: Codex usage limit)
+## Delivery status (2026-11-03, delivered)
 
-The delivery chain is written as waves `C1-RECORD` … `C11-FINAL` in `_waves/`, with the shared rules in
-`_waves/COMPLETE-COMMON.md`; run them in order, one at a time, `run` then `check`. Run refiroo's sidebar
-already has its groups (`astro.config.mjs`). C1 ran one turn: CHANGELOG 0.3–0.6 read in full, later
-releases only selectively; `COVERAGE.md` has 3,920 provisional rows; 1,246 release leads unreconciled. Its
-second turn read the whole CHANGELOG and plans 0.7–0.9, applied a few corrections, then failed while
-compacting its context on Codex's usage limit; most of what it read was not written down. Its notes and
-extracts are kept in `_coverage/c1-notes/`. To resume: run `C1b-RELEASES` (one release at a time, saving
-after each, reusing the notes), then C2 onwards. If Codex runs out again, stop; Claude does not take over.
+Done: the record (C1, C1b), every section written (C2–C9), screenshots (C10, two rounds), the consumer API
+concept and examples (C3b, C6b), Run depth (C5b), About blend (C7b), reconciliation of every source
+document heading by heading (R-OPS, R-MODEL, R-CONSUMER, R-FUNCTIONALITY; ledgers in `_waves/reconcile/`),
+and the final check (C11): 225 pages, `npm run verify` passes, coverage 2,538 covered, 0 open, 399 after
+0.16, 169 not for readers. Mechanism: `tools/codex-chain.sh` (waits through Codex limits), per-section
+`sidebar/*.mjs` and `_waves/coverage/*.md`, `_waves/progress/` and `_waves/steer/` per job,
+`tools/publish-loop.sh`, `tools/split-coverage.py`, brand marking (`tools/rehype-brand.mjs`).
+
+Open: 16 screenshots need fixtures on the reference instance (`_waves/screens-wanted/C10-LATER.md`); the
+AI pages after 0.16 (`/docs/run/set-up-ai/` and the 399 deferred rows); commands, payloads and procedures
+were checked against the code, not run against a live instance. Product findings from the jobs' reports:
+consumer API version serving vs the compatibility commitment; an outdated encryption-setting name on the
+disabled Webhooks screen; a refused restore check can print a credential-bearing database URL; raising a
+model release prints internal numeric release IDs.
 
 ## Next
 

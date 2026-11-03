@@ -108,3 +108,11 @@ The workspace's Settings page offers **Overview**, **Access**, **Approval** and 
 according to your permissions. Overview links to its applications; Activity shows changes newest
 first, grouped by day. Access and Approval describe who can work here and how publication is
 approved. They do not grant editing rights simply because you can read the workspace.
+
+## A context that could not load
+
+**Loading the model…**, **Loading change set…** or **Loading publication…** means the read
+is still pending. **Could not load this content** reports a failed read, not an empty dataset.
+Read its explanation and use **Retry** after correcting a connection or service problem.
+**Return to Live**, where offered, leaves the failed snapshot view for this workspace's
+current data. Check the context banner before continuing; changes made in Live take effect immediately.

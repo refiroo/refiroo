@@ -256,8 +256,8 @@ not provide that grant. See [Clients](/docs/administer/clients/) and
 [Signing in and tokens](/docs/integrate/signing-in-and-tokens/).
 
 **Reference-data example:** replace the host and token with your instance's values. The bodies below
-use the 2 November 2026 reference snapshot, composed with the engine's object renderer. They are not
-captures of live requests. ETags, cursors and event identifiers shown as examples depend on an instance.
+were read from the reference instance using the 2 November 2026 dataset. ETags, cursors and event
+identifiers are the values from that read and depend on the instance. Obtain fresh values from your own responses.
 
 ```http
 GET /api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5?workspace=graubuenden HTTP/1.1
@@ -269,7 +269,7 @@ Accept: application/json
 HTTP/1.1 200 OK
 Content-Type: application/json
 RDM-Workspace: graubuenden
-ETag: "<etag-returned-by-your-instance>"
+ETag: W/"6d7feaf1a7d44b42750a:1"
 ```
 
 ```json
@@ -382,9 +382,9 @@ RDM-Workspace: graubuenden
   "workspace": "graubuenden",
   "publication": null,
   "pageSize": 1,
-  "nextCursor": "<next-cursor-returned-by-your-instance>",
+  "nextCursor": "eyJmaWx0ZXJzIjoiYjIzZTk0OTg0NzVlMDVmYWZmNTc1MGYzOTBkNDdlOWE3ZmJmZDQ5NWIwZWViZTc4NTY5ZDk4ZjE3ZmFkM2M1MiIsInBvc2l0aW9uIjpbIjAiLCI4NTAwMDA0IiwiU2VsdmEsIHZpYSBBbHBzdSBzcHYuIiwiNjU4M2U4YzktNTgyYy00YmM1LWIxMTMtZGJkYmNjMzFhNDRhIl0sInNjb3BlIjoiY29uc3VtZXItbGlzdDpzdG9wczphbGwtc3RvcHMiLCJzb3J0IjpbInN0b3AtbnVtYmVyOm51bGwiLCJzdG9wLW51bWJlciIsIm5hbWUiLCJpZCJdLCJ2ZXJzaW9uIjoxfQ.Xq2rRTwSbhFk87_MbE_pH5rw0C6dLWShygnYcAxwlxs",
   "prevCursor": null,
-  "anchor": "<anchor-returned-by-your-instance>",
+  "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6ImIyM2U5NDk4NDc1ZTA1ZmFmZjU3NTBmMzkwZDQ3ZTlhN2ZiZmQ0OTViMGVlYmU3ODU2OWQ5OGYxN2ZhZDNjNTIiLCJwb3NpdGlvbiI6WyIwIiwiODUwMDAwNCIsIlNlbHZhLCB2aWEgQWxwc3Ugc3B2LiIsIjY1ODNlOGM5LTU4MmMtNGJjNS1iMTEzLWRiZGJjYzMxYTQ0YSJdLCJzY29wZSI6ImNvbnN1bWVyLWxpc3Q6c3RvcHM6YWxsLXN0b3BzIiwic29ydCI6WyJzdG9wLW51bWJlcjpudWxsIiwic3RvcC1udW1iZXIiLCJuYW1lIiwiaWQiXSwidmVyc2lvbiI6MX0.JvqCknm2cJdxKet5Qn-csSed-VGI0kJdJgpKM6_DYSI",
   "totalCount": 2443,
   "startIndex": 0
 }
@@ -459,9 +459,9 @@ RDM-Workspace: graubuenden
   "workspace": "graubuenden",
   "publication": null,
   "pageSize": 1,
-  "nextCursor": "<next-cursor-for-this-operator>",
+  "nextCursor": "eyJmaWx0ZXJzIjoiNTRhMTExMzQxODIzZjk3NWYzNjkyNWMzZTEwMTk2ZDNiNjg4ZWY2OGQ1YWVkZjAyNGMxZGE1YTBhNmU5NjFmOCIsInBvc2l0aW9uIjpbIjAiLCI4NTA1MTczIiwiVHNjaGFtdXQtU2VsdmEiLCI4ZDkwZWVkZS0yM2NmLTQ3YzEtOGRhYy1jYjM3OTU2ZjVmZDUiXSwic2NvcGUiOiJjb25zdW1lci1saXN0OnN0b3BzOmFsbC1zdG9wcyIsInNvcnQiOlsic3RvcC1udW1iZXI6bnVsbCIsInN0b3AtbnVtYmVyIiwibmFtZSIsImlkIl0sInZlcnNpb24iOjF9.1v9cIpsLdk52jHId-gxF6o2ZOCtL2rUovcSK_qeVVxo",
   "prevCursor": null,
-  "anchor": "<anchor-for-this-operator>",
+  "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6IjU0YTExMTM0MTgyM2Y5NzVmMzY5MjVjM2UxMDE5NmQzYjY4OGVmNjhkNWFlZGYwMjRjMWRhNWEwYTZlOTYxZjgiLCJwb3NpdGlvbiI6WyIwIiwiODUwNTE3MyIsIlRzY2hhbXV0LVNlbHZhIiwiOGQ5MGVlZGUtMjNjZi00N2MxLThkYWMtY2IzNzk1NmY1ZmQ1Il0sInNjb3BlIjoiY29uc3VtZXItbGlzdDpzdG9wczphbGwtc3RvcHMiLCJzb3J0IjpbInN0b3AtbnVtYmVyOm51bGwiLCJzdG9wLW51bWJlciIsIm5hbWUiLCJpZCJdLCJ2ZXJzaW9uIjoxfQ.8FyXbvb1X-LjSKkbpn39MjxS1xGXaCaxFkbpxrQDCNc",
   "totalCount": 13,
   "startIndex": 0
 }
@@ -652,22 +652,27 @@ and rejected. For a file, follow [Resolve a file of codes](/docs/guide/integrate
 
 ### Reuse an unchanged answer
 
-Repeat the identical object request with the ETag received above, including its quotes:
+Read the `ETag` header from the earlier object GET and save it with that body. The captured header is
+`W/"6d7feaf1a7d44b42750a:1"`. Repeat the identical request with the complete value, including `W/`
+and both quotes. Use your own response header rather than a literal placeholder:
 
 ```http
 GET /api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5?workspace=graubuenden HTTP/1.1
 Host: <instance>
 Authorization: Bearer <consumer-token>
 Accept: application/json
-If-None-Match: "<etag-returned-by-your-instance>"
+If-None-Match: W/"6d7feaf1a7d44b42750a:1"
 ```
+
+If the saved tag still matches, the conditional response is:
+
 ```http
 HTTP/1.1 304 Not Modified
 RDM-Workspace: graubuenden
-ETag: "<etag-returned-by-your-instance>"
+ETag: W/"6d7feaf1a7d44b42750a:1"
 ```
 
-There is no response body; retain the cached answer. A 200 response replaces the body and tag
+A matching-tag 304 has no response body; retain the cached answer. A 200 response replaces the body and tag
 together. A live tag can change after another workspace write, even if this stop looks the same.
 
 ### Correct a request error
@@ -683,7 +688,6 @@ Accept: application/json
 ```http
 HTTP/1.1 404 Not Found
 Content-Type: application/json
-RDM-Workspace: graubuenden
 ```
 
 ```json
@@ -699,9 +703,10 @@ Correct the name from the workspace's contract. An error is not an empty collect
 
 ### Follow the declared event
 
-The declaration above enables `stops-changed`. This example supposes a committed name update at
-position 64, with events derived through that position. The occurrence, positions and event IDs
-are illustrative; the stop's values come from the reference data.
+The declaration above enables `stops-changed`. The response below reports the creation of
+Selva, via Alpsu spv. by an import job at position 207. Although the request starts after 63,
+the first matching event is later. The captured head is 8950 and `caughtUp` is false;
+continue with the returned cursor to read the remaining events.
 
 ```http
 GET /api/consumer/stops/v1/events?workspace=graubuenden&after=63&event=stops-changed&pageSize=1&payload=identity HTTP/1.1
@@ -719,29 +724,28 @@ RDM-Workspace: graubuenden
 {
   "items": [
     {
-      "eventId": "8b6b294b-ff1a-4bb8-898c-a2e412e64f71",
-      "position": 64,
-      "occurredAt": "2026-11-02T08:00:00+00:00",
+      "eventId": "4b4f3604-a821-7aff-1852-ae2b6cd1e8d2",
+      "position": 207,
+      "occurredAt": "2026-11-02T17:06:00.982769+00:00",
       "event": "stops-changed",
-      "change": "updated",
+      "change": "created",
       "contractVersion": 1,
       "objectType": "Stop",
-      "id": "8d90eede-23cf-47c1-8dac-cb37956f5fd5",
-      "code": "ch:1:sloid:5173",
-      "name": "Tschamut-Selva",
-      "changed": [
-        "name"
-      ],
+      "id": "6583e8c9-582c-4bc5-b113-dbdbcc31a44a",
+      "code": "ch:1:sloid:4",
+      "name": "Selva, via Alpsu spv.",
+      "changed": [],
       "cause": {
-        "kind": "user"
+        "kind": "job",
+        "id": "99f69475-71d1-47ce-abde-559e238691f4"
       }
     }
   ],
   "workspace": "graubuenden",
   "pageSize": 1,
-  "cursor": "<lasting-cursor-returned-by-your-instance>",
-  "caughtUp": true,
-  "headPosition": 64,
+  "cursor": "eyJmaWx0ZXJzIjoiYWVhNmJjYzI4YmQxNTAzZWMwYWNiMjQ2NjVkNzUxMzFjNjhjYTJmMjA4ZTEwMTM2NzQ4MmNmOWUxODY5MTcwYyIsInBvc2l0aW9uIjpbIjIwNyIsIjEiXSwic2NvcGUiOiJjb25zdW1lci1ldmVudHM6c3RvcHM6Z3JhdWJ1ZW5kZW4iLCJzb3J0IjpbInBvc2l0aW9uIiwib3JkaW5hbCJdLCJ2ZXJzaW9uIjoxfQ.jE5ueunEtvaETHuI__-kBACi5xvxqymz6-tzSB9_x-w",
+  "caughtUp": false,
+  "headPosition": 8950,
   "earliestPosition": 1
 }
 ```
@@ -758,7 +762,8 @@ register a receiver. Delivery needs the deployment's webhook capability and a co
 see [Subscribe a webhook and verify it](/docs/guide/integrate/subscribe-a-webhook-and-verify-it/).
 
 For identity payloads in RDM JSON format, one event per request, the receiver gets the following
-complete body. It uses the public demonstration secret `guide-example-only`. The IDs, timestamp
+illustrative body for a separate name-update event; it is not a delivery captured from the feed above.
+It uses the public demonstration secret `guide-example-only`. The IDs, timestamp
 and signature are example values. The compact body has no trailing newline:
 
 ```http

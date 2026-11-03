@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (the documentation's sidebar)
+
+- **The documentation's sidebar starts folded.** Only About refiroo is open by default; every other section and its groups start closed. The section and group of the page being read open by themselves, and a reader's own folding is kept as before (`guide/astro.config.mjs`).
+- **"refiroo" is marked as the product name in the documentation's text**, in the wordmark's navy (light periwinkle in dark mode), by the build itself (`guide/tools/rehype-operator.mjs`); code and names such as `refiroo-guide-ref` are left as they are.
+
 ### Fixed (CI on GitHub)
 
 - **The frontend tests pass under Node 22**, the version CI, the images and the README name. Browser storage is cleared after each test (`src/test/setup.ts`): under Node 22 jsdom kept a saved preference, an open section or a hidden column, into the next test of a file, while Node 26 leaves `localStorage` undefined, so the leak did not show on the developer instance. The release detail test waits for the activation check's request instead of expecting it with the first text. `docs/testing/EXECUTION_GUIDE.md` lists the AG3 browser module.

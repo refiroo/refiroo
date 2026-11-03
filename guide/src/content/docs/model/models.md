@@ -122,3 +122,6 @@ of refiroo. Model drafts and activation history identify the author of changes.
 A draft accepts at most 500 operations in one grouped save. Ordinary visual actions group their
 related operations for you. A specialist exceeding that bound must split the work into smaller
 reviewable saves, rather than repeating the refused oversized save.
+
+When a draft is no longer needed, follow [Delete a draft](/docs/guide/model/delete-a-draft/).
+Export any design you need to keep first; deleting a draft removes its saved editing work and attached workbook.

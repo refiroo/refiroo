@@ -1,0 +1,4 @@
+# MAIL-HTML progress
+
+- 2026-11-03 22:03 CET — Finished `guide/src/content/docs/administer/mail.md`: added two sentences explaining the plain-text and HTML versions, embedded branding and model-defined product name; corrected the immediate-notice sentence while keeping its delivery limits. Verified against `html.py`, `smtp.build` and `templates.notice`; no uncertainties. No steering file existed before this unit. Build validation follows.
+- 2026-11-03 22:03 CET — Validated `guide/src/content/docs/administer/mail.md`: `GUIDE_OUT=_build/MAIL-HTML npm run build` passed (225 pages). Build warned about unsupported `caddyfile` highlighting in `run/https.md` and a conflicting `/404` route; neither concerns this page. Reviewed the page diff: only the requested sentence and two added sentences changed. No steering file existed before validation; no new screenshots needed or application defects found in the inspected mail code.

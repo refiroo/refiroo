@@ -1,0 +1,1179 @@
+{
+  "requests": [
+    {
+      "name": "examples--the-consumer-api--read-a-stop-by-its-id-1",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 263,
+      "expectStatus": 200
+    },
+    {
+      "name": "examples--the-consumer-api--read-a-list-then-narrow-it-2",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/all-stops",
+      "query": {
+        "workspace": "graubuenden",
+        "pageSize": "1",
+        "includeTotal": "true"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 331,
+      "expectStatus": 200
+    },
+    {
+      "name": "examples--the-consumer-api--read-a-list-then-narrow-it-3",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/all-stops",
+      "query": {
+        "workspace": "graubuenden",
+        "operator": "MGB-fo",
+        "pageSize": "1",
+        "includeTotal": "true"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 401,
+      "expectStatus": 200
+    },
+    {
+      "name": "examples--the-consumer-api--look-up-a-stop-number-4",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/xref",
+      "query": {
+        "workspace": "graubuenden",
+        "query": "8505173",
+        "expect": "one"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 480,
+      "expectStatus": 200
+    },
+    {
+      "name": "examples--the-consumer-api--resolve-several-inputs-5",
+      "auth": "consumer",
+      "method": "POST",
+      "path": "/api/consumer/stops/v1/resolve",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "defaults": {
+          "mode": "TRAIN"
+        },
+        "items": [
+          {
+            "ref": "row-1",
+            "query": "8505173"
+          },
+          {
+            "ref": "row-2",
+            "query": "T-9999"
+          }
+        ]
+      },
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 549,
+      "expectStatus": 200
+    },
+    {
+      "name": "examples--the-consumer-api--reuse-an-unchanged-answer-6",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json",
+        "If-None-Match": "W/\"6d7feaf1a7d44b42750a:1\""
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 660,
+      "expectStatus": 304,
+      "note": "Copy the complete ETag from the preceding object GET, including W/ and quotes. This saved example value can become stale. The original placeholder returned 200; a corrected 304 exchange has not been captured."
+    },
+    {
+      "name": "examples--the-consumer-api--correct-a-request-error-7",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/no-such-list",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 683,
+      "expectStatus": 404
+    },
+    {
+      "name": "examples--the-consumer-api--follow-the-declared-event-8",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/events",
+      "query": {
+        "workspace": "graubuenden",
+        "after": "63",
+        "event": "stops-changed",
+        "pageSize": "1",
+        "payload": "identity"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 712,
+      "expectStatus": 200
+    },
+    {
+      "name": "examples--the-consumer-api--receive-the-event-at-a-webhook-9",
+      "auth": "none",
+      "method": "POST",
+      "path": "/refiroo-events",
+      "query": {},
+      "headers": {
+        "Content-Type": "application/json",
+        "User-Agent": "rdm-engine",
+        "RDM-Delivery-Id": "85c0fa4d-c85c-4e2d-b788-24c8f3800fd8",
+        "RDM-Timestamp": "1793606400",
+        "RDM-Signature": "sha256=fd32dc6d2633f1ac0cad65c9fbe0d61353a581e66655509d391d9708d3fe15a6",
+        "Content-Length": "516"
+      },
+      "body": {
+        "deliveryId": "85c0fa4d-c85c-4e2d-b788-24c8f3800fd8",
+        "subscriptionId": "a7447804-c8c0-4e13-9a7f-117e7ec6ba15",
+        "consumerApi": "stops",
+        "contractVersion": 1,
+        "workspaceKey": "graubuenden",
+        "events": [
+          {
+            "eventId": "8b6b294b-ff1a-4bb8-898c-a2e412e64f71",
+            "position": 64,
+            "occurredAt": "2026-11-02T08:00:00+00:00",
+            "event": "stops-changed",
+            "change": "updated",
+            "contractVersion": 1,
+            "objectType": "Stop",
+            "id": "8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+            "code": "ch:1:sloid:5173",
+            "name": "Tschamut-Selva",
+            "changed": [
+              "name"
+            ],
+            "cause": {
+              "kind": "user"
+            }
+          }
+        ]
+      },
+      "write": true,
+      "page": "examples/the-consumer-api.md",
+      "line": 765,
+      "exampleHost": "receiver.example"
+    },
+    {
+      "name": "guide--integrate--read-through-a-consumer-api--work-through-the-reference-contract-1",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "guide/integrate/read-through-a-consumer-api.md",
+      "line": 25
+    },
+    {
+      "name": "guide--integrate--read-through-a-consumer-api--work-through-the-reference-contract-2",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/all-stops",
+      "query": {
+        "workspace": "graubuenden",
+        "pageSize": "1",
+        "includeTotal": "true"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "guide/integrate/read-through-a-consumer-api.md",
+      "line": 36
+    },
+    {
+      "name": "guide--integrate--resolve-a-file-of-codes--try-two-rows-from-the-reference-world-1",
+      "auth": "consumer",
+      "method": "POST",
+      "path": "/api/consumer/stops/v1/resolve",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "body": {
+        "defaults": {
+          "mode": "TRAIN"
+        },
+        "items": [
+          {
+            "ref": "row-1",
+            "query": "8505173"
+          },
+          {
+            "ref": "row-2",
+            "query": "T-9999"
+          }
+        ]
+      },
+      "write": false,
+      "page": "guide/integrate/resolve-a-file-of-codes.md",
+      "line": 23
+    },
+    {
+      "name": "guide--integrate--subscribe-a-webhook-and-verify-it--use-the-reference-event-end-to-end-1",
+      "auth": "admin",
+      "method": "POST",
+      "path": "/api/v1/consumer-subscriptions",
+      "query": {},
+      "headers": {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "body": {
+        "name": "Stop mirror",
+        "consumerApi": "stops",
+        "workspaceKey": "graubuenden",
+        "events": [
+          "stops-changed"
+        ],
+        "url": "https://receiver.example/refiroo-events",
+        "payload": "identity",
+        "format": "rdm",
+        "maxEventsPerBatch": 1
+      },
+      "write": true,
+      "page": "guide/integrate/subscribe-a-webhook-and-verify-it.md",
+      "line": 26,
+      "expectStatus": 201
+    },
+    {
+      "name": "integrate--consumer-events-and-webhooks--a-declaration-and-the-event-it-exposes-1",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/events",
+      "query": {
+        "workspace": "graubuenden",
+        "after": "63",
+        "event": "stops-changed",
+        "pageSize": "1",
+        "payload": "full"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/consumer-events-and-webhooks.md",
+      "line": 81,
+      "expectStatus": 200
+    },
+    {
+      "name": "integrate--consumer-events-and-webhooks--the-actual-webhook-request-shape-2",
+      "auth": "none",
+      "method": "POST",
+      "path": "/refiroo-events",
+      "query": {},
+      "headers": {
+        "Content-Type": "application/json",
+        "User-Agent": "rdm-engine",
+        "RDM-Delivery-Id": "85c0fa4d-c85c-4e2d-b788-24c8f3800fd8",
+        "RDM-Timestamp": "1793606400",
+        "RDM-Signature": "sha256=fd32dc6d2633f1ac0cad65c9fbe0d61353a581e66655509d391d9708d3fe15a6",
+        "Content-Length": "516"
+      },
+      "body": {
+        "deliveryId": "85c0fa4d-c85c-4e2d-b788-24c8f3800fd8",
+        "subscriptionId": "a7447804-c8c0-4e13-9a7f-117e7ec6ba15",
+        "consumerApi": "stops",
+        "contractVersion": 1,
+        "workspaceKey": "graubuenden",
+        "events": [
+          {
+            "eventId": "8b6b294b-ff1a-4bb8-898c-a2e412e64f71",
+            "position": 64,
+            "occurredAt": "2026-11-02T08:00:00+00:00",
+            "event": "stops-changed",
+            "change": "updated",
+            "contractVersion": 1,
+            "objectType": "Stop",
+            "id": "8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+            "code": "ch:1:sloid:5173",
+            "name": "Tschamut-Selva",
+            "changed": [
+              "name"
+            ],
+            "cause": {
+              "kind": "user"
+            }
+          }
+        ]
+      },
+      "write": true,
+      "page": "integrate/consumer-events-and-webhooks.md",
+      "line": 179,
+      "exampleHost": "receiver.example"
+    },
+    {
+      "name": "integrate--looking-up-and-resolving--a-lookup-with-a-score-1",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/xref",
+      "query": {
+        "workspace": "graubuenden",
+        "query": "8505173",
+        "pageSize": "20"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/looking-up-and-resolving.md",
+      "line": 62,
+      "expectStatus": 200
+    },
+    {
+      "name": "integrate--looking-up-and-resolving--a-crosswalk-from-a-stop-number-to-another-system-s-code-2",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/xref",
+      "query": {
+        "workspace": "graubuenden",
+        "query": "8505173",
+        "expect": "one",
+        "to.system": "wikidata-stations"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/looking-up-and-resolving.md",
+      "line": 159,
+      "expectStatus": 200
+    },
+    {
+      "name": "integrate--looking-up-and-resolving--resolve-a-small-file-in-one-request-3",
+      "auth": "consumer",
+      "method": "POST",
+      "path": "/api/consumer/stops/v1/resolve",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "defaults": {
+          "mode": "TRAIN"
+        },
+        "items": [
+          {
+            "ref": "row-1",
+            "query": "8505173"
+          },
+          {
+            "ref": "row-2",
+            "query": "T-9999"
+          }
+        ]
+      },
+      "write": false,
+      "page": "integrate/looking-up-and-resolving.md",
+      "line": 231,
+      "expectStatus": 200
+    },
+    {
+      "name": "integrate--reading-business-objects--a-complete-object-read-1",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/reading-business-objects.md",
+      "line": 36,
+      "expectStatus": 200
+    },
+    {
+      "name": "integrate--reading-business-objects--a-list-page-with-navigation-2",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/all-stops",
+      "query": {
+        "workspace": "graubuenden",
+        "pageSize": "1",
+        "includeTotal": "true"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/reading-business-objects.md",
+      "line": 102,
+      "expectStatus": 200
+    },
+    {
+      "name": "integrate--reading-business-objects--the-same-list-narrowed-by-a-declared-parameter-3",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/all-stops",
+      "query": {
+        "workspace": "graubuenden",
+        "operator": "MGB-fo",
+        "pageSize": "1",
+        "includeTotal": "true"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/reading-business-objects.md",
+      "line": 174,
+      "expectStatus": 200
+    },
+    {
+      "name": "integrate--reading-business-objects--reuse-an-unchanged-answer-4",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/objects/8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json",
+        "If-None-Match": "W/\"6d7feaf1a7d44b42750a:1\""
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/reading-business-objects.md",
+      "line": 251,
+      "expectStatus": 304,
+      "note": "Copy the complete ETag from the preceding object GET, including W/ and quotes. This saved example value can become stale. The original placeholder returned 200; a corrected 304 exchange has not been captured."
+    },
+    {
+      "name": "integrate--reading-business-objects--a-request-that-the-declaration-cannot-answer-5",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/lists/no-such-list",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {
+        "Accept": "application/json"
+      },
+      "body": null,
+      "write": false,
+      "page": "integrate/reading-business-objects.md",
+      "line": 274,
+      "expectStatus": 404
+    },
+    {
+      "name": "run--background-jobs--curl-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/background-jobs.md",
+      "line": 130,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--developer-instance--curl-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health/live",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/developer-instance.md",
+      "line": 85,
+      "exampleOrigin": "http://localhost:5173",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--developer-instance--curl-2",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/developer-instance.md",
+      "line": 85,
+      "exampleOrigin": "http://localhost:5173",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--health-and-startup-checks--curl-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health/live",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/health-and-startup-checks.md",
+      "line": 15,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--health-and-startup-checks--curl-2",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/health-and-startup-checks.md",
+      "line": 15,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--health-and-startup-checks--curl-3",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/health-and-startup-checks.md",
+      "line": 129,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--https--curl-1",
+      "auth": "none",
+      "method": "HEAD",
+      "path": "/",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/https.md",
+      "line": 65,
+      "exampleOrigin": "http://refiroo.example.org"
+    },
+    {
+      "name": "run--https--curl-2",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/https.md",
+      "line": 65,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--https--curl-3",
+      "auth": "none",
+      "method": "HEAD",
+      "path": "/",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/https.md",
+      "line": 176,
+      "exampleOrigin": "http://refiroo.example.org"
+    },
+    {
+      "name": "run--https--curl-4",
+      "auth": "none",
+      "method": "HEAD",
+      "path": "/",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/https.md",
+      "line": 176,
+      "exampleOrigin": "https://refiroo.example.org"
+    },
+    {
+      "name": "run--https--curl-5",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/https.md",
+      "line": 176,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--https--curl-6",
+      "auth": "none",
+      "method": "GET",
+      "path": "/metrics",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/https.md",
+      "line": 176,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 404
+    },
+    {
+      "name": "run--install-with-compose--curl-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/install-with-compose.md",
+      "line": 54,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--licence-and-source--curl-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/licence-and-source.md",
+      "line": 52,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--monitoring--curl-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {
+        "X-Request-Id": "operator-check"
+      },
+      "body": null,
+      "write": false,
+      "page": "run/monitoring.md",
+      "line": 205,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--production-checklist--curl-1",
+      "auth": "none",
+      "method": "HEAD",
+      "path": "/",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/production-checklist.md",
+      "line": 61,
+      "exampleOrigin": "http://refiroo.example.org"
+    },
+    {
+      "name": "run--production-checklist--curl-2",
+      "auth": "none",
+      "method": "HEAD",
+      "path": "/",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/production-checklist.md",
+      "line": 61,
+      "exampleOrigin": "https://refiroo.example.org"
+    },
+    {
+      "name": "run--production-checklist--curl-3",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health/live",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/production-checklist.md",
+      "line": 61,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--production-checklist--curl-4",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/production-checklist.md",
+      "line": 61,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--production-checklist--curl-5",
+      "auth": "none",
+      "method": "GET",
+      "path": "/metrics",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/production-checklist.md",
+      "line": 61,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 404
+    },
+    {
+      "name": "run--security-checklist--curl-1",
+      "auth": "none",
+      "method": "HEAD",
+      "path": "/",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/security-checklist.md",
+      "line": 62,
+      "exampleOrigin": "https://refiroo.example.org"
+    },
+    {
+      "name": "run--security-checklist--curl-2",
+      "auth": "none",
+      "method": "GET",
+      "path": "/metrics",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/security-checklist.md",
+      "line": 62,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 404
+    },
+    {
+      "name": "run--security-checklist--curl-3",
+      "auth": "none",
+      "method": "GET",
+      "path": "/api/v1/workspaces",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/security-checklist.md",
+      "line": 62,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 401
+    },
+    {
+      "name": "run--several-processes--curl-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/several-processes.md",
+      "line": 84,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--sign-in-and-mail-setup--curl-1",
+      "auth": "none",
+      "method": "POST",
+      "path": "/oauth/token",
+      "query": {},
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": "Basic <base64(CLIENT_ID:CLIENT_SECRET)>"
+      },
+      "body": "grant_type=client_credentials",
+      "write": true,
+      "page": "run/sign-in-and-mail-setup.md",
+      "line": 50,
+      "exampleOrigin": "http://localhost:8000",
+      "credentialRequired": true
+    },
+    {
+      "name": "run--sign-in-and-mail-setup--curl-2",
+      "auth": "admin",
+      "method": "GET",
+      "path": "/api/v1/workspaces",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/sign-in-and-mail-setup.md",
+      "line": 50,
+      "exampleOrigin": "http://localhost:8000"
+    },
+    {
+      "name": "run--sign-in-and-mail-setup--curl-3",
+      "auth": "none",
+      "method": "GET",
+      "path": "/.well-known/oauth-authorization-server",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/sign-in-and-mail-setup.md",
+      "line": 194,
+      "exampleOrigin": "https://refiroo.example.org"
+    },
+    {
+      "name": "run--troubleshooting--curl-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health/live",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/troubleshooting.md",
+      "line": 9,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--troubleshooting--curl-2",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/troubleshooting.md",
+      "line": 9,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--troubleshooting--curl-3",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health/live",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/troubleshooting.md",
+      "line": 95,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--troubleshooting--curl-4",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/troubleshooting.md",
+      "line": 95,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--upgrades--curl-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health/live",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/upgrades.md",
+      "line": 115,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--upgrades--curl-2",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/upgrades.md",
+      "line": 115,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "run--webhook-delivery--curl-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/health",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/webhook-delivery.md",
+      "line": 115,
+      "exampleOrigin": "https://refiroo.example.org",
+      "expectStatus": 200
+    },
+    {
+      "name": "examples--the-consumer-api--discover-index",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 789
+    },
+    {
+      "name": "examples--the-consumer-api--discover-openapi",
+      "auth": "none",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/openapi.json",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "examples/the-consumer-api.md",
+      "line": 790
+    },
+    {
+      "name": "guide--integrate--read-through-a-consumer-api--discover-index",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "guide/integrate/read-through-a-consumer-api.md",
+      "line": 10
+    },
+    {
+      "name": "guide--integrate--read-through-a-consumer-api--discover-openapi",
+      "auth": "none",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/openapi.json",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "guide/integrate/read-through-a-consumer-api.md",
+      "line": 10
+    },
+    {
+      "name": "integrate--consumer-apis--discover-index",
+      "auth": "consumer",
+      "method": "GET",
+      "path": "/api/consumer",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "integrate/consumer-apis.md",
+      "line": 167
+    },
+    {
+      "name": "integrate--consumer-apis--discover-openapi",
+      "auth": "none",
+      "method": "GET",
+      "path": "/api/consumer/stops/v1/openapi.json",
+      "query": {
+        "workspace": "graubuenden"
+      },
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "integrate/consumer-apis.md",
+      "line": 167
+    },
+    {
+      "name": "integrate--signing-in-and-tokens--inline-read-1",
+      "auth": "none",
+      "method": "GET",
+      "path": "/.well-known/oauth-authorization-server",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "integrate/signing-in-and-tokens.md",
+      "line": 37
+    },
+    {
+      "name": "integrate--signing-in-and-tokens--inline-read-2",
+      "auth": "none",
+      "method": "GET",
+      "path": "/oauth/jwks",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "integrate/signing-in-and-tokens.md",
+      "line": 37
+    },
+    {
+      "name": "run--configure--inline-read-1",
+      "auth": "admin",
+      "method": "GET",
+      "path": "/api/v1/system",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/configure.md",
+      "line": 37
+    },
+    {
+      "name": "run--configure--inline-read-2",
+      "auth": "admin",
+      "method": "GET",
+      "path": "/api/v1/system/configuration",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/configure.md",
+      "line": 38
+    },
+    {
+      "name": "run--configure--inline-read-3",
+      "auth": "admin",
+      "method": "GET",
+      "path": "/api/v1/capabilities",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/configure.md",
+      "line": 38
+    },
+    {
+      "name": "run--licence-and-source--inline-read-1",
+      "auth": "admin",
+      "method": "GET",
+      "path": "/api/v1/system",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/licence-and-source.md",
+      "line": 26
+    },
+    {
+      "name": "run--monitoring--inline-read-1",
+      "auth": "admin",
+      "method": "GET",
+      "path": "/metrics",
+      "query": {},
+      "headers": {},
+      "body": null,
+      "write": false,
+      "page": "run/monitoring.md",
+      "line": 67,
+      "expectStatus": 404,
+      "note": "Runner uses the reference public nginx origin: /metrics is deliberately 404 here even with admin auth. The documented Prometheus scrape uses the internal engine:8000 address and is not exercised by this request."
+    }
+  ]
+}

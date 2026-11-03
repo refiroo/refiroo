@@ -93,3 +93,16 @@ A replacement keeps the values of connections it retains when no new relationshi
 supplied. Explicit replacement values replace the whole collection of fields, and clearing
 all is allowed only if the model accepts it. In the ordinary mapping picker, choosing a target
 alone does not clear its existing relationship fields.
+
+## Empty results and an unavailable view
+
+**No results match these filters** means the mapping-state filter has no matching rows.
+Choose **All** and clear other conditions to widen the list. **No results match this search**
+means the search has no matches; change or clear it. **No … in this workspace yet** names the
+source record type when there are no rows and neither a state filter nor search is applied.
+Check that you are in the intended workspace and context before adding records.
+
+**This mapping view references an object type that does not exist in the active model.**
+means the view cannot be drawn. Reload after a model change. If it persists, give a model
+administrator the view name and message so they can correct the model; changing mappings
+cannot repair a missing type.

@@ -65,7 +65,9 @@ Follow [Add a relationship](/docs/guide/model/add-a-relationship/).
 
 A released element's key is fixed. Labels can change while identity stays the same. Operations
 that remove or restructure released elements check use by records, values and relationships,
-including change sets. A refusal reports the impact. Zero impact can allow a structural change;
+including change sets. The impact covers Live and open change sets in every workspace running
+the draft’s model; workspaces running other models and immutable publications are not counted.
+A refusal reports the impact. Zero impact can allow a structural change;
 a fixed key remains fixed even with no data. Changes that affect stored data need a reviewed
 [migration](/docs/model/migrations/), rather than an assumption that saving the draft converted it.
 

@@ -1,0 +1,82 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/v1/workspaces",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "8f39de167c3e4dcd80abafdb2ec3c0fb"
+  },
+  "body": {
+    "items": [
+      {
+        "key": "default",
+        "label": "Default",
+        "status": "active",
+        "version": 1,
+        "createdAt": "2026-11-02T17:05:19.888766Z",
+        "updatedAt": "2026-11-02T17:05:19.888766Z",
+        "model": {
+          "releaseId": "b09a28d4-7e8c-4681-b788-fd681d50abad",
+          "releaseKey": "rdm-starter",
+          "releaseName": "RDM Starter Model",
+          "releaseVersion": "0.10.0",
+          "schemaVersion": "0.10",
+          "modelHash": "dafbbc33584a8a99da053145bda2fef5119190df87f615a193a56e6e67936a28",
+          "version": 1,
+          "updatedAt": "2026-11-02T17:05:20.344256Z"
+        },
+        "availability": {
+          "state": "available"
+        }
+      },
+      {
+        "key": "graubuenden",
+        "label": "Graubünden",
+        "status": "active",
+        "version": 1,
+        "createdAt": "2026-11-02T17:05:58.559631Z",
+        "updatedAt": "2026-11-02T21:27:10.549729Z",
+        "model": {
+          "releaseId": "fbb5d688-60ad-4f14-ae05-a2e619ff2aa1",
+          "releaseKey": "guide-reference-swiss",
+          "releaseName": "Public transport stops of Graubünden",
+          "releaseVersion": "1.0.0",
+          "schemaVersion": "0.10",
+          "modelHash": "279dfe9a8914c0c1df513a3d2b62ebe24e5c08589ac1d8eefc0b68cb6e12cdb2",
+          "version": 1,
+          "updatedAt": "2026-11-02T17:05:58.563441Z"
+        },
+        "availability": {
+          "state": "available"
+        }
+      },
+      {
+        "key": "guide-workbook-test",
+        "label": "Guide workbook test",
+        "status": "active",
+        "version": 1,
+        "createdAt": "2026-11-02T21:27:44.786319Z",
+        "updatedAt": "2026-11-02T21:27:44.786324Z",
+        "model": {
+          "releaseId": "7b9d9306-0e4a-4422-80ac-f7bed01bb9f2",
+          "releaseKey": "guide-reference-swiss",
+          "releaseName": "Public transport stops of Graubünden",
+          "releaseVersion": "1.0.1",
+          "schemaVersion": "0.10",
+          "modelHash": "b12286cfc59dec13fa235b4a93930d91fe1102f95452cb5a43fd56a7ffe2277e",
+          "version": 2,
+          "updatedAt": "2026-11-02T21:29:05.859739Z"
+        },
+        "availability": {
+          "state": "available"
+        }
+      }
+    ],
+    "nextCursor": null,
+    "prevCursor": null,
+    "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6ImQwMjQ2ODMyNTMyMTlkNGQzNmRiNDlkMTkxNzAxMTYwM2Y4NWZlNzYzNzA5YjgzMGZiOGVjNDI5YzgzMTNkNGQiLCJwb3NpdGlvbiI6WyJkZWZhdWx0Il0sInNjb3BlIjoid29ya3NwYWNlcyIsInNvcnQiOlsia2V5Il0sInZlcnNpb24iOjF9.zTrR-UD082pads-HEr_Xb2fHu7MK1Hr8wdmf5TsyRuI"
+  }
+}

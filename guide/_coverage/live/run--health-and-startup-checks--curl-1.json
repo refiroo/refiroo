@@ -1,0 +1,16 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/health/live",
+  "status": 200,
+  "headers": {
+    "content-length": "15",
+    "content-type": "application/json",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "5464c117d3cf47edbd365d7d67b275d5"
+  },
+  "body": {
+    "status": "ok"
+  }
+}

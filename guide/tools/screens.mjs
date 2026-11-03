@@ -3,7 +3,8 @@
 // Usage: node guide/tools/screens.mjs [--file PILOT.screens.json] [--only a,b] [--list]
 // Reuses the Playwright installed in frontend/ (no second framework). Signs in through the engine's own
 // sign-in form as the reference administrator (GUIDE_ADMIN_USERNAME / GUIDE_ADMIN_PASSWORD in
-// guide/reference/.env). A screen with "as": "approver" signs in as GUIDE_APPROVER_* instead. Light theme; 1440 px wide unless a screen names another width.
+// guide/reference/.env). A screen with "as": "<role>" signs in with GUIDE_<ROLE>_USERNAME / GUIDE_<ROLE>_PASSWORD
+// instead ("approver", "contributor", ...); one session per role is reused. Light theme; 1440 px wide unless a screen names another width.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -47,7 +48,9 @@ async function newSession(browser, width, height, who = 'ADMIN') {
   await page.getByLabel('Username').fill(env[`GUIDE_${who}_USERNAME`]);
   await page.getByLabel('Password').fill(env[`GUIDE_${who}_PASSWORD`]);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.getByText('Your workspaces').waitFor();
+  // Signed in once the form is gone: a person with one workspace may land elsewhere than the workspace list.
+  await page.getByLabel('Password').waitFor({ state: 'detached' });
+  await page.waitForTimeout(1500);
   return { context, page };
 }
 

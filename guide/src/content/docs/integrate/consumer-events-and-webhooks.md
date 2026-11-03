@@ -75,7 +75,7 @@ Workspace subscriptions deliver `change-set.submitted`, `change-set.approved` an
 
 This adds an event named `stops-changed` to the contract's Events operation. It watches those output fields, so a change affecting only height is not this event. A broader event or additional watched fields needs a model declaration. Standard per-type events are available when a model declares them; this reference model declares this custom event instead.
 
-The following is an **illustrative update to the reference stop's name**, not a captured event from the seed. The object values are production-composed reference data; event IDs, positions and times are example values. Suppose the update is at position 64 and events have been derived through that position:
+The following response was read from the reference instance. Starting after position 63 returns the creation of Selva, via Alpsu spv. at position 207 by an import job. The full object is composed at position 8950. These positions, IDs and times belong to this instance:
 
 ```http
 GET /api/consumer/stops/v1/events?workspace=graubuenden&after=63&event=stops-changed&pageSize=1&payload=full HTTP/1.1
@@ -94,36 +94,35 @@ RDM-Workspace: graubuenden
 {
   "items": [
     {
-      "eventId": "8b6b294b-ff1a-4bb8-898c-a2e412e64f71",
-      "position": 64,
-      "occurredAt": "2026-11-02T08:00:00+00:00",
+      "eventId": "4b4f3604-a821-7aff-1852-ae2b6cd1e8d2",
+      "position": 207,
+      "occurredAt": "2026-11-02T17:06:00.982769+00:00",
       "event": "stops-changed",
-      "change": "updated",
+      "change": "created",
       "contractVersion": 1,
       "objectType": "Stop",
-      "id": "8d90eede-23cf-47c1-8dac-cb37956f5fd5",
-      "code": "ch:1:sloid:5173",
-      "name": "Tschamut-Selva",
-      "changed": [
-        "name"
-      ],
+      "id": "6583e8c9-582c-4bc5-b113-dbdbcc31a44a",
+      "code": "ch:1:sloid:4",
+      "name": "Selva, via Alpsu spv.",
+      "changed": [],
       "cause": {
-        "kind": "user"
+        "kind": "job",
+        "id": "99f69475-71d1-47ce-abde-559e238691f4"
       },
-      "stateAt": 64,
+      "stateAt": 8950,
       "object": {
         "objectType": "Stop",
-        "id": "8d90eede-23cf-47c1-8dac-cb37956f5fd5",
-        "code": "ch:1:sloid:5173",
-        "name": "Tschamut-Selva",
-        "validFrom": "2021-04-01",
+        "id": "6583e8c9-582c-4bc5-b113-dbdbcc31a44a",
+        "code": "ch:1:sloid:4",
+        "name": "Selva, via Alpsu spv.",
+        "validFrom": "2022-11-14",
         "validTo": null,
-        "stopNumber": 8505173,
-        "abbreviation": "TSSE",
+        "stopNumber": 8500004,
+        "abbreviation": "SAXX",
         "fsoNumber": null,
-        "latitude": "46.65674442039232",
-        "longitude": "8.709084193690385",
-        "height": "1701.3",
+        "latitude": "46.662107304536484",
+        "longitude": "8.723794590415595",
+        "height": "1553.9",
         "sboid": null,
         "parent": {
           "objectType": "Municipality",
@@ -133,37 +132,32 @@ RDM-Workspace: graubuenden
         },
         "path": "Graubünden/Surselva/Tujetsch",
         "operator": {
-          "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
-          "code": "MGB-fo",
-          "name": "Matterhorn Gotthard Bahn (fo)"
+          "id": "69907d18-f444-400a-b8a2-359bfbd405fc",
+          "code": "MGB/Autofo",
+          "name": "Automobildienst Matterhorn Gotthard Bahn (fo auto)"
         },
         "modes": [
           {
-            "id": "0f61601d-ec0c-4944-bab9-cf0d1d8665a9",
-            "code": "TRAIN",
-            "name": "Train"
+            "id": "ef9e4eea-74a4-4380-a426-b9faae4a298f",
+            "code": "BUS",
+            "name": "Bus"
           }
         ],
-        "systemCodes": [
-          {
-            "system": "Wikidata: stations",
-            "systemKey": "wikidata-stations",
-            "code": "Q33467326",
-            "name": "Q33467326 Tschamut-Selva"
-          }
-        ],
+        "systemCodes": [],
         "translations": []
       }
     }
   ],
   "workspace": "graubuenden",
   "pageSize": 1,
-  "cursor": "<lasting-cursor-after-this-event>",
-  "caughtUp": true,
-  "headPosition": 64,
+  "cursor": "eyJmaWx0ZXJzIjoiYWVhNmJjYzI4YmQxNTAzZWMwYWNiMjQ2NjVkNzUxMzFjNjhjYTJmMjA4ZTEwMTM2NzQ4MmNmOWUxODY5MTcwYyIsInBvc2l0aW9uIjpbIjIwNyIsIjEiXSwic2NvcGUiOiJjb25zdW1lci1ldmVudHM6c3RvcHM6Z3JhdWJ1ZW5kZW4iLCJzb3J0IjpbInBvc2l0aW9uIiwib3JkaW5hbCJdLCJ2ZXJzaW9uIjoxfQ.jE5ueunEtvaETHuI__-kBACi5xvxqymz6-tzSB9_x-w",
+  "caughtUp": false,
+  "headPosition": 8950,
   "earliestPosition": 1
 }
 ```
+
+This page contains one event and is not caught up: `caughtUp` is false and `headPosition` is 8950. Continue with its cursor even though it contains only one item. The creation event has an empty `changed` list.
 
 `position` says which committed change produced the event. `stateAt` says when the current object was composed; it can be later than the event position. `changed` names affected outputs, not old and new values. `cause` identifies the kind of work; it is not the actor's identity. A deletion omits `object` and `stateAt` and has null `code` and `name`.
 
@@ -173,7 +167,7 @@ With `payload=identity`, the event retains identity, change, cause and affected 
 
 A subscription is separate from that declaration. Choose the workspace, consumer API, event names, filters, receiver, payload, format and request batching. For this example, take an active subscription to `stops-changed` with **identity** payload, RDM JSON format and one event per request. Its [management operations](/docs/api/?api=management#tag/consumer%20subscriptions) require a management token with Integration administration, even though the receiver gets consumer events.
 
-Here is a complete delivery body in the compact form the sender signs. The IDs and timestamp are illustrative. The demonstration signing secret is the literal text `guide-example-only`; it is a public example, not a credential for any instance. The engine's production delivery encoder and signer generated this example header and body. There is no trailing newline in the signed body.
+Here is an illustrative delivery for a separate name-update event, not a captured delivery of the creation event above. The compact body is the form the sender signs. The IDs and timestamp are illustrative. The demonstration signing secret is the literal text `guide-example-only`; it is a public example, not a credential for any instance. The engine's production delivery encoder and signer generated this example header and body. There is no trailing newline in the signed body.
 
 ```http
 POST /refiroo-events HTTP/1.1
@@ -267,7 +261,7 @@ With batching enabled the body is an array of these CloudEvents and the content 
 
 Follow [Subscribe a webhook and verify it](/docs/guide/integrate/subscribe-a-webhook-and-verify-it/) for setup, testing, rotation and recovery in order. The [Events reference](/docs/api/?api=consumer-stops-v1#consumer-stops-v1/GET/api/consumer/stops/v1/events) documents the actual contract on your instance.
 
-*Source: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0. Event occurrence, delivery IDs and the verification key are illustrative.*
+*Source: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0. Webhook event occurrence, delivery IDs and the verification key are illustrative; the Events response above was read from the reference instance.*
 
 ## Rules for event declarations
 

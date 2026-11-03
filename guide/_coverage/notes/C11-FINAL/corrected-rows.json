@@ -1,0 +1,1990 @@
+[
+  {
+    "id": "C2236",
+    "item": "Acceptance scenario SC-14: Establish a working area and preserve stable access.",
+    "before": "[administer/roles-and-grants](../../src/content/docs/administer/roles-and-grants.md)",
+    "after": "[model/managing-workspaces](../../src/content/docs/model/managing-workspaces.md); [administer/roles-and-grants](../../src/content/docs/administer/roles-and-grants.md)",
+    "item_before": "Acceptance scenario SC-14: Establish a working area and preserve stable access."
+  },
+  {
+    "id": "C2246",
+    "item": "Changes list restricted to what caller may see.",
+    "before": "[administer/audit](../../src/content/docs/administer/audit.md)",
+    "after": "[integrate/security-model-for-integrators](../../src/content/docs/integrate/security-model-for-integrators.md); [use/history](../../src/content/docs/use/history.md)",
+    "item_before": "Changes list restricted to what caller may see."
+  },
+  {
+    "id": "C2318",
+    "item": "Release evidence awaiting reconciliation: A column no source reads is said before the proposal is accepted (found on the real walk-through). The proposal's checks name the filled cells of the tables a design reads that none of its sources covers (cellsLeftOut, e.g. a column under an empty header): the walk-through's workbook lost the \u2026.",
+    "before": "uncovered \u2192 administer/roles-and-grants \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: A column no source reads is said before the proposal is accepted (found on the real walk-through). The proposal's checks name the filled cells of the tables a design reads that none of its sources covers (cellsLeftOut, e.g. a column under an empty header): the walk-through's workbook lost the \u2026."
+  },
+  {
+    "id": "C2321",
+    "item": "Release evidence awaiting reconciliation: A proposal warns of new records beside held ones (design.checks kind besideHeld).",
+    "before": "uncovered \u2192 administer/roles-and-grants \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: A proposal warns of new records beside held ones (design.checks kind besideHeld)."
+  },
+  {
+    "id": "C2335",
+    "item": "Release evidence awaiting reconciliation: Rule: A definition's tool is offered where the caller holds its grant or Browse in the workspace. The tool only: /api/consumer stays closed to anything but a consumer token with a grant (D306, D307 unchanged). Refines AG-D3's \"the consumer definitions it is granted\". A client holding only a consumer API grant sees that tool and describe_access, and no other tool.. The journey \"what is the code of this value in the webshop system?\" must work for a person. Grants narrow writes only (D243), so Browse already reads every record of the workspace, and a definition gives it a new shape and no new.",
+    "before": "uncovered \u2192 administer/roles-and-grants \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: A definition's tool is offered where the caller holds its grant or Browse in the workspace. The tool only: /api/consumer stays closed to anything but a consumer token with a grant (D306, D307 unchanged). Refines AG-D3's \"the consumer definitions it is granted\". A client holding only a consumer API grant sees that tool and describe_access, and no other tool.. The journey \"what is the code of this value in the webshop system?\" must work for a person. Grants narrow writes only (D243), so Browse already reads every record of the workspace, and a definition gives it a new shape and no new."
+  },
+  {
+    "id": "C2342",
+    "item": "Release evidence awaiting reconciliation: Rule: A tool declares it writes. _run then sets the writer (the ceiling's permissions, group change-sets, the tool's action, the principal), never allows withdrawal, and runs the tool once with no size check. Reads stay as they are. validate_change_set writes its audit entry once and cuts its own diagnostics to fit, with a cursor. annotations become per tool: writes and validation are not readOnlyHint, and no tool is destructiveHint.. The one writer the routes use gives the same grants, record-type limits (D243), audit actor and created_by. A retry after a lost answer cannot apply twice, as the version it names has moved. /.",
+    "before": "uncovered \u2192 administer/roles-and-grants \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: A tool declares it writes. _run then sets the writer (the ceiling's permissions, group change-sets, the tool's action, the principal), never allows withdrawal, and runs the tool once with no size check. Reads stay as they are. validate_change_set writes its audit entry once and cuts its own diagnostics to fit, with a cursor. annotations become per tool: writes and validation are not readOnlyHint, and no tool is destructiveHint.. The one writer the routes use gives the same grants, record-type limits (D243), audit actor and created_by. A retry after a lost answer cannot apply twice, as the version it names has moved. /."
+  },
+  {
+    "id": "C2345",
+    "item": "Release evidence awaiting reconciliation: Rule: Citation to fact, fact to the changes. A fact carries a link: a record, a change set, a publication, a job, or a narrowing of the list. Show them narrows Activity in place under ScopeBanner, or filters a record's timeline by kind and person. GET /changes gains objectTypeKey, causeId and live=true, whole set, additive. A removed job has no link and says \"a job, since removed\".. The journey asks for links to the records. live is needed so the narrowed list is what the fact counted. Cost: one more filter set, on the JSON subject, within the workspace's rows. /.",
+    "before": "uncovered \u2192 administer/roles-and-grants \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: Citation to fact, fact to the changes. A fact carries a link: a record, a change set, a publication, a job, or a narrowing of the list. Show them narrows Activity in place under ScopeBanner, or filters a record's timeline by kind and person. GET /changes gains objectTypeKey, causeId and live=true, whole set, additive. A removed job has no link and says \"a job, since removed\".. The journey asks for links to the records. live is needed so the narrowed list is what the fact counted. Cost: one more filter set, on the JSON subject, within the workspace's rows. /."
+  },
+  {
+    "id": "C2359",
+    "item": "Release evidence awaiting reconciliation: Rule: No step missing in silence. An offer to start a task shows only when the person holds every permission its steps need, loading included (the rule that a flow is offered only if every step can finish). If a permission goes during the task, the page names who can do the step, as ReshapeSteps does.. A hidden button with no reason is a dead end. /.",
+    "before": "uncovered \u2192 administer/roles-and-grants \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: No step missing in silence. An offer to start a task shows only when the person holds every permission its steps need, loading included (the rule that a flow is offered only if every step can finish). If a permission goes during the task, the page names who can do the step, as ReshapeSteps does.. A hidden button with no reason is a dead end. /."
+  },
+  {
+    "id": "C2374",
+    "item": "Release evidence awaiting reconciliation: Rule: Two tools prove the registry: describe_access (always: who I am, my ceiling, my workspaces) and list_workspaces (needs Browse somewhere, paged, the service function of GET /workspaces). A tool declares the group it needs; one the principal lacks is not listed and is refused if called.. The journey \"lists only the tools its grants allow\" cannot run with no tools. AG2 adds to the same registry. /.",
+    "before": "uncovered \u2192 administer/roles-and-grants \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: Two tools prove the registry: describe_access (always: who I am, my ceiling, my workspaces) and list_workspaces (needs Browse somewhere, paged, the service function of GET /workspaces). A tool declares the group it needs; one the principal lacks is not listed and is refused if called.. The journey \"lists only the tools its grants allow\" cannot run with no tools. AG2 adds to the same registry. /."
+  },
+  {
+    "id": "C2385",
+    "item": "Release evidence awaiting reconciliation: Rule: Where do the tools come from?. Generated from what exists, not written per capability. Consumer API definitions (read, model-derived, already permissioned per definition) become one lookup/search tool each, with the definition's fields as the tool's schema. A c.",
+    "before": "uncovered \u2192 administer/roles-and-grants \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: Where do the tools come from?. Generated from what exists, not written per capability. Consumer API definitions (read, model-derived, already permissioned per definition) become one lookup/search tool each, with the definition's fields as the tool's schema. A c."
+  },
+  {
+    "id": "C2386",
+    "item": "Release evidence awaiting reconciliation: Rule: Where does the result go?. Approved by the user 2026-10-27. A change set by default, live only when the person says so and the permission allows. The profile is saved (the 0.10 profile mechanism), so next month's file runs through it unchanged: this is what.",
+    "before": "uncovered \u2192 administer/roles-and-grants \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: Where does the result go?. Approved by the user 2026-10-27. A change set by default, live only when the person says so and the permission allows. The profile is saved (the 0.10 profile mechanism), so next month's file runs through it unchanged: this is what."
+  },
+  {
+    "id": "C2473",
+    "item": "Release evidence awaiting reconciliation: A load that is wrong takes words. Words on a loaded task discard its change set (the page says first that any edits made in it go) and the same session loads again with them. The session's folder, transcript and client now stay until the change set is published or discarded, the migration \u2026.",
+    "before": "uncovered \u2192 administer/sign-in \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: A load that is wrong takes words. Words on a loaded task discard its change set (the page says first that any edits made in it go) and the same session loads again with them. The session's folder, transcript and client now stay until the change set is published or discarded, the migration \u2026."
+  },
+  {
+    "id": "C2476",
+    "item": "Release evidence awaiting reconciliation: A session no longer stops with an internal error when its stream carries a system event whose message is text, as a refused permission does.",
+    "before": "uncovered \u2192 administer/sign-in \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: A session no longer stops with an internal error when its stream carries a system event whose message is text, as a refused permission does."
+  },
+  {
+    "id": "C2519",
+    "item": "Token signing key rotated on schedule (TOKEN_SIGNING_KEY_DAYS); old tokens verify until expiry.",
+    "before": "[administer/signing-keys](../../src/content/docs/administer/signing-keys.md)",
+    "after": "[administer/signing-keys#normal-replacement](../../src/content/docs/administer/signing-keys.md#normal-replacement); [run/sign-in-and-mail-setup](../../src/content/docs/run/sign-in-and-mail-setup.md)",
+    "item_before": "Token signing key rotated on schedule (TOKEN_SIGNING_KEY_DAYS); old tokens verify until expiry."
+  },
+  {
+    "id": "C3962",
+    "item": "Deleting an unused workspace removes its feed positions and idempotency keys, retains audit entries without positions and allows its key to be created and written again.",
+    "before": "[model/managing-workspaces](../../src/content/docs/model/managing-workspaces.md) \u2014 reader task belongs to the linked section; no duplicate access-administration instructions.",
+    "after": "[integrate/workspaces-contexts-and-models#deletion-and-reusing-a-workspace-key](../../src/content/docs/integrate/workspaces-contexts-and-models.md#deletion-and-reusing-a-workspace-key)",
+    "item_before": "Deleting an unused workspace removes its feed positions and idempotency keys, retains audit entries without positions and allows its key to be created and written again."
+  },
+  {
+    "id": "C3128",
+    "item": "Model reads name release (X-Model-Release-Id); identifiers are stable keys/UUIDs.",
+    "before": "[integrate/discovering-the-model](../../src/content/docs/integrate/discovering-the-model.md)",
+    "after": "[integrate/discovering-the-model](../../src/content/docs/integrate/discovering-the-model.md); [integrate/identifiers-paging-and-errors](../../src/content/docs/integrate/identifiers-paging-and-errors.md)",
+    "item_before": "Model reads name release (X-Model-Release-Id); identifiers are stable keys/UUIDs."
+  },
+  {
+    "id": "C3303",
+    "item": "Follow a job as it changes (GET /jobs/{id}/events SSE); browser notified on finish.",
+    "before": "[integrate/jobs](../../src/content/docs/integrate/jobs.md)",
+    "after": "[integrate/jobs](../../src/content/docs/integrate/jobs.md); [use/jobs](../../src/content/docs/use/jobs.md)",
+    "item_before": "Follow a job as it changes (GET /jobs/{id}/events SSE); browser notified on finish."
+  },
+  {
+    "id": "C3518",
+    "item": "API GET /changes for anyone or everyone.",
+    "before": "[integrate/security-model-for-integrators](../../src/content/docs/integrate/security-model-for-integrators.md)",
+    "after": "[integrate/changes-approvals-and-publication](../../src/content/docs/integrate/changes-approvals-and-publication.md); [integrate/security-model-for-integrators](../../src/content/docs/integrate/security-model-for-integrators.md)",
+    "item_before": "API GET /changes for anyone or everyone."
+  },
+  {
+    "id": "C3674",
+    "item": "Racing relationships into one cell keep stored state right.",
+    "before": "[integrate/reading-records](../../src/content/docs/integrate/reading-records.md)",
+    "after": "[use/relation-matrices](../../src/content/docs/use/relation-matrices.md); [integrate/writing-in-bulk](../../src/content/docs/integrate/writing-in-bulk.md)",
+    "item_before": "Racing relationships into one cell keep stored state right."
+  },
+  {
+    "id": "C1316",
+    "item": "Create types and fields, choose placements and candidate criteria, and configure cardinality and required relationships within the visual editor\u2019s limits.",
+    "before": "[guide/model/add-a-record-type-and-fields](../../src/content/docs/guide/model/add-a-record-type-and-fields.md)",
+    "after": "[guide/model/add-a-record-type-and-fields](../../src/content/docs/guide/model/add-a-record-type-and-fields.md); [guide/model/add-a-relationship](../../src/content/docs/guide/model/add-a-relationship.md)",
+    "item_before": "Create types and fields, choose placements and candidate criteria, and configure cardinality and required relationships within the visual editor\u2019s limits."
+  },
+  {
+    "id": "C1324",
+    "item": "Arrange the columns, filters and default sort of an existing table view; creating arbitrary table views is not a visual-editor action.",
+    "before": "[guide/model/choose-table-columns-filters-and-sort](../../src/content/docs/guide/model/choose-table-columns-filters-and-sort.md)",
+    "after": "[guide/model/choose-table-columns-filters-and-sort](../../src/content/docs/guide/model/choose-table-columns-filters-and-sort.md)",
+    "item_before": "The reader can new (part of arrange guide today)."
+  },
+  {
+    "id": "C1416",
+    "item": "The model language defines MappingGridViewConfig.candidateSearchFields.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewConfig.candidateSearchFields."
+  },
+  {
+    "id": "C1417",
+    "item": "The model language defines MappingGridViewConfig.direction.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewConfig.direction."
+  },
+  {
+    "id": "C1418",
+    "item": "The model language defines MappingGridViewConfig.fromObjectTypeKey.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewConfig.fromObjectTypeKey."
+  },
+  {
+    "id": "C1419",
+    "item": "The model language defines MappingGridViewConfig.pageSize.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewConfig.pageSize."
+  },
+  {
+    "id": "C1420",
+    "item": "The model language defines MappingGridViewConfig.relationTypeKey.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewConfig.relationTypeKey."
+  },
+  {
+    "id": "C1421",
+    "item": "The model language defines MappingGridViewConfig.sourceColumns.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewConfig.sourceColumns."
+  },
+  {
+    "id": "C1422",
+    "item": "The model language defines MappingGridViewConfig.targetDisplayColumns.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewConfig.targetDisplayColumns."
+  },
+  {
+    "id": "C1423",
+    "item": "The model language defines MappingGridViewConfig.toObjectTypeKey.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewConfig.toObjectTypeKey."
+  },
+  {
+    "id": "C1424",
+    "item": "The model language defines MappingGridViewDefinition.config.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewDefinition.config."
+  },
+  {
+    "id": "C1425",
+    "item": "The model language defines MappingGridViewDefinition.key.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewDefinition.key."
+  },
+  {
+    "id": "C1426",
+    "item": "The model language defines MappingGridViewDefinition.name.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewDefinition.name."
+  },
+  {
+    "id": "C1427",
+    "item": "The model language defines MappingGridViewDefinition.type.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#mapping-grid-declarations](../../src/content/docs/model/applications-and-views.md#mapping-grid-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines MappingGridViewDefinition.type."
+  },
+  {
+    "id": "C1438",
+    "item": "The model language defines RelationMatrixViewConfig.cellActions.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.cellActions."
+  },
+  {
+    "id": "C1439",
+    "item": "The model language defines RelationMatrixViewConfig.cellFields.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.cellFields."
+  },
+  {
+    "id": "C1440",
+    "item": "The model language defines RelationMatrixViewConfig.cellObjectTypeKey.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.cellObjectTypeKey."
+  },
+  {
+    "id": "C1441",
+    "item": "The model language defines RelationMatrixViewConfig.columnLabelField.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.columnLabelField."
+  },
+  {
+    "id": "C1442",
+    "item": "The model language defines RelationMatrixViewConfig.columnObjectTypeKey.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.columnObjectTypeKey."
+  },
+  {
+    "id": "C1443",
+    "item": "The model language defines RelationMatrixViewConfig.direction.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.direction."
+  },
+  {
+    "id": "C1444",
+    "item": "The model language defines RelationMatrixViewConfig.pageSize.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.pageSize."
+  },
+  {
+    "id": "C1445",
+    "item": "The model language defines RelationMatrixViewConfig.relationTypeKey.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.relationTypeKey."
+  },
+  {
+    "id": "C1446",
+    "item": "The model language defines RelationMatrixViewConfig.rowColumns.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.rowColumns."
+  },
+  {
+    "id": "C1447",
+    "item": "The model language defines RelationMatrixViewConfig.rowObjectTypeKey.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.rowObjectTypeKey."
+  },
+  {
+    "id": "C1448",
+    "item": "The model language defines RelationMatrixViewConfig.searchFields.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewConfig.searchFields."
+  },
+  {
+    "id": "C1449",
+    "item": "The model language defines RelationMatrixViewDefinition.config.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewDefinition.config."
+  },
+  {
+    "id": "C1450",
+    "item": "The model language defines RelationMatrixViewDefinition.key.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewDefinition.key."
+  },
+  {
+    "id": "C1451",
+    "item": "The model language defines RelationMatrixViewDefinition.name.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewDefinition.name."
+  },
+  {
+    "id": "C1452",
+    "item": "The model language defines RelationMatrixViewDefinition.type.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#relation-matrix-rules](../../src/content/docs/model/applications-and-views.md#relation-matrix-rules); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines RelationMatrixViewDefinition.type."
+  },
+  {
+    "id": "C1487",
+    "item": "The model language defines TreeViewConfig.actions.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewConfig.actions."
+  },
+  {
+    "id": "C1488",
+    "item": "The model language defines TreeViewConfig.availabilityField.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewConfig.availabilityField."
+  },
+  {
+    "id": "C1489",
+    "item": "The model language defines TreeViewConfig.childSort.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewConfig.childSort."
+  },
+  {
+    "id": "C1490",
+    "item": "The model language defines TreeViewConfig.labelField.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewConfig.labelField."
+  },
+  {
+    "id": "C1491",
+    "item": "The model language defines TreeViewConfig.objectTypeKeys.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewConfig.objectTypeKeys."
+  },
+  {
+    "id": "C1492",
+    "item": "The model language defines TreeViewConfig.pageSize.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewConfig.pageSize."
+  },
+  {
+    "id": "C1493",
+    "item": "The model language defines TreeViewConfig.rootObjectTypeKeys.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewConfig.rootObjectTypeKeys."
+  },
+  {
+    "id": "C1494",
+    "item": "The model language defines TreeViewConfig.secondaryField.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewConfig.secondaryField."
+  },
+  {
+    "id": "C1495",
+    "item": "The model language defines TreeViewDefinition.config.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewDefinition.config."
+  },
+  {
+    "id": "C1496",
+    "item": "The model language defines TreeViewDefinition.key.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewDefinition.key."
+  },
+  {
+    "id": "C1497",
+    "item": "The model language defines TreeViewDefinition.name.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewDefinition.name."
+  },
+  {
+    "id": "C1498",
+    "item": "The model language defines TreeViewDefinition.type.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/applications-and-views#tree-declarations](../../src/content/docs/model/applications-and-views.md#tree-declarations); [model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "The model language defines TreeViewDefinition.type."
+  },
+  {
+    "id": "C1500",
+    "item": "Author mistakes refused at pointers (via, two verbs, duplicate role, alsoMatchThrough).",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis#declaration-rules-and-defaults](../../src/content/docs/integrate/consumer-apis.md#declaration-rules-and-defaults)",
+    "item_before": "Author mistakes refused at pointers (via, two verbs, duplicate role, alsoMatchThrough)."
+  },
+  {
+    "id": "C1506",
+    "item": "Model change (cardinality) changing projection shape is reported.",
+    "before": "[guide/model/define-a-consumer-api](../../src/content/docs/guide/model/define-a-consumer-api.md#define-notifications-and-review-the-contract)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis#review-a-contract-change](../../src/content/docs/integrate/consumer-apis.md#review-a-contract-change)",
+    "item_before": "Model change (cardinality) changing projection shape is reported."
+  },
+  {
+    "id": "C1512",
+    "item": "The model language defines AlsoMatchThrough.firstOf.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md#lookups-and-batch-answers); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines AlsoMatchThrough.firstOf."
+  },
+  {
+    "id": "C1513",
+    "item": "The model language defines AlsoMatchThrough.preferTypes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md#lookups-and-batch-answers); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines AlsoMatchThrough.preferTypes."
+  },
+  {
+    "id": "C1514",
+    "item": "The model language defines AlsoMatchThrough.related.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md#lookups-and-batch-answers); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines AlsoMatchThrough.related."
+  },
+  {
+    "id": "C1515",
+    "item": "The model language defines AncestorParameter.kind.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines AncestorParameter.kind."
+  },
+  {
+    "id": "C1516",
+    "item": "The model language defines AncestorParameter.matchFields.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines AncestorParameter.matchFields."
+  },
+  {
+    "id": "C1517",
+    "item": "The model language defines AncestorParameter.objectTypes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines AncestorParameter.objectTypes."
+  },
+  {
+    "id": "C1518",
+    "item": "The model language defines ConsumerApiDefinition.contractVersion.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.contractVersion."
+  },
+  {
+    "id": "C1519",
+    "item": "The model language defines ConsumerApiDefinition.description.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.description."
+  },
+  {
+    "id": "C1520",
+    "item": "The model language defines ConsumerApiDefinition.events.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.events."
+  },
+  {
+    "id": "C1521",
+    "item": "The model language defines ConsumerApiDefinition.key.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.key."
+  },
+  {
+    "id": "C1522",
+    "item": "The model language defines ConsumerApiDefinition.lists.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.lists."
+  },
+  {
+    "id": "C1523",
+    "item": "The model language defines ConsumerApiDefinition.match.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.match."
+  },
+  {
+    "id": "C1524",
+    "item": "The model language defines ConsumerApiDefinition.name.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.name."
+  },
+  {
+    "id": "C1525",
+    "item": "The model language defines ConsumerApiDefinition.object.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.object."
+  },
+  {
+    "id": "C1526",
+    "item": "The model language defines ConsumerApiDefinition.objectTypes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.objectTypes."
+  },
+  {
+    "id": "C1527",
+    "item": "The model language defines ConsumerApiDefinition.parameters.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.parameters."
+  },
+  {
+    "id": "C1528",
+    "item": "The model language defines ConsumerApiDefinition.projections.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDefinition.projections."
+  },
+  {
+    "id": "C1529",
+    "item": "The model language defines ConsumerApiDocument.contractVersion.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDocument.contractVersion."
+  },
+  {
+    "id": "C1530",
+    "item": "The model language defines ConsumerApiDocument.description.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDocument.description."
+  },
+  {
+    "id": "C1531",
+    "item": "The model language defines ConsumerApiDocument.exposes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDocument.exposes."
+  },
+  {
+    "id": "C1532",
+    "item": "The model language defines ConsumerApiDocument.filters.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDocument.filters."
+  },
+  {
+    "id": "C1533",
+    "item": "The model language defines ConsumerApiDocument.key.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDocument.key."
+  },
+  {
+    "id": "C1534",
+    "item": "The model language defines ConsumerApiDocument.name.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDocument.name."
+  },
+  {
+    "id": "C1535",
+    "item": "The model language defines ConsumerApiDocument.object.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDocument.object."
+  },
+  {
+    "id": "C1536",
+    "item": "The model language defines ConsumerApiDocument.operations.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDocument.operations."
+  },
+  {
+    "id": "C1537",
+    "item": "The model language defines ConsumerApiDocument.publicNames.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerApiDocument.publicNames."
+  },
+  {
+    "id": "C1538",
+    "item": "The model language defines ConsumerAttributeField.default.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md#sources-and-defaults); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerAttributeField.default."
+  },
+  {
+    "id": "C1539",
+    "item": "The model language defines ConsumerAttributeField.source.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md#sources-and-defaults); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerAttributeField.source."
+  },
+  {
+    "id": "C1540",
+    "item": "The model language defines ConsumerEvent.changes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines ConsumerEvent.changes."
+  },
+  {
+    "id": "C1541",
+    "item": "The model language defines ConsumerEvent.key.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines ConsumerEvent.key."
+  },
+  {
+    "id": "C1542",
+    "item": "The model language defines ConsumerEvent.objectTypes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines ConsumerEvent.objectTypes."
+  },
+  {
+    "id": "C1543",
+    "item": "The model language defines ConsumerEvent.watch.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines ConsumerEvent.watch."
+  },
+  {
+    "id": "C1544",
+    "item": "The model language defines ConsumerEventWatch.fields.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines ConsumerEventWatch.fields."
+  },
+  {
+    "id": "C1545",
+    "item": "The model language defines ConsumerEventWatch.projections.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines ConsumerEventWatch.projections."
+  },
+  {
+    "id": "C1546",
+    "item": "The model language defines ConsumerExposedType.publicName.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerExposedType.publicName."
+  },
+  {
+    "id": "C1547",
+    "item": "The model language defines ConsumerField.default.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md#sources-and-defaults); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerField.default."
+  },
+  {
+    "id": "C1548",
+    "item": "The model language defines ConsumerField.output.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md#the-business-object-consumers-read); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerField.output."
+  },
+  {
+    "id": "C1549",
+    "item": "The model language defines ConsumerField.source.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md#sources-and-defaults); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerField.source."
+  },
+  {
+    "id": "C1550",
+    "item": "The model language defines ConsumerList.key.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerList.key."
+  },
+  {
+    "id": "C1551",
+    "item": "The model language defines ConsumerList.objectType.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerList.objectType."
+  },
+  {
+    "id": "C1552",
+    "item": "The model language defines ConsumerList.parentParameter.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerList.parentParameter."
+  },
+  {
+    "id": "C1553",
+    "item": "The model language defines ConsumerList.sortBy.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerList.sortBy."
+  },
+  {
+    "id": "C1554",
+    "item": "The model language defines ConsumerListParent.name.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerListParent.name."
+  },
+  {
+    "id": "C1555",
+    "item": "The model language defines ConsumerListParent.objectTypes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerListParent.objectTypes."
+  },
+  {
+    "id": "C1556",
+    "item": "The model language defines ConsumerMatch.own.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerMatch.own."
+  },
+  {
+    "id": "C1557",
+    "item": "The model language defines ConsumerMatch.promoted.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerMatch.promoted."
+  },
+  {
+    "id": "C1558",
+    "item": "The model language defines ConsumerMatchRule.contains.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerMatchRule.contains."
+  },
+  {
+    "id": "C1559",
+    "item": "The model language defines ConsumerMatchRule.exact.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerMatchRule.exact."
+  },
+  {
+    "id": "C1560",
+    "item": "The model language defines ConsumerMatchRule.field.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerMatchRule.field."
+  },
+  {
+    "id": "C1561",
+    "item": "The model language defines ConsumerObjectDefinition.active.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerObjectDefinition.active."
+  },
+  {
+    "id": "C1562",
+    "item": "The model language defines ConsumerObjectDefinition.attributes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerObjectDefinition.attributes."
+  },
+  {
+    "id": "C1563",
+    "item": "The model language defines ConsumerObjectDefinition.code.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerObjectDefinition.code."
+  },
+  {
+    "id": "C1564",
+    "item": "The model language defines ConsumerObjectDefinition.hierarchy.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerObjectDefinition.hierarchy."
+  },
+  {
+    "id": "C1565",
+    "item": "The model language defines ConsumerObjectDefinition.id.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerObjectDefinition.id."
+  },
+  {
+    "id": "C1566",
+    "item": "The model language defines ConsumerObjectDefinition.name.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerObjectDefinition.name."
+  },
+  {
+    "id": "C1567",
+    "item": "The model language defines ConsumerObjectDefinition.parent.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerObjectDefinition.parent."
+  },
+  {
+    "id": "C1568",
+    "item": "The model language defines ConsumerObjectDefinition.path.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerObjectDefinition.path."
+  },
+  {
+    "id": "C1569",
+    "item": "The model language defines ConsumerObjectDefinition.validFrom.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerObjectDefinition.validFrom."
+  },
+  {
+    "id": "C1570",
+    "item": "The model language defines ConsumerObjectDefinition.validTo.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerObjectDefinition.validTo."
+  },
+  {
+    "id": "C1571",
+    "item": "The model language defines ConsumerParentField.fields.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerParentField.fields."
+  },
+  {
+    "id": "C1572",
+    "item": "The model language defines ConsumerParentField.output.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerParentField.output."
+  },
+  {
+    "id": "C1573",
+    "item": "The model language defines ConsumerProjection.fields.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerProjection.fields."
+  },
+  {
+    "id": "C1574",
+    "item": "The model language defines ConsumerProjection.from.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerProjection.from."
+  },
+  {
+    "id": "C1575",
+    "item": "The model language defines ConsumerPromotedMatch.firstMatch.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerPromotedMatch.firstMatch."
+  },
+  {
+    "id": "C1576",
+    "item": "The model language defines ConsumerPromotedMatch.preferTargetTypes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerPromotedMatch.preferTargetTypes."
+  },
+  {
+    "id": "C1577",
+    "item": "The model language defines ConsumerPromotedMatch.projection.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerPromotedMatch.projection."
+  },
+  {
+    "id": "C1578",
+    "item": "The model language defines ConsumerRelationRoute.direction.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerRelationRoute.direction."
+  },
+  {
+    "id": "C1579",
+    "item": "The model language defines ConsumerRelationRoute.relation.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ConsumerRelationRoute.relation."
+  },
+  {
+    "id": "C1580",
+    "item": "The model language defines EventsOperation.custom.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines EventsOperation.custom."
+  },
+  {
+    "id": "C1581",
+    "item": "The model language defines EventsOperation.description.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines EventsOperation.description."
+  },
+  {
+    "id": "C1582",
+    "item": "The model language defines EventsOperation.perType.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines EventsOperation.perType."
+  },
+  {
+    "id": "C1583",
+    "item": "The model language defines EventSpec.changes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines EventSpec.changes."
+  },
+  {
+    "id": "C1584",
+    "item": "The model language defines EventSpec.key.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines EventSpec.key."
+  },
+  {
+    "id": "C1585",
+    "item": "The model language defines EventSpec.objectTypes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines EventSpec.objectTypes."
+  },
+  {
+    "id": "C1586",
+    "item": "The model language defines EventSpec.watch.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines EventSpec.watch."
+  },
+  {
+    "id": "C1587",
+    "item": "The model language defines EventWatch.fields.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines EventWatch.fields."
+  },
+  {
+    "id": "C1588",
+    "item": "The model language defines EventWatch.related.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md); [integrate/consumer-events-and-webhooks](../../src/content/docs/integrate/consumer-events-and-webhooks.md)",
+    "item_before": "The model language defines EventWatch.related."
+  },
+  {
+    "id": "C1589",
+    "item": "The model language defines FilterSpec.keepOnlyMatching.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FilterSpec.keepOnlyMatching."
+  },
+  {
+    "id": "C1590",
+    "item": "The model language defines FilterSpec.scoreOnlyMatching.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FilterSpec.scoreOnlyMatching."
+  },
+  {
+    "id": "C1591",
+    "item": "The model language defines ObjectTypeParameter.kind.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ObjectTypeParameter.kind."
+  },
+  {
+    "id": "C1592",
+    "item": "The model language defines ProjectionParameter.kind.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ProjectionParameter.kind."
+  },
+  {
+    "id": "C1593",
+    "item": "The model language defines ProjectionParameter.matchFields.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ProjectionParameter.matchFields."
+  },
+  {
+    "id": "C1594",
+    "item": "The model language defines ProjectionParameter.projection.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ProjectionParameter.projection."
+  },
+  {
+    "id": "C1595",
+    "item": "The model language defines ProjectionParameter.requireMatch.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ProjectionParameter.requireMatch."
+  },
+  {
+    "id": "C1596",
+    "item": "The model language defines ProjectionParameter.scoresFrom.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ProjectionParameter.scoresFrom."
+  },
+  {
+    "id": "C1597",
+    "item": "The model language defines ProjectionParameter.targetable.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ProjectionParameter.targetable."
+  },
+  {
+    "id": "C1598",
+    "item": "The model language defines RelatedParameter.kind.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines RelatedParameter.kind."
+  },
+  {
+    "id": "C1599",
+    "item": "The model language defines RelatedParameter.matchFields.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines RelatedParameter.matchFields."
+  },
+  {
+    "id": "C1600",
+    "item": "The model language defines RelatedParameter.objectTypes.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines RelatedParameter.objectTypes."
+  },
+  {
+    "id": "C1601",
+    "item": "The model language defines RelatedParameter.via.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines RelatedParameter.via."
+  },
+  {
+    "id": "C1602",
+    "item": "The model language defines XrefOperation.alsoMatchThrough.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines XrefOperation.alsoMatchThrough."
+  },
+  {
+    "id": "C1607",
+    "item": "Issues, history, undo: Compare with the active release: only on the Install/Apply dialogs (\"changes\" lines) and the release page (2.7); not a standing compare view in the editor.",
+    "before": "[model/issues-and-dry-run](../../src/content/docs/model/issues-and-dry-run.md)",
+    "after": "[model/the-model-editor#compare-before-releasing](../../src/content/docs/model/the-model-editor.md#compare-before-releasing); [guide/model/compare-releases](../../src/content/docs/guide/model/compare-releases.md)",
+    "item_before": "Issues, history, undo: Compare with the active release: only on the Install/Apply dialogs (\"changes\" lines) and the release page (2.7); not a standing compare view in the editor."
+  },
+  {
+    "id": "C1619",
+    "item": "A workspace key is permanent (lowercase letters/digits with single hyphens, trimmed, <=160) and cannot be renamed; a key taken by a retired workspace is taken.",
+    "before": "[model/managing-workspaces](../../src/content/docs/model/managing-workspaces.md)",
+    "after": "[model/managing-workspaces](../../src/content/docs/model/managing-workspaces.md)",
+    "item_before": "A workspace key is permanent (case-sensitive, trimmed, <=160) and cannot be renamed; a key taken by a retired workspace is taken."
+  },
+  {
+    "id": "C1623",
+    "item": "Create a workspace with stable key and label; change label later.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[guide/model/create-a-workspace](../../src/content/docs/guide/model/create-a-workspace.md)",
+    "item_before": "Create a workspace with stable key and label; change label later."
+  },
+  {
+    "id": "C1624",
+    "item": "Delete an unreferenced release (reasons running/history/importProfile/mapping); model_release_prune for all retired.",
+    "before": "[guide/model/retire-or-delete-a-release](../../src/content/docs/guide/model/retire-or-delete-a-release.md)",
+    "after": "[guide/model/retire-or-delete-a-release](../../src/content/docs/guide/model/retire-or-delete-a-release.md); [run/model-releases-and-rollback](../../src/content/docs/run/model-releases-and-rollback.md)",
+    "item_before": "Delete an unreferenced release (reasons running/history/importProfile/mapping); model_release_prune for all retired."
+  },
+  {
+    "id": "C1625",
+    "item": "Each workspace resolves its own model; switching workspace switches applications and navigation.",
+    "before": "[model/managing-workspaces](../../src/content/docs/model/managing-workspaces.md)",
+    "after": "[use/workspaces#each-workspace-runs-its-own-model](../../src/content/docs/use/workspaces.md#each-workspace-runs-its-own-model)",
+    "item_before": "Each workspace resolves its own model; switching workspace switches applications and navigation."
+  },
+  {
+    "id": "C1630",
+    "item": "New release activated into one workspace only; old-release change sets listed as left behind.",
+    "before": "[model/migrations](../../src/content/docs/model/migrations.md)",
+    "after": "[guide/model/install-and-activate-a-release#apply-from-a-workspace](../../src/content/docs/guide/model/install-and-activate-a-release.md#apply-from-a-workspace)",
+    "item_before": "New release activated into one workspace only; old-release change sets listed as left behind."
+  },
+  {
+    "id": "C1646",
+    "item": "Activating into a workspace and migrating: Activate dialog (eyebrow \"Workspace model\"): \"Workspace\" picker, fieldset \"Release\", check results \"Compatible with <ws>'s data\" / \"A migration is needed\" / \"A different model\" / \"A consumer API needs a higher contract version\" / \"Could not be checked\" / \"Not activated\".",
+    "before": "[model/migrations](../../src/content/docs/model/migrations.md)",
+    "after": "[guide/model/change-a-workspaces-model](../../src/content/docs/guide/model/change-a-workspaces-model.md)",
+    "item_before": "Activating into a workspace and migrating: Activate dialog (eyebrow \"Workspace model\"): \"Workspace\" picker, fieldset \"Release\", check results \"Compatible with <ws>'s data\" / \"A migration is needed\" / \"A different model\" / \"A consumer API needs a higher contract version\" / \"Could not be checked\" / \"Not activated\"."
+  },
+  {
+    "id": "C1647",
+    "item": "Activating into a workspace and migrating: \"Apply to <workspace>\" / \"Apply to this workspace\u2026\" (editor opened from a workspace: main action, replaces Install) with notices \"Not valid\", \"Nothing to apply yet\", \"Some records must move first\", \"Your records stay as they are\", \"Not applied\"; \"Applying\u2026\".",
+    "before": "[model/migrations](../../src/content/docs/model/migrations.md)",
+    "after": "[guide/model/install-and-activate-a-release#apply-from-a-workspace](../../src/content/docs/guide/model/install-and-activate-a-release.md#apply-from-a-workspace)",
+    "item_before": "Activating into a workspace and migrating: \"Apply to <workspace>\" / \"Apply to this workspace\u2026\" (editor opened from a workspace: main action, replaces Install) with notices \"Not valid\", \"Nothing to apply yet\", \"Some records must move first\", \"Your records stay as they are\", \"Not applied\"; \"Applying\u2026\"."
+  },
+  {
+    "id": "C1649",
+    "item": "Activating into a workspace and migrating: \"Edit model\" on a workspace (opens the editor on the draft of the model the workspace runs; hidden without Model authoring, Model release and Browse, or for a retired workspace).",
+    "before": "[model/migrations](../../src/content/docs/model/migrations.md)",
+    "after": "[model/managing-workspaces#tabs-and-model-changes](../../src/content/docs/model/managing-workspaces.md#tabs-and-model-changes)",
+    "item_before": "Activating into a workspace and migrating: \"Edit model\" on a workspace (opens the editor on the draft of the model the workspace runs; hidden without Model authoring, Model release and Browse, or for a retired workspace)."
+  },
+  {
+    "id": "C1650",
+    "item": "Activating into a workspace and migrating: Impact summary (what the activation changes).",
+    "before": "uncovered \u2192 model/migrations",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Activating into a workspace and migrating: Impact summary (what the activation changes)."
+  },
+  {
+    "id": "C1681",
+    "item": "About: Read the product text \"Reference data that stays in step.\" with three points (\"Shape it to your domain.\", \"Connect, don't copy.\", \"One API for everything.\"); link \"API reference\" opens /docs/api.",
+    "before": "Outside Model scope: [index](../../src/content/docs/index.md)",
+    "after": "[administer/deployment-pages#about](../../src/content/docs/administer/deployment-pages.md#about)",
+    "item_before": "About: Read the product text \"Reference data that stays in step.\" with three points (\"Shape it to your domain.\", \"Connect, don't copy.\", \"One API for everything.\"); link \"API reference\" opens /docs/api."
+  },
+  {
+    "id": "C1682",
+    "item": "Acceptance scenario SC-13: Operate safely and move one workspace to new rules.",
+    "before": "[model/model-mappings](../../src/content/docs/model/model-mappings.md)",
+    "after": "[model/migrations](../../src/content/docs/model/migrations.md); [guide/model/migrate-a-workspace](../../src/content/docs/guide/model/migrate-a-workspace.md)",
+    "item_before": "Acceptance scenario SC-13: Operate safely and move one workspace to new rules."
+  },
+  {
+    "id": "C1698",
+    "item": "Mapping grid: Empty: \"No targets proposed by the AI in this change set\" / \"No results match these filters\" / \"No results match this search\" / \"No <plural> in this workspace yet\"; \"This mapping view references an object type that does not exist in the active model.\".",
+    "before": "partly: [model/model-mappings#proposals-need-your-decision](../src/content/docs/model/model-mappings.md#proposals-need-your-decision) \u2014 complete the specific behavior, options and refusals in this row",
+    "after": "[use/mapping-grids#empty-results-and-an-unavailable-view](../../src/content/docs/use/mapping-grids.md#empty-results-and-an-unavailable-view); AI-only proposed-target empty state after 0.16",
+    "item_before": "Mapping grid: Empty: \"No targets proposed by the AI in this change set\" / \"No results match these filters\" / \"No results match this search\" / \"No <plural> in this workspace yet\"; \"This mapping view references an object type that does not exist in the active model.\"."
+  },
+  {
+    "id": "C1699",
+    "item": "Mapping grid: \"Propose targets\" (sparkle) \u2192 dialog \"Propose targets\": \"Into change set\" (Current: \u201cname\u201d / New change set + \"New change set name\"), \"Propose\"; progress \"Proposing targets\u2026\", Stop; result counts (Proposed, Left unmapped: no likely target, Changed meanwhile, not touched, Refused by the model\u2019s rules, Not answered, left unmapped) and \"Show proposed\"; AI marks on targets (\"AiOriginMark\" + reason).",
+    "before": "partly: [model/model-mappings#proposals-need-your-decision](../src/content/docs/model/model-mappings.md#proposals-need-your-decision) \u2014 complete the specific behavior, options and refusals in this row",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Mapping grid: \"Propose targets\" (sparkle) \u2192 dialog \"Propose targets\": \"Into change set\" (Current: \u201cname\u201d / New change set + \"New change set name\"), \"Propose\"; progress \"Proposing targets\u2026\", Stop; result counts (Proposed, Left unmapped: no likely target, Changed meanwhile, not touched, Refused by the model\u2019s rules, Not answered, left unmapped) and \"Show proposed\"; AI marks on targets (\"AiOriginMark\" + reason)."
+  },
+  {
+    "id": "C1740",
+    "item": "Browser follows workspace's model: switching changes apps/nav/pages, toast on model/release difference, selector marks differing models; unknown app/collection/kind page lists workspaces with it.",
+    "before": "[guide/model/change-a-workspaces-model](../../src/content/docs/guide/model/change-a-workspaces-model.md)",
+    "after": "[use/workspaces#when-a-destination-cannot-open](../../src/content/docs/use/workspaces.md#when-a-destination-cannot-open); [guide/model/change-a-workspaces-model](../../src/content/docs/guide/model/change-a-workspaces-model.md)",
+    "item_before": "Browser follows workspace's model: switching changes apps/nav/pages, toast on model/release difference, selector marks differing models; unknown app/collection/kind page lists workspaces with it."
+  },
+  {
+    "id": "C1742",
+    "item": "Browser model editor: model pane with new/changed/released marks, element operations, relationship matrix, Move to\u2026/drag, issues linked to elements, plain-language history with undo, stale-editor prompt, Install and activate, phone tabs, Open as JSON.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/the-model-editor](../../src/content/docs/model/the-model-editor.md)",
+    "item_before": "Browser model editor: model pane with new/changed/released marks, element operations, relationship matrix, Move to\u2026/drag, issues linked to elements, plain-language history with undo, stale-editor prompt, Install and activate, phone tabs, Open as JSON."
+  },
+  {
+    "id": "C1749",
+    "item": "Each workspace runs its own release; create on chosen release; activate into one workspace (only its data checked, only its subscriptions suspended); change sets left behind named.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/managing-workspaces](../../src/content/docs/model/managing-workspaces.md); [model/migrations](../../src/content/docs/model/migrations.md); [guide/model/install-and-activate-a-release](../../src/content/docs/guide/model/install-and-activate-a-release.md)",
+    "item_before": "Each workspace runs its own release; create on chosen release; activate into one workspace (only its data checked, only its subscriptions suspended); change sets left behind named."
+  },
+  {
+    "id": "C1750",
+    "item": "Edit JSON draft with conflict protection, validate, compile, install immutable release, activate compatible one; installing never activates; activation refused for non-fitting data or incompatible consumer contract.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/json-view](../../src/content/docs/model/json-view.md); [model/releases](../../src/content/docs/model/releases.md); [guide/model/work-on-a-draft-with-others](../../src/content/docs/guide/model/work-on-a-draft-with-others.md)",
+    "item_before": "Edit JSON draft with conflict protection, validate, compile, install immutable release, activate compatible one; installing never activates; activation refused for non-fitting data or incompatible consumer contract."
+  },
+  {
+    "id": "C1751",
+    "item": "Editor with workbook: New from a workbook, source pane with sheets as tabs and column statuses, Map to\u2026, column details.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/workbook-onboarding](../../src/content/docs/model/workbook-onboarding.md)",
+    "item_before": "Editor with workbook: New from a workbook, source pane with sheets as tabs and column statuses, Map to\u2026, column details."
+  },
+  {
+    "id": "C1752",
+    "item": "Engine proposes model and mapping from a workbook: new application, additions to existing model (matched by name and held values), or nothing; shapes recognised (key/name, repeated parent, code+name, text lists, Y/N sets, multi-value cells, translations by row/column, GUIDs, placeholders, name drift); each proposal a \"Proposed:\" step marked Proposed with \"Proposed because\" evidence and alternatives; Propose again\u2026.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/workbook-onboarding](../../src/content/docs/model/workbook-onboarding.md); [model/workbook-proposals](../../src/content/docs/model/workbook-proposals.md)",
+    "item_before": "Engine proposes model and mapping from a workbook: new application, additions to existing model (matched by name and held values), or nothing; shapes recognised (key/name, repeated parent, code+name, text lists, Y/N sets, multi-value cells, translations by row/column, GUIDs, placeholders, name drift); each proposal a \"Proposed:\" step marked Proposed with \"Proposed because\" evidence and alternatives; Propose again\u2026."
+  },
+  {
+    "id": "C1753",
+    "item": "Import profile belongs to one model; draft compared with its model and shows per-workspace activation needs; model from workbook installed with new workspace.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/workbook-onboarding](../../src/content/docs/model/workbook-onboarding.md); [guide/model/install-and-activate-a-release](../../src/content/docs/guide/model/install-and-activate-a-release.md)",
+    "item_before": "Import profile belongs to one model; draft compared with its model and shows per-workspace activation needs; model from workbook installed with new workspace."
+  },
+  {
+    "id": "C1757",
+    "item": "Load into a change set\u2026 from editor: installs/activates (or saves profile), opens change set named after file, loads stored file through profile, opens review.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/workbook-onboarding#applying-and-keeping-the-work](../../src/content/docs/model/workbook-onboarding.md#applying-and-keeping-the-work)",
+    "item_before": "Load into a change set\u2026 from editor: installs/activates (or saves profile), opens change set named after file, loads stored file through profile, opens review."
+  },
+  {
+    "id": "C1766",
+    "item": "Models list, a model, its tabs: Create draft dialog: \"Draft name\"; \"Starting document\" = \"Installed release\" / \"Empty model\" / \"Import JSON\"; \"Base release\"; \"JSON document\" + \"Or choose a JSON file\"; for a workbook: \"Workbook\" (XLSX or CSV), \"Compare with the records of\", the Propose choices (see 7).",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[guide/model/create-a-model-draft](../../src/content/docs/guide/model/create-a-model-draft.md); [guide/model/start-a-draft-from-a-workbook](../../src/content/docs/guide/model/start-a-draft-from-a-workbook.md)",
+    "item_before": "Models list, a model, its tabs: Create draft dialog: \"Draft name\"; \"Starting document\" = \"Installed release\" / \"Empty model\" / \"Import JSON\"; \"Base release\"; \"JSON document\" + \"Or choose a JSON file\"; for a workbook: \"Workbook\" (XLSX or CSV), \"Compare with the records of\", the Propose choices (see 7)."
+  },
+  {
+    "id": "C1781",
+    "item": "Release evidence awaiting reconciliation: A published task points onward with Change this model\u2026 and Ask about these records\u2026, the same offers as the workspace menu (one hook, useAssistantOffers, for both). An offer, and the Accept and Load buttons, appear only for a person who holds every group the steps need, Work in change sets \u2026.",
+    "before": "uncovered \u2192 model/models \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: A published task points onward with Change this model\u2026 and Ask about these records\u2026, the same offers as the workspace menu (one hook, useAssistantOffers, for both). An offer, and the Accept and Load buttons, appear only for a person who holds every group the steps need, Work in change sets \u2026."
+  },
+  {
+    "id": "C1782",
+    "item": "Release evidence awaiting reconciliation: A refused step of a reshape is shown on the task. The next step that activates a release is checked with the release page's own check, and the engine's reasons appear above the words box. A loaded task recorded before AP13, whose folder went at its load, ends its session at its next read (canTell \u2026.",
+    "before": "uncovered \u2192 model/models \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: A refused step of a reshape is shown on the task. The next step that activates a release is checked with the release page's own check, and the engine's reasons appear above the words box. A loaded task recorded before AP13, whose folder went at its load, ends its session at its next read (canTell \u2026."
+  },
+  {
+    "id": "C1789",
+    "item": "Release evidence awaiting reconciliation: Conflicting values are kept: the session is told that a workbook's conflicting names or values are intended: it keeps them as they are and may raise them as a question.",
+    "before": "uncovered \u2192 model/models \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Conflicting values are kept: the session is told that a workbook's conflicting names or values are intended: it keeps them as they are and may raise them as a question."
+  },
+  {
+    "id": "C1798",
+    "item": "Retire/unretire a release; Retired model list; delete unreferenced release; pickers offer only choosable releases (new workspace: newest of each model; change set: all); model_release_prune.",
+    "before": "[guide/model/retire-or-delete-a-release](../../src/content/docs/guide/model/retire-or-delete-a-release.md)",
+    "after": "[guide/model/retire-or-delete-a-release](../../src/content/docs/guide/model/retire-or-delete-a-release.md); [run/model-releases-and-rollback](../../src/content/docs/run/model-releases-and-rollback.md); [model/releases](../../src/content/docs/model/releases.md)",
+    "item_before": "Retire/unretire a release; Retired model list; delete unreferenced release; pickers offer only choosable releases (new workspace: newest of each model; change set: all); model_release_prune."
+  },
+  {
+    "id": "C1801",
+    "item": "Settings \u203a Data operations \u203a Copy and move: saved mappings, recent moves, New copy or move\u2026, Copy or move data\u2026 from workspace page; move editor with figures, source types, mapping rows, Proposed marks, what cannot move, Start the move\u2026, phone tabs.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/model-mappings](../../src/content/docs/model/model-mappings.md); [guide/model/move-records-to-another-model](../../src/content/docs/guide/model/move-records-to-another-model.md)",
+    "item_before": "Settings \u203a Data operations \u203a Copy and move: saved mappings, recent moves, New copy or move\u2026, Copy or move data\u2026 from workspace page; move editor with figures, source types, mapping rows, Proposed marks, what cannot move, Start the move\u2026, phone tabs."
+  },
+  {
+    "id": "C1803",
+    "item": "Settings \u203a Model: installed releases and drafts, summaries, technical details, comparisons, JSON export; each at own address.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/models](../../src/content/docs/model/models.md); [model/releases](../../src/content/docs/model/releases.md); [guide/model/export-a-release](../../src/content/docs/guide/model/export-a-release.md); [guide/model/compare-releases](../../src/content/docs/guide/model/compare-releases.md)",
+    "item_before": "Settings \u203a Model: installed releases and drafts, summaries, technical details, comparisons, JSON export; each at own address."
+  },
+  {
+    "id": "C1811",
+    "item": "Typed draft operations (add/rename/re-key/split/merge/remove, containment, allowed relations, views/detail pages, groups); history, undo/redo; released-element rules.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/the-model-editor](../../src/content/docs/model/the-model-editor.md); [model/types-attributes-relations](../../src/content/docs/model/types-attributes-relations.md)",
+    "item_before": "Typed draft operations (add/rename/re-key/split/merge/remove, containment, allowed relations, views/detail pages, groups); history, undo/redo; released-element rules."
+  },
+  {
+    "id": "C1813",
+    "item": "Where things are: A draft, JSON view screen: draft page \"JSON model\".",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/json-view](../../src/content/docs/model/json-view.md)",
+    "item_before": "Where things are: A draft, JSON view screen: draft page \"JSON model\"."
+  },
+  {
+    "id": "C1841",
+    "item": "Change sets: \"Publish change set\" (enabled only after a passing validation of the current version; tooltips \"Publishing is available after a successful validation.\" / \"Change set model version differs from the active release. Change the version or wait until this release is activated.\") \u2192 confirm \"Publish this change set?\" (\"Apply authored changes from change set v<n> over current live data and create the next publication. Unrelated live changes are preserved. Conflicts or an invalid merged graph publish nothing. Current publication to replace: <id>.\"; inline \"Review changes before publishing.\"), confirm button \"Publish change set\"; result toast \"Published as Publication <n>. Reviewed changes are now live.\" and the page returns to Live.",
+    "before": "[model/releases](../../src/content/docs/model/releases.md)",
+    "after": "[guide/use/prepare-and-publish-a-change-set](../../src/content/docs/guide/use/prepare-and-publish-a-change-set.md); [use/change-sets](../../src/content/docs/use/change-sets.md)",
+    "item_before": "Change sets: \"Publish change set\" (enabled only after a passing validation of the current version; tooltips \"Publishing is available after a successful validation.\" / \"Change set model version differs from the active release. Change the version or wait until this release is activated.\") \u2192 confirm \"Publish this change set?\" (\"Apply authored changes from change set v<n> over current live data and create the next publication. Unrelated live changes are preserved. Conflicts or an invalid merged graph publish nothing. Current publication to replace: <id>.\"; inline \"Review changes before publishing.\"), confirm button \"Publish change set\"; result toast \"Published as Publication <n>. Reviewed changes are now live.\" and the page returns to Live."
+  },
+  {
+    "id": "C1852",
+    "item": "Model-language validity rules (draft invalid, shown as issues): duplicate keys; unknown references; display attribute must be bound; unique not on JSON; mapping grid cannot use containment/required ownership; table defaultSort among sortFields; navigation groups reference collections once; unique-scope ancestor type must exist; unique condition names a bound attribute of the target type.",
+    "before": "[model/releases](../../src/content/docs/model/releases.md)",
+    "after": "[model/types-attributes-relations](../../src/content/docs/model/types-attributes-relations.md); [model/applications-and-views](../../src/content/docs/model/applications-and-views.md); [model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); [model/issues-and-dry-run](../../src/content/docs/model/issues-and-dry-run.md)",
+    "item_before": "Model-language validity rules (draft invalid, shown as issues): duplicate keys; unknown references; display attribute must be bound; unique not on JSON; mapping grid cannot use containment/required ownership; table defaultSort among sortFields; navigation groups reference collections once; unique-scope ancestor type must exist; unique condition names a bound attribute of the target type."
+  },
+  {
+    "id": "C1871",
+    "item": "Release evidence awaiting reconciliation: Rule: One component, only on request. ImpactSummary in features/model-admin, in ActivateDialog and ApplyDialog, after the compatibility notice. Nothing is sent until the person presses Explain this change; the line beside it says what is sent. A new check clears the account.. A dialog opening must not spend money or send anything. One component, no copies. Facts appear only after asking, so with no provider the dialogs are as they are today (AP-D3: hidden). /.",
+    "before": "uncovered \u2192 model/releases \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: One component, only on request. ImpactSummary in features/model-admin, in ActivateDialog and ApplyDialog, after the compatibility notice. Nothing is sent until the person presses Explain this change; the line beside it says what is sent. A new check clears the account.. A dialog opening must not spend money or send anything. One component, no copies. Facts appear only after asking, so with no provider the dialogs are as they are today (AP-D3: hidden). /."
+  },
+  {
+    "id": "C1872",
+    "item": "Release evidence awaiting reconciliation: Rule: Stored or on demand?. On demand, cached per input. The summary is keyed by the hash of its facts; the same facts return the same text without a second call. Not stored in history and not part of a release: it is a reading aid. A model release's summary.",
+    "before": "uncovered \u2192 model/releases \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: Stored or on demand?. On demand, cached per input. The summary is keyed by the hash of its facts; the same facts return the same text without a second call. Not stored in history and not part of a release: it is a reading aid. A model release's summary."
+  },
+  {
+    "id": "C1874",
+    "item": "Release evidence awaiting reconciliation: Rule: Who may ask?. AO1: model administrators (those who may activate). AO2: those who may read the history of the scope being summarised, and the facts are filtered by what they may read (visibility, ADR-044): the summary cannot say what the person.",
+    "before": "uncovered \u2192 model/releases \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: Who may ask?. AO1: model administrators (those who may activate). AO2: those who may read the history of the scope being summarised, and the facts are filtered by what they may read (visibility, ADR-044): the summary cannot say what the person."
+  },
+  {
+    "id": "C1893",
+    "item": "Undo of a step that later steps build on is refused. Max 500 operations in one request.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/the-model-editor#history-undo-and-other-editors](../../src/content/docs/model/the-model-editor.md#history-undo-and-other-editors); [integrate/model-and-release-operations#draft-steps-and-generated-documents](../../src/content/docs/integrate/model-and-release-operations.md#draft-steps-and-generated-documents)",
+    "item_before": "Undo of a step that later steps build on is refused. Max 500 operations in one request."
+  },
+  {
+    "id": "C1950",
+    "item": "Release evidence awaiting reconciliation: Rule: Review shape. The editor, not a questionnaire (the user's rule): a proposal is a step marked Proposed in the model editor, or a change in a change set the person opens in the mapping grid, edited in place. No separate accept/reject list. The re.",
+    "before": "uncovered \u2192 model/the-model-editor \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: Rule: Review shape. The editor, not a questionnaire (the user's rule): a proposal is a step marked Proposed in the model editor, or a change in a change set the person opens in the mapping grid, edited in place. No separate accept/reject list. The re."
+  },
+  {
+    "id": "C2052",
+    "item": "The model language defines _Described.description.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines _Described.description."
+  },
+  {
+    "id": "C2064",
+    "item": "The model language defines FieldSpec.default.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md#sources-and-defaults); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FieldSpec.default."
+  },
+  {
+    "id": "C2065",
+    "item": "The model language defines FieldSpec.description.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FieldSpec.description."
+  },
+  {
+    "id": "C2066",
+    "item": "The model language defines FieldSpec.from.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FieldSpec.from."
+  },
+  {
+    "id": "C2067",
+    "item": "The model language defines FieldSpec.role.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FieldSpec.role."
+  },
+  {
+    "id": "C2068",
+    "item": "The model language defines FilterSpec.byType.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FilterSpec.byType."
+  },
+  {
+    "id": "C2069",
+    "item": "The model language defines FilterSpec.crosswalk.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FilterSpec.crosswalk."
+  },
+  {
+    "id": "C2070",
+    "item": "The model language defines FilterSpec.description.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FilterSpec.description."
+  },
+  {
+    "id": "C2071",
+    "item": "The model language defines FilterSpec.linkedTo.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FilterSpec.linkedTo."
+  },
+  {
+    "id": "C2072",
+    "item": "The model language defines FilterSpec.matchOn.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FilterSpec.matchOn."
+  },
+  {
+    "id": "C2073",
+    "item": "The model language defines FilterSpec.onRelated.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FilterSpec.onRelated."
+  },
+  {
+    "id": "C2074",
+    "item": "The model language defines FilterSpec.through.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FilterSpec.through."
+  },
+  {
+    "id": "C2075",
+    "item": "The model language defines FilterSpec.under.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines FilterSpec.under."
+  },
+  {
+    "id": "C2076",
+    "item": "The model language defines ListSpec.description.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis#operations-and-matching](../../src/content/docs/integrate/consumer-apis.md#operations-and-matching)",
+    "item_before": "The model language defines ListSpec.description."
+  },
+  {
+    "id": "C2077",
+    "item": "The model language defines ListSpec.of.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis#operations-and-matching](../../src/content/docs/integrate/consumer-apis.md#operations-and-matching)",
+    "item_before": "The model language defines ListSpec.of."
+  },
+  {
+    "id": "C2078",
+    "item": "The model language defines ListSpec.sortBy.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis#operations-and-matching](../../src/content/docs/integrate/consumer-apis.md#operations-and-matching)",
+    "item_before": "The model language defines ListSpec.sortBy."
+  },
+  {
+    "id": "C2079",
+    "item": "The model language defines ListSpec.within.",
+    "before": "[model/record-pages-and-tables](../../src/content/docs/model/record-pages-and-tables.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis#operations-and-matching](../../src/content/docs/integrate/consumer-apis.md#operations-and-matching)",
+    "item_before": "The model language defines ListSpec.within."
+  },
+  {
+    "id": "C2083",
+    "item": "The model language defines ObjectSpec.fields.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ObjectSpec.fields."
+  },
+  {
+    "id": "C2084",
+    "item": "The model language defines ObjectSpec.hierarchy.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ObjectSpec.hierarchy."
+  },
+  {
+    "id": "C2085",
+    "item": "The model language defines ObjectSpec.parent.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ObjectSpec.parent."
+  },
+  {
+    "id": "C2086",
+    "item": "The model language defines ObjectSpec.path.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ObjectSpec.path."
+  },
+  {
+    "id": "C2087",
+    "item": "The model language defines ObjectSpec.related.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ObjectSpec.related."
+  },
+  {
+    "id": "C2112",
+    "item": "The model language defines Operation.description.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines Operation.description."
+  },
+  {
+    "id": "C2113",
+    "item": "The model language defines Operations.events.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines Operations.events."
+  },
+  {
+    "id": "C2114",
+    "item": "The model language defines Operations.lists.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines Operations.lists."
+  },
+  {
+    "id": "C2115",
+    "item": "The model language defines Operations.objects.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines Operations.objects."
+  },
+  {
+    "id": "C2116",
+    "item": "The model language defines Operations.resolve.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines Operations.resolve."
+  },
+  {
+    "id": "C2117",
+    "item": "The model language defines Operations.xref.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines Operations.xref."
+  },
+  {
+    "id": "C2118",
+    "item": "The model language defines ParentSpec.fields.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ParentSpec.fields."
+  },
+  {
+    "id": "C2119",
+    "item": "The model language defines ParentSpec.output.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines ParentSpec.output."
+  },
+  {
+    "id": "C2122",
+    "item": "The model language defines RelatedSpec.description.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines RelatedSpec.description."
+  },
+  {
+    "id": "C2123",
+    "item": "The model language defines RelatedSpec.fields.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines RelatedSpec.fields."
+  },
+  {
+    "id": "C2124",
+    "item": "The model language defines RelatedSpec.via.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines RelatedSpec.via."
+  },
+  {
+    "id": "C2131",
+    "item": "The model language defines Within.filter.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines Within.filter."
+  },
+  {
+    "id": "C2132",
+    "item": "The model language defines Within.types.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines Within.types."
+  },
+  {
+    "id": "C2133",
+    "item": "The model language defines XrefOperation.description.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines XrefOperation.description."
+  },
+  {
+    "id": "C2134",
+    "item": "The model language defines XrefOperation.matchOn.",
+    "before": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); specialist document settings and visual-control limits: [model/json-view](../../src/content/docs/model/json-view.md)",
+    "after": "[model/consumer-apis](../../src/content/docs/model/consumer-apis.md); [integrate/consumer-apis](../../src/content/docs/integrate/consumer-apis.md)",
+    "item_before": "The model language defines XrefOperation.matchOn."
+  },
+  {
+    "id": "C2168",
+    "item": "Release evidence awaiting reconciliation: A load leaves a saved profile. The engine saves it from the change set's imports (result.profileKey), checked against the change set's release, or says why it did not (result.profileNotSaved): a source with no key, a change made only through batches, a profile already saved.",
+    "before": "uncovered \u2192 model/workbook-onboarding \u2014 reconcile the cited release evidence before writing",
+    "after": "after 0.16: AI proposal, assistant, explanation or agent-access behavior; deferred by COMPLETE-COMMON",
+    "item_before": "Release evidence awaiting reconciliation: A load leaves a saved profile. The engine saves it from the change set's imports (result.profileKey), checked against the change set's release, or says why it did not (result.profileNotSaved): a source with no key, a change made only through batches, a profile already saved."
+  },
+  {
+    "id": "C3973",
+    "item": "A model operation request applies up to 500 operations atomically as one recorded step at the draft version, stores inverses and diagnostics and allows intermediate invalid drafts. Impact counts cover live data and open change sets only in workspaces running that draft\u2019s model (R115)",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[integrate/model-and-release-operations#draft-steps-and-generated-documents](../../src/content/docs/integrate/model-and-release-operations.md#draft-steps-and-generated-documents); [model/the-model-editor](../../src/content/docs/model/the-model-editor.md); [model/types-attributes-relations](../../src/content/docs/model/types-attributes-relations.md)",
+    "item_before": "A model operation request applies up to 500 operations atomically as one recorded step at the draft version, stores inverses and diagnostics and allows intermediate invalid drafts. Impact counts cover live data and open change sets only in workspaces running that draft\u2019s model (R115)"
+  },
+  {
+    "id": "C2574",
+    "item": "The operator can set ATOMIC_JOB_MAX_ITEMS: Items in an atomic batch, inline or background.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set ATOMIC_JOB_MAX_ITEMS: Items in an atomic batch, inline or background."
+  },
+  {
+    "id": "C2575",
+    "item": "The operator can set BACKGROUND_JOB_MAX_ITEMS: Items in a background batch.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set BACKGROUND_JOB_MAX_ITEMS: Items in a background batch."
+  },
+  {
+    "id": "C2576",
+    "item": "The operator can set BATCH_BACKGROUND_MAX_BYTES: Bytes in a background batch's body.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set BATCH_BACKGROUND_MAX_BYTES: Bytes in a background batch's body."
+  },
+  {
+    "id": "C2577",
+    "item": "The operator can set BATCH_MAX_BYTES: Bytes in an inline batch's body.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set BATCH_MAX_BYTES: Bytes in an inline batch's body."
+  },
+  {
+    "id": "C2578",
+    "item": "The operator can set BATCH_MAX_ITEMS: Items in an inline batch.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set BATCH_MAX_ITEMS: Items in an inline batch."
+  },
+  {
+    "id": "C2579",
+    "item": "The operator can set IMPORT_MAX_BYTES: Bytes in an import's file.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set IMPORT_MAX_BYTES: Bytes in an import's file."
+  },
+  {
+    "id": "C2581",
+    "item": "The operator can set JOB_CHUNK_ITEMS: Items one background chunk commits.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set JOB_CHUNK_ITEMS: Items one background chunk commits."
+  },
+  {
+    "id": "C2583",
+    "item": "The operator can set JOB_LEASE_SECONDS: Seconds a worker holds a job, renewed with each chunk.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set JOB_LEASE_SECONDS: Seconds a worker holds a job, renewed with each chunk."
+  },
+  {
+    "id": "C2584",
+    "item": "The operator can set JOB_PREVIEW_MAX_ITEMS: Items a preview of an import or a batch runs before it is a sample.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set JOB_PREVIEW_MAX_ITEMS: Items a preview of an import or a batch runs before it is a sample."
+  },
+  {
+    "id": "C2613",
+    "item": "Deliveries kept one week by default; workspace with subscriptions lists them when undeletable.",
+    "before": "[run/webhook-delivery](../../src/content/docs/run/webhook-delivery.md)",
+    "after": "[run/webhook-delivery](../../src/content/docs/run/webhook-delivery.md); [model/managing-workspaces](../../src/content/docs/model/managing-workspaces.md)",
+    "item_before": "Deliveries kept one week by default; workspace with subscriptions lists them when undeletable."
+  },
+  {
+    "id": "C2722",
+    "item": "The operator can set CONSUMER_RESOLVE_MAX_ITEMS: Items in one consumer batch resolve.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set CONSUMER_RESOLVE_MAX_ITEMS: Items in one consumer batch resolve."
+  },
+  {
+    "id": "C2723",
+    "item": "The operator can set FEED_RETENTION_DAYS: Days the change feed and consumer events answer a position.",
+    "before": "[run/configure#batch-file-and-retention-limits](../../src/content/docs/run/configure.md#batch-file-and-retention-limits)",
+    "after": "[run/configure#batch-and-job-limits-catalogue](../../src/content/docs/run/configure.md#batch-and-job-limits-catalogue)",
+    "item_before": "The operator can set FEED_RETENTION_DAYS: Days the change feed and consumer events answer a position."
+  },
+  {
+    "id": "C2727",
+    "item": "The operator can set PUBLIC_URL: The engine's address as callers reach it; the issuer of its tokens.",
+    "before": "[run/configure#runtime-settings](../../src/content/docs/run/configure.md#runtime-settings)",
+    "after": "[run/configure#runtime-catalogue](../../src/content/docs/run/configure.md#runtime-catalogue)",
+    "item_before": "The operator can set PUBLIC_URL: The engine's address as callers reach it; the issuer of its tokens."
+  },
+  {
+    "id": "C2728",
+    "item": "The operator can set RDM_CURSOR_SIGNING_KEY: Signs pagination cursors; unset, each process makes its own, so cursors stop working after a restart and differ between instances.",
+    "before": "[run/configure#runtime-settings](../../src/content/docs/run/configure.md#runtime-settings)",
+    "after": "[run/configure#runtime-catalogue](../../src/content/docs/run/configure.md#runtime-catalogue)",
+    "item_before": "The operator can set RDM_CURSOR_SIGNING_KEY: Signs pagination cursors; unset, each process makes its own, so cursors stop working after a restart and differ between instances."
+  },
+  {
+    "id": "C2729",
+    "item": "The operator can set WORKSPACE_ADMIN_MUTATIONS_ENABLED: Creating, renaming, retiring, deleting workspaces and choosing the default.",
+    "before": "[run/configure#capability-groups](../../src/content/docs/run/configure.md#capability-groups)",
+    "after": "[run/configure#capability-groups](../../src/content/docs/run/configure.md#capability-groups-catalogue)",
+    "item_before": "The operator can set WORKSPACE_ADMIN_MUTATIONS_ENABLED: Creating, renaming, retiring, deleting workspaces and choosing the default."
+  },
+  {
+    "id": "C2767",
+    "item": "Out of database connections: 503 naming reason and setting (DATABASE_POOL_SIZE/MAX_OVERFLOW/TIMEOUT), startup warning on over-subscription.",
+    "before": "[run/health-and-startup-checks](../../src/content/docs/run/health-and-startup-checks.md)",
+    "after": "[run/database](../../src/content/docs/run/database.md); [run/health-and-startup-checks](../../src/content/docs/run/health-and-startup-checks.md)",
+    "item_before": "Out of database connections: 503 naming reason and setting (DATABASE_POOL_SIZE/MAX_OVERFLOW/TIMEOUT), startup warning on over-subscription."
+  },
+  {
+    "id": "C2921",
+    "item": "Upgrade command, migrations at startup, model language window, raising stored releases, compatibility commitment.",
+    "before": "[run/upgrades](../../src/content/docs/run/upgrades.md)",
+    "after": "[run/upgrades](../../src/content/docs/run/upgrades.md#prepare-and-verify-a-cutover)",
+    "item_before": "Upgrade command, migrations at startup, model language window, raising stored releases, compatibility commitment."
+  },
+  {
+    "id": "C4002",
+    "item": "Liveness answers while the process runs without checking the database; readiness reports workspace availability, and a bad release isolates its workspace while other available workspaces continue serving.",
+    "before": "[run/health-and-startup-checks](../../src/content/docs/run/health-and-startup-checks.md)",
+    "after": "[run/health-and-startup-checks](../../src/content/docs/run/health-and-startup-checks.md#distinguish-the-service-states)",
+    "item_before": "Liveness answers while the process runs without checking the database; readiness reports workspace availability, and a bad release isolates its workspace while other available workspaces continue serving."
+  },
+  {
+    "id": "C4034",
+    "item": "The reference installation serves the application and API from one public address with the database and engine behind web, HTTPS or a trusted terminating proxy, persistent job files, separately supplied secrets, and metrics accessible only inside.",
+    "before": "[run/install-with-compose](../../src/content/docs/run/install-with-compose.md); [run/https](../../src/content/docs/run/https.md)",
+    "after": "[run/install-with-compose](../../src/content/docs/run/install-with-compose.md); [run/https](../../src/content/docs/run/https.md)  [service, network and storage inventory](../../src/content/docs/run/overview.md#network-and-storage)",
+    "item_before": "The reference installation serves the application and API from one public address with the database and engine behind web, HTTPS or a trusted terminating proxy, persistent job files, separately supplied secrets, and metrics accessible only inside."
+  },
+  {
+    "id": "C4037",
+    "item": "Re-sealing replaces encrypted secrets atomically and can check them first, but changing the encryption key also invalidates keyed recovery codes; the command reports how many people need new codes. Changing the encryption key invalidates existing recovery codes even after encrypted secrets are re-sealed.",
+    "before": "[run/secrets-and-keys](../../src/content/docs/run/secrets-and-keys.md)",
+    "after": "[run/secrets-and-keys](../../src/content/docs/run/secrets-and-keys.md#supply-the-temporary-new-key-without-a-literal-secret-in-history)",
+    "item_before": "Re-sealing replaces encrypted secrets atomically and can check them first, but changing the encryption key also invalidates keyed recovery codes; the command reports how many people need new codes. Changing the encryption key invalidates existing recovery codes even after encrypted secrets are re-sealed."
+  },
+  {
+    "id": "C0197",
+    "item": "Try the API as yourself on /docs with the signed-in token, renewed in console.",
+    "before": "[use/account](../../src/content/docs/use/account.md) \u2014 the signed-in browser account is covered here; API-console token use belongs to Integrate.; other readers: [integrate/model-and-release-operations](../../src/content/docs/integrate/model-and-release-operations.md) (owned by their section waves)",
+    "after": "[integrate/api-reference](../../src/content/docs/integrate/api-reference.md)",
+    "item_before": "Try the API as yourself on /docs with the signed-in token, renewed in console."
+  },
+  {
+    "id": "C0218",
+    "item": "Acceptance scenario SC-05: Start a design from what is live today.",
+    "before": "[model/models](../../src/content/docs/model/models.md)",
+    "after": "[model/models](../../src/content/docs/model/models.md); [guide/model/create-a-model-draft](../../src/content/docs/guide/model/create-a-model-draft.md)",
+    "item_before": "Acceptance scenario SC-05: Start a design from what is live today."
+  },
+  {
+    "id": "C0232",
+    "item": "Delete only after understanding the impact.",
+    "before": "[use/applications](../../src/content/docs/use/applications.md)",
+    "after": "[use/records#deleting-a-record](../../src/content/docs/use/records.md#deleting-a-record)",
+    "item_before": "Delete only after understanding the impact."
+  },
+  {
+    "id": "C0234",
+    "item": "Prepare changes away from live data.",
+    "before": "[use/applications](../../src/content/docs/use/applications.md)",
+    "after": "[use/change-sets](../../src/content/docs/use/change-sets.md)",
+    "item_before": "Prepare changes away from live data."
+  },
+  {
+    "id": "C0235",
+    "item": "Preserve unrelated live work during activation.",
+    "before": "[use/applications](../../src/content/docs/use/applications.md)",
+    "after": "[use/change-sets#publishing-and-intervening-live-work](../../src/content/docs/use/change-sets.md#publishing-and-intervening-live-work)",
+    "item_before": "Preserve unrelated live work during activation."
+  },
+  {
+    "id": "C0294",
+    "item": "Where things are: Administration.",
+    "before": "[use/applications](../../src/content/docs/use/applications.md)",
+    "after": "[use/appearance-and-devices](../../src/content/docs/use/appearance-and-devices.md); [administer/deployment-pages](../../src/content/docs/administer/deployment-pages.md)",
+    "item_before": "Where things are: Administration."
+  },
+  {
+    "id": "C0296",
+    "item": "Where things are: Changes of a person.",
+    "before": "[use/applications](../../src/content/docs/use/applications.md)",
+    "after": "[use/history#a-persons-changes](../../src/content/docs/use/history.md#a-persons-changes)",
+    "item_before": "Where things are: Changes of a person."
+  },
+  {
+    "id": "C0297",
+    "item": "Where things are: Data operations.",
+    "before": "[use/applications](../../src/content/docs/use/applications.md)",
+    "after": "[use/appearance-and-devices](../../src/content/docs/use/appearance-and-devices.md); [use/jobs](../../src/content/docs/use/jobs.md); [model/model-mappings](../../src/content/docs/model/model-mappings.md)",
+    "item_before": "Where things are: Data operations."
+  },
+  {
+    "id": "C0298",
+    "item": "Where things are: General.",
+    "before": "[use/applications](../../src/content/docs/use/applications.md)",
+    "after": "[use/appearance-and-devices](../../src/content/docs/use/appearance-and-devices.md); [use/account](../../src/content/docs/use/account.md)",
+    "item_before": "Where things are: General."
+  },
+  {
+    "id": "C0299",
+    "item": "Where things are: Integration.",
+    "before": "[use/applications](../../src/content/docs/use/applications.md)",
+    "after": "[use/appearance-and-devices](../../src/content/docs/use/appearance-and-devices.md); [administer/api-reference-and-consumer-api-pages](../../src/content/docs/administer/api-reference-and-consumer-api-pages.md); [administer/webhooks](../../src/content/docs/administer/webhooks.md)",
+    "item_before": "Where things are: Integration."
+  },
+  {
+    "id": "C0300",
+    "item": "Where things are: Security.",
+    "before": "[use/applications](../../src/content/docs/use/applications.md)",
+    "after": "[use/appearance-and-devices](../../src/content/docs/use/appearance-and-devices.md); [administer/people-and-groups](../../src/content/docs/administer/people-and-groups.md); [administer/roles-and-grants](../../src/content/docs/administer/roles-and-grants.md)",
+    "item_before": "Where things are: Security."
+  },
+  {
+    "id": "C0421",
+    "item": "Shell, top bar, navigation, workspace switcher: Error pages: \"Could not load this content\" with \"Retry\" and \"Return to Live\" ; \"Loading change set\u2026\" / \"Loading publication\u2026\" ; \"Loading the model\u2026\".",
+    "before": "[use/change-sets](../../src/content/docs/use/change-sets.md)",
+    "after": "[use/workspaces#a-context-that-could-not-load](../../src/content/docs/use/workspaces.md#a-context-that-could-not-load)",
+    "item_before": "Shell, top bar, navigation, workspace switcher: Error pages: \"Could not load this content\" with \"Retry\" and \"Return to Live\" ; \"Loading change set\u2026\" / \"Loading publication\u2026\" ; \"Loading the model\u2026\"."
+  },
+  {
+    "id": "C0423",
+    "item": "Shell, top bar, navigation, workspace switcher: Switching workspace keeps the page where the other model has it (a record becomes that type's collection, a change-set list stays a list, a change set's review or a group opens the new workspace's live start) and says once, in a toast, what changed in the model: \"<ws> runs <model> <version>, another release of the model <prev> runs (<version>).\" or \"\u2026a different model from <prev>'s: its applications and navigation are shown.\".",
+    "before": "[use/change-sets](../../src/content/docs/use/change-sets.md)",
+    "after": "[guide/use/switch-workspace](../../src/content/docs/guide/use/switch-workspace.md); [use/workspaces](../../src/content/docs/use/workspaces.md)",
+    "item_before": "Shell, top bar, navigation, workspace switcher: Switching workspace keeps the page where the other model has it (a record becomes that type's collection, a change-set list stays a list, a change set's review or a group opens the new workspace's live start) and says once, in a toast, what changed in the model: \"<ws> runs <model> <version>, another release of the model <prev> runs (<version>).\" or \"\u2026a different model from <prev>'s: its applications and navigation are shown.\"."
+  },
+  {
+    "id": "C0432",
+    "item": "Where things are: Publications list / viewing a publication.",
+    "before": "[use/change-sets](../../src/content/docs/use/change-sets.md)",
+    "after": "[use/publications](../../src/content/docs/use/publications.md)",
+    "item_before": "Where things are: Publications list / viewing a publication."
+  },
+  {
+    "id": "C0439",
+    "item": "See what a selection holds (GET /relations/held) before removing.",
+    "before": "[use/changing-many-records](../../src/content/docs/use/changing-many-records.md); other readers: [integrate/model-and-release-operations](../../src/content/docs/integrate/model-and-release-operations.md) (owned by their section waves)",
+    "after": "[guide/use/change-relationships-of-many-records](../../src/content/docs/guide/use/change-relationships-of-many-records.md); [integrate/reading-records](../../src/content/docs/integrate/reading-records.md)",
+    "item_before": "See what a selection holds (GET /relations/held) before removing."
+  },
+  {
+    "id": "C0443",
+    "item": "Set one value on selected records where only one related record is allowed; record Relationships panel offers Set/Change/Remove accordingly.",
+    "before": "[use/changing-many-records](../../src/content/docs/use/changing-many-records.md)",
+    "after": "[use/relationships](../../src/content/docs/use/relationships.md); [guide/use/change-relationships-of-many-records](../../src/content/docs/guide/use/change-relationships-of-many-records.md)",
+    "item_before": "Set one value on selected records where only one related record is allowed; record Relationships panel offers Set/Change/Remove accordingly."
+  },
+  {
+    "id": "C0448",
+    "item": "A record: Edit dialog (record): title = record name, eyebrow \"Edit object\"; fields per attribute binding (text, long text, number, yes/no checkbox, date, date and time, JSON text area; read-only ones disabled); Parent picker (type select \"Parent type\", search \"Search by name or attribute\u2026\"); relationship pickers; buttons \"Cancel\" (\"Discard your unsaved changes?\" when dirty), \"Save changes\" / \"Saving\u2026\" ; error notice \"The object was not saved\"; conflict: \"The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.\" (in a change set: \"The change set changed. Current content is loaded; your edits are preserved. Review and save again.\").",
+    "before": "[use/hierarchies](../../src/content/docs/use/hierarchies.md)",
+    "after": "[use/records](../../src/content/docs/use/records.md); [guide/use/correct-a-record](../../src/content/docs/guide/use/correct-a-record.md)",
+    "item_before": "A record: Edit dialog (record): title = record name, eyebrow \"Edit object\"; fields per attribute binding (text, long text, number, yes/no checkbox, date, date and time, JSON text area; read-only ones disabled); Parent picker (type select \"Parent type\", search \"Search by name or attribute\u2026\"); relationship pickers; buttons \"Cancel\" (\"Discard your unsaved changes?\" when dirty), \"Save changes\" / \"Saving\u2026\" ; error notice \"The object was not saved\"; conflict: \"The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.\" (in a change set: \"The change set changed. Current content is loaded; your edits are preserved. Review and save again.\")."
+  },
+  {
+    "id": "C0455",
+    "item": "A write validated under a model release that was replaced before commit is refused; the client may send the release it built on.",
+    "before": "[use/hierarchies](../../src/content/docs/use/hierarchies.md); other readers: [integrate/writing-in-bulk](../../src/content/docs/integrate/writing-in-bulk.md) (owned by their section waves)",
+    "after": "[use/workspaces#refresh-after-the-model-changes](../../src/content/docs/use/workspaces.md#refresh-after-the-model-changes); [integrate/versions-and-conflicts](../../src/content/docs/integrate/versions-and-conflicts.md)",
+    "item_before": "A write validated under a model release that was replaced before commit is refused; the client may send the release it built on."
+  },
+  {
+    "id": "C0456",
+    "item": "Acceptance scenario SC-09: Fill translation gaps and maintain a deep hierarchy.",
+    "before": "[use/hierarchies](../../src/content/docs/use/hierarchies.md)",
+    "after": "[use/hierarchies](../../src/content/docs/use/hierarchies.md); [use/relation-matrices](../../src/content/docs/use/relation-matrices.md)",
+    "item_before": "Acceptance scenario SC-09: Fill translation gaps and maintain a deep hierarchy."
+  },
+  {
+    "id": "C0625",
+    "item": "Change sets: Collections, records, trees, matrices inside a change set behave as Live but save into the change set (\"Saved to change set \u201c<name>\u201d\"); mapping grid shows \"Proposed\"; the History panel is not shown; export and import can target it.",
+    "before": "[use/importing-and-exporting](../../src/content/docs/use/importing-and-exporting.md)",
+    "after": "[use/change-sets](../../src/content/docs/use/change-sets.md); [use/importing-and-exporting](../../src/content/docs/use/importing-and-exporting.md); [use/history](../../src/content/docs/use/history.md)",
+    "item_before": "Change sets: Collections, records, trees, matrices inside a change set behave as Live but save into the change set (\"Saved to change set \u201c<name>\u201d\"); mapping grid shows \"Proposed\"; the History panel is not shown; export and import can target it."
+  },
+  {
+    "id": "C0653",
+    "item": "Publications: Viewing a publication: violet band, bar \"Viewing Publication n\" (model pinned \"<release>\"), \"Back to publications\"; the collections/records/trees read the publication's data; all write controls are left out; no History panel; Export is available; Import is not.",
+    "before": "[use/publications](../../src/content/docs/use/publications.md)",
+    "after": "[use/publications](../../src/content/docs/use/publications.md); [use/history](../../src/content/docs/use/history.md)",
+    "item_before": "Publications: Viewing a publication: violet band, bar \"Viewing Publication n\" (model pinned \"<release>\"), \"Back to publications\"; the collections/records/trees read the publication's data; all write controls are left out; no History panel; Export is available; Import is not."
+  },
+  {
+    "id": "C0725",
+    "item": "Bulk actions exist only on the table lens selection (Change values, Change relationships, Delete); none on mapping grids, matrices, trees (trees only move several nodes), relation panels or notifications beyond their own bar. No bulk export of a selection (export takes the list's filters, not its ticked rows).",
+    "before": "[use/inbox-and-approvals](../../src/content/docs/use/inbox-and-approvals.md)",
+    "after": "[use/changing-many-records](../../src/content/docs/use/changing-many-records.md); [use/inbox-and-approvals](../../src/content/docs/use/inbox-and-approvals.md); [use/importing-and-exporting](../../src/content/docs/use/importing-and-exporting.md)",
+    "item_before": "Bulk actions exist only on the table lens selection (Change values, Change relationships, Delete); none on mapping grids, matrices, trees (trees only move several nodes), relation panels or notifications beyond their own bar. No bulk export of a selection (export takes the list's filters, not its ticked rows)."
+  },
+  {
+    "id": "C0733",
+    "item": "Editors: Enter saves, Escape cancels (EditableField, EditInPlace.tsx:179); the tree lens search and the Notifications search clear on Escape (TreeView, NotificationsPage); popovers/menus close on Escape; Escape closes the full-text reveal box (CellReveal.tsx:173).",
+    "before": "[use/inbox-and-approvals](../../src/content/docs/use/inbox-and-approvals.md)",
+    "after": "[use/appearance-and-devices#keyboard-operation](../../src/content/docs/use/appearance-and-devices.md#keyboard-operation); [use/records](../../src/content/docs/use/records.md)",
+    "item_before": "Editors: Enter saves, Escape cancels (EditableField, EditInPlace.tsx:179); the tree lens search and the Notifications search clear on Escape (TreeView, NotificationsPage); popovers/menus close on Escape; Escape closes the full-text reveal box (CellReveal.tsx:173)."
+  },
+  {
+    "id": "C0781",
+    "item": "Top bar: product mark, application tabs on wide screens, Help, inbox bell, Settings and Account; on a phone applications are chosen in the context band (current TopBar.tsx and DataContextBand.tsx).",
+    "before": "[use/applications](../../src/content/docs/use/applications.md)",
+    "after": "[use/applications](../../src/content/docs/use/applications.md); [use/appearance-and-devices#help-beside-your-work](../../src/content/docs/use/appearance-and-devices.md#help-beside-your-work)",
+    "item_before": "Top bar: product mark, inbox bell, Settings, Account only; application tabs gone (TOP header comment)."
+  },
+  {
+    "id": "C1059",
+    "item": "A workspace can be deleted only if not default, never published, with no records or change sets; otherwise retire it. A model release can be deleted only if nothing refers to it. A workspace with subscriptions cannot be deleted.",
+    "before": "[model/types-attributes-relations](../../src/content/docs/model/types-attributes-relations.md) (other-reader handoff; outside C2-USE edit scope)",
+    "after": "[model/managing-workspaces](../../src/content/docs/model/managing-workspaces.md); [model/releases](../../src/content/docs/model/releases.md)",
+    "item_before": "A workspace can be deleted only if not default, never published, with no records or change sets; otherwise retire it. A model release can be deleted only if nothing refers to it. A workspace with subscriptions cannot be deleted."
+  },
+  {
+    "id": "C1060",
+    "item": "Acceptance scenario SC-01: Find the correct record without losing my place.",
+    "before": "[use/records](../../src/content/docs/use/records.md)",
+    "after": "[use/lists-and-filters](../../src/content/docs/use/lists-and-filters.md); [guide/use/find-records](../../src/content/docs/guide/use/find-records.md)",
+    "item_before": "Acceptance scenario SC-01: Find the correct record without losing my place."
+  },
+  {
+    "id": "C1061",
+    "item": "Acceptance scenario SC-03: Add a value or translation without incomplete intermediate records.",
+    "before": "[use/records](../../src/content/docs/use/records.md)",
+    "after": "[guide/use/add-a-record](../../src/content/docs/guide/use/add-a-record.md); [guide/use/fill-in-a-relation-matrix](../../src/content/docs/guide/use/fill-in-a-relation-matrix.md)",
+    "item_before": "Acceptance scenario SC-03: Add a value or translation without incomplete intermediate records."
+  },
+  {
+    "id": "C1135",
+    "item": "Collections: the table lens: Lenses: buttons for the other views of the same object type (table, mapping, matrix, tree icons), aria-current=\"page\".",
+    "before": "[use/relation-matrices](../../src/content/docs/use/relation-matrices.md)",
+    "after": "[use/applications#collections-and-views](../../src/content/docs/use/applications.md#collections-and-views)",
+    "item_before": "Collections: the table lens: Lenses: buttons for the other views of the same object type (table, mapping, matrix, tree icons), aria-current=\"page\"."
+  },
+  {
+    "id": "C1189",
+    "item": "Large set: bounded previews with exact counts and continuation.",
+    "before": "[use/mapping-grids](../../src/content/docs/use/mapping-grids.md)",
+    "after": "[use/relationships#longer-sets-and-actions-on-several-records](../../src/content/docs/use/relationships.md#longer-sets-and-actions-on-several-records); [integrate/reading-records](../../src/content/docs/integrate/reading-records.md)",
+    "item_before": "Large set: bounded previews with exact counts and continuation."
+  },
+  {
+    "id": "C1265",
+    "item": "A multi-workspace lookup requires its named elements in every workspace's model; counterpart IDs require the same model key. Copying or moving between different models instead uses a reviewed model mapping.",
+    "before": "model-admin: [model/managing-workspaces](../../src/content/docs/model/managing-workspaces.md); steward: [use/workspaces](../../src/content/docs/use/workspaces.md)",
+    "after": "[integrate/workspaces-contexts-and-models#read-across-workspaces](../../src/content/docs/integrate/workspaces-contexts-and-models.md#read-across-workspaces); [integrate/model-and-release-operations](../../src/content/docs/integrate/model-and-release-operations.md)",
+    "item_before": "A multi-workspace lookup requires its named elements in every workspace's model; counterpart IDs require the same model key. Copying or moving between different models instead uses a reviewed model mapping."
+  },
+  {
+    "id": "C1295",
+    "item": "Shell, top bar, navigation, workspace switcher: Application tabs (one per application, with its coloured tile; tooltip = application description); current tab underlined.",
+    "before": "[use/workspaces](../../src/content/docs/use/workspaces.md)",
+    "after": "[use/applications](../../src/content/docs/use/applications.md)",
+    "item_before": "Shell, top bar, navigation, workspace switcher: Application tabs (one per application, with its coloured tile; tooltip = application description); current tab underlined."
+  },
+  {
+    "id": "C1297",
+    "item": "Shell, top bar, navigation, workspace switcher: Keyboard help: no help screen. Keyboard works as listed in section 17.",
+    "before": "[use/workspaces](../../src/content/docs/use/workspaces.md)",
+    "after": "[use/appearance-and-devices#keyboard-operation](../../src/content/docs/use/appearance-and-devices.md#keyboard-operation)",
+    "item_before": "Shell, top bar, navigation, workspace switcher: Keyboard help: no help screen. Keyboard works as listed in section 17."
+  },
+  {
+    "id": "C1299",
+    "item": "Shell, top bar, navigation, workspace switcher: Product mark \"<product> home\" goes to Home.",
+    "before": "[use/workspaces](../../src/content/docs/use/workspaces.md)",
+    "after": "[use/home](../../src/content/docs/use/home.md)",
+    "item_before": "Shell, top bar, navigation, workspace switcher: Product mark \"<product> home\" goes to Home."
+  },
+  {
+    "id": "C1301",
+    "item": "Shell, top bar, navigation, workspace switcher: Settings gear \"Settings\".",
+    "before": "[use/workspaces](../../src/content/docs/use/workspaces.md)",
+    "after": "[use/applications](../../src/content/docs/use/applications.md)",
+    "item_before": "Shell, top bar, navigation, workspace switcher: Settings gear \"Settings\"."
+  }
+]

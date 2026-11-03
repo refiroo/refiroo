@@ -91,3 +91,13 @@ model-language repair or operator help; see [Model language versions](/docs/mode
 bookmark can instead mean **Not in this model**: open a collection declared by this workspace.
 **Rename…** changes the displayed name, with the permanent key retained. A stale save asks you
 to review newer state; it does not silently overwrite another administrator's edit.
+
+## Permanent keys and changes made at the same time
+
+A workspace key has at most 160 characters, using lowercase letters and digits separated by
+single hyphens. Leading and trailing spaces are removed. Its key cannot be changed after
+creation, and a retired workspace still reserves its key. Change **Name** to rename the dataset.
+
+Retirement waits for a write already in progress to finish. Once retirement succeeds, later
+live and change-set writes are refused. If two administrators change the default from the same
+starting state, one succeeds and the other must refresh and review the new default.

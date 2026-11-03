@@ -1,0 +1,3330 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer/stops/v1/openapi.json?workspace=graubuenden",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "etag": "W/\"e7afb072f238738a390b:1\"",
+    "rdm-workspace": "graubuenden",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-model-release-id": "fbb5d688-60ad-4f14-ae05-a2e619ff2aa1",
+    "x-request-id": "5d6e2d57432e4c518e705b3e67d7d7a5"
+  },
+  "body": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "Stops API",
+      "version": "1",
+      "description": "Stops of Graubünden with their municipality, operator, modes, system codes and names in five languages. XREF finds a stop by UIC number, abbreviation, name, a Wikidata item or another system's code, or by a translated name.\n\nConsumer API `stops`, contract version 1, declared by the model release Public transport stops of Graubünden 1.0.0. A read takes the live data of a workspace (`workspace`, default: the deployment's default workspace) or one of its publications (`publication`: an ID or `latest`). Every `GET` answers an `ETag` and `304 Not Modified` to a matching `If-None-Match`."
+    },
+    "servers": [
+      {
+        "url": "/"
+      }
+    ],
+    "paths": {
+      "/api/consumer/stops/v1/objects/{id}": {
+        "get": {
+          "summary": "Get by ID",
+          "description": "The shared object of the record with this object ID. The definition's parameters filter it (`404 OBJECT_NOT_FOUND` when filtered out) and limit its projections.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "workspace",
+              "in": "query",
+              "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "publication",
+              "in": "query",
+              "description": "Read a publication of the workspace instead of live data: its ID, or `latest` for the current one. Read with the definition of the model release it was published under, which must declare this contract version (`409 PUBLICATION_CONTRACT_MISMATCH`). Named in `RDM-Publication`; a cursor keeps its publication.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "asOf",
+              "in": "query",
+              "description": "A business date, `YYYY-MM-DD`: keeps the records effective that day by their type's declared effective period (no start after it, no end on or before it). Dated types: Stop; records of other types are not filtered, and a read that can return none of the dated types is `400 AS_OF_NOT_SUPPORTED`. Projection items and ancestors are not dated. The dated types are named in `RDM-As-Of-Applied`.",
+              "schema": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            {
+              "name": "district",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "municipality",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "operator",
+              "in": "query",
+              "description": "Limits `operator` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "mode",
+              "in": "query",
+              "description": "Limits `modes` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "system",
+              "in": "query",
+              "description": "Limits `systemCodes` to the items matching a value, and keeps only the records left with one; on XREF, only those items pass their scores. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "to.system",
+              "in": "query",
+              "description": "Crosswalk: show the `systemCodes` items `system` would match, as `target`, in place of the plain parameter's; changes no object, score, order or total. One `to.` name per read. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The answer.",
+              "headers": {
+                "RDM-Workspace": {
+                  "$ref": "#/components/headers/RDM-Workspace"
+                },
+                "RDM-Publication": {
+                  "$ref": "#/components/headers/RDM-Publication"
+                },
+                "RDM-As-Of-Applied": {
+                  "$ref": "#/components/headers/RDM-As-Of-Applied"
+                },
+                "ETag": {
+                  "$ref": "#/components/headers/ETag"
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Object"
+                  }
+                }
+              }
+            },
+            "304": {
+              "$ref": "#/components/responses/NotModified"
+            },
+            "400": {
+              "description": "A request error: INVALID_AS_OF, AS_OF_NOT_SUPPORTED, UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "401": {
+              "$ref": "#/components/responses/Unauthorized"
+            },
+            "403": {
+              "$ref": "#/components/responses/Forbidden"
+            },
+            "404": {
+              "description": "Not found: OBJECT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, TARGET_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Conflict: AMBIGUOUS_TARGET, PUBLICATION_CONTRACT_MISMATCH.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/consumer/stops/v1/lists/municipalities": {
+        "get": {
+          "summary": "List municipalities",
+          "description": "Every Municipality record, ordered by name, then creation order (in a publication, object ID). Paged with cursors both ways, `position`, `from=end`, `seek` and `includeTotal`; `pageSize` 1–100, default 20.",
+          "parameters": [
+            {
+              "name": "district",
+              "in": "query",
+              "description": "Object IDs of district records: keeps the records anywhere below any of them. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "workspace",
+              "in": "query",
+              "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "publication",
+              "in": "query",
+              "description": "Read a publication of the workspace instead of live data: its ID, or `latest` for the current one. Read with the definition of the model release it was published under, which must declare this contract version (`409 PUBLICATION_CONTRACT_MISMATCH`). Named in `RDM-Publication`; a cursor keeps its publication.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "municipality",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "operator",
+              "in": "query",
+              "description": "Limits `operator` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "mode",
+              "in": "query",
+              "description": "Limits `modes` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "system",
+              "in": "query",
+              "description": "Limits `systemCodes` to the items matching a value, and keeps only the records left with one; on XREF, only those items pass their scores. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "to.system",
+              "in": "query",
+              "description": "Crosswalk: show the `systemCodes` items `system` would match, as `target`, in place of the plain parameter's; changes no object, score, order or total. One `to.` name per read. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "pageSize",
+              "in": "query",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 20
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "description": "`nextCursor`, `prevCursor` or `anchor` of a page.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "position",
+              "in": "query",
+              "description": "Start at this position (from 0).",
+              "schema": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            {
+              "name": "from",
+              "in": "query",
+              "description": "`end`: the last page.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "start",
+                  "end"
+                ]
+              }
+            },
+            {
+              "name": "seek",
+              "in": "query",
+              "description": "Start at this sort value.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "includeTotal",
+              "in": "query",
+              "description": "Count `totalCount` and `startIndex`.",
+              "schema": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The answer.",
+              "headers": {
+                "RDM-Workspace": {
+                  "$ref": "#/components/headers/RDM-Workspace"
+                },
+                "RDM-Publication": {
+                  "$ref": "#/components/headers/RDM-Publication"
+                },
+                "RDM-As-Of-Applied": {
+                  "$ref": "#/components/headers/RDM-As-Of-Applied"
+                },
+                "ETag": {
+                  "$ref": "#/components/headers/ETag"
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ListPage"
+                  }
+                }
+              }
+            },
+            "304": {
+              "$ref": "#/components/responses/NotModified"
+            },
+            "400": {
+              "description": "A request error: UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "401": {
+              "$ref": "#/components/responses/Unauthorized"
+            },
+            "403": {
+              "$ref": "#/components/responses/Forbidden"
+            },
+            "404": {
+              "description": "Not found: LIST_NOT_FOUND, PARENT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Conflict: PUBLICATION_CONTRACT_MISMATCH.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/consumer/stops/v1/lists/stops": {
+        "get": {
+          "summary": "List stops",
+          "description": "Every Stop record, ordered by its sort attribute (records without a value last), then name, then creation order (in a publication, object ID). Paged with cursors both ways, `position`, `from=end`, `seek` and `includeTotal`; `pageSize` 1–100, default 20.",
+          "parameters": [
+            {
+              "name": "municipality",
+              "in": "query",
+              "description": "Object IDs of Municipality records: keeps the records anywhere below any of them. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "workspace",
+              "in": "query",
+              "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "publication",
+              "in": "query",
+              "description": "Read a publication of the workspace instead of live data: its ID, or `latest` for the current one. Read with the definition of the model release it was published under, which must declare this contract version (`409 PUBLICATION_CONTRACT_MISMATCH`). Named in `RDM-Publication`; a cursor keeps its publication.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "asOf",
+              "in": "query",
+              "description": "A business date, `YYYY-MM-DD`: keeps the records effective that day by their type's declared effective period (no start after it, no end on or before it). Dated types: Stop; records of other types are not filtered, and a read that can return none of the dated types is `400 AS_OF_NOT_SUPPORTED`. Projection items and ancestors are not dated. The dated types are named in `RDM-As-Of-Applied`.",
+              "schema": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            {
+              "name": "district",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "operator",
+              "in": "query",
+              "description": "Limits `operator` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "mode",
+              "in": "query",
+              "description": "Limits `modes` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "system",
+              "in": "query",
+              "description": "Limits `systemCodes` to the items matching a value, and keeps only the records left with one; on XREF, only those items pass their scores. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "to.system",
+              "in": "query",
+              "description": "Crosswalk: show the `systemCodes` items `system` would match, as `target`, in place of the plain parameter's; changes no object, score, order or total. One `to.` name per read. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "pageSize",
+              "in": "query",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 20
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "description": "`nextCursor`, `prevCursor` or `anchor` of a page.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "position",
+              "in": "query",
+              "description": "Start at this position (from 0).",
+              "schema": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            {
+              "name": "from",
+              "in": "query",
+              "description": "`end`: the last page.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "start",
+                  "end"
+                ]
+              }
+            },
+            {
+              "name": "seek",
+              "in": "query",
+              "description": "Start at this sort value.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "includeTotal",
+              "in": "query",
+              "description": "Count `totalCount` and `startIndex`.",
+              "schema": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The answer.",
+              "headers": {
+                "RDM-Workspace": {
+                  "$ref": "#/components/headers/RDM-Workspace"
+                },
+                "RDM-Publication": {
+                  "$ref": "#/components/headers/RDM-Publication"
+                },
+                "RDM-As-Of-Applied": {
+                  "$ref": "#/components/headers/RDM-As-Of-Applied"
+                },
+                "ETag": {
+                  "$ref": "#/components/headers/ETag"
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ListPage"
+                  }
+                }
+              }
+            },
+            "304": {
+              "$ref": "#/components/responses/NotModified"
+            },
+            "400": {
+              "description": "A request error: INVALID_AS_OF, AS_OF_NOT_SUPPORTED, UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "401": {
+              "$ref": "#/components/responses/Unauthorized"
+            },
+            "403": {
+              "$ref": "#/components/responses/Forbidden"
+            },
+            "404": {
+              "description": "Not found: LIST_NOT_FOUND, PARENT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Conflict: PUBLICATION_CONTRACT_MISMATCH.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/consumer/stops/v1/lists/all-stops": {
+        "get": {
+          "summary": "List all-stops",
+          "description": "Every Stop record, ordered by its sort attribute (records without a value last), then name, then creation order (in a publication, object ID). Paged with cursors both ways, `position`, `from=end`, `seek` and `includeTotal`; `pageSize` 1–100, default 20.",
+          "parameters": [
+            {
+              "name": "workspace",
+              "in": "query",
+              "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "publication",
+              "in": "query",
+              "description": "Read a publication of the workspace instead of live data: its ID, or `latest` for the current one. Read with the definition of the model release it was published under, which must declare this contract version (`409 PUBLICATION_CONTRACT_MISMATCH`). Named in `RDM-Publication`; a cursor keeps its publication.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "asOf",
+              "in": "query",
+              "description": "A business date, `YYYY-MM-DD`: keeps the records effective that day by their type's declared effective period (no start after it, no end on or before it). Dated types: Stop; records of other types are not filtered, and a read that can return none of the dated types is `400 AS_OF_NOT_SUPPORTED`. Projection items and ancestors are not dated. The dated types are named in `RDM-As-Of-Applied`.",
+              "schema": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            {
+              "name": "district",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "municipality",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "operator",
+              "in": "query",
+              "description": "Limits `operator` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "mode",
+              "in": "query",
+              "description": "Limits `modes` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "system",
+              "in": "query",
+              "description": "Limits `systemCodes` to the items matching a value, and keeps only the records left with one; on XREF, only those items pass their scores. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "to.system",
+              "in": "query",
+              "description": "Crosswalk: show the `systemCodes` items `system` would match, as `target`, in place of the plain parameter's; changes no object, score, order or total. One `to.` name per read. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "pageSize",
+              "in": "query",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 20
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "description": "`nextCursor`, `prevCursor` or `anchor` of a page.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "position",
+              "in": "query",
+              "description": "Start at this position (from 0).",
+              "schema": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            {
+              "name": "from",
+              "in": "query",
+              "description": "`end`: the last page.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "start",
+                  "end"
+                ]
+              }
+            },
+            {
+              "name": "seek",
+              "in": "query",
+              "description": "Start at this sort value.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "includeTotal",
+              "in": "query",
+              "description": "Count `totalCount` and `startIndex`.",
+              "schema": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The answer.",
+              "headers": {
+                "RDM-Workspace": {
+                  "$ref": "#/components/headers/RDM-Workspace"
+                },
+                "RDM-Publication": {
+                  "$ref": "#/components/headers/RDM-Publication"
+                },
+                "RDM-As-Of-Applied": {
+                  "$ref": "#/components/headers/RDM-As-Of-Applied"
+                },
+                "ETag": {
+                  "$ref": "#/components/headers/ETag"
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ListPage"
+                  }
+                }
+              }
+            },
+            "304": {
+              "$ref": "#/components/responses/NotModified"
+            },
+            "400": {
+              "description": "A request error: INVALID_AS_OF, AS_OF_NOT_SUPPORTED, UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "401": {
+              "$ref": "#/components/responses/Unauthorized"
+            },
+            "403": {
+              "$ref": "#/components/responses/Forbidden"
+            },
+            "404": {
+              "description": "Not found: LIST_NOT_FOUND, PARENT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Conflict: PUBLICATION_CONTRACT_MISMATCH.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/consumer/stops/v1/lists/operators": {
+        "get": {
+          "summary": "List operators",
+          "description": "Every Operator record, ordered by name, then creation order (in a publication, object ID). Paged with cursors both ways, `position`, `from=end`, `seek` and `includeTotal`; `pageSize` 1–100, default 20.",
+          "parameters": [
+            {
+              "name": "workspace",
+              "in": "query",
+              "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "publication",
+              "in": "query",
+              "description": "Read a publication of the workspace instead of live data: its ID, or `latest` for the current one. Read with the definition of the model release it was published under, which must declare this contract version (`409 PUBLICATION_CONTRACT_MISMATCH`). Named in `RDM-Publication`; a cursor keeps its publication.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "district",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "municipality",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "operator",
+              "in": "query",
+              "description": "Limits `operator` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "mode",
+              "in": "query",
+              "description": "Limits `modes` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "system",
+              "in": "query",
+              "description": "Limits `systemCodes` to the items matching a value, and keeps only the records left with one; on XREF, only those items pass their scores. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "to.system",
+              "in": "query",
+              "description": "Crosswalk: show the `systemCodes` items `system` would match, as `target`, in place of the plain parameter's; changes no object, score, order or total. One `to.` name per read. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "pageSize",
+              "in": "query",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 20
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "description": "`nextCursor`, `prevCursor` or `anchor` of a page.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "position",
+              "in": "query",
+              "description": "Start at this position (from 0).",
+              "schema": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            {
+              "name": "from",
+              "in": "query",
+              "description": "`end`: the last page.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "start",
+                  "end"
+                ]
+              }
+            },
+            {
+              "name": "seek",
+              "in": "query",
+              "description": "Start at this sort value.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "includeTotal",
+              "in": "query",
+              "description": "Count `totalCount` and `startIndex`.",
+              "schema": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The answer.",
+              "headers": {
+                "RDM-Workspace": {
+                  "$ref": "#/components/headers/RDM-Workspace"
+                },
+                "RDM-Publication": {
+                  "$ref": "#/components/headers/RDM-Publication"
+                },
+                "RDM-As-Of-Applied": {
+                  "$ref": "#/components/headers/RDM-As-Of-Applied"
+                },
+                "ETag": {
+                  "$ref": "#/components/headers/ETag"
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ListPage"
+                  }
+                }
+              }
+            },
+            "304": {
+              "$ref": "#/components/responses/NotModified"
+            },
+            "400": {
+              "description": "A request error: UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "401": {
+              "$ref": "#/components/responses/Unauthorized"
+            },
+            "403": {
+              "$ref": "#/components/responses/Forbidden"
+            },
+            "404": {
+              "description": "Not found: LIST_NOT_FOUND, PARENT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Conflict: PUBLICATION_CONTRACT_MISMATCH.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/consumer/stops/v1/lists/modes": {
+        "get": {
+          "summary": "List modes",
+          "description": "Every Mode record, ordered by name, then creation order (in a publication, object ID). Paged with cursors both ways, `position`, `from=end`, `seek` and `includeTotal`; `pageSize` 1–100, default 20.",
+          "parameters": [
+            {
+              "name": "workspace",
+              "in": "query",
+              "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "publication",
+              "in": "query",
+              "description": "Read a publication of the workspace instead of live data: its ID, or `latest` for the current one. Read with the definition of the model release it was published under, which must declare this contract version (`409 PUBLICATION_CONTRACT_MISMATCH`). Named in `RDM-Publication`; a cursor keeps its publication.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "district",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "municipality",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "operator",
+              "in": "query",
+              "description": "Limits `operator` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "mode",
+              "in": "query",
+              "description": "Limits `modes` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "system",
+              "in": "query",
+              "description": "Limits `systemCodes` to the items matching a value, and keeps only the records left with one; on XREF, only those items pass their scores. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "to.system",
+              "in": "query",
+              "description": "Crosswalk: show the `systemCodes` items `system` would match, as `target`, in place of the plain parameter's; changes no object, score, order or total. One `to.` name per read. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "pageSize",
+              "in": "query",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 20
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "description": "`nextCursor`, `prevCursor` or `anchor` of a page.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "position",
+              "in": "query",
+              "description": "Start at this position (from 0).",
+              "schema": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            {
+              "name": "from",
+              "in": "query",
+              "description": "`end`: the last page.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "start",
+                  "end"
+                ]
+              }
+            },
+            {
+              "name": "seek",
+              "in": "query",
+              "description": "Start at this sort value.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "includeTotal",
+              "in": "query",
+              "description": "Count `totalCount` and `startIndex`.",
+              "schema": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The answer.",
+              "headers": {
+                "RDM-Workspace": {
+                  "$ref": "#/components/headers/RDM-Workspace"
+                },
+                "RDM-Publication": {
+                  "$ref": "#/components/headers/RDM-Publication"
+                },
+                "RDM-As-Of-Applied": {
+                  "$ref": "#/components/headers/RDM-As-Of-Applied"
+                },
+                "ETag": {
+                  "$ref": "#/components/headers/ETag"
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ListPage"
+                  }
+                }
+              }
+            },
+            "304": {
+              "$ref": "#/components/responses/NotModified"
+            },
+            "400": {
+              "description": "A request error: UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "401": {
+              "$ref": "#/components/responses/Unauthorized"
+            },
+            "403": {
+              "$ref": "#/components/responses/Forbidden"
+            },
+            "404": {
+              "description": "Not found: LIST_NOT_FOUND, PARENT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Conflict: PUBLICATION_CONTRACT_MISMATCH.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/consumer/stops/v1/xref": {
+        "get": {
+          "summary": "XREF lookup",
+          "description": "The exposed records the query's terms match, scored by the definition's match rules, best first (score, public type name, name, object ID); with `expect=one`, the single best one. Matching part of a value (contains) needs a term of at least 3 characters; a shorter term matches whole values only. A query whose terms match more than 10,000 records is refused as `400 QUERY_TOO_BROAD`, whatever parameters narrow it. A query holds at most 100 terms. The definition's parameters narrow the scored records without changing their scores.",
+          "parameters": [
+            {
+              "name": "query",
+              "in": "query",
+              "required": true,
+              "description": "The terms: repeated or comma-separated (a comma inside a term as `%2C`).",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "expect",
+              "in": "query",
+              "description": "`one`: the single best record, `404 NO_MATCH` or `409 AMBIGUOUS_MATCH`.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "any",
+                  "one"
+                ],
+                "default": "any"
+              }
+            },
+            {
+              "name": "workspace",
+              "in": "query",
+              "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "publication",
+              "in": "query",
+              "description": "Read a publication of the workspace instead of live data: its ID, or `latest` for the current one. Read with the definition of the model release it was published under, which must declare this contract version (`409 PUBLICATION_CONTRACT_MISMATCH`). Named in `RDM-Publication`; a cursor keeps its publication.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "asOf",
+              "in": "query",
+              "description": "A business date, `YYYY-MM-DD`: keeps the records effective that day by their type's declared effective period (no start after it, no end on or before it). Dated types: Stop; records of other types are not filtered, and a read that can return none of the dated types is `400 AS_OF_NOT_SUPPORTED`. Projection items and ancestors are not dated. The dated types are named in `RDM-As-Of-Applied`.",
+              "schema": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            {
+              "name": "district",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "municipality",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "operator",
+              "in": "query",
+              "description": "Limits `operator` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "mode",
+              "in": "query",
+              "description": "Limits `modes` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "system",
+              "in": "query",
+              "description": "Limits `systemCodes` to the items matching a value, and keeps only the records left with one; on XREF, only those items pass their scores. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "to.system",
+              "in": "query",
+              "description": "Crosswalk: show the `systemCodes` items `system` would match, as `target`, in place of the plain parameter's; changes no object, score, order or total. One `to.` name per read. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "pageSize",
+              "in": "query",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 20
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "description": "`nextCursor`, `prevCursor` or `anchor` of a page.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "position",
+              "in": "query",
+              "description": "Start at this position (from 0).",
+              "schema": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            {
+              "name": "from",
+              "in": "query",
+              "description": "`end`: the last page.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "start",
+                  "end"
+                ]
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The answer.",
+              "headers": {
+                "RDM-Workspace": {
+                  "$ref": "#/components/headers/RDM-Workspace"
+                },
+                "RDM-Publication": {
+                  "$ref": "#/components/headers/RDM-Publication"
+                },
+                "RDM-As-Of-Applied": {
+                  "$ref": "#/components/headers/RDM-As-Of-Applied"
+                },
+                "ETag": {
+                  "$ref": "#/components/headers/ETag"
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/XrefPage"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ScoredObject"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "304": {
+              "$ref": "#/components/responses/NotModified"
+            },
+            "400": {
+              "description": "A request error: QUERY_REQUIRED, TOO_MANY_TERMS, QUERY_TOO_BROAD, INVALID_EXPECT, INVALID_AS_OF, AS_OF_NOT_SUPPORTED, UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "401": {
+              "$ref": "#/components/responses/Unauthorized"
+            },
+            "403": {
+              "$ref": "#/components/responses/Forbidden"
+            },
+            "404": {
+              "description": "Not found: NO_MATCH, TARGET_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Conflict: AMBIGUOUS_MATCH, AMBIGUOUS_TARGET, PUBLICATION_CONTRACT_MISMATCH.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/consumer/stops/v1/resolve": {
+        "post": {
+          "summary": "Batch resolve",
+          "description": "Up to 1000 lookups in one read, each answered as the single read it stands for: by `query` as XREF with `expect=one`, by `id` as get by ID. Outcomes come in item order. Answers no `ETag`.",
+          "parameters": [
+            {
+              "name": "workspace",
+              "in": "query",
+              "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "publication",
+              "in": "query",
+              "description": "Read a publication of the workspace instead of live data: its ID, or `latest` for the current one. Read with the definition of the model release it was published under, which must declare this contract version (`409 PUBLICATION_CONTRACT_MISMATCH`). Named in `RDM-Publication`; a cursor keeps its publication.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "asOf",
+              "in": "query",
+              "description": "A business date, `YYYY-MM-DD`: keeps the records effective that day by their type's declared effective period (no start after it, no end on or before it). Dated types: Stop; records of other types are not filtered, and a read that can return none of the dated types is `400 AS_OF_NOT_SUPPORTED`. Projection items and ancestors are not dated. The dated types are named in `RDM-As-Of-Applied`.",
+              "schema": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "The answer.",
+              "headers": {
+                "RDM-Workspace": {
+                  "$ref": "#/components/headers/RDM-Workspace"
+                },
+                "RDM-Publication": {
+                  "$ref": "#/components/headers/RDM-Publication"
+                },
+                "RDM-As-Of-Applied": {
+                  "$ref": "#/components/headers/RDM-As-Of-Applied"
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResolveAnswer"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "A request error: REQUEST_VALIDATION_ERROR, INVALID_AS_OF, AS_OF_NOT_SUPPORTED, UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "401": {
+              "$ref": "#/components/responses/Unauthorized"
+            },
+            "403": {
+              "$ref": "#/components/responses/Forbidden"
+            },
+            "404": {
+              "description": "Not found: WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Conflict: PUBLICATION_CONTRACT_MISMATCH.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "413": {
+              "description": "More than 1000 items: `BATCH_TOO_LARGE`.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/consumer/stops/v1/publications": {
+        "get": {
+          "summary": "Publications",
+          "description": "The workspace's publications, newest first. `eventSequence` is the feed position of the publication's `published` entry: live data at that position equals the publication.",
+          "parameters": [
+            {
+              "name": "workspace",
+              "in": "query",
+              "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "pageSize",
+              "in": "query",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 20
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "description": "`nextCursor`, `prevCursor` or `anchor` of a page.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "position",
+              "in": "query",
+              "description": "Start at this position (from 0).",
+              "schema": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            {
+              "name": "from",
+              "in": "query",
+              "description": "`end`: the last page.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "start",
+                  "end"
+                ]
+              }
+            },
+            {
+              "name": "includeTotal",
+              "in": "query",
+              "description": "Count `totalCount` and `startIndex`.",
+              "schema": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The answer.",
+              "headers": {
+                "RDM-Workspace": {
+                  "$ref": "#/components/headers/RDM-Workspace"
+                },
+                "RDM-Publication": {
+                  "$ref": "#/components/headers/RDM-Publication"
+                },
+                "RDM-As-Of-Applied": {
+                  "$ref": "#/components/headers/RDM-As-Of-Applied"
+                },
+                "ETag": {
+                  "$ref": "#/components/headers/ETag"
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/PublicationPage"
+                  }
+                }
+              }
+            },
+            "304": {
+              "$ref": "#/components/responses/NotModified"
+            },
+            "400": {
+              "description": "A request error: UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "401": {
+              "$ref": "#/components/responses/Unauthorized"
+            },
+            "403": {
+              "$ref": "#/components/responses/Forbidden"
+            },
+            "404": {
+              "description": "Not found: WORKSPACE_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/consumer/stops/v1/events": {
+        "get": {
+          "summary": "Events",
+          "description": "The changes this API tells its consumers about (`stops-changed`), in position order: `created`, `updated` naming the watched outputs that changed, `deleted`. Start after a position (`after`: `0`, or a publication's `eventSequence`) and continue by `cursor`, a lasting resume token; `caughtUp` says the events derived so far (`headPosition`) are read. With `payload=full` (default) each event carries its object as get by ID answers it with the same parameters, at the feed position `stateAt`; `payload=identity` leaves it out. A parameter filters as on a list, against live data; an event whose object no longer exists passes every parameter but the type. Events are kept as long as the change feed's entries: an older position is `410 EVENTS_EXPIRED`, naming the publication to re-read.",
+          "parameters": [
+            {
+              "name": "workspace",
+              "in": "query",
+              "description": "The workspace read (default: the deployment's default workspace); named in `RDM-Workspace`.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "event",
+              "in": "query",
+              "description": "Keep these events (their keys); several, repeated or comma-separated, are alternatives.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "after",
+              "in": "query",
+              "description": "Start after this position: `0`, or a publication's `eventSequence`. Not with `cursor`.",
+              "schema": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 0
+              }
+            },
+            {
+              "name": "cursor",
+              "in": "query",
+              "description": "`cursor` of a page: continue after it, with the same events and parameters.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "pageSize",
+              "in": "query",
+              "description": "1–100 with `payload=full` (default 100), 1–1,000 with `payload=identity` (default 500).",
+              "schema": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              }
+            },
+            {
+              "name": "payload",
+              "in": "query",
+              "description": "`full`: each event with its object; `identity`: without it.",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "identity"
+                ],
+                "default": "full"
+              }
+            },
+            {
+              "name": "district",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "municipality",
+              "in": "query",
+              "description": "Keeps records below a record whose fields match a value, at any depth. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "operator",
+              "in": "query",
+              "description": "Limits `operator` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "mode",
+              "in": "query",
+              "description": "Limits `modes` to the items matching a value, and keeps only the records left with one. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": "system",
+              "in": "query",
+              "description": "Limits `systemCodes` to the items matching a value, and keeps only the records left with one; on XREF, only those items pass their scores. Several values, repeated or comma-separated (a comma inside a value as `%2C`), are alternatives; text matches ignoring case.",
+              "style": "form",
+              "explode": true,
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The answer.",
+              "headers": {
+                "RDM-Workspace": {
+                  "$ref": "#/components/headers/RDM-Workspace"
+                },
+                "RDM-Publication": {
+                  "$ref": "#/components/headers/RDM-Publication"
+                },
+                "RDM-As-Of-Applied": {
+                  "$ref": "#/components/headers/RDM-As-Of-Applied"
+                },
+                "ETag": {
+                  "$ref": "#/components/headers/ETag"
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/EventPage"
+                  }
+                }
+              }
+            },
+            "304": {
+              "$ref": "#/components/responses/NotModified"
+            },
+            "400": {
+              "description": "A request error: UNKNOWN_EVENT, INVALID_PAYLOAD, INVALID_POSITION, UNKNOWN_PARAMETER, PARAMETER_NOT_SUPPORTED, UNKNOWN_OBJECT_TYPE, MULTIPLE_TARGETS, the paging codes.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "401": {
+              "$ref": "#/components/responses/Unauthorized"
+            },
+            "403": {
+              "$ref": "#/components/responses/Forbidden"
+            },
+            "404": {
+              "description": "Not found: EVENTS_NOT_DECLARED, WORKSPACE_NOT_FOUND, CONSUMER_API_NOT_FOUND, CONTRACT_VERSION_NOT_FOUND.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "409": {
+              "description": "Conflict: EVENT_POSITION_AHEAD.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            },
+            "410": {
+              "description": "Gone: EVENTS_EXPIRED.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "Projection_operator": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "code",
+            "name"
+          ]
+        },
+        "Projection_modes": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "code",
+            "name"
+          ]
+        },
+        "Projection_systemCodes": {
+          "type": "object",
+          "properties": {
+            "system": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "systemKey": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "system",
+            "systemKey",
+            "code",
+            "name"
+          ]
+        },
+        "Projection_translations": {
+          "type": "object",
+          "properties": {
+            "languageCode": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "translatedName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "isActive": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "languageCode",
+            "translatedName",
+            "isActive"
+          ]
+        },
+        "Object": {
+          "type": "object",
+          "properties": {
+            "objectType": {
+              "type": "string",
+              "enum": [
+                "Mode",
+                "Municipality",
+                "Operator",
+                "Stop"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": "string"
+            },
+            "validFrom": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "validTo": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "stopNumber": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "abbreviation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fsoNumber": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "latitude": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "A decimal, written as a string to keep its digits"
+            },
+            "longitude": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "A decimal, written as a string to keep its digits"
+            },
+            "height": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "A decimal, written as a string to keep its digits"
+            },
+            "sboid": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "parent": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "objectType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "objectType",
+                "id",
+                "code",
+                "name"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "operator": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Projection_operator"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "modes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Projection_modes"
+              }
+            },
+            "systemCodes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Projection_systemCodes"
+              }
+            },
+            "translations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Projection_translations"
+              }
+            },
+            "target": {
+              "description": "With a `to.` name: the targeted projection's matching items; a single item where the read answers one object, else in the projection's shape.",
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Projection_systemCodes"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Projection_systemCodes"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "objectType",
+            "id",
+            "code",
+            "name",
+            "validFrom",
+            "validTo",
+            "stopNumber",
+            "abbreviation",
+            "fsoNumber",
+            "latitude",
+            "longitude",
+            "height",
+            "sboid",
+            "parent",
+            "path",
+            "operator",
+            "modes",
+            "systemCodes",
+            "translations"
+          ]
+        },
+        "ScoredObject": {
+          "type": "object",
+          "properties": {
+            "objectType": {
+              "type": "string",
+              "enum": [
+                "Mode",
+                "Municipality",
+                "Operator",
+                "Stop"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "code": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": "string"
+            },
+            "validFrom": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "validTo": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "stopNumber": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "abbreviation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fsoNumber": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "latitude": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "A decimal, written as a string to keep its digits"
+            },
+            "longitude": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "A decimal, written as a string to keep its digits"
+            },
+            "height": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "A decimal, written as a string to keep its digits"
+            },
+            "sboid": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "parent": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "objectType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "objectType",
+                "id",
+                "code",
+                "name"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "operator": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Projection_operator"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "modes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Projection_modes"
+              }
+            },
+            "systemCodes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Projection_systemCodes"
+              }
+            },
+            "translations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Projection_translations"
+              }
+            },
+            "target": {
+              "description": "With a `to.` name: the targeted projection's matching items; a single item where the read answers one object, else in the projection's shape.",
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Projection_systemCodes"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Projection_systemCodes"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "matchScore": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "objectType",
+            "id",
+            "code",
+            "name",
+            "validFrom",
+            "validTo",
+            "stopNumber",
+            "abbreviation",
+            "fsoNumber",
+            "latitude",
+            "longitude",
+            "height",
+            "sboid",
+            "parent",
+            "path",
+            "operator",
+            "modes",
+            "systemCodes",
+            "translations",
+            "matchScore"
+          ]
+        },
+        "ListPage": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Object"
+              }
+            },
+            "workspace": {
+              "type": "string"
+            },
+            "publication": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pageSize": {
+              "type": "integer"
+            },
+            "nextCursor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "prevCursor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "anchor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "totalCount": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "startIndex": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "asOfApplied": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "With `asOf`: the public types dated by their effective period."
+            }
+          },
+          "required": [
+            "items",
+            "workspace",
+            "publication",
+            "pageSize",
+            "nextCursor",
+            "prevCursor",
+            "anchor",
+            "totalCount",
+            "startIndex"
+          ]
+        },
+        "XrefPage": {
+          "type": "object",
+          "properties": {
+            "results": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ScoredObject"
+              }
+            },
+            "query": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "workspace": {
+              "type": "string"
+            },
+            "publication": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pageSize": {
+              "type": "integer"
+            },
+            "nextCursor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "prevCursor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "anchor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "totalCount": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "startIndex": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "asOfApplied": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "With `asOf`: the public types dated by their effective period."
+            }
+          },
+          "required": [
+            "results",
+            "query",
+            "workspace",
+            "publication",
+            "pageSize",
+            "nextCursor",
+            "prevCursor",
+            "anchor",
+            "totalCount",
+            "startIndex"
+          ]
+        },
+        "Publication": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "publishedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "eventSequence": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "active",
+                "withdrawn"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "publishedAt",
+            "eventSequence",
+            "status"
+          ]
+        },
+        "PublicationPage": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Publication"
+              }
+            },
+            "workspace": {
+              "type": "string"
+            },
+            "pageSize": {
+              "type": "integer"
+            },
+            "nextCursor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "prevCursor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "anchor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "totalCount": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "startIndex": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "items",
+            "workspace",
+            "pageSize",
+            "nextCursor",
+            "prevCursor",
+            "anchor",
+            "totalCount",
+            "startIndex"
+          ]
+        },
+        "ResolveDefaults": {
+          "type": "object",
+          "properties": {
+            "district": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Keeps records below a record whose fields match a value, at any depth."
+            },
+            "municipality": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Keeps records below a record whose fields match a value, at any depth."
+            },
+            "operator": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Limits `operator` to the items matching a value, and keeps only the records left with one."
+            },
+            "mode": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Limits `modes` to the items matching a value, and keeps only the records left with one."
+            },
+            "system": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Limits `systemCodes` to the items matching a value, and keeps only the records left with one; on XREF, only those items pass their scores."
+            },
+            "to.system": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "ResolveItem": {
+          "type": "object",
+          "properties": {
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "query": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "district": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Keeps records below a record whose fields match a value, at any depth."
+            },
+            "municipality": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Keeps records below a record whose fields match a value, at any depth."
+            },
+            "operator": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Limits `operator` to the items matching a value, and keeps only the records left with one."
+            },
+            "mode": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Limits `modes` to the items matching a value, and keeps only the records left with one."
+            },
+            "system": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Limits `systemCodes` to the items matching a value, and keeps only the records left with one; on XREF, only those items pass their scores."
+            },
+            "to.system": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "ResolveRequest": {
+          "type": "object",
+          "properties": {
+            "defaults": {
+              "$ref": "#/components/schemas/ResolveDefaults"
+            },
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1000,
+              "items": {
+                "$ref": "#/components/schemas/ResolveItem"
+              }
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "ResolveOutcome": {
+          "type": "object",
+          "properties": {
+            "index": {
+              "type": "integer"
+            },
+            "ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "found",
+                "not_found",
+                "ambiguous",
+                "rejected"
+              ]
+            },
+            "object": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ScoredObject"
+                },
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            },
+            "error": {
+              "$ref": "#/components/schemas/ErrorBody"
+            }
+          },
+          "required": [
+            "index",
+            "ref",
+            "status"
+          ]
+        },
+        "ResolveAnswer": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ResolveOutcome"
+              }
+            },
+            "workspace": {
+              "type": "string"
+            },
+            "publication": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "counts": {
+              "type": "object",
+              "properties": {
+                "found": {
+                  "type": "integer"
+                },
+                "notFound": {
+                  "type": "integer"
+                },
+                "ambiguous": {
+                  "type": "integer"
+                },
+                "rejected": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "found",
+                "notFound",
+                "ambiguous",
+                "rejected"
+              ]
+            },
+            "asOfApplied": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "With `asOf`: the public types dated by their effective period."
+            }
+          },
+          "required": [
+            "items",
+            "workspace",
+            "publication",
+            "counts"
+          ]
+        },
+        "ErrorBody": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "details": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ]
+        },
+        "Error": {
+          "type": "object",
+          "properties": {
+            "error": {
+              "$ref": "#/components/schemas/ErrorBody"
+            }
+          },
+          "required": [
+            "error"
+          ]
+        },
+        "Event": {
+          "type": "object",
+          "properties": {
+            "eventId": {
+              "type": "string",
+              "description": "The same event delivered again has the same ID."
+            },
+            "position": {
+              "type": "integer",
+              "description": "The feed position of the change that caused it."
+            },
+            "occurredAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "event": {
+              "type": "string",
+              "enum": [
+                "stops-changed"
+              ]
+            },
+            "change": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated",
+                "deleted"
+              ]
+            },
+            "contractVersion": {
+              "type": "integer",
+              "description": "The contract version that derived it."
+            },
+            "objectType": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "code": {
+              "description": "The object's code now; null when it no longer exists."
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The object's name now; null when it no longer exists."
+            },
+            "changed": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "cause": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "job",
+                    "publication"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "stateAt": {
+              "type": "integer",
+              "description": "The feed position whose state `object` shows."
+            },
+            "object": {
+              "$ref": "#/components/schemas/Object"
+            }
+          },
+          "required": [
+            "eventId",
+            "position",
+            "occurredAt",
+            "event",
+            "change",
+            "contractVersion",
+            "objectType",
+            "id",
+            "code",
+            "name",
+            "changed",
+            "cause"
+          ]
+        },
+        "EventPage": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Event"
+              }
+            },
+            "workspace": {
+              "type": "string"
+            },
+            "pageSize": {
+              "type": "integer"
+            },
+            "cursor": {
+              "type": "string"
+            },
+            "caughtUp": {
+              "type": "boolean"
+            },
+            "headPosition": {
+              "type": "integer"
+            },
+            "earliestPosition": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "items",
+            "workspace",
+            "pageSize",
+            "cursor",
+            "caughtUp",
+            "headPosition",
+            "earliestPosition"
+          ]
+        }
+      },
+      "headers": {
+        "ETag": {
+          "description": "The answer's version; send it back as `If-None-Match`.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        "RDM-Workspace": {
+          "description": "The workspace read.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        "RDM-Publication": {
+          "description": "The publication read, on a pinned read.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        "RDM-As-Of-Applied": {
+          "description": "On a read with `asOf`: the public types it dated, comma-separated.",
+          "schema": {
+            "type": "string"
+          }
+        }
+      },
+      "responses": {
+        "NotModified": {
+          "description": "Unchanged since the `If-None-Match` tag.",
+          "headers": {
+            "ETag": {
+              "$ref": "#/components/headers/ETag"
+            }
+          }
+        },
+        "Unauthorized": {
+          "description": "No access token (AUTHENTICATION_REQUIRED), or one refused (TOKEN_INVALID, with `details.reason`); with `WWW-Authenticate: Bearer`.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        },
+        "Forbidden": {
+          "description": "FORBIDDEN: the client holds no grant of this consumer API in the workspace read (`details`: `consumerApi`, `workspaceKey`).",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        }
+      },
+      "securitySchemes": {
+        "oauth2": {
+          "type": "oauth2",
+          "description": "A client's credentials exchanged for a `consumer` access token; a read needs a grant of this consumer API in the workspace it reads.",
+          "flows": {
+            "clientCredentials": {
+              "tokenUrl": "http://localhost:8480/oauth/token",
+              "scopes": {
+                "consumer": "Read the consumer APIs granted to the client"
+              }
+            }
+          }
+        }
+      }
+    },
+    "security": [
+      {
+        "oauth2": [
+          "consumer"
+        ]
+      }
+    ]
+  }
+}

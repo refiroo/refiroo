@@ -30,9 +30,11 @@ the record's properties. Availability and widths depend on the current layout.
 
 ## Keyboard operation
 
-Tab moves through controls with a visible focus indicator; Shift+Tab moves back. Use the skip
+Opening a record collection or view puts focus on its page title; after deleting a record,
+focus returns to the list heading. Tab then moves through controls with a visible focus indicator; Shift+Tab moves back. Use the skip
 link at the beginning to reach the main content. Enter or Space activates a focused button.
-Menus offer keyboard choices; Escape closes a menu or dialog. Dialogs keep Tab within them and
+Menus offer keyboard choices; Escape closes a menu or dialog. Enter saves a single-line inline
+edit and Escape cancels it. Escape also clears the tree search or Notifications search. Dialogs keep Tab within them and
 return focus when closed. Resolve an unsaved-input prompt before leaving an editor.
 
 In a tree, Up/Down moves between visible records, Right expands or moves into children and

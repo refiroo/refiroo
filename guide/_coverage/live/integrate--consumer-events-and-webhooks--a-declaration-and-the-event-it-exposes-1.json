@@ -1,0 +1,78 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/consumer/stops/v1/events?workspace=graubuenden&after=63&event=stops-changed&pageSize=1&payload=full",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "etag": "W/\"319e07654961ab6f2bd0:1\"",
+    "rdm-workspace": "graubuenden",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "263ccc5cf66f4b3f851509b7165e016c"
+  },
+  "body": {
+    "items": [
+      {
+        "eventId": "4b4f3604-a821-7aff-1852-ae2b6cd1e8d2",
+        "position": 207,
+        "occurredAt": "2026-11-02T17:06:00.982769+00:00",
+        "event": "stops-changed",
+        "change": "created",
+        "contractVersion": 1,
+        "objectType": "Stop",
+        "id": "6583e8c9-582c-4bc5-b113-dbdbcc31a44a",
+        "code": "ch:1:sloid:4",
+        "name": "Selva, via Alpsu spv.",
+        "changed": [],
+        "cause": {
+          "kind": "job",
+          "id": "99f69475-71d1-47ce-abde-559e238691f4"
+        },
+        "stateAt": 8950,
+        "object": {
+          "objectType": "Stop",
+          "id": "6583e8c9-582c-4bc5-b113-dbdbcc31a44a",
+          "code": "ch:1:sloid:4",
+          "name": "Selva, via Alpsu spv.",
+          "validFrom": "2022-11-14",
+          "validTo": null,
+          "stopNumber": 8500004,
+          "abbreviation": "SAXX",
+          "fsoNumber": null,
+          "latitude": "46.662107304536484",
+          "longitude": "8.723794590415595",
+          "height": "1553.9",
+          "sboid": null,
+          "parent": {
+            "objectType": "Municipality",
+            "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
+            "code": null,
+            "name": "Tujetsch"
+          },
+          "path": "Graubünden/Surselva/Tujetsch",
+          "operator": {
+            "id": "69907d18-f444-400a-b8a2-359bfbd405fc",
+            "code": "MGB/Autofo",
+            "name": "Automobildienst Matterhorn Gotthard Bahn (fo auto)"
+          },
+          "modes": [
+            {
+              "id": "ef9e4eea-74a4-4380-a426-b9faae4a298f",
+              "code": "BUS",
+              "name": "Bus"
+            }
+          ],
+          "systemCodes": [],
+          "translations": []
+        }
+      }
+    ],
+    "workspace": "graubuenden",
+    "pageSize": 1,
+    "cursor": "eyJmaWx0ZXJzIjoiYWVhNmJjYzI4YmQxNTAzZWMwYWNiMjQ2NjVkNzUxMzFjNjhjYTJmMjA4ZTEwMTM2NzQ4MmNmOWUxODY5MTcwYyIsInBvc2l0aW9uIjpbIjIwNyIsIjEiXSwic2NvcGUiOiJjb25zdW1lci1ldmVudHM6c3RvcHM6Z3JhdWJ1ZW5kZW4iLCJzb3J0IjpbInBvc2l0aW9uIiwib3JkaW5hbCJdLCJ2ZXJzaW9uIjoxfQ.jE5ueunEtvaETHuI__-kBACi5xvxqymz6-tzSB9_x-w",
+    "caughtUp": false,
+    "headPosition": 8950,
+    "earliestPosition": 1
+  }
+}

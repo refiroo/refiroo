@@ -98,11 +98,11 @@ The retained provider preserves their identities while its sessions end.
 
 A local password must be set before a person adds an authenticator app or passkey. A provider-only account cannot add local factors. Adding or removing a passkey on Account requires proof with a password, authenticator code or recovery code; knowing an account’s name is insufficient. A person can register up to 25 passkeys.
 
-An authenticator app adds a six-digit code after the password. Setup includes confirmation
+An authenticator app uses time-based one-time passwords (TOTP), adding a six-digit code after the password. Setup includes confirmation
 with a code and ten recovery codes shown once. Each recovery code works once. A phone's
 clock must be correct; if valid-looking codes fail, check its automatic time setting.
 
-A passkey uses a fingerprint, face, device PIN or security key. It can sign someone in alone,
+A WebAuthn passkey uses a fingerprint, face, device PIN or security key. It can sign someone in alone,
 or supply the second step after a password. It meets the second-factor requirement.
 A passkey belongs to the site's address; a change of host requires people to register new passkeys.
 

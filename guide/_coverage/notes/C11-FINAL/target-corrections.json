@@ -1,0 +1,974 @@
+{
+  "C0232": [
+    "use/records#deleting-a-record"
+  ],
+  "C0235": [
+    "use/change-sets#publishing-and-intervening-live-work"
+  ],
+  "C0733": [
+    "use/appearance-and-devices#keyboard-operation",
+    "use/records"
+  ],
+  "C0781": [
+    "use/applications",
+    "use/appearance-and-devices#help-beside-your-work"
+  ],
+  "C1059": [
+    "model/managing-workspaces",
+    "model/releases"
+  ],
+  "C1135": [
+    "use/applications#collections-and-views"
+  ],
+  "C1189": [
+    "use/relationships#longer-sets-and-actions-on-several-records",
+    "integrate/reading-records"
+  ],
+  "C1265": [
+    "integrate/workspaces-contexts-and-models#read-across-workspaces",
+    "integrate/model-and-release-operations"
+  ],
+  "C1295": [
+    "use/applications"
+  ],
+  "C1297": [
+    "use/appearance-and-devices#keyboard-operation"
+  ],
+  "C1299": [
+    "use/home"
+  ],
+  "C1301": [
+    "use/applications"
+  ],
+  "C1623": [
+    "guide/model/create-a-workspace"
+  ],
+  "C1630": [
+    "guide/model/install-and-activate-a-release#apply-from-a-workspace"
+  ],
+  "C1646": [
+    "guide/model/change-a-workspaces-model"
+  ],
+  "C1647": [
+    "guide/model/install-and-activate-a-release#apply-from-a-workspace"
+  ],
+  "C1649": [
+    "model/managing-workspaces#tabs-and-model-changes"
+  ],
+  "C1682": [
+    "model/migrations",
+    "guide/model/migrate-a-workspace"
+  ],
+  "C1740": [
+    "use/workspaces#when-a-destination-cannot-open",
+    "guide/model/change-a-workspaces-model"
+  ],
+  "C1751": [
+    "model/workbook-onboarding"
+  ],
+  "C1752": [
+    "model/workbook-onboarding",
+    "model/workbook-proposals"
+  ],
+  "C2246": [
+    "integrate/security-model-for-integrators",
+    "use/history"
+  ],
+  "C2519": [
+    "administer/signing-keys#normal-replacement",
+    "run/sign-in-and-mail-setup"
+  ],
+  "C3128": [
+    "integrate/discovering-the-model",
+    "integrate/identifiers-paging-and-errors"
+  ],
+  "C3518": [
+    "integrate/changes-approvals-and-publication",
+    "integrate/security-model-for-integrators"
+  ],
+  "C3962": [
+    "integrate/workspaces-contexts-and-models#deletion-and-reusing-a-workspace-key"
+  ],
+  "C1316": [
+    "guide/model/add-a-record-type-and-fields",
+    "guide/model/add-a-relationship"
+  ],
+  "C1500": [
+    "model/consumer-apis",
+    "integrate/consumer-apis#declaration-rules-and-defaults"
+  ],
+  "C1506": [
+    "model/consumer-apis",
+    "integrate/consumer-apis#review-a-contract-change"
+  ],
+  "C1607": [
+    "model/the-model-editor#compare-before-releasing",
+    "guide/model/compare-releases"
+  ],
+  "C1624": [
+    "guide/model/retire-or-delete-a-release",
+    "run/model-releases-and-rollback"
+  ],
+  "C1625": [
+    "use/workspaces#each-workspace-runs-its-own-model"
+  ],
+  "C1681": [
+    "administer/deployment-pages#about"
+  ],
+  "C1742": [
+    "model/the-model-editor"
+  ],
+  "C1749": [
+    "model/managing-workspaces",
+    "model/migrations",
+    "guide/model/install-and-activate-a-release"
+  ],
+  "C1750": [
+    "model/json-view",
+    "model/releases",
+    "guide/model/work-on-a-draft-with-others"
+  ],
+  "C1753": [
+    "model/workbook-onboarding",
+    "guide/model/install-and-activate-a-release"
+  ],
+  "C1757": [
+    "model/workbook-onboarding#applying-and-keeping-the-work"
+  ],
+  "C1766": [
+    "guide/model/create-a-model-draft",
+    "guide/model/start-a-draft-from-a-workbook"
+  ],
+  "C1798": [
+    "guide/model/retire-or-delete-a-release",
+    "run/model-releases-and-rollback",
+    "model/releases"
+  ],
+  "C1801": [
+    "model/model-mappings",
+    "guide/model/move-records-to-another-model"
+  ],
+  "C1803": [
+    "model/models",
+    "model/releases",
+    "guide/model/export-a-release",
+    "guide/model/compare-releases"
+  ],
+  "C1811": [
+    "model/the-model-editor",
+    "model/types-attributes-relations"
+  ],
+  "C1813": [
+    "model/json-view"
+  ],
+  "C1841": [
+    "guide/use/prepare-and-publish-a-change-set",
+    "use/change-sets"
+  ],
+  "C1852": [
+    "model/types-attributes-relations",
+    "model/applications-and-views",
+    "model/record-pages-and-tables",
+    "model/issues-and-dry-run"
+  ],
+  "C1893": [
+    "model/the-model-editor#history-undo-and-other-editors",
+    "integrate/model-and-release-operations#draft-steps-and-generated-documents"
+  ],
+  "C3973": [
+    "integrate/model-and-release-operations#draft-steps-and-generated-documents",
+    "model/the-model-editor",
+    "model/types-attributes-relations"
+  ],
+  "C0197": [
+    "integrate/api-reference"
+  ],
+  "C0218": [
+    "model/models",
+    "guide/model/create-a-model-draft"
+  ],
+  "C0234": [
+    "use/change-sets"
+  ],
+  "C0294": [
+    "use/appearance-and-devices",
+    "administer/deployment-pages"
+  ],
+  "C0296": [
+    "use/history#a-persons-changes"
+  ],
+  "C0297": [
+    "use/appearance-and-devices",
+    "use/jobs",
+    "model/model-mappings"
+  ],
+  "C0298": [
+    "use/appearance-and-devices",
+    "use/account"
+  ],
+  "C0299": [
+    "use/appearance-and-devices",
+    "administer/api-reference-and-consumer-api-pages",
+    "administer/webhooks"
+  ],
+  "C0300": [
+    "use/appearance-and-devices",
+    "administer/people-and-groups",
+    "administer/roles-and-grants"
+  ],
+  "C0421": [
+    "use/workspaces#a-context-that-could-not-load"
+  ],
+  "C0423": [
+    "guide/use/switch-workspace",
+    "use/workspaces"
+  ],
+  "C0432": [
+    "use/publications"
+  ],
+  "C0439": [
+    "guide/use/change-relationships-of-many-records",
+    "integrate/reading-records"
+  ],
+  "C0443": [
+    "use/relationships",
+    "guide/use/change-relationships-of-many-records"
+  ],
+  "C0448": [
+    "use/records",
+    "guide/use/correct-a-record"
+  ],
+  "C0455": [
+    "use/workspaces#refresh-after-the-model-changes",
+    "integrate/versions-and-conflicts"
+  ],
+  "C0456": [
+    "use/hierarchies",
+    "use/relation-matrices"
+  ],
+  "C0625": [
+    "use/change-sets",
+    "use/importing-and-exporting",
+    "use/history"
+  ],
+  "C0653": [
+    "use/publications",
+    "use/history"
+  ],
+  "C0725": [
+    "use/changing-many-records",
+    "use/inbox-and-approvals",
+    "use/importing-and-exporting"
+  ],
+  "C1060": [
+    "use/lists-and-filters",
+    "guide/use/find-records"
+  ],
+  "C1061": [
+    "guide/use/add-a-record",
+    "guide/use/fill-in-a-relation-matrix"
+  ],
+  "C2236": [
+    "model/managing-workspaces",
+    "administer/roles-and-grants"
+  ],
+  "C1416": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1417": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1418": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1419": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1420": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1421": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1422": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1423": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1424": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1425": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1426": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1427": [
+    "model/applications-and-views#mapping-grid-declarations",
+    "model/json-view"
+  ],
+  "C1438": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1439": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1440": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1441": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1442": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1443": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1444": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1445": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1446": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1447": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1448": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1449": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1450": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1451": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1452": [
+    "model/applications-and-views#relation-matrix-rules",
+    "model/json-view"
+  ],
+  "C1487": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1488": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1489": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1490": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1491": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1492": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1493": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1494": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1495": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1496": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1497": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1498": [
+    "model/applications-and-views#tree-declarations",
+    "model/json-view"
+  ],
+  "C1512": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1513": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1514": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1515": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1516": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1517": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1518": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1519": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1520": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1521": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1522": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1523": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1524": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1525": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1526": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1527": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1528": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1529": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1530": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1531": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1532": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1533": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1534": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1535": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1536": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1537": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1538": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1539": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1540": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1541": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1542": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1543": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1544": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1545": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1546": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1547": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1548": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1549": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1550": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1551": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1552": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1553": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1554": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1555": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1556": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1557": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1558": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1559": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1560": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1561": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1562": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1563": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1564": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1565": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1566": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1567": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1568": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1569": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1570": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1571": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1572": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1573": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1574": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1575": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1576": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1577": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1578": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1579": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1580": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1581": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1582": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1583": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1584": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1585": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1586": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1587": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1588": [
+    "model/consumer-apis",
+    "integrate/consumer-apis",
+    "integrate/consumer-events-and-webhooks"
+  ],
+  "C1589": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1590": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1591": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1592": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1593": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1594": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1595": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1596": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1597": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1598": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1599": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1600": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1601": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C1602": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2052": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2064": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2065": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2066": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2067": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2068": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2069": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2070": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2071": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2072": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2073": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2074": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2075": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2076": [
+    "model/consumer-apis",
+    "integrate/consumer-apis#operations-and-matching"
+  ],
+  "C2077": [
+    "model/consumer-apis",
+    "integrate/consumer-apis#operations-and-matching"
+  ],
+  "C2078": [
+    "model/consumer-apis",
+    "integrate/consumer-apis#operations-and-matching"
+  ],
+  "C2079": [
+    "model/consumer-apis",
+    "integrate/consumer-apis#operations-and-matching"
+  ],
+  "C2083": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2084": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2085": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2086": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2087": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2112": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2113": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2114": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2115": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2116": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2117": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2118": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2119": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2122": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2123": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2124": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2131": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2132": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2133": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2134": [
+    "model/consumer-apis",
+    "integrate/consumer-apis"
+  ],
+  "C2767": [
+    "run/database",
+    "run/health-and-startup-checks"
+  ],
+  "C2613": [
+    "run/webhook-delivery",
+    "model/managing-workspaces"
+  ],
+  "C3303": [
+    "integrate/jobs",
+    "use/jobs"
+  ],
+  "C3674": [
+    "use/relation-matrices",
+    "integrate/writing-in-bulk"
+  ]
+}

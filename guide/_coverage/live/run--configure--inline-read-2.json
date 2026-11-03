@@ -1,0 +1,527 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/api/v1/system/configuration",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "cd8f16c1473a476993e321068529d2b9"
+  },
+  "body": {
+    "database": {
+      "revision": "20261123_01"
+    },
+    "settings": [
+      {
+        "name": "DATABASE_URL",
+        "group": "runtime",
+        "description": "The PostgreSQL database the engine runs on",
+        "value": "postgresql+psycopg://rdm@database:5432/rdm",
+        "default": null,
+        "source": "environment"
+      },
+      {
+        "name": "RDM_MODEL_PATH",
+        "group": "runtime",
+        "description": "The model file installed on a database's first start; not the active model",
+        "value": "/model/rdm-starter.json",
+        "default": "/model/rdm-starter.json",
+        "source": "environment"
+      },
+      {
+        "name": "RDM_CURSOR_SIGNING_KEY",
+        "group": "runtime",
+        "description": "Signs pagination cursors; unset, each process makes its own, so cursors stop working after a restart and differ between instances",
+        "value": null,
+        "default": null,
+        "source": "environment"
+      },
+      {
+        "name": "CORS_ORIGINS",
+        "group": "runtime",
+        "description": "Browser origins allowed to call the API",
+        "value": [
+          "http://localhost:8480"
+        ],
+        "default": [
+          "http://localhost:5173"
+        ],
+        "source": "environment"
+      },
+      {
+        "name": "PUBLIC_URL",
+        "group": "runtime",
+        "description": "The engine's address as callers reach it; the issuer of its tokens",
+        "value": "http://localhost:8480",
+        "default": "http://localhost:8000",
+        "source": "environment"
+      },
+      {
+        "name": "SOURCE_CODE_URL",
+        "group": "runtime",
+        "description": "Where the source of the running version is offered to its users; the project's tag of this version unless set (AGPL section 13)",
+        "value": "https://github.com/refiroo/refiroo/tree/v0.12.0",
+        "default": "https://github.com/refiroo/refiroo/tree/v0.12.0",
+        "source": "default"
+      },
+      {
+        "name": "SECRETS_ENCRYPTION_KEY",
+        "group": "runtime",
+        "description": "Seals the stored token and webhook signing keys; required",
+        "value": null,
+        "default": null,
+        "source": "environment"
+      },
+      {
+        "name": "JOB_FILE_DIR",
+        "group": "runtime",
+        "description": "Where export files wait for download; created at start, kept as long as their job",
+        "value": "/data/job-files",
+        "default": "/var/job-files",
+        "source": "environment"
+      },
+      {
+        "name": "RDM_API_REFERENCE_SCRIPT",
+        "group": "runtime",
+        "description": "Where the API reference page at /docs loads its script from: bundled or cdn",
+        "value": "bundled",
+        "default": "bundled",
+        "source": "default"
+      },
+      {
+        "name": "WEB_CONCURRENCY",
+        "group": "runtime",
+        "description": "Server worker processes on this instance",
+        "value": 1,
+        "default": 1,
+        "source": "default"
+      },
+      {
+        "name": "DATABASE_POOL_SIZE",
+        "group": "runtime",
+        "description": "Database connections each process keeps open",
+        "value": 5,
+        "default": 5,
+        "source": "default"
+      },
+      {
+        "name": "DATABASE_POOL_MAX_OVERFLOW",
+        "group": "runtime",
+        "description": "Database connections each process opens beyond the pool size when busy",
+        "value": 10,
+        "default": 10,
+        "source": "default"
+      },
+      {
+        "name": "DATABASE_POOL_TIMEOUT",
+        "group": "runtime",
+        "description": "Seconds a request waits for a database connection before it answers 503",
+        "value": 30,
+        "default": 30,
+        "source": "default"
+      },
+      {
+        "name": "DATABASE_IDLE_TRANSACTION_TIMEOUT",
+        "group": "runtime",
+        "description": "Seconds a connection may sit idle inside a transaction before the database ends it, releasing a stalled process's locks; 0 turns it off",
+        "value": 300,
+        "default": 300,
+        "source": "default"
+      },
+      {
+        "name": "LOG_FORMAT",
+        "group": "runtime",
+        "description": "How the log is written: text lines, or one JSON object a line",
+        "value": "text",
+        "default": "text",
+        "source": "default"
+      },
+      {
+        "name": "LOG_LEVEL",
+        "group": "runtime",
+        "description": "The lowest level the log writes",
+        "value": "INFO",
+        "default": "INFO",
+        "source": "default"
+      },
+      {
+        "name": "PROCESS_HEARTBEAT_SECONDS",
+        "group": "runtime",
+        "description": "Seconds between each process's reports of its state to the others",
+        "value": 15,
+        "default": 15,
+        "source": "default"
+      },
+      {
+        "name": "MODEL_ADMIN_MUTATIONS_ENABLED",
+        "group": "capabilities",
+        "description": "Model drafts, compiling, installing and activating releases",
+        "value": true,
+        "default": false,
+        "source": "environment"
+      },
+      {
+        "name": "WORKSPACE_ADMIN_MUTATIONS_ENABLED",
+        "group": "capabilities",
+        "description": "Creating, renaming, retiring, deleting workspaces and choosing the default",
+        "value": true,
+        "default": true,
+        "source": "default"
+      },
+      {
+        "name": "INTEGRATION_JOBS_ENABLED",
+        "group": "capabilities",
+        "description": "Creating and cancelling jobs (POST /batches); job reads stay available",
+        "value": true,
+        "default": true,
+        "source": "default"
+      },
+      {
+        "name": "CONSUMER_SUBSCRIPTIONS_ENABLED",
+        "group": "capabilities",
+        "description": "Webhook subscriptions and their delivery",
+        "value": false,
+        "default": false,
+        "source": "default"
+      },
+      {
+        "name": "BATCH_MAX_ITEMS",
+        "group": "limits",
+        "description": "Items in an inline batch",
+        "value": 1000,
+        "default": 1000,
+        "source": "default"
+      },
+      {
+        "name": "BATCH_MAX_BYTES",
+        "group": "limits",
+        "description": "Bytes in an inline batch's body",
+        "value": 5242880,
+        "default": 5242880,
+        "source": "default"
+      },
+      {
+        "name": "ATOMIC_JOB_MAX_ITEMS",
+        "group": "limits",
+        "description": "Items in an atomic batch, inline or background",
+        "value": 10000,
+        "default": 10000,
+        "source": "default"
+      },
+      {
+        "name": "BACKGROUND_JOB_MAX_ITEMS",
+        "group": "limits",
+        "description": "Items in a background batch",
+        "value": 1000000,
+        "default": 1000000,
+        "source": "default"
+      },
+      {
+        "name": "BATCH_BACKGROUND_MAX_BYTES",
+        "group": "limits",
+        "description": "Bytes in a background batch's body",
+        "value": 52428800,
+        "default": 52428800,
+        "source": "default"
+      },
+      {
+        "name": "JOB_CHUNK_ITEMS",
+        "group": "limits",
+        "description": "Items one background chunk commits",
+        "value": 500,
+        "default": 500,
+        "source": "default"
+      },
+      {
+        "name": "IMPORT_MAX_BYTES",
+        "group": "limits",
+        "description": "Bytes in an import's file",
+        "value": 209715200,
+        "default": 209715200,
+        "source": "default"
+      },
+      {
+        "name": "JOB_PREVIEW_MAX_ITEMS",
+        "group": "limits",
+        "description": "Items a preview of an import or a batch runs before it is a sample",
+        "value": 10000,
+        "default": 10000,
+        "source": "default"
+      },
+      {
+        "name": "MODEL_OPERATION_MAX_ITEMS",
+        "group": "limits",
+        "description": "Operations in one request to a model draft",
+        "value": 500,
+        "default": 500,
+        "source": "default"
+      },
+      {
+        "name": "JOB_LEASE_SECONDS",
+        "group": "limits",
+        "description": "Seconds a worker holds a job, renewed with each chunk",
+        "value": 120,
+        "default": 120,
+        "source": "default"
+      },
+      {
+        "name": "ACCESS_TOKEN_MINUTES",
+        "group": "runtime",
+        "description": "Minutes an access token lasts, for people and clients",
+        "value": 60,
+        "default": 60,
+        "source": "default"
+      },
+      {
+        "name": "TOKEN_SIGNING_KEY_DAYS",
+        "group": "runtime",
+        "description": "Days a token signing key signs before the next token brings a new one",
+        "value": 30,
+        "default": 30,
+        "source": "default"
+      },
+      {
+        "name": "SESSION_IDLE_HOURS",
+        "group": "runtime",
+        "description": "Hours a browser session lasts without being used",
+        "value": 12,
+        "default": 12,
+        "source": "default"
+      },
+      {
+        "name": "SESSION_DAYS",
+        "group": "runtime",
+        "description": "Days a browser session lasts in all before the person signs in again",
+        "value": 14,
+        "default": 14,
+        "source": "default"
+      },
+      {
+        "name": "PASSWORD_RESET_HOURS",
+        "group": "runtime",
+        "description": "Hours a password-reset link stays valid",
+        "value": 24,
+        "default": 24,
+        "source": "default"
+      },
+      {
+        "name": "PASSWORD_MIN_LENGTH",
+        "group": "runtime",
+        "description": "Characters a local password needs at least; lower only for development",
+        "value": 15,
+        "default": 15,
+        "source": "default"
+      },
+      {
+        "name": "JOB_RETENTION_DAYS",
+        "group": "limits",
+        "description": "Days a finished job keeps its outcomes and idempotency key",
+        "value": 7,
+        "default": 7,
+        "source": "default"
+      },
+      {
+        "name": "FEED_RETENTION_DAYS",
+        "group": "limits",
+        "description": "Days the change feed and consumer events answer a position",
+        "value": 30,
+        "default": 30,
+        "source": "default"
+      },
+      {
+        "name": "CONSUMER_RESOLVE_MAX_ITEMS",
+        "group": "limits",
+        "description": "Items in one consumer batch resolve",
+        "value": 1000,
+        "default": 1000,
+        "source": "default"
+      },
+      {
+        "name": "CONSUMER_WEBHOOK_LOG_RETENTION_DAYS",
+        "group": "webhooks",
+        "description": "Days the webhook delivery log keeps a request, its body and its attempts",
+        "value": 7,
+        "default": 7,
+        "source": "default"
+      },
+      {
+        "name": "AI_PROVIDER",
+        "group": "ai",
+        "description": "The proposal provider: claude, openai-compatible or a factory module:function; empty, the default, sends nothing anywhere",
+        "value": "",
+        "default": "",
+        "source": "default"
+      },
+      {
+        "name": "AI_MODEL",
+        "group": "ai",
+        "description": "The provider's model; empty for claude means claude-opus-5-5",
+        "value": "",
+        "default": "",
+        "source": "default"
+      },
+      {
+        "name": "AI_API_KEY",
+        "group": "ai",
+        "description": "The provider's key; never shown",
+        "value": null,
+        "default": null,
+        "source": "default"
+      },
+      {
+        "name": "AI_BASE_URL",
+        "group": "ai",
+        "description": "The provider's address: required for openai-compatible, empty for Claude's own",
+        "value": "",
+        "default": "",
+        "source": "default"
+      },
+      {
+        "name": "AI_SEND_LEVEL",
+        "group": "ai",
+        "description": "The most that may leave the instance: structure (no values), samples (a few) or values (as many as a feature needs)",
+        "value": "values",
+        "default": "values",
+        "source": "default"
+      },
+      {
+        "name": "AI_SAMPLE_VALUES",
+        "group": "ai",
+        "description": "At send level samples, the most values per column, or rows per sheet, that are sent",
+        "value": 20,
+        "default": 20,
+        "source": "default"
+      },
+      {
+        "name": "AI_MIN_CONFIDENCE",
+        "group": "ai",
+        "description": "The confidence, 0 to 1, below which a proposal is not offered",
+        "value": 0.5,
+        "default": 0.5,
+        "source": "default"
+      },
+      {
+        "name": "AI_LOG_CONTENT",
+        "group": "ai",
+        "description": "Keep each call's request and answer for an operator debugging a prompt",
+        "value": false,
+        "default": false,
+        "source": "default"
+      },
+      {
+        "name": "AI_LOG_CONTENT_DAYS",
+        "group": "ai",
+        "description": "Days a call's kept request and answer stay, when AI_LOG_CONTENT is on",
+        "value": 7,
+        "default": 7,
+        "source": "default"
+      },
+      {
+        "name": "AI_TIMEOUT_SECONDS",
+        "group": "ai",
+        "description": "Seconds one call to the provider may take before it fails",
+        "value": 60,
+        "default": 60,
+        "source": "default"
+      },
+      {
+        "name": "AI_REASONING_EFFORT",
+        "group": "ai",
+        "description": "openai-compatible only: how much the model reasons first, none, low, medium or high; empty sends nothing. none keeps a local thinking model fast",
+        "value": "",
+        "default": "",
+        "source": "default"
+      },
+      {
+        "name": "AI_CONTEXT_TOKENS",
+        "group": "ai",
+        "description": "The model's context window in tokens, for a small local model; each call is sized to half of it. Empty: no limit",
+        "value": null,
+        "default": null,
+        "source": "default"
+      },
+      {
+        "name": "AI_TASK_RETENTION_DAYS",
+        "group": "ai",
+        "description": "Days an assistant task is kept after it finished (loaded, failed or cancelled) or was last changed; then it and its file are deleted",
+        "value": 90,
+        "default": 90,
+        "source": "default"
+      },
+      {
+        "name": "AI_AGENT_COMMAND",
+        "group": "runtime",
+        "description": "The command that starts the assistant's Claude Code session, for example: claude --model sonnet; empty, the assistant runs no session",
+        "value": "",
+        "default": "",
+        "source": "default"
+      },
+      {
+        "name": "AI_AGENT_SANDBOX",
+        "group": "runtime",
+        "description": "container when the engine runs in a container, where Claude Code's own sandbox cannot run; empty, the operating system's sandbox",
+        "value": "",
+        "default": "",
+        "source": "default"
+      },
+      {
+        "name": "AI_AGENT_API_URL",
+        "group": "runtime",
+        "description": "The API address the assistant's session uses; empty, this instance's own",
+        "value": "",
+        "default": "",
+        "source": "default"
+      },
+      {
+        "name": "MCP_ENABLED",
+        "group": "ai",
+        "description": "Whether assistants can reach the instance at /mcp; off, the endpoint does not exist",
+        "value": false,
+        "default": false,
+        "source": "default"
+      },
+      {
+        "name": "MCP_RATE_PER_MINUTE",
+        "group": "ai",
+        "description": "Tool calls one person or client may make through /mcp in a minute",
+        "value": 120,
+        "default": 120,
+        "source": "default"
+      },
+      {
+        "name": "MCP_OPEN_REGISTRATION",
+        "group": "ai",
+        "description": "Whether an assistant may register itself; off, only those an administrator registers can sign people in",
+        "value": true,
+        "default": true,
+        "source": "default"
+      },
+      {
+        "name": "MCP_REDIRECT_HOSTS",
+        "group": "ai",
+        "description": "HTTPS hosts a self-registered assistant may return to, besides this computer",
+        "value": [],
+        "default": [],
+        "source": "default"
+      },
+      {
+        "name": "MCP_CALLS_DAYS",
+        "group": "ai",
+        "description": "Days a record of a tool call through /mcp is kept",
+        "value": 90,
+        "default": 90,
+        "source": "default"
+      },
+      {
+        "name": "MCP_ANSWER_BYTES",
+        "group": "ai",
+        "description": "The longest answer of a tool through /mcp; past it a page comes back smaller, with a cursor",
+        "value": 40000,
+        "default": 40000,
+        "source": "default"
+      }
+    ]
+  }
+}

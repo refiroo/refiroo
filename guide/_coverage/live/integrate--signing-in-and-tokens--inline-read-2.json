@@ -1,0 +1,25 @@
+{
+  "method": "GET",
+  "url": "http://localhost:8480/oauth/jwks",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "vary": "Origin",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "x-request-id": "f0f68c3481ed4310b1c71a0c38541bc5"
+  },
+  "body": {
+    "keys": [
+      {
+        "x": "i4dnO347DrtIqtOt5prJAfEiXu3M2w1er_3Rc2BqR4o",
+        "y": "aag9jytDaU1XD7Mk9QLFGIafRMafhHkQhKDcBwmQqX4",
+        "alg": "ES256",
+        "crv": "P-256",
+        "kid": "AHxdbQ1belV_i3ko",
+        "kty": "EC",
+        "use": "sig"
+      }
+    ]
+  }
+}

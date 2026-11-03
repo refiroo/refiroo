@@ -20,7 +20,7 @@ Bulk writes, imports and exports are jobs. Migrations, moves and model checks al
 
 A completed job's result distinguishes all applied, partly applied and none applied. An unchanged item is applied without a data write. A job-level failure is different from a completed job containing rejected items.
 
-Follow progress through the job's server-sent event operation, which reports changes as they commit, or reread the job. Page item outcomes separately. Import rows gather source-row results; other job kinds can offer their own row reports. `JOB_HAS_NO_ROWS` means that kind has no row report: use its items or linked subject.
+Follow progress through the job's Server-Sent Events (SSE) operation, which reports changes as they commit, or reread the job. Page item outcomes separately. Import rows gather source-row results; other job kinds can offer their own row reports. `JOB_HAS_NO_ROWS` means that kind has no row report: use its items or linked subject.
 
 ## Cancellation and restart
 

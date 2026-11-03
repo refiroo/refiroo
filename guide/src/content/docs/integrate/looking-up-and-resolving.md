@@ -127,7 +127,7 @@ RDM-Workspace: graubuenden
   "pageSize": 20,
   "nextCursor": null,
   "prevCursor": null,
-  "anchor": "<anchor-for-this-lookup>",
+  "anchor": "eyJkaXJlY3Rpb24iOiJmcm9tIiwiZmlsdGVycyI6Ijk4MWU5Mjk5OTE3NzIyNTIxMTZmZmI4ZDU3MDVmZmRlMDNmY2RhZTEzYzM1MThkNDhiNmY4NDFhZmNiY2ViODEiLCJwb3NpdGlvbiI6WyI5MDAiLCJTdG9wIiwiVHNjaGFtdXQtU2VsdmEiLCI4ZDkwZWVkZS0yM2NmLTQ3YzEtOGRhYy1jYjM3OTU2ZjVmZDUiXSwic2NvcGUiOiJjb25zdW1lci14cmVmOnN0b3BzIiwic29ydCI6WyItc2NvcmUiLCJ0eXBlIiwibmFtZSIsImlkIl0sInZlcnNpb24iOjF9.LcVND5El7KcHw5lQPGcso2yeAybU-Z3ilj5uJB09VQk",
   "totalCount": 1,
   "startIndex": 0
 }
@@ -334,7 +334,7 @@ RDM-Workspace: graubuenden
 
 An item using `id` reads the known UUID directly and does not add a query score. Use one of `query` and `id` per item. For a whole file, follow [Resolve a file of codes](/docs/guide/integrate/resolve-a-file-of-codes/). The instance's [Resolve reference](/docs/api/?api=consumer-stops-v1#consumer-stops-v1/POST/api/consumer/stops/v1/resolve) remains the generated contract pointer.
 
-These bodies use production-composed object values and the envelopes checked by the consumer code and journey assertions. The opaque anchor is illustrative, not a live resume token.
+These response bodies were read from the reference instance. The anchor is the complete opaque value from that lookup. Obtain an anchor from your own response and keep it with the same workspace, query and parameters.
 
 *Source: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0. Regional ticketing and its codes are fictional.*
 

@@ -10,7 +10,7 @@ These pages report information. Deployment settings are changed on the server, a
 
 ## About
 
-**About** introduces refiroo and links to its documentation, reference, licence and source code. **Engine** identifies the installed engine version, Management API version and supported schema languages. **Active model release** gives the model’s name, key, version, schema language and activation time, with **Open release**.
+**About** opens with **Reference data that stays in step.** Its three points, **Shape it to your domain.**, **Connect, don’t copy.** and **One API for everything.**, describe models, meaningful connections and the API. It links to its documentation, reference, licence and source code. **Engine** identifies the installed engine version, Management API version and supported schema languages. **Active model release** gives the model’s name, key, version, schema language and activation time, with **Open release**.
 
 The engine version identifies the software. The model release identifies the definitions currently used for the selected workspace. They change independently; a consumer API also has its own contract version. When reporting a problem, give the relevant software and model versions rather than just the application’s name.
 

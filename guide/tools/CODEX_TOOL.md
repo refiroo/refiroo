@@ -30,11 +30,27 @@ the closing backtick is a comment. The section ends at the next heading.
 A wave file may carry a line `Screens file: \`PILOT.screens.json\`` (a name in `_waves/` or a path under
 `guide/`). The file lists screens (`name`, `shows`, and how to reach them); `node guide/tools/screens.mjs`
 captures them from the reference instance into `guide/public/screens/<name>.png` (`--list`, `--only a,b`).
+A screen signs in as the administrator unless it has `"as": "<role>"`: that role's `GUIDE_<ROLE>_USERNAME` and
+`GUIDE_<ROLE>_PASSWORD` from `guide/reference/.env` are used (`approver`, `contributor`, ...); sessions are
+reused per role and width.
 `run` passes every image of the screens file to `codex exec` with one `-i` each and adds the list (name and
 what it shows) to the prompt; `--images <glob or comma list>` adds more (names are matched in the current
 directory, then in `guide/public/screens/`). `reply --images ...` attaches images to that turn
 (`codex exec resume` accepts `-i`). The images sent are in `run.json` (per turn: path and sha1) and in
 `turn-N.images.txt`; `run --dry-run` lists them.
+
+## Live requests
+
+`node guide/tools/live-requests.mjs [--file C12.requests.json] [--only a,b] [--list] [--allow-writes]` runs the
+documentation's example requests (`guide/_waves/<FILE>`: `requests[]` with `name`, `auth` `consumer|admin|none`,
+`method`, `path`, `query`, `headers`, `body`, `expectStatus`, `write`, `note`) against the reference instance
+and writes each real response to `guide/_coverage/live/<name>.json` (status, ETag/Content-Type/Location/
+Retry-After/rdm-*/signature headers, body cut at 200 KB). Use it to check a page's example against the
+engine's actual answer. `consumer` uses the consumer client in `.env`; `admin` signs in as the administrator
+and uses the browser-flow bearer token. Only reads run (GET, HEAD, POST to resolve/xref/lookup/preview/
+dry-run/validate paths); other requests need `"write": true` and `--allow-writes`. Exit 1 if a request fails
+unexpectedly (name a deliberate error in `expectStatus`). The instance must be running
+(`guide/reference/reference.sh start`).
 
 ## Commands
 

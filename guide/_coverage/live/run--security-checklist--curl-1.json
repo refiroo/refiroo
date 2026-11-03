@@ -1,0 +1,14 @@
+{
+  "method": "HEAD",
+  "url": "http://localhost:8480/",
+  "status": 200,
+  "headers": {
+    "cache-control": "no-cache",
+    "content-type": "text/html",
+    "etag": "W/\"6ae8c2bf-59b\"",
+    "last-modified": "Mon, 02 Nov 2026 17:05:03 GMT",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY"
+  },
+  "body": ""
+}

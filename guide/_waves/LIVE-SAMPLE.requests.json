@@ -1,0 +1,7 @@
+{
+  "requests": [
+    { "name": "sample-api-index", "auth": "consumer", "method": "GET", "path": "/api/consumer", "note": "The consumer API index." },
+    { "name": "sample-stops-xref", "auth": "consumer", "method": "GET", "path": "/api/consumer/stops/v1/xref", "query": { "query": "Chur", "workspace": "graubuenden", "pageSize": 2 }, "note": "A stop found by name." },
+    { "name": "sample-management-system", "auth": "admin", "method": "GET", "path": "/api/v1/system", "note": "A management API read as the administrator." }
+  ]
+}

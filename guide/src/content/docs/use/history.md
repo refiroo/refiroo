@@ -10,7 +10,10 @@ Follow [See who changed what](/docs/guide/use/see-who-changed-what/) for the ste
 
 ## A record's History
 
-On a record page, **History** shows the newest entries first. **All**, **Values**,
+In **Live**, a record page’s **History** shows the newest entries first.
+The record History panel is absent inside a change set or publication. Use
+[Review changes](/docs/guide/use/review-what-a-change-set-changes/) for a change set’s
+prepared differences, or return to Live for the record’s history. **All**, **Values**,
 **Relationships** and **Moves** select kinds of event. **By** narrows the entries to one person;
 **Anyone** removes that restriction. Expand an entry with its arrow to see recorded details,
 including previous values where available.
@@ -100,3 +103,6 @@ A change set names its creator and the people who edited it. A publication names
 published and withdrew it. A job names its requester both in the list and on its page.
 These names describe different responsibilities; the person publishing need not have prepared
 every change.
+
+A narrowed workspace Activity list offers **Show all activity** to clear its narrowing.
+The wider result still includes only work you may read.

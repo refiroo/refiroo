@@ -35,3 +35,15 @@ A new workspace can name an installed usable release; otherwise it starts on the
 One unavailable workspace does not justify reading another workspace as a fallback. Across-workspace record lookup fails as a whole if any selected workspace cannot load its release. Its cursor binds the selected workspace set, and each result carries `workspaceKey` and `modelReleaseId`. Feeds, relationship collections and exports remain within one workspace.
 
 An administration list filtered by a consumer API name can include subscriptions from several workspaces where that name denotes different contracts. Keep both API name and workspace in integration configuration. Import profiles and model mappings identify their models; a shared instance catalogue does not mean their definitions apply to every workspace model.
+
+## Deletion and reusing a workspace key
+
+Deletion is restricted to a non-default, empty workspace that has never been published and
+has no change sets or webhook subscriptions. `WORKSPACE_HAS_SUBSCRIPTIONS` requires removing
+those subscriptions first; deletion does not silently discard them.
+
+Deleting an eligible workspace removes its feed positions and idempotency keys. Audit history
+is retained without that workspace or its feed positions. Creating a new workspace under the
+same key starts a separate feed at position 1; a retried job request does not replay the deleted
+workspace's job. Rediscover the new workspace rather than reusing saved positions or assuming
+that an old idempotency key still protects a request. See the [workspace operations](/docs/api/?api=management#tag/workspaces).

@@ -1608,6 +1608,79 @@
         "Messages",
         "No message is in this state."
       ]
+    },
+    {
+      "name": "contributor-propose-change",
+      "as": "contributor",
+      "height": 1000,
+      "shows": "Contributor in Live: Chur Wiesental in Network, Graubünden, with the Propose a change dialog, Change set name, explanation of publication by someone holding Publish, Cancel and Start and edit. The Live band remains behind the dialog; live edit controls are absent. Requires this contributor to have no open change set of their own in Graubünden. Cancelled without starting or editing.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
+        },
+        {
+          "click": {
+            "text": "Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Propose a change",
+            "exact": true
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Propose a change",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "Propose a change",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Live",
+        "Graubünden",
+        "Chur Wiesental",
+        "Propose a change",
+        "Change set name",
+        "Your changes go into a change set of your own, not live.",
+        "Someone who holds Publish in Graubünden publishes it.",
+        "Start and edit",
+        "Cancel"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true,
+            "in": {
+              "role": "dialog",
+              "name": "Propose a change",
+              "exact": true
+            }
+          }
+        }
+      ]
     }
   ],
   "note": "Missing page images only. Source-verified capture recipes, not executed or visually accepted. Run with guide/tools/screens.mjs --file C10.screens.json against localhost:8480. Preserve earlier entries. Preconditions, persistent job/draft changes and deferred states are in C10.data-changes.md and _coverage/notes/C10-SCREENS/. Dialogs are cancelled; no delete, release activation/rollback or access/security change is confirmed."

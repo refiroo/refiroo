@@ -64,9 +64,9 @@ underlying tracebacks. Avoid putting secrets into support reports.
 
 ## Scrape metrics privately
 
-`GET /metrics` returns Prometheus text for the whole instance, including all live processes.
+`GET /metrics` on the internal engine address returns Prometheus text for the whole instance, including all live processes.
 Scrape once through an engine address reachable on the private network; scraping each process
-repeats the same instance series. The public Compose web service returns 404 for `/metrics`.
+repeats the same instance series. The public Compose web service returns 404 HTML from nginx for `/metrics`, even with a valid management token. This is the expected response at the public address; keep `/metrics` as the path and use the private engine address for scraping.
 
 Create a monitoring client with the Operator role in your configured environment:
 
