@@ -1100,9 +1100,11 @@ key and the signature counter, never a private key.
 **Mail** (M1): `engine/mail/`. `settings.py` is the one saved SMTP connection (`mail_settings`, a row
 or none; the password sealed under `SECRETS_ENCRYPTION_KEY`, its saving a security event), `smtp.py`
 hands one message to the server (`smtplib`, the certificate verified, every failure a `MailError`
-naming what failed and whether trying again can help) and `templates.py` writes the plain-text
-messages (D421). A message is queued by `outbox.enqueue` in the caller's transaction, so a link made
-and its mail commit together, and its text is sealed (`mail_outbox.body`) and erased when the message
+naming what failed and whether trying again can help) and `templates.py` writes the
+messages (D421): each is multipart, the plain text first and then a branded HTML part (`html.py`, one
+layout, every value escaped) whose mascot and wordmark are inline `cid:` images from `mail/brand/`, never
+loaded from the application's address. A message is queued by `outbox.enqueue` in the caller's transaction, so a link made
+and its mail commit together, and its text and HTML are sealed together (`mail_outbox.body`, `outbox.pack`/`unpack`; the images are added when `smtp.build` sends) and erased when the message
 is finished. `sender.py` is a thread in each process, as the event deriver and the webhook
 dispatcher are: it leases due messages with `FOR UPDATE SKIP LOCKED`, retries with a doubling delay
 (30 seconds to an hour), fails an address refused for good at once and anything else after 24 hours,

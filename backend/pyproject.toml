@@ -44,6 +44,7 @@ include = ["app*"]
 "app.migrations" = ["script.py.mako"]
 "app.management.reference" = ["scalar/standalone.js", "scalar/LICENSE"]
 "app.management" = ["passkey.js", "brand/*.png"]
+"app.engine.mail" = ["brand/*.png"]
 
 [tool.ruff]
 line-length = 100

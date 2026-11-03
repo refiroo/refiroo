@@ -6,6 +6,7 @@ server. A message is retried with a growing delay and given up on after 24 hours
 holds a one-time link, is sealed and emptied once the message is finished.
 """
 
+import json
 import logging
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -39,6 +40,23 @@ def body_context(public_id: str) -> bytes:
     return b"mail-outbox:" + public_id.encode()
 
 
+def pack(message: Rendered) -> bytes:
+    """What is sealed for a message: its text and its HTML, both of which hold the one-time link."""
+    return json.dumps({"text": message.body, "html": message.html}).encode()
+
+
+def unpack(plain: bytes) -> tuple[str, str | None]:
+    """The text and the HTML (if any) of a sealed message. A message queued before the HTML existed
+    holds its text alone."""
+    try:
+        found = json.loads(plain)
+    except ValueError:
+        found = None
+    if isinstance(found, dict) and isinstance(found.get("text"), str):
+        return found["text"], found.get("html") or None
+    return plain.decode(), None
+
+
 def retry_delay(attempts: int) -> timedelta:
     """The wait after the ``attempts``-th failure: 30 seconds, doubling, at most an hour."""
     seconds = FIRST_DELAY_SECONDS * 2 ** max(attempts - 1, 0)
@@ -63,7 +81,7 @@ def enqueue(
         kind=message.kind,
         to_address=to_address,
         subject=message.subject,
-        body=seal(identity.encryption_key, message.body.encode(), body_context(public_id)),
+        body=seal(identity.encryption_key, pack(message), body_context(public_id)),
         status="pending",
         attempts=0,
         created_at=at,

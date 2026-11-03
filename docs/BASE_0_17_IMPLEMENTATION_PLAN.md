@@ -41,9 +41,10 @@ corrects that result, and the way to import when no provider is configured.
 | [PL4](PLAIN_PATH_PLAN.md#pl4-new-workspace-from-a-workbook) | PL3, PL3b | The file and a name, what refiroo found, Create workspace |
 | [PL5](PLAIN_PATH_PLAN.md#pl5-plain-words-and-identifiers) | PL0 | One list of replacements; Settings index; Back to the workspace |
 | [PL6](PLAIN_PATH_PLAN.md#pl6-collection-import-and-export-and-your-changes) | PL0 | Import file-first; Export for people; draft steps grouped |
+| [SM1](#sm1-account-security-messages) | — | Mail when a person's sign-in changes: password, second factor, passkey |
 | [R](#r-build-acceptance-and-release) | all | Full review since 0.16, the gates, the release |
 
-**Order.** PL0, PL1, PL2, PL3, PL3b, PL4, PL5, PL6, R. PL1 and PL2 are the cheapest fixes on the most frequent
+**Order.** PL0, PL1, PL2, PL3, PL3b, PL4, PL5, PL6, SM1, R. PL1 and PL2 are the cheapest fixes on the most frequent
 paths. PL3 gives PL4 its place, and PL3b is where PL4's Adjust leads. Each UI package shows its mock-up with its
 plan for one approval and is then delivered whole.
 
@@ -144,6 +145,17 @@ text goes in with PL3b as the seed in `MODEL_AUTHORING.md` and `PRODUCT.md`, and
 
 **Said plainly:** the canvas builds a new model, or a new version of a draft's. Reshaping records already in a
 workspace stays with restructuring and WM1. Consumer APIs and security stay in their own pages.
+
+## SM1: Account security messages
+
+_Added by the user on 2026-11-03,_ after the branded mail templates. Today a person gets mail only to activate
+an account or reset a password. SM1 sends a message when their sign-in changes, so a change they did not make
+is noticed: the password was changed or reset (`identity/resets.py`), a second factor was added or removed
+(`identity/second_factor.py`), a passkey was added or removed (`identity/passkeys.py`). Each message says what
+changed and when, and what to do if it was not them, in the shared branded layout with its plain-text part, and
+carries no secret, code or link that signs in (D421). It is queued in the same transaction as the change, as
+activation is. The exact list of events and whether a person can switch these messages off are settled in
+SM1's plan.
 
 ## R: Build acceptance and release
 

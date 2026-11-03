@@ -85,7 +85,9 @@ def test_mail_is_set_up_and_proved_with_a_test_message(world, smtp):
     [message] = smtp.messages
     assert message["To"] == "ada@example.org" and message["From"] == "refiroo@example.org"
     assert "test message" in message["Subject"]
-    assert "https://refiroo.example.org\n" in message.get_content().replace("\r\n", "\n")
+    assert "https://refiroo.example.org\n" in message.get_body(("plain",)).get_content().replace(
+        "\r\n", "\n"
+    )
 
     events = ok(world.api.get("/security-events", aggregateType="mail-settings"))["items"]
     assert [(e["action"], e["aggregateId"]) for e in events] == [("created", "mail")]
@@ -285,8 +287,8 @@ def test_queued_mail_is_sent_in_the_background_and_retried(world, smtp):
     assert sent["nextAttemptAt"] is None and sent["finishedAt"]
     assert ok(world.api.get("/mail-settings"))["outbox"] == {"pending": 0, "sent": 1, "failed": 0}
     [mail] = smtp.messages
-    assert mail["To"] == "ada@example.org" and LINK in mail.get_content()
-    assert "Hello Ada" in mail.get_content()
+    assert mail["To"] == "ada@example.org" and LINK in mail.get_body(("plain",)).get_content()
+    assert "Hello Ada" in mail.get_body(("plain",)).get_content()
     assert _database(world, "SELECT body FROM mail_outbox") == [(None,)]
     assert "body" not in json.dumps(ok(world.api.get("/mail-outbox")))
     assert LINK not in json.dumps(ok(world.api.get("/mail-outbox")))
@@ -480,7 +482,7 @@ def test_a_new_persons_link_is_mailed_and_still_shown_once(world, smtp):
 
     assert send_mail(world) == 1
     [mail] = smtp.messages
-    text = mail.get_content()
+    text = mail.get_body(("plain",)).get_content()
     assert mail["To"] == "ada@example.org" and "Your" in mail["Subject"]
     assert "Hello Ada" in text and made["url"] in text
 
@@ -495,7 +497,7 @@ def test_a_new_persons_link_is_mailed_and_still_shown_once(world, smtp):
     again = ok(world.api.post(f"/users/{ada['id']}/password-reset", {"send": True}), 201)
     send_mail(world)
     assert smtp.messages[-1]["Subject"].startswith("Choose a new")
-    assert again["url"] in smtp.messages[-1].get_content()
+    assert again["url"] in smtp.messages[-1].get_body(("plain",)).get_content()
 
 
 @pytest.mark.journey("J46.7")

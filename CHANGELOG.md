@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added (branded mail)
+
+- **The five messages the engine sends are branded HTML as well as plain text.** Activation, password reset, test message, inbox notice and digest are multipart: the plain text, unchanged, then an HTML part with the refiroo mascot and wordmark in a lavender band (a renamed product shows its name beside them, as the top bar does), a heading, a button, the raw link for a client that hides the button, and a footer saying why the person gets the message and where to change it (Settings › Notifications). The HTML carries the same facts as the text and no more (D421, D432); every value is escaped. The images travel inside the message as `cid:` parts from `backend/app/engine/mail/operator/`, never loaded from the application's address. The sealed outbox text now holds the text and the HTML together (`outbox.pack`/`unpack`), so there is no migration; a message queued earlier is sent as plain text.
+
 ### Changed (the documentation's sidebar)
 
 - **The documentation's sidebar starts folded.** Only About refiroo is open by default; every other section and its groups start closed. The section and group of the page being read open by themselves, and a reader's own folding is kept as before (`guide/astro.config.mjs`).

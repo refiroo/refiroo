@@ -758,6 +758,7 @@ a workspace in one go, and a person shapes its model by dragging on one screen b
 - The workbook canvas: sheets and columns dragged into lists, fields, relationships, hierarchies, filters
   and navigation groups, each drop applied at once with undo (PL3b)
 - New workspace from a workbook, plain words, collection import and export (PL4–PL6)
+- Mail when a person's sign-in changes: password, second factor, passkey (SM1, added 2026-11-03)
 
 ### Exit gate
 

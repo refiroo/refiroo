@@ -108,7 +108,7 @@ def _delivery(found: dict) -> dict[str, str]:
 
 
 def _text(mail) -> str:
-    return mail.get_content()
+    return mail.get_body(("plain",)).get_content()
 
 
 @pytest.mark.journey("J57.1")

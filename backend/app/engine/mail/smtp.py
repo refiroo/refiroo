@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
 
+from . import html as mailhtml
+
 TIMEOUT_SECONDS = 15.0
 
 TLS = "tls"
@@ -54,8 +56,12 @@ class MailError(Exception):
         self.permanent = permanent
 
 
-def build(connection: Connection, to_address: str, subject: str, body: str) -> EmailMessage:
-    """A plain-text message from the configured address."""
+def build(
+    connection: Connection, to_address: str, subject: str, body: str, html: str | None = None
+) -> EmailMessage:
+    """A message from the configured address: the plain text and, when there is HTML, the HTML
+    after it with the brand images as inline ``cid:`` parts (multipart/alternative, the HTML part
+    multipart/related). Clients that show text only get the text."""
     message = EmailMessage()
     message["From"] = connection.from_address
     message["To"] = to_address
@@ -65,6 +71,14 @@ def build(connection: Connection, to_address: str, subject: str, body: str) -> E
     # Tells auto-responders and mail loops that no person wrote this.
     message["Auto-Submitted"] = "auto-generated"
     message.set_content(body)
+    if html is not None:
+        message.add_alternative(html, subtype="html")
+        part = message.get_payload()[-1]
+        for cid, filename in mailhtml.IMAGES.items():
+            data = (mailhtml.BRAND_DIR / filename).read_bytes()
+            part.add_related(
+                data, "image", "png", cid=f"<{cid}>", filename=filename, disposition="inline"
+            )
     return message
 
 

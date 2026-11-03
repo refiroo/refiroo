@@ -81,7 +81,7 @@ def test_a_notice_is_mailed_naming_its_kind_and_nothing_of_the_change(world, smt
 
     assert send_mail(world) == 1
     [mail] = smtp.messages
-    text = mail.get_content()
+    text = mail.get_body(("plain",)).get_content()
     assert mail["To"] == "olga@example.org" and mail["From"] == "refiroo@example.org"
     assert "something is waiting in your inbox" in mail["Subject"]
     assert "waiting for your approval" in text and APPLICATION in text
@@ -185,7 +185,10 @@ def test_a_notice_waits_while_mail_is_not_set_up_and_is_mailed_once_it_is(world,
     _save(world, smtp, applicationUrl=APPLICATION)
     assert send_mail(world) == 1
     [mail] = smtp.messages
-    assert mail["To"] == "olga@example.org" and "waiting for your approval" in mail.get_content()
+    assert (
+        mail["To"] == "olga@example.org"
+        and "waiting for your approval" in mail.get_body(("plain",)).get_content()
+    )
 
 
 @pytest.mark.journey("J46.10")
@@ -223,7 +226,11 @@ def _kinds(found: dict) -> dict[str, bool]:
 
 
 def _texts(smtp) -> list[str]:  # noqa: F811
-    return [mail.get_content() for mail in smtp.messages if mail["To"] == "pavel@example.org"]
+    return [
+        mail.get_body(("plain",)).get_content()
+        for mail in smtp.messages
+        if mail["To"] == "pavel@example.org"
+    ]
 
 
 @pytest.mark.journey("J46.10")

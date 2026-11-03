@@ -56,7 +56,11 @@ def test_a_person_asks_for_a_new_password_gets_a_link_and_signs_in_with_it(world
     assert send_mail(world) == 1
     [mail] = smtp.messages
     assert mail["To"] == "ada@example.org" and mail["Subject"].startswith("Choose a new")
-    link = next(line for line in mail.get_content().splitlines() if "reset-password?token=" in line)
+    link = next(
+        line
+        for line in mail.get_body(("plain",)).get_content().splitlines()
+        if "reset-password?token=" in line
+    )
     assert link.startswith("http://localhost:5173/reset-password?token=")
     token = _token(link)
 
@@ -217,7 +221,8 @@ def test_a_reset_reads_the_same_whoever_asked_for_it(world, smtp):  # noqa: F811
 
     def text(mail) -> str:
         return "\n".join(
-            "<link>" if "token=" in line else line for line in mail.get_content().splitlines()
+            "<link>" if "token=" in line else line
+            for line in mail.get_body(("plain",)).get_content().splitlines()
         )
 
     assert by_administrator["Subject"] == by_person["Subject"]

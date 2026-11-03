@@ -29,7 +29,7 @@ from ...models.database import MailOutbox
 from ..identity.settings import IdentitySettings
 from ..notifications import mailing
 from . import settings as mail_settings
-from .outbox import GIVE_UP_AFTER, RETAIN_FINISHED, body_context, retry_delay
+from .outbox import GIVE_UP_AFTER, RETAIN_FINISHED, body_context, retry_delay, unpack
 from .smtp import SERVER_WIDE, Connection, MailError, build, deliver
 
 logger = logging.getLogger(__name__)
@@ -206,16 +206,20 @@ class MailSender:
         if connection is None:
             return MailError(NOT_SET_UP, "Mail is not set up: the SMTP settings were removed")
         try:
-            body = unseal(
-                self.identity.encryption_key, message.body or b"", body_context(message.public_id)
-            ).decode()
+            body, html = unpack(
+                unseal(
+                    self.identity.encryption_key,
+                    message.body or b"",
+                    body_context(message.public_id),
+                )
+            )
         except SealError:
             return MailError(
                 UNREADABLE,
                 "The message cannot be read: SECRETS_ENCRYPTION_KEY has changed since it was queued",
                 permanent=True,
             )
-        built = build(connection, message.to_address, message.subject, body)
+        built = build(connection, message.to_address, message.subject, body, html)
         kwargs = {} if self.timeout_seconds is None else {"timeout": self.timeout_seconds}
         try:
             deliver(connection, built, **kwargs)

@@ -997,7 +997,11 @@ def test_a_reset_by_mail_does_not_skip_the_second_factor(world, smtp):  # noqa: 
     assert _ask(browser, "ada")["status"] == "requested"
     assert send_mail(world) == 1
     [mail] = smtp.messages
-    link = next(line for line in mail.get_content().splitlines() if "reset-password?token=" in line)
+    link = next(
+        line
+        for line in mail.get_body(("plain",)).get_content().splitlines()
+        if "reset-password?token=" in line
+    )
     done = browser.post(
         "/oauth/sign-in/reset",
         json={"token": _token(link), "password": SET_TO, "repeat": SET_TO},

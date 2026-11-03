@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from ...common.brand import is_default_product_name
 from ..identity.second_factor import product_name
 from ..notifications import kinds
+from . import html as mailhtml
 
 # What a message calls the product when no model names one.
 PRODUCT = "refiroo"
@@ -26,6 +27,7 @@ DIGEST = "digest"
 KINDS = (ACTIVATION, PASSWORD_RESET, TEST, NOTICE, DIGEST)
 
 IGNORE = "If you did not expect this message, ignore it; nothing changes."
+SETTINGS_POINTER = "on Settings › Notifications."
 
 
 def product(session: Session) -> str:
@@ -41,6 +43,7 @@ class Rendered:
     kind: str
     subject: str
     body: str
+    html: str = ""
 
 
 def lasts(hours: int) -> str:
@@ -53,6 +56,22 @@ def lasts(hours: int) -> str:
 
 def activation(product: str, name: str, link: str, hours: int) -> Rendered:
     """Welcome to a new person: the link where they choose a password."""
+    html = mailhtml.layout(
+        product,
+        f"Welcome aboard, {name}",
+        [
+            mailhtml.paragraph(
+                f"An account was made for you in {mailhtml.e(product)}. "
+                "Choose your password with this link."
+            ),
+            mailhtml.button(link, "Choose my password"),
+            mailhtml.pill(f"Works once · for {lasts(hours)}"),
+            mailhtml.paragraph(mailhtml.e(IGNORE), small=True),
+            mailhtml.link_fallback(link),
+        ],
+        f"Sent by {mailhtml.e(product)} because an account was made for you.",
+        f"An account was made for you in {product}.",
+    )
     return Rendered(
         ACTIVATION,
         f"Your {product} account",
@@ -60,11 +79,28 @@ def activation(product: str, name: str, link: str, hours: int) -> Rendered:
         f"An account was made for you in {product}. Choose your password with this link:\n\n"
         f"{link}\n\n"
         f"The link works once and for {lasts(hours)}. {IGNORE}\n",
+        html,
     )
 
 
 def password_reset(product: str, name: str, link: str, hours: int) -> Rendered:
     """A link where a person chooses a new password."""
+    html = mailhtml.layout(
+        product,
+        "Let's get you a new password",
+        [
+            mailhtml.paragraph(
+                f"Hello {mailhtml.e(name)}, a new password was asked for your "
+                f"{mailhtml.e(product)} account. Choose it with this link."
+            ),
+            mailhtml.button(link, "Choose a new password"),
+            mailhtml.pill(f"Works once · for {lasts(hours)}"),
+            mailhtml.paragraph(mailhtml.e(IGNORE), small=True),
+            mailhtml.link_fallback(link),
+        ],
+        f"Sent by {mailhtml.e(product)} because a new password was asked for your account.",
+        f"A new password was asked for your {product} account.",
+    )
     return Rendered(
         PASSWORD_RESET,
         f"Choose a new {product} password",
@@ -72,17 +108,34 @@ def password_reset(product: str, name: str, link: str, hours: int) -> Rendered:
         f"A new password was asked for your {product} account. Choose it with this link:\n\n"
         f"{link}\n\n"
         f"The link works once and for {lasts(hours)}. {IGNORE}\n",
+        html,
     )
 
 
 def test_message(product: str, application_url: str) -> Rendered:
     """Proves the settings work, and shows the address the links will point to (D422)."""
+    html = mailhtml.layout(
+        product,
+        "Hop hop, mail works!",
+        [
+            mailhtml.paragraph(
+                f"This is a test message from {mailhtml.e(product)}. "
+                "Mail is set up and this address received it."
+            ),
+            mailhtml.paragraph(f"Links in the mail {mailhtml.e(product)} sends point to:"),
+            mailhtml.pill(application_url),
+            mailhtml.paragraph("If that address is wrong, change it on the Mail page.", small=True),
+        ],
+        f"Sent by {mailhtml.e(product)} from the Mail page.",
+        "Mail is set up and this address received it.",
+    )
     return Rendered(
         TEST,
         f"{product}: test message",
         f"This is a test message from {product}. Mail is set up and this address received it.\n\n"
         f"Links in the mail {product} sends point to:\n\n{application_url}\n\n"
         "If that address is wrong, change it on the Mail page.\n",
+        html,
     )
 
 
@@ -91,10 +144,32 @@ _NOTICE_SENTENCES = {kind: f"{label}." for kind, label in kinds.LABELS.items()}
 _NOTICE_OTHER = "Something is waiting in your inbox."
 
 
+def _colour(kind: str) -> str:
+    """The dot before a notice: waiting on the person, done, or failed."""
+    if kind == "job.failed":
+        return mailhtml.FAILED
+    if kind in ("change-set.approved", "job.completed", "change-set.published"):
+        return mailhtml.DONE
+    return mailhtml.WAITING
+
+
 def notice(product: str, notice_kind: str, application_url: str) -> Rendered:
     """One inbox notice: names the kind of event and links to the application, and carries no
     record, change set, workspace or person content (D239, D421, D432)."""
     sentence = _NOTICE_SENTENCES.get(notice_kind, _NOTICE_OTHER)
+    html = mailhtml.layout(
+        product,
+        "Something's waiting for you",
+        [
+            mailhtml.rows(
+                [mailhtml.dot_row(_colour(notice_kind), sentence, None, None, rule=False)]
+            ),
+            mailhtml.button(application_url, "Open my inbox"),
+        ],
+        "You get this because you asked for mail when something arrives in your inbox.<br>"
+        "Choose which messages you get, or switch them off, " + SETTINGS_POINTER,
+        sentence,
+    )
     return Rendered(
         NOTICE,
         f"{product}: something is waiting in your inbox",
@@ -102,6 +177,7 @@ def notice(product: str, notice_kind: str, application_url: str) -> Rendered:
         f"Open {product} to see it:\n\n{application_url}\n\n"
         "You get this message because you asked for mail when something arrives in your inbox. "
         "Choose which messages you get, or switch them off, on Settings > Notifications.\n",
+        html,
     )
 
 
@@ -205,6 +281,34 @@ def digest(
     more = total - len(lines)
     after = f"\nand {more} more in your inbox.\n" if more > 0 else ""
     other_every = "weekly" if every == "daily" else "daily"
+    items = []
+    for number, line in enumerate(lines):
+        detail = f"{_job_line(line)} · " if line.job_kind is not None else ""
+        detail += f"{line.when:%A} {line.when.day} {line.when:%B}, {line.when:%H:%M}"
+        items.append(
+            mailhtml.dot_row(
+                _colour(line.kind),
+                kinds.LABELS.get(line.kind, _NOTICE_OTHER.rstrip(".")),
+                detail,
+                f"{base}/notifications?notice={line.notice_id}",
+                rule=number > 0,
+            )
+        )
+    page = [mailhtml.paragraph(mailhtml.e(f"{'; '.join(parts)}."))]
+    if items:
+        page.append(mailhtml.rows(items))
+    if more > 0:
+        page.append(mailhtml.paragraph(f"and {more} more in your inbox.", small=True))
+    page.append(mailhtml.button(f"{base}/notifications", "Open my inbox"))
+    html = mailhtml.layout(
+        product,
+        f"Your {every} digest",
+        page,
+        f"You get this because you asked for a {mailhtml.e(every)} digest of your inbox.<br>"
+        f"Choose which notices are in it, change it to {other_every}, or switch it off, "
+        + SETTINGS_POINTER,
+        f"{_plural(total, 'notice', 'notices')} in your inbox.",
+    )
     return Rendered(
         DIGEST,
         f"{product}: {_plural(total, 'notice', 'notices')} in your inbox",
@@ -214,4 +318,5 @@ def digest(
         f"You get this message because you asked for a {every} digest of your inbox. Choose which "
         f"notices are in it, change it to {other_every}, or switch it off, on Settings > "
         "Notifications.\n",
+        html,
     )
