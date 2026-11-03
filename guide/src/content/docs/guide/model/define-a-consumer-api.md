@@ -159,7 +159,9 @@ Turning XREF off can ask **Stop offering XREF?** because its rules are removed a
 stops too. Cancel to retain them, or confirm and inspect the contract difference. **Undo**
 restores the step; switching XREF on again alone does not restore the old match rules.
 
-Use **Rename…** for a display-name change. A new API's key is editable until released;
-a released API shows **Key fixed: released**. Its key is the stable access point consumers
-already use. Removing the API stops those reads after activation. Coordinate any deliberate
-replacement and its access grants with the consuming team.
+Use **Rename…** for a display-name change. A new API shows **Key editable**; a released API
+shows **Released: a new key moves its address**. Its key is the access point consumers
+already use. **Change key…** is still offered, but after activation the old address answers
+404, as if the API were removed, and the contract check warns about it. Removing the API
+stops those reads after activation too. Coordinate any deliberate replacement and its access
+grants with the consuming team.

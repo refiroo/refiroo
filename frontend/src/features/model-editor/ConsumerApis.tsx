@@ -938,8 +938,12 @@ export function ConsumerApiPanel({
                   : { icon: "state-conflict", label: `Needs contract version ${version + 1}` }
                 : { icon: "state-conflict", label: "Checked once the draft is valid" },
               isReleased(item.mark)
-                ? { icon: "lock", label: "Key fixed: released" }
-                : { icon: "pencil", label: "Key editable until released" },
+                ? {
+                    icon: "state-conflict",
+                    label: "Released: a new key moves its address",
+                    title: "Consumers of the old key get 404 once the draft is active (D55)",
+                  }
+                : { icon: "pencil", label: "Key editable" },
             ]}
           />
         }

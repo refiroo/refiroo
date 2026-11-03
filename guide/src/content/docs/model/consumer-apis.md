@@ -348,7 +348,8 @@ is refused with Forbidden; the consumer does not receive a reduced version of th
 Agree the exposed fields with that administrator: a grant opens this API's declared output,
 not a field-by-field selection.
 **Rename…** changes its display name; **Describe…** supplies its generated description.
-A released key identifies consumers' existing access point: keep it stable. Removing an API
+A released key identifies consumers' existing access point: keep it stable. A released API's
+key can still be changed, but consumers of the old key then get 404, as with removal. Removing an API
 stops its consumers reading it once active. Review that warning even where removal is allowed.
 
 **Edit as JSON…** offers specialist editing for the definition or an item as one saved step.
