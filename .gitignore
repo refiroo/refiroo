@@ -41,3 +41,6 @@ backend/.testmondata*
 
 # Files named for staying out of git, wherever they are
 *_not_to_git*
+
+# The public website is its own repository (website/.git), never part of rdm-engine
+/website/
