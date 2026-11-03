@@ -174,3 +174,27 @@ workspace feed head. The first is how far events have been derived; the second i
 have reached. A gap here is derivation lag rather than a receiver failure. Check `eventDeriver` on
 Operations before resetting a subscription. See [Consumer events and webhooks](/docs/integrate/consumer-events-and-webhooks/)
 and the [API reference](/docs/api) for the reads used by the integration.
+
+## Assistant and mapping-proposal jobs
+
+The built-in assistant uses a separate worker for its tasks; mapping proposals run as background
+jobs too. The assistant needs `AI_AGENT_COMMAND`, `AI_SEND_LEVEL=values`, enabled job creation and
+the requester's workspace permissions. A provider alone does not enable assistant tasks. See
+[Set up AI](/docs/run/set-up-ai/) before enabling these jobs: workbook and record data can leave the
+instance and each turn can consume paid usage.
+
+For an assistant task or mapping job, the job page shows its summary and links to the task or view
+when the reader may open it. Inspect the task's notes and check as well as the job's outcome. A turn
+has a 30-minute limit, separate from the provider timeout. After a worker interruption, the next
+turn records the earlier turn as interrupted. **Stop** during an assistant load discards the change
+set being loaded and returns to the accepted proposal; stopping a mapping-proposal job keeps
+proposals already written. Neither publishes to live data.
+
+Tasks use `AI_TASK_RETENTION_DAYS` (90 by default), separately from ordinary job retention. Session
+folders, logs and transcripts stay while a task can continue; the next read after publication,
+discard or confirmed migration removes them, and expiry also cleans them. In the shipped image,
+folders are under `/opt/refiroo/rdm-engine/data/assistant` and transcripts under
+`/opt/refiroo/rdm-engine/data/assistant-claude`. These directories are not mounted as persistent
+volumes by the shipped Compose file: container replacement can remove them before expiry.
+**Calls** on **Settings › Administration › AI** keeps turn outcomes and usage separately. See
+[AI retention and recovery](/docs/run/ai/#what-is-kept) before maintenance or a retry.

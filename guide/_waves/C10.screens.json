@@ -1512,31 +1512,80 @@
     },
     {
       "name": "admin-webhook-new",
-      "shows": "Reference Webhooks page with Webhooks are off in this deployment and Open Deployment. The recipe name is retained, but no New webhook dialog can be opened while the deployment capability is off. Read only; no setting or receiver changed. Source/configuration inference awaits external capture.",
+      "shows": "Enabled New webhook dialog, unsaved. The localhost URL names this reference instance; no receiver is asserted and no subscription is created.",
       "actions": [
         {
           "goto": "/settings/webhooks"
         },
         {
-          "waitFor": {
-            "text": "Webhooks are off in this deployment.",
-            "exact": false
+          "click": {
+            "role": "button",
+            "name": "New webhook",
+            "exact": true
           }
         },
         {
           "waitFor": {
-            "role": "button",
-            "name": "Open Deployment",
+            "role": "dialog",
+            "name": "New webhook",
             "exact": true
           }
+        },
+        {
+          "fill": {
+            "label": "Name",
+            "exact": true
+          },
+          "value": "Guide stop events"
+        },
+        {
+          "fill": {
+            "label": "URL",
+            "exact": true
+          },
+          "value": "http://localhost:8480/guide-webhook-receiver"
+        },
+        {
+          "select": {
+            "label": "Workspace",
+            "exact": true
+          },
+          "value": "Graubünden (graubuenden)"
         }
       ],
       "expect": [
-        "Webhooks",
-        "Webhooks are off in this deployment.",
-        "Open Deployment"
+        "New webhook",
+        "Consumer API",
+        "Workspace",
+        "All events",
+        "Filters",
+        "Delivery",
+        "Create webhook"
       ],
-      "height": 1100
+      "height": 1400,
+      "after": [
+        {
+          "fill": {
+            "label": "Name",
+            "exact": true
+          },
+          "value": ""
+        },
+        {
+          "fill": {
+            "label": "URL",
+            "exact": true
+          },
+          "value": ""
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
     },
     {
       "name": "admin-mail-settings",
@@ -1681,6 +1730,695 @@
           }
         }
       ]
+    },
+    {
+      "name": "admin-ai-settings",
+      "shows": "AI settings with assistant and provider on, send level and retention. No setting changes and no expanded call content.",
+      "actions": [
+        {
+          "goto": "/settings/ai"
+        },
+        {
+          "waitFor": {
+            "text": "What is switched on",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "What is switched on",
+        "Assistant",
+        "Provider",
+        "What may be sent",
+        "Content kept",
+        "What the AI provider is asked"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "run-ai-settings",
+      "shows": "The same enabled AI configuration for operators; no provider call.",
+      "actions": [
+        {
+          "goto": "/settings/ai"
+        },
+        {
+          "waitFor": {
+            "text": "What is switched on",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "What is switched on",
+        "Assistant",
+        "Provider",
+        "What may be sent",
+        "Content kept"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "admin-agent-access-enabled",
+      "shows": "Agent access connection and catalogues, if MCP is enabled. AI being on does not imply MCP is on; do not enable it to obtain this screen.",
+      "actions": [
+        {
+          "goto": "/settings/agent-access"
+        },
+        {
+          "waitFor": {
+            "text": "How to connect",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "How to connect",
+        "Address",
+        "Limit",
+        "Agent clients",
+        "Assistants people sign in with"
+      ],
+      "height": 1400
+    },
+    {
+      "name": "integrate-agent-access-connect",
+      "shows": "MCP connection address and Claude Code command; read only, requires MCP enabled.",
+      "actions": [
+        {
+          "goto": "/settings/agent-access"
+        },
+        {
+          "waitFor": {
+            "text": "How to connect",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "How to connect",
+        "Address",
+        "Limit",
+        "Agent clients"
+      ],
+      "height": 1100
+    },
+    {
+      "name": "admin-agent-new-client",
+      "shows": "Unsaved New agent client dialog; never create a client or show its secret.",
+      "actions": [
+        {
+          "goto": "/settings/agent-access"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New agent client",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "New agent client",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "New agent client",
+        "Name",
+        "Create and show its secret"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-agent-register",
+      "shows": "Unsaved assistant registration with a loopback return address. No assistant or access is registered.",
+      "actions": [
+        {
+          "goto": "/settings/agent-access"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Register an assistant",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Name",
+            "exact": true
+          },
+          "value": "Guide screenshot assistant"
+        },
+        {
+          "fill": {
+            "label": "Return addresses",
+            "exact": true
+          },
+          "value": "http://localhost:8480/assistant-return"
+        }
+      ],
+      "expect": [
+        "Register an assistant",
+        "Return addresses",
+        "One per line.",
+        "Register"
+      ],
+      "after": [
+        {
+          "fill": {
+            "label": "Name",
+            "exact": true
+          },
+          "value": ""
+        },
+        {
+          "fill": {
+            "label": "Return addresses",
+            "exact": true
+          },
+          "value": ""
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "use-ask-filters",
+      "shows": "One real provider question, applied to the Stops list as ordinary filters. No data writes. Verify the proposed filter actually means Height at least 1000; a provider answer is not guaranteed.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "radio",
+            "name": "Ask",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Ask in words",
+            "exact": true
+          },
+          "value": "Show stops with Height (m) greater than or equal to 1000."
+        },
+        {
+          "press": "Enter"
+        },
+        {
+          "wait": 90000
+        },
+        {
+          "waitFor": {
+            "text": "Your question became these filters.",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Stops",
+        "Ask",
+        "1000",
+        "Your question became these filters. Change or remove any of them."
+      ]
+    },
+    {
+      "name": "use-ask-partial",
+      "shows": "Second real provider question combines an expressible height filter with an unavailable weather condition. Leave suggested filters unapplied. If the provider refuses everything or fully translates it, report the outcome; do not fabricate partial UI.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "radio",
+            "name": "Ask",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Ask in words",
+            "exact": true
+          },
+          "value": "Show stops with Height (m) at least 1000 where it will rain tomorrow, using tomorrow's weather forecast."
+        },
+        {
+          "press": "Enter"
+        },
+        {
+          "wait": 90000
+        },
+        {
+          "waitFor": {
+            "text": "Not possible here:",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Not possible here:",
+        "Use these filters",
+        "1000"
+      ]
+    },
+    {
+      "name": "use-history-explained",
+      "shows": "Workspace Activity account for the last 30 days: real facts and provider statements, no changes made. If no facts or no cited statements exist, report that prerequisite.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden?tab=activity"
+        },
+        {
+          "waitFor": {
+            "text": "What changed",
+            "exact": false
+          }
+        },
+        {
+          "select": {
+            "label": "Period",
+            "exact": true
+          },
+          "value": "Last 30 days"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Explain this period",
+            "exact": true
+          }
+        },
+        {
+          "wait": 90000
+        },
+        {
+          "waitFor": {
+            "text": "The facts (",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Period",
+        "The facts (",
+        "Written by AI from the facts below"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "use-record-history-explained",
+      "shows": "Live Chur Wiesental History account with explicit inclusive dates and cited facts; one real provider request if facts exist.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
+        },
+        {
+          "click": {
+            "text": "Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "History",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "What changed",
+            "exact": false
+          }
+        },
+        {
+          "select": {
+            "label": "Period",
+            "exact": true
+          },
+          "value": "Choose dates"
+        },
+        {
+          "fill": {
+            "label": "From",
+            "exact": true
+          },
+          "value": "2026-10-01"
+        },
+        {
+          "fill": {
+            "label": "To, included",
+            "exact": true
+          },
+          "value": "2026-11-03"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Explain this period",
+            "exact": true
+          }
+        },
+        {
+          "wait": 90000
+        },
+        {
+          "waitFor": {
+            "text": "The facts (",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "History",
+        "From",
+        "To, included",
+        "The facts (",
+        "Written by AI from the facts below"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "model-account-before-request",
+      "shows": "Activation dialog, existing starter release against Graubünden: compatibility notices and What this change does before spending provider usage. No activation or migration.",
+      "actions": [
+        {
+          "goto": "/settings/model/models/rdm-starter?tab=releases"
+        },
+        {
+          "click": {
+            "css": "[role=\"tab\"]:has-text(\"Releases\")"
+          }
+        },
+        {
+          "click": {
+            "role": "link",
+            "name": "RDM Starter Model 0.10.0",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Immutable release",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Activate in a workspace…",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"dialog\"] .selection-trigger"
+          }
+        },
+        {
+          "click": {
+            "role": "option",
+            "name": "Graubünden",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Preview the migration…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "What this change does",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "What this change does",
+        "Explain this change",
+        "A different model",
+        "Graubünden"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "model-account-facts",
+      "shows": "The same activation dialog after one Explain this change request. This is an activation review, not an Apply dialog; actual facts/counts must be reviewed after capture.",
+      "actions": [
+        {
+          "waitFor": {
+            "text": "Explain this change",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Explain this change",
+            "exact": true
+          }
+        },
+        {
+          "wait": 90000
+        },
+        {
+          "waitFor": {
+            "text": "The facts (",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "What this change does",
+        "Written by AI from the facts below",
+        "The facts (",
+        "A different model"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ],
+      "height": 1500
+    },
+    {
+      "name": "use-mapping-proposal-result",
+      "shows": "One mapping-target proposal job, narrowed to the FICTIONAL demonstration codes, in a new unpublished change set C10 AI mapping proposals. Only unmapped codes are considered. No live mapping or publication is confirmed.",
+      "actions": [
+        {
+          "goto": "/apps/systems/views/codes-to-stops?workspaceKey=graubuenden"
+        },
+        {
+          "fill": {
+            "placeholder": "Search system codes"
+          },
+          "value": "FICTIONAL"
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Propose targets",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Name of the new change set",
+            "exact": false
+          }
+        },
+        {
+          "fill": {
+            "label": "Name of the new change set",
+            "exact": true
+          },
+          "value": "C10 AI mapping proposals"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Propose",
+            "exact": true
+          }
+        },
+        {
+          "wait": 180000
+        },
+        {
+          "waitFor": {
+            "text": "Targets proposed",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Targets proposed",
+        "Proposed",
+        "Left unmapped: no likely target",
+        "Changed meanwhile, not touched",
+        "Show proposed"
+      ],
+      "height": 1100
+    },
+    {
+      "name": "use-mapping-proposed",
+      "shows": "Continue the preceding result: Show proposed opens the retained unpublished change set. Verify actual confidence and reason. This requires at least one offered proposal; zero proposals is an honest unmet prerequisite.",
+      "actions": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Show proposed",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Proposed",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Proposed",
+        "FICTIONAL"
+      ],
+      "height": 1100
+    },
+    {
+      "name": "admin-ai-test-answered",
+      "shows": "One real small provider connectivity test; no record data is sent. The answered notice and the resulting Test request row must be visible.",
+      "actions": [
+        {
+          "goto": "/settings/ai"
+        },
+        {
+          "waitFor": {
+            "text": "Send a test request",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Send a test request",
+            "exact": true
+          }
+        },
+        {
+          "wait": 90000
+        },
+        {
+          "waitFor": {
+            "text": "The AI provider answered",
+            "exact": false
+          }
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "Test request",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "The AI provider answered",
+        "Answered in",
+        "Test request",
+        "Calls",
+        "Answered"
+      ],
+      "height": 1300
+    },
+    {
+      "name": "run-ai-provider-calls",
+      "shows": "Reuse the preceding answered test and Calls on the same page/session, with no second request.",
+      "actions": [
+        {
+          "waitFor": {
+            "text": "The AI provider answered",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "The AI provider answered",
+        "Calls",
+        "Last 30 days:",
+        "Model",
+        "Tokens in / out",
+        "Cost",
+        "Duration"
+      ],
+      "height": 1300
+    },
+    {
+      "name": "admin-ai-calls",
+      "shows": "Calls after the real work in this batch: outcomes, caller, model, usage and totals. No call content expanded. Assistant turn rows require the workbook task batch to have completed first.",
+      "actions": [
+        {
+          "goto": "/settings/ai"
+        },
+        {
+          "waitFor": {
+            "text": "Calls",
+            "exact": false
+          }
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "Calls",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Calls",
+        "Last 30 days:",
+        "Asked by",
+        "Tokens in / out",
+        "Cost",
+        "Duration",
+        "Test request"
+      ],
+      "height": 1300
     }
   ],
   "note": "Missing page images only. Source-verified capture recipes, not executed or visually accepted. Run with guide/tools/screens.mjs --file C10.screens.json against localhost:8480. Preserve earlier entries. Preconditions, persistent job/draft changes and deferred states are in C10.data-changes.md and _coverage/notes/C10-SCREENS/. Dialogs are cancelled; no delete, release activation/rollback or access/security change is confirmed."

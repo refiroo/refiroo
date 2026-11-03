@@ -6,6 +6,7 @@ export default [
       ["journeys/index", "All user journeys"],
       ["journeys/look-after-data", "Look after data"],
       ["journeys/change-with-approval", "Change with approval"],
+      ["journeys/work-with-an-assistant", "Work with an assistant"],
       ["journeys/shape-a-model", "Shape a model"],
       ["journeys/integrate-a-system", "Integrate a system"],
       ["journeys/manage-access", "Manage access"],

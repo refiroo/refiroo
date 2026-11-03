@@ -30,7 +30,7 @@ The **New webhook** and **Edit webhook** dialogs contain:
 
 A filter is evaluated when sending, against the record’s current state. A record leaving the filter’s scope is not sent just to tell the receiver it left; deletions are sent. Agree how the receiving system reconciles its copies with its integration owner.
 
-![Webhooks switched off in this deployment, with Open Deployment available](/docs/screens/admin-webhook-new.png)
+![The New webhook dialog with its source, event and delivery choices](/docs/screens/admin-webhook-new.png)
 
 Follow [Create a webhook](/docs/guide/administer/create-a-webhook/).
 

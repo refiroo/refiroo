@@ -16,6 +16,8 @@ export default [
       "guide/model/find-your-way-around-the-editor",
       "guide/model/undo-and-review-the-draft-history",
       "guide/model/work-on-a-draft-with-others",
+      "model/ai-model-changes",
+      "guide/model/change-a-model-with-the-assistant",
     ],
   ],
   [
@@ -66,6 +68,7 @@ export default [
     [
       ["model/workbook-onboarding", "About drafts from a workbook"],
       "model/workbook-proposals",
+      "guide/model/review-an-assistants-workbook-design",
       "guide/model/start-a-draft-from-a-workbook",
       "guide/model/map-a-column",
       "guide/model/read-lists-in-a-sheet",
@@ -92,6 +95,8 @@ export default [
     "Releases",
     [
       ["model/releases", "About releases"],
+      "model/model-change-accounts",
+      "guide/model/explain-a-model-change",
       "guide/model/install-and-activate-a-release",
       "guide/model/compare-releases",
       "guide/model/retire-or-delete-a-release",

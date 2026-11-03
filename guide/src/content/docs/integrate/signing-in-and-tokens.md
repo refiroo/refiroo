@@ -41,3 +41,9 @@ The [token operation](/docs/api/?api=management#tag/oauth) supports `client_secr
 JWT claims include issuer, subject, audience, expiry, issue time, token ID and principal kind. A person’s token also identifies their session. They contain no permission grant. Verify JWTs against the issuer’s current public keys if your system validates them locally, while recognising that only the engine can decide current access on each API call.
 
 Token signing keys normally rotate every 30 days (`TOKEN_SIGNING_KEY_DAYS`); the previous key remains usable until its last token expires. An administrator’s immediate rotation retires the current key at once. Client secrets and browser refresh tokens do not use that signing key, so replacing either is a separate operation. Obtain a fresh access token after an unknown-key refusal.
+
+## Assistant connections
+
+External MCP assistants use the `agent` audience, accepted only at `/mcp`. A system uses a client of kind `agent` and requests `scope=agent` (or leaves scope empty for that client); other scopes are refused as `invalid_scope`. An API client cannot request it. A person's assistant uses discovery, public-client registration and authorization code with PKCE; its session and rotated refresh tokens issue only agent tokens. A browser session never issues them. An optional OAuth `resource` must name this instance's `/mcp`, or the request fails as `invalid_target`.
+
+Follow [Connect an assistant](/docs/guide/integrate/connect-an-assistant/) and the [OAuth operations](/docs/api/?api=management#tag/oauth). This connection gives the external assistant the data it may read and uses its own provider and charges. refiroo keeps tool-call records; [About AI](/docs/run/ai/) explains the data and retention boundaries. The [built-in task assistant](/docs/integrate/assistant-tasks/) instead uses a secretless session client managed by the engine.

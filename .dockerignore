@@ -18,7 +18,6 @@
 !guide/sidebar
 !guide/src
 !guide/public
-!guide/examples
 !guide/tools
 **/__pycache__
 **/*.pyc

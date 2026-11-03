@@ -57,3 +57,15 @@ Selected query items always retain public ID, type and version; selected values 
 Attribute values preserve their declared JSON form. Decimal responses use precision-preserving strings, while requests can supply a decimal number. Integers and booleans remain numbers and booleans. Dates use ISO 8601 days, and date-times return their UTC instant with an explicit offset. Treat missing and empty text as no value.
 
 Unique attributes are unique across all records carrying that attribute type within a workspace, including different object types. Scalar types support uniqueness; JSON does not. `DUPLICATE_ATTRIBUTE_VALUE` identifies the attribute and conflicting record. Any number of records can leave a unique text value empty. Do not use a non-unique name as a substitute for a batch key.
+
+## Turn a question into filters
+
+The [query-translation operation](/docs/api/?api=management#tag/ai) turns words about a table list into that list's filters and name search. It needs Browse and Use AI proposals in the workspace, with a configured provider. It answers directly, without a job, for live data, a change set or a publication. Other view types are refused as `QUERY_TRANSLATION_VIEW_UNSUPPORTED`.
+
+The question, today's date, field labels and types, conditions and relationships go to the provider. At `samples` or `values`, it also receives record names for relationship types whose lists in that context contain at most 50 records; at `structure` it receives no record names. The question itself can contain names you type. The request can incur provider charges and leaves a call record; [About AI](/docs/run/ai/) explains send levels, costs and retention. The requester may lower the send level but cannot raise the instance ceiling.
+
+Show the proposed filters and search to the person. When `applied` is true, every part was expressed and the client can use the returned ordinary filters for the requested list. When `applied` is false, apply nothing: show each `notExpressed` part and its reason, and let the person explicitly choose whether to use the partial filters. The built-in browser presents these as dashed pills with **Use these filters**. Never treat a partly understood question as a complete query.
+
+refiroo resolves a named record in the requested context: first an exact name ignoring case, otherwise a single partial match. Missing or ambiguous names remain unexpressed. A requested sort, who changed a record, or something the list cannot filter is also unexpressed. Created and updated time filters are available only on live lists. Once accepted, the result uses the same filters for reading, selection and export.
+
+`QUERY_TRANSLATION_FAILED` means no usable translation came back, including an answer with invalid fields, conditions or values. Keep the person's question and existing list unchanged; the response's call reference helps an operator inspect the failure. `AI_NOT_CONFIGURED`, `AI_SEND_LEVEL_TOO_LOW` and `FORBIDDEN` mean the feature is unavailable under the current settings or permissions; ordinary filters remain available.

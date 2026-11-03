@@ -22,3 +22,39 @@ What is loaded, and the command that loads either set on any instance, is in
 [`../samples/SOURCES.md`](../samples/SOURCES.md). The reference set also holds an open change set,
 "December 2026 timetable change", and a client "Stops reader (guide)" holding the `stops` consumer API
 (its credentials are `GUIDE_CONSUMER_CLIENT_ID` and `_SECRET` in `.env`).
+
+## Switch on AI with a Claude subscription
+
+After the first `up`, edit the ignored `guide/reference/.env`. Keep its generated secrets. Obtain a
+subscription token with `claude setup-token` on a computer signed in to Claude Code, then add:
+
+```dotenv
+CLAUDE_CODE_OAUTH_TOKEN=replace-with-your-private-token
+AI_AGENT_COMMAND="claude --model sonnet --permission-mode bypassPermissions"
+AI_AGENT_SANDBOX=container
+AI_SEND_LEVEL=values
+AI_PROVIDER=devtools.claude_code_provider:provider
+AI_MODEL=sonnet
+```
+
+Leave `ANTHROPIC_API_KEY` and `AI_API_KEY` unset for this subscription setup. Never commit the token.
+The command enables the built-in assistant; the provider enables mapping targets, questions in words
+and explanations. Both are needed for all features. The reference Compose override mounts
+`backend/devtools` into the engine for this development-only provider; it is absent from the image.
+It uses Claude Code's sign-in and limits and appends usage to `backend/devtools/usage.jsonl`.
+For production use `AI_PROVIDER=claude` with `AI_API_KEY`, or `openai-compatible`.
+
+Settings are read at startup. Apply them from the repository root:
+
+```bash
+guide/reference/reference.sh start
+```
+
+This recreates containers with changed settings without rebuilding images or loading the data again.
+A plain container restart does not reload an edited environment file. Finish or discard active assistant
+tasks before recreation: their working folders are not mounted persistently by the shipped Compose file.
+Check **Settings › Administration › AI** and test the provider and assistant separately; see
+[Set up AI](../src/content/docs/run/set-up-ai.md) for credentials, checks and recovery.
+
+For webhooks, also set `CONSUMER_SUBSCRIPTIONS_ENABLED=true` and run `reference.sh start` again.
+That switch enables webhook subscriptions; it does not enable AI or subscribe a receiver for you.

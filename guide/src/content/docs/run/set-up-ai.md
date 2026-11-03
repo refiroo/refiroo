@@ -11,6 +11,20 @@ an interactive sign-in there.
 First decide what data may leave the instance and which features you need. [About AI in
 refiroo](/docs/run/ai/) explains the separate switches, permissions, session guards and retention.
 
+## Choose the features and credentials
+
+Both switches are needed for all AI features. Set `AI_SEND_LEVEL=values` for the assistant and
+mapping targets. The two switches can use different credentials.
+
+| Features | Switch | With a Claude subscription | With an Anthropic API key |
+| --- | --- | --- | --- |
+| Load a workbook or change records with the assistant; **Change this model…** | `AI_AGENT_COMMAND="claude --model sonnet --permission-mode bypassPermissions"` | `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` | `ANTHROPIC_API_KEY` |
+| Proposed mapping targets, asking a list in words, explanations of model changes and what changed | `AI_PROVIDER` | Development and reference instance only: `AI_PROVIDER=devtools.claude_code_provider:provider`, `AI_MODEL=sonnet`; uses Claude Code's sign-in or `CLAUDE_CODE_OAUTH_TOKEN` | `AI_PROVIDER=claude`, `AI_API_KEY`; optional `AI_MODEL` |
+
+For a production provider, use the Claude API with an API key, or `openai-compatible` with a
+chat-completions endpoint, including a model hosted inside your organisation. `AI_PROVIDER=claude`
+cannot use a Claude subscription token. The development subscription option is explained below.
+
 ## 1. Open the installation's environment file
 
 Run the commands below from the repository root, where `compose.yml` lives.
@@ -80,7 +94,7 @@ session. Creating the token on your computer does not automatically transfer it 
 See [Claude Code's authentication documentation](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token)
 for its token requirements and lifecycle.
 
-Keep the image's `CLAUDE_CONFIG_DIR=/data/assistant-claude` unless you also arrange the required
+Keep the image's `CLAUDE_CONFIG_DIR=/opt/refiroo/rdm-engine/data/assistant-claude` unless you also arrange the required
 directory permissions. The image already gives the engine and assistant users access there.
 
 ## 3. Enable the provider if needed
@@ -109,6 +123,32 @@ Keep `AI_SEND_LEVEL=values` for mapping targets. If you enable only features tha
 choose `structure` or `samples` instead. `AI_SAMPLE_VALUES=20` controls sampling at `samples`,
 not the amount read by the assistant at `values`.
 
+### Use the subscription for provider features in development
+
+The repository supplies a development-only provider in `backend/devtools/claude_code_provider.py`.
+It answers through Claude Code using the developer's sign-in and limits. It is absent from the
+engine image. It works on a [developer instance](/docs/run/developer-instance/) and on the guide's
+reference instance, whose Compose override mounts `backend/devtools` into the engine.
+
+For a developer instance, put these settings in `.dev/settings.env`; install and authenticate
+Claude Code on the host. For the reference instance, put them in `guide/reference/.env` beside the
+assistant settings and subscription token from step 2:
+
+```dotenv
+AI_PROVIDER=devtools.claude_code_provider:provider
+AI_MODEL=sonnet
+```
+
+Leave `AI_API_KEY` unset for this provider. Each request runs a separate Claude Code call with no
+tools, MCP servers or saved session. It still sends the feature's context to Claude. Usage is
+recorded in **Calls** and appended to `backend/devtools/usage.jsonl`; reported dollar amounts are
+usage at API prices, not a subscription invoice. This option is for development and trying the
+features. A production installation uses `claude` with `AI_API_KEY` or `openai-compatible`.
+
+A custom provider can also be named as `AI_PROVIDER=package.module:function`. The module must be
+installed in the engine's Python environment; the factory takes no arguments and returns an object
+with `propose(request)`. A missing module or unsuitable result refuses startup.
+
 ## 4. Enable external agent access if needed
 
 To let external MCP assistants connect, add:
@@ -134,16 +174,16 @@ docker compose ps
 For the documentation's reference instance, use its own command instead:
 
 ```bash
-guide/reference/reference.sh up
+guide/reference/reference.sh start
 guide/reference/reference.sh status
 ```
 
-The reference command builds and starts its dedicated Compose project and reruns its reference-data
-loader. It uses `guide/reference/.env`, rather than the repository-root `.env`. Open
+The reference `start` command starts or recreates its dedicated Compose project's containers without
+rebuilding the images or rerunning the data loader. Use `up` for the initial build and data load. It uses `guide/reference/.env`, rather than the repository-root `.env`. Open
 `http://localhost:8480` and sign in with the reference administrator's credentials from that file.
 
 Changing the environment requires the engine container to be recreated; `up -d` applies those
-changes. A plain `docker compose restart` does not load an edited environment file. Applying
+changes without rebuilding the image. A plain `docker compose restart` does not load an edited environment file. Applying
 changes can remove unfinished assistant sessions' files because the shipped Compose file does not
 persist their working directories. Finish or discard active tasks first.
 
@@ -175,7 +215,7 @@ persist their working directories. Finish or discard active tasks first.
 | The provider cannot be reached or returns an answer in the wrong shape. | Check the displayed endpoint, outbound connectivity and gateway settings. A compatible endpoint must support JSON-schema answers. The failed call remains visible; ordinary work can continue without the proposal. |
 | The assistant action is missing. | Check `AI_AGENT_COMMAND`, `AI_SEND_LEVEL=values` and the person's grants. The provider switch and MCP switch do not make it appear. |
 | A task reports `AI_AGENT_COMMAND could not start`. | Check the command and the image being used. With the shipped image, use `claude` and `AI_AGENT_SANDBOX=container`; its executable and separate user are already installed. |
-| A turn fails or says `The session ended without an answer.` | Check the task's warnings and its failed call. Verify the assistant's credential variable, token validity, network access and container sandbox setting. Inspect the task's session log if the message is insufficient; it is beside its folder under `/data/assistant`. Treat logs as sensitive. Correct the configuration, apply it, then continue or start the task again. |
+| A turn fails or says `The session ended without an answer.` | Check the task's warnings and its failed call. Verify the assistant's credential variable, token validity, network access and container sandbox setting. Inspect the task's session log if the message is insufficient; it is beside its folder under `/opt/refiroo/rdm-engine/data/assistant`. Treat logs as sensitive. Correct the configuration, apply it, then continue or start the task again. |
 | A turn says `The session took too long.` | It exceeded the 30-minute session limit. Check service availability and reduce the task before trying again. `AI_TIMEOUT_SECONDS` controls provider calls, not this session limit. |
 | The task reports `AI_ASSISTANT_ROLE_CHANGED`. | An assistant role no longer has the required action groups. Follow the message to restore them or have an administrator delete that role so refiroo can recreate it, then try again. |
 

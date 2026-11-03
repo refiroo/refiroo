@@ -6,6 +6,7 @@ export default [
     [
       ["use/home", "About the home page"],
       ["use/account", "About your account"],
+      ["use/ai-and-your-data", "AI and your data"],
     ],
   ],
   [
@@ -23,6 +24,8 @@ export default [
     [
       ["use/lists-and-filters", "About lists, search and filters"],
       "guide/use/find-records",
+      ["use/ask-in-words", "About asking in words"],
+      "guide/use/ask-a-list-in-words",
       "guide/use/continue-a-long-list",
     ],
   ],
@@ -68,6 +71,7 @@ export default [
     [
       ["use/mapping-grids", "About mapping grids"],
       "guide/use/map-codes-between-systems",
+      "guide/use/propose-targets",
     ],
   ],
   [
@@ -98,7 +102,11 @@ export default [
   ],
   [
     "History",
-    [["use/history", "About history"], "guide/use/see-who-changed-what"],
+    [
+      ["use/history", "About history"],
+      "guide/use/see-who-changed-what",
+      "guide/use/explain-a-period-in-history",
+    ],
   ],
   [
     "Importing and exporting",
@@ -109,6 +117,15 @@ export default [
       "guide/use/add-a-language-with-a-workbook",
       "guide/use/import-a-file",
       "guide/use/load-the-next-version-of-a-workbook",
+    ],
+  ],
+  [
+    "Working with the assistant",
+    [
+      ["use/loading-with-the-assistant", "About loading with the assistant"],
+      "guide/use/load-a-workbook-with-the-assistant",
+      "guide/use/change-records-with-the-assistant",
+      "guide/use/continue-an-assistant-task",
     ],
   ],
   ["Jobs", [["use/jobs", "About jobs"], "guide/use/follow-and-cancel-a-job"]],

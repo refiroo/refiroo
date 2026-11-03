@@ -33,3 +33,19 @@ The server scans at most ten times the requested page size. Save `nextAfter`, ev
 Deleted relation entries retain their type and endpoint IDs so you can remove local edges without rereading the deleted relationship. Handle unknown action values without failing to read the page; reconcile unfamiliar changes against a fresh baseline if your mirror cannot apply them. Mapping transitions are history summaries, not extra feed changes.
 
 A publication’s `eventSequence` on the consumer API and `feedPosition` on the management API refer to the same workspace sequence. Several consumer events can share one raw position, so consumer checkpoints also need their lasting cursor. Neither interface is a replacement for audit history with historical field values.
+
+## Explain what changed over a period
+
+The [history-account operations](/docs/api/?api=management#tag/ai) explain changes to a workspace or one record over a period. They require Browse and Use AI proposals, with a configured provider. They answer directly without a job. Send the start and end instants and optionally an IANA time zone; the start is included and the end excluded. `HISTORY_PERIOD_INVALID` means the period is empty or reversed, or the time zone is unknown.
+
+The engine counts live changes: records created, updated, moved and deleted; fields and relationships changed; jobs, publications and direct edits; people who prepared and published; change-set events, publication withdrawals and model activations. Edits still inside an open change set are not counted as live record changes, although the set's lifecycle events are. A record account counts only that record's changes. This account helps a person understand activity; use the change feed, not an explanation, to synchronize a system.
+
+The provider receives counts and model labels. Names of records, people, change sets and files go only at send level `values`; at lower levels the provider gets no such names. No attribute value is sent. These requests can incur charges, and the call is recorded. [About AI](/docs/run/ai/) explains send levels, costs and retention. The browser waits for **Explain this period** before making the request.
+
+Keep the facts visible and attach each statement to its cited facts. The engine removes statements with missing or invalid citations. A provider failure returns the facts with a failure message, not an invented account. An empty period makes no provider call. The same facts and request within an hour use the cached explanation. Fact links can lead to filtered changes, record history, a change set or a job; an expired job can have no link. Follow the links supplied rather than constructing them from the prose.
+
+An [MCP assistant](/docs/integrate/assistants-and-agents/) can obtain the same facts through `history_facts`, needing Browse only and making no provider call. It cannot use a provider-written history account through its agent token.
+
+## Identify changes prepared through MCP
+
+An entry written during an assistant tool call has `channel: mcp` in the [changes operation](/docs/api/?api=management#tag/changes) and [record history](/docs/api/?api=management#tag/objects). Other entries omit it, and there is no channel filter. Prepared rows separately retain their assistant origin into publication history. See [Assistants and agents](/docs/integrate/assistants-and-agents/#recognise-assistant-work) for authorship and the human publication boundary.

@@ -76,3 +76,9 @@ The client’s header identifies who created it. **Webhooks it created** lists *
 **Recent activity** has **All**, **Signing in**, **Roles and groups** and **Account** filters, grouped by day. It starts with ten entries, then loads twenty more, with **Show fewer** to shorten the list. Its security events contain no secret. Data changes remain in **See changes**, limited to workspaces the viewer may read.
 
 Rotation and ending an old secret stop that secret being used for a new sign-in. They do not themselves cancel access already issued. For immediate refusal of an unsafe client’s requests, **Deactivate** is the relevant action. Check retained grants before **Restore**, which acts immediately. Clients are deactivated and restored rather than deleted.
+
+## Clients for assistants
+
+Create an external assistant's client with **New agent client** under **Settings › Security › Agent access**. Its grants are restricted to reading and preparing changes through that connection; it cannot approve, publish or write live data. It is distinct from an ordinary integration client. Follow [Manage an assistant's access](/docs/guide/administer/manage-agent-access/).
+
+The built-in assistant instead has a dedicated client for each task, managed by refiroo and omitted from the normal client list. You do not create a secret for that session client. See [AI settings and access](/docs/administer/ai/) for its permissions, costs and retention.

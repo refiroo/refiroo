@@ -1,0 +1,104 @@
+{
+  "admin-agent-access-enabled.png": [
+    "administer/agent-access.md"
+  ],
+  "admin-agent-calls.png": [
+    "administer/agent-access.md"
+  ],
+  "admin-ai-settings.png": [
+    "administer/ai.md"
+  ],
+  "admin-ai-calls.png": [
+    "administer/ai.md"
+  ],
+  "use-mapping-proposed.png": [
+    "use/mapping-grids.md"
+  ],
+  "use-history-explained.png": [
+    "use/history.md"
+  ],
+  "use-history-assistant.png": [
+    "use/history.md"
+  ],
+  "use-assistant-proposal.png": [
+    "use/loading-with-the-assistant.md",
+    "journeys/work-with-an-assistant.md"
+  ],
+  "use-ask-partial.png": [
+    "use/ask-in-words.md"
+  ],
+  "use-ask-filters.png": [
+    "journeys/work-with-an-assistant.md",
+    "guide/use/ask-a-list-in-words.md"
+  ],
+  "model-account-facts.png": [
+    "journeys/shape-a-model.md",
+    "guide/model/explain-a-model-change.md"
+  ],
+  "run-ai-settings.png": [
+    "run/ai.md"
+  ],
+  "run-ai-provider-calls.png": [
+    "run/ai.md"
+  ],
+  "integrate-agent-access-connect.png": [
+    "guide/integrate/connect-an-assistant.md"
+  ],
+  "admin-agent-new-client.png": [
+    "guide/administer/manage-agent-access.md"
+  ],
+  "admin-agent-register.png": [
+    "guide/administer/manage-agent-access.md"
+  ],
+  "admin-agent-block.png": [
+    "guide/administer/manage-agent-access.md"
+  ],
+  "admin-ai-test-answered.png": [
+    "guide/administer/check-the-ai-provider.md"
+  ],
+  "admin-ai-test-failed.png": [
+    "guide/administer/check-the-ai-provider.md"
+  ],
+  "use-assistant-stopped.png": [
+    "guide/use/continue-an-assistant-task.md"
+  ],
+  "use-assistant-reload.png": [
+    "guide/use/continue-an-assistant-task.md"
+  ],
+  "use-mapping-proposal-result.png": [
+    "guide/use/propose-targets.md"
+  ],
+  "use-record-history-explained.png": [
+    "guide/use/explain-a-period-in-history.md"
+  ],
+  "use-assistant-words.png": [
+    "guide/use/change-records-with-the-assistant.md"
+  ],
+  "use-assistant-workbook.png": [
+    "guide/use/load-a-workbook-with-the-assistant.md"
+  ],
+  "use-assistant-loaded.png": [
+    "guide/use/load-a-workbook-with-the-assistant.md"
+  ],
+  "model-assistant-change-dialog.png": [
+    "guide/model/change-a-model-with-the-assistant.md"
+  ],
+  "model-assistant-whole-type-move.png": [
+    "guide/model/change-a-model-with-the-assistant.md"
+  ],
+  "model-assistant-partial-move.png": [
+    "guide/model/change-a-model-with-the-assistant.md"
+  ],
+  "model-account-before-request.png": [
+    "guide/model/explain-a-model-change.md"
+  ],
+  "model-account-provider-failure.png": [
+    "guide/model/explain-a-model-change.md"
+  ],
+  "model-assistant-workbook-proposal.png": [
+    "guide/model/review-an-assistants-workbook-design.md"
+  ],
+  "model-assistant-workbook-loaded.png": [
+    "guide/model/review-an-assistants-workbook-design.md"
+  ]
+}

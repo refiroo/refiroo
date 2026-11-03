@@ -9,7 +9,7 @@ Use this task when another system needs to receive changes as they happen. You n
 When **Webhooks are off in this deployment** appears, the page offers **Open Deployment**
 instead of **New webhook**. Ask the operator to enable delivery before starting these steps.
 
-![Webhooks switched off in this deployment, with Open Deployment available](/docs/screens/admin-webhook-new.png)
+![The New webhook dialog with its source, event and delivery choices](/docs/screens/admin-webhook-new.png)
 
 ## Choose what is sent
 

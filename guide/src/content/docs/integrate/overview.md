@@ -21,3 +21,7 @@ Bulk writes, imports and exports produce [jobs](/docs/integrate/jobs/). A succes
 Start by [getting a token](/docs/guide/integrate/get-a-token/), [discovering the model](/docs/integrate/discovering-the-model/) and learning [paging and errors](/docs/integrate/identifiers-paging-and-errors/). For reviewed changes, use [change sets and publication](/docs/integrate/changes-approvals-and-publication/).
 
 The documentation is at `/docs`. Operation details, request schemas and examples are in the [API reference](/docs/api/). These pages explain which operations to combine and how to recover when a sequence cannot finish.
+
+## Integrate with assistants
+
+Use [Assistants and agents](/docs/integrate/assistants-and-agents/) for an external MCP connection, or [Assistant tasks](/docs/integrate/assistant-tasks/) to submit a workbook or instructions to the built-in assistant. Both prepare work for human review and cannot approve or publish. Provider features can propose [mapping targets](/docs/integrate/writing-in-bulk/#propose-mapping-targets-into-a-change-set), turn [questions into filters](/docs/integrate/reading-records/#turn-a-question-into-filters), or explain model changes and activity. Each needs its own permissions and configuration. Read [About AI](/docs/run/ai/) for what leaves the instance, charges and retained records before offering these actions in a client.

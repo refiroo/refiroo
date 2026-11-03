@@ -106,3 +106,15 @@ Applied third-round steering: restored the screenshot in `guide/use/propose-a-ch
 ## 2026-11-03T21:51:23+01:00 — Third-round validation
 
 Steering reread; no additional correction. All 33 recipes pass structure/action checks, and the sole missing referenced image is the newly restored Contributor screen. `GUIDE_OUT=_build/C10-SCREENS npm run build` passed (225 pages, 3.84 seconds), with caddyfile-highlighting fallback and /404-conflict warnings; no live capture or instance change ran.
+
+## 2026-11-03T23:11:13+01:00 — fourth-round inventory
+
+Read the fourth-round steering and saved the current missing-image inventory in `_coverage/notes/C10-SCREENS/fourth-round-inventory.json`. Existing recipes and captures are retained; new AI, mail and webhook requests are the next units. C10-LATER is outside the allowed edit list; its row removals will be handed off.
+
+## 2026-11-03T23:12:19+01:00 — enabled administration recipes
+
+Applied fourth-round steering: appended six AI/Agent access recipes and corrected the existing New webhook recipe and its two captions. Source labels/routes were checked; MCP and a saved webhook fixture remain unverified. No instance action ran.
+
+## 2026-11-03T23:13:30+01:00 — provider capture recipes
+
+Applied fourth-round steering: added eleven recipes for real questions, mapping proposals, history accounts, model-change explanation and a single reused provider test. Corrected model-account captions to the activation dialog. AI answers and mapped candidates await external verification; no request ran here.

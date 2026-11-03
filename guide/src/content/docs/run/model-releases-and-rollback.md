@@ -97,3 +97,18 @@ removed, review reinstalling its original source through model administration or
 matching backup in an isolated recovery process. Do not reconstruct immutable release rows using
 SQL. Retire a release rather than delete it when you want it hidden from future choice while
 preserving its identity and existing references.
+
+## Releases prepared by the assistant
+
+The assistant installs releases for review; a person activates or confirms a migration. A whole-type
+move uses the migration preview and goes live on confirmation. A partial move can need a release
+with both types, publication of the change set, then activation of the final release; if the old
+type remains in the final model, the last activation step is unnecessary. The task shows the steps
+for its result. Unused session-installed releases are retired when the task ends; the final release
+needed by that result is kept. Do not mistake an installed release for an activated one.
+
+An optional provider can explain a model change after **Explain this change** is pressed. It receives
+model differences and record counts, not record values. Its statements cite the engine's facts and
+never replace activation checks. See [AI policy and review](/docs/run/ai/) for who may ask, what is
+sent, usage costs and retention, and [model changes with AI](/docs/model/ai-model-changes/) for the
+browser task.

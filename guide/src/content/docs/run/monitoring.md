@@ -212,3 +212,17 @@ Restore INFO and recreate after diagnosis. The text timestamp uses the process's
 clock; JSON explicitly writes UTC. Retain logs using the container platform or your collector;
 refiroo supplies no deployment-wide log rotation or archive policy. Do not leave unbounded debug
 capture running. All three logging/reporting settings above are non-secret and need recreation.
+
+## Watch AI and agent calls
+
+**Settings › Administration › AI** needs Operations access and lists each provider call and
+assistant turn with its purpose, requester, outcome, tokens, reported cost and duration. Totals
+cover 30 days. This is usage evidence, not a billing statement. **Send a test request** checks only
+the provider and sends no reference data; test a real assistant task separately. Read the failure
+sentence before retrying; a provider failure leaves ordinary work available.
+
+For external assistants, a security administrator uses **Settings › Security › Agent access**.
+Its separate call list shows answered, refused, limited and failed calls, including argument names
+but never values. Use its request identifier when tracing a failure. See [AI and agent settings](/docs/run/ai/)
+for send policy, cost, retention and revocation. Logging provider content is optional and can retain
+sensitive reference data; do not enable it merely to collect call counts.

@@ -6,3 +6,8 @@ services:
     # This instance's own settings, not a .env in the repository root.
     env_file: !override
       - guide/reference/.env
+    # Development-only: the Claude Code proposal provider (backend/devtools, never in the image), so the
+    # reference instance's AI_PROVIDER can run on the Claude subscription as the developer instance does
+    # (AI_PROVIDER=devtools.claude_code_provider:provider in .env). Without that setting it is unused.
+    volumes:
+      - ./backend/devtools:/opt/refiroo/rdm-engine/backend/devtools

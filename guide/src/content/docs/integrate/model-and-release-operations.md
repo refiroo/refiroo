@@ -73,3 +73,15 @@ Confirmation claims the reviewed assignment and feed position and explicitly acc
 A model mapping names its source and target releases. One source type maps to one target type; several source types may share a target. Defaults fill missing source values, not values already supplied. Inspect coverage for unmapped source content and required target content left unfilled. Deterministic inference proposes mappings from keys, names, compatible attributes, relationships and stored records; review the evidence and apply only the proposals you intend.
 
 A move’s selection combines its type criteria, subtree and explicit IDs; it does not pull every parent or related record along. The default is a complete preview in copy mode. Source values are fixed when previewed; target writes are decided again during loading into a new change set. A source record changed since the preview is retained when preparing source deletion, as is a record still needed by content left behind. Refused or unselected records are not silently deleted.
+
+## Ask for an account of a model change
+
+Before activating a release or applying a draft, the [impact-summary operations](/docs/api/?api=management#tag/ai) can explain its effects in a workspace. They require Activate model releases and Use AI proposals there, with a configured provider. The engine computes model differences, data-rule failures and counts, consumer-contract effects, activation blockers and records per touched type. The provider words those facts; it does not decide whether a change is safe or approve it.
+
+The model changes and counts go to the provider, without record values. This is available at every send level and can incur provider charges. Facts and wording are cached for an hour for the same request; a cache hit makes no second call. [About AI](/docs/run/ai/) explains what is sent, call records, costs and retention. Do not send a request until the person asks for the explanation; the browser action is **Explain this change**.
+
+Present every returned fact alongside the statements and their citations. Statements without valid fact references are removed and counted. A failing provider can still return HTTP `200` with all facts, no statements and a `failure`; show the facts and the failure instead of an empty success. No explanation activates anything. Continue through the ordinary preview, review and activation operations only after the person's decision.
+
+`IMPACT_SUMMARY_DRAFT_INVALID` requires correcting and validating the draft. A stale draft version requires rereading it. Missing draft or release refusals require an existing accessible resource. A summary is not attached permanently to a release and is not a substitute for migration preview.
+
+For changes proposed from words or a workbook, use [Assistant tasks](/docs/integrate/assistant-tasks/). A result can lead to migration, a change set or staged release activations; those remain explicit actions by a person.

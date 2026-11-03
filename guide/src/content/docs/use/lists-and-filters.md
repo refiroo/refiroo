@@ -119,3 +119,12 @@ A Yes/No filter applies when you choose the value; other editors can require the
 
 The sidebar scrolls independently of the table. Both short and long collections keep their
 header and footer in view; the table fills the available height even with only a few records.
+
+## Ask for filters in words
+
+Where **Ask** is offered beside **Search**, you can describe the records you want and review
+the ordinary filters the answer becomes. A partial answer waits for your acceptance. See
+[Asking a list in words](/docs/use/ask-in-words/) and its
+[step-by-step guide](/docs/guide/use/ask-a-list-in-words/). Your question and list definitions
+go to the provider; short related lists can include names. Calls can incur costs and are
+recorded: read [AI and your data](/docs/use/ai-and-your-data/) before sending.

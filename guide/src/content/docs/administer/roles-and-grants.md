@@ -138,3 +138,9 @@ For import files, the uploader and people allowed to import in that workspace ca
 Each selected role/workspace combination or consumer grid cell is saved separately. If **… could not be granted** appears, successful grants remain and failed choices keep their reasons. **Try again** retries the remaining choices. Closing the dialog does not undo successful grants.
 
 Follow [Create a custom role](/docs/guide/administer/create-a-custom-role/), [Narrow a grant to record types](/docs/guide/administer/narrow-a-grant-to-record-types/), or [Grant a consumer API to a client](/docs/guide/administer/grant-a-consumer-api-to-a-client/) for those tasks. Before deleting records, a narrowed writer also needs permission for every type removed by a cascade; an out-of-scope cascade is refused before showing its impact.
+
+## AI permissions and assistants
+
+**Use AI proposals** enables the configured built-in AI features in the granted workspaces. It does not provide Browse, import, model editing or publication rights by itself. The five predefined roles holding it are listed above; combine grants for the person's actual task. **Operations** separately allows inspection of AI settings and the provider test. See [AI settings and access](/docs/administer/ai/) for what is sent, costs and retained information.
+
+The **Agent** role contains Browse and Work in change sets. These groups also limit every external assistant's connection, even when its person holds stronger roles. An assistant cannot approve, publish or write live data, and its preparation is confined to change sets created by its own person or client. A person needs no extra Agent grant to connect an assistant using existing rights. See [Agent access](/docs/administer/agent-access/) for the complete limits and how to stop access.

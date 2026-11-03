@@ -164,3 +164,12 @@ response whether or not that account exists. A reset message is sent only for an
 with a local password and an email address. For a provider account, reset your password with
 the organisation instead. An administrator can supply a one-time password-setting link
 when email recovery is unavailable.
+
+## Sessions for an assistant
+
+An external assistant you signed in for appears in **Where you’re signed in** as its name
+followed by **(assistant)**. **Sign out** on that row ends its session, stopping it on its next
+request. A blocked assistant also loses access; restoring it does not restore the ended session.
+You must sign in for it again. Its sign-in page shows the name it claims and where it returns.
+Check those details before allowing it. See [AI and your data](/docs/use/ai-and-your-data/)
+for what it may read, what it may prepare and why its provider privacy settings matter.

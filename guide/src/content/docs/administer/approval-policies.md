@@ -52,3 +52,11 @@ A person with **Work in change sets** uses **Submit for publication** after vali
 An approver uses **Approve and publish**, which applies the change and records the decision together, or **Send back** with a comment so the author can correct it and submit again. With the second-person rule on, the submitter cannot approve their own request even if they hold Data owner. Holding multiple roles does not make one person two reviewers.
 
 Approvers see work awaiting their decision on Home and in their notices. Submitters receive the outcome. Browse and workspace access still govern what data a viewer can inspect; the approval policy does not open a workspace to everybody. A changed permission or invalid proposal can refuse a decision, so read the reason rather than assuming a waiting request is ready to publish.
+
+## Changes prepared by an assistant
+
+An assistant cannot approve or publish. A person reviews its proposed records and relationships and takes the normal publication steps. Under the second-person rule, the person who asked the assistant to prepare and submit the change cannot also decide it; using an assistant does not provide a second reviewer.
+
+A built-in assistant's move of only part of a type uses a change set and follows this approval policy. A whole type becoming another is confirmed as a migration by someone holding **Model release**; it does not go through a change-set approval. Review the proposal and migration preview before confirming. See [Model changes with the assistant](/docs/model/ai-model-changes/).
+
+Read [AI settings and access](/docs/administer/ai/) for the built-in assistant's permissions, data sent, costs and retained files, and [Agent access](/docs/administer/agent-access/) for external assistants.

@@ -99,3 +99,10 @@ When the mapping and dry run are ready, follow
 A workbook describing a model, lists laid out for reading and repeated-parent tables can lead
 to different proposals. Check the inferred structure rather than assuming one sheet means one
 type. [Workbook onboarding](/docs/model/workbook-onboarding/) explains those choices.
+
+## Use the assistant instead
+
+If the built-in assistant is enabled, you can
+[review its proposed workbook design](/docs/guide/model/review-an-assistants-workbook-design/)
+before accepting a model and load. The rules-based draft route above does not call AI or offer
+AI naming suggestions.

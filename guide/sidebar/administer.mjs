@@ -86,5 +86,18 @@ export default [
       ],
     ],
   ],
-  ["Agent access", [["administer/agent-access", "About agent access"]]],
+  [
+    "AI",
+    [
+      ["administer/ai", "About AI settings and access"],
+      "guide/administer/check-the-ai-provider",
+    ],
+  ],
+  [
+    "Agent access",
+    [
+      ["administer/agent-access", "About agent access"],
+      "guide/administer/manage-agent-access",
+    ],
+  ],
 ];

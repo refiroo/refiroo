@@ -145,3 +145,32 @@ Relationships whose other end stays behind are carried only when the counterpart
 in the target, otherwise they are dropped and reported. Matching and remembered counterparts let
 later transfers update records rather than duplicate them. A changed mapping or release needs a
 fresh review. Nothing rejected in the dry run should be treated as successfully moved.
+
+## An account of a model change
+
+A model administrator with **Model release** and **Use AI proposals** in the workspace can ask
+for an explanation before activating a release or applying a draft. A configured AI provider
+is required; enabling only the built-in assistant does not offer this account. Follow
+[Explain a model change](/docs/guide/model/explain-a-model-change/).
+
+Open the activation dialog or **Apply to this workspace** and read the compatibility checks.
+Under **What this change does**, choose **Explain this change**. Nothing is sent before that
+request. The provider receives the model's differences, rule failures, consumer-contract effects
+and record counts, without record values or names. Requests can incur charges; the same facts
+are reused for up to an hour. Call records remain; request text is kept only if enabled.
+Read [AI and your data](/docs/use/ai-and-your-data/) for full access, disclosure, cost and retention rules.
+
+Review the account and follow each numbered citation to the facts refiroo computed. These include
+blocked activation and the counts of affected records, not a promise that the change is safe.
+The explanation is English only, is not attached permanently to the release and takes no
+follow-up question. It appears in activation and Apply, rather than installation or migration.
+[Accounts of model changes](/docs/model/model-change-accounts/) explains its rules and limits.
+
+![An account beside the model checks, with numbered citations and facts](/docs/screens/model-account-facts.png)
+
+*Above: the Apply dialog for a change to the Graubünden reference model. The account cites the facts below it.*
+
+If the provider fails, read the facts alone or choose **Try again**. Fix an invalid or newer draft
+before asking again. Asking does not apply or activate anything, and an explanation cannot remove
+a compatibility refusal. Continue through the normal activation review, or use
+[the migration path](/docs/guide/model/migrate-a-workspace/) when the existing data needs conversion.

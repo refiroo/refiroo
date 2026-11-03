@@ -35,3 +35,10 @@ draft is detached from the workspace rather than deleted. Reopen **Edit model** 
 current draft instead of applying an old tab without review. If installation succeeded but
 activation failed, the flow retries against the installed release; inspect the reported state
 rather than installing the same release again.
+
+## Ask for a change in words
+
+The workspace menu also offers **Change this model…** when the assistant and your rights
+allow it. Follow [Change a model with the assistant](/docs/guide/model/change-a-model-with-the-assistant/)
+to review its draft and complete the record moves. Apply can separately
+[explain the change](/docs/guide/model/explain-a-model-change/) through the configured provider.

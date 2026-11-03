@@ -19,6 +19,8 @@ export default [
       ["integrate/discovering-the-model", "Discovering the model"],
       ["integrate/api-reference", "The API reference"],
       ["integrate/compatibility", "Compatibility"],
+      ["integrate/assistants-and-agents", "Assistants and agents"],
+      "guide/integrate/connect-an-assistant",
     ],
   ],
   [
@@ -38,6 +40,7 @@ export default [
       ["integrate/files-imports-and-exports", "Files, imports and exports"],
       "guide/integrate/exchange-a-supplier-file",
       ["integrate/jobs", "Jobs"],
+      ["integrate/assistant-tasks", "Assistant tasks"],
     ],
   ],
   [

@@ -106,3 +106,79 @@ every change.
 
 A narrowed workspace Activity list offers **Show all activity** to clear its narrowing.
 The wider result still includes only work you may read.
+
+## What changed in a period
+
+**What changed** above workspace **Activity** and a record's **History** can explain a period
+in a few statements. It appears when a provider is enabled and you hold **Browse** and **Use
+AI proposals** in the workspace. Opening the page sends nothing. Follow
+[Explain a period in history](/docs/guide/use/explain-a-period-in-history/) to request an account
+and check its sources.
+
+The initial period is **Last 7 days** for a workspace and **Last 30 days** for a record.
+**Choose dates** offers **From** and **To, included**; both chosen days are included, using your
+browser's time zone. The first day must not follow the last. There is no fixed maximum period.
+
+refiroo counts the live changes across the whole period: records created, changed, moved or
+deleted by type, fields changed, relationships, jobs and publications, people, change-set events,
+withdrawn publications and model activations. A publication can identify who prepared its work,
+the preparation job and who published it. A staged record is counted when published, once;
+record edits still sitting in an open change set are not counted as live changes. Events such
+as creating or submitting that set can still be included. A record account concerns that
+record's values, relationships and moves, rather than every record in the workspace. Counts can overlap: a record moved while a value
+changed can appear in both counts. Do not add them as a total of different records.
+
+**Explain this period** sends counts and model labels to the configured provider. Only the
+values send level adds names of records, people, change sets and files. Names remain visible
+in your fact lines whatever the send level. The explanation does not send record field values.
+Requests may incur costs and are logged; [AI and your data](/docs/use/ai-and-your-data/) explains
+permissions, content retention and provider privacy.
+
+Each AI statement has numbered sources. A number leads to a fact counted by refiroo, not written
+by the provider. **The facts** includes all facts, with **Show the other …** after the first ten.
+The provider sees at most 40 facts of each kind and their true totals, so its short account is
+not a replacement for the whole list. Statements without a valid source are removed and counted.
+The note **Written by AI from the facts below** reminds you that the wording can be wrong.
+
+![An account of a workspace period with numbered statements, facts and Show them](/docs/screens/use-history-explained.png)
+
+**Show it** or **Show them** narrows Activity or the record's timeline to the changes counted
+by that fact. Other facts offer **Open the change set** or **Open the job** where you may open
+it. A job deleted after retention has no job link; a deleted record has no current name.
+Use **Show all activity** or **Show all history** to leave the narrowing.
+
+A period with no changes says so and sends nothing to AI. If **The account could not be written**
+appears, the facts remain usable and **Try again** requests the wording again. A request that
+cannot be made has its own error and retry. The same facts for the same period requested again within
+an hour reuse the saved account without a second provider call. The preset periods end at the
+time you ask: **Explain again** normally changes that end time and can make another paid call. The account itself is temporary,
+not a permanent history entry. The browser's account is in English; it is not translated into
+German. Requesting an explanation changes no record.
+
+## Work prepared by an assistant
+
+History separates who prepared work from who published it. Built-in assistant changes say
+**Proposed by the AI assistant**, with the model when recorded, **Asked for by** the person who
+requested the task, and **Edited by** a later editor when present. The mark survives later
+edits of that prepared row and is kept in published history, including removals, after the
+task expires. A task's proposal need not carry a confidence percentage. Mapping suggestions
+can include confidence and a reason; replacing a mapping target removes that target's AI mark.
+
+Work from an external connected assistant says **Prepared by an assistant:** followed by its
+name, who asked and who edited when available. Its name is the one the assistant gave itself;
+it is not proof of identity. The entry still names the person who published. The personal
+Changes page has no separate assistant filter or mark, so inspect a record's History for this
+detail. refiroo never turns an assistant's proposal into publication on its own.
+
+![Published record history distinguishing assistant preparation, requester, editor and publisher](/docs/screens/use-history-assistant.png)
+
+An external assistant can prepare and submit only change sets created by its own person or
+client, not a colleague's. It can add or change records and relationships and set fields,
+but cannot remove records or relationships, clear values, discard a set, withdraw a submission,
+change the model, approve or publish. A person reviews the submitted work through
+[change-set review](/docs/guide/use/review-what-a-change-set-changes/). Editing a submitted change
+set withdraws its submission; a second-person policy still needs a different approver from
+the person whose assistant submitted it. Correct mistaken additions yourself or have the
+assistant prepare a new set. These external-assistant limits differ from the built-in workbook
+task's fuller preparation abilities. See [AI and your data](/docs/use/ai-and-your-data/) before
+allowing an assistant to read your workspace.

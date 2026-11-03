@@ -38,3 +38,13 @@ In **Load … into a change set**, check the proposed name and workspace before 
 The suggested name starts with **Load**, the file name and a date. If loading fails after the
 change set was opened, inspect that change set and the load's job before starting again;
 do not assume the first proposal disappeared.
+
+## A profile saved by the assistant
+
+An [assistant load](/docs/use/loading-with-the-assistant/#the-next-file-and-the-saved-profile)
+can leave a saved profile. Follow the steps above to reuse it. If you start through **Import…**,
+a fitting saved layout also lets refiroo prepare the file without an assistant session or AI
+cost. You still review the proposal and row check. **The saved layout does not fit this file**
+offers **Read it with the assistant**. That sends the file and instructions to Claude Code,
+can incur costs and keeps task files; see [AI and your data](/docs/use/ai-and-your-data/).
+A new sheet or changed layout needs review, not an assumption that the previous mapping fits.

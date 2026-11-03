@@ -180,3 +180,14 @@ A stored upload used by an import profile is visible to its uploader and to peop
 to import in its workspace. Treat the file as shared with those workers when choosing what
 to upload. Losing a write permission can stop a job at its next step; review its applied counts
 before asking an authorised colleague to continue the work.
+
+## Let the assistant prepare the import
+
+When the assistant is enabled and you have the required access, **Import…** in the workspace
+menu first opens **Load a workbook**. Give it one XLSX or CSV file, instructions, or both.
+It proposes the model and load for review rather than publishing records. **Import without
+the assistant…** opens the ordinary manual import. See
+[Loading with the assistant](/docs/use/loading-with-the-assistant/) and
+[Load a workbook with the assistant](/docs/guide/use/load-a-workbook-with-the-assistant/).
+The whole file and your words go to Claude Code, turns can incur costs, and task files are
+retained; [AI and your data](/docs/use/ai-and-your-data/) explains those rules.

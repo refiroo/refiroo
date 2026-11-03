@@ -73,16 +73,17 @@ administrators manage them on **Settings › Security › Agent access**.
 ## The assistant's session
 
 In the shipped engine container, the assistant runs as a separate operating-system user,
-`assistant`. Each task has its own working folder under `/data/assistant`. Claude Code keeps its
-configuration and transcripts under `/data/assistant-claude`, set by `CLAUDE_CONFIG_DIR`.
+`assistant`. Each task has its own working folder under `/opt/refiroo/rdm-engine/data/assistant`. Claude Code keeps its
+configuration and transcripts under `/opt/refiroo/rdm-engine/data/assistant-claude`, set by `CLAUDE_CONFIG_DIR`.
 
-The session receives a dedicated refiroo client and temporary grants drawn from the requesting
+Each task has a separate client, workspace scope and jobs; concurrent tasks do not share them.
+A task is visible only to its requester and the workspace's administrators. The session receives a dedicated refiroo client and temporary grants drawn from the requesting
 person's permissions. It cannot publish a change set or activate a model release, even if that
 person can. A person reviews the result and takes those steps. Grants end with the session's turn.
 
 The engine does not pass its database address, encryption key or other server secrets to the
-session. It does pass the environment names Claude Code needs, including `ANTHROPIC_*` and
-`CLAUDE_*` names; treat credentials placed there as available to the session. The assistant user
+session. It does pass the environment names Claude Code needs, including `ANTHROPIC_*`,
+`CLAUDE_*`, `AWS_*` and `NODE_*` names; treat credentials placed there as available to the session. The assistant user
 cannot read the engine's job-file directory or its process environment.
 
 With `AI_AGENT_SANDBOX=container`, the container provides the boundary because Claude Code's own
@@ -102,6 +103,10 @@ The key itself is never shown. This page displays settings; change them in the e
 
 **Calls** lists provider requests and assistant turns, newest first: who asked, what for, the model,
 outcome, tokens, cost when reported, and duration. A failed call includes a failure message.
+**Load more calls** reads older entries. With no entries, the page says **No call has been made yet.**
+When content logging is on and has not expired, expand **Show what was sent and answered** on a row.
+Treat that content as sensitive.
+
 Totals cover the last 30 days. An assistant turn counts as one call, including cache reads and
 writes in its token figures. A dash for cost means no cost was reported, not that the call was free.
 
@@ -130,3 +135,147 @@ control the provider's own retention.
 The shipped Compose file persists job files but does not mount the assistant's working folders or
 Claude Code directory as volumes. Replacing the container can therefore remove session files before
 their normal cleanup date. Keep this in mind before recreating a container with unfinished tasks.
+
+## Provider and assistant settings
+
+Set these in the engine's environment, then recreate the Compose container or restart the host
+service. **Settings › Administration › AI** displays them; it does not edit them.
+
+| Setting | Default | What to choose |
+| --- | --- | --- |
+| `AI_PROVIDER` | Empty | `claude`, `openai-compatible`, or a factory `package.module:function`. Empty disables provider features, independently of the assistant. See [credential choices](/docs/run/set-up-ai/#choose-the-features-and-credentials). |
+| `AI_MODEL` | Empty | Provider model. Claude defaults to `claude-opus-5-5`; a compatible endpoint requires a model. A factory defines its own default. This does not choose the assistant's model. |
+| `AI_API_KEY` | Empty | Provider secret; required for `claude`, optional for compatible endpoints. Never displayed. |
+| `AI_BASE_URL` | Empty | Required for a compatible endpoint, for example `http://models.internal:8080/v1`. Claude uses `https://api.anthropic.com` unless a gateway is specified. |
+| `AI_SEND_LEVEL` | `values` | `structure`, `samples` or `values`; see the send policy above. A request can choose a lower level, never exceed this ceiling. |
+| `AI_SAMPLE_VALUES` | `20` | Positive number of sample values per column or attribute at `samples`. Does not limit `values` or the short relationship lists described above. |
+| `AI_MIN_CONFIDENCE` | `0.5` | Number from 0 to 1. Mapping proposals below this confidence are left unmapped. |
+| `AI_LOG_CONTENT` | `false` | Keep requests and answers with call records for debugging. |
+| `AI_LOG_CONTENT_DAYS` | `7` | Positive number of days to keep logged content; metadata remains. |
+| `AI_TIMEOUT_SECONDS` | `60` | Positive number of seconds per provider call. The Claude API adapter makes up to three attempts for temporary failures, so total time can be longer. Does not change the assistant's 30-minute turn limit. |
+| `AI_REASONING_EFFORT` | Empty | Compatible endpoints only: `none`, `low`, `medium`, `high`. Empty omits the option. For a local thinking model, `none` can avoid a long reasoning phase. |
+| `AI_CONTEXT_TOKENS` | Empty | Actual context window of a small model, at least 256 tokens. Mapping requests are sized to half this window; too small a window can refuse even one source. Empty uses the feature's own batch limit. |
+| `AI_TASK_RETENTION_DAYS` | `90` | Positive number of days to retain tasks after completion or last change; see retention above. |
+| `AI_AGENT_COMMAND` | Empty | Claude Code command, for example `claude --model sonnet`. Empty disables the assistant. refiroo enforces its own tools and permission mode even if the command supplies another. |
+| `AI_AGENT_SANDBOX` | Empty | `container` in the shipped image; otherwise the operating-system sandbox. Do not use `container` on a host to bypass sandbox requirements. |
+| `AI_AGENT_API_URL` | Empty | Reachable API address for the session. Empty uses `PUBLIC_URL`. It must reach this instance, not an AI endpoint. |
+
+The Claude API needs outbound HTTPS to `api.anthropic.com`, or the configured gateway. Compatible
+endpoints need JSON-schema answers. For Ollama, use its reachable `/v1` address and set
+`AI_CONTEXT_TOKENS` to the window the server actually serves, rather than the model's advertised
+maximum. `localhost` inside Docker means that container. Increase the provider timeout if the model
+cannot answer within it; inspect failed calls before changing it.
+
+## What people review
+
+- **Mapping targets:** the person chooses **Propose targets**. Results are mappings in a change set,
+  with confidence and a reason. The **Proposed** filter finds them. A person reviews and edits them,
+  then uses the normal approval and publication flow. Editing a target removes its AI mark; history
+  retains the origin of published proposals. Sources changed while the request ran are left alone.
+  Stopping the job keeps proposals already written.
+- **Questions in words:** **Ask** on a table list turns the question into editable filters. It
+  changes no record. If only part can be expressed, nothing is applied until the person chooses
+  **Use these filters**. It is absent from trees, mapping grids and the Changes page.
+- **Model and history explanations:** **Explain this change** or **Explain this period** sends
+  facts only when pressed. Counts cover the whole set; the provider receives at most 40 facts of
+  each kind with the true totals. Statements link to the facts behind them. Unsupported statements
+  are dropped. An empty history period makes no call. Matching facts are cached for an hour, so a
+  repeated explanation can avoid another call. Current explanations are in English; they are not
+  an assurance that a change is safe.
+- **The built-in assistant:** the person reads the proposed model, the check of every workbook row,
+  questions and warnings, and can edit the draft or tell the assistant what to change. **Accept the
+  model** lets it install a release and load a change set. A person takes the activation, approval
+  and publication steps. A saved import profile that still fits can load without an AI session or
+  AI cost. Words alone can also prepare changes; a workbook is optional.
+
+A whole type becoming another ends with **Preview the migration**: a person checks and confirms the
+migration, which goes live at that confirmation. A partial move uses three steps: activate a release
+with both types, review and publish the change set, then activate the final release to remove emptied
+types. The proposal is checked against live records and consumer API contracts before this handoff.
+An incompatible consumer contract needs its contract version raised; a proposal the data cannot
+accept returns with the reason for correction. The assistant does not confirm these steps itself.
+If the final model keeps the old type, only activation and publication are needed; no removal step
+is shown. Unused session-installed releases are retired when the task ends; a final release needed after a
+partial move survives. Do not prune releases in use by workspaces or change sets.
+
+## Recover an assistant task
+
+A task's page gives its reason and the next action. **Stop** ends the current turn, preserving the
+task so the person can continue. A stopped correction returns to the last proposal, with a warning
+if the draft was already changed. A stopped load discards the change set it was making and returns
+to the accepted proposal. With no proposal yet, the task is stopped and takes words or discard.
+
+After a failure or stop, give corrected instructions or choose **Try again as it was**. The same
+session continues, or starts if it never ran. If the worker died during a turn, the next turn records
+that earlier call as `interrupted` from the session log. Look for **Failed** and the failure sentence
+in **Calls**, not only at the latest successful turn. Logs sit beside the task folder, not inside it.
+
+On a loaded task, **Discard and load again** discards the unpublished change set, including manual
+edits, and asks the assistant to reload with the new words. **Discard this task** ends the task;
+if it has an unpublished change set that set is discarded too. A published task cannot be corrected
+this way: start a new task. A missing or expired task leads back to workspaces. A saved layout's
+check offers **Back to the proposal**; if it no longer fits, **Read it with the assistant** starts a
+session. A refused migration leaves the reason and the words box on the task.
+
+## External agent access
+
+`MCP_ENABLED` enables MCP Streamable HTTP, protocol `2025-11-25`, at `/mcp`. The shipped web proxy
+passes `/mcp` and `/.well-known/`; forward both when supplying your own proxy, and keep `PUBLIC_URL`
+consistent with the public HTTPS address. With the switch off the endpoints return 404 and no agent
+token is issued. **Settings › Security › Agent access** then says **Agent access is off**.
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `MCP_ENABLED` | `false` | Expose agent access after restart. Independent of both AI switches. |
+| `MCP_RATE_PER_MINUTE` | `120` | Positive number of calls per person or client per minute, shared across processes. A refused excess call says how long to wait and is recorded as **Limit reached**. |
+| `MCP_OPEN_REGISTRATION` | `true` | Allow assistants to register themselves. Turn off to require registration by a security administrator. |
+| `MCP_REDIRECT_HOSTS` | Empty | Comma-separated HTTPS hosts a self-registered assistant may return to, besides loopback addresses. The assistant's displayed name is its own claim. |
+| `MCP_CALLS_DAYS` | `90` | Positive number of days to keep tool-call records. Names of arguments are kept, never their values. |
+| `MCP_ANSWER_BYTES` | `40000` | Positive maximum bytes for a tool answer. Large pages shrink and return a cursor; an oversized answer that cannot page is refused. Resources return whole. |
+
+A person's assistant opens this instance's own sign-in page with OAuth and PKCE; signing in is
+consent. A system's assistant uses an agent client and its grants, with an `agent` token. These
+tokens reach only MCP; management and consumer tokens cannot call MCP. A consumer-only grant exposes
+only that consumer API's lookup tool. Browse exposes model, record, mapping coverage, history and
+change reads. Work in change sets permits adding or editing records and relationships, setting
+values, checking and submitting the caller's own change sets. It cannot remove records or clear
+values, discard or withdraw change sets, batch, restructure the model, approve or publish. Submitted
+change sets stay frozen. Under a second-person rule the person who asked the assistant cannot also
+decide its submission.
+
+Security administrators manage clients, registrations and call records on **Agent access**. Blocking
+an assistant or deactivating its client stops access on the next call. Restoring a blocked assistant
+does not restore ended sessions. People can end their own assistant sessions in their session list.
+Unused self-registrations with no open session are removed after 30 days; at most 1,000 unused
+registrations can stand. A registration accepts at most 10 return addresses, each at most 2,000
+characters. Repeated registrations from one address are slowed; self-registered return hosts are
+checked again at sign-in. Tool and resource listings count against the rate limit too. Neither your provider send level nor provider content retention controls
+what an external assistant keeps after reading permitted data.
+
+## Read failures and restore service
+
+| Code or outcome | Meaning and action |
+| --- | --- |
+| `AI_NOT_CONFIGURED` | The feature's own switch is missing: assistant command for tasks, provider for tests and suggestions. No provider means no test call is recorded. Configure the required switch and apply settings. |
+| `AI_SEND_LEVEL_TOO_LOW` | The feature needs more data, or the request exceeds the instance ceiling. Agree a send policy before changing it. |
+| `FORBIDDEN` | Check the missing action group and workspace grants. AI permission alone grants no other write rights. |
+| `AI_TASK_NOT_FOUND` | The task expired, does not exist or belongs to someone else. Ask its requester or a workspace administrator; start a new task if expired. |
+| `AI_TASK_VERSION_CONFLICT` | Another action changed the task. Reload it before trying again. |
+| `AI_TASK_CHECK_STALE` | The draft changed after the check. Check it again before loading. |
+| `AI_TASK_NOTHING_TO_LOAD` | The check has no work to load. Review the proposal and its counts. |
+| `AI_TASK_STATE` | That action is unavailable at this stage. Reload and use the page's offered next action. |
+| `AI_TASK_DRAFT_HELD` | Another task owns the draft; use a separate draft rather than changing that task's work. |
+| `AI_TASK_NEEDS_WORDS` | Supply instructions or a supported workbook. |
+| `IMPORT_TOO_LARGE`, `UNSUPPORTED_FILE_FORMAT` | Respect `IMPORT_MAX_BYTES`; supply XLSX or CSV instead of legacy XLS. |
+| `unreachable`, `unauthorized`, `rateLimited` | Check endpoint/connectivity, replace the refused key, or wait before retrying, respectively. |
+| `declined`, `malformed`, `failed` | The provider declined, returned the wrong shape or otherwise failed. Inspect the failure sentence, model and gateway. No partial malformed answer is used. |
+| `timeout`, `cancelled`, `interrupted` | An assistant turn exceeded 30 minutes, was stopped or lost its worker. Read the task's notes and continue when the cause is resolved. |
+
+A failing provider leaves the feature's ordinary work available. Explanations still show their
+facts; a failed question applies no filters; a mapping request reports a warning and a failed
+call. **Neither the assistant nor an AI provider is set up** is the AI page's notice when both are
+unset. For command, credential, sandbox and startup failures, follow [Set up AI](/docs/run/set-up-ai/#if-startup-or-a-request-fails).
+
+![AI settings showing both switches and the permitted send level](/docs/screens/run-ai-settings.png)
+
+![AI provider test result and recorded calls](/docs/screens/run-ai-provider-calls.png)

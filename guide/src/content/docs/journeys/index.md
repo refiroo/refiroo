@@ -41,6 +41,19 @@ Prepare coordinated proposals, review them and bring them into Live safely. See 
 - [Prepare under the next model version while live keeps the current one](/docs/journeys/change-with-approval/#prepare-under-the-next-model-version-while-live-keeps-the-current-one).
 - [Propose and approve a change](/docs/journeys/change-with-approval/#propose-and-approve-a-change).
 
+## Work with an assistant
+
+Review machine-made proposals and keep control of what changes. See [work with an assistant](/docs/journeys/work-with-an-assistant/) for access, disclosure, costs, retention and review.
+
+- [Use AI proposals](/docs/journeys/work-with-an-assistant/#use-ai-proposals).
+- [Targets for unmapped values](/docs/journeys/work-with-an-assistant/#targets-for-unmapped-values).
+- [Load a workbook, or change records, with the assistant](/docs/journeys/work-with-an-assistant/#load-a-workbook-or-change-records-with-the-assistant).
+- [Reach refiroo from an assistant](/docs/journeys/work-with-an-assistant/#reach-refiroo-from-an-assistant).
+- [An assistant reads](/docs/journeys/work-with-an-assistant/#an-assistant-reads).
+- [An assistant prepares a change](/docs/journeys/work-with-an-assistant/#an-assistant-prepares-a-change).
+- [Ask in words](/docs/journeys/work-with-an-assistant/#ask-in-words).
+- [What changed in a period](/docs/journeys/work-with-an-assistant/#what-changed-in-a-period).
+
 ## Shape a model
 
 Define applications and data rules, load workbooks and manage workspace releases. See [shape a model](/docs/journeys/shape-a-model/) for the complete paths.
@@ -48,6 +61,7 @@ Define applications and data rules, load workbooks and manage workspace releases
 - [Create and activate an application-model release](/docs/journeys/shape-a-model/#create-and-activate-an-application-model-release).
 - [Administer workspaces](/docs/journeys/shape-a-model/#administer-workspaces).
 - [Define a consumer API in the model](/docs/journeys/shape-a-model/#define-a-consumer-api-in-the-model).
+- [An account of a model change](/docs/journeys/shape-a-model/#an-account-of-a-model-change).
 - [Design a model in the editor](/docs/journeys/shape-a-model/#design-a-model-in-the-editor).
 - [Onboard a workbook](/docs/journeys/shape-a-model/#onboard-a-workbook).
 - [Load the next version of a workbook](/docs/journeys/shape-a-model/#load-the-next-version-of-a-workbook).

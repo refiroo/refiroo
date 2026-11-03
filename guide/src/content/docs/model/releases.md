@@ -145,3 +145,11 @@ current live data likewise checks that its selected model can hold that data; ch
 version does not waive its rules. Publication requires a successful validation of the current
 change-set version and agreement with the workspace's active release. See
 [Change sets](/docs/use/change-sets/) for the ordinary creation and publication steps.
+
+## Ask what activation changes
+
+With a configured AI provider and the required workspace permissions, the activation dialog
+offers **What this change does**. [Accounts of model changes](/docs/model/model-change-accounts/)
+explains the facts, sent data, costs and limits. Follow
+[Explain a model change](/docs/guide/model/explain-a-model-change/) to ask; opening the dialog
+alone makes no provider request.

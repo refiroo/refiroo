@@ -1,0 +1,7 @@
+# C13-AI-ADMIN findings
+
+- Confirmed UI mismatch: frontend/src/features/settings/aiText.ts sendLevelText describes Values as capped at sampleValues per column. backend/app/engine/proposals/context.py Policy.values returns every wanted value at Values; the sample limit applies only to Samples. Guide describes the actual policy.
+- Documentation drift: CURRENT_FUNCTIONALITY F29 initially says the provider serves mapping targets only and later says corrections stop at design. Its later text, current task routes and AP13 describe questions, summaries and correction of loaded work. OPERATIONS has an earlier no-record-names paragraph for questions, although its settings table and current query route allow names of short relationship lists at Samples/Values. Reconciled rather than copied.
+- Isolation wording in older release/plan text says assistant network access is confined to this engine. agent.py disables its OS sandbox in container mode; the container provides no outbound network restriction. Linked the operator page and retained its caveat.
+- The reference provider is on per steering. No live AI calls, real secrets, sign-ins or administrator changes performed for this documentation task.
+- Full verify link check sees missing screenshot sources expected under the screenshot instruction. Keep required placeholders and request captures; do not fabricate images or edit tools/other waves to hide failures.

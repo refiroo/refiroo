@@ -106,3 +106,37 @@ Check that you are in the intended workspace and context before adding records.
 means the view cannot be drawn. Reload after a model change. If it persists, give a model
 administrator the view name and message so they can correct the model; changing mappings
 cannot repair a missing type.
+
+## Targets proposed by AI
+
+**Propose targets** asks the configured AI provider to choose targets for unmapped sources.
+It needs **Use AI proposals**, **Work in change sets**, a writable workspace and the send level
+values. It is unavailable in a publication. Follow [Propose targets](/docs/guide/use/propose-targets/)
+to prepare and review them.
+
+Search and the chosen parent narrow which sources are considered. The provider receives source
+and candidate target names and the fields this view shows. Only targets the grid permits are
+candidates: all eligible targets when there are at most 100, otherwise each source's 20 closest
+by name and searchable fields. Requests normally group 25 sources, or fewer for a small model
+context. This shortlist can miss a good target; the proposal is help, not proof of a match.
+Requests can cost money and their outcome is kept. See [AI and your data](/docs/use/ai-and-your-data/)
+for sending, access and retention.
+
+Each accepted answer becomes an ordinary mapping in the chosen change set. Live data stays as
+it was. **Proposed** under **Mapping status** shows sources with AI-proposed targets in that
+change set. **Proposed by the AI** shows the confidence and reason; on a phone, open **Why?**
+to read the reason. Confidence is the provider's estimate, not a guarantee. The operator sets
+a minimum confidence; lower answers and invented or missing targets are left unmapped.
+
+![A change-set mapping grid narrowed to Proposed with AI confidence and reasons](/docs/screens/use-mapping-proposed.png)
+
+Correct a wrong target through **Change** and **Save mapping**, or remove the mapping if allowed.
+Changing the target removes its AI mark because the replacement is your choice. Publishing
+uses the usual approval and conflict checks. The published relationship's history keeps the
+proposal's origin and model, and separately names the person who published it.
+
+The job's result counts **Proposed**, **Left unmapped: no likely target** and **Changed meanwhile,
+not touched**. It also reports refused or unanswered rows when present. Concurrently mapped
+sources are left alone. Failed calls produce warnings; their rows are not proposed. Earlier
+successful batches can remain after a later failure. **Stop** likewise keeps proposals already
+written. Inspect the change set before publishing even when the job ended early.

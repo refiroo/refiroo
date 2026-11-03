@@ -1,0 +1,29 @@
+
+> refiroo-guide@0.0.0 check:links
+> node tools/check.mjs links
+
+links: 66776 local links and sources in 242 built pages
+links: guide/integrate/connect-an-assistant/index.html: src "/docs/screens/integrate-agent-access-connect.png" points to nothing
+links: guide/model/change-a-model-with-the-assistant/index.html: src "/docs/screens/model-assistant-change-dialog.png" points to nothing
+links: guide/model/change-a-model-with-the-assistant/index.html: src "/docs/screens/model-assistant-whole-type-move.png" points to nothing
+links: guide/model/change-a-model-with-the-assistant/index.html: src "/docs/screens/model-assistant-partial-move.png" points to nothing
+links: guide/model/explain-a-model-change/index.html: src "/docs/screens/model-account-before-request.png" points to nothing
+links: guide/model/explain-a-model-change/index.html: src "/docs/screens/model-account-facts.png" points to nothing
+links: guide/model/explain-a-model-change/index.html: src "/docs/screens/model-account-provider-failure.png" points to nothing
+links: guide/model/review-an-assistants-workbook-design/index.html: src "/docs/screens/model-assistant-workbook-proposal.png" points to nothing
+links: guide/model/review-an-assistants-workbook-design/index.html: src "/docs/screens/model-assistant-workbook-loaded.png" points to nothing
+links: guide/use/ask-a-list-in-words/index.html: src "/docs/screens/use-ask-filters.png" points to nothing
+links: guide/use/change-records-with-the-assistant/index.html: src "/docs/screens/use-assistant-words.png" points to nothing
+links: guide/use/continue-an-assistant-task/index.html: src "/docs/screens/use-assistant-stopped.png" points to nothing
+links: guide/use/continue-an-assistant-task/index.html: src "/docs/screens/use-assistant-reload.png" points to nothing
+links: guide/use/explain-a-period-in-history/index.html: src "/docs/screens/use-record-history-explained.png" points to nothing
+links: guide/use/load-a-workbook-with-the-assistant/index.html: src "/docs/screens/use-assistant-workbook.png" points to nothing
+links: guide/use/load-a-workbook-with-the-assistant/index.html: src "/docs/screens/use-assistant-loaded.png" points to nothing
+links: guide/use/propose-targets/index.html: src "/docs/screens/use-mapping-proposal-result.png" points to nothing
+links: use/ask-in-words/index.html: src "/docs/screens/use-ask-partial.png" points to nothing
+links: use/history/index.html: src "/docs/screens/use-history-explained.png" points to nothing
+links: use/history/index.html: src "/docs/screens/use-history-assistant.png" points to nothing
+links: use/loading-with-the-assistant/index.html: src "/docs/screens/use-assistant-proposal.png" points to nothing
+links: use/mapping-grids/index.html: src "/docs/screens/use-mapping-proposed.png" points to nothing
+
+22 problem(s) in links.

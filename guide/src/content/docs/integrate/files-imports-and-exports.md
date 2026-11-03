@@ -74,3 +74,7 @@ Profiles can read a bounded sheet block with a header row, ignore columns, bind 
 A row’s result reflects its worst item outcome and identifies every failing cell. Read individual item outcomes when one row produced several records or relationships. Every bound import has a binding report, including an execution without a preview. Use those reports to correct the source or profile, then rerun with stable keys.
 
 Export manifests include a SHA-256 checksum. Choose whether relationships require both ends in scope or include all edges of selected records. The latter can refer to records outside the exported selection; ensure the destination already has those records or load them separately. Business-date exports filter only types with a declared period and identify the types dated.
+
+## Use the assistant to prepare a load
+
+The [assistant task API](/docs/integrate/assistant-tasks/) accepts a workbook or instructions, proposes a model draft and checks every row before a person accepts it. A session load prepares a change set for review; it cannot publish or activate. A matching saved profile can avoid a session and its cost. The assistant requires Use AI proposals, Bulk and import and send level `values`; the workbook and needed records can leave the instance for Claude Code. Read [AI data, costs and retention](/docs/run/ai/) before submitting. Use the [AI task operations](/docs/api/?api=management#tag/ai) for this sequence; the ordinary import API remains available.

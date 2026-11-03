@@ -70,3 +70,11 @@ conversion is listed as a loss; the preview does not invent a conversion for eve
 Inspect those items before accepting removal. Activation can also suspend the selected workspace's
 consumer subscriptions that its new contract no longer serves; other workspaces' subscriptions
 are unaffected. Coordinate changed contracts with their owners before confirming.
+
+## A move proposed by the assistant
+
+A [model change from words](/docs/model/ai-model-changes/) can prepare whole-type mappings
+for this preview. You still inspect and confirm the migration yourself; no change set is
+created for a whole-type move. For an AI-written account, ask in the activation or Apply
+dialog before coming here: [Explain a model change](/docs/guide/model/explain-a-model-change/).
+The migration page itself lists conversions, removals and refusals without an AI account.

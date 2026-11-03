@@ -3,6 +3,8 @@
 # and the guide's reference set (about 3,500 records) loaded through the public API.
 #
 #   guide/reference/reference.sh up       build and start, create the administrator, load the set
+#   guide/reference/reference.sh update   rebuild the engine from the current code and restart it, keeping
+#                                          the data and settings (no administrator, no load)
 #   guide/reference/reference.sh load     load the set again (safe to repeat)
 #   guide/reference/reference.sh stop     stop, keeping the data
 #   guide/reference/reference.sh start    start again
@@ -49,10 +51,11 @@ case "${1:-}" in
       --username "$(value GUIDE_ADMIN_USERNAME)" --name "Guide Admin" --password-stdin || true
     load
     ;;
+  update) "${compose[@]}" up -d --build --wait engine ;;
   load) load ;;
   stop) "${compose[@]}" stop ;;
   start) "${compose[@]}" up -d --wait ;;
   down) "${compose[@]}" down -v ;;
   status) "${compose[@]}" ps ;;
-  *) sed -n '2,14p' "$0"; exit 2 ;;
+  *) sed -n '2,16p' "$0"; exit 2 ;;
 esac

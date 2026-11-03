@@ -1,0 +1,8 @@
+
+> refiroo-guide@0.0.0 check
+> node tools/check.mjs all
+
+terms: 0 private-model name(s) on the list (tools/private-terms.txt)
+brand: src/content/docs/use/history.md: "Refiroo" must be written "refiroo", in lower case, even at the start of a sentence
+
+1 problem(s) in terms, brand.

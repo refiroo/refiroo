@@ -32,4 +32,72 @@ A webhook sends data to the configured receiver. Deliveries are signed so the re
 
 Files and consumer APIs also disclose the data their reader is allowed to obtain. Grant only the access each integration needs. See [Consumer events and webhooks](/docs/integrate/consumer-events-and-webhooks/) and [Clients](/docs/administer/clients/).
 
+## AI help stays under your control
+
+AI is optional. Your operator can enable a provider for proposed mapping targets, questions turned
+into list filters and explanations of changes. The built-in assistant uses Claude Code to prepare
+models and records from your words or a workbook. These are enabled separately. External assistants
+can connect through the Model Context Protocol (MCP) when agent access is enabled.
+
+Built-in AI actions need **Use AI proposals**, as well as the permissions for the work itself.
+The Data steward, Data owner, Model administrator, Workspace administrator and Integration
+administrator roles include that permission. Access still depends on the workspace grant.
+An external assistant uses its person's or client's grants, limited to reading and preparing
+change sets; it cannot approve or publish, even when that person can.
+
+### What may leave the instance
+
+The operator chooses a send level for built-in AI help:
+
+| Level | Information allowed to be sent |
+| --- | --- |
+| structure | Model names, field names, headers, types and counts, without stored record values. Your question is still sent. |
+| samples | Also sample values within the operator's limit. A question in words can send a whole related list of at most 50 record names, including ancestor names, regardless of that sample limit. |
+| values | The record values the task needs. This is required for mapping targets and the built-in assistant. |
+
+The assistant receives your words, the workspace's model and the whole workbook if you attach one,
+and reads records as needed within your access. A model-change explanation sends differences and
+counts without record values. A history explanation includes names of records, people, change sets
+and files only at values. Read the disclosure beside the action before asking.
+
+An outside provider receives this information under your organisation's agreement with it. A
+provider hosted inside your organisation can keep its requests there. Send levels do not govern
+what an external MCP assistant does with permitted data after reading it. Check its service and
+retention policy separately. [AI and your data](/docs/use/ai-and-your-data/) explains each feature's
+information, access and limits.
+
+### Review the proposal and its evidence
+
+AI can misunderstand instructions, and text in reference data can mislead an assistant. Inspect
+the proposed records, relationships and model, not just its explanation. Proposed mappings and
+loads wait in a change set for your correction, approval and publication. The built-in assistant
+cannot activate, approve or publish. A whole-type model migration has a different review: a person's
+explicit migration confirmation changes live data and its model together.
+
+Questions in words become editable filters rather than record changes. Explanations cite facts
+computed by refiroo; follow those references before deciding. The explanation can be wrong, and
+does not certify that a change is safe. If the provider fails, model and history facts remain
+available. See [Work with an assistant](/docs/journeys/work-with-an-assistant/) for the complete paths.
+
+### Costs and retained information
+
+Requests and assistant turns can incur charges or consume a subscription allowance, including
+failed or discarded work. Operations staff can inspect who asked, the purpose, outcome, tokens
+and reported cost on **Settings › Administration › AI**. An absent cost is not proof of free use.
+A saved workbook layout that fits the next file can avoid another assistant session.
+
+Call records are kept. Request and answer text is absent from the call log by default; an
+operator can enable it for a limited period, normally seven days. This does not remove the
+separate assistant task: its instructions, proposal, checks and workbook normally remain for
+90 days after completion or the last change. Session files and transcripts remain while the task
+can continue, including after a stop or failure and while a loaded change set awaits publication.
+They are cleaned up when finished work is next checked, or on expiry. Published data and history
+remain. The provider's retention is separate. [Running AI](/docs/run/ai/) explains configuration,
+retention and billing in full.
+
+External assistant calls have a separate record of the caller, tool, argument names and outcome,
+without argument values. You can end a personal assistant's session from your account. A security
+administrator can block an assistant or deactivate its client; access stops on its next call.
+See [Agent access](/docs/administer/agent-access/).
+
 Report suspected vulnerabilities privately to **security@refiroo.org**, or use the repository's private reporting option described in its [security policy](https://github.com/refiroo/refiroo/blob/main/SECURITY.md).

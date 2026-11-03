@@ -301,3 +301,10 @@ logic, prepare it outside the editor or ask an integrator to use the
 For a single-choice lookup, changing the referenced value in a later file switches the existing
 relationship to the new record. It does not add a second choice. Review relationship changes
 alongside field changes in the change set, especially when a value has become empty.
+
+## Have the assistant design the model
+
+For a file whose meaning needs more than the workbook rules can infer,
+[review the assistant's workbook design](/docs/guide/model/review-an-assistants-workbook-design/).
+It proposes the model first and lets you correct it in words or in the editor before acceptance.
+This is separate from the rules-based proposals described here.

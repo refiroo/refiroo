@@ -166,3 +166,9 @@ A navigation group's initial folded state is a model default; each browser can r
 different state. A group page gathers its collections with search. During a drag in the model
 pane, moving near its upper or lower edge scrolls the pane. Keyboard and phone users use
 **Move to…** and the ordering menus instead.
+
+## Describe a change in words
+
+You can also [ask the assistant to propose a model change](/docs/model/ai-model-changes/)
+and open its draft in this editor. Review the proposal before accepting; direct edits here
+are read again when the assistant continues.

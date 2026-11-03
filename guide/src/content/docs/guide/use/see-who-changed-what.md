@@ -55,3 +55,17 @@ to read 20 more after the initial ten and **Show fewer** to shorten the list. Ch
 publication named as the cause; **client** marks a system's work, and **Before sign-in** marks an
 older entry with no recorded author. Your changes has no value details or export: return to the
 record's History for the saved values.
+
+## Read an AI account or assistant origin
+
+For a short explanation with links to the counted changes, follow
+[Explain a period in history](/docs/guide/use/explain-a-period-in-history/). Opening History
+sends nothing; asking for the account sends counts and, at values, names to the provider.
+Calls can incur costs and are recorded; [AI and your data](/docs/use/ai-and-your-data/) explains
+sending and retention.
+
+On a record history entry, read **Proposed by the AI assistant** or **Prepared by an assistant**
+alongside who asked, who edited and who published. These are different responsibilities.
+An external assistant’s displayed name is its own claim. The personal Changes page has no
+assistant filter; use [the record’s History](/docs/use/history/#work-prepared-by-an-assistant)
+for the mark.

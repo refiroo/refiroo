@@ -12,8 +12,9 @@ COPY guide/astro.config.mjs ./
 COPY guide/sidebar ./sidebar
 COPY guide/src ./src
 COPY guide/public ./public
-COPY guide/examples ./examples
 COPY guide/tools ./tools
+# The shared header's stylesheet, which astro.config.mjs reads from ../frontend/public/brand/.
+COPY frontend/public/brand /repo/frontend/public/brand
 RUN npm run build
 
 FROM python:3.14-slim

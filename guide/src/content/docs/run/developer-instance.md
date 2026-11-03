@@ -141,3 +141,27 @@ By default the browser calls the address where the page was opened. Only a build
 For a standalone documentation site without an engine, run `npm run build:public` in `guide/`.
 That build includes a static, read-only API reference under `api/`, covering the management API
 and the guide's example consumer API. An installation uses its engine's live reference instead.
+
+## Try AI with a Claude subscription
+
+Install Claude Code on the host and authenticate it with your development account. In
+`.dev/settings.env`, set both switches to try all AI features:
+
+```dotenv
+AI_AGENT_COMMAND="claude --model sonnet"
+AI_SEND_LEVEL=values
+AI_PROVIDER=devtools.claude_code_provider:provider
+AI_MODEL=sonnet
+```
+
+Leave `AI_AGENT_SANDBOX` unset on the host so the session uses the operating-system sandbox.
+The provider in `backend/devtools` runs Claude Code with your sign-in and limits. It appends usage
+to `backend/devtools/usage.jsonl`; dollar amounts report usage at API prices rather than money
+charged to the subscription. It is for development and trying features, and is absent from the
+production engine image. For a noninteractive subscription token, API-key credentials, compatible
+endpoints and separate tests of both switches, follow [Set up AI](/docs/run/set-up-ai/).
+
+Stop and restart the engine command to read changed settings. AI requests can send model details,
+instructions and record data outside your machine. Review [the send policy, permissions and
+retention](/docs/run/ai/) before trying it. Nothing is published by the assistant: review the proposal
+and the resulting change set yourself. Actual subscription charges and limits belong to Claude Code.
