@@ -66,9 +66,8 @@ and is not repeated here.
 **Order (recommended).** PL0, PL1, PL2, then WM1 as planned, PL3, PL3b, PL4, PL5, PL6. PL1 and PL2 are the
 cheapest fixes on the most frequent paths; PL3 adds WM1's action to its page and gives PL4 its place; PL3b is where PL4's Adjust leads.
 
-**Decision needed (asked with this plan):** a workbook's new workspace loads straight into live data
-(recommended) or into a change set first. A workbook loaded into an existing workspace keeps going into
-a change set.
+**Decided by the user 2026-11-03 (PP-D1):** a workbook's new workspace loads straight into live data. A
+workbook loaded into an existing workspace keeps going into a change set.
 
 ## PL0: The principles as reference rules
 

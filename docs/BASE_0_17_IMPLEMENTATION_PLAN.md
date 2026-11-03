@@ -1,7 +1,7 @@
 # Base 0.17 implementation plan
 
 **Status:** Planned 2026-10-31 at the user's request. The plan and the canvas mock-up were approved by the user
-on 2026-10-31. Nothing is built yet, and the decision marked **Open** below is not settled.
+on 2026-10-31; PP-D1 was decided on 2026-11-03. Nothing is built yet, and no decision is open.
 
 **Target:** Product 0.17.0, [the plain path](ROADMAP.md#product-release-017--the-plain-path).
 
@@ -51,7 +51,7 @@ plan for one approval and is then delivered whole.
 
 | ID | Decision | State |
 | --- | --- | --- |
-| PP-D1 | **Where a new workspace's first load goes.** Straight into live data (recommended: the workspace is new, nobody relies on it, and a change set adds a review of everything) or into a change set first. A load into an existing workspace keeps going into a change set. Needed before PL4. | **Open, the user's** |
+| PP-D1 | **Where a new workspace's first load goes.** Straight into live data (recommended: the workspace is new, nobody relies on it, and a change set adds a review of everything) or into a change set first. A load into an existing workspace keeps going into a change set. | **Decided by the user 2026-11-03: live data** |
 | PP-D2 | **WM1 stays in 0.16.** PL3 and PL4 rely on it. Delivered 2026-10-31, as planned in [the 0.16 plan](BASE_0_16_IMPLEMENTATION_PLAN.md#wm1-change-a-workspaces-model-from-the-workspace). | Planning default |
 | PP-D3 | **The canvas is a view of the model draft,** opened by PL4 and by an assistant's result, on the existing draft, operations, undo and dry run. There is no second store and no second dialect. Today's editor is reachable from it and edits the same draft. Shared pieces are extracted from the editor, never copied. | Planning default |
 | PP-D4 | **A drop applies at once, as one operation request and one undo step,** as `MapColumnDialog` already does with several operations in one request. No dialog opens; a small panel on the item takes changes. A drop the engine refuses changes nothing and says why in place. | Follows the user's request |
