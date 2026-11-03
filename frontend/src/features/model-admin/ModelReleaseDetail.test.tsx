@@ -192,7 +192,8 @@ describe("ModelReleaseDetail release history comparison", () => {
     setup({ selected: r04 });
 
     expect(await screen.findByText(/No earlier release to compare with/)).toBeInTheDocument();
-    expect(api.modelReleaseDiff).toHaveBeenCalledTimes(1);
+    // The activation check's request starts in an effect after the text renders; a slow runner shows the gap.
+    await waitFor(() => expect(api.modelReleaseDiff).toHaveBeenCalledTimes(1));
     expect(api.modelReleaseDiff).toHaveBeenCalledWith("r04", "r04");
 
     fireEvent.change(screen.getByLabelText("Compare with"), { target: { value: "r06" } });

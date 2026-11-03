@@ -7,8 +7,8 @@ from pydantic.json_schema import SkipJsonSchema
 from ...models.commands import RelationCreate
 from .common import (
     ActorResponse,
-    CollectionPage,
     ChangeOrigin,
+    CollectionPage,
     omitted_when_none,
     optional_origin,
     without_default,

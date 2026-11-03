@@ -111,11 +111,16 @@ def fit(
         for index, entry in enumerate(definition.sources):
             report, followed = compare_columns(session, entry, staged, earlier, set(), False)
             sheet = entry.sheet or (staged.sheet_names[0] if staged.sheet_names else None)
-            if report["sheetFound"] and followed is not None and not report["columns"]["missing"]:
-                # A second source of a sheet a source reads already (a parent's values on the rows
-                # of its children): the table is read by the first.
-                if sheet in used_sheets and _table_of(tables, used, sheet, entry) is None:
-                    continue
+            # A second source of a sheet a source reads already (a parent's values on the rows of
+            # its children): the table is read by the first.
+            if (
+                report["sheetFound"]
+                and followed is not None
+                and not report["columns"]["missing"]
+                and sheet in used_sheets
+                and _table_of(tables, used, sheet, entry) is None
+            ):
+                continue
             item = _table_of(tables, used, sheet, entry)
             if (
                 not report["sheetFound"]

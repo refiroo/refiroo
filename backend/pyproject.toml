@@ -27,7 +27,7 @@ dev = [
   "pytest>=8.3,<9",
   "pytest-xdist>=3.6,<4",
   "pytest-testmon>=2.2,<3",
-  "ruff>=0.9,<1",
+  "ruff==0.16.5",  # one linter for CI and the developer instance: rule sets change between minors
 ]
 
 [tool.pytest.ini_options]

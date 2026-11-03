@@ -49,7 +49,6 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
-from . import proposed as _proposed  # noqa: F401 - marks what a session writes (AP-D32)
 from ...models.database import (
     AttributeValue,
     AuditEvent,
@@ -65,6 +64,7 @@ from ..authorization.writes import allowance, refuse_types, require_change_set, 
 from ..change_sets import submissions
 from ..indexes import matrix_states, unique_values
 from ..model import expected_release
+from . import proposed as _proposed  # noqa: F401 - marks what a session writes (AP-D32)
 from .audit import AuditEntry, record_audit_event, record_audit_events
 from .batch_lookup import Changes
 from .context import ChangeSetLookup

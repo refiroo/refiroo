@@ -53,7 +53,13 @@ from ..models.database import (
     WorkspaceRuntimeState,
 )
 from ..models.schema import EngineModel
-from .schemas.common import ActorResponse, AgentOrigin, PrincipalResponse, ProposalOrigin, change_origin
+from .schemas.common import (
+    ActorResponse,
+    AgentOrigin,
+    PrincipalResponse,
+    ProposalOrigin,
+    change_origin,
+)
 from .schemas.consumer_subscriptions import (
     DeliveryAttempt,
     DeliveryAttemptError,
