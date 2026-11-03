@@ -18,6 +18,8 @@ MASCOT_CID = "refiroo-mascot"
 WORDMARK_CID = "refiroo-wordmark"
 BRAND_DIR = Path(__file__).parent / "brand"
 IMAGES = {MASCOT_CID: "refiroo-mascot.png", WORDMARK_CID: "refiroo-wordmark.png"}
+# The product's website, linked under every footer (the HTML only; it is not a fact of the message).
+SITE = "https://refiroo.com"
 
 PAGE = "#f3f4fb"
 INK = "#24244f"
@@ -119,6 +121,8 @@ def layout(product: str, heading: str, blocks: list[Block], footer: str, prehead
             f"{e(product)}</td></tr></table></td>"
         )
     body = "".join(block.html for block in blocks)
+    made = "" if is_default_product_name(product) else "Made with refiroo · "
+    site = f'<p style="margin:10px 0 0">{made}{anchor(SITE, "refiroo.com")}</p>'
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en"><head><meta charset="utf-8">'
@@ -149,7 +153,7 @@ def layout(product: str, heading: str, blocks: list[Block], footer: str, prehead
         f'style="padding:18px 20px 4px;font-size:12px;line-height:1.6;color:{FAINT}">'
         f'<img src="cid:{MASCOT_CID}" alt="" width="40" height="40" '
         'style="display:block;margin:0 auto 6px;border:0">'
-        f"{footer}</td></tr></table></td></tr></table></body></html>\n"
+        f"{footer}{site}</td></tr></table></td></tr></table></body></html>\n"
     )
 
 

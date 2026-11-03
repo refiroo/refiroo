@@ -142,6 +142,7 @@ def test_a_renamed_product_shows_its_name_beside_the_mark_and_a_default_one_does
     assert _visible(plain.html).count("refiroo") == _visible(plain.html).count("refiroo")
     assert "border-left:1px solid #d5daf5" in renamed.html
     assert "border-left:1px solid #d5daf5" not in plain.html
+    assert "Made with refiroo" in renamed.html and "Made with refiroo" not in plain.html
 
 
 def test_every_message_carries_a_heading_and_no_fact_the_text_lacks():
@@ -165,10 +166,9 @@ def test_every_message_carries_a_heading_and_no_fact_the_text_lacks():
     }
     for heading, message in messages.items():
         assert "<h1" in message.html and heading in message.html
-        links = set(re.findall(r'href="([^"]+)"', message.html))
-        assert all(
-            link in message.body or link.rstrip("/") in message.body for link in links
-        )
+        links = set(re.findall(r'href="([^"]+)"', message.html)) - {"https://refiroo.com"}
+        assert 'href="https://refiroo.com"' in message.html
+        assert all(link in message.body or link.rstrip("/") in message.body for link in links)
     digest = messages["Your weekly digest"].html
     assert "Ada" not in digest and "job.failed" not in digest
     assert "An import, 1,286 rows applied, 14 rows rejected" in digest

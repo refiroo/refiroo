@@ -88,6 +88,7 @@ def test_mail_is_set_up_and_proved_with_a_test_message(world, smtp):
     assert "https://refiroo.example.org\n" in message.get_body(("plain",)).get_content().replace(
         "\r\n", "\n"
     )
+    assert "https://refiroo.example.org" in message.get_body(("html",)).get_content()
 
     events = ok(world.api.get("/security-events", aggregateType="mail-settings"))["items"]
     assert [(e["action"], e["aggregateId"]) for e in events] == [("created", "mail")]

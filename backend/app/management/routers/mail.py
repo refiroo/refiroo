@@ -79,7 +79,8 @@ def post_mail_test(payload: MailTest, request: Request, session: DbSession) -> M
     session.rollback()
     try:
         smtp.deliver(
-            connection, smtp.build(connection, payload.to, rendered.subject, rendered.body)
+            connection,
+            smtp.build(connection, payload.to, rendered.subject, rendered.body, rendered.html),
         )
     except smtp.MailError as error:
         raise api_error(
