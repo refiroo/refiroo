@@ -4,7 +4,7 @@
 cd "$(dirname "$0")/.." || exit 1
 for w in "$@"; do
   echo "== $w $(date '+%F %T')" >> _waves/runs/chain-$w.log
-  node tools/codex-wave.mjs run "$w" --wait-on-limit --timeout 180 >> _waves/runs/chain-$w.log 2>&1
+  node tools/codex-wave.mjs run "$w" --wait-on-limit --max-restarts 30 --timeout 180 >> _waves/runs/chain-$w.log 2>&1
   rc=$?
   node tools/codex-wave.mjs check "$w" >> _waves/runs/chain-$w.log 2>&1
   node tools/codex-wave.mjs status "$w" | tail -2 >> _waves/runs/chain-$w.log

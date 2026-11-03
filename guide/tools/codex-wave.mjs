@@ -27,7 +27,7 @@ function die(msg, code = 2) {
 function parseArgs(argv) {
   const pos = [];
   const opt = {};
-  const valued = new Set(['model', 'run', 'codex-bin', 'timeout', 'images']);
+  const valued = new Set(['model', 'run', 'codex-bin', 'timeout', 'images', 'max-restarts']);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a.startsWith('--')) {
