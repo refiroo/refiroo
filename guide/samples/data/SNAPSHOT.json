@@ -1,0 +1,31 @@
+{
+  "snapshotDate": "2026-11-02",
+  "retrievedAt": "2026-11-02T16:20:13+00:00",
+  "sources": [
+    {
+      "id": "S1",
+      "name": "Service Points (Didok) based on opentransportdata.swiss",
+      "url": "https://data.sbb.ch/api/explore/v2.1/catalog/datasets/dienststellen-gemass-opentransportdataswiss/exports/json?where=cantonabbreviation%3D%22GR%22&timezone=UTC",
+      "original": "https://opentransportdata.swiss",
+      "terms": "https://opentransportdata.swiss/en/terms-of-use/",
+      "attribution": "Source: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02",
+      "records": 2443
+    },
+    {
+      "id": "S2",
+      "name": "Wikidata (SPARQL)",
+      "url": "https://query.wikidata.org/sparql",
+      "terms": "https://www.wikidata.org/wiki/Wikidata:Licensing (CC0)",
+      "attribution": "Wikidata, CC0",
+      "municipalityRows": 100,
+      "stationRows": 120,
+      "cantonLabels": 5
+    },
+    {
+      "id": "S5",
+      "name": "Regional ticketing system (FICTIONAL)",
+      "url": null,
+      "attribution": "Fictional: invented for this demonstration; codes mean nothing outside it"
+    }
+  ]
+}

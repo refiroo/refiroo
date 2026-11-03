@@ -632,6 +632,8 @@ reads data, and a steward and a model administrator do their daily work.
 - Administering access and security: people, groups, roles, grants, clients, keys, approvals, audit
 - Screenshots from the browser runners; a fresh-reader check; a public static site per release
 - The management API reference is not written here: 0.14 writes it on `/docs` and the guide links to it
+- 0.16's AI integration is documented too, in a wave after 0.16's release step (decided by the user
+  2026-11-02)
 
 ### Exit gate
 
@@ -696,10 +698,10 @@ including the engine's error messages the interface can meet; English and German
 
 ## Product release 0.16 — AI integration
 
-_Created 2026-10-27 by the user_ from a discussion of where AI fits the engine. Planned before 1.0 for
-now, like 0.14 and 0.15; the recommendations are for revision. Plan:
 **Complete 2026-11-02, released before 0.13–0.15** (build acceptance R in the plan).
 
+_Created 2026-10-27 by the user_ from a discussion of where AI fits the engine. Planned before 1.0 for
+now, like 0.14 and 0.15; the recommendations are for revision. Plan:
 [BASE_0_16_IMPLEMENTATION_PLAN](BASE_0_16_IMPLEMENTATION_PLAN.md).
 
 ### Product outcome

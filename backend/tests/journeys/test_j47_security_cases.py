@@ -577,8 +577,9 @@ CLASSIFICATION: dict[tuple[str, str], Route] = {
     ("post", "/oauth/revoke"): Route(OPEN, "the token is the credential; always 200", {200}, body="form"),
     ("get", "/metrics"): Route("needs the operations role", "Prometheus scrape (operations.read)", {401}),
     ("get", "/openapi.json"): Route(OPEN, "the contract a client needs before it has a token (D412)", {200}),
-    ("get", "/docs"): Route(OPEN, "the API reference page; its console signs in by session (C1)", {200}),
-    ("get", "/docs/scalar/standalone.js"): Route(OPEN, "the page's bundled script", {200}),
+    ("get", "/docs/api"): Route(OPEN, "the API reference page; its console signs in by session (C1)", {200}),
+    ("get", "/docs/api/"): Route(OPEN, "the API reference page at its trailing-slash address", {200}),
+    ("get", "/docs/api/scalar/standalone.js"): Route(OPEN, "the page's bundled script", {200}),
     ("get", "/brand/{name}"): Route(OPEN, "the mark on the engine's own pages", {404}),
     ("get", "/oauth/authorize"): Route(OPEN, "the sign-in page", {400}, valid={200}),
     ("post", "/oauth/authorize"): Route(OPEN, "the sign-in form", {400}, body="form", origin=True),
@@ -602,10 +603,10 @@ CLASSIFICATION: dict[tuple[str, str], Route] = {
     ("get", "/oauth/sign-in/reset"): Route(OPEN, "the reset screen's state; a link token is the proof", {200}),
     ("post", "/oauth/sign-in/reset"): Route(OPEN, "a reset link sets a password; the token is the proof", {422}, body="json", shaped={"token": "nope", "password": "a long enough pass 1", "repeat": "a long enough pass 1"}, origin=True),
     ("post", "/oauth/console-token"): Route(SESSION, "the API console's token for the cookie's person", {401}, body="json", shaped={}, origin=True),
-}  # fmt: skip
     ("get", "/.well-known/oauth-protected-resource"): Route(OPEN, "RFC 9728 metadata of /mcp; 404 with agent access off", {200, 404}),
     ("get", "/.well-known/oauth-protected-resource/mcp"): Route(OPEN, "the same at the address RFC 9728 derives from /mcp", {200, 404}),
     ("post", "/oauth/register"): Route(OPEN, "an assistant registers itself (RFC 7591); 404 with agent access off, 403 with registration off", {404, 422}, body="json", shaped={"client_name": "n", "redirect_uris": ["http://127.0.0.1/cb"]}),
+}  # fmt: skip
 
 _COUNTED = (
     "users", "user_sessions", "session_refresh_tokens", "authorization_codes", "password_reset_links",
@@ -716,6 +717,8 @@ def test_every_route_outside_the_document_answers_as_its_class_says(world):
     for route in app_routes(app):
         if route.path == CONSUMER or route.path.startswith(CONSUMER + "/"):
             continue
+        if not hasattr(route, "methods"):
+            continue  # the documentation site is a mount of static files at /docs, not an operation
         for method in route.methods - {"HEAD"}:
             outside.add((method.lower(), route.path))
     spec = {(m, p) for p, ms in app.openapi()["paths"].items() for m in ms if m != "parameters"}

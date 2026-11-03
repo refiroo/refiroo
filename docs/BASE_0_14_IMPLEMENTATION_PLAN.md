@@ -7,7 +7,7 @@ release after 1.0 later. V-D2–V-D10 are decided by the user (2026-10-07); V-D1
 is open. The palette rework is not planned in detail yet.
 
 **Overlap with 0.13 (decided by the user 2026-10-26):** the documentation release 0.13 writes the guide and
-links to this release's `/docs` text (no double writing). The **error catalogue text (V-D5) is written in
+links to this release's `/docs/api` text (no double writing). The **error catalogue text (V-D5) is written in
 0.13's DOC2**, once, and V3 reuses that file: V3 keeps the per-operation error listing and the
 completeness check (V-D6) and drops the catalogue writing.
 
@@ -22,7 +22,7 @@ after 0.12 documents authentication too.
 
 | Package | Needs | Scope in one line |
 | --- | --- | --- |
-| [V3–V9](#track-v--the-management-api-documented) | 0.9 V2 | The management API documented on `/docs`: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9 |
+| [V3–V9](#track-v--the-management-api-documented) | 0.9 V2 | The management API documented on `/docs/api`: the starter extended, content and examples beside the document, the error catalogue; V3 first, then V4–V8 in any order, then V9 |
 | [V10](#v10-the-operation-kinds-in-the-document) | — | The 67 operation kinds of model drafts and model mappings declared in the OpenAPI document, each with its parameters |
 | [UP1](#up1-type-palettes-a-and-b-reworked) | 0.9 UA | The type palettes A and B reworked so a person tells them apart at a glance |
 | [UP2](#up2-an-application-opens-on-a-start-page-optional) (optional) | 0.10 | _Superseded for the first screen by 0.12 HM1 (D336)._ An application opens on an empty start page asking to choose a list in the sidebar, not on its default view |
@@ -33,16 +33,16 @@ _Moved from [Base 0.9](BASE_0_9_IMPLEMENTATION_PLAN.md) on 2026-10-10 unchanged,
 amendment. Planned at the user's request 2026-10-07._
 
 
-**Why.** `/docs` shows every management operation, but the document behind it says very little.
+**Why.** `/docs/api` shows every management operation, but the document behind it says very little.
 Measured on `create_app()` on 2026-10-07: 74 operations by default (about 91 with model
 administration and webhooks enabled). 74 have a summary and 15 a description. No operation documents
 an error response besides the shared default envelope. 151 of 373 parameters and 75 of 176 schemas are
 described. `info.description` is one line, and the eleven tags have no text. The document has three
 examples. The behaviour is recorded in API.md, INTEGRATION_API, CONSUMER_API and the code. API.md is
-written for builders and organised by delivery, so an integrator reading `/docs` cannot learn from it
+written for builders and organised by delivery, so an integrator reading `/docs/api` cannot learn from it
 what an operation is for, how it behaves, what it refuses, or what a real exchange looks like.
 
-**Outcome.** For every management operation, `/docs` states:
+**Outcome.** For every management operation, `/docs/api` states:
 
 - **what it is for**, with the use cases;
 - **how it behaves**: contexts (workspace, change set, publication, `asOf`), versions and optimistic
@@ -66,7 +66,7 @@ and the documents disagree, see V-D7.
 
 | # | Question | Decision |
 | --- | --- | --- |
-| V-D1 | Where does the text live? | **Open; the user asked for a minimal footprint in the code (2026-10-07).** Recommendation: **the code holds no documentation text and no examples.** One function merges a content directory into the generated OpenAPI document when the app builds it, the way FastAPI's documented `app.openapi()` override does. The directory is `backend/app/management/reference/content/`, shipped as package data like the bundled Scalar script. It holds an `index.md` for the document's conventions and, per tag, one Markdown file with the area overview and a section for each operation, headed by its method and path (`POST /api/v1/objects`) and holding the purpose, behaviour, limitations, errors and parameter notes. It also holds `errors.md`, the code catalogue (V-D5), and `examples/`, one JSON file per operation with its named example requests and responses, written by the recording (V-D3). Keys are method and path, the public contract, not FastAPI's generated `operationId`, which follows Python function names. The in-code descriptions that already exist (15 operations, 151 parameters, 75 schemas) stay. New field text goes in the code only where the field is otherwise undescribed and a sentence is enough. A section naming a route that no longer exists fails the V-D6 check. API.md remains the builders' contract record (DOCUMENTATION_PLAN "Not included"). API.md says what was decided and why, and `/docs` says how to use it |
+| V-D1 | Where does the text live? | **Open; the user asked for a minimal footprint in the code (2026-10-07).** Recommendation: **the code holds no documentation text and no examples.** One function merges a content directory into the generated OpenAPI document when the app builds it, the way FastAPI's documented `app.openapi()` override does. The directory is `backend/app/management/reference/content/`, shipped as package data like the bundled Scalar script. It holds an `index.md` for the document's conventions and, per tag, one Markdown file with the area overview and a section for each operation, headed by its method and path (`POST /api/v1/objects`) and holding the purpose, behaviour, limitations, errors and parameter notes. It also holds `errors.md`, the code catalogue (V-D5), and `examples/`, one JSON file per operation with its named example requests and responses, written by the recording (V-D3). Keys are method and path, the public contract, not FastAPI's generated `operationId`, which follows Python function names. The in-code descriptions that already exist (15 operations, 151 parameters, 75 schemas) stay. New field text goes in the code only where the field is otherwise undescribed and a sentence is enough. A section naming a route that no longer exists fails the V-D6 check. API.md remains the builders' contract record (DOCUMENTATION_PLAN "Not included"). API.md says what was decided and why, and `/docs/api` says how to use it |
 | V-D2 | Which model and data do the examples use? | **Decided by the user 2026-10-07: the bundled starter, extended until it holds every capability the documentation must show, both for the examples and for demonstrating the engine.** The extension is a new content release of the starter, shipped to every new deployment, so a reader can repeat every example on a fresh install. The starter has no domain-specific content (domains, codelists, master values such as delivery methods, systems and translations). Today it holds only part of the structures the journey tests name (checked in `configurations.py`, `example()`): a root type with a unique code, and languages, translation groups and translations with a scoped uniqueness rule. It lacks a self-hierarchy, a many-to-many relation with its own attributes, a one-to-one relation, a type ladder to restructure across, the integer range, required, read-only-with-default and at-least-one rules, and a consumer API with match rules and every parameter kind. V3 lists every capability the documented operations need, maps each to the starter type that shows it or to the smallest addition in the same domain, and adds them. The journey tests on the `example` configuration then cover more structures, because the starter holds more. The example model is not used, because its content reads as one business domain |
 | V-D3 | Where do the examples come from? | **Decided by the user 2026-10-07: recorded from a run, and kept current by a rule, not by a comparison check.** A reference scenario calls the public API on the extended starter's seed, built once and reused. Each step records a request and its response into the operation's example file, normalised: IDs become stable readable placeholders (consistent across steps, so a created ID reappears in the next request) and times are fixed. Each step asserts only the status and code it records. The rule (V-D8): a change to a route's behaviour or shape regenerates that route's examples in the same change, and the git diff of the example files shows the change for review. There is no committed-versus-rerun comparison |
 | V-D4 | How many cases? | **Decided by the user 2026-10-07: one example per operation to start**, the operation's main successful use. The errors are described in text (V-D5), not shown as examples. After V3, the user looks at how the examples read, how much space they take and how manageable they are, and decides whether more are added (more use cases, error examples) |
@@ -92,7 +92,7 @@ package covers about 10–25 operations.
 | **V6** Change sets and publications | V3 | Change sets (list, create, read, update, delete, model release, object and relation changes, validation, publication), restructuring preview and apply, publications (read, list, withdrawal) (17). How a change set merges onto live data, conflicts, publication snapshots |
 | **V7** Bulk and following changes | V3 | `POST /batches` with every item kind, jobs (read, list, items, cancel), the feed, and the export routes once J1 is delivered (about 8). Idempotency, failure policies, item outcomes, background runs, feed positions, retention and `410` |
 | **V8** The model | V3 | Model reads (applications, types, relations, placements, the model, runtime state), releases, diffs and activations, validations, and the model administration surface when enabled (about 25). The model is the bulk of the area overview: the operations are simple reads, but what they describe is the whole engine |
-| **V9** Webhooks, and close-out | V3, V4–V8 | Consumer subscriptions: create, read, update, suspend, resume, delete, deliveries and resend (10). Retries, batching and signing, as DOCUMENTATION_PLAN's points require. Then the close-out: the gap list empty and deleted, the V-D5 check passing over the whole document, the API.md pointer to `/docs` added, and the DOC2 audit item marked done |
+| **V9** Webhooks, and close-out | V3, V4–V8 | Consumer subscriptions: create, read, update, suspend, resume, delete, deliveries and resend (10). Retries, batching and signing, as DOCUMENTATION_PLAN's points require. Then the close-out: the gap list empty and deleted, the V-D5 check passing over the whole document, the API.md pointer to `/docs/api` added, and the DOC2 audit item marked done |
 
 **Not included:** the consumer read API (`/consumer/...`). Its documents are generated per
 definition from the model, and their descriptions are a separate question (TODO once V-D1 is
@@ -110,8 +110,8 @@ _Asked by the user 2026-10-19, after searching Scalar for `setContainment` and n
 /model-mappings/{key}/operations` (12 kinds, `engine/moves/mapping_kinds.py`). Their request schemas
 declare `operations` as a list of free-form objects (`list[dict[str, Any]]`), so the OpenAPI document
 names none of the 67 kinds and none of their parameters. Every kind is described in API.md (§ Kinds,
-§ Model mappings), which `/docs` does not show. Measured on the running server 2026-10-19: no kind name
-appears anywhere in the document. An integrator reading `/docs` cannot learn what either route accepts.
+§ Model mappings), which `/docs/api` does not show. Measured on the running server 2026-10-19: no kind name
+appears anywhere in the document. An integrator reading `/docs/api` cannot learn what either route accepts.
 
 **Outcome.** Each kind is its own schema in the document: its `kind` value, its parameters with their
 types, which are required, and one line on what it does. The two routes' `operations` items are the

@@ -1,0 +1,1044 @@
+{
+  "wave": "CAPABILITIES",
+  "note": "Real screens of the reference instance (guide/reference, http://localhost:8480), light theme, 1440 px wide. Taken by guide/tools/screens.mjs (--file CAPABILITIES.screens.json) into guide/public/screens/<name>.png. 'shows' says what the picture is for; 'expect' lists texts that must be visible. Dialogs are cancelled; nothing is saved. The two matrix-gap-* screens need the one-off gap described in CAPABILITIES.data-changes.md (the Romansh name of Bonaduz deleted): run them with --only while the gap exists. Everything else needs no data change. The starter model is installed in the second workspace 'Default' (empty), so the example applications can be shown without changing the instance.",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "workspaces-home",
+      "height": 1000,
+      "shows": "Home with both workspaces as cards: Graubünden (model Public transport stops of Graubünden 1.0.0, applications Network, Systems, Names) and Default (model RDM Starter Model 0.10.0, applications RDM Master, RDM Systems, RDM Translations).",
+      "actions": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": {
+            "text": "Your change sets",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Your workspaces",
+        "2 workspaces",
+        "Graubünden",
+        "Default",
+        "RDM Starter Model 0.10.0",
+        "RDM Translations"
+      ]
+    },
+    {
+      "name": "workspace-switcher",
+      "shows": "The workspace switcher in the left pane of an application, open: Graubünden and Default (marked 'Other model'), and 'Manage workspaces'.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Stops"
+          }
+        },
+        {
+          "click": {
+            "role": "combobox"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Manage workspaces",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Graubünden",
+        "Default",
+        "Other model",
+        "Manage workspaces"
+      ]
+    },
+    {
+      "name": "app-network",
+      "shows": "The Network application: top bar with the three applications, the collections (Stops, Cantons, Modes, Municipalities, Districts, Operators) and the record tree at the left, and the Stops list.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "38 Extern Mountain Tour, Berg",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Network",
+        "Systems",
+        "Names",
+        "COLLECTIONS",
+        "Cantons",
+        "Operators",
+        "Stops",
+        "Add Stop"
+      ]
+    },
+    {
+      "name": "app-systems",
+      "shows": "The Systems application on System codes: collections (Systems, System codes, Municipalities) and the application's views as tabs: System codes, Codes to stops, Codes to municipalities.",
+      "actions": [
+        {
+          "goto": "/apps/systems/views/system-codes?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Q1089688 Chur West",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Systems",
+        "System codes",
+        "Codes to stops",
+        "Codes to municipalities",
+        "Add System code"
+      ]
+    },
+    {
+      "name": "app-names",
+      "shows": "The Names application on Municipality names: collections (Languages, Name translations, Municipalities, Operators) and the matrix of municipalities by language.",
+      "actions": [
+        {
+          "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Albula/Alvra",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Names",
+        "Languages",
+        "Name translations",
+        "Municipalities",
+        "Operators",
+        "Municipality names"
+      ]
+    },
+    {
+      "name": "relationships-stop",
+      "height": 1300,
+      "shows": "Chur Wiesental's relationship sections: Modes (Train, with Add relationship and a delete button), Operator (Rhätische Bahn, with change and delete buttons), System codes (two codes) and Name translations.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
+        },
+        {
+          "click": {
+            "text": "Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Chur Wiesental"
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "Modes",
+        "Train",
+        "Add relationship",
+        "Operator",
+        "Rhätische Bahn",
+        "System codes"
+      ]
+    },
+    {
+      "name": "relationship-picker-mode",
+      "shows": "'Add relationship' on the Modes panel of Chur Wiesental: the 'Connect an object' dialog, relationship 'Served by mode (outgoing)', a search box and the candidate modes (Boat, Bus, Cable car, Cableway ...). Cancelled.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
+        },
+        {
+          "click": {
+            "text": "Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Chur Wiesental"
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Add relationship",
+            "nth": 0
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Connect an object",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel"
+          }
+        }
+      ],
+      "expect": [
+        "Create relationship",
+        "Connect an object",
+        "Relationship",
+        "Boat",
+        "Bus",
+        "Cancel",
+        "Create"
+      ]
+    },
+    {
+      "name": "relationship-picker-operator",
+      "shows": "'Change' on the Operator panel of Chur Wiesental (a stop has exactly one operator): 'Operated by', 'Now: Rhätische Bahn. Choose the record that replaces it.', search box and candidate operators. Cancelled.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
+        },
+        {
+          "click": {
+            "text": "Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Chur Wiesental"
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Change Operated by: Rhätische Bahn"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Choose the record that replaces it",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel"
+          }
+        }
+      ],
+      "expect": [
+        "Change relationship",
+        "Operated by",
+        "Rhätische Bahn",
+        "Aelplibahn Malans Genossenschaft",
+        "Cancel"
+      ]
+    },
+    {
+      "name": "relationship-delete-confirm",
+      "shows": "Deleting the Served by mode relationship of Chur Wiesental: 'Delete relationship?' with 'The connected objects will remain. Only this relationship will be deleted.' Cancelled.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
+        },
+        {
+          "click": {
+            "text": "Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Chur Wiesental"
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Delete Served by mode: Train"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Delete relationship?",
+            "exact": true
+          }
+        }
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel"
+          }
+        }
+      ],
+      "expect": [
+        "Please confirm",
+        "Delete relationship?",
+        "The connected objects will remain",
+        "Cancel"
+      ]
+    },
+    {
+      "name": "tree-geography-chur",
+      "height": 1300,
+      "shows": "The Geography hierarchy (canton > district > municipality > stops) expanded down to Chur in the district Plessur, with Chur's stops listed under it.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/geography?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Graubünden",
+            "exact": true,
+            "in": {
+              "css": "main"
+            }
+          }
+        },
+        {
+          "waitFor": {
+            "css": "li[aria-label=\"Graubünden, Canton\"]"
+          }
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Graubünden, Canton\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Plessur, District\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Chur, Municipality\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "expect": [
+        "Cantons",
+        "Districts",
+        "Plessur",
+        "Municipalities",
+        "Chur",
+        "Stops",
+        "85 Garage Chur"
+      ]
+    },
+    {
+      "name": "tree-modes",
+      "height": 1150,
+      "shows": "The Modes tree, fully expanded: Cableway, Other, Rail-bound, Road, Water, each with its child modes (for example Rail-bound: Funicular, Metro, Rack railway, Train, Tram).",
+      "actions": [
+        {
+          "goto": "/apps/network/views/modes?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "css": "li[aria-label^=\"Rail-bound\"]"
+          }
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Water\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 500
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Road\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 500
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Rail-bound\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 500
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Other\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 500
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Cableway\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 500
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Modes",
+        "Cableway",
+        "Rail-bound",
+        "Train",
+        "Tram",
+        "Bus"
+      ]
+    },
+    {
+      "name": "tree-move-dialog",
+      "height": 1320,
+      "shows": "'Move to...' on the stop 85 Garage Chur in the Geography tree: 'Now in Graubünden / Plessur / Chur', a search box and the municipalities it can be moved to, plus 'Top level'. Cancelled.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/geography?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "css": "li[aria-label=\"Graubünden, Canton\"]"
+          }
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Graubünden, Canton\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Plessur, District\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Chur, Municipality\"] > .tree-row .tree-toggle"
+          }
+        },
+        {
+          "wait": 900
+        },
+        {
+          "waitFor": {
+            "css": "li[aria-label=\"85 Garage Chur, Stop\"]"
+          }
+        },
+        {
+          "click": {
+            "css": "li[aria-label=\"85 Garage Chur, Stop\"] > .tree-row .tree-menu-trigger"
+          }
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Move to…"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Move 85 Garage Chur",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel"
+          }
+        }
+      ],
+      "expect": [
+        "Move to",
+        "Move 85 Garage Chur",
+        "Now in Graubünden / Plessur / Chur",
+        "Top level",
+        "Cancel",
+        "Move"
+      ]
+    },
+    {
+      "name": "mapping-grid-codes-to-stops",
+      "height": 1060,
+      "shows": "The Systems mapping grid 'Codes to stops', searched for FICTIONAL: Mapped codes (T-0412 Chur Wiesental ...), the ambiguous code T-0300 (Ambiguous (2): Chur West and Chur) and the deliberately unmapped T-9999 (Unmapped, with Map). The filter All / Unmapped / Mapped / Ambiguous is above the table.",
+      "actions": [
+        {
+          "goto": "/apps/systems/views/codes-to-stops?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Ambiguous",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "placeholder": "Search system codes"
+          },
+          "value": "FICTIONAL"
+        },
+        {
+          "wait": 1800
+        }
+      ],
+      "expect": [
+        "Unmapped",
+        "Mapped",
+        "Ambiguous",
+        "T-0300",
+        "Ambiguous (2)",
+        "T-0412",
+        "T-9999",
+        "End"
+      ]
+    },
+    {
+      "name": "mapping-grid-filter-ambiguous",
+      "shows": "The same grid with the filter set to Ambiguous: only T-0300, mapped to two stops (Chur West and Chur).",
+      "actions": [
+        {
+          "goto": "/apps/systems/views/codes-to-stops?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Ambiguous",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Ambiguous",
+            "exact": true
+          }
+        },
+        {
+          "wait": 1800
+        }
+      ],
+      "expect": [
+        "All",
+        "Unmapped",
+        "Mapped",
+        "Ambiguous",
+        "T-0300",
+        "Ambiguous (2)",
+        "Chur West"
+      ]
+    },
+    {
+      "name": "mapping-grid-map-dialog",
+      "height": 1060,
+      "shows": "'Map' on the unmapped code T-9999 (special day pass): 'Change mapping', 'Currently Not mapped', a stop search with radio candidates, 'Create new stop', Cancel and Save mapping. Cancelled.",
+      "actions": [
+        {
+          "goto": "/apps/systems/views/codes-to-stops?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Ambiguous",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "placeholder": "Search system codes"
+          },
+          "value": "FICTIONAL"
+        },
+        {
+          "wait": 1800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Change mapping for T-9999"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Currently",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel"
+          }
+        }
+      ],
+      "expect": [
+        "Mapping",
+        "Change mapping",
+        "T-9999",
+        "Not mapped",
+        "Create new stop",
+        "Save mapping",
+        "Cancel"
+      ]
+    },
+    {
+      "name": "matrix-filter-panel",
+      "shows": "The municipalities by language matrix with the legend above the table (One, Several, Inactive, History only, None, Conflict) and the Filter panel open: Cell state (Any state, One, Several, Inactive, History only, None) and Languages to show.",
+      "actions": [
+        {
+          "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Albula/Alvra",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Filter",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Languages to show",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Cell state",
+        "Any state",
+        "History only",
+        "Languages to show",
+        "Done",
+        "Municipality"
+      ]
+    },
+    {
+      "name": "matrix-cell-editor",
+      "shows": "A cell of the matrix opened for an existing translation: Chur in Romansh, 'Chur · rm', state One, 'Translated name' Cuira, Active, with Open Chur (rm), Cancel and Save. Cancelled.",
+      "actions": [
+        {
+          "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Albula/Alvra",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "placeholder": "Search municipalities"
+          },
+          "value": "Chur"
+        },
+        {
+          "wait": 1800
+        },
+        {
+          "click": {
+            "text": "Cuira",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Translated name",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel"
+          }
+        }
+      ],
+      "expect": [
+        "Municipality names",
+        "Chur",
+        "One",
+        "Translated name",
+        "Cuira",
+        "Active",
+        "Open Chur (rm)",
+        "Save"
+      ]
+    },
+    {
+      "name": "matrix-operator-names",
+      "shows": "The Names application's matrix for operators: Operators by language (English, French, German, Italian, Romansh), with the same legend and many None cells where an operator has no name in a language.",
+      "actions": [
+        {
+          "goto": "/apps/names/views/operator-names?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Aelplibahn Malans Genossenschaft",
+            "exact": true
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "Operator names",
+        "Operators",
+        "Filter",
+        "None",
+        "One",
+        "Aelplibahn Malans Genossenschaft"
+      ]
+    },
+    {
+      "name": "matrix-municipalities-by-system",
+      "shows": "The Systems application's matrix 'Municipalities by system': municipalities by system (ticketing, wikidata-municipalities, wikidata-stations), a second configuration of the same kind of view, with One and None cells and no language axis.",
+      "actions": [
+        {
+          "goto": "/apps/systems/views/municipalities-by-system?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Albula/Alvra",
+            "exact": true
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "Municipalities by system",
+        "wikidata-municipalities",
+        "wikidata-stations",
+        "One",
+        "None",
+        "Q15890943"
+      ]
+    },
+    {
+      "name": "example-rdm-master",
+      "shows": "The starter model's RDM Master application in the workspace Default (empty): collections Domains, Codelists, Master values, and the views Domains and Domain hierarchy.",
+      "actions": [
+        {
+          "goto": "/apps/rdm-master/views/domains?workspaceKey=default"
+        },
+        {
+          "waitFor": {
+            "text": "No domains in this workspace yet",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "RDM Master",
+        "RDM Systems",
+        "RDM Translations",
+        "Domains",
+        "Codelists",
+        "Master values",
+        "Domain hierarchy"
+      ]
+    },
+    {
+      "name": "example-rdm-translations",
+      "shows": "The starter model's RDM Translations application in the workspace Default (empty): collections Languages, Translations, Codelists, Master values.",
+      "actions": [
+        {
+          "goto": "/apps/rdm-translations/views/languages?workspaceKey=default"
+        },
+        {
+          "waitFor": {
+            "text": "No languages in this workspace yet",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "RDM Translations",
+        "Languages",
+        "Translations",
+        "Codelists",
+        "Master values"
+      ]
+    },
+    {
+      "name": "example-rdm-systems",
+      "shows": "The starter model's RDM Systems application in the workspace Default (empty).",
+      "actions": [
+        {
+          "goto": "/apps/rdm-systems/views/systems?workspaceKey=default"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "RDM Systems",
+        "Systems"
+      ]
+    },
+    {
+      "name": "matrix-missing-name",
+      "shows": "A missing translation: the matrix searched for Bonaduz. The Romansh cell is None (no related record) while English, French, German and Italian are One. Needs the gap in CAPABILITIES.data-changes.md.",
+      "actions": [
+        {
+          "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Albula/Alvra",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "placeholder": "Search municipalities"
+          },
+          "value": "Bonaduz"
+        },
+        {
+          "wait": 1800
+        }
+      ],
+      "expect": [
+        "Bonaduz",
+        "None",
+        "One",
+        "Romansh"
+      ]
+    },
+    {
+      "name": "matrix-missing-name-cell",
+      "shows": "Clicking the None cell (Bonaduz, Romansh): 'Bonaduz · rm', 'None · no name translation yet' and the button 'Create name translation'. Closed; nothing is saved. Needs the gap in CAPABILITIES.data-changes.md.",
+      "actions": [
+        {
+          "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"
+        },
+        {
+          "fill": {
+            "placeholder": "Search municipalities"
+          },
+          "value": "Bonaduz"
+        },
+        {
+          "wait": 1800
+        },
+        {
+          "click": {
+            "text": "None",
+            "exact": true,
+            "nth": -1
+          }
+        },
+        {
+          "wait": 600
+        },
+        {
+          "waitFor": {
+            "text": "Create name translation",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Close",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Bonaduz",
+        "no name translation yet",
+        "Create name translation"
+      ]
+    },
+    {
+      "name": "matrix-missing-name-add",
+      "shows": "The form behind 'Create name translation': 'For Bonaduz under rm', Name (proposed 'Bonaduz rm'), 'Goes in Romansh', an empty 'Translated name' and Active, with Back and Create name translation. Back out; nothing is saved here. Needs the gap in CAPABILITIES.data-changes.md.",
+      "actions": [
+        {
+          "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden"
+        },
+        {
+          "fill": {
+            "placeholder": "Search municipalities"
+          },
+          "value": "Bonaduz"
+        },
+        {
+          "wait": 1800
+        },
+        {
+          "click": {
+            "text": "None",
+            "exact": true,
+            "nth": -1
+          }
+        },
+        {
+          "wait": 600
+        },
+        {
+          "waitFor": {
+            "text": "Create name translation",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Create name translation"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Goes in",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Back"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Close",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Bonaduz",
+        "For Bonaduz under rm",
+        "Goes in",
+        "Romansh",
+        "Translated name",
+        "Active",
+        "Back"
+      ]
+    }
+  ]
+}

@@ -1,7 +1,9 @@
 """The refiroo mark for the engine's own pages (sign-in, API reference): ``/brand/<file>``.
 
 The pages the engine renders itself cannot load the interface's files, so the few images they show
-are served here, from ``brand/``. The names are fixed; nothing else is served.
+are served here, from ``brand/``, a copy of ``frontend/public/brand/`` (a test keeps the stylesheet equal).
+``refiroo-header.css`` is the header the API reference shares with the guide and the interface (HD).
+The names are fixed; nothing else is served.
 """
 
 from pathlib import Path
@@ -12,7 +14,7 @@ from fastapi.responses import FileResponse
 from ..errors import ApiError
 
 BRAND_DIR = Path(__file__).resolve().parent / "brand"
-BRAND_FILES = ("favicon.png", "refiroo-mascot.png", "refiroo-wordmark.png")
+BRAND_FILES = ("favicon.png", "refiroo-mascot.png", "refiroo-wordmark.png", "refiroo-header.css")
 
 
 def brand_router() -> APIRouter:
@@ -24,7 +26,7 @@ def brand_router() -> APIRouter:
             raise ApiError(404, "NOT_FOUND", "There is no such file")
         return FileResponse(
             BRAND_DIR / name,
-            media_type="image/png",
+            media_type="text/css" if name.endswith(".css") else "image/png",
             headers={"Cache-Control": "public, max-age=86400"},
         )
 

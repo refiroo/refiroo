@@ -1,0 +1,20 @@
+
+- 2026-11-03T10:45:41+01:00: Finished deployment-path audit: `guide/src/content/docs/run/install-with-compose.md`; corrected the matching paths in configure, background-jobs and model-releases-and-rollback. Covers current image layout, persistent mounts and overlay requirements. No steering file present; Docker image build concern recorded for the report.
+
+- 2026-11-03T10:46:43+01:00: Finished `guide/src/content/docs/run/configure.md` and `sign-in-and-mail-setup.md`. Added the verified About/Deployment fields, capability recovery, setting parsing, mail refusal actions and ordinary digest scheduling. No steering file present; notification destination link will be checked with the link checker.
+
+- 2026-11-03T10:47:43+01:00: Finished `guide/src/content/docs/run/monitoring.md` and `backup-and-restore.md`. Covers Operations fields and refresh states, Copy controls, earlier rehearsal history, restored/live counts and failure-specific recovery. Checked labels in OperationsPage.tsx; no steering file present.
+
+- 2026-11-03T10:48:52+01:00: Finished `guide/src/content/docs/run/background-jobs.md` and `several-processes.md`. Added failure-policy recovery, capability-off routes, worker-specific export files, superseded-subject protection and network/idle-transaction distinctions. Verified worker comments and command models; no steering file present.
+
+- 2026-11-03T10:49:46+01:00: Finished `guide/src/content/docs/run/webhook-delivery.md` and the SMTP setup sequence in `sign-in-and-mail-setup.md`; wrote `_waves/screens-wanted/C5-RUN.md`. Covers delivery filters/resend, disabled routes, retention recovery, permissions and four pending captures. Removed links to unwritten mail/webhook administrator guides; no steering file present.
+
+- 2026-11-03T10:51:07+01:00: Finished maintenance audit of `guide/src/content/docs/run/command-line.md`, `model-releases-and-rollback.md`, `upgrades.md`, `security-checklist.md` and `troubleshooting.md`. Corrected cookie scope wording and default-release retirement, explained database preparation even for release dry-runs, and added pinned-model/proxy failure recovery. No steering file present; procedures were source-checked, not run against an installation.
+
+- 2026-11-03T10:52:49+01:00: Finished audit of `guide/src/content/docs/run/overview.md`, `database.md`, `health-and-startup-checks.md`, `developer-instance.md`, `https.md`, `licence-and-source.md`, `production-checklist.md` and `secrets-and-keys.md`; the last four already matched their sources. Added startup file/range refusals, model reason handling and supplier-sync links; clarified Compose recovery URL overrides in backup-and-restore. No steering file present. Build/terms/brand passed on the first isolated verify; links remain blocked by requested screenshots and other waves' missing targets.
+
+- 2026-11-03T10:53:20+01:00: Finished `_waves/coverage/run.md`: {'deferred': 68, 'covered': 150, 'not for readers': 36}. Every non-deferred reader row has a concrete page; corrected relative links and removed stale partial/uncovered labels. Ten misrouted AI rows are deferred with source-based reasons in the working notes; one AI test-strategy row is internal. No steering file present.
+
+- 2026-11-03T10:55:55+01:00: Inspected the three newly supplied run screenshots. Corrected `backup-and-restore.md` alt text to its actual empty state and added a deployment caption distinguishing old instance paths from current defaults. Updated `_waves/screens-wanted/C5-RUN.md`: jobs is missing, successful backup state still wanted, deployment refresh noted. No steering file present.
+
+- 2026-11-03T10:57:06+01:00: Finished final validation and `_coverage/notes/C5-RUN/report.md`. Isolated build passed (200 pages, 2.89 s), terms/brand passed; verify exits 1 for 20 missing targets, one Run screenshot and 19 outside this wave. All 254 ledger links/IDs, 23 sidebar registrations and 21 assigned front matters checked; no in-scope coverage rows remain open. No steering file present; no operational/deployment checks or commits performed.

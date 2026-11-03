@@ -34,7 +34,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4, C16 |
 | F22 | Load data in bulk as jobs | Validated: imports previewed and loaded from a collection or Jobs; jobs listed and cancelled in Settings | Available | 0.9 B1–B2; import screen 0.9 J4 |
 | F23 | Declare consumer APIs and read through them | JSON model editing; each shown in Settings | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API; following change events; subscribing to them | 0.9 C1–C6, C10, C11; Webhooks page U5 |
-| F24 | Read the API reference | Available at `/docs`, each source linked from Settings | Not applicable | 0.9 V1, V2 |
+| F24 | Read the API reference | Available at `/docs/api`, each source linked from Settings; the page carries the application's header (logo to the app, Documentation \| API reference, the theme choice) | Not applicable | 0.9 V1, V2 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 | F26 | Sign in and manage one's sessions | Validated: sign-in page, account menu, Settings › Account; sign-in providers on Settings › Security › Sign-in | Available; the organisation's OpenID Connect provider and its groups, linking a provider sign-in to an existing person, signing out of the provider too, a second factor for local accounts, passkeys | 0.12 I1, I2, I3, I4a, I4b, I4c |
 | F27 | Control who can do what | Settings › Security (People, Groups, Roles, Clients, Signing keys), a workspace's Access; one's own roles on Settings › Account and in the account menu | Roles, groups and grants; consumer APIs granted to clients on a page; client secrets rotated with an overlap and told apart by their last four characters; every operation checked; writes narrowed to record types; jobs as their requester; the interface offers only what a person may do | 0.12 Z1, Z2, SP1, Z5, SP2 |
@@ -100,6 +100,8 @@ that is confirmed. Export from the menu exports what the page shows.
 
 Settings › Model opens on a list of models; a model's page has the tabs Overview, Releases, Drafts and Structure (a release's applications, object types, attributes and relations, read only); an opened release or draft has a way back to the tab it came from. Settings › Workspaces opens on a list of workspaces (active ones first, then retired, with search); a workspace's page has tabs: Overview (its facts and its applications, each opening in the workspace), Access,
 Approval and Activity (its changes, newest first, by day); a person sees the tabs they may use.
+
+**Help and one header.** **?** in the top bar, left of the bell, opens the documentation in a new tab. The guide and the API reference carry the same bar (logo to the application, Documentation | API reference with the current one underlined, search in the guide) and the same theme choice (System, Light, Dark): picking it in one changes the others, open tabs included.
 
 **Home.** Signing in, the bare address and the product name in the top bar open the home page: a
 greeting with the person's roles and one sentence on what is open; **Continue where you left off**,
@@ -928,10 +930,11 @@ database's own tools and rights).
 SQLite was a development database only; the engine offers no migration from it.
 
 Settings › **About** and **Deployment** show what the deployment runs and how it is configured, from
-`GET /api/v1/system`: the engine and management API version, the schema languages, the active
-release and when it was activated, the database's migration revision, and every setting with its
-value, default, source and what it controls, beside the capability groups. Secrets read only as set
-or not set, and the database address without its password. Settings change only with a restart.
+`GET /api/v1/system` (anyone signed in): the engine and management API version, licence and source
+address, the schema languages, the active release and when it was activated, the instance's product
+name, and whether AI and agent access are on; and `GET /api/v1/system/configuration` (operators): the
+database's migration revision and every setting with its value, default, source and what it
+controls, beside the capability groups. Secrets read only as set or not set, and the database address without its password. Settings change only with a restart.
 Every settings page has **Back to {application}** in the top bar, which returns to the page Settings
 was opened from (or the home page when Settings was opened first).
 
@@ -1145,7 +1148,7 @@ told which publication to read again.
 Where a deployment turns them on, an operator subscribes a web address to some of a consumer API's
 events in a workspace, narrowed like a list, and chooses how they arrive: one change per request or
 several together (up to a size the operator sets), each with the record or as a notification only,
-in the engine's own JSON or as CloudEvents, the open standard many event tools read. Only addresses on hosts the deployment allows are accepted, over HTTPS. The engine makes
+in the engine's own JSON or as CloudEvents, the open standard many event tools read. Any host and port is accepted, over HTTPS; plain HTTP only to `localhost`, `127.0.0.1` or `::1`. There is no host allowlist. The engine makes
 the key that will sign every delivery and shows it once. The operator can read, list, edit, pause,
 resume and delete subscriptions. A new model release that no longer offers what a subscription asks
 for, or that changes its contract version, pauses it with the reason, as does retiring its
@@ -1228,7 +1231,9 @@ has changed live since, and names the publication it read. An extract started on
 publication finishes in it even when a newer one is published meanwhile. A list of the workspace's
 publications shows which is current and where to follow changes from after reading one. A
 publication is read with the API's contract as it stood when it was published: after a new contract
-version, older publications cannot be read through it until the next publication. Every read also
+version, a publication made under a release that declared another contract version of the API, or not the
+API at all, is refused (`409 PUBLICATION_CONTRACT_MISMATCH`); older publications that declared the same
+version still read. Every read also
 tells a client or cache whether what it holds is still current, so an unchanged answer is not sent
 again.
 
@@ -1308,8 +1313,8 @@ Opening the application without a session shows its own sign-in screen (0.12 I5)
 saved theme, names the instance's product beside the refiroo mark and says what refiroo is for, and
 asks for a username and password, a passkey or a provider's button (the engine's own page stays for
 outside web applications); signing in returns to the page asked for.
-The session renews itself while the person works and ends after a day without use or two weeks in
-all. A wrong username or password is refused without saying which was wrong; after repeated failures
+The session renews itself while the person works and ends after 12 hours without use (`SESSION_IDLE_HOURS`) or 14 days in
+all (`SESSION_DAYS`). A wrong username or password is refused without saying which was wrong; after repeated failures
 each attempt waits longer, up to fifteen minutes, but the account is never locked. The account menu
 names the person and leads to Settings › Account, where they change their password and see where they
 are signed in, signing out one browser or all of them. An administrator signs a person out everywhere,

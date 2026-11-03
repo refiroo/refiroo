@@ -1,6 +1,6 @@
 """The API reference's token (Product 0.12 C1, D240).
 
-The reference page at ``/docs`` is served by the engine, so it can ask, from the same address, who
+The reference page at ``/docs/api`` is served by the engine, so it can ask, from the same address, who
 is signed in: the session's refresh cookie, which only ``/oauth`` reads (D234), names the person,
 and the engine answers an access token for them. The cookie is read without renewing it, so the
 page never uses a refresh token the application's own tabs hold (D269). The page's "try it" console

@@ -51,10 +51,10 @@ export function AboutPage({ onNavigate }: { onNavigate: (route: SettingsRoute) =
                 </li>
               </ul>
               <p className="about-links">
-                Read more: the <a href={`${API_URL}/docs`}>API reference</a>, and in the repository{" "}
-                <code>README.md</code>, <code>docs/PRODUCT.md</code> (what it does),{" "}
-                <code>docs/MODEL_AUTHORING.md</code> (writing a model) and <code>docs/API.md</code> (the contracts).
-                Under the hood refiroo runs on the RDM engine, shown below.
+                Read more: the <a href={`${API_URL}/docs/`}>documentation</a>, the{" "}
+                <a href={`${API_URL}/docs/api`}>API reference</a>, and in the repository <code>README.md</code>,{" "}
+                <code>docs/PRODUCT.md</code> (what it does), <code>docs/MODEL_AUTHORING.md</code> (writing a model) and{" "}
+                <code>docs/API.md</code> (the contracts). Under the hood refiroo runs on the RDM engine, shown below.
               </p>
             </div>
           </Section>

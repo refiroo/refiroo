@@ -1,0 +1,238 @@
+{
+  "release": "0.5 (earlier C1 record verified)",
+  "counts": {
+    "added_promises": 0,
+    "added_rules": 0,
+    "merged": 20,
+    "superseded": 1,
+    "dropped": 3
+  },
+  "added_promises": [],
+  "added_rules": [],
+  "resolutions": [
+    {
+      "id": "CL-0.5.0-#1",
+      "disposition": "merged",
+      "targets": [
+        "J08.S1",
+        "J08.S2",
+        "J08.S3"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#2",
+      "disposition": "merged",
+      "targets": [
+        "J01.S3",
+        "J01.S5"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#3",
+      "disposition": "merged",
+      "targets": [
+        "J21.S1",
+        "J01.6"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#4",
+      "disposition": "merged",
+      "targets": [
+        "J08.S5",
+        "J12.10"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#5",
+      "disposition": "merged",
+      "targets": [
+        "J08.S4"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#6",
+      "disposition": "merged",
+      "targets": [
+        "J08.1",
+        "J08.2",
+        "J08.4"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#7",
+      "disposition": "superseded",
+      "targets": [
+        "J36.S2"
+      ],
+      "reason": "0.11 M1 replaces singleton model runtime state with per-workspace release assignments.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#8",
+      "disposition": "merged",
+      "targets": [
+        "J03.3",
+        "J13.6",
+        "J13.5"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#9",
+      "disposition": "merged",
+      "targets": [
+        "J13.1",
+        "J14.6"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#10",
+      "disposition": "merged",
+      "targets": [
+        "J04.S1"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#11",
+      "disposition": "merged",
+      "targets": [
+        "J02.S1",
+        "J03.S1",
+        "J13.S1"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#12",
+      "disposition": "merged",
+      "targets": [
+        "F17.a",
+        "R062"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#13",
+      "disposition": "merged",
+      "targets": [
+        "J02.4"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#14",
+      "disposition": "merged",
+      "targets": [
+        "J13.S3"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#15",
+      "disposition": "merged",
+      "targets": [
+        "J02.5"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Added"
+    },
+    {
+      "id": "CL-0.5.0-#16",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Starter release numbering, query implementation or superseded development tooling.",
+      "source": "CL §[0.5.0] Changed"
+    },
+    {
+      "id": "CL-0.5.0-#17",
+      "disposition": "merged",
+      "targets": [
+        "J12.16"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Changed"
+    },
+    {
+      "id": "CL-0.5.0-#18",
+      "disposition": "merged",
+      "targets": [
+        "J13.2",
+        "J08.S3"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Changed"
+    },
+    {
+      "id": "CL-0.5.0-#19",
+      "disposition": "merged",
+      "targets": [
+        "J21.S1"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Changed"
+    },
+    {
+      "id": "CL-0.5.0-#20",
+      "disposition": "merged",
+      "targets": [
+        "F16.a"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Changed"
+    },
+    {
+      "id": "CL-0.5.0-#21",
+      "disposition": "merged",
+      "targets": [
+        "F16.a"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Changed"
+    },
+    {
+      "id": "CL-0.5.0-#22",
+      "disposition": "merged",
+      "targets": [
+        "J12.S1"
+      ],
+      "reason": "Earlier released rule retained through its later generic workspace contract.",
+      "source": "CL §[0.5.0] Changed"
+    },
+    {
+      "id": "CL-0.5.0-#23",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Starter release numbering, query implementation or superseded development tooling.",
+      "source": "CL §[0.5.0] Changed"
+    },
+    {
+      "id": "CL-0.5.0-#24",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Starter release numbering, query implementation or superseded development tooling.",
+      "source": "CL §[0.5.0] Changed"
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "release": "0.13\u20130.15 and 0.17 status",
+  "counts": {
+    "added_promises": 0,
+    "added_rules": 0,
+    "merged": 1,
+    "superseded": 0,
+    "dropped": 8
+  },
+  "added_promises": [],
+  "added_rules": [],
+  "resolutions": [
+    {
+      "id": "PL-PP-D1",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "0.17 is explicitly unbuilt, not current product behavior.",
+      "source": "PL \u00a70.17 plan PP-D1"
+    },
+    {
+      "id": "PL-PP-D2",
+      "disposition": "merged",
+      "targets": [
+        "J36.12"
+      ],
+      "reason": "WM1 delivered in 0.16; no new 0.17 feature.",
+      "source": "PL \u00a70.17 plan PP-D2"
+    },
+    {
+      "id": "PL-PP-D3",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "0.17 is explicitly unbuilt, not current product behavior.",
+      "source": "PL \u00a70.17 plan PP-D3"
+    },
+    {
+      "id": "PL-PP-D4",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "0.17 is explicitly unbuilt, not current product behavior.",
+      "source": "PL \u00a70.17 plan PP-D4"
+    },
+    {
+      "id": "PL-PP-D5",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "0.17 is explicitly unbuilt, not current product behavior.",
+      "source": "PL \u00a70.17 plan PP-D5"
+    },
+    {
+      "id": "PL-PP-D6",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "0.17 is explicitly unbuilt, not current product behavior.",
+      "source": "PL \u00a70.17 plan PP-D6"
+    },
+    {
+      "id": "PL-PP-D7",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "0.17 is explicitly unbuilt, not current product behavior.",
+      "source": "PL \u00a70.17 plan PP-D7"
+    },
+    {
+      "id": "PL-PP-D9",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "0.17 is explicitly unbuilt, not current product behavior.",
+      "source": "PL \u00a70.17 plan PP-D9"
+    },
+    {
+      "id": "PL-PP-D10",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "0.17 is explicitly unbuilt, not current product behavior.",
+      "source": "PL \u00a70.17 plan PP-D10"
+    }
+  ]
+}

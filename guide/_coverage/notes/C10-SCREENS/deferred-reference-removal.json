@@ -1,0 +1,113 @@
+{
+  "images": 15,
+  "referencesRemoved": 15,
+  "pages": [
+    "administer/webhooks.md",
+    "use/notifications-settings.md",
+    "use/importing-and-exporting.md",
+    "run/background-jobs.md",
+    "guide/administer/link-a-provider-person.md",
+    "guide/administer/manage-a-group.md",
+    "guide/administer/find-out-why-a-webhook-paused.md",
+    "guide/administer/help-someone-who-lost-a-device.md",
+    "guide/administer/turn-off-local-sign-in.md",
+    "guide/administer/add-a-sign-in-provider.md",
+    "guide/administer/rotate-a-webhook-key.md",
+    "guide/use/propose-a-change.md",
+    "guide/use/open-a-retired-or-unavailable-workspace.md",
+    "guide/model/migrate-a-workspace.md",
+    "guide/model/raise-a-model-language-version.md"
+  ],
+  "deferred": {
+    "model-migration-stale.png": [
+      {
+        "page": "guide/model/migrate-a-workspace.md",
+        "shows": "Stale migration review asking for a new preview"
+      }
+    ],
+    "model-language-raise-review.png": [
+      {
+        "page": "guide/model/raise-a-model-language-version.md",
+        "shows": "Older-language workspace recovery preview with affected workspaces and unchanged data"
+      }
+    ],
+    "workspace-cannot-open.png": [
+      {
+        "page": "guide/use/open-a-retired-or-unavailable-workspace.md",
+        "shows": "Unavailable workspace with its reason and recovery options"
+      }
+    ],
+    "contributor-propose-change.png": [
+      {
+        "page": "guide/use/propose-a-change.md",
+        "shows": "Contributor Live band and Propose a change dialog with Change set name, explanatory text and Start and edit; no Live edit controls."
+      }
+    ],
+    "notification-email-digest.png": [
+      {
+        "page": "use/notifications-settings.md",
+        "shows": "Notification email with the master switch on, mixed At once/Digest/Off choices, saved time zone, next digest and followed workspace with Stop following."
+      }
+    ],
+    "run-jobs.png": [
+      {
+        "page": "run/background-jobs.md",
+        "shows": "Jobs with queued, running and finished work"
+      }
+    ],
+    "import-preview-columns.png": [
+      {
+        "page": "use/importing-and-exporting.md",
+        "shows": "Import job awaiting confirmation, Read as exported summary, counts, column report, a refused row with failing cells, Load the file and Cancel import."
+      }
+    ],
+    "admin-webhook-deliveries.png": [
+      {
+        "page": "administer/webhooks.md",
+        "shows": "Webhook Deliveries tab with retrying events and response details"
+      }
+    ],
+    "admin-webhook-rotate.png": [
+      {
+        "page": "guide/administer/rotate-a-webhook-key.md",
+        "shows": "Webhook key rotation dialog with overlap choices"
+      }
+    ],
+    "admin-webhook-resume.png": [
+      {
+        "page": "guide/administer/find-out-why-a-webhook-paused.md",
+        "shows": "Suspended webhook with its reason and Resume this webhook dialog"
+      }
+    ],
+    "admin-person-link-provider.png": [
+      {
+        "page": "guide/administer/link-a-provider-person.md",
+        "shows": "Provider person with the Link this sign-in to an existing person dialog"
+      }
+    ],
+    "admin-group-members.png": [
+      {
+        "page": "guide/administer/manage-a-group.md",
+        "shows": "Local group with selected members and controls for adding or removing them"
+      }
+    ],
+    "admin-person-second-factor.png": [
+      {
+        "page": "guide/administer/help-someone-who-lost-a-device.md",
+        "shows": "Person’s Sign-in section with a configured authenticator and named passkey removal controls"
+      }
+    ],
+    "admin-local-signin-off.png": [
+      {
+        "page": "guide/administer/turn-off-local-sign-in.md",
+        "shows": "Local accounts showing Off and Turn on after the change"
+      }
+    ],
+    "admin-signin-provider.png": [
+      {
+        "page": "guide/administer/add-a-sign-in-provider.md",
+        "shows": "Saved provider with redirect address, settings and signing-out choices"
+      }
+    ]
+  }
+}

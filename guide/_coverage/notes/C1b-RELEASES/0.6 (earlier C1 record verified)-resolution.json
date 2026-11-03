@@ -1,0 +1,182 @@
+{
+  "release": "0.6 (earlier C1 record verified)",
+  "counts": {
+    "added_promises": 0,
+    "added_rules": 0,
+    "merged": 14,
+    "superseded": 1,
+    "dropped": 3
+  },
+  "added_promises": [],
+  "added_rules": [],
+  "resolutions": [
+    {
+      "id": "CL-0.6.0-#1",
+      "disposition": "merged",
+      "targets": [
+        "J07.1",
+        "J18.3"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#2",
+      "disposition": "merged",
+      "targets": [
+        "J05.1"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#3",
+      "disposition": "merged",
+      "targets": [
+        "J07.S1",
+        "J07.S2",
+        "J19.S3"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#4",
+      "disposition": "merged",
+      "targets": [
+        "J04.S1",
+        "J04.5"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#5",
+      "disposition": "merged",
+      "targets": [
+        "J05.S1",
+        "J07.S1"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#6",
+      "disposition": "merged",
+      "targets": [
+        "J02.S1",
+        "J05.S4",
+        "J06.S1"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#7",
+      "disposition": "merged",
+      "targets": [
+        "J05.1",
+        "J07.1"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#8",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Shared implementation or release-validation evidence, not a separate capability.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#9",
+      "disposition": "merged",
+      "targets": [
+        "R062"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#10",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Shared implementation or release-validation evidence, not a separate capability.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#11",
+      "disposition": "merged",
+      "targets": [
+        "F18.a"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#12",
+      "disposition": "merged",
+      "targets": [
+        "F18.a",
+        "J01.S5"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Changed"
+    },
+    {
+      "id": "CL-0.6.0-#13",
+      "disposition": "merged",
+      "targets": [
+        "J01.S5",
+        "J05.S1",
+        "J07.S1"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Added"
+    },
+    {
+      "id": "CL-0.6.0-#14",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Shared implementation or release-validation evidence, not a separate capability.",
+      "source": "CL §[0.6.0] Added"
+    },
+    {
+      "id": "CL-0.6.0-#15",
+      "disposition": "merged",
+      "targets": [
+        "J02.S1",
+        "J13.S1"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Added"
+    },
+    {
+      "id": "CL-0.6.0-#16",
+      "disposition": "merged",
+      "targets": [
+        "J05.S1",
+        "J05.S3",
+        "J05.S4"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Added"
+    },
+    {
+      "id": "CL-0.6.0-#17",
+      "disposition": "merged",
+      "targets": [
+        "R001"
+      ],
+      "reason": "Earlier workspace-level behavior retained with current lifecycle terms and release scopes.",
+      "source": "CL §[0.6.0] Added"
+    },
+    {
+      "id": "CL-0.6.0-#18",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "Rejected per-record lifecycle was replaced by workspace change sets and publications before 0.6 released.",
+      "source": "CL §[0.6.0] Added"
+    }
+  ]
+}

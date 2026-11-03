@@ -341,11 +341,11 @@ def test_the_api_reference_loads_its_pinned_script(configuration, databases, scr
     reference page loads the pinned script from the engine or from the CDN under its integrity
     hash."""
     with serve(configuration, _clone(databases), RDM_API_REFERENCE_SCRIPT=script) as service:
-        page = service.client.get("/docs")
+        page = service.client.get("/docs/api")
         assert page.status_code == 200
         if script == "bundled":
-            assert "/docs/scalar/standalone.js" in page.text
-            assert service.client.get("/docs/scalar/standalone.js").status_code == 200
+            assert "/docs/api/scalar/standalone.js" in page.text
+            assert service.client.get("/docs/api/scalar/standalone.js").status_code == 200
         else:
             assert "cdn.jsdelivr.net" in page.text and 'integrity="sha' in page.text
 

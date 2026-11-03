@@ -1,0 +1,137 @@
+/* The one header of the guide and the API reference (HD), with the app's bar: 56 px high, the app's top
+   surface and rule, the refiroo mark, and the ink underline on the current item. The app's bar is the React
+   component (`app/TopBar.tsx`) on the same values; the guide's `customCss` and the API page link this file.
+   Dark follows `data-theme="dark"` on the document element, or the operating system when none is set. */
+:root {
+  --rdm-top: #ffffff;
+  --rdm-ink: #1d1c1a;
+  --rdm-muted: #55524c;
+  --rdm-line: #e4e2dc;
+  --rdm-hover: #efede8;
+  --rdm-field: #f6f5f2;
+  --rdm-focus: #6b5bd6;
+}
+:root[data-theme="dark"] {
+  --rdm-top: #18181b;
+  --rdm-ink: #ececee;
+  --rdm-muted: #b4b3ba;
+  --rdm-line: #2c2c31;
+  --rdm-hover: #26262b;
+  --rdm-field: #1d1d21;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --rdm-top: #18181b;
+    --rdm-ink: #ececee;
+    --rdm-muted: #b4b3ba;
+    --rdm-line: #2c2c31;
+    --rdm-hover: #26262b;
+    --rdm-field: #1d1d21;
+  }
+}
+
+.rdm-header {
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+  height: 56px;
+  padding: 0 16px 0 20px;
+  box-sizing: border-box;
+  background: var(--rdm-top);
+  border-bottom: 1px solid var(--rdm-line);
+  color: var(--rdm-ink);
+  font: 14px system-ui, sans-serif;
+}
+.rdm-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  color: inherit;
+  text-decoration: none;
+}
+.rdm-mark img {
+  display: block;
+  width: auto;
+  max-width: none;
+  height: 32px;
+}
+.rdm-mark img.rdm-wordmark {
+  height: 18px;
+}
+:root[data-theme="dark"] .rdm-wordmark {
+  filter: brightness(0) invert(0.93);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .rdm-wordmark {
+    filter: brightness(0) invert(0.93);
+  }
+}
+.rdm-tabs {
+  display: flex;
+  gap: 20px;
+}
+.rdm-tab {
+  display: flex;
+  align-items: center;
+  padding-top: 2px;
+  border-bottom: 2px solid transparent;
+  color: var(--rdm-muted);
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.rdm-tab:hover {
+  color: var(--rdm-ink);
+}
+.rdm-tab[aria-current] {
+  border-bottom-color: var(--rdm-ink);
+  color: var(--rdm-ink);
+  font-weight: 600;
+}
+.rdm-mark:focus-visible,
+.rdm-tab:focus-visible,
+.rdm-theme select:focus-visible {
+  outline: 2px solid var(--rdm-focus);
+  outline-offset: 2px;
+}
+.rdm-spacer {
+  flex: 1;
+}
+.rdm-short {
+  display: none;
+}
+.rdm-theme {
+  align-self: center;
+  display: flex;
+  align-items: center;
+}
+.rdm-theme select {
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--rdm-line);
+  border-radius: 6px;
+  background: var(--rdm-top);
+  color: var(--rdm-ink);
+  font: 13px system-ui, sans-serif;
+}
+
+/* Phone: the wordmark is dropped, the pair reads Docs | API. */
+@media (max-width: 50rem) {
+  .rdm-header {
+    gap: 12px;
+    padding: 0 12px;
+  }
+  .rdm-mark img.rdm-wordmark {
+    display: none;
+  }
+  .rdm-tabs {
+    gap: 14px;
+  }
+  .rdm-full {
+    display: none;
+  }
+  .rdm-short {
+    display: inline;
+  }
+}

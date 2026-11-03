@@ -4,8 +4,8 @@ How to configure, run, upgrade and recover refiroo (the application; the engine 
 [ARCHITECTURE.md](ARCHITECTURE.md); the API contracts are in [API.md](API.md). The setting names and the documented commands are committed from 0.12.0
 ([COMPATIBILITY.md](COMPATIBILITY.md)).
 
-The engine is pre-production until 0.11 (production hardening) and 0.12 (authentication). Every API
-is unauthenticated today: run it only in a trusted environment or behind an access-control layer.
+Every API needs a signed-in person or an access token ([Authentication](#authentication)); only
+the health checks and the paths people sign in through are open. Keep the engine behind HTTPS ([Deploying](#deploying)).
 
 ## A developer instance
 
@@ -28,14 +28,17 @@ only on a secure page, `https` or `localhost`, so another device needs https:
 | --- | --- |
 | `scripts/dev.sh cert` | Finds this computer's address on the network (the one its default route leaves from; `RDM_DEV_ADDRESS` overrides it), trusts mkcert's authority on this computer and makes a certificate for the address, `localhost` and `127.0.0.1` in `.dev/certs/`; again when the address changes |
 | On the phone, once | Trust mkcert's authority (`mkcert -CAROOT`/`rootCA.pem`): on an iPhone install the profile, then switch it on under Settings › General › About › Certificate Trust Settings; on Android install it as a CA certificate |
-| `scripts/dev.sh engine --network` | The engine on `https://<address>:8000` with `PUBLIC_URL=https://<address>:5173` (the address people open) and `CORS_ORIGINS` listing the frontend's names and the engine's own `https://<address>:8000`, `https://localhost:8000` and `https://127.0.0.1:8000`, so the API reference at `/docs` works under any of those names; it trusts the forwarded caller address from this computer (`--proxy-headers`) |
+| `scripts/dev.sh engine --network` | The engine on `https://<address>:8000` with `PUBLIC_URL=https://<address>:5173` (the address people open) and `CORS_ORIGINS` listing the frontend's names and the engine's own `https://<address>:8000`, `https://localhost:8000` and `https://127.0.0.1:8000`, so the API reference at `/docs/api` works under any of those names; it trusts the forwarded caller address from this computer (`--proxy-headers`) |
 | `scripts/dev.sh frontend --network` | The frontend on `https://<address>:5173` (`DEV_HTTPS_CERT` and `DEV_HTTPS_KEY` switch Vite to https), forwarding the engine's paths to `https://localhost:8000` |
 
 **One address (0.12 DP1, D404).** The application calls the engine on the address the page was opened
 at, unless `VITE_API_URL` names an engine on another address when the frontend is built. The Vite dev
 server forwards the engine's paths to the engine at `ENGINE_URL` (default `http://localhost:8000`):
 `/api`, `/oauth`, `/.well-known`, `/docs`, `/openapi.json` and `/health`; `/metrics` is not forwarded,
-and `/brand` is the application's own. Open `http://localhost:5173` (or `https://<address>:5173` on
+and `/brand` is the application's own. `/docs` is the documentation (0.13 DOC1; its step-by-step guides are
+under `/docs/guide/`) and `/docs/api` the API reference. The documentation is built from `guide/` with
+`npm ci && npm run build` there; the engine serves the built files, and without a build `/docs` answers a page
+that says so while everything else works. The public site (no engine behind it) is built with `npm run build:public` in `guide/`, which also writes a static, read-only API reference (the management API and the guide's example consumer API) into the build at `api/`; an instance build does not use it. Open `http://localhost:5173` (or `https://<address>:5173` on
 every device, this computer included), never the engine's port: `PUBLIC_URL` is that address, the
 sign-in cookie is on it (one site, below) and passkeys are bound to its host. `scripts/dev.sh engine`
 sets `PUBLIC_URL=http://localhost:5173` unless it is already set. Changing between the network and
@@ -80,7 +83,7 @@ to the engine.
 | `PASSWORD_RESET_HOURS` | `24` | Hours a password-reset link stays valid; it works once (0.12 D272) |
 | `PASSWORD_MIN_LENGTH` | `15` | Characters a local password needs at least (D252). **For a development machine only** it may be lowered, down to `1`, for a short password (D276); the most common passwords stay refused. Leave it at 15 in production |
 | `JOB_FILE_DIR` | `var/job-files` | Where export files wait for download and import files wait to be read, named after their job, and where model authoring's source files are kept (0.10 A3); created at start. With job creation on, a directory that cannot be written stops startup. An export's file is kept while its job is completed and removed when the job expires (`JOB_RETENTION_DAYS`), fails or is cancelled; an import's file until its job finishes. Several instances need it on shared storage. See [Exports](#exports), [Imports](#imports) and [Source files and dry runs](#source-files-and-dry-runs) |
-| `RDM_API_REFERENCE_SCRIPT` | `bundled` | `bundled` serves the pinned Scalar script from the engine, so `/docs` works offline; `cdn` loads the same version from jsDelivr under its integrity hash. Any other value stops startup |
+| `RDM_API_REFERENCE_SCRIPT` | `bundled` | `bundled` serves the pinned Scalar script from the engine, so `/docs/api` works offline; `cdn` loads the same version from jsDelivr under its integrity hash. Any other value stops startup |
 | `WEB_CONCURRENCY` | `1` | Uvicorn worker count. Any count, with or without model administration (0.11 N1); see [Several processes](#several-processes) |
 | `DATABASE_POOL_SIZE` | `5` | Database connections each process keeps open (0.11 Q1). See [Database connections](#database-connections) |
 | `DATABASE_POOL_MAX_OVERFLOW` | `10` | Connections each process opens beyond `DATABASE_POOL_SIZE` when busy, closed again when returned; `0` for none |
@@ -164,8 +167,8 @@ not authorization ([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-dep
 | Setting | Default | What it registers |
 | --- | --- | --- |
 | `MODEL_ADMIN_MUTATIONS_ENABLED` | off | Model draft create/edit, compile, release install and activation. Works with any number of processes and instances on one database (0.11 N1) |
-| `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, reactivate, delete and default switching. Turn it off on an API exposed outside a trusted environment unless an access-control layer protects it |
-| `INTEGRATION_JOBS_ENABLED` | on | Job creation (`POST /api/v1/batches`) and cancellation. Job reads stay registered |
+| `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, reactivate, delete and default switching. Each route also needs the `workspaces.manage` permission (the Workspace administration action group). Turn it off on an instance that should never create or retire workspaces |
+| `INTEGRATION_JOBS_ENABLED` | on | Everything that creates or runs a job: batches (`POST /api/v1/batches`), imports, source files, model mappings and AI tasks, job cancellation, the job workers, and the dry run after a draft change. Job reads stay registered |
 | `CONSUMER_SUBSCRIPTIONS_ENABLED` | off | The webhook subscriptions API (`/api/v1/consumer-subscriptions`), reads included, and from 0.9 C12 their delivery. Their signing keys are sealed with `SECRETS_ENCRYPTION_KEY`. Turned off, stored subscriptions are kept and continue when it is turned on again |
 
 Always available: installed-release reads, diff and inline validation; workspace discovery; the
@@ -182,11 +185,11 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | Setting | Default | Limit |
 | --- | --- | --- |
 | `BATCH_MAX_ITEMS` | 1,000 | Items in an inline batch |
-| `BATCH_MAX_BYTES` | 5 MB | Body of an inline batch |
+| `BATCH_MAX_BYTES` | 5 MiB | Body of an inline batch |
 | `ATOMIC_JOB_MAX_ITEMS` | 10,000 | Items in an `atomic` batch, inline or background |
 | `BACKGROUND_JOB_MAX_ITEMS` | 1,000,000 | Items in a background batch |
-| `BATCH_BACKGROUND_MAX_BYTES` | 50 MB | Body of a background batch |
-| `IMPORT_MAX_BYTES` | 200 MB | An import's file (`POST /api/v1/imports`); a larger one is `413 IMPORT_TOO_LARGE`, and the request's body is held on disk while it is read. An import's items count against `BACKGROUND_JOB_MAX_ITEMS` and, `atomic`, `ATOMIC_JOB_MAX_ITEMS` (`IMPORT_TOO_MANY_ITEMS`) |
+| `BATCH_BACKGROUND_MAX_BYTES` | 50 MiB | Body of a background batch |
+| `IMPORT_MAX_BYTES` | 200 MiB | An import's file (`POST /api/v1/imports`); a larger one is `413 IMPORT_TOO_LARGE`, and the request's body is held on disk while it is read. An import's items count against `BACKGROUND_JOB_MAX_ITEMS` and, `atomic`, `ATOMIC_JOB_MAX_ITEMS` (`IMPORT_TOO_MANY_ITEMS`) |
 | `JOB_PREVIEW_MAX_ITEMS` | 10,000 | The items a preview runs, an import's (`stage: preview`, 0.9 J3) or a batch's (0.9 K2); beyond them the preview is a `sample`. Named `IMPORT_PREVIEW_MAX_ITEMS` before 0.9 K2, which renamed it without an alias. The preview holds its workspace's write lock (or its change set's claim) while it runs, so a larger value makes other writes in that workspace wait longer once per preview |
 | `MODEL_OPERATION_MAX_ITEMS` | 500 | Operations in one request to a model draft (`POST /model-drafts/{id}/operations`, 0.10 A2); more is `413 OPERATION_BATCH_TOO_LARGE`. A request is one step of the draft's history and is applied and validated as a whole, so a larger value makes one step slower to apply and to undo |
 | `JOB_CHUNK_ITEMS` | 500 | Items one background chunk commits |
@@ -198,7 +201,7 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 ## Authentication
 
 Every route needs an access token issued by the engine (0.12, ADR-043) except `/health`,
-`/health/live`, `/openapi.json`, `/docs` with its script, and the OAuth endpoints
+`/health/live`, `/openapi.json`, `/docs` (the documentation and, at `/docs/api`, the API reference with its script), and the OAuth endpoints
 (`/.well-known/oauth-authorization-server`, `/oauth/jwks`, `/oauth/token`, `/oauth/revoke`, and the
 sign-in and password pages `/oauth/authorize` and `/oauth/password`). A request without one
 answers `401 AUTHENTICATION_REQUIRED`; a token that does not verify, has expired, is for the other API
@@ -338,7 +341,7 @@ a later release drops reads `stale: true` and allows nothing. Subscriptions crea
 owner.
 
 **Who changed what** (0.12 Z4): every audit entry names the person or client that made it, or the
-engine (an offline `model_schema_upgrade`, a job submitted before Z2); entries recorded before the
+engine (work no signed-in person or client started, such as a job submitted before Z2); entries recorded before the
 upgrade name nobody and read "Before sign-in", with no backfill. **Security events** record each
 change to people, groups, roles, grants, clients and token signing keys, and each sign-in, succeeded
 or failed once the password was checked, with the username and the address (the connection's, or
@@ -1040,16 +1043,16 @@ A webhook URL may name any host and port. It must use HTTPS; plain HTTP is accep
 `compose.yml` is the installation the project tests and describes (0.12 DP2, DP3): three containers,
 of which only `web` is published. Deploying one is these steps, in this order; each setting is
 explained in `.env.example`.
+`compose.yml` reads its settings from `.env`; `RDM_ENV_FILE` names another file (a test deployment's, as the browser
+runner for the deployment gives it).
 
 | Container | Image | What it does |
 | --- | --- | --- |
-`compose.yml` reads its settings from `.env`; `RDM_ENV_FILE` names another file (a test deployment's, as the browser
-runner for the deployment gives it).
 | `database` | `postgres:17-alpine` | PostgreSQL with the ICU root collation, its data in the `database` volume |
 | `engine` | built from `backend/Dockerfile` | The engine under Uvicorn as an unprivileged user, one process, `--proxy-headers`, export files in the `job-files` volume; its health check is `/health/live` |
 | `web` | built from `frontend/Dockerfile` | nginx (unprivileged, 8080 and 8443, published as 80 and 443) serving the application built once for every installation and forwarding the engine's public paths to the engine |
 
-Both images keep the application under `/opt/refiroo/rdm-engine`, laid out as the repository is, and add nothing at `/`. In the engine image: `backend/` (the working directory), `model/rdm-starter.json` and `data/` (`job-files`, the volume; `assistant`, `assistant-claude` and `assistant-home`). In the web image: `frontend/dist` (the application), `frontend/certs` (where `fullchain.pem` and `privkey.pem` are mounted) and `frontend/nginx`. `compose.yml` mounts the `job-files` volume and the certificate folder there; a deployment of its own mounts them at `/opt/refiroo/rdm-engine/data/job-files` and `/opt/refiroo/rdm-engine/frontend/certs`.
+Both images keep the application under `/opt/refiroo/rdm-engine`, laid out as the repository is, and add nothing at `/`. In the engine image: `backend/` (the working directory), `guide/dist`, `model/rdm-starter.json` and `data/` (`job-files`, the volume; `assistant`, `assistant-claude` and `assistant-home`). In the web image: `frontend/dist` (the application), `frontend/certs` (where `fullchain.pem` and `privkey.pem` are mounted) and `frontend/nginx`. `compose.yml` mounts the `job-files` volume and the certificate folder there; a deployment of its own mounts them at `/opt/refiroo/rdm-engine/data/job-files` and `/opt/refiroo/rdm-engine/frontend/certs`.
 
 1. **Choose the address people open** and make its DNS name reach the host. It is `PUBLIC_URL`: the
    issuer of the engine's tokens, the address a sign-in provider returns to and the host passkeys are
@@ -1081,7 +1084,8 @@ Both images keep the application under `/opt/refiroo/rdm-engine`, laid out as th
    [Signing in with the organisation's provider](#signing-in-with-the-organisations-provider).
 7. **Set up mail** (optional) on Settings › Integration › Mail; see [Sending mail](#sending-mail).
 
-**What is public.** `web` forwards `/api`, `/oauth`, `/.well-known`, `/docs`, `/openapi.json` and
+**What is public.** `web` forwards `/api`, `/oauth`, `/.well-known`, `/docs` (the documentation and the API
+reference at `/docs/api`, built into the engine image and served offline), `/openapi.json` and
 `/health` to the engine and serves everything else as the application. `/metrics` is not public: `web`
 answers it 404, and monitoring reaches the engine's own port inside the Docker network
 ([Monitoring](#monitoring)). Nothing but `web` is published; keep it so, because the engine trusts the
@@ -1091,13 +1095,14 @@ behind a balancer (`WEB_TLS=proxy`), the one `X-Forwarded-For` names when the co
 `WEB_TRUSTED_PROXIES`; whatever else a caller sent is replaced. The sign-in throttle counts per
 address (D271).
 
-**Uploads.** `web` takes bodies up to `WEB_MAX_BODY` (256 MB); the engine's own limit is
-`IMPORT_MAX_BYTES` (200 MB). Raise both together.
+**Uploads.** `web` takes bodies up to `WEB_MAX_BODY` (256 MiB, written `256m`); the engine's own limit is
+`IMPORT_MAX_BYTES` (200 MiB). Raise both together.
 
 **Upgrading** is [Upgrades](#upgrades) with `docker compose up -d --build` in step 4: back up first,
 and the engine migrates the database at start. **Backups** are [Backup and restore](#backup-and-restore)
 of the `database` volume (`pg_dump` from the `database` container) together with `.env`; the
-`job-files` volume holds export and import files only for as long as their jobs do.
+`job-files` volume holds export and import files only for as long as their jobs do, and model authoring's
+source files for as long as their draft or import profile exists: back it up with the database.
 
 **Checking an installation.** `npm run test:deployment` in `frontend/` builds the images, starts the
 installation from empty at this computer's network address with a throwaway certificate, creates the
@@ -1130,9 +1135,9 @@ your network knows**: the authority cannot reach it, so use your own certificate
 ## Deployment topologies
 
 The supported topology is one API process (the Docker image starts one Uvicorn process). Several
-instances may share one database with different capability groups, for example an internal instance
-with model administration on and a public one with both administration groups off, but this topology
-has no composed test yet; multi-node operation is 0.11 work. Its known caveats are in
+instances, on one node or several, may share one database with different capability groups, for example
+an internal instance with model administration on and a public one with both administration groups off
+([Several processes](#several-processes)). Its known caveats are in
 [ARCHITECTURE.md](ARCHITECTURE.md#deployment-topology). Instances behind one load balancer must share
 `RDM_CURSOR_SIGNING_KEY`.
 
@@ -1209,9 +1214,10 @@ manual edits to release rows are not a supported rollback path.
 
 The database is the whole state of an instance: every workspace's records, change sets,
 publications and history, the installed model releases and which workspace runs which, jobs,
-webhook subscriptions and the feed. A backup of the database is a backup of the instance. Keep with
+webhook subscriptions and the feed. The source files of model drafts and import profiles live in
+`JOB_FILE_DIR` (the `job-files` volume), not in the database: back that up with it. Keep with
 it the application version and its configuration (see [Upgrades](#upgrades)); the cursor signing
-key and the webhook key encryption key are settings, not data, and a restore needs the same ones.
+key and `SECRETS_ENCRYPTION_KEY` are settings, not data, and a restore needs the same ones.
 
 **Taking a backup.** `pg_dump` in its custom format, or the platform's snapshot. The processes'
 heartbeat rows are of no use in a backup; leave them out:

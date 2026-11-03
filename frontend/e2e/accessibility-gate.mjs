@@ -32,6 +32,7 @@ import { visitDesignerSurfaces } from "./helpers/designer-surfaces.mjs";
 import { visitSpreadsheetSurfaces } from "./helpers/spreadsheet-surfaces.mjs";
 import { visitWorkspaceSurfaces } from "./helpers/workspace-surfaces.mjs";
 import { visitSecuritySurfaces } from "./helpers/security-surfaces.mjs";
+import { visitGuideSurfaces } from "./helpers/guide-surfaces.mjs";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
@@ -78,6 +79,39 @@ if (only === "security") {
     console.log(`\nFAILED: ${failures.length}`);
     for (const failure of failures) console.log(failure);
   } else console.log("\nPASSED: no unexpected accessibility violations in the security surfaces.");
+  process.exit(failures.length ? 1 : 0);
+}
+
+// `--only guide` runs the documentation the engine serves at /docs (0.13 DOC1) alone, on a harness of its own, and
+// fails when a page asks for anything from outside the engine. It needs the guide built (`npm run build`
+// in `guide/`).
+if (only === "guide") {
+  const output = await mkdtemp(resolve(tmpdir(), "rdm-a11y-guide-"));
+  try {
+    const seen = await visitGuideSurfaces(async ({ page: surface, name }) => {
+      const found = await runAxe(surface, ALLOWLIST, name);
+      if (found.violations.length > 0) failures.push(`${name}:\n${formatViolations(found.violations)}`);
+      checks.push(`${name}: ${found.violations.length} violations, ${found.allowed.length} allowed`);
+      await surface.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+    });
+    const outside = seen.origins.filter((origin) => origin !== seen.uiOrigin);
+    checks.push(
+      `offline: ${seen.requests} requests, all to ${seen.uiOrigin}${outside.length ? `, also ${outside.join(", ")}` : ""}`,
+    );
+    if (outside.length) failures.push(`the guide asked other origins for something: ${outside.join(", ")}`);
+  } catch (error) {
+    console.error("Accessibility gate (guide) error:", error);
+    failures.push(String(error));
+  }
+  console.log(`Accessibility evidence: ${output}`);
+  for (const check of checks) console.log(`  ${check}`);
+  if (failures.length) {
+    console.log(`\nFAILED: ${failures.length}`);
+    for (const failure of failures) console.log(failure);
+  } else
+    console.log(
+      "\nPASSED: no unexpected accessibility violations in the guide, and nothing asked for outside the engine.",
+    );
   process.exit(failures.length ? 1 : 0);
 }
 

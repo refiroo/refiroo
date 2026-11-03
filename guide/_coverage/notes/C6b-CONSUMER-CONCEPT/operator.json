@@ -1,0 +1,21 @@
+{
+  "objectType": "Operator",
+  "id": "f94ef862-2a95-4675-9e31-6b1d0a03317f",
+  "code": "MGB-fo",
+  "name": "Matterhorn Gotthard Bahn (fo)",
+  "validFrom": null,
+  "validTo": null,
+  "stopNumber": null,
+  "abbreviation": null,
+  "fsoNumber": null,
+  "latitude": null,
+  "longitude": null,
+  "height": null,
+  "sboid": "ch:1:sboid:100029",
+  "parent": null,
+  "path": "",
+  "operator": null,
+  "modes": [],
+  "systemCodes": [],
+  "translations": []
+}

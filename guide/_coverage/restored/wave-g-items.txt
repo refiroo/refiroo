@@ -1,0 +1,62 @@
+# Inventory items 0.16 introduced (settings, error codes, a command, a role, permissions, an event), owned by
+# wave G's pages (DOC9A, DOC-D21). One ID per line; text after # is a comment. Found 2026-11-02 by
+# generating the inventory at the 0.12.0 release (deff1ff7) and comparing; every new item traced to 0.16
+# (CHANGELOG [Unreleased], docs/BASE_0_16_IMPLEMENTATION_PLAN.md, `git log deff1ff7..`). J48 to J57, F29 and
+# F30 are marked in tools/inventory.py. DOC9A adds the items that 0.16 introduces after this date.
+# the assistant (AP1 to AP13) and its settings
+setting:AI_PROVIDER
+setting:AI_MODEL
+setting:AI_API_KEY
+setting:AI_BASE_URL
+setting:AI_SEND_LEVEL
+setting:AI_SAMPLE_VALUES
+setting:AI_MIN_CONFIDENCE
+setting:AI_LOG_CONTENT
+setting:AI_LOG_CONTENT_DAYS
+setting:AI_TIMEOUT_SECONDS
+setting:AI_REASONING_EFFORT
+setting:AI_CONTEXT_TOKENS
+setting:AI_TASK_RETENTION_DAYS
+setting:AI_AGENT_COMMAND
+setting:AI_AGENT_SANDBOX
+setting:AI_AGENT_API_URL
+# agent access at /mcp (AG1 to AG3)
+setting:MCP_ENABLED
+setting:MCP_RATE_PER_MINUTE
+setting:MCP_OPEN_REGISTRATION
+setting:MCP_REDIRECT_HOSTS
+setting:MCP_CALLS_DAYS
+setting:MCP_ANSWER_BYTES
+command:settings_template
+role:agent
+permission:model-install
+permission:ai-proposals
+# a follower's notice (AO3)
+event:change-set.published
+# error codes
+error:AGENT_APPLICATION_INVALID
+error:AGENT_APPLICATION_NOT_FOUND
+error:AI_NOT_CONFIGURED
+error:AI_SEND_LEVEL_TOO_LOW
+error:AI_TASK_DRAFT_HELD
+error:AI_TASK_NEEDS_WORDS
+error:AI_TASK_NOTHING_TO_LOAD
+error:AI_TASK_NOT_FOUND
+error:AI_TASK_STATE
+error:AI_TASK_TABLE_UNKNOWN
+error:AI_TASK_VERSION_CONFLICT
+error:CLIENT_HAS_NO_SECRETS
+error:DIGEST_NOT_SET
+error:HISTORY_PERIOD_INVALID
+error:IMPACT_SUMMARY_DRAFT_INVALID
+error:INVALID_DATE
+error:LIST_REQUIRED
+error:MAPPING_PROPOSED_NEEDS_CHANGE_SET
+error:OBJECT_ID_REQUIRED
+error:QUERY_TRANSLATION_FAILED
+error:QUERY_TRANSLATION_VIEW_UNSUPPORTED
+error:RESOURCE_NOT_FOUND
+error:UNKNOWN_TIME_ZONE
+error:VIEW_NOT_FOUND
+error:AI_ASSISTANT_ROLE_CHANGED
+error:AI_TASK_CHECK_STALE

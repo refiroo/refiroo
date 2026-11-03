@@ -1,0 +1,7 @@
+# C6b progress
+
+- 2026-11-03T11:25:58+01:00 — Finished `guide/src/content/docs/integrate/consumer-apis.md`: explained shared object and operation patterns, with complete stop/operator bodies side by side. Qualified configurable field names, optional operations and client reuse against the code; no steering file existed.
+- 2026-11-03T11:26:15+01:00 — Finished `guide/src/content/docs/about/sharing-data-with-other-systems.md`: added the evaluator's explanation of consistent records and reusable integration processes, with contract-specific choices and stability. No steering file existed; no new uncertainty.
+- 2026-11-03T11:26:34+01:00 — Finished `guide/src/content/docs/model/consumer-apis.md`: explained what designers choose within the shared forms, what consuming teams can reuse and why public choices still need contract review. No steering file existed; retained existing detailed examples.
+- 2026-11-03T11:26:56+01:00 — Finished `guide/src/content/docs/examples/the-consumer-api.md`: added one sentence linking both example contracts to the shared-pattern explanation. No steering file existed; no new uncertainty.
+- 2026-11-03T11:27:43+01:00 — Finished validation and source record in `guide/_coverage/notes/C6b-CONSUMER-CONCEPT/report.md`. Wave-specific build passed (222 pages), terms/brand passed; link verification reports 28 missing targets outside the assigned pages (see `verify.log`). No new screenshots or coverage rows; no steering file existed.

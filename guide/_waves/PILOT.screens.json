@@ -1,0 +1,235 @@
+{
+  "wave": "PILOT",
+  "note": "Real screens of the reference instance (guide/reference, http://localhost:8480), light theme, 1440 px wide. Taken by guide/tools/screens.mjs and written to guide/public/screens/<name>.png, which the pages reference as /guide/screens/<name>.png. 'shows' says what the picture is for; 'expect' lists texts that must be visible or the capture is reported as failed.",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "home",
+      "shows": "Home, where a steward lands after signing in: the workspace Graubünden with its applications Network, Systems, Names, and the open change set.",
+      "actions": [{ "goto": "/" }, { "waitFor": { "text": "Your change sets", "exact": true } }],
+      "expect": ["Your workspaces", "Graubünden", "Network", "December 2026 timetable change"]
+    },
+    {
+      "name": "stops-search-chur",
+      "shows": "The Stops list of the Network application with the search box holding Chur.",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden" },
+        { "fill": { "css": "input[aria-label=Search]" }, "value": "Chur" },
+        { "wait": 1800 }
+      ],
+      "expect": ["Stops", "Chur Wiesental", "Chur Altstadt"]
+    },
+    {
+      "name": "stops-filter-menu",
+      "shows": "The same search with the Filter menu open, listing the fields and relationships a list can be filtered by.",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden" },
+        { "fill": { "css": "input[aria-label=Search]" }, "value": "Chur" },
+        { "wait": 1500 },
+        { "click": { "role": "button", "name": "Filter", "exact": true } },
+        { "waitFor": { "text": "Operated by", "exact": true } }
+      ],
+      "expect": ["Fields", "Relationships", "Operated by", "Valid from"]
+    },
+    {
+      "name": "stops-filtered-sorted",
+      "shows": "Search Chur, filtered to stops operated by Rhätische Bahn, sorted by Valid from, newest first: eight stops including Chur Wiesental.",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden" },
+        { "fill": { "css": "input[aria-label=Search]" }, "value": "Chur" },
+        { "wait": 1500 },
+        { "click": { "role": "button", "name": "Filter", "exact": true } },
+        { "click": { "text": "Operated by", "exact": true, "nth": -1 } },
+        { "fill": { "placeholder": "Search operators" }, "value": "Rhätische" },
+        { "wait": 800 },
+        { "click": { "text": "Rhätische Bahn", "exact": true, "in": { "role": "dialog" } } },
+        { "click": { "role": "button", "name": "Apply", "in": { "role": "dialog" } } },
+        { "wait": 1200 },
+        { "click": { "role": "button", "name": "Sort:" } },
+        { "click": { "role": "menuitemradio", "name": "Valid from" } },
+        { "click": { "role": "button", "name": "Sort:" } },
+        { "click": { "role": "menuitemradio", "name": "Descending" } },
+        { "wait": 1200 }
+      ],
+      "expect": ["Operated by", "Chur West", "Chur Wiesental", "8 records"]
+    },
+    {
+      "name": "stop-details",
+      "shows": "A stop's page: Chur Wiesental, the 'Stop details' fields at the right, and its relationships (Modes, Operator) in the middle.",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
+        { "click": { "text": "Chur Wiesental", "exact": true } },
+        { "waitFor": { "role": "heading", "name": "Chur Wiesental" } },
+        { "wait": 1200 }
+      ],
+      "expect": ["Stop details", "8509006", "Modes", "Train", "Operator", "Rhätische Bahn", "CHWI"]
+    },
+    {
+      "name": "stop-relationships",
+      "shows": "The lower part of Chur Wiesental's page: System codes (two codes from other systems) and Name translations (none yet).",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
+        { "click": { "text": "Chur Wiesental", "exact": true } },
+        { "waitFor": { "role": "heading", "name": "Chur Wiesental" } },
+        { "wait": 1000 },
+        { "scrollTo": { "text": "System codes", "exact": true }, "offset": 150 }
+      ],
+      "expect": ["System codes", "Wikidata: stations", "Name translations", "No relationships yet"]
+    },
+    {
+      "name": "stop-edit-field",
+      "shows": "Chur Wiesental with one field open for correction in place: Stop number (UIC), with Cancel and Save.",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
+        { "click": { "text": "Chur Wiesental", "exact": true } },
+        { "waitFor": { "role": "heading", "name": "Chur Wiesental" } },
+        { "wait": 1000 },
+        { "click": { "role": "button", "name": "Edit Stop number (UIC): 8509006" } }
+      ],
+      "expect": ["Cancel", "Save", "Stop number (UIC)"]
+    },
+    {
+      "name": "stop-edit-record",
+      "shows": "The 'Edit object' form of Chur Wiesental (record menu, Edit record): Parent, Name, Designation, Stop number (UIC) and the other fields.",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
+        { "click": { "text": "Chur Wiesental", "exact": true } },
+        { "waitFor": { "role": "heading", "name": "Chur Wiesental" } },
+        { "wait": 1000 },
+        { "click": { "role": "button", "name": "Record actions" } },
+        { "click": { "role": "menuitem", "name": "Edit record" } },
+        { "waitFor": { "text": "Edit object", "exact": true } }
+      ],
+      "expect": ["Edit object", "Parent", "Name", "Designation", "Stop number (UIC)", "SLOID", "Abbreviation"]
+    },
+    {
+      "name": "save-conflict",
+      "height": 1100,
+      "shows": "A save refused because someone else changed the stop first. The stop Chur Depot Sand: another session changed its Designation, then this session saved the Abbreviation. The field shows 'Current saved value', 'Your input is preserved' and the message 'The value was not saved: Object version has changed', with Cancel and Save.",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Depot+Sand" },
+        { "click": { "text": "Chur Depot Sand", "exact": true } },
+        { "waitFor": { "role": "heading", "name": "Chur Depot Sand" } },
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Depot+Sand", "session": "b" },
+        { "click": { "text": "Chur Depot Sand", "exact": true }, "session": "b" },
+        { "waitFor": { "role": "heading", "name": "Chur Depot Sand" }, "session": "b" },
+        { "wait": 1000, "session": "b" },
+        { "click": { "role": "button", "name": "Edit Designation: Chur Depot Sand" }, "session": "b" },
+        { "focusedFill": "Chur Depot Sand (changed by someone else)", "session": "b" },
+        { "press": "Enter", "session": "b" },
+        { "wait": 1500, "session": "b" },
+        { "click": { "role": "button", "name": "Edit Abbreviation: DEPS" } },
+        { "focusedFill": "CHSX" },
+        { "click": { "role": "button", "name": "Save", "exact": true } },
+        { "waitFor": { "text": "The value was not saved", "exact": false } },
+        { "wait": 300 }
+      ],
+      "after": [
+        { "click": { "role": "button", "name": "Edit Designation: Chur Depot Sand (changed by someone else)" }, "session": "b" },
+        { "focusedFill": "Chur Depot Sand", "session": "b" },
+        { "press": "Enter", "session": "b" },
+        { "wait": 1500, "session": "b" }
+      ],
+      "expect": ["The value was not saved", "Object version has changed", "Your input is preserved"]
+    },
+    {
+      "name": "stop-history",
+      "shows": "The History section at the bottom of Chur Wiesental's page: who changed what and when, with the filters By, All, Values, Relationships, Moves.",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
+        { "click": { "text": "Chur Wiesental", "exact": true } },
+        { "waitFor": { "role": "heading", "name": "Chur Wiesental" } },
+        { "wait": 1000 },
+        { "scrollTo": { "role": "heading", "name": "History" }, "offset": 90 }
+      ],
+      "expect": ["History", "Values", "Relationships", "Moves", "Guide Admin", "Record created"]
+    },
+    {
+      "name": "change-sets-list",
+      "shows": "The Change sets page of the Network application with the open change set 'December 2026 timetable change' and the button 'Start from current live data'.",
+      "actions": [{ "goto": "/apps/network/change-sets?workspaceKey=graubuenden" }, { "waitFor": { "text": "December 2026 timetable change", "exact": true } }],
+      "expect": ["Change sets", "Start from current live data", "December 2026 timetable change", "Open change set"]
+    },
+    {
+      "name": "change-set-open",
+      "shows": "The open change set: the orange Change set banner with 'Edits stay in this change set until it is published', its name, and the buttons Review changes, Validate change set, Publish change set above the Stops list.",
+      "actions": [
+        { "goto": "/apps/network/change-sets?workspaceKey=graubuenden" },
+        { "click": { "role": "button", "name": "Open change set" } },
+        { "waitFor": { "role": "button", "name": "Review changes" } },
+        { "wait": 1200 }
+      ],
+      "expect": ["Edits stay in this change set until it is published", "December 2026 timetable change", "Review changes", "Publish change set"]
+    },
+    {
+      "name": "change-set-review",
+      "shows": "Review changes of the change set: the list of changed records (stops with a changed Valid to), with the tabs Records and Relationships.",
+      "actions": [
+        { "goto": "/apps/network/change-sets?workspaceKey=graubuenden" },
+        { "click": { "role": "button", "name": "Open change set" } },
+        { "click": { "role": "button", "name": "Review changes" } },
+        { "waitFor": { "role": "heading", "name": "Review changes" } },
+        { "wait": 1500 }
+      ],
+      "expect": ["Review changes", "Records", "Relationships", "Chur, Rossboden", "Changed: Valid to (exclusive)"]
+    },
+    {
+      "name": "change-set-publish-confirm",
+      "shows": "The change set after 'Validate change set' (badge 'Change set validation passed') and the 'Publish this change set?' confirmation. Nothing is published.",
+      "actions": [
+        { "goto": "/apps/network/change-sets?workspaceKey=graubuenden" },
+        { "click": { "role": "button", "name": "Open change set" } },
+        { "waitFor": { "role": "button", "name": "Validate change set" } },
+        { "click": { "role": "button", "name": "Validate change set" } },
+        { "waitFor": { "text": "Change set validation passed", "exact": false } },
+        { "click": { "role": "button", "name": "Publish change set" } },
+        { "waitFor": { "text": "Publish this change set?", "exact": true } }
+      ],
+      "after": [{ "click": { "role": "button", "name": "Cancel" } }],
+      "expect": ["Please confirm", "Publish this change set?", "Unrelated live changes are preserved", "Cancel"]
+    },
+    {
+      "name": "names-matrix",
+      "shows": "The Names application, Municipality names: municipalities by language (English, French, German, Italian, Romansh) with the cell states One, Several, Inactive, History only, None, Conflict explained above the table.",
+      "actions": [{ "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden" }, { "waitFor": { "text": "Albula/Alvra", "exact": true } }, { "wait": 1200 }],
+      "expect": ["Municipality names", "Municipalities", "Filter", "English", "Romansh", "Albula/Alvra", "exactly one related record"]
+    },
+    {
+      "name": "names-matrix-chur",
+      "shows": "The matrix searched for Chur: the municipality Chur with its names Chur (English), Coire (French), Chur (German), Coira (Italian), Cuira (Romansh).",
+      "actions": [
+        { "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden" },
+        { "fill": { "placeholder": "Search municipalities" }, "value": "Chur" },
+        { "wait": 1800 }
+      ],
+      "expect": ["Chur", "Coire", "Coira", "Cuira", "Churwalden"]
+    },
+    {
+      "name": "names-matrix-none-filter",
+      "shows": "The Filter panel's 'Cell state' set to None (rows with a language that has no name): the matrix reads 'No rows match these filters', because every municipality has a name in every language in the reference data. A missing name therefore cannot be shown on real data.",
+      "actions": [
+        { "goto": "/apps/names/views/municipality-names?workspaceKey=graubuenden" },
+        { "waitFor": { "text": "Albula/Alvra", "exact": true } },
+        { "click": { "role": "button", "name": "Filter", "exact": true } },
+        { "check": { "role": "radio", "name": "None" } },
+        { "click": { "role": "button", "name": "Done" } },
+        { "wait": 1500 }
+      ],
+      "expect": ["Cell is None", "No rows match these filters"]
+    },
+    {
+      "name": "stop-add-translation",
+      "shows": "Chur Wiesental's 'Add Name translation' form (Parent language list, Translates Chur Wiesental, Name, Translated name, Active). Opened and cancelled; nothing is saved.",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental" },
+        { "click": { "text": "Chur Wiesental", "exact": true } },
+        { "waitFor": { "role": "heading", "name": "Chur Wiesental" } },
+        { "wait": 1000 },
+        { "click": { "role": "button", "name": "Add Name translation" } },
+        { "waitFor": { "text": "New Name translation", "exact": true } }
+      ],
+      "after": [{ "click": { "role": "button", "name": "Cancel" } }],
+      "expect": ["New Name translation", "Parent", "Translates", "Translated name", "Active", "Create"]
+    }
+  ]
+}

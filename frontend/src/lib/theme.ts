@@ -52,3 +52,14 @@ export function useThemePreference() {
     },
   };
 }
+
+// The documentation and the API reference write the same key (HD): a choice made there reaches an open
+// application tab through the storage event.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== null && event.key !== THEME_STORAGE_KEY) return;
+    current = undefined;
+    applyTheme(snapshot());
+    listeners.forEach((listener) => listener());
+  });
+}

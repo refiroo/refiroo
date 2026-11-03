@@ -3,7 +3,7 @@
 
 The backend's runtime closure is read from the installed environment (the dependencies of
 backend/pyproject.toml, development tools excluded), the frontend's production closure from
-`npm ls --omit=dev`, and the file Scalar ships is read from its vendored copy. The four libraries
+`npm ls --omit=dev` (the guide's the same, from guide/), and the file Scalar ships is read from its vendored copy. The four libraries
 inside the psycopg binary wheel are listed by hand below, because the wheel does not carry their
 licence texts. A licence outside ALLOWED stops the script, so an incompatible addition stops R.
 
@@ -40,6 +40,9 @@ ALLOWED = {
     "0BSD",
     "OFL-1.1",
     "PSF-2.0",
+    "Python-2.0",  # the PSF licence as argparse (a guide build dependency) names it
+    "BlueOak-1.0.0",  # permissive; guide build dependencies (sax, lru-cache)
+    "CC0-1.0",  # public-domain dedication; mdn-data, a guide dependency
     "MPL-2.0",
     "LGPL-3.0-only",
     "Apache-2.0 OR BSD-3-Clause",
@@ -132,7 +135,20 @@ def _python_texts(dist: metadata.Distribution) -> list[tuple[str, str]]:
 
 
 def _frontend_closure() -> list[dict]:
-    frontend = ROOT / "frontend"
+    return _npm_closure(ROOT / "frontend")
+
+
+def _guide_closure() -> list[dict]:
+    """The guide's production closure (0.13 DOC1): Starlight, Astro and what they bundle into the
+    built site the engine image carries. The built files do not say which package each piece came
+    from, so the whole closure is listed, which includes build-time tools: more than ships, never less.
+    The one exception is sharp's platform binaries (``@img/*``, libvips under LGPL-3.0-or-later): they
+    resize the logo while the site is built and nothing of them is copied into the built files, so they
+    are neither listed nor held to the gate (sharp itself, Apache-2.0, is)."""
+    return [row for row in _npm_closure(ROOT / "guide") if not row["name"].startswith("@img/")]
+
+
+def _npm_closure(frontend: Path) -> list[dict]:
     result = subprocess.run(
         ["npm", "ls", "--omit=dev", "--all", "--json", "--long"],
         cwd=frontend,
@@ -198,6 +214,8 @@ def render() -> str:
     frontend = _frontend_closure()
     _check(backend, "backend")
     _check(frontend, "frontend")
+    guide = _guide_closure()
+    _check(guide, "guide")
     scalar_dir = ROOT / "backend" / "app" / "management" / "reference" / "scalar"
     scalar = {
         "name": "@scalar/api-reference (standalone.js, vendored)",
@@ -217,12 +235,14 @@ def render() -> str:
         "",
         f"- Backend (Python) runtime dependencies: {len(backend)}",
         f"- Frontend (browser) production dependencies: {len(frontend)}",
+        f"- Guide (built site) dependencies: {len(guide)}",
         "- Vendored: Scalar API Reference",
         "- Libraries bundled inside the psycopg binary wheel: 4",
         "",
     ]
     lines += _section("Backend runtime dependencies", backend)
     lines += _section("Frontend production dependencies", frontend)
+    lines += _section("Guide dependencies", guide)
     lines += _section("Vendored in the repository", [scalar])
     lines += [
         "## Libraries bundled inside the psycopg binary wheel",

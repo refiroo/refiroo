@@ -1,6 +1,6 @@
 # API principles and contract
 
-This is the API of **refiroo**, the application (see [OPERATORING.md](OPERATORING.md)); the API reference page at `/docs` carries the same name and mark. What of it is committed from 0.12.0, and how it changes, is in [COMPATIBILITY.md](COMPATIBILITY.md).
+This is the API of **refiroo**, the application (see [OPERATORING.md](OPERATORING.md)); the API reference page at `/docs/api` carries the same name and mark. What of it is committed from 0.12.0, and how it changes, is in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ## Entity identifiers
 
@@ -739,7 +739,7 @@ As elsewhere, errors use the shared `{ "error": { "code", "message", "details" }
 
 ### API reference page (Base 0.9 V1, V2)
 
-`GET /docs` serves the API reference, rendered by [Scalar](https://github.com/scalar/scalar) (MIT)
+`GET /docs/api` serves the API reference, rendered by [Scalar](https://github.com/scalar/scalar) (MIT)
 from the OpenAPI documents: the management API (`/openapi.json`) is its first source, followed by
 each consumer API of the active release (0.9 V2), in `consumerApi` order, labelled
 `{name} · v{contractVersion}` and read from the document the [API index](#api-index-and-documents) names.
@@ -747,10 +747,10 @@ The sources are built per request, so a release that adds, removes or re-version
 on the next page load. A link opens a source with `?api=<slug>`: `management`, or
 `consumer-{consumerApi}-v{contractVersion}` for a consumer API (the Settings › API reference page
 links each this way). Swagger UI and ReDoc are gone:
-`/redoc` and `/docs/oauth2-redirect` answer `404`.
+`/redoc` and `/docs/oauth2-redirect` answer `404` (`/docs` itself is the documentation site).
 
 The Scalar standalone script is pinned (1.72.2) and bundled with the engine, served at
-`/docs/scalar/standalone.js`, so the page works without internet access. Set
+`/docs/api/scalar/standalone.js`, so the page works without internet access. Set
 `RDM_API_REFERENCE_SCRIPT=cdn` to load the same version from jsDelivr instead; the script tag carries
 the bundled file's integrity hash, so the browser refuses any other bytes. The default is `bundled`,
 and any other value stops startup with a message naming the setting. The page turns off Scalar's web
@@ -4965,7 +4965,7 @@ is unreachable or no workspace can be served; readiness listing the unavailable 
   `X-Model-Release-Id` naming the workspace and release they describe; the index's document links
   carry the `workspace` asked for. A definition key may mean different contracts in two workspaces.
   Events, checkpoints, subscriptions and webhooks are derived under the workspace's release (M1).
-  The API reference page (`GET /docs`) takes `?workspace=` (D39).
+  The API reference page (`GET /docs/api`) takes `?workspace=` (D39).
 
 ### Reads spanning workspaces (delivered, M4)
 
@@ -6115,7 +6115,7 @@ tokens and client secrets are never signed with the key, and a client refused wi
 TOKEN_INVALID` obtains a new token as OAuth libraries do.
 
 **Routes that need no token** (D245): `/health` (status only, for probes), `/health/live`,
-`/openapi.json`, `/docs` and its bundled script (the page signs in through the browser's session,
+`/openapi.json`, `/docs/api` and its bundled script (the page signs in through the browser's session,
 C1), each consumer API's own `…/openapi.json` (D412) and the OAuth endpoints above. Every other
 route, including `/metrics` (a scraper uses a client holding Operator) and the consumer API index,
 needs a token.
@@ -6271,6 +6271,7 @@ D278).
 | Copy and move | `copy-move` | Model-to-model mappings and moves | Workspace (Browse on the source, and Work in change sets there for `mode: move`; written in the target, narrowed alike) |
 | Model authoring | `model-authoring` | Model drafts and everything on them; reading releases | Instance |
 | Model release | `model-release` | Install a draft, activate a release into a workspace, migrate a workspace; raise, retire, bring back and delete a release (`model.install`, at the instance; 0.12 MR1: `PATCH` and `DELETE /model-releases/{releaseId}`); reading releases | Instance or workspace |
+| Install a model | `model-install` | Install a draft as a release without activating it anywhere, and raise, retire, bring back and delete a release (`model.install`, at the instance; 0.16: what the assistant's session holds to install what it proposes). Model release allows the same | Instance |
 | Workspace administration | `workspace-admin` | Create, rename, retire and delete workspaces; set the default | Instance |
 | Integration administration | `integration-admin` | Consumer subscriptions, deliveries, webhook keys | Workspace |
 | Feed | `feed` | The workspace's change feed | Workspace |
@@ -6797,7 +6798,7 @@ PUBLICATION_CONFLICT`, `422 COMMENT_REQUIRED`, `422 APPROVAL_POLICY_INVALID`.
 ### The catalogue
 
 _Delivered by Z1 (D256)._ Each operation declares its action in the OpenAPI document, so the
-catalogue lives with the routes and `/docs` shows it: `x-action` (the action), `x-action-groups`
+catalogue lives with the routes and `/docs/api` shows it: `x-action` (the action), `x-action-groups`
 (the groups that allow it) and `x-action-scope` (where its workspace comes from).
 `GET /api/v1/action-groups` lists every group with its actions and the operations declaring them.
 The contract test refuses an operation without a declaration, an action the catalogue lacks, and
@@ -6822,7 +6823,7 @@ Where an operation's workspace comes from (`x-action-scope`):
 
 The consumer routes (`/api/consumer`) need a token with audience `consumer` and a grant of the
 consumer API in the workspace read (Z3, D306–D309); the index also takes a `management` token with
-Browse there (D266, D308). `/docs`, its script, `/openapi.json` and each consumer API's
+Browse there (D266, D308). `/docs/api`, its script, `/openapi.json` and each consumer API's
 `openapi.json` need none (D412).
 
 Subscriptions (`/consumer-subscriptions`) read `owner` (`kind`, `id`, `name`), the person or client

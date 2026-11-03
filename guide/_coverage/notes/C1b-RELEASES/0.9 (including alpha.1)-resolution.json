@@ -1,0 +1,1855 @@
+{
+  "release": "0.9 (including alpha.1)",
+  "counts": {
+    "added_promises": 20,
+    "added_rules": 8,
+    "merged": 162,
+    "superseded": 5,
+    "dropped": 32
+  },
+  "added_promises": [
+    "R073",
+    "R074",
+    "R075",
+    "R076",
+    "R077",
+    "R078",
+    "R079",
+    "R080",
+    "R081",
+    "R082",
+    "R083",
+    "R084",
+    "R085",
+    "R086",
+    "R087",
+    "R088",
+    "R089",
+    "R090",
+    "R091",
+    "R092"
+  ],
+  "added_rules": [
+    "L21",
+    "L22",
+    "L23",
+    "L24",
+    "L25",
+    "L26",
+    "L27",
+    "L28"
+  ],
+  "resolutions": [
+    {
+      "id": "CL-0.9.0-#1",
+      "disposition": "merged",
+      "targets": [
+        "J27.18",
+        "J27.19",
+        "J27.20",
+        "R085",
+        "R086"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#2",
+      "disposition": "merged",
+      "targets": [
+        "J27.15",
+        "J27.16",
+        "R085"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#3",
+      "disposition": "merged",
+      "targets": [
+        "J13.9",
+        "J03.9",
+        "J10.11"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#4",
+      "disposition": "merged",
+      "targets": [
+        "J32.7"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#5",
+      "disposition": "merged",
+      "targets": [
+        "J01.10",
+        "J32.6"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#6",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexing, code organisation, measurement or acceptance evidence; no additional reader behavior.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#7",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexing, code organisation, measurement or acceptance evidence; no additional reader behavior.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#8",
+      "disposition": "merged",
+      "targets": [
+        "R092"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#9",
+      "disposition": "merged",
+      "targets": [
+        "F03.f",
+        "J32.4"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#10",
+      "disposition": "merged",
+      "targets": [
+        "J01.8"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#11",
+      "disposition": "merged",
+      "targets": [
+        "J01.8"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#12",
+      "disposition": "merged",
+      "targets": [
+        "J01.9"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#13",
+      "disposition": "merged",
+      "targets": [
+        "J01.8",
+        "J08.12"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#14",
+      "disposition": "merged",
+      "targets": [
+        "J14.9",
+        "R065"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#15",
+      "disposition": "merged",
+      "targets": [
+        "J02.6"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#16",
+      "disposition": "merged",
+      "targets": [
+        "J11.12",
+        "J08.11"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#17",
+      "disposition": "merged",
+      "targets": [
+        "J32.4",
+        "J11.10",
+        "J11.11"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#18",
+      "disposition": "merged",
+      "targets": [
+        "J32.3",
+        "J11.6",
+        "R087"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#19",
+      "disposition": "merged",
+      "targets": [
+        "J32.2",
+        "J11.9"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#20",
+      "disposition": "merged",
+      "targets": [
+        "J32.1"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#21",
+      "disposition": "merged",
+      "targets": [
+        "J27.14",
+        "R084"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#22",
+      "disposition": "merged",
+      "targets": [
+        "J27.10",
+        "R084"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#23",
+      "disposition": "merged",
+      "targets": [
+        "J27.13",
+        "J27.11"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#24",
+      "disposition": "merged",
+      "targets": [
+        "R092",
+        "J33.13"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#25",
+      "disposition": "merged",
+      "targets": [
+        "J27.11",
+        "J27.12",
+        "R088"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#26",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexing, code organisation, measurement or acceptance evidence; no additional reader behavior.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#27",
+      "disposition": "merged",
+      "targets": [
+        "J27.7",
+        "J27.8",
+        "R032"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#28",
+      "disposition": "merged",
+      "targets": [
+        "J27.6",
+        "R030"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#29",
+      "disposition": "merged",
+      "targets": [
+        "J27.1",
+        "R031"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#30",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Starter-model release content; generic API and event capabilities are recorded separately.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#31",
+      "disposition": "merged",
+      "targets": [
+        "J30.10"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#32",
+      "disposition": "merged",
+      "targets": [
+        "J30.10",
+        "R076"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#33",
+      "disposition": "merged",
+      "targets": [
+        "J30.10"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#34",
+      "disposition": "merged",
+      "targets": [
+        "J30.6",
+        "J30.7"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#35",
+      "disposition": "merged",
+      "targets": [
+        "J28.S1",
+        "J27.S4",
+        "F19.f"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#36",
+      "disposition": "merged",
+      "targets": [
+        "F19.f",
+        "F18.c",
+        "F19.g"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#37",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexing, code organisation, measurement or acceptance evidence; no additional reader behavior.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#38",
+      "disposition": "merged",
+      "targets": [
+        "R075",
+        "R076",
+        "R077",
+        "R029"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#39",
+      "disposition": "merged",
+      "targets": [
+        "F18.a"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#40",
+      "disposition": "merged",
+      "targets": [
+        "J30.6",
+        "J30.7",
+        "R091"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#41",
+      "disposition": "merged",
+      "targets": [
+        "J30.S1",
+        "R073",
+        "R074"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#42",
+      "disposition": "merged",
+      "targets": [
+        "J30.1",
+        "R092"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#43",
+      "disposition": "merged",
+      "targets": [
+        "J23.6",
+        "J23.7",
+        "R083"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#44",
+      "disposition": "merged",
+      "targets": [
+        "J28.14"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#45",
+      "disposition": "merged",
+      "targets": [
+        "J28.S1",
+        "J28.14"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#46",
+      "disposition": "merged",
+      "targets": [
+        "J28.11",
+        "J28.12",
+        "R080"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#47",
+      "disposition": "merged",
+      "targets": [
+        "J29.S6",
+        "R078"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#48",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexing, code organisation, measurement or acceptance evidence; no additional reader behavior.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#49",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexing, code organisation, measurement or acceptance evidence; no additional reader behavior.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#50",
+      "disposition": "merged",
+      "targets": [
+        "J29.8",
+        "R079"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#51",
+      "disposition": "merged",
+      "targets": [
+        "J29.6",
+        "J29.7"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#52",
+      "disposition": "merged",
+      "targets": [
+        "J29.S1",
+        "J29.S2",
+        "R025"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#53",
+      "disposition": "merged",
+      "targets": [
+        "J29.2",
+        "J28.8"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#54",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexing, code organisation, measurement or acceptance evidence; no additional reader behavior.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#55",
+      "disposition": "merged",
+      "targets": [
+        "J28.6",
+        "J28.7",
+        "J28.8",
+        "R082"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#56",
+      "disposition": "merged",
+      "targets": [
+        "J28.S2",
+        "J28.1",
+        "R081"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#57",
+      "disposition": "merged",
+      "targets": [
+        "J26.6",
+        "R022"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#58",
+      "disposition": "merged",
+      "targets": [
+        "J26.S1",
+        "J26.2"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#59",
+      "disposition": "merged",
+      "targets": [
+        "J11.7",
+        "J10.10",
+        "R055"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Added"
+    },
+    {
+      "id": "CL-0.9.0-#60",
+      "disposition": "merged",
+      "targets": [
+        "J04.S1"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#61",
+      "disposition": "merged",
+      "targets": [
+        "R088"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#62",
+      "disposition": "merged",
+      "targets": [
+        "J30.6",
+        "R029"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#63",
+      "disposition": "merged",
+      "targets": [
+        "R027",
+        "R077"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#64",
+      "disposition": "merged",
+      "targets": [
+        "F18.c"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#65",
+      "disposition": "merged",
+      "targets": [
+        "J14.S1"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#66",
+      "disposition": "merged",
+      "targets": [
+        "F03.e"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#67",
+      "disposition": "merged",
+      "targets": [
+        "F04.a"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#68",
+      "disposition": "merged",
+      "targets": [
+        "F03.b"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#69",
+      "disposition": "merged",
+      "targets": [
+        "J02.S1"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#70",
+      "disposition": "merged",
+      "targets": [
+        "F18.c"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#71",
+      "disposition": "merged",
+      "targets": [
+        "F18.c"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#72",
+      "disposition": "merged",
+      "targets": [
+        "F19.g"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#73",
+      "disposition": "merged",
+      "targets": [
+        "F04.a"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#74",
+      "disposition": "merged",
+      "targets": [
+        "J05.S1",
+        "J07.S1"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#75",
+      "disposition": "superseded",
+      "targets": [
+        "J14.9"
+      ],
+      "reason": "UA9 replaced nested scroll groups and their wheel/glow behavior with one scrolling tree.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#76",
+      "disposition": "merged",
+      "targets": [
+        "J14.S1"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#77",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexing, code organisation, measurement or acceptance evidence; no additional reader behavior.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#78",
+      "disposition": "merged",
+      "targets": [
+        "F19.g"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#79",
+      "disposition": "merged",
+      "targets": [
+        "J10.S1",
+        "R063"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#80",
+      "disposition": "superseded",
+      "targets": [
+        "J14.9"
+      ],
+      "reason": "UA9 replaced nested scroll groups and their wheel/glow behavior with one scrolling tree.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#81",
+      "disposition": "superseded",
+      "targets": [
+        "J14.9"
+      ],
+      "reason": "UA9 replaced nested scroll groups and their wheel/glow behavior with one scrolling tree.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#82",
+      "disposition": "superseded",
+      "targets": [
+        "J14.9"
+      ],
+      "reason": "UA9 replaced nested scroll groups and their wheel/glow behavior with one scrolling tree.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#83",
+      "disposition": "merged",
+      "targets": [
+        "R028"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#84",
+      "disposition": "merged",
+      "targets": [
+        "R062"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#85",
+      "disposition": "merged",
+      "targets": [
+        "R081"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#86",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Starter-model release content; generic API and event capabilities are recorded separately.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#87",
+      "disposition": "merged",
+      "targets": [
+        "J28.S1"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#88",
+      "disposition": "merged",
+      "targets": [
+        "J28.1"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#89",
+      "disposition": "merged",
+      "targets": [
+        "F16.a"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#90",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexing, code organisation, measurement or acceptance evidence; no additional reader behavior.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#91",
+      "disposition": "merged",
+      "targets": [
+        "J11.7",
+        "J13.3"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#92",
+      "disposition": "merged",
+      "targets": [
+        "J10.9"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-#93",
+      "disposition": "merged",
+      "targets": [
+        "J01.6"
+      ],
+      "reason": "Released clauses retained on the named records, applying later amendments.",
+      "source": "CL §[0.9.0] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#1",
+      "disposition": "merged",
+      "targets": [
+        "J22.1",
+        "J22.4"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#2",
+      "disposition": "merged",
+      "targets": [
+        "J22.2",
+        "R057"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#3",
+      "disposition": "merged",
+      "targets": [
+        "J22.S2",
+        "J22.S3"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#4",
+      "disposition": "merged",
+      "targets": [
+        "R092",
+        "J33.13"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#5",
+      "disposition": "merged",
+      "targets": [
+        "J23.S1",
+        "R013",
+        "R014",
+        "R015"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#6",
+      "disposition": "merged",
+      "targets": [
+        "F16.a"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#7",
+      "disposition": "merged",
+      "targets": [
+        "J11.S1",
+        "R016",
+        "R017",
+        "R018"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#8",
+      "disposition": "merged",
+      "targets": [
+        "J11.S3",
+        "R019",
+        "R020"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#9",
+      "disposition": "merged",
+      "targets": [
+        "F19.a"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#10",
+      "disposition": "merged",
+      "targets": [
+        "R089"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#11",
+      "disposition": "merged",
+      "targets": [
+        "J05.7"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#12",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test harness, internal implementation, performance measurement or release tagging.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#13",
+      "disposition": "merged",
+      "targets": [
+        "J21.8"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#14",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test harness, internal implementation, performance measurement or release tagging.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#15",
+      "disposition": "merged",
+      "targets": [
+        "J02.5"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#16",
+      "disposition": "merged",
+      "targets": [
+        "J13.S2"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#17",
+      "disposition": "merged",
+      "targets": [
+        "F19.a"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#18",
+      "disposition": "merged",
+      "targets": [
+        "J02.2"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#19",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test harness, internal implementation, performance measurement or release tagging.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#20",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test harness, internal implementation, performance measurement or release tagging.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#21",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test harness, internal implementation, performance measurement or release tagging.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#22",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test harness, internal implementation, performance measurement or release tagging.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#23",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test harness, internal implementation, performance measurement or release tagging.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#24",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test harness, internal implementation, performance measurement or release tagging.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#25",
+      "disposition": "merged",
+      "targets": [
+        "F03.a"
+      ],
+      "reason": "Current public rule retained independently of implementation history.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#26",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test harness, internal implementation, performance measurement or release tagging.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "CL-0.9.0-alpha.1-#27",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test harness, internal implementation, performance measurement or release tagging.",
+      "source": "CL §[0.9.0-alpha.1] Changed"
+    },
+    {
+      "id": "PL-C-D22",
+      "disposition": "merged",
+      "targets": [
+        "R081"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D22"
+    },
+    {
+      "id": "PL-C-D24",
+      "disposition": "merged",
+      "targets": [
+        "J28.1"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D24"
+    },
+    {
+      "id": "PL-C-D25",
+      "disposition": "merged",
+      "targets": [
+        "F16.a"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D25"
+    },
+    {
+      "id": "PL-C-D28",
+      "disposition": "merged",
+      "targets": [
+        "J28.7"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D28"
+    },
+    {
+      "id": "PL-C-D30",
+      "disposition": "merged",
+      "targets": [
+        "J28.6",
+        "R082"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D30"
+    },
+    {
+      "id": "PL-C-D31",
+      "disposition": "merged",
+      "targets": [
+        "J28.9"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D31"
+    },
+    {
+      "id": "PL-C-D32",
+      "disposition": "merged",
+      "targets": [
+        "J28.8"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D32"
+    },
+    {
+      "id": "PL-C-D34",
+      "disposition": "merged",
+      "targets": [
+        "J29.S2"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D34"
+    },
+    {
+      "id": "PL-C-D37",
+      "disposition": "merged",
+      "targets": [
+        "R024",
+        "R025"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D37"
+    },
+    {
+      "id": "PL-C-D39",
+      "disposition": "merged",
+      "targets": [
+        "J29.4"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D39"
+    },
+    {
+      "id": "PL-C-D44",
+      "disposition": "merged",
+      "targets": [
+        "R025"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D44"
+    },
+    {
+      "id": "PL-C-D45",
+      "disposition": "merged",
+      "targets": [
+        "J29.7"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D45"
+    },
+    {
+      "id": "PL-C-D47",
+      "disposition": "merged",
+      "targets": [
+        "R079"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D47"
+    },
+    {
+      "id": "PL-C-D48",
+      "disposition": "merged",
+      "targets": [
+        "R079"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D48"
+    },
+    {
+      "id": "PL-C-D49",
+      "disposition": "merged",
+      "targets": [
+        "R079"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D49"
+    },
+    {
+      "id": "PL-C-D50",
+      "disposition": "merged",
+      "targets": [
+        "J29.10"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D50"
+    },
+    {
+      "id": "PL-C-D52",
+      "disposition": "merged",
+      "targets": [
+        "J29.16",
+        "R025"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D52"
+    },
+    {
+      "id": "PL-C-D53",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D53"
+    },
+    {
+      "id": "PL-C-D54",
+      "disposition": "merged",
+      "targets": [
+        "R078"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D54"
+    },
+    {
+      "id": "PL-C-D55",
+      "disposition": "merged",
+      "targets": [
+        "J29.11",
+        "R078"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D55"
+    },
+    {
+      "id": "PL-C-D56",
+      "disposition": "merged",
+      "targets": [
+        "J29.14"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D56"
+    },
+    {
+      "id": "PL-C-D57",
+      "disposition": "merged",
+      "targets": [
+        "J29.14"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D57"
+    },
+    {
+      "id": "PL-C-D58",
+      "disposition": "merged",
+      "targets": [
+        "R092"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D58"
+    },
+    {
+      "id": "PL-C-D59",
+      "disposition": "merged",
+      "targets": [
+        "J28.4"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D59"
+    },
+    {
+      "id": "PL-C-D60",
+      "disposition": "merged",
+      "targets": [
+        "R080"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D60"
+    },
+    {
+      "id": "PL-C-D61",
+      "disposition": "merged",
+      "targets": [
+        "R080"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D61"
+    },
+    {
+      "id": "PL-C-D62",
+      "disposition": "merged",
+      "targets": [
+        "R080"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D62"
+    },
+    {
+      "id": "PL-C-D63",
+      "disposition": "merged",
+      "targets": [
+        "J28.11"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D63"
+    },
+    {
+      "id": "PL-C-D64",
+      "disposition": "merged",
+      "targets": [
+        "R023"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D64"
+    },
+    {
+      "id": "PL-C-D65",
+      "disposition": "merged",
+      "targets": [
+        "J28.14"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D65"
+    },
+    {
+      "id": "PL-C-D67",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D67"
+    },
+    {
+      "id": "PL-C-D68",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D68"
+    },
+    {
+      "id": "PL-C-D69",
+      "disposition": "merged",
+      "targets": [
+        "J28.S1"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D69"
+    },
+    {
+      "id": "PL-C-D70",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D70"
+    },
+    {
+      "id": "PL-C-D71",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D71"
+    },
+    {
+      "id": "PL-C-D72",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D72"
+    },
+    {
+      "id": "PL-C-D73",
+      "disposition": "merged",
+      "targets": [
+        "R081"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D73"
+    },
+    {
+      "id": "PL-C-D74",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D74"
+    },
+    {
+      "id": "PL-C-D75",
+      "disposition": "merged",
+      "targets": [
+        "R081"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D75"
+    },
+    {
+      "id": "PL-C-D76",
+      "disposition": "merged",
+      "targets": [
+        "R083"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D76"
+    },
+    {
+      "id": "PL-C-D77",
+      "disposition": "merged",
+      "targets": [
+        "R083"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D77"
+    },
+    {
+      "id": "PL-C-D78",
+      "disposition": "merged",
+      "targets": [
+        "J23.7"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D78"
+    },
+    {
+      "id": "PL-C-D79",
+      "disposition": "merged",
+      "targets": [
+        "J23.8"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D79"
+    },
+    {
+      "id": "PL-C-D80",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D80"
+    },
+    {
+      "id": "PL-C-D81",
+      "disposition": "merged",
+      "targets": [
+        "J30.1"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D81"
+    },
+    {
+      "id": "PL-C-D82",
+      "disposition": "merged",
+      "targets": [
+        "J30.2",
+        "R073"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D82"
+    },
+    {
+      "id": "PL-C-D84",
+      "disposition": "merged",
+      "targets": [
+        "J30.1"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D84"
+    },
+    {
+      "id": "PL-C-D85",
+      "disposition": "merged",
+      "targets": [
+        "R092"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D85"
+    },
+    {
+      "id": "PL-C-D86",
+      "disposition": "merged",
+      "targets": [
+        "J28.4"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D86"
+    },
+    {
+      "id": "PL-C-D87",
+      "disposition": "merged",
+      "targets": [
+        "R073"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D87"
+    },
+    {
+      "id": "PL-C-D88",
+      "disposition": "merged",
+      "targets": [
+        "J30.S1"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D88"
+    },
+    {
+      "id": "PL-C-D89",
+      "disposition": "merged",
+      "targets": [
+        "R073"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D89"
+    },
+    {
+      "id": "PL-C-D90",
+      "disposition": "merged",
+      "targets": [
+        "R074"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D90"
+    },
+    {
+      "id": "PL-C-D91",
+      "disposition": "merged",
+      "targets": [
+        "R082",
+        "J30.S3"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D91"
+    },
+    {
+      "id": "PL-C-D96",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "0.12 I1 replaced the webhook-specific encryption setting with SECRETS_ENCRYPTION_KEY.",
+      "source": "PL §0.9 plan C-D96"
+    },
+    {
+      "id": "PL-C-D97",
+      "disposition": "merged",
+      "targets": [
+        "R026"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D97"
+    },
+    {
+      "id": "PL-C-D98",
+      "disposition": "merged",
+      "targets": [
+        "J30.7"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D98"
+    },
+    {
+      "id": "PL-C-D99",
+      "disposition": "merged",
+      "targets": [
+        "J30.7"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D99"
+    },
+    {
+      "id": "PL-C-D100",
+      "disposition": "merged",
+      "targets": [
+        "J30.9"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D100"
+    },
+    {
+      "id": "PL-C-D101",
+      "disposition": "merged",
+      "targets": [
+        "R027"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D101"
+    },
+    {
+      "id": "PL-C-D102",
+      "disposition": "merged",
+      "targets": [
+        "R091"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D102"
+    },
+    {
+      "id": "PL-C-D103",
+      "disposition": "merged",
+      "targets": [
+        "R075"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D103"
+    },
+    {
+      "id": "PL-C-D104",
+      "disposition": "merged",
+      "targets": [
+        "R029"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D104"
+    },
+    {
+      "id": "PL-C-D106",
+      "disposition": "merged",
+      "targets": [
+        "J30.8"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D106"
+    },
+    {
+      "id": "PL-C-D107",
+      "disposition": "merged",
+      "targets": [
+        "R077"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D107"
+    },
+    {
+      "id": "PL-C-D108",
+      "disposition": "merged",
+      "targets": [
+        "J30.9"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D108"
+    },
+    {
+      "id": "PL-C-D109",
+      "disposition": "merged",
+      "targets": [
+        "J30.9",
+        "R074"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D109"
+    },
+    {
+      "id": "PL-C-D110",
+      "disposition": "merged",
+      "targets": [
+        "R028"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D110"
+    },
+    {
+      "id": "PL-C-D111",
+      "disposition": "merged",
+      "targets": [
+        "R076"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D111"
+    },
+    {
+      "id": "PL-C-D112",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D112"
+    },
+    {
+      "id": "PL-C-D113",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D113"
+    },
+    {
+      "id": "PL-C-D114",
+      "disposition": "merged",
+      "targets": [
+        "R074"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D114"
+    },
+    {
+      "id": "PL-C-D120",
+      "disposition": "merged",
+      "targets": [
+        "R029"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D120"
+    },
+    {
+      "id": "PL-C-D121",
+      "disposition": "merged",
+      "targets": [
+        "R029"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D121"
+    },
+    {
+      "id": "PL-C-D122",
+      "disposition": "merged",
+      "targets": [
+        "J30.6"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D122"
+    },
+    {
+      "id": "PL-C-D123",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal implementation, budget, fixture, migration detail or package sequencing.",
+      "source": "PL §0.9 plan C-D123"
+    },
+    {
+      "id": "PL-C-D126",
+      "disposition": "merged",
+      "targets": [
+        "J30.6"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D126"
+    },
+    {
+      "id": "PL-C-D127",
+      "disposition": "merged",
+      "targets": [
+        "J30.S1"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D127"
+    },
+    {
+      "id": "PL-C-D128",
+      "disposition": "merged",
+      "targets": [
+        "J30.8"
+      ],
+      "reason": "Decision reconciled with its delivered rule and subsequent amendments.",
+      "source": "PL §0.9 plan C-D128"
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 // other keys, types and version that this runner adds to the model. Each Integration page opened
 // from the settings navigation (the rail, or the drawer at 390px); each API's base URL, read from the
 // page, answering on the consumer API, and its routes as its document states them; a route's link
-// opening /docs on that operation; the starter's XREF finding a record; a background batch submitted through the API listed
+// opening /docs/api on that operation; the starter's XREF finding a record; a background batch submitted through the API listed
 // on Jobs and cancelled there by keyboard, the API then reporting it cancelled; the API
 // reference page's sources; axe on the three pages; screenshots light and dark.
 import { writeFile } from "node:fs/promises";
@@ -125,7 +125,7 @@ try {
     .getByRole("link", { name: "Batch resolve" });
   const href = await reference.getAttribute("href");
   expect(
-    href === `${apiUrl}/docs#consumer-systems-feed-v3/POST/api/consumer/systems-feed/v3/resolve`,
+    href === `${apiUrl}/docs/api#consumer-systems-feed-v3/POST/api/consumer/systems-feed/v3/resolve`,
     `operation link ${href}`,
   );
   await reference.click();
@@ -195,10 +195,10 @@ try {
   expect(JSON.stringify(heads) === JSON.stringify(["Management API", "RDM API", "Systems feed"]), `sources ${heads}`);
   expect(
     (await sources.getByRole("link", { name: "Systems feed" }).getAttribute("href")) ===
-      `${apiUrl}/docs?api=consumer-systems-feed-v3`,
+      `${apiUrl}/docs/api?api=consumer-systems-feed-v3`,
     "Systems feed source link",
   );
-  checks.push(`API reference lists ${heads.join(", ")}, each linked to its /docs source`);
+  checks.push(`API reference lists ${heads.join(", ")}, each linked to its /docs/api source`);
 
   // 5. Axe on the three pages, light and dark; dark screenshots.
   for (const theme of ["light", "dark"]) {

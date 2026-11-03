@@ -1,0 +1,1614 @@
+{
+  "wave": "C10",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "appearance-display-choices",
+      "shows": "Settings › Appearance, Display: Theme, Table density, Type colours and Edit pencil with every choice visible. Read only; no preference changed.",
+      "actions": [
+        {
+          "goto": "/settings/appearance"
+        },
+        {
+          "waitFor": {
+            "text": "Edit pencil",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Appearance",
+        "Display",
+        "Theme",
+        "System",
+        "Light",
+        "Dark",
+        "Table density",
+        "Comfortable",
+        "Compact",
+        "Type colours",
+        "B: magenta and olive",
+        "A: plum and gold",
+        "Edit pencil",
+        "On hover and focus",
+        "Always, faintly"
+      ],
+      "height": 1050
+    },
+    {
+      "name": "phone-navigation-drawer",
+      "shows": "390px Application navigation drawer with collections and Browse records search. The drawer fills the viewport; workspace and data-context bands are not visible.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Stops",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Browse application",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "Application navigation",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Application navigation",
+        "Stops",
+        "Municipalities"
+      ],
+      "width": 390,
+      "height": 844,
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "run-deployment",
+      "shows": "Read-only Deployment: capability groups and their effective switches/limits at the top. A tall viewport includes Database and the first Runtime settings; secrets remain masked by the application.",
+      "actions": [
+        {
+          "goto": "/settings/deployment"
+        },
+        {
+          "waitFor": {
+            "text": "Capability groups",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Deployment",
+        "Capability groups",
+        "Model administration",
+        "Database",
+        "Migration revision",
+        "Runtime"
+      ],
+      "height": 2100
+    },
+    {
+      "name": "run-operations",
+      "shows": "Read-only Operations: summary, workspace readiness and engine processes including worker health and database connection use. No failures are manufactured.",
+      "actions": [
+        {
+          "goto": "/settings/operations"
+        },
+        {
+          "waitFor": {
+            "text": "Engine processes",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Operations",
+        "Refresh",
+        "Workspaces",
+        "Served",
+        "Engine processes",
+        "Background threads",
+        "Database connections"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "run-backup-rehearsal",
+      "shows": "Operations, Last backup rehearsal: the actual reference instance has no recorded rehearsal. Show No backup has been rehearsed and How to rehearse a restore; do not create a rehearsal for a screenshot.",
+      "actions": [
+        {
+          "goto": "/settings/operations"
+        },
+        {
+          "waitFor": {
+            "text": "Last backup rehearsal",
+            "exact": true
+          }
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "Last backup rehearsal",
+            "exact": true
+          },
+          "offset": 90
+        }
+      ],
+      "expect": [
+        "Last backup rehearsal",
+        "No backup has been rehearsed",
+        "How to rehearse a restore"
+      ],
+      "height": 1100
+    },
+    {
+      "name": "list-position-and-seek",
+      "shows": "Stops at page 3 of a 25-row page size: range and total, Page, Go to Name, and start/end controls. No data change.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "label": "Page"
+          }
+        },
+        {
+          "fill": {
+            "label": "Page"
+          },
+          "value": "3"
+        },
+        {
+          "press": "Enter"
+        },
+        {
+          "wait": 1600
+        },
+        {
+          "waitFor": {
+            "css": "input[aria-label^=\"Go to \"]"
+          }
+        }
+      ],
+      "expect": [
+        "Stops",
+        "Page"
+      ],
+      "height": 1000
+    },
+    {
+      "name": "bulk-selection-preview",
+      "shows": "Two Chur stops selected behind Change values. Height (m) set to 600 in the unsaved form; Preview shows Would change, Already as asked and Would be refused counts, with Apply. Preview only, then cancelled. Counts may be zero.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur"
+        },
+        {
+          "waitFor": {
+            "role": "checkbox",
+            "name": "Select Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "check": {
+            "role": "checkbox",
+            "name": "Select Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "check": {
+            "role": "checkbox",
+            "name": "Select Chur West",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Change values",
+            "exact": true,
+            "in": {
+              "role": "group",
+              "name": "Selection"
+            }
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Change a field",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": ".filter-menu-item:has(.filter-menu-label:text-is(\"Height (m)\"))"
+          }
+        },
+        {
+          "fill": {
+            "label": "Height (m)",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "600"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Preview",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Would change",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Change values",
+        "The preview",
+        "Would change",
+        "Already as asked",
+        "Would be refused",
+        "Apply"
+      ],
+      "height": 1200,
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "bulk-delete-impact",
+      "shows": "Two selected Chur stops in the Delete preview: dependent records by type, removed relationships, whole deletion count on the danger button. Never apply deletion; cancel the preview. The preview footer offers Back and Delete 2 records; Escape closes and cancels the waiting preview without deletion.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur"
+        },
+        {
+          "waitFor": {
+            "role": "checkbox",
+            "name": "Select Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "check": {
+            "role": "checkbox",
+            "name": "Select Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "check": {
+            "role": "checkbox",
+            "name": "Select Chur West",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Delete",
+            "exact": true,
+            "in": {
+              "role": "group",
+              "name": "Selection"
+            }
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Preview",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        },
+        {
+          "waitFor": {
+            "text": "What deleting removes",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Delete",
+        "The preview",
+        "What deleting removes",
+        "Relationships removed",
+        "Delete 2 records"
+      ],
+      "height": 1300,
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "export-for-people",
+      "shows": "For people export from the Stops collection filtered to Height ≥ 1000. Show the filter scope, Kind of file and expanded Advanced columns and sheets. Cancel; no export job starts. Click the visible choice label; its radio input has pointer-events: none.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&filter.height.gte=1000"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Stops",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Workspace actions",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Export…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "Export",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"dialog\"] .theme-choice label:has-text(\"For people\")"
+          }
+        },
+        {
+          "click": {
+            "text": "Advanced: columns and sheets",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Export",
+        "Kind of file",
+        "For people",
+        "page's filter",
+        "Advanced: columns and sheets",
+        "Start export"
+      ],
+      "height": 1600,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "workbook-columns-per-parent",
+      "shows": "For people export, Advanced: Name translations laid out as Columns per parent with fields and an additional parent Romansh selected locally. Cancel; no export starts and no model/data changes. Click the visible choice label; its radio input has pointer-events: none.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&filter.height.gte=1000"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Stops",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Workspace actions",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Export…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "Export",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"dialog\"] .theme-choice label:has-text(\"For people\")"
+          }
+        },
+        {
+          "click": {
+            "text": "Advanced: columns and sheets",
+            "exact": true
+          }
+        },
+        {
+          "check": {
+            "role": "checkbox",
+            "name": "Has name translation",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"dialog\"] .theme-choice label:has-text(\"Columns per parent\")"
+          }
+        },
+        {
+          "fill": {
+            "role": "combobox",
+            "name": "Search: More columns for these Languages",
+            "exact": true
+          },
+          "value": "Romansh"
+        },
+        {
+          "waitFor": {
+            "role": "option",
+            "name": "Romansh"
+          }
+        },
+        {
+          "click": {
+            "role": "option",
+            "name": "Romansh"
+          }
+        },
+        {
+          "scrollTo": {
+            "text": "Has name translation: layout",
+            "exact": true
+          },
+          "offset": 180
+        }
+      ],
+      "expect": [
+        "Columns per parent",
+        "More columns for these Languages",
+        "Romansh",
+        "Has name translation: fields per parent",
+        "Translated name",
+        "Active"
+      ],
+      "height": 1200,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "new-record-required-connections",
+      "shows": "New Name translation form in Names: required Parent language and Translates relationship, Name, Translated name and Active. Empty form with creation context; cancel without typing or creating.",
+      "actions": [
+        {
+          "goto": "/apps/names/views/translations?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Add Name translation",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "New Name translation",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "New Name translation",
+        "Create in context",
+        "Parent",
+        "Translates",
+        "Name",
+        "Translated name",
+        "Active",
+        "Create"
+      ],
+      "height": 1300,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "replace-related-records",
+      "shows": "Modes relationship set of Chur Wiesental: existing Train ticked and counted, candidate Tram matched by a search for Tr. No checkboxes changed, so Save is disabled; cancel. Search retains Train because it matches Tr. Select the row first so keyboard focus keeps its edit controls mounted; selection is browser state only. Reset display restores the relationship column; a wider viewport keeps it in view. Clicking the row checkbox explicitly gives it focus even if already selected. No relationship is changed.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Chur+Wiesental"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Display",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Reset display",
+            "exact": true
+          }
+        },
+        {
+          "press": "Escape"
+        },
+        {
+          "waitFor": {
+            "role": "checkbox",
+            "name": "Select Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "check": {
+            "role": "checkbox",
+            "name": "Select Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": {
+            "role": "checkbox",
+            "name": "Select Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "wait": 900
+        },
+        {
+          "hover": {
+            "css": "tr:has(input[aria-label=\"Select Chur Wiesental\"]) td:has-text(\"Train\")"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Edit Served by mode of Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "Served by mode",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "role": "searchbox",
+            "name": "Search served by mode",
+            "exact": true
+          },
+          "value": "Tr"
+        },
+        {
+          "waitFor": {
+            "role": "checkbox",
+            "name": "Tram",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Related records of Chur Wiesental",
+        "Served by mode",
+        "Train",
+        "Tram",
+        "Save",
+        "1 selected"
+      ],
+      "height": 1000,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ],
+      "width": 1800
+    },
+    {
+      "name": "model-workbook-map-column",
+      "shows": "Existing workbook draft Haltestellen Busbetrieb Nord, Haltestellen sheet, UIC-Nr column: Map to… open with source statistics, row type, What the column holds and destination choices. Cancel; do not map or save.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/5ff78a6f-4353-4a3d-8929-47f6bb14b5c7/editor?show=column&sheet=Haltestellen&key=UIC-Nr"
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Map to…",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Map to…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        }
+      ],
+      "expect": [
+        "Map column “UIC-Nr” to…",
+        "Each row of Haltestellen is a record of",
+        "What the column holds",
+        "Cancel"
+      ],
+      "height": 1150,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-workbook-value-map",
+      "shows": "Existing workbook draft, Barrierefrei J/N column: value map open, unsaved J → true example, row remove control and Save the value map. Cancel; no map step is saved.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/5ff78a6f-4353-4a3d-8929-47f6bb14b5c7/editor?show=column&sheet=Haltestellen&key=Barrierefrei%20J%2FN"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Barrierefrei J/N",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "button:has-text(\"Add a value map…\"), button:has-text(\"Edit value map…\")"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "fill": {
+            "label": "Text 1",
+            "exact": true
+          },
+          "value": "J"
+        },
+        {
+          "fill": {
+            "label": "Becomes 1",
+            "exact": true
+          },
+          "value": "true"
+        }
+      ],
+      "expect": [
+        "Value map of “Barrierefrei J/N”",
+        "Text in the file",
+        "Becomes",
+        "Save the value map",
+        "Cancel"
+      ],
+      "height": 950,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-workbook-list-range",
+      "shows": "Existing workbook draft, first detected list on the Lokale Codes sheet, with shaded cells, Under, Cells, Note, Loads, Adjust list… and Don’t load this list. Requires the saved inference to load this block; never press the drop action.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/5ff78a6f-4353-4a3d-8929-47f6bb14b5c7/editor?show=list&sheet=Lokale%20Codes&block=0"
+        },
+        {
+          "waitFor": {
+            "text": "Adjust list…",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Under",
+        "Cells",
+        "Note",
+        "Loads",
+        "Adjust list…",
+        "Don't load this list"
+      ],
+      "height": 1150
+    },
+    {
+      "name": "c10-setup-hierarchy-change-set",
+      "shows": "SETUP ALREADY COMPLETED: read/reopen the named C10 hierarchy screenshot preparation change set created in the first capture. Do not create a duplicate. Its ID was not shown in the supplied evidence; use its exact named card.",
+      "actions": [
+        {
+          "goto": "/apps/network/change-sets?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Open change set",
+            "exact": true,
+            "in": {
+              "css": ".change-set-card:has-text(\"C10 hierarchy screenshot preparation\")"
+            }
+          }
+        },
+        {
+          "waitFor": {
+            "text": "C10 hierarchy screenshot preparation",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "C10 hierarchy screenshot preparation",
+        "Validate change set"
+      ]
+    },
+    {
+      "name": "hierarchy-restructure-plan",
+      "shows": "Insert a Mode level above Road in the dedicated C10 change set: Type of the new level, name, plan counts and the By record tab; missing Mode code input is shown if required. Nothing applied. This preview demonstrates insertion, not a type conversion; values without a place may be zero. Open the node’s Actions (Shift+F10) trigger; right-clicking the row alone does not open TreeView’s action menu.",
+      "actions": [
+        {
+          "goto": "/apps/network/change-sets?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Open change set",
+            "exact": true,
+            "in": {
+              "css": ".change-set-card:has-text(\"C10 hierarchy screenshot preparation\")"
+            }
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Modes",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "css": "li[aria-label^=\"Road\"]"
+          }
+        },
+        {
+          "hover": {
+            "css": "li[aria-label^=\"Road\"] > .tree-row"
+          }
+        },
+        {
+          "click": {
+            "css": "li[aria-label^=\"Road\"] > .tree-row .tree-menu-trigger"
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Insert level above…",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Name of the new level"
+          },
+          "value": "Transport groups (preview only)"
+        },
+        {
+          "waitFor": {
+            "role": "region",
+            "name": "Records in the plan",
+            "exact": true
+          }
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "expect": [
+        "Restructure",
+        "Type of the new level",
+        "Name of the new level",
+        "Apply to the change set",
+        "By record"
+      ],
+      "height": 1400,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "c10-setup-export",
+      "shows": "SETUP ALREADY COMPLETED: read Jobs containing retained export 5260ae89-af23-47ce-bec1-b287fed4fc5d. Do not start another export. First capture produced 1,657 Stops in a technical XLSX file.",
+      "actions": [
+        {
+          "goto": "/settings/jobs"
+        },
+        {
+          "waitFor": {
+            "css": "a[href=\"/settings/jobs/5260ae89-af23-47ce-bec1-b287fed4fc5d\"]"
+          }
+        }
+      ],
+      "expect": [
+        "Jobs",
+        "Export",
+        "Requested by"
+      ]
+    },
+    {
+      "name": "job-results-and-file",
+      "shows": "Completed export 5260ae89-af23-47ce-bec1-b287fed4fc5d from the first setup run: 1,657 Stops, state, requester, retention, size, checksum and Download. Table accessible name is checked with waitFor, not as visible text. No download. Requires the retained job to exist.",
+      "actions": [
+        {
+          "goto": "/settings/jobs/5260ae89-af23-47ce-bec1-b287fed4fc5d"
+        },
+        {
+          "waitFor": {
+            "text": "Checksum (SHA-256)",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "group",
+            "name": "Exported records and relationships",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Export",
+        "Completed",
+        "Requested by",
+        "Kept until",
+        "The file",
+        "Checksum (SHA-256)",
+        "Download",
+        "Type",
+        "Count",
+        "1,657",
+        "Size"
+      ],
+      "height": 1350
+    },
+    {
+      "name": "c10-setup-next-workbook",
+      "shows": "SETUP ALREADY COMPLETED: read existing Haltestellen next-version check. No further upload. The prepared workbook was uploaded in the first capture and left the profile Needs a fix with three differences.",
+      "actions": [
+        {
+          "goto": "/settings/import-profiles"
+        },
+        {
+          "click": {
+            "css": "nav[aria-label=\"Import profiles\"] button:has-text(\"Haltestellen\")"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Upload the next version…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Nothing has been written.",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Import profiles",
+        "Haltestellen_Busbetrieb_Nord_next.xlsx",
+        "Nothing has been written."
+      ],
+      "height": 1400
+    },
+    {
+      "name": "import-profile-next-version",
+      "shows": "Existing Haltestellen profile after next-version check: Capture note is New, UIC-Nr → UIC number is Renamed, with Ignore and Accept buttons. Needs a fix and a disabled Load into a change set… are expected; no correction or load is saved.",
+      "actions": [
+        {
+          "goto": "/settings/import-profiles"
+        },
+        {
+          "click": {
+            "css": "nav[aria-label=\"Import profiles\"] button:has-text(\"Haltestellen\")"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Upload the next version…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Nothing has been written.",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Accept",
+        "Ignore",
+        "When loading",
+        "Load into a change set…",
+        "UIC number",
+        "Capture note"
+      ],
+      "height": 2000
+    },
+    {
+      "name": "model-migration-review",
+      "shows": "Preview only: Graubünden to the already installed RDM Starter Model 0.10.0. This deliberately incompatible target shows missing types, Became / Not kept choices and Converted / Type changed / Removed / Must be fixed outcomes. Cancel the preview job. If consumer-contract checks block preview, stop and report; never activate or migrate. Retake at 2700px height: the first capture was mostly blank because 8500px was excessive. The preview has 3 Must be fixed items; no migration is confirmed.",
+      "actions": [
+        {
+          "goto": "/settings/model/models/rdm-starter?tab=releases"
+        },
+        {
+          "click": {
+            "css": "[role=\"tab\"]:has-text(\"Releases\")"
+          }
+        },
+        {
+          "click": {
+            "role": "link",
+            "name": "RDM Starter Model 0.10.0",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Immutable release",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Activate in a workspace…",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"dialog\"] .selection-trigger"
+          }
+        },
+        {
+          "click": {
+            "role": "option",
+            "name": "Graubünden",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Preview the migration…",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Preview the migration…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "What the migration does",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Nothing has changed yet.",
+        "Not kept",
+        "Became",
+        "Converted",
+        "Type changed",
+        "Removed",
+        "Must be fixed"
+      ],
+      "height": 2700,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-migration-loss-confirm",
+      "shows": "Blocked migration preview with Removed selected: removal rows, 3 items must be fixed first, Cancel and disabled Migrate Graubünden to 0.10.0. The acceptance checkbox is intentionally absent while refusals remain. No confirmation or data fix. Existing filename retained; page caption is corrected to the actual state.",
+      "actions": [
+        {
+          "goto": "/settings/model/models/rdm-starter?tab=releases"
+        },
+        {
+          "click": {
+            "css": "[role=\"tab\"]:has-text(\"Releases\")"
+          }
+        },
+        {
+          "click": {
+            "role": "link",
+            "name": "RDM Starter Model 0.10.0",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Immutable release",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Activate in a workspace…",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"dialog\"] .selection-trigger"
+          }
+        },
+        {
+          "click": {
+            "role": "option",
+            "name": "Graubünden",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Preview the migration…",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Preview the migration…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "What the migration does",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Removed",
+            "exact": false
+          }
+        },
+        {
+          "scrollTo": {
+            "css": ".migration-bar"
+          },
+          "offset": 650
+        }
+      ],
+      "expect": [
+        "Removed",
+        "3 items must be fixed first.",
+        "Migrate Graubünden to 0.10.0",
+        "Cancel"
+      ],
+      "height": 1100,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-consumer-active-documents",
+      "shows": "Read-only Settings › Consumer APIs: active/default model release, Stops API contract version, Base URL, OpenAPI document and Route / What it does table. This settings page reads the default consumer index rather than a workspace-scoped index. If the default release has no Stops API, report that limitation; do not change the default or activate a release.",
+      "actions": [
+        {
+          "goto": "/settings/consumer-apis"
+        },
+        {
+          "waitFor": {
+            "text": "Open the release",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Consumer APIs",
+        "Stops API",
+        "Base URL",
+        "OpenAPI document",
+        "Route",
+        "What it does"
+      ],
+      "height": 1400
+    },
+    {
+      "name": "admin-api-reference",
+      "shows": "Settings Integration > API reference: Sources lists Management API and Stops API with versions and OpenAPI document links. Read only.",
+      "actions": [
+        {
+          "goto": "/settings/api-reference"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Sources",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Stops API",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Sources",
+        "Management API",
+        "Stops API",
+        "OpenAPI document"
+      ],
+      "height": 1100
+    },
+    {
+      "name": "admin-consumer-apis",
+      "shows": "Active reference release and Stops API v1, Base URL and OpenAPI document copy controls, operation descriptions and Change feed retention. Read only.",
+      "actions": [
+        {
+          "goto": "/settings/consumer-apis"
+        },
+        {
+          "waitFor": {
+            "text": "Stops API · v1",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Stops API",
+        "Base URL",
+        "OpenAPI document",
+        "Change feed"
+      ],
+      "height": 1800
+    },
+    {
+      "name": "admin-about",
+      "shows": "About scrolled to Engine and Active model release, including reference-model name/version and Open release. Read only.",
+      "actions": [
+        {
+          "goto": "/settings/about"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Engine",
+            "exact": true
+          }
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "Engine",
+            "exact": true
+          },
+          "offset": 90
+        }
+      ],
+      "expect": [
+        "Engine version",
+        "Management API",
+        "Schema languages",
+        "Active model release",
+        "Open release"
+      ],
+      "height": 1100
+    },
+    {
+      "name": "admin-grant-consumer-api",
+      "shows": "Existing Stops reader (guide) client: cancelled Grant dialog on Consumer APIs, API/workspace grid and already granted Graubünden cell. No grant submitted; requested newly selected cell/permission sentence needs another eligible ungranted workspace and is not assumed.",
+      "actions": [
+        {
+          "goto": "/settings/clients/06feff4d-f45b-4fa8-9b7a-3569aff407c5"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Access",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Grant",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "Grant Stops reader (guide) access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Tick what they may read",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "Consumer APIs",
+        "Stops API",
+        "Graubünden",
+        "Ticked and grey is already granted."
+      ],
+      "height": 1200,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-grant-narrowed",
+      "shows": "Rita Approver: cancelled Grant dialog for Data steward in Graubünden only, narrowed to Stop. Shows reading is never narrowed and permission sentence. Does not change her existing Data owner grant.",
+      "actions": [
+        {
+          "goto": "/settings/people/e63f4689-4c63-4628-a5a5-ec63f4570d68"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Roles",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Grant",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "Grant Rita Approver access",
+            "exact": true
+          }
+        },
+        {
+          "check": {
+            "role": "checkbox",
+            "name": "Data steward",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Add workspace",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Clear",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "option",
+            "name": "Graubünden",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Done",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "text": "Only these applications and record types",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Add",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "option",
+            "name": "Stop",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Done",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Data steward",
+        "Graubünden",
+        "Only these applications and record types",
+        "Stop",
+        "Reading is never narrowed"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-webhook-new",
+      "shows": "Reference Webhooks page with Webhooks are off in this deployment and Open Deployment. The recipe name is retained, but no New webhook dialog can be opened while the deployment capability is off. Read only; no setting or receiver changed. Source/configuration inference awaits external capture.",
+      "actions": [
+        {
+          "goto": "/settings/webhooks"
+        },
+        {
+          "waitFor": {
+            "text": "Webhooks are off in this deployment.",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Open Deployment",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Webhooks",
+        "Webhooks are off in this deployment.",
+        "Open Deployment"
+      ],
+      "height": 1100
+    },
+    {
+      "name": "admin-mail-settings",
+      "shows": "Actual unconfigured Mail page: empty Mail server form, Application address and disabled Test message. No server saved, no test sent; this replaces the unavailable successful-test request. Capture review must confirm the unconfigured state.",
+      "height": 1400,
+      "actions": [
+        {
+          "goto": "/settings/mail"
+        },
+        {
+          "waitFor": {
+            "text": "Mail is not set up",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Mail is not set up",
+        "Mail server",
+        "Server",
+        "Application address",
+        "Test message"
+      ]
+    },
+    {
+      "name": "admin-mail-messages",
+      "shows": "Mail Messages section filtered to Waiting with its actual empty state and state counts. Select the first option after All with the keyboard; do not hardcode its count or match a label containing all the options. No messages generated, sent or stopped.",
+      "height": 1000,
+      "actions": [
+        {
+          "goto": "/settings/mail"
+        },
+        {
+          "waitFor": {
+            "text": "Mail is not set up",
+            "exact": true
+          }
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "Messages",
+            "exact": true
+          },
+          "offset": 90
+        },
+        {
+          "click": {
+            "css": ".settings-filter-bar select"
+          }
+        },
+        {
+          "press": "Home"
+        },
+        {
+          "press": "ArrowDown"
+        },
+        {
+          "press": "Enter"
+        },
+        {
+          "waitFor": {
+            "text": "No message is in this state.",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Messages",
+        "No message is in this state."
+      ]
+    }
+  ],
+  "note": "Missing page images only. Source-verified capture recipes, not executed or visually accepted. Run with guide/tools/screens.mjs --file C10.screens.json against localhost:8480. Preserve earlier entries. Preconditions, persistent job/draft changes and deferred states are in C10.data-changes.md and _coverage/notes/C10-SCREENS/. Dialogs are cancelled; no delete, release activation/rollback or access/security change is confirmed."
+}

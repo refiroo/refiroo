@@ -1,0 +1,195 @@
+{
+  "release": "0.7",
+  "counts": {
+    "added_promises": 8,
+    "added_rules": 2,
+    "merged": 13,
+    "superseded": 1,
+    "dropped": 4
+  },
+  "added_promises": [
+    "R055",
+    "R056",
+    "R057",
+    "R058",
+    "R059",
+    "R060",
+    "R061",
+    "R062"
+  ],
+  "added_rules": [
+    "L15",
+    "L16"
+  ],
+  "resolutions": [
+    {
+      "id": "CL-0.7.0-#1",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test infrastructure, validation evidence or delivery planning, rather than a reader capability.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#2",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test infrastructure, validation evidence or delivery planning, rather than a reader capability.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#3",
+      "disposition": "merged",
+      "targets": [
+        "R058",
+        "R059",
+        "J08.8"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#4",
+      "disposition": "merged",
+      "targets": [
+        "F18.c"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#5",
+      "disposition": "superseded",
+      "targets": [
+        "F18.c",
+        "J39.S1"
+      ],
+      "reason": "The disabled account placeholder was replaced by 0.12 authenticated sign-in; appearance remains current.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#6",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test infrastructure, validation evidence or delivery planning, rather than a reader capability.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#7",
+      "disposition": "merged",
+      "targets": [
+        "J18.S1",
+        "J18.1",
+        "J18.2",
+        "R060"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#8",
+      "disposition": "merged",
+      "targets": [
+        "J10.S3",
+        "R003",
+        "R055"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#9",
+      "disposition": "merged",
+      "targets": [
+        "R057"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#10",
+      "disposition": "merged",
+      "targets": [
+        "J10.S1",
+        "J10.S2",
+        "R004"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#11",
+      "disposition": "merged",
+      "targets": [
+        "J10.9"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#12",
+      "disposition": "merged",
+      "targets": [
+        "J13.5"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Added"
+    },
+    {
+      "id": "CL-0.7.0-#13",
+      "disposition": "merged",
+      "targets": [
+        "J08.S1"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Changed"
+    },
+    {
+      "id": "CL-0.7.0-#14",
+      "disposition": "merged",
+      "targets": [
+        "J01.S2",
+        "F18.a"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Changed"
+    },
+    {
+      "id": "CL-0.7.0-#15",
+      "disposition": "merged",
+      "targets": [
+        "J10.S3",
+        "J10.4"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Changed"
+    },
+    {
+      "id": "CL-0.7.0-#16",
+      "disposition": "merged",
+      "targets": [
+        "J01.S2",
+        "J01.S3",
+        "J10.S1"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Changed"
+    },
+    {
+      "id": "CL-0.7.0-#17",
+      "disposition": "merged",
+      "targets": [
+        "J10.4",
+        "J10.7"
+      ],
+      "reason": "Specific released behavior retained on the named records.",
+      "source": "CL §[0.7.0] Changed"
+    },
+    {
+      "id": "CL-0.7.0-#18",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Test infrastructure, validation evidence or delivery planning, rather than a reader capability.",
+      "source": "CL §[0.7.0] Changed"
+    }
+  ]
+}

@@ -1,0 +1,3149 @@
+{
+  "release": "0.12",
+  "counts": {
+    "added_promises": 28,
+    "added_rules": 11,
+    "merged": 315,
+    "superseded": 11,
+    "dropped": 26
+  },
+  "added_promises": [
+    "R124",
+    "R125",
+    "R126",
+    "R127",
+    "R128",
+    "R129",
+    "R130",
+    "R131",
+    "R132",
+    "R133",
+    "R134",
+    "R135",
+    "R136",
+    "R137",
+    "R138",
+    "R139",
+    "R140",
+    "R141",
+    "R142",
+    "R143",
+    "R144",
+    "R145",
+    "R146",
+    "R147",
+    "R148",
+    "R149",
+    "R150",
+    "R151"
+  ],
+  "added_rules": [
+    "L38",
+    "L39",
+    "L40",
+    "L41",
+    "L42",
+    "L43",
+    "L44",
+    "L45",
+    "L46",
+    "L47",
+    "L48"
+  ],
+  "resolutions": [
+    {
+      "id": "CL-0.12.0-#1",
+      "disposition": "merged",
+      "targets": [
+        "R136"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 NT1, notifications: a short list and a history p"
+    },
+    {
+      "id": "CL-0.12.0-#2",
+      "disposition": "merged",
+      "targets": [
+        "R136"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 NT1, notifications: a short list and a history p"
+    },
+    {
+      "id": "CL-0.12.0-#3",
+      "disposition": "merged",
+      "targets": [
+        "R136"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 NT1, notifications: a short list and a history p"
+    },
+    {
+      "id": "CL-0.12.0-#4",
+      "disposition": "merged",
+      "targets": [
+        "R137"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 NT1, notifications: a short list and a history p"
+    },
+    {
+      "id": "CL-0.12.0-#5",
+      "disposition": "merged",
+      "targets": [
+        "R137"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 NT1, notifications: a short list and a history p"
+    },
+    {
+      "id": "CL-0.12.0-#6",
+      "disposition": "merged",
+      "targets": [
+        "R139"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 MR1, retiring and deleting model releases)"
+    },
+    {
+      "id": "CL-0.12.0-#7",
+      "disposition": "merged",
+      "targets": [
+        "J36.11"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 MR1, retiring and deleting model releases)"
+    },
+    {
+      "id": "CL-0.12.0-#8",
+      "disposition": "merged",
+      "targets": [
+        "R139"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 MR1, retiring and deleting model releases)"
+    },
+    {
+      "id": "CL-0.12.0-#9",
+      "disposition": "merged",
+      "targets": [
+        "R139"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 MR1, retiring and deleting model releases)"
+    },
+    {
+      "id": "CL-0.12.0-#10",
+      "disposition": "merged",
+      "targets": [
+        "J40.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 R, Settings)"
+    },
+    {
+      "id": "CL-0.12.0-#11",
+      "disposition": "merged",
+      "targets": [
+        "J40.14"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 R, Settings)"
+    },
+    {
+      "id": "CL-0.12.0-#12",
+      "disposition": "merged",
+      "targets": [
+        "R141"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 UW1, a workspace that cannot be served)"
+    },
+    {
+      "id": "CL-0.12.0-#13",
+      "disposition": "merged",
+      "targets": [
+        "R140"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 UW1, a workspace that cannot be served)"
+    },
+    {
+      "id": "CL-0.12.0-#14",
+      "disposition": "merged",
+      "targets": [
+        "R141"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 UW1, a workspace that cannot be served)"
+    },
+    {
+      "id": "CL-0.12.0-#15",
+      "disposition": "merged",
+      "targets": [
+        "F02.h"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12, the Workspaces list)"
+    },
+    {
+      "id": "CL-0.12.0-#16",
+      "disposition": "merged",
+      "targets": [
+        "F02.g"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12, the Workspaces list)"
+    },
+    {
+      "id": "CL-0.12.0-#17",
+      "disposition": "merged",
+      "targets": [
+        "R142"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 L2, the compatibility commitment)"
+    },
+    {
+      "id": "CL-0.12.0-#18",
+      "disposition": "merged",
+      "targets": [
+        "R143"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 L2, the compatibility commitment)"
+    },
+    {
+      "id": "CL-0.12.0-#19",
+      "disposition": "merged",
+      "targets": [
+        "R141"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 L2a follow-up, a bootstrap release conflict no"
+    },
+    {
+      "id": "CL-0.12.0-#20",
+      "disposition": "merged",
+      "targets": [
+        "R140"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 L2a follow-up, a bootstrap release conflict no"
+    },
+    {
+      "id": "CL-0.12.0-#21",
+      "disposition": "merged",
+      "targets": [
+        "R144"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 L1, licensing and policies)"
+    },
+    {
+      "id": "CL-0.12.0-#22",
+      "disposition": "merged",
+      "targets": [
+        "R144"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 L1, licensing and policies)"
+    },
+    {
+      "id": "CL-0.12.0-#23",
+      "disposition": "merged",
+      "targets": [
+        "R039"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 M2 follow-up, notification types)"
+    },
+    {
+      "id": "CL-0.12.0-#24",
+      "disposition": "merged",
+      "targets": [
+        "F02.h"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 A3a, the workspace page in tabs)"
+    },
+    {
+      "id": "CL-0.12.0-#25",
+      "disposition": "merged",
+      "targets": [
+        "F02.g"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 A3a, the workspace page in tabs)"
+    },
+    {
+      "id": "CL-0.12.0-#26",
+      "disposition": "merged",
+      "targets": [
+        "J40.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 A3a, the workspace page in tabs)"
+    },
+    {
+      "id": "CL-0.12.0-#27",
+      "disposition": "merged",
+      "targets": [
+        "F02.g"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 A3c, Settings › Model in tabs)"
+    },
+    {
+      "id": "CL-0.12.0-#28",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 A3b, Access and Activity of a workspace)"
+    },
+    {
+      "id": "CL-0.12.0-#29",
+      "disposition": "merged",
+      "targets": [
+        "J40.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 A3b, Access and Activity of a workspace)"
+    },
+    {
+      "id": "CL-0.12.0-#30",
+      "disposition": "merged",
+      "targets": [
+        "J36.S3"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 A3b, Access and Activity of a workspace)"
+    },
+    {
+      "id": "CL-0.12.0-#31",
+      "disposition": "merged",
+      "targets": [
+        "J19.5"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 A3b, Access and Activity of a workspace)"
+    },
+    {
+      "id": "CL-0.12.0-#32",
+      "disposition": "merged",
+      "targets": [
+        "J42.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 A3, approvals in the interface)"
+    },
+    {
+      "id": "CL-0.12.0-#33",
+      "disposition": "merged",
+      "targets": [
+        "J42.4"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 A3, approvals in the interface)"
+    },
+    {
+      "id": "CL-0.12.0-#34",
+      "disposition": "merged",
+      "targets": [
+        "R135"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 M2, inbox notices by mail)"
+    },
+    {
+      "id": "CL-0.12.0-#35",
+      "disposition": "merged",
+      "targets": [
+        "R137"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 A2, the inbox and workspace events)"
+    },
+    {
+      "id": "CL-0.12.0-#36",
+      "disposition": "merged",
+      "targets": [
+        "R138"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 A2, the inbox and workspace events)"
+    },
+    {
+      "id": "CL-0.12.0-#37",
+      "disposition": "merged",
+      "targets": [
+        "R136"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 A2, the inbox and workspace events)"
+    },
+    {
+      "id": "CL-0.12.0-#38",
+      "disposition": "merged",
+      "targets": [
+        "R127"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 A1, a publication request and its approval)"
+    },
+    {
+      "id": "CL-0.12.0-#39",
+      "disposition": "merged",
+      "targets": [
+        "J42.S2"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 A1, a publication request and its approval)"
+    },
+    {
+      "id": "CL-0.12.0-#40",
+      "disposition": "merged",
+      "targets": [
+        "J42.4"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 A1, a publication request and its approval)"
+    },
+    {
+      "id": "CL-0.12.0-#41",
+      "disposition": "merged",
+      "targets": [
+        "R126"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 A1, a publication request and its approval)"
+    },
+    {
+      "id": "CL-0.12.0-#42",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Security test coverage or design-pass delivery history, not another user-facing capability.",
+      "source": "CL §[0.12.0] Added (0.12 E1, the security sweep)"
+    },
+    {
+      "id": "CL-0.12.0-#43",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Security test coverage or design-pass delivery history, not another user-facing capability.",
+      "source": "CL §[0.12.0] Added (0.12 E1, the security sweep)"
+    },
+    {
+      "id": "CL-0.12.0-#44",
+      "disposition": "merged",
+      "targets": [
+        "J46.9"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 M1)"
+    },
+    {
+      "id": "CL-0.12.0-#45",
+      "disposition": "merged",
+      "targets": [
+        "J46.8"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I6)"
+    },
+    {
+      "id": "CL-0.12.0-#46",
+      "disposition": "merged",
+      "targets": [
+        "J46.8"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I6)"
+    },
+    {
+      "id": "CL-0.12.0-#47",
+      "disposition": "merged",
+      "targets": [
+        "J46.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 SP3)"
+    },
+    {
+      "id": "CL-0.12.0-#48",
+      "disposition": "merged",
+      "targets": [
+        "J46.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 M1)"
+    },
+    {
+      "id": "CL-0.12.0-#49",
+      "disposition": "merged",
+      "targets": [
+        "R134"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 M1)"
+    },
+    {
+      "id": "CL-0.12.0-#50",
+      "disposition": "merged",
+      "targets": [
+        "J39.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I5)"
+    },
+    {
+      "id": "CL-0.12.0-#51",
+      "disposition": "merged",
+      "targets": [
+        "J39.S2"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I5)"
+    },
+    {
+      "id": "CL-0.12.0-#52",
+      "disposition": "merged",
+      "targets": [
+        "J39.11"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 C1)"
+    },
+    {
+      "id": "CL-0.12.0-#53",
+      "disposition": "merged",
+      "targets": [
+        "R147"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 K1)"
+    },
+    {
+      "id": "CL-0.12.0-#54",
+      "disposition": "merged",
+      "targets": [
+        "R148"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 K1)"
+    },
+    {
+      "id": "CL-0.12.0-#55",
+      "disposition": "merged",
+      "targets": [
+        "R149"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (grant dialog)"
+    },
+    {
+      "id": "CL-0.12.0-#56",
+      "disposition": "merged",
+      "targets": [
+        "R144"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (branding)"
+    },
+    {
+      "id": "CL-0.12.0-#57",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 DP3, the deployment guide and its check)"
+    },
+    {
+      "id": "CL-0.12.0-#58",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 DP3, the deployment guide and its check)"
+    },
+    {
+      "id": "CL-0.12.0-#59",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 DP4, automatic HTTPS for a public installation)"
+    },
+    {
+      "id": "CL-0.12.0-#60",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 DP2, images and a reference installation)"
+    },
+    {
+      "id": "CL-0.12.0-#61",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 DP2, images and a reference installation)"
+    },
+    {
+      "id": "CL-0.12.0-#62",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 DP2, images and a reference installation)"
+    },
+    {
+      "id": "CL-0.12.0-#63",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 DP1, one address for the application and the e"
+    },
+    {
+      "id": "CL-0.12.0-#64",
+      "disposition": "merged",
+      "targets": [
+        "J12.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 DP1a, a developer instance on the network)"
+    },
+    {
+      "id": "CL-0.12.0-#65",
+      "disposition": "merged",
+      "targets": [
+        "J12.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 DP1a, a developer instance on the network)"
+    },
+    {
+      "id": "CL-0.12.0-#66",
+      "disposition": "merged",
+      "targets": [
+        "J40.4"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 SP1b, a group's members)"
+    },
+    {
+      "id": "CL-0.12.0-#67",
+      "disposition": "merged",
+      "targets": [
+        "R149"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 SP1b, a group's members)"
+    },
+    {
+      "id": "CL-0.12.0-#68",
+      "disposition": "merged",
+      "targets": [
+        "J40.4"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 SP1b, a group's members)"
+    },
+    {
+      "id": "CL-0.12.0-#69",
+      "disposition": "merged",
+      "targets": [
+        "J40.11"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 RA1, a person's recent activity)"
+    },
+    {
+      "id": "CL-0.12.0-#70",
+      "disposition": "merged",
+      "targets": [
+        "R151"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 RH1, a record's history)"
+    },
+    {
+      "id": "CL-0.12.0-#71",
+      "disposition": "merged",
+      "targets": [
+        "R151"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 RH1, a record's history)"
+    },
+    {
+      "id": "CL-0.12.0-#72",
+      "disposition": "merged",
+      "targets": [
+        "R151"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 RH1, a record's history)"
+    },
+    {
+      "id": "CL-0.12.0-#73",
+      "disposition": "merged",
+      "targets": [
+        "J39.10"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I4c, passkeys)"
+    },
+    {
+      "id": "CL-0.12.0-#74",
+      "disposition": "merged",
+      "targets": [
+        "J39.10"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I4c, passkeys)"
+    },
+    {
+      "id": "CL-0.12.0-#75",
+      "disposition": "merged",
+      "targets": [
+        "J39.10"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I4c, passkeys)"
+    },
+    {
+      "id": "CL-0.12.0-#76",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I4b, a second factor for local accounts)"
+    },
+    {
+      "id": "CL-0.12.0-#77",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I4b, a second factor for local accounts)"
+    },
+    {
+      "id": "CL-0.12.0-#78",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I4b, a second factor for local accounts)"
+    },
+    {
+      "id": "CL-0.12.0-#79",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I4b, a second factor for local accounts)"
+    },
+    {
+      "id": "CL-0.12.0-#80",
+      "disposition": "merged",
+      "targets": [
+        "R131"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I4a, a provider identity linked, signing out of"
+    },
+    {
+      "id": "CL-0.12.0-#81",
+      "disposition": "merged",
+      "targets": [
+        "J39.8"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I4a, a provider identity linked, signing out of"
+    },
+    {
+      "id": "CL-0.12.0-#82",
+      "disposition": "merged",
+      "targets": [
+        "R132"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I4a, a provider identity linked, signing out of"
+    },
+    {
+      "id": "CL-0.12.0-#83",
+      "disposition": "merged",
+      "targets": [
+        "J39.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I3, a sign-in provider)"
+    },
+    {
+      "id": "CL-0.12.0-#84",
+      "disposition": "merged",
+      "targets": [
+        "J39.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I3, a sign-in provider)"
+    },
+    {
+      "id": "CL-0.12.0-#85",
+      "disposition": "merged",
+      "targets": [
+        "R132"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I3, a sign-in provider)"
+    },
+    {
+      "id": "CL-0.12.0-#86",
+      "disposition": "merged",
+      "targets": [
+        "J39.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I3, a sign-in provider)"
+    },
+    {
+      "id": "CL-0.12.0-#87",
+      "disposition": "merged",
+      "targets": [
+        "J45.S2"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 HM1a, Home)"
+    },
+    {
+      "id": "CL-0.12.0-#88",
+      "disposition": "merged",
+      "targets": [
+        "J45.S2"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 HM1a, Home)"
+    },
+    {
+      "id": "CL-0.12.0-#89",
+      "disposition": "merged",
+      "targets": [
+        "F03.e"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 LS1, a collection's rows scroll on their own)"
+    },
+    {
+      "id": "CL-0.12.0-#90",
+      "disposition": "merged",
+      "targets": [
+        "F03.e"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 LS1, a collection's rows scroll on their own)"
+    },
+    {
+      "id": "CL-0.12.0-#91",
+      "disposition": "merged",
+      "targets": [
+        "F03.e"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 LS1, a collection's rows scroll on their own)"
+    },
+    {
+      "id": "CL-0.12.0-#92",
+      "disposition": "merged",
+      "targets": [
+        "J41.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 SP2, clients and their access)"
+    },
+    {
+      "id": "CL-0.12.0-#93",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 SP2, clients and their access)"
+    },
+    {
+      "id": "CL-0.12.0-#94",
+      "disposition": "merged",
+      "targets": [
+        "J43.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 SP2, clients and their access)"
+    },
+    {
+      "id": "CL-0.12.0-#95",
+      "disposition": "merged",
+      "targets": [
+        "J30.10"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 SP2, clients and their access)"
+    },
+    {
+      "id": "CL-0.12.0-#96",
+      "disposition": "merged",
+      "targets": [
+        "J41.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 SP2, clients and their access)"
+    },
+    {
+      "id": "CL-0.12.0-#97",
+      "disposition": "merged",
+      "targets": [
+        "J33.10"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 TV1, a record's parent in its list)"
+    },
+    {
+      "id": "CL-0.12.0-#98",
+      "disposition": "merged",
+      "targets": [
+        "J44.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z6, one person's changes across workspaces)"
+    },
+    {
+      "id": "CL-0.12.0-#99",
+      "disposition": "merged",
+      "targets": [
+        "J44.8"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z6, one person's changes across workspaces)"
+    },
+    {
+      "id": "CL-0.12.0-#100",
+      "disposition": "merged",
+      "targets": [
+        "J44.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z6, one person's changes across workspaces)"
+    },
+    {
+      "id": "CL-0.12.0-#101",
+      "disposition": "merged",
+      "targets": [
+        "J45.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 HM1, a home page after sign-in)"
+    },
+    {
+      "id": "CL-0.12.0-#102",
+      "disposition": "merged",
+      "targets": [
+        "J45.1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 HM1, a home page after sign-in)"
+    },
+    {
+      "id": "CL-0.12.0-#103",
+      "disposition": "merged",
+      "targets": [
+        "J40.12"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z5, the interface follows permissions)"
+    },
+    {
+      "id": "CL-0.12.0-#104",
+      "disposition": "merged",
+      "targets": [
+        "J45.5"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z5, the interface follows permissions)"
+    },
+    {
+      "id": "CL-0.12.0-#105",
+      "disposition": "merged",
+      "targets": [
+        "J40.12"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z5, the interface follows permissions)"
+    },
+    {
+      "id": "CL-0.12.0-#106",
+      "disposition": "merged",
+      "targets": [
+        "J44.1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z4, audit identity)"
+    },
+    {
+      "id": "CL-0.12.0-#107",
+      "disposition": "merged",
+      "targets": [
+        "J44.3"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z4, audit identity)"
+    },
+    {
+      "id": "CL-0.12.0-#108",
+      "disposition": "merged",
+      "targets": [
+        "J40.11"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z4, audit identity)"
+    },
+    {
+      "id": "CL-0.12.0-#109",
+      "disposition": "merged",
+      "targets": [
+        "J44.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z4, audit identity)"
+    },
+    {
+      "id": "CL-0.12.0-#110",
+      "disposition": "merged",
+      "targets": [
+        "J44.4"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 Z4)"
+    },
+    {
+      "id": "CL-0.12.0-#111",
+      "disposition": "merged",
+      "targets": [
+        "J30.10"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 Z4)"
+    },
+    {
+      "id": "CL-0.12.0-#112",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z3, consumer APIs per client)"
+    },
+    {
+      "id": "CL-0.12.0-#113",
+      "disposition": "merged",
+      "targets": [
+        "J41.S3"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z3, consumer APIs per client)"
+    },
+    {
+      "id": "CL-0.12.0-#114",
+      "disposition": "merged",
+      "targets": [
+        "J30.10"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z3, consumer APIs per client)"
+    },
+    {
+      "id": "CL-0.12.0-#115",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 Z3)"
+    },
+    {
+      "id": "CL-0.12.0-#116",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 Z3)"
+    },
+    {
+      "id": "CL-0.12.0-#117",
+      "disposition": "merged",
+      "targets": [
+        "J40.14"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 SP1, the Security pages)"
+    },
+    {
+      "id": "CL-0.12.0-#118",
+      "disposition": "merged",
+      "targets": [
+        "J40.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 SP1, the Security pages)"
+    },
+    {
+      "id": "CL-0.12.0-#119",
+      "disposition": "merged",
+      "targets": [
+        "J40.S2"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 SP1, the Security pages)"
+    },
+    {
+      "id": "CL-0.12.0-#120",
+      "disposition": "merged",
+      "targets": [
+        "J40.S2"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 SP1)"
+    },
+    {
+      "id": "CL-0.12.0-#121",
+      "disposition": "merged",
+      "targets": [
+        "J30.6"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 SP1)"
+    },
+    {
+      "id": "CL-0.12.0-#122",
+      "disposition": "merged",
+      "targets": [
+        "R125"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z2, record types at the write unit, jobs as thei"
+    },
+    {
+      "id": "CL-0.12.0-#123",
+      "disposition": "merged",
+      "targets": [
+        "J40.10"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z2, record types at the write unit, jobs as thei"
+    },
+    {
+      "id": "CL-0.12.0-#124",
+      "disposition": "merged",
+      "targets": [
+        "R150"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z2, record types at the write unit, jobs as thei"
+    },
+    {
+      "id": "CL-0.12.0-#125",
+      "disposition": "merged",
+      "targets": [
+        "J40.3"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z2, record types at the write unit, jobs as thei"
+    },
+    {
+      "id": "CL-0.12.0-#126",
+      "disposition": "merged",
+      "targets": [
+        "R125"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 Z2)"
+    },
+    {
+      "id": "CL-0.12.0-#127",
+      "disposition": "merged",
+      "targets": [
+        "R112"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 Z2)"
+    },
+    {
+      "id": "CL-0.12.0-#128",
+      "disposition": "merged",
+      "targets": [
+        "J40.10"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 Z2)"
+    },
+    {
+      "id": "CL-0.12.0-#129",
+      "disposition": "merged",
+      "targets": [
+        "J40.S3"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z1, roles, groups and grants at the route)"
+    },
+    {
+      "id": "CL-0.12.0-#130",
+      "disposition": "merged",
+      "targets": [
+        "J40.5"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z1, roles, groups and grants at the route)"
+    },
+    {
+      "id": "CL-0.12.0-#131",
+      "disposition": "merged",
+      "targets": [
+        "J40.7"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z1, roles, groups and grants at the route)"
+    },
+    {
+      "id": "CL-0.12.0-#132",
+      "disposition": "merged",
+      "targets": [
+        "J41.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 Z1, roles, groups and grants at the route)"
+    },
+    {
+      "id": "CL-0.12.0-#133",
+      "disposition": "merged",
+      "targets": [
+        "J40.S2"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 Z1)"
+    },
+    {
+      "id": "CL-0.12.0-#134",
+      "disposition": "merged",
+      "targets": [
+        "J40.9"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 Z1)"
+    },
+    {
+      "id": "CL-0.12.0-#135",
+      "disposition": "merged",
+      "targets": [
+        "J40.6"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 Z1)"
+    },
+    {
+      "id": "CL-0.12.0-#136",
+      "disposition": "merged",
+      "targets": [
+        "J39.S2"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I2, signing in from the browser)"
+    },
+    {
+      "id": "CL-0.12.0-#137",
+      "disposition": "merged",
+      "targets": [
+        "J39.6"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I2, signing in from the browser)"
+    },
+    {
+      "id": "CL-0.12.0-#138",
+      "disposition": "merged",
+      "targets": [
+        "J40.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I2, signing in from the browser)"
+    },
+    {
+      "id": "CL-0.12.0-#139",
+      "disposition": "merged",
+      "targets": [
+        "R129"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I2, signing in from the browser)"
+    },
+    {
+      "id": "CL-0.12.0-#140",
+      "disposition": "merged",
+      "targets": [
+        "J39.6"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I2, signing in from the browser)"
+    },
+    {
+      "id": "CL-0.12.0-#141",
+      "disposition": "merged",
+      "targets": [
+        "J39.S2"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 I2)"
+    },
+    {
+      "id": "CL-0.12.0-#142",
+      "disposition": "merged",
+      "targets": [
+        "J39.11"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 I2)"
+    },
+    {
+      "id": "CL-0.12.0-#143",
+      "disposition": "merged",
+      "targets": [
+        "J41.S3"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I1, the engine issues tokens; every route authen"
+    },
+    {
+      "id": "CL-0.12.0-#144",
+      "disposition": "merged",
+      "targets": [
+        "J41.S1"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I1, the engine issues tokens; every route authen"
+    },
+    {
+      "id": "CL-0.12.0-#145",
+      "disposition": "merged",
+      "targets": [
+        "R129"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I1, the engine issues tokens; every route authen"
+    },
+    {
+      "id": "CL-0.12.0-#146",
+      "disposition": "merged",
+      "targets": [
+        "F19.f"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Added (0.12 I1, the engine issues tokens; every route authen"
+    },
+    {
+      "id": "CL-0.12.0-#147",
+      "disposition": "merged",
+      "targets": [
+        "J41.S3"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 I1, breaking)"
+    },
+    {
+      "id": "CL-0.12.0-#148",
+      "disposition": "merged",
+      "targets": [
+        "R148"
+      ],
+      "reason": "Released clause retained with later security and lifecycle amendments.",
+      "source": "CL §[0.12.0] Changed (0.12 I1, breaking)"
+    },
+    {
+      "id": "CL-0.12.0-#149",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Security test coverage or design-pass delivery history, not another user-facing capability.",
+      "source": "CL §[0.12.0] Added (0.12 P0, design only)"
+    },
+    {
+      "id": "PL-D243",
+      "disposition": "merged",
+      "targets": [
+        "R125"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D243"
+    },
+    {
+      "id": "PL-D244",
+      "disposition": "merged",
+      "targets": [
+        "J40.2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D244"
+    },
+    {
+      "id": "PL-D245",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D245"
+    },
+    {
+      "id": "PL-D246",
+      "disposition": "merged",
+      "targets": [
+        "F19.f"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D246"
+    },
+    {
+      "id": "PL-D247",
+      "disposition": "merged",
+      "targets": [
+        "J39.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D247"
+    },
+    {
+      "id": "PL-D248",
+      "disposition": "merged",
+      "targets": [
+        "J40.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D248"
+    },
+    {
+      "id": "PL-D249",
+      "disposition": "merged",
+      "targets": [
+        "J40.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D249"
+    },
+    {
+      "id": "PL-D251",
+      "disposition": "merged",
+      "targets": [
+        "J39.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D251"
+    },
+    {
+      "id": "PL-D252",
+      "disposition": "merged",
+      "targets": [
+        "R129"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D252"
+    },
+    {
+      "id": "PL-D253",
+      "disposition": "merged",
+      "targets": [
+        "R148"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D253"
+    },
+    {
+      "id": "PL-D254",
+      "disposition": "merged",
+      "targets": [
+        "J43.1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D254"
+    },
+    {
+      "id": "PL-D255",
+      "disposition": "merged",
+      "targets": [
+        "R126"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D255"
+    },
+    {
+      "id": "PL-D256",
+      "disposition": "merged",
+      "targets": [
+        "J40.S3"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D256"
+    },
+    {
+      "id": "PL-D257",
+      "disposition": "merged",
+      "targets": [
+        "J40.5"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D257"
+    },
+    {
+      "id": "PL-D259",
+      "disposition": "merged",
+      "targets": [
+        "J41.S3"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D259"
+    },
+    {
+      "id": "PL-D260",
+      "disposition": "merged",
+      "targets": [
+        "J41.5"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D260"
+    },
+    {
+      "id": "PL-D261",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D261"
+    },
+    {
+      "id": "PL-D262",
+      "disposition": "merged",
+      "targets": [
+        "J41.S1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D262"
+    },
+    {
+      "id": "PL-D263",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D263"
+    },
+    {
+      "id": "PL-D265",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D265"
+    },
+    {
+      "id": "PL-D267",
+      "disposition": "merged",
+      "targets": [
+        "J39.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D267"
+    },
+    {
+      "id": "PL-D268",
+      "disposition": "merged",
+      "targets": [
+        "J39.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D268"
+    },
+    {
+      "id": "PL-D269",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "R review adds the limited thirty-second refresh-token race recovery, R128.",
+      "source": "PL §0.12 plan D269"
+    },
+    {
+      "id": "PL-D270",
+      "disposition": "merged",
+      "targets": [
+        "J39.1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D270"
+    },
+    {
+      "id": "PL-D271",
+      "disposition": "merged",
+      "targets": [
+        "R129"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D271"
+    },
+    {
+      "id": "PL-D272",
+      "disposition": "merged",
+      "targets": [
+        "J40.S1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D272"
+    },
+    {
+      "id": "PL-D273",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D273"
+    },
+    {
+      "id": "PL-D274",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D274"
+    },
+    {
+      "id": "PL-D275",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "Passkey sign-in requires the engine’s own script (I4c/I5), replacing the early no-script page.",
+      "source": "PL §0.12 plan D275"
+    },
+    {
+      "id": "PL-D361",
+      "disposition": "merged",
+      "targets": [
+        "J39.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D361"
+    },
+    {
+      "id": "PL-D362",
+      "disposition": "merged",
+      "targets": [
+        "J39.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D362"
+    },
+    {
+      "id": "PL-D363",
+      "disposition": "merged",
+      "targets": [
+        "R131"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D363"
+    },
+    {
+      "id": "PL-D364",
+      "disposition": "merged",
+      "targets": [
+        "J39.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D364"
+    },
+    {
+      "id": "PL-D365",
+      "disposition": "merged",
+      "targets": [
+        "R132"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D365"
+    },
+    {
+      "id": "PL-D366",
+      "disposition": "merged",
+      "targets": [
+        "J39.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D366"
+    },
+    {
+      "id": "PL-D367",
+      "disposition": "merged",
+      "targets": [
+        "R132"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D367"
+    },
+    {
+      "id": "PL-D368",
+      "disposition": "merged",
+      "targets": [
+        "J39.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D368"
+    },
+    {
+      "id": "PL-D369",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D369"
+    },
+    {
+      "id": "PL-D370",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "I4a delivered provider linking and sign-out, I4b/I4c delivered local second factors.",
+      "source": "PL §0.12 plan D370"
+    },
+    {
+      "id": "PL-D377",
+      "disposition": "merged",
+      "targets": [
+        "R131"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D377"
+    },
+    {
+      "id": "PL-D378",
+      "disposition": "merged",
+      "targets": [
+        "R131"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D378"
+    },
+    {
+      "id": "PL-D379",
+      "disposition": "merged",
+      "targets": [
+        "J39.8"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D379"
+    },
+    {
+      "id": "PL-D380",
+      "disposition": "merged",
+      "targets": [
+        "J39.8"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D380"
+    },
+    {
+      "id": "PL-D381",
+      "disposition": "merged",
+      "targets": [
+        "R132"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D381"
+    },
+    {
+      "id": "PL-D383",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D383"
+    },
+    {
+      "id": "PL-D384",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D384"
+    },
+    {
+      "id": "PL-D385",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D385"
+    },
+    {
+      "id": "PL-D386",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D386"
+    },
+    {
+      "id": "PL-D387",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D387"
+    },
+    {
+      "id": "PL-D388",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D388"
+    },
+    {
+      "id": "PL-D389",
+      "disposition": "merged",
+      "targets": [
+        "J39.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D389"
+    },
+    {
+      "id": "PL-D390",
+      "disposition": "merged",
+      "targets": [
+        "J39.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D390"
+    },
+    {
+      "id": "PL-D391",
+      "disposition": "merged",
+      "targets": [
+        "J39.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D391"
+    },
+    {
+      "id": "PL-D392",
+      "disposition": "merged",
+      "targets": [
+        "R130"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D392"
+    },
+    {
+      "id": "PL-D393",
+      "disposition": "merged",
+      "targets": [
+        "J39.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D393"
+    },
+    {
+      "id": "PL-D394",
+      "disposition": "merged",
+      "targets": [
+        "J39.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D394"
+    },
+    {
+      "id": "PL-D395",
+      "disposition": "merged",
+      "targets": [
+        "J39.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D395"
+    },
+    {
+      "id": "PL-D277",
+      "disposition": "merged",
+      "targets": [
+        "J40.S3"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D277"
+    },
+    {
+      "id": "PL-D278",
+      "disposition": "merged",
+      "targets": [
+        "J40.6"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D278"
+    },
+    {
+      "id": "PL-D279",
+      "disposition": "merged",
+      "targets": [
+        "J40.5"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D279"
+    },
+    {
+      "id": "PL-D280",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "A1 delivered Approve publications after the Z1 interim catalogue.",
+      "source": "PL §0.12 plan D280"
+    },
+    {
+      "id": "PL-D282",
+      "disposition": "merged",
+      "targets": [
+        "J40.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D282"
+    },
+    {
+      "id": "PL-D283",
+      "disposition": "merged",
+      "targets": [
+        "J40.8"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D283"
+    },
+    {
+      "id": "PL-D284",
+      "disposition": "merged",
+      "targets": [
+        "J40.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D284"
+    },
+    {
+      "id": "PL-D285",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "Z2 binds job actions and worker steps to their requester.",
+      "source": "PL §0.12 plan D285"
+    },
+    {
+      "id": "PL-D287",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "Z2 and E1 isolate source files by uploader and workspace.",
+      "source": "PL §0.12 plan D287"
+    },
+    {
+      "id": "PL-D288",
+      "disposition": "merged",
+      "targets": [
+        "J40.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D288"
+    },
+    {
+      "id": "PL-D289",
+      "disposition": "merged",
+      "targets": [
+        "R125"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D289"
+    },
+    {
+      "id": "PL-D290",
+      "disposition": "merged",
+      "targets": [
+        "R125"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D290"
+    },
+    {
+      "id": "PL-D291",
+      "disposition": "merged",
+      "targets": [
+        "R125"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D291"
+    },
+    {
+      "id": "PL-D292",
+      "disposition": "merged",
+      "targets": [
+        "J40.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D292"
+    },
+    {
+      "id": "PL-D293",
+      "disposition": "merged",
+      "targets": [
+        "R125"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D293"
+    },
+    {
+      "id": "PL-D294",
+      "disposition": "merged",
+      "targets": [
+        "J40.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D294"
+    },
+    {
+      "id": "PL-D295",
+      "disposition": "merged",
+      "targets": [
+        "R150"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D295"
+    },
+    {
+      "id": "PL-D296",
+      "disposition": "merged",
+      "targets": [
+        "J40.3"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D296"
+    },
+    {
+      "id": "PL-D297",
+      "disposition": "merged",
+      "targets": [
+        "R112"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D297"
+    },
+    {
+      "id": "PL-D306",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D306"
+    },
+    {
+      "id": "PL-D307",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D307"
+    },
+    {
+      "id": "PL-D308",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D308"
+    },
+    {
+      "id": "PL-D309",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D309"
+    },
+    {
+      "id": "PL-D310",
+      "disposition": "merged",
+      "targets": [
+        "J30.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D310"
+    },
+    {
+      "id": "PL-D311",
+      "disposition": "merged",
+      "targets": [
+        "J41.S3"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D311"
+    },
+    {
+      "id": "PL-D312",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D312"
+    },
+    {
+      "id": "PL-D313",
+      "disposition": "merged",
+      "targets": [
+        "J44.1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D313"
+    },
+    {
+      "id": "PL-D314",
+      "disposition": "merged",
+      "targets": [
+        "J44.1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D314"
+    },
+    {
+      "id": "PL-D315",
+      "disposition": "merged",
+      "targets": [
+        "J44.3"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D315"
+    },
+    {
+      "id": "PL-D316",
+      "disposition": "merged",
+      "targets": [
+        "J44.1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D316"
+    },
+    {
+      "id": "PL-D317",
+      "disposition": "merged",
+      "targets": [
+        "J40.11"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D317"
+    },
+    {
+      "id": "PL-D318",
+      "disposition": "merged",
+      "targets": [
+        "J40.11"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D318"
+    },
+    {
+      "id": "PL-D319",
+      "disposition": "merged",
+      "targets": [
+        "J40.11"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D319"
+    },
+    {
+      "id": "PL-D320",
+      "disposition": "merged",
+      "targets": [
+        "J44.5"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D320"
+    },
+    {
+      "id": "PL-D321",
+      "disposition": "merged",
+      "targets": [
+        "J40.12"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D321"
+    },
+    {
+      "id": "PL-D322",
+      "disposition": "merged",
+      "targets": [
+        "J40.12"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D322"
+    },
+    {
+      "id": "PL-D323",
+      "disposition": "merged",
+      "targets": [
+        "J40.12"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D323"
+    },
+    {
+      "id": "PL-D324",
+      "disposition": "merged",
+      "targets": [
+        "J40.12"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D324"
+    },
+    {
+      "id": "PL-D325",
+      "disposition": "merged",
+      "targets": [
+        "J45.2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D325"
+    },
+    {
+      "id": "PL-D326",
+      "disposition": "merged",
+      "targets": [
+        "J45.5"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D326"
+    },
+    {
+      "id": "PL-D327",
+      "disposition": "merged",
+      "targets": [
+        "J40.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D327"
+    },
+    {
+      "id": "PL-D328",
+      "disposition": "merged",
+      "targets": [
+        "J40.12"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D328"
+    },
+    {
+      "id": "PL-D329",
+      "disposition": "merged",
+      "targets": [
+        "R125"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D329"
+    },
+    {
+      "id": "PL-D330",
+      "disposition": "merged",
+      "targets": [
+        "J40.12"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D330"
+    },
+    {
+      "id": "PL-D340",
+      "disposition": "merged",
+      "targets": [
+        "J44.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D340"
+    },
+    {
+      "id": "PL-D342",
+      "disposition": "merged",
+      "targets": [
+        "J44.8"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D342"
+    },
+    {
+      "id": "PL-D343",
+      "disposition": "merged",
+      "targets": [
+        "J44.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D343"
+    },
+    {
+      "id": "PL-D344",
+      "disposition": "merged",
+      "targets": [
+        "J44.9"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D344"
+    },
+    {
+      "id": "PL-D345",
+      "disposition": "merged",
+      "targets": [
+        "J44.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D345"
+    },
+    {
+      "id": "PL-D346",
+      "disposition": "merged",
+      "targets": [
+        "J45.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D346"
+    },
+    {
+      "id": "PL-D347",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D347"
+    },
+    {
+      "id": "PL-D331",
+      "disposition": "merged",
+      "targets": [
+        "J45.S1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D331"
+    },
+    {
+      "id": "PL-D332",
+      "disposition": "merged",
+      "targets": [
+        "J45.1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D332"
+    },
+    {
+      "id": "PL-D333",
+      "disposition": "merged",
+      "targets": [
+        "J45.2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D333"
+    },
+    {
+      "id": "PL-D334",
+      "disposition": "merged",
+      "targets": [
+        "J45.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D334"
+    },
+    {
+      "id": "PL-D335",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "Z6 and A3 delivered recent changes and approval cards on Home.",
+      "source": "PL §0.12 plan D335"
+    },
+    {
+      "id": "PL-D336",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "HM1 replaces the unbuilt 0.14 start-page proposal.",
+      "source": "PL §0.12 plan D336"
+    },
+    {
+      "id": "PL-D337",
+      "disposition": "merged",
+      "targets": [
+        "J45.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D337"
+    },
+    {
+      "id": "PL-D338",
+      "disposition": "merged",
+      "targets": [
+        "F19.f"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D338"
+    },
+    {
+      "id": "PL-D339",
+      "disposition": "merged",
+      "targets": [
+        "J45.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D339"
+    },
+    {
+      "id": "PL-D401",
+      "disposition": "merged",
+      "targets": [
+        "J40.4"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D401"
+    },
+    {
+      "id": "PL-D402",
+      "disposition": "merged",
+      "targets": [
+        "R149"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D402"
+    },
+    {
+      "id": "PL-D403",
+      "disposition": "merged",
+      "targets": [
+        "J40.4"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D403"
+    },
+    {
+      "id": "PL-D358",
+      "disposition": "merged",
+      "targets": [
+        "J33.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D358"
+    },
+    {
+      "id": "PL-D359",
+      "disposition": "merged",
+      "targets": [
+        "J33.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D359"
+    },
+    {
+      "id": "PL-D360",
+      "disposition": "merged",
+      "targets": [
+        "J33.10"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D360"
+    },
+    {
+      "id": "PL-D371",
+      "disposition": "merged",
+      "targets": [
+        "F03.e"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D371"
+    },
+    {
+      "id": "PL-D372",
+      "disposition": "merged",
+      "targets": [
+        "F03.e"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D372"
+    },
+    {
+      "id": "PL-D373",
+      "disposition": "merged",
+      "targets": [
+        "R120"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D373"
+    },
+    {
+      "id": "PL-D374",
+      "disposition": "merged",
+      "targets": [
+        "R120"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D374"
+    },
+    {
+      "id": "PL-D375",
+      "disposition": "merged",
+      "targets": [
+        "F03.e"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D375"
+    },
+    {
+      "id": "PL-D376",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D376"
+    },
+    {
+      "id": "PL-D298",
+      "disposition": "merged",
+      "targets": [
+        "J40.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D298"
+    },
+    {
+      "id": "PL-D299",
+      "disposition": "merged",
+      "targets": [
+        "J40.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D299"
+    },
+    {
+      "id": "PL-D300",
+      "disposition": "merged",
+      "targets": [
+        "J40.14"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D300"
+    },
+    {
+      "id": "PL-D301",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "A3a/A3b put Access in its own workspace tab.",
+      "source": "PL §0.12 plan D301"
+    },
+    {
+      "id": "PL-D302",
+      "disposition": "merged",
+      "targets": [
+        "J40.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D302"
+    },
+    {
+      "id": "PL-D303",
+      "disposition": "merged",
+      "targets": [
+        "J40.14"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D303"
+    },
+    {
+      "id": "PL-D304",
+      "disposition": "merged",
+      "targets": [
+        "J40.S1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D304"
+    },
+    {
+      "id": "PL-D348",
+      "disposition": "merged",
+      "targets": [
+        "J41.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D348"
+    },
+    {
+      "id": "PL-D349",
+      "disposition": "merged",
+      "targets": [
+        "J41.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D349"
+    },
+    {
+      "id": "PL-D350",
+      "disposition": "merged",
+      "targets": [
+        "J41.3"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D350"
+    },
+    {
+      "id": "PL-D351",
+      "disposition": "merged",
+      "targets": [
+        "J41.3"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D351"
+    },
+    {
+      "id": "PL-D352",
+      "disposition": "merged",
+      "targets": [
+        "J41.3"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D352"
+    },
+    {
+      "id": "PL-D353",
+      "disposition": "merged",
+      "targets": [
+        "J41.7"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D353"
+    },
+    {
+      "id": "PL-D354",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D354"
+    },
+    {
+      "id": "PL-D355",
+      "disposition": "merged",
+      "targets": [
+        "J40.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D355"
+    },
+    {
+      "id": "PL-D356",
+      "disposition": "merged",
+      "targets": [
+        "J43.S1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D356"
+    },
+    {
+      "id": "PL-D357",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D357"
+    },
+    {
+      "id": "PL-D404",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D404"
+    },
+    {
+      "id": "PL-D405",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D405"
+    },
+    {
+      "id": "PL-D406",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D406"
+    },
+    {
+      "id": "PL-D407",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D407"
+    },
+    {
+      "id": "PL-D409",
+      "disposition": "merged",
+      "targets": [
+        "R145"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D409"
+    },
+    {
+      "id": "PL-D410",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D410"
+    },
+    {
+      "id": "PL-D411",
+      "disposition": "merged",
+      "targets": [
+        "J12.S1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D411"
+    },
+    {
+      "id": "PL-D412",
+      "disposition": "merged",
+      "targets": [
+        "R124"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D412"
+    },
+    {
+      "id": "PL-D413",
+      "disposition": "merged",
+      "targets": [
+        "R147"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D413"
+    },
+    {
+      "id": "PL-D414",
+      "disposition": "merged",
+      "targets": [
+        "R148"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D414"
+    },
+    {
+      "id": "PL-D415",
+      "disposition": "merged",
+      "targets": [
+        "J39.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D415"
+    },
+    {
+      "id": "PL-D416",
+      "disposition": "merged",
+      "targets": [
+        "J39.S1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D416"
+    },
+    {
+      "id": "PL-D417",
+      "disposition": "merged",
+      "targets": [
+        "J39.S1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D417"
+    },
+    {
+      "id": "PL-D225",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "I4b/I4c delivered local second factors and passkeys.",
+      "source": "PL §0.12 plan D225"
+    },
+    {
+      "id": "PL-D227",
+      "disposition": "merged",
+      "targets": [
+        "J40.5"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D227"
+    },
+    {
+      "id": "PL-D228",
+      "disposition": "merged",
+      "targets": [
+        "R125"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D228"
+    },
+    {
+      "id": "PL-D229",
+      "disposition": "merged",
+      "targets": [
+        "J40.4"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D229"
+    },
+    {
+      "id": "PL-D230",
+      "disposition": "merged",
+      "targets": [
+        "J40.5"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D230"
+    },
+    {
+      "id": "PL-D231",
+      "disposition": "merged",
+      "targets": [
+        "J40.2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D231"
+    },
+    {
+      "id": "PL-D232",
+      "disposition": "merged",
+      "targets": [
+        "J42.S1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D232"
+    },
+    {
+      "id": "PL-D233",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "M1/M2 delivered ordinary mail as well as inbox and webhooks.",
+      "source": "PL §0.12 plan D233"
+    },
+    {
+      "id": "PL-D234",
+      "disposition": "merged",
+      "targets": [
+        "J39.S2"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D234"
+    },
+    {
+      "id": "PL-D235",
+      "disposition": "merged",
+      "targets": [
+        "J39.S1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D235"
+    },
+    {
+      "id": "PL-D237",
+      "disposition": "merged",
+      "targets": [
+        "J44.5"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D237"
+    },
+    {
+      "id": "PL-D238",
+      "disposition": "merged",
+      "targets": [
+        "R147"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D238"
+    },
+    {
+      "id": "PL-D239",
+      "disposition": "merged",
+      "targets": [
+        "J44.1"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D239"
+    },
+    {
+      "id": "PL-D240",
+      "disposition": "merged",
+      "targets": [
+        "J39.11"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D240"
+    },
+    {
+      "id": "PL-D242",
+      "disposition": "merged",
+      "targets": [
+        "J42.4"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D242"
+    },
+    {
+      "id": "PL-D241",
+      "disposition": "merged",
+      "targets": [
+        "J19.4"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D241"
+    },
+    {
+      "id": "PL-D216",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D216"
+    },
+    {
+      "id": "PL-D218",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D218"
+    },
+    {
+      "id": "PL-D219",
+      "disposition": "merged",
+      "targets": [
+        "R144"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D219"
+    },
+    {
+      "id": "PL-D221",
+      "disposition": "merged",
+      "targets": [
+        "R144"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D221"
+    },
+    {
+      "id": "PL-D222",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D222"
+    },
+    {
+      "id": "PL-D223",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D223"
+    },
+    {
+      "id": "PL-D436",
+      "disposition": "merged",
+      "targets": [
+        "R142"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D436"
+    },
+    {
+      "id": "PL-D437",
+      "disposition": "merged",
+      "targets": [
+        "R142"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D437"
+    },
+    {
+      "id": "PL-D438",
+      "disposition": "merged",
+      "targets": [
+        "R142"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D438"
+    },
+    {
+      "id": "PL-D440",
+      "disposition": "merged",
+      "targets": [
+        "R143"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D440"
+    },
+    {
+      "id": "PL-D441",
+      "disposition": "merged",
+      "targets": [
+        "R140"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D441"
+    },
+    {
+      "id": "PL-D443",
+      "disposition": "merged",
+      "targets": [
+        "R141"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D443"
+    },
+    {
+      "id": "PL-D446",
+      "disposition": "merged",
+      "targets": [
+        "R141"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D446"
+    },
+    {
+      "id": "PL-D457",
+      "disposition": "merged",
+      "targets": [
+        "R139"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D457"
+    },
+    {
+      "id": "PL-D458",
+      "disposition": "merged",
+      "targets": [
+        "R139"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D458"
+    },
+    {
+      "id": "PL-D459",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D459"
+    },
+    {
+      "id": "PL-D460",
+      "disposition": "merged",
+      "targets": [
+        "R136"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D460"
+    },
+    {
+      "id": "PL-D461",
+      "disposition": "merged",
+      "targets": [
+        "R136"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D461"
+    },
+    {
+      "id": "PL-D462",
+      "disposition": "merged",
+      "targets": [
+        "R136"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D462"
+    },
+    {
+      "id": "PL-D463",
+      "disposition": "merged",
+      "targets": [
+        "R136"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D463"
+    },
+    {
+      "id": "PL-D464",
+      "disposition": "merged",
+      "targets": [
+        "R137"
+      ],
+      "reason": "Decision retained on the current semantic record; later delivered amendments take precedence.",
+      "source": "PL §0.12 plan D464"
+    },
+    {
+      "id": "PL-D447",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D447"
+    },
+    {
+      "id": "PL-D448",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D448"
+    },
+    {
+      "id": "PL-D449",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D449"
+    },
+    {
+      "id": "PL-D450",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D450"
+    },
+    {
+      "id": "PL-D451",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D451"
+    },
+    {
+      "id": "PL-D452",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D452"
+    },
+    {
+      "id": "PL-D453",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.",
+      "source": "PL §0.12 plan D453"
+    }
+  ]
+}

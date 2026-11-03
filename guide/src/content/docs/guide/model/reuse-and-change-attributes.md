@@ -1,0 +1,33 @@
+---
+title: Reuse and change attributes
+description: Attach a shared field and change its local rules or shared definition.
+reader: model-admin
+---
+
+Work in a draft with **Model authoring**. Read
+[Types, attributes and relations](/docs/model/types-attributes-relations/) before changing a shared field.
+
+1. Select the receiving type and open **Attributes**. Choose **Attach an existing attribute…**
+   and select the field. Already attached fields are not offered. Choose **Required** only if
+   every record of this type must supply it, then apply the attachment.
+2. Check **Shared with**. A shared attribute's name, value type and uniqueness are used by all
+   attached types. Open **Attribute types** to inspect the common definition and its attachments.
+3. In the type's table, select an editable **Required** or **Read-only** cell, choose **Yes**
+   or **No**, then **Save**. The menu also offers **Make required** / **Make optional** and
+   **Make read-only** / **Make editable**. These choices apply to this type's attachment.
+4. To change the shared field, use **Rename…**, **Value type…**, **Make unique** or **Allow
+   repeated values**. On the attribute type, **Features…** chooses **Searchable**, **Filterable**,
+   **Sortable** and **Unique**. Inspect every attached type before applying a shared change.
+5. Use **Move up** or **Move down** to order attributes. **Move to…**, or dragging a field onto
+   a type in the model pane, moves the attachment; its columns and panel placement move with it.
+   Check the destination rather than creating a duplicate attribute definition.
+6. Review **Issues**. If a released field change is refused, read the affected data counts.
+   Do not detach and recreate it to bypass the refusal. Plan a
+   [migration](/docs/model/migrations/) where existing values need conversion.
+
+![Attach an existing shared attribute to a type](/docs/screens/model-attribute-attach-existing.png)
+
+![Attribute operations including value type, local rules and list conversion](/docs/screens/model-attribute-menu.png)
+
+**Detach from …** removes the attachment and its uses in that type's views and panels; it does
+not mean remove the attribute from every type. Read the confirmation, or cancel to keep it.

@@ -1,0 +1,744 @@
+{
+  "wave": "ADMIN",
+  "note": "Real screens of Settings > Security (administering people and access) on the reference instance, view only; every dialog is opened and cancelled (Escape in the after step). Taken by guide/tools/screens.mjs --file ADMIN.screens.json into guide/public/screens/admin-*.png. Nothing changes state. admin-agent-access is for the later AI pages (ai-later).",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "admin-people",
+      "shows": "The People list with Guide Admin and Rita Approver, their roles, the Active and Deactivated counts and New person; no person chosen.",
+      "actions": [
+        {
+          "goto": "/settings/people"
+        },
+        {
+          "waitFor": {
+            "text": "Choose a person.",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Guide Admin",
+        "Rita Approver",
+        "New person"
+      ]
+    },
+    {
+      "name": "admin-person-admin",
+      "shows": "Guide Admin's page: Edit, See changes, Reset password, Sign out everywhere, Deactivate; password set; the six roles held in every workspace; groups; recent activity.",
+      "actions": [
+        {
+          "goto": "/settings/people/054d3640-8cb6-4fd2-b12c-111c35d96eef"
+        },
+        {
+          "waitFor": {
+            "text": "Recent activity",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Guide Admin",
+        "Every workspace",
+        "Security administrator"
+      ]
+    },
+    {
+      "name": "admin-person-rita",
+      "shows": "Rita Approver's page: Data owner granted directly in Graubünden, not in any group, recent activity.",
+      "actions": [
+        {
+          "goto": "/settings/people/e63f4689-4c63-4628-a5a5-ec63f4570d68"
+        },
+        {
+          "waitFor": {
+            "text": "Recent activity",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Rita Approver",
+        "Data owner",
+        "Graubünden"
+      ]
+    },
+    {
+      "name": "admin-person-new",
+      "shows": "The New person dialog (opened, not saved).",
+      "actions": [
+        {
+          "goto": "/settings/people"
+        },
+        {
+          "waitFor": {
+            "text": "Choose a person.",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New person",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "New person"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-person-reset-password",
+      "shows": "Reset password on Rita Approver: there is no confirmation, the click makes a one-time password link at once and this dialog shows it (the link was never used). The second-factor reset button only appears for a person with a second factor set up, which nobody has on the reference instance.",
+      "actions": [
+        {
+          "goto": "/settings/people/e63f4689-4c63-4628-a5a5-ec63f4570d68"
+        },
+        {
+          "waitFor": {
+            "text": "Recent activity",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Reset password",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Reset password"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-groups",
+      "shows": "The Groups page with no groups yet and New group.",
+      "actions": [
+        {
+          "goto": "/settings/groups"
+        },
+        {
+          "waitFor": {
+            "text": "No groups yet.",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "No groups yet.",
+        "New group"
+      ]
+    },
+    {
+      "name": "admin-group-new",
+      "shows": "The New group dialog (opened, not saved).",
+      "actions": [
+        {
+          "goto": "/settings/groups"
+        },
+        {
+          "waitFor": {
+            "text": "No groups yet.",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New group",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "New group"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-roles",
+      "shows": "The Roles page: the ten predefined roles as columns, the action groups as rows with Yes or No, what each role may do.",
+      "actions": [
+        {
+          "goto": "/settings/roles"
+        },
+        {
+          "waitFor": {
+            "text": "Browse",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Data owner",
+        "Approve publications",
+        "Model administrator"
+      ]
+    },
+    {
+      "name": "admin-role-new",
+      "shows": "The New role dialog (opened, not saved): a role is made by choosing action groups.",
+      "actions": [
+        {
+          "goto": "/settings/roles"
+        },
+        {
+          "waitFor": {
+            "text": "Browse",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New role",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "New role"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-grants-person",
+      "shows": "Grants of a person: Guide Admin's Roles table (Where, Role, Narrowed to, Through) and Grant.",
+      "actions": [
+        {
+          "goto": "/settings/people/054d3640-8cb6-4fd2-b12c-111c35d96eef"
+        },
+        {
+          "waitFor": {
+            "text": "Recent activity",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "scrollTo": {
+            "text": "Narrowed to (writes)",
+            "exact": false
+          },
+          "offset": 200
+        },
+        {
+          "wait": 400
+        }
+      ],
+      "expect": [
+        "Every workspace",
+        "Directly"
+      ]
+    },
+    {
+      "name": "admin-grants-workspace",
+      "shows": "Grants of a workspace: Graubünden, Access tab, who holds which role there, including Rita Approver as Data owner and the Stops reader client.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden/access"
+        },
+        {
+          "waitFor": {
+            "text": "Who can do what in this workspace",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Rita Approver",
+        "Data owner",
+        "Stops reader (guide)"
+      ]
+    },
+    {
+      "name": "admin-grant-dialog",
+      "shows": "The Grant dialog of Rita Approver (opened, not saved): choose a role and where it applies.",
+      "actions": [
+        {
+          "goto": "/settings/people/e63f4689-4c63-4628-a5a5-ec63f4570d68"
+        },
+        {
+          "waitFor": {
+            "text": "Recent activity",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Grant",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Grant"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-signin",
+      "shows": "The Sign-in page with Local accounts on and no provider yet.",
+      "actions": [
+        {
+          "goto": "/settings/sign-in"
+        },
+        {
+          "waitFor": {
+            "text": "No provider yet",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Local accounts",
+        "New provider"
+      ]
+    },
+    {
+      "name": "admin-signin-local",
+      "shows": "Local accounts settings: on, and the Require a second factor with a password switch.",
+      "actions": [
+        {
+          "goto": "/settings/sign-in/local"
+        },
+        {
+          "waitFor": {
+            "text": "Require a second factor with a password",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Second factor",
+        "Require a second factor"
+      ]
+    },
+    {
+      "name": "admin-signin-provider-new",
+      "shows": "The New provider dialog for the organisation's sign-in provider (OpenID Connect) (opened, not saved).",
+      "actions": [
+        {
+          "goto": "/settings/sign-in"
+        },
+        {
+          "waitFor": {
+            "text": "No provider yet",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New provider",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Save provider"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-account-sessions",
+      "shows": "A person's own Account page: Passkeys, Authenticator app and the list 'Where you're signed in' (the only session screen).",
+      "actions": [
+        {
+          "goto": "/settings/account"
+        },
+        {
+          "waitFor": {
+            "text": "Where you’re signed in",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Passkeys",
+        "Authenticator app"
+      ]
+    },
+    {
+      "name": "admin-clients",
+      "shows": "The Clients list with the one client, Stops reader (guide), and New client.",
+      "actions": [
+        {
+          "goto": "/settings/clients"
+        },
+        {
+          "waitFor": {
+            "text": "Choose a client.",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Stops reader (guide)",
+        "New client"
+      ]
+    },
+    {
+      "name": "admin-client",
+      "shows": "The client Stops reader (guide): ID, secrets, Rotate secret, Rename, Deactivate, and its Consumer API grant on Graubünden.",
+      "actions": [
+        {
+          "goto": "/settings/clients/06feff4d-f45b-4fa8-9b7a-3569aff407c5"
+        },
+        {
+          "waitFor": {
+            "text": "Secrets",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Stops reader (guide)",
+        "Rotate secret",
+        "Consumer API: Stops API"
+      ]
+    },
+    {
+      "name": "admin-client-new",
+      "shows": "The New client dialog (opened, not saved).",
+      "actions": [
+        {
+          "goto": "/settings/clients"
+        },
+        {
+          "waitFor": {
+            "text": "Choose a client.",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New client",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "New client"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-client-rotate",
+      "shows": "The Rotate secret dialog of Stops reader (guide) (opened, not rotated).",
+      "actions": [
+        {
+          "goto": "/settings/clients/06feff4d-f45b-4fa8-9b7a-3569aff407c5"
+        },
+        {
+          "waitFor": {
+            "text": "Secrets",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Rotate secret…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Rotate secret"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-signing-keys",
+      "shows": "The Signing keys page: the one current key (Signing), Start a new key, Retire the current key now.",
+      "actions": [
+        {
+          "goto": "/settings/signing-keys"
+        },
+        {
+          "waitFor": {
+            "text": "Key ID",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Signing keys",
+        "Start a new key"
+      ]
+    },
+    {
+      "name": "admin-signing-keys-retire",
+      "shows": "The confirmation dialog of Retire the current key now (opened, not confirmed). Start a new key has no dialog: it rotates at once.",
+      "actions": [
+        {
+          "goto": "/settings/signing-keys"
+        },
+        {
+          "waitFor": {
+            "text": "Key ID",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Retire the current key now",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Retire it now",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Retire it now"
+      ],
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-approval",
+      "shows": "Approval tab of the Graubünden workspace: changes need approval is on, the second-person rule is off, two people can approve.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden/approval"
+        },
+        {
+          "waitFor": {
+            "text": "Save approval policy",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Changes need approval",
+        "Save approval policy"
+      ]
+    },
+    {
+      "name": "admin-audit-person",
+      "shows": "Changes filtered to Rita Approver (See changes on her page): who changed what, newest first.",
+      "actions": [
+        {
+          "goto": "/changes?actorId=e63f4689-4c63-4628-a5a5-ec63f4570d68"
+        },
+        {
+          "waitFor": {
+            "text": "Rita Approver's changes",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Rita Approver's changes"
+      ]
+    },
+    {
+      "name": "admin-agent-access",
+      "shows": "ai-later: Settings, Security, Agent access, view only: off on this instance (MCP_ENABLED not set).",
+      "actions": [
+        {
+          "goto": "/settings/agent-access"
+        },
+        {
+          "waitFor": {
+            "text": "Agent access is off",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Agent access is off"
+      ]
+    }
+  ]
+}

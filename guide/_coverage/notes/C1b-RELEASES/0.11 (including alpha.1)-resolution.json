@@ -1,0 +1,1502 @@
+{
+  "release": "0.11 (including alpha.1)",
+  "counts": {
+    "added_promises": 17,
+    "added_rules": 5,
+    "merged": 138,
+    "superseded": 1,
+    "dropped": 29
+  },
+  "added_promises": [
+    "R107",
+    "R108",
+    "R109",
+    "R110",
+    "R111",
+    "R112",
+    "R113",
+    "R114",
+    "R115",
+    "R116",
+    "R117",
+    "R118",
+    "R119",
+    "R120",
+    "R121",
+    "R122",
+    "R123"
+  ],
+  "added_rules": [
+    "L33",
+    "L34",
+    "L35",
+    "L36",
+    "L37"
+  ],
+  "resolutions": [
+    {
+      "id": "CL-0.11.0-#1",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Changed (0.11, the first public release moved to 0.12)"
+    },
+    {
+      "id": "CL-0.11.0-#2",
+      "disposition": "merged",
+      "targets": [
+        "R107"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 R)"
+    },
+    {
+      "id": "CL-0.11.0-#3",
+      "disposition": "merged",
+      "targets": [
+        "R121"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 U1, touch drag in the record tree)"
+    },
+    {
+      "id": "CL-0.11.0-#4",
+      "disposition": "merged",
+      "targets": [
+        "J21.9"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 Q3, attribute sorts over very large parents)"
+    },
+    {
+      "id": "CL-0.11.0-#5",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Changed (0.11 Q3, attribute sorts over very large parents)"
+    },
+    {
+      "id": "CL-0.11.0-#6",
+      "disposition": "merged",
+      "targets": [
+        "J21.9"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 Q3, attribute sorts over very large parents)"
+    },
+    {
+      "id": "CL-0.11.0-#7",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Changed (0.11 Q3, attribute sorts over very large parents)"
+    },
+    {
+      "id": "CL-0.11.0-#8",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Changed (0.11 Q3, attribute sorts over very large parents)"
+    },
+    {
+      "id": "CL-0.11.0-#9",
+      "disposition": "merged",
+      "targets": [
+        "J12.16",
+        "J12.17"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 O2, backup rehearsal and the Operations page)"
+    },
+    {
+      "id": "CL-0.11.0-#10",
+      "disposition": "merged",
+      "targets": [
+        "J12.16",
+        "J12.14"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 O2, backup rehearsal and the Operations page)"
+    },
+    {
+      "id": "CL-0.11.0-#11",
+      "disposition": "merged",
+      "targets": [
+        "F19.d"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 O2, backup rehearsal and the Operations page)"
+    },
+    {
+      "id": "CL-0.11.0-#12",
+      "disposition": "merged",
+      "targets": [
+        "J12.16"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 O2, backup rehearsal and the Operations page)"
+    },
+    {
+      "id": "CL-0.11.0-#13",
+      "disposition": "merged",
+      "targets": [
+        "J12.S2"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 O2)"
+    },
+    {
+      "id": "CL-0.11.0-#14",
+      "disposition": "merged",
+      "targets": [
+        "J12.12",
+        "R118"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 O1, metrics, logs, health and readiness)"
+    },
+    {
+      "id": "CL-0.11.0-#15",
+      "disposition": "merged",
+      "targets": [
+        "J12.13"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 O1, metrics, logs, health and readiness)"
+    },
+    {
+      "id": "CL-0.11.0-#16",
+      "disposition": "merged",
+      "targets": [
+        "J12.14"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 O1, metrics, logs, health and readiness)"
+    },
+    {
+      "id": "CL-0.11.0-#17",
+      "disposition": "merged",
+      "targets": [
+        "J12.15"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 O1, metrics, logs, health and readiness)"
+    },
+    {
+      "id": "CL-0.11.0-#18",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Changed (0.11 Q2, value indexes)"
+    },
+    {
+      "id": "CL-0.11.0-#19",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Changed (0.11 Q2, value indexes)"
+    },
+    {
+      "id": "CL-0.11.0-#20",
+      "disposition": "merged",
+      "targets": [
+        "R117"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 N3, several processes)"
+    },
+    {
+      "id": "CL-0.11.0-#21",
+      "disposition": "merged",
+      "targets": [
+        "R117"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 N3, several processes)"
+    },
+    {
+      "id": "CL-0.11.0-#22",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Added (0.11 N3, several processes)"
+    },
+    {
+      "id": "CL-0.11.0-#23",
+      "disposition": "merged",
+      "targets": [
+        "J12.11"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 Q1, database connections)"
+    },
+    {
+      "id": "CL-0.11.0-#24",
+      "disposition": "merged",
+      "targets": [
+        "R117"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 Q1, database connections)"
+    },
+    {
+      "id": "CL-0.11.0-#25",
+      "disposition": "merged",
+      "targets": [
+        "R119"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 N2, the job worker on several nodes)"
+    },
+    {
+      "id": "CL-0.11.0-#26",
+      "disposition": "merged",
+      "targets": [
+        "J12.10",
+        "R119"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 N2, the job worker on several nodes)"
+    },
+    {
+      "id": "CL-0.11.0-#27",
+      "disposition": "merged",
+      "targets": [
+        "J12.10"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 N1, several processes)"
+    },
+    {
+      "id": "CL-0.11.0-#28",
+      "disposition": "merged",
+      "targets": [
+        "J12.10"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 N1, several processes)"
+    },
+    {
+      "id": "CL-0.11.0-#29",
+      "disposition": "merged",
+      "targets": [
+        "J36.9"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 N1, several processes)"
+    },
+    {
+      "id": "CL-0.11.0-#30",
+      "disposition": "merged",
+      "targets": [
+        "R120"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X6, long lists)"
+    },
+    {
+      "id": "CL-0.11.0-#31",
+      "disposition": "merged",
+      "targets": [
+        "R120"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X6, long lists)"
+    },
+    {
+      "id": "CL-0.11.0-#32",
+      "disposition": "merged",
+      "targets": [
+        "J01.8",
+        "R120"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X6, long lists)"
+    },
+    {
+      "id": "CL-0.11.0-#33",
+      "disposition": "merged",
+      "targets": [
+        "F03.c"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X6, long lists)"
+    },
+    {
+      "id": "CL-0.11.0-#34",
+      "disposition": "merged",
+      "targets": [
+        "R120"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X6, long lists)"
+    },
+    {
+      "id": "CL-0.11.0-#35",
+      "disposition": "merged",
+      "targets": [
+        "R122"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (hierarchy browser)"
+    },
+    {
+      "id": "CL-0.11.0-#36",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Added (0.11 X5)"
+    },
+    {
+      "id": "CL-0.11.0-#37",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Added (0.11 X5)"
+    },
+    {
+      "id": "CL-0.11.0-#38",
+      "disposition": "merged",
+      "targets": [
+        "J38.S1"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X4)"
+    },
+    {
+      "id": "CL-0.11.0-#39",
+      "disposition": "merged",
+      "targets": [
+        "R110",
+        "R111"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X4)"
+    },
+    {
+      "id": "CL-0.11.0-#40",
+      "disposition": "merged",
+      "targets": [
+        "R111"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X4)"
+    },
+    {
+      "id": "CL-0.11.0-#41",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Added (0.11 X4)"
+    },
+    {
+      "id": "CL-0.11.0-#42",
+      "disposition": "merged",
+      "targets": [
+        "J38.S3"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X4)"
+    },
+    {
+      "id": "CL-0.11.0-#43",
+      "disposition": "merged",
+      "targets": [
+        "J05.S3"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X4)"
+    },
+    {
+      "id": "CL-0.11.0-#44",
+      "disposition": "merged",
+      "targets": [
+        "F02.b"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X4)"
+    },
+    {
+      "id": "CL-0.11.0-#45",
+      "disposition": "merged",
+      "targets": [
+        "R112"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X3)"
+    },
+    {
+      "id": "CL-0.11.0-#46",
+      "disposition": "merged",
+      "targets": [
+        "R113"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X3)"
+    },
+    {
+      "id": "CL-0.11.0-#47",
+      "disposition": "merged",
+      "targets": [
+        "R112"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X3)"
+    },
+    {
+      "id": "CL-0.11.0-#48",
+      "disposition": "merged",
+      "targets": [
+        "R112"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X3)"
+    },
+    {
+      "id": "CL-0.11.0-#49",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Added (0.11 X3)"
+    },
+    {
+      "id": "CL-0.11.0-#50",
+      "disposition": "merged",
+      "targets": [
+        "R088"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X3)"
+    },
+    {
+      "id": "CL-0.11.0-#51",
+      "disposition": "merged",
+      "targets": [
+        "R111"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X2)"
+    },
+    {
+      "id": "CL-0.11.0-#52",
+      "disposition": "merged",
+      "targets": [
+        "R110"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X2)"
+    },
+    {
+      "id": "CL-0.11.0-#53",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Added (0.11 X2)"
+    },
+    {
+      "id": "CL-0.11.0-#54",
+      "disposition": "merged",
+      "targets": [
+        "J12.4"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X2)"
+    },
+    {
+      "id": "CL-0.11.0-#55",
+      "disposition": "merged",
+      "targets": [
+        "R110"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X1)"
+    },
+    {
+      "id": "CL-0.11.0-#56",
+      "disposition": "merged",
+      "targets": [
+        "R110"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 X1)"
+    },
+    {
+      "id": "CL-0.11.0-#57",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Added (0.11 X1)"
+    },
+    {
+      "id": "CL-0.11.0-#58",
+      "disposition": "merged",
+      "targets": [
+        "J38.1"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 X1)"
+    },
+    {
+      "id": "CL-0.11.0-#59",
+      "disposition": "superseded",
+      "targets": [
+        "J37.8"
+      ],
+      "reason": "0.12 L2a replaces the historical 0.5–0.10 window with the current released window.",
+      "source": "CL §[0.11.0] Added (0.11 V4)"
+    },
+    {
+      "id": "CL-0.11.0-#60",
+      "disposition": "merged",
+      "targets": [
+        "J37.8"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 V4)"
+    },
+    {
+      "id": "CL-0.11.0-#61",
+      "disposition": "merged",
+      "targets": [
+        "R108"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 V3)"
+    },
+    {
+      "id": "CL-0.11.0-#62",
+      "disposition": "merged",
+      "targets": [
+        "R108"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 V3)"
+    },
+    {
+      "id": "CL-0.11.0-#63",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Added (0.11 V3)"
+    },
+    {
+      "id": "CL-0.11.0-#64",
+      "disposition": "merged",
+      "targets": [
+        "R109"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 V2, API)"
+    },
+    {
+      "id": "CL-0.11.0-#65",
+      "disposition": "merged",
+      "targets": [
+        "R109"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 V2, browser)"
+    },
+    {
+      "id": "CL-0.11.0-#66",
+      "disposition": "merged",
+      "targets": [
+        "R107",
+        "J37.2"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 V1, API)"
+    },
+    {
+      "id": "CL-0.11.0-#67",
+      "disposition": "merged",
+      "targets": [
+        "J37.S2"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 V1, API)"
+    },
+    {
+      "id": "CL-0.11.0-#68",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Added (0.11 V1, API)"
+    },
+    {
+      "id": "CL-0.11.0-#69",
+      "disposition": "merged",
+      "targets": [
+        "J37.S2"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 V1, browser)"
+    },
+    {
+      "id": "CL-0.11.0-#70",
+      "disposition": "merged",
+      "targets": [
+        "J33.14"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Added (0.11 V1, browser)"
+    },
+    {
+      "id": "CL-0.11.0-#71",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal index, performance result, validation evidence, delivery history or shared implementation detail.",
+      "source": "CL §[0.11.0] Added (0.11 V1, browser)"
+    },
+    {
+      "id": "CL-0.11.0-#72",
+      "disposition": "merged",
+      "targets": [
+        "J08.4"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 V1)"
+    },
+    {
+      "id": "CL-0.11.0-#73",
+      "disposition": "merged",
+      "targets": [
+        "R119"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 V1)"
+    },
+    {
+      "id": "CL-0.11.0-#74",
+      "disposition": "merged",
+      "targets": [
+        "J37.2"
+      ],
+      "reason": "Delivered behavior retained with current workspace-specific scope.",
+      "source": "CL §[0.11.0] Changed (0.11 V1)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#1",
+      "disposition": "merged",
+      "targets": [
+        "J36.9"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M6a)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#2",
+      "disposition": "merged",
+      "targets": [
+        "J36.9"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M6a)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#3",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Accessibility/visual acceptance evidence rather than another reader capability.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M6)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#4",
+      "disposition": "merged",
+      "targets": [
+        "F02.g"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M6)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#5",
+      "disposition": "merged",
+      "targets": [
+        "J36.S2"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M6)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#6",
+      "disposition": "merged",
+      "targets": [
+        "F19.f"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M6)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#7",
+      "disposition": "merged",
+      "targets": [
+        "J36.S3"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M5)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#8",
+      "disposition": "merged",
+      "targets": [
+        "J36.S3"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M5)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#9",
+      "disposition": "merged",
+      "targets": [
+        "J36.S1"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M5)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#10",
+      "disposition": "merged",
+      "targets": [
+        "J36.1",
+        "J36.4"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M5)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#11",
+      "disposition": "merged",
+      "targets": [
+        "J36.S2"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M5)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#12",
+      "disposition": "merged",
+      "targets": [
+        "J36.S3"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M5)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#13",
+      "disposition": "merged",
+      "targets": [
+        "R114",
+        "R115"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M5)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#14",
+      "disposition": "merged",
+      "targets": [
+        "J36.S2"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M5)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#15",
+      "disposition": "merged",
+      "targets": [
+        "R116"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M4)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#16",
+      "disposition": "merged",
+      "targets": [
+        "R116"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M4)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#17",
+      "disposition": "merged",
+      "targets": [
+        "J27.14"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M4)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#18",
+      "disposition": "merged",
+      "targets": [
+        "R114"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M3)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#19",
+      "disposition": "merged",
+      "targets": [
+        "J36.S2"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M3)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#20",
+      "disposition": "merged",
+      "targets": [
+        "J36.6"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M3)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#21",
+      "disposition": "merged",
+      "targets": [
+        "R115"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M3)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#22",
+      "disposition": "merged",
+      "targets": [
+        "R114"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M3)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#23",
+      "disposition": "merged",
+      "targets": [
+        "J36.S2"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M1)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#24",
+      "disposition": "merged",
+      "targets": [
+        "J36.2"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M1)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#25",
+      "disposition": "merged",
+      "targets": [
+        "J36.6"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M1)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#26",
+      "disposition": "merged",
+      "targets": [
+        "J36.S1"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Added (0.11 M1)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#27",
+      "disposition": "merged",
+      "targets": [
+        "J36.5"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M1)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#28",
+      "disposition": "merged",
+      "targets": [
+        "J36.8",
+        "R118"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M1)"
+    },
+    {
+      "id": "CL-0.11.0-alpha.1-#29",
+      "disposition": "merged",
+      "targets": [
+        "J36.4"
+      ],
+      "reason": "Workspace model context replaces earlier deployment-global behavior.",
+      "source": "CL §[0.11.0-alpha.1] Changed (0.11 M1)"
+    },
+    {
+      "id": "PL-D179",
+      "disposition": "merged",
+      "targets": [
+        "R123"
+      ],
+      "reason": "Corrected source PL 0.9 D179; retained released behavior.",
+      "source": "PL §0.9 plan D179"
+    },
+    {
+      "id": "PL-D180",
+      "disposition": "merged",
+      "targets": [
+        "J27.15"
+      ],
+      "reason": "Corrected source PL 0.9 D180; retained released behavior.",
+      "source": "PL §0.9 plan D180"
+    },
+    {
+      "id": "PL-D181",
+      "disposition": "merged",
+      "targets": [
+        "R123"
+      ],
+      "reason": "Corrected source PL 0.9 D181; retained released behavior.",
+      "source": "PL §0.9 plan D181"
+    },
+    {
+      "id": "PL-D182",
+      "disposition": "merged",
+      "targets": [
+        "J27.15"
+      ],
+      "reason": "Corrected source PL 0.9 D182; retained released behavior.",
+      "source": "PL §0.9 plan D182"
+    },
+    {
+      "id": "PL-D183",
+      "disposition": "merged",
+      "targets": [
+        "R123"
+      ],
+      "reason": "Corrected source PL 0.9 D183; retained released behavior.",
+      "source": "PL §0.9 plan D183"
+    },
+    {
+      "id": "PL-D184",
+      "disposition": "merged",
+      "targets": [
+        "J27.15"
+      ],
+      "reason": "Corrected source PL 0.9 D184; retained released behavior.",
+      "source": "PL §0.9 plan D184"
+    },
+    {
+      "id": "PL-D185",
+      "disposition": "merged",
+      "targets": [
+        "R123"
+      ],
+      "reason": "Corrected source PL 0.9 D185; retained released behavior.",
+      "source": "PL §0.9 plan D185"
+    },
+    {
+      "id": "PL-D186",
+      "disposition": "merged",
+      "targets": [
+        "J27.16"
+      ],
+      "reason": "Corrected source PL 0.9 D186; retained released behavior.",
+      "source": "PL §0.9 plan D186"
+    },
+    {
+      "id": "PL-D187",
+      "disposition": "merged",
+      "targets": [
+        "R085"
+      ],
+      "reason": "Corrected source PL 0.9 D187; retained released behavior.",
+      "source": "PL §0.9 plan D187"
+    },
+    {
+      "id": "PL-D188",
+      "disposition": "merged",
+      "targets": [
+        "J27.15"
+      ],
+      "reason": "Corrected source PL 0.9 D188; retained released behavior.",
+      "source": "PL §0.9 plan D188"
+    },
+    {
+      "id": "PL-D189",
+      "disposition": "merged",
+      "targets": [
+        "R123"
+      ],
+      "reason": "Corrected source PL 0.9 D189; retained released behavior.",
+      "source": "PL §0.9 plan D189"
+    },
+    {
+      "id": "PL-D190",
+      "disposition": "merged",
+      "targets": [
+        "R123"
+      ],
+      "reason": "Corrected source PL 0.9 D190; retained released behavior.",
+      "source": "PL §0.9 plan D190"
+    },
+    {
+      "id": "PL-D191",
+      "disposition": "merged",
+      "targets": [
+        "J27.18"
+      ],
+      "reason": "Corrected source PL 0.9 D191; retained released behavior.",
+      "source": "PL §0.9 plan D191"
+    },
+    {
+      "id": "PL-D192",
+      "disposition": "merged",
+      "targets": [
+        "J27.18"
+      ],
+      "reason": "Corrected source PL 0.9 D192; retained released behavior.",
+      "source": "PL §0.9 plan D192"
+    },
+    {
+      "id": "PL-D193",
+      "disposition": "merged",
+      "targets": [
+        "R085"
+      ],
+      "reason": "Corrected source PL 0.9 D193; retained released behavior.",
+      "source": "PL §0.9 plan D193"
+    },
+    {
+      "id": "PL-D194",
+      "disposition": "merged",
+      "targets": [
+        "J27.19"
+      ],
+      "reason": "Corrected source PL 0.9 D194; retained released behavior.",
+      "source": "PL §0.9 plan D194"
+    },
+    {
+      "id": "PL-D195",
+      "disposition": "merged",
+      "targets": [
+        "R085"
+      ],
+      "reason": "Corrected source PL 0.9 D195; retained released behavior.",
+      "source": "PL §0.9 plan D195"
+    },
+    {
+      "id": "PL-D196",
+      "disposition": "merged",
+      "targets": [
+        "J27.20"
+      ],
+      "reason": "Corrected source PL 0.9 D196; retained released behavior.",
+      "source": "PL §0.9 plan D196"
+    },
+    {
+      "id": "PL-D197",
+      "disposition": "merged",
+      "targets": [
+        "J27.20"
+      ],
+      "reason": "Corrected source PL 0.9 D197; retained released behavior.",
+      "source": "PL §0.9 plan D197"
+    },
+    {
+      "id": "PL-D198",
+      "disposition": "merged",
+      "targets": [
+        "J27.20"
+      ],
+      "reason": "Corrected source PL 0.9 D198; retained released behavior.",
+      "source": "PL §0.9 plan D198"
+    },
+    {
+      "id": "PL-D199",
+      "disposition": "merged",
+      "targets": [
+        "J27.20"
+      ],
+      "reason": "Corrected source PL 0.9 D199; retained released behavior.",
+      "source": "PL §0.9 plan D199"
+    },
+    {
+      "id": "PL-D154",
+      "disposition": "merged",
+      "targets": [
+        "J01.10"
+      ],
+      "reason": "Corrected source PL 0.9 D154; retained released behavior.",
+      "source": "PL §0.9 plan D154"
+    },
+    {
+      "id": "PL-D155",
+      "disposition": "merged",
+      "targets": [
+        "J01.10"
+      ],
+      "reason": "Corrected source PL 0.9 D155; retained released behavior.",
+      "source": "PL §0.9 plan D155"
+    },
+    {
+      "id": "PL-D156",
+      "disposition": "merged",
+      "targets": [
+        "J01.10"
+      ],
+      "reason": "Corrected source PL 0.9 D156; retained released behavior.",
+      "source": "PL §0.9 plan D156"
+    },
+    {
+      "id": "PL-D157",
+      "disposition": "merged",
+      "targets": [
+        "J01.10"
+      ],
+      "reason": "Corrected source PL 0.9 D157; retained released behavior.",
+      "source": "PL §0.9 plan D157"
+    },
+    {
+      "id": "PL-D158",
+      "disposition": "merged",
+      "targets": [
+        "J32.6"
+      ],
+      "reason": "Corrected source PL 0.9 D158; retained released behavior.",
+      "source": "PL §0.9 plan D158"
+    },
+    {
+      "id": "PL-D159",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D159: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.9 plan D159"
+    },
+    {
+      "id": "PL-D160",
+      "disposition": "merged",
+      "targets": [
+        "F03.f"
+      ],
+      "reason": "Corrected source PL 0.9 D160; retained released behavior.",
+      "source": "PL §0.9 plan D160"
+    },
+    {
+      "id": "PL-D161",
+      "disposition": "merged",
+      "targets": [
+        "F03.f"
+      ],
+      "reason": "Corrected source PL 0.9 D161; retained released behavior.",
+      "source": "PL §0.9 plan D161"
+    },
+    {
+      "id": "PL-D162",
+      "disposition": "merged",
+      "targets": [
+        "F03.f"
+      ],
+      "reason": "Corrected source PL 0.9 D162; retained released behavior.",
+      "source": "PL §0.9 plan D162"
+    },
+    {
+      "id": "PL-D163",
+      "disposition": "merged",
+      "targets": [
+        "F03.f"
+      ],
+      "reason": "Corrected source PL 0.9 D163; retained released behavior.",
+      "source": "PL §0.9 plan D163"
+    },
+    {
+      "id": "PL-D164",
+      "disposition": "merged",
+      "targets": [
+        "F03.f"
+      ],
+      "reason": "Corrected source PL 0.9 D164; retained released behavior.",
+      "source": "PL §0.9 plan D164"
+    },
+    {
+      "id": "PL-D165",
+      "disposition": "merged",
+      "targets": [
+        "J32.7"
+      ],
+      "reason": "Corrected source PL 0.9 D165; retained released behavior.",
+      "source": "PL §0.9 plan D165"
+    },
+    {
+      "id": "PL-D166",
+      "disposition": "merged",
+      "targets": [
+        "J32.1"
+      ],
+      "reason": "Corrected source PL 0.9 D166; retained released behavior.",
+      "source": "PL §0.9 plan D166"
+    },
+    {
+      "id": "PL-D167",
+      "disposition": "merged",
+      "targets": [
+        "J32.4"
+      ],
+      "reason": "Corrected source PL 0.9 D167; retained released behavior.",
+      "source": "PL §0.9 plan D167"
+    },
+    {
+      "id": "PL-D168",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Corrected source PL 0.9 D168; retained released behavior.",
+      "source": "PL §0.9 plan D168"
+    },
+    {
+      "id": "PL-D169",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Corrected source PL 0.9 D169; retained released behavior.",
+      "source": "PL §0.9 plan D169"
+    },
+    {
+      "id": "PL-D170",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Corrected source PL 0.9 D170; retained released behavior.",
+      "source": "PL §0.9 plan D170"
+    },
+    {
+      "id": "PL-D171",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Corrected source PL 0.9 D171; retained released behavior.",
+      "source": "PL §0.9 plan D171"
+    },
+    {
+      "id": "PL-D172",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Corrected source PL 0.9 D172; retained released behavior.",
+      "source": "PL §0.9 plan D172"
+    },
+    {
+      "id": "PL-D173",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Corrected source PL 0.9 D173; retained released behavior.",
+      "source": "PL §0.9 plan D173"
+    },
+    {
+      "id": "PL-D174",
+      "disposition": "merged",
+      "targets": [
+        "J03.9"
+      ],
+      "reason": "Corrected source PL 0.9 D174; retained released behavior.",
+      "source": "PL §0.9 plan D174"
+    },
+    {
+      "id": "PL-D175",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Corrected source PL 0.9 D175; retained released behavior.",
+      "source": "PL §0.9 plan D175"
+    },
+    {
+      "id": "PL-D176",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Corrected source PL 0.9 D176; retained released behavior.",
+      "source": "PL §0.9 plan D176"
+    },
+    {
+      "id": "PL-D177",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Corrected source PL 0.9 D177; retained released behavior.",
+      "source": "PL §0.9 plan D177"
+    },
+    {
+      "id": "PL-D178",
+      "disposition": "merged",
+      "targets": [
+        "J01.11"
+      ],
+      "reason": "Corrected source PL 0.9 D178; retained released behavior.",
+      "source": "PL §0.9 plan D178"
+    },
+    {
+      "id": "PL-D200",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D200: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.9 plan D200"
+    },
+    {
+      "id": "PL-D201",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D201: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.9 plan D201"
+    },
+    {
+      "id": "PL-D202",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D202: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.9 plan D202"
+    },
+    {
+      "id": "PL-D203",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D203: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.9 plan D203"
+    },
+    {
+      "id": "PL-D204",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D204: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.9 plan D204"
+    },
+    {
+      "id": "PL-D205",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D205: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.9 plan D205"
+    },
+    {
+      "id": "PL-D206",
+      "disposition": "merged",
+      "targets": [
+        "R092"
+      ],
+      "reason": "Corrected source PL 0.9 D206; retained released behavior.",
+      "source": "PL §0.9 plan D206"
+    },
+    {
+      "id": "PL-D207",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D207: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.9 plan D207"
+    },
+    {
+      "id": "PL-D208",
+      "disposition": "merged",
+      "targets": [
+        "R090"
+      ],
+      "reason": "Corrected source PL 0.9 D208; retained released behavior.",
+      "source": "PL §0.9 plan D208"
+    },
+    {
+      "id": "PL-D209",
+      "disposition": "merged",
+      "targets": [
+        "R089"
+      ],
+      "reason": "Corrected source PL 0.9 D209; retained released behavior.",
+      "source": "PL §0.9 plan D209"
+    },
+    {
+      "id": "PL-D210",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D210: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.9 plan D210"
+    },
+    {
+      "id": "PL-D211",
+      "disposition": "merged",
+      "targets": [
+        "R121"
+      ],
+      "reason": "Corrected source PL 0.11 D211; retained released behavior.",
+      "source": "PL §0.11 plan D211"
+    },
+    {
+      "id": "PL-D212",
+      "disposition": "merged",
+      "targets": [
+        "R121"
+      ],
+      "reason": "Corrected source PL 0.11 D212; retained released behavior.",
+      "source": "PL §0.11 plan D212"
+    },
+    {
+      "id": "PL-D213",
+      "disposition": "merged",
+      "targets": [
+        "R121"
+      ],
+      "reason": "Corrected source PL 0.11 D213; retained released behavior.",
+      "source": "PL §0.11 plan D213"
+    },
+    {
+      "id": "PL-D214",
+      "disposition": "merged",
+      "targets": [
+        "R121"
+      ],
+      "reason": "Corrected source PL 0.11 D214; retained released behavior.",
+      "source": "PL §0.11 plan D214"
+    },
+    {
+      "id": "PL-D215",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.11 D215: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.11 plan D215"
+    },
+    {
+      "id": "PL-D224",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.11 D224: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.11 plan, 0.12 plan D224"
+    },
+    {
+      "id": "PL-D226",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.11 D226: fixture, gate, release or testing decision, not reader behavior.",
+      "source": "PL §0.11 plan, 0.12 plan D226"
+    },
+    {
+      "id": "PL-D15",
+      "disposition": "merged",
+      "targets": [
+        "J36.4"
+      ],
+      "reason": "Corrected source PL 0.11 D15; retained released behavior.",
+      "source": "PL §0.11 plan D15"
+    }
+  ]
+}

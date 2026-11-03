@@ -1,0 +1,149 @@
+---
+title: Importing and exporting
+description: Choose a file for editing or exchange, preview its changes and load it safely.
+reader: steward
+---
+
+Export data to read or edit outside refiroo, then import it with a preview. Export needs
+**Browse** in the workspace. Import needs **Bulk and import** and permission to write the
+target record types in Live or a change set. The deployment must allow new jobs. Publications
+and retired workspaces can be exported but cannot receive an import.
+
+Use [Export records](/docs/guide/use/export-records/),
+[Edit in Excel and import back](/docs/guide/use/edit-in-excel-and-import-back/), or
+[Import a file](/docs/guide/use/import-a-file/).
+
+## What an export contains
+
+Open **Workspace actions** and choose **Export**. From a collection it carries that type,
+context, filters, parent scope and displayed columns. **Text search is not included.** Check
+the scope rather than assuming that only the searched names are exported. From another page,
+choose the application's types; from **Settings › Data operations › Jobs** an export can choose
+types in a workspace. **Valid on** optionally limits the export by business date. The browser's
+ordinary lists have no equivalent business-date selector.
+
+**Kind of file** offers **Technical** and, from a suitable collection, **For people**.
+Technical exports offer **Excel (XLSX)**, **CSV** and **JSON Lines**. Choose **Between exported
+records**, **All their relationships** or **None** for relationships. All their relationships
+can refer to records outside the chosen record scope. Everything is read at one instant.
+The job's file summary records its scope, counts, size and checksum. Failed or cancelled exports
+have no downloadable file. Downloads remain subject to job and file retention.
+
+## A workbook for people
+
+**For people** makes an Excel workbook shaped by your table: visible columns in their order,
+readable labels and typed cells. **Advanced: columns and sheets** changes the columns, their
+order, which field a relationship column shows and which relationships get separate sheets.
+Related records are exported in full, even where the browser showed only a few chips.
+Record identity and versions are held in hidden columns. Keep those columns and the workbook's
+saved import information when editing. Cells choosing a single record offer dropdowns from
+sheets of eligible records.
+
+Columns marked **(not imported)** are for reading. An ambiguous or overlong relationship cell
+becomes a read-only summary pointing to its sheet. Several owned records for one parent also
+form a summary rather than an editable single value. Edit the appropriate sheet instead.
+
+When imported with **Profile: None**, the workbook is read as exported. An untouched workbook
+changes nothing; changed names, fields and added rows are loaded as edits. A record changed by
+someone else since export is refused unless you deliberately choose the overwrite option.
+A main-sheet relationship list replaces that whole set; connections still chosen keep their
+identity and values. A relationship sheet adds or updates connections, but omitting a row does
+not remove one.
+
+**Blank ordinary field and owned-record cells leave values unchanged.** To clear such a value,
+use refiroo's field editor. **An empty cell replacing a relationship set empties that set**,
+where its rules permit it. Check the preview carefully when clearing a relationship list.
+A required connection still cannot be cleared.
+
+An owned-record relationship can use **Columns per parent** to make a workbook for filling in.
+Each chosen parent contributes columns for its owned record's fields. Filling an empty column
+creates that record under its parent and connects it to the row's record. See
+[Add a language with a workbook](/docs/guide/use/add-a-language-with-a-workbook/) for the generic
+steps and an example. Excel permits at most 16,384 columns; a wider layout fails when the export
+job runs. Reduce parents or fields and export again.
+
+## Read a file through a profile
+
+An import profile tells refiroo how sheets and columns become records, names, fields, parents
+and relationships, and which values identify existing records. Choose a stored profile for a
+CSV or workbook that was not exported by refiroo. Profile setup belongs to
+[Workbook onboarding](/docs/model/workbook-onboarding/); a steward can
+[load its next version](/docs/guide/use/load-the-next-version-of-a-workbook/).
+
+A missing or ambiguous related name is refused. Parents can be resolved from existing records
+or the same file, and are loaded before children. Repeated keys with compatible filled cells
+combine into one record; conflicting filled values refuse all contributing rows. Blank cells
+do not conflict with another row's supplied value. A profile without a stable key warns that
+later uploads may create new records instead of finding earlier ones.
+
+A profile can keep or delete records missing from the next file. Deletion of missing records
+is allowed only in a change set, so review those removals before publication. A profile must
+still fit the workspace's model; ask its model administrator to fix named problems.
+
+## Preview and load
+
+The import always previews first in the browser. Choose whether to **Load the rows that can
+load** or **Load nothing unless every row loads**, and whether found records may be updated.
+The preview reports creations, updates, unchanged and refused rows. Its column report shows
+empty, converted, mapped and refused cells, and found, missing or ambiguous record matches.
+A large file may be sampled; the page says how much was tried. Loading checks the whole file
+against current data, so the final result can differ.
+
+**Load the file** confirms; **Cancel import** ends the preview without writes. Expired previews
+cannot load. Correct refused rows in the original file and resend the whole file: already
+loaded rows should preview unchanged when their data and matching choices are unchanged.
+Refused rows are listed on the job page; there is no download of just the refused rows.
+
+For an export from another workspace, **Load them as this workspace's own** creates separate
+records with stable identities derived for the destination. Parents and relationships stay
+together; resending the file finds those copies. They do not stay linked to the originals.
+**Refuse them** instead reports the source workspace on the refused rows.
+
+Read [Jobs](/docs/use/jobs/) for progress, cancellation, access and retention.
+
+## Read the preview's evidence
+
+**The preview** counts **Created**, **Updated**, **Unchanged**, **Deleted**, **Refused items**
+and **Rows**. **A sample** means only part of the file was tried. In **Rows in the preview**,
+choose **All rows**, **Refused** or **Not loaded**. Read **Outcome** and **Why, or what it does**
+for the individual rows; a refused cell gives its column and reason.
+
+**How the file was read** explains each sheet and column:
+
+| Count | What to check |
+| --- | --- |
+| Bound to | The field, name, parent or relationship receiving this column. |
+| Cells and Empty | Whether the expected rows supplied anything to read. |
+| Read and Value-mapped | Values successfully read or translated through the profile's value choices. |
+| Refused | Cells that could not be used; correct their stated cause before loading. |
+| Found, Not found and Ambiguous | Whether a name or key identified exactly one existing record. |
+
+A **Check** marker calls attention to a column. The **Read as exported** summary identifies a
+workbook using its saved import information. **This import** records the chosen file, profile
+and load policy. After confirmation, **The result** reports **Applied items**, **Refused items**
+and **Not loaded**. Read that result even when the preview looked right.
+
+## Profiles and recurring keys
+
+In **Settings › Data operations › Import profiles**, **Valid** means the profile fits its
+model; **Needs a fix** means a named problem must be resolved. Neither guarantees that every
+row in the next file is valid. **Not loaded yet** means no retained last load is shown.
+**Load more profiles** continues the catalogue. If there are no profiles, ask a model
+administrator to prepare one through [Workbook onboarding](/docs/model/workbook-onboarding/).
+
+**Last load** offers **Open the change set review** while its work is proposed, or
+**Open the load's job** for the retained operation. A load can be missing here because it has
+passed retention. Uploading the next file checks it without changing records. Accepting a
+column rename or ignoring a new column changes the profile used for subsequent checks; review
+those decisions with its owner. See [Load the next version of a workbook](/docs/guide/use/load-the-next-version-of-a-workbook/).
+
+A matching key may combine several columns. Every component must be present and identify at
+most one stored record. Fill incomplete keys or ask the profile owner to resolve ambiguous
+combinations. Changing only a display name need not create a new record when a stable key still
+finds the original.
+
+An export uses one consistent reading of the data. If its worker restarts after a crash, it
+starts the export again rather than appending new data to half of an old file. Follow the job
+until it has a completed file. Home itself has no Import or Export action; open an application
+or use Jobs. A record's History is a list of changes, not an earlier-state viewer, and offers
+no restore or undo. See [History](/docs/use/history/).

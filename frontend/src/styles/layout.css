@@ -186,6 +186,7 @@ html {
   border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-secondary);
+  text-decoration: none;
 }
 .topbar-icon-button:hover,
 .topbar-icon-button[aria-expanded="true"] {

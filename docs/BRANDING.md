@@ -42,6 +42,7 @@ Copies, resized:
 
 - `frontend/public/brand/` — the interface: the top bar (`ui/ProductMark.tsx`), `index.html` (title,
   favicon, touch icon), the loading, no-workspace and Home screens and Settings › About.
+- `guide/public/` — the guide's favicon and mark (`favicon.png`, `refiroo-mascot.png`, 0.13 DOC1).
 - `backend/app/management/brand/` — served at `/brand/<file>` for the pages the engine renders
   itself: the sign-in and password pages and the API reference at `/docs` (the title, the favicon
   and a header with the mark). Only the files listed in `management/brand_assets.py` are served.

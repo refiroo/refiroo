@@ -1,0 +1,546 @@
+{
+  "release": "0.8",
+  "counts": {
+    "added_promises": 10,
+    "added_rules": 4,
+    "merged": 45,
+    "superseded": 2,
+    "dropped": 9
+  },
+  "added_promises": [
+    "R063",
+    "R064",
+    "R065",
+    "R066",
+    "R067",
+    "R068",
+    "R069",
+    "R070",
+    "R071",
+    "R072"
+  ],
+  "added_rules": [
+    "L17",
+    "L18",
+    "L19",
+    "L20"
+  ],
+  "resolutions": [
+    {
+      "id": "CL-0.8.0-#1",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexes, performance measurement, acceptance tooling or delivery planning; public behavior is retained independently.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#2",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexes, performance measurement, acceptance tooling or delivery planning; public behavior is retained independently.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#3",
+      "disposition": "merged",
+      "targets": [
+        "R067"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#4",
+      "disposition": "merged",
+      "targets": [
+        "J01.7",
+        "R066"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#5",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexes, performance measurement, acceptance tooling or delivery planning; public behavior is retained independently.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#6",
+      "disposition": "merged",
+      "targets": [
+        "F03.c"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#7",
+      "disposition": "merged",
+      "targets": [
+        "J14.S1"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#8",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexes, performance measurement, acceptance tooling or delivery planning; public behavior is retained independently.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#9",
+      "disposition": "merged",
+      "targets": [
+        "J19.S4"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#10",
+      "disposition": "merged",
+      "targets": [
+        "J33.16",
+        "R063"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#11",
+      "disposition": "merged",
+      "targets": [
+        "R005",
+        "R006",
+        "R063"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#12",
+      "disposition": "merged",
+      "targets": [
+        "R007",
+        "R070",
+        "J13.5"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#13",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexes, performance measurement, acceptance tooling or delivery planning; public behavior is retained independently.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#14",
+      "disposition": "merged",
+      "targets": [
+        "R063",
+        "R070"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#15",
+      "disposition": "merged",
+      "targets": [
+        "J14.S1"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#16",
+      "disposition": "merged",
+      "targets": [
+        "J14.S2",
+        "R070"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#17",
+      "disposition": "merged",
+      "targets": [
+        "J14.S1",
+        "J14.S2"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#18",
+      "disposition": "merged",
+      "targets": [
+        "R010",
+        "R011",
+        "R012",
+        "R071"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#19",
+      "disposition": "merged",
+      "targets": [
+        "J17.S1",
+        "J17.S2",
+        "R071"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#20",
+      "disposition": "merged",
+      "targets": [
+        "R008",
+        "R065"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#21",
+      "disposition": "merged",
+      "targets": [
+        "R009",
+        "J14.3"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#22",
+      "disposition": "merged",
+      "targets": [
+        "J15.S1",
+        "R064",
+        "R072"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#23",
+      "disposition": "merged",
+      "targets": [
+        "J15.S2",
+        "R064",
+        "R072"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#24",
+      "disposition": "merged",
+      "targets": [
+        "J15.S3",
+        "J15.4",
+        "J15.5"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#25",
+      "disposition": "merged",
+      "targets": [
+        "J15.S1",
+        "J15.S2"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#26",
+      "disposition": "merged",
+      "targets": [
+        "R068"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#27",
+      "disposition": "merged",
+      "targets": [
+        "R068"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Added"
+    },
+    {
+      "id": "CL-0.8.0-#28",
+      "disposition": "merged",
+      "targets": [
+        "R069",
+        "J15.S2"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#29",
+      "disposition": "merged",
+      "targets": [
+        "R069"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#30",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "Pre-delivery design is reconciled under the delivered 0.9 or 0.10 package, not a separate 0.8 capability.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#31",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexes, performance measurement, acceptance tooling or delivery planning; public behavior is retained independently.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#32",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "Pre-delivery design is reconciled under the delivered 0.9 or 0.10 package, not a separate 0.8 capability.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#33",
+      "disposition": "merged",
+      "targets": [
+        "J15.S1",
+        "R072",
+        "J15.5"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#34",
+      "disposition": "merged",
+      "targets": [
+        "J15.S1"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#35",
+      "disposition": "merged",
+      "targets": [
+        "R065",
+        "J14.10"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#36",
+      "disposition": "merged",
+      "targets": [
+        "F01.a"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#37",
+      "disposition": "merged",
+      "targets": [
+        "J14.S1",
+        "F04.a"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#38",
+      "disposition": "merged",
+      "targets": [
+        "J14.5"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#39",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexes, performance measurement, acceptance tooling or delivery planning; public behavior is retained independently.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#40",
+      "disposition": "merged",
+      "targets": [
+        "R063",
+        "R070"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#41",
+      "disposition": "merged",
+      "targets": [
+        "J13.5"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#42",
+      "disposition": "merged",
+      "targets": [
+        "F02.c",
+        "J19.3"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#43",
+      "disposition": "merged",
+      "targets": [
+        "J19.4"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#44",
+      "disposition": "merged",
+      "targets": [
+        "J05.S1",
+        "J07.S1"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#45",
+      "disposition": "merged",
+      "targets": [
+        "GL-33",
+        "J01.2"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#46",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexes, performance measurement, acceptance tooling or delivery planning; public behavior is retained independently.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#47",
+      "disposition": "merged",
+      "targets": [
+        "J01.7",
+        "R066"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#48",
+      "disposition": "merged",
+      "targets": [
+        "R066"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#49",
+      "disposition": "merged",
+      "targets": [
+        "F03.b",
+        "R066"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#50",
+      "disposition": "merged",
+      "targets": [
+        "R066"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#51",
+      "disposition": "merged",
+      "targets": [
+        "F03.c"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#52",
+      "disposition": "merged",
+      "targets": [
+        "R067"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#53",
+      "disposition": "merged",
+      "targets": [
+        "F03.a"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#54",
+      "disposition": "merged",
+      "targets": [
+        "R066"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#55",
+      "disposition": "merged",
+      "targets": [
+        "R067"
+      ],
+      "reason": "Released clause retained with later amendments on these semantic records.",
+      "source": "CL §[0.8.0] Changed"
+    },
+    {
+      "id": "CL-0.8.0-#56",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal indexes, performance measurement, acceptance tooling or delivery planning; public behavior is retained independently.",
+      "source": "CL §[0.8.0] Changed"
+    }
+  ]
+}

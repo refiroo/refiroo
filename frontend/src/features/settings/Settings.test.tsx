@@ -239,6 +239,12 @@ describe("About", () => {
       "href",
       "https://github.com/refiroo/refiroo/tree/v0.9.0-alpha.1",
     );
+    // The help entry: the documentation the engine serves, then the API reference (0.13 DOC1).
+    expect(screen.getByRole("link", { name: "documentation" })).toHaveAttribute("href", expect.stringMatching(/\/docs\/$/));
+    expect(screen.getByRole("link", { name: "API reference" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/\/docs\/api$/),
+    );
     const release = screen.getByRole("region", { name: "Active model release" });
     expect(release).toHaveTextContent(/Starter.*starter.*0\.9\.0.*0\.8/);
     // The migration revision is the operator's, on Deployment (0.12 D246).

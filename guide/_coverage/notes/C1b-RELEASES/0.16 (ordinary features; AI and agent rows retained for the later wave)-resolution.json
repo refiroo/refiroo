@@ -1,0 +1,412 @@
+{
+  "release": "0.16 (ordinary features; AI and agent rows retained for the later wave)",
+  "counts": {
+    "added_promises": 13,
+    "added_rules": 3,
+    "merged": 40,
+    "superseded": 1,
+    "dropped": 0
+  },
+  "added_promises": [
+    "R152",
+    "R153",
+    "R154",
+    "R155",
+    "R156",
+    "R157",
+    "R158",
+    "R159",
+    "R160",
+    "R161",
+    "R162",
+    "R163",
+    "R164"
+  ],
+  "added_rules": [
+    "L49",
+    "L50",
+    "L51"
+  ],
+  "resolutions": [
+    {
+      "id": "CL-0.16.0-#1",
+      "disposition": "merged",
+      "targets": [
+        "R039",
+        "R040",
+        "R041",
+        "R152",
+        "R153"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (notification digests and following a workspace, AO3)"
+    },
+    {
+      "id": "CL-0.16.0-#2",
+      "disposition": "merged",
+      "targets": [
+        "R043",
+        "R154"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (notification digests and following a workspace, AO3)"
+    },
+    {
+      "id": "CL-0.16.0-#3",
+      "disposition": "merged",
+      "targets": [
+        "R155"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (notification digests and following a workspace, AO3)"
+    },
+    {
+      "id": "CL-0.16.0-#12",
+      "disposition": "merged",
+      "targets": [
+        "R048"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (a job's page says what it did)"
+    },
+    {
+      "id": "CL-0.16.0-#24",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Changed (a hint beside the relationship panel's heading)"
+    },
+    {
+      "id": "CL-0.16.0-#25",
+      "disposition": "merged",
+      "targets": [
+        "F16.a"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Changed (the model's language in the API, AP11)"
+    },
+    {
+      "id": "CL-0.16.0-#28",
+      "disposition": "merged",
+      "targets": [
+        "J36.S3"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Changed (one path for the assistant, AP10)"
+    },
+    {
+      "id": "CL-0.16.0-#38",
+      "disposition": "merged",
+      "targets": [
+        "R159"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (a key of several columns, AP10)"
+    },
+    {
+      "id": "CL-0.16.0-#43",
+      "disposition": "merged",
+      "targets": [
+        "J36.12",
+        "R156",
+        "R157"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (changing a workspace's model)"
+    },
+    {
+      "id": "CL-0.16.0-#44",
+      "disposition": "merged",
+      "targets": [
+        "R158"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Changed (Import and Export)"
+    },
+    {
+      "id": "CL-0.16.0-#46",
+      "disposition": "merged",
+      "targets": [
+        "R160"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (asking a list in words)"
+    },
+    {
+      "id": "CL-0.16.0-#52",
+      "disposition": "merged",
+      "targets": [
+        "J33.16",
+        "R161"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (model editor, relation matrices)"
+    },
+    {
+      "id": "CL-0.16.0-#53",
+      "disposition": "merged",
+      "targets": [
+        "R161"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (model editor, relation matrices)"
+    },
+    {
+      "id": "CL-0.16.0-#54",
+      "disposition": "merged",
+      "targets": [
+        "R162"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Changed (model editor, released elements)"
+    },
+    {
+      "id": "CL-0.16.0-#55",
+      "disposition": "merged",
+      "targets": [
+        "J33.S2"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Changed (model editor, choosing a relation)"
+    },
+    {
+      "id": "CL-0.16.0-#58",
+      "disposition": "merged",
+      "targets": [
+        "R163"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (0.16 AP6, the assistant designs and loads)"
+    },
+    {
+      "id": "CL-0.16.0-#61",
+      "disposition": "merged",
+      "targets": [
+        "J27.8"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (0.16 AP6, the assistant designs and loads)"
+    },
+    {
+      "id": "CL-0.16.0-#64",
+      "disposition": "merged",
+      "targets": [
+        "J36.S3"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (0.16 AP6, the assistant designs and loads)"
+    },
+    {
+      "id": "CL-0.16.0-#68",
+      "disposition": "merged",
+      "targets": [
+        "J13.2"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (0.16 AP6, the assistant designs and loads)"
+    },
+    {
+      "id": "CL-0.16.0-#69",
+      "disposition": "merged",
+      "targets": [
+        "R163"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (0.16 AP6, the assistant designs and loads)"
+    },
+    {
+      "id": "CL-0.16.0-#70",
+      "disposition": "merged",
+      "targets": [
+        "R163"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (0.16 AP6, the assistant designs and loads)"
+    },
+    {
+      "id": "CL-0.16.0-#71",
+      "disposition": "merged",
+      "targets": [
+        "R164"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (0.16 AP6, the assistant designs and loads)"
+    },
+    {
+      "id": "CL-0.16.0-#72",
+      "disposition": "merged",
+      "targets": [
+        "J13.9"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (0.16 AP6, the assistant designs and loads)"
+    },
+    {
+      "id": "CL-0.16.0-#74",
+      "disposition": "merged",
+      "targets": [
+        "R032",
+        "R163"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Added (0.16 AP6, the assistant designs and loads)"
+    },
+    {
+      "id": "CL-0.16.0-#91",
+      "disposition": "merged",
+      "targets": [
+        "R052",
+        "R053"
+      ],
+      "reason": "Ordinary released capability retained; AI feature writing remains deferred.",
+      "source": "CL §[0.16.0] Changed (0.16 AP1)"
+    },
+    {
+      "id": "PL-AO-D6",
+      "disposition": "superseded",
+      "targets": [
+        "R039",
+        "R040"
+      ],
+      "reason": "AO3 uses per-kind delivery and fixed local-time schedules; its AI wording was superseded by AO-D31–AO-D38.",
+      "source": "PL §0.16 plan AO-D6"
+    },
+    {
+      "id": "PL-AP-D43",
+      "disposition": "merged",
+      "targets": [
+        "R159"
+      ],
+      "reason": "Composite keys are an ordinary import-profile capability as well as available to the assistant.",
+      "source": "PL §0.16 plan AP-D43"
+    },
+    {
+      "id": "PL-WM-D2",
+      "disposition": "merged",
+      "targets": [
+        "R156"
+      ],
+      "reason": "Workspace model editing is available without AI.",
+      "source": "PL §0.16 plan WM-D2"
+    },
+    {
+      "id": "PL-WM-D3",
+      "disposition": "merged",
+      "targets": [
+        "R157"
+      ],
+      "reason": "Workspace model editing is available without AI.",
+      "source": "PL §0.16 plan WM-D3"
+    },
+    {
+      "id": "PL-WM-D4",
+      "disposition": "merged",
+      "targets": [
+        "J36.12"
+      ],
+      "reason": "Workspace model editing is available without AI.",
+      "source": "PL §0.16 plan WM-D4"
+    },
+    {
+      "id": "PL-WM-D5",
+      "disposition": "merged",
+      "targets": [
+        "R158"
+      ],
+      "reason": "Workspace model editing is available without AI.",
+      "source": "PL §0.16 plan WM-D5"
+    },
+    {
+      "id": "PL-WM-D6",
+      "disposition": "merged",
+      "targets": [
+        "R157"
+      ],
+      "reason": "Workspace model editing is available without AI.",
+      "source": "PL §0.16 plan WM-D6"
+    },
+    {
+      "id": "PL-AG-D33",
+      "disposition": "merged",
+      "targets": [
+        "R160"
+      ],
+      "reason": "The underlying list filters work independently of natural-language search.",
+      "source": "PL §0.16 plan AG-D33"
+    },
+    {
+      "id": "PL-AO-D31",
+      "disposition": "merged",
+      "targets": [
+        "R041"
+      ],
+      "reason": "Ordinary mail and following, not deferred AI.",
+      "source": "PL §0.16 plan AO-D31"
+    },
+    {
+      "id": "PL-AO-D32",
+      "disposition": "merged",
+      "targets": [
+        "R047"
+      ],
+      "reason": "Ordinary mail and following, not deferred AI.",
+      "source": "PL §0.16 plan AO-D32"
+    },
+    {
+      "id": "PL-AO-D33",
+      "disposition": "merged",
+      "targets": [
+        "R039"
+      ],
+      "reason": "Ordinary mail and following, not deferred AI.",
+      "source": "PL §0.16 plan AO-D33"
+    },
+    {
+      "id": "PL-AO-D34",
+      "disposition": "merged",
+      "targets": [
+        "R040"
+      ],
+      "reason": "Ordinary mail and following, not deferred AI.",
+      "source": "PL §0.16 plan AO-D34"
+    },
+    {
+      "id": "PL-AO-D35",
+      "disposition": "merged",
+      "targets": [
+        "R152"
+      ],
+      "reason": "Ordinary mail and following, not deferred AI.",
+      "source": "PL §0.16 plan AO-D35"
+    },
+    {
+      "id": "PL-AO-D36",
+      "disposition": "merged",
+      "targets": [
+        "R041"
+      ],
+      "reason": "Ordinary mail and following, not deferred AI.",
+      "source": "PL §0.16 plan AO-D36"
+    },
+    {
+      "id": "PL-AO-D37",
+      "disposition": "merged",
+      "targets": [
+        "R045"
+      ],
+      "reason": "Ordinary mail and following, not deferred AI.",
+      "source": "PL §0.16 plan AO-D37"
+    },
+    {
+      "id": "PL-AO-D38",
+      "disposition": "merged",
+      "targets": [
+        "R043"
+      ],
+      "reason": "Ordinary mail and following, not deferred AI.",
+      "source": "PL §0.16 plan AO-D38"
+    }
+  ]
+}

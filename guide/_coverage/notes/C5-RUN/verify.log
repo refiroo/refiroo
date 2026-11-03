@@ -1,0 +1,275 @@
+
+> refiroo-guide@0.0.0 verify
+> npm run build && npm run check && npm run check:links
+
+
+> refiroo-guide@0.0.0 build
+> ASTRO_TELEMETRY_DISABLED=1 astro build
+
+10:51:15 [content] Syncing content
+10:51:15 [content] Synced content
+10:51:15 [types] Generated 871ms
+10:51:15 [build] output: "static"
+10:51:15 [build] mode: "static"
+10:51:15 [build] directory: /Users/krisztian/Documents/Projects/rdm-engine/guide/_build/C5-RUN/
+10:51:15 [build] Collecting build info...
+10:51:15 [build] ✓ Completed in 996ms.
+10:51:15 [build] Building static entrypoints...
+10:51:15 [vite] ✓ built in 274ms
+10:51:16 [vite] ✓ built in 395ms
+10:51:16 [build] Rearranging server assets...
+
+ generating static routes 
+10:51:16   ├─ /404.html10:51:16 [WARN] [content] Entry docs → 404 was not found.
+ (+13ms) 
+10:51:16   ├─ /about/accessibility/index.html (+10ms) 
+10:51:16   ├─ /about/compatibility-and-licence/index.html (+5ms) 
+10:51:16   ├─ /about/data-quality-rules/index.html (+5ms) 
+10:51:16   ├─ /about/how-it-is-built/index.html (+4ms) 
+10:51:16   ├─ /about/how-it-works/index.html (+5ms) 
+10:51:16   ├─ /about/people-and-access/index.html (+4ms) 
+10:51:16   ├─ /about/security-and-trust/index.html (+3ms) 
+10:51:16   ├─ /about/sharing-data-with-other-systems/index.html (+6ms) 
+10:51:16   ├─ /about/three-kinds-of-change/index.html (+4ms) 
+10:51:16   ├─ /about/what-is-refiroo/index.html (+3ms) 
+10:51:16   ├─ /administer/approval-policies/index.html (+3ms) 
+10:51:16   ├─ /administer/audit/index.html (+3ms) 
+10:51:16   ├─ /administer/clients/index.html (+3ms) 
+10:51:16   ├─ /administer/people-and-groups/index.html (+3ms) 
+10:51:16   ├─ /administer/roles-and-grants/index.html (+3ms) 
+10:51:16   ├─ /administer/sign-in/index.html (+2ms) 
+10:51:16   ├─ /administer/signing-keys/index.html (+2ms) 
+10:51:16   ├─ /examples/the-example-data/index.html (+5ms) 
+10:51:16   ├─ /examples/the-starter-model/index.html (+3ms) 
+10:51:16   ├─ /examples/translations/index.html (+3ms) 
+10:51:16   ├─ /guide/administer/add-a-person/index.html (+2ms) 
+10:51:16   ├─ /guide/administer/create-a-client/index.html (+2ms) 
+10:51:16   ├─ /guide/administer/find-who-changed-something/index.html (+2ms) 
+10:51:16   ├─ /guide/administer/grant-a-role/index.html (+3ms) 
+10:51:16   ├─ /guide/administer/help-someone-who-lost-a-device/index.html (+2ms) 
+10:51:16   ├─ /guide/administer/manage-a-group/index.html (+3ms) 
+10:51:16   ├─ /guide/administer/require-a-second-factor/index.html (+2ms) 
+10:51:16   ├─ /guide/administer/rotate-a-client-secret/index.html (+4ms) 
+10:51:16   ├─ /guide/administer/rotate-signing-keys/index.html (+2ms) 
+10:51:16   ├─ /guide/administer/set-an-approval-policy/index.html (+2ms) 
+10:51:16   ├─ /guide/integrate/exchange-a-supplier-file/index.html (+2ms) 
+10:51:16   ├─ /guide/integrate/get-a-token/index.html (+2ms) 
+10:51:16   ├─ /guide/integrate/load-then-follow-changes/index.html (+2ms) 
+10:51:16   ├─ /guide/integrate/move-records-between-models/index.html (+2ms) 
+10:51:16   ├─ /guide/integrate/read-a-collection-completely-and-resume/index.html (+2ms) 
+10:51:16   ├─ /guide/integrate/read-as-of-a-date/index.html (+2ms) 
+10:51:16   ├─ /guide/integrate/read-through-a-consumer-api/index.html (+2ms) 
+10:51:16   ├─ /guide/integrate/resolve-a-file-of-codes/index.html (+5ms) 
+10:51:16   ├─ /guide/integrate/submit-a-bulk-change/index.html (+3ms) 
+10:51:16   ├─ /guide/integrate/subscribe-a-webhook-and-verify-it/index.html (+2ms) 
+10:51:16   ├─ /guide/model/add-a-record-type-and-fields/index.html (+2ms) 
+10:51:16   ├─ /guide/model/add-a-relation-matrix/index.html (+2ms) 
+10:51:16   ├─ /guide/model/add-a-relationship/index.html (+3ms) 
+10:51:16   ├─ /guide/model/arrange-applications-and-views/index.html (+2ms) 
+10:51:16   ├─ /guide/model/change-a-workspaces-model/index.html (+3ms) 
+10:51:16   ├─ /guide/model/check-a-workbook-with-a-dry-run/index.html (+5ms) 
+10:51:16   ├─ /guide/model/choose-table-columns-filters-and-sort/index.html (+3ms) 
+10:51:16   ├─ /guide/model/choose-what-moves/index.html (+5ms) 
+10:51:16   ├─ /guide/model/compare-releases/index.html (+3ms) 
+10:51:16   ├─ /guide/model/create-a-model-draft/index.html (+2ms) 
+10:51:16   ├─ /guide/model/create-a-workspace/index.html (+2ms) 
+10:51:16   ├─ /guide/model/define-a-consumer-api/index.html (+2ms) 
+10:51:16   ├─ /guide/model/delete-a-draft/index.html (+3ms) 
+10:51:16   ├─ /guide/model/edit-a-draft-as-json/index.html (+2ms) 
+10:51:16   ├─ /guide/model/edit-a-mapping-row/index.html (+3ms) 
+10:51:16   ├─ /guide/model/edit-a-record-page/index.html (+2ms) 
+10:51:16   ├─ /guide/model/edit-a-workspaces-model/index.html (+2ms) 
+10:51:16   ├─ /guide/model/export-a-release/index.html (+4ms) 
+10:51:16   ├─ /guide/model/find-your-way-around-the-editor/index.html (+3ms) 
+10:51:16   ├─ /guide/model/fix-issues-before-installing/index.html (+3ms) 
+10:51:16   ├─ /guide/model/group-collections-in-navigation/index.html (+2ms) 
+10:51:16   ├─ /guide/model/install-and-activate-a-release/index.html (+2ms) 
+10:51:16   ├─ /guide/model/load-a-workbook-into-a-change-set/index.html (+2ms) 
+10:51:16   ├─ /guide/model/make-a-workspace-the-default/index.html (+3ms) 
+10:51:16   ├─ /guide/model/map-a-column/index.html (+3ms) 
+10:51:16   ├─ /guide/model/migrate-a-workspace/index.html (+3ms) 
+10:51:16   ├─ /guide/model/move-records-to-another-model/index.html (+3ms) 
+10:51:16   ├─ /guide/model/preview-a-type/index.html (+5ms) 
+10:51:16   ├─ /guide/model/propose-again-with-a-newer-workbook/index.html (+3ms) 
+10:51:16   ├─ /guide/model/raise-a-contract-version/index.html (+3ms) 
+10:51:16   ├─ /guide/model/raise-a-model-language-version/index.html (+2ms) 
+10:51:16   ├─ /guide/model/read-lists-in-a-sheet/index.html (+3ms) 
+10:51:16   ├─ /guide/model/remove-an-element/index.html (+3ms) 
+10:51:16   ├─ /guide/model/rename-or-re-key-an-element/index.html (+2ms) 
+10:51:16   ├─ /guide/model/retire-or-delete-a-release/index.html (+3ms) 
+10:51:16   ├─ /guide/model/retire-or-delete-a-workspace/index.html (+3ms) 
+10:51:16   ├─ /guide/model/reuse-and-change-attributes/index.html (+3ms) 
+10:51:16   ├─ /guide/model/see-a-consumer-apis-documents/index.html (+2ms) 
+10:51:16   ├─ /guide/model/split-merge-and-move-types/index.html (+7ms) 
+10:51:16   ├─ /guide/model/start-a-draft-from-a-workbook/index.html (+3ms) 
+10:51:16   ├─ /guide/model/turn-an-attribute-into-a-list/index.html (+3ms) 
+10:51:16   ├─ /guide/model/undo-and-review-the-draft-history/index.html (+2ms) 
+10:51:16   ├─ /guide/model/work-on-a-draft-with-others/index.html (+3ms) 
+10:51:16   ├─ /guide/use/add-a-language-with-a-workbook/index.html (+2ms) 
+10:51:16   ├─ /guide/use/add-a-record/index.html (+3ms) 
+10:51:16   ├─ /guide/use/approve-a-change-set/index.html (+3ms) 
+10:51:16   ├─ /guide/use/arrange-records-in-a-tree/index.html (+2ms) 
+10:51:16   ├─ /guide/use/browse-a-publication/index.html (+2ms) 
+10:51:16   ├─ /guide/use/change-how-refiroo-looks/index.html (+2ms) 
+10:51:16   ├─ /guide/use/change-relationships-of-many-records/index.html (+4ms) 
+10:51:16   ├─ /guide/use/change-values-of-many-records/index.html (+2ms) 
+10:51:16   ├─ /guide/use/continue-a-long-list/index.html (+2ms) 
+10:51:16   ├─ /guide/use/continue-live-work-while-a-change-set-is-open/index.html (+3ms) 
+10:51:16   ├─ /guide/use/correct-a-record/index.html (+4ms) 
+10:51:16   ├─ /guide/use/delete-a-record/index.html (+5ms) 
+10:51:16   ├─ /guide/use/delete-many-records/index.html (+2ms) 
+10:51:16   ├─ /guide/use/edit-in-excel-and-import-back/index.html (+2ms) 
+10:51:16   ├─ /guide/use/export-records/index.html (+2ms) 
+10:51:16   ├─ /guide/use/fill-in-a-relation-matrix/index.html (+2ms) 
+10:51:16   ├─ /guide/use/find-records/index.html (+2ms) 
+10:51:16   ├─ /guide/use/follow-a-workspace/index.html (+2ms) 
+10:51:16   ├─ /guide/use/follow-and-cancel-a-job/index.html (+2ms) 
+10:51:16   ├─ /guide/use/import-a-file/index.html (+3ms) 
+10:51:16   ├─ /guide/use/load-the-next-version-of-a-workbook/index.html (+2ms) 
+10:51:16   ├─ /guide/use/map-codes-between-systems/index.html (+2ms) 
+10:51:16   ├─ /guide/use/move-several-records-together/index.html (+3ms) 
+10:51:16   ├─ /guide/use/open-a-retired-or-unavailable-workspace/index.html (+3ms) 
+10:51:16   ├─ /guide/use/open-an-application/index.html (+2ms) 
+10:51:16   ├─ /guide/use/prepare-and-publish-a-change-set/index.html (+2ms) 
+10:51:16   ├─ /guide/use/prepare-under-the-next-model-version/index.html (+2ms) 
+10:51:16   ├─ /guide/use/propose-a-change/index.html (+2ms) 
+10:51:16   ├─ /guide/use/relate-records/index.html (+2ms) 
+10:51:16   ├─ /guide/use/replace-a-records-related-records/index.html (+2ms) 
+10:51:16   ├─ /guide/use/reshape-a-hierarchy/index.html (+2ms) 
+10:51:16   ├─ /guide/use/review-what-a-change-set-changes/index.html (+2ms) 
+10:51:16   ├─ /guide/use/see-who-changed-what/index.html (+3ms) 
+10:51:16   ├─ /guide/use/set-up-email-notices/index.html (+3ms) 
+10:51:16   ├─ /guide/use/start-from-an-earlier-publication/index.html (+2ms) 
+10:51:16   ├─ /guide/use/stop-offering-a-value/index.html (+2ms) 
+10:51:16   ├─ /guide/use/switch-workspace/index.html (+2ms) 
+10:51:16   ├─ /guide/use/withdraw-a-publication/index.html (+2ms) 
+10:51:16   ├─ /index.html (+2ms) 
+10:51:16   ├─ /integrate/api-reference/index.html (+6ms) 
+10:51:16   ├─ /integrate/business-dates/index.html (+4ms) 
+10:51:16   ├─ /integrate/changes-approvals-and-publication/index.html (+3ms) 
+10:51:16   ├─ /integrate/compatibility/index.html (+4ms) 
+10:51:16   ├─ /integrate/consumer-apis/index.html (+3ms) 
+10:51:16   ├─ /integrate/consumer-events-and-webhooks/index.html (+3ms) 
+10:51:16   ├─ /integrate/discovering-the-model/index.html (+3ms) 
+10:51:16   ├─ /integrate/files-imports-and-exports/index.html (+3ms) 
+10:51:16   ├─ /integrate/following-changes/index.html (+2ms) 
+10:51:16   ├─ /integrate/identifiers-paging-and-errors/index.html (+3ms) 
+10:51:16   ├─ /integrate/jobs/index.html (+3ms) 
+10:51:16   ├─ /integrate/looking-up-and-resolving/index.html (+3ms) 
+10:51:16   ├─ /integrate/model-and-release-operations/index.html (+3ms) 
+10:51:16   ├─ /integrate/overview/index.html (+3ms) 
+10:51:16   ├─ /integrate/reading-business-objects/index.html (+3ms) 
+10:51:16   ├─ /integrate/reading-records/index.html (+20ms) 
+10:51:16   ├─ /integrate/security-model-for-integrators/index.html (+36ms) 
+10:51:16   ├─ /integrate/signing-in-and-tokens/index.html (+12ms) 
+10:51:16   ├─ /integrate/versions-and-conflicts/index.html (+3ms) 
+10:51:16   ├─ /integrate/workspaces-contexts-and-models/index.html (+7ms) 
+10:51:16   ├─ /integrate/writing-in-bulk/index.html (+3ms) 
+10:51:16   ├─ /model/applications-and-views/index.html (+2ms) 
+10:51:16   ├─ /model/consumer-apis/index.html (+3ms) 
+10:51:16   ├─ /model/issues-and-dry-run/index.html (+2ms) 
+10:51:16   ├─ /model/json-view/index.html (+2ms) 
+10:51:16   ├─ /model/managing-workspaces/index.html (+2ms) 
+10:51:16   ├─ /model/migrations/index.html (+2ms) 
+10:51:16   ├─ /model/model-language-versions/index.html (+2ms) 
+10:51:16   ├─ /model/model-mappings/index.html (+2ms) 
+10:51:16   ├─ /model/models/index.html (+2ms) 
+10:51:16   ├─ /model/record-pages-and-tables/index.html (+2ms) 
+10:51:16   ├─ /model/releases/index.html (+4ms) 
+10:51:16   ├─ /model/the-model-editor/index.html (+3ms) 
+10:51:16   ├─ /model/types-attributes-relations/index.html (+2ms) 
+10:51:16   ├─ /model/workbook-onboarding/index.html (+5ms) 
+10:51:16   ├─ /run/ai/index.html (+2ms) 
+10:51:16   ├─ /run/background-jobs/index.html (+3ms) 
+10:51:16   ├─ /run/backup-and-restore/index.html (+2ms) 
+10:51:16   ├─ /run/command-line/index.html (+2ms) 
+10:51:16   ├─ /run/configure/index.html (+2ms) 
+10:51:16   ├─ /run/database/index.html (+2ms) 
+10:51:16   ├─ /run/developer-instance/index.html (+2ms) 
+10:51:16   ├─ /run/health-and-startup-checks/index.html (+3ms) 
+10:51:16   ├─ /run/https/index.html (+3ms) 
+10:51:16   ├─ /run/install-with-compose/index.html (+2ms) 
+10:51:16   ├─ /run/licence-and-source/index.html (+3ms) 
+10:51:16   ├─ /run/model-releases-and-rollback/index.html (+3ms) 
+10:51:16   ├─ /run/monitoring/index.html (+2ms) 
+10:51:16   ├─ /run/overview/index.html (+2ms) 
+10:51:16   ├─ /run/production-checklist/index.html (+2ms) 
+10:51:16   ├─ /run/secrets-and-keys/index.html (+2ms) 
+10:51:16   ├─ /run/security-checklist/index.html (+2ms) 
+10:51:16   ├─ /run/set-up-ai/index.html (+2ms) 
+10:51:16   ├─ /run/several-processes/index.html (+2ms) 
+10:51:16   ├─ /run/sign-in-and-mail-setup/index.html (+2ms) 
+10:51:16   ├─ /run/troubleshooting/index.html (+2ms) 
+10:51:16   ├─ /run/upgrades/index.html (+2ms) 
+10:51:16   ├─ /run/webhook-delivery/index.html (+2ms) 
+10:51:16   ├─ /use/account/index.html (+3ms) 
+10:51:16   ├─ /use/appearance-and-devices/index.html (+2ms) 
+10:51:16   ├─ /use/applications/index.html (+2ms) 
+10:51:16   ├─ /use/change-sets/index.html (+2ms) 
+10:51:16   ├─ /use/changing-many-records/index.html (+2ms) 
+10:51:16   ├─ /use/hierarchies/index.html (+2ms) 
+10:51:16   ├─ /use/history/index.html (+2ms) 
+10:51:16   ├─ /use/home/index.html (+2ms) 
+10:51:16   ├─ /use/importing-and-exporting/index.html (+2ms) 
+10:51:16   ├─ /use/inbox-and-approvals/index.html (+2ms) 
+10:51:16   ├─ /use/jobs/index.html (+2ms) 
+10:51:16   ├─ /use/lists-and-filters/index.html (+2ms) 
+10:51:16   ├─ /use/mapping-grids/index.html (+2ms) 
+10:51:16   ├─ /use/notifications-settings/index.html (+3ms) 
+10:51:16   ├─ /use/publications/index.html (+2ms) 
+10:51:16   ├─ /use/records/index.html (+2ms) 
+10:51:16   ├─ /use/relation-matrices/index.html (+2ms) 
+10:51:16   ├─ /use/relationships/index.html (+2ms) 
+10:51:16   ├─ /use/workspaces/index.html (+3ms) 
+10:51:16 ✓ Completed in 687ms.
+
+10:51:16 [build] ✓ Completed in 1.39s.
+10:51:16 [starlight:pagefind] Building search index with Pagefind...
+10:51:17 [starlight:pagefind] Found 200 HTML files.
+10:51:17 [starlight:pagefind] Finished building search index in 341ms.
+10:51:17 [build] 200 page(s) built in 2.72s
+10:51:17 [build] Complete!
+
+> refiroo-guide@0.0.0 check
+> node tools/check.mjs all
+
+terms: 0 private-model name(s) on the list (tools/private-terms.txt)
+ok: terms, brand (199 page(s))
+
+> refiroo-guide@0.0.0 check:links
+> node tools/check.mjs links
+
+links: 45102 local links and sources in 200 built pages
+links: guide/integrate/subscribe-a-webhook-and-verify-it/index.html: href "/docs/administer/webhooks/" points to nothing
+links: guide/model/map-a-column/index.html: src "/docs/screens/model-workbook-map-column.png" points to nothing
+links: guide/model/map-a-column/index.html: src "/docs/screens/model-workbook-value-map.png" points to nothing
+links: guide/model/migrate-a-workspace/index.html: src "/docs/screens/model-migration-review.png" points to nothing
+links: guide/model/migrate-a-workspace/index.html: src "/docs/screens/model-migration-loss-confirm.png" points to nothing
+links: guide/model/migrate-a-workspace/index.html: src "/docs/screens/model-migration-stale.png" points to nothing
+links: guide/model/raise-a-model-language-version/index.html: src "/docs/screens/model-language-raise-review.png" points to nothing
+links: guide/model/read-lists-in-a-sheet/index.html: src "/docs/screens/model-workbook-list-range.png" points to nothing
+links: guide/model/see-a-consumer-apis-documents/index.html: src "/docs/screens/model-consumer-active-documents.png" points to nothing
+links: guide/use/add-a-language-with-a-workbook/index.html: src "/docs/screens/workbook-columns-per-parent.png" points to nothing
+links: guide/use/add-a-record/index.html: src "/docs/screens/new-record-required-connections.png" points to nothing
+links: guide/use/continue-a-long-list/index.html: src "/docs/screens/list-position-and-seek.png" points to nothing
+links: guide/use/delete-many-records/index.html: src "/docs/screens/bulk-delete-impact.png" points to nothing
+links: guide/use/export-records/index.html: src "/docs/screens/export-for-people.png" points to nothing
+links: guide/use/load-the-next-version-of-a-workbook/index.html: src "/docs/screens/import-profile-next-version.png" points to nothing
+links: guide/use/open-a-retired-or-unavailable-workspace/index.html: src "/docs/screens/workspace-cannot-open.png" points to nothing
+links: guide/use/propose-a-change/index.html: src "/docs/screens/contributor-propose-change.png" points to nothing
+links: guide/use/replace-a-records-related-records/index.html: src "/docs/screens/replace-related-records.png" points to nothing
+links: guide/use/reshape-a-hierarchy/index.html: src "/docs/screens/hierarchy-restructure-plan.png" points to nothing
+links: integrate/consumer-events-and-webhooks/index.html: href "/docs/administer/webhooks/" points to nothing
+links: model/migrations/index.html: src "/docs/screens/model-migration-review.png" points to nothing
+links: run/background-jobs/index.html: src "/docs/screens/run-jobs.png" points to nothing
+links: run/backup-and-restore/index.html: src "/docs/screens/run-backup-rehearsal.png" points to nothing
+links: run/configure/index.html: src "/docs/screens/run-deployment.png" points to nothing
+links: run/monitoring/index.html: src "/docs/screens/run-operations.png" points to nothing
+links: use/appearance-and-devices/index.html: src "/docs/screens/appearance-display-choices.png" points to nothing
+links: use/appearance-and-devices/index.html: src "/docs/screens/phone-navigation-drawer.png" points to nothing
+links: use/changing-many-records/index.html: src "/docs/screens/bulk-selection-preview.png" points to nothing
+links: use/importing-and-exporting/index.html: src "/docs/screens/import-preview-columns.png" points to nothing
+links: use/jobs/index.html: src "/docs/screens/job-results-and-file.png" points to nothing
+links: use/notifications-settings/index.html: src "/docs/screens/notification-email-digest.png" points to nothing
+
+31 problem(s) in links.

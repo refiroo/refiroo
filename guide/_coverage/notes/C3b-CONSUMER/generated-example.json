@@ -1,0 +1,55 @@
+{
+  "objectType": "Mode",
+  "id": "Example id",
+  "code": "Example code",
+  "name": "Example name",
+  "validFrom": "2026-01-01",
+  "validTo": "2026-01-01",
+  "stopNumber": 1,
+  "abbreviation": "Example abbreviation",
+  "fsoNumber": 1,
+  "latitude": "Example latitude",
+  "longitude": "Example longitude",
+  "height": "Example height",
+  "sboid": "Example sboid",
+  "parent": {
+    "objectType": "Example objectType",
+    "id": "Example id",
+    "code": "Example code",
+    "name": "Example name"
+  },
+  "path": "Example path",
+  "operator": {
+    "id": "Example id",
+    "code": "Example code",
+    "name": "Example name"
+  },
+  "modes": [
+    {
+      "id": "Example id",
+      "code": "Example code",
+      "name": "Example name"
+    }
+  ],
+  "systemCodes": [
+    {
+      "system": "Example system",
+      "systemKey": "Example systemKey",
+      "code": "Example code",
+      "name": "Example name"
+    }
+  ],
+  "translations": [
+    {
+      "languageCode": "Example languageCode",
+      "translatedName": "Example translatedName",
+      "isActive": true
+    }
+  ],
+  "target": {
+    "system": "Example system",
+    "systemKey": "Example systemKey",
+    "code": "Example code",
+    "name": "Example name"
+  }
+}

@@ -1,0 +1,5 @@
+.astro/
+_waves/runs/
+samples/snapshot/
+reference/.env
+_build/

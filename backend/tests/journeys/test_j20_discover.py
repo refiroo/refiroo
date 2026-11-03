@@ -113,7 +113,7 @@ def test_read_capabilities_model_placements_and_metadata(world):
     found = [value for value in _identifiers(samples, []) if value is not None]
     assert found and all(isinstance(value, str) and UUID4.match(value) for value in found), found
 
-    docs = world.api.get("/docs")
+    docs = world.api.get("/docs/api")
     assert docs.status_code == 200 and "text/html" in docs.headers["content-type"]
     assert "openapi" in ok(world.api.get("/openapi.json"))
 
@@ -320,8 +320,8 @@ def test_a_consumer_apis_document(world):
 
 
 def _reference_sources(world, **params):
-    """The sources the API reference page at ``/docs`` gives Scalar."""
-    page = world.api.get("/docs", **params)
+    """The sources the API reference page at ``/docs/api`` gives Scalar."""
+    page = world.api.get("/docs/api", **params)
     assert page.status_code == 200, page.text
     match = re.search(r'Scalar\.createApiReference\("#rdm-api-reference", (\{.*\})\);', page.text)
     assert match, page.text

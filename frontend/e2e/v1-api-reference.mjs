@@ -1,4 +1,4 @@
-// Base 0.9 V1 browser evidence: the Scalar API reference at /docs, served by a real backend with no
+// Base 0.9 V1 browser evidence: the Scalar API reference at /docs/api, served by a real backend with no
 // network. Every request that leaves the engine's origin is aborted and fails the runner, so the page,
 // its bundled script and the management OpenAPI source must all come from the engine itself. V2: the
 // starter is started with one consumer API, whose document is the page's second source. C1 (0.12): the
@@ -88,7 +88,7 @@ try {
   // An operation of the management document and the console's way in to it.
   const operation = `#management/tag/${openapi.paths["/api/v1/capabilities"].get.tags[0]}/GET/api/v1/capabilities`;
   const sendCapabilities = async (page) => {
-    await page.goto(`${apiUrl}/docs${operation}`);
+    await page.goto(`${apiUrl}/docs/api${operation}`);
     await page.getByRole("heading", { name: openapi.info.title, level: 1 }).waitFor();
     await page.locator(`[id="${operation.slice(1)}"]`).getByRole("button", { name: /Test Request/ }).click();
   };
@@ -118,7 +118,7 @@ try {
     page.setDefaultTimeout(15000);
     watchPageErrors(page.context(), (error) => failures.push(`${label}: ${error}`));
 
-    await page.goto(`${apiUrl}/docs`);
+    await page.goto(`${apiUrl}/docs/api`);
     await page.getByRole("heading", { name: openapi.info.title, level: 1 }).waitFor();
     // An operation from the management document, found by its path in the first section's list of
     // operations (the OAuth endpoints'), proves the source was read; later sections are drawn as the
@@ -126,7 +126,7 @@ try {
     await page.getByText("/oauth/jwks", { exact: true }).locator("visible=true").first().waitFor();
     await page.waitForLoadState("networkidle");
     expect(await page.title() === "refiroo API reference", `${label}: title ${await page.title()}`);
-    expect(loaded.includes("/docs/scalar/standalone.js"), `${label}: bundled script not loaded: ${loaded}`);
+    expect(loaded.includes("/docs/api/scalar/standalone.js"), `${label}: bundled script not loaded: ${loaded}`);
     expect(loaded.includes("/openapi.json"), `${label}: management source not loaded: ${loaded}`);
     // Scalar's hosted services are switched off: no agent, MCP generator, toolbar or hosted client.
     const text = await page.locator("body").innerText();
@@ -146,14 +146,14 @@ try {
     expect(JSON.stringify(sources.map((item) => [item.title, item.url])) ===
       JSON.stringify([["Management API", "/openapi.json"], ["Codelists · v1", consumerUrl]]),
     `${label}: sources ${JSON.stringify(sources)}`);
-    await page.goto(`${apiUrl}/docs?api=${sources[1].slug}`);
+    await page.goto(`${apiUrl}/docs/api?api=${sources[1].slug}`);
     await page.getByRole("heading", { name: consumer.info.title, level: 1 }).waitFor();
     await page.getByText(/\/api\/consumer\/codes\/v1\//).first().waitFor({ state: "attached" });
     await page.waitForLoadState("networkidle");
     expect(loaded.includes(consumerUrl), `${label}: consumer source not loaded: ${loaded}`);
     await page.screenshot({ path: resolve(output, `v2-consumer-source-${label}.png`) });
     checks.push(`${label}: the consumer API "Codelists · v1" listed beside the management API, its document read from the engine`);
-    await page.goto(`${apiUrl}/docs`);
+    await page.goto(`${apiUrl}/docs/api`);
     await page.getByRole("heading", { name: openapi.info.title, level: 1 }).waitFor();
     await page.waitForLoadState("networkidle");
 

@@ -1,0 +1,13 @@
+{
+  "release": "0.3 (baseline; no remaining leads)",
+  "counts": {
+    "added_promises": 0,
+    "added_rules": 0,
+    "merged": 0,
+    "superseded": 0,
+    "dropped": 0
+  },
+  "added_promises": [],
+  "added_rules": [],
+  "resolutions": []
+}

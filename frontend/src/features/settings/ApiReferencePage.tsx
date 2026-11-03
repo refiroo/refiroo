@@ -1,5 +1,5 @@
 /**
- * Settings › Integration › API reference (Track U U4): the sources of the reference page at `/docs`,
+ * Settings › Integration › API reference (Track U U4): the sources of the reference page at `/docs/api`,
  * as it lists them: the management API, then each consumer API of the active release at its
  * contract version (V2). Each opens on its own source (`?api=<slug>`) and links its OpenAPI document.
  */

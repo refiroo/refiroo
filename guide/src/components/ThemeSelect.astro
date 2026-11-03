@@ -1,0 +1,46 @@
+---
+// The theme picker, in the application's choices and words (HD); see ThemeProvider.astro.
+---
+
+<starlight-theme-select>
+  <label class="rdm-theme">
+    <select aria-label="Theme" autocomplete="off">
+      <option value="system">System</option>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+    </select>
+  </label>
+</starlight-theme-select>
+
+<script is:inline>
+  StarlightThemeProvider.updatePickers();
+</script>
+
+<script>
+  const provider = () => window.StarlightThemeProvider;
+  const follow = () => {
+    provider().apply();
+    provider().updatePickers();
+  };
+
+  // A choice made in the application or the API reference reaches this tab, and so does the operating
+  // system's theme while the choice is System.
+  window.addEventListener("storage", (event) => {
+    if (event.key === null || event.key === provider().key) follow();
+  });
+  matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
+    if (provider().read() === "system") follow();
+  });
+
+  class StarlightThemeSelect extends HTMLElement {
+    constructor() {
+      super();
+      this.querySelector("select")?.addEventListener("change", (event) => {
+        if (!(event.currentTarget instanceof HTMLSelectElement)) return;
+        provider().write(event.currentTarget.value);
+        follow();
+      });
+    }
+  }
+  customElements.define("starlight-theme-select", StarlightThemeSelect);
+</script>

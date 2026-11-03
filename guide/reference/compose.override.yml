@@ -1,0 +1,8 @@
+# The guide's reference instance on top of the repository's compose.yml: the engine image with the
+# guide's reference set loaded. Start it with guide/reference/reference.sh (its README says how).
+# Compose project refiroo-guide-ref; web published on 8480 (HTTP) and 8443 (unused), set in .env.
+services:
+  engine:
+    # This instance's own settings, not a .env in the repository root.
+    env_file: !override
+      - guide/reference/.env

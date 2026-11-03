@@ -1,6 +1,6 @@
 /**
  * Where a consumer API is reached, from its API index entry: the base URL its routes start with,
- * its OpenAPI document and its source on the reference page (`/docs?api=<slug>`, API.md). The
+ * its OpenAPI document and its source on the reference page (`/docs/api?api=<slug>`, API.md). The
  * index names the document below the engine's root path, so it resolves against the API's origin.
  */
 
@@ -12,12 +12,12 @@ export const openapiUrl = (entry: ConsumerApiIndexEntry) => new URL(entry.openap
 export const baseUrl = (entry: ConsumerApiIndexEntry) => openapiUrl(entry).replace(/\/openapi\.json$/, "");
 
 /** The reference page opened on one source: `management`, or `consumer-{consumerApi}-v{version}`. */
-export const referenceUrl = (slug: string) => `${API_URL}/docs?api=${encodeURIComponent(slug)}`;
+export const referenceUrl = (slug: string) => `${API_URL}/docs/api?api=${encodeURIComponent(slug)}`;
 
 /** One operation on the reference page: its source, then the method and the path as the document
  * writes it (Scalar's address for an operation; it opens that source, scrolled to it). */
 export const operationUrl = (slug: string, method: string, path: string) =>
-  `${API_URL}/docs#${slug}/${method.toUpperCase()}${path}`;
+  `${API_URL}/docs/api#${slug}/${method.toUpperCase()}${path}`;
 
 export const consumerSlug = (entry: ConsumerApiIndexEntry) => `consumer-${entry.consumerApi}-v${entry.contractVersion}`;
 

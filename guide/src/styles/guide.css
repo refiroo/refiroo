@@ -1,0 +1,119 @@
+/* The guide's few additions to Starlight's theme. Colours come from Starlight's tokens, so light and
+   dark both follow its theme switch. */
+
+/* A guide listed under its documentation page in the sidebar. */
+.sidebar-content a.guide-entry {
+  padding-inline-start: 1.75rem;
+  font-size: 0.925em;
+}
+
+/* A narrower "On this page" column and a text column that uses the space between the two sidebars,
+   centred so the gaps on its two sides stay equal and small. Starlight's defaults (an outline as wide as
+   the left sidebar, a 45rem text column pushed to the right) leave large empty areas on wide screens. */
+:root {
+  --guide-outline-width: 15rem;
+  --sl-content-width: 72rem;
+}
+@media (min-width: 72rem) {
+  .right-sidebar-container,
+  .right-sidebar {
+    /* The outline is fixed in place, so its own width must be set too or it runs off the screen. */
+    width: var(--guide-outline-width);
+  }
+  .right-sidebar-panel {
+    width: auto;
+  }
+  .right-sidebar-panel .sl-container {
+    width: auto;
+    max-width: none;
+  }
+  .right-sidebar-panel nav,
+  .right-sidebar-panel ul,
+  .right-sidebar-panel li,
+  .right-sidebar-panel a,
+  .right-sidebar-panel a * {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+  [data-has-sidebar][data-has-toc] .main-pane {
+    width: calc(100% - var(--guide-outline-width));
+    --sl-content-margin-inline: auto;
+  }
+}
+
+/* A capability's group (Records, Change sets…) inside a section: the size of its links, in bold, so the
+   section's own heading (Use refiroo…) stays the larger one. */
+.sidebar-content ul ul details > summary .group-label .large {
+  font-size: var(--sl-text-sm);
+  font-weight: 600;
+}
+
+/* The product name in running text (marked automatically by tools/rehype-brand.mjs): the navy of the
+   wordmark in docs/BRANDING.md's logo (#272860), a light tint of it on dark surfaces. */
+.brand-name {
+  color: #272860;
+  font-weight: 600;
+}
+:root[data-theme="dark"] .brand-name {
+  color: #c4c6f2;
+}
+
+/* The one header (HD): Starlight's bar takes the shared header's height, surface and rule, so the guide, the
+   application and the API reference look alike. The bar itself is src/components/Header.astro and the
+   shared stylesheet (frontend/public/brand/refiroo-header.css). */
+:root {
+  --sl-nav-height: 56px;
+  --sl-nav-pad-y: 0px;
+  --sl-nav-pad-x: 0px;
+  --sl-color-bg-nav: var(--rdm-top);
+  --sl-color-hairline-shade: var(--rdm-line);
+}
+/* Inside Starlight's header, which carries the rule: fill its content box so the rule shows. */
+.rdm-header {
+  height: 100%;
+  padding-inline: 20px 16px;
+  border-bottom: 0;
+}
+.rdm-header .rdm-search {
+  align-self: center;
+}
+.rdm-header site-search button[data-open-modal] {
+  width: 260px;
+  height: 34px;
+  border: 1px solid var(--rdm-line);
+  border-radius: 6px;
+  background: var(--rdm-field);
+  color: var(--rdm-muted);
+}
+.rdm-right {
+  align-items: center;
+}
+@media (max-width: 50rem) {
+  .rdm-header {
+    padding-inline: 12px;
+  }
+  .rdm-header site-search button[data-open-modal] {
+    width: 36px;
+    border: 0;
+    background: none;
+  }
+}
+
+/* Starlight's round menu button on a phone: a plain icon inside the bar's 16 px gutter (HD). */
+:root .sl-menu-button {
+  inset-inline-end: 16px;
+  top: 10px;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--rdm-muted);
+}
+:root .sl-menu-button:has(~ :popover-open) {
+  background: var(--rdm-hover);
+  color: var(--rdm-ink);
+}

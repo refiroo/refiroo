@@ -25,7 +25,7 @@ OPEN_ROUTES = (
     "/health",
     "/health/live",
     "/openapi.json",
-    "/docs",
+    "/docs/api",
     "/.well-known/oauth-authorization-server",
     "/oauth/jwks",
 )
@@ -71,7 +71,7 @@ def _invalid(response, reason: str) -> None:
 def test_every_route_but_the_open_ones_needs_a_token(world):
     """Given the engine. When a management read, a consumer route and `/metrics` are called with no
     token, then each answers `401 AUTHENTICATION_REQUIRED` with `WWW-Authenticate: Bearer`; the
-    health routes, the API document, `/docs`, the server metadata and the JWKS answer without one."""
+    health routes, the API document, `/docs/api`, the server metadata and the JWKS answer without one."""
     anonymous = _anonymous(world)
     for path in ("/api/v1/workspaces", "/api/consumer", "/metrics"):
         response = anonymous.get(path)

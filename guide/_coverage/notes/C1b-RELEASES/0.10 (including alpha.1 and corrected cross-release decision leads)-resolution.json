@@ -1,0 +1,1618 @@
+{
+  "release": "0.10 (including alpha.1 and corrected cross-release decision leads)",
+  "counts": {
+    "added_promises": 14,
+    "added_rules": 4,
+    "merged": 156,
+    "superseded": 5,
+    "dropped": 17
+  },
+  "added_promises": [
+    "R093",
+    "R094",
+    "R095",
+    "R096",
+    "R097",
+    "R098",
+    "R099",
+    "R100",
+    "R101",
+    "R102",
+    "R103",
+    "R104",
+    "R105",
+    "R106"
+  ],
+  "added_rules": [
+    "L29",
+    "L30",
+    "L31",
+    "L32"
+  ],
+  "resolutions": [
+    {
+      "id": "CL-0.10.0-#1",
+      "disposition": "merged",
+      "targets": [
+        "J34.10",
+        "R105"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#2",
+      "disposition": "merged",
+      "targets": [
+        "J02.7",
+        "R106"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#3",
+      "disposition": "merged",
+      "targets": [
+        "J34.10",
+        "R105"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#4",
+      "disposition": "merged",
+      "targets": [
+        "J34.10",
+        "R104"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#5",
+      "disposition": "merged",
+      "targets": [
+        "J34.9",
+        "R104"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#6",
+      "disposition": "merged",
+      "targets": [
+        "J35.S1",
+        "R102",
+        "R103"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#7",
+      "disposition": "merged",
+      "targets": [
+        "J34.4",
+        "R101"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#8",
+      "disposition": "merged",
+      "targets": [
+        "J34.4",
+        "J34.5",
+        "J34.6",
+        "R101"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#9",
+      "disposition": "merged",
+      "targets": [
+        "J34.2",
+        "R100"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#10",
+      "disposition": "merged",
+      "targets": [
+        "J34.7",
+        "R099",
+        "R098"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#11",
+      "disposition": "merged",
+      "targets": [
+        "R100"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#12",
+      "disposition": "merged",
+      "targets": [
+        "J34.1",
+        "R036",
+        "R097"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#13",
+      "disposition": "merged",
+      "targets": [
+        "J34.S1",
+        "J34.2",
+        "J34.8"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Added"
+    },
+    {
+      "id": "CL-0.10.0-#14",
+      "disposition": "merged",
+      "targets": [
+        "R103"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Changed"
+    },
+    {
+      "id": "CL-0.10.0-#15",
+      "disposition": "merged",
+      "targets": [
+        "R101"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Changed"
+    },
+    {
+      "id": "CL-0.10.0-#16",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Internal profiling analysis and code consolidation; no extra reader capability.",
+      "source": "CL §[0.10.0] Changed"
+    },
+    {
+      "id": "CL-0.10.0-#17",
+      "disposition": "merged",
+      "targets": [
+        "J34.2"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Changed"
+    },
+    {
+      "id": "CL-0.10.0-#18",
+      "disposition": "merged",
+      "targets": [
+        "R036"
+      ],
+      "reason": "Current delivered model/profile behavior retained.",
+      "source": "CL §[0.10.0] Changed"
+    },
+    {
+      "id": "CL-0.10.0-alpha.1-#1",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "Design approval or checkpoint acceptance evidence rather than a separate capability.",
+      "source": "CL §[0.10.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.10.0-alpha.1-#2",
+      "disposition": "merged",
+      "targets": [
+        "J33.9",
+        "R034"
+      ],
+      "reason": "Designer behavior retained with later reference-rewrite amendment.",
+      "source": "CL §[0.10.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.10.0-alpha.1-#3",
+      "disposition": "merged",
+      "targets": [
+        "F18.b"
+      ],
+      "reason": "Designer behavior retained with later reference-rewrite amendment.",
+      "source": "CL §[0.10.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.10.0-alpha.1-#4",
+      "disposition": "merged",
+      "targets": [
+        "J33.S2",
+        "R093",
+        "R094",
+        "R035"
+      ],
+      "reason": "Designer behavior retained with later reference-rewrite amendment.",
+      "source": "CL §[0.10.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.10.0-alpha.1-#5",
+      "disposition": "merged",
+      "targets": [
+        "J33.S1",
+        "R037"
+      ],
+      "reason": "Designer behavior retained with later reference-rewrite amendment.",
+      "source": "CL §[0.10.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.10.0-alpha.1-#6",
+      "disposition": "merged",
+      "targets": [
+        "J33.10",
+        "R095"
+      ],
+      "reason": "Designer behavior retained with later reference-rewrite amendment.",
+      "source": "CL §[0.10.0-alpha.1] Added"
+    },
+    {
+      "id": "CL-0.10.0-alpha.1-#7",
+      "disposition": "merged",
+      "targets": [
+        "J33.13",
+        "J33.14",
+        "R096"
+      ],
+      "reason": "Designer behavior retained with later reference-rewrite amendment.",
+      "source": "CL §[0.10.0-alpha.1] Added"
+    },
+    {
+      "id": "PL-D8",
+      "disposition": "merged",
+      "targets": [
+        "J18.1"
+      ],
+      "reason": "Corrected origin: PL 0.7 D8; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.7 plan D8"
+    },
+    {
+      "id": "PL-D9",
+      "disposition": "merged",
+      "targets": [
+        "J10.S1"
+      ],
+      "reason": "Corrected origin: PL 0.7 D9; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.7 plan D9"
+    },
+    {
+      "id": "PL-D11",
+      "disposition": "merged",
+      "targets": [
+        "R004"
+      ],
+      "reason": "Corrected origin: PL 0.7 D11; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.7 plan D11"
+    },
+    {
+      "id": "PL-D2",
+      "disposition": "merged",
+      "targets": [
+        "F03.c"
+      ],
+      "reason": "Corrected origin: PL 0.8 D2; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D2"
+    },
+    {
+      "id": "PL-D4",
+      "disposition": "merged",
+      "targets": [
+        "F03.c"
+      ],
+      "reason": "Corrected origin: PL 0.8 D4; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D4"
+    },
+    {
+      "id": "PL-D5",
+      "disposition": "merged",
+      "targets": [
+        "J21.4"
+      ],
+      "reason": "Corrected origin: PL 0.8 D5; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D5"
+    },
+    {
+      "id": "PL-D7",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.8 D7: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.8 plan D7"
+    },
+    {
+      "id": "PL-D10",
+      "disposition": "merged",
+      "targets": [
+        "R005"
+      ],
+      "reason": "Corrected origin: PL 0.8 D10; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D10"
+    },
+    {
+      "id": "PL-D13",
+      "disposition": "merged",
+      "targets": [
+        "R007"
+      ],
+      "reason": "Corrected origin: PL 0.8 D13; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D13"
+    },
+    {
+      "id": "PL-D14",
+      "disposition": "merged",
+      "targets": [
+        "R070"
+      ],
+      "reason": "Corrected origin: PL 0.8 D14; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D14"
+    },
+    {
+      "id": "PL-D16",
+      "disposition": "merged",
+      "targets": [
+        "GL-33"
+      ],
+      "reason": "Corrected origin: PL 0.8 D16; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D16"
+    },
+    {
+      "id": "PL-D17",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "0.8 split-topology restriction superseded by 0.11 N1/N3.",
+      "source": "PL §0.8 plan D17"
+    },
+    {
+      "id": "PL-D21",
+      "disposition": "merged",
+      "targets": [
+        "R066"
+      ],
+      "reason": "Corrected origin: PL 0.8 D21; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D21"
+    },
+    {
+      "id": "PL-D22",
+      "disposition": "merged",
+      "targets": [
+        "R066"
+      ],
+      "reason": "Corrected origin: PL 0.8 D22; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D22"
+    },
+    {
+      "id": "PL-D27",
+      "disposition": "merged",
+      "targets": [
+        "J19.S4"
+      ],
+      "reason": "Corrected origin: PL 0.8 D27; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D27"
+    },
+    {
+      "id": "PL-D28",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.8 D28: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.8 plan D28"
+    },
+    {
+      "id": "PL-D24",
+      "disposition": "merged",
+      "targets": [
+        "R066"
+      ],
+      "reason": "Corrected origin: PL 0.8 D24; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D24"
+    },
+    {
+      "id": "PL-D32",
+      "disposition": "merged",
+      "targets": [
+        "R012"
+      ],
+      "reason": "Corrected origin: PL 0.8 D32; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D32"
+    },
+    {
+      "id": "PL-D35",
+      "disposition": "merged",
+      "targets": [
+        "J14.10"
+      ],
+      "reason": "Corrected origin: PL 0.8 D35; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D35"
+    },
+    {
+      "id": "PL-D36",
+      "disposition": "merged",
+      "targets": [
+        "R009"
+      ],
+      "reason": "Corrected origin: PL 0.8 D36; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D36"
+    },
+    {
+      "id": "PL-D38",
+      "disposition": "merged",
+      "targets": [
+        "J15.S1"
+      ],
+      "reason": "Corrected origin: PL 0.8 D38; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D38"
+    },
+    {
+      "id": "PL-D39",
+      "disposition": "merged",
+      "targets": [
+        "J15.S1"
+      ],
+      "reason": "Corrected origin: PL 0.8 D39; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D39"
+    },
+    {
+      "id": "PL-D41",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "0.8 D41 5,000-record limit lowered to 500 by D44.",
+      "source": "PL §0.8 plan D41"
+    },
+    {
+      "id": "PL-D42",
+      "disposition": "merged",
+      "targets": [
+        "R069"
+      ],
+      "reason": "Corrected origin: PL 0.8 D42; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D42"
+    },
+    {
+      "id": "PL-D45",
+      "disposition": "merged",
+      "targets": [
+        "R068"
+      ],
+      "reason": "Corrected origin: PL 0.8 D45; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.8 plan D45"
+    },
+    {
+      "id": "PL-D46",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.8 D46: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.8 plan D46"
+    },
+    {
+      "id": "PL-D30",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.8 D30: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.8 plan D30"
+    },
+    {
+      "id": "PL-D43",
+      "disposition": "merged",
+      "targets": [
+        "F16.a"
+      ],
+      "reason": "Corrected origin: PL 0.9 D43; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D43"
+    },
+    {
+      "id": "PL-D47",
+      "disposition": "merged",
+      "targets": [
+        "J21.9"
+      ],
+      "reason": "Corrected origin: PL 0.9 D47; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D47"
+    },
+    {
+      "id": "PL-D48",
+      "disposition": "merged",
+      "targets": [
+        "J21.9"
+      ],
+      "reason": "Corrected origin: PL 0.9 D48; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D48"
+    },
+    {
+      "id": "PL-D49",
+      "disposition": "merged",
+      "targets": [
+        "J27.3"
+      ],
+      "reason": "Corrected origin: PL 0.9 D49; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D49"
+    },
+    {
+      "id": "PL-D50",
+      "disposition": "merged",
+      "targets": [
+        "J27.1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D50; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D50"
+    },
+    {
+      "id": "PL-D51",
+      "disposition": "merged",
+      "targets": [
+        "J27.1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D51; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D51"
+    },
+    {
+      "id": "PL-D52",
+      "disposition": "merged",
+      "targets": [
+        "J27.1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D52; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D52"
+    },
+    {
+      "id": "PL-D53",
+      "disposition": "merged",
+      "targets": [
+        "R031"
+      ],
+      "reason": "Corrected origin: PL 0.9 D53; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D53"
+    },
+    {
+      "id": "PL-D54",
+      "disposition": "merged",
+      "targets": [
+        "R022"
+      ],
+      "reason": "Corrected origin: PL 0.9 D54; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D54"
+    },
+    {
+      "id": "PL-D55",
+      "disposition": "merged",
+      "targets": [
+        "J27.S4"
+      ],
+      "reason": "Corrected origin: PL 0.9 D55; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D55"
+    },
+    {
+      "id": "PL-D57",
+      "disposition": "merged",
+      "targets": [
+        "J27.6"
+      ],
+      "reason": "Corrected origin: PL 0.9 D57; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D57"
+    },
+    {
+      "id": "PL-D58",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D58: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D58"
+    },
+    {
+      "id": "PL-D59",
+      "disposition": "merged",
+      "targets": [
+        "J27.6"
+      ],
+      "reason": "Corrected origin: PL 0.9 D59; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D59"
+    },
+    {
+      "id": "PL-D60",
+      "disposition": "merged",
+      "targets": [
+        "R030"
+      ],
+      "reason": "Corrected origin: PL 0.9 D60; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D60"
+    },
+    {
+      "id": "PL-D61",
+      "disposition": "merged",
+      "targets": [
+        "J27.6"
+      ],
+      "reason": "Corrected origin: PL 0.9 D61; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D61"
+    },
+    {
+      "id": "PL-D62",
+      "disposition": "merged",
+      "targets": [
+        "J27.6"
+      ],
+      "reason": "Corrected origin: PL 0.9 D62; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D62"
+    },
+    {
+      "id": "PL-D63",
+      "disposition": "merged",
+      "targets": [
+        "J27.6"
+      ],
+      "reason": "Corrected origin: PL 0.9 D63; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D63"
+    },
+    {
+      "id": "PL-D64",
+      "disposition": "merged",
+      "targets": [
+        "J27.9"
+      ],
+      "reason": "Corrected origin: PL 0.9 D64; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D64"
+    },
+    {
+      "id": "PL-D65",
+      "disposition": "merged",
+      "targets": [
+        "J27.7"
+      ],
+      "reason": "Corrected origin: PL 0.9 D65; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D65"
+    },
+    {
+      "id": "PL-D66",
+      "disposition": "merged",
+      "targets": [
+        "J27.8"
+      ],
+      "reason": "Corrected origin: PL 0.9 D66; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D66"
+    },
+    {
+      "id": "PL-D67",
+      "disposition": "merged",
+      "targets": [
+        "J27.8"
+      ],
+      "reason": "Corrected origin: PL 0.9 D67; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D67"
+    },
+    {
+      "id": "PL-D68",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D68: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D68"
+    },
+    {
+      "id": "PL-D69",
+      "disposition": "merged",
+      "targets": [
+        "R032"
+      ],
+      "reason": "Corrected origin: PL 0.9 D69; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D69"
+    },
+    {
+      "id": "PL-D70",
+      "disposition": "merged",
+      "targets": [
+        "J27.8"
+      ],
+      "reason": "Corrected origin: PL 0.9 D70; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D70"
+    },
+    {
+      "id": "PL-D71",
+      "disposition": "merged",
+      "targets": [
+        "J27.9"
+      ],
+      "reason": "Corrected origin: PL 0.9 D71; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D71"
+    },
+    {
+      "id": "PL-D72",
+      "disposition": "merged",
+      "targets": [
+        "J27.10"
+      ],
+      "reason": "Corrected origin: PL 0.9 D72; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D72"
+    },
+    {
+      "id": "PL-D73",
+      "disposition": "merged",
+      "targets": [
+        "J27.S3"
+      ],
+      "reason": "Corrected origin: PL 0.9 D73; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D73"
+    },
+    {
+      "id": "PL-D74",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D74: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D74"
+    },
+    {
+      "id": "PL-D75",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D75: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D75"
+    },
+    {
+      "id": "PL-D76",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D76: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D76"
+    },
+    {
+      "id": "PL-D77",
+      "disposition": "merged",
+      "targets": [
+        "R016"
+      ],
+      "reason": "Corrected origin: PL 0.9 D77; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D77"
+    },
+    {
+      "id": "PL-D78",
+      "disposition": "merged",
+      "targets": [
+        "J02.5"
+      ],
+      "reason": "Corrected origin: PL 0.9 D78; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D78"
+    },
+    {
+      "id": "PL-D79",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "0.9 D79 upgrade-duplicate handling was withdrawn.",
+      "source": "PL §0.9 plan D79"
+    },
+    {
+      "id": "PL-D80",
+      "disposition": "merged",
+      "targets": [
+        "J27.11"
+      ],
+      "reason": "Corrected origin: PL 0.9 D80; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D80"
+    },
+    {
+      "id": "PL-D81",
+      "disposition": "merged",
+      "targets": [
+        "R088"
+      ],
+      "reason": "Corrected origin: PL 0.9 D81; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D81"
+    },
+    {
+      "id": "PL-D82",
+      "disposition": "merged",
+      "targets": [
+        "R036"
+      ],
+      "reason": "Corrected origin: PL 0.9 D82; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D82"
+    },
+    {
+      "id": "PL-D83",
+      "disposition": "merged",
+      "targets": [
+        "J27.12"
+      ],
+      "reason": "Corrected origin: PL 0.9 D83; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D83"
+    },
+    {
+      "id": "PL-D84",
+      "disposition": "merged",
+      "targets": [
+        "J27.10"
+      ],
+      "reason": "Corrected origin: PL 0.9 D84; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D84"
+    },
+    {
+      "id": "PL-D85",
+      "disposition": "merged",
+      "targets": [
+        "J27.10"
+      ],
+      "reason": "Corrected origin: PL 0.9 D85; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D85"
+    },
+    {
+      "id": "PL-D86",
+      "disposition": "merged",
+      "targets": [
+        "J27.11"
+      ],
+      "reason": "Corrected origin: PL 0.9 D86; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D86"
+    },
+    {
+      "id": "PL-D87",
+      "disposition": "merged",
+      "targets": [
+        "R088"
+      ],
+      "reason": "Corrected origin: PL 0.9 D87; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D87"
+    },
+    {
+      "id": "PL-D88",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D88: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D88"
+    },
+    {
+      "id": "PL-D89",
+      "disposition": "merged",
+      "targets": [
+        "J27.13"
+      ],
+      "reason": "Corrected origin: PL 0.9 D89; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D89"
+    },
+    {
+      "id": "PL-D90",
+      "disposition": "merged",
+      "targets": [
+        "J27.11"
+      ],
+      "reason": "Corrected origin: PL 0.9 D90; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D90"
+    },
+    {
+      "id": "PL-D91",
+      "disposition": "merged",
+      "targets": [
+        "J27.13"
+      ],
+      "reason": "Corrected origin: PL 0.9 D91; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D91"
+    },
+    {
+      "id": "PL-D92",
+      "disposition": "merged",
+      "targets": [
+        "J27.13"
+      ],
+      "reason": "Corrected origin: PL 0.9 D92; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D92"
+    },
+    {
+      "id": "PL-D93",
+      "disposition": "merged",
+      "targets": [
+        "J27.13"
+      ],
+      "reason": "Corrected origin: PL 0.9 D93; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D93"
+    },
+    {
+      "id": "PL-D94",
+      "disposition": "merged",
+      "targets": [
+        "J27.13"
+      ],
+      "reason": "Corrected origin: PL 0.9 D94; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D94"
+    },
+    {
+      "id": "PL-D95",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D95: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D95"
+    },
+    {
+      "id": "PL-D96",
+      "disposition": "merged",
+      "targets": [
+        "J27.14"
+      ],
+      "reason": "Corrected origin: PL 0.9 D96; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D96"
+    },
+    {
+      "id": "PL-D97",
+      "disposition": "merged",
+      "targets": [
+        "R084"
+      ],
+      "reason": "Corrected origin: PL 0.9 D97; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D97"
+    },
+    {
+      "id": "PL-D98",
+      "disposition": "merged",
+      "targets": [
+        "R084"
+      ],
+      "reason": "Corrected origin: PL 0.9 D98; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D98"
+    },
+    {
+      "id": "PL-D99",
+      "disposition": "merged",
+      "targets": [
+        "J27.14"
+      ],
+      "reason": "Corrected origin: PL 0.9 D99; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D99"
+    },
+    {
+      "id": "PL-D100",
+      "disposition": "merged",
+      "targets": [
+        "R084"
+      ],
+      "reason": "Corrected origin: PL 0.9 D100; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D100"
+    },
+    {
+      "id": "PL-D101",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D101: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D101"
+    },
+    {
+      "id": "PL-D102",
+      "disposition": "merged",
+      "targets": [
+        "J32.1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D102; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D102"
+    },
+    {
+      "id": "PL-D103",
+      "disposition": "merged",
+      "targets": [
+        "J32.1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D103; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D103"
+    },
+    {
+      "id": "PL-D104",
+      "disposition": "merged",
+      "targets": [
+        "J32.1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D104; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D104"
+    },
+    {
+      "id": "PL-D105",
+      "disposition": "merged",
+      "targets": [
+        "J32.1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D105; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D105"
+    },
+    {
+      "id": "PL-D106",
+      "disposition": "merged",
+      "targets": [
+        "J32.2"
+      ],
+      "reason": "Corrected origin: PL 0.9 D106; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D106"
+    },
+    {
+      "id": "PL-D107",
+      "disposition": "merged",
+      "targets": [
+        "J11.3"
+      ],
+      "reason": "Corrected origin: PL 0.9 D107; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D107"
+    },
+    {
+      "id": "PL-D108",
+      "disposition": "merged",
+      "targets": [
+        "J32.1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D108; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D108"
+    },
+    {
+      "id": "PL-D109",
+      "disposition": "merged",
+      "targets": [
+        "J32.1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D109; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D109"
+    },
+    {
+      "id": "PL-D110",
+      "disposition": "merged",
+      "targets": [
+        "J32.1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D110; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D110"
+    },
+    {
+      "id": "PL-D111",
+      "disposition": "merged",
+      "targets": [
+        "J32.S1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D111; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D111"
+    },
+    {
+      "id": "PL-D112",
+      "disposition": "merged",
+      "targets": [
+        "J11.9"
+      ],
+      "reason": "Corrected origin: PL 0.9 D112; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D112"
+    },
+    {
+      "id": "PL-D113",
+      "disposition": "merged",
+      "targets": [
+        "J11.9"
+      ],
+      "reason": "Corrected origin: PL 0.9 D113; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D113"
+    },
+    {
+      "id": "PL-D114",
+      "disposition": "merged",
+      "targets": [
+        "J32.2"
+      ],
+      "reason": "Corrected origin: PL 0.9 D114; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D114"
+    },
+    {
+      "id": "PL-D115",
+      "disposition": "merged",
+      "targets": [
+        "J32.2"
+      ],
+      "reason": "Corrected origin: PL 0.9 D115; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D115"
+    },
+    {
+      "id": "PL-D116",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "0.9 K2 deletion exclusion superseded by delivered K2b.",
+      "source": "PL §0.9 plan D116"
+    },
+    {
+      "id": "PL-D117",
+      "disposition": "merged",
+      "targets": [
+        "J32.2"
+      ],
+      "reason": "Corrected origin: PL 0.9 D117; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D117"
+    },
+    {
+      "id": "PL-D118",
+      "disposition": "merged",
+      "targets": [
+        "J32.2"
+      ],
+      "reason": "Corrected origin: PL 0.9 D118; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D118"
+    },
+    {
+      "id": "PL-D119",
+      "disposition": "merged",
+      "targets": [
+        "R088"
+      ],
+      "reason": "Corrected origin: PL 0.9 D119; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D119"
+    },
+    {
+      "id": "PL-D120",
+      "disposition": "merged",
+      "targets": [
+        "J11.6"
+      ],
+      "reason": "Corrected origin: PL 0.9 D120; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D120"
+    },
+    {
+      "id": "PL-D121",
+      "disposition": "merged",
+      "targets": [
+        "J11.6"
+      ],
+      "reason": "Corrected origin: PL 0.9 D121; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D121"
+    },
+    {
+      "id": "PL-D122",
+      "disposition": "merged",
+      "targets": [
+        "J11.6"
+      ],
+      "reason": "Corrected origin: PL 0.9 D122; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D122"
+    },
+    {
+      "id": "PL-D123",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D123: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D123"
+    },
+    {
+      "id": "PL-D124",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D124: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D124"
+    },
+    {
+      "id": "PL-D125",
+      "disposition": "merged",
+      "targets": [
+        "J32.3"
+      ],
+      "reason": "Corrected origin: PL 0.9 D125; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D125"
+    },
+    {
+      "id": "PL-D126",
+      "disposition": "merged",
+      "targets": [
+        "J32.3"
+      ],
+      "reason": "Corrected origin: PL 0.9 D126; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D126"
+    },
+    {
+      "id": "PL-D127",
+      "disposition": "merged",
+      "targets": [
+        "J32.4"
+      ],
+      "reason": "Corrected origin: PL 0.9 D127; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D127"
+    },
+    {
+      "id": "PL-D128",
+      "disposition": "merged",
+      "targets": [
+        "J32.4"
+      ],
+      "reason": "Corrected origin: PL 0.9 D128; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D128"
+    },
+    {
+      "id": "PL-D129",
+      "disposition": "merged",
+      "targets": [
+        "J11.10"
+      ],
+      "reason": "Corrected origin: PL 0.9 D129; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D129"
+    },
+    {
+      "id": "PL-D130",
+      "disposition": "merged",
+      "targets": [
+        "J11.11"
+      ],
+      "reason": "Corrected origin: PL 0.9 D130; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D130"
+    },
+    {
+      "id": "PL-D131",
+      "disposition": "merged",
+      "targets": [
+        "J32.4"
+      ],
+      "reason": "Corrected origin: PL 0.9 D131; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D131"
+    },
+    {
+      "id": "PL-D132",
+      "disposition": "merged",
+      "targets": [
+        "J32.4"
+      ],
+      "reason": "Corrected origin: PL 0.9 D132; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D132"
+    },
+    {
+      "id": "PL-D133",
+      "disposition": "merged",
+      "targets": [
+        "J32.4"
+      ],
+      "reason": "Corrected origin: PL 0.9 D133; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D133"
+    },
+    {
+      "id": "PL-D134",
+      "disposition": "merged",
+      "targets": [
+        "J32.4"
+      ],
+      "reason": "Corrected origin: PL 0.9 D134; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D134"
+    },
+    {
+      "id": "PL-D135",
+      "disposition": "merged",
+      "targets": [
+        "J01.8"
+      ],
+      "reason": "Corrected origin: PL 0.9 D135; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D135"
+    },
+    {
+      "id": "PL-D136",
+      "disposition": "merged",
+      "targets": [
+        "J11.12"
+      ],
+      "reason": "Corrected origin: PL 0.9 D136; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D136"
+    },
+    {
+      "id": "PL-D137",
+      "disposition": "merged",
+      "targets": [
+        "J11.12"
+      ],
+      "reason": "Corrected origin: PL 0.9 D137; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D137"
+    },
+    {
+      "id": "PL-D138",
+      "disposition": "merged",
+      "targets": [
+        "J11.12"
+      ],
+      "reason": "Corrected origin: PL 0.9 D138; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D138"
+    },
+    {
+      "id": "PL-D139",
+      "disposition": "merged",
+      "targets": [
+        "J32.5"
+      ],
+      "reason": "Corrected origin: PL 0.9 D139; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D139"
+    },
+    {
+      "id": "PL-D140",
+      "disposition": "merged",
+      "targets": [
+        "J01.8"
+      ],
+      "reason": "Corrected origin: PL 0.9 D140; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D140"
+    },
+    {
+      "id": "PL-D141",
+      "disposition": "merged",
+      "targets": [
+        "J08.12"
+      ],
+      "reason": "Corrected origin: PL 0.9 D141; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D141"
+    },
+    {
+      "id": "PL-D142",
+      "disposition": "merged",
+      "targets": [
+        "J01.8"
+      ],
+      "reason": "Corrected origin: PL 0.9 D142; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D142"
+    },
+    {
+      "id": "PL-D143",
+      "disposition": "merged",
+      "targets": [
+        "J01.8"
+      ],
+      "reason": "Corrected origin: PL 0.9 D143; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D143"
+    },
+    {
+      "id": "PL-D144",
+      "disposition": "merged",
+      "targets": [
+        "J01.8"
+      ],
+      "reason": "Corrected origin: PL 0.9 D144; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D144"
+    },
+    {
+      "id": "PL-D145",
+      "disposition": "merged",
+      "targets": [
+        "J01.10"
+      ],
+      "reason": "Corrected origin: PL 0.9 D145; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D145"
+    },
+    {
+      "id": "PL-D146",
+      "disposition": "merged",
+      "targets": [
+        "J01.8"
+      ],
+      "reason": "Corrected origin: PL 0.9 D146; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D146"
+    },
+    {
+      "id": "PL-D147",
+      "disposition": "dropped",
+      "targets": [],
+      "reason": "PL 0.9 D147: internal measurement, implementation, fixture or delivery sequencing.",
+      "source": "PL §0.9 plan D147"
+    },
+    {
+      "id": "PL-D148",
+      "disposition": "merged",
+      "targets": [
+        "J01.9"
+      ],
+      "reason": "Corrected origin: PL 0.9 D148; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D148"
+    },
+    {
+      "id": "PL-D149",
+      "disposition": "merged",
+      "targets": [
+        "J01.9"
+      ],
+      "reason": "Corrected origin: PL 0.9 D149; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D149"
+    },
+    {
+      "id": "PL-D150",
+      "disposition": "merged",
+      "targets": [
+        "J01.9"
+      ],
+      "reason": "Corrected origin: PL 0.9 D150; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D150"
+    },
+    {
+      "id": "PL-D151",
+      "disposition": "merged",
+      "targets": [
+        "J01.9"
+      ],
+      "reason": "Corrected origin: PL 0.9 D151; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D151"
+    },
+    {
+      "id": "PL-D153",
+      "disposition": "merged",
+      "targets": [
+        "J01.10"
+      ],
+      "reason": "Corrected origin: PL 0.9 D153; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D153"
+    },
+    {
+      "id": "PL-D3",
+      "disposition": "merged",
+      "targets": [
+        "J27.8"
+      ],
+      "reason": "Corrected origin: PL 0.9 D3; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D3"
+    },
+    {
+      "id": "PL-D12",
+      "disposition": "merged",
+      "targets": [
+        "J27.S4"
+      ],
+      "reason": "Corrected origin: PL 0.9 D12; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D12"
+    },
+    {
+      "id": "PL-D19",
+      "disposition": "merged",
+      "targets": [
+        "J22.S2"
+      ],
+      "reason": "Corrected origin: PL 0.9 D19; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D19"
+    },
+    {
+      "id": "PL-D20",
+      "disposition": "merged",
+      "targets": [
+        "J23.5"
+      ],
+      "reason": "Corrected origin: PL 0.9 D20; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D20"
+    },
+    {
+      "id": "PL-D29",
+      "disposition": "merged",
+      "targets": [
+        "R019"
+      ],
+      "reason": "Corrected origin: PL 0.9 D29; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D29"
+    },
+    {
+      "id": "PL-D31",
+      "disposition": "merged",
+      "targets": [
+        "J26.S1"
+      ],
+      "reason": "Corrected origin: PL 0.9 D31; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D31"
+    },
+    {
+      "id": "PL-D34",
+      "disposition": "merged",
+      "targets": [
+        "J26.4"
+      ],
+      "reason": "Corrected origin: PL 0.9 D34; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D34"
+    },
+    {
+      "id": "PL-D37",
+      "disposition": "merged",
+      "targets": [
+        "R055"
+      ],
+      "reason": "Corrected origin: PL 0.9 D37; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D37"
+    },
+    {
+      "id": "PL-D40",
+      "disposition": "merged",
+      "targets": [
+        "R022"
+      ],
+      "reason": "Corrected origin: PL 0.9 D40; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.9 plan D40"
+    },
+    {
+      "id": "PL-D1",
+      "disposition": "merged",
+      "targets": [
+        "J33.9"
+      ],
+      "reason": "Corrected origin: PL 0.10 D1; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.10 plan D1"
+    },
+    {
+      "id": "PL-D6",
+      "disposition": "merged",
+      "targets": [
+        "J34.S1"
+      ],
+      "reason": "Corrected origin: PL 0.10 D6; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.10 plan D6"
+    },
+    {
+      "id": "PL-D18",
+      "disposition": "merged",
+      "targets": [
+        "R094"
+      ],
+      "reason": "Corrected origin: PL 0.10 D18; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.10 plan D18"
+    },
+    {
+      "id": "PL-A-D5",
+      "disposition": "superseded",
+      "targets": [],
+      "reason": "The optional AI naming helper was removed in 0.16 AP6a; rules-based inference remains R038.",
+      "source": "PL §0.10 plan A-D5"
+    },
+    {
+      "id": "PL-A-D9",
+      "disposition": "merged",
+      "targets": [
+        "J34.10"
+      ],
+      "reason": "Laid-out list behavior retained; formatting and colours are not semantic input.",
+      "source": "PL §0.10 plan A-D9"
+    },
+    {
+      "id": "PL-D23",
+      "disposition": "merged",
+      "targets": [
+        "R034"
+      ],
+      "reason": "Corrected origin: PL 0.10 D23; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.10 plan D23"
+    },
+    {
+      "id": "PL-D25",
+      "disposition": "merged",
+      "targets": [
+        "J33.9"
+      ],
+      "reason": "Corrected origin: PL 0.10 D25; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.10 plan D25"
+    },
+    {
+      "id": "PL-D26",
+      "disposition": "merged",
+      "targets": [
+        "J33.9"
+      ],
+      "reason": "Corrected origin: PL 0.10 D26; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.10 plan D26"
+    },
+    {
+      "id": "PL-D33",
+      "disposition": "merged",
+      "targets": [
+        "R093"
+      ],
+      "reason": "Corrected origin: PL 0.10 D33; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.10 plan D33"
+    },
+    {
+      "id": "PL-D44",
+      "disposition": "merged",
+      "targets": [
+        "R095"
+      ],
+      "reason": "Corrected origin: PL 0.10 D44; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.10 plan D44"
+    },
+    {
+      "id": "PL-D56",
+      "disposition": "merged",
+      "targets": [
+        "R096"
+      ],
+      "reason": "Corrected origin: PL 0.10 D56; old inventory combined unrelated decisions with the same number.",
+      "source": "PL §0.10 plan D56"
+    }
+  ]
+}

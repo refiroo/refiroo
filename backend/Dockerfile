@@ -1,5 +1,21 @@
 # The engine image (0.12 DP2, D405, D406). Built from the repository root:
 #   docker build -f backend/Dockerfile -t refiroo-engine .
+
+# The guide (0.13 DOC1): built here, so the engine image carries the built files and no Node.
+# The telemetry setting keeps the build from reaching the internet beyond the package registry.
+FROM node:22-alpine AS guide
+WORKDIR /repo/guide
+ENV ASTRO_TELEMETRY_DISABLED=1
+COPY guide/package.json guide/package-lock.json ./
+RUN npm ci
+COPY guide/astro.config.mjs ./
+COPY guide/sidebar ./sidebar
+COPY guide/src ./src
+COPY guide/public ./public
+COPY guide/examples ./examples
+COPY guide/tools ./tools
+RUN npm run build
+
 FROM python:3.14-slim
 
 # The engine runs as a user of its own, never root.
@@ -12,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
     && npm install -g @anthropic-ai/claude-code && test -x /usr/local/bin/claude \
     && apt-get purge -y npm && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Everything of the application lies under one folder that mirrors the repository: backend/,
+# Everything of the application lies under one folder that mirrors the repository: backend/, guide/dist,
 # model/ and data/ (the job files and the assistant's folders). Nothing is added at /.
 RUN useradd --system --uid 10001 --home-dir /opt/refiroo/rdm-engine/backend --shell /usr/sbin/nologin rdm \
     && mkdir -p /opt/refiroo/rdm-engine/backend /opt/refiroo/rdm-engine/data/job-files \
@@ -43,6 +59,8 @@ COPY --chmod=u=rwX,go=rX backend/pyproject.toml .
 COPY --chmod=u=rwX,go=rX backend/app ./app
 RUN pip install --no-cache-dir .
 COPY --chmod=u=rwX,go=rX model/rdm-starter.json /opt/refiroo/rdm-engine/model/rdm-starter.json
+# The built guide, served at /docs (app/management/guide_site.py finds guide/dist beside backend/).
+COPY --from=guide --chmod=u=rwX,go=rX /repo/guide/dist /opt/refiroo/rdm-engine/guide/dist
 
 ENV RDM_MODEL_PATH=/opt/refiroo/rdm-engine/model/rdm-starter.json \
     JOB_FILE_DIR=/opt/refiroo/rdm-engine/data/job-files \

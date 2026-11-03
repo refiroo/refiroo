@@ -1,9 +1,10 @@
-"""0.9 V1: the Scalar API reference page at /docs, its bundled script and the CDN setting."""
+"""0.9 V1: the Scalar API reference page at /docs/api, its bundled script and the CDN setting."""
 
 import base64
 import hashlib
 import json
 import re
+from pathlib import Path
 
 import pytest
 from harness_identity import TestClient
@@ -41,12 +42,16 @@ def _client(monkeypatch: pytest.MonkeyPatch, script: str | None) -> TestClient:
 def test_docs_serves_the_bundled_script_with_the_management_source(monkeypatch):
     client = _client(monkeypatch, None)
 
-    page = client.get("/docs")
+    page = client.get("/docs/api")
     assert page.status_code == 200
     assert page.headers["content-type"].startswith("text/html")
     assert f'<script src="{BUNDLED_SCRIPT_PATH}"></script>' in page.text
     # Nothing on the page names another host: the script, the source and the options are local.
     assert "http://" not in page.text and "https://" not in page.text
+    # The page links to the documentation the engine serves beside it (0.13 DOC1).
+    assert 'href="/docs/"' in page.text and 'href="/docs/api/" aria-current="page"' in page.text
+    # The logo leads to the application, and Scalar's own colour toggle is hidden for the header's (HD).
+    assert 'class="rdm-mark" href="/"' in page.text
     configuration = _configuration(page.text)
     # The management API comes first and is the default; any other source is a consumer API of the
     # active release, which depends on what ran before on this database (none on a fresh one).
@@ -64,6 +69,7 @@ def test_docs_serves_the_bundled_script_with_the_management_source(monkeypatch):
         "mcp": {"disabled": True},
         "showDeveloperTools": "never",
         "hideClientButton": True,
+        "hideDarkModeToggle": True,
     }
     assert OFFLINE_OPTIONS.items() <= configuration.items()
     # Scalar mounts an unconfigured instance on an element with this id by itself.
@@ -88,14 +94,14 @@ def _directives(policy: str) -> dict[str, list[str]]:
 def test_the_page_runs_only_the_scripts_it_ships_and_cannot_be_framed(monkeypatch):
     """The page can mint a management token from the session cookie, so a script that got into it
     (from a description a model author wrote) must not run: scripts are the bundled file and the
-    page's own two, named by hash; nothing is evaluated; the page reaches only the engine (0.12
+    page's own, named by hash; nothing is evaluated; the page reaches only the engine (0.12
     E1, C10)."""
     client = _client(monkeypatch, None)
 
-    response = client.get("/docs")
+    response = client.get("/docs/api")
     policy = _directives(response.headers["content-security-policy"])
     scripts = re.findall(r"<script>(.*?)</script>", response.text, flags=re.DOTALL)
-    assert len(scripts) == 2
+    assert len(scripts) == 4  # theme, the reference, the console sign-in, the theme wiring
     hashes = [
         "'sha256-" + base64.b64encode(hashlib.sha256(text.encode()).digest()).decode() + "'"
         for text in scripts
@@ -112,7 +118,7 @@ def test_the_page_runs_only_the_scripts_it_ships_and_cannot_be_framed(monkeypatc
 def test_the_cdn_setting_names_the_pinned_host_in_its_policy(monkeypatch):
     client = _client(monkeypatch, "cdn")
 
-    policy = _directives(client.get("/docs").headers["content-security-policy"])
+    policy = _directives(client.get("/docs/api").headers["content-security-policy"])
     assert "https://cdn.jsdelivr.net" in policy["script-src"]
     assert "'self'" in policy["script-src"]
 
@@ -120,7 +126,7 @@ def test_the_cdn_setting_names_the_pinned_host_in_its_policy(monkeypatch):
 def test_the_cdn_setting_loads_the_pinned_version_under_its_integrity(monkeypatch):
     client = _client(monkeypatch, " CDN ")
 
-    page = client.get("/docs").text
+    page = client.get("/docs/api").text
     assert SCALAR_CDN_URL.endswith(
         f"@scalar/api-reference@{SCALAR_VERSION}/dist/browser/standalone.js"
     )
@@ -145,7 +151,7 @@ def test_the_page_follows_a_root_path(monkeypatch):
     client = TestClient(create_app(), root_path="/rdm")
     reload_settings()
 
-    page = client.get("/docs").text
+    page = client.get("/docs/api").text
     assert f'<script src="/rdm{BUNDLED_SCRIPT_PATH}"></script>' in page
     assert _configuration(page)["sources"][0]["url"] == "/rdm/openapi.json"
 
@@ -153,18 +159,36 @@ def test_the_page_follows_a_root_path(monkeypatch):
 def test_swagger_ui_and_redoc_are_gone_and_the_page_is_outside_the_openapi_document():
     client = TestClient(app)
 
-    for path in ("/redoc", "/docs/oauth2-redirect"):
-        response = client.get(path)
-        assert response.status_code == 404, path
-        assert response.json()["error"]["code"] == "HTTP_ERROR"
+    response = client.get("/redoc")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "HTTP_ERROR"
+    # The documentation site is mounted at /docs, so an address under it that is no page answers its 404.
+    assert client.get("/docs/oauth2-redirect").status_code == 404
     paths = app.openapi()["paths"]
     assert not [path for path in paths if path.startswith("/docs")]
+
+
+def test_the_header_is_the_shared_one_and_the_theme_is_the_applications_choice(monkeypatch):
+    """HD: the page links the shared header stylesheet the engine serves (equal to the one the guide and
+    the interface use), hides Scalar's toggle and drives its colour mode from ``rdm:theme:v1``."""
+    client = _client(monkeypatch, None)
+
+    page = client.get("/docs/api").text
+    assert '<link rel="stylesheet" href="/brand/refiroo-header.css" />' in page
+    assert _configuration(page)["hideDarkModeToggle"] is True
+    assert "rdm:theme:v1" in page and "forceDarkModeState" in page and '"storage"' in page
+    css = client.get("/brand/refiroo-header.css")
+    assert css.status_code == 200 and css.headers["content-type"].startswith("text/css")
+    shared = (
+        Path(__file__).resolve().parents[2] / "frontend" / "public" / "brand" / "refiroo-header.css"
+    )
+    assert css.content == shared.read_bytes()
 
 
 def test_docs_page_carries_the_refiroo_mark_from_the_engine(monkeypatch):
     client = _client(monkeypatch, None)
 
-    page = client.get("/docs")
+    page = client.get("/docs/api")
     assert "<title>refiroo API reference</title>" in page.text
     assert "/brand/refiroo-mascot.png" in page.text and "/brand/favicon.png" in page.text
     for name in ("favicon.png", "refiroo-mascot.png", "refiroo-wordmark.png"):

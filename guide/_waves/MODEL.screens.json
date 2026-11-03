@@ -1,0 +1,1735 @@
+{
+  "wave": "MODEL",
+  "note": "Real screens of the reference instance (guide/reference, http://localhost:8480) for the 'Model your data' pages. Light theme, 1440 px wide, taken by guide/tools/screens.mjs (--file MODEL.screens.json) into guide/public/screens/<name>.png; names start with model-. Dialogs are cancelled; nothing is installed, activated, published or moved. State needed (see MODEL.data-changes.md): the model draft 'Guide draft' (a draft of guide-reference-swiss 1.0.0, id f9c3765e-85b1-409c-8e06-10b48fc8677b, created through New draft; recreate it and put its id in the editor URLs to retake); the mapping 'Guide mapping' (Graubünden to Default, created through New copy or move, key guide-mapping). Run order matters for the draft: model-field-dialog and model-relation-dialog save their step in 'after' (so run them once on a fresh draft), model-field-added, model-relation-added, model-history and model-compare need those steps; model-issues-error and model-draft-json-error need the deliberate error (a column 'ghost-field' added to the view 'municipalities' of Network through the draft page's JSON, Save draft), model-issues-none needs it removed again. The 'Dry run' tab of the Issues panel only exists on a draft with a workbook, so it has no screen here.",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "model-list",
+      "shows": "Settings, Model: every model with its releases, latest version, draft count and schema; the model the default workspace runs, models in use, and drafts without an installed model. New from a workbook and New draft at the top.",
+      "actions": [
+        {
+          "goto": "/settings/model"
+        },
+        {
+          "waitFor": {
+            "text": "New from a workbook",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Model",
+        "guide-reference-swiss",
+        "rdm-starter",
+        "New draft"
+      ]
+    },
+    {
+      "name": "model-draft-new-dialog",
+      "shows": "The Create draft dialog from Settings, Model, New draft: draft name filled in as 'Guide draft', Starting document 'Installed release', Base release the active model. Cancelled.",
+      "actions": [
+        {
+          "goto": "/settings/model"
+        },
+        {
+          "waitFor": {
+            "text": "New draft",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New draft"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "fill": {
+            "label": "Draft name",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Guide draft"
+        },
+        {
+          "wait": 400
+        }
+      ],
+      "expect": [
+        "Create draft",
+        "Draft name",
+        "Starting document",
+        "Base release"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-overview",
+      "shows": "One model's page, Overview tab: newest release, when installed, the workspaces running it, with Change model and New draft from the release.",
+      "actions": [
+        {
+          "goto": "/settings/model/models/guide-reference-swiss"
+        },
+        {
+          "waitFor": {
+            "text": "Running in 1 workspace",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Newest release",
+        "Running in 1 workspace",
+        "Change model"
+      ]
+    },
+    {
+      "name": "model-releases",
+      "shows": "One model's page, Releases tab: the installed releases of the model with version, schema and install date.",
+      "actions": [
+        {
+          "goto": "/settings/model/models/guide-reference-swiss"
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Releases (1)"
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "Releases",
+        "1.0.0"
+      ]
+    },
+    {
+      "name": "model-drafts",
+      "shows": "One model's page, Drafts tab: the drafts of the model, 'Guide draft' among them, each with its base release and date.",
+      "actions": [
+        {
+          "goto": "/settings/model/models/guide-reference-swiss"
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Drafts (2)"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Guide draft",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Drafts",
+        "Guide draft",
+        "from 1.0.0"
+      ]
+    },
+    {
+      "name": "model-structure",
+      "shows": "One model's page, Structure tab: the newest release read only, with counts of applications, types, attributes and relations and the types of each application.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/models/guide-reference-swiss"
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Structure"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Read only. Open a release",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Applications",
+        "Object types",
+        "Read only",
+        "Network"
+      ]
+    },
+    {
+      "name": "model-release-detail",
+      "shows": "An installed release's page: immutable, which workspace runs it, counts, and the buttons Export JSON, Create draft from release and Activate in a workspace.",
+      "actions": [
+        {
+          "goto": "/settings/model/releases/fbb5d688-60ad-4f14-ae05-a2e619ff2aa1"
+        },
+        {
+          "waitFor": {
+            "text": "Immutable release",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Immutable release",
+        "Export JSON",
+        "Create draft from release",
+        "Activate in a workspace"
+      ]
+    },
+    {
+      "name": "model-release-compare",
+      "shows": "The release page's history: Compare with another release (here rdm-starter 0.10.0) lists the semantic changes, added and removed elements with their paths.",
+      "actions": [
+        {
+          "goto": "/settings/model/releases/fbb5d688-60ad-4f14-ae05-a2e619ff2aa1"
+        },
+        {
+          "waitFor": {
+            "text": "Immutable release",
+            "exact": false
+          }
+        },
+        {
+          "select": {
+            "label": "Compare with"
+          },
+          "value": "rdm-starter 0.10.0 (run)"
+        },
+        {
+          "waitFor": {
+            "text": "Semantic changes",
+            "exact": true
+          }
+        },
+        {
+          "scrollTo": {
+            "text": "Semantic changes",
+            "exact": true
+          },
+          "offset": 260
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Compare with",
+        "Semantic changes",
+        "added",
+        "removed"
+      ]
+    },
+    {
+      "name": "model-release-activate-dialog",
+      "shows": "The activation dialog of the installed release (Activate in a workspace): the workspace, whether its data fits the release, and change sets left on the old release. Cancelled, nothing activated.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/releases/fbb5d688-60ad-4f14-ae05-a2e619ff2aa1"
+        },
+        {
+          "waitFor": {
+            "text": "Immutable release",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Activate in a workspace…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Compatible with",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Workspace model",
+        "Compatible with",
+        "Change sets left on"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-editor-overview",
+      "shows": "The model editor on a new draft ('Guide draft', a draft of guide-reference-swiss 1.0.0): header with Undo, Redo, Open as JSON and Install and activate, the model pane with applications and types, and the Issues and history bar at the foot.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "expect": [
+        "Guide draft",
+        "Draft of",
+        "Undo",
+        "Install and activate",
+        "No issues"
+      ]
+    },
+    {
+      "name": "model-editor-application",
+      "shows": "An application in the editor (Network): its object types with where each stands (at the top level or under another type), attribute and relation counts, and its views with their kinds.",
+      "height": 1300,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=network"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "expect": [
+        "Network",
+        "Object types",
+        "Stands",
+        "Views",
+        "Table",
+        "Tree"
+      ]
+    },
+    {
+      "name": "model-editor-systems-views",
+      "shows": "The Systems application in the editor: its types and its views, including the Mapping grid and Relation matrix kinds.",
+      "height": 1300,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=systems"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "expect": [
+        "Systems",
+        "Mapping grid",
+        "Relation matrix",
+        "Views"
+      ]
+    },
+    {
+      "name": "model-type-fields",
+      "shows": "An object type in the editor (Stop), Attributes tab: each attribute with its value type (text, whole number, decimal number, date and so on), Required, Unique and Read-only.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "expect": [
+        "Stop",
+        "Attributes (9)",
+        "Value type",
+        "Required",
+        "Unique",
+        "Whole number",
+        "Decimal number",
+        "Date"
+      ]
+    },
+    {
+      "name": "model-type-required-edit",
+      "shows": "Changing a setting in place: the Required cell of the Abbreviation attribute opened with its choice, Save and Cancel. Cancelled, nothing changed.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "css": "tr:has-text('Abbreviation') td:nth-child(3)"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Save"
+          }
+        }
+      ],
+      "expect": [
+        "Abbreviation",
+        "Save",
+        "Cancel"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel"
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-type-menu",
+      "shows": "The operations menu of an object type (Stop): Rename, Change key, Move to, New attribute, Attach an existing attribute, Allow a relation, Split, Merge into and Remove type, each noting what a released element needs.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "css": "button.icon-button[aria-haspopup]",
+            "nth": 2
+          }
+        },
+        {
+          "waitFor": {
+            "role": "menuitem",
+            "name": "New attribute…"
+          }
+        }
+      ],
+      "expect": [
+        "Rename",
+        "New attribute",
+        "Attach an existing attribute",
+        "Allow a relation",
+        "Remove type"
+      ]
+    },
+    {
+      "name": "model-field-dialog",
+      "shows": "The New attribute dialog on Stop, filled in: name 'Step-free access', value type Yes or no, features (searchable, filterable, sortable, unique) and Required. Apply saves it in the draft.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "css": "button.icon-button[aria-haspopup]",
+            "nth": 2
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "New attribute…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "fill": {
+            "label": "Name",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Step-free access"
+        },
+        {
+          "select": {
+            "label": "Value type",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Yes or no"
+        },
+        {
+          "wait": 400
+        }
+      ],
+      "expect": [
+        "New attribute on Stop",
+        "Value type",
+        "Features",
+        "Required",
+        "Apply"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Apply",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "name": "model-field-added",
+      "shows": "Stop's attributes after the step: 'Step-free access' (Yes or no) marked New, Stop and Network marked Changed, the draft at version 2 and one step in the history.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "expect": [
+        "Step-free access",
+        "Yes or no",
+        "New",
+        "Changed",
+        "1 step"
+      ]
+    },
+    {
+      "name": "model-relations",
+      "shows": "An object type's Relations tab (Stop): each relation with its direction, cardinality, whether it is required, which records it may join, and Allow a relation and Open the relationship matrix.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Relations (5)"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Relations (5)",
+        "Cardinality",
+        "Served by mode",
+        "Operated by",
+        "Allow a relation"
+      ]
+    },
+    {
+      "name": "model-relation-dialog",
+      "shows": "The Allow a relation dialog on Stop, filled in: to Operator, a new relation type 'Inspected by' with reverse name 'Inspects', cardinality Many to one. Apply saves it in the draft.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Relations (5)"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Allow a relation…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "select": {
+            "label": "To",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Operator"
+        },
+        {
+          "fill": {
+            "label": "Name (from Stop)",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Inspected by"
+        },
+        {
+          "fill": {
+            "label": "Reverse name",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Inspects"
+        },
+        {
+          "select": {
+            "label": "Cardinality",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Many to one"
+        },
+        {
+          "wait": 400
+        }
+      ],
+      "expect": [
+        "Allow a relation from Stop",
+        "Cardinality",
+        "Apply"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Apply",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        },
+        {
+          "wait": 2000
+        }
+      ]
+    },
+    {
+      "name": "model-relation-added",
+      "shows": "Stop's Relations tab after the step: the new relation 'Inspected by' (Stop to Operator, many to one) marked New beside the released ones.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Relations (6)"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Relations (6)",
+        "Inspected by",
+        "New"
+      ]
+    },
+    {
+      "name": "model-hierarchy-dialog",
+      "shows": "Hierarchy: the Add an object type dialog on Network, filled in: name 'Platform', Stands 'Under Stop', and the containment relation to create with its names from the parent and from the child. Cancelled.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=network"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Object type",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "fill": {
+            "label": "Name",
+            "exact": true,
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Platform"
+        },
+        {
+          "select": {
+            "label": "Stands",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Under Stop"
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Add an object type",
+        "Stands",
+        "Containment relation"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-layout-record",
+      "shows": "Layout editor of a type (Stop), Record page tab: the panels of the record page in the main and side regions, shown over a real record, each with its menu and a drag handle.",
+      "height": 1500,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop&mode=layout"
+        },
+        {
+          "waitFor": {
+            "text": "Layout editor",
+            "exact": false
+          }
+        },
+        {
+          "wait": 2000
+        }
+      ],
+      "expect": [
+        "Layout editor",
+        "Record page",
+        "Hierarchy"
+      ]
+    },
+    {
+      "name": "model-view-columns",
+      "shows": "Layout editor, Table tab (Stop): the columns of the table view in order, with Columns, Filters and the default sort, over live records.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop&mode=layout"
+        },
+        {
+          "waitFor": {
+            "text": "Layout editor",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Table"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Columns…",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "Layout editor",
+        "Columns",
+        "Filters",
+        "Default sort",
+        "Stop number (UIC)"
+      ]
+    },
+    {
+      "name": "model-view-columns-dialog",
+      "shows": "The Columns dialog of the Stops table view: every attribute and relation as a checkbox, those shown ticked. Cancelled.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop&mode=layout"
+        },
+        {
+          "waitFor": {
+            "text": "Layout editor",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Table"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Columns…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Columns of Stops",
+        "Operated by",
+        "Designation",
+        "Apply"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-type-preview",
+      "shows": "The Preview of a type (Stop): the draft's layout over records read live, with the controls shown and disabled because the preview writes nothing.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop&mode=preview"
+        },
+        {
+          "waitFor": {
+            "text": "the preview writes nothing",
+            "exact": false
+          }
+        },
+        {
+          "wait": 2000
+        }
+      ],
+      "expect": [
+        "Preview",
+        "Edit layout",
+        "Back to definition",
+        "writes nothing"
+      ]
+    },
+    {
+      "name": "model-matrix",
+      "shows": "The Relationship matrix of the draft: which relation types may join which types, rows the from end and columns the to end, with containment shown as 'contains'.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=matrix"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "expect": [
+        "Relationship matrix",
+        "contains",
+        "Which relation types may join which types"
+      ]
+    },
+    {
+      "name": "model-view-matrix-dialog",
+      "shows": "Editing a view: the Change dialog of the 'Municipalities by system' relation matrix view in Systems, with rows, what each cell shows, columns, fields and a live preview. Cancelled.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=systems"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "css": "tr:has-text('Municipalities by system') button[aria-haspopup]"
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Change…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "Rows",
+        "Columns",
+        "Preview"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-draft-json",
+      "shows": "The draft's own page (Open as JSON): the draft name, the whole model as JSON, 'Authoritative validation' with no diagnostics, counts, Save draft, Compile and compare and Export JSON.",
+      "height": 1500,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b"
+        },
+        {
+          "waitFor": {
+            "text": "Authoritative validation",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "JSON model",
+        "Authoritative validation",
+        "No validation diagnostics",
+        "Compile and compare"
+      ]
+    },
+    {
+      "name": "model-compare",
+      "shows": "Compile and compare on the draft's page: the canonical model with its hash, validation and the semantic changes against the release the draft started from (the attribute and relation added in the draft).",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b"
+        },
+        {
+          "waitFor": {
+            "text": "Authoritative validation",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Compile and compare"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Semantic changes",
+            "exact": true
+          }
+        },
+        {
+          "scrollTo": {
+            "text": "Canonical model",
+            "exact": true
+          },
+          "offset": 20
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "expect": [
+        "Canonical model",
+        "Semantic changes",
+        "added"
+      ]
+    },
+    {
+      "name": "model-history",
+      "shows": "The draft's history in the editor (Issues and history, History tab): each step applied to the draft, newest first, with Undo and Redo at the top.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=type&key=stop"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues and history"
+          }
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "History"
+          }
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "expect": [
+        "History",
+        "Undo",
+        "Redo"
+      ]
+    },
+    {
+      "name": "model-issues-error",
+      "shows": "Validation issues: the Issues tab with one deliberate error in the draft ('Guide draft': a Municipalities view lists the field ghost-field, which does not exist), the header showing '1 error' and a link to the view.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=network"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues and history"
+          }
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "expect": [
+        "Issues (1)",
+        "1 error",
+        "ghost-field",
+        "Go to Network"
+      ]
+    },
+    {
+      "name": "model-draft-json-error",
+      "shows": "The draft's own page with the same error: 'Authoritative validation' lists INVALID_MODEL, the JSON path and the message.",
+      "height": 1500,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b"
+        },
+        {
+          "waitFor": {
+            "text": "Authoritative validation",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "text": "INVALID_MODEL",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "INVALID_MODEL",
+        "ghost-field"
+      ]
+    },
+    {
+      "name": "model-issues-none",
+      "shows": "The Issues tab after the fix: 'No issues: the draft is valid and can be installed.', header Valid.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor?show=application&key=network"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues and history"
+          }
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "expect": [
+        "No issues: the draft is valid and can be installed.",
+        "Valid"
+      ]
+    },
+    {
+      "name": "model-install-dialog",
+      "shows": "The Install and activate dialog of the draft: release key, version 1.0.1, name, the workspace to activate into, what changes against 1.0.0, validity, whether stored data is compatible and consumer API compatibility. Cancelled, nothing installed.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/f9c3765e-85b1-409c-8e06-10b48fc8677b/editor"
+        },
+        {
+          "waitFor": {
+            "text": "Saved as you go",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Install and activate…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Compatible with stored data",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "Install and activate",
+        "Release key",
+        "Activate into",
+        "Compatible with stored data",
+        "Consumer APIs"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-workspaces-list",
+      "shows": "Settings, Workspaces: each workspace with the model it runs and its release number, Graubünden (default) on its own model and Default on RDM Starter Model.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces"
+        },
+        {
+          "waitFor": {
+            "text": "RDM Starter Model",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Workspaces",
+        "Public transport stops of Graubünden",
+        "RDM Starter Model",
+        "Release"
+      ]
+    },
+    {
+      "name": "model-workspace-model",
+      "shows": "Manage workspaces, Graubünden, Overview: the model and release the workspace runs (Public transport stops of Graubünden 1.0.0, schema 0.10), its applications, and Edit model.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Applications",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Graubünden",
+        "Edit model",
+        "Model",
+        "1.0.0"
+      ]
+    },
+    {
+      "name": "model-workspace-other-model",
+      "shows": "Manage workspaces, Default, Overview: a workspace on another model (RDM Starter Model 0.10.0) with its own applications, beside Graubünden.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/workspaces/default"
+        },
+        {
+          "waitFor": {
+            "text": "RDM Master",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Default",
+        "RDM Starter Model 0.10.0",
+        "RDM Master"
+      ]
+    },
+    {
+      "name": "model-workspace-edit-model",
+      "shows": "Edit model on a workspace opens the editor on a draft of the workspace's model, titled with the workspace ('Applies to Graubünden') and offering 'Apply to this workspace' instead of install.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Applications",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Edit model"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Applies to",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "Applies to",
+        "Apply to this workspace",
+        "Guide draft"
+      ]
+    },
+    {
+      "name": "model-workspace-apply-dialog",
+      "shows": "The 'Apply to this workspace' dialog opened from Edit model on Graubünden. Cancelled, nothing applied.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Applications",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Edit model"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Applies to",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Apply to this workspace…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "Apply to this workspace"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-moves-list",
+      "shows": "Settings, Copy and move: the Mappings list with the new mapping 'Guide mapping' (Graubünden to Default), and recent copies and moves.",
+      "actions": [
+        {
+          "goto": "/settings/moves"
+        },
+        {
+          "waitFor": {
+            "text": "Guide mapping",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Copy and move",
+        "Mappings",
+        "Guide mapping"
+      ]
+    },
+    {
+      "name": "model-moves-new-dialog",
+      "shows": "New copy or move: from workspace Graubünden to Default, a new mapping proposed by the engine from the two models, with its name. Cancelled.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/moves"
+        },
+        {
+          "waitFor": {
+            "text": "Mappings",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New copy or move…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "select": {
+            "label": "From workspace",
+            "in": {
+              "role": "dialog"
+            }
+          },
+          "value": "Graubünden · Public transport stops of Graubünden 1.0.0"
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "New copy or move",
+        "From workspace",
+        "To workspace",
+        "A new mapping, proposed"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-mapping-proposed",
+      "shows": "The mapping editor between Graubünden and Default (different models): the dry run summary, the source types with their mapped state, the proposed type mapping (Operators to Domains, Modes to Codelists) with Proposed marks, and the target types.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/moves/guide-mapping?from=graubuenden&to=default&job=8abd5dc7-ae24-4cb7-a991-4df108c3bddd"
+        },
+        {
+          "waitFor": {
+            "text": "Dry run ready",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "Dry run ready",
+        "Mapping",
+        "Proposed",
+        "Operators",
+        "Domains"
+      ]
+    },
+    {
+      "name": "model-mapping-why",
+      "shows": "A mapping row selected (Operator code): 'Proposed because' with the engine's reason, an Evidence button and alternatives such as 'Operator becomes Codelist instead'.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/moves/guide-mapping?from=graubuenden&to=default&job=8abd5dc7-ae24-4cb7-a991-4df108c3bddd"
+        },
+        {
+          "waitFor": {
+            "text": "Dry run ready",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "css": "[data-row]",
+            "nth": 1
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Proposed because",
+            "exact": false
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Proposed because",
+        "Evidence",
+        "instead"
+      ]
+    },
+    {
+      "name": "model-mapping-evidence",
+      "shows": "The evidence behind a proposal (scores): the Evidence button opened under 'Proposed because' for the row Operator code.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/moves/guide-mapping?from=graubuenden&to=default&job=8abd5dc7-ae24-4cb7-a991-4df108c3bddd"
+        },
+        {
+          "waitFor": {
+            "text": "Dry run ready",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "css": "[data-row]",
+            "nth": 1
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Proposed because",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Evidence"
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "Proposed because",
+        "Hide the evidence"
+      ]
+    },
+    {
+      "name": "model-mapping-selection-dialog",
+      "shows": "The 'What to copy' dialog of the mapping editor (Change): which records the dry run covers. Cancelled.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/moves/guide-mapping?from=graubuenden&to=default&job=8abd5dc7-ae24-4cb7-a991-4df108c3bddd"
+        },
+        {
+          "waitFor": {
+            "text": "Dry run ready",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Change…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "What to copy"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "in": {
+              "role": "dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-mapping-dry-run",
+      "shows": "What cannot be copied: the dry run's reasons (invalid parent type, required value missing, relationship not mapped and so on) with counts and the items listed with the mapping row to fix. Nothing was copied.",
+      "height": 1100,
+      "actions": [
+        {
+          "goto": "/settings/moves/guide-mapping?from=graubuenden&to=default&job=8abd5dc7-ae24-4cb7-a991-4df108c3bddd"
+        },
+        {
+          "waitFor": {
+            "text": "Dry run ready",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "What cannot be copied"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "every item listed",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "What cannot be copied",
+        "Invalid parent type",
+        "Open the mapping"
+      ]
+    }
+  ]
+}

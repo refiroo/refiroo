@@ -1,0 +1,9 @@
+{
+  "admin-webhook-new.png": [
+    "src/content/docs/administer/webhooks.md",
+    "src/content/docs/guide/administer/create-a-webhook.md"
+  ],
+  "admin-mail-messages.png": [
+    "src/content/docs/administer/mail.md"
+  ]
+}

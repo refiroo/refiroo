@@ -227,6 +227,15 @@ No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisio
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
+## Found in 0.13 DOC1 (2026-11-02), for the next package touching roles
+
+- [ ] **The Data owner role's description omits approving:** the migration
+  (`backend/app/migrations/versions/20261029_01_authorization.py:37`) describes it as "A steward who also
+  copies and moves data and reads the change feed", but the permission catalogue grants it the
+  `approve` action group (`backend/app/engine/authorization/catalogue.py:341-352`, `PREDEFINED_ROLES["owner"]`).
+  A migration is not edited; the description is a `roles` row, so correct it in a new migration (or
+  wherever the next roles package settles) and say approving there.
+
 ## Found in 0.12 Z6 (2026-10-25), not Z6's
 
 - [ ] **A wrong `SECRETS_ENCRYPTION_KEY` fails as `500 INTERNAL_ERROR`:** on a copy of the

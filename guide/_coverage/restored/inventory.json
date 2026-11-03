@@ -1,0 +1,2943 @@
+{
+ "capabilities": [
+  {
+   "id": "F01",
+   "title": "Model-defined applications"
+  },
+  {
+   "id": "F02",
+   "title": "Workspace discovery and administration"
+  },
+  {
+   "id": "F03",
+   "title": "Find, filter, sort and page through records"
+  },
+  {
+   "id": "F04",
+   "title": "Inspect a record and its context"
+  },
+  {
+   "id": "F05",
+   "title": "Maintain live records"
+  },
+  {
+   "id": "F06",
+   "title": "Maintain typed field values"
+  },
+  {
+   "id": "F07",
+   "title": "Maintain containment and hierarchy"
+  },
+  {
+   "id": "F08",
+   "title": "Maintain relationships and mappings"
+  },
+  {
+   "id": "F09",
+   "title": "Maintain translations and coverage"
+  },
+  {
+   "id": "F10",
+   "title": "Preview and confirm dependent deletion"
+  },
+  {
+   "id": "F11",
+   "title": "Inspect record history"
+  },
+  {
+   "id": "F12",
+   "title": "Prepare a change set"
+  },
+  {
+   "id": "F13",
+   "title": "Review, validate and publish a change set"
+  },
+  {
+   "id": "F14",
+   "title": "Browse publications and withdraw one"
+  },
+  {
+   "id": "F15",
+   "title": "Inspect and release application models"
+  },
+  {
+   "id": "F16",
+   "title": "Use stable, bounded APIs"
+  },
+  {
+   "id": "F17",
+   "title": "Recover from concurrent changes"
+  },
+  {
+   "id": "F18",
+   "title": "Accessible and responsive interface"
+  },
+  {
+   "id": "F19",
+   "title": "Operate and recover the service"
+  },
+  {
+   "id": "F20",
+   "title": "Query and look up across the data"
+  },
+  {
+   "id": "F21",
+   "title": "Read by business date (`asOf`)"
+  },
+  {
+   "id": "F22",
+   "title": "Load data in bulk as jobs"
+  },
+  {
+   "id": "F23",
+   "title": "Declare consumer APIs and read through them"
+  },
+  {
+   "id": "F24",
+   "title": "Read the API reference"
+  },
+  {
+   "id": "F25",
+   "title": "Follow changes in order"
+  },
+  {
+   "id": "F26",
+   "title": "Sign in and manage one's sessions"
+  },
+  {
+   "id": "F27",
+   "title": "Control who can do what"
+  },
+  {
+   "id": "F28",
+   "title": "Send mail"
+  },
+  {
+   "id": "F29",
+   "title": "Use AI proposals",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "F30",
+   "title": "Reach refiroo from an assistant",
+   "owner": "DOC9A"
+  }
+ ],
+ "journeys": [
+  {
+   "id": "J01",
+   "title": "Find and inspect a record"
+  },
+  {
+   "id": "J02",
+   "title": "Correct a record"
+  },
+  {
+   "id": "J03",
+   "title": "Add a record where it belongs"
+  },
+  {
+   "id": "J04",
+   "title": "Delete a record and what depends on it"
+  },
+  {
+   "id": "J05",
+   "title": "Prepare and publish a coordinated design"
+  },
+  {
+   "id": "J06",
+   "title": "Continue live work while a change set is open"
+  },
+  {
+   "id": "J07",
+   "title": "Withdraw a publication and start reviewed changes from history"
+  },
+  {
+   "id": "J08",
+   "title": "Create and activate an application-model release"
+  },
+  {
+   "id": "J09",
+   "title": "Retired"
+  },
+  {
+   "id": "J10",
+   "title": "Review and replace a record's related records"
+  },
+  {
+   "id": "J11",
+   "title": "Submit a bounded bulk change"
+  },
+  {
+   "id": "J12",
+   "title": "Run the service, and recover from an expected refusal"
+  },
+  {
+   "id": "J13",
+   "title": "Relate records and maintain their relationships"
+  },
+  {
+   "id": "J14",
+   "title": "Build and change a hierarchy"
+  },
+  {
+   "id": "J15",
+   "title": "Reshape a hierarchy across types, and change a record back"
+  },
+  {
+   "id": "J16",
+   "title": "See and fill relationship coverage across ancestors"
+  },
+  {
+   "id": "J17",
+   "title": "Review what a change set changes"
+  },
+  {
+   "id": "J18",
+   "title": "Prepare under the next model version while live keeps the current one"
+  },
+  {
+   "id": "J19",
+   "title": "Administer workspaces"
+  },
+  {
+   "id": "J20",
+   "title": "Discover the model and the API"
+  },
+  {
+   "id": "J21",
+   "title": "Read a collection completely and resume"
+  },
+  {
+   "id": "J22",
+   "title": "Request the precise dataset an integration needs"
+  },
+  {
+   "id": "J23",
+   "title": "Answer a business-date question"
+  },
+  {
+   "id": "J24",
+   "title": "Run a large background job and recover"
+  },
+  {
+   "id": "J25",
+   "title": "Define a consumer API in the model"
+  },
+  {
+   "id": "J26",
+   "title": "Follow changes reliably"
+  },
+  {
+   "id": "J27",
+   "title": "Exchange a supplier file"
+  },
+  {
+   "id": "J28",
+   "title": "Read a business object through a consumer API"
+  },
+  {
+   "id": "J29",
+   "title": "Resolve a business object through a consumer API"
+  },
+  {
+   "id": "J30",
+   "title": "Follow a consumer API's changes"
+  },
+  {
+   "id": "J31",
+   "title": "Check what a deployment runs and how it is configured"
+  },
+  {
+   "id": "J32",
+   "title": "Change many records of a collection at once"
+  },
+  {
+   "id": "J33",
+   "title": "Design a model in the editor"
+  },
+  {
+   "id": "J34",
+   "title": "Onboard a workbook"
+  },
+  {
+   "id": "J35",
+   "title": "Load the next version of a workbook"
+  },
+  {
+   "id": "J36",
+   "title": "Run a workspace on a model of its own"
+  },
+  {
+   "id": "J37",
+   "title": "Move a workspace to another release"
+  },
+  {
+   "id": "J38",
+   "title": "Move data between workspaces whose models differ"
+  },
+  {
+   "id": "J39",
+   "title": "Sign in and work"
+  },
+  {
+   "id": "J40",
+   "title": "Manage who can do what"
+  },
+  {
+   "id": "J41",
+   "title": "A system calls with a client"
+  },
+  {
+   "id": "J42",
+   "title": "Propose and approve a change"
+  },
+  {
+   "id": "J43",
+   "title": "Rotate a key"
+  },
+  {
+   "id": "J44",
+   "title": "See who changed what"
+  },
+  {
+   "id": "J45",
+   "title": "Start from home"
+  },
+  {
+   "id": "J46",
+   "title": "Send mail"
+  },
+  {
+   "id": "J47",
+   "title": "Check the security model"
+  },
+  {
+   "id": "J48",
+   "title": "Use AI proposals",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "J49",
+   "title": "Targets for unmapped values",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "J50",
+   "title": "Load a workbook, or change records, with the assistant",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "J51",
+   "title": "Reach the engine from an assistant",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "J52",
+   "title": "An assistant reads",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "J53",
+   "title": "An assistant prepares a change",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "J54",
+   "title": "Ask in words",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "J55",
+   "title": "An account of a model change",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "J56",
+   "title": "What changed in a period",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "J57",
+   "title": "Notification digests and following a workspace",
+   "owner": "DOC9A"
+  }
+ ],
+ "settings": [
+  {
+   "id": "setting:DATABASE_URL",
+   "title": "The PostgreSQL database the engine runs on",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:RDM_MODEL_PATH",
+   "title": "The model file installed on a database's first start; not the active model",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:RDM_CURSOR_SIGNING_KEY",
+   "title": "Signs pagination cursors; unset, each process makes its own, so cursors stop working after a restart and differ between instances",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:CORS_ORIGINS",
+   "title": "Browser origins allowed to call the API",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:PUBLIC_URL",
+   "title": "The engine's address as callers reach it; the issuer of its tokens",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:SOURCE_CODE_URL",
+   "title": "Where the source of the running version is offered to its users; the project's tag of this version unless set (AGPL section 13)",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:SECRETS_ENCRYPTION_KEY",
+   "title": "Seals the stored token and webhook signing keys; required",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:JOB_FILE_DIR",
+   "title": "Where export files wait for download; created at start, kept as long as their job",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:RDM_API_REFERENCE_SCRIPT",
+   "title": "Where the API reference page at /docs/api loads its script from: bundled or cdn",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:WEB_CONCURRENCY",
+   "title": "Server worker processes on this instance",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:DATABASE_POOL_SIZE",
+   "title": "Database connections each process keeps open",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:DATABASE_POOL_MAX_OVERFLOW",
+   "title": "Database connections each process opens beyond the pool size when busy",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:DATABASE_POOL_TIMEOUT",
+   "title": "Seconds a request waits for a database connection before it answers 503",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:DATABASE_IDLE_TRANSACTION_TIMEOUT",
+   "title": "Seconds a connection may sit idle inside a transaction before the database ends it, releasing a stalled process's locks; 0 turns it off",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:LOG_FORMAT",
+   "title": "How the log is written: text lines, or one JSON object a line",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:LOG_LEVEL",
+   "title": "The lowest level the log writes",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:PROCESS_HEARTBEAT_SECONDS",
+   "title": "Seconds between each process's reports of its state to the others",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:MODEL_ADMIN_MUTATIONS_ENABLED",
+   "title": "Model drafts, compiling, installing and activating releases",
+   "group": "capabilities"
+  },
+  {
+   "id": "setting:WORKSPACE_ADMIN_MUTATIONS_ENABLED",
+   "title": "Creating, renaming, retiring, deleting workspaces and choosing the default",
+   "group": "capabilities"
+  },
+  {
+   "id": "setting:INTEGRATION_JOBS_ENABLED",
+   "title": "Creating and cancelling jobs (POST /batches); job reads stay available",
+   "group": "capabilities"
+  },
+  {
+   "id": "setting:CONSUMER_SUBSCRIPTIONS_ENABLED",
+   "title": "Webhook subscriptions and their delivery",
+   "group": "capabilities"
+  },
+  {
+   "id": "setting:BATCH_MAX_ITEMS",
+   "title": "Items in an inline batch",
+   "group": "limits"
+  },
+  {
+   "id": "setting:BATCH_MAX_BYTES",
+   "title": "Bytes in an inline batch's body",
+   "group": "limits"
+  },
+  {
+   "id": "setting:ATOMIC_JOB_MAX_ITEMS",
+   "title": "Items in an atomic batch, inline or background",
+   "group": "limits"
+  },
+  {
+   "id": "setting:BACKGROUND_JOB_MAX_ITEMS",
+   "title": "Items in a background batch",
+   "group": "limits"
+  },
+  {
+   "id": "setting:BATCH_BACKGROUND_MAX_BYTES",
+   "title": "Bytes in a background batch's body",
+   "group": "limits"
+  },
+  {
+   "id": "setting:JOB_CHUNK_ITEMS",
+   "title": "Items one background chunk commits",
+   "group": "limits"
+  },
+  {
+   "id": "setting:IMPORT_MAX_BYTES",
+   "title": "Bytes in an import's file",
+   "group": "limits"
+  },
+  {
+   "id": "setting:JOB_PREVIEW_MAX_ITEMS",
+   "title": "Items a preview of an import or a batch runs before it is a sample",
+   "group": "limits"
+  },
+  {
+   "id": "setting:MODEL_OPERATION_MAX_ITEMS",
+   "title": "Operations in one request to a model draft",
+   "group": "limits"
+  },
+  {
+   "id": "setting:JOB_LEASE_SECONDS",
+   "title": "Seconds a worker holds a job, renewed with each chunk",
+   "group": "limits"
+  },
+  {
+   "id": "setting:ACCESS_TOKEN_MINUTES",
+   "title": "Minutes an access token lasts, for people and clients",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:TOKEN_SIGNING_KEY_DAYS",
+   "title": "Days a token signing key signs before the next token brings a new one",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:SESSION_IDLE_HOURS",
+   "title": "Hours a browser session lasts without being used",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:SESSION_DAYS",
+   "title": "Days a browser session lasts in all before the person signs in again",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:PASSWORD_RESET_HOURS",
+   "title": "Hours a password-reset link stays valid",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:PASSWORD_MIN_LENGTH",
+   "title": "Characters a local password needs at least; lower only for development",
+   "group": "runtime"
+  },
+  {
+   "id": "setting:JOB_RETENTION_DAYS",
+   "title": "Days a finished job keeps its outcomes and idempotency key",
+   "group": "limits"
+  },
+  {
+   "id": "setting:FEED_RETENTION_DAYS",
+   "title": "Days the change feed and consumer events answer a position",
+   "group": "limits"
+  },
+  {
+   "id": "setting:CONSUMER_RESOLVE_MAX_ITEMS",
+   "title": "Items in one consumer batch resolve",
+   "group": "limits"
+  },
+  {
+   "id": "setting:CONSUMER_WEBHOOK_LOG_RETENTION_DAYS",
+   "title": "Days the webhook delivery log keeps a request, its body and its attempts",
+   "group": "webhooks"
+  },
+  {
+   "id": "setting:AI_PROVIDER",
+   "title": "The proposal provider: claude, openai-compatible or a factory module:function; empty, the default, sends nothing anywhere",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_MODEL",
+   "title": "The provider's model; empty for claude means claude-opus-5-5",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_API_KEY",
+   "title": "The provider's key; never shown",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_BASE_URL",
+   "title": "The provider's address: required for openai-compatible, empty for Claude's own",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_SEND_LEVEL",
+   "title": "The most that may leave the instance: structure (no values), samples (a few) or values (as many as a feature needs)",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_SAMPLE_VALUES",
+   "title": "At send level samples, the most values per column, or rows per sheet, that are sent",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_MIN_CONFIDENCE",
+   "title": "The confidence, 0 to 1, below which a proposal is not offered",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_LOG_CONTENT",
+   "title": "Keep each call's request and answer for an operator debugging a prompt",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_LOG_CONTENT_DAYS",
+   "title": "Days a call's kept request and answer stay, when AI_LOG_CONTENT is on",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_TIMEOUT_SECONDS",
+   "title": "Seconds one call to the provider may take before it fails",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_REASONING_EFFORT",
+   "title": "openai-compatible only: how much the model reasons first, none, low, medium or high; empty sends nothing. none keeps a local thinking model fast",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_CONTEXT_TOKENS",
+   "title": "The model's context window in tokens, for a small local model; each call is sized to half of it. Empty: no limit",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_TASK_RETENTION_DAYS",
+   "title": "Days an assistant task is kept after it finished (loaded, failed or cancelled) or was last changed; then it and its file are deleted",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_AGENT_COMMAND",
+   "title": "The command that starts the assistant's Claude Code session, for example: claude --model sonnet; empty, the assistant runs no session",
+   "group": "runtime",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_AGENT_SANDBOX",
+   "title": "container when the engine runs in a container, where Claude Code's own sandbox cannot run; empty, the operating system's sandbox",
+   "group": "runtime",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:AI_AGENT_API_URL",
+   "title": "The API address the assistant's session uses; empty, this instance's own",
+   "group": "runtime",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:MCP_ENABLED",
+   "title": "Whether assistants can reach the instance at /mcp; off, the endpoint does not exist",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:MCP_RATE_PER_MINUTE",
+   "title": "Tool calls one person or client may make through /mcp in a minute",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:MCP_OPEN_REGISTRATION",
+   "title": "Whether an assistant may register itself; off, only those an administrator registers can sign people in",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:MCP_REDIRECT_HOSTS",
+   "title": "HTTPS hosts a self-registered assistant may return to, besides this computer",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:MCP_CALLS_DAYS",
+   "title": "Days a record of a tool call through /mcp is kept",
+   "group": "ai",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "setting:MCP_ANSWER_BYTES",
+   "title": "The longest answer of a tool through /mcp; past it a page comes back smaller, with a cursor",
+   "group": "ai",
+   "owner": "DOC9A"
+  }
+ ],
+ "errors": [
+  {
+   "id": "error:ACTION_GROUP_UNKNOWN"
+  },
+  {
+   "id": "error:ACTIVATION_CONFLICT"
+  },
+  {
+   "id": "error:AGENT_APPLICATION_INVALID",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AGENT_APPLICATION_NOT_FOUND",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_ASSISTANT_ROLE_CHANGED",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_NOT_CONFIGURED",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_SEND_LEVEL_TOO_LOW",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_TASK_CHECK_STALE",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_TASK_DRAFT_HELD",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_TASK_NEEDS_WORDS",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_TASK_NOTHING_TO_LOAD",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_TASK_NOT_FOUND",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_TASK_STATE",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_TASK_TABLE_UNKNOWN",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AI_TASK_VERSION_CONFLICT",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:AMBIGUOUS_MATCH"
+  },
+  {
+   "id": "error:AMBIGUOUS_TARGET"
+  },
+  {
+   "id": "error:APPROVAL_POLICY_INVALID"
+  },
+  {
+   "id": "error:APPROVAL_REQUIRED"
+  },
+  {
+   "id": "error:AS_OF_NOT_SUPPORTED"
+  },
+  {
+   "id": "error:ATTRIBUTE_ABOVE_MAXIMUM"
+  },
+  {
+   "id": "error:ATTRIBUTE_ALREADY_EXISTS"
+  },
+  {
+   "id": "error:ATTRIBUTE_BELOW_MINIMUM"
+  },
+  {
+   "id": "error:ATTRIBUTE_NOT_FOUND"
+  },
+  {
+   "id": "error:AUTHENTICATION_REQUIRED"
+  },
+  {
+   "id": "error:BATCH_TOO_LARGE"
+  },
+  {
+   "id": "error:CANNOT_DELETE_REQUIRED_ATTRIBUTE"
+  },
+  {
+   "id": "error:CARDINALITY_VIOLATION"
+  },
+  {
+   "id": "error:CHANGE_SET_BASE_INVALID"
+  },
+  {
+   "id": "error:CHANGE_SET_CONTENT_INCOMPATIBLE"
+  },
+  {
+   "id": "error:CHANGE_SET_INVALID"
+  },
+  {
+   "id": "error:CHANGE_SET_MODEL_RELEASE_CONFLICT"
+  },
+  {
+   "id": "error:CHANGE_SET_NOT_FOUND"
+  },
+  {
+   "id": "error:CHANGE_SET_REQUIRED"
+  },
+  {
+   "id": "error:CHANGE_SET_SNAPSHOT_RETRY"
+  },
+  {
+   "id": "error:CHANGE_SET_SOURCE_INVALID"
+  },
+  {
+   "id": "error:CHANGE_SET_SUBMITTED"
+  },
+  {
+   "id": "error:CHANGE_SET_VERSION_CONFLICT"
+  },
+  {
+   "id": "error:CHILD_TYPE_NOT_ALLOWED"
+  },
+  {
+   "id": "error:CLIENT_HAS_NO_SECRETS",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:CLIENT_NOT_FOUND"
+  },
+  {
+   "id": "error:CLIENT_SECRET_NOT_FOUND"
+  },
+  {
+   "id": "error:CODE_INCORRECT"
+  },
+  {
+   "id": "error:COMMENT_REQUIRED"
+  },
+  {
+   "id": "error:CONFLICTING_COLUMN_PARAMETERS"
+  },
+  {
+   "id": "error:CONFLICTING_PAGE_PARAMETERS"
+  },
+  {
+   "id": "error:CONSUMER_API_CLIENTS_ONLY"
+  },
+  {
+   "id": "error:CONSUMER_API_NOT_FOUND"
+  },
+  {
+   "id": "error:CONSUMER_API_REMOVED"
+  },
+  {
+   "id": "error:CONSUMER_CONTRACT_VERSION_DECREASED"
+  },
+  {
+   "id": "error:CONSUMER_CONTRACT_VERSION_REQUIRED"
+  },
+  {
+   "id": "error:CONTRACT_VERSION_NOT_FOUND"
+  },
+  {
+   "id": "error:COUNTERPARTS_ACROSS_MODELS"
+  },
+  {
+   "id": "error:DEFAULT_WORKSPACE_CANNOT_BE_RETIRED"
+  },
+  {
+   "id": "error:DELETION_PREVIEW_CHANGED"
+  },
+  {
+   "id": "error:DELETION_PREVIEW_REQUIRED"
+  },
+  {
+   "id": "error:DELIVERY_NOT_FOUND"
+  },
+  {
+   "id": "error:DELIVERY_NOT_SENT"
+  },
+  {
+   "id": "error:DIGEST_NOT_SET",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:DRY_RUN_NOT_FOUND"
+  },
+  {
+   "id": "error:DUPLICATE_ATTRIBUTE"
+  },
+  {
+   "id": "error:DUPLICATE_ATTRIBUTE_VALUE"
+  },
+  {
+   "id": "error:DUPLICATE_COLUMN_IDS"
+  },
+  {
+   "id": "error:DUPLICATE_INITIAL_RELATION"
+  },
+  {
+   "id": "error:DUPLICATE_RELATION"
+  },
+  {
+   "id": "error:DUPLICATE_RELATION_SCOPE"
+  },
+  {
+   "id": "error:EVENTS_EXPIRED"
+  },
+  {
+   "id": "error:EVENTS_NOT_DECLARED"
+  },
+  {
+   "id": "error:EVENT_NOT_IN_DELIVERY"
+  },
+  {
+   "id": "error:EVENT_POSITION_AHEAD"
+  },
+  {
+   "id": "error:FEED_POSITION_AHEAD"
+  },
+  {
+   "id": "error:FEED_POSITION_EXPIRED"
+  },
+  {
+   "id": "error:FILTER_MATCHES_NOTHING"
+  },
+  {
+   "id": "error:FORBIDDEN"
+  },
+  {
+   "id": "error:GRANT_NOT_FOUND"
+  },
+  {
+   "id": "error:GRANT_SCOPE_INVALID"
+  },
+  {
+   "id": "error:GRANT_SCOPE_UNKNOWN"
+  },
+  {
+   "id": "error:GROUP_CLAIM_TAKEN"
+  },
+  {
+   "id": "error:GROUP_FROM_PROVIDER"
+  },
+  {
+   "id": "error:GROUP_MEMBER_NOT_FOUND"
+  },
+  {
+   "id": "error:GROUP_NAME_TAKEN"
+  },
+  {
+   "id": "error:GROUP_NOT_FOUND"
+  },
+  {
+   "id": "error:HISTORY_PERIOD_INVALID",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:IDEMPOTENCY_IN_PROGRESS"
+  },
+  {
+   "id": "error:IDEMPOTENCY_KEY_REUSED"
+  },
+  {
+   "id": "error:IDENTITY_NOT_FOUND"
+  },
+  {
+   "id": "error:IDENTITY_PROVIDER_TAKEN"
+  },
+  {
+   "id": "error:IMMUTABLE_RELATION"
+  },
+  {
+   "id": "error:IMPACT_SUMMARY_DRAFT_INVALID",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:IMPORT_FILE_MISMATCH"
+  },
+  {
+   "id": "error:IMPORT_FILE_MISSING"
+  },
+  {
+   "id": "error:IMPORT_FILE_UNREADABLE"
+  },
+  {
+   "id": "error:IMPORT_PROFILE_EXISTS"
+  },
+  {
+   "id": "error:IMPORT_PROFILE_NOT_FOUND"
+  },
+  {
+   "id": "error:IMPORT_PROFILE_VERSION_CONFLICT"
+  },
+  {
+   "id": "error:IMPORT_TOO_LARGE"
+  },
+  {
+   "id": "error:IMPORT_TOO_MANY_ITEMS"
+  },
+  {
+   "id": "error:INCOMPLETE_VIEW_IDENTITY"
+  },
+  {
+   "id": "error:INFERENCE_NOT_FOUND"
+  },
+  {
+   "id": "error:INFERENCE_NOT_READY"
+  },
+  {
+   "id": "error:INFERENCE_STALE"
+  },
+  {
+   "id": "error:INTERNAL_ERROR"
+  },
+  {
+   "id": "error:INVALID_AS_OF"
+  },
+  {
+   "id": "error:INVALID_ATTRIBUTE_VALUE"
+  },
+  {
+   "id": "error:INVALID_BATCH_CONTEXT"
+  },
+  {
+   "id": "error:INVALID_CLEAR_ATTRIBUTES"
+  },
+  {
+   "id": "error:INVALID_CURSOR"
+  },
+  {
+   "id": "error:INVALID_DATE",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:INVALID_EFFECTIVE_PERIOD"
+  },
+  {
+   "id": "error:INVALID_EXPAND"
+  },
+  {
+   "id": "error:INVALID_EXPECT"
+  },
+  {
+   "id": "error:INVALID_EXPORT_LAYOUT"
+  },
+  {
+   "id": "error:INVALID_FILTER"
+  },
+  {
+   "id": "error:INVALID_IMPORT_PROFILE"
+  },
+  {
+   "id": "error:INVALID_INFERENCE_REQUEST"
+  },
+  {
+   "id": "error:INVALID_INSTALLED_MODEL"
+  },
+  {
+   "id": "error:INVALID_MIGRATION_MAPPING"
+  },
+  {
+   "id": "error:INVALID_MODEL"
+  },
+  {
+   "id": "error:INVALID_MODEL_MAPPING"
+  },
+  {
+   "id": "error:INVALID_OBJECT_TYPE_FOR_APPLICATION"
+  },
+  {
+   "id": "error:INVALID_OPERATION"
+  },
+  {
+   "id": "error:INVALID_PAGE_PARAMETER"
+  },
+  {
+   "id": "error:INVALID_PAGE_SIZE"
+  },
+  {
+   "id": "error:INVALID_PARENT_TYPE"
+  },
+  {
+   "id": "error:INVALID_PAYLOAD"
+  },
+  {
+   "id": "error:INVALID_POSITION"
+  },
+  {
+   "id": "error:INVALID_QUERY"
+  },
+  {
+   "id": "error:INVALID_RANGE"
+  },
+  {
+   "id": "error:INVALID_RECORD_KEY"
+  },
+  {
+   "id": "error:INVALID_RELATION_PAIR"
+  },
+  {
+   "id": "error:INVALID_SEEK"
+  },
+  {
+   "id": "error:INVALID_SORT"
+  },
+  {
+   "id": "error:INVALID_TYPE_MAPPING"
+  },
+  {
+   "id": "error:INVALID_WEBHOOK_URL"
+  },
+  {
+   "id": "error:JOB_EXPIRED"
+  },
+  {
+   "id": "error:JOB_FINISHED"
+  },
+  {
+   "id": "error:JOB_HAS_NO_OUTPUT"
+  },
+  {
+   "id": "error:JOB_HAS_NO_ROWS"
+  },
+  {
+   "id": "error:JOB_NOT_AWAITING_CONFIRMATION"
+  },
+  {
+   "id": "error:JOB_NOT_COMPLETED"
+  },
+  {
+   "id": "error:JOB_NOT_FOUND"
+  },
+  {
+   "id": "error:JOB_OUTPUT_MISSING"
+  },
+  {
+   "id": "error:LAST_LOCAL_ADMINISTRATOR"
+  },
+  {
+   "id": "error:LAST_SECURITY_ADMINISTRATOR"
+  },
+  {
+   "id": "error:LINK_SAME_PERSON"
+  },
+  {
+   "id": "error:LINK_TARGET_DEACTIVATED"
+  },
+  {
+   "id": "error:LIST_NOT_FOUND"
+  },
+  {
+   "id": "error:LIST_REQUIRED",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:LOCAL_SIGN_IN_OFF"
+  },
+  {
+   "id": "error:MAIL_INSECURE_LOGIN"
+  },
+  {
+   "id": "error:MAIL_NOT_SET_UP"
+  },
+  {
+   "id": "error:MAIL_PASSWORD_REQUIRED"
+  },
+  {
+   "id": "error:MAIL_SEND_FAILED"
+  },
+  {
+   "id": "error:MAPPING_BINDING_NOT_FOUND"
+  },
+  {
+   "id": "error:MAPPING_CANDIDATE_TYPE_MISMATCH"
+  },
+  {
+   "id": "error:MAPPING_ENDPOINT_NOT_FOUND"
+  },
+  {
+   "id": "error:MAPPING_ENDPOINT_TYPE_MISMATCH"
+  },
+  {
+   "id": "error:MAPPING_PARENT_NOT_FOUND"
+  },
+  {
+   "id": "error:MAPPING_PARENT_SCOPE_MISMATCH"
+  },
+  {
+   "id": "error:MAPPING_PROPOSED_NEEDS_CHANGE_SET",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:MAPPING_SOURCE_NOT_FOUND"
+  },
+  {
+   "id": "error:MAPPING_VERSION_CONFLICT"
+  },
+  {
+   "id": "error:MAPPING_VIEW_BINDING_MISMATCH"
+  },
+  {
+   "id": "error:MAPPING_VIEW_NOT_FOUND"
+  },
+  {
+   "id": "error:MAPPING_VIEW_REQUIRED"
+  },
+  {
+   "id": "error:MESSAGE_BEING_SENT"
+  },
+  {
+   "id": "error:MESSAGE_NOT_WAITING"
+  },
+  {
+   "id": "error:MIGRATION_FAILED"
+  },
+  {
+   "id": "error:MIGRATION_HAS_REFUSALS"
+  },
+  {
+   "id": "error:MIGRATION_LOSS_NOT_ACCEPTED"
+  },
+  {
+   "id": "error:MIGRATION_REVIEW_STALE"
+  },
+  {
+   "id": "error:MIGRATION_TARGET_IS_CURRENT"
+  },
+  {
+   "id": "error:MIGRATION_TARGET_NOT_CHANGE_SET_RELEASE"
+  },
+  {
+   "id": "error:MIGRATION_TARGET_NOT_WORKSPACE_RELEASE"
+  },
+  {
+   "id": "error:MISSING_DELETE_NEEDS_CHANGE_SET"
+  },
+  {
+   "id": "error:MISSING_RECORD_KEY"
+  },
+  {
+   "id": "error:MISSING_REQUIRED_ATTRIBUTES"
+  },
+  {
+   "id": "error:MISSING_REQUIRED_RELATIONS"
+  },
+  {
+   "id": "error:MODEL_DRAFT_NOT_FOUND"
+  },
+  {
+   "id": "error:MODEL_ELEMENT_NOT_IN_EVERY_MODEL"
+  },
+  {
+   "id": "error:MODEL_HASH_CHANGED"
+  },
+  {
+   "id": "error:MODEL_MAPPING_EXISTS"
+  },
+  {
+   "id": "error:MODEL_MAPPING_MODEL_MISMATCH"
+  },
+  {
+   "id": "error:MODEL_MAPPING_NOT_FOUND"
+  },
+  {
+   "id": "error:MODEL_MIGRATION_REQUIRED"
+  },
+  {
+   "id": "error:MODEL_REGISTRY_REFRESH_FAILED"
+  },
+  {
+   "id": "error:MODEL_REGISTRY_UNAVAILABLE"
+  },
+  {
+   "id": "error:MODEL_RELEASE_CHANGED"
+  },
+  {
+   "id": "error:MODEL_RELEASE_IN_USE"
+  },
+  {
+   "id": "error:MODEL_RELEASE_IS_DEFAULT"
+  },
+  {
+   "id": "error:MODEL_RELEASE_NOT_FOUND"
+  },
+  {
+   "id": "error:MODEL_RELEASE_RETIRED"
+  },
+  {
+   "id": "error:MODEL_RELEASE_VERSION_CONFLICT"
+  },
+  {
+   "id": "error:MOVE_COPY_NOT_PUBLISHED"
+  },
+  {
+   "id": "error:MOVE_MAPPING_CHANGED"
+  },
+  {
+   "id": "error:MOVE_MAPPING_HAS_PROBLEMS"
+  },
+  {
+   "id": "error:MOVE_NOTHING_TO_MOVE"
+  },
+  {
+   "id": "error:MOVE_SAME_WORKSPACE"
+  },
+  {
+   "id": "error:MULTIPLE_TARGETS"
+  },
+  {
+   "id": "error:MUTUALLY_EXCLUSIVE_CONTEXT"
+  },
+  {
+   "id": "error:MUTUALLY_EXCLUSIVE_SCOPE"
+  },
+  {
+   "id": "error:NOTHING_TO_APPLY"
+  },
+  {
+   "id": "error:NOTHING_TO_REDO"
+  },
+  {
+   "id": "error:NOTHING_TO_UNDO"
+  },
+  {
+   "id": "error:NOT_A_PERSON"
+  },
+  {
+   "id": "error:NOT_FOUND"
+  },
+  {
+   "id": "error:NOT_SUBMITTED"
+  },
+  {
+   "id": "error:NOT_SUPPORTED_BY_SOURCE"
+  },
+  {
+   "id": "error:NO_EMAIL"
+  },
+  {
+   "id": "error:NO_IDENTITY_TO_LINK"
+  },
+  {
+   "id": "error:NO_MATCH"
+  },
+  {
+   "id": "error:NO_WORKING_PROVIDER"
+  },
+  {
+   "id": "error:OBJECT_ALREADY_EXISTS"
+  },
+  {
+   "id": "error:OBJECT_ATTRIBUTE_RULE_VIOLATION"
+  },
+  {
+   "id": "error:OBJECT_HAS_DEPENDANTS"
+  },
+  {
+   "id": "error:OBJECT_ID_REQUIRED",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:OBJECT_NOT_FOUND"
+  },
+  {
+   "id": "error:OBJECT_TYPE_CHANGED"
+  },
+  {
+   "id": "error:OBJECT_TYPE_NOT_IN_APPLICATION"
+  },
+  {
+   "id": "error:OBJECT_TYPE_UNCHANGED"
+  },
+  {
+   "id": "error:OPERATION_BATCH_TOO_LARGE"
+  },
+  {
+   "id": "error:OPERATION_HAS_DEPENDANTS"
+  },
+  {
+   "id": "error:OPERATION_NOT_OFFERED"
+  },
+  {
+   "id": "error:OPERATION_REQUIRES_MIGRATION"
+  },
+  {
+   "id": "error:PARAMETER_NOT_SUPPORTED"
+  },
+  {
+   "id": "error:PARENT_CYCLE"
+  },
+  {
+   "id": "error:PARENT_NOT_FOUND"
+  },
+  {
+   "id": "error:PARENT_REQUIRED"
+  },
+  {
+   "id": "error:PARENT_WRONG_SCOPE"
+  },
+  {
+   "id": "error:PASSKEY_NOT_FOUND"
+  },
+  {
+   "id": "error:PASSWORD_INCORRECT"
+  },
+  {
+   "id": "error:PASSWORD_REJECTED"
+  },
+  {
+   "id": "error:PASSWORD_REQUIRED"
+  },
+  {
+   "id": "error:PERSON_HAS_ACCESS"
+  },
+  {
+   "id": "error:PINNED_MODEL_INVALID"
+  },
+  {
+   "id": "error:PINNED_MODEL_UNAVAILABLE"
+  },
+  {
+   "id": "error:PROFILE_CHECK_NOT_FOUND"
+  },
+  {
+   "id": "error:PROOF_REQUIRED"
+  },
+  {
+   "id": "error:PROPOSAL_ALREADY_APPLIED"
+  },
+  {
+   "id": "error:PROPOSAL_NOT_FOUND"
+  },
+  {
+   "id": "error:PROPOSAL_REQUIREMENT_MISSING"
+  },
+  {
+   "id": "error:PUBLICATION_CONFLICT"
+  },
+  {
+   "id": "error:PUBLICATION_CONTRACT_MISMATCH"
+  },
+  {
+   "id": "error:PUBLICATION_NOT_FOUND"
+  },
+  {
+   "id": "error:QUERY_OR_ID_REQUIRED"
+  },
+  {
+   "id": "error:QUERY_REQUIRED"
+  },
+  {
+   "id": "error:QUERY_TOO_BROAD"
+  },
+  {
+   "id": "error:QUERY_TRANSLATION_FAILED",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:QUERY_TRANSLATION_VIEW_UNSUPPORTED",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:READ_ONLY_ATTRIBUTES"
+  },
+  {
+   "id": "error:REFERENCE_NOT_FOUND"
+  },
+  {
+   "id": "error:REFERENCE_TYPE_MISMATCH"
+  },
+  {
+   "id": "error:RELATION_ALREADY_EXISTS"
+  },
+  {
+   "id": "error:RELATION_ANCESTOR_REQUIRED"
+  },
+  {
+   "id": "error:RELATION_CANDIDATE_REFUSED"
+  },
+  {
+   "id": "error:RELATION_ENDPOINT_MISSING"
+  },
+  {
+   "id": "error:RELATION_MATRIX_ACTION_NOT_ALLOWED"
+  },
+  {
+   "id": "error:RELATION_MATRIX_COLUMN_NOT_FOUND"
+  },
+  {
+   "id": "error:RELATION_MATRIX_PARENT_NOT_FOUND"
+  },
+  {
+   "id": "error:RELATION_MATRIX_PARENT_SCOPE_MISMATCH"
+  },
+  {
+   "id": "error:RELATION_MATRIX_ROW_NOT_FOUND"
+  },
+  {
+   "id": "error:RELATION_MATRIX_STATE_REQUIRES_COLUMNS"
+  },
+  {
+   "id": "error:RELATION_MATRIX_VIEW_NOT_FOUND"
+  },
+  {
+   "id": "error:RELATION_NOT_FOUND"
+  },
+  {
+   "id": "error:RELATION_SET_CLAIM_INCOMPLETE"
+  },
+  {
+   "id": "error:RELATION_SET_VERSION_CONFLICT"
+  },
+  {
+   "id": "error:RELATION_WRONG_SCOPE"
+  },
+  {
+   "id": "error:RELEASE_IDENTITY_CONFLICT"
+  },
+  {
+   "id": "error:RELEASE_NOT_RAISABLE"
+  },
+  {
+   "id": "error:RELEASE_RAISE_REFUSED"
+  },
+  {
+   "id": "error:REQUEST_VALIDATION_ERROR"
+  },
+  {
+   "id": "error:REQUIRED_OWNERSHIP_BINDING"
+  },
+  {
+   "id": "error:REQUIRED_RELATION"
+  },
+  {
+   "id": "error:REQUIRED_RELATION_WITHOUT_PLACE"
+  },
+  {
+   "id": "error:RESOURCE_NOT_FOUND",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:RESTRUCTURING_NOT_READY"
+  },
+  {
+   "id": "error:RESTRUCTURING_PLAN_CHANGED"
+  },
+  {
+   "id": "error:RESTRUCTURING_TOO_LARGE"
+  },
+  {
+   "id": "error:ROLE_IN_USE"
+  },
+  {
+   "id": "error:ROLE_NAME_TAKEN"
+  },
+  {
+   "id": "error:ROLE_NOT_FOUND"
+  },
+  {
+   "id": "error:ROLE_PREDEFINED"
+  },
+  {
+   "id": "error:ROUTE_NOT_DECLARED"
+  },
+  {
+   "id": "error:SECOND_FACTOR_EXISTS"
+  },
+  {
+   "id": "error:SECOND_FACTOR_NOT_FOUND"
+  },
+  {
+   "id": "error:SECOND_FACTOR_REQUIRED"
+  },
+  {
+   "id": "error:SESSION_NOT_FOUND"
+  },
+  {
+   "id": "error:SIGN_IN_PROVIDER_IN_USE"
+  },
+  {
+   "id": "error:SIGN_IN_PROVIDER_KEY_TAKEN"
+  },
+  {
+   "id": "error:SIGN_IN_PROVIDER_NOT_FOUND"
+  },
+  {
+   "id": "error:SIGN_IN_PROVIDER_SECRET_REQUIRED"
+  },
+  {
+   "id": "error:SIGN_IN_PROVIDER_UNREACHABLE"
+  },
+  {
+   "id": "error:SIGN_IN_SLOWED"
+  },
+  {
+   "id": "error:SOURCE_FILE_MISSING"
+  },
+  {
+   "id": "error:SOURCE_FILE_NOT_FOUND"
+  },
+  {
+   "id": "error:SOURCE_FILE_PROFILE_NOT_READY"
+  },
+  {
+   "id": "error:SOURCE_SHEET_NOT_FOUND"
+  },
+  {
+   "id": "error:SUBSCRIPTION_ALREADY_SUSPENDED"
+  },
+  {
+   "id": "error:SUBSCRIPTION_NEEDS_EDIT"
+  },
+  {
+   "id": "error:SUBSCRIPTION_NOT_FOUND"
+  },
+  {
+   "id": "error:SUBSCRIPTION_NOT_SUSPENDED"
+  },
+  {
+   "id": "error:TARGET_NOT_FOUND"
+  },
+  {
+   "id": "error:TOKEN_INVALID"
+  },
+  {
+   "id": "error:TOO_MANY_COLUMNS"
+  },
+  {
+   "id": "error:TOO_MANY_PASSKEYS"
+  },
+  {
+   "id": "error:TOO_MANY_RECORDS"
+  },
+  {
+   "id": "error:TOO_MANY_TERMS"
+  },
+  {
+   "id": "error:TYPE_CHANGES_NEED_CHANGE_SET"
+  },
+  {
+   "id": "error:UNKNOWN_APPLICATION"
+  },
+  {
+   "id": "error:UNKNOWN_ATTRIBUTES"
+  },
+  {
+   "id": "error:UNKNOWN_ATTRIBUTE_TYPE"
+  },
+  {
+   "id": "error:UNKNOWN_EVENT"
+  },
+  {
+   "id": "error:UNKNOWN_NOTICE_KIND"
+  },
+  {
+   "id": "error:UNKNOWN_OBJECT_TYPE"
+  },
+  {
+   "id": "error:UNKNOWN_PARAMETER"
+  },
+  {
+   "id": "error:UNKNOWN_RELATION_ATTRIBUTES"
+  },
+  {
+   "id": "error:UNKNOWN_RELATION_TYPE"
+  },
+  {
+   "id": "error:UNKNOWN_TIME_ZONE",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:UNSUPPORTED_FILE_FORMAT"
+  },
+  {
+   "id": "error:UNSUPPORTED_PINNED_MODEL_SCHEMA"
+  },
+  {
+   "id": "error:UNSUPPORTED_SCHEMA_VERSION"
+  },
+  {
+   "id": "error:USERNAME_TAKEN"
+  },
+  {
+   "id": "error:USER_NOT_FOUND"
+  },
+  {
+   "id": "error:VERSION_CONFLICT"
+  },
+  {
+   "id": "error:VERSION_REQUIRED"
+  },
+  {
+   "id": "error:VIEW_NOT_FOUND",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "error:WORKSPACE_ACTIVE_PUBLICATION_CONFLICT"
+  },
+  {
+   "id": "error:WORKSPACE_ALREADY_EXISTS"
+  },
+  {
+   "id": "error:WORKSPACE_CONTEXT_MISMATCH"
+  },
+  {
+   "id": "error:WORKSPACE_GRAPH_INVALID"
+  },
+  {
+   "id": "error:WORKSPACE_HAS_PUBLICATIONS"
+  },
+  {
+   "id": "error:WORKSPACE_HAS_SUBSCRIPTIONS"
+  },
+  {
+   "id": "error:WORKSPACE_IS_DEFAULT"
+  },
+  {
+   "id": "error:WORKSPACE_KEY_REQUIRED"
+  },
+  {
+   "id": "error:WORKSPACE_NOT_EMPTY"
+  },
+  {
+   "id": "error:WORKSPACE_NOT_FOUND"
+  },
+  {
+   "id": "error:WORKSPACE_RETIRED"
+  },
+  {
+   "id": "error:WORKSPACE_RUNTIME_STATE_MISSING"
+  },
+  {
+   "id": "error:WRITER_UNKNOWN"
+  }
+ ],
+ "commands": [
+  {
+   "id": "command:create_admin",
+   "title": "Create the first administrator on the server (Product 0.12 I1, D235)."
+  },
+  {
+   "id": "command:create_client",
+   "title": "Create an OAuth client on the server and print its credentials once (Product 0.12 I1, D262)."
+  },
+  {
+   "id": "command:database_upgrade",
+   "title": "Upgrade the configured database with operator-facing errors and no traceback."
+  },
+  {
+   "id": "command:generate_key",
+   "title": "Print a new key for ``SECRETS_ENCRYPTION_KEY``: 32 random bytes in URL-safe base64."
+  },
+  {
+   "id": "command:model_release_prune",
+   "title": "Delete the stored model releases nothing refers to."
+  },
+  {
+   "id": "command:model_release_raise",
+   "title": "Raise stored model releases of a schema older than the window to the window's schema, in place."
+  },
+  {
+   "id": "command:reseal_secrets",
+   "title": "Re-seal every sealed secret under a new ``SECRETS_ENCRYPTION_KEY`` (Product 0.12 K1, D414)."
+  },
+  {
+   "id": "command:restore_check",
+   "title": "Check a restored copy of this instance's database and record the result (Product 0.11 O2)."
+  },
+  {
+   "id": "command:settings_template",
+   "title": "Print every engine setting as a commented template, from the settings catalogue (``config.py``).",
+   "owner": "DOC9A"
+  }
+ ],
+ "roles": [
+  {
+   "id": "role:reader",
+   "groups": [
+    "browse"
+   ]
+  },
+  {
+   "id": "role:contributor",
+   "groups": [
+    "browse",
+    "change-sets"
+   ]
+  },
+  {
+   "id": "role:steward",
+   "groups": [
+    "browse",
+    "edit-live",
+    "change-sets",
+    "publish",
+    "bulk",
+    "ai-proposals"
+   ]
+  },
+  {
+   "id": "role:owner",
+   "groups": [
+    "browse",
+    "edit-live",
+    "change-sets",
+    "publish",
+    "approve",
+    "bulk",
+    "feed",
+    "copy-move",
+    "ai-proposals"
+   ]
+  },
+  {
+   "id": "role:model-admin",
+   "groups": [
+    "model-authoring",
+    "model-install",
+    "model-release",
+    "ai-proposals"
+   ]
+  },
+  {
+   "id": "role:workspace-admin",
+   "groups": [
+    "workspace-admin",
+    "ai-proposals"
+   ]
+  },
+  {
+   "id": "role:integration-admin",
+   "groups": [
+    "integration-admin",
+    "feed",
+    "ai-proposals"
+   ]
+  },
+  {
+   "id": "role:operator",
+   "groups": [
+    "operations"
+   ]
+  },
+  {
+   "id": "role:security-admin",
+   "groups": [
+    "security-admin"
+   ]
+  },
+  {
+   "id": "role:agent",
+   "groups": [
+    "browse",
+    "change-sets"
+   ],
+   "owner": "DOC9A"
+  }
+ ],
+ "permissions": [
+  {
+   "id": "permission:browse",
+   "title": "Browse"
+  },
+  {
+   "id": "permission:edit-live",
+   "title": "Edit live"
+  },
+  {
+   "id": "permission:change-sets",
+   "title": "Work in change sets"
+  },
+  {
+   "id": "permission:publish",
+   "title": "Publish"
+  },
+  {
+   "id": "permission:approve",
+   "title": "Approve publications"
+  },
+  {
+   "id": "permission:bulk",
+   "title": "Bulk and import"
+  },
+  {
+   "id": "permission:copy-move",
+   "title": "Copy and move"
+  },
+  {
+   "id": "permission:model-authoring",
+   "title": "Model authoring"
+  },
+  {
+   "id": "permission:model-install",
+   "title": "Install a model",
+   "owner": "DOC9A"
+  },
+  {
+   "id": "permission:model-release",
+   "title": "Model release"
+  },
+  {
+   "id": "permission:workspace-admin",
+   "title": "Workspace administration"
+  },
+  {
+   "id": "permission:integration-admin",
+   "title": "Integration administration"
+  },
+  {
+   "id": "permission:feed",
+   "title": "Feed"
+  },
+  {
+   "id": "permission:operations",
+   "title": "Operations"
+  },
+  {
+   "id": "permission:security-admin",
+   "title": "Security administration"
+  },
+  {
+   "id": "permission:ai-proposals",
+   "title": "Use AI proposals",
+   "owner": "DOC9A"
+  }
+ ],
+ "events": [
+  {
+   "id": "event:change-set.submitted",
+   "title": "workspace event; inbox notice"
+  },
+  {
+   "id": "event:change-set.approved",
+   "title": "workspace event; inbox notice"
+  },
+  {
+   "id": "event:change-set.sent-back",
+   "title": "workspace event; inbox notice"
+  },
+  {
+   "id": "event:consumer.created",
+   "title": "consumer record change"
+  },
+  {
+   "id": "event:consumer.updated",
+   "title": "consumer record change"
+  },
+  {
+   "id": "event:consumer.deleted",
+   "title": "consumer record change"
+  },
+  {
+   "id": "event:job.completed",
+   "title": "inbox notice: A job you started has finished"
+  },
+  {
+   "id": "event:job.failed",
+   "title": "inbox notice: A job you started has failed"
+  },
+  {
+   "id": "event:job.awaiting-confirmation",
+   "title": "inbox notice: A job you started is waiting for your confirmation"
+  },
+  {
+   "id": "event:change-set.published",
+   "title": "inbox notice: A change set was published in a workspace you follow",
+   "owner": "DOC9A"
+  }
+ ],
+ "fields": [
+  {
+   "id": "field:AlsoMatchThrough.related"
+  },
+  {
+   "id": "field:AlsoMatchThrough.firstOf"
+  },
+  {
+   "id": "field:AlsoMatchThrough.preferTypes"
+  },
+  {
+   "id": "field:AncestorParameter.kind"
+  },
+  {
+   "id": "field:AncestorParameter.objectTypes"
+  },
+  {
+   "id": "field:AncestorParameter.matchFields"
+  },
+  {
+   "id": "field:ApplicationDefinition.key"
+  },
+  {
+   "id": "field:ApplicationDefinition.name"
+  },
+  {
+   "id": "field:ApplicationDefinition.description"
+  },
+  {
+   "id": "field:ApplicationDefinition.icon"
+  },
+  {
+   "id": "field:ApplicationDefinition.color"
+  },
+  {
+   "id": "field:ApplicationDefinition.state"
+  },
+  {
+   "id": "field:ApplicationDefinition.objectTypeKeys"
+  },
+  {
+   "id": "field:ApplicationDefinition.defaultView"
+  },
+  {
+   "id": "field:ApplicationDefinition.views"
+  },
+  {
+   "id": "field:ApplicationDefinition.details"
+  },
+  {
+   "id": "field:ApplicationDefinition.settings"
+  },
+  {
+   "id": "field:ApplicationDefinition.navigation"
+  },
+  {
+   "id": "field:AttributeTypeDefinition.key"
+  },
+  {
+   "id": "field:AttributeTypeDefinition.name"
+  },
+  {
+   "id": "field:AttributeTypeDefinition.description"
+  },
+  {
+   "id": "field:AttributeTypeDefinition.valueType"
+  },
+  {
+   "id": "field:AttributeTypeDefinition.default"
+  },
+  {
+   "id": "field:AttributeTypeDefinition.features"
+  },
+  {
+   "id": "field:AttributeTypeDefinition.validation"
+  },
+  {
+   "id": "field:AttributeTypeDefinition.ui"
+  },
+  {
+   "id": "field:AttributesPanelConfig.fields"
+  },
+  {
+   "id": "field:AttributesPanelDefinition.key"
+  },
+  {
+   "id": "field:AttributesPanelDefinition.title"
+  },
+  {
+   "id": "field:AttributesPanelDefinition.region"
+  },
+  {
+   "id": "field:AttributesPanelDefinition.order"
+  },
+  {
+   "id": "field:AttributesPanelDefinition.visible"
+  },
+  {
+   "id": "field:AttributesPanelDefinition.type"
+  },
+  {
+   "id": "field:AttributesPanelDefinition.config"
+  },
+  {
+   "id": "field:BindingCandidates.from"
+  },
+  {
+   "id": "field:BindingCandidates.to"
+  },
+  {
+   "id": "field:BreadcrumbDefinition.showApplication"
+  },
+  {
+   "id": "field:BreadcrumbDefinition.showObjectType"
+  },
+  {
+   "id": "field:BreadcrumbDefinition.showAncestors"
+  },
+  {
+   "id": "field:CandidateCriterion.field"
+  },
+  {
+   "id": "field:CandidateCriterion.op"
+  },
+  {
+   "id": "field:CandidateCriterion.value"
+  },
+  {
+   "id": "field:ChildrenPanelConfig.objectTypeKeys"
+  },
+  {
+   "id": "field:ChildrenPanelConfig.columns"
+  },
+  {
+   "id": "field:ChildrenPanelConfig.pageSize"
+  },
+  {
+   "id": "field:ChildrenPanelDefinition.key"
+  },
+  {
+   "id": "field:ChildrenPanelDefinition.title"
+  },
+  {
+   "id": "field:ChildrenPanelDefinition.region"
+  },
+  {
+   "id": "field:ChildrenPanelDefinition.order"
+  },
+  {
+   "id": "field:ChildrenPanelDefinition.visible"
+  },
+  {
+   "id": "field:ChildrenPanelDefinition.type"
+  },
+  {
+   "id": "field:ChildrenPanelDefinition.config"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.key"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.name"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.description"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.contractVersion"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.objectTypes"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.object"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.projections"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.match"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.parameters"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.lists"
+  },
+  {
+   "id": "field:ConsumerApiDefinition.events"
+  },
+  {
+   "id": "field:ConsumerApiDocument.key"
+  },
+  {
+   "id": "field:ConsumerApiDocument.name"
+  },
+  {
+   "id": "field:ConsumerApiDocument.description"
+  },
+  {
+   "id": "field:ConsumerApiDocument.contractVersion"
+  },
+  {
+   "id": "field:ConsumerApiDocument.exposes"
+  },
+  {
+   "id": "field:ConsumerApiDocument.publicNames"
+  },
+  {
+   "id": "field:ConsumerApiDocument.object"
+  },
+  {
+   "id": "field:ConsumerApiDocument.operations"
+  },
+  {
+   "id": "field:ConsumerApiDocument.filters"
+  },
+  {
+   "id": "field:ConsumerAttributeField.source"
+  },
+  {
+   "id": "field:ConsumerAttributeField.default"
+  },
+  {
+   "id": "field:ConsumerEvent.key"
+  },
+  {
+   "id": "field:ConsumerEvent.objectTypes"
+  },
+  {
+   "id": "field:ConsumerEvent.changes"
+  },
+  {
+   "id": "field:ConsumerEvent.watch"
+  },
+  {
+   "id": "field:ConsumerEventWatch.fields"
+  },
+  {
+   "id": "field:ConsumerEventWatch.projections"
+  },
+  {
+   "id": "field:ConsumerExposedType.publicName"
+  },
+  {
+   "id": "field:ConsumerField.output"
+  },
+  {
+   "id": "field:ConsumerField.source"
+  },
+  {
+   "id": "field:ConsumerField.default"
+  },
+  {
+   "id": "field:ConsumerList.key"
+  },
+  {
+   "id": "field:ConsumerList.objectType"
+  },
+  {
+   "id": "field:ConsumerList.parentParameter"
+  },
+  {
+   "id": "field:ConsumerList.sortBy"
+  },
+  {
+   "id": "field:ConsumerListParent.name"
+  },
+  {
+   "id": "field:ConsumerListParent.objectTypes"
+  },
+  {
+   "id": "field:ConsumerMatch.own"
+  },
+  {
+   "id": "field:ConsumerMatch.promoted"
+  },
+  {
+   "id": "field:ConsumerMatchRule.field"
+  },
+  {
+   "id": "field:ConsumerMatchRule.exact"
+  },
+  {
+   "id": "field:ConsumerMatchRule.contains"
+  },
+  {
+   "id": "field:ConsumerObjectDefinition.id"
+  },
+  {
+   "id": "field:ConsumerObjectDefinition.code"
+  },
+  {
+   "id": "field:ConsumerObjectDefinition.name"
+  },
+  {
+   "id": "field:ConsumerObjectDefinition.active"
+  },
+  {
+   "id": "field:ConsumerObjectDefinition.validFrom"
+  },
+  {
+   "id": "field:ConsumerObjectDefinition.validTo"
+  },
+  {
+   "id": "field:ConsumerObjectDefinition.attributes"
+  },
+  {
+   "id": "field:ConsumerObjectDefinition.parent"
+  },
+  {
+   "id": "field:ConsumerObjectDefinition.path"
+  },
+  {
+   "id": "field:ConsumerObjectDefinition.hierarchy"
+  },
+  {
+   "id": "field:ConsumerParentField.output"
+  },
+  {
+   "id": "field:ConsumerParentField.fields"
+  },
+  {
+   "id": "field:ConsumerProjection.from"
+  },
+  {
+   "id": "field:ConsumerProjection.fields"
+  },
+  {
+   "id": "field:ConsumerPromotedMatch.projection"
+  },
+  {
+   "id": "field:ConsumerPromotedMatch.firstMatch"
+  },
+  {
+   "id": "field:ConsumerPromotedMatch.preferTargetTypes"
+  },
+  {
+   "id": "field:ConsumerRelationRoute.relation"
+  },
+  {
+   "id": "field:ConsumerRelationRoute.direction"
+  },
+  {
+   "id": "field:DetailHeaderDefinition.titleField"
+  },
+  {
+   "id": "field:DetailHeaderDefinition.subtitleField"
+  },
+  {
+   "id": "field:DetailHeaderDefinition.showObjectType"
+  },
+  {
+   "id": "field:DetailViewDefinition.objectTypeKey"
+  },
+  {
+   "id": "field:DetailViewDefinition.breadcrumbs"
+  },
+  {
+   "id": "field:DetailViewDefinition.header"
+  },
+  {
+   "id": "field:DetailViewDefinition.panels"
+  },
+  {
+   "id": "field:EffectivePeriodDefinition.startAttributeTypeKey"
+  },
+  {
+   "id": "field:EffectivePeriodDefinition.endAttributeTypeKey"
+  },
+  {
+   "id": "field:EngineModel.schemaVersion"
+  },
+  {
+   "id": "field:EngineModel.release"
+  },
+  {
+   "id": "field:EngineModel.product"
+  },
+  {
+   "id": "field:EngineModel.attributeTypes"
+  },
+  {
+   "id": "field:EngineModel.objectTypes"
+  },
+  {
+   "id": "field:EngineModel.relationTypes"
+  },
+  {
+   "id": "field:EngineModel.objectTypeRelations"
+  },
+  {
+   "id": "field:EngineModel.applications"
+  },
+  {
+   "id": "field:EngineModel.consumerApis"
+  },
+  {
+   "id": "field:EventSpec.key"
+  },
+  {
+   "id": "field:EventSpec.objectTypes"
+  },
+  {
+   "id": "field:EventSpec.changes"
+  },
+  {
+   "id": "field:EventSpec.watch"
+  },
+  {
+   "id": "field:EventWatch.fields"
+  },
+  {
+   "id": "field:EventWatch.related"
+  },
+  {
+   "id": "field:EventsOperation.description"
+  },
+  {
+   "id": "field:EventsOperation.perType"
+  },
+  {
+   "id": "field:EventsOperation.custom"
+  },
+  {
+   "id": "field:FieldSpec.description"
+  },
+  {
+   "id": "field:FieldSpec.from"
+  },
+  {
+   "id": "field:FieldSpec.default"
+  },
+  {
+   "id": "field:FieldSpec.role"
+  },
+  {
+   "id": "field:FilterSpec.description"
+  },
+  {
+   "id": "field:FilterSpec.byType"
+  },
+  {
+   "id": "field:FilterSpec.under"
+  },
+  {
+   "id": "field:FilterSpec.linkedTo"
+  },
+  {
+   "id": "field:FilterSpec.through"
+  },
+  {
+   "id": "field:FilterSpec.onRelated"
+  },
+  {
+   "id": "field:FilterSpec.matchOn"
+  },
+  {
+   "id": "field:FilterSpec.keepOnlyMatching"
+  },
+  {
+   "id": "field:FilterSpec.scoreOnlyMatching"
+  },
+  {
+   "id": "field:FilterSpec.crosswalk"
+  },
+  {
+   "id": "field:HierarchyPanelConfig.showParent"
+  },
+  {
+   "id": "field:HierarchyPanelConfig.showAncestors"
+  },
+  {
+   "id": "field:HierarchyPanelDefinition.key"
+  },
+  {
+   "id": "field:HierarchyPanelDefinition.title"
+  },
+  {
+   "id": "field:HierarchyPanelDefinition.region"
+  },
+  {
+   "id": "field:HierarchyPanelDefinition.order"
+  },
+  {
+   "id": "field:HierarchyPanelDefinition.visible"
+  },
+  {
+   "id": "field:HierarchyPanelDefinition.type"
+  },
+  {
+   "id": "field:HierarchyPanelDefinition.config"
+  },
+  {
+   "id": "field:ListSpec.description"
+  },
+  {
+   "id": "field:ListSpec.of"
+  },
+  {
+   "id": "field:ListSpec.within"
+  },
+  {
+   "id": "field:ListSpec.sortBy"
+  },
+  {
+   "id": "field:MappingGridViewConfig.relationTypeKey"
+  },
+  {
+   "id": "field:MappingGridViewConfig.fromObjectTypeKey"
+  },
+  {
+   "id": "field:MappingGridViewConfig.toObjectTypeKey"
+  },
+  {
+   "id": "field:MappingGridViewConfig.direction"
+  },
+  {
+   "id": "field:MappingGridViewConfig.sourceColumns"
+  },
+  {
+   "id": "field:MappingGridViewConfig.targetDisplayColumns"
+  },
+  {
+   "id": "field:MappingGridViewConfig.candidateSearchFields"
+  },
+  {
+   "id": "field:MappingGridViewConfig.pageSize"
+  },
+  {
+   "id": "field:MappingGridViewDefinition.key"
+  },
+  {
+   "id": "field:MappingGridViewDefinition.name"
+  },
+  {
+   "id": "field:MappingGridViewDefinition.type"
+  },
+  {
+   "id": "field:MappingGridViewDefinition.config"
+  },
+  {
+   "id": "field:ModelReleaseDefinition.key"
+  },
+  {
+   "id": "field:ModelReleaseDefinition.name"
+  },
+  {
+   "id": "field:ModelReleaseDefinition.version"
+  },
+  {
+   "id": "field:NavigationDefinition.groups"
+  },
+  {
+   "id": "field:NavigationGroupDefinition.key"
+  },
+  {
+   "id": "field:NavigationGroupDefinition.label"
+  },
+  {
+   "id": "field:NavigationGroupDefinition.collections"
+  },
+  {
+   "id": "field:NavigationGroupDefinition.collapsed"
+  },
+  {
+   "id": "field:ObjectSpec.fields"
+  },
+  {
+   "id": "field:ObjectSpec.parent"
+  },
+  {
+   "id": "field:ObjectSpec.path"
+  },
+  {
+   "id": "field:ObjectSpec.hierarchy"
+  },
+  {
+   "id": "field:ObjectSpec.related"
+  },
+  {
+   "id": "field:ObjectTypeAttributeDefinition.attributeTypeKey"
+  },
+  {
+   "id": "field:ObjectTypeAttributeDefinition.required"
+  },
+  {
+   "id": "field:ObjectTypeAttributeDefinition.readOnly"
+  },
+  {
+   "id": "field:ObjectTypeAttributeDefinition.order"
+  },
+  {
+   "id": "field:ObjectTypeAttributeDefinition.ui"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.key"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.name"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.pluralName"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.description"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.icon"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.displayAttributeTypeKey"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.attributes"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.features"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.behavior"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.validation"
+  },
+  {
+   "id": "field:ObjectTypeDefinition.effectivePeriod"
+  },
+  {
+   "id": "field:ObjectTypeParameter.kind"
+  },
+  {
+   "id": "field:ObjectTypeRelationDefinition.relationTypeKey"
+  },
+  {
+   "id": "field:ObjectTypeRelationDefinition.fromObjectTypeKey"
+  },
+  {
+   "id": "field:ObjectTypeRelationDefinition.toObjectTypeKey"
+  },
+  {
+   "id": "field:ObjectTypeRelationDefinition.cardinality"
+  },
+  {
+   "id": "field:ObjectTypeRelationDefinition.required"
+  },
+  {
+   "id": "field:ObjectTypeRelationDefinition.attributeTypeKeys"
+  },
+  {
+   "id": "field:ObjectTypeRelationDefinition.features"
+  },
+  {
+   "id": "field:ObjectTypeRelationDefinition.candidates"
+  },
+  {
+   "id": "field:Operation.description"
+  },
+  {
+   "id": "field:Operations.objects"
+  },
+  {
+   "id": "field:Operations.xref"
+  },
+  {
+   "id": "field:Operations.resolve"
+  },
+  {
+   "id": "field:Operations.lists"
+  },
+  {
+   "id": "field:Operations.events"
+  },
+  {
+   "id": "field:PanelDefinitionBase.key"
+  },
+  {
+   "id": "field:PanelDefinitionBase.title"
+  },
+  {
+   "id": "field:PanelDefinitionBase.region"
+  },
+  {
+   "id": "field:PanelDefinitionBase.order"
+  },
+  {
+   "id": "field:PanelDefinitionBase.visible"
+  },
+  {
+   "id": "field:ParentSpec.output"
+  },
+  {
+   "id": "field:ParentSpec.fields"
+  },
+  {
+   "id": "field:ProductDefinition.name"
+  },
+  {
+   "id": "field:ProductDefinition.description"
+  },
+  {
+   "id": "field:ProjectionParameter.kind"
+  },
+  {
+   "id": "field:ProjectionParameter.projection"
+  },
+  {
+   "id": "field:ProjectionParameter.matchFields"
+  },
+  {
+   "id": "field:ProjectionParameter.scoresFrom"
+  },
+  {
+   "id": "field:ProjectionParameter.requireMatch"
+  },
+  {
+   "id": "field:ProjectionParameter.targetable"
+  },
+  {
+   "id": "field:RelatedParameter.kind"
+  },
+  {
+   "id": "field:RelatedParameter.objectTypes"
+  },
+  {
+   "id": "field:RelatedParameter.matchFields"
+  },
+  {
+   "id": "field:RelatedParameter.via"
+  },
+  {
+   "id": "field:RelatedSpec.description"
+  },
+  {
+   "id": "field:RelatedSpec.via"
+  },
+  {
+   "id": "field:RelatedSpec.fields"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.relationTypeKey"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.direction"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.rowObjectTypeKey"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.columnObjectTypeKey"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.cellObjectTypeKey"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.rowColumns"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.columnLabelField"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.cellFields"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.searchFields"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.cellActions"
+  },
+  {
+   "id": "field:RelationMatrixViewConfig.pageSize"
+  },
+  {
+   "id": "field:RelationMatrixViewDefinition.key"
+  },
+  {
+   "id": "field:RelationMatrixViewDefinition.name"
+  },
+  {
+   "id": "field:RelationMatrixViewDefinition.type"
+  },
+  {
+   "id": "field:RelationMatrixViewDefinition.config"
+  },
+  {
+   "id": "field:RelationTypeDefinition.key"
+  },
+  {
+   "id": "field:RelationTypeDefinition.reverseKey"
+  },
+  {
+   "id": "field:RelationTypeDefinition.name"
+  },
+  {
+   "id": "field:RelationTypeDefinition.reverseName"
+  },
+  {
+   "id": "field:RelationTypeDefinition.isOriented"
+  },
+  {
+   "id": "field:RelationTypeDefinition.features"
+  },
+  {
+   "id": "field:RelationsPanelConfig.relationTypeKeys"
+  },
+  {
+   "id": "field:RelationsPanelConfig.direction"
+  },
+  {
+   "id": "field:RelationsPanelConfig.columns"
+  },
+  {
+   "id": "field:RelationsPanelConfig.showRelationshipColumn"
+  },
+  {
+   "id": "field:RelationsPanelConfig.sortFields"
+  },
+  {
+   "id": "field:RelationsPanelConfig.defaultSort"
+  },
+  {
+   "id": "field:RelationsPanelDefinition.key"
+  },
+  {
+   "id": "field:RelationsPanelDefinition.title"
+  },
+  {
+   "id": "field:RelationsPanelDefinition.region"
+  },
+  {
+   "id": "field:RelationsPanelDefinition.order"
+  },
+  {
+   "id": "field:RelationsPanelDefinition.visible"
+  },
+  {
+   "id": "field:RelationsPanelDefinition.type"
+  },
+  {
+   "id": "field:RelationsPanelDefinition.config"
+  },
+  {
+   "id": "field:TablePanelConfig.objectTypeKey"
+  },
+  {
+   "id": "field:TablePanelConfig.columns"
+  },
+  {
+   "id": "field:TablePanelConfig.filterByParent"
+  },
+  {
+   "id": "field:TablePanelConfig.pageSize"
+  },
+  {
+   "id": "field:TablePanelDefinition.key"
+  },
+  {
+   "id": "field:TablePanelDefinition.title"
+  },
+  {
+   "id": "field:TablePanelDefinition.region"
+  },
+  {
+   "id": "field:TablePanelDefinition.order"
+  },
+  {
+   "id": "field:TablePanelDefinition.visible"
+  },
+  {
+   "id": "field:TablePanelDefinition.type"
+  },
+  {
+   "id": "field:TablePanelDefinition.config"
+  },
+  {
+   "id": "field:TableViewConfig.columns"
+  },
+  {
+   "id": "field:TableViewConfig.filterFields"
+  },
+  {
+   "id": "field:TableViewConfig.sortFields"
+  },
+  {
+   "id": "field:TableViewConfig.defaultSort"
+  },
+  {
+   "id": "field:TableViewConfig.pageSize"
+  },
+  {
+   "id": "field:TableViewDefinition.key"
+  },
+  {
+   "id": "field:TableViewDefinition.name"
+  },
+  {
+   "id": "field:TableViewDefinition.type"
+  },
+  {
+   "id": "field:TableViewDefinition.objectTypeKey"
+  },
+  {
+   "id": "field:TableViewDefinition.config"
+  },
+  {
+   "id": "field:TreeViewConfig.rootObjectTypeKeys"
+  },
+  {
+   "id": "field:TreeViewConfig.objectTypeKeys"
+  },
+  {
+   "id": "field:TreeViewConfig.labelField"
+  },
+  {
+   "id": "field:TreeViewConfig.secondaryField"
+  },
+  {
+   "id": "field:TreeViewConfig.childSort"
+  },
+  {
+   "id": "field:TreeViewConfig.pageSize"
+  },
+  {
+   "id": "field:TreeViewConfig.actions"
+  },
+  {
+   "id": "field:TreeViewConfig.availabilityField"
+  },
+  {
+   "id": "field:TreeViewDefinition.key"
+  },
+  {
+   "id": "field:TreeViewDefinition.name"
+  },
+  {
+   "id": "field:TreeViewDefinition.type"
+  },
+  {
+   "id": "field:TreeViewDefinition.config"
+  },
+  {
+   "id": "field:Within.filter"
+  },
+  {
+   "id": "field:Within.types"
+  },
+  {
+   "id": "field:XrefOperation.description"
+  },
+  {
+   "id": "field:XrefOperation.matchOn"
+  },
+  {
+   "id": "field:XrefOperation.alsoMatchThrough"
+  },
+  {
+   "id": "field:_Described.description"
+  }
+ ]
+}

@@ -1,0 +1,45 @@
+---
+// The theme is the application's own choice (HD): `rdm:theme:v1`, JSON "system", "light" or "dark", the
+// labels System / Light / Dark. Starlight's styles key on data-theme being light or dark, so this sets the
+// resolved value, before the first paint and again when the choice or the operating system's theme changes.
+---
+
+<script is:inline>
+  window.StarlightThemeProvider = (() => {
+    const key = "rdm:theme:v1";
+    const read = () => {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || '"system"');
+        return value === "light" || value === "dark" ? value : "system";
+      } catch (error) {
+        return "system";
+      }
+    };
+    const resolve = (theme) =>
+      theme === "system"
+        ? matchMedia("(prefers-color-scheme: light)").matches
+          ? "light"
+          : "dark"
+        : theme;
+    const apply = (theme = read()) => {
+      document.documentElement.dataset.theme = resolve(theme);
+    };
+    apply();
+    return {
+      key,
+      read,
+      apply,
+      write(theme) {
+        try {
+          localStorage.setItem(key, JSON.stringify(theme));
+        } catch (error) {}
+      },
+      updatePickers(theme = read()) {
+        document.querySelectorAll("starlight-theme-select").forEach((picker) => {
+          const select = picker.querySelector("select");
+          if (select) select.value = theme;
+        });
+      },
+    };
+  })();
+</script>

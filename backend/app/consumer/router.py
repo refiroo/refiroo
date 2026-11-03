@@ -86,7 +86,9 @@ LATEST = "latest"
 _ITEM = frozenset({"ref", "query", "id"})
 _REF_LENGTH = (1, 200)
 # The shared paging refusals answer 400 here, the consumer tier's status for a request error.
-_PAGING_CODES = frozenset({"INVALID_CURSOR", "CONFLICTING_PAGE_PARAMETERS", "INVALID_POSITION", "INVALID_SEEK"})
+_PAGING_CODES = frozenset(
+    {"INVALID_CURSOR", "CONFLICTING_PAGE_PARAMETERS", "INVALID_POSITION", "INVALID_SEEK"}
+)
 
 
 def _session() -> Iterator[Session]:
@@ -104,6 +106,7 @@ async def _body(request: Request) -> bytes:
 DbSession = Annotated[Session, Depends(_session, scope="function")]
 Body = Annotated[bytes, Depends(_body)]
 
+
 def _started(request: Request) -> None:
     require_started(request.app.state.maintenance)
 
@@ -111,7 +114,7 @@ def _started(request: Request) -> None:
 # The routes that describe the consumer APIs rather than serve their data. The index takes a
 # management token too, so the browser, holding one, shows it (D266). Each definition's OpenAPI
 # document needs no token at all (D412), like the management API's: it is the contract a client
-# needs before it can ask for one, and the API reference page (``/docs``) loads it unauthenticated.
+# needs before it can ask for one, and the API reference page (``/docs/api``) loads it unauthenticated.
 OPENAPI_DOCUMENT = f"{PREFIX}/{{consumer_api}}/v{{contract_version}}/openapi.json"
 DESCRIBING = {PREFIX}
 
@@ -158,7 +161,9 @@ def _authenticated(request: Request, session: DbSession) -> None:
 
 
 router = APIRouter(
-    prefix=PREFIX, tags=["consumer"], include_in_schema=False,
+    prefix=PREFIX,
+    tags=["consumer"],
+    include_in_schema=False,
     dependencies=[Depends(_started), Depends(_authenticated)],
 )
 
@@ -179,7 +184,12 @@ class _Read:
     def narrowed(self, session: Session) -> Any:
         if "filter" not in self.built:
             self.built["filter"] = consumer_filter(
-                session, self.model, self.definition, self.source, self.parameters.definition, self.parameters.as_of
+                session,
+                self.model,
+                self.definition,
+                self.source,
+                self.parameters.definition,
+                self.parameters.as_of,
             )
         return self.built["filter"]
 
@@ -201,7 +211,8 @@ def _reading(
         value = parameters.single("publication")
         if value is None:
             tag = entity_tag(
-                ("live", workspace.key, str(workspace.feed_position), active.release_id), definition.contractVersion
+                ("live", workspace.key, str(workspace.feed_position), active.release_id),
+                definition.contractVersion,
             )
             return _Read(active.model, definition, ConsumerSource(workspace.key), parameters, tag)
         publication = _publication(session, workspace, value, parameters.single("cursor"))
@@ -222,13 +233,19 @@ def _reading(
                 {"publication": publication.id, "contractVersion": declared_version},
             )
         checked = parameters if declared == definition else recheck(declared)
-        tag = entity_tag(("publication", publication.id, pinned.release_id), declared.contractVersion)
-        return _Read(pinned.model, declared, ConsumerSource(workspace.key, publication.id), checked, tag)
+        tag = entity_tag(
+            ("publication", publication.id, pinned.release_id), declared.contractVersion
+        )
+        return _Read(
+            pinned.model, declared, ConsumerSource(workspace.key, publication.id), checked, tag
+        )
 
     return resolve
 
 
-def _publication(session: Session, workspace: Workspace, value: str, cursor: str | None) -> Publication:
+def _publication(
+    session: Session, workspace: Workspace, value: str, cursor: str | None
+) -> Publication:
     """The publication of the workspace that ``value`` names (C-D62). ``latest`` is the workspace's
     active one (C-D61), except that a cursor issued by a pinned read continues in its own publication
     (C-D64)."""
@@ -247,7 +264,9 @@ def _publication(session: Session, workspace: Workspace, value: str, cursor: str
         else:
             publication_id = workspace.active_publication_id
     publication = session.scalar(
-        select(Publication).where(Publication.id == publication_id, Publication.workspace_key == workspace.key)
+        select(Publication).where(
+            Publication.id == publication_id, Publication.workspace_key == workspace.key
+        )
     )
     if publication is None:
         raise api_error(
@@ -262,7 +281,12 @@ def _publication(session: Session, workspace: Workspace, value: str, cursor: str
 @router.get("/{consumer_api}/v{contract_version}/objects/{object_id}", response_model=None)
 @reads_own_parameters
 def get_object(
-    consumer_api: str, contract_version: str, object_id: str, request: Request, response: Response, session: DbSession
+    consumer_api: str,
+    contract_version: str,
+    object_id: str,
+    request: Request,
+    response: Response,
+    session: DbSession,
 ) -> dict[str, Any] | Response:
     """Get by ID: the definition's shared object for the record with this object ID, narrowed by the
     definition's parameters (C-D31)."""
@@ -290,7 +314,12 @@ def get_object(
 @router.get("/{consumer_api}/v{contract_version}/lists/{list_key}", response_model=None)
 @reads_own_parameters
 def get_list(
-    consumer_api: str, contract_version: str, list_key: str, request: Request, response: Response, session: DbSession
+    consumer_api: str,
+    contract_version: str,
+    list_key: str,
+    request: Request,
+    response: Response,
+    session: DbSession,
 ) -> dict[str, Any] | Response:
     """A page of the definition's list ``list_key``: the records of its type, below the parent
     values when given, narrowed by the definition's parameters (C-D27–C-D31)."""
@@ -321,14 +350,22 @@ def get_list(
         )
 
     return _answer(
-        request, response, workspace, _reading(session, active, definition, parameters, workspace, check), read
+        request,
+        response,
+        workspace,
+        _reading(session, active, definition, parameters, workspace, check),
+        read,
     )
 
 
 @router.get("/{consumer_api}/v{contract_version}/xref", response_model=None)
 @reads_own_parameters
 def get_xref(
-    consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession
+    consumer_api: str,
+    contract_version: str,
+    request: Request,
+    response: Response,
+    session: DbSession,
 ) -> dict[str, Any] | Response:
     """XREF: the exposed objects the query's terms match, scored by the definition's ``match`` and
     narrowed by its parameters, a page of them or with ``expect=one`` the single best (C-D34–C-D43)."""
@@ -369,7 +406,12 @@ def get_xref(
 @router.post("/{consumer_api}/v{contract_version}/resolve", response_model=None)
 @reads_own_parameters
 def post_resolve(
-    consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession, body: Body
+    consumer_api: str,
+    contract_version: str,
+    request: Request,
+    response: Response,
+    session: DbSession,
+    body: Body,
 ) -> dict[str, Any] | Response:
     """Batch resolve: each item as ``xref?expect=one`` (by ``query``) or get by ID (by ``id``), with
     the definition's parameters from ``defaults`` and the item, its outcome the single read's answer
@@ -404,7 +446,11 @@ def post_resolve(
 @router.get("/{consumer_api}/v{contract_version}/publications", response_model=None)
 @reads_own_parameters
 def get_publications(
-    consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession
+    consumer_api: str,
+    contract_version: str,
+    request: Request,
+    response: Response,
+    session: DbSession,
 ) -> dict[str, Any] | Response:
     """The workspace's publications, newest first, each with the ``eventSequence`` to follow changes
     from after reading it (C-D66)."""
@@ -416,19 +462,28 @@ def get_publications(
 
     def live() -> _Read:
         tag = entity_tag(
-            ("live", workspace.key, str(workspace.feed_position), active.release_id), definition.contractVersion
+            ("live", workspace.key, str(workspace.feed_position), active.release_id),
+            definition.contractVersion,
         )
         return _Read(active.model, definition, ConsumerSource(workspace.key), parameters, tag)
 
     return _answer(
-        request, response, workspace, live, lambda _read: read_publications(session, workspace.key, page, page_size)
+        request,
+        response,
+        workspace,
+        live,
+        lambda _read: read_publications(session, workspace.key, page, page_size),
     )
 
 
 @router.get("/{consumer_api}/v{contract_version}/events", response_model=None)
 @reads_own_parameters
 def get_events(
-    consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession
+    consumer_api: str,
+    contract_version: str,
+    request: Request,
+    response: Response,
+    session: DbSession,
 ) -> dict[str, Any] | Response:
     """The pull feed: the definition's events in the workspace, in position order, from a position
     or a cursor, narrowed by ``event`` and the definition's parameters, with each object or its
@@ -452,7 +507,13 @@ def get_events(
         # The derived head and the live one: full objects and parameters read live data, which a
         # write changes before its event is derived (0.9 R-F13, C-D65).
         tag = entity_tag(
-            ("events", workspace.key, str(derived), str(workspace.feed_position), active.release_id),
+            (
+                "events",
+                workspace.key,
+                str(derived),
+                str(workspace.feed_position),
+                active.release_id,
+            ),
             definition.contractVersion,
         )
         return _Read(active.model, definition, ConsumerSource(workspace.key), parameters, tag)
@@ -485,11 +546,17 @@ def _offered(definition: ConsumerApiDefinition, operation: str) -> None:
         )
 
 
-def _events_request(parameters: ReadParameters, definition: ConsumerApiDefinition, workspace_key: str) -> EventsRequest:
+def _events_request(
+    parameters: ReadParameters, definition: ConsumerApiDefinition, workspace_key: str
+) -> EventsRequest:
     """The pull feed's request, checked: its events, payload and page size, and where it starts,
     from ``after`` or a cursor issued for the same API, workspace, events and parameters."""
     declared = {event.key for event in definition.events}
-    event_keys = tuple(dict.fromkeys(parameters.listed.get("event", []))) if "event" in parameters.raw else ()
+    event_keys = (
+        tuple(dict.fromkeys(parameters.listed.get("event", [])))
+        if "event" in parameters.raw
+        else ()
+    )
     unknown = [key for key in event_keys if key not in declared]
     if unknown:
         raise api_error(
@@ -501,7 +568,10 @@ def _events_request(parameters: ReadParameters, definition: ConsumerApiDefinitio
     payload = parameters.single("payload") or "full"
     if payload not in PAGE_SIZES:
         raise api_error(
-            400, "INVALID_PAYLOAD", "payload must be 'full' or 'identity'", {"path": "/query/payload"}
+            400,
+            "INVALID_PAYLOAD",
+            "payload must be 'full' or 'identity'",
+            {"path": "/query/payload"},
         )
     maximum, default = PAGE_SIZES[payload]
     raw_size = parameters.single("pageSize")
@@ -534,9 +604,12 @@ def _events_request(parameters: ReadParameters, definition: ConsumerApiDefinitio
                 position_size=2,
             )
             start = (int(decoded[0]), int(decoded[1]))
-        except (ApiError, ValueError):
+        except ApiError, ValueError:
             raise api_error(
-                400, "INVALID_CURSOR", "Cursor does not continue this read", {"path": "/query/cursor"}
+                400,
+                "INVALID_CURSOR",
+                "Cursor does not continue this read",
+                {"path": "/query/cursor"},
             ) from None
     else:
         try:
@@ -545,7 +618,10 @@ def _events_request(parameters: ReadParameters, definition: ConsumerApiDefinitio
             after = -1
         if after < 0:
             raise api_error(
-                400, "INVALID_POSITION", "after must be a whole number, 0 or more", {"path": "/query/after"}
+                400,
+                "INVALID_POSITION",
+                "after must be a whole number, 0 or more",
+                {"path": "/query/after"},
             )
         start = (after, AFTER_POSITION)
     return EventsRequest(
@@ -559,7 +635,9 @@ def _events_request(parameters: ReadParameters, definition: ConsumerApiDefinitio
 
 @router.get("", response_model=None)
 @reads_own_parameters
-def get_index(request: Request, response: Response, session: DbSession) -> dict[str, Any] | Response:
+def get_index(
+    request: Request, response: Response, session: DbSession
+) -> dict[str, Any] | Response:
     """The API index: every consumer API of the release ``workspace`` runs (the default workspace
     without it), by ``consumerApi``, with its name, contract version and the URL of its OpenAPI
     document (C-D69), which carries the ``workspace`` asked for. A definition key may mean another
@@ -585,12 +663,24 @@ def get_index(request: Request, response: Response, session: DbSession) -> dict[
 
     def read() -> dict[str, Any]:
         found = paginate_sequence(
-            entries, lambda entry: (entry["consumerApi"],), scope="consumer-index", page=page, page_size=page_size
+            entries,
+            lambda entry: (entry["consumerApi"],),
+            scope="consumer-index",
+            page=page,
+            page_size=page_size,
         )
         return {"items": found.items, "pageSize": page_size, **found.links()}
 
     tag = entity_tag(
-        ("index", workspace.key, active.release_id, root_path, suffix, *(sorted(listed) if listed is not None else ["*"])), "index"
+        (
+            "index",
+            workspace.key,
+            active.release_id,
+            root_path,
+            suffix,
+            *(sorted(listed) if listed is not None else ["*"]),
+        ),
+        "index",
     )
     return _document(request, response, tag, read)
 
@@ -598,7 +688,11 @@ def get_index(request: Request, response: Response, session: DbSession) -> dict[
 @router.get("/{consumer_api}/v{contract_version}/openapi.json", response_model=None)
 @reads_own_parameters
 def get_openapi(
-    consumer_api: str, contract_version: str, request: Request, response: Response, session: DbSession
+    consumer_api: str,
+    contract_version: str,
+    request: Request,
+    response: Response,
+    session: DbSession,
 ) -> dict[str, Any] | Response:
     """The definition's own OpenAPI document at its contract version (C6b), from the release
     ``workspace`` runs (the default workspace without it, 0.11 D10): its paths written out with the
@@ -611,7 +705,9 @@ def get_openapi(
     return _document(
         request,
         response,
-        entity_tag(("openapi", workspace.key, active.release_id, root_path), definition.contractVersion),
+        entity_tag(
+            ("openapi", workspace.key, active.release_id, root_path), definition.contractVersion
+        ),
         lambda: consumer_openapi(
             active.model,
             definition,
@@ -622,7 +718,9 @@ def get_openapi(
     )
 
 
-def _described(response: Response, session: Session, workspace_key: str | None) -> tuple[Workspace, ModelSnapshot]:
+def _described(
+    response: Response, session: Session, workspace_key: str | None
+) -> tuple[Workspace, ModelSnapshot]:
     """The workspace a document describes and its model, named in the answer's headers."""
     workspace = _workspace(session, workspace_key)
     active = resolve_model_snapshot(session, workspace.key)
@@ -681,7 +779,9 @@ def _document(
     return body
 
 
-def _resolve_items(raw: bytes, definition: ConsumerApiDefinition, max_items: int) -> list[ResolveItem]:
+def _resolve_items(
+    raw: bytes, definition: ConsumerApiDefinition, max_items: int
+) -> list[ResolveItem]:
     """The body's items, checked: its shape as a whole (``400 REQUEST_VALIDATION_ERROR``), the
     item count (``413 BATCH_TOO_LARGE``) and ``defaults``' names refuse the request (C-D49, C-D50);
     an item's own names, its ``query`` or ``id`` and its terms refuse that item only."""
@@ -709,13 +809,23 @@ def _resolve_items(raw: bytes, definition: ConsumerApiDefinition, max_items: int
     defaults = body.get("defaults", {})
     if not isinstance(defaults, dict):
         raise _shape("/defaults", "'defaults' must be an object of parameters")
-    default_values = {name: _json_values(value, f"/defaults/{name}") for name, value in defaults.items()}
+    default_values = {
+        name: _json_values(value, f"/defaults/{name}") for name, value in defaults.items()
+    }
     shaped = [_shaped_item(item, f"/items/{index}") for index, item in enumerate(items)]
 
     targets = target_names(definition)
-    known = ROUTE_NAMES | _ITEM | set(definition.parameters) | set(targets) | {
-        item.parentParameter.name for item in definition.lists if item.parentParameter is not None
-    }
+    known = (
+        ROUTE_NAMES
+        | _ITEM
+        | set(definition.parameters)
+        | set(targets)
+        | {
+            item.parentParameter.name
+            for item in definition.lists
+            if item.parentParameter is not None
+        }
+    )
     applied = set(definition.parameters) | set(targets)
     refused = _names_refused(list(default_values), known, applied, "/defaults", targets)
     if refused is not None:
@@ -760,7 +870,9 @@ def _resolve_items(raw: bytes, definition: ConsumerApiDefinition, max_items: int
         try:
             resolved.append(replace(found, terms=xref_terms(values["query"])))
         except ApiError as error:
-            resolved.append(replace(found, refused=item_error(error, found.pointer("/query/query"))))
+            resolved.append(
+                replace(found, refused=item_error(error, found.pointer("/query/query")))
+            )
     return resolved
 
 
@@ -769,13 +881,17 @@ def _shaped_item(item: Any, pointer: str) -> tuple[str | None, dict[str, list[st
     if not isinstance(item, dict):
         raise _shape(pointer, "an item must be an object")
     ref = item.get("ref")
-    if ref is not None and not (isinstance(ref, str) and _REF_LENGTH[0] <= len(ref) <= _REF_LENGTH[1]):
+    if ref is not None and not (
+        isinstance(ref, str) and _REF_LENGTH[0] <= len(ref) <= _REF_LENGTH[1]
+    ):
         raise _shape(f"{pointer}/ref", "'ref' must be text of 1 to 200 characters")
     identifier = item.get("id")
     if identifier is not None and not isinstance(identifier, str):
         raise _shape(f"{pointer}/id", "'id' must be text")
     values = {
-        name: _json_values(value, f"{pointer}/{name}") for name, value in item.items() if name != "ref"
+        name: _json_values(value, f"{pointer}/{name}")
+        for name, value in item.items()
+        if name != "ref"
     }
     return ref, values
 
@@ -829,7 +945,9 @@ def _expect_one(raw: str | None) -> bool:
         return False
     if raw == "one":
         return True
-    raise api_error(400, "INVALID_EXPECT", "expect must be 'any' or 'one'", {"path": "/query/expect"})
+    raise api_error(
+        400, "INVALID_EXPECT", "expect must be 'any' or 'one'", {"path": "/query/expect"}
+    )
 
 
 def _answer(
@@ -869,9 +987,7 @@ def _answer(
     return body
 
 
-def _checked(
-    request: Request, definition: ConsumerApiDefinition, **options: Any
-) -> ReadParameters:
+def _checked(request: Request, definition: ConsumerApiDefinition, **options: Any) -> ReadParameters:
     """The request's query checked against ``definition``."""
     raw = {name: request.query_params.getlist(name) for name in sorted(set(request.query_params))}
     listed = _listed_values(request.scope.get("query_string", b""))

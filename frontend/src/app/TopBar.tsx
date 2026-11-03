@@ -6,10 +6,14 @@
  * application's tab or, on a settings page, the Settings icon. What belongs to one page goes in the
  * band under the bar, never in the bar.
  *
+ * Left of the bell, the "?" opens the documentation in a new tab (HD); the guide and the API reference
+ * carry the same bar (`public/brand/refiroo-header.css`).
+ *
  * On a phone the tabs are left out in every area (0.10 N1): an application page's data-context band
  * chooses the application; from Settings the product mark goes home.
  */
 
+import { API_URL } from "@/api/address";
 import { InboxButton } from "@/features/inbox/InboxButton";
 import { applicationHue } from "@/model/hues";
 import { NOTIFICATIONS, routePath } from "@/routing/routes";
@@ -88,6 +92,16 @@ export function TopBar({
       </nav>
       <div className="topbar-spacer" />
       <div className="topbar-actions">
+        <a
+          className="topbar-icon-button topbar-help"
+          href={`${API_URL}/docs/`}
+          target="_blank"
+          rel="noopener"
+          aria-label="Help (opens the documentation in a new tab)"
+          title="Help: the documentation"
+        >
+          <Icon name="help" size={18} />
+        </a>
         <InboxButton applicationKey={currentApplicationKey ?? model.applications[0]?.key} onNavigate={onNavigate} />
         <RouteLink
           className="topbar-icon-button topbar-settings"

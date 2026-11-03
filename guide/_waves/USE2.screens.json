@@ -1,0 +1,1327 @@
+{
+  "wave": "USE2",
+  "note": "Real screens of the reference instance (guide/reference, http://localhost:8480) for the 'Use refiroo' pages: Home, Account, Workspaces, Loading a workbook, Publications, History, Inbox and approvals. Light theme, 1440 px wide, taken by guide/tools/screens.mjs (--file USE2.screens.json) into guide/public/screens/<name>.png. 'shows' says what the picture is for; 'expect' lists texts that must be visible. Dialogs are cancelled. Three kinds of screen need instance state that USE2.data-changes.md describes: the use-wb-* editor screens read the model draft 'Haltestellen Busbetrieb Nord' (id 23ef12bf-85a8-4a2a-993c-a5c8b93572d0; created from guide/samples/Haltestellen_Busbetrieb_Nord.xlsx through 'New from a workbook', since deleted, so recreate it and put its id in the editor URLs to retake them); use-pub-review and use-pub-confirm are one-off (they read the change set ae6d8306-7f41-4404-b269-bcd50efc13f1, which use-pub-confirm publishes); use-pub-*, use-history-stop-changed need that publication to exist. use-notification-job marks one notice read.",
+  "base": "http://localhost:8480",
+  "screens": [
+    {
+      "name": "use-account",
+      "shows": "The person's own Account page (avatar GA, Account): name and user name, how they signed in, Sign out, Password with Change password, Passkeys with Add a passkey, Authenticator app (second factor) not set up.",
+      "actions": [
+        {
+          "goto": "/settings/account"
+        },
+        {
+          "waitFor": {
+            "text": "Passkeys",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Account",
+        "Change password",
+        "Add a passkey",
+        "Authenticator app",
+        "Set up an authenticator app"
+      ]
+    },
+    {
+      "name": "use-account-sessions",
+      "shows": "The 'Where you’re signed in' section of Account: every browser signed in as this person, each with its last activity and a Sign out button.",
+      "actions": [
+        {
+          "goto": "/settings/account"
+        },
+        {
+          "waitFor": {
+            "text": "Passkeys",
+            "exact": true
+          }
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "Where you’re signed in"
+          },
+          "offset": 90
+        }
+      ],
+      "expect": [
+        "Where you’re signed in",
+        "Last active",
+        "Sign out"
+      ]
+    },
+    {
+      "name": "use-account-permissions",
+      "shows": "The foot of Account: 'What you can do', the person's roles per workspace (Data owner and so on) and what each allows, and the instance-wide roles.",
+      "actions": [
+        {
+          "goto": "/settings/account"
+        },
+        {
+          "waitFor": {
+            "text": "Passkeys",
+            "exact": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "What you can do"
+          },
+          "offset": 90
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "What you can do"
+      ]
+    },
+    {
+      "name": "use-account-menu",
+      "shows": "The Account menu behind the avatar GA: the person and their roles, Account, Notifications, All settings, the Theme choice (System, Light, Dark), Sign out.",
+      "actions": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": {
+            "text": "Your workspaces",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Account",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "THEME",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Account",
+        "Notifications",
+        "All settings",
+        "Theme",
+        "Sign out"
+      ]
+    },
+    {
+      "name": "use-workspace-default",
+      "shows": "Result of choosing Default in the workspace switcher of the Network application: the page opens in Default, which runs a different model (RDM Starter Model 0.10.0): the top bar shows RDM Master, RDM Systems, RDM Translations and the toast says Default runs a different model.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Stops"
+          }
+        },
+        {
+          "click": {
+            "role": "combobox"
+          }
+        },
+        {
+          "click": {
+            "text": "RDM Starter Model 0.10.0",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Domains"
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "RDM Master",
+        "RDM Systems",
+        "RDM Translations",
+        "Default runs RDM Starter Model 0.10.0"
+      ]
+    },
+    {
+      "name": "use-workspaces-manage",
+      "shows": "Manage workspaces (Settings, Workspaces): the list of workspaces with their model and release, the default marked, and New workspace. View only.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces"
+        },
+        {
+          "waitFor": {
+            "text": "New workspace",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Workspaces",
+        "New workspace",
+        "Graubünden",
+        "Default",
+        "RDM Starter Model"
+      ]
+    },
+    {
+      "name": "use-workspaces-detail",
+      "shows": "One workspace in Manage workspaces (Graubünden): its key, the actions Open workspace, Edit model, Copy or move data, Rename, Retire, and the tabs Overview, Access, Approval, Activity.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden"
+        },
+        {
+          "waitFor": {
+            "text": "Open workspace",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Open workspace",
+        "Edit model",
+        "Rename",
+        "Retire",
+        "Overview",
+        "Access",
+        "Approval",
+        "Activity"
+      ]
+    },
+    {
+      "name": "use-wb-model-list",
+      "shows": "Settings, Model: the models of the instance and the two ways to start a draft, 'New from a workbook' and 'New draft'.",
+      "actions": [
+        {
+          "goto": "/settings/model"
+        },
+        {
+          "waitFor": {
+            "text": "New from a workbook",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Model",
+        "New from a workbook",
+        "New draft"
+      ]
+    },
+    {
+      "name": "use-wb-dialog",
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel"
+          }
+        }
+      ],
+      "shows": "The 'New from a workbook' dialog filled in: the draft name, the chosen workbook Haltestellen_Busbetrieb_Nord.xlsx, the four ways to Propose (a new application, a new model, additions to the model, nothing), the application name, the workspace to compare with. Cancelled, nothing is created.",
+      "actions": [
+        {
+          "goto": "/settings/model"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New from a workbook"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "fill": {
+            "label": "Draft name"
+          },
+          "value": "Haltestellen Busbetrieb Nord"
+        },
+        {
+          "upload": {
+            "css": "input[type=file]"
+          },
+          "value": "guide/samples/Haltestellen_Busbetrieb_Nord.xlsx"
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "New from a workbook",
+        "Workbook",
+        "A new application",
+        "Create and propose"
+      ]
+    },
+    {
+      "name": "use-wb-editor",
+      "height": 1000,
+      "shows": "The model editor right after the workbook was loaded into a draft: the source pane (Haltestellen ·54, Namen ·15, Lokale Codes ·27 sheets with each column's profile and Proposed marks), the model tree with the new application Haltestellen Busbetrieb Nord (Proposed), the proposed type Haltestellen with its 'Proposed because' reason, and the bar 'No issues, 16 steps, Dry run: Checked, 9 refused'.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "Haltestellen_Busbetrieb_Nord.xlsx",
+        "Proposed because",
+        "No issues",
+        "16 steps",
+        "Dry run: Checked, 9 refused",
+        "Load into a change set"
+      ]
+    },
+    {
+      "name": "use-wb-evidence",
+      "height": 1000,
+      "shows": "The 'Proposed because' evidence for the type Haltestellen: the column UIC-Nr is filled and different on all 51 rows, so it is the key.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Evidence"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Hide the evidence"
+          }
+        }
+      ],
+      "expect": [
+        "Proposed because",
+        "Hide the evidence",
+        "UIC-Nr"
+      ]
+    },
+    {
+      "name": "use-wb-source-namen",
+      "height": 1000,
+      "shows": "The source pane on the second sheet, Namen: its columns and how each is profiled and proposed.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "css": "[class*=source] [role=tab]:nth-of-type(2), [role=tab]:has-text('Namen')"
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Namen",
+        "Proposed"
+      ]
+    },
+    {
+      "name": "use-wb-issues",
+      "height": 1000,
+      "shows": "The Issues tab of the bottom panel 'Issues, history and dry run': no issues, the draft is valid and can be installed.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues, history and dry run"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "No issues: the draft is valid",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Issues (0)",
+        "History",
+        "Dry run",
+        "No issues: the draft is valid"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues, history and dry run"
+          }
+        }
+      ]
+    },
+    {
+      "name": "use-wb-dry-run",
+      "height": 1000,
+      "shows": "The Dry run tab: Checked, 94 rows of the sources, nothing written, the figures of the first sheet (Haltestellen: 51 created, 97 values, 260 relationships, 21 related records created). Each figure opens the rows behind it.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues, history and dry run"
+          }
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Dry run"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Each figure opens the rows behind it.",
+            "exact": true
+          }
+        },
+        {
+          "wait": 500
+        }
+      ],
+      "expect": [
+        "Checked",
+        "94 rows",
+        "nothing written",
+        "51"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues, history and dry run"
+          }
+        }
+      ]
+    },
+    {
+      "name": "use-wb-dry-run-names",
+      "height": 1000,
+      "shows": "The Dry run tab scrolled to the second sheet: Namen 4 created, 6 values, 9 rows refused (REFERENCE_NOT_FOUND, shown in red), then the two kinds of local codes created. Each figure opens the rows behind it.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues, history and dry run"
+          }
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Dry run"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Each figure opens the rows behind it.",
+            "exact": true
+          }
+        },
+        {
+          "scrollTo": {
+            "text": "Namen from",
+            "exact": false
+          },
+          "offset": 0
+        },
+        {
+          "wait": 500
+        }
+      ],
+      "expect": [
+        "rows refused",
+        "REFERENCE_NOT_FOUND"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues, history and dry run"
+          }
+        }
+      ]
+    },
+    {
+      "name": "use-wb-dry-refused",
+      "height": 1000,
+      "after": [
+        {
+          "press": "Escape"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues, history and dry run"
+          }
+        }
+      ],
+      "shows": "The rows the dry run would refuse (Namen, 9 rows, REFERENCE_NOT_FOUND: no record matches the reference). Nothing was written. Closed afterwards.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues, history and dry run"
+          }
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Dry run"
+          }
+        },
+        {
+          "click": {
+            "text": "rows refused",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Nothing was written: this is what loading would do.",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Refused",
+        "Not loaded",
+        "All rows",
+        "Namen, row 4"
+      ]
+    },
+    {
+      "name": "use-wb-history",
+      "height": 1000,
+      "shows": "The History tab of the bottom panel: the steps of the draft, each proposal one step that can be undone.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues, history and dry run"
+          }
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "History"
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "History"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Issues, history and dry run"
+          }
+        }
+      ]
+    },
+    {
+      "name": "use-wb-load-dialog",
+      "height": 1000,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel"
+          }
+        }
+      ],
+      "shows": "'Load the workbook into a change set': install and activate the model (release key, version, name), open a change set (name, workspace), load the rows. Cancelled: nothing is installed or loaded.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Load into a change set…"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog"
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Load Haltestellen_Busbetrieb_Nord.xlsx into a change set",
+        "Install and activate the model",
+        "Open a change set",
+        "Load the rows",
+        "Install, activate and load"
+      ]
+    },
+    {
+      "name": "use-wb-draft-menu",
+      "shows": "The editor's actions menu: Upload a newer workbook, Propose again, Delete draft. Closed afterwards.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "css": "button.icon-button[aria-haspopup]",
+            "nth": 0
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Upload a newer workbook",
+        "Propose again",
+        "Delete draft"
+      ],
+      "height": 1000,
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "use-wb-delete-draft",
+      "shows": "'Delete this draft?': deleting the draft removes its steps, proposals and the attached workbook; installed releases are not affected. One-off: the capture then confirms, which deletes the draft (see USE2.data-changes.md); after that the use-wb-* editor screens cannot be retaken without recreating it.",
+      "actions": [
+        {
+          "goto": "/settings/model/drafts/23ef12bf-85a8-4a2a-993c-a5c8b93572d0/editor?show=type&key=haltestellen"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Haltestellen Busbetrieb Nord"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "16 steps",
+            "exact": false
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "css": "button.icon-button[aria-haspopup]",
+            "nth": 0
+          }
+        },
+        {
+          "click": {
+            "text": "Delete draft…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Delete this draft?",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Delete this draft?",
+        "It cannot be undone",
+        "Installed releases are not affected",
+        "Delete draft"
+      ],
+      "height": 900,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Delete draft",
+            "exact": true
+          }
+        },
+        {
+          "wait": 2500
+        }
+      ]
+    },
+    {
+      "name": "use-pub-review",
+      "shows": "Review changes of the new change set 'Correct Thusis Süd abbreviation': the one changed record, Thusis Süd, with the changed Abbreviation. One-off: the change set is published by use-pub-confirm and is then gone.",
+      "actions": [
+        {
+          "goto": "/apps/network/change-sets/ae6d8306-7f41-4404-b269-bcd50efc13f1/changes?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Review changes"
+          }
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "Review changes",
+        "Thusis Süd",
+        "Changed: Abbreviation"
+      ]
+    },
+    {
+      "name": "use-pub-review-record",
+      "shows": "Review changes with the changed record Thusis Süd opened: Abbreviation THSS before, THSD after. One-off like use-pub-review.",
+      "actions": [
+        {
+          "goto": "/apps/network/change-sets/ae6d8306-7f41-4404-b269-bcd50efc13f1/changes?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Review changes"
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "click": {
+            "css": "button.change-row-toggle"
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "THSD"
+      ]
+    },
+    {
+      "name": "use-pub-confirm",
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Publish change set",
+            "nth": -1
+          }
+        },
+        {
+          "wait": 3000
+        }
+      ],
+      "shows": "The change set after Validate change set (validation passed) and the 'Publish this change set?' confirmation, shown before it is confirmed. The capture then confirms: the change set is published (the data change in USE2.data-changes.md).",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&changeSetId=ae6d8306-7f41-4404-b269-bcd50efc13f1"
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Validate change set"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Validate change set"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Change set validation passed",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Publish change set"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Publish this change set?",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Please confirm",
+        "Publish this change set?",
+        "Unrelated live changes are preserved",
+        "Cancel"
+      ]
+    },
+    {
+      "name": "use-pub-list",
+      "shows": "The Publications page of Network after publishing: the first publication (newest first) with its number and what it holds.",
+      "actions": [
+        {
+          "goto": "/apps/network/publications?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Open publication"
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Publications",
+        "Publication 1",
+        "Current",
+        "Open publication"
+      ]
+    },
+    {
+      "name": "use-pub-snapshot",
+      "shows": "A publication opened read-only (purple Publication 1 banner: 'Read-only. A publication's records never change.', Back to publications), searched for Thusis Süd: its Abbreviation reads THSD as published.",
+      "actions": [
+        {
+          "goto": "/apps/network/publications?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Open publication"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Stops"
+          }
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "fill": {
+            "placeholder": "Search stops"
+          },
+          "value": "Thusis Süd"
+        },
+        {
+          "wait": 1500
+        }
+      ],
+      "expect": [
+        "Viewing Publication 1",
+        "Read-only",
+        "THSD",
+        "Back to publications"
+      ]
+    },
+    {
+      "name": "use-history-activity",
+      "shows": "Settings, Workspaces, Graubünden, Activity: the history across all records of the workspace, newest first, with the filters What (Everything, Records, Relationships, Change sets, Publications), who changed it and when.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden/activity"
+        },
+        {
+          "waitFor": {
+            "text": "Everything",
+            "exact": true
+          }
+        },
+        {
+          "wait": 1200
+        }
+      ],
+      "expect": [
+        "Activity",
+        "Everything",
+        "Records",
+        "Change sets",
+        "Publications",
+        "by Guide Admin"
+      ]
+    },
+    {
+      "name": "use-history-changes",
+      "shows": "'Your changes' (Home, See all your changes) filtered to the workspace Graubünden: what this person changed across records, with the filters Workspace, What, Period.",
+      "actions": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": {
+            "text": "Your workspaces",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "text": "See all your changes",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Your changes",
+            "exact": true
+          }
+        },
+        {
+          "select": {
+            "label": "Workspace"
+          },
+          "value": "Graubünden"
+        },
+        {
+          "wait": 600
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Your changes",
+        "Workspace",
+        "What",
+        "Period"
+      ]
+    },
+    {
+      "name": "use-history-stop-changed",
+      "shows": "The History section of Thusis Süd after the publication: the Abbreviation change from THSS to THSD with who and when.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden&search=Thusis+S%C3%BCd"
+        },
+        {
+          "click": {
+            "text": "Thusis Süd",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Thusis Süd"
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "History"
+          },
+          "offset": 90
+        }
+      ],
+      "expect": [
+        "History",
+        "Abbreviation",
+        "Guide Admin"
+      ]
+    },
+    {
+      "name": "use-inbox-panel",
+      "shows": "The inbox panel behind the bell in the top bar: unread notifications, Mark all read, See all notifications.",
+      "actions": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": {
+            "text": "Your workspaces",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Inbox",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "text": "See all notifications",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Unread",
+        "Mark all read",
+        "See all notifications"
+      ],
+      "height": 901
+    },
+    {
+      "name": "use-notifications-page",
+      "shows": "The Notifications page: search, filters Kind, Workspace, Show, Sort, select all, the notices (here 'Batch finished, Started by you') and Delete all read.",
+      "actions": [
+        {
+          "goto": "/notifications"
+        },
+        {
+          "waitFor": {
+            "text": "Notices are kept for 90 days.",
+            "exact": false
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Notifications",
+        "Sort",
+        "Batch finished",
+        "Delete all read"
+      ]
+    },
+    {
+      "name": "use-approval-policy",
+      "shows": "Settings, Workspaces, Graubünden, Approval (view only): where approval is switched on, 'Changes need approval before they are published' and 'The person who submitted a change set cannot approve it'. Both are off on the reference instance, so no approval flow exists to show; nothing is saved.",
+      "actions": [
+        {
+          "goto": "/settings/workspaces/graubuenden/approval"
+        },
+        {
+          "waitFor": {
+            "text": "Save approval policy",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Approval",
+        "Changes need approval before they are published",
+        "The person who submitted a change set cannot approve it"
+      ]
+    },
+    {
+      "name": "use-notification-job",
+      "shows": "What a notice opens: 'Batch finished' opens the job page (state, result, items). Opening it marks that notice read.",
+      "actions": [
+        {
+          "goto": "/notifications"
+        },
+        {
+          "waitFor": {
+            "text": "Notices are kept for 90 days.",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "text": "Batch finished",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "The result",
+            "exact": true
+          }
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "expect": [
+        "Batch",
+        "The result",
+        "The items"
+      ]
+    },
+    {
+      "name": "use-home",
+      "height": 1500,
+      "shows": "Home, the page a person lands on: the greeting with the person's roles, Your workspaces as cards (workspace, model, roles, Follow, its applications, counts of the person's change sets and change sets to publish), Your change sets, Your recent changes with See all your changes; the bell with the unread count and the avatar at the top right.",
+      "actions": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": {
+            "text": "Your recent changes",
+            "exact": true
+          }
+        },
+        {
+          "wait": 1000
+        }
+      ],
+      "expect": [
+        "Good evening",
+        "Your workspaces",
+        "Follow",
+        "Your change sets",
+        "Your recent changes",
+        "See all your changes"
+      ]
+    },
+    {
+      "name": "use-home-continue",
+      "height": 1000,
+      "shows": "Home after the person worked in the Default workspace: the 'Continue where you left off' card beside the greeting names the last place (Domains, Default).",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Stops"
+          }
+        },
+        {
+          "click": {
+            "role": "combobox"
+          }
+        },
+        {
+          "click": {
+            "text": "RDM Starter Model 0.10.0",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Domains"
+          }
+        },
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": {
+            "text": "Your recent changes",
+            "exact": true
+          }
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "expect": [
+        "Continue where you left off",
+        "Domains",
+        "Default"
+      ]
+    }
+  ]
+}

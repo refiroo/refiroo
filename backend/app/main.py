@@ -66,6 +66,7 @@ from .management.errors import (
     refuse_waiting_too_long,
     validation_error_handler,
 )
+from .management.guide_site import mount_guide
 from .management.query_parameters import refuse_unknown_parameters
 from .management.reference import api_reference_router
 from .management.routers import (
@@ -370,7 +371,7 @@ def create_app() -> FastAPI:
         lifespan=_serving_mcp if settings.mcp_enabled else lifespan,
         # Every route accepts only the query parameters it declares (D-3).
         dependencies=[Depends(refuse_unknown_parameters)],
-        # /docs is the Scalar reference page (api_reference_router), not Swagger UI or ReDoc.
+        # /docs/api is the Scalar reference page (api_reference_router), not Swagger UI or ReDoc.
         docs_url=None,
         redoc_url=None,
         swagger_ui_oauth2_redirect_url=None,
@@ -604,6 +605,7 @@ def create_app() -> FastAPI:
 
     application.include_router(api_reference_router(settings.api_reference_script))
     application.include_router(brand_router())
+    mount_guide(application)
     # The OAuth endpoints need no token (D245); every management router below needs one.
     application.include_router(oauth.router)
     application.include_router(oauth_app.router)

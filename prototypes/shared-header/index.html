@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shared header mock-up</title>
+<style>
+  /* Values copied from frontend/src/styles/tokens.css for the mock-up only. */
+  .light { --bg: #faf9f7; --top: #ffffff; --ink: #1d1c1a; --muted: #55524c; --line: #e4e2dc; --hover: #efede8; --field: #f6f5f2; }
+  .dark  { --bg: #141416; --top: #18181b; --ink: #ececee; --muted: #b4b3ba; --line: #2c2c31; --hover: #26262b; --field: #1d1d21; }
+  body { margin: 0; padding: 24px 16px 48px; background: #e9e7e2; font: 14px system-ui, sans-serif; color: #1d1c1a; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 28px 0 8px; }
+  p.note { margin: 4px 0 10px; color: #55524c; max-width: 820px; }
+  .frame { background: var(--bg); border: 1px solid #cfccc4; border-radius: 8px; overflow: hidden; margin-bottom: 10px; color: var(--ink); }
+  .bar { display: flex; align-items: stretch; gap: 20px; height: 56px; padding: 0 16px 0 20px; background: var(--top); border-bottom: 1px solid var(--line); box-sizing: border-box; }
+  .mark { display: flex; align-items: center; gap: 10px; flex: none; text-decoration: none; color: inherit; }
+  .mark img.mascot { height: 32px; width: auto; }
+  .mark img.wordmark { height: 18px; width: auto; }
+  .dark .mark img.wordmark { filter: brightness(0) invert(.93); }
+  .tabs { display: flex; gap: 20px; }
+  .tab { display: flex; align-items: center; padding-top: 2px; border-bottom: 2px solid transparent; color: var(--muted); text-decoration: none; font-weight: 500; white-space: nowrap; }
+  .tab[aria-current] { border-bottom-color: var(--ink); color: var(--ink); font-weight: 600; }
+  .tile { width: 20px; height: 20px; border-radius: 5px; margin-right: 8px; display: inline-block; }
+  .search { align-self: center; display: flex; align-items: center; gap: 8px; width: 260px; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--muted); box-sizing: border-box; }
+  .search kbd { margin-left: auto; font: 11px system-ui; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .spacer { flex: 1; }
+  .actions { display: flex; align-items: center; gap: 4px; }
+  .icon { width: 36px; height: 36px; border-radius: 6px; display: grid; place-items: center; color: var(--muted); font-weight: 700; font-size: 16px; }
+  .icon.help { border: 1.5px solid currentColor; width: 22px; height: 22px; border-radius: 50%; font-size: 13px; margin: 0 7px; }
+  .icon.focus { outline: 2px dashed #6b5bd6; outline-offset: 2px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: #c9c3f0; color: #2a2370; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-left: 6px; }
+  .theme { align-self: center; display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); font-size: 13px; }
+  .page { display: flex; min-height: 70px; }
+  .side { width: 220px; border-right: 1px solid var(--line); padding: 12px 16px; color: var(--muted); font-size: 13px; }
+  .content { padding: 12px 20px; color: var(--muted); font-size: 13px; }
+  .callout { font-size: 12px; color: #6b5bd6; margin: 0 0 4px; }
+  .phone { width: 390px; }
+  .phone .bar { gap: 12px; padding: 0 12px; }
+  .phone .search { width: 36px; padding: 0; justify-content: center; border: 0; background: none; }
+  .phone .tabs { gap: 14px; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<h1>One header for the app, the documentation and the API reference</h1>
+<p class="note">Mock-up for the proposed package HD in docs/BASE_0_17_IMPLEMENTATION_PLAN.md. The three pages share the bar's height (56 px), surface, border, logo and the ink underline on the current item. The logo always goes to the app's home. The theme picker writes the app's own choice, so all three follow one setting.</p>
+
+<h2>1 · The app (today's bar plus "?")</h2>
+<p class="callout">New: "?" opens the documentation in a new tab. It sits left of the bell, so the account stays rightmost.</p>
+<div class="frame light">
+  <div class="bar">
+    <a class="mark" href="#"><img class="mascot" src="../../frontend/public/brand/refiroo-mascot.png" alt="" /><img class="wordmark" src="../../frontend/public/brand/refiroo-wordmark.png" alt="refiroo" /></a>
+    <nav class="tabs"><a class="tab" aria-current="page" href="#"><span class="tile" style="background:#7c6fe0"></span>Catalogue</a><a class="tab" href="#"><span class="tile" style="background:#3fa98a"></span>Locations</a></nav>
+    <div class="spacer"></div>
+    <div class="actions"><span class="icon help focus" title="Help (opens the documentation)">?</span><span class="icon">🔔</span><span class="icon">⚙</span><span class="avatar">KT</span></div>
+  </div>
+  <div class="page"><div class="content">Application page …</div></div>
+</div>
+
+<h2>2 · The documentation (Starlight)</h2>
+<p class="callout">New: Documentation | API reference before the search box; the logo goes to the app; theme picker uses System / Light / Dark like the app.</p>
+<div class="frame light">
+  <div class="bar">
+    <a class="mark" href="#"><img class="mascot" src="../../frontend/public/brand/refiroo-mascot.png" alt="" /><img class="wordmark" src="../../frontend/public/brand/refiroo-wordmark.png" alt="refiroo" /></a>
+    <nav class="tabs"><a class="tab" aria-current="page" href="#">Documentation</a><a class="tab" href="#">API reference</a></nav>
+    <div class="search">⌕ Search the documentation <kbd>⌘K</kbd></div>
+    <div class="spacer"></div>
+    <div class="theme">◐ System ▾</div>
+  </div>
+  <div class="page"><div class="side">About refiroo<br />Use refiroo<br />Model your data …</div><div class="content">Guide page …</div></div>
+</div>
+
+<h2>3 · The API reference (Scalar)</h2>
+<p class="callout">Same bar; "API reference" is current. No search box (the documentation's search covers only the guide). Scalar's own dark-mode toggle is hidden.</p>
+<div class="frame light">
+  <div class="bar">
+    <a class="mark" href="#"><img class="mascot" src="../../frontend/public/brand/refiroo-mascot.png" alt="" /><img class="wordmark" src="../../frontend/public/brand/refiroo-wordmark.png" alt="refiroo" /></a>
+    <nav class="tabs"><a class="tab" href="#">Documentation</a><a class="tab" aria-current="page" href="#">API reference</a></nav>
+    <div class="spacer"></div>
+    <div class="theme">◐ System ▾</div>
+  </div>
+  <div class="page"><div class="side">Management API<br />Consumer APIs …</div><div class="content">Scalar reference …</div></div>
+</div>
+
+<h2>The same three in dark</h2>
+<div class="frame dark">
+  <div class="bar">
+    <a class="mark" href="#"><img class="mascot" src="../../frontend/public/brand/refiroo-mascot.png" alt="" /><img class="wordmark" src="../../frontend/public/brand/refiroo-wordmark.png" alt="refiroo" /></a>
+    <nav class="tabs"><a class="tab" aria-current="page" href="#"><span class="tile" style="background:#7c6fe0"></span>Catalogue</a><a class="tab" href="#"><span class="tile" style="background:#3fa98a"></span>Locations</a></nav>
+    <div class="spacer"></div>
+    <div class="actions"><span class="icon help">?</span><span class="icon">🔔</span><span class="icon">⚙</span><span class="avatar">KT</span></div>
+  </div>
+</div>
+<div class="frame dark">
+  <div class="bar">
+    <a class="mark" href="#"><img class="mascot" src="../../frontend/public/brand/refiroo-mascot.png" alt="" /><img class="wordmark" src="../../frontend/public/brand/refiroo-wordmark.png" alt="refiroo" /></a>
+    <nav class="tabs"><a class="tab" aria-current="page" href="#">Documentation</a><a class="tab" href="#">API reference</a></nav>
+    <div class="search">⌕ Search the documentation <kbd>⌘K</kbd></div>
+    <div class="spacer"></div>
+    <div class="theme">◐ Dark ▾</div>
+  </div>
+</div>
+<div class="frame dark">
+  <div class="bar">
+    <a class="mark" href="#"><img class="mascot" src="../../frontend/public/brand/refiroo-mascot.png" alt="" /><img class="wordmark" src="../../frontend/public/brand/refiroo-wordmark.png" alt="refiroo" /></a>
+    <nav class="tabs"><a class="tab" href="#">Documentation</a><a class="tab" aria-current="page" href="#">API reference</a></nav>
+    <div class="spacer"></div>
+    <div class="theme">◐ Dark ▾</div>
+  </div>
+</div>
+
+<h2>Phone width</h2>
+<p class="callout">The wordmark is dropped; the switch reads Docs | API; search becomes an icon; the theme picker moves into the guide's menu (☰), as Starlight does today.</p>
+<div class="row">
+  <div class="frame light phone">
+    <div class="bar">
+      <a class="mark" href="#"><img class="mascot" src="../../frontend/public/brand/refiroo-mascot.png" alt="" /></a>
+      <nav class="tabs"><a class="tab" aria-current="page" href="#">Docs</a><a class="tab" href="#">API</a></nav>
+      <div class="spacer"></div>
+      <div class="search">⌕</div><span class="icon">☰</span>
+    </div>
+  </div>
+  <div class="frame light phone">
+    <div class="bar">
+      <a class="mark" href="#"><img class="mascot" src="../../frontend/public/brand/refiroo-mascot.png" alt="" /></a>
+      <div class="spacer"></div>
+      <div class="actions"><span class="icon help">?</span><span class="icon">🔔</span><span class="icon">⚙</span><span class="avatar">KT</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

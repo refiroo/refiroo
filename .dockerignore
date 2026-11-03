@@ -11,5 +11,14 @@
 !frontend/public
 !frontend/src
 !frontend/nginx
+# The guide, built in the engine image's first stage (0.13 DOC1).
+!guide/package.json
+!guide/package-lock.json
+!guide/astro.config.mjs
+!guide/sidebar
+!guide/src
+!guide/public
+!guide/examples
+!guide/tools
 **/__pycache__
 **/*.pyc

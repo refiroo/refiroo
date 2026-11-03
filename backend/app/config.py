@@ -37,7 +37,7 @@ DEFAULT_SOURCE_CODE_URL = f"https://github.com/refiroo/refiroo/tree/v{ENGINE_VER
 
 TRUTHY = {"1", "true", "yes", "on"}
 
-# Where the API reference page at /docs loads its script from: the copy bundled with the engine, so
+# Where the API reference page at /docs/api loads its script from: the copy bundled with the engine, so
 # the page works without internet access, or the same pinned version from a CDN.
 ApiReferenceScript = Literal["bundled", "cdn"]
 API_REFERENCE_SCRIPTS: tuple[ApiReferenceScript, ...] = ("bundled", "cdn")
@@ -525,7 +525,7 @@ SETTINGS_CATALOGUE: tuple[CatalogueEntry, ...] = (
         "RDM_API_REFERENCE_SCRIPT",
         "api_reference_script",
         "runtime",
-        "Where the API reference page at /docs loads its script from: bundled or cdn",
+        "Where the API reference page at /docs/api loads its script from: bundled or cdn",
     ),
     CatalogueEntry(
         "WEB_CONCURRENCY",

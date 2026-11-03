@@ -162,7 +162,7 @@ try {
 
   // 4. What is public, what is not.
   const fetched = async (path, init) => (await fetch(`${publicUrl}${path}`, init));
-  for (const path of ["/health", "/.well-known/oauth-authorization-server", "/docs", "/openapi.json", "/brand/app-icon-512.png", "/settings/account"]) {
+  for (const path of ["/health", "/.well-known/oauth-authorization-server", "/docs/api", "/openapi.json", "/brand/app-icon-512.png", "/settings/account"]) {
     expect((await fetched(path)).status === 200, `${path} did not answer 200`);
   }
   expect((await fetched("/metrics")).status === 404, "/metrics is reachable");

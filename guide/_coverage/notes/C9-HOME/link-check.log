@@ -1,0 +1,29 @@
+
+> refiroo-guide@0.0.0 check:links
+> node tools/check.mjs links
+
+links: 48508 local links and sources in 207 built pages
+links: administer/mail/index.html: src "/docs/screens/admin-mail-settings.png" points to nothing
+links: administer/mail/index.html: src "/docs/screens/admin-mail-messages.png" points to nothing
+links: administer/webhooks/index.html: href "/docs/integrate/webhooks/" points to nothing
+links: administer/webhooks/index.html: src "/docs/screens/admin-webhook-new.png" points to nothing
+links: administer/webhooks/index.html: src "/docs/screens/admin-webhook-deliveries.png" points to nothing
+links: guide/administer/create-a-webhook/index.html: src "/docs/screens/admin-webhook-new.png" points to nothing
+links: guide/administer/find-out-why-a-webhook-paused/index.html: src "/docs/screens/admin-webhook-resume.png" points to nothing
+links: guide/administer/rotate-a-webhook-key/index.html: src "/docs/screens/admin-webhook-rotate.png" points to nothing
+links: guide/administer/set-up-mail/index.html: src "/docs/screens/admin-mail-settings.png" points to nothing
+links: guide/model/migrate-a-workspace/index.html: src "/docs/screens/model-migration-stale.png" points to nothing
+links: guide/model/raise-a-model-language-version/index.html: src "/docs/screens/model-language-raise-review.png" points to nothing
+links: guide/use/add-a-language-with-a-workbook/index.html: src "/docs/screens/workbook-columns-per-parent.png" points to nothing
+links: guide/use/export-records/index.html: src "/docs/screens/export-for-people.png" points to nothing
+links: guide/use/open-a-retired-or-unavailable-workspace/index.html: src "/docs/screens/workspace-cannot-open.png" points to nothing
+links: guide/use/propose-a-change/index.html: src "/docs/screens/contributor-propose-change.png" points to nothing
+links: guide/use/replace-a-records-related-records/index.html: src "/docs/screens/replace-related-records.png" points to nothing
+links: guide/use/reshape-a-hierarchy/index.html: src "/docs/screens/hierarchy-restructure-plan.png" points to nothing
+links: index.html: href "/docs/journeys/" points to nothing
+links: run/background-jobs/index.html: src "/docs/screens/run-jobs.png" points to nothing
+links: use/changing-many-records/index.html: src "/docs/screens/bulk-selection-preview.png" points to nothing
+links: use/importing-and-exporting/index.html: src "/docs/screens/import-preview-columns.png" points to nothing
+links: use/notifications-settings/index.html: src "/docs/screens/notification-email-digest.png" points to nothing
+
+22 problem(s) in links.

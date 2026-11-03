@@ -6,9 +6,34 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (one header, 0.13 HD)
+
+- **One header for the app, the guide and the API reference.** The three bars share the height, surface, rule, mark and ink underline (`frontend/public/operator/refiroo-header.css`, served at `/operator/`); the logo leads to the app's home, Documentation | API reference come before the guide's search, and the API page drops Scalar's own dark-mode toggle. **"?"** in the app bar, left of the bell, opens the documentation in a new tab. One theme choice: the guide and the API page read and write `rdm:theme:v1` (System, Light, Dark) and, with the app, follow a change made in another open tab. A public site build sets `PUBLIC_GUIDE_SITE=1` to send the logo to the guide's home. **The public site has the API reference too:** `npm run build:public` in `guide/` (with `GUIDE_OUT` to build elsewhere) builds the guide for the public site and writes a static `/docs/api/` beside it with the engine's own page (`render_page`, in its static form: no sign-in script, no test-request button, the Content-Security-Policy in a `<meta>` element), Scalar's bundled script, the management API's document (from the code, no database) and the `stops` consumer API of the guide's reference domain (`guide/samples/model.json`), titled as the example. The module is `app.management.reference.static_site`; an instance does not use it, since the engine serves `/docs/api` from its route before the guide's files.
+
 ### Changed (image layout)
 
-- **The images keep everything under `/opt/refiroo/rdm-engine`**, laid out as the repository is (`backend/`, `model/`, `data/`, and in the web image `frontend/dist`, `frontend/certs`, `frontend/nginx`), and add nothing at `/`. An existing installation mounts the job-files volume at `/opt/refiroo/rdm-engine/data/job-files` and the certificate folder at `/opt/refiroo/rdm-engine/frontend/certs`; `compose.yml` does both. `AI_AGENT_FOLDERS` defaults to `/opt/refiroo/rdm-engine/data/assistant`.
+- **The images keep everything under `/opt/refiroo/rdm-engine`**, laid out as the repository is (`backend/`, `guide/dist`, `model/`, `data/`, and in the web image `frontend/dist`, `frontend/certs`, `frontend/nginx`), and add nothing at `/`. An existing installation mounts the job-files volume at `/opt/refiroo/rdm-engine/data/job-files` and the certificate folder at `/opt/refiroo/rdm-engine/frontend/certs`; `compose.yml` does both. `AI_AGENT_FOLDERS` defaults to `/opt/refiroo/rdm-engine/data/assistant`.
+
+### Added (the guide's foundation, 0.13 DOC1)
+
+- **The guide at `/guide`.** A static site built with Starlight from the new `guide/` folder and served by the engine offline, from the version it runs; the web image's proxy forwards `/guide`, and `/docs` and Settings › About link to it. A checkout that has not built it starts as usual and `/guide` says how to build it. The engine image builds the guide in its own stage and carries only the built files.
+- **Page kinds, templates and checks.** Every page is a tutorial, how-to, explanation or reference with front matter for its reader, covered items, required statements and examples; the build refuses a stub. `npm run check` (front matter, stubs, template headings, banned terms, the spelling "refiroo", examples) and `npm run check:links` run from `guide/`; `guide/AGENTS.md` holds the writing rules and the process for writing a page from its brief.
+- **The `docs` test group.** `pytest -m docs` runs the guide's examples against the engine seeded with the starter model (IDs and times normalised; model examples through the engine's validation); a page prints the same file it was tested from. `python -m tests.affected` selects it when a file in `guide/examples/` changes.
+- **First page: Three kinds of change.** `node e2e/accessibility-gate.mjs --only guide` runs the accessibility checks on the guide through the running engine, light and dark, at 1440px and 390px, and fails if the page asks for anything outside the engine.
+- AGENTS.md: a change to user-visible behavior updates the guide pages that cover it, in the same change.
+
+### Added (the guide's page inventory and the briefs of waves A and B, 0.13 DOC3 part 2)
+
+- **Every page of the guide has an owner.** 143 stub briefs in `guide/_briefs/` (title, kind, reader, wave, the inventory items and required statements each owns); `npm run check:coverage` shows no unowned item. The generated reference pages own the rest of their kind (`kind:*`); 0.16's items are listed in `guide/_coverage/wave-g-items.txt` for wave G.
+- **Full briefs and tested examples for waves A and B** (how refiroo works, run refiroo, administer access and security): 53 briefs, 72 new examples run by the `docs` group, and `npm run check:briefs`. Prompt files `guide/_waves/DOC4.md` and `DOC5.md`.
+- **A stale coverage inventory fails the `docs` group**, and `GUIDE_RECORD=1` records an example's expected responses from what the engine answered; signed cursors are shown as `<cursor>`.
+
+### Added (the guide's reference domain and coverage inventory, 0.13 DOC3 part 1)
+
+- **The guide's running example is in `guide/samples/`.** The public transport stops of Graubünden from open data (opentransportdata.swiss and Wikidata, attribution in `SOURCES.md`) with one fictional ticketing system and one fictional workbook: the model, two dated data sets (docs, 598 records; reference, 3,528) and the scripts that fetch and load them. `python3 guide/samples/load.py --set docs|reference --base <instance> --env <env file>` loads either set through the public API.
+- **A reference instance for the guide** (`guide/reference/reference.sh up`): the engine image on Compose project `refiroo-guide-ref`, ports 8480 and 8443, with the reference set loaded and generated secrets in a git-ignored `.env`.
+- **The `docs` group seeds the docs set** instead of the starter model; the proof page's examples run on the reference domain.
+- **The coverage inventory.** `npm run inventory` lists what the guide must account for (capabilities, journeys, settings, error codes, commands, roles, permissions, event types, model-language fields); `npm run check:coverage` compares it with the briefs and pages, and `-- --strict` is the release gate.
 
 ## [0.16.0] - 2026-11-02
 

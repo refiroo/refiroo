@@ -1,0 +1,287 @@
+[
+  {
+    "keep": "C1311",
+    "removed": "C1303",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C2457",
+    "removed": "C2421",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0433",
+    "removed": "C0330",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0548",
+    "removed": "C0478",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0482",
+    "removed": "C0484",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0482",
+    "removed": "C0468",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0469",
+    "removed": "C0557",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0414",
+    "removed": "C0419",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0572",
+    "removed": "C0573",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0612",
+    "removed": "C0614",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C1041",
+    "removed": "C1044",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0358",
+    "removed": "C3987",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C1048",
+    "removed": "C4010",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C2231",
+    "removed": "C4041",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0328",
+    "removed": "C4042",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C2302",
+    "removed": "C4043",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C1831",
+    "removed": "C4047",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0375",
+    "removed": "C4050",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C1833",
+    "removed": "C4067",
+    "reason": "Same reader obligation; fuller clauses and provenance retained."
+  },
+  {
+    "keep": "C0086",
+    "removed": "C0096",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C0189",
+    "removed": "C0097",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C0224",
+    "removed": "C0229",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C0226",
+    "removed": "C0230",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C0544",
+    "removed": "C0464",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C0571",
+    "removed": "C0568",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C0612",
+    "removed": "C0610",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C0742",
+    "removed": "C0731",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C1041",
+    "removed": "C1038",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C1916",
+    "removed": "C1915",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C1917",
+    "removed": "C1897",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3921",
+    "removed": "C3929",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3931",
+    "removed": "C3941",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3931",
+    "removed": "C3942",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3932",
+    "removed": "C3943",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3935",
+    "removed": "C3944",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3948",
+    "removed": "C3965",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3946",
+    "removed": "C3966",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3947",
+    "removed": "C3967",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3957",
+    "removed": "C3968",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3959",
+    "removed": "C3969",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3955",
+    "removed": "C3971",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3960",
+    "removed": "C3972",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3980",
+    "removed": "C3988",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3980",
+    "removed": "C3989",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3975",
+    "removed": "C3990",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3991",
+    "removed": "C4008",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3992",
+    "removed": "C4009",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C3998",
+    "removed": "C4011",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C4004",
+    "removed": "C4012",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C4019",
+    "removed": "C4044",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C4019",
+    "removed": "C4045",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C4022",
+    "removed": "C4046",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C4022",
+    "removed": "C4049",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C4028",
+    "removed": "C4048",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C4037",
+    "removed": "C4051",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C4059",
+    "removed": "C4065",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  },
+  {
+    "keep": "C4052",
+    "removed": "C4066",
+    "reason": "Same writing obligation; source and reader coverage retained."
+  }
+]

@@ -1,0 +1,76 @@
+{
+  "coverage_rows": 3106,
+  "primary_records": 1095,
+  "ordinary_primary_records": 971,
+  "ai_primary_records": 124,
+  "rules": 149,
+  "deferred_release_leads": 183,
+  "release_counts": {
+    "added_promises": 110,
+    "added_rules": 37,
+    "merged": 904,
+    "superseded": 28,
+    "dropped": 131
+  },
+  "semantic_merges": 57,
+  "sections": {
+    "about": {
+      "uncovered": 43,
+      "excluded": 1,
+      "after": 1
+    },
+    "use": {
+      "uncovered": 298,
+      "covered": 304,
+      "partly": 104,
+      "after": 139,
+      "excluded": 72
+    },
+    "model": {
+      "covered": 174,
+      "uncovered": 481,
+      "excluded": 18,
+      "partly": 119,
+      "after": 27
+    },
+    "administer": {
+      "after": 31,
+      "uncovered": 61,
+      "covered": 123,
+      "partly": 65,
+      "excluded": 9
+    },
+    "run": {
+      "after": 58,
+      "covered": 125,
+      "excluded": 35,
+      "partly": 23,
+      "uncovered": 13
+    },
+    "integrate": {
+      "uncovered": 645,
+      "after": 43,
+      "excluded": 30,
+      "partly": 1
+    },
+    "examples": {
+      "uncovered": 1,
+      "covered": 4,
+      "partly": 1
+    },
+    "journeys": {
+      "uncovered": 29,
+      "covered": 18,
+      "excluded": 1,
+      "after": 9
+    }
+  },
+  "coverage_totals": {
+    "uncovered": 1571,
+    "excluded": 166,
+    "after": 308,
+    "covered": 748,
+    "partly": 313
+  },
+  "validation": "Inventory structure, unique stable IDs, planned homes, existing page links, unchanged after-0.16 rows and reconciliation arithmetic passed."
+}

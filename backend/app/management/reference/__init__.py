@@ -1,4 +1,4 @@
-"""The API reference page at ``/docs``: Scalar over the engine's OpenAPI documents (0.9 V1, V2).
+"""The API reference page at ``/docs/api``: Scalar over the engine's OpenAPI documents (0.9 V1, V2).
 
 The sources are the management API and, beside it, every consumer API of the active release at its
 contract version (V2), built per request, so a release that adds, removes or re-versions a
@@ -14,6 +14,7 @@ import base64
 import hashlib
 import json
 import re
+from dataclasses import dataclass
 from html import escape
 from pathlib import Path
 from typing import Annotated
@@ -35,7 +36,7 @@ SCALAR_SCRIPT = Path(__file__).resolve().parent / "scalar" / "standalone.js"
 # Subresource integrity of the bundled script; the CDN serves the same bytes for the pinned version.
 SCALAR_INTEGRITY = "sha384-mc6GgHVwdYe1ZSU5XmJBa2pe6QzCRDSd0Pk8TqiqM7iiAOFMKtpBTOOa2RZDHkYN"
 SCALAR_CDN_URL = f"https://cdn.jsdelivr.net/npm/@scalar/api-reference@{SCALAR_VERSION}/dist/browser/standalone.js"
-BUNDLED_SCRIPT_PATH = "/docs/scalar/standalone.js"
+BUNDLED_SCRIPT_PATH = "/docs/api/scalar/standalone.js"
 
 # The mount point is not "api-reference": the Scalar script mounts a second, unconfigured instance
 # on an element with that id by itself, which would load web fonts and show hosted services.
@@ -45,31 +46,103 @@ _PAGE = """<!doctype html>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>refiroo API reference</title>
-    <link rel="icon" href="{root_path}/brand/favicon.png" />
+    <link rel="icon" href="{favicon}" />
+    <link rel="stylesheet" href="{stylesheet}" />
     <style>
-      .brand-header {{ position: fixed; inset: 0 0 auto 0; z-index: 100; height: 48px; display: flex;
-        align-items: center; gap: 10px; padding: 0 16px; box-sizing: border-box;
-        background: #fff; border-bottom: 1px solid #e4e2dc; font: 600 14px system-ui, sans-serif; color: #1d1c1a; }}
-      .brand-header img {{ display: block; height: 32px; width: auto; }}
-      .brand-header img.wordmark {{ height: 16px; }}
-      @media (prefers-color-scheme: dark) {{
-        .brand-header {{ background: #18181b; border-bottom-color: #2c2c31; color: #ececee; }}
-        .brand-header img.wordmark {{ filter: brightness(0) invert(.93); }}
-      }}
+      .rdm-header {{ position: fixed; inset: 0 0 auto 0; z-index: 100; }}
+      body {{ margin: 0; }}
     </style>
+    <script>{theme_script}</script>
   </head>
   <body>
-    <header class="brand-header">
-      <img src="{root_path}/brand/refiroo-mascot.png" alt="" />
-      <img class="wordmark" src="{root_path}/brand/refiroo-wordmark.png" alt="refiroo" />
-      <span>API reference</span>
+    <header class="rdm-header">
+      <a class="rdm-mark" href="{home}" aria-label="refiroo home">
+        <img src="{mascot}" alt="" />
+        <img class="rdm-wordmark" src="{wordmark}" alt="refiroo" />
+      </a>
+      <nav class="rdm-tabs" aria-label="Documentation">
+        <a class="rdm-tab" href="{docs}"><span class="rdm-full">Documentation</span><span class="rdm-short">Docs</span></a>
+        <a class="rdm-tab" href="{api}" aria-current="page"><span class="rdm-full">API reference</span><span class="rdm-short">API</span></a>
+      </nav>
+      <div class="rdm-spacer"></div>
+      <label class="rdm-theme">
+        <select id="rdm-theme" aria-label="Theme">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
     </header>
     <div id="rdm-api-reference"></div>
     <script src="{script}"{integrity}></script>
     <script>window.rdmReference = Scalar.createApiReference("#rdm-api-reference", {configuration});</script>
-    <script>{sign_in_script}</script>
+{sign_in_element}    <script>{theme_wiring_script}</script>
   </body>
 </html>
+"""
+
+
+# The theme is the application's own choice (HD): ``rdm:theme:v1``, JSON "system", "light" or "dark".
+# This runs in the head, before the first paint, and sets ``data-theme`` to the resolved light or dark.
+_THEME = """
+(function () {
+  var KEY = "rdm:theme:v1";
+  function read() {
+    try {
+      var value = JSON.parse(localStorage.getItem(KEY) || '"system"');
+      return value === "light" || value === "dark" ? value : "system";
+    } catch (error) { return "system"; }
+  }
+  function resolved() {
+    var choice = read();
+    if (choice !== "system") return choice;
+    return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  function apply() { document.documentElement.dataset.theme = resolved(); }
+  apply();
+  window.rdmTheme = { key: KEY, read: read, resolved: resolved, apply: apply };
+})();
+"""
+
+# Sets Scalar's colour mode at once (right after it is created, before the first paint) and wires the
+# picker and the other tabs to the choice: a pick here is saved for the
+# application and the guide, and a pick made there (the storage event) or a change of the operating
+# system's theme (while the choice is System) reaches this page.
+_THEME_WIRING = """
+(function () {
+  var theme = window.rdmTheme;
+  var picker = document.getElementById("rdm-theme");
+  // A mounted Scalar does not switch on updateConfiguration, so its colour class on the body is set
+  // here, and put back if Scalar changes it (it sets the class itself when it mounts).
+  function paint() {
+    var mode = theme.resolved();
+    var body = document.body;
+    if (body.classList.contains(mode + "-mode") && !body.classList.contains((mode === "dark" ? "light" : "dark") + "-mode")) return;
+    body.classList.remove("light-mode", "dark-mode");
+    body.classList.add(mode + "-mode");
+  }
+  function follow() {
+    theme.apply();
+    picker.value = theme.read();
+    var reference = window.rdmReference;
+    reference.updateConfiguration(Object.assign({}, reference.getConfiguration(), {
+      forceDarkModeState: theme.resolved(),
+    }));
+    paint();
+  }
+  new MutationObserver(paint).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  follow();
+  picker.addEventListener("change", function () {
+    try { localStorage.setItem(theme.key, JSON.stringify(picker.value)); } catch (error) {}
+    follow();
+  });
+  window.addEventListener("storage", function (event) {
+    if (event.key === null || event.key === theme.key) follow();
+  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+    if (theme.read() === "system") follow();
+  });
+})();
 """
 
 
@@ -121,7 +194,10 @@ def api_reference_router(script: ApiReferenceScript) -> APIRouter:
     """The page and its bundled script, both left out of the OpenAPI document."""
     router = APIRouter(include_in_schema=False)
 
-    @router.get("/docs", response_class=HTMLResponse)
+    # Both spellings answer: the documentation site is mounted at /docs and would otherwise take the
+    # trailing-slash address.
+    @router.get("/docs/api/", response_class=HTMLResponse, include_in_schema=False)
+    @router.get("/docs/api", response_class=HTMLResponse)
     def api_reference(
         request: Request,
         session: DbSession,
@@ -186,15 +262,65 @@ OFFLINE_OPTIONS: dict = {
     "mcp": {"disabled": True},
     "showDeveloperTools": "never",
     "hideClientButton": True,
+    # The theme is the application's choice, picked in the page's header (HD), not Scalar's own toggle.
+    "hideDarkModeToggle": True,
 }
 
 
-# Scalar leaves room under the page's fixed refiroo header for this height.
-HEADER_CSS = ":root { --scalar-custom-header-height: 48px; }"
+# Scalar leaves room under the page's fixed refiroo header (56 px, as in the guide and the interface).
+HEADER_CSS = ":root { --scalar-custom-header-height: 56px; }"
 
 
-def render_page(script: ApiReferenceScript, root_path: str, sources: list[dict]) -> str:
+@dataclass(frozen=True)
+class StaticSite:
+    """Where the page's neighbours are when it is a file on a static host (HD): the public site, which
+    has no engine behind it. The guide sits at ``base`` and ships the logo files and favicon at its
+    root; the shared header stylesheet is written beside the page by ``static_site``."""
+
+    base: str = "/docs"
+
+    @property
+    def stylesheet(self) -> str:
+        return f"{self.base}/brand/refiroo-header.css"
+
+
+def _links(root_path: str, static: StaticSite | None) -> dict[str, str]:
+    """The addresses the header uses: the instance's ``/brand/`` files and routes, or, on the public
+    site, the guide's own (the logo then leads to the guide's home, as in the guide itself)."""
+    if static is not None:
+        base = static.base
+        return {
+            "favicon": f"{base}/favicon.png",
+            "stylesheet": static.stylesheet,
+            "home": f"{base}/",
+            "mascot": f"{base}/refiroo-mascot.png",
+            "wordmark": f"{base}/refiroo-wordmark.png",
+            "docs": f"{base}/",
+            "api": f"{base}/api/",
+        }
+    return {
+        "favicon": f"{root_path}/brand/favicon.png",
+        "stylesheet": f"{root_path}/brand/refiroo-header.css",
+        "home": f"{root_path}/",
+        "mascot": f"{root_path}/brand/refiroo-mascot.png",
+        "wordmark": f"{root_path}/brand/refiroo-wordmark.png",
+        "docs": f"{root_path}/docs/",
+        "api": f"{root_path}/docs/api/",
+    }
+
+
+def render_page(
+    script: ApiReferenceScript,
+    root_path: str,
+    sources: list[dict],
+    *,
+    static: StaticSite | None = None,
+) -> str:
+    """The page. With ``static`` it is the public site's copy: no sign-in script (no engine to ask),
+    no "test request" button (nothing to send it to), and the header's links point inside the site."""
     configuration = {**OFFLINE_OPTIONS, "customCss": HEADER_CSS, "sources": sources}
+    if static is not None:
+        configuration["hideTestRequestButton"] = True
     if script == "cdn":
         source, integrity = (
             SCALAR_CDN_URL,
@@ -202,29 +328,26 @@ def render_page(script: ApiReferenceScript, root_path: str, sources: list[dict])
         )
     else:
         source, integrity = f"{root_path}{BUNDLED_SCRIPT_PATH}", ""
+    sign_in = _SIGN_IN.replace("__ROOT__", json.dumps(root_path).replace("<", "\\u003c"))
     return _PAGE.format(
-        root_path=escape(root_path),
+        **{key: escape(value) for key, value in _links(root_path, static).items()},
         script=source,
         integrity=integrity,
         # JSON is a JavaScript literal; escaping "<" keeps a value from closing the script element.
         configuration=json.dumps(configuration).replace("<", "\\u003c"),
-        sign_in_script=_SIGN_IN.replace("__ROOT__", json.dumps(root_path).replace("<", "\\u003c")),
+        theme_script=_THEME,
+        theme_wiring_script=_THEME_WIRING,
+        sign_in_element="" if static is not None else f"    <script>{sign_in}</script>\n",
     )
 
 
-def page_headers(script: ApiReferenceScript, page: str) -> dict[str, str]:
-    """The page's security headers (0.12 E1, C10). The page can ask ``/oauth/console-token`` for a
-    management token from the browser's session cookie, so what runs in it is restricted to the
-    engine's own: the bundled script (or the pinned CDN file, under its integrity hash) and the
-    page's own two inline scripts, each named by its hash, so a script that got into the page
-    through a description a model author wrote does not run. Nothing is evaluated, nothing is
-    embedded, and the page reaches only the engine. Styles may be inline (Scalar writes its own)."""
+def _policy(script: ApiReferenceScript, page: str, *, header: bool) -> str:
     hashes = [
         "'sha256-" + base64.b64encode(hashlib.sha256(text.encode()).digest()).decode() + "'"
         for text in re.findall(r"<script>(.*?)</script>", page, flags=re.DOTALL)
     ]
     sources = ["'self'", *(["https://cdn.jsdelivr.net"] if script == "cdn" else []), *hashes]
-    policy = "; ".join(
+    return "; ".join(
         [
             "default-src 'none'",
             f"script-src {' '.join(sources)}",
@@ -233,11 +356,32 @@ def page_headers(script: ApiReferenceScript, page: str) -> dict[str, str]:
             "img-src 'self' data: blob:",
             "font-src 'self' data:",
             "object-src 'none'",
-            "frame-ancestors 'none'",
+            # A <meta> policy cannot carry frame-ancestors (browsers ignore it and log an error).
+            *(["frame-ancestors 'none'"] if header else []),
             "base-uri 'none'",
             "form-action 'none'",
         ]
     )
+
+
+def with_meta_policy(script: ApiReferenceScript, page: str) -> str:
+    """The page carrying its own Content-Security-Policy in a ``<meta>`` element, for a static host
+    that sends no headers: the same policy as ``page_headers``, with the same hashes of the inline
+    scripts, less ``frame-ancestors``, which only a header can set."""
+    policy = _policy(script, page, header=False)
+    meta = f'<meta http-equiv="Content-Security-Policy" content="{escape(policy)}" />'
+    marker = '<meta charset="utf-8" />'
+    return page.replace(marker, f"{marker}\n    {meta}", 1)
+
+
+def page_headers(script: ApiReferenceScript, page: str) -> dict[str, str]:
+    """The page's security headers (0.12 E1, C10). The page can ask ``/oauth/console-token`` for a
+    management token from the browser's session cookie, so what runs in it is restricted to the
+    engine's own: the bundled script (or the pinned CDN file, under its integrity hash) and the
+    page's own inline scripts, each named by its hash, so a script that got into the page
+    through a description a model author wrote does not run. Nothing is evaluated, nothing is
+    embedded, and the page reaches only the engine. Styles may be inline (Scalar writes its own)."""
+    policy = _policy(script, page, header=True)
     return {
         "Content-Security-Policy": policy,
         "X-Frame-Options": "DENY",

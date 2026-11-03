@@ -2006,13 +2006,13 @@ controlled diagnostics.
 
 ### J31 — Check what a deployment runs and how it is configured
 
-**Actor:** platform operator. **Channel:** API (`GET /api/v1/system`) and UI (Settings › About and
+**Actor:** platform operator. **Channel:** API (`GET /api/v1/system` and `/system/configuration`) and UI (Settings › About and
 Deployment). **Status:** delivered (0.9 U3).
 
 1. Read what the deployment runs: the engine and management API version, the schema languages it
-   reads, the active model release (name, key, version, schema language, when it was activated) and
-   the database's migration revision.
-2. Read how it is configured: every setting, its group, what it controls, its value, its default and
+   reads and the active model release (name, key, version, schema language, when it was activated),
+   from `/system`.
+2. Read how it is configured, from `/system/configuration`: the database's migration revision, every setting, its group, what it controls, its value, its default and
    whether the value came from the environment or is the default; the capability groups on or off.
 
 Settings change only with a restart; the API and the page read them, never edit them.
@@ -2021,7 +2021,7 @@ Settings change only with a restart; the API and the page read them, never edit 
 
 - **J31.1 From the environment or the default**: a setting given in the environment reads its typed
   value (integer, boolean, list) and `environment`; one left alone reads its default and `default`.
-- **J31.2 Secrets**: the cursor signing key and the webhook key-encryption key read no value, only
+- **J31.2 Secrets**: the cursor signing key and `SECRETS_ENCRYPTION_KEY` (which replaced the retired webhook key-encryption key) read no value, only
   whether they are set; `DATABASE_URL` reads without its password.
 - **J31.3 After an activation**: the active release is the one activated, with the activation's time.
 - **J31.4 The source and the licence** (0.12 L1, D219): the engine names its licence

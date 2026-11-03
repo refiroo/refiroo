@@ -1,0 +1,19 @@
+from reconcile import apply
+s='CL [0.7.0]; PL 0.7 '
+a=[
+('R055','Mapping PUT checks the set version even on an unchanged save; a bulk replaceRelationSet instead reports unchanged before its version claim.','integrator','integrate','integrate/relationships-and-mappings',s+'WP-5; 0.9 B3'),
+('R056','Date-times retain their UTC instant and explicit offset, zone-less inputs mean UTC, and equal decimals read in one canonical form without trailing zeros in every context.','integrator, model-admin','integrate','integrate/records-and-values',s+'WP-10C/WP-10E'),
+('R057','Mapping lists without a direction return both orientations of each edge; a selected view changes projections, while omitting the view returns identity and name without projected fields.','integrator','integrate','integrate/relationships-and-mappings',s+'WP-5 mapping list'),
+('R058','Release history compares an earlier Before with the selected After, defaults to the recorded predecessor or a labelled preceding installed release of the same key, and offers Compare with; first release, identical content and unsupported baselines are explained separately from activation readiness.','model-admin','model','model/releases',s+'WP-12'),
+('R059','Technical details explains and lets a model administrator copy the Release ID and normalized content hash; metadata and export remain available for an unsupported historical release even when semantic comparison and activation are refused.','model-admin','model','model/releases',s+'WP-11/WP-12'),
+('R060','A change of a change set’s model release protects unsaved input, reloads the pinned model before enabling writes, clears obsolete cursors and opens a model-declared destination if the old page no longer exists; refresh failures explain whether the pin already changed.','steward','use','use/change-sets',s+'WP-7 review'),
+('R061','Creating a mapping target asks for its application, offers parents only in that application and refuses creation when no required parent type can stand there; creation selects the new target but the mapping changes only after Save.','steward','use','use/mapping-grids',s+'WP-8B/WP-10F'),
+('R062','A failed request shows a safe operation-specific message and available correlation information; unexpected HTML is never shown as an error, and unsupported pinned releases stay blocked without substitution or a futile retry.','steward, model-admin, operator','run','run/troubleshooting',s+'WP-11'),
+]
+r=[('L15','Mapping PUT checks stale set tokens even for a no-change save.','Set-version claim','Reread the set and review before saving again.','Attempted target and values remain available.','integrator','409 RELATION_SET_VERSION_CONFLICT',s+'WP-5; 0.9 B3','integrate','integrate/relationships-and-mappings'),
+('L16','A selected mapping target retains values when attributes are omitted; an explicit object replaces all values and an empty object clears them only if valid.','Replacement attribute semantics','A null target accepts no non-empty attribute values.','Target-only save keeps relationship values.','steward, integrator','',s+'WP-5 D13','use','use/mapping-grids')]
+m={3:['R058','R059','J08.8'],4:['F18.c'],7:['J18.S1','J18.1','J18.2','R060'],8:['J10.S3','R003','R055'],9:['R057'],10:['J10.S1','J10.S2','R004'],11:['C11' if False else 'J10.9'],12:['J13.5'],13:['J08.S1'],14:['J01.S2','F18.a'],15:['J10.S3','J10.4'],16:['J01.S2','J01.S3','J10.S1'],17:['J10.4','J10.7']}
+x={f'CL-0.7.0-#{i}':('merged',t,'Specific released behavior retained on the named records.') for i,t in m.items()}
+for i in [1,2,6,18]:x[f'CL-0.7.0-#{i}']=('dropped',[],'Test infrastructure, validation evidence or delivery planning, rather than a reader capability.')
+x['CL-0.7.0-#5']=('superseded',['F18.c','J39.S1'],'The disabled account placeholder was replaced by 0.12 authenticated sign-in; appearance remains current.')
+apply('0.7',a,r,x)

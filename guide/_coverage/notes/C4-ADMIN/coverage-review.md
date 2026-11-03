@@ -1,0 +1,56 @@
+# Coverage review
+
+The old ledger frequently pointed unrelated screens to roles-and-grants; those pointers were corrected to their actual homes. Personal tasks stay in Use, workspace/model editing in Model, and integration contracts in Integrate. No other section files changed.
+
+Deferred/excluded rows retained:
+- C2188: after 0.16
+- C2189: after 0.16
+- C2190: after 0.16
+- C2191: after 0.16
+- C2192: after 0.16
+- C2193: after 0.16
+- C2209: after 0.16
+- C2210: not for readers: Internal indexing, code organisation, measurement or acceptance evidence; no additional reader behavior.
+- C2240: after 0.16
+- C2242: after 0.16
+- C2244: after 0.16
+- C2262: not for readers: Internal security test evidence; reader-visible permissions have their own records.
+- C2266: after 0.16
+- C2267: after 0.16
+- C2312: after 0.16
+- C2318: AI deferred; original open row retained
+- C2319: after 0.16
+- C2321: AI deferred; original open row retained
+- C2326: not for readers: Test infrastructure, validation evidence or delivery planning, rather than a reader capability.
+- C2328: after 0.16
+- C2331: not for readers: Internal indexes, performance measurement, acceptance tooling or delivery planning; public behavior is retained independently.
+- C2335: AI deferred; original open row retained
+- C2342: AI deferred; original open row retained
+- C2345: AI deferred; original open row retained
+- C2355: not for readers: Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.
+- C2358: after 0.16
+- C2359: AI deferred; original open row retained
+- C2363: after 0.16
+- C2364: after 0.16
+- C2374: AI deferred; original open row retained
+- C2378: after 0.16
+- C2379: not for readers: Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.
+- C2385: AI deferred; original open row retained
+- C2386: AI deferred; original open row retained
+- C2391: after 0.16
+- C2393: after 0.16
+- C2398: after 0.16
+- C2399: after 0.16
+- C2400: not for readers: Security test coverage or design-pass delivery history, not another user-facing capability.
+- C2415: after 0.16
+- C2417: after 0.16
+- C2426: after 0.16
+- C2449: after 0.16
+- C2453: not for readers: Internal security test evidence; reader-visible permissions have their own records.
+- C2456: after 0.16
+- C2459: after 0.16
+- C2473: AI deferred; original open row retained
+- C2476: AI deferred; original open row retained
+- C2479: after 0.16
+- C2484: after 0.16
+- C2508: not for readers: Implementation, fixture, copyright-maintenance, test or delivery planning decision; public capabilities retained separately.

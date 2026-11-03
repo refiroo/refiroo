@@ -1,0 +1,6 @@
+# Inventory items the guide does not cover, each with its reason. The list may only shrink: an item
+# leaves it when a page covers the item, and the release closes when the not-yet-covered list is empty
+# but for the reasoned exclusions here (plan 0.13, Coverage).
+exclusions:
+  - id: J09
+    reason: Retired journey; USER_JOURNEYS keeps the number so the others keep theirs, and it describes no function.

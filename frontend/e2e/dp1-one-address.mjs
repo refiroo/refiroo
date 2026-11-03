@@ -30,15 +30,15 @@ async function walk(configuration) {
     expect(health.ok, `${tag}: /health answers at the page's address (${health.status})`);
     const metadata = await (await fetch(`${uiUrl}/.well-known/oauth-authorization-server`)).json();
     expect(metadata.issuer === uiUrl, `${tag}: the issuer names the page's address: ${metadata.issuer}`);
-    const reference = await fetch(`${uiUrl}/docs`);
+    const reference = await fetch(`${uiUrl}/docs/api`);
     expect(
       reference.ok && (await reference.text()).includes("Management API"),
-      `${tag}: /docs answers at the page's address`,
+      `${tag}: /docs/api answers at the page's address`,
     );
     const metrics = await fetch(`${uiUrl}/metrics`, { headers: { Accept: "text/html" } });
     expect((await metrics.text()).includes('id="root"'), `${tag}: /metrics is not forwarded (the application answers)`);
     checks.push(
-      `${tag}: /health, the OAuth metadata (issuer ${uiUrl}) and /docs answer at the page's address; /metrics is not forwarded`,
+      `${tag}: /health, the OAuth metadata (issuer ${uiUrl}) and /docs/api answer at the page's address; /metrics is not forwarded`,
     );
 
     // 2. Sign in through the page's address, by keyboard.

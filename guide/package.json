@@ -1,0 +1,26 @@
+{
+  "name": "refiroo-guide",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The refiroo guide: built with Starlight, served by the engine at /guide. Used only to build.",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "scripts": {
+    "dev": "ASTRO_TELEMETRY_DISABLED=1 astro dev",
+    "build": "ASTRO_TELEMETRY_DISABLED=1 astro build",
+    "build:public": "PUBLIC_GUIDE_SITE=1 npm run build && PYTHONPATH=../backend ../backend/.venv/bin/python -m app.management.reference.static_site \"${GUIDE_OUT:-dist}\"",
+    "preview": "ASTRO_TELEMETRY_DISABLED=1 astro preview",
+    "check": "node tools/check.mjs all",
+    "verify": "npm run build && npm run check && npm run check:links",
+    "check:terms": "node tools/check.mjs terms",
+    "check:brand": "node tools/check.mjs brand",
+    "check:links": "node tools/check.mjs links"
+  },
+  "dependencies": {
+    "@astrojs/markdown-satteri": "0.4.6",
+    "@astrojs/starlight": "0.42.8",
+    "astro": "7.4.5"
+  }
+}

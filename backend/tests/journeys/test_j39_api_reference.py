@@ -1,6 +1,6 @@
 """J39.11 — the API reference signs the person in (USER_JOURNEYS.md § Security, 0.12 C1, D240).
 
-The reference page at ``/docs`` is open and carries no token. A person signed in at the browser
+The reference page at ``/docs/api`` is open and carries no token. A person signed in at the browser
 asks the engine, from that page and with the session's cookie, for an access token: it is theirs,
 it reads and refuses what their roles do, and asking never renews the cookie, so the application's
 own tabs keep their session. Without a session, after signing out, or from another site, there is
@@ -34,7 +34,7 @@ def test_the_console_is_given_the_signed_in_persons_token(world):
     ok(_console_token(browser))
     assert ok(_renew(browser))["access_token"]
 
-    page = browser.get("/docs")
+    page = browser.get("/docs/api")
     assert page.status_code == 200 and "/oauth/console-token" in page.text
     assert answer["access_token"] not in page.text and "eyJ" not in page.text
 

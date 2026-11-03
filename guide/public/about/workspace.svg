@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 390" role="img" aria-labelledby="title desc">
+<title id="title">One workspace: Live, change sets and publications</title>
+<desc id="desc">A workspace uses one model release. Live edits save directly. A change set prepares changes separately; publishing applies them to Live and records a read-only publication.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8Z" fill="#415f69"/></marker></defs>
+<rect x="5" y="5" width="750" height="380" rx="16" fill="#f3f7f8" stroke="#526b75" stroke-width="2"/>
+<g font-family="system-ui,sans-serif" fill="#193740" text-anchor="middle">
+<text x="380" y="42" font-size="23" font-weight="700">One workspace · one model release</text>
+<rect x="40" y="82" width="280" height="100" rx="10" fill="#fff" stroke="#526b75"/>
+<text x="180" y="118" font-size="23" font-weight="700">Live</text><text x="180" y="150" font-size="18">Direct edits save here</text>
+<rect x="440" y="82" width="280" height="100" rx="10" fill="#fff" stroke="#526b75"/>
+<text x="580" y="118" font-size="23" font-weight="700">Change set</text><text x="580" y="150" font-size="18">Prepare · review · validate</text>
+<path d="M440 134 H326" stroke="#415f69" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="380" y="120" font-size="16">Publish</text>
+<rect x="240" y="266" width="280" height="90" rx="10" fill="#fff" stroke="#526b75"/>
+<text x="380" y="301" font-size="23" font-weight="700">Publication N</text><text x="380" y="332" font-size="18">Read-only snapshot</text>
+<path d="M580 182 V225 H380 V260" fill="none" stroke="#415f69" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="370" y="212" font-size="17">Publish also records a snapshot</text>
+</g></svg>

@@ -2,7 +2,7 @@
  * Settings › Integration › Consumer APIs (Track U U4): each consumer API of the active release with
  * its base URL, its OpenAPI document and its routes. The API index (`GET /api/consumer`) names each one and its OpenAPI
  * document; the document gives the routes, each linked to its operation in the API reference at
- * `/docs`, which holds everything else the contract says. Read only: a definition changes through a
+ * `/docs/api`, which holds everything else the contract says. Read only: a definition changes through a
  * model release. Last, the change feed consumers follow and how long it keeps its entries (moved
  * here from Jobs and feed in 0.10 A5c).
  */

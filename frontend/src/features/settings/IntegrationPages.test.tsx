@@ -125,16 +125,16 @@ describe("Consumer APIs", () => {
     ).toEqual(["GET /objects/{id}", "GET /xref", "POST /resolve"]);
     expect(within(routes).getByRole("link", { name: "XREF lookup" })).toHaveAttribute(
       "href",
-      `${API_URL}/docs#consumer-codes-v2/GET/api/consumer/codes/v2/xref`,
+      `${API_URL}/docs/api#consumer-codes-v2/GET/api/consumer/codes/v2/xref`,
     );
     expect(within(routes).getByRole("link", { name: "Batch resolve" })).toHaveAttribute(
       "href",
-      `${API_URL}/docs#consumer-codes-v2/POST/api/consumer/codes/v2/resolve`,
+      `${API_URL}/docs/api#consumer-codes-v2/POST/api/consumer/codes/v2/resolve`,
     );
     const plain = screen.getByRole("region", { name: "Plain · v1" });
     expect(within(plain).getByRole("link", { name: "Get by ID" })).toHaveAttribute(
       "href",
-      `${API_URL}/docs#consumer-plain-v1/GET/api/consumer/plain/v1/objects/{id}`,
+      `${API_URL}/docs/api#consumer-plain-v1/GET/api/consumer/plain/v1/objects/{id}`,
     );
 
     fireEvent.click(screen.getByRole("link", { name: "Open the release" }));
@@ -243,11 +243,11 @@ describe("API reference", () => {
     expect(rows[0]).toHaveTextContent(/v1 \(engine 0\.9\.0-alpha\.1\)/);
     expect(within(rows[0]).getByRole("link", { name: "Management API" })).toHaveAttribute(
       "href",
-      `${API_URL}/docs?api=management`,
+      `${API_URL}/docs/api?api=management`,
     );
     expect(within(rows[1]).getByRole("link", { name: "Codes" })).toHaveAttribute(
       "href",
-      `${API_URL}/docs?api=consumer-codes-v2`,
+      `${API_URL}/docs/api?api=consumer-codes-v2`,
     );
     expect(rows[1]).toHaveTextContent("v2");
     expect(within(rows[2]).getByRole("link", { name: "openapi.json" })).toHaveAttribute(

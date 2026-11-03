@@ -1,0 +1,4 @@
+# Names of private models and source exports that no page may contain (the writing rules, rule 8).
+# One SHA-256 per line, of the name's words in lower case joined by single spaces, so this file does
+# not name what it forbids. Add a line with:  node tools/check.mjs hash-term "the name"
+# A name of up to four words is matched wherever its words stand side by side.

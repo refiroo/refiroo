@@ -1,0 +1,189 @@
+{
+  "read": {
+    "CHANGELOG.md": [
+      [
+        34,
+        4628
+      ]
+    ],
+    "docs/BASE_0_7_IMPLEMENTATION_PLAN.md": [
+      [
+        1,
+        1572
+      ]
+    ],
+    "docs/BASE_0_8_IMPLEMENTATION_PLAN.md": [
+      [
+        1,
+        3654
+      ]
+    ],
+    "docs/BASE_0_9_IMPLEMENTATION_PLAN.md": {
+      "product_packets_read": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41
+      ],
+      "helper": "read_product.py; skips only some check/tooling blocks",
+      "extra_raw": [
+        [
+          11518,
+          11550
+        ]
+      ]
+    }
+  },
+  "core_updates": {
+    "J01.8": "Related-record columns show whole chips that fit the column, then +N more; the browser requests up to 20 related records per row, while the API defaults to 3 and allows 1\u201320; only a single-valued name column can sort."
+  },
+  "facts": [
+    [
+      "0.7 WP-5/WP-10B",
+      "integrator",
+      "Mapping PUT checks its set version even for an unchanged save, while a bulk replaceRelationSet reports unchanged before its version claim; callers must use the chosen operation's retry contract."
+    ],
+    [
+      "0.7 WP-10E",
+      "integrator",
+      "Decimal values have one canonical representation without trailing zeros and date-times retain their UTC instant and explicit offset in every data context."
+    ],
+    [
+      "0.8 A2/A3",
+      "steward, integrator",
+      "A matrix cell previews up to five records and reports its complete count rather than silently truncating it."
+    ],
+    [
+      "0.8 A2/A4",
+      "steward, model-admin",
+      "A matrix read in the incoming direction does not apply a condition or uniqueness scope defined on the binding's target end, so it has no inactive or conflict state for those rules."
+    ],
+    [
+      "0.8 C2",
+      "steward",
+      "Restructuring offers back only values previously lost through effective reclassifications in the current or published change sets; it does not restore deliberately cleared values or changes from discarded change sets."
+    ],
+    [
+      "0.8 B5b/C4; 0.9 UA9",
+      "steward",
+      "A tree drop chooses a parent or hierarchy level, not a manual ordering slot, and several selected records can move together only when their types stay the same."
+    ],
+    [
+      "0.9 K5/K5b/K6a",
+      "steward, integrator",
+      "Related-record columns read only visible columns and show as many whole chips as fit their width; the old fixed three-chip display and five-expansion maximum are superseded."
+    ],
+    [
+      "0.9 C10 C-D87/C-D89/C-D90",
+      "integrator",
+      "Consumer events may name an output whose answer is unchanged; identities and full objects are composed when read or delivered, not stored at the change position; deleted objects have no object and null code/name."
+    ],
+    [
+      "0.9 C12 C-D104/C-D111",
+      "integrator",
+      "A webhook event larger than 1 MiB is sent alone; automatic retries retain event range and delivery ID but recompose current objects, while manual resend uses stored payload."
+    ],
+    [
+      "0.9 J5 delivery differences",
+      "integrator",
+      "Counterpart deletes still claim the counterpart version; only upserts, updates and ensureRelation ignore the source file version; counterpart IDs use name-derived SHA-1 bytes marked as UUID version 4."
+    ],
+    [
+      "0.9 J6/J6a D193/D195",
+      "steward, integrator",
+      "A cleared workbook cell or relationship list clears nothing; several owned records under one parent make a read-only summary cell rather than an ambiguous write."
+    ],
+    [
+      "0.9 K2b delivery findings",
+      "steward, integrator",
+      "A sampled bulk deletion confirms only previewed items; unpreviewed deletes are refused DELETION_PREVIEW_REQUIRED at execution."
+    ],
+    [
+      "0.9 J6a delivery differences",
+      "steward, integrator",
+      "A columns-per-parent workbook that needs more than 16,384 columns fails INVALID_EXPORT_LAYOUT when the job runs."
+    ],
+    [
+      "0.9 R-F5 supersedes J6 clearing statement",
+      "steward, integrator",
+      "An empty replace-relation cell clears its set after the 0.9 release fix; ordinary blank attribute and owned-record cells still leave values unchanged."
+    ]
+  ],
+  "superseded": [
+    [
+      "0.8 sidebar never draggable / several windowed groups",
+      "0.9 UA9 makes the record tree one scrolling list, initially folded, with multi-select and drag in the sidebar and tree lens."
+    ],
+    [
+      "0.8 S4 relation creation order and sortable-flag restrictions",
+      "0.8 S4R/D24 makes every non-JSON data column sortable and relation sorts use related-record values, not relation creation order."
+    ],
+    [
+      "0.9 alpha consumer ID sourced from a unique attribute",
+      "0.9 C2 restricts consumer identity to the public record ID."
+    ],
+    [
+      "0.9 alpha coalesced webhook delivery",
+      "0.9 C17 removes coalescing/debounce in favor of explicit event batching, identity/full payload and RDM/CloudEvents format choices."
+    ],
+    [
+      "0.9 K5 fixed three chips and at most five expansions",
+      "0.9 K5b/K6a: chips fit column width, browser reads 20, expansion keys can name every relationship once."
+    ]
+  ],
+  "pages_read_full": [
+    "use/relationships",
+    "use/hierarchies",
+    "use/mapping-grids",
+    "use/records",
+    "use/relation-matrices"
+  ],
+  "corrections_applied": [
+    "J01.8",
+    "R025",
+    "R029",
+    "A6",
+    "G12",
+    "L1",
+    "L6",
+    "L8"
+  ]
+}
