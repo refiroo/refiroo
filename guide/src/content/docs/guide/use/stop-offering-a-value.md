@@ -23,3 +23,8 @@ Setting an end date does not schedule publication or remove the record. The brow
 business-date selector for browsing an earlier state; a validity field filter is not a
 whole-workspace date view. Ask the model administrator if the type offers neither mechanism.
 Do not delete a record simply because its availability control is absent.
+
+An availability flag does not automatically hide the value from every consuming system.
+Each system's agreed reading rules decide whether unavailable records are included. If the
+record still appears elsewhere, check that agreement with the integration owner rather than
+deleting the record to make it disappear.

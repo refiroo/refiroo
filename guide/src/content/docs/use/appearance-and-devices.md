@@ -73,3 +73,11 @@ Settings groups its pages under **General**, **Administration**, **Data operatio
 grant access through a copied address. Ask an administrator about missing permissions.
 
 ![Phone application navigation drawer with collections and record search](/docs/screens/phone-navigation-drawer.png)
+
+## Help beside your work
+
+Choose **?** in the top bar, to the left of the bell, to open the documentation in a new tab.
+The documentation and API reference share a header: the logo returns to the application,
+**Documentation** and **API reference** switch between them, and the documentation has search.
+The **System**, **Light** and **Dark** theme choice is shared with the application, including
+other open tabs in this browser.

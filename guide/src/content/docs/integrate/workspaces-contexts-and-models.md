@@ -27,3 +27,11 @@ The management [cross-type object lookup](/docs/api/?api=management#tag/objects)
 A filter naming an application or type must make sense in every selected model. `MODEL_ELEMENT_NOT_IN_EVERY_MODEL` means narrow the workspace selection or choose a common field. Do not interpret a missing type as an empty dataset. If a selected model is unavailable, the entire read fails rather than silently omitting that workspace.
 
 Workspace catalogue changes have their own safeguards: `WORKSPACE_ALREADY_EXISTS` includes retired keys; `WORKSPACE_IS_DEFAULT` and `DEFAULT_WORKSPACE_CANNOT_BE_RETIRED` require choosing another default; `WORKSPACE_NOT_EMPTY` and `WORKSPACE_HAS_PUBLICATIONS` require reviewing the retained content instead of forcing deletion. See [Managing workspaces](/docs/model/managing-workspaces/).
+
+## Keep assignments explicit
+
+A new workspace can name an installed usable release; otherwise it starts on the default workspace’s release. After creation its assignment is its own. Changing the default workspace does not switch any existing workspace’s model. Model discovery identifies the selected workspace with `RDM-Workspace`, and its release with `X-Model-Release-Id` and the model ETag.
+
+One unavailable workspace does not justify reading another workspace as a fallback. Across-workspace record lookup fails as a whole if any selected workspace cannot load its release. Its cursor binds the selected workspace set, and each result carries `workspaceKey` and `modelReleaseId`. Feeds, relationship collections and exports remain within one workspace.
+
+An administration list filtered by a consumer API name can include subscriptions from several workspaces where that name denotes different contracts. Keep both API name and workspace in integration configuration. Import profiles and model mappings identify their models; a shared instance catalogue does not mean their definitions apply to every workspace model.

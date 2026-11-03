@@ -192,6 +192,11 @@ does not by itself require approval for a direct live correction. See
 [Correct a record](/docs/guide/use/correct-a-record/) for direct work and
 [Change sets](/docs/use/change-sets/#who-may-do-what) for publication permissions.
 
+A narrowed grant permits a relationship change when you may write either connected record.
+It does not permit changing unrelated records of a type outside your grant. A bulk load
+refuses individual out-of-scope items; publishing a change set containing out-of-scope changes
+refuses the publication as a whole. Check the proposal's types before asking someone to publish.
+
 ## Edit a value or create a record
 
 Fields can hold text, long text, whole numbers, decimal numbers, Yes/No, dates, dates with times

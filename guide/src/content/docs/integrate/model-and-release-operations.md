@@ -20,7 +20,7 @@ Compilation checks the draft against its base release, or its model's latest ins
 
 Read the workspace's current assignment and claim its version and release when activating. Other workspaces keep their assignments. Read placements in the target context to discover allowed root types, children and replacement types; parent candidates can be narrowed without losing truthful totals.
 
-`ACTIVATION_CONFLICT` requires a fresh assignment read. `MODEL_MIGRATION_REQUIRED` means data needs reviewed conversion. `CONSUMER_CONTRACT_VERSION_REQUIRED`, `CONSUMER_CONTRACT_VERSION_DECREASED` and `CONSUMER_API_REMOVED` prevent silently breaking consumer contracts. A release change can leave open change sets on their old pin and pause incompatible subscriptions. Inspect both consequences.
+`ACTIVATION_CONFLICT` requires a fresh assignment read. `MODEL_MIGRATION_REQUIRED` means data needs reviewed conversion. `CONSUMER_CONTRACT_VERSION_REQUIRED` and `CONSUMER_CONTRACT_VERSION_DECREASED` refuse incompatible version choices. `CONSUMER_API_REMOVED` is a warning: removing the whole API is allowed and ends its address after activation. A release change can leave open change sets on their old pin and pause incompatible subscriptions. Inspect both consequences.
 
 `MODEL_RELEASE_NOT_FOUND`, `MODEL_RELEASE_RETIRED`, `MODEL_RELEASE_IN_USE` and `MODEL_RELEASE_IS_DEFAULT` require choosing or retaining an eligible release and resolving its assignments before removal. `MODEL_RELEASE_VERSION_CONFLICT` needs its current version. `UNSUPPORTED_SCHEMA_VERSION`, `UNSUPPORTED_PINNED_MODEL_SCHEMA`, `PINNED_MODEL_INVALID` and `PINNED_MODEL_UNAVAILABLE` require a supported valid release. Stored-release raising is a maintenance operation with its own refusals (`RELEASE_NOT_RAISABLE`, `RELEASE_RAISE_REFUSED`); see [Model language versions](/docs/model/model-language-versions/).
 
@@ -43,3 +43,33 @@ Start a [move or copy](/docs/api/?api=management#tag/moves) with a source contex
 Confirmation loads the source as previewed into a new target change set, reevaluating target rules. It does not make data live. A move can also prepare source deletions, retaining source records changed meanwhile or needed by records left behind. Publish the target copy first; `MOVE_COPY_NOT_PUBLISHED` blocks source deletion before that. Consumers see each side only after publication.
 
 `MOVE_SAME_WORKSPACE` needs two workspaces; `MOVE_MAPPING_CHANGED` needs another dry run; `MOVE_MAPPING_HAS_PROBLEMS` needs a corrected mapping; `MOVE_NOTHING_TO_MOVE` means no proposed target changes can load. Follow [Move records between models](/docs/guide/integrate/move-records-between-models/) and [Model mappings](/docs/model/model-mappings/) for the task and design choices.
+
+## Review release status separately from content
+
+A release’s content is immutable; its active or retired status has a separate version claim. Retirement stops new selections but leaves workspaces and change sets already using it operational. The default workspace’s release cannot be retired. Reinstalling the exact content of a retired release restores it. Ask for usable releases when choosing a new assignment: that excludes retired releases and unsupported schema versions.
+
+Deletion requires no remaining references. The release reports whether deletion is allowed and the first blocker: a running workspace, history, an import profile or a model mapping. Inspect those references rather than assuming retirement makes deletion possible. Release activation history records selections, oldest first; installation order and bootstrap do not prove an activation occurred.
+
+A structural diff can use a selected installed baseline while activation compatibility still checks the target workspace’s current data and release. Additions omit the before side; removals omit the after side. An omitted side differs from a present null value. Compilation reports compatible, migration-required or invalid; diagnostics have severity and a JSON Pointer, and compatibility findings can also give the affected count. Identical installation can return the existing release; it still does not activate it.
+
+## Draft steps and generated documents
+
+Draft operation requests are bounded by `MODEL_OPERATION_MAX_ITEMS` (default 500). A key omitted for a new element is generated from its name, using lowercase hyphenated ASCII and a numeric suffix on collision. An explicit rename of an unreleased key rewrites references, including consumer definitions. Removing a referenced element can leave issues to repair in those definitions. Inspect diagnostics after every step.
+
+Draft-only changes to released structures may require migration. A stale draft-version refusal can include up to 100 intervening operations and a continuation to history. Undo respects dependencies and reverses an entire step. A new request or whole-model edit after undo clears redo; installing does not. Installation makes the installed content the draft’s base without changing its content version.
+
+The outline remains useful while a draft is invalid: it shows what structure can be read and attaches diagnostics to elements. A compiled draft model supplies placements but no records; reads of real records still use a running workspace model. A new type therefore has no live sample merely because its draft can be previewed.
+
+For a consumer declaration, the draft offers its authored and expanded definitions, compatibility findings, a JSON Schema 2020-12, a type-based message example and an OpenAPI document. Generating these is read-only. Examples do not read records. Invalid drafts refuse the three document downloads with `INVALID_MODEL` and diagnostics. Use the [model-authoring reference](/docs/api/?api=management#tag/model%20administration) for operations and downloads.
+
+## Review conversions and loss
+
+Migration previews distinguish conversion, reclassification, loss and refusal. A target lacking a source type can lose its records; a type moving to an application must have an unambiguous destination or an explicit type mapping. Mapping named attribute sources takes precedence over same-key fallback. Records that survive retain their public identity and history; publications retain their original release.
+
+Supported value conversions include text and long text, integer to decimal, integral decimal to integer, values to their stored text form and parseable text back to the target type. A date converts to midnight UTC; an instant converts to a date only at midnight UTC. Values can convert to JSON, and text to JSON only when parseable. Review individual losses and refusals instead of assuming a declared conversion succeeds for every value. A migration preview can hold writes to the records being converted until it ends.
+
+Confirmation claims the reviewed assignment and feed position and explicitly accepts any loss. A stale review writes nothing. Migrating a workspace and publishing a change set can be one atomic execution: publication failure leaves the migration unapplied. Moving a change set onto its workspace’s model instead converts that prepared content, replaces its base with current live data and advances its version once; it does not write live records, feed positions or publications. Conflicts with newer live work must still be resolved.
+
+A model mapping names its source and target releases. One source type maps to one target type; several source types may share a target. Defaults fill missing source values, not values already supplied. Inspect coverage for unmapped source content and required target content left unfilled. Deterministic inference proposes mappings from keys, names, compatible attributes, relationships and stored records; review the evidence and apply only the proposals you intend.
+
+A move’s selection combines its type criteria, subtree and explicit IDs; it does not pull every parent or related record along. The default is a complete preview in copy mode. Source values are fixed when previewed; target writes are decided again during loading into a new change set. A source record changed since the preview is retained when preparing source deletion, as is a record still needed by content left behind. Refused or unselected records are not silently deleted.

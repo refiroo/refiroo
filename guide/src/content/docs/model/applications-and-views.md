@@ -24,6 +24,16 @@ state. A collection can belong to only one group in an application. Ungrouped co
 at the top. An empty group is valid. Grouping does not change parents, data access or the type's
 identity. Follow [Group collections in navigation](/docs/guide/model/group-collections-in-navigation/).
 
+Navigation groups have one level: a group cannot contain another group. Its collection page
+lets people search collection names; it does not show a record count for every collection.
+Only collections with a view in this application can be placed in its groups. Group labels
+and ordering change navigation without requiring a data migration.
+
+A new navigation group starts open unless **Folded when the sidebar opens** is selected.
+A person's later folding choice is remembered in their browser. Within an application, each
+group has its own key, and a collection cannot be declared in two groups at once. If validation
+names a collection outside the application, add a suitable view there or remove that group entry.
+
 ## Views
 
 | View | What people use it for |
@@ -55,9 +65,94 @@ Do not confuse it with the editor's **Relationship matrix**, which defines permi
 [Record pages and tables](/docs/model/record-pages-and-tables/) covers layout settings. A draft's
 navigation and views become active only when its release is applied to the workspace.
 
+## Application settings
+
 Application declarations can also carry a description, a starting view, presentation settings
 and an application state. The visual **Application…** form includes **Name** and **Description**;
 there is no general application-settings or state form. An application state is separate from
 retiring a workspace or an installed release. Have a specialist maintain settings outside the
 listed controls and validate the draft; the presence of a setting in a document does not imply
 that the editor offers a button for it.
+
+## Collections and their lenses
+
+Views of the same source type appear as lenses of one collection. A table's source is the type
+it lists. A mapping grid's source is the end chosen as its direction; a relation matrix's source
+is its row type. A tree belongs to its first declared root type. Adding a second view for one
+source type adds a way to work with that collection, rather than another primary collection.
+
+## Mapping-grid declarations
+
+A mapping grid chooses one permitted relationship and its two endpoint types. In the outgoing
+direction its rows are sources choosing targets; in the incoming direction its rows are the
+other end and the choices run back towards the source. Choose the direction before choosing
+row and target-display fields. Both field lists must be non-empty and contain no repeats.
+Candidate search uses names or searchable attached fields of the type being chosen.
+
+The configured relationship must be an optional association. Containment and required ownership
+cannot be used, because replacing a mapping must not change a record's parent or orphan a
+dependent. Saving one selected mapping replaces that source's mapping set; it does not change
+the underlying relationship's cardinality for other clients.
+
+A grid's model sets a page size of 1–100. The parent scope and coverage choices people select
+while using it are temporary filters, not model settings. **Mapped**, **Unmapped** and
+**Ambiguous** describe coverage for the configured relationship. The visual editor has no
+mapping-grid configuration form; ask a specialist author to maintain this declaration.
+
+## Relation-matrix rules
+
+A matrix uses one non-containment relationship, in either direction, between row and cell types.
+The row, cell and column types must all be listed in the application. Its rows include records
+of the row type in the workspace even when another application owns those records. Columns are
+records of a type that can contain the cell type, directly or through intervening levels. A cell
+record belongs to its nearest ancestor of that column type.
+
+Choose unique, non-empty lists of **Row columns** and **Fields in a cell**. Row columns can include
+fields of the row and its ancestor context. The column heading is the column record's name or a
+non-JSON field attached to its type. Cell fields must be attached to the cell type. A specialist
+can also declare row-search fields, using the name or searchable attached fields, and a page
+size of 1–100.
+
+| Cell action | Why it may be unavailable |
+| --- | --- |
+| Create | Every required cell field needs to be supplied or have a default. The cell must not require an additional owner relationship that the matrix cannot supply. |
+| Edit | At least one displayed cell field must be editable. |
+| Link existing | The chosen records must fit the binding, its candidate rules and number limits. |
+| Unlink | A required owner relationship cannot be removed on its own. |
+
+With no enabled cell actions, the matrix is read only. The form offers suitable actions; the
+model's validation also rejects impossible declarations. Enabled actions still require each
+person's data permissions. If Create is missing despite a default on a required field, ask a
+specialist to inspect the declaration: the visual form checks that required fields are selected.
+
+Uniqueness and conditional activity come from the relationship's rules, not a second rule on
+the view. They describe the relationship's target end. An incoming matrix does not apply those
+target-end rules to its cells, so it has no inactive or uniqueness-conflict states from them.
+To inspect those states, use a suitable outgoing matrix. The matrix shows at most five cell
+records as a preview with the full count; open a cell to inspect the rest.
+
+## Tree declarations
+
+A tree starts with parentless records of its root types. Every root type must also be a node
+type and allow top-level creation. All shown node types must be listed in the application and
+reachable from a root through containment using types the tree shows. A missing intermediate
+type prevents that branch from being a valid tree. Recursive containment can show several levels
+of the same type.
+
+The main label is the name or a non-JSON field attached to every node type. An optional second
+field can show identifying information, type, path, timestamps or another non-JSON field shared
+by the node types. Child ordering is declared per type; without an entry, children sort by name.
+Descending order is supported. Timestamp ordering falls back to name in change sets and
+publications, which do not keep those live-only timestamps. Branches read 1–100 records at a time.
+
+The declaration can offer creating children, renaming, moving and changing a Yes/No availability
+field. With no actions it is read only. Create and Move need a containment possibility among
+shown types. Rename cannot target a read-only label field. Availability needs an editable Yes/No
+field attached to every node type, and that field cannot be declared without the availability
+action. These choices enable controls; they do not grant permissions.
+
+At runtime a node's menu offers allowed actions; F2 renames where enabled. Creating a child
+offers only shown types the parent can contain. Move lists possible parents with unsuitable
+choices disabled and their reasons. Search and opening a record reveal its path by loading
+the relevant branches. There is no visual tree-configuration form in the model editor; have a
+specialist maintain it and check Issues before activation.

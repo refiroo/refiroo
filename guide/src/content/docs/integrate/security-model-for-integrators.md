@@ -20,7 +20,7 @@ A single write or publication is refused as a whole. A batch or import reports r
 
 ## Consumer API access
 
-Consumer data routes accept clients only. Each client needs a grant for the named API in each workspace it reads. A management role, including Security administrator, does not replace this grant. Use a token with the consumer audience; the wrong audience is refused as `TOKEN_INVALID`. The API index and OpenAPI documents accept either audience under their discovery rules. See [Consumer APIs](/docs/integrate/consumer-apis/), [Get a token](/docs/guide/integrate/get-a-token/) and [Roles and grants](/docs/administer/roles-and-grants/).
+Consumer data routes accept clients only. Each client needs a grant for the named API in each workspace it reads. A management role, including Security administrator, does not replace this grant. Use a token with the consumer audience; the wrong audience is refused as `TOKEN_INVALID`. The API index accepts a consumer token and lists the APIs granted in that workspace, or a management token with Browse and lists all its APIs. Each definition’s OpenAPI document is public and needs no token. See [Consumer APIs](/docs/integrate/consumer-apis/), [Get a token](/docs/guide/integrate/get-a-token/) and [Roles and grants](/docs/administer/roles-and-grants/).
 
 ## Jobs and changing access
 
@@ -96,3 +96,11 @@ Client credentials do not create a person's password, second factor or browser s
 Use the [mail operations](/docs/api/?api=management#tag/mail) with the required administrative permission; [Sign-in and mail setup](/docs/run/sign-in-and-mail-setup/) explains deployment preparation. `MAIL_PASSWORD_REQUIRED` means resend the password after a host or port change. `MAIL_SEND_FAILED` requires correcting the reported test-delivery failure. `NO_EMAIL` needs an address on the person, or a securely passed link where that operation offers one. `MESSAGE_BEING_SENT` needs a short wait; `MESSAGE_NOT_WAITING` means a message is no longer queued to stop. `NOT_FOUND` on a message requires refreshing the queue and selecting an existing message. Message text is not available through the administration API.
 
 `ROUTE_NOT_DECLARED` means an operation lacks an engine permission declaration. Like `WRITER_UNKNOWN`, it fails closed and needs investigation using the request reference; adding a broader grant cannot repair it.
+
+## Distinguish a role from the action it grants
+
+Use the [action catalogue](/docs/api/?api=management#tag/security) and caller permissions to discover effective rights. Browse includes exports and model-aware queries, but Feed is separate. Bulk and import permits batches and file loads; Copy and move additionally needs Browse at the source and, for a move, Work in change sets there. Model authoring and release permissions are separate from workspace data writes. Operations permits configuration, detailed health and metrics; a metrics scraper uses its own client with that permission.
+
+Application and record-type narrowing combine as alternatives within a grant. Grants for the same action add together, and any unnarrowed grant allows all types for that action in its scope. A type change needs permission for both the type left and the type taken. Migrations and publication withdrawals are not type-narrowed. Shared open change sets can be edited by authorised collaborators; creation does not make them private.
+
+Jobs continue to act for the original requester. A refusal after that requester loses access includes their identity in `requestedBy`; another administrator confirming the job does not replace that identity. A source file is available to its uploader and the appropriate Bulk and import holders, rather than every signed-in client. Check the operation’s declared action instead of inferring access from ownership.

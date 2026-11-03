@@ -29,6 +29,6 @@ The **Settings** form edits its button name, issuer, registration and groups cla
 
 Under **Signing out**, **Sign people out of … too** also signs the current browser out of the provider. Before turning it on, check provider support and register the displayed **Sign-out address**. It may sign people out of other organisation applications in that browser. It does not end provider sessions in their other browsers.
 
-**Disable** acts immediately and ends refiroo sessions started through that provider. **Delete** asks **Delete …?** and **Delete provider** confirms removal; its sessions end too. Check remaining sign-in routes before either action. If a concurrent change is reported, reload the provider and review its current state before applying another change.
+**Disable** acts immediately and ends refiroo sessions started through that provider. A provider used by a person cannot be deleted; disable it to preserve those identities. For an unused provider, **Delete** asks **Delete …?** and **Delete provider** confirms removal. Check remaining sign-in routes before either action. If a concurrent change is reported, reload the provider and review its current state before applying another change.
 
 For public addresses, HTTPS and server recovery, involve the operator; see [Configure sign-in](/docs/run/sign-in-and-mail-setup/).

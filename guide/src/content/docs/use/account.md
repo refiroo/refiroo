@@ -140,3 +140,27 @@ passkeys. **New recovery codes…** asks for **Code from the app, or a recovery 
 **Make new codes**. Save the replacements: the old recovery codes stop working. Removing the
 authenticator app uses **Remove the second factor** and **Remove it**; your recovery codes then
 stop working too.
+
+## Session limits and organisation sign-in
+
+By default a session ends after 12 hours without use or 14 days in total, even if it has
+continued renewing while you work. The operator can change these limits. Repeated failed
+password attempts can delay another attempt by up to fifteen minutes; the account is not
+locked permanently.
+
+Your organisation can offer **Continue with** its OpenID Connect sign-in provider, such as
+Microsoft Entra ID, Google or Keycloak. The provider handles its own second factors. On your
+first sign-in, refiroo takes your name and email from the provider and updates membership of
+its groups at sign-in. The roles granted to those groups determine what you can do here.
+
+If you already had a local account, first provider sign-in can create a separate person.
+Ask a security administrator to link the accounts so your existing roles and history stay
+with the original person. Signing out of refiroo signs out of the provider too only when
+that provider is configured to do so. If you can immediately sign in again without a password,
+check whether the provider still has an open session.
+
+**Forgotten your password?** asks for your username or email address. It gives the same
+response whether or not that account exists. A reset message is sent only for an account
+with a local password and an email address. For a provider account, reset your password with
+the organisation instead. An administrator can supply a one-time password-setting link
+when email recovery is unavailable.

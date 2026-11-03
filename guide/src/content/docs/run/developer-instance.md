@@ -32,6 +32,9 @@ already supplies one. Keep an existing database's key. Running the command again
 lines and adds settings introduced by a newer version. An environment value takes precedence over
 the file. The administrator command asks for a password.
 
+When refreshing `.dev/settings.env`, `scripts/dev.sh settings` also comments out retired settings
+that the engine would otherwise refuse. Run `scripts/dev.sh` without a command to list its tools.
+
 Start each server in its own terminal:
 
 ```bash
@@ -120,3 +123,21 @@ Expect `Stopped the development server.` (or `The development server is not runn
 `stopped`. This preserves development data, settings and certificates. Start again with the same
 key and `scripts/postgres.sh start`; deleting the data directory is not a safe fix for an unknown
 startup problem. Use the [backup procedure](/docs/run/backup-and-restore/) if that data matters.
+
+## Browser and documentation addresses
+
+The development certificate covers the discovered address, `localhost` and `127.0.0.1`.
+Network mode runs the engine at `https://<address>:8000` and the frontend at
+`https://<address>:5173`. Vite enables HTTPS with `DEV_HTTPS_CERT` and `DEV_HTTPS_KEY` and
+forwards requests to `https://localhost:8000`. The engine's browser-origin list includes the
+frontend names and its own HTTPS names, so the API reference works through either port.
+The engine command enables proxy headers for the locally forwarded caller address.
+
+Vite forwards `/api`, `/oauth`, `/.well-known`, `/docs`, `/openapi.json` and `/health`.
+It does not forward `/metrics`; scrape the engine directly. `/brand` belongs to the frontend.
+By default the browser calls the address where the page was opened. Only a build-time
+`VITE_API_URL` selects a different engine; it is not a runtime environment override.
+
+For a standalone documentation site without an engine, run `npm run build:public` in `guide/`.
+That build includes a static, read-only API reference under `api/`, covering the management API
+and the guide's example consumer API. An installation uses its engine's live reference instead.

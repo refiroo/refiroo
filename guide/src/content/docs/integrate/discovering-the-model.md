@@ -23,3 +23,9 @@ The management [consumer definition read](/docs/api/?api=management#tag/model) g
 ## Inspect the contract in the browser
 
 **Settings › Integration › Consumer APIs** is a read-only catalogue for people with Browse. It shows the contract's name, version, base address, OpenAPI document, exposed types, lists and events. **Open the release** and **Open model** lead to the declaring model; they do not grant permission to edit it. Its **Change feed** section describes retention. Use the [consumer reading pages](/docs/integrate/consumer-apis/) for explanations and complete example exchanges, the [model administrator's page](/docs/model/consumer-apis/) for designing the declaration, and [The API reference](/docs/integrate/api-reference/) for trying operations.
+
+## Separate semantics from allowed placements
+
+A relation type defines forward and reverse meanings and orientation. Its allowed type pairs supply cardinality, required status, relation attributes and binding features. Discover those bindings instead of assuming that any two types may use a known relation type. Application navigation groups are presentation metadata; they do not scope API records or add a filter.
+
+Capability groups identify the deployment setting that enables them. A capability describes what the deployment supports, not what the current caller is allowed to do. Disabling model mutations retains release reads, validation and diff while removing draft/installation/activation routes. Read permissions still apply. Inspect the expanded consumer definition for resolved public names, code-source match rules, default filter matches, list parent types and generated events; do not duplicate that expansion in a client.

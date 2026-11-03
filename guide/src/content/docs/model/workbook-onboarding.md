@@ -16,7 +16,8 @@ It is different from merely opening a file or pasting values into a collection.
 
 ## Source file and draft
 
-**New from a workbook** accepts an Excel workbook or CSV file. You name the draft, choose what
+**New from a workbook** accepts an Excel .xlsx workbook or CSV file. Convert older .xls
+files to .xlsx first. Formula cells use their stored results; refiroo does not calculate formulas. You name the draft, choose what
 to propose and choose the workspace whose records are used for comparison.
 
 | Propose choice | Starting point |
@@ -184,7 +185,8 @@ change headers, introduce unknown values or omit records that still exist in ref
 A workbook can describe a model explicitly, contain several lists laid out for people to read,
 or repeat parent information on each row. The proposal can recognise key-and-name columns,
 a code with a name, text lists, Yes/No flags, several values in a cell, names by row or column,
-stable identifiers and placeholders. These are suggestions about the file's shape; check that
+stable identifiers and placeholders. [How workbook proposals are made](/docs/model/workbook-proposals/) explains the recognition rules
+and alternatives. These are suggestions about the file's shape; check that
 the result means what you intend before installing it.
 
 When a sheet contains lists, choose **Lists** in the source pane. Select each list to inspect
@@ -282,3 +284,20 @@ release-identity, layout and consumer-definition changes do not themselves resta
 rows and recognised heading or note rows do not create records. Skip-without-key instructions
 require a declared key. A source replacement keeps the old file for retained job work; deleting
 its owner also removes the attached files, so preserve any source you still need.
+
+## Limits of workbook mapping
+
+Use the profile for typed fields, lookups by an identifying value, delimiter-separated values,
+relationship flags and related records. Value maps replace known spellings or placeholders; they
+do not calculate new values. Value maps can be reused across columns. Each refused item identifies its sheet and row, so you
+can find the original value. A load resolves references by their identifying values and orders
+sources so that referenced records can be loaded first. Spreadsheet row order is not a substitute
+for a reliable identifier.
+
+If the file needs calculations, joins beyond an identifying-value lookup or custom procedural
+logic, prepare it outside the editor or ask an integrator to use the
+[bulk and import facilities](/docs/integrate/writing-in-bulk/). The editor is not a general spreadsheet programming tool.
+
+For a single-choice lookup, changing the referenced value in a later file switches the existing
+relationship to the new record. It does not add a second choice. Review relationship changes
+alongside field changes in the change set, especially when a value has become empty.

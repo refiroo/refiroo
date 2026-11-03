@@ -63,3 +63,7 @@ Each person controls their own delivery under **Settings › General › Notific
 Under **How each kind reaches me**, a person chooses **At once**, **Digest**, or **Off** for each kind. Immediate notices are plain text, sent once while under 24 hours old, and contain no record or change-set content. Turning mail on does not send a backlog of old notices.
 
 Choosing Digest for the first kind starts a daily digest in the browser’s time zone. **The digest** offers its frequency and shows the zone and **Next digest**. Digests arrive at 07:00 daily or on Mondays; there is no mail when nothing unread remains, and notices already read are left out. **Workspaces I follow** lists followed workspaces with **Stop following**. Following is chosen from a workspace. See [Inbox and approvals](/docs/use/inbox-and-approvals/) for the person’s notices and tasks.
+
+After downtime, only one digest is sent, rather than one for each missed morning. Without saved
+mail settings, the due time waits until mail is set up. Daylight-saving changes preserve 07:00 in
+the person's saved time zone; it is not the engine server's clock zone.

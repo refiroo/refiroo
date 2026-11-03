@@ -80,8 +80,4 @@ export default [
       ],
     ],
   ],
-  [
-    "Assistants and agents",
-    [["integrate/assistants-and-agents", "Assistants and agents"]],
-  ],
 ];

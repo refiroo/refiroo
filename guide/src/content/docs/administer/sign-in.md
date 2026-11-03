@@ -69,6 +69,31 @@ applications in that browser. It needs provider support and registration of the 
 Server address, HTTPS and recovery setup belong with the operator. See the
 [Run refiroo sign-in instructions](/docs/run/sign-in-and-mail-setup/).
 
+## Provider groups and sign-out limits
+
+OpenID Connect works with Microsoft Entra ID, Google, Keycloak, Okta and other compatible providers.
+A provider group's membership comes from the person's sign-in. Create expected provider groups
+before go-live and grant their roles, or grant them after they first appear. A new provider person
+has no direct roles; an e-mail address matching an existing person does not merge them.
+
+For Microsoft Entra ID, group values are object IDs rather than readable names. Ask its
+administrator to include groups assigned to the registered application, then give those groups
+readable names in refiroo. With more than 200 groups, Entra ID can return a link instead of the
+list. refiroo does not follow that link, leaving the person with no provider groups. Reduce the
+groups assigned to the registration. Keycloak needs a Group Membership mapper. Google does not
+supply groups through this sign-in.
+
+Name and e-mail are refreshed from the provider when the person signs in. Removing a person at
+the provider does not recheck an existing refiroo session: deactivate leavers here too.
+
+Turning on provider sign-out affects sessions started afterwards. Older sessions did not retain
+the needed provider proof and sign out of refiroo only. An administrator ending someone's sessions,
+or **Sign out everywhere**, also ends refiroo sessions only. If the operator changes the public
+site address, have both displayed return addresses registered again before testing sign-in.
+
+If **Delete provider** is refused because people have used it, choose **Disable** instead.
+The retained provider preserves their identities while its sessions end.
+
 ## Second factors and passkeys
 
 A local password must be set before a person adds an authenticator app or passkey. A provider-only account cannot add local factors. Adding or removing a passkey on Account requires proof with a password, authenticator code or recovery code; knowing an account’s name is insufficient. A person can register up to 25 passkeys.
@@ -91,6 +116,12 @@ must set up an app on the sign-in page before a session starts. Provider sign-in
 provider's own checks, and clients are not asked for a second factor.
 This is the browser's administrative policy control; there are no separate session-duration
 or passkey-policy settings here. Follow [Require a second factor](/docs/guide/administer/require-a-second-factor/).
+
+An app code that was already accepted cannot be used again. Authenticator time needs to be within
+about a minute of the server; turn on automatic time before replacing an otherwise working app.
+Someone who has registered passkeys but no authenticator app has no app recovery codes. They need
+another passkey kept elsewhere, or an administrator to remove the lost passkey. While ordinary
+local sign-in is off, passkey-only sign-in also requires **Keeps local sign-in**.
 
 ## Sessions and help
 

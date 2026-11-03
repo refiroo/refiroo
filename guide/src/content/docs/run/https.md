@@ -28,27 +28,90 @@ Here a restart is sufficient because it reloads mounted files, rather than chang
 
 ## Get and renew public certificates automatically
 
-Point the public name's DNS at the host and make ports 80 and 443 reachable from the internet.
-Set `PUBLIC_URL`, then use the overlay:
+The `compose.acme.yml` overlay adds **Caddy 2** (`caddy:2`) in front of web. Caddy obtains and
+renews certificates from **Let's Encrypt** or **ZeroSSL** using **ACME**, the protocol through which
+a certificate authority checks control of a domain and issues a certificate. The authority must
+be able to reach this public installation to complete its challenge. A local browser trusting the
+site is not enough.
+
+1. Choose a public DNS name and point it at this host. Check that its DNS addresses lead here,
+   including any published IPv6 address. Make inbound ports **80 and 443** reachable from the
+   internet. Another service must not already own those host ports.
+2. Set `PUBLIC_URL` in the private environment to the HTTPS origin for that name. The
+   overlay publishes Caddy on host ports 80 and 443 directly; `WEB_HTTP_PORT` and
+   `WEB_HTTPS_PORT` do not change those overlay ports.
+3. If you want to supply a certificate contact address, add this global block above the site
+   block in your installation's `caddy/Caddyfile`, using your own address:
+
+   ```caddyfile
+   {
+     email operator@example.org
+   }
+   ```
+
+4. Start with both files from the repository root:
+
+   ```bash
+   docker compose -f compose.yml -f compose.acme.yml up -d --build
+   docker compose -f compose.yml -f compose.acme.yml logs --tail=100 caddy
+   ```
+
+   No `./certs` directory or certificate files are needed. The overlay sets `WEB_TLS=proxy`,
+   removes web's published ports and certificate mount, and makes Caddy the only public entry.
+   It forwards to `web:8080`, which forwards engine paths privately. Streaming responses flush
+   immediately through Caddy. Keep both `-f` arguments on subsequent commands.
+5. Check HTTP redirection and HTTPS readiness from the caller's network:
+
+   ```bash
+   curl -I http://refiroo.example.org/
+   curl -i https://refiroo.example.org/health
+   ```
+
+   Substitute your real name. Expect a redirect to HTTPS and readiness 200 with a trusted
+   certificate. Follow the broader [public checks](#verify-from-the-callers-network) before
+   opening traffic. Never bypass certificate validation to call issuance successful.
+
+### Preserve certificates and renewal
+
+Caddy's `/data` is the **`caddy-data` volume**. It holds both certificates and the certificate
+authority account. Preserve it across container rebuilds and upgrades, and include it in protected
+storage backups. Do not remove it to force a retry: losing it causes new issuance requests, which
+the authorities rate limit. Caddy renews its managed certificates automatically; do not replace
+its managed files by hand. Keep DNS, inbound reachability and Caddy running for renewals too.
+
+Inspect the certificate actually served, rather than only a container's state:
 
 ```bash
-docker compose -f compose.yml -f compose.acme.yml up -d --build
+openssl s_client -connect refiroo.example.org:443 -servername refiroo.example.org </dev/null \
+  | openssl x509 -noout -subject -issuer -dates
 ```
 
-Caddy obtains and renews a certificate and redirects HTTP. No certificate directory is required.
-The overlay makes `web` private and Caddy the only public service. Keep using both Compose files
-for subsequent commands. Preserve `caddy-data`, which holds certificates and the authority account;
-losing it forces fresh issuance, which certificate authorities rate limit.
+Check the host, issuer and expiry, then verify the trusted HTTPS request with `curl` or a browser.
+A contact address does not replace certificate-expiry monitoring.
 
-If issuance fails:
+### If a certificate is not issued or renewed
+
+Read bounded Caddy logs using both Compose files. A name resolving elsewhere or a blocked public
+port prevents the authority's challenge from reaching Caddy: correct DNS or the firewall, then
+check the next attempt in the logs. If DNS publishes both IPv4 and IPv6, both advertised paths
+must lead to the right entry. A host-port binding error requires freeing ports 80/443 or reviewing
+the chosen topology. If the log reports an authority rate limit, preserve the account volume and
+follow the retry time in that message instead of repeatedly recreating storage.
+
+Check outbound connectivity from Caddy to the authority as well as inbound connectivity. A changed
+Caddyfile must parse successfully; inspect its error before restarting repeatedly. For a running
+container, validate the mounted file with:
 
 ```bash
-docker compose -f compose.yml -f compose.acme.yml logs --tail=100 caddy
+docker compose -f compose.yml -f compose.acme.yml exec -T caddy \
+  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
-Check DNS and inbound ports first. A name known only inside your network cannot use this public
-certificate flow. Use your organisation's certificate instead. An optional global email setting in
-`caddy/Caddyfile` supplies an address for certificate-expiry notices.
+After a valid change, restart Caddy with the same overlay arguments and repeat the public checks.
+Keep the existing `caddy-data` volume. This public flow is unsuitable for a name only your network
+knows: use your organisation's certificate files. Caddy can use its own local authority for
+`localhost`, but that does not make its certificate publicly trusted or replace the
+[development-device trust setup](/docs/run/developer-instance/).
 
 ## Put an HTTPS load balancer in front
 
@@ -153,3 +216,12 @@ checks. Keep the previous still-valid pair until the replacement is confirmed. F
 the new environment or mounts. Revert the private settings and recreate again if those checks fail.
 Do not switch back to an expired certificate. For automatic certificates, preserve `caddy-data`
 and inspect Caddy's logs rather than replacing its managed files manually.
+
+## Certificate protocols and browser caching
+
+The supplied certificate-file configuration accepts **TLS 1.2 and TLS 1.3** and enables HTTP/2.
+For proxy mode, protocol policy belongs to Caddy or your organisation's HTTPS terminator.
+
+Hashed files under `/assets/` are cached for one year with `immutable`; a changed build gives them
+new names. The application page uses `Cache-Control: no-cache` so browsers check for an updated
+page. Preserve these rules in a custom proxy to avoid serving an old page after an upgrade.

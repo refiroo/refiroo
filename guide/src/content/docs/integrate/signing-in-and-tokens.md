@@ -31,3 +31,13 @@ Health probes, public OpenAPI documents, the API reference and sign-in endpoints
 ## Browser sessions
 
 People sign in through the authorization-code flow with PKCE. Their refresh tokens rotate and belong to sessions; clients do not reuse this mechanism. Browser sessions default to 12 idle hours and 14 days overall. A used refresh token has a 30-second recovery grace only while its successor is unused. Older reuse or reuse after that successor was consumed ends the session. A transient server failure during renewal does not itself sign the browser out. Browser applications should preserve that distinction between a refused session and a temporarily unavailable server.
+
+## Use OAuth metadata and standard client credentials
+
+The engine is its own OAuth 2.0 authorization server. Its RFC 8414 metadata at `/.well-known/oauth-authorization-server` names the issuer, token endpoint, grants and supported PKCE method. Public verification keys are at `/oauth/jwks`. Access tokens are JWTs signed with ES256 and identify a signing key with `kid`. The issuer and token audience must be those of your instance; a sign-in provider’s token is not a substitute for the engine’s access token.
+
+The [token operation](/docs/api/?api=management#tag/oauth) supports `client_secret_basic` or `client_secret_post`; choose one, not both. `scope=management` is the default and `scope=consumer` selects consumer access. A successful answer includes the bearer token, `expires_in` and scope, with `Cache-Control: no-store`. Use the returned lifetime. A 401 `invalid_client` with Basic authentication includes `WWW-Authenticate: Basic`; repeated failures can return 429 with `Retry-After`, even when the next credentials are correct. Wait before retrying.
+
+JWT claims include issuer, subject, audience, expiry, issue time, token ID and principal kind. A person’s token also identifies their session. They contain no permission grant. Verify JWTs against the issuer’s current public keys if your system validates them locally, while recognising that only the engine can decide current access on each API call.
+
+Token signing keys normally rotate every 30 days (`TOKEN_SIGNING_KEY_DAYS`); the previous key remains usable until its last token expires. An administrator’s immediate rotation retires the current key at once. Client secrets and browser refresh tokens do not use that signing key, so replacing either is a separate operation. Obtain a fresh access token after an unknown-key refusal.

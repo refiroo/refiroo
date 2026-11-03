@@ -47,3 +47,13 @@ Default retention is seven days. Download output and retain the source reconcili
 | `JOB_OUTPUT_MISSING` | Ask the operator to investigate lost job storage. |
 
 Operators can inspect these same jobs in Settings › Data operations › Jobs, including state, result, counts, cancellation and current limits. For browser tasks, follow [Importing and exporting data](/docs/use/importing-and-exporting/).
+
+## A job’s context and limits
+
+A batch claims the change set’s version once for the job. Each independent chunk that changes data advances that version. If another writer changes it between chunks, the remaining work fails with `CHANGE_SET_VERSION_CONFLICT`; the completed response reports the version the job reached. A live release change at an inline batch’s commit refuses the request with `MODEL_RELEASE_CHANGED` and saves neither changes nor job. In the background, earlier committed chunks remain applied.
+
+The [capabilities document](/docs/api/?api=management#tag/model) reports job limits. Defaults are seven days’ retention, 1,000 items and 5 MB inline, 10,000 atomic items, 1,000,000 background items, 50 MB for a background JSON batch and 200 MB for an uploaded file. `BATCH_TOO_LARGE` details name the setting, maximum and submitted items or bytes; select another supported mode or split the input. An import can expand rows into several items, so row count is not an item count.
+
+Operators control `INTEGRATION_JOBS_ENABLED`, `JOB_CHUNK_ITEMS` (default 500) and `JOB_LEASE_SECONDS` (default 120). With job execution disabled, stored jobs remain readable, but creation, cancellation and background processing stop. Expiry processing also stops while that worker capability is disabled. Finished jobs normally expire during hourly cleanup: summaries remain, detailed outcomes, files and idempotency keys do not. Operators store uploaded and exported files under `JOB_FILE_DIR`, default `var/job-files`; use the job’s output operation rather than a filesystem path.
+
+The named limits are `BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES` and `ATOMIC_JOB_MAX_ITEMS`, with retention in `JOB_RETENTION_DAYS`. Use the returned `expiresAt` as the deadline for retaining outcomes; an expired job’s item collection reads as an empty page while its summary remains. Finished work reports processed equal to total, including unprocessed outcomes; that does not mean every item applied.

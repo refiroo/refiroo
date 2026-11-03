@@ -147,3 +147,36 @@ starts the export again rather than appending new data to half of an old file. F
 until it has a completed file. Home itself has no Import or Export action; open an application
 or use Jobs. A record's History is a list of changes, not an earlier-state viewer, and offers
 no restore or undo. See [History](/docs/use/history/).
+
+## What the next file can change
+
+A profile belongs to one model. Use it in a workspace running that model; a different model
+needs its own suitable profile. A file carrying records from another workspace with a
+different model cannot load them as counterparts: those rows are refused while other valid
+rows can load under the chosen load policy.
+
+The next-version check can recognise a renamed header when its column stays in the same
+position and holds the same values. **Accept** saves that rename; **Ignore** saves the decision
+not to load a new column. Each decision checks the file again before loading.
+
+For a lookup allowing one related record, a changed value in the next file switches the
+connection to the newly named record. Missing records are kept unless the profile says to
+delete them. That deletion also removes their connections, but refuses a record that others
+depend on. Review the refused items and the change set before publishing.
+
+## File refusals and completion notices
+
+A preview can refuse all rows participating in a parent cycle, rather than loading either
+record into an invalid hierarchy. If the file cannot be read or does not fit the profile,
+loading changes nothing. Correct the file or ask the profile owner to repair its mapping.
+
+The tab that starts an import reports when its preview is ready and when loading finishes,
+unless you already have that job open. A collection reloads after an import started in this
+tab loads into it. For exports, the completion notice offers **Download** and the job page;
+a failed or cancelled export instead reports that state. Keep the tab open for these notices,
+or return to **Jobs** to inspect the result later.
+
+A stored upload used by an import profile is visible to its uploader and to people allowed
+to import in its workspace. Treat the file as shared with those workers when choosing what
+to upload. Losing a write permission can stop a job at its next step; review its applied counts
+before asking an authorised colleague to continue the work.

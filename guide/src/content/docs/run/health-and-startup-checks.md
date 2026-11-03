@@ -135,3 +135,7 @@ Use `docker compose up -d engine` instead when the fix changed `.env`. Expect 20
 workspace readiness in Operations. If it stays 503, collect a fresh bounded log; do not remove
 volumes or repeatedly restart without addressing the reported cause. For an unavailable workspace,
 record `unsupportedSchema`, `invalid` or `notLoaded` and the process IDs reported alongside it.
+
+Expected database outages log concise errors and keep tracebacks at DEBUG. Other background-thread
+failures log ERROR with a traceback because they can indicate a defect; preserve that diagnostic
+with the thread name and process identity when escalating.

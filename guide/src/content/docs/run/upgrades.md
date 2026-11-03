@@ -25,8 +25,8 @@ model can be served.
 
 3. Read the migration result before accepting traffic. On failure, the command exits 1 and reports
    the database without credentials, current and target revisions, cause and recovery steps.
-   Each migration runs in a PostgreSQL transaction; a failed or interrupted migration leaves the
-   revision from before that migration, while earlier completed migrations may remain committed. Preserve the backup, correct the cause and retry the explicit command.
+   The migration run uses one PostgreSQL transaction; a failed or interrupted run leaves the
+   database at the revision it held before that run. Preserve the backup, correct the cause and retry the explicit command.
 4. Start the new images:
 
    ```bash
@@ -130,14 +130,15 @@ A valid model and a running container do not prove those external connections st
 
 Keep writers closed while diagnosing. If the cause is missing permissions, an unavailable
 extension or a transient database connection, correct that cause and repeat the same explicit
-migration with the target engine. Each individual failed migration rolls back its transaction;
-if several revisions were needed, earlier completed revisions may already have committed. Read
-the reported current revision instead of assuming the whole upgrade rolled back.
+migration with the target engine. The migration runner wraps its pending revisions in one
+PostgreSQL transaction, so a failed or interrupted run rolls back to its starting revision. Read the reported current revision
+before retrying.
 
 For a process interrupted during migration, the next start takes the installation lock and retries
 from the revision PostgreSQL retained. Inspect logs and readiness afterwards. This describes the
-transactional implementation; recovery time and an interrupted upgrade on your production backup
-remain to be rehearsed. Do not run an older engine against an unknown newer database revision.
+transactional implementation; rehearse interruption and recovery on an isolated copy of your
+production backup to establish its recovery time. Do not run an older engine against an unknown
+newer database revision.
 
 If the target cannot be made ready, stop it and follow the
 [replacement-host recovery procedure](/docs/run/backup-and-restore/#restore-on-a-replacement-host)

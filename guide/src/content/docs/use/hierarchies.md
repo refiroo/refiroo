@@ -85,6 +85,12 @@ records together or open **Move to…** with right click or Shift+F10. One confi
 all selected records or none. On touch screens, hold still for half a second until the record
 lifts; moving earlier scrolls. Rest near an edge while dragging to scroll to the destination.
 
+Type groups normally start folded; the sole top-level group is the exception and starts open.
+Expanding a group or record opens its only child one level further without repeatedly
+expanding an entire branch. Loading more records keeps the sidebar's scroll position.
+On touch screens, the drag preview stays above your finger. Letting go at the starting place
+does not open the record; in the sidebar it opens the record's menu instead.
+
 ## Restructure in a change set
 
 Besides **Becomes** destinations, the node menu can offer **Change type…**,

@@ -44,6 +44,10 @@ Multiply by all worker processes on all instances, and leave headroom for startu
 administrator sessions below PostgreSQL's usable `max_connections` after reserved slots.
 The startup warning sees only its own instance's configured total, not the other instances.
 
+The shared pool also serves worker lease heartbeats, the consumer-event deriver and the webhook
+dispatcher. A background thread that cannot obtain a connection logs an ERROR and retries as it
+would for an unreachable database; adding request capacity alone does not reserve worker capacity.
+
 A pool wait that expires returns `503 DATABASE_UNAVAILABLE`, reason `poolExhausted`, with
 `Retry-After: 5`; nothing is saved. PostgreSQL refusing another connection gives
 `tooManyConnections`; ending an idle transaction gives `transactionEnded`. Occasional peaks may

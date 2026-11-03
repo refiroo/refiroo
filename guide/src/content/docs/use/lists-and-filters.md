@@ -11,6 +11,12 @@ Follow [Find records](/docs/guide/use/find-records/) to narrow a list, or
 
 ## Search and combine conditions
 
+![A collection narrowed by a date condition and a named relationship, with both shown as removable pills](/docs/screens/list-filter-pills.png)
+
+*Above: Stops in Network, Graubünden, narrowed by Valid from and Operated by. The footer
+shows the total for these conditions; the related-record chips identify each stop’s operator.*
+
+
 Search matches names and fields the model makes searchable. It works together with filters;
 a record must match the search and the applied conditions. **＋ Filter** groups the fields and
 relationships offered by this view. Its search finds a field in a long menu. Each active
@@ -97,3 +103,19 @@ To select results for an action, see [Changing many records](/docs/use/changing-
 Numeric zero and **No** are actual values, not missing fields. Use the field's missing-value
 condition when looking for records without a value. A view can offer several record types;
 its search covers those types, rather than every collection in the application.
+
+## Related values in columns
+
+A related-record column can show the connected records' names, one of their fields, or a field
+from an ancestor above them. The model chooses this presentation. A column showing a related
+field does not sort. When a single-record column sorts by name, records without a connection
+come last. These columns do not themselves offer filters; use the relationship conditions
+in **＋ Filter** when the view declares them. Hiding a related-record column in **Display**
+also stops reading its connections for that column.
+
+Relationship chips follow the data context you are reading, including a change set or a
+publication. The filter pill keeps the names of your chosen related records after a reload.
+A Yes/No filter applies when you choose the value; other editors can require their apply action.
+
+The sidebar scrolls independently of the table. Both short and long collections keep their
+header and footer in view; the table fills the available height even with only a few records.

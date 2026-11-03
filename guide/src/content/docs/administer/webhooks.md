@@ -75,3 +75,7 @@ Deliveries are normally kept for seven days; the page states the configured rete
 **Delete…** asks **Delete this webhook?** Confirm **Delete webhook** to stop sending and discard its signing key, or choose **Keep the webhook**. A replacement is a new subscription with a new position and key. A workspace with subscriptions cannot be deleted until they are removed.
 
 Edits and actions check that the webhook has not changed meanwhile. If **Not saved** appears, review the current configuration and the explanation before applying the action again.
+
+Webhook subscriptions are installation settings, separate from a model release. Installing or
+copying a model does not copy its webhook destinations, keys or delivery positions. Review these
+separately when moving an integration to another installation.

@@ -33,33 +33,13 @@ Viewing a document is separate from giving a consuming client permission to read
 
 Above: the schema generated for Stops API in the reference model.
 
-**Example of what the schema tells a consuming team.** The reference API's stopNumber
-field allows an integer or null. This is an excerpt of the generated document, shown for
-review rather than something to enter in the editor:
-
-```json
-{
-  "stopNumber": {
-    "type": ["integer", "null"]
-  }
-}
-```
-
-The name comes from **Output name**, the integer comes from the selected stop-number
-source, and null is possible when no source or default supplies a value. The schema
-also describes operator as an object or null and modes as an array. These shapes are
-part of what consuming teams rely on.
+**Reference-data example:** the generated schema describes the stop number as an integer that can be empty. Its public name comes from **Output name** and its type from the selected source. It also describes operator as one object or empty and modes as a list. These are the shapes consuming teams rely on; ask the integrator to review the detailed document.
 
 ![Generated message example with placeholder values](/docs/screens/model-consumer-tab-example.png)
 
 Above: the reference API's generated example. Its values illustrate types, not live data.
 
-For example, the current generated example includes `"name": "Example name"` and
-`"stopNumber": 1`. An integrator reading the real Chur stop instead receives
-`"name": "Chur"` and `"stopNumber": 8509000`. The example can choose any exposed type
-and fills fields with type-based placeholders; it does not describe a realistic record
-of that type. Compare the [full Chur response](/docs/model/consumer-apis/#the-business-object-consumers-read)
-when agreeing how the API represents actual data.
+The example uses placeholder values based on field types. They do not prove that a real record exists or has those values. For comparison, the reference stop Chur has stop number 8509000. Use real records as a separate check when agreeing the contract with its consumers.
 
 ## Review the operations as well as the object
 
@@ -77,22 +57,7 @@ when agreeing how the API represents actual data.
    the documents again. Agree the new address and changeover with consuming teams before
    activation. A version increase does not keep the previous live endpoint alongside it.
 
-**Example of what an integrator checks.** Stops API at contract version 1 gives the
-following request for the real Chur stop:
-
-```http
-GET /api/consumer/stops/v1/objects/745c1a52-8405-4158-8f3b-b9e9c8b979be?workspace=graubuenden
-```
-
-It returns the declared business object. The list operations return pages containing that
-same shape; XREF adds a match score; Resolve returns individual outcomes; events identify
-changes to the outputs you chose to watch. Use the worked examples in
-[Consumer APIs](/docs/integrate/consumer-apis/),
-[Reading business objects](/docs/integrate/reading-business-objects/),
-[Looking up and resolving](/docs/integrate/looking-up-and-resolving/) and
-[Consumer events and webhooks](/docs/integrate/consumer-events-and-webhooks/) to review these
-results with the integrator. Every organisation's declaration is its own contract: use
-your API's generated operation document, not another API's example, for the final handover.
+**Reference-data example:** an integrator checks that Stops API can read a known stop, list stops, look up its identifiers, resolve several inputs and follow the declared changes. The selected fields, related blocks, filters and notifications should match the agreement. Use [Consumer APIs for integrators](/docs/integrate/consumer-apis/) for worked requests and answers. Every organisation’s declaration is its own contract; hand over your generated documents.
 
 ## Hand over the active contract
 
@@ -109,11 +74,7 @@ your API's generated operation document, not another API's example, for the fina
 
 ![Active consumer API with release, version, base address, operation document and routes](/docs/screens/model-consumer-active-documents.png)
 
-The active API also has an index and its own OpenAPI document on the instance. For the
-reference API, the index is `/api/consumer?workspace=graubuenden` and the document is
-`/api/consumer/stops/v1/openapi.json?workspace=graubuenden`. These are addresses to hand
-to an integrator, not fields to fill in the model editor. See
-[Consumer APIs for integrators](/docs/integrate/consumer-apis/) for discovery and authentication.
+Opening the operation document does not require signing in. Reading data still requires the consuming client’s grant in the intended workspace. Share the addresses using the page’s copy controls; see [Consumer APIs for integrators](/docs/integrate/consumer-apis/) for discovery and authentication.
 
 ## If a document is unavailable
 
@@ -129,3 +90,5 @@ to an integrator, not fields to fill in the model editor. See
 - If a live read is refused, check the workspace, API grant and active contract with the
   integrator. The OpenAPI document itself is readable without signing in; opening it
   successfully does not prove that the client can read data.
+
+*Source for the reference examples: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0.*

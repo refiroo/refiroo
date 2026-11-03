@@ -65,6 +65,7 @@ export default [
     "Drafts from a workbook",
     [
       ["model/workbook-onboarding", "About drafts from a workbook"],
+      "model/workbook-proposals",
       "guide/model/start-a-draft-from-a-workbook",
       "guide/model/map-a-column",
       "guide/model/read-lists-in-a-sheet",

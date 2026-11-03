@@ -10,8 +10,7 @@ consuming team. You choose the public record shape, the operations and the filte
 a security administrator separately grants a client access in each workspace.
 
 See [Consumer APIs in the model](/docs/model/consumer-apis/) for the rules. The marked
-examples below use the reference Stops API. Requests and response excerpts show the result
-of your choices; they are not instructions to type into the editor or live API captures.
+examples below use the reference Stops API. They explain the result of your choices; the integrator’s request examples are linked separately.
 
 ## Choose the records and their public shape
 
@@ -63,17 +62,7 @@ the path is `Graubünden/Plessur/Chur` for the Chur stop. These are outputs chos
 
 Above: adding a public field to a consumer API in the reference model.
 
-**Example result.** The reference field `code` reads `sloid`, then `operator-code`, then
-`mode-code`. The same Get by ID operation returns these response excerpts for two records:
-
-| Record read | Response excerpt |
-| --- | --- |
-| Chur stop | `{"objectType": "Stop", "code": "ch:1:sloid:9000"}` |
-| Its operator | `{"objectType": "Operator", "code": "SBB"}` |
-
-The field `stopNumber` reads stop-number and returns `8509000` as an integer for Chur.
-A missing abbreviation is null unless you supply a default; Chur's existing `CH` value
-still takes precedence. See [Sources and defaults](/docs/model/consumer-apis/#sources-and-defaults).
+**Reference-data example:** the code field tries the stop identifier, then the operator code, then the mode code. Chur’s stop shows its stop identifier while its operator shows SBB. The stop number is an integer. A default abbreviation applies only to a record without one; Chur’s existing CH takes precedence. See [Sources and defaults](/docs/model/consumer-apis/#sources-and-defaults).
 
 ## Offer the operations and filters
 
@@ -105,24 +94,9 @@ still takes precedence. See [Sources and defaults](/docs/model/consumer-apis/#so
 
 Above: adding a filter to a consumer API in the reference model.
 
-**Example results to review with an integrator.** The reference API offers these requests:
+**Reference-data example:** the all-stops list can use an ordinary municipality filter to match Chur’s FSO number 3901. The stops list uses that filter name as its special parent scope and requires the municipality’s stable identity. Omitting the parent selection returns all stops. Review this distinction with the consuming team.
 
-| Editor choice | Request an integrator can make | Result |
-| --- | --- | --- |
-| List all-stops, Of Stop, no Within filter | `GET /api/consumer/stops/v1/lists/all-stops?workspace=graubuenden&municipality=3901` | A page of stops below the municipality matched by FSO number. Each item has the chosen business-object shape. |
-| List stops, Within municipality | `GET /api/consumer/stops/v1/lists/stops?workspace=graubuenden&municipality=05fd46a2-964a-4870-9d40-8bec6b4822dd` | A page below this parent ID. Here municipality is the list's parent parameter and accepts IDs only. |
-| XREF rule stop-number, Exact 900 | `GET /api/consumer/stops/v1/xref?workspace=graubuenden&query=8509000&expect=one` | Chur's object with `matchScore: 900`. A tied top score is an ambiguity, not an automatic selection. |
-| Related match through systemCodes | `GET /api/consumer/stops/v1/xref?workspace=graubuenden&query=Q663869&expect=one` | Chur's object with `matchScore: 90`, found through its Wikidata station code. |
-
-The ordinary municipality filter accepts ID, name or FSO number. Its special use as the
-stops list's parent parameter accepts only IDs. A filter name is part of the public
-contract even when it does not add a response field. The reference mode filter additionally
-lets the consumer narrow these reads with `mode=TRAIN`.
-
-Resolve returns one outcome per input: found, not found, ambiguous or rejected. Shared
-request defaults and per-item overrides choose filter values; they are different from
-field defaults. See [the batch example](/docs/model/consumer-apis/#lookups-and-batch-answers)
-and [Looking up and resolving](/docs/integrate/looking-up-and-resolving/) for full payloads.
+The stop number Exact rule scores Chur at 900 for its number 8509000. Matching Q663869 through its Wikidata system code instead scores 90. A tied top score stays ambiguous. The mode filter can further restrict results to Train. See [Lookups and batch answers](/docs/model/consumer-apis/#lookups-and-batch-answers) for how these choices fit together.
 
 ## Define notifications and review the contract
 
@@ -145,13 +119,9 @@ and [Looking up and resolving](/docs/integrate/looking-up-and-resolving/) for fu
    client this API in the workspaces it needs. Model authoring and other roles do not
    substitute for that grant.
 
-**Example result.** The reference event stops-changed watches code, name and the validity
-dates. A name change produces an event with `event: "stops-changed"`, `change: "updated"`
-and `changed: ["name"]`; changing latitude alone does not. See
+**Reference-data example:** the reference notification watches code, name and validity dates. A name change produces an update naming the affected name output; changing latitude alone does not. See
 [the event example](/docs/model/consumer-apis/#events-describe-changes-to-the-output).
-The reference contract version 1 gives consumers an address ending in `stops/v1`.
-Raising it to 2 changes that address to `stops/v2` after activation; the older live
-version does not remain as a parallel endpoint.
+The reference contract is version 1. Raising it to 2 changes the consumer’s address after activation; the older live version does not remain available alongside it.
 
 ## Refine a released API safely
 
@@ -165,3 +135,5 @@ already use. **Change key…** is still offered, but after activation the old ad
 404, as if the API were removed, and the contract check warns about it. Removing the API
 stops those reads after activation too. Coordinate any deliberate replacement and its access
 grants with the consuming team.
+
+*Source for the reference examples: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0.*

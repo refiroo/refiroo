@@ -45,3 +45,15 @@ Read the existing set before replacing it and retain its set version. Submit all
 | `MAPPING_CANDIDATE_TYPE_MISMATCH` | Ask for candidates on the view's target side. |
 | `MAPPING_SOURCE_NOT_FOUND` or `MAPPING_ENDPOINT_NOT_FOUND` | Reread the source and targets in the selected workspace and context. |
 | `MAPPING_ENDPOINT_TYPE_MISMATCH` | Use endpoints of the binding's declared types. |
+
+## Keep query and edge continuations separate
+
+The workspace Relations and Mappings reads expose the same edge-list contract. The anchored relationship read is a different collection; a cursor from one route does not continue another. Use either a change-set or publication context, never both (`MUTUALLY_EXCLUSIVE_CONTEXT`).
+
+Model-aware queries combine criteria with AND, support one relationship hop or its absence, and one sort field with a stable tie breaker. They do not support OR groups or nested relationship hops. Field criteria follow the type’s filterable declarations. A criterion for an ancestor tests containment, rather than following an arbitrary relation. An expansion limit is 1–20; the expansion reports its full count and a continuation through the relationship collection.
+
+Selected query items always retain public ID, type and version; selected values are under `fields`. Omitting selection uses the list’s usual item shape. The main cursor binds the query body, so preserve criteria, selection, expansions, context and business date when continuing. A malformed body uses `REQUEST_VALIDATION_ERROR`; model-dependent mistakes use `INVALID_QUERY` with a pointer. Consult the [query operation](/docs/api/?api=management#tag/queries) for its full grammar.
+
+Attribute values preserve their declared JSON form. Decimal responses use precision-preserving strings, while requests can supply a decimal number. Integers and booleans remain numbers and booleans. Dates use ISO 8601 days, and date-times return their UTC instant with an explicit offset. Treat missing and empty text as no value.
+
+Unique attributes are unique across all records carrying that attribute type within a workspace, including different object types. Scalar types support uniqueness; JSON does not. `DUPLICATE_ATTRIBUTE_VALUE` identifies the attribute and conflicting record. Any number of records can leave a unique text value empty. Do not use a non-unique name as a substitute for a batch key.

@@ -52,6 +52,8 @@ a reasonable mapping on the first sheet does not establish that this sheet is co
 
 For an explanation of proposal marks and key evidence, see
 [Proposed steps](/docs/model/workbook-onboarding/#proposed-steps-are-decisions-to-review).
+[How workbook proposals are made](/docs/model/workbook-proposals/) explains the patterns,
+recognition limits and alternatives behind the evidence.
 
 ## Resolve issues and check every source
 

@@ -23,3 +23,9 @@ Read the model release identity with the model, then use the expected-model-rele
 Publishing checks the change set, the workspace's current publication, its model release and the records and mutable relationship sets touched by the changes. Unrelated newer live records are preserved. Record divergences appear as conflicts; a changed relationship set can report `MAPPING_SET_CHANGED`. Review current live data and reapply the intended changes in a new current-live change set when necessary. Revalidating an unchanged conflicting change set cannot resolve its stale base.
 
 `CHANGE_SET_MODEL_RELEASE_CONFLICT` needs an explicit model decision. [Move the change set onto the workspace's release, or migrate the workspace](/docs/integrate/model-and-release-operations/); no implicit rebase happens. Unique-value, cycle and relationship-cardinality checks still apply to racing writers. Retrying must not bypass the rule that refused one writer.
+
+## Use the exact context’s release and version
+
+Model reads identify their release in `X-Model-Release-Id`. Return it as `X-Expected-Model-Release-Id` on management requests built from those definitions. Live requests compare the workspace’s release; change-set and publication requests compare their pinned release. A mismatch is `409 MODEL_RELEASE_CHANGED` before the requested read or write. Details identify the workspace, expected and current release, and the change set where applicable. Without that header, the server still checks the release under which an in-flight write was validated at commit.
+
+A concurrent model switch can also refuse a read with `MODEL_RELEASE_CHANGED`; retry after rediscovery. Read the change-set resource for its current aggregate version: record GET responses do not consistently supply it. Do not infer that claim from a nullable field on another response.

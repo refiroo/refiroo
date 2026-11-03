@@ -15,6 +15,8 @@ const DIST = process.env.GUIDE_OUT ? resolve(ROOT, process.env.GUIDE_OUT) : join
 const BASE = "/docs";
 // Paths the engine itself serves beside the documentation: links to them are not files in the built site.
 const ENGINE_PATHS = ["/docs/api", "/openapi.json", "/health", "/api/"];
+// The application's own start page, which the shared header links to (exact path only).
+const APP_PATHS = ["/"];
 
 const problems = [];
 const notes = [];
@@ -132,7 +134,7 @@ function links() {
       checked += 1;
       const url = new URL(target, `http://guide.invalid${here}`);
       let path = url.pathname;
-      const engineOwned = ENGINE_PATHS.some((engine) => path === engine || path.startsWith(engine.endsWith("/") ? engine : `${engine}/`));
+      const engineOwned = APP_PATHS.includes(path) || ENGINE_PATHS.some((engine) => path === engine || path.startsWith(engine.endsWith("/") ? engine : `${engine}/`));
       if (engineOwned) continue;
       if (!path.startsWith(`${BASE}/`) && path !== BASE) {
         fail("links", relative(DIST, file), `${attribute} "${target}" leaves the guide for a path the engine does not serve`);

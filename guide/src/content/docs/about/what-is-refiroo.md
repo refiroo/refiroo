@@ -55,3 +55,8 @@ These are responsibilities. [Roles and grants](/docs/about/people-and-access/) d
 
 refiroo serves reference data: relatively stable information used to describe, classify or connect other data. It is not intended to store transactions such as purchases or journeys, or to replace the systems that process them. Its approval controls govern reference-data publication; it is not a general workflow engine.
 
+
+It is not a general data catalogue, business glossary, lineage scanner or enterprise governance
+suite. A small product catalogue or a lightweight master-data use can fit when its needs can
+be expressed through the same records, fields, relationships and views. These are uses you
+model; they do not add fixed domain modules to refiroo.

@@ -10,7 +10,7 @@ One set of rules applies on every path into refiroo. Browser edits, API calls an
 
 A number stays a number, a date stays a date and a yes/no field stays distinct from text. The model can require a field, give it a default, make it read-only, limit a number's range or require at least one of several fields.
 
-A unique value cannot be assigned to another record in the same workspace; a model can also limit uniqueness to an ancestor's scope. A required field cannot be emptied. A declared validity period must end after it starts. Correct the reported value, or ask a model administrator if the rule itself needs to change. See [Records](/docs/use/records/) and [Types, attributes and relations](/docs/model/types-attributes-relations/).
+A unique field value cannot be assigned to another record in the same workspace. A separate relationship rule can allow only one counting related record beneath each ancestor of a chosen type; this is how a model can limit one active representation per owner and group. A required field cannot be emptied. A declared validity period must end after it starts. Correct the reported value, or ask a model administrator if the rule itself needs to change. See [Records](/docs/use/records/) and [Types, attributes and relations](/docs/model/types-attributes-relations/).
 
 ## Connections are checked too
 

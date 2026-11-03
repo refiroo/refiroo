@@ -23,3 +23,13 @@ Default feed retention is 30 days, reported by capabilities. Entries after the c
 `FEED_POSITION_EXPIRED` names the earliest available position and a publication baseline. Replace the local mirror from that publication, then follow from its recorded position. Alternatively take a new live export and use its job metadata's feed position. Do not jump directly to today's head: that silently discards changes.
 
 `FEED_POSITION_AHEAD` means the checkpoint is beyond this workspace's head, perhaps because it belongs to another workspace or the database was restored. Verify the source, then establish a new baseline. A retired workspace's feed stays readable for reconciliation. Access requires the Feed action group; a Browse grant alone does not provide it.
+
+## Narrow a feed safely
+
+The feed’s `after` is a stable integer checkpoint: start at zero for all retained entries or use a baseline’s position. This feed does not use a collection cursor. Pages default to 500 entries and allow 1–1,000. Repeated kind or object-type values are alternatives; the two filter groups combine. An object-type filter matches a reclassified record’s old or new type, but excludes relation and publication entries. Plan how to load relationships if you use it.
+
+The server scans at most ten times the requested page size. Save `nextAfter`, even on an empty page, and compare it with `headPosition`. `earliestPosition` is the retained floor: a checkpoint below that floor minus one is expired. `FEED_RETENTION_DAYS` controls the default 30 days; it does not erase object history.
+
+Deleted relation entries retain their type and endpoint IDs so you can remove local edges without rereading the deleted relationship. Handle unknown action values without failing to read the page; reconcile unfamiliar changes against a fresh baseline if your mirror cannot apply them. Mapping transitions are history summaries, not extra feed changes.
+
+A publication’s `eventSequence` on the consumer API and `feedPosition` on the management API refer to the same workspace sequence. Several consumer events can share one raw position, so consumer checkpoints also need their lasting cursor. Neither interface is a replacement for audit history with historical field values.

@@ -85,3 +85,26 @@ A missing model element can say **No other workspace's model has it.** Choose **
 the offered workspace start page, then choose a collection present in that model. If another
 workspace is offered, its **Open in …** action changes the workspace as well as the page;
 check the destination before making changes.
+
+## Actions for this workspace
+
+![Workspace menu offering Import, Export and Edit model beside the selected workspace](/docs/screens/workspace-actions-menu.png)
+
+*Above: the menu for Graubünden while reading the Stops collection in Network. Its actions
+apply to this workspace and the data context being viewed.*
+
+
+The **⋯** menu beside the workspace selector offers **Import…**, **Export…** and **Edit model**
+when your permissions and the current context allow them. Export starts from what the current
+page shows; check the chosen columns, filters and data context in its dialog. See
+[Importing and exporting](/docs/use/importing-and-exporting/) for what the file includes.
+
+**Edit model** opens the workspace's model draft, returning to that draft on later visits.
+It changes the structure rather than an individual record. Ask a model administrator when you
+need that change; see [Models](/docs/model/models/). Applying a model shows its effect before
+confirmation. If records must move, the migration preview must be confirmed before they move.
+
+The workspace's Settings page offers **Overview**, **Access**, **Approval** and **Activity**
+according to your permissions. Overview links to its applications; Activity shows changes newest
+first, grouped by day. Access and Approval describe who can work here and how publication is
+approved. They do not grant editing rights simply because you can read the workspace.

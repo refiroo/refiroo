@@ -40,21 +40,7 @@ It can include fields from that record, its parent and related records. Get by I
 and lookups all return this same shape. A lookup adds a match score; a list wraps objects
 in a page. Changing the shape therefore affects more than one operation.
 
-The examples below show the reference data's **Stops API**. They illustrate the result of
-browser choices; you do not type these requests or responses into the editor. They are
-worked examples from the reference model and data, not captured responses from a running
-instance. The full request sequences are in [Consumer APIs for integrators](/docs/integrate/consumer-apis/).
-
-| Part of the editor | Reference declaration | What a consumer receives |
-| --- | --- | --- |
-| Types and related | Expose Stop, Municipality, Operator and Mode | Only those record types can be returned as business objects; a Stop has `objectType: "Stop"`. |
-| Fields | Output name `code`, with sources `sloid`, `operator-code`, `mode-code` in that order | The first available value becomes `code`, so a stop and an operator use the same public field without sharing an attribute. |
-| Fields | Output name `stopNumber`, source `stop-number` | The public field is `stopNumber`; its value is an integer. |
-| Types and related | Related blocks `operator`, `modes`, `systemCodes`, `translations` | The object includes the selected related fields. A single-valued relationship gives an object or null; a many-valued one gives an array, including an empty array. |
-| Operations | Get by ID, XREF, Resolve and five lists | Consumers can read a record, look it up, resolve a batch or request a named list. An undeclared operation is unavailable. |
-| Filters | `municipality` uses Under; `mode` uses On related | These names become request parameters; they narrow records using ancestors or relationships. |
-| Operations | Custom event `stops-changed`, watching `code`, `name`, `validFrom`, `validTo` | Consumers can follow that named event for stop creation, deletion and updates to those outputs. |
-| Contract version | 1 | The address ends in `stops/v1`. A new contract version changes the version in the address. |
+**Reference-data example:** Stops API exposes stops, municipalities, operators and modes. A stop’s business object includes its name, stop number, operator, modes and selected system codes. An operator uses the same declared fields, with stop-specific values empty. These are choices in this model, not built-in transport features.
 
 ## The business object consumers read
 
@@ -68,74 +54,9 @@ answer, while **Served type** shows the value's type and whether it can be missi
 Above: Stops API in the reference model. The code has three ordered sources; stopNumber is
 an integer and validTo can be null.
 
-**Example result: Get by ID.** A consumer reading the Chur stop requests:
+**Reference-data example:** Chur’s stop is named Chur, has stop number 8509000 and abbreviation CH. Its operator is Schweizerische Bundesbahnen SBB and its mode is Train. The containment path names Graubünden, Plessur and Chur, excluding the stop itself.
 
-```http
-GET /api/consumer/stops/v1/objects/745c1a52-8405-4158-8f3b-b9e9c8b979be?workspace=graubuenden
-```
-
-The response body has this shape and these reference values:
-
-```json
-{
-  "objectType": "Stop",
-  "id": "745c1a52-8405-4158-8f3b-b9e9c8b979be",
-  "code": "ch:1:sloid:9000",
-  "name": "Chur",
-  "validFrom": "2021-04-01",
-  "validTo": null,
-  "stopNumber": 8509000,
-  "abbreviation": "CH",
-  "fsoNumber": null,
-  "latitude": "46.85308416276408",
-  "longitude": "9.528937733041323",
-  "height": "584.6",
-  "sboid": null,
-  "parent": {
-    "objectType": "Municipality",
-    "id": "05fd46a2-964a-4870-9d40-8bec6b4822dd",
-    "code": null,
-    "name": "Chur"
-  },
-  "path": "Graubünden/Plessur/Chur",
-  "operator": {
-    "id": "003ff971-bd07-4396-854c-4a6acd33dd8d",
-    "code": "SBB",
-    "name": "Schweizerische Bundesbahnen SBB"
-  },
-  "modes": [
-    {
-      "id": "0f61601d-ec0c-4944-bab9-cf0d1d8665a9",
-      "code": "TRAIN",
-      "name": "Train"
-    }
-  ],
-  "systemCodes": [
-    {
-      "system": "Wikidata: stations",
-      "systemKey": "wikidata-stations",
-      "code": "Q663869",
-      "name": "Q663869 Chur"
-    },
-    {
-      "system": "Regional ticketing (FICTIONAL)",
-      "systemKey": "ticketing",
-      "code": "T-0300",
-      "name": "T-0300 FICTIONAL: Zone 1 hub: Chur and Chur West (two stops, one code)"
-    }
-  ],
-  "translations": []
-}
-```
-
-The path names ancestors from the root to the parent, excluding the stop itself. The model
-also supports a hierarchy as an array of ancestor names; this API does not declare one.
-The stop's `fsoNumber` is null: that value belongs to its municipality, and the field does
-not automatically inherit it. Its `sboid` is also null; choosing an operator relationship
-does not copy that operator's attributes onto the stop. Chur's municipality has translated
-names, but this stop has no translation records, so its `translations` array is empty.
-Decimal values use text to preserve precision; integers remain numbers, booleans remain
-true or false, and dates use year-month-day text. See [Reading business objects](/docs/integrate/reading-business-objects/).
+A field does not inherit a parent’s or operator’s value automatically. Publish that information through an explicit related block. A single-valued relationship gives one related object or an empty value; a many-valued relationship gives a list, which can be empty. This shape follows the relationship’s cardinality and is part of the contract. Decimal values retain precision; integers, booleans and dates keep their declared types.
 
 ### Sources and defaults
 
@@ -144,11 +65,7 @@ false are values, not missing data. If none supplies a value, the declared **Def
 used; without one, the answer contains null. A default affects the output only and never
 writes a value into a record. It must have the field's served type.
 
-**Example result: changing a default.** The reference API has no field defaults. If you set
-**Default** on `abbreviation` to the text `—`, a stop with no abbreviation changes from the
-response excerpt `{"abbreviation": null}` to `{"abbreviation": "—"}`. Chur still returns
-`{"abbreviation": "CH"}` because its source has a value. These are response excerpts from
-the Get by ID operation above, not complete objects.
+**Reference-data example:** the reference API has no field defaults. If you set a default abbreviation of “—”, records without an abbreviation receive that fallback in the consumer answer. Chur still shows CH. Neither record’s stored abbreviation changes.
 
 ## Lists, filters and the requests they enable
 
@@ -163,39 +80,9 @@ Above: the reference API's municipality filter matches an ancestor by ID, name o
 number on ordinary reads. A list's Within parameter with the same name takes parent IDs
 only. Its mode filter reads related modes and keeps only matching records.
 
-**Example result: a list within a municipality.** The reference list `stops` has **Of**
-Stop, **Within** filter municipality and **Sorted by** stop-number. A consumer can request:
+**Reference-data example:** the reference API has a list of stops within a municipality, sorted by stop number. A consumer selects the municipality by its stable identity. On a list without that special parent scope, the ordinary municipality filter can match a municipality’s name or FSO number instead. Omitting the parent selection returns the whole listed type. A page size controls one response, not the entire collection.
 
-```http
-GET /api/consumer/stops/v1/lists/stops?workspace=graubuenden&municipality=05fd46a2-964a-4870-9d40-8bec6b4822dd&pageSize=1&includeTotal=true
-```
-
-The response's `items` array contains business objects in stop-number order. Each item
-has the full shape shown above. This excerpt shows the page metadata; the `items` array
-and the opaque cursor values are omitted here:
-
-```json
-{
-  "workspace": "graubuenden",
-  "publication": null,
-  "pageSize": 1,
-  "prevCursor": null,
-  "startIndex": 0
-}
-```
-
-The complete answer also has `nextCursor`, `anchor` and `totalCount`. The consumer follows
-cursors to read more; a page size is not a limit on the whole list. The `all-stops` list has
-no Within filter. On that list, `municipality=3901` uses the ordinary filter. On `stops`,
-the same parameter names a parent and must contain its stable ID. Omitting the parameter
-from either list returns all stops; Within enables a scope rather than making it required.
-
-**Example result: a related filter.** Adding `mode=TRAIN` to the request keeps only stops
-with a matching mode. It also limits the returned `modes` block to matching items. The
-reference mode filter matches the mode's code or name; the municipality filter matches
-an ancestor instead. A filter does not create another field in the business object.
-For complete page responses and scoping rules, see
-[Reading business objects](/docs/integrate/reading-business-objects/).
+A related mode filter can keep only stops linked to Train and show only matching modes in their related block. Another related filter can trim the block without removing the object. A filter does not create another output field. Agree both effects with the consuming team.
 
 ## Lookups and batch answers
 
@@ -204,57 +91,11 @@ numeric weights. Exact comparison ignores letter case for text; Contains matches
 text and applies only to terms of at least three characters. A higher match score ranks
 first; it is not a percentage or a guarantee that the record is the intended one.
 
-**Example result: look up a stop number.** The reference stop-number rule has **Exact**
-900. A consumer asking for one answer requests:
+**Reference-data example:** the stop number rule has an Exact weight of 900. Looking up 8509000 identifies Chur with that score. Looking up its Wikidata code Q663869 instead reaches Chur through a related system-code record, with the configured weight of 90. These weights rank candidates; they are not confidence percentages.
 
-```http
-GET /api/consumer/stops/v1/xref?workspace=graubuenden&query=8509000&expect=one
-```
+A request for one answer succeeds only with an untied best candidate. No match and a tied best score are distinct outcomes. **Also match through** lets related records identify their owners. **First of** uses the first matching related rule; **Prefers** can choose which exposed owner types receive its score.
 
-It receives Chur's complete business object above with one extra field. Response excerpt:
-
-```json
-{
-  "objectType": "Stop",
-  "id": "745c1a52-8405-4158-8f3b-b9e9c8b979be",
-  "name": "Chur",
-  "stopNumber": 8509000,
-  "matchScore": 900
-}
-```
-
-Without the single-answer choice, XREF returns a paged `results` array. A unique top
-candidate gives one answer; no candidate or a tie is reported as an error rather than
-an arbitrary choice. **Also match through** lets related data identify its owning object:
-for example, `Q663869` identifies Chur through its system code at weight 90. **First of**
-tries the related rules in order; **Prefers** can favor particular exposed types when
-one related record identifies several types.
-
-**Resolve** applies the same lookup or Get by ID rules to many inputs in one request.
-A consumer can supply shared parameter defaults, with individual items overriding them.
-These request defaults differ from a field's Default in the editor: they narrow reads,
-not fill missing output values. Example request body for the reference API's Resolve
-operation (shown for review, not for typing in the model editor):
-
-```http
-POST /api/consumer/stops/v1/resolve?workspace=graubuenden
-Content-Type: application/json
-```
-
-```json
-{
-  "defaults": {"municipality": "3901"},
-  "items": [{"ref": "first-stop", "query": "8509000"}]
-}
-```
-
-The answer's first item has `index: 0`, `ref: "first-stop"`, `status: "found"` and an
-`object` containing the same scored Chur object. Its `counts` is
-`{"found": 1, "notFound": 0, "ambiguous": 0, "rejected": 0}`. A batch can report missing,
-ambiguous or rejected items alongside found items. See
-[Looking up and resolving](/docs/integrate/looking-up-and-resolving/) for full responses,
-errors and crosswalk examples. A **Crosswalk** filter lets a consumer request a particular
-related representation as `target`; the reference system filter offers this for system codes.
+**Resolve** applies Get by ID or lookup rules to many inputs. Each gets its own found, missing, ambiguous or refused outcome, in input order. Shared request filters can be overridden for an individual item; those defaults narrow the question, whereas a field’s Default fills a missing output value. **Crosswalk** enables asking for a selected related representation, such as a system code. It does not resolve a tied source match by guessing which source has a target.
 
 ## Events describe changes to the output
 
@@ -264,35 +105,11 @@ watches any change to the business object, including related blocks. **Events pe
 adds a standard event for each exposed type. The reference API leaves that option off
 and declares only its custom `stops-changed` event.
 
-**Example result: a watched change.** After a stop's name changes, a consumer can read:
+**Reference-data example:** Stops API watches code, name and validity dates. Renaming Chur to Chur Bahnhof produces an update notification naming the name output. Changing latitude alone does not trigger that event. This is an example change, not a record of a change in the reference snapshot.
 
-```http
-GET /api/consumer/stops/v1/events?workspace=graubuenden&event=stops-changed&payload=identity
-```
+A related record’s edit or a relationship joining or leaving a watched block can also trigger an update. Watched source changes can be reported even if a fallback leaves the displayed answer equal. A validity date passing without a write produces no notification. Moving a record into an event’s types counts as creation, moving it out as deletion, and moving between included types as an update to its type.
 
-An item in the response's `items` array identifies the event and changed output. This
-excerpt illustrates a rename to Chur Bahnhof; event identifiers, positions, time and cause
-are omitted here:
-
-```json
-{
-  "event": "stops-changed",
-  "change": "updated",
-  "contractVersion": 1,
-  "objectType": "Stop",
-  "id": "745c1a52-8405-4158-8f3b-b9e9c8b979be",
-  "code": "ch:1:sloid:9000",
-  "name": "Chur Bahnhof",
-  "changed": ["name"]
-}
-```
-
-Changing only latitude does not trigger this reference event: latitude is not watched.
-A full event payload normally also includes the current business object; deleted records
-have no object body. An event is not a saved historical copy of every field at its event
-position. Declaring an event does not register a webhook or grant permission to read it.
-Subscription, signing and delivery are separate tasks described in
-[Consumer events and webhooks](/docs/integrate/consumer-events-and-webhooks/).
+Full notifications carry current business objects when delivered, rather than a saved historical copy. Deleted records have no object body. Declaring an event does not register a receiver or grant access. Administrators manage delivery separately; see [Webhooks](/docs/administer/webhooks/).
 
 ## What the editor shows
 
@@ -352,9 +169,9 @@ A released key identifies consumers' existing access point: keep it stable. A re
 key can still be changed, but consumers of the old key then get 404, as with removal. Removing an API
 stops its consumers reading it once active. Review that warning even where removal is allowed.
 
-**Edit as JSON…** offers specialist editing for the definition or an item as one saved step.
+A specialist can edit the definition or an item as one saved step.
 No visual form covers every detail of the model language. Use the
-[JSON view](/docs/model/json-view/) with a specialist for unsupported combinations, then inspect
+[specialist view](/docs/model/json-view/) with a specialist for unsupported combinations, then inspect
 Issues and the generated documents. Do not infer support solely from a field being accepted as text.
 
 See [the generated documents](/docs/guide/model/see-a-consumer-apis-documents/) for review and handover;
@@ -379,3 +196,5 @@ view for declarations the current form does not expose. Reducing event coverage,
 crosswalk availability or removing an operation can require a higher contract version just as
 removing a field does. Adding more output is usually compatible; lowering a contract version
 is refused.
+
+*Source for the reference examples: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0.*

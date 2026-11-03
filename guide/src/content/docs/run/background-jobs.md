@@ -93,6 +93,11 @@ whole duration; the preview sample limit does not bound that work. A newer dry r
 one for the same draft. Keep the proxy's job event stream unbuffered; it sends keep-alive comments
 every 15 seconds.
 
+Source-workbook uploads also obey `IMPORT_MAX_BYTES`. Profiling copies every filled cell into the
+database, so file-volume space alone does not cover this storage. For sizing, a
+10,000-row, two-sheet workbook can produce about 330,000 staged cells, depending on its width. These rows are removed with
+the source file. Size your database for the actual workbook widths as well as their row counts.
+
 For spreadsheet safety, XLSX exports write text as text. CSV preserves strings beginning with
 `=`, `+`, `-` or `@`; spreadsheet software may interpret them as formulas when opening the file.
 
@@ -152,3 +157,20 @@ Do not extend retention to repair missing files. Changing `JOB_RETENTION_DAYS` h
 future retained results; it cannot reconstruct content already deleted. An export's long snapshot
 can delay PostgreSQL cleanup without blocking writers: if disk use rises while large exports run,
 inspect those jobs and database activity before assuming a workspace lock is stuck.
+
+## Consumer-event derivation
+
+The `eventDeriver` thread reads each workspace's change feed for consumer APIs whose model declares
+events. It runs while a model is healthy, needs no separate setting and takes no workspace write
+lock. Disabling webhook delivery does not stop this derivation. It looks for changes once a second.
+
+Several processes share the work, deriving one workspace at a time. A crash rolls back the page in
+progress and derives it again without losing or duplicating events. Database outages use the same
+two-second retry and bounded outage logging as other workers. Hourly cleanup follows
+`FEED_RETENTION_DAYS` and the change-feed floor.
+
+If a receiver seems behind, compare the consumer events response's `headPosition` with the
+workspace feed head. The first is how far events have been derived; the second is how far writes
+have reached. A gap here is derivation lag rather than a receiver failure. Check `eventDeriver` on
+Operations before resetting a subscription. See [Consumer events and webhooks](/docs/integrate/consumer-events-and-webhooks/)
+and the [API reference](/docs/api) for the reads used by the integration.

@@ -116,3 +116,10 @@ Multi-node load balancing must use readiness for routing, preserve the shared pu
 allow long event streams. Every node must use the same sealing/cursor keys and see the same files.
 Do not place different engine versions behind one address without first checking both against
 the stored schema and model-language window; this page supplies no rolling-upgrade guarantee.
+
+A running worker renews its lease every third of `JOB_LEASE_SECONDS`, including during a long
+step. Job notifications use PostgreSQL `LISTEN`. Setting the idle-transaction timeout to `0`
+lets a stalled transaction hold locks until the process resumes or its connection closes.
+Raise the timeout only if its warning occurs during legitimate work. Lost-connection detection
+with default TCP keep-alives can take about two hours on Linux and macOS; review the database
+server's keep-alive settings before using multiple nodes.

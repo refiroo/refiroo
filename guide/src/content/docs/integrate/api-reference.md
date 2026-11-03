@@ -25,3 +25,5 @@ If the reference opens but the request is refused, inspect the operation's error
 ## Use it without internet access
 
 The reference script is bundled with the engine by default. It does not need an external font, hosted client or telemetry service. An operator can instead select the pinned CDN script; that mode needs internet access from the browser. See [Configuration](/docs/run/configure/) for deployment settings.
+
+The bundled reference uses Scalar 1.72.2. The operator can set `RDM_API_REFERENCE_SCRIPT=cdn` to use the pinned jsDelivr copy, checked by its integrity hash; `bundled` is the default. A pasted token is used as supplied, so use a consumer client token when trying consumer data operations. Consumer source links use `api=consumer-<name>-v<version>` and can include the intended workspace.

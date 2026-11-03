@@ -22,3 +22,7 @@ fixed even when there are no records. See [Types, attributes and relations](/doc
 ![Rename a type with separate singular and plural names](/docs/screens/model-type-rename-dialog.png)
 
 ![Change key dialog for an unreleased type](/docs/screens/model-type-change-key-dialog.png)
+
+New keys are suggested from labels: lower-case words separated by hyphens, with accents removed.
+A clash adds a number such as -2 or -3. Review the suggestion while it is editable; changing a
+label after release does not generate a new identity.

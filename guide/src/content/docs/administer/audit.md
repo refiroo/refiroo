@@ -70,3 +70,9 @@ is marked **client**; a job or publication is named as the cause where applicabl
 The whole-instance security event list is available to authorised integrations, but there is no corresponding Settings screen. Ask the integration owner to use the [security model for integrators](/docs/integrate/security-model-for-integrators/) when they need that broader list. Do not mistake a person’s Recent activity for an instance-wide log.
 
 A deleted workspace’s retained entries can appear in an instance-wide view without an openable workspace; a workspace-filtered view does not make a removed workspace readable. Clearing a filter widens only within your permissions.
+
+## Security history retention
+
+Security events contain no passwords, secrets, reset links or signing keys. They do not currently
+expire automatically. Operators should allow for this history to grow with sign-ins and access
+changes; the data-feed retention period does not prune it.

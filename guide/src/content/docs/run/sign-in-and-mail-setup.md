@@ -27,6 +27,66 @@ Compose supplies `PUBLIC_URL` instead. Each listed origin allows the browser's s
 Apply environment changes by recreating the engine. A public host change signs people out,
 requires new passkeys for that host, and needs provider callback addresses to be registered again.
 
+## API authentication
+
+There is no switch to disable authentication. Requests without access tokens return
+`401 AUTHENTICATION_REQUIRED`. Invalid, expired, wrong-audience or deactivated-identity tokens
+return `401 TOKEN_INVALID` with a reason. Insufficient roles return `403 FORBIDDEN`, naming the
+action, the action groups that permit it and the workspace. Role changes apply on the next request.
+
+The public exceptions are `/health`, `/health/live`, `/openapi.json`, `/docs` and its files,
+including `/docs/api`, and the OAuth discovery, public keys, token, revocation and sign-in/password
+routes. Public documentation is not permission to read workspace data.
+
+A server-created administrator initially holds Security administrator, Data owner, Model
+administrator, Workspace administrator, Integration administrator and Operator at the whole
+instance. Once setup is complete, arrange narrower responsibilities and remove unnecessary
+bootstrap grants. Use [Command-line tools](/docs/run/command-line/) to create the first identities.
+For monitoring, create a dedicated client with `--role operator`.
+
+A client uses OAuth client credentials. For a local development engine, with credentials already
+loaded securely in your shell:
+
+```bash
+curl --fail -u "$CLIENT_ID:$CLIENT_SECRET" -d grant_type=client_credentials \
+  http://localhost:8000/oauth/token
+curl --fail -H "Authorization: Bearer $ACCESS_TOKEN" \
+  http://localhost:8000/api/v1/workspaces
+```
+
+Set `ACCESS_TOKEN` securely from the token response before the second command. Use the public
+HTTPS origin outside development. The default scope, `management`, serves `/api/v1` and `/metrics`;
+`scope=consumer` requests access for `/api/consumer` instead. These tokens are not interchangeable.
+On expiry or a refusal caused by signing-key retirement, the client fetches another token with its
+unchanged credentials. See [Signing in and tokens](/docs/integrate/signing-in-and-tokens/) and the
+[API reference](/docs/api) for integration details.
+
+## Browser sessions and throttling
+
+Browser sign-in uses the OAuth authorization-code flow with PKCE. Access tokens stay in page
+memory. The `oauth_refresh` session cookie is `HttpOnly`, `SameSite=Strict` and scoped to `/oauth`;
+it is `Secure` when `PUBLIC_URL` uses HTTPS. Each renewal replaces its refresh token. Presenting
+an already-used refresh token ends that session as a suspected copied credential.
+
+If `VITE_API_URL` separates the frontend and engine, both must share a site, such as
+`refiroo.example.org` and `api.refiroo.example.org`. Unrelated domains cannot share this strict
+cookie even when CORS permits requests. Outside applications can use the engine's
+`/oauth/authorize` page; it cannot be framed. Its passkey script is served by the engine itself.
+
+The first five failed attempts for a username and twenty for a caller address incur no delay.
+Subsequent attempts wait 1 second, then 2, 4 and so on, up to 15 minutes after the last failure.
+A correct password is not checked during a wait. Success clears the username count; counts lapse
+after 24 hours. Wrong current passwords, passkey proofs and client secrets also count against
+throttling. Logs identify failures with `sign_in_failed`, username and caller address.
+Trust forwarded caller addresses only from the actual proxy, or everyone shares its address limit.
+At most 2,000 unfinished provider sign-ins can be open per provider. Further starts show HTTP 429
+until starts expire after ten minutes.
+
+Password links prefer the Mail settings' application address, then the first `CORS_ORIGINS`
+entry. If neither is available, they use the engine's `/oauth/password` page; older links can
+also point there. A newer reset link replaces the previous one. Using it ends all sessions.
+Changing a password from Account instead preserves the current browser session and ends the others.
+
 ## Prepare a sign-in provider
 
 Register refiroo as an OpenID Connect web application with your organisation's provider. The
@@ -44,6 +104,22 @@ supplying the new issuer's secret in the same save. Once people have signed in t
 its issuer cannot change; add another provider instead. Keep a tested local recovery administrator.
 A provider's removal of a person does not end their existing refiroo session immediately: deactivate
 leavers in refiroo too. Disabling the provider ends its sessions.
+
+## Provider registration details
+
+The requested OpenID Connect scopes are `openid profile email`. Example issuers are
+`https://login.microsoftonline.com/<tenant-id>/v2.0` for Entra ID,
+`https://accounts.google.com` for Google and `https://<host>/realms/<realm>` for Keycloak.
+Use the issuer stated by that registration, including its tenant or realm.
+
+Provider sign-out requires `end_session_endpoint` in discovery. Register the exact signed-out
+address displayed by refiroo in the provider's post-logout redirect configuration. The engine keeps
+the sign-in ID token sealed for that session only when provider sign-out is enabled.
+
+For a failed provider sign-in, Security events record the reason and detail: `issuer` or `nonce`
+means the token did not belong to this sign-in, `exchange` means code exchange failed (check secret
+and callback), `browser` means the flow started in another browser, and `deactivated` identifies a
+disabled person. Give the reason to the responsible administrator without copying tokens or secrets.
 
 ## Prepare SMTP delivery
 
@@ -99,6 +175,10 @@ means no message. If mail is not configured, the due time stays put until it is 
 Outbox entries distinguish `notice` and `digest`; use the Mail page to inspect waiting, sent and
 failed messages. An authorised administrator can stop a waiting message. Browser choices and
 following a workspace are described in [Notifications](/docs/use/notifications-settings/).
+
+Every process runs a mail sender. Database leases prevent two senders delivering the same queued
+message. Notice messages contain the event kind and application link, without record, change-set
+or person content; their message text is protected and erased like password-link mail.
 
 ## Verify the whole sign-in path
 

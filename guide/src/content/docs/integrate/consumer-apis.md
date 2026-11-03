@@ -66,7 +66,9 @@ Each consumer contract has its own version, separate from the model release and 
 
 Read the [consumer API index](/docs/api/?api=management#tag/consumer) for the workspace. It identifies contracts and their own OpenAPI documents. Each contract's routes and typed answers are described separately from the management API. The workspace's model determines the available version; using another version can produce `CONTRACT_VERSION_NOT_FOUND`. The workspace serves its currently declared version for live reads. Raising the version does not leave a parallel old live endpoint; coordinate activation with consuming systems. Historical publication reads resolve the publication's own definition as described below.
 
-A client needs a consumer-audience token and a consumer API grant in that workspace. A management role does not grant consumer data. An administrator [grants the client access](/docs/administer/clients/). Public OpenAPI documents describe contracts without exposing records; the index and data reads require authentication.
+A client needs a consumer-audience token and a consumer API grant in that workspace. A management role does not grant consumer data. An administrator [grants the client access](/docs/administer/clients/). Public OpenAPI documents describe contracts without exposing records; the index and data reads require authentication. A consumer token sees only granted APIs in the index, possibly none. A management token with Browse in the workspace sees all its APIs in the index. The per-definition OpenAPI document is public. Its OAuth 2.0 client-credentials scheme points to the instance’s token endpoint and requests the consumer scope.
+
+Data requests check the token, workspace, consumer grant, then API name and version, in that order. A missing grant can therefore return `403 FORBIDDEN` even for an undeclared API name. This also applies to publication reads. Missing credentials return `401 AUTHENTICATION_REQUIRED`; invalid credentials return `401 TOKEN_INVALID`, with `details.reason` such as `expired`, `revoked`, `audience`, `unknownKey`, `malformed` or `signature`. Both 401 responses carry `WWW-Authenticate: Bearer`. A forbidden consumer read names `consumerApi` and `workspaceKey` in its details. Obtain a valid token for a 401; ask the administrator to review the workspace grant for a 403.
 
 **Example:** the guide's reference model declares the `stops` contract. Its [Get by ID operation](/docs/api/?api=consumer-stops-v1#consumer-stops-v1/GET/api/consumer/stops/v1/objects/{id}) presents stops with their municipality, operator, modes, system codes and names. Those names and projections are model configuration; other models can expose different business objects.
 
@@ -160,10 +162,63 @@ Object, list, XREF and resolution results use the same business object. XREF add
 
 ## Find your instance's actual contract
 
-Read the authenticated index at `/api/consumer?workspace=graubuenden` in this example. Each entry gives the API key, contract version and its OpenAPI document address. The reference document is `/api/consumer/stops/v1/openapi.json?workspace=graubuenden`. Each document is OpenAPI 3.1 and includes the concrete paths and shapes generated from that workspace's declaration. Use it to generate or validate your client after understanding the sequence here.
+The API index pages in consumer API name order, without seek. Each entry has `consumerApi`, `name`, optional `description`, `contractVersion` and `openapi`. Its links preserve the requested workspace. Index and document responses identify it with `RDM-Workspace` and its release with `X-Model-Release-Id`. Each generated document is OpenAPI 3.1, with concrete names and versioned paths and its contract version in `info.version`. These documents describe the selected workspace’s release; the same API name in another workspace can mean another contract.
+
+Read the authenticated index at `/api/consumer?workspace=graubuenden` in this example. Each entry gives the consumer API name, contract version and its OpenAPI document address. The reference document is `/api/consumer/stops/v1/openapi.json?workspace=graubuenden`. Each document is OpenAPI 3.1 and includes the concrete paths and shapes generated from that workspace's declaration. Use it to generate or validate your client after understanding the sequence here.
 
 In the browser, **Settings › Integration › Consumer APIs** lists the declared APIs, and **API reference** opens their interactive documents. Both describe the selected workspace's model; they do not make a contract available in another workspace. The [reference stops source](/docs/api/?api=consumer-stops-v1) is a pointer to this example's instance contract.
 
 The examples in this section use the reference snapshot of 2026-11-02. Object values were composed from that data with the engine's object renderer; they are not captures of a live HTTP session. Tokens, cursors, ETags, event positions, event IDs and delivery IDs depend on an instance and are marked as example values where used.
 
 *Source: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0. Regional ticketing codes, where used, are fictional.*
+
+## Stable API names
+
+The `consumerApi` in a route, subscription or event is the definition’s public `key`, not a secret or credential. It uses lowercase letters, digits and hyphens and is unique within a model release. A model can declare several APIs for different consumers, each with its own shape, operations, events and contract version. Keep the key when raising the contract version. Changing the key moves the address; requests to the removed name return 404. Display names can change without moving that address.
+
+## Declaration rules and defaults
+
+When authoring a model through an integration, put definitions in `consumerApis`. The current supported model schema language is `0.10`. Its consumer declaration vocabulary uses `exposes`, `object.fields`, `operations` and `filters`. Earlier schema versions are refused with `UNSUPPORTED_SCHEMA_VERSION` at `/schemaVersion`. Eligible stored releases must be raised before use; see [Model language versions](/docs/model/model-language-versions/). Use the [model operations](/docs/api/?api=management#tag/model) to inspect expanded definitions rather than copying an older declaration.
+
+### Fields and related records
+
+A field can be a source name, an ordered list of sources, or an object with `from`, `default`, `role` and `description`. Roles are `id`, `code`, `name`, `active`, `validFrom` and `validTo`. Exactly one field supplies the identity role, and each role is assigned at most once. Role fields appear first in that order; other fields follow declaration order. Do not rely on JSON property order when parsing an object.
+
+The identity role reads the built-in UUID, never a former system's identifier. Publish a former identifier as a separate field and match it through XREF. Sources in one field must share a value type; text and long text count as one type. Defaults must have that served type. Missing values and empty text are skipped in a fallback chain; zero and false are retained. No supplied source or default means null.
+
+Related `via` names are the relation's forward key or reverse key. The selected direction must be bound to at least one exposed type. Its cardinality determines object-or-null versus array; arrays order by related record name, then ID. Fields may read the related record's ID, name, attributes or `ancestor:<type>.<field>`. An ancestor projection reads the ancestor of that type nearest the root. An ancestor criterion in a filter can match any ancestor of that type. A related `objectType` output is allowed only when all reachable types have public names in this API.
+
+The parent block uses the role fields' public output names. A parent can be present even when its type is not exposed: its public `objectType` is then null. Paths and hierarchies walk ancestors from the root, excluding the record itself. Ancestor labels use the declared name role and fall back to the ancestor’s built-in name. A name containing a slash remains one hierarchy element; do not reconstruct the hierarchy by splitting the path.
+
+Public type names default to the type key in PascalCase and must be unique. Output names must be unique across fields, parent, path, hierarchy and related blocks. The names `objectType`, `matchScore` and `target` are reserved. Asking for a parent code needs a field with the code role.
+
+### Operations and matching
+
+An operation exists only when listed under `operations`. `objects`, `xref` and `resolve` otherwise return `404 OPERATION_NOT_OFFERED` and are omitted from generated OpenAPI. Resolve needs both object reads and XREF. XREF with no `matchOn` is available but finds nothing. Publications and the OpenAPI document remain available independently of the data operations. Lists and events need their own declarations.
+
+A list's `of` selects an exposed type. Its optional `sortBy` must name a bound scalar attribute, excluding JSON. Missing sort values come last, followed by name and creation order as tie breakers. A list's `within` names a filter and optionally its parent types. An Under filter supplies those types by default; another filter verb requires explicit types that can contain the listed type. Changing list order is a contract change.
+
+Match weights are positive integers. Match rules use ID, name or relevant attributes marked searchable or unique. `field: "code"` expands into one rule per source of the code-role field, using the same weights for each. It requires that role. Related promotion rules use `firstOf` in order and can use `preferTypes` to decide which exposed owners receive a related record's score.
+
+### Four filter verbs
+
+Each filter has exactly one verb and only that verb's options:
+
+| Verb | What it does | Options |
+| --- | --- | --- |
+| `byType: true` | Keeps the selected public types. | No match fields. |
+| `under: [types]` | Keeps records below matching ancestors. | `matchOn`; the types must be ancestors of an exposed type. |
+| `linkedTo: [types]` | Keeps records linked to a matching record. | `matchOn` and `through`: a related block, `itself`, or `sharedWith:<related>` for records sharing a related record. |
+| `onRelated: <block>` | Trims the selected related block to matching items. | `matchOn`, `keepOnlyMatching`, `scoreOnlyMatching`, `crosswalk`. |
+
+Under and Linked to default to matching ID, applicable code sources and name. Code shorthand expands to the sources bound by the relevant types. On related reads fields of its block, including ancestor references. `keepOnlyMatching` also drops objects with no remaining related item; `scoreOnlyMatching` limits promoted scores; `crosswalk` enables `to.<filter>`. These three flags default to false. Only On related can enable crosswalks. `scoreOnlyMatching` requires an XREF promotion rule through that block; otherwise validation refuses a restriction that could never affect a score.
+
+Filter names cannot shadow `query`, `expect`, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`, `publication`, `asOf`, `workspace`, `ref`, `id`, `event`, `after` or `payload`, or start with `to.`. Every source, type, relation and ancestor reference is checked against the release. Invalid definitions report the authored path and reason; repair the definition rather than removing a restriction from a client's request.
+
+Descriptions on fields, related blocks, operations, lists and filters appear in generated OpenAPI. They explain a contract without changing stored records. Review the expanded definition, schema and OpenAPI together before activating it.
+
+## Review a contract change
+
+Activation compares with what consumers read in the workspace’s current release and refuses unversioned breaks. Draft contract review compares with its base release, or the latest installed release of the same model when there is no base. Review the target workspace’s activation compatibility as well. Installing a release alone does not change the API consumers read. Removing a whole definition produces a warning and ends its address on activation; it does not preserve the old API.
+
+Removing or retyping a field, changing related cardinality, removing an exposed type, operation, list or filter, changing a filter’s verb, changing a list’s type, parent scope or ordering, changing matching weights or score restrictions, or disabling crosswalks can require a higher `contractVersion`. Event coverage is checked too. Adding fields or operations is normally compatible. Coordinate any version increase before activation: the current server serves one live version per definition. See [Compatibility](/docs/integrate/compatibility/) for the published commitment and this implementation limit.

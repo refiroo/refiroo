@@ -292,3 +292,17 @@ RDM-Workspace: graubuenden
 Correct the list name using the declaration or rediscover the intended workspace's contract. Do not turn a request error into an empty dataset. Inspect the [reference operations](/docs/api/?api=consumer-stops-v1#consumer-stops-v1/GET/api/consumer/stops/v1/lists/all-stops) for the instance's complete generated schema.
 
 *Source: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0.*
+
+## Parameter values and response metadata
+
+In query strings, repeat a parameter or separate its values with commas for alternatives. A literal comma inside a value must be percent-encoded as `%2C`. Comparisons are case-insensitive. For a list's special parent parameter, supply public record UUIDs, not names or codes; use a declared ancestor filter on another list to match those values instead. Without that parent parameter the list covers the whole type.
+
+Responses identify the workspace in `RDM-Workspace`. Publication reads also supply `RDM-Publication` and collection `publication`. Lists return `items`, `workspace`, `publication`, `pageSize`, `nextCursor`, `prevCursor`, `anchor`, `totalCount` and `startIndex`; totals and start index are null unless requested with `includeTotal=true`. A get-by-ID response is the bare business object. Unknown, deleted, unexposed or other-workspace records all answer `404 OBJECT_NOT_FOUND`.
+
+The contract's Publications operation lists snapshots newest first, with `id`, `publishedAt`, `status` and `eventSequence`. It supports ordinary paging but no seek. `eventSequence` can be null for an older snapshot; do not assume that is zero. Use a snapshot with a usable sequence when preparing a load-and-follow baseline. `publication=latest` selects the active publication, and fails with `PUBLICATION_NOT_FOUND` if none exists.
+
+ETags have an opaque digest and contract version. Keep the whole value, including quotes, and send it as `If-None-Match` for the same GET. The server compares after validating the read; a cached tag does not bypass access or request validation. Resolve is POST and has no conditional GET behavior.
+
+A parent UUID that is missing or has the wrong parent type gives `404 PARENT_NOT_FOUND`. An unknown public type filter gives `400 UNKNOWN_OBJECT_TYPE`. A value that cannot parse as a typed match field simply does not match that field. A shared-related route does not by itself include the matching record: that needs `itself` in the declaration.
+
+Conditional reads accept `If-None-Match: *`, a list of tags and weak comparison. A 304 has no body and retains the ETag and read-context headers. A live cursor combined with publication selection, a pinned cursor without publication selection, or a different explicit publication ID gives `INVALID_CURSOR`. Keep `publication=latest` on continuation requests to follow the publication first resolved by that cursor.

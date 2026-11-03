@@ -55,7 +55,7 @@ and [The starter model](/docs/examples/the-starter-model/).
 ## Collection groups and record pages
 
 Ungrouped collections appear first. Expand or fold a labelled group with its arrow; your choice
-is remembered in this browser. A folded group is marked when it contains the open collection.
+is remembered in this browser. The model sets whether a group starts folded on your first visit. A folded group is marked when it contains the open collection.
 Choose the group's name to open its page, search collections by name and open one in the same
 Live, change-set or publication context. Groups have one level and show no record counts.
 

@@ -173,3 +173,34 @@ root. The reference image explicitly supplies `/opt/refiroo/rdm-engine/model/rdm
 Do not assume a source checkout's implicit path exists: development scripts provide the model
 path, and a custom process must supply a readable file. `JOB_FILE_DIR` defaults beneath the backend
 root too; the reference image overrides it with the persistent `data/job-files` mount.
+
+### Runtime validation
+
+`SECRETS_ENCRYPTION_KEY` is exactly 32 bytes encoded as URL-safe base64. Generate it with
+`python -m app.cli.generate_key` in the backend environment. The old
+`CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY` setting is refused: rename it while keeping its value.
+Use the [resealing procedure](/docs/run/secrets-and-keys/) when changing the actual key.
+
+`CORS_ORIGINS` is a comma-separated list of origins. Each permits sign-in to return to
+`<origin>/signed-in`, so serve the browser application at the root of an allowed origin.
+Include the origin where people open `/docs/api` too. A missing origin can make its request
+preflight fail with `400 Disallowed CORS origin` before the token request is sent.
+
+`RDM_API_REFERENCE_SCRIPT=bundled` serves the pinned Scalar script locally and works offline.
+`cdn` fetches that same version from jsDelivr with its integrity hash; other values refuse startup.
+`PUBLIC_URL` and `SOURCE_CODE_URL` must be absolute HTTP or HTTPS addresses. Keep the public
+address identical across processes; it is also the token issuer and discovery-address base.
+
+### Limit application details
+
+Imports are read to disk while the request body arrives. Their item counts must fit
+`BACKGROUND_JOB_MAX_ITEMS` and, for an atomic import, `ATOMIC_JOB_MAX_ITEMS`; otherwise they
+fail with `IMPORT_TOO_MANY_ITEMS`. The file-size limit is separate.
+
+`JOB_PREVIEW_MAX_ITEMS` applies to both import and batch previews. Above it, the result is a
+sample. `IMPORT_PREVIEW_MAX_ITEMS` is no longer an alias: update old deployment files to the
+current name. A preview holds the workspace's write lock or its change-set claim while running.
+
+One request of model operations is one validated step in a draft's history. Raising
+`MODEL_OPERATION_MAX_ITEMS` increases both apply and undo time for that step. Expired consumer
+events are deleted hourly; the feed-retention exceptions described above still apply.

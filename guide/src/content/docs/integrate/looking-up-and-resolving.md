@@ -22,13 +22,13 @@ Partial matching needs at least three characters. Shorter inputs match whole val
 
 Batch resolve is a read. Each item asks by query or by ID, exactly one of them. Shared parameters can be overridden per item; JSON list values keep commas inside a value rather than splitting them. The response stays in input order, distinguishing found, not found, ambiguous and rejected items. A processed HTTP request does not mean every item resolved.
 
-The default maximum is 1,000 items, reported in capabilities. `BATCH_TOO_LARGE` requires smaller batches. Malformed bodies and unknown defaults refuse the request as a whole; an item-specific failure is reported with that item's outcome. `QUERY_OR_ID_REQUIRED` requires one input form. Keep a source-row reference so a refusal can be returned to the right row.
+The default maximum is 1,000 items (`CONSUMER_RESOLVE_MAX_ITEMS`), reported by the [capabilities operation](/docs/api/?api=management#tag/model). `BATCH_TOO_LARGE` requires smaller batches. Malformed bodies and unknown defaults refuse the request as a whole; an item-specific failure is reported with that item's outcome. `QUERY_OR_ID_REQUIRED` requires one input form. Keep a source-row reference so a refusal can be returned to the right row.
 
 ## Translate to another representation
 
 A crosswalk asks for a target through a parameter declared as target-capable. Source matching and scoring stay unchanged; the target selects the corresponding related representation. It can translate codes between systems or names between languages only where the model declares that relationship.
 
-One read names one target parameter (`MULTIPLE_TARGETS` otherwise). The target's selection replaces that parameter's ordinary projection restriction; other restrictions on the same projection still apply. An unknown or non-target-capable name is `UNKNOWN_PARAMETER`.
+One read names one target parameter (`MULTIPLE_TARGETS` otherwise). The target's selection replaces that parameter's ordinary projection restriction; other restrictions on the same projection still apply. An unknown or non-target-capable name is `UNKNOWN_PARAMETER`. Several values for the one target parameter are alternatives. Targets do not affect score, order, totals or ties and are not bound into the paging cursor. A page keeps the related block’s declared shape in `target`; a single-object answer requires exactly one related target. `AMBIGUOUS_TARGET` details include the count and up to ten targets, together with the source object ID, public type and parameter.
 
 For a single object, the source is chosen first, then exactly one target must exist. `TARGET_NOT_FOUND` and `AMBIGUOUS_TARGET` describe separate problems from source ambiguity. Pages can show no target or several without refusing the whole page. Batch items use the same single-object rule. Publication-pinned lookup and resolution use the fixed snapshot, including its matching and targets.
 
@@ -337,3 +337,7 @@ An item using `id` reads the known UUID directly and does not add a query score.
 These bodies use production-composed object values and the envelopes checked by the consumer code and journey assertions. The opaque anchor is illustrative, not a live resume token.
 
 *Source: opentransportdata.swiss, Service Points (Didok), Federal Office of Transport / SBB, snapshot 2026-11-02. Wikidata, CC0. Regional ticketing and its codes are fictional.*
+
+An ambiguous lookup’s details include the tied count and up to ten candidates with ID, public type, name and score. Paging parameters are unsupported with `expect=one`. XREF pages support cursor traversal, position and end selection, but neither seek nor `includeTotal`: totals are always returned. Empty query terms are ignored.
+
+Resolve’s optional `ref` is 1–200 characters. Outcome errors preserve the single-read code and add a JSON pointer into the item or defaults. Over-limit errors name the setting, maximum and submitted item count. Put `workspace`, `publication` and `asOf` on the request URL, never in `defaults` or items; definition filters and crosswalk choices belong in the body.

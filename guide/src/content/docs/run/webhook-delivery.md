@@ -157,3 +157,12 @@ Subscriptions stay stored, while their events continue to age. To undo that paus
 then inspect each subscription for expiry and validation failures. This is not an indefinite queue
 retention switch. For a single receiver pause, use the subscription's suspend operation through
 its administrator, retaining its identity and position.
+
+The signature is HMAC-SHA256 over the timestamp, a literal dot and the exact request body:
+`{RDM-Timestamp}.{body}`, using the subscription's signing secret. Receivers must check timestamp
+freshness as well as the signature. An nginx receiver with its default 1 MiB body limit may refuse
+an unusually large single event; arrange an adequate receiving limit before enabling delivery.
+
+A dispatcher handles four subscriptions concurrently, while requests for each subscription stay
+sequential. Each failed attempt writes one INFO line and each suspension one WARNING line. Check
+these alongside the saved attempt history; adding processes does not parallelise one subscription.

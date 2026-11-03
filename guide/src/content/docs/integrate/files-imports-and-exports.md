@@ -53,3 +53,24 @@ Counterparts work only between workspaces running the same model. `COUNTERPARTS_
 `IMPORT_FILE_MISSING`, `IMPORT_FILE_UNREADABLE`, `IMPORT_FILE_MISMATCH` and `UNSUPPORTED_FILE_FORMAT` require the expected readable file and layout. CSV is UTF-8 with supported quoting; workbook formulas use their cached values rather than being calculated. `IMPORT_TOO_LARGE` and `IMPORT_TOO_MANY_ITEMS` require splitting below the configured upload and job limits (defaults 200 MB and 1,000,000 items).
 
 `INVALID_IMPORT_PROFILE` requires fixing the reported binding paths; `IMPORT_PROFILE_NOT_FOUND` or `IMPORT_PROFILE_EXISTS` requires the intended profile key; `IMPORT_PROFILE_VERSION_CONFLICT` requires reading its latest version. `PROFILE_CHECK_NOT_FOUND` requires a current check, while `SOURCE_FILE_PROFILE_NOT_READY` means finish preparing its profile. `SOURCE_FILE_MISSING`, `SOURCE_FILE_NOT_FOUND` and `SOURCE_SHEET_NOT_FOUND` require the intended stored file and sheet. `MISSING_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `PARENT_NOT_FOUND` and `INVALID_ATTRIBUTE_VALUE` require correcting the named source cells. `INVALID_EXPORT_LAYOUT` requires a supported layout and consistent column choices. Refusals name paths or cells so a client can present the cause beside the source data.
+
+## Prepare and diagnose a file
+
+Send an import as multipart form data with the file and its request description; the [import operation](/docs/api/?api=management#tag/imports) defines the request. Use a stored profile, an inline profile or a supported profile-free layout. Unreadable files, missing declared sheets or columns and unresolved bindings fail validation before execution. With atomic policy, a rejected bound row prevents the file’s writes.
+
+A preview binds every row, even when only a sample of items is tried. Items run in execution order, with records before relationships; a row counts as previewed only when all its items were tried. Read row coverage alongside item coverage. After a confirmation refusal, the preview can remain waiting: correct the named context or access problem rather than treating the file as executed. Waiting previews expire from the end of their preview, using job retention.
+
+| Format | File preparation |
+| --- | --- |
+| CSV | UTF-8, optional byte-order mark, RFC 4180 quoting and a header row. The default separator is a comma; declare another delimiter in the profile where needed. |
+| XLSX | One or more sheets. Supply actual values or formula cached values; refiroo does not calculate formulas. Dates can be date cells or ISO 8601 text. Excel text escapes are decoded. |
+| JSON Lines | One batch item per line, with no profile. Exported lines use upserts followed by relationship ensures so they can be read back. |
+| Exported table | CSV or XLSX with the exported identity, type and field columns; no profile is needed. Keep the field-key headers intact, including `#` attribute columns. `~` summary columns are ignored on import. |
+
+An empty or whitespace-only attribute cell leaves the attribute out of the write; it does not clear a stored value. Other text is kept as supplied. A value map can change how a particular source cell is interpreted. Conversion uses the target attribute’s declared type; a failure identifies its column as `INVALID_ATTRIBUTE_VALUE`. Replacing relationship cells have their separate empty-set behavior described above.
+
+Profiles can read a bounded sheet block with a header row, ignore columns, bind fixed references and flags, or write only relationships and related records for an existing main record. A related-record binding finds the related record through its relationship and parent. Translated names and system mappings use this same generic binding. Profile source dependencies must be acyclic. Ambiguous reference matches reject the row; a profile’s match field need not itself be a unique attribute.
+
+A row’s result reflects its worst item outcome and identifies every failing cell. Read individual item outcomes when one row produced several records or relationships. Every bound import has a binding report, including an execution without a preview. Use those reports to correct the source or profile, then rerun with stable keys.
+
+Export manifests include a SHA-256 checksum. Choose whether relationships require both ends in scope or include all edges of selected records. The latter can refer to records outside the exported selection; ensure the destination already has those records or load them separately. Business-date exports filter only types with a declared period and identify the types dated.

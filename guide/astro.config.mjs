@@ -68,14 +68,17 @@ const listed = (items) =>
     .filter((item) => exists(Array.isArray(item) ? item[0] : item))
     .map(entry);
 
+// By default every section and group starts folded except About refiroo; Starlight opens the group of the
+// page being read and keeps a reader's own folding choices.
 const sidebar = SECTIONS.filter(([directory]) => hasPages(directory)).map(
   ([directory, label]) => ({
     label,
+    collapsed: directory !== "about",
     items: GROUPS[directory]
       ? GROUPS[directory].flatMap(([group, items]) => {
           const pages = listed(items);
           if (!pages.length) return [];
-          return group ? [{ label: group, items: pages }] : pages;
+          return group ? [{ label: group, collapsed: true, items: pages }] : pages;
         })
       : [{ autogenerate: { directory } }],
   }),

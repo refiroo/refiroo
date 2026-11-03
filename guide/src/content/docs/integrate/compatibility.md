@@ -4,7 +4,7 @@ description: Build a client that survives additions to an API contract.
 reader: integrator
 ---
 
-Build your integration against a documented API contract and tolerate additions to its responses. refiroo's compatibility commitment applies from version 0.12.0. Use the [API reference](/docs/api/) for the contract your instance serves.
+Build your integration against a documented API contract and tolerate additions to its responses. refiroo's compatibility commitment applies from version 0.12.0. Before 1.0, security fixes cover only the latest minor release; an interface commitment is separate from that maintenance window. Use the [API reference](/docs/api/) for the contract your instance serves.
 
 ## What stays compatible
 
@@ -39,3 +39,9 @@ The commitment reserves room for a retired record to point to a surviving record
 Before 1.0, the engine's readable model-language window can change at each release without the API notice period. The engine can raise eligible stored definitions to its supported language; an exported model file needs the author to update it. Read the instance's [capabilities and model metadata](/docs/api/?api=management#tag/model) and follow [Model language versions](/docs/model/model-language-versions/) before installing a definition from another version.
 
 The compatibility commitment gives the model language a major-release removal boundary from 1.0. For integrations running now, check the supported language on the actual instance rather than deriving it from the management API or consumer contract version.
+
+## Notices and supported model files
+
+The commitment names `Deprecation` (RFC 9745) and `Sunset` (RFC 8594) as the response headers for a deprecated interface. Check release notes for announcements and migration instructions. There is no currently deprecated API version to exercise these headers against; do not infer an extended support window merely because a response lacks them.
+
+For model files, the current engine reads and writes schema `0.10`. Versions `0.5`–`0.9` need raising; `0.4` and earlier cannot be carried forward by this mechanism. Stored-release raising preserves records, history, change sets and publications. Use [Model language versions](/docs/model/model-language-versions/) for the browser procedure and [Model operations](/docs/integrate/model-and-release-operations/) for integration access. Before 1.0, raising stored releases is a maintenance exception to the committed API and CLI. Do not use its current implementation as a permanent integration contract.

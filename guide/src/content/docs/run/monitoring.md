@@ -81,6 +81,10 @@ credentials file that your token-refresh mechanism maintains. Tokens last 60 min
 a static expired token stops scrapes. See [Clients](/docs/administer/clients/) and the
 [API reference](/docs/api) for authentication operations.
 
+The metrics response uses Prometheus text exposition format version `0.0.4`. JSON equivalents for
+processes, workspace readiness and instance totals are in the [system operations](/docs/api) of the
+API reference. Operational detail requires Operations access; basic system identity needs sign-in.
+
 ## Choose alerts
 
 | Signal | What to investigate |

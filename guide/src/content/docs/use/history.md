@@ -55,16 +55,7 @@ These lists help locate an action; they do not undo it. To correct current data,
 [Correct a record](/docs/guide/use/correct-a-record/). To read the saved result of a publish,
 [browse a publication](/docs/guide/use/browse-a-publication/).
 
-## Explaining a period
-
-Where AI is configured and you hold Use AI proposals, **What changed** offers **Explain this period**
-on a workspace's Activity or a record's History. Choose the period and read what is sent before
-requesting an explanation. Nothing is sent until you choose that action. The explanation covers
-live changes, with links to the facts behind its counts; open change-set edits are not counted
-as live changes. AI wording can be wrong, so inspect those facts. An empty period sends nothing;
-if the explanation fails, the counted facts can still be read.
-
-If an ordinary history read fails, retry it. If no entries match, remove the person, kind or
+If a history read fails, retry it. If no entries match, remove the person, kind or
 period filters. A filtered empty list does not prove that the record has never changed.
 
 ## Reading more and the limits of the list
@@ -92,3 +83,20 @@ The person's Changes list groups actions by day and reads across workspaces you 
 the filters; **You have not changed anything in the workspaces you can read yet.** describes
 an empty personal list. A different person's page can be headed **Changes by …**. These activity
 lists help locate changes without exposing the record's full before/after values.
+
+## Authors, causes and destinations
+
+Deactivated people and clients remain named using their current names. Changes made by refiroo
+itself say **the engine**. For a job, the author is the person or client who requested it;
+for publication changes, it is the person who published. A relationship entry identifies
+the record at the other end. Publication and type-change entries may keep only the changed
+values, so their earlier values can be unavailable.
+
+The person's **Changes** page offers the last 24 hours, 7 days or 30 days and includes live
+and change-set work, publications and permitted model work. Titles open the affected item
+while it still exists; a deleted item has no current record to open.
+
+A change set names its creator and the people who edited it. A publication names who
+published and withdrew it. A job names its requester both in the list and on its page.
+These names describe different responsibilities; the person publishing need not have prepared
+every change.
