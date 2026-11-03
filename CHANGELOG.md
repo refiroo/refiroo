@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (local material out of the repository)
+
+
 ### Fixed (a released consumer API's key fact)
 
 - **A released consumer API no longer says "Key fixed: released".** Its key can be changed, as D55 decided, and **Change key…** stays offered; the fact now reads **Released: a new key moves its address**, and its tooltip says consumers of the old key get 404 once the draft is active (the contract check warns `CONSUMER_API_REMOVED`). An unreleased one reads **Key editable**. Model elements keep **Key fixed: released**. The guide's Define a consumer API and Consumer APIs in the model pages say the same.

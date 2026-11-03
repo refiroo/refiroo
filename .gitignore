@@ -22,9 +22,8 @@ coverage/
 *.egg-info/
 *.tsbuildinfo
 
-# Local source material, never committed
-a local folder
-a local folder
+# Local source material, never committed: samples, models, documents
+/not_to_git/
 
 # The test harness's private PostgreSQL server and its seeded template databases (PG-D8, H1)
 backend/.test-postgres
