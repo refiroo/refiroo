@@ -633,6 +633,28 @@ button.model-editor-crumb {
   display: grid;
   gap: var(--space-1);
 }
+/* A checkbox list that unfolds an option into its own fields and groups them (0.13 RL). */
+.operation-unfold {
+  margin: var(--space-1) 0 var(--space-1) var(--space-5);
+}
+.operation-unfold > summary {
+  cursor: pointer;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+.operation-unfold > .operation-checkboxes {
+  margin-top: var(--space-1);
+}
+.operation-checkbox-group {
+  display: grid;
+  gap: var(--space-1);
+}
+.operation-checkbox-heading {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin-top: var(--space-1);
+}
 .model-detail-actions {
   display: flex;
   flex-wrap: wrap;
@@ -772,6 +794,11 @@ button.model-editor-crumb {
 }
 .layout-add {
   align-self: flex-start;
+}
+.layout-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 .layout-frame {
   border: 1px solid color-mix(in srgb, var(--action-primary) 35%, var(--border-subtle));

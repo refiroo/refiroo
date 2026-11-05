@@ -184,6 +184,8 @@ export function describeOperation(
       return `Added a detail page for ${type(p.objectType)}`;
     case "removeDetailPage":
       return `Removed the detail page of ${type(p.objectType)}`;
+    case "addPanel":
+      return `Added panel ${str(p.title)} to ${type(p.detail)}`;
     case "insertViewItem":
       return `Added ${itemWords(p.item, names)} to ${listWords(p, names)}`;
     case "moveViewItem":

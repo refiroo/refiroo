@@ -2282,7 +2282,7 @@ export function missingField(
 export function fieldOptions(
   field: Extract<OperationField, { options: unknown }>,
   values: FieldValues,
-): { value: string; label: string; group?: string }[] {
+): ChoiceOption[] {
   return typeof field.options === "function" ? field.options(values) : field.options;
 }
 

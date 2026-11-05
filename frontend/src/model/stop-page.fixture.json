@@ -1,0 +1,119 @@
+{
+  "objectTypeKey": "stop",
+  "panels": [
+    {
+      "key": "attributes",
+      "title": "Details",
+      "type": "attributes",
+      "region": "side",
+      "order": 10,
+      "config": {
+        "fields": [
+          "designation",
+          "stop-number",
+          "sloid",
+          "abbreviation",
+          "latitude",
+          "longitude",
+          "height",
+          "valid-from",
+          "valid-to"
+        ]
+      }
+    },
+    {
+      "key": "hierarchy",
+      "title": "Hierarchy",
+      "type": "hierarchy",
+      "region": "side",
+      "order": 20
+    },
+    {
+      "key": "stop-served-by-mode",
+      "title": "Served by mode",
+      "type": "relations",
+      "region": "main",
+      "order": 10,
+      "config": {
+        "relationTypeKeys": [
+          "stop-served-by-mode"
+        ],
+        "direction": "outgoing",
+        "columns": [
+          "name",
+          "mode-code"
+        ],
+        "showRelationshipColumn": false
+      }
+    },
+    {
+      "key": "stop-operated-by-operator",
+      "title": "Operated by",
+      "type": "relations",
+      "region": "main",
+      "order": 20,
+      "config": {
+        "relationTypeKeys": [
+          "stop-operated-by-operator"
+        ],
+        "direction": "outgoing",
+        "columns": [
+          "name",
+          "operator-code",
+          "operator-sboid"
+        ],
+        "showRelationshipColumn": false
+      }
+    },
+    {
+      "key": "represented-by-system-code",
+      "title": "Is represented by system code",
+      "type": "relations",
+      "region": "main",
+      "order": 30,
+      "config": {
+        "relationTypeKeys": [
+          "system-code-maps-to"
+        ],
+        "direction": "incoming",
+        "columns": [
+          "name",
+          "ancestor:system",
+          "external-id",
+          "description"
+        ],
+        "showRelationshipColumn": false,
+        "sortFields": [
+          "ancestor:system",
+          "name"
+        ],
+        "defaultSort": "ancestor:system"
+      }
+    },
+    {
+      "key": "object-has-translation",
+      "title": "Has name translation",
+      "type": "relations",
+      "region": "main",
+      "order": 40,
+      "config": {
+        "relationTypeKeys": [
+          "object-has-translation"
+        ],
+        "direction": "outgoing",
+        "columns": [
+          "name",
+          "ancestor:language",
+          "translated-name",
+          "active"
+        ],
+        "showRelationshipColumn": false,
+        "sortFields": [
+          "ancestor:language",
+          "name"
+        ],
+        "defaultSort": "ancestor:language"
+      }
+    }
+  ]
+}

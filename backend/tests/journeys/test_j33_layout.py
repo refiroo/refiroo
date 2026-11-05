@@ -130,16 +130,16 @@ def test_a_type_laid_out_step_by_step_shows_the_same_layout_after_activation(wor
             _apply(world, draft, answer["version"], {"kind": "addDetailPage", "applicationKey": app, "objectType": "j33-note"})
         )
     page = _page(_model(world, draft), app, "j33-note")
-    assert _panel_keys(page, "main") == ["attributes", "relations"]
-    assert _panel_keys(page, "side") == ["hierarchy"]
+    assert _panel_keys(page, "main") == ["j33-cites"]
+    assert _panel_keys(page, "side") == ["attributes", "hierarchy"]
 
     detail = {"applicationKey": app, "detail": "j33-note"}
     view_key = _table(_model(world, draft), app, "j33-note")["key"]
     view = {"applicationKey": app, "view": view_key}
     steps = [
-        [{"kind": "moveViewItem", **detail, "list": "panels", "item": "relations", "position": 0}],
+        [{"kind": "moveViewItem", **detail, "list": "panels", "item": "j33-cites", "position": 0}],
         [
-            {"kind": "setViewProperty", **detail, "panel": "relations", "property": "region", "value": "side"},
+            {"kind": "setViewProperty", **detail, "panel": "j33-cites", "property": "region", "value": "side"},
         ],
         [{"kind": "setViewProperty", **detail, "panel": "hierarchy", "property": "visible", "value": False}],
         [
@@ -175,7 +175,7 @@ def test_a_type_laid_out_step_by_step_shows_the_same_layout_after_activation(wor
 
     laid_out = _draft_model(world, draft)["model"]
     page = _page(laid_out, app, "j33-note")
-    assert _panel_keys(page, "side") == ["hierarchy", "relations"] or _panel_keys(page, "side") == ["relations", "hierarchy"]
+    assert set(_panel_keys(page, "side")) == {"attributes", "hierarchy", "j33-cites"}
     assert _by_key(page["panels"], "hierarchy")["visible"] is False
     assert _by_key(page["panels"], "j33-more")["config"]["fields"] == ["j33-text"]
     assert "j33-text" not in _by_key(page["panels"], "attributes")["config"]["fields"]
@@ -221,9 +221,9 @@ def test_a_type_without_a_detail_page_gets_the_generated_one(world):
     added = ok(_apply(world, draft, answer["version"], {"kind": "addDetailPage", "applicationKey": app, "objectType": "j33-note"}))
     page = _page(_model(world, draft), app, "j33-note")
     assert [(p["key"], p["type"], p["region"]) for p in page["panels"]] == [
-        ("attributes", "attributes", "main"),
+        ("attributes", "attributes", "side"),
         ("hierarchy", "hierarchy", "side"),
-        ("relations", "relations", "main"),
+        ("j33-cites", "relations", "main"),
     ]
     assert _by_key(page["panels"], "attributes")["config"]["fields"] == ["j33-text", "j33-code"]
 

@@ -7,9 +7,19 @@
  * its neighbours when a panel moves (D35), so a move is a position in the page's declared list.
  */
 
+import { containedTypes, heldRelations, relationsPanelConfig, relationshipTitle } from "@/model/defaults";
+import type { HeldRelation } from "@/model/defaults";
 import { attributeName } from "@/model/fields";
-import { objectTypeFor, RELATED_FIELD_PREFIX } from "@/model/lookup";
+import {
+  objectTypeFor,
+  RELATED_FIELD_PREFIX,
+  relatedAncestorTypes,
+  relatedColumn,
+  relatedTargetTypes,
+} from "@/model/lookup";
+import { ancestorObjectTypeKeys } from "@/model/placements";
 import type { DetailViewDefinition, DraftOperation, EngineModel, PanelDefinition, TableViewDefinition } from "@/types";
+import type { ChoiceOption } from "@/features/model-editor/ChoiceListField";
 import { keyFromLabel } from "@/features/model-editor/outline";
 import type { FieldValues, OperationField, OperationSpec } from "@/features/model-editor/operations";
 
@@ -150,30 +160,45 @@ export function chooseList(
   ];
 }
 
+/** The types a panel lists. */
+function panelTypes(model: EngineModel, place: LayoutPlace, panel: PanelDefinition): string[] {
+  if (panel.type === "children") return panel.config.objectTypeKeys;
+  if (panel.type === "table") return [panel.config.objectTypeKey];
+  if (panel.type !== "relations") return [];
+  return [
+    ...new Set(
+      model.objectTypeRelations
+        .filter((binding) => panel.config.relationTypeKeys.includes(binding.relationTypeKey))
+        .flatMap((binding) => {
+          const out = binding.fromObjectTypeKey === place.objectTypeKey ? [binding.toObjectTypeKey] : [];
+          const back = binding.toObjectTypeKey === place.objectTypeKey ? [binding.fromObjectTypeKey] : [];
+          return panel.config.direction === "outgoing"
+            ? out
+            : panel.config.direction === "incoming"
+              ? back
+              : [...out, ...back];
+        }),
+    ),
+  ];
+}
+
 /** The fields a panel's columns may show: the name and the attributes of the types it lists. */
 export function columnChoices(model: EngineModel, place: LayoutPlace, panel: PanelDefinition): string[] {
-  const types =
-    panel.type === "children"
-      ? panel.config.objectTypeKeys
-      : panel.type === "table"
-        ? [panel.config.objectTypeKey]
-        : panel.type === "relations"
-          ? model.objectTypeRelations
-              .filter((binding) => panel.config.relationTypeKeys.includes(binding.relationTypeKey))
-              .flatMap((binding) => {
-                const out = binding.fromObjectTypeKey === place.objectTypeKey ? [binding.toObjectTypeKey] : [];
-                const back = binding.toObjectTypeKey === place.objectTypeKey ? [binding.fromObjectTypeKey] : [];
-                return panel.config.direction === "outgoing"
-                  ? out
-                  : panel.config.direction === "incoming"
-                    ? back
-                    : [...out, ...back];
-              })
-          : [];
-  const keys = types.flatMap(
+  const keys = panelTypes(model, place, panel).flatMap(
     (key) => model.objectTypes.find((item) => item.key === key)?.attributes.map((item) => item.attributeTypeKey) ?? [],
   );
   return ["name", ...new Set(keys)];
+}
+
+/**
+ * Where the listed records sit (0.13 RL): `ancestor:<type>` for each type they can stand under, at any
+ * depth (a panel takes the ancestor's name; a field of the ancestor is a related column's), and `objectType`
+ * when the panel lists several types.
+ */
+export function whereItSits(model: EngineModel, place: LayoutPlace, panel: PanelDefinition): string[] {
+  const types = panelTypes(model, place, panel);
+  const ancestors = [...new Set(types.flatMap((key) => ancestorObjectTypeKeys(model, key)))];
+  return [...ancestors.map((key) => `ancestor:${key}`), ...(types.length > 1 ? ["objectType"] : [])];
 }
 
 /** A panel's current columns, where its type has them. */
@@ -204,6 +229,7 @@ function spec(
   fields: OperationField[],
   initial: FieldValues,
   build: (values: FieldValues) => DraftOperation[],
+  follow?: (next: FieldValues, previous: FieldValues, changed: string) => FieldValues,
 ): OperationSpec {
   return {
     id,
@@ -213,6 +239,7 @@ function spec(
     fields: () => fields,
     initial: () => initial,
     build: (values) => build(values),
+    ...(follow ? { follow } : {}),
   };
 }
 
@@ -231,12 +258,43 @@ export function renamePanelSpec(place: LayoutPlace, panel: PanelDefinition): Ope
   );
 }
 
-/** A new field group: an attributes panel in `main`, with the fields chosen moved into it (D50). */
-export function newFieldGroupSpec(model: EngineModel, place: LayoutPlace, detail: DetailViewDefinition): OperationSpec {
+/** The operations of a field group: an attributes panel with the fields chosen moved into it (D50). */
+function fieldGroupOperations(
+  place: LayoutPlace,
+  detail: DetailViewDefinition,
+  title: string,
+  chosen: string[],
+  region: Region,
+): DraftOperation[] {
   const fields = detail.panels.flatMap((panel) =>
     panel.type === "attributes" ? panel.config.fields.map((field) => ({ field, panel: panel.key })) : [],
   );
-  const notShown = fieldsNotOnPage(model, detail);
+  const taken = new Set(detail.panels.map((panel) => panel.key));
+  const key = keyFromLabel(title || "group", taken);
+  return [
+    {
+      kind: "insertViewItem",
+      ...page(place),
+      list: "panels",
+      item: { key, title, type: "attributes", region, config: { fields: [] } },
+    },
+    ...chosen.flatMap((field) => {
+      const from = fields.find((item) => item.field === field);
+      return from
+        ? fieldToPanel(place, from.panel, key, field)
+        : [{ kind: "insertViewItem", ...page(place), panel: key, list: "fields", item: field }];
+    }),
+  ];
+}
+
+/** The fields a field group may take: the ones on the page and the ones not on it. */
+function fieldGroupOptions(model: EngineModel, detail: DetailViewDefinition) {
+  const fields = detail.panels.flatMap((panel) => (panel.type === "attributes" ? panel.config.fields : []));
+  return options(model, [...fields, ...fieldsNotOnPage(model, detail)]);
+}
+
+/** A new field group: an attributes panel in `main`, with the fields chosen moved into it (D50). */
+export function newFieldGroupSpec(model: EngineModel, place: LayoutPlace, detail: DetailViewDefinition): OperationSpec {
   return spec(
     "layout-new-field-group",
     "New field group",
@@ -246,29 +304,146 @@ export function newFieldGroupSpec(model: EngineModel, place: LayoutPlace, detail
         name: "fields",
         label: "Fields",
         type: "checkboxes",
-        options: options(model, [...fields.map((item) => item.field), ...notShown]),
+        options: fieldGroupOptions(model, detail),
         hint: "Chosen fields move into the group from where they are now.",
       },
     ],
     { title: "", fields: [] },
-    (values) => {
-      const taken = new Set(detail.panels.map((panel) => panel.key));
-      const key = keyFromLabel(text(values.title) || "group", taken);
-      const chosen = list(values.fields);
-      return [
-        {
-          kind: "insertViewItem",
-          ...page(place),
-          list: "panels",
-          item: { key, title: text(values.title), type: "attributes", region: "main", config: { fields: [] } },
+    (values) => fieldGroupOperations(place, detail, text(values.title), list(values.fields), "main"),
+  );
+}
+
+const heldValue = (held: HeldRelation) => `${held.direction}:${held.relationTypeKey}`;
+const heldOf = (value: unknown): HeldRelation | undefined => {
+  const [direction, ...rest] = text(value).split(":");
+  return direction === "outgoing" || direction === "incoming"
+    ? { direction, relationTypeKey: rest.join(":") }
+    : undefined;
+};
+
+/** Whether the page has a panel listing the relationship in that direction. */
+function onThePage(detail: DetailViewDefinition, held: HeldRelation): boolean {
+  return detail.panels.some(
+    (panel) =>
+      panel.type === "relations" &&
+      panel.config.relationTypeKeys.includes(held.relationTypeKey) &&
+      (panel.config.direction === held.direction || panel.config.direction === "both"),
+  );
+}
+
+/**
+ * Add panel… (0.13 RL): what the panel shows (the records of one of the type's relationships, the
+ * records it contains, or a group of its fields), where, and its title. The server builds a related or
+ * contained panel with the rule a new page follows (`addPanel`); its columns change afterwards with the
+ * panel's Columns….
+ */
+export function addPanelSpec(model: EngineModel, place: LayoutPlace, detail: DetailViewDefinition): OperationSpec {
+  const application = model.applications.find((item) => item.key === place.applicationKey);
+  const held = heldRelations(model, place.objectTypeKey);
+  const contained = containedTypes(model, place.objectTypeKey).filter((type) =>
+    application?.objectTypeKeys.includes(type.key),
+  );
+  const kinds = [
+    ...(held.length ? [{ value: "relations", label: "Related records" }] : []),
+    ...(contained.length ? [{ value: "children", label: "Contained records" }] : []),
+    { value: "fields", label: "Fields" },
+  ];
+  const relationOptions = held.map((item) => ({
+    value: heldValue(item),
+    label: `${relationshipTitle(model, item)}${onThePage(detail, item) ? " (on the page)" : ""}`,
+  }));
+  const firstRelation = held.find((item) => !onThePage(detail, item)) ?? held[0];
+  const titleFor = (values: FieldValues) => {
+    if (values.kind === "relations") {
+      const choice = heldOf(values.relation);
+      return choice ? relationshipTitle(model, choice) : "";
+    }
+    if (values.kind === "children") {
+      const first = contained.find((type) => list(values.objectTypes).includes(type.key)) ?? contained[0];
+      return first?.pluralName ?? "";
+    }
+    return "";
+  };
+  const initial: FieldValues = {
+    kind: kinds[0].value,
+    relation: firstRelation ? heldValue(firstRelation) : "",
+    objectTypes: contained.map((type) => type.key),
+    fields: [],
+    region: "main",
+    title: "",
+  };
+  initial.title = titleFor(initial);
+  return spec(
+    "layout-add-panel",
+    "Add panel",
+    [
+      { name: "kind", label: "What the panel shows", type: "select", required: true, options: kinds },
+      {
+        name: "relation",
+        label: "Relationship",
+        type: "select",
+        required: true,
+        options: relationOptions,
+        when: (values) => values.kind === "relations",
+        hint: (values) => {
+          const choice = heldOf(values.relation);
+          if (!choice) return undefined;
+          const columns = relationsPanelConfig(model, place.objectTypeKey, choice).columns;
+          return `Columns: ${columns.map((column) => attributeName(model, column)).join(", ")}. Change them afterwards with the panel's Columns….`;
         },
-        ...chosen.flatMap((field) => {
-          const from = fields.find((item) => item.field === field);
-          return from
-            ? fieldToPanel(place, from.panel, key, field)
-            : [{ kind: "insertViewItem", ...page(place), panel: key, list: "fields", item: field }];
-        }),
-      ];
+      },
+      {
+        name: "objectTypes",
+        label: "Contained types",
+        type: "checkboxes",
+        options: options(
+          model,
+          contained.map((type) => type.key),
+        ).map((option) => ({ ...option, label: objectTypeFor(model, option.value)?.pluralName ?? option.label })),
+        when: (values) => values.kind === "children",
+      },
+      {
+        name: "fields",
+        label: "Fields",
+        type: "checkboxes",
+        options: fieldGroupOptions(model, detail),
+        hint: "Chosen fields move into the group from where they are now.",
+        when: (values) => values.kind === "fields",
+      },
+      {
+        name: "region",
+        label: "Region",
+        type: "select",
+        required: true,
+        options: [
+          { value: "main", label: "Main" },
+          { value: "side", label: "Side" },
+        ],
+      },
+      { name: "title", label: "Title", type: "text", required: true },
+    ],
+    initial,
+    (values) => {
+      const region = values.region === "side" ? "side" : "main";
+      const title = text(values.title);
+      if (values.kind === "fields") return fieldGroupOperations(place, detail, title, list(values.fields), region);
+      const show =
+        values.kind === "children"
+          ? { children: { objectTypeKeys: list(values.objectTypes) } }
+          : (() => {
+              const choice = heldOf(values.relation);
+              return { relations: { relation: choice?.relationTypeKey, direction: choice?.direction } };
+            })();
+      return [{ kind: "addPanel", ...page(place), show, region, title }];
+    },
+    (next, previous, changed) => {
+      // The title follows the choice while it is still the one the previous choice gave.
+      if (
+        ["kind", "relation", "objectTypes"].includes(changed) &&
+        (!previous.title || previous.title === titleFor(previous))
+      )
+        return { ...next, title: titleFor(next) };
+      return next;
     },
   );
 }
@@ -304,6 +479,8 @@ export function addFieldSpec(
 
 export function panelColumnsSpec(model: EngineModel, place: LayoutPlace, panel: PanelDefinition): OperationSpec {
   const current = panelColumns(panel) ?? [];
+  const sits = whereItSits(model, place, panel);
+  const offered = [...new Set([...current, ...columnChoices(model, place, panel), ...sits])];
   return spec(
     "layout-panel-columns",
     `Columns of ${panel.title}`,
@@ -312,7 +489,12 @@ export function panelColumnsSpec(model: EngineModel, place: LayoutPlace, panel: 
         name: "columns",
         label: "Columns",
         type: "checkboxes",
-        options: options(model, [...new Set([...current, ...columnChoices(model, place, panel)])]),
+        options: offered.map((key) => ({
+          value: key,
+          label: attributeName(model, key),
+          ...(sits.includes(key) ? { group: "Where it sits" } : {}),
+        })),
+        hint: sits.length ? "Where it sits shows what the listed records stand under, and their type." : undefined,
       },
     ],
     { columns: current },
@@ -384,6 +566,63 @@ function viewChoices(model: EngineModel, view: TableViewDefinition, current: rea
   ];
 }
 
+/**
+ * The fields of the records a relationship reaches, as the columns `related:<key>.<field>` (Base 0.9
+ * K5a): their attributes, and where they sit (0.13 RL): each type they can stand under, its name and its
+ * attributes (`related:<key>.ancestor:<type>.<field>`). A JSON attribute cannot be one.
+ */
+export function relatedFieldChoices(model: EngineModel, objectTypeKey: string, field: string): ChoiceOption[] {
+  const readable = (attributeKey: string) =>
+    model.attributeTypes.find((item) => item.key === attributeKey)?.valueType !== "json";
+  const attributesOf = (types: { attributes: { attributeTypeKey: string; order: number }[] }[]) => [
+    ...new Set(
+      types.flatMap((type) =>
+        type.attributes
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .map((binding) => binding.attributeTypeKey)
+          .filter(readable),
+      ),
+    ),
+  ];
+  const direct = attributesOf(relatedTargetTypes(model, objectTypeKey, field)).map((key) => ({
+    value: `${field}.${key}`,
+    label: attributeName(model, key),
+    under: field,
+  }));
+  const sitting = relatedAncestorTypes(model, objectTypeKey, field).flatMap((ancestor) => [
+    {
+      value: `${field}.ancestor:${ancestor.key}.name`,
+      label: "Name",
+      group: `Where they sit · ${ancestor.name}`,
+      under: field,
+    },
+    ...attributesOf([ancestor]).map((key) => ({
+      value: `${field}.ancestor:${ancestor.key}.${key}`,
+      label: attributeName(model, key),
+      group: `Where they sit · ${ancestor.name}`,
+      under: field,
+    })),
+  ]);
+  return [...direct, ...sitting];
+}
+
+/**
+ * The table's Columns choices: each relationship unfolds into the fields of its records and where they
+ * sit; a related column the view has that no relationship offers stands among the others.
+ */
+function columnOptions(model: EngineModel, view: TableViewDefinition, current: readonly string[]): ChoiceOption[] {
+  const choices = viewChoices(model, view, current);
+  const unfolded = choices
+    .filter((key) => key.startsWith(RELATED_FIELD_PREFIX) && !relatedColumn(model, key)?.field)
+    .flatMap((key) => relatedFieldChoices(model, view.objectTypeKey, key));
+  const known = new Set(unfolded.map((option) => option.value));
+  return [
+    ...choices.filter((key) => !known.has(key)).map((key) => ({ value: key, label: attributeName(model, key) })),
+    ...unfolded,
+  ];
+}
+
 export function tableColumnsSpec(model: EngineModel, place: LayoutPlace, view: TableViewDefinition): OperationSpec {
   const current = view.config.columns;
   return spec(
@@ -394,7 +633,8 @@ export function tableColumnsSpec(model: EngineModel, place: LayoutPlace, view: T
         name: "columns",
         label: "Columns",
         type: "checkboxes",
-        options: options(model, viewChoices(model, view, current)),
+        options: columnOptions(model, view, current),
+        hint: "Open a relationship to show a field of its records as a column of its own, such as the language code of a translation.",
       },
     ],
     { columns: current },

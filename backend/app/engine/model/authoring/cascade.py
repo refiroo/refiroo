@@ -178,6 +178,9 @@ def _prune_unbound(document: Document) -> bool:
                     document.remove(panel_path + ["config", "relationTypeKeys"], key)
                 changed = True
                 _drop_unreachable_columns(document, panel_path, page)
+        for view in application.get("views") or []:
+            if view.get("type") == "table" and _drop_related_fields(document, app, view, gone, bindings):
+                changed = True
         removed_views = False
         for view in list(application.get("views") or []):
             if _view_over(view, gone):
@@ -185,6 +188,51 @@ def _prune_unbound(document: Document) -> bool:
                 removed_views = changed = True
         if removed_views:
             _drop_orphan_collections(document, app)
+    return changed
+
+
+def _drop_related_fields(
+    document: Document,
+    app: Path,
+    view: dict[str, Any],
+    gone: set[tuple[str, str, str]],
+    bindings: list[tuple[Any, Any, Any]],
+) -> bool:
+    """The ``related:`` columns, filters and sorts of a table view for a relationship its type no
+    longer holds in that direction (``allowRelation`` placed them, 0.13 RL)."""
+    type_key = view.get("objectTypeKey")
+    stale: list[str] = []
+    for relation_key, source, target in gone:
+        relation = next(
+            (r for r in document.items("relationTypes") if r.get("key") == relation_key), None
+        )
+        if relation is None:
+            continue
+        if type_key == source and not any(
+            b[0] == relation_key and b[1] == type_key for b in bindings
+        ):
+            stale.append(relation_key)
+        if (
+            type_key == target
+            and relation.get("reverseKey")
+            and not any(b[0] == relation_key and b[2] == type_key for b in bindings)
+        ):
+            stale.append(relation["reverseKey"])
+    changed = False
+    config = view.get("config") or {}
+    path = app + ["views", {"key": view["key"]}, "config"]
+    for key in stale:
+        for name in ("columns", "filterFields", "sortFields"):
+            for column in [
+                f
+                for f in config.get(name) or []
+                if f == f"related:{key}" or isinstance(f, str) and f.startswith(f"related:{key}.")
+            ]:
+                document.remove(path + [name], column)
+                changed = True
+        if str(config.get("defaultSort", "")).removeprefix("-") == f"related:{key}":
+            document.set(path, "defaultSort", "name")
+            changed = True
     return changed
 
 

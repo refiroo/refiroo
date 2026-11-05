@@ -4147,6 +4147,7 @@ the layout places the change took.
 | `listObjectType` | `applicationKey`, `objectType` (a type it does not list yet). Records keep the application they stand in: a matrix there reads them, a table there lists only records stored there | additive | `unlistObjectType` |
 | `unlistObjectType` | `applicationKey`, `objectType` (nothing in the application needs it and another lists it) | draft-only | `restoreElements` |
 | `insertViewItem` | view or panel, `list` (`columns`, `filterFields`, `sortFields`, `fields`, `panels`, …), `item`, `position` (D19) | additive | `removeViewItem` |
+| `addPanel` | `applicationKey`, `detail` (a declared page's type), `show`: `{"relations": {"relation", "direction"}}` (`outgoing` or `incoming`, a relationship the type holds) or `{"children": {"objectTypeKeys"}}` (types the application lists and the type contains), `region` (`main` default, or `side`), `title`?, `key`? (generated free; a given one that is taken is refused `keyTaken`). The server builds the panel with the rule a type's page follows (0.13 RL), so every client gets the same panel; the answer's `parameters` carry its `key`, `title` and `region` | additive | `removeViewItem` |
 | `moveViewItem` | view or panel, `list`, `item`, `position` | additive | `moveViewItem` back; `restoreElements` when the move changed a panel's `order` |
 | `removeViewItem` | view or panel, `list`, `item` | additive | `insertViewItem` at its old position |
 | `setViewProperty` | view or panel, `property` (`name`, `defaultSort`, `pageSize`, `region`, `visible`, `title`, …), `value` | additive | `setViewProperty` back |
@@ -4332,11 +4333,18 @@ own renderers before installing it (A4b, D43). The editor's preview reads it aft
   draft routes.
 
 **A type without a detail page** shows the page the browser falls back to and cannot be laid out by the
-view verbs, which name a declared page. `addDetailPage` declares the page a new type gets (an attributes
-panel in `main`, a hierarchy panel in `side` when it has a parent, a children panel when it contains
-types, a relations panel when a binding names it at its `from` end); the editor's layout editor sends it
-as a step of its own (**Declare its page**), since the fallback page names its panels differently. On a
-type with a page it is refused `INVALID_OPERATION` (`alreadyPresent`).
+view verbs, which name a declared page. `addDetailPage` declares the page a new type gets (0.13 RL: the
+attributes panel and, when it has a parent, the hierarchy in `side`; in `main` a children panel when it
+contains types, then one relations panel for each relationship it holds in each direction, containment
+excluded, titled as the relationship reads from the type, with the name, the parent type the related
+records sit under, up to four of their attributes and, for several types, their type as columns); the
+editor's layout editor sends it as a step of its own (**Declare its page**), since the fallback page
+names its panels differently. On a type with a page it is refused `INVALID_OPERATION`
+(`alreadyPresent`). `allowRelation` gives the new relationship a panel of its own on the declared pages
+of both its types and a `related:<key>` column and filter on both types' table views;
+`disallowRelation` and the undo take them away again. A page written by hand is not rewritten: a panel
+joins it with `addPanel`, refused `INVALID_OPERATION` (`unknownElement`) for a relationship the type does
+not hold in that direction and (`invalidValue`) for a contained type the application does not list.
 
 ### A draft's consumer APIs
 

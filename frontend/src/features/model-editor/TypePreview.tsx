@@ -53,6 +53,7 @@ import {
   moveColumn,
   moveField,
   movePanel,
+  addPanelSpec,
   newFieldGroupSpec,
   panelColumns,
   panelColumnsSpec,
@@ -781,13 +782,22 @@ function LayoutCanvas({
                 </LayoutFrame>
               ))}
               {region === "main" && (
-                <button
-                  type="button"
-                  className="secondary layout-add"
-                  onClick={() => onDialog(newFieldGroupSpec(model, place, detail))}
-                >
-                  <Icon name="plus" /> New field group
-                </button>
+                <div className="layout-add-row">
+                  <button
+                    type="button"
+                    className="secondary layout-add"
+                    onClick={() => onDialog(addPanelSpec(model, place, detail))}
+                  >
+                    <Icon name="plus" /> Add panel…
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary layout-add"
+                    onClick={() => onDialog(newFieldGroupSpec(model, place, detail))}
+                  >
+                    <Icon name="plus" /> New field group
+                  </button>
+                </div>
               )}
             </div>
           );

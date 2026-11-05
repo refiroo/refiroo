@@ -20,6 +20,7 @@ from configurations import example, generated
 from app.engine.model.authoring.cascade import references
 from app.engine.model.authoring.document import Document, Refusal
 from app.engine.model.authoring.kinds import Context, MigrationRequired, apply_operation
+from app.engine.model.authoring.layout import held_relations
 from app.engine.model.compiler import compile_model
 
 MODELS = {"example": example().model, "generated-b": generated("b").model}
@@ -60,6 +61,13 @@ def _operations(model: dict[str, Any]) -> Iterator[dict[str, Any]]:
             else:
                 yield {"kind": "addDetailPage", "applicationKey": app, "objectType": type_key}
         for detail in application.get("details", []):
+            for relation_key, direction in held_relations(Document(model), detail["objectTypeKey"]):
+                yield {
+                    "kind": "addPanel",
+                    "applicationKey": app,
+                    "detail": detail["objectTypeKey"],
+                    "show": {"relations": {"relation": relation_key, "direction": direction}},
+                }
             for panel in detail["panels"]:
                 yield {"kind": "removeViewItem", "applicationKey": app, "detail": detail["objectTypeKey"], "list": "panels", "item": panel["key"]}
                 yield {"kind": "setViewProperty", "applicationKey": app, "detail": detail["objectTypeKey"], "panel": panel["key"], "property": "visible", "value": False}

@@ -1,0 +1,8 @@
+
+- 2026-11-05T20:14:49+01:00 — Finished `guide/src/content/docs/guide/model/edit-a-record-page.md`. Covers Add panel, choices and defaults, panel columns and Where it sits, arrangement, undo and preview checks. No steer file exists. Source checks confirm the behavior; screenshots are requested for later capture, not inspected browser evidence.
+
+- 2026-11-05T20:15:31+01:00 — Finished `guide/src/content/docs/guide/model/choose-table-columns-filters-and-sort.md`. Covers unfolding relationships, independent field columns and ancestor fields, filters, ordering and checks before activation; corrected Columns… and Filters… labels. No steer file exists. Related fields are confirmed as non-sortable and unavailable as filters.
+
+- 2026-11-05T20:16:57+01:00 — Finished `guide/src/content/docs/model/record-pages-and-tables.md`. Covers the shared page-generation rule, existing-page preservation, relationship additions/removals, panel capabilities, table related fields, permissions and validation; links both task guides. No steer file exists. Incoming panels require a reverse key, and generated parent columns require one shared direct parent type; these qualifications come from the code.
+
+- 2026-11-05T20:18:33+01:00 — Finished RL source review, screenshot manifest and validation. Final `GUIDE_OUT=_build/RL npm run build` passes (247 pages); verify also passed terms/brand but its links stage reports 19 missing screenshot files, four requested by RL and 15 elsewhere, with no broken page links or anchors. All six RL subject groups are covered; source qualifications and the remaining visual/capture limitation are recorded in `_coverage/notes/RL/source-checks.md`. No steer file exists.

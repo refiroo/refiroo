@@ -143,6 +143,7 @@ NO_DRY_RUN = frozenset(
         "addView",
         "removeView",
         "insertViewItem",
+        "addPanel",
         "moveViewItem",
         "removeViewItem",
         "setViewProperty",

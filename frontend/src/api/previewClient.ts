@@ -13,6 +13,7 @@
  */
 
 import { api } from "@/api/client";
+import { RELATED_FIELD_PREFIX, relatedColumn } from "@/model/lookup";
 import type { EngineModel, ObjectItem, ObjectTypeRelationDefinition } from "@/types";
 
 /** The ID of the empty record a new type's preview shows. */
@@ -97,6 +98,24 @@ function unknownFields(active: EngineModel, draft: EngineModel, objectTypeKey: s
   return new Set((draftType?.attributes ?? []).map((item) => item.attributeTypeKey).filter((key) => !held.has(key)));
 }
 
+/**
+ * Whether the active model answers an `expand` entry: a relation key or reverse key, alone or with a
+ * field of the related records (`<key>.<field>`, `<key>.ancestor:<type>.<field>`, 0.9 K5a), where the
+ * field is the name or an attribute the active model has and the ancestor type is one it holds.
+ */
+function answersExpand(active: EngineModel, entry: string) {
+  const column = relatedColumn(active, RELATED_FIELD_PREFIX + entry);
+  if (!column) return false;
+  if (!column.field) return true;
+  const attributes = new Set(active.attributeTypes.map((item) => item.key));
+  const known = (field: string) => field === "name" || attributes.has(field);
+  if (!column.field.startsWith("ancestor:")) return known(column.field);
+  const rest = column.field.slice("ancestor:".length);
+  const dot = rest.indexOf(".");
+  const typeKey = dot < 0 ? rest : rest.slice(0, dot);
+  return active.objectTypes.some((item) => item.key === typeKey) && (dot < 0 || known(rest.slice(dot + 1)));
+}
+
 function namesSample(args: unknown[]) {
   return JSON.stringify(args).includes(PREVIEW_EMPTY_ID);
 }
@@ -104,7 +123,6 @@ function namesSample(args: unknown[]) {
 /** A client for the preview of `draft` over the records of the `active` model. */
 export function createPreviewClient(active: EngineModel, draft: EngineModel, sample?: ObjectItem): Client {
   const activeTypes = new Set(active.objectTypes.map((item) => item.key));
-  const relationKeys = new Set(active.relationTypes.flatMap((item) => [item.key, item.reverseKey]));
   const refused = new Proxy({} as Client, {
     get: () => () => Promise.reject(new PreviewWriteRefused()),
   });
@@ -131,7 +149,7 @@ export function createPreviewClient(active: EngineModel, draft: EngineModel, sam
         ...query,
         sort: sortField && unknown.has(sortField) ? undefined : query.sort,
         filters: query.filters?.filter((filter) => !unknown.has(filter.field)),
-        expand: query.expand?.filter((key) => relationKeys.has(key)),
+        expand: query.expand?.filter((entry) => answersExpand(active, entry)),
       };
       if (adjusted.candidateFor && adjusted.anchorTypeKey) {
         const relaxed = relaxedPickerRelations(active, draft, adjusted.anchorTypeKey);

@@ -16,6 +16,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// The page an application declares none for lists a relationship per direction, containment aside
+// (0.13 RL), so the fixture gets one that is not containment.
+const linked: EngineModel = {
+  ...testModel,
+  relationTypes: [
+    ...testModel.relationTypes,
+    {
+      key: "domain-relates-codelist",
+      reverseKey: "codelist-related-from-domain",
+      name: "Relates to",
+      reverseName: "Related from",
+      isOriented: true,
+      features: {},
+    },
+  ],
+  objectTypeRelations: [
+    ...testModel.objectTypeRelations,
+    {
+      relationTypeKey: "domain-relates-codelist",
+      fromObjectTypeKey: "domain",
+      toObjectTypeKey: "codelist",
+      cardinality: "many-to-many",
+    },
+  ],
+};
+
 describe("ObjectDetail lifecycle controls", () => {
   it.each([domainObject, codelistObject])(
     "resizes $objectTypeKey properties while preserving inline input",
@@ -157,8 +183,8 @@ describe("ObjectDetail lifecycle controls", () => {
     const relations = vi.spyOn(api, "relations").mockResolvedValue({ items: [], nextCursor: null });
     render(
       <ObjectDetail
-        model={testModel}
-        application={{ ...testModel.applications[0], details: [] }}
+        model={linked}
+        application={{ ...linked.applications[0], details: [] }}
         objectTypeKey={domainObject.objectTypeKey}
         objectId={domainObject.id}
         workspaceKey="default"
@@ -166,10 +192,10 @@ describe("ObjectDetail lifecycle controls", () => {
         onBack={vi.fn()}
       />,
     );
-    expect(await screen.findByRole("heading", { name: "Relationships" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Relates to" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: codelistObject.name })).toBeInTheDocument();
     expect(children).toHaveBeenCalledWith("codelist", expect.objectContaining({ parentObjectId: domainObject.id }));
-    expect(relations).toHaveBeenCalledWith(domainObject.id, expect.objectContaining({ direction: "both" }));
+    expect(relations).toHaveBeenCalledWith(domainObject.id, expect.objectContaining({ direction: "outgoing" }));
   });
 
   it("does not expose object retirement controls or call a retirement API", async () => {
@@ -231,12 +257,12 @@ describe("ObjectDetail lifecycle controls", () => {
 
 // UA4: the record's header and the inspector's Connected list, on two model configurations (the
 // type order reversed changes every slot), so no expectation depends on one model's keys.
-const reordered: EngineModel = { ...testModel, objectTypes: [...testModel.objectTypes].reverse() };
+const reordered: EngineModel = { ...linked, objectTypes: [...linked.objectTypes].reverse() };
 const connectedRelation: RelationItem = {
   direction: "outgoing",
   relation: {
     id: "77777777-7777-4777-8777-777777777777",
-    relationTypeKey: "domain-contains-codelist",
+    relationTypeKey: "domain-relates-codelist",
     fromObjectId: domainObject.id,
     toObjectId: codelistObject.id,
     attributes: {},
@@ -246,7 +272,7 @@ const connectedRelation: RelationItem = {
 };
 
 describe.each([
-  ["model order", testModel],
+  ["model order", linked],
   ["reversed type order", reordered],
 ])("the record in Atlas (UA4), %s", (_, model) => {
   function show(object: ObjectItem, extra: Partial<React.ComponentProps<typeof ObjectDetail>> = {}) {
@@ -304,11 +330,12 @@ describe.each([
     const onExpand = vi.fn();
     const { onOpen, unmount } = show(domainObject, { inspector: true, onExpand });
     const connected = await screen.findByRole("region", { name: "Connected" });
-    const chip = await within(connected).findByRole("button", { name: codelistObject.name });
+    // The panel sits its records under their domain (an ancestor column), so a chip names it first.
+    const chip = await within(connected).findByRole("button", { name: new RegExp(codelistObject.name) });
     expect(chip).toHaveAttribute("data-hue", String(objectTypeHue(model, "codelist")));
-    expect(within(connected).getByText("Relationships")).toBeInTheDocument();
-    expect(screen.queryByRole("textbox", { name: "Search relationships" })).not.toBeInTheDocument();
-    expect(relations).toHaveBeenCalledWith(domainObject.id, expect.objectContaining({ direction: "both" }));
+    expect(within(connected).getByText("Relates to")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Search relates to" })).not.toBeInTheDocument();
+    expect(relations).toHaveBeenCalledWith(domainObject.id, expect.objectContaining({ direction: "outgoing" }));
     fireEvent.click(chip);
     expect(onOpen).toHaveBeenCalledWith("codelist", codelistObject.id, codelistObject.applicationKey);
     fireEvent.click(within(connected).getByRole("button", { name: "Manage relationships on the full page" }));
@@ -316,7 +343,7 @@ describe.each([
     unmount();
 
     show(domainObject);
-    expect(await screen.findByRole("textbox", { name: "Search relationships" })).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: "Search relates to" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Connected" })).not.toBeInTheDocument();
   });
 
@@ -333,7 +360,7 @@ describe.each([
     show(domainObject, { inspector: true });
     const connected = await screen.findByRole("region", { name: "Connected" });
     fireEvent.click(await within(connected).findByRole("button", { name: "Show 1 more" }));
-    expect(await within(connected).findByRole("button", { name: "Durations" })).toBeInTheDocument();
+    expect(await within(connected).findByRole("button", { name: /Durations/ })).toBeInTheDocument();
     expect(relations).toHaveBeenLastCalledWith(domainObject.id, expect.objectContaining({ cursor: "next" }));
     expect(within(connected).queryByRole("button", { name: /Show/ })).not.toBeInTheDocument();
   });

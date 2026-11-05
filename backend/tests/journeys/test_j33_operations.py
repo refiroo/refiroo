@@ -614,11 +614,13 @@ def test_a_draft_with_broken_panels_reports_them_all_and_a_panel_is_removed_from
     patched = ok(world.api.patch(f"/model-drafts/{draft['id']}", {"expectedVersion": answer["version"], "model": broken}))
     def hub_issues() -> list[dict[str, Any]]:
         found = ok(world.api.get(f"/model-drafts/{draft['id']}/outline"))["diagnostics"]
-        assert all("panel" in i["element"] for i in found)  # the generated page of the far type breaks too
-        return [i for i in found if i["element"]["detail"] == "j33-hub"]
+        # The generated pages and tables of the far types break too (the relationship's own panel and
+        # column, 0.13 RL); the hub's panels are the ones read here.
+        return [i for i in found if i["element"].get("detail") == "j33-hub"]
 
     issues = hub_issues()
-    assert sorted(i["element"]["panel"] for i in issues) == ["j33-both", "j33-serving"]
+    # The panel the hub got for the removed binding (generated when it was allowed) breaks with them.
+    assert sorted(i["element"]["panel"] for i in issues) == ["j33-both", "j33-served-by", "j33-serving"]
     assert all(i["element"]["applicationKey"] == "j33-core" for i in issues)
     serving = next(i for i in issues if i["element"]["panel"] == "j33-serving")
     assert serving["message"].startswith("The Serving panel on the J33 Hub page lists a relation J33 Hub no longer has")
@@ -627,9 +629,9 @@ def test_a_draft_with_broken_panels_reports_them_all_and_a_panel_is_removed_from
     remove = {"kind": "removeViewItem", "applicationKey": "j33-core", "detail": "j33-hub", "list": "panels", "item": "j33-serving"}
     removed = ok(_apply(world, draft, patched["version"], remove))
     assert removed["valid"] is False
-    assert [i["element"]["panel"] for i in hub_issues()] == ["j33-both"]
+    assert sorted(i["element"]["panel"] for i in hub_issues()) == ["j33-both", "j33-served-by"]
     ok(_undo(world, draft, removed["version"]))
-    assert len(hub_issues()) == 2
+    assert len(hub_issues()) == 3
 
 
 @pytest.mark.journey("J33.12", "J08.9")

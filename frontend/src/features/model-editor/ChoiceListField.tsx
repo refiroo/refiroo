@@ -9,7 +9,11 @@ import { useId, useState } from "react";
 import { IconButton } from "@/ui/IconButton";
 import { Icon } from "@/ui/Icon";
 
-export type ChoiceOption = { value: string; label: string; group?: string };
+/**
+ * One option of a picklist. In a checkbox list `group` heads the options that share it, and `under`
+ * (the value of another option) unfolds the option beneath that one, grouped in turn.
+ */
+export type ChoiceOption = { value: string; label: string; group?: string; under?: string };
 
 export function ChoiceListField({
   label,

@@ -208,13 +208,15 @@ describe("fallbackDetail", () => {
   it("produces the same generic panel shape for two different object types", () => {
     const domain = fallbackDetail(testModel.objectTypes[0], testModel);
     const codelist = fallbackDetail(testModel.objectTypes[1], testModel);
-    expect(domain.panels.filter((panel) => panel.region === "side").map((panel) => panel.type)).toEqual(
-      codelist.panels.filter((panel) => panel.region === "side").map((panel) => panel.type),
-    );
+    // The hierarchy stands only for a type with a parent; the details always.
+    expect(domain.panels.filter((panel) => panel.region === "side").map((panel) => panel.type)).toEqual(["attributes"]);
+    expect(codelist.panels.filter((panel) => panel.region === "side").map((panel) => panel.type)).toEqual([
+      "attributes",
+      "hierarchy",
+    ]);
     const children = domain.panels.filter((panel) => panel.type === "children");
     expect(children).toHaveLength(1);
     expect(children[0].config.objectTypeKeys).toEqual(["codelist"]);
-    expect(domain.panels.find((panel) => panel.type === "relations")?.config).toMatchObject({ direction: "both" });
     expect(domain.header.titleField).toBe("name");
     expect(codelist.panels[0].type).toBe("attributes");
   });

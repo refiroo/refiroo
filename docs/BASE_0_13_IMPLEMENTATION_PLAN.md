@@ -383,6 +383,7 @@ when both are empty but for reasoned exclusions.
 | [DOC12](#doc12-publish) | DOC11 | The public site, versioned; the README points to it | Primary agent |
 | [HD](#hd-one-header-for-the-app-the-documentation-and-the-api-reference) | DOC1 | One header style for the app, the guide and the API reference; logo to the app; Documentation \| API reference switch; "?" help; one theme choice | Primary agent. **Approved 2026-11-03; delivered 2026-11-03** |
 | [TH](#th-a-theme-choice-normal-or-website-purple) | HD | A theme choice, Normal or Website purple, beside the light and dark choice, in the app, the guide and the API reference | Primary agent. **Approved 2026-11-05** |
+| [RL](#rl-record-pages-and-related-columns-in-the-model-editor) | DOC1 | Record pages with one panel per relationship by default; Add panel… on a record page; columns showing a field of the related records or where they sit, chosen in the editor | Primary agent. **Approved 2026-11-05** |
 | R | all | Full review of every change since 0.12, the exit gate, the release | Primary agent |
 
 The waves are ordered by dependence, not by importance: concepts first (the how-tos and tutorials link
@@ -746,6 +747,89 @@ Dark in the app; the guide and the API page follow; an open app tab follows. The
 guide build pass; the accessibility gate runs in Website purple light and dark.
 
 **Said plainly:** DOC10's screenshots stay in Normal light and dark; Website purple is not photographed for the guide.
+
+## RL: Record pages and related columns in the model editor
+
+**Status:** Proposed 2026-11-05 at the user's request, placed in 0.13 by the user the same day. Mock-up: [`prototypes/record-layout-editor/index.html`](../prototypes/record-layout-editor/index.html).
+Plan and mock-up approved by the user on 2026-11-05 ("its cool"), with delivery in this session.
+**Delivered 2026-11-05** (code, tests, API.md, CHANGELOG; the guide pages follow with the DOC1 wave `guide/_waves/RL.md`). Differences from the text below: a panel's Columns… offers `ancestor:<type>` and `objectType`, not `ancestor:<type>.<field>`, because a panel's columns refuse that form (it is a related-column field, offered in the table's Columns); the ancestor column is the related type's direct parent type when all related types share one (a hierarchy of one type adds none); the checkbox list gained grouped and unfolding options (`ChoiceOption.group`, `under`) in the one `OperationDialog`. Older tests that expected the old generated page (`test_j33_layout`, `test_j33_operations`, `ObjectDetail.test`) follow the rule.
+
+**Why.** A model whose pages were written by hand (one panel per relationship, with the related records' own
+fields and where they sit: brand, system, language) gives rich record pages; the same data on a model without
+written pages gives a bare one. The editor cannot build the rich one, so only JSON or the assistant can, and a
+model administrator cannot be asked to open JSON. Found in the code (2026-11-05):
+
+- **The page a type gets lumps every relationship into one panel.** The server's `detail_page`
+  (`backend/app/engine/model/authoring/layout.py:79`) writes one relations panel for all outgoing relations;
+  `place_relation` (`layout.py:164`) adds each newly allowed relation to that panel; the page shown when an
+  application declares none (`frontend/src/model/defaults.ts`) lists every relationship, both directions, in one
+  "Relationships" panel with name and type only. Incoming relationships (the system codes mapped to a record, the
+  records offered at a place) have no panel of their own in the server's page.
+- **A record page cannot gain a panel in the editor.** Edit layout › Record page moves, renames, hides and
+  removes panels, groups attribute fields and sets a panel's columns; there is no way to add a relations or
+  children panel. The server already inserts one (`insertViewItem` on a page's `panels`, API.md § Draft
+  operations); the editor has no form for it.
+- **Columns cannot show a field of the related records or where they sit.** The table Columns dialog offers
+  each relationship as `related:<key>` only (`relatedChoices`, `frontend/src/features/model-editor/layout.ts:357`),
+  though the model accepts `related:<key>.<field>` and `related:<key>.ancestor:<type>.<field>` (Base 0.9 K5a;
+  "Has translation · Language code"). A panel's Columns… offers the related type's attributes only
+  (`columnChoices`, `layout.ts:154`), though panels accept `ancestor:<type>` columns ("System", "Language").
+
+**What changes.**
+
+1. **One rule for the page a type gets,** used by the server's `detail_page`, by `place_relation` and
+   `place_child`, and by the frontend's undeclared page, so the three never differ (the frontend's copy is
+   checked against the server's on a shared fixture):
+   - **Side:** the attributes panel ("Details") and, when the type has a parent, the hierarchy.
+   - **Main:** the contained types (one children panel, as now), then **one relations panel per relationship
+     the type holds, in each direction** (containment excluded), in the model's order. Its title is the
+     relationship's name read from this type (`name` outgoing, `reverseName` incoming); its columns are `name`,
+     an `ancestor:<type>` column when the related records sit under a parent type, then the related type's
+     attributes in their order up to four, and `objectType` when the panel lists more than one type;
+     `showRelationshipColumn: false`; sorted by the ancestor column where there is one.
+   - `place_relation` gives a newly allowed relationship its own panel on the pages of both its types, and a
+     `related:<key>` column and filter on both types' table views; removing the binding takes them away again
+     (undo restores them). Pages written by hand or by the assistant are never rewritten: the rule applies to a
+     new page, a new relationship and the undeclared page.
+2. **Add panel… on a record page.** Edit layout › Record page gets **Add panel…** beside **New field group**. It
+   asks what the panel shows: **Related records** (one of the type's relationships, both directions, named as
+   read from the type; ones already on the page are marked so), **Contained records** (the contained types), or
+   **Fields** (today's field group). Region, Main or Side, and a title filled from the choice. The server builds
+   the panel with the rule above: a new draft operation `addPanel` (`applicationKey`, `detail`, `show`:
+   `relations` with `relation` and `direction`, or `children` with `objectTypeKeys`; `region`; `title`), undone by
+   `removeViewItem`, so every client gets the same panel (ADR-041). Its columns are changed afterwards with the
+   panel's **Columns…**.
+3. **Fields of related records in the Columns dialogs.**
+   - **Table Columns:** each relationship row unfolds into the fields of its related records, the name and the
+     attributes of the types at the other end, and **where they sit**: each ancestor type's name and attributes
+     (Has translation ▸ Language › Language code; Mapped from system code ▸ System › System code). A checked
+     field is the column `related:<key>.<field>`, headed "Has translation · Language code". The helpers already
+     exist (`relatedTargetTypes`, `relatedAncestorTypes` and `relatedFieldLabel` in `frontend/src/model/lookup.ts`).
+     **Filters** keep offering the relationship itself, since a filter on a field is refused (K6).
+   - **A panel's Columns…:** besides the related type's attributes, **where it sits**: `ancestor:<type>` and
+     `ancestor:<type>.<field>` for each type the listed records can sit under, and **Type** (`objectType`) when
+     the panel lists several types.
+
+**Planning defaults.** Four attribute columns at most in a generated panel (more are one Columns… away). The
+undeclared page keeps no declaration, so a model that writes none gets the rule without a migration. No schema
+change: every field the editor writes is already in the model language. The guide pages
+`guide/model/edit-a-record-page.md`, `guide/model/choose-table-columns-filters-and-sort.md` and the concept page
+`model/record-pages-and-tables.md` are rewritten by Codex after delivery (one wave prompt, DOC-D15), and their
+screenshots retaken.
+
+**Tests (targeted).** Backend authoring group: `detail_page` on the guide's example model (stop: one panel per
+relationship in each direction, titles, ancestor columns), `place_relation` adding and its undo removing,
+`addPanel` for both kinds with its refusals (unknown relationship, a type the application does not list, an
+existing panel key). Frontend: `layout.test.ts` for the unfolded column choices and the panel choices, and the
+undeclared page against the shared fixture. One browser journey through the dev server, as a model
+administrator in a draft: on the example model's stop, **Declare its page**, **Add panel…** for "Mapped from
+system code" with the System column, then the Stops table's Columns › Has translation › Language › Language code;
+apply to a scratch workspace and read the record page and the table with real records. The frontend production
+build passes.
+
+**Said plainly:** pages already declared stay as they are; a model that wants the new panels on an existing page
+adds them with **Add panel…**. A relationship's own attributes (stored on the link) still cannot be columns;
+that is a model-language change outside RL.
 
 ## The writing rules
 

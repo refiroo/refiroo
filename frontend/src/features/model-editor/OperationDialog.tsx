@@ -24,7 +24,7 @@ import {
 } from "@/features/model-editor/operations";
 import { elementLabel } from "@/features/model-editor/outline";
 import { CandidatesField } from "@/features/model-editor/CandidatesField";
-import { ChoiceListField } from "@/features/model-editor/ChoiceListField";
+import { ChoiceListField, type ChoiceOption } from "@/features/model-editor/ChoiceListField";
 import { PairsField } from "@/features/model-editor/PairsField";
 
 /** What the editor did with a step: applied, or held back because the draft moved on (D41). */
@@ -174,25 +174,11 @@ export function OperationDialog({
             return (
               <FormField key={field.name} label={field.label} help={field.hint} group>
                 {() => (
-                  <div className="operation-checkboxes">
-                    {fieldOptions(field, values).map((option) => (
-                      <label key={option.value} className="checkbox">
-                        <input
-                          type="checkbox"
-                          checked={chosen.includes(option.value)}
-                          onChange={(event) =>
-                            set(
-                              field.name,
-                              event.target.checked
-                                ? [...chosen, option.value]
-                                : chosen.filter((item) => item !== option.value),
-                            )
-                          }
-                        />
-                        {option.label}
-                      </label>
-                    ))}
-                  </div>
+                  <CheckboxList
+                    options={fieldOptions(field, values)}
+                    chosen={chosen}
+                    onChange={(next) => set(field.name, next)}
+                  />
                 )}
               </FormField>
             );
@@ -277,6 +263,67 @@ export function OperationDialog({
         </div>
       </form>
     </Modal>
+  );
+}
+
+/**
+ * A checkbox list. Options that share a `group` stand under its heading; an option with others `under`
+ * it unfolds them beneath it in a disclosure, open while one of them is checked.
+ */
+function CheckboxList({
+  options,
+  chosen,
+  onChange,
+  under,
+}: {
+  options: ChoiceOption[];
+  chosen: string[];
+  onChange: (next: string[]) => void;
+  under?: string;
+}) {
+  const level = options.filter((option) => option.under === under);
+  const groups = [...new Set(level.map((option) => option.group ?? ""))];
+  const toggle = (value: string, on: boolean) =>
+    onChange(on ? [...chosen, value] : chosen.filter((item) => item !== value));
+  return (
+    <div className="operation-checkboxes">
+      {groups.map((group) => {
+        const items = level
+          .filter((option) => (option.group ?? "") === group)
+          .map((option) => {
+            const inside = options.filter((other) => other.under === option.value);
+            return (
+              <div key={option.value} className="operation-checkbox">
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={chosen.includes(option.value)}
+                    onChange={(event) => toggle(option.value, event.target.checked)}
+                  />
+                  {option.label}
+                </label>
+                {inside.length > 0 && (
+                  <details
+                    className="operation-unfold"
+                    open={inside.some((item) => chosen.includes(item.value)) || undefined}
+                  >
+                    <summary>{`Fields of ${option.label}`}</summary>
+                    <CheckboxList options={options} chosen={chosen} onChange={onChange} under={option.value} />
+                  </details>
+                )}
+              </div>
+            );
+          });
+        return group ? (
+          <div key={group} className="operation-checkbox-group" role="group" aria-label={group}>
+            <span className="operation-checkbox-heading">{group}</span>
+            {items}
+          </div>
+        ) : (
+          items
+        );
+      })}
+    </div>
   );
 }
 

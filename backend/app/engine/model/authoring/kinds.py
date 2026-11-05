@@ -35,13 +35,17 @@ from .document import (
 )
 from .keys import key_from_label
 from .layout import (
+    add_panel,
     application_path,
+    children_panel,
     contained_types,
     detail_page,
+    held_relations,
     keep_order,
     place_attribute,
     place_child,
     place_relation,
+    relations_panel,
     table_view,
     type_path,
 )
@@ -1523,7 +1527,7 @@ def _allow(context: Context, relation_key: str, source: str, target: str, cardin
     if required:
         binding["required"] = True
     context.document.insert(["objectTypeRelations"], binding)
-    place_relation(context.document, relation_key, source)
+    place_relation(context.document, relation_key, source, target)
 
 
 @kind("allowRelation")
@@ -1694,6 +1698,97 @@ def insert_view_item(context: Context, raw: dict[str, Any]) -> Applied:
         {"kind": "removeViewItem", **target_fields, "list": raw["list"], "item": _item_key(item)},
         created={atom("panel", raw["applicationKey"], raw["detail"], item["key"])} if target == "detail" else set(),
         named={element},
+    )
+
+
+@kind("addPanel")
+def add_panel_kind(context: Context, raw: dict[str, Any]) -> Applied:
+    """A panel the server builds with the rule a type's page follows (0.13 RL, ADR-041): the records
+    of one of the type's relationships, in either direction, or its contained records. Its columns
+    change afterwards with ``insertViewItem`` and ``removeViewItem``; undone by ``removeViewItem``."""
+    params = Params(raw, ("applicationKey", "detail", "show", "region", "title", "key"))
+    app = params.text("applicationKey")
+    path = _detail_path(context, app, raw.get("detail"))
+    type_key = raw["detail"]
+    region = params.optional("region", str, "main")
+    if region not in ("main", "side"):
+        raise Refusal("region", "invalidValue", "'region' is 'main' or 'side'")
+    title = params.optional("title", str)
+    if title is not None and not title.strip():
+        raise Refusal("title", "invalidValue", "'title' must not be empty")
+    show = params.required("show", dict)
+    panels = context.document.at(path).get("panels") or []
+    taken = {p.get("key") for p in panels}
+    given = params.optional("key")
+    if given is not None and given in taken:
+        raise Refusal("key", "keyTaken", f"The page already has a panel '{given}'")
+    if set(show) == {"relations"} and isinstance(show["relations"], dict):
+        relation = Params(show["relations"], ("relation", "direction"))
+        relation_key, direction = relation.text("relation"), relation.text("direction")
+        if direction not in ("outgoing", "incoming"):
+            raise Refusal(
+                "show/relations/direction",
+                "invalidValue",
+                "'direction' is 'outgoing' or 'incoming'",
+            )
+        context.relation_type(relation_key, "show/relations/relation")
+        if (relation_key, direction) not in held_relations(context.document, type_key):
+            raise Refusal(
+                "show/relations/relation",
+                "unknownElement",
+                f"'{type_key}' does not hold '{relation_key}' {direction}",
+            )
+        panel = relations_panel(
+            context.document, type_key, relation_key, direction, panels, title, region
+        )
+        named = {atom("relationType", relation_key)}
+    elif set(show) == {"children"} and isinstance(show["children"], dict):
+        keys = Params(show["children"], ("objectTypeKeys",)).required("objectTypeKeys", list)
+        listed = context.document.at(application_path(app)).get("objectTypeKeys") or []
+        contained = contained_types(context.document, type_key)
+        for key in keys:
+            if not isinstance(key, str) or key not in listed:
+                raise Refusal(
+                    "show/children/objectTypeKeys",
+                    "invalidValue",
+                    f"'{key}' is not a type of '{app}'",
+                )
+            if key not in contained:
+                raise Refusal(
+                    "show/children/objectTypeKeys",
+                    "invalidValue",
+                    f"'{type_key}' does not contain '{key}'",
+                )
+        if not keys or len(keys) != len(set(keys)):
+            raise Refusal(
+                "show/children/objectTypeKeys", "invalidValue", "Name each contained type once"
+            )
+        panel = children_panel(context.document, keys, panels)
+        panel["region"] = region
+        if title is not None:
+            panel["title"] = title
+        named = {atom("objectType", key) for key in keys}
+    else:
+        raise Refusal(
+            "show",
+            "invalidValue",
+            "'show' is {relations: {relation, direction}} or {children: {objectTypeKeys}}",
+        )
+    if given is not None:
+        panel["key"] = given
+    add_panel(context.document, path, panel)
+    stored = {**raw, "key": panel["key"], "title": panel["title"], "region": region}
+    return Applied(
+        stored,
+        {
+            "kind": "removeViewItem",
+            "applicationKey": app,
+            "detail": type_key,
+            "list": "panels",
+            "item": panel["key"],
+        },
+        created={atom("panel", app, type_key, panel["key"])},
+        named=named | {atom("detail", app, type_key)},
     )
 
 

@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Record layout editor mock-up</title>
+<style>
+/* Values copied from frontend/src/styles/tokens.css (roles, light and dark) for this mock-up only. */
+:root {
+  --neutral-0:#fff; --neutral-50:#faf9f7; --neutral-100:#f6f5f2; --neutral-150:#efede8; --neutral-200:#e4e2dc; --neutral-300:#cfccc4;
+  --neutral-450:#8a867d; --neutral-500:#7a766f; --neutral-600:#69655e; --neutral-700:#55524c; --neutral-900:#1d1c1a;
+  --indigo-50:#eceefc; --indigo-200:#c9cff5; --indigo-600:#3346c9; --indigo-700:#2a3bb0; --indigo-800:#26339a;
+  --teal-50:#ddf4ef; --teal-500:#11967f; --teal-800:#0b6e62;
+  --blue-50:#e3eefc; --blue-500:#3d7fe0; --blue-800:#1d5bb8;
+  --magenta-50:#fbe6f6; --magenta-500:#cf4fae; --magenta-800:#972178;
+  --olive-50:#eef2d4; --olive-500:#7a8c18; --olive-800:#525d10;
+  --rose-50:#fde8ee; --rose-500:#dc4f7f; --rose-800:#a3254f;
+  --coral-50:#fdebe2; --coral-500:#d6622f; --coral-800:#a2441b;
+  --cyan-50:#dcf2f8; --cyan-500:#178faa; --cyan-800:#0b6278;
+  --slate-50:#e9edf2; --slate-500:#7a8799; --slate-800:#3f4b5c;
+  --green-50:#e5f3ea; --green-800:#1b5e3a; --green-500:#1f8a52;
+  --amber-50:#fff1d6; --amber-800:#6f3d06; --amber-500:#b0650b;
+  --font-sans:"Instrument Sans Variable","Instrument Sans",ui-sans-serif,system-ui,sans-serif;
+  --font-mono:"JetBrains Mono Variable","JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --text-xs:12px; --text-sm:13px; --text-md:14px; --text-lg:15px; --text-xl:19px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px; --space-8:32px;
+  --surface-app:var(--neutral-0); --surface-top:var(--neutral-0); --surface-nav:var(--neutral-100); --surface-raised:var(--neutral-0);
+  --surface-sunken:var(--neutral-100); --surface-hover:var(--neutral-150); --surface-fill:var(--neutral-150);
+  --text-primary:var(--neutral-900); --text-secondary:var(--neutral-700); --text-tertiary:var(--neutral-600); --text-placeholder:var(--neutral-500); --text-on-action:#fff;
+  --border-faint:var(--neutral-150); --border-subtle:var(--neutral-200); --border-strong:var(--neutral-300);
+  --border-control:var(--neutral-450); --border-control-hover:var(--neutral-600);
+  --action-primary:var(--indigo-600); --action-primary-hover:var(--indigo-700); --link:var(--indigo-600); --focus-color:var(--indigo-600);
+  --state-selected:var(--indigo-50); --state-selected-text:var(--indigo-800); --state-selected-line:var(--indigo-200);
+  --context-live-surface:var(--green-50); --context-live-text:var(--green-800);
+  --context-change-set-surface:var(--amber-50); --context-change-set-text:var(--amber-800); --context-change-set-line:#f0cf8f; --context-change-set-marker:var(--amber-500);
+  --context-change-set-strip:#fff8ea; --context-change-set-strip-line:#f3ddae;
+  --hue-1-fill:var(--teal-50); --hue-1-ink:var(--teal-800); --hue-1-marker:var(--teal-500);
+  --hue-2-fill:var(--blue-50); --hue-2-ink:var(--blue-800); --hue-2-marker:var(--blue-500);
+  --hue-3-fill:var(--magenta-50); --hue-3-ink:var(--magenta-800); --hue-3-marker:var(--magenta-500);
+  --hue-4-fill:var(--olive-50); --hue-4-ink:var(--olive-800); --hue-4-marker:var(--olive-500);
+  --hue-5-fill:var(--rose-50); --hue-5-ink:var(--rose-800); --hue-5-marker:var(--rose-500);
+  --hue-6-fill:var(--coral-50); --hue-6-ink:var(--coral-800); --hue-6-marker:var(--coral-500);
+  --hue-7-fill:var(--cyan-50); --hue-7-ink:var(--cyan-800); --hue-7-marker:var(--cyan-500);
+  --hue-8-fill:var(--slate-50); --hue-8-ink:var(--slate-800); --hue-8-marker:var(--slate-500);
+  --status-proposed-surface:#f5e8f8; --status-proposed-text:#7b2d8e;
+  --control-height:34px; --radius-control:6px; --card-radius:8px;
+  --focus-ring:0 0 0 3px color-mix(in srgb,var(--focus-color) 24%,transparent);
+  --backdrop:rgba(20,19,17,.42);
+  --shadow-sm:0 1px 2px rgba(29,28,26,.05); --shadow-overlay:0 24px 64px rgba(29,28,26,.22);
+  color-scheme:light;
+}
+:root[data-theme="dark"] {
+  color-scheme:dark;
+  --surface-app:#141416; --surface-top:#18181b; --surface-nav:#1d1d21; --surface-raised:#18181b; --surface-sunken:#1f1f23; --surface-hover:#26262b; --surface-fill:#2c2c31;
+  --text-primary:#ececee; --text-secondary:#b4b3ba; --text-tertiary:#9a99a1; --text-placeholder:#86858d; --text-on-action:#10153d;
+  --border-faint:#1f1f23; --border-subtle:#2c2c31; --border-strong:#3e3e45; --border-control:#74737c; --border-control-hover:#9a99a1;
+  --action-primary:#8e9bff; --action-primary-hover:#a7b1ff; --link:#a7b1ff; --focus-color:#8e9bff;
+  --state-selected:#23284a; --state-selected-text:#c9cfff; --state-selected-line:#3a4280;
+  --context-live-surface:#13301f; --context-live-text:#a3dfbc;
+  --context-change-set-surface:#3a2a0e; --context-change-set-text:#f5d091; --context-change-set-line:#5a4219; --context-change-set-marker:#f2a53c;
+  --context-change-set-strip:#231d10; --context-change-set-strip-line:#3f3218;
+  --hue-1-fill:#10302b; --hue-1-ink:#8fe0d0; --hue-1-marker:#2fb89e;
+  --hue-2-fill:#152640; --hue-2-ink:#a9c8f7; --hue-2-marker:#5a95ec;
+  --hue-3-fill:#361630; --hue-3-ink:#f2b0e0; --hue-3-marker:#de6cc0;
+  --hue-4-fill:#252a12; --hue-4-ink:#d2dc95; --hue-4-marker:#9fb236;
+  --hue-5-fill:#3a1825; --hue-5-ink:#f7b3c9; --hue-5-marker:#e8668f;
+  --hue-6-fill:#3a1f14; --hue-6-ink:#f6bc9f; --hue-6-marker:#ec8455;
+  --hue-7-fill:#0f2c35; --hue-7-ink:#90d8ea; --hue-7-marker:#30b2cf;
+  --hue-8-fill:#222831; --hue-8-ink:#c3ccd8; --hue-8-marker:#8d9aac;
+  --status-proposed-surface:#2e1935; --status-proposed-text:#e3b8ee;
+  --backdrop:rgba(0,0,0,.6); --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-overlay:0 24px 64px rgba(0,0,0,.6);
+}
+[data-hue="1"]{--hue-fill:var(--hue-1-fill);--hue-ink:var(--hue-1-ink);--hue-marker:var(--hue-1-marker)}
+[data-hue="2"]{--hue-fill:var(--hue-2-fill);--hue-ink:var(--hue-2-ink);--hue-marker:var(--hue-2-marker)}
+[data-hue="3"]{--hue-fill:var(--hue-3-fill);--hue-ink:var(--hue-3-ink);--hue-marker:var(--hue-3-marker)}
+[data-hue="4"]{--hue-fill:var(--hue-4-fill);--hue-ink:var(--hue-4-ink);--hue-marker:var(--hue-4-marker)}
+[data-hue="5"]{--hue-fill:var(--hue-5-fill);--hue-ink:var(--hue-5-ink);--hue-marker:var(--hue-5-marker)}
+[data-hue="6"]{--hue-fill:var(--hue-6-fill);--hue-ink:var(--hue-6-ink);--hue-marker:var(--hue-6-marker)}
+[data-hue="7"]{--hue-fill:var(--hue-7-fill);--hue-ink:var(--hue-7-ink);--hue-marker:var(--hue-7-marker)}
+[data-hue="8"]{--hue-fill:var(--hue-8-fill);--hue-ink:var(--hue-8-ink);--hue-marker:var(--hue-8-marker)}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--surface-sunken);color:var(--text-primary);font:var(--text-md)/1.45 var(--font-sans)}
+h1,h2,h3{color:var(--text-primary);margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--action-primary);outline-offset:1px}
+.muted{color:var(--text-tertiary)}
+.mono{font-family:var(--font-mono);font-size:.92em}
+
+/* buttons (base.css) */
+.primary,.secondary,.ghost{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:var(--control-height);padding:0 12px;border:1px solid transparent;border-radius:var(--radius-control);background:transparent;color:var(--text-secondary);font-weight:560;font-size:var(--text-md);white-space:nowrap}
+.secondary{border-color:var(--border-strong);background:var(--surface-raised);color:var(--text-primary);box-shadow:var(--shadow-sm)}
+.secondary:hover{background:var(--surface-hover);border-color:var(--border-control-hover)}
+.primary{border-color:var(--action-primary);background:var(--action-primary);color:var(--text-on-action);box-shadow:var(--shadow-sm)}
+.primary:hover{background:var(--action-primary-hover);border-color:var(--action-primary-hover)}
+.ghost:hover{background:var(--surface-hover)}
+.secondary.small{min-height:28px;padding:0 9px;font-size:var(--text-sm)}
+
+/* mock-up chrome (not part of the app) */
+.mock-bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:10px 16px;background:var(--surface-top);border-bottom:1px solid var(--border-subtle)}
+.mock-bar strong{font-size:var(--text-lg)}
+.mock-bar nav{display:flex;flex-wrap:wrap;gap:4px;flex:1}
+.mock-bar nav a{padding:4px 9px;border-radius:var(--radius-control);color:var(--text-secondary);text-decoration:none;font-size:var(--text-sm);font-weight:560}
+.mock-bar nav a:hover{background:var(--surface-hover)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 56px}
+.screen{margin-top:36px}
+.screen>h2{font-size:var(--text-xl);letter-spacing:-.01em}
+.screen>h2 .tag{display:inline-block;margin-right:8px;padding:1px 8px;border-radius:999px;font-size:var(--text-xs);font-weight:650;vertical-align:3px;background:var(--surface-fill);color:var(--text-secondary)}
+.screen>h2 .tag.new{background:var(--state-selected);color:var(--state-selected-text)}
+.caption{margin:4px 0 12px;color:var(--text-secondary);max-width:860px}
+.app{background:var(--surface-app);border:1px solid var(--border-strong);border-radius:10px;overflow:hidden}
+.app-top{display:flex;align-items:center;gap:16px;height:48px;padding:0 16px;background:var(--surface-top);border-bottom:1px solid var(--border-subtle)}
+.app-top .brand{font-weight:750;letter-spacing:-.02em}
+.app-top .appname{display:flex;gap:6px;align-items:center;font-weight:600;color:var(--text-primary);padding:4px 8px;border-radius:6px;background:var(--surface-fill)}
+.app-top .spacer{flex:1}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--state-selected);color:var(--state-selected-text);display:grid;place-items:center;font-size:var(--text-xs);font-weight:700}
+.app-body{padding:20px}
+.dot{width:8px;height:8px;border-radius:2px;background:var(--hue-marker,var(--text-tertiary));display:inline-block}
+
+/* ui/RecordChip, HueTile */
+.record-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:2px 8px 2px 6px;border-radius:5px;background:var(--hue-fill,var(--surface-fill));color:var(--hue-ink,var(--text-secondary));font-size:var(--text-sm);font-weight:600;vertical-align:middle;border:0;font-family:inherit;text-decoration:none;white-space:nowrap}
+.record-chip i{width:6px;height:6px;border-radius:2px;background:var(--hue-marker,var(--text-tertiary));flex:none}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.hue-tile{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:8px;background:var(--hue-fill);color:var(--hue-ink);font-weight:750;font-size:15px}
+
+/* ObjectDetail: record header, detail grid, panels */
+.record-header{display:grid;gap:12px;margin-bottom:var(--space-5);padding:16px 20px 18px;border:1px solid color-mix(in srgb,var(--hue-marker) 24%,transparent);border-radius:8px;background:color-mix(in srgb,var(--hue-fill) 50%,var(--surface-raised))}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:var(--text-sm);color:var(--text-tertiary)}
+.crumbs .sep{opacity:.6}
+.page-header{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.page-header .titles{flex:1;min-width:180px}
+.eyebrow{color:var(--hue-ink);font-weight:600;font-size:var(--text-xs);letter-spacing:.04em;text-transform:uppercase}
+.page-header h1{font-size:26px;letter-spacing:-.02em;line-height:1.15}
+.page-header .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.version{color:var(--text-tertiary);font-size:var(--text-sm)}
+.record-meta{margin:0;font-size:var(--text-sm);color:var(--text-tertiary)}
+.detail-grid{display:grid;gap:16px;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);align-items:start}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--card-radius);min-width:0;overflow:hidden}
+.card>h2,.card-header h2{font-size:var(--text-lg);font-weight:650;margin:0}
+.card>h2{padding:12px 16px 10px;border-bottom:1px solid var(--border-faint)}
+.card-header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:12px 16px 10px;border-bottom:1px solid var(--border-faint)}
+.card-header .hint{color:var(--text-tertiary);font-size:var(--text-sm)}
+.card-header .count{margin-left:auto;color:var(--text-tertiary);font-size:var(--text-sm)}
+.attrs{margin:0;padding:6px 16px 10px;display:grid;grid-template-columns:minmax(90px,max-content) minmax(0,1fr);gap:0 18px}
+.attrs dt{color:var(--text-tertiary);font-size:var(--text-sm);padding:6px 0;border-bottom:1px solid var(--border-faint)}
+.attrs dd{margin:0;padding:6px 0;border-bottom:1px solid var(--border-faint);overflow-wrap:anywhere}
+.attrs dt:last-of-type,.attrs dd:last-of-type{border-bottom:0}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:var(--text-md)}
+th{padding:9px 14px;border-bottom:1px solid var(--border-subtle);background:var(--surface-sunken);color:var(--text-tertiary);font-size:12px;font-weight:600;text-align:left;white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px solid var(--border-faint);color:var(--text-secondary);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.strong{color:var(--text-primary)}
+th .sortmark{font-weight:400;margin-left:4px}
+.status{display:inline-block;padding:1px 8px;border-radius:999px;font-size:var(--text-xs);font-weight:650;background:var(--context-live-surface);color:var(--context-live-text)}
+.hier{list-style:none;margin:0;padding:10px 16px 14px;display:flex;flex-direction:column;gap:6px}
+.hier li{display:flex;align-items:center;gap:8px;font-size:var(--text-sm)}
+.hier li .lvl{width:92px;color:var(--text-tertiary);flex:none}
+.hier li.current .record-chip{outline:2px solid color-mix(in srgb,var(--hue-marker) 50%,transparent)}
+.note{background:var(--context-change-set-strip);border:1px solid var(--context-change-set-strip-line);border-radius:var(--radius-control);padding:10px 14px;color:var(--text-primary);font-size:var(--text-sm);margin-bottom:14px}
+.note b{font-weight:650}
+.kbd-hint{font-size:var(--text-xs);color:var(--text-tertiary)}
+.mixed-type{font-size:var(--text-xs);color:var(--text-tertiary)}
+
+/* Edit layout band + canvas (TypePreview.tsx, model-editor.css) */
+.band{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 16px;margin:-20px -20px 16px;background:var(--context-change-set-strip);border-bottom:1px solid var(--context-change-set-strip-line)}
+.band h3{font-size:var(--text-lg);font-weight:650}
+.band .band-note{color:var(--text-secondary);font-size:var(--text-sm)}
+.band .band-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border-subtle);margin-bottom:14px}
+.tabs span{padding:8px 14px;font-weight:600;color:var(--text-tertiary);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs span[aria-selected="true"]{color:var(--text-primary);border-bottom-color:var(--action-primary)}
+.layout-canvas{display:flex;flex-direction:column;gap:var(--space-3)}
+.layout-record-head{display:flex;flex-direction:column;gap:2px;padding:var(--space-3) var(--space-4);border:1px solid var(--border-subtle);border-radius:var(--radius-control);background:var(--surface-raised)}
+.layout-record-head strong{font-size:var(--text-xl)}
+.layout-regions{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:var(--space-3);align-items:start}
+.layout-region{display:flex;flex-direction:column;gap:var(--space-2);min-height:64px;padding:var(--space-2);border:1px dashed var(--border-strong);border-radius:var(--radius-control);min-width:0}
+.layout-region-label{font-size:var(--text-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary)}
+.layout-adds{display:flex;flex-wrap:wrap;gap:8px}
+.layout-frame{border:1px solid color-mix(in srgb,var(--action-primary) 35%,var(--border-subtle));border-radius:var(--radius-control);background:var(--surface-raised);min-width:0;overflow:hidden}
+.layout-frame-head{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-2);border-bottom:1px solid var(--border-faint);font-weight:600;font-size:var(--text-sm)}
+.layout-frame-title{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.layout-frame-note{font-weight:400;font-size:var(--text-xs)}
+.layout-grip{color:var(--text-tertiary);cursor:grab;letter-spacing:-2px;font-size:14px}
+.menu-btn{border:0;background:transparent;border-radius:6px;width:28px;height:28px;color:var(--text-tertiary);font-weight:700}
+.menu-btn:hover{background:var(--surface-hover)}
+.layout-frame-body{padding:0;min-width:0}
+.layout-frame-body .attrs{padding-top:2px}
+.layout-frame-tools{display:flex;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border-faint);flex-wrap:wrap}
+.preview-mode .layout-frame{border:1px solid var(--border-subtle);border-radius:var(--card-radius)}
+.preview-mode .layout-region{border:0;padding:0}
+.preview-mode .layout-region-label,.preview-mode .layout-grip,.preview-mode .menu-btn,.preview-mode .layout-adds,.preview-mode .layout-frame-tools{display:none}
+.preview-mode .layout-frame-head{padding:12px 16px 10px;font-size:var(--text-lg);font-weight:650}
+.seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:var(--radius-control);overflow:hidden}
+.seg button{border:0;background:var(--surface-raised);padding:0 12px;min-height:30px;font-size:var(--text-sm);font-weight:560;color:var(--text-secondary)}
+.seg button[aria-pressed="true"]{background:var(--state-selected);color:var(--state-selected-text)}
+
+/* Dialog (components.css) */
+.stage{background:var(--backdrop);border-radius:10px;padding:32px 16px;display:grid;place-items:start center}
+.dialog{width:min(620px,100%);background:var(--surface-raised);border-radius:12px;box-shadow:var(--shadow-overlay);overflow:hidden}
+.dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px 14px;border-bottom:1px solid var(--border-faint)}
+.dialog h2{margin:0;font-size:18px;font-weight:680;letter-spacing:-.01em}
+.dialog-description{margin:3px 0 0;color:var(--text-secondary);font-size:14px}
+.close{display:grid;place-items:center;width:32px;height:32px;margin:-4px -8px 0 0;border:0;border-radius:var(--radius-control);background:transparent;color:var(--text-tertiary);font-size:22px;line-height:1}
+.close:hover{background:var(--surface-fill);color:var(--text-primary)}
+.dialog form{padding:18px 22px 20px}
+.dialog .field{margin-bottom:14px;border:0;padding:0;min-width:0}
+.dialog .field>label,.dialog .field>legend,.dialog .lbl{display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;font-weight:550;padding:0}
+.dialog .help{margin:4px 0 0;color:var(--text-tertiary);font-size:var(--text-sm);font-weight:400}
+.dialog input[type=text],.dialog select{width:100%;min-height:var(--control-height);padding:0 10px;border:1px solid var(--border-control);border-radius:var(--radius-control);background:var(--surface-raised)}
+.dialog input[type=text]:focus,.dialog select:focus{border-color:var(--action-primary);box-shadow:var(--focus-ring);outline:none}
+.dialog-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:6px;flex-wrap:wrap}
+.dialog label.checkbox,.dialog label.radio,.checkbox,.radio{display:flex;margin-bottom:0;align-items:flex-start;gap:8px;font-size:var(--text-md);font-weight:450;color:var(--text-primary);padding:3px 0}
+.checkbox input,.radio input{margin:4px 0 0;flex:none;accent-color:var(--action-primary)}
+.operation-checkboxes{border:1px solid var(--border-subtle);border-radius:var(--radius-control);padding:4px 10px;max-height:none}
+.opt-group{margin:8px 0 2px;font-size:var(--text-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary);font-weight:600}
+.opt-group:first-child{margin-top:4px}
+
+/* NEW: relationship rows with a disclosure in the Columns dialog */
+.rel-row{border-top:1px solid var(--border-faint)}
+.rel-head{display:flex;align-items:center;gap:6px}
+.rel-head .checkbox{flex:1;min-width:0}
+.disclose{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;border-radius:6px;padding:3px 8px;min-height:28px;font-size:var(--text-sm);font-weight:560;color:var(--link);flex:none}
+.disclose:hover{background:var(--surface-hover)}
+.disclose .tri{display:inline-block;transition:transform .12s;font-size:10px}
+.disclose[aria-expanded="true"] .tri{transform:rotate(90deg)}
+.disclose .n{background:var(--state-selected);color:var(--state-selected-text);border-radius:999px;padding:0 7px;font-size:var(--text-xs);font-weight:650}
+.sub{margin:0 0 6px 26px;padding:2px 0 4px 12px;border-left:2px solid var(--border-subtle)}
+.sub[hidden]{display:none}
+.sub .sub-group{margin:6px 0 1px;font-size:var(--text-xs);color:var(--text-tertiary);font-weight:600}
+.sub .sub-group.sits::before{content:"Where it sits  ";font-weight:600}
+.sub .checkbox{padding:2px 0;font-size:var(--text-sm)}
+.sub .checkbox .path{color:var(--text-tertiary)}
+.sub-note{font-size:var(--text-xs);color:var(--text-tertiary);margin:2px 0 4px}
+.tagnew{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--status-proposed-surface);color:var(--status-proposed-text);font-size:11px;font-weight:650}
+.on-page{margin-left:auto;flex:none;padding:0 8px;border-radius:999px;background:var(--surface-fill);color:var(--text-secondary);font-size:var(--text-xs);font-weight:650}
+.rel-pick{border:1px solid var(--border-subtle);border-radius:var(--radius-control);overflow:hidden}
+.rel-pick .radio{padding:7px 10px;border-top:1px solid var(--border-faint);align-items:center}
+.rel-pick .radio:first-child{border-top:0}
+.rel-pick .radio input{margin:0}
+.rel-pick .radio .sub-line{display:block;color:var(--text-tertiary);font-size:var(--text-xs);font-weight:400}
+.rel-pick .radio.selected{background:var(--state-selected)}
+.rel-pick .radio .tx{flex:1;min-width:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mock-toggle{margin:0 0 10px;padding:6px 10px;border:1px dashed var(--border-strong);border-radius:var(--radius-control);font-size:var(--text-sm);color:var(--text-secondary);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.preview-after{margin-top:14px}
+.preview-after h3{font-size:var(--text-sm);color:var(--text-tertiary);font-weight:600;margin-bottom:6px;letter-spacing:.02em}
+.toolbar-line{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+
+@media (max-width:760px){
+  .app-body{padding:12px}
+  .band{margin:-12px -12px 12px}
+  .detail-grid,.layout-regions{grid-template-columns:minmax(0,1fr)}
+  .stage{padding:16px 8px}
+  .dialog form{padding:14px 14px 16px}
+  .dialog-header{padding:14px 14px 12px}
+  .grid2{grid-template-columns:1fr}
+  .page-header h1{font-size:22px}
+  .record-header{padding:12px 14px 14px}
+  .attrs{grid-template-columns:minmax(0,1fr)}
+  .attrs dt{border-bottom:0;padding-bottom:0}
+}
+</style>
+</head>
+<body>
+
+<header class="mock-bar">
+  <strong>Record layout editor</strong>
+  <span class="muted" style="font-size:var(--text-sm)">Mock-up for package RL, 0.13. Not the app; the example model only.</span>
+  <nav aria-label="Screens">
+    <a href="#s1">1 Today</a><a href="#s2">2 New default</a><a href="#s3">3 Table columns</a><a href="#s4">4 Add panel</a><a href="#s5">5 Panel columns</a>
+  </nav>
+  <button type="button" class="secondary small" id="theme" aria-pressed="false">Dark theme</button>
+</header>
+
+<main class="wrap">
+
+<!-- ============ 1 TODAY ============ -->
+<section class="screen" id="s1" aria-labelledby="h1">
+  <h2 id="h1"><span class="tag">Today</span>Stop record page, no declared page</h2>
+  <p class="caption">What people see today: the server draws a page of its own, with one lumped Relationships panel that lists every related record by Name and Type only.</p>
+  <div class="app">
+    <div class="app-top"><span class="brand">refiroo</span><span class="appname"><span class="dot" data-hue="1"></span>Network</span><span class="spacer"></span><span class="avatar" aria-hidden="true">KT</span></div>
+    <div class="app-body" id="rec-today"></div>
+  </div>
+</section>
+
+<!-- ============ 2 NEW DEFAULT ============ -->
+<section class="screen" id="s2" aria-labelledby="h2">
+  <h2 id="h2"><span class="tag new">New default</span>Stop record page, as Declare its page writes it</h2>
+  <p class="caption">The same page as Declare its page writes it, and as the undeclared fallback draws it: one panel per relationship in both directions the type holds, each titled by the relationship's name in that direction. Shown in Edit layout; switch to Preview to read it as a reader does.</p>
+  <div class="app">
+    <div class="app-top"><span class="brand">refiroo</span><span class="appname"><span class="dot" data-hue="1"></span>Network</span><span class="spacer"></span><span class="avatar" aria-hidden="true">KT</span></div>
+    <div class="app-body" id="rec-new"></div>
+  </div>
+</section>
+
+<!-- ============ 3 TABLE COLUMNS ============ -->
+<section class="screen" id="s3" aria-labelledby="h3">
+  <h2 id="h3"><span class="tag new">New</span>Edit layout › Table › Columns…, on the Stops table</h2>
+  <p class="caption">Today's checkbox list, where each relationship row now has a disclosure that unfolds the fields of the related records, including where they sit. A checked sub-field adds a column headed "Relationship · Field". Try ticking sub-fields: the table below the dialog follows.</p>
+  <div class="stage">
+    <div class="dialog" role="dialog" aria-labelledby="d3t">
+      <div class="dialog-header"><div><h2 id="d3t">Columns of Stops</h2><p class="dialog-description">Network › Stop › Table. Choose the columns, then drag them into order on the page.</p></div><button type="button" class="close" aria-label="Close">×</button></div>
+      <form onsubmit="return false">
+        <div class="field">
+          <span class="lbl" id="cols-l">Columns</span>
+          <div class="operation-checkboxes" role="group" aria-labelledby="cols-l" id="cols-list"></div>
+          <p class="help">Open a relationship to show a field of its records as a column of its own, such as the language code of a translation.</p>
+        </div>
+        <div class="dialog-actions"><button type="button" class="secondary">Cancel</button><button type="submit" class="primary">Apply</button></div>
+      </form>
+    </div>
+  </div>
+  <div class="preview-after app" style="margin-top:12px">
+    <div class="app-body" style="padding:14px 16px">
+      <h3 class="muted" style="font-size:var(--text-sm);font-weight:600;margin-bottom:8px">The Stops table after Apply (Edit layout › Table, first rows)</h3>
+      <div class="toolbar-line"><button class="secondary small" type="button">Columns…</button><button class="secondary small" type="button">Filters…</button><button class="secondary small" type="button">Default sort: Name ↑</button></div>
+      <div class="card"><div class="table-wrap"><table id="tbl3"></table></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 ADD PANEL ============ -->
+<section class="screen" id="s4" aria-labelledby="h4">
+  <h2 id="h4"><span class="tag new">New</span>Edit layout › Record page › Add panel…</h2>
+  <p class="caption">A page-level button next to New field group. The first choice is what the panel shows. For Related records the list holds the type's relationships as seen from Stop, both directions; those already on the page are marked. The Columns choice is pre-filled with the default columns and can be changed later with the panel's Columns….</p>
+  <div class="stage">
+    <div class="dialog" role="dialog" aria-labelledby="d4t">
+      <div class="dialog-header"><div><h2 id="d4t">Add panel</h2><p class="dialog-description">Network › Stop › Record page</p></div><button type="button" class="close" aria-label="Close">×</button></div>
+      <form onsubmit="return false" id="addpanel">
+        <fieldset class="field">
+          <legend>What the panel shows</legend>
+          <label class="radio"><input type="radio" name="kind" checked />Related records</label>
+          <label class="radio"><input type="radio" name="kind" />Contained records</label>
+          <label class="radio"><input type="radio" name="kind" />Fields</label>
+          <p class="help">Related records are the records this stop is linked to, in either direction. Contained records are those below it in the hierarchy.</p>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Relationship</legend>
+          <div class="rel-pick" id="relpick"></div>
+        </fieldset>
+        <div class="grid2">
+          <div class="field"><label for="reg">Region</label><select id="reg"><option>Main</option><option selected>Side</option></select></div>
+          <div class="field"><label for="ttl">Title</label><input type="text" id="ttl" /><p class="help">From the relationship's name; change it if you like.</p></div>
+        </div>
+        <fieldset class="field">
+          <legend>Columns</legend>
+          <div class="operation-checkboxes" id="addcols"></div>
+          <p class="help">These are the default columns for these records. You can change them afterwards with the panel's Columns….</p>
+        </fieldset>
+        <div class="dialog-actions"><button type="button" class="secondary">Cancel</button><button type="submit" class="primary">Apply</button></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 PANEL COLUMNS ============ -->
+<section class="screen" id="s5" aria-labelledby="h5">
+  <h2 id="h5"><span class="tag new">New</span>Record page › a relations panel's Columns…</h2>
+  <p class="caption">Opened from the System codes panel on the Stop page. Besides the name and the attributes of the related type there are now Where it sits choices: ancestor columns such as System › Name, and Type when the panel lists several types.</p>
+  <div class="mock-toggle"><span><strong>Mock-up only:</strong></span><label class="checkbox" style="padding:0"><input type="checkbox" id="multi" />This panel lists several types</label><span class="muted">(shows the Type choice)</span></div>
+  <div class="stage">
+    <div class="dialog" role="dialog" aria-labelledby="d5t">
+      <div class="dialog-header"><div><h2 id="d5t">Columns of System codes</h2><p class="dialog-description">Network › Stop › Record page › panel System codes</p></div><button type="button" class="close" aria-label="Close">×</button></div>
+      <form onsubmit="return false">
+        <div class="field">
+          <span class="lbl" id="pc-l">Columns</span>
+          <div class="operation-checkboxes" role="group" aria-labelledby="pc-l" id="pc-list"></div>
+        </div>
+        <div class="dialog-actions"><button type="button" class="secondary">Cancel</button><button type="submit" class="primary">Apply</button></div>
+      </form>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var esc = function (s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); };
+
+  /* theme toggle */
+  var root = document.documentElement, tb = $("#theme");
+  tb.addEventListener("click", function () {
+    var dark = root.getAttribute("data-theme") !== "dark";
+    root.setAttribute("data-theme", dark ? "dark" : "light");
+    tb.setAttribute("aria-pressed", String(dark));
+    tb.textContent = dark ? "Light theme" : "Dark theme";
+  });
+
+  /* ---------- sample data (Graubünden, from the example model) ---------- */
+  var HUE = { canton: 8, district: 7, municipality: 6, stop: 1, operator: 3, mode: 2, system: 4, "system-code": 4, language: 5, translation: 5 };
+  function chip(type, text) { return '<span class="record-chip" data-hue="' + HUE[type] + '"><i></i>' + esc(text) + "</span>"; }
+
+  var STOP = { name: "Chur, Bahnhof", number: "8509000", sloid: "ch:1:sloid:9000", abbr: "CHUR", lat: "46.8533", lon: "9.5290", height: "585 m", from: "2010-01-01", to: "2099-12-31" };
+  var MODES = [["Bus", "BUS"], ["Train", "TRAIN"]];
+  var OPERATOR = [["RhB", "RhB", "ch:1:sboid:100029"]];
+  var CODES = [
+    ["Wikidata stations", "wikidata-stations", "Q688347", "Q688347", true],
+    ["UIC", "uic", "UIC 85 09000", "85 09000", true]
+  ];
+  var TRANSL = [["Deutsch", "de", "Chur, Bahnhof", true], ["Rumantsch", "rm", "Cuira, Staziun", true], ["Italiano", "it", "Coira, Stazione", true]];
+
+  function attrsHtml() {
+    return '<dl class="attrs">' +
+      "<dt>Designation</dt><dd>" + STOP.name + "</dd>" +
+      "<dt>Stop number</dt><dd class=\"mono\">" + STOP.number + "</dd>" +
+      "<dt>SLOID</dt><dd class=\"mono\">" + STOP.sloid + "</dd>" +
+      "<dt>Abbreviation</dt><dd class=\"mono\">" + STOP.abbr + "</dd>" +
+      "<dt>Latitude</dt><dd>" + STOP.lat + "</dd><dt>Longitude</dt><dd>" + STOP.lon + "</dd>" +
+      "<dt>Height</dt><dd>" + STOP.height + "</dd>" +
+      "<dt>Valid from</dt><dd>" + STOP.from + "</dd><dt>Valid to</dt><dd>" + STOP.to + "</dd></dl>";
+  }
+  function hierHtml() {
+    var rows = [["Canton", "canton", "Graubünden"], ["District", "district", "Plessur"], ["Municipality", "municipality", "Chur"], ["Stop", "stop", STOP.name]];
+    return '<ul class="hier">' + rows.map(function (r, i) {
+      return '<li class="' + (i === 3 ? "current" : "") + '" style="padding-left:' + i * 14 + 'px"><span class="lvl">' + r[0] + "</span>" + chip(r[1], r[2]) + "</li>";
+    }).join("") + "</ul>";
+  }
+  function table(cols, rows) {
+    return '<div class="table-wrap" tabindex="0" role="region" aria-label="Table"><table><thead><tr>' + cols.map(function (c) { return "<th>" + c + "</th>"; }).join("") + "</tr></thead><tbody>" +
+      rows.map(function (r) { return "<tr>" + r.map(function (c, i) { return "<td" + (i === 0 ? ' class="strong"' : "") + ">" + c + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table></div>";
+  }
+  var ACT = '<span class="status">Active</span>';
+
+  /* panels as the new default writes them */
+  var PANELS = {
+    modes: { title: "Served by mode", count: 2, region: "main", html: function () { return table(["Name", "Code", "Active"], MODES.map(function (m) { return [chip("mode", m[0]), '<span class="mono">' + m[1] + "</span>", ACT]; })); } },
+    operator: { title: "Operated by operator", count: 1, region: "main", html: function () { return table(["Name", "Code", "Active"], OPERATOR.map(function (m) { return [chip("operator", m[0]), '<span class="mono">' + m[1] + "</span>", ACT]; })); } },
+    codes: { title: "System codes", hint: "Mapped from system code", count: 2, region: "main", html: function () { return table(["System", "Code", "External id", "Active"], CODES.map(function (c) { return [chip("system", c[0]), chip("system-code", c[3]), '<span class="mono">' + c[2] + "</span>", ACT]; })); }, sorted: "System" },
+    transl: { title: "Translations", hint: "Has translation", count: 3, region: "main", html: function () { return table(["Language", "Translated name", "Active"], TRANSL.map(function (t) { return [chip("language", t[1]), t[2], ACT]; })); }, sorted: "Language" }
+  };
+  function panelCard(p, extra) {
+    return '<section class="card" aria-label="' + esc(p.title) + '"><div class="card-header"><h2>' + esc(p.title) + "</h2>" + (p.hint ? '<span class="hint">' + p.hint + "</span>" : "") + (p.sorted ? '<span class="hint">sorted by ' + p.sorted + "</span>" : "") + '<span class="count">' + p.count + "</span></div>" + p.html() + "</section>";
+  }
+  function recordHeader() {
+    return '<div class="record-header" data-hue="1"><nav class="crumbs" aria-label="Breadcrumb"><span>Network</span><span class="sep">›</span>' + chip("canton", "Graubünden") + '<span class="sep">›</span>' + chip("district", "Plessur") + '<span class="sep">›</span>' + chip("municipality", "Chur") + '<span class="sep">›</span><span>Stop</span></nav>' +
+      '<div class="page-header"><span class="hue-tile" aria-hidden="true">S</span><div class="titles"><div class="eyebrow">Stop</div><h1>' + STOP.name + '</h1></div><div class="actions"><span class="version">v7</span><button type="button" class="secondary">Propose a change</button><button type="button" class="secondary" aria-label="Record actions">⋯</button></div></div>' +
+      '<p class="record-meta">ID <span class="mono">4f1c9a52-7be0-4d1a-9c2e-3b8a61d0e7f4</span></p></div>';
+  }
+
+  /* ---- screen 1: today ---- */
+  (function () {
+    var rows = [
+      ["Chur, Bahnhof (Name translation)", ""], ];
+    var rel = [
+      [chip("mode", "Bus"), "Mode"], [chip("mode", "Train"), "Mode"], [chip("operator", "RhB"), "Operator"],
+      [chip("system-code", "Q688347"), "System code"], [chip("system-code", "85 09000"), "System code"],
+      [chip("language", "Chur, Bahnhof"), "Name translation"], [chip("language", "Cuira, Staziun"), "Name translation"], [chip("language", "Coira, Stazione"), "Name translation"]
+    ];
+    var relCard = '<section class="card" aria-label="Relationships"><div class="card-header"><h2>Relationships</h2><span class="hint">Served by, operated by, mapped from, translations</span><span class="count">' + rel.length + "</span></div>" + table(["Name", "Type"], rel) + "</section>";
+    $("#rec-today").innerHTML = recordHeader() +
+      '<div class="detail-grid"><div class="col"><section class="card" aria-label="Details"><h2>Details</h2>' + attrsHtml() + "</section>" + relCard + '</div><div class="col"><section class="card" aria-label="Hierarchy"><h2>Hierarchy</h2>' + hierHtml() + "</section></div></div>";
+  })();
+
+  /* ---- screen 2: new default, in Edit layout, with a Preview switch ---- */
+  (function () {
+    var host = $("#rec-new");
+    function frame(title, body, note, tools) {
+      return '<section class="layout-frame" aria-label="Panel ' + esc(title) + '"><div class="layout-frame-head"><span class="layout-grip" aria-hidden="true">⋮⋮</span><span class="layout-frame-title">' + esc(title) + "</span>" + (note ? '<span class="muted layout-frame-note">' + note + "</span>" : "") + '<button type="button" class="menu-btn" aria-label="Layout of panel ' + esc(title) + '">⋯</button></div>' +
+        (tools ? '<div class="layout-frame-tools"><button type="button" class="secondary small">Columns…</button></div>' : "") + '<div class="layout-frame-body">' + body + "</div></section>";
+    }
+    function build(edit) {
+      var main = ["modes", "operator", "codes", "transl"].map(function (k) { var p = PANELS[k]; return frame(p.title, p.html(), p.sorted ? "sorted by " + p.sorted : "", true); }).join("");
+      host.className = "app-body" + (edit ? "" : " preview-mode");
+      host.innerHTML =
+        '<div class="band"><h3>Edit layout</h3><span class="band-note">Network › Stop › Record page. Drafted in a change set.</span><div class="band-actions"><div class="seg" role="group" aria-label="View"><button type="button" aria-pressed="' + edit + '" data-m="edit">Edit layout</button><button type="button" aria-pressed="' + !edit + '" data-m="prev">Preview</button></div></div></div>' +
+        '<div class="tabs" role="tablist" aria-label="Layout of"><span role="tab" aria-selected="true">Record page</span><span role="tab" aria-selected="false">Table</span></div>' +
+        '<div class="layout-canvas"><header class="layout-record-head"><span class="muted">Network</span><strong>' + STOP.name + "</strong></header>" +
+        '<div class="layout-regions"><div class="layout-region" role="group" aria-label="Main"><span class="layout-region-label">Main</span>' + main +
+        '<div class="layout-adds"><button type="button" class="secondary"><b aria-hidden="true">+</b> New field group</button><button type="button" class="secondary" id="addp"><b aria-hidden="true">+</b> Add panel…</button></div></div>' +
+        '<div class="layout-region" role="group" aria-label="Side"><span class="layout-region-label">Side</span>' +
+        frame("Details", attrsHtml(), "", false) + frame("Hierarchy", hierHtml(), "", false) + "</div></div></div>";
+      Array.prototype.forEach.call(host.querySelectorAll(".seg button"), function (b) {
+        b.addEventListener("click", function () { build(b.getAttribute("data-m") === "edit"); var n = host.querySelector('.seg button[aria-pressed="true"]'); if (n) n.focus(); });
+      });
+    }
+    build(true);
+  })();
+
+  /* ---------- screen 3: columns with disclosures ---------- */
+  var S3 = {
+    own: [["designation", "Name", true], ["stop-number", "Stop number", true], ["sloid", "SLOID"], ["abbreviation", "Abbreviation"], ["latitude", "Latitude"], ["longitude", "Longitude"], ["height", "Height"], ["valid-from", "Valid from"], ["valid-to", "Valid to"]],
+    rels: [
+      { key: "mode", name: "Served by mode", type: "mode", subs: [["Name", "Name"], ["Code", "Code"]], sits: [] },
+      { key: "operator", name: "Operated by operator", type: "operator", subs: [["Operator code", "Operator code"], ["Operator SBOID", "Operator SBOID"]], sits: [] },
+      { key: "mapped", name: "Mapped from system code", type: "system-code", subs: [["Name", "Name"], ["Code", "Code"], ["External id", "External id"]], sits: [["System › Name", "System", "Name"], ["System › System code", "System", "System code"]] },
+      { key: "transl", name: "Has translation", type: "translation", subs: [["Name", "Name"], ["Translated name", "Translated name"]], sits: [["Language › Name", "Language", "Name"], ["Language › Language code", "Language", "Language code"]] }
+    ]
+  };
+  var ROWS3 = [
+    { name: "Chur, Bahnhof", number: "8509000", mode: [["Bus"], ["Train"]], lc: ["de", "rm", "it"], tn: ["Chur, Bahnhof", "Cuira, Staziun", "Coira, Stazione"], sys: ["Wikidata stations", "UIC"], sc: ["wikidata-stations", "uic"], code: ["Q688347", "85 09000"], op: "RhB" },
+    { name: "Chur, Kantonsspital", number: "8588153", mode: [["Bus"]], lc: ["de", "rm"], tn: ["Chur, Kantonsspital", "Cuira, Ospital chantunal"], sys: ["Wikidata stations"], sc: ["wikidata-stations"], code: ["Q112390"], op: "PostAuto" },
+    { name: "Arosa, Bahnhof", number: "8509255", mode: [["Train"], ["Bus"]], lc: ["de", "it"], tn: ["Arosa, Bahnhof", "Arosa, Stazione"], sys: ["Wikidata stations"], sc: ["wikidata-stations"], code: ["Q669215"], op: "RhB" }
+  ];
+  var checked3 = { "own:designation": 1, "own:stop-number": 1, "rel:mode": 1, "rel:operator": 1, "sub:transl:Language › Language code": 1 };
+  var open3 = { transl: true };
+  function relCol(r, sub) { return sub ? r.name + " · " + sub : r.name; }
+  function cell3(row, id) {
+    var p = id.split(":");
+    if (p[0] === "own") return { designation: row.name, "stop-number": '<span class="mono">' + row.number + "</span>", sloid: '<span class="mono">ch:1:sloid:' + row.number.slice(-4) + "</span>", abbreviation: '<span class="mono">' + row.name.slice(0, 4).toUpperCase() + "</span>", latitude: "46.85", longitude: "9.53", height: "585 m", "valid-from": "2010-01-01", "valid-to": "2099-12-31" }[p[1]];
+    if (p[0] === "rel") {
+      if (p[1] === "mode") return '<span class="chips">' + row.mode.map(function (m) { return chip("mode", m[0]); }).join("") + "</span>";
+      if (p[1] === "operator") return chip("operator", row.op);
+      if (p[1] === "mapped") return '<span class="chips">' + row.code.map(function (c) { return chip("system-code", c); }).join("") + "</span>";
+      return '<span class="chips">' + row.tn.map(function (c) { return chip("translation", c); }).join("") + "</span>";
+    }
+    var f = p.slice(2).join(":");
+    var chips = function (arr, t) { return '<span class="chips">' + arr.map(function (c) { return chip(t, c); }).join("") + "</span>"; };
+    var plain = function (arr) { return arr.join(", "); };
+    if (p[1] === "transl") { if (f === "Language › Language code") return chips(row.lc, "language"); if (f === "Language › Name") return plain(row.lc.map(function (l) { return { de: "Deutsch", rm: "Rumantsch", it: "Italiano" }[l]; })); if (f === "Translated name") return plain(row.tn); return plain(row.tn); }
+    if (p[1] === "mapped") { if (f === "System › Name") return plain(row.sys); if (f === "System › System code") return '<span class="mono">' + row.sc.join(", ") + "</span>"; if (f === "External id") return '<span class="mono">' + row.code.join(", ") + "</span>"; return plain(row.code); }
+    if (p[1] === "mode") return plain(row.mode.map(function (m) { return f === "Code" ? m[0].toUpperCase() : m[0]; }));
+    if (p[1] === "operator") return '<span class="mono">' + (f === "Operator SBOID" ? "ch:1:sboid:100029" : row.op) + "</span>";
+    return "";
+  }
+  function relOf(k) { return S3.rels.filter(function (r) { return r.key === k; })[0]; }
+  function renderTable3() {
+    var ids = []; // in dialog order, as the page orders them after Apply
+    S3.own.forEach(function (o) { if (checked3["own:" + o[0]]) ids.push(["own:" + o[0], o[1]]); });
+    S3.rels.forEach(function (r) {
+      if (checked3["rel:" + r.key]) ids.push(["rel:" + r.key, r.name]);
+      r.subs.concat(r.sits).forEach(function (s) { if (checked3["sub:" + r.key + ":" + s[0]]) ids.push(["sub:" + r.key + ":" + s[0], relCol(r, s[0].indexOf(" › ") > -1 ? (s[0].split(" › ")[1] === "Name" ? s[0].split(" › ")[0] + " name" : s[0].split(" › ")[1]) : s[0])]); });
+    });
+    var t = $("#tbl3");
+    t.innerHTML = "<thead><tr>" + ids.map(function (i) { return "<th>" + esc(i[1].replace(" › ", " › ")) + (i[0] === "own:designation" ? '<span class="sortmark">↑</span>' : "") + "</th>"; }).join("") + "</tr></thead><tbody>" +
+      ROWS3.map(function (r) { return "<tr>" + ids.map(function (i, n) { return "<td" + (n === 0 ? ' class="strong"' : "") + ">" + cell3(r, i[0]) + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody>";
+    t.parentNode.setAttribute("tabindex", "0"); t.parentNode.setAttribute("role", "region"); t.parentNode.setAttribute("aria-label", "Table preview");
+  }
+  function renderList3() {
+    var h = '<div class="opt-group">Name and attributes of Stop</div>';
+    S3.own.forEach(function (o) { h += '<label class="checkbox"><input type="checkbox" data-id="own:' + o[0] + '"' + (checked3["own:" + o[0]] ? " checked" : "") + " />" + o[1] + "</label>"; });
+    h += '<div class="opt-group">Relationships</div>';
+    S3.rels.forEach(function (r) {
+      var n = r.subs.concat(r.sits).filter(function (s) { return checked3["sub:" + r.key + ":" + s[0]]; }).length;
+      var isOpen = !!open3[r.key];
+      h += '<div class="rel-row"><div class="rel-head"><label class="checkbox"><input type="checkbox" data-id="rel:' + r.key + '"' + (checked3["rel:" + r.key] ? " checked" : "") + " />" + r.name + '</label><button type="button" class="disclose" data-d="' + r.key + '" aria-expanded="' + isOpen + '" aria-controls="sub-' + r.key + '"><span class="tri" aria-hidden="true">▶</span>Fields' + (n ? ' <span class="n">' + n + "</span>" : "") + "</button></div>";
+      h += '<div class="sub" id="sub-' + r.key + '"' + (isOpen ? "" : " hidden") + '><div class="sub-group">' + esc(r.type === "translation" ? "Name translation" : r.type === "system-code" ? "System code" : r.type[0].toUpperCase() + r.type.slice(1)) + " fields</div>";
+      r.subs.forEach(function (s) { h += '<label class="checkbox"><input type="checkbox" data-id="sub:' + r.key + ":" + s[0] + '"' + (checked3["sub:" + r.key + ":" + s[0]] ? " checked" : "") + " />" + s[1] + "</label>"; });
+      if (r.sits.length) {
+        h += '<div class="sub-group sits"></div>';
+        r.sits.forEach(function (s) { var p = s[0].split(" › "); h += '<label class="checkbox"><input type="checkbox" data-id="sub:' + r.key + ":" + s[0] + '"' + (checked3["sub:" + r.key + ":" + s[0]] ? " checked" : "") + " /><span><span class=\"path\">" + p[0] + " › </span>" + p[1] + "</span></label>"; });
+      }
+      h += "</div></div>";
+    });
+    var box = $("#cols-list"), ae = document.activeElement && document.activeElement.getAttribute && (document.activeElement.getAttribute("data-id") || document.activeElement.getAttribute("data-d"));
+    box.innerHTML = h;
+    if (ae) { var again = box.querySelector('[data-id="' + ae + '"],[data-d="' + ae + '"]'); if (again) again.focus(); }
+  }
+  $("#cols-list").addEventListener("change", function (e) { var id = e.target.getAttribute("data-id"); if (!id) return; if (e.target.checked) checked3[id] = 1; else delete checked3[id]; renderList3(); renderTable3(); });
+  $("#cols-list").addEventListener("click", function (e) { var b = e.target.closest && e.target.closest("[data-d]"); if (!b) return; var k = b.getAttribute("data-d"); open3[k] = !open3[k]; renderList3(); });
+  renderList3(); renderTable3();
+
+  /* ---------- screen 4: add panel ---------- */
+  var RELS = [
+    { key: "modes", label: "Served by mode", sub: "Mode · Stop → Mode", title: "Served by mode", onpage: true, cols: [["Name", 1], ["Code", 1], ["Active", 1]] },
+    { key: "operator", label: "Operated by operator", sub: "Operator · Stop → Operator", title: "Operated by operator", onpage: true, cols: [["Name", 1], ["Code", 1], ["Active", 1]] },
+    { key: "mapped", label: "Mapped from system code", sub: "System code · from the other side of Maps to", title: "System codes", onpage: false, cols: [["System (ancestor)", 1], ["Code", 1], ["External id", 1], ["Description", 0], ["Active", 1]] },
+    { key: "transl", label: "Has translation", sub: "Name translation · Stop → Name translation", title: "Translations", onpage: false, cols: [["Language (ancestor) code", 1], ["Translated name", 1], ["Name", 0], ["Active", 1]] }
+  ];
+  var sel4 = "mapped";
+  function renderAdd() {
+    var cur = RELS.filter(function (r) { return r.key === sel4; })[0];
+    $("#relpick").innerHTML = RELS.map(function (r) {
+      return '<label class="radio' + (r.key === sel4 ? " selected" : "") + '"><input type="radio" name="rel" value="' + r.key + '"' + (r.key === sel4 ? " checked" : "") + ' /><span class="tx">' + r.label + '<span class="sub-line">' + r.sub + "</span></span>" + (r.onpage ? '<span class="on-page">on the page</span>' : "") + "</label>";
+    }).join("");
+    var t = $("#ttl"); if (!t.dataset.touched || t.dataset.rel !== sel4) { t.value = cur.title; t.dataset.rel = sel4; delete t.dataset.touched; }
+    $("#addcols").innerHTML = cur.cols.map(function (c, i) { return '<label class="checkbox"><input type="checkbox" ' + (c[1] ? "checked" : "") + " />" + c[0] + (c[0].indexOf("ancestor") > -1 ? ' <span class="muted">· where it sits</span>' : "") + "</label>"; }).join("");
+  }
+  $("#relpick").addEventListener("change", function (e) { if (e.target.name === "rel") { sel4 = e.target.value; renderAdd(); var n = $('#relpick input[value="' + sel4 + '"]'); if (n) n.focus(); } });
+  $("#ttl").addEventListener("input", function (e) { e.target.dataset.touched = "1"; });
+  renderAdd();
+
+  /* ---------- screen 5: panel columns ---------- */
+  function renderPc() {
+    var multi = $("#multi").checked, ck = window.__pc || (window.__pc = { "External id": 1, "Active": 1, "Code": 1, "System › Name": 1 });
+    var own = [["Name", "Name"], ["Code", "Code"], ["External id", "External id"], ["Description", "Description"], ["Active", "Active"]];
+    var h = '<div class="opt-group">Name and attributes of System code</div>';
+    own.forEach(function (o) { h += '<label class="checkbox"><input type="checkbox" data-k="' + o[0] + '"' + (ck[o[0]] ? " checked" : "") + " />" + o[1] + "</label>"; });
+    h += '<div class="opt-group">Where it sits</div>';
+    [["System › Name", "System", "Name"], ["System › System code", "System", "System code"]].forEach(function (o) { h += '<label class="checkbox"><input type="checkbox" data-k="' + o[0] + '"' + (ck[o[0]] ? " checked" : "") + " /><span><span class=\"muted\">" + o[1] + " › </span>" + o[2] + '</span></label>'; });
+    if (multi) h += '<label class="checkbox"><input type="checkbox" data-k="Type"' + (ck.Type ? " checked" : "") + ' />Type <span class="muted">· which type each record is</span></label>';
+    $("#pc-list").innerHTML = h;
+  }
+  $("#pc-list").addEventListener("change", function (e) { var k = e.target.getAttribute("data-k"); if (!k) return; window.__pc = window.__pc || {}; if (e.target.checked) window.__pc[k] = 1; else delete window.__pc[k]; });
+  $("#multi").addEventListener("change", renderPc);
+  renderPc();
+})();
+</script>
+</body>
+</html>

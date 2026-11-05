@@ -77,16 +77,20 @@ def table_view(document: Document, application_key: str, type_key: str) -> dict[
 
 
 def detail_page(document: Document, type_key: str) -> dict[str, Any]:
-    """A detail page of ``type_key``: an attributes panel in ``main``; a hierarchy panel in ``side``
-    when it has a parent; a children panel when it contains types; a relations panel when a binding
-    names it at its ``from`` end."""
+    """The page a type gets (0.13 RL), one rule for the server's new page, a newly allowed relation
+    and the page the frontend shows when an application declares none:
+
+    * ``side``: the attributes panel ("Details") and, when the type has a parent, the hierarchy;
+    * ``main``: one children panel for the contained types, then one relations panel for each
+      relationship the type holds, in each direction and in the model's order (containment excluded).
+    """
     object_type = document.at(type_path(type_key))
     panels: list[dict[str, Any]] = [
         {
             "key": "attributes",
             "title": "Details",
             "type": "attributes",
-            "region": "main",
+            "region": "side",
             "order": 10,
             "config": {"fields": [b["attributeTypeKey"] for b in _bindings_in_order(object_type)]},
         }
@@ -95,15 +99,119 @@ def detail_page(document: Document, type_key: str) -> dict[str, Any]:
         panels.append(_hierarchy_panel())
     children = contained_types(document, type_key)
     if children:
-        panels.append(_children_panel(document, children, panels))
-    outgoing = [
-        b["relationTypeKey"]
-        for b in document.items("objectTypeRelations")
-        if b.get("fromObjectTypeKey") == type_key and not _is_containment(document, b["relationTypeKey"])
-    ]
-    if outgoing:
-        panels.append(_relations_panel(list(dict.fromkeys(outgoing)), panels))
+        panels.append(children_panel(document, children, panels))
+    for relation_key, direction in held_relations(document, type_key):
+        panels.append(relations_panel(document, type_key, relation_key, direction, panels))
     return {"objectTypeKey": type_key, "panels": panels}
+
+
+def held_relations(document: Document, type_key: str) -> list[tuple[str, str]]:
+    """The relationships ``type_key`` holds as (relation type key, direction), containment excluded,
+    in the model's order: outgoing where it is at a binding's ``from`` end, incoming at its ``to``
+    end (a relation without a reverse key is read outgoing only)."""
+    held: list[tuple[str, str]] = []
+    for binding in document.items("objectTypeRelations"):
+        relation_key = binding.get("relationTypeKey")
+        relation = document.find(["relationTypes", {"key": relation_key}]) or {}
+        if not relation or _is_containment(document, relation_key):
+            continue
+        if binding.get("fromObjectTypeKey") == type_key and (relation_key, "outgoing") not in held:
+            held.append((relation_key, "outgoing"))
+        if (
+            binding.get("toObjectTypeKey") == type_key
+            and relation.get("reverseKey")
+            and (relation_key, "incoming") not in held
+        ):
+            held.append((relation_key, "incoming"))
+    return held
+
+
+def related_type_keys(
+    document: Document, type_key: str, relation_key: str, direction: str
+) -> list[str]:
+    """The types at the other end of a relationship read from ``type_key``."""
+    outgoing = direction == "outgoing"
+    ends = [
+        b["toObjectTypeKey"] if outgoing else b["fromObjectTypeKey"]
+        for b in document.items("objectTypeRelations")
+        if b.get("relationTypeKey") == relation_key
+        and b.get("fromObjectTypeKey" if outgoing else "toObjectTypeKey") == type_key
+    ]
+    return list(dict.fromkeys(ends))
+
+
+def parent_type_keys(document: Document, type_key: str) -> list[str]:
+    """The types that directly contain ``type_key`` (not itself, as a hierarchy of one type does)."""
+    object_type = document.find(type_path(type_key)) or {}
+    parents = (object_type.get("behavior") or {}).get("parentRelationTypeKeys") or []
+    found = [
+        b["fromObjectTypeKey"]
+        for b in document.items("objectTypeRelations")
+        if b.get("relationTypeKey") in parents
+        and b.get("toObjectTypeKey") == type_key
+        and b.get("fromObjectTypeKey") != type_key
+    ]
+    return list(dict.fromkeys(found))
+
+
+MAX_RELATED_ATTRIBUTES = 4
+
+
+def relations_panel(
+    document: Document,
+    type_key: str,
+    relation_key: str,
+    direction: str,
+    panels: list[dict[str, Any]],
+    title: str | None = None,
+    region: str = "main",
+) -> dict[str, Any]:
+    """A relations panel for one relationship of ``type_key``: its title is the relationship read from
+    this type; its columns the name, the parent type the related records sit under (when they all
+    sit under one), up to four attributes of the related types and their type when there are several;
+    sorted by the parent column when one type is listed."""
+    relation = document.at(["relationTypes", {"key": relation_key}])
+    outgoing = direction == "outgoing"
+    label = (
+        relation.get("name") if outgoing else relation.get("reverseName") or relation.get("name")
+    )
+    named = relation_key if outgoing else relation.get("reverseKey") or relation_key
+    related = related_type_keys(document, type_key, relation_key, direction)
+    columns = ["name"]
+    parents = {tuple(parent_type_keys(document, key)) for key in related}
+    ancestor = (
+        f"ancestor:{next(iter(parents))[0]}"
+        if len(parents) == 1 and len(next(iter(parents))) == 1
+        else None
+    )
+    if ancestor:
+        columns.append(ancestor)
+    attributes: list[str] = []
+    for key in related:
+        for binding in _bindings_in_order(document.find(type_path(key)) or {}):
+            if binding["attributeTypeKey"] not in attributes:
+                attributes.append(binding["attributeTypeKey"])
+    columns += attributes[:MAX_RELATED_ATTRIBUTES]
+    if len(related) > 1:
+        columns.append("objectType")
+    config: dict[str, Any] = {
+        "relationTypeKeys": [relation_key],
+        "direction": direction,
+        "columns": columns,
+        "showRelationshipColumn": False,
+    }
+    if ancestor and len(related) == 1:
+        config["sortFields"] = [ancestor, "name"]
+        config["defaultSort"] = ancestor
+    in_region = [p for p in panels if p.get("region", "main") == region]
+    return {
+        "key": key_from_label(named, {p.get("key") for p in panels}),
+        "title": title or label or named,
+        "type": "relations",
+        "region": region,
+        "order": max((p.get("order", 0) for p in in_region), default=0) + 10,
+        "config": config,
+    }
 
 
 def contained_types(document: Document, parent_key: str) -> list[str]:
@@ -133,10 +241,15 @@ def place_attribute(document: Document, type_key: str, attribute_key: str) -> No
             _append_new(document, config + ["sortFields"], attribute_key)
     for path in detail_paths(document, type_key):
         panel = next(
-            (p for p in document.at(path).get("panels") or [] if p.get("type") == "attributes"), None
+            (p for p in document.at(path).get("panels") or [] if p.get("type") == "attributes"),
+            None,
         )
         if panel is not None:
-            _append_new(document, path + ["panels", {"key": panel["key"]}, "config", "fields"], attribute_key)
+            _append_new(
+                document,
+                path + ["panels", {"key": panel["key"]}, "config", "fields"],
+                attribute_key,
+            )
 
 
 def place_child(document: Document, parent_key: str, child_key: str) -> None:
@@ -148,10 +261,12 @@ def place_child(document: Document, parent_key: str, child_key: str) -> None:
         panels = document.at(path).get("panels") or []
         panel = next((p for p in panels if p.get("type") == "children"), None)
         if panel is None:
-            add_panel(document, path, _children_panel(document, [child_key], panels))
+            add_panel(document, path, children_panel(document, [child_key], panels))
         else:
             _append_new(
-                document, path + ["panels", {"key": panel["key"]}, "config", "objectTypeKeys"], child_key
+                document,
+                path + ["panels", {"key": panel["key"]}, "config", "objectTypeKeys"],
+                child_key,
             )
     for path in detail_paths(document, child_key):
         panels = document.at(path).get("panels") or []
@@ -161,37 +276,42 @@ def place_child(document: Document, parent_key: str, child_key: str) -> None:
             add_panel(document, path, panel)
 
 
-def place_relation(document: Document, relation_key: str, from_key: str) -> None:
-    """Show an allowed relation in its ``from`` type's detail pages: in a plain outgoing relations
-    panel there, or a new one where the page has none (a panel set up for its own records keeps them
-    alone; found in A4a, where a relation joined a translations panel sorted by its language)."""
-    for path in detail_paths(document, from_key):
-        panels = document.at(path).get("panels") or []
-        panel = next((p for p in panels if _plain_outgoing_relations(p)), None)
-        if panel is None:
-            add_panel(document, path, _relations_panel([relation_key], panels))
-        else:
-            _append_new(
-                document, path + ["panels", {"key": panel["key"]}, "config", "relationTypeKeys"], relation_key
-            )
+def place_relation(document: Document, relation_key: str, from_key: str, to_key: str) -> None:
+    """Show an allowed relation at both its ends (0.13 RL): a panel of its own on the declared pages
+    of both types, and a ``related:`` column and filter on both types' table views. A page that
+    already has a panel for the relationship in that direction keeps it; written pages are never
+    rewritten."""
+    for type_key, direction in ((from_key, "outgoing"), (to_key, "incoming")):
+        relation = document.find(["relationTypes", {"key": relation_key}]) or {}
+        if direction == "incoming" and not relation.get("reverseKey"):
+            continue
+        for path in detail_paths(document, type_key):
+            panels = document.at(path).get("panels") or []
+            if not any(_lists_relation(p, relation_key, direction) for p in panels):
+                add_panel(
+                    document,
+                    path,
+                    relations_panel(document, type_key, relation_key, direction, panels),
+                )
+        field = "related:" + (relation_key if direction == "outgoing" else relation["reverseKey"])
+        for path in table_view_paths(document, type_key):
+            config = path + ["config"]
+            _append_new(document, config + ["columns"], field)
+            _append_new(document, config + ["filterFields"], field)
 
 
-# What a relations panel may hold and still take any relation: its relation types, direction, title
-# and place. A panel with columns, sorts or filters of its own is set up for the records it lists
-# (a translations panel sorted by its language), and another type's relation would break it.
-_PLAIN_RELATIONS_CONFIG = {"relationTypeKeys", "direction", "showRelationshipColumn"}
-
-
-def _plain_outgoing_relations(panel: dict[str, Any]) -> bool:
+def _lists_relation(panel: dict[str, Any], relation_key: str, direction: str) -> bool:
     config = panel.get("config") or {}
     return (
         panel.get("type") == "relations"
-        and config.get("direction") == "outgoing"
-        and set(config) <= _PLAIN_RELATIONS_CONFIG
+        and relation_key in (config.get("relationTypeKeys") or [])
+        and config.get("direction", "both") in (direction, "both")
     )
 
 
-def add_panel(document: Document, detail: Path, panel: dict[str, Any], index: int | None = None) -> None:
+def add_panel(
+    document: Document, detail: Path, panel: dict[str, Any], index: int | None = None
+) -> None:
     document.insert(detail + ["panels"], panel, index)
     keep_order(document, detail + ["panels"], {"key": panel["key"]})
 
@@ -207,7 +327,11 @@ def keep_order(document: Document, path: Path, item: dict[str, Any]) -> bool:
     before = items[index - 1].get("order", 0) if index > 0 else None
     after = items[index + 1].get("order", 0) if index + 1 < len(items) else None
     current = target.get("order")
-    if isinstance(current, int) and (before is None or before < current) and (after is None or current < after):
+    if (
+        isinstance(current, int)
+        and (before is None or before < current)
+        and (after is None or current < after)
+    ):
         return False
     if before is None and after is None:
         wanted: int | None = 10
@@ -247,10 +371,18 @@ def _is_containment(document: Document, relation_key: str) -> bool:
 
 
 def _hierarchy_panel() -> dict[str, Any]:
-    return {"key": "hierarchy", "title": "Hierarchy", "type": "hierarchy", "region": "side", "order": 10}
+    return {
+        "key": "hierarchy",
+        "title": "Hierarchy",
+        "type": "hierarchy",
+        "region": "side",
+        "order": 20,
+    }
 
 
-def _children_panel(document: Document, children: list[str], panels: list[dict[str, Any]]) -> dict[str, Any]:
+def children_panel(
+    document: Document, children: list[str], panels: list[dict[str, Any]]
+) -> dict[str, Any]:
     first = document.find(type_path(children[0])) or {}
     return {
         "key": key_from_label("children", {p.get("key") for p in panels}),
@@ -262,16 +394,8 @@ def _children_panel(document: Document, children: list[str], panels: list[dict[s
     }
 
 
-def _relations_panel(relation_keys: list[str], panels: list[dict[str, Any]]) -> dict[str, Any]:
-    return {
-        "key": key_from_label("relations", {p.get("key") for p in panels}),
-        "title": "Related",
-        "type": "relations",
-        "region": "main",
-        "order": _next_order(panels),
-        "config": {"relationTypeKeys": list(relation_keys), "direction": "outgoing"},
-    }
-
-
 def _next_order(panels: list[dict[str, Any]]) -> int:
-    return max((p.get("order", 0) for p in panels if p.get("region", "main") == "main"), default=0) + 10
+    return (
+        max((p.get("order", 0) for p in panels if p.get("region", "main") == "main"), default=0)
+        + 10
+    )

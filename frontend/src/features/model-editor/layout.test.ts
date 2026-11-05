@@ -1,6 +1,8 @@
 import { fieldOptions } from "@/features/model-editor/operations";
 import { describe, expect, it } from "vitest";
+import example from "../../../../guide/samples/model.json";
 import {
+  addPanelSpec,
   chooseList,
   fieldToPanel,
   fieldsNotOnPage,
@@ -8,6 +10,7 @@ import {
   moveField,
   movePanel,
   newFieldGroupSpec,
+  panelColumnsSpec,
   panelToRegion,
   tableColumnsSpec,
   tableFiltersSpec,
@@ -159,6 +162,7 @@ describe("layout operations", () => {
 
   it("offers a table view the relationships its records hold, the one to their parent first (D358)", () => {
     const related = {
+      applications: [],
       attributeTypes: [{ key: "code", name: "Code" }],
       objectTypes: [
         { key: "group", attributes: [] },
@@ -212,5 +216,136 @@ describe("layout operations", () => {
         item: "related:entry-in-group",
       },
     ]);
+  });
+});
+
+// The guide's example model: Network lists the stop with its municipality, operator and modes; the
+// names application holds the translations under their languages.
+const bare = example as unknown as EngineModel;
+// The engine serves the placements with the model; here they are read off its containment bindings.
+const guide = {
+  ...bare,
+  placements: {
+    applications: bare.applications.map((application) => ({
+      applicationKey: application.key,
+      topLevelObjectTypeKeys: [],
+      parents: application.objectTypeKeys.map((key) => ({
+        objectTypeKey: key,
+        possibleObjectTypeKeys: [],
+        childObjectTypeKeys: application.objectTypeKeys.filter((child) =>
+          bare.objectTypeRelations.some(
+            (binding) =>
+              binding.fromObjectTypeKey === key &&
+              binding.toObjectTypeKey === child &&
+              bare.objectTypes
+                .find((type) => type.key === child)
+                ?.behavior?.parentRelationTypeKeys?.includes(binding.relationTypeKey),
+          ),
+        ),
+      })),
+    })),
+  },
+} as unknown as EngineModel;
+const stopPlace = { applicationKey: "network", objectTypeKey: "stop" };
+const guideOptions = (operation: ReturnType<typeof tableColumnsSpec>) =>
+  operation
+    .fields?.(undefined as never, undefined as never)
+    .flatMap((field) => (field.type === "checkboxes" ? fieldOptions(field, {}) : [])) ?? [];
+
+describe("related columns and panels in the editor (0.13 RL)", () => {
+  const stops = guide.applications
+    .find((item) => item.key === "network")
+    ?.views.find((view) => view.type === "table" && view.objectTypeKey === "stop") as TableViewDefinition;
+
+  it("unfolds a relationship into the fields of its records and where they sit", () => {
+    const options = guideOptions(tableColumnsSpec(guide, stopPlace, stops));
+    const translation = options.filter((option) => option.under === "related:object-has-translation");
+    expect(translation.map((option) => [option.value, option.label, option.group])).toEqual([
+      ["related:object-has-translation.translated-name", "Translated name", undefined],
+      ["related:object-has-translation.active", "Active", undefined],
+      ["related:object-has-translation.ancestor:language.name", "Name", "Where they sit · Language"],
+      ["related:object-has-translation.ancestor:language.language-code", "Language code", "Where they sit · Language"],
+      ["related:object-has-translation.ancestor:language.description", "Description", "Where they sit · Language"],
+      ["related:object-has-translation.ancestor:language.active", "Active", "Where they sit · Language"],
+    ]);
+    // The relationship stays a column of its own, and the filter offers it alone (K6).
+    expect(options.map((option) => option.value)).toContain("related:object-has-translation");
+    expect(
+      guideOptions(tableFiltersSpec(guide, stopPlace, stops)).filter((option) => option.value.includes(".")),
+    ).toEqual([]);
+  });
+
+  it("writes a checked field as the column related:<key>.<field>, keeping the others in order", () => {
+    const column = "related:object-has-translation.ancestor:language.language-code";
+    expect(
+      tableColumnsSpec(guide, stopPlace, stops).build(
+        { columns: [...stops.config.columns, column] },
+        undefined as never,
+        undefined as never,
+      ),
+    ).toEqual([{ kind: "insertViewItem", applicationKey: "network", view: stops.key, list: "columns", item: column }]);
+  });
+
+  it("offers a panel where its records sit: their ancestors, and their type when it lists several", () => {
+    const detail = guide.applications
+      .find((item) => item.key === "network")
+      ?.details?.find((item) => item.objectTypeKey === "stop") as DetailViewDefinition;
+    const codes = detail.panels.find((item) => item.key === "system-codes") as PanelDefinition;
+    const offered = (panelDefinition: PanelDefinition) =>
+      panelColumnsSpec(guide, stopPlace, panelDefinition)
+        .fields?.(undefined as never, undefined as never)
+        .flatMap((field) => (field.type === "checkboxes" ? fieldOptions(field, {}) : []))
+        .filter((option) => option.group === "Where it sits")
+        .map((option) => option.value);
+    expect(offered(codes)).toEqual(["ancestor:system"]);
+    const several = {
+      ...codes,
+      config: { ...codes.config, relationTypeKeys: ["system-code-maps-to", "stop-served-by-mode"], direction: "both" },
+    } as PanelDefinition;
+    expect(offered(several)).toContain("objectType");
+  });
+
+  it("builds Add panel… as the server's addPanel, titled from the relationship read from the type", () => {
+    const detail = { objectTypeKey: "stop", panels: [] } as unknown as DetailViewDefinition;
+    const operation = addPanelSpec(guide, stopPlace, detail);
+    const initial = operation.initial?.(undefined as never, undefined as never) ?? {};
+    expect(initial.relation).toBe("outgoing:stop-served-by-mode");
+    expect(initial.title).toBe("Served by mode");
+    expect(
+      operation.build(
+        { ...initial, relation: "incoming:system-code-maps-to", title: "System codes", region: "side" },
+        undefined as never,
+        undefined as never,
+      ),
+    ).toEqual([
+      {
+        kind: "addPanel",
+        applicationKey: "network",
+        detail: "stop",
+        show: { relations: { relation: "system-code-maps-to", direction: "incoming" } },
+        region: "side",
+        title: "System codes",
+      },
+    ]);
+    // The title follows the relationship while it is the one the choice gave.
+    const next = operation.follow?.(
+      { ...initial, relation: "incoming:system-code-maps-to" },
+      initial,
+      "relation",
+      undefined as never,
+    );
+    expect(next?.title).toBe("Is represented by system code");
+  });
+
+  it("marks the relationships the page already shows", () => {
+    const detail = guide.applications
+      .find((item) => item.key === "network")
+      ?.details?.find((item) => item.objectTypeKey === "stop") as DetailViewDefinition;
+    const relation = addPanelSpec(guide, stopPlace, detail)
+      .fields?.(undefined as never, undefined as never)
+      .find((field) => field.name === "relation");
+    const labels = relation && "options" in relation ? fieldOptions(relation, {}).map((option) => option.label) : [];
+    expect(labels).toContain("Served by mode (on the page)");
+    expect(labels).toContain("Is represented by system code (on the page)");
   });
 });

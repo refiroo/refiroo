@@ -115,6 +115,25 @@ describe("the preview's client", () => {
     );
   });
 
+  it("keeps a relation column showing a field the active model answers, and leaves out one it cannot", async () => {
+    const known = { ...active, attributeTypes: [{ key: "code" }] } as unknown as EngineModel;
+    await createPreviewClient(known, known).objects("item", {
+      expand: [
+        "sold-through.code",
+        "sold-through.ancestor:channel.code",
+        "sells.name",
+        "sold-through.pack-size",
+        "sold-through.ancestor:region.code",
+      ],
+    });
+    expect(api.objects).toHaveBeenCalledWith(
+      "item",
+      expect.objectContaining({
+        expand: ["sold-through.code", "sold-through.ancestor:channel.code", "sells.name"],
+      }),
+    );
+  });
+
   it("applies a picker's choice rule the active model holds, and not one the draft changes (D45)", async () => {
     const rule = { to: [{ field: "code", op: "eq", value: "web" }] };
     const kept = model({ item: ["code"], channel: [] }, [binding("item", "channel")]);
