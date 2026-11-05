@@ -46,34 +46,16 @@ _PAGE = """<!doctype html>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>refiroo API reference</title>
-    <link rel="icon" href="{favicon}" />
+{canonical_element}    <link rel="icon" href="{favicon}" />
     <link rel="stylesheet" href="{stylesheet}" />
-    <style>
+{theme_head}    <style>
       .rdm-header {{ position: fixed; inset: 0 0 auto 0; z-index: 100; }}
       body {{ margin: 0; }}
-    </style>
+{extra_style}    </style>
     <script>{theme_script}</script>
   </head>
   <body>
-    <header class="rdm-header">
-      <a class="rdm-mark" href="{home}" aria-label="refiroo home">
-        <img src="{mascot}" alt="" />
-        <img class="rdm-wordmark" src="{wordmark}" alt="refiroo" />
-      </a>
-      <nav class="rdm-tabs" aria-label="Documentation">
-        <a class="rdm-tab" href="{docs}"><span class="rdm-full">Documentation</span><span class="rdm-short">Docs</span></a>
-        <a class="rdm-tab" href="{api}" aria-current="page"><span class="rdm-full">API reference</span><span class="rdm-short">API</span></a>
-      </nav>
-      <div class="rdm-spacer"></div>
-      <label class="rdm-theme">
-        <select id="rdm-theme" aria-label="Theme">
-          <option value="system">System</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      </label>
-    </header>
-    <div id="rdm-api-reference"></div>
+{header_element}{older_element}    <div id="rdm-api-reference"></div>
     <script src="{script}"{integrity}></script>
     <script>window.rdmReference = Scalar.createApiReference("#rdm-api-reference", {configuration});</script>
 {sign_in_element}    <script>{theme_wiring_script}</script>
@@ -82,8 +64,31 @@ _PAGE = """<!doctype html>
 """
 
 
+_HEADER = """    <header class="rdm-header">
+      <a class="rdm-mark" href="{home}" aria-label="refiroo home">
+        <img src="{mascot}" alt="" />
+        <img class="rdm-wordmark" src="{wordmark}" alt="refiroo" />
+      </a>
+      <nav class="rdm-tabs" aria-label="Documentation">
+        <a class="rdm-tab" href="{docs}"><span class="rdm-full">Documentation</span><span class="rdm-short">Docs</span></a>
+        <a class="rdm-tab" href="{api}" aria-current="page"><span class="rdm-full">API reference</span><span class="rdm-short">API</span></a>
+      </nav>
+{version_element}      <div class="rdm-spacer"></div>
+      <label class="rdm-theme">
+        <select id="rdm-theme" aria-label="Theme">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+    </header>
+"""
+
+
 # The theme is the application's own choice (HD): ``rdm:theme:v1``, JSON "system", "light" or "dark".
 # This runs in the head, before the first paint, and sets ``data-theme`` to the resolved light or dark.
+# The colour theme (TH) is a second, independent key, ``rdm:scheme:v1`` (JSON "normal" or "purple"): Website purple
+# sets ``data-scheme="purple"``, Normal sets nothing. A public host's page (its own look) leaves that part out.
 _THEME = """
 (function () {
   var KEY = "rdm:theme:v1";
@@ -98,14 +103,25 @@ _THEME = """
     if (choice !== "system") return choice;
     return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
-  function apply() { document.documentElement.dataset.theme = resolved(); }
+  /*SCHEME*/
+  function apply() { document.documentElement.dataset.theme = resolved(); scheme(); }
   apply();
-  window.rdmTheme = { key: KEY, read: read, resolved: resolved, apply: apply };
+  window.rdmTheme = { key: KEY, schemeKey: SCHEME_KEY, read: read, resolved: resolved, apply: apply };
 })();
 """
 
+_SCHEME = """var SCHEME_KEY = "rdm:scheme:v1";
+  function scheme() {
+    var purple = false;
+    try { purple = JSON.parse(localStorage.getItem(SCHEME_KEY) || '"normal"') === "purple"; } catch (error) {}
+    if (purple) document.documentElement.dataset.scheme = "purple";
+    else delete document.documentElement.dataset.scheme;
+  }"""
+_NO_SCHEME = """var SCHEME_KEY = null;
+  function scheme() {}"""
+
 # Sets Scalar's colour mode at once (right after it is created, before the first paint) and wires the
-# picker and the other tabs to the choice: a pick here is saved for the
+# picker (when the header has one) and the other tabs to the choice: a pick here is saved for the
 # application and the guide, and a pick made there (the storage event) or a change of the operating
 # system's theme (while the choice is System) reaches this page.
 _THEME_WIRING = """
@@ -121,9 +137,11 @@ _THEME_WIRING = """
     body.classList.remove("light-mode", "dark-mode");
     body.classList.add(mode + "-mode");
   }
+  var shown = null;
   function follow() {
     theme.apply();
-    picker.value = theme.read();
+    shown = document.documentElement.dataset.theme;
+    if (picker) picker.value = theme.read();
     var reference = window.rdmReference;
     reference.updateConfiguration(Object.assign({}, reference.getConfiguration(), {
       forceDarkModeState: theme.resolved(),
@@ -132,12 +150,16 @@ _THEME_WIRING = """
   }
   new MutationObserver(paint).observe(document.body, { attributes: true, attributeFilter: ["class"] });
   follow();
-  picker.addEventListener("change", function () {
+  if (picker) picker.addEventListener("change", function () {
     try { localStorage.setItem(theme.key, JSON.stringify(picker.value)); } catch (error) {}
     follow();
   });
+  // A public site's own header toggles the theme itself (it stores the choice and sets data-theme): follow that too.
+  new MutationObserver(function () {
+    if (document.documentElement.dataset.theme !== shown) follow();
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   window.addEventListener("storage", function (event) {
-    if (event.key === null || event.key === theme.key) follow();
+    if (event.key === null || event.key === theme.key || event.key === theme.schemeKey) follow();
   });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
     if (theme.read() === "system") follow();
@@ -271,13 +293,51 @@ OFFLINE_OPTIONS: dict = {
 HEADER_CSS = ":root { --scalar-custom-header-height: 56px; }"
 
 
+# The public site's page-to-page flights (DOC12, E4): the mascot flies into the guide's logo and the page's content
+# is the end of the home's terminal flight, under the names the website uses. Not under reduced motion.
+_FLIGHT_STYLE = """      @media (prefers-reduced-motion: no-preference) {
+        @view-transition { navigation: auto; }
+        ::view-transition-group(*) { animation-duration: .65s; animation-timing-function: cubic-bezier(.4, 0, .2, 1); }
+        ::view-transition-old(*), ::view-transition-new(*) { animation-duration: .65s; }
+        .rdm-mark img:first-child { view-transition-name: mascot; }
+        #rdm-api-reference { view-transition-name: terminal; }
+      }
+      .rdm-version { align-self: center; margin-inline-start: -8px; padding: 4px 8px; border: 1px solid var(--rdm-line); border-radius: 999px; color: var(--rdm-muted); font: 12px/1 ui-monospace, monospace; }
+      .rdm-older { position: fixed; inset: var(--rdm-header-h, 56px) 0 auto 0; z-index: 99; box-sizing: border-box; height: 36px; padding: 8px 20px; border-bottom: 1px solid var(--rdm-line); background: var(--rdm-top); color: var(--rdm-ink); font: 14px/20px system-ui, sans-serif; text-align: center; }
+      .rdm-older a { color: inherit; font-weight: 600; }
+      @media (max-width: 50rem) { .rdm-version { display: none; } }
+"""
+
+
+@dataclass(frozen=True)
+class ApiTheme:
+    """A public host's header for the static API page (a theme directory's ``api/`` folder, written by the
+    host's build from the same component as its other pages): ``head`` holds the elements for ``<head>``
+    (its stylesheets and scripts), ``header`` the markup that stands where the refiroo header would."""
+
+    head: str
+    header: str
+
+
 @dataclass(frozen=True)
 class StaticSite:
     """Where the page's neighbours are when it is a file on a static host (HD): the public site, which
     has no engine behind it. The guide sits at ``base`` and ships the logo files and favicon at its
-    root; the shared header stylesheet is written beside the page by ``static_site``."""
+    root; the shared header stylesheet is written beside the page by ``static_site``.
+
+    The public build's own settings (DOC12): ``site_url`` names the page's address as canonical,
+    ``version`` is shown after the Documentation | API reference pair, ``older`` adds the line that
+    links a version before the latest to ``/docs/``. The logo leads to the site's home, ``/``.
+
+    ``theme`` (``PUBLIC_GUIDE_THEME``, DOC12) is the host's own header for the page: its markup replaces the
+    refiroo header and its elements are added to the head. The host also names the header's height, as
+    ``--rdm-header-h`` in its stylesheet, for the room Scalar leaves under it."""
 
     base: str = "/docs"
+    site_url: str = ""
+    version: str = ""
+    older: bool = False
+    theme: ApiTheme | None = None
 
     @property
     def stylesheet(self) -> str:
@@ -286,13 +346,13 @@ class StaticSite:
 
 def _links(root_path: str, static: StaticSite | None) -> dict[str, str]:
     """The addresses the header uses: the instance's ``/brand/`` files and routes, or, on the public
-    site, the guide's own (the logo then leads to the guide's home, as in the guide itself)."""
+    site, the guide's own (the logo then leads to the site's home, W4-D5)."""
     if static is not None:
         base = static.base
         return {
             "favicon": f"{base}/favicon.png",
             "stylesheet": static.stylesheet,
-            "home": f"{base}/",
+            "home": "/",
             "mascot": f"{base}/refiroo-mascot.png",
             "wordmark": f"{base}/refiroo-wordmark.png",
             "docs": f"{base}/",
@@ -321,24 +381,77 @@ def render_page(
     configuration = {**OFFLINE_OPTIONS, "customCss": HEADER_CSS, "sources": sources}
     if static is not None:
         configuration["hideTestRequestButton"] = True
+        # The line under the header (36 px) is part of what Scalar leaves room for; a host's header names its height.
+        if static.theme is not None:
+            extra = " + 36px" if static.older else ""
+            configuration["customCss"] = (
+                f":root {{ --scalar-custom-header-height: calc(var(--rdm-header-h, 56px){extra}); }}"
+            )
+        elif static.older:
+            configuration["customCss"] = ":root { --scalar-custom-header-height: 92px; }"
     if script == "cdn":
         source, integrity = (
             SCALAR_CDN_URL,
             f' integrity="{SCALAR_INTEGRITY}" crossorigin="anonymous"',
         )
     else:
-        source, integrity = f"{root_path}{BUNDLED_SCRIPT_PATH}", ""
+        source = f"{root_path}{BUNDLED_SCRIPT_PATH}"
+        if static is not None:
+            source = f"{static.base}/api/scalar/standalone.js"
+        integrity = ""
+    static_parts = _static_parts(static)
+    links = {key: escape(value) for key, value in _links(root_path, static).items()}
+    header = _HEADER.format(**links, version_element=static_parts["version_element"])
+    if static is not None and static.theme is not None:
+        header = static.theme.header
     sign_in = _SIGN_IN.replace("__ROOT__", json.dumps(root_path).replace("<", "\\u003c"))
     return _PAGE.format(
-        **{key: escape(value) for key, value in _links(root_path, static).items()},
+        **links,
+        **static_parts,
+        header_element=header,
         script=source,
         integrity=integrity,
         # JSON is a JavaScript literal; escaping "<" keeps a value from closing the script element.
         configuration=json.dumps(configuration).replace("<", "\\u003c"),
-        theme_script=_THEME,
+        theme_script=_THEME.replace(
+            "/*SCHEME*/", _NO_SCHEME if static is not None and static.theme is not None else _SCHEME
+        ),
         theme_wiring_script=_THEME_WIRING,
         sign_in_element="" if static is not None else f"    <script>{sign_in}</script>\n",
     )
+
+
+def _static_parts(static: StaticSite | None) -> dict[str, str]:
+    """The pieces of the page only the public build has; empty for an instance's page."""
+    if static is None:
+        return {
+            "extra_style": "",
+            "theme_head": "",
+            "canonical_element": "",
+            "version_element": "",
+            "older_element": "",
+        }
+    canonical = ""
+    if static.site_url:
+        address = f"{static.site_url.rstrip('/')}{static.base}/api/"
+        canonical = f'    <link rel="canonical" href="{escape(address)}" />\n'
+    version = (
+        f'      <span class="rdm-version">v{escape(static.version)}</span>\n'
+        if static.version
+        else ""
+    )
+    older = (
+        f'    <div class="rdm-older">Guide for {escape(static.version)} · <a href="/docs/">Latest version</a></div>\n'
+        if static.older
+        else ""
+    )
+    return {
+        "extra_style": _FLIGHT_STYLE,
+        "theme_head": static.theme.head if static.theme is not None else "",
+        "canonical_element": canonical,
+        "version_element": version,
+        "older_element": older,
+    }
 
 
 def _policy(script: ApiReferenceScript, page: str, *, header: bool) -> str:

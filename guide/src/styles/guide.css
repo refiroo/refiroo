@@ -117,3 +117,43 @@
   background: var(--rdm-hover);
   color: var(--rdm-ink);
 }
+
+/* Website purple (package TH): the application's colour theme (`rdm:scheme:v1`, set as `data-scheme="purple"` by
+   ThemeProvider.astro, except in the public site's build with a host theme, which keeps the site's own look),
+   in Starlight's variables. The header takes its colours from the shared stylesheet. Light: white is the strongest
+   text and black the page, as in Starlight's own light theme. */
+:root[data-scheme="purple"][data-theme="light"] {
+  --sl-color-white: #262a5e;
+  --sl-color-gray-1: #262a5e;
+  --sl-color-gray-2: #3c4072;
+  --sl-color-gray-3: #585c85;
+  --sl-color-gray-4: #6f739a;
+  --sl-color-gray-5: #c8c7ce;
+  --sl-color-gray-6: #f3eee2;
+  --sl-color-gray-7: #f8f4ea;
+  --sl-color-black: #fbf8f1;
+  --sl-color-accent-low: #e9edff;
+  --sl-color-accent: #5a6fe0;
+  --sl-color-accent-high: #3b4cae;
+  --sl-color-text-accent: #4f61c6;
+  --sl-color-bg-sidebar: #fbf8f1;
+}
+:root[data-scheme="purple"][data-theme="dark"] {
+  --sl-color-white: #edf0ff;
+  --sl-color-gray-1: #dfe3ff;
+  --sl-color-gray-2: #c1c6ec;
+  --sl-color-gray-3: #aeb4e0;
+  --sl-color-gray-4: #8a90c4;
+  --sl-color-gray-5: #353a67;
+  --sl-color-gray-6: #1a1f52;
+  --sl-color-gray-7: #141845;
+  --sl-color-black: #0e1130;
+  --sl-color-accent-low: #2b3285;
+  --sl-color-accent: #6877e3;
+  --sl-color-accent-high: #c8d4ff;
+  --sl-color-text-accent: #9fb0ff;
+  --sl-color-bg-sidebar: #0e1130;
+}
+:root[data-scheme="purple"][data-theme="dark"] .brand-name {
+  color: #c8d4ff;
+}

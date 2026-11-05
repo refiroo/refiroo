@@ -1,0 +1,51 @@
+/* Only the public site build loads this file (astro.config.mjs, DOC12 E3 and E4); an instance's guide does not. */
+
+/* The guide's version after the Documentation | API reference pair, and the line on a version before the latest. */
+.rdm-version {
+  align-self: center;
+  margin-inline-start: -8px;
+  padding: 4px 8px;
+  border: 1px solid var(--rdm-line);
+  border-radius: 999px;
+  color: var(--rdm-muted);
+  font: 12px/1 ui-monospace, monospace;
+}
+.rdm-older {
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--rdm-line);
+  background: var(--sl-color-bg-nav);
+  color: var(--rdm-ink);
+  font-size: 14px;
+  text-align: center;
+}
+.rdm-older a {
+  color: inherit;
+  font-weight: 600;
+}
+@media (max-width: 50rem) {
+  .rdm-version {
+    display: none;
+  }
+}
+
+/* Following a link between the site and the guide (one origin on refiroo.org) flies the kangaroo into the guide's logo and
+   carries the page; the names are the site's (website base.css). Nothing flies under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+  ::view-transition-group(*) {
+    animation-duration: 0.65s;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.65s;
+  }
+  .rdm-mark img:first-child {
+    view-transition-name: mascot;
+  }
+  main {
+    view-transition-name: page;
+  }
+}

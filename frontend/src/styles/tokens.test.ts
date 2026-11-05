@@ -41,9 +41,27 @@ const paletteADarkSystem = block(
   ':root[data-palette="a"]:not([data-theme="light"])',
   css.indexOf('@media (prefers-color-scheme: dark) {\n  :root[data-palette="a"]'),
 );
+// Website purple (package TH): `data-scheme="purple"` in light, and in dark by the explicit choice or the system preference.
+const purpleLight = block(':root[data-scheme="purple"]');
+const purpleDarkExplicit = block(':root[data-scheme="purple"][data-theme="dark"]');
+const purpleDarkSystem = block(
+  ':root[data-scheme="purple"]:not([data-theme="light"])',
+  css.indexOf('@media (prefers-color-scheme: dark) {\n  :root[data-scheme="purple"]'),
+);
 const themes = {
   light,
   dark: new Map([...light, ...darkExplicit]),
+  // Each purple theme over the Normal light base, as the cascade has it; type palette A applies inside both.
+  "Website purple light": new Map([...light, ...purpleLight]),
+  "Website purple dark": new Map([...light, ...purpleLight, ...purpleDarkExplicit]),
+  "Website purple, palette A light": new Map([...light, ...purpleLight, ...paletteA]),
+  "Website purple, palette A dark": new Map([
+    ...light,
+    ...purpleLight,
+    ...purpleDarkExplicit,
+    ...paletteA,
+    ...paletteADark,
+  ]),
   // Palette A (U-D13): its slots 3 and 4 over each theme.
   "palette A light": new Map([...light, ...paletteA]),
   "palette A dark": new Map([...light, ...darkExplicit, ...paletteA, ...paletteADark]),
@@ -188,6 +206,23 @@ describe("design tokens", () => {
 
   it("defines palette A's dark slots identically for the explicit choice and the system preference", () => {
     expect([...paletteADarkSystem.entries()]).toEqual([...paletteADark.entries()]);
+  });
+
+  it("defines Website purple's dark roles identically for the explicit choice and the system preference", () => {
+    expect([...purpleDarkSystem.entries()]).toEqual([...purpleDarkExplicit.entries()]);
+  });
+
+  it("sets in Website purple, light and dark, every role the Normal dark blocks set", () => {
+    const roles = [...darkExplicit.keys()].sort();
+    expect([...purpleLight.keys()].filter((name) => !name.startsWith("wp-")).sort()).toEqual(roles);
+    expect([...purpleDarkExplicit.keys()].sort()).toEqual(roles);
+  });
+
+  it("keeps Website purple's colours in its own primitives, read by its role blocks only", () => {
+    const primitives = [...light.keys()].filter((name) => name.startsWith("wp-"));
+    expect(primitives.length).toBeGreaterThan(0);
+    for (const block of [purpleLight, purpleDarkExplicit])
+      for (const [name, value] of block) expect(value, `--${name}`).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   });
 
   it("redefines only semantic roles in dark mode", () => {

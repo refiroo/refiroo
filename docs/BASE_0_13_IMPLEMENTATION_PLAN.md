@@ -382,6 +382,7 @@ when both are empty but for reasoned exclusions.
 | [DOC11](#doc11-fresh-reader-check) | DOC9, DOC9A | Each tutorial completed by a reader from outside; the unrun commands rehearsed on a clean host | The user finds the reader; primary agent records |
 | [DOC12](#doc12-publish) | DOC11 | The public site, versioned; the README points to it | Primary agent |
 | [HD](#hd-one-header-for-the-app-the-documentation-and-the-api-reference) | DOC1 | One header style for the app, the guide and the API reference; logo to the app; Documentation \| API reference switch; "?" help; one theme choice | Primary agent. **Approved 2026-11-03; delivered 2026-11-03** |
+| [TH](#th-a-theme-choice-normal-or-website-purple) | HD | A theme choice, Normal or Website purple, beside the light and dark choice, in the app, the guide and the API reference | Primary agent. **Approved 2026-11-05** |
 | R | all | Full review of every change since 0.12, the exit gate, the release | Primary agent |
 
 The waves are ordered by dependence, not by importance: concepts first (the how-tos and tutorials link
@@ -607,6 +608,36 @@ with search and the light and dark themes; the README and the repository's `docs
 Where the site is hosted is the user's decision when this package is reached; the build produces plain
 static files that any host serves.
 
+The public site is refiroo.org/docs (website W4, approved by the user 2026-11-05): the website's
+`tools/engine.mjs <release tag>` builds the guide with `npm run build:public` and copies it under `/docs` (the latest) and
+`/docs/<minor>/` (the one before, DOC-D7). Five build settings of the public build only (an instance's guide does not
+change), made in W4:
+
+- **E1 Canonical and sitemap.** `PUBLIC_GUIDE_SITE_URL` sets Astro's `site`: every page names its address as canonical, and
+  the sitemap (disabled before) is written.
+- **E2 Base path.** `PUBLIC_GUIDE_BASE` sets `base` (default `/docs`; `/docs/<minor>` for the version before the latest).
+  The static API page and its script follow it.
+- **E3 The way back and the version.** The logo leads to the site's home (`/`, W4-D5); `PUBLIC_GUIDE_VERSION` shows a
+  version mark after the Documentation | API reference pair; `PUBLIC_GUIDE_OLDER=1` adds "Guide for 0.13 · Latest version"
+  (a link to `/docs/`) to every page, the API page included (`src/components/Banner.astro`).
+- **E4 The flight.** `src/styles/public-site.css` (public build only) and the API page: under `prefers-reduced-motion:
+  no-preference`, `@view-transition { navigation: auto; }`, the header mascot named `mascot`, the guide's content `page`
+  and the API page's content `terminal` (the names of the website's `base.css`).
+- **E5 A host's theme (the user, 2026-11-05).** `PUBLIC_GUIDE_THEME=<absolute directory>` lets any host of the public guide
+  give it its own header and look: the directory's `Header.astro` replaces the guide's header component and its `theme.css`
+  loads after the guide's styles; its `api/` folder (`head.html`, `header.html`, `theme/`, with `/__BASE__` and `__VERSION__`
+  filled in by the build) gives the static API page the same header in place of HD's, with the Content-Security-Policy hashing
+  its inline scripts and Scalar leaving room for `--rdm-header-h`. Unset, the guide and the API page are as before. The website
+  supplies one (`guide-theme/`, built from the site's own nav component), so refiroo.org/docs has the site's header, colours and
+  fonts; the guide's content is written once.
+
+The release step R runs the website's script at the release tag; the tag is the guide's version.
+
+Also in DOC12, for the website's Community page (website W3-D7, approved 2026-11-04): `CODE_OF_CONDUCT.md` at the
+repository root, the Contributor Covenant 2.1 (CC BY 4.0) with krisztian.toth@refiroo.org as its reporting contact, and CONTRIBUTING.md's last sentence ("A separate code of conduct
+will be added when contributions open") replaced by a link to it. The README's Status section is brought up to Base
+0.16 in the same change (it still describes Base 0.9).
+
 ## HD: One header for the app, the documentation and the API reference
 
 **Status:** Delivered 2026-11-03. Proposed 2026-11-03 at the user's request; plan and mock-up approved by the user on 2026-11-03, placed in 0.13 because it concerns the guide. Mock-up:
@@ -639,7 +670,7 @@ the About page.
 - **Phone width.** The wordmark is dropped, the pair reads Docs | API, and search and the theme picker stay
   where Starlight puts them on a phone.
 - **The public site** (DOC12) is built from the same sources without an app. A build setting turns the logo's
-  link into the guide's home page; the "API reference" link stays in both builds (the user, 2026-11-03: the public site has the API reference); everything else stays the same.
+  link into the site's home page (`/`; first the guide's home, changed by W4-D5, approved by the user 2026-11-05: a reader who arrives in the guide has no other way back to refiroo.org); the "API reference" link stays in both builds (the user, 2026-11-03: the public site has the API reference); everything else stays the same. HD's look is the application's and the instance guide's: a public build may take a host's theme instead (DOC12, E5, the user 2026-11-05), the site's own header, colours and fonts on refiroo.org.
 - **The public site's API reference** (decided by the user 2026-11-03, the recommendation: built now, with the
   example consumer API). The public build writes a static `/docs/api/` page with the engine's own
   `render_page`, never a second page template. Its sources are static OpenAPI files the build writes beside it:
@@ -663,6 +694,58 @@ accessibility gate covers the three headers.
 
 **Said plainly:** nothing changes in what the guide or the API reference contain. The help link opens the guide's
 home, not the page that matches the screen; that would be a later change.
+
+## TH: A theme choice, Normal or Website purple
+
+**Status:** Approved by the user 2026-11-05 with the mock-up `prototypes/purple-theme/` ("it seems good"), and the
+shape set by the user the same day: a theme selector in Settings › Appearance, **Normal** or **Website purple**;
+the light and dark selector stays as it is, and picks the light or dark of the chosen theme. Placed in 0.13 by the
+user. **Delivered 2026-11-05.**
+
+**Delivered.** `frontend/src/lib/scheme.ts` (the store, `rdm:scheme:v1`, `data-scheme`, `theme-color`, the storage
+event), the first-paint script in `frontend/index.html`, `tokens.css` (the `--wp-*` primitives, the purple light
+block and the two identical dark blocks, before the palette A blocks so A applies inside both), the Theme selector in
+`AppearancePage.tsx`, `refiroo-header.css` (header and Scalar values; the dark wordmark rules already match purple
+dark, since they key on the mode only; the engine's copy under `backend/app/management/brand/` kept equal), the
+API page's theme script (`reference/__init__.py`; left out of a host-themed static page), `ThemeProvider.astro` and
+`ThemeSelect.astro` (not applied when `PUBLIC_GUIDE_SITE` and `PUBLIC_GUIDE_THEME` are both set) and `guide.css`.
+Two groups on Appearance are now both labelled "Theme" (the colours first, then the existing light and dark one),
+as the labels were set; the second's help text and the first's tell them apart. The hue bands and the proposed
+line are not set by the purple blocks: they come from the same rules as Normal's (bands mixed from the fills), so
+palette A's bands follow its fills in purple too.
+
+**Why.** The website's look (periwinkle, mint, navy, cream, coral; `website/src/styles/tokens.css`) is liked; the
+app offers it as a theme of its own. Normal is today's look, unchanged.
+
+**What changes.**
+
+- **Two independent choices,** as the type palettes A and B already are (U-D13): the mode (System, Light, Dark;
+  `rdm:theme:v1`, `data-theme`, unchanged) and the theme (Normal, Website purple; a new key `rdm:scheme:v1`, JSON
+  `"normal"` or `"purple"`, default Normal, on the document element as `data-scheme="purple"`; Normal sets no
+  attribute). Four looks: Normal light, Normal dark, Website purple light, Website purple dark. System still follows
+  the operating system for light or dark, in the chosen theme.
+- **The tokens.** `frontend/src/styles/tokens.css` keeps its layers. Website purple adds a primitive ramp from the
+  site's colours and two semantic-role blocks, light (`:root[data-scheme="purple"]`) and dark
+  (`[data-scheme="purple"][data-theme="dark"]` and the system-dark media block, kept identical as the dark blocks
+  are today), taken from the mock-up's `purple-light.css` and `purple-dark.css` with the contrast adjustments they
+  record. Each sets every role the Normal blocks set. Type palettes A and B apply inside both themes. The dark
+  wordmark rules (`layout.css`, `refiroo-header.css`) cover purple dark.
+- **The choice in the interface.** Settings › Appearance gets a **Theme** selector (Normal, Website purple) beside
+  the existing light and dark selector; the first-paint script in `index.html` applies both; `theme-color` follows.
+  The account popover keeps its light and dark choice as it is.
+- **The guide and the API reference an instance serves** (HD's one theme choice) read and follow `rdm:scheme:v1`
+  too: the shared header stylesheet (`frontend/public/brand/refiroo-header.css`), `guide.css` (Starlight's
+  variables) and the API page (Scalar coloured by the stylesheet) get the purple light and dark values; all follow
+  the `storage` event as they do for the mode.
+- **The published guide on the website** keeps the site's own look (W4); it ignores `rdm:scheme:v1`.
+
+**Tests (targeted).** `tokens.test.ts`: the purple blocks set the same roles as the Normal blocks, its two dark
+blocks are identical, contrast for the purple pairs. The theme store's unit test (scheme values, unknown falls back
+to Normal). The API page test (the scheme script). One browser check through the dev server: pick Website purple and
+Dark in the app; the guide and the API page follow; an open app tab follows. The frontend production build and the
+guide build pass; the accessibility gate runs in Website purple light and dark.
+
+**Said plainly:** DOC10's screenshots stay in Normal light and dark; Website purple is not photographed for the guide.
 
 ## The writing rules
 

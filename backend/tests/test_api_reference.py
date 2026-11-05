@@ -18,7 +18,12 @@ from app.management.reference import (
     SCALAR_INTEGRITY,
     SCALAR_SCRIPT,
     SCALAR_VERSION,
+    StaticSite,
+    page_headers,
+    render_page,
+    with_meta_policy,
 )
+from app.management.reference.static_site import load_api_theme
 
 
 def _configuration(page: str) -> dict:
@@ -177,6 +182,12 @@ def test_the_header_is_the_shared_one_and_the_theme_is_the_applications_choice(m
     assert '<link rel="stylesheet" href="/brand/refiroo-header.css" />' in page
     assert _configuration(page)["hideDarkModeToggle"] is True
     assert "rdm:theme:v1" in page and "forceDarkModeState" in page and '"storage"' in page
+    # TH: the colour theme is a second, independent key; Website purple sets data-scheme, Normal sets nothing.
+    assert (
+        "rdm:scheme:v1" in page
+        and 'dataset.scheme = "purple"' in page
+        and "theme.schemeKey" in page
+    )
     css = client.get("/brand/refiroo-header.css")
     assert css.status_code == 200 and css.headers["content-type"].startswith("text/css")
     shared = (
@@ -195,3 +206,82 @@ def test_docs_page_carries_the_refiroo_mark_from_the_engine(monkeypatch):
         image = client.get(f"/brand/{name}")
         assert image.status_code == 200 and image.headers["content-type"] == "image/png"
     assert client.get("/brand/secret.png").status_code == 404
+
+
+def test_the_public_build_page_leads_home_flies_and_names_its_version():
+    """DOC12 (E1 to E4): the static page's logo leads to the site's home, its script is under the build's
+    base, it carries the version, the canonical address and the flight styles; an instance's page has none."""
+    sources = [
+        {"title": "Management API", "slug": "management", "url": "/docs/0.13/api/management.json"}
+    ]
+    site = StaticSite(base="/docs/0.13", site_url="https://refiroo.org", version="0.13", older=True)
+    page = with_meta_policy("bundled", render_page("bundled", "", sources, static=site))
+
+    assert 'href="/" aria-label="refiroo home"' in page
+    assert '<script src="/docs/0.13/api/scalar/standalone.js">' in page
+    assert '<link rel="canonical" href="https://refiroo.org/docs/0.13/api/" />' in page
+    assert '<span class="rdm-version">v0.13</span>' in page
+    assert 'Guide for 0.13 · <a href="/docs/">Latest version</a>' in page
+    assert "view-transition-name: mascot" in page and "view-transition-name: terminal" in page
+    assert "prefers-reduced-motion: no-preference" in page
+    assert "--scalar-custom-header-height: 92px" in page
+    # The policy still names every inline script by its hash.
+    policy = page_headers("bundled", page)["Content-Security-Policy"]
+    for text in re.findall(r"<script>(.*?)</script>", page, flags=re.DOTALL):
+        digest = base64.b64encode(hashlib.sha256(text.encode()).digest()).decode()
+        assert f"'sha256-{digest}'" in policy
+
+    latest = render_page(
+        "bundled", "", sources, static=StaticSite(site_url="https://refiroo.org", version="0.13")
+    )
+    assert "rdm-older" not in latest.replace(".rdm-older", "") and 'class="rdm-version"' in latest
+    instance = render_page("bundled", "", sources)
+    for text in ("view-transition", "rdm-version", "canonical"):
+        assert text not in instance
+
+
+def test_the_api_page_takes_a_hosts_theme_header(tmp_path):
+    """DOC12 (PUBLIC_GUIDE_THEME): a host's ``api/`` folder replaces the refiroo header of the static page, its head
+    elements are added, its files are written to ``theme/`` with the base path and version filled in, its inline script
+    is named by hash in the policy, and Scalar leaves room for the header's own height. An instance's page is unchanged."""
+    api = tmp_path / "api"
+    (api / "theme").mkdir(parents=True)
+    (api / "head.html").write_text('    <link rel="stylesheet" href="/__BASE__/theme/x.css">\n')
+    (api / "header.html").write_text(
+        '    <header class="host-nav">v__VERSION__</header><script>window.hostNav = 1;</script>\n'
+    )
+    (api / "theme" / "x.css").write_text('a { background: url("/__BASE__/theme/f.woff2"); }')
+    (api / "theme" / "f.woff2").write_bytes(b"\x00__BASE__")
+    out = tmp_path / "out"
+
+    theme = load_api_theme(tmp_path, out, base="/docs/0.13", version="0.13")
+    assert theme is not None and 'href="/docs/0.13/theme/x.css"' in theme.head
+    assert (
+        out / "theme" / "x.css"
+    ).read_text() == 'a { background: url("/docs/0.13/theme/f.woff2"); }'
+    assert (
+        out / "theme" / "f.woff2"
+    ).read_bytes() == b"\x00__BASE__"  # binary files are copied as they are
+    assert load_api_theme(tmp_path / "none", out, base="/docs", version="") is None
+
+    sources = [
+        {"title": "Management API", "slug": "management", "url": "/docs/api/management.json"}
+    ]
+    page = with_meta_policy(
+        "bundled",
+        render_page("bundled", "", sources, static=StaticSite(version="0.13", theme=theme)),
+    )
+    assert '<header class="host-nav">v0.13</header>' in page
+    assert 'href="/docs/0.13/theme/x.css"' in page
+    assert 'class="rdm-header"' not in page.split("</style>", 1)[1]
+    assert "--scalar-custom-header-height: calc(var(--rdm-header-h, 56px))" in page
+    policy = page_headers("bundled", page)["Content-Security-Policy"]
+    digest = base64.b64encode(hashlib.sha256(b"window.hostNav = 1;").digest()).decode()
+    assert f"'sha256-{digest}'" in policy
+    # Without a header picker the wiring still runs (the host's header toggles data-theme itself).
+    assert "if (picker)" in page and 'attributeFilter: ["data-theme"]' in page
+    # TH: a host's own look ignores the colour theme.
+    assert "rdm:scheme:v1" not in page and "dataset.scheme" not in page
+
+    plain = render_page("bundled", "", sources, static=StaticSite(version="0.13"))
+    assert 'class="rdm-header"' in plain and "--scalar-custom-header-height: 56px" in plain

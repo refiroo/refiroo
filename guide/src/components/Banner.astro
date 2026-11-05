@@ -1,0 +1,34 @@
+---
+// Starlight's banner (a page's own `banner` front matter) and, in a public build of a version before the latest, the
+// line that says so and links to the latest (DOC12, E3). An instance's guide never shows the second one.
+const { banner } = Astro.locals.starlightRoute.entry.data;
+const older = Boolean(import.meta.env.PUBLIC_GUIDE_SITE && import.meta.env.PUBLIC_GUIDE_OLDER);
+const version = import.meta.env.PUBLIC_GUIDE_VERSION;
+---
+
+{banner && <div class="sl-banner" data-pagefind-ignore set:html={banner.content} />}
+{
+  older && (
+    <div class="rdm-older" data-pagefind-ignore>
+      Guide for {version} · <a href="/docs/">Latest version</a>
+    </div>
+  )
+}
+
+<style>
+  @layer starlight.core {
+    .sl-banner {
+      --__sl-banner-text: var(--sl-color-banner-text, var(--sl-color-text-invert));
+      padding: var(--sl-nav-pad-y) var(--sl-nav-pad-x);
+      background-color: var(--sl-color-banner-bg, var(--sl-color-bg-accent));
+      color: var(--__sl-banner-text);
+      line-height: var(--sl-line-height-headings);
+      text-align: center;
+      text-wrap: balance;
+      box-shadow: var(--sl-shadow-sm);
+    }
+    .sl-banner :global(a) {
+      color: var(--__sl-banner-text);
+    }
+  }
+</style>

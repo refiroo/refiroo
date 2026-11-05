@@ -87,18 +87,39 @@ const sidebar = SECTIONS.filter(([directory]) => hasPages(directory)).map(
 // GUIDE_OUT builds elsewhere than dist/ (the engine serves dist/), so parallel Codex runs do not clash.
 const out = process.env.GUIDE_OUT;
 
+// The public site build (`npm run build:public`, PUBLIC_GUIDE_SITE=1) is the only one that reads the settings
+// below; an instance's guide ignores them and builds exactly as before (DOC12, E1 to E4).
+//   PUBLIC_GUIDE_SITE_URL  the public host (https://refiroo.org): every page names its address as canonical and the
+//                          sitemap is written
+//   PUBLIC_GUIDE_BASE      where the build is served (default /docs; /docs/0.13 for the version before the latest)
+//   PUBLIC_GUIDE_VERSION   the guide's version (0.13), shown after the Documentation | API reference pair
+//   PUBLIC_GUIDE_OLDER     1 for a version before the latest: its pages say so and link to the latest (/docs/)
+//   PUBLIC_GUIDE_THEME     an absolute directory holding a host's own header and look for the public guide: `Header.astro`
+//                          replaces the guide's header component, `theme.css` is loaded after the guide's styles, and
+//                          `api/` (see app.management.reference.static_site) gives the API reference page the same header.
+//                          Any host of the public guide can supply one; unset, the guide has the header of the application.
+const publicSite = Boolean(process.env.PUBLIC_GUIDE_SITE);
+const siteUrl = publicSite ? process.env.PUBLIC_GUIDE_SITE_URL : undefined;
+const base = (publicSite && process.env.PUBLIC_GUIDE_BASE) || "/docs";
+const theme = publicSite ? process.env.PUBLIC_GUIDE_THEME : undefined;
+if (theme && !existsSync(`${theme}/Header.astro`))
+  throw new Error(`PUBLIC_GUIDE_THEME ${theme} has no Header.astro`);
+
 export default defineConfig({
   ...(out ? { outDir: out, cacheDir: `${out}-cache` } : {}),
   // The engine serves the built files at /docs (the API reference is /docs/api, outside this site).
-  base: "/docs",
+  ...(siteUrl ? { site: siteUrl } : {}),
+  base,
   trailingSlash: "always",
   build: { format: "directory" },
+  // A theme directory lives outside the guide and imports from its own node_modules: one Astro runtime for both.
+  ...(theme ? { vite: { resolve: { dedupe: ["astro"] } } } : {}),
   // Every standalone "refiroo" in prose is marked as the brand name (see tools/rehype-brand.mjs).
   markdown: { processor: satteri({ hastPlugins: [rehypeBrand] }) },
   integrations: [
-    // Starlight adds the sitemap unless an integration of this name is present; it has no use until the
-    // public host is decided (DOC12), so it is disabled here with a stand-in of the same name.
-    { name: "@astrojs/sitemap", hooks: {} },
+    // Starlight adds the sitemap unless an integration of this name is present; it has use only with a public
+    // host (PUBLIC_GUIDE_SITE_URL), so it is disabled otherwise with a stand-in of the same name.
+    ...(siteUrl ? [] : [{ name: "@astrojs/sitemap", hooks: {} }]),
     starlight({
       title: "refiroo documentation",
       description: "How to use, model, integrate, run and secure refiroo.",
@@ -109,13 +130,17 @@ export default defineConfig({
       // are overridden for the logo, the Documentation | API reference switch and the application's theme
       // choice (rdm:theme:v1). The logo goes to the application's home ("/"); a public site build, which has
       // no application, sets PUBLIC_GUIDE_SITE=1 (for example `PUBLIC_GUIDE_SITE=1 npm run build`) and the
-      // logo goes to the guide's home instead.
+      // logo goes to the site's home ("/") as well, the site being the page above the guide (W4-D5). The public
+      // build also loads the page-to-page flight styles (src/styles/public-site.css).
       customCss: [
         "../frontend/public/brand/refiroo-header.css",
         "./src/styles/guide.css",
+        ...(publicSite ? ["./src/styles/public-site.css"] : []),
+        ...(theme && existsSync(`${theme}/theme.css`) ? [`${theme}/theme.css`] : []),
       ],
       components: {
-        Header: "./src/components/Header.astro",
+        Banner: "./src/components/Banner.astro",
+        Header: theme ? `${theme}/Header.astro` : "./src/components/Header.astro",
         ThemeProvider: "./src/components/ThemeProvider.astro",
         ThemeSelect: "./src/components/ThemeSelect.astro",
       },

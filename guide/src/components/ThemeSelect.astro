@@ -26,7 +26,7 @@
   // A choice made in the application or the API reference reaches this tab, and so does the operating
   // system's theme while the choice is System.
   window.addEventListener("storage", (event) => {
-    if (event.key === null || event.key === provider().key) follow();
+    if (event.key === null || event.key === provider().key || event.key === provider().schemeKey) follow();
   });
   matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
     if (provider().read() === "system") follow();

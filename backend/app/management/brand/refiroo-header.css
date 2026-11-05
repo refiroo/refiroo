@@ -30,6 +30,92 @@
   }
 }
 
+/* Website purple (package TH): the theme chosen in the application (`rdm:scheme:v1`, `data-scheme="purple"` on the
+   document element, set by the guide's and the API page's scripts too), in the website's colours. The dark values
+   follow the mode as above. The wordmark rules above and below apply to either theme. */
+:root[data-scheme="purple"] {
+  --rdm-top: #ffffff;
+  --rdm-ink: #262a5e;
+  --rdm-muted: #585c85;
+  --rdm-line: #e6e3e2;
+  --rdm-hover: #e9edff;
+  --rdm-field: #fbf8f1;
+  --rdm-focus: #5a6fe0;
+}
+:root[data-scheme="purple"][data-theme="dark"] {
+  --rdm-top: #141845;
+  --rdm-ink: #edf0ff;
+  --rdm-muted: #aeb4e0;
+  --rdm-line: #30345b;
+  --rdm-hover: #1a1f52;
+  --rdm-field: #0e1130;
+  --rdm-focus: #8ee3c0;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-scheme="purple"]:not([data-theme]) {
+    --rdm-top: #141845;
+    --rdm-ink: #edf0ff;
+    --rdm-muted: #aeb4e0;
+    --rdm-line: #30345b;
+    --rdm-hover: #1a1f52;
+    --rdm-field: #0e1130;
+    --rdm-focus: #8ee3c0;
+  }
+}
+
+/* The API reference colours Scalar from the same values (it sets its own on the body's light-mode and dark-mode class,
+   which the page's script keeps equal to the resolved mode). */
+:root[data-scheme="purple"] .light-mode,
+:root[data-scheme="purple"] .light-mode .scalar-app {
+  --scalar-background-1: #fbf8f1;
+  --scalar-background-2: #f3eee2;
+  --scalar-background-3: #e9edff;
+  --scalar-background-accent: #e9edff;
+  --scalar-color-1: #262a5e;
+  --scalar-color-2: #585c85;
+  --scalar-color-3: #585c85;
+  --scalar-color-accent: #4f61c6;
+  --scalar-border-color: #e6e3e2;
+  --scalar-button-1: #586cdb;
+  --scalar-button-1-hover: #4d5ec0;
+  --scalar-button-1-color: #ffffff;
+  --scalar-sidebar-background-1: #fbf8f1;
+  --scalar-sidebar-color-1: #262a5e;
+  --scalar-sidebar-color-2: #585c85;
+  --scalar-sidebar-color-active: #262a5e;
+  --scalar-sidebar-border-color: #e6e3e2;
+  --scalar-sidebar-item-hover-background: #e9edff;
+  --scalar-sidebar-item-active-background: #d7ddfd;
+  --scalar-sidebar-search-background: #ffffff;
+  --scalar-sidebar-search-border-color: #e6e3e2;
+  --scalar-sidebar-search-color: #585c85;
+}
+:root[data-scheme="purple"] .dark-mode,
+:root[data-scheme="purple"] .dark-mode .scalar-app {
+  --scalar-background-1: #0e1130;
+  --scalar-background-2: #141845;
+  --scalar-background-3: #1a1f52;
+  --scalar-background-accent: #2b3285;
+  --scalar-color-1: #edf0ff;
+  --scalar-color-2: #aeb4e0;
+  --scalar-color-3: #aeb4e0;
+  --scalar-color-accent: #9fb0ff;
+  --scalar-border-color: #30345b;
+  --scalar-button-1: #9fb0ff;
+  --scalar-button-1-hover: #c8d4ff;
+  --scalar-button-1-color: #0e1130;
+  --scalar-sidebar-background-1: #0e1130;
+  --scalar-sidebar-color-1: #edf0ff;
+  --scalar-sidebar-color-2: #aeb4e0;
+  --scalar-sidebar-color-active: #edf0ff;
+  --scalar-sidebar-border-color: #30345b;
+  --scalar-sidebar-item-hover-background: #1a1f52;
+  --scalar-sidebar-item-active-background: #2b3285;
+  --scalar-sidebar-search-background: #141845;
+  --scalar-sidebar-search-border-color: #30345b;
+  --scalar-sidebar-search-color: #aeb4e0;
+}
+
 .rdm-header {
   display: flex;
   align-items: stretch;

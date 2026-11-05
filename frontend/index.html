@@ -16,6 +16,19 @@
       } catch {
         // Storage may be unavailable; the system theme applies.
       }
+      // The colour theme likewise (Normal sets nothing; Website purple sets data-scheme); see src/lib/scheme.ts.
+      try {
+        if (JSON.parse(localStorage.getItem("rdm:scheme:v1") || '"normal"') === "purple") {
+          document.documentElement.dataset.scheme = "purple";
+          const colours = { light: "#fbf8f1", dark: "#0e1130" };
+          for (const mode in colours)
+            document
+              .querySelector('meta[name="theme-color"][media="(prefers-color-scheme: ' + mode + ')"]')
+              .setAttribute("content", colours[mode]);
+        }
+      } catch {
+        // Storage may be unavailable; Normal applies.
+      }
       // The type palette likewise; see src/lib/palette.ts. B, the default, needs no attribute.
       try {
         if (JSON.parse(localStorage.getItem("rdm:palette:v1") || '"b"') === "a")
@@ -30,4 +43,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

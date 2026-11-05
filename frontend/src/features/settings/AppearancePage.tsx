@@ -1,5 +1,5 @@
 /**
- * Settings › Appearance (Track U U3): the theme, the default table density, the type palette and how
+ * Settings › Appearance (Track U U3): the theme (Normal or Website purple, TH), the light and dark choice, the default table density, the type palette and how
  * editable fields show their pencil (UA4 revision), all saved in this browser. Theme is the account popover's
  * preference; density is the default every table starts from, which a view's own choice overrides.
  */
@@ -8,6 +8,7 @@ import { ThemeChoice } from "@/app/SettingsMenu";
 import { useThemePreference } from "@/lib/theme";
 import { useDefaultTableDensity, type TableDensity } from "@/lib/tableDensity";
 import { useEditHint, type EditHint } from "@/lib/editHint";
+import { useSchemePreference, type ColourScheme } from "@/lib/scheme";
 import { usePalettePreference, type TypePalette } from "@/lib/palette";
 import { FormField } from "@/ui/FormField";
 import { Section } from "@/ui/Section";
@@ -16,6 +17,11 @@ import { SettingsLayout } from "@/ui/SettingsLayout";
 const DENSITIES: { value: TableDensity; label: string }[] = [
   { value: "comfortable", label: "Comfortable" },
   { value: "compact", label: "Compact" },
+];
+
+const SCHEMES: { value: ColourScheme; label: string }[] = [
+  { value: "normal", label: "Normal" },
+  { value: "purple", label: "Website purple" },
 ];
 
 const PALETTES: { value: TypePalette; label: string }[] = [
@@ -33,6 +39,7 @@ export function AppearancePage() {
   const { density, setDensity } = useDefaultTableDensity();
   const { hint, setHint } = useEditHint();
   const { palette, setPalette } = usePalettePreference();
+  const { scheme, setScheme } = useSchemePreference();
   return (
     <SettingsLayout
       eyebrow="General"
@@ -40,7 +47,29 @@ export function AppearancePage() {
       description="These choices are saved in this browser. Other browsers and devices keep their own."
     >
       <Section title="Display">
-        <FormField group label="Theme" help="System follows your device's light or dark setting.">
+        <FormField
+          group
+          label="Theme"
+          help="Normal, or the colours of the refiroo website. Light and dark below apply to either."
+        >
+          {() => (
+            <div className="theme-choice">
+              {SCHEMES.map((option) => (
+                <label key={option.value} className={scheme === option.value ? "selected" : undefined}>
+                  <input
+                    type="radio"
+                    name="appearance-scheme"
+                    value={option.value}
+                    checked={scheme === option.value}
+                    onChange={() => setScheme(option.value)}
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          )}
+        </FormField>
+        <FormField group label="Light or dark" help="System follows your device's light or dark setting.">
           {() => <ThemeChoice theme={theme} onChange={setTheme} name="appearance-theme" />}
         </FormField>
         <FormField

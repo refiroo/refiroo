@@ -2,9 +2,13 @@
 // The theme is the application's own choice (HD): `rdm:theme:v1`, JSON "system", "light" or "dark", the
 // labels System / Light / Dark. Starlight's styles key on data-theme being light or dark, so this sets the
 // resolved value, before the first paint and again when the choice or the operating system's theme changes.
+// The colour theme (TH) is the application's second choice, `rdm:scheme:v1` (JSON "normal" or "purple"): Website
+// purple sets data-scheme="purple" on the document element, Normal sets nothing. The public site's build with a
+// host theme (PUBLIC_GUIDE_THEME) keeps the site's own look and ignores it.
+const withScheme = !(process.env.PUBLIC_GUIDE_SITE && process.env.PUBLIC_GUIDE_THEME);
 ---
 
-<script is:inline>
+<script is:inline define:vars={{ withScheme }}>
   window.StarlightThemeProvider = (() => {
     const key = "rdm:theme:v1";
     const read = () => {
@@ -21,12 +25,24 @@
           ? "light"
           : "dark"
         : theme;
+    const schemeKey = withScheme ? "rdm:scheme:v1" : null;
+    const applyScheme = () => {
+      if (!schemeKey) return;
+      let purple = false;
+      try {
+        purple = JSON.parse(localStorage.getItem(schemeKey) || '"normal"') === "purple";
+      } catch (error) {}
+      if (purple) document.documentElement.dataset.scheme = "purple";
+      else delete document.documentElement.dataset.scheme;
+    };
     const apply = (theme = read()) => {
       document.documentElement.dataset.theme = resolve(theme);
+      applyScheme();
     };
     apply();
     return {
       key,
+      schemeKey,
       read,
       apply,
       write(theme) {

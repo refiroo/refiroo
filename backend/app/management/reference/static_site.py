@@ -5,7 +5,14 @@ engine's own ``render_page``, in its static form), the two OpenAPI documents it 
 (``api/management.json``, the engine's management API; ``api/stops.json``, the ``stops`` consumer API
 of the guide's reference domain, ``guide/samples/model.json``), Scalar's bundled script
 (``api/scalar/standalone.js``) and the shared header stylesheet (``brand/refiroo-header.css``).
-The guide's own files already carry the logo and favicon. No instance and no database are involved:
+The public build's settings are read from the guide build's variables: ``PUBLIC_GUIDE_BASE`` (default ``/docs``),
+``PUBLIC_GUIDE_SITE_URL`` (the canonical address), ``PUBLIC_GUIDE_VERSION`` and ``PUBLIC_GUIDE_OLDER``
+(the version mark, and the line of a version before the latest); the logo leads to the site's home (``/``).
+``PUBLIC_GUIDE_THEME`` (DOC12), a host's theme directory, may hold an ``api/`` folder with the host's own header for
+this page: ``head.html`` (elements for the head), ``header.html`` (the markup that stands where the refiroo header
+would), and ``theme/`` (files they name, copied to ``theme/`` in the build). In the text files ``/__BASE__`` stands for
+the build's base path (``/docs``) and ``__VERSION__`` for the guide's version; the page then carries the host's header and not
+the refiroo one. The guide's own files already carry the logo and favicon. No instance and no database are involved:
 the documents are produced from the code and the model file.
 
 The engine does not use this: an instance serves ``/docs/api`` itself, from its route, which comes
@@ -24,6 +31,7 @@ from pathlib import Path
 from . import (
     BUNDLED_SCRIPT_PATH,
     SCALAR_SCRIPT,
+    ApiTheme,
     StaticSite,
     render_page,
     with_meta_policy,
@@ -52,14 +60,55 @@ def _management_document() -> dict:
     return create_app().openapi()
 
 
-def build(out: Path) -> None:
+_TEXT_SUFFIXES = {".html", ".css", ".js", ".mjs", ".json", ".svg"}
+
+
+def _fill(text: str, base: str, version: str) -> str:
+    return text.replace("/__BASE__", base).replace("__VERSION__", version)
+
+
+def load_api_theme(theme: Path, out: Path, *, base: str, version: str) -> ApiTheme | None:
+    """The host's header for the page, from ``<theme>/api/`` (see the module text); its ``theme/`` files are
+    written to ``out/theme/``. None when the directory has no ``api/head.html`` and ``api/header.html``."""
+    folder = theme / "api"
+    head, header = folder / "head.html", folder / "header.html"
+    if not (head.is_file() and header.is_file()):
+        return None
+    assets = folder / "theme"
+    for source in sorted(assets.rglob("*")) if assets.is_dir() else []:
+        if not source.is_file():
+            continue
+        target = out / "theme" / source.relative_to(assets)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if source.suffix in _TEXT_SUFFIXES:
+            target.write_text(
+                _fill(source.read_text(encoding="utf-8"), base, version), encoding="utf-8"
+            )
+        else:
+            shutil.copyfile(source, target)
+    return ApiTheme(
+        head=_fill(head.read_text(encoding="utf-8"), base, version),
+        header=_fill(header.read_text(encoding="utf-8"), base, version),
+    )
+
+
+def build(
+    out: Path,
+    *,
+    base: str = "/docs",
+    site_url: str = "",
+    version: str = "",
+    older: bool = False,
+    theme: Path | None = None,
+) -> None:
     from ...engine.model.consumer_definitions import consumer_api
     from ...engine.model.consumer_openapi import consumer_openapi
     from ...engine.model.loader import load_model
 
     if not (out / "index.html").is_file():
         raise SystemExit(f"{out} is not a built guide (no index.html); build the guide first")
-    site = StaticSite(base="/docs")
+    api_theme = load_api_theme(theme, out, base=base, version=version) if theme else None
+    site = StaticSite(base=base, site_url=site_url, version=version, older=older, theme=api_theme)
     model = load_model(EXAMPLE_MODEL)
     definition = consumer_api(model, EXAMPLE_API)
     if definition is None:
@@ -97,7 +146,7 @@ def build(out: Path) -> None:
         target = out / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8")
-    script = out / BUNDLED_SCRIPT_PATH.removeprefix("/docs/")
+    script = out / BUNDLED_SCRIPT_PATH.removeprefix("/docs/")  # the page names it under ``base``
     script.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(SCALAR_SCRIPT, script)
     stylesheet = out / "brand" / "refiroo-header.css"
@@ -111,7 +160,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("guide_build", type=Path, help="the built guide: guide/dist, or GUIDE_OUT")
     arguments = parser.parse_args(argv)
-    build(arguments.guide_build.resolve())
+    # The public build's settings are the guide build's (guide/astro.config.mjs), read from the same variables.
+    build(
+        arguments.guide_build.resolve(),
+        base=os.environ.get("PUBLIC_GUIDE_BASE") or "/docs",
+        site_url=os.environ.get("PUBLIC_GUIDE_SITE_URL", ""),
+        version=os.environ.get("PUBLIC_GUIDE_VERSION", ""),
+        older=bool(os.environ.get("PUBLIC_GUIDE_OLDER")),
+        theme=Path(os.environ["PUBLIC_GUIDE_THEME"])
+        if os.environ.get("PUBLIC_GUIDE_THEME")
+        else None,
+    )
     print(f"API reference written to {arguments.guide_build / 'api'}", file=sys.stderr)
     return 0
 

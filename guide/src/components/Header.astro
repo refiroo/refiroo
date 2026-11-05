@@ -1,13 +1,15 @@
 ---
 // The one header (HD): the same bar as the application and the API reference (the shared stylesheet is
 // ../../../frontend/public/brand/refiroo-header.css). The logo goes to the application's home; a public site
-// build sets PUBLIC_GUIDE_SITE=1 to send it to the guide's home instead (see astro.config.mjs).
+// build sets PUBLIC_GUIDE_SITE=1 and the logo goes to the site's home, which is also "/" (W4-D5), with the
+// guide's version after the Documentation | API reference pair (see astro.config.mjs).
 import Search from "virtual:starlight/components/Search";
 import ThemeSelect from "virtual:starlight/components/ThemeSelect";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const publicSite = Boolean(import.meta.env.PUBLIC_GUIDE_SITE);
-const logoHref = publicSite ? `${base}/` : "/";
+const version = publicSite ? import.meta.env.PUBLIC_GUIDE_VERSION : undefined;
+const logoHref = "/";
 ---
 
 <div class="rdm-header">
@@ -23,6 +25,7 @@ const logoHref = publicSite ? `${base}/` : "/";
       <span class="rdm-full">API reference</span><span class="rdm-short">API</span>
     </a>
   </nav>
+  {version && <span class="rdm-version">v{version}</span>}
   <div class="rdm-search sl-flex print:hidden"><Search /></div>
   <div class="rdm-spacer"></div>
   <div class="sl-hidden md:sl-flex print:hidden rdm-right"><ThemeSelect /></div>

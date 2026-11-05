@@ -9,6 +9,7 @@ import { EDIT_HINT_STORAGE_KEY } from "@/lib/editHint";
 import { PALETTE_STORAGE_KEY, resetPalettePreference } from "@/lib/palette";
 import { DeploymentPage } from "@/features/settings/DeploymentPage";
 import { TABLE_DENSITY_STORAGE_KEY } from "@/lib/tableDensity";
+import { resetSchemePreference, SCHEME_STORAGE_KEY } from "@/lib/scheme";
 import { resetThemePreference, THEME_STORAGE_KEY } from "@/lib/theme";
 import { capabilitiesFixture } from "@/test/capabilities";
 import { EVERY_GROUP, heldAnywhereFixture } from "@/test/permissions";
@@ -70,6 +71,7 @@ beforeEach(() => {
     removeItem: (key: string) => stored.delete(key),
   });
   resetThemePreference();
+  resetSchemePreference();
   // The navigation drawer asks whether the screen is narrow; these tests render the wide layout.
   vi.stubGlobal(
     "matchMedia",
@@ -96,6 +98,7 @@ function permissions(groups: string[]) {
 }
 afterEach(() => {
   delete document.documentElement.dataset.theme;
+  delete document.documentElement.dataset.scheme;
   vi.unstubAllGlobals();
 });
 
@@ -240,7 +243,10 @@ describe("About", () => {
       "https://github.com/refiroo/refiroo/tree/v0.9.0-alpha.1",
     );
     // The help entry: the documentation the engine serves, then the API reference (0.13 DOC1).
-    expect(screen.getByRole("link", { name: "documentation" })).toHaveAttribute("href", expect.stringMatching(/\/docs\/$/));
+    expect(screen.getByRole("link", { name: "documentation" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/\/docs\/$/),
+    );
     expect(screen.getByRole("link", { name: "API reference" })).toHaveAttribute(
       "href",
       expect.stringMatching(/\/docs\/api$/),
@@ -314,7 +320,8 @@ describe("Deployment", () => {
 describe("Appearance", () => {
   it("writes the theme and the default table density to this browser", () => {
     render(<AppearancePage />);
-    const theme = screen.getByRole("group", { name: "Theme" });
+    // The colours are "Theme" (TH); light and dark are "Light or dark".
+    const theme = screen.getByRole("group", { name: "Light or dark" });
     expect(within(theme).getByRole("radio", { name: "System" })).toBeChecked();
     fireEvent.click(within(theme).getByRole("radio", { name: "Dark" }));
     expect(stored.get(THEME_STORAGE_KEY)).toBe('"dark"');
@@ -325,6 +332,22 @@ describe("Appearance", () => {
     fireEvent.click(within(density).getByRole("radio", { name: "Compact" }));
     expect(stored.get(TABLE_DENSITY_STORAGE_KEY)).toBe('"compact"');
     expect(screen.getByText(/saved in this browser/)).toBeInTheDocument();
+  });
+
+  it("chooses Normal or Website purple, saves it and sets data-scheme (TH)", () => {
+    render(<AppearancePage />);
+    const scheme = screen.getByRole("group", { name: "Theme" });
+    expect(within(scheme).getByRole("radio", { name: "Normal" })).toBeChecked();
+    fireEvent.click(within(scheme).getByRole("radio", { name: "Website purple" }));
+    expect(stored.get(SCHEME_STORAGE_KEY)).toBe('"purple"');
+    expect(document.documentElement.dataset.scheme).toBe("purple");
+    // The light and dark choice is its own.
+    expect(
+      within(screen.getByRole("group", { name: "Light or dark" })).getByRole("radio", { name: "System" }),
+    ).toBeChecked();
+    fireEvent.click(within(scheme).getByRole("radio", { name: "Normal" }));
+    expect(stored.get(SCHEME_STORAGE_KEY)).toBe('"normal"');
+    expect(document.documentElement.dataset.scheme).toBeUndefined();
   });
 
   it("switches the type palette and saves it (UA4 revision)", () => {
