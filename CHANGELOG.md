@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (mapping coverage: several targets on a many-allowed view)
+
+- **A mapping row with several targets is "Mapped" where the relation lets a source hold many.** The coverage state called every row with two or more targets "ambiguous", ignoring cardinality. The engine now reads the binding's cardinality at the source end (`one-to-many` outgoing, `many-to-one` incoming and `many-to-many` hold many): there a row with one or more targets is `mapped`, `state=mapped` lists them and `state=ambiguous` returns no rows. Where a source holds at most one target (`one-to-one`, `many-to-one` outgoing, `one-to-many` incoming) the rule is unchanged. The grid hides the Ambiguous filter where it cannot occur and shows the target count on any row with several targets. API, application model and guide pages updated.
+
 ### Added (branded mail)
 
 - **The five messages the engine sends are branded HTML as well as plain text.** Activation, password reset, test message, inbox notice and digest are multipart: the plain text, unchanged, then an HTML part with the refiroo mascot and wordmark in a lavender band (a renamed product shows its name beside them, as the top bar does), a heading, a button, the raw link for a client that hides the button, and a footer saying why the person gets the message and where to change it (Settings › Notifications), with a link to refiroo.com ("Made with refiroo" before it for a renamed product). The HTML carries the same facts as the text and no more (D421, D432); every value is escaped. The images travel inside the message as `cid:` parts from `backend/app/engine/mail/operator/`, never loaded from the application's address. The sealed outbox text now holds the text and the HTML together (`outbox.pack`/`unpack`), so there is no migration; a message queued earlier is sent as plain text. The test message from the Mail page, sent without the outbox, carries the HTML too.

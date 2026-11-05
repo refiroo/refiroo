@@ -93,7 +93,11 @@ def mapping_coverage(
     paging: SeekablePageQuery,
     search: str | None = Query(default=None, max_length=500),
     parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
-    state: Literal["mapped", "unmapped", "ambiguous"] | None = Query(default=None),
+    state: Literal["mapped", "unmapped", "ambiguous"] | None = Query(
+        default=None,
+        description="Coverage state. ambiguous (two or more targets) exists only where the "
+        "source end holds at most one target; elsewhere several targets are mapped",
+    ),
     proposed: bool = Query(
         default=False,
         description="Only sources with a target the AI proposed and nobody has changed since "

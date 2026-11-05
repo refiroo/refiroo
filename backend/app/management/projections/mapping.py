@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import Select, String, cast, exists, func, literal, or_, select, union_all
+from sqlalchemy import Select, String, cast, exists, false, func, literal, or_, select, union_all
 from sqlalchemy.orm import Bundle, Session
 from sqlalchemy.sql.selectable import Subquery
 
@@ -264,9 +264,7 @@ def _mapping_read_in_transaction(
         raise api_error(
             404, "MAPPING_VIEW_NOT_FOUND", "Mapping view not found in the selected model"
         )
-    objects, relations = context_projection(
-        session, workspace_key, change_set_id, publication_id
-    )
+    objects, relations = context_projection(session, workspace_key, change_set_id, publication_id)
     config = binding_config or view.config
     return MappingRead(
         session,
@@ -334,7 +332,9 @@ def validate_parent_scope(read: MappingRead, parent_object_id: str | None) -> No
         binding.fromObjectTypeKey == parent.object_type_key
         and binding.toObjectTypeKey == read.source_type
         and binding.relationTypeKey in parent_relations
-        and bool(read.snapshot.model.relation_type(binding.relationTypeKey).features.get("parentOf"))
+        and bool(
+            read.snapshot.model.relation_type(binding.relationTypeKey).features.get("parentOf")
+        )
         for binding in read.snapshot.model.objectTypeRelations
     )
     if not compatible:
@@ -402,9 +402,14 @@ def object_page(
         if mapping_state == "unmapped":
             statement = statement.where(target_count == 0)
         elif mapping_state == "mapped":
-            statement = statement.where(target_count == 1)
-        else:
+            statement = statement.where(
+                target_count == 1 if read.scope.source_holds_one else target_count >= 1
+            )
+        elif read.scope.source_holds_one:
             statement = statement.where(target_count > 1)
+        else:
+            # Several targets are normal on this view, so none is ambiguous.
+            statement = statement.where(false())
     if proposed:
         # The sources with a target the AI proposed and nobody has changed since (0.16 AP2): the
         # change set's relation row still holds its origin.
@@ -527,6 +532,7 @@ def coverage(
             [edge for rows in previews.values() for edge in rows[:PREVIEW_SIZE]]
         )
     }
+    holds_one = read.scope.source_holds_one
     rows = []
     for key in ids:
         version = versions.get(key, 0)
@@ -542,7 +548,11 @@ def coverage(
         rows.append(
             MappingCoverageRow(
                 source=sources[key],
-                state="unmapped" if count == 0 else "mapped" if count == 1 else "ambiguous",
+                state="unmapped"
+                if count == 0
+                else "mapped"
+                if count == 1 or not holds_one
+                else "ambiguous",
                 mappingVersion=version,
                 targetCount=count,
                 targets=[summaries[row.id] for row in preview.items],
@@ -575,9 +585,7 @@ def candidates(
         candidates=True,
     )
     return MappingCandidatePage(
-        items=list(
-            read.summary(candidate_page.items, read.config.targetDisplayColumns).values()
-        ),
+        items=list(read.summary(candidate_page.items, read.config.targetDisplayColumns).values()),
         **candidate_page.links(),
     )
 
@@ -638,9 +646,7 @@ def list_mappings(
             "Both applicationKey and viewKey are required when either is supplied",
         )
 
-    objects, relations = context_projection(
-        session, workspace_key, change_set_id, publication_id
-    )
+    objects, relations = context_projection(session, workspace_key, change_set_id, publication_id)
 
     directions = [direction] if direction else ["outgoing", "incoming"]
     parts = []
@@ -874,7 +880,9 @@ def conflict_continuation(session: Session, conflict: MappingConflictSet) -> dic
             read = _mapping_read_in_transaction(
                 session, conflict.workspace_key, app.key, view.key, conflict.change_set_id
             )
-            page = target_details(read, conflict.source_id, conflict.version, FIRST_PAGE, PREVIEW_SIZE)
+            page = target_details(
+                read, conflict.source_id, conflict.version, FIRST_PAGE, PREVIEW_SIZE
+            )
             return {
                 "targets": [item.model_dump(mode="json") for item in page.items],
                 "targetsNextCursor": page.nextCursor,

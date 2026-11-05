@@ -18,12 +18,15 @@ two similar names mean the same thing.
 | State | Meaning |
 | --- | --- |
 | Unmapped | No target is connected through this view's relationship. |
-| Mapped | Exactly one target is connected. |
-| Ambiguous | More than one target is connected; the count says how many. |
+| Mapped | At least one target is connected. When a row has several, the count says how many. |
+| Ambiguous | More than one target is connected, on a view where a source may hold only one. |
 
-**Ambiguous** describes multiple stored connections, rather than uncertainty about a suggested
-match. It can be valid for a relationship that allows several targets. Decide whether one or
-several is correct for the data before replacing anything. An unmapped row can be intentional.
+A relationship decides what several targets mean. Where a source may hold many targets, such as
+the "one" side of a one-to-many relationship, several targets are normal: the row is **Mapped**
+with its count, and the view has no **Ambiguous** choice. **Ambiguous** appears only where a
+source may hold at most one target, and describes multiple stored connections rather than
+uncertainty about a suggested match. Decide whether one or several is correct for the data
+before replacing anything. An unmapped row can be intentional.
 
 ![A mapping grid showing mapped, ambiguous and unmapped source codes](/docs/screens/mapping-grid-codes-to-stops.png)
 
@@ -31,7 +34,7 @@ several is correct for the data before replacing anything. An unmapped row can b
 system. T-0300 connects to Chur West and Chur; T-0412 connects to Chur Wiesental; T-9999 is deliberately
 unmapped. These fictional codes demonstrate the three states.*
 
-**All**, **Unmapped**, **Mapped** and **Ambiguous** narrow the whole list, together with search.
+**All**, **Unmapped**, **Mapped** and, where it applies, **Ambiguous** narrow the whole list, together with search.
 An empty result says nothing about rows excluded by these conditions. A loading failure is not
 an unmapped state; retry the read before editing.
 
@@ -67,7 +70,7 @@ If someone changes the mapping after you read it, **Mapping conflict** shows the
 Review it before continuing with your selection or cancelling. Publishing also checks intervening
 live changes; see [Change sets](/docs/use/change-sets/).
 
-The counts and **All**, **Unmapped**, **Mapped** and **Ambiguous** state choices describe the
+The counts and **All**, **Unmapped**, **Mapped** and, where it applies, **Ambiguous** state choices describe the
 whole matching list. Use them with search to find work beyond the visible rows. Target chips
 preview the connected records so you can inspect identifying fields before replacing them.
 An atomic replacement retains the existing relationship's identity and fields. Publishing a
@@ -80,7 +83,7 @@ for sources and fictional additions.*
 
 ## More targets and newly created records
 
-**Mapping status** groups **All**, **Unmapped**, **Mapped** and **Ambiguous**. A mapping row
+**Mapping status** groups **All**, **Unmapped**, **Mapped** and, where it applies, **Ambiguous**. A mapping row
 counts eligible sources plus sources already connected, so changing candidate conditions does
 not hide existing mappings. **Show all … targets for …** expands a row's remaining targets.
 

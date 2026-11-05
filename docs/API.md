@@ -5403,7 +5403,7 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
 - `GET /api/v1/workspaces/{workspaceKey}/mapping-coverage` takes `applicationKey`, `viewKey`,
   explicit `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction`, bounded `pageSize`,
   `cursor`, optional source search, optional direct `parentObjectId` scope, optional
-  `state=mapped|unmapped|ambiguous`, `proposed=true` with a change set ([mapping targets](#mapping-targets-ap2)),
+  `state=mapped|unmapped|ambiguous` (see the coverage states below), `proposed=true` with a change set ([mapping targets](#mapping-targets-ap2)),
   and one optional `changeSetId` or `publicationId`.
   Parent and state filtering happen
   before pagination. The sources are the records of the source type that meet the binding's `candidates`
@@ -5471,7 +5471,13 @@ For example, a coverage page has this shape (cursor strings are opaque):
 The page also carries the [collection paging](#collection-paging) fields (omitted above).
 Coverage lists sources and candidates list targets by name, then ID (S4R4; previously by ID).
 Coverage accepts `seek` by source name; candidates and target details page without it.
-An ambiguous row reports the complete `targetCount`, up to 20 targets and `targetsNextCursor`.
+A row's `state` is `unmapped` with no target and `mapped` with one. With several targets it depends on the
+binding's cardinality at the source end: where a source may hold many targets (`one-to-many` outgoing,
+`many-to-one` incoming, `many-to-many`) the row is `mapped`; where it holds at most one (`one-to-one`,
+`many-to-one` outgoing, `one-to-many` incoming) it is `ambiguous`, which can only come from data that
+predates the cardinality. `state=ambiguous` on a view whose sources may hold many returns no rows.
+A row with more targets than the preview, whatever its state, reports the complete `targetCount`, up to
+20 targets and `targetsNextCursor`.
 Pass that cursor to `mapping-targets` with the row's source ID and mapping version to continue beyond
 the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 

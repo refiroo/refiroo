@@ -15,7 +15,7 @@ import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName } from "@/model/fields";
-import { objectTypeFor } from "@/model/lookup";
+import { holdsOne, objectTypeFor } from "@/model/lookup";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ScopeBanner } from "@/features/objects/CollectionScope";
 import { MappingProposalDialog } from "@/features/objects/MappingProposalDialog";
@@ -70,6 +70,14 @@ export function MappingGridView({
   const sourceType = objectTypeFor(model, sourceTypeKey);
   const targetType = objectTypeFor(model, targetTypeKey);
   const relationType = model.relationTypes.find((rt) => rt.key === config.relationTypeKey);
+  // Several targets are ambiguous only where a source holds at most one; elsewhere they are mapped.
+  const binding = model.objectTypeRelations.find(
+    (b) =>
+      b.relationTypeKey === config.relationTypeKey &&
+      b.fromObjectTypeKey === config.fromObjectTypeKey &&
+      b.toObjectTypeKey === config.toObjectTypeKey,
+  );
+  const sourceHoldsOne = binding ? holdsOne(binding, config.direction === "outgoing" ? "from" : "to") : true;
   // A mapping is a relationship: written where either end's type may be (0.12 Z5, D291, D329).
   const writes = useRecordWrites();
   const readOnly =
@@ -208,7 +216,7 @@ export function MappingGridView({
             placeholder={`Search ${sourceType.pluralName.toLowerCase()}`}
           />
           <div className="segmented" role="group" aria-label="Mapping status">
-            {STATE_FILTERS.map((option) => (
+            {STATE_FILTERS.filter((option) => option.value !== "ambiguous" || sourceHoldsOne).map((option) => (
               <button
                 key={option.value || "all"}
                 aria-pressed={!proposed && (query.mappingState ?? "") === option.value}
@@ -452,7 +460,7 @@ function CoverageRow({
       <td>
         <StatusPill tone={STATE_TONES[row.state]}>
           {STATE_LABELS[row.state]}
-          {row.state === "ambiguous" && ` (${row.targetCount})`}
+          {row.targetCount > 1 && ` (${row.targetCount})`}
         </StatusPill>
       </td>
       <td className="mapping-targets-cell">

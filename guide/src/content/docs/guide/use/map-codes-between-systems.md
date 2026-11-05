@@ -15,8 +15,8 @@ permissions.
 2. Check the banner. Choose **Live** for immediate changes, or
    [open a change set](/docs/guide/use/prepare-and-publish-a-change-set/) to prepare them together.
 3. Search for the source records you need. Read their codes and other identifying fields.
-   Select **Unmapped** for rows without a connection, **Ambiguous** for rows with several
-   targets, or **Mapped** for rows with one. **All** removes the state restriction.
+   Select **Unmapped** for rows without a connection, **Mapped** for rows with a
+   target, or, on a view where a source may hold only one, **Ambiguous** for rows with several. **All** removes the state restriction.
 4. Inspect each target's name and identifying fields. Decide whether the current state needs
    changing. Clear search and select **All** if an expected row is absent. A read error needs
    a retry; it does not mean a row is unmapped.

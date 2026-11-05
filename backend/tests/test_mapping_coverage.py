@@ -131,7 +131,8 @@ def test_both_directions_states_typed_fields_and_bounded_target_continuation(cli
     rows = get(client, "/mapping-coverage", IN)["items"]
     by_id = {row["source"]["id"]: row for row in rows}
     ambiguous = by_id[master["id"]]
-    assert ambiguous["state"] == "ambiguous"
+    # The binding is many-to-many: several targets are normal, so the row is mapped.
+    assert ambiguous["state"] == "mapped"
     assert ambiguous["targetCount"] == 23
     assert ambiguous["mappingVersion"] == 23
     assert len(ambiguous["targets"]) == 20
@@ -274,16 +275,25 @@ def test_coverage_and_candidates_list_by_name_and_seek_a_name(client):
             sources[label]["id"] for label in sorted(labels)
         ], context
         sought = get(
-            client, "/mapping-coverage", dict(OUT, search=tag, seek="SysVal m", pageSize=1, **context)
+            client,
+            "/mapping-coverage",
+            dict(OUT, search=tag, seek="SysVal m", pageSize=1, **context),
         )
         assert [row["source"]["id"] for row in sought["items"]] == [sources["mike"]["id"]], context
-        names = [row["name"] for row in get(client, "/mapping-candidates", dict(candidate_params, **context))["items"]]
+        names = [
+            row["name"]
+            for row in get(client, "/mapping-candidates", dict(candidate_params, **context))[
+                "items"
+            ]
+        ]
         assert names == collated(names) and len(names) == len(targets), context
 
     # A cursor bound to the former order, by source ID, is refused rather than read by name.
     first = get(client, "/mapping-coverage", dict(OUT, search=tag, pageSize=1))
     params = dict(OUT, search=tag, pageSize=1)
-    assert get(client, "/mapping-coverage", dict(params, cursor=reissue_cursor(first["nextCursor"])))
+    assert get(
+        client, "/mapping-coverage", dict(params, cursor=reissue_cursor(first["nextCursor"]))
+    )
     stale = reissue_cursor(first["nextCursor"], sort=["id"], position=[sources["alpha"]["id"]])
     r = client.get(BASE + "/mapping-coverage", params=dict(params, cursor=stale))
     assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_CURSOR"
@@ -296,18 +306,16 @@ def test_coverage_parent_and_state_filters_apply_before_pagination(client):
     relation(client, sources[1], targets[0])
     relation(client, sources[1], targets[1])
 
-    assert [
+    assert {
         row["source"]["id"]
         for row in get(client, "/mapping-coverage", dict(OUT, state="mapped"))["items"]
-    ] == [sources[0]["id"]]
-    assert [
-        row["source"]["id"]
-        for row in get(client, "/mapping-coverage", dict(OUT, state="ambiguous"))["items"]
-    ] == [sources[1]["id"]]
-    assert [
+    } == {sources[0]["id"], sources[1]["id"]}
+    # Several targets are normal on a many-to-many binding, so nothing is ambiguous.
+    assert get(client, "/mapping-coverage", dict(OUT, state="ambiguous"))["items"] == []
+    assert {
         row["source"]["id"]
         for row in get(client, "/mapping-coverage", dict(IN, state="mapped"))["items"]
-    ] == [targets[1]["id"]]
+    } == {targets[0]["id"], targets[1]["id"]}
     unmapped = get(client, "/mapping-coverage", dict(OUT, state="unmapped", pageSize=1))
     assert len(unmapped["items"]) == 1 and unmapped["nextCursor"] is not None
 
@@ -427,7 +435,10 @@ def test_publication_coverage_is_immutable_scoped_and_version_bound(client):
     change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
     activation = client.post(
         f"/api/v1/change-sets/{change_set['id']}/publication",
-        json={"expectedChangeSetVersion": change_set["version"], "expectedActivePublicationId": None},
+        json={
+            "expectedChangeSetVersion": change_set["version"],
+            "expectedActivePublicationId": None,
+        },
     )
     assert activation.status_code == 200, activation.text
     publication_id = activation.json()["id"]
@@ -469,9 +480,10 @@ def test_publication_coverage_is_immutable_scoped_and_version_bound(client):
     ] == [source["id"]]
 
     relation(client, source, master)
-    assert get(client, "/mapping-coverage", dict(OUT, search=source["name"]))["items"][0][
-        "state"
-    ] == "mapped"
+    assert (
+        get(client, "/mapping-coverage", dict(OUT, search=source["name"]))["items"][0]["state"]
+        == "mapped"
+    )
     historical = get(
         client,
         "/mapping-coverage",
@@ -570,6 +582,26 @@ def test_coverage_query_count_does_not_grow_per_source(client, change_set_contex
             event.remove(get_engine(), "before_cursor_execute", capture)
         counts.append(len(statements))
     assert counts[0] == counts[1]
+
+
+@pytest.mark.parametrize("client", ["one-to-many"], indirect=True)
+def test_one_to_many_source_with_several_targets_is_mapped(client):
+    """The source end of a one-to-many view may hold many targets: that is Mapped, not Ambiguous."""
+    targets = masters(client, 3)
+    sources = [_create_system_value(client, _suffix()) for _ in range(2)]
+    for target in targets[:2]:
+        relation(client, sources[0], target)
+    relation(client, sources[1], targets[2])
+    rows = {
+        row["source"]["id"]: row
+        for row in get(client, "/mapping-coverage", dict(OUT, pageSize=100))["items"]
+    }
+    assert rows[sources[0]["id"]]["state"] == "mapped"
+    assert rows[sources[0]["id"]]["targetCount"] == 2
+    assert rows[sources[1]["id"]]["state"] == "mapped"
+    mapped = get(client, "/mapping-coverage", dict(OUT, state="mapped", pageSize=100))["items"]
+    assert {row["source"]["id"] for row in mapped} >= {sources[0]["id"], sources[1]["id"]}
+    assert get(client, "/mapping-coverage", dict(OUT, state="ambiguous"))["items"] == []
 
 
 @pytest.mark.parametrize("client", ["one-to-many", "one-to-one"], indirect=True)
@@ -943,7 +975,11 @@ def test_list_mappings_relation_type_filter(client):
     master = masters(client, 1)[0]
     source = _create_system_value(client, _suffix())
     relation(client, source, master)
-    page = get(client, "/relations", {"relationTypeKey": "system-value-maps-to-master", "direction": "outgoing"})
+    page = get(
+        client,
+        "/relations",
+        {"relationTypeKey": "system-value-maps-to-master", "direction": "outgoing"},
+    )
     assert len(page["items"]) >= 1
     bogus = get(client, "/relations", {"relationTypeKey": "nonexistent", "direction": "outgoing"})
     assert len(bogus["items"]) == 0

@@ -64,6 +64,16 @@ class MappingScope:
             )
         )
 
+    @property
+    def source_holds_one(self) -> bool:
+        """Whether a source (grid row) holds at most one target: the binding's cardinality at the
+        source end (``from`` outgoing, ``to`` incoming). Several targets are then ambiguous;
+        otherwise they are normal."""
+        allowed = self.model.allowed_relation(
+            self.config.relationTypeKey, self.config.fromObjectTypeKey, self.config.toObjectTypeKey
+        )
+        return allowed.holds_one("from" if self.outgoing else "to")
+
     def eligible_clauses(self, object_type: str) -> list[ColumnElement[bool]]:
         """What a record of ``object_type`` (the target type) must meet to be chosen: not already
         the target of an edge when the binding lets a target hold one (an anti-join, 0.11 Q1,

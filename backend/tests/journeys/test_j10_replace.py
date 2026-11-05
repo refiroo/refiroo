@@ -92,7 +92,9 @@ def test_filter_coverage_find_a_candidate_beyond_page_one_and_replace_the_set(wo
     unmapped = _coverage(world, "Vnn", state="unmapped", includeTotal=True, pageSize=3)
     assert {row["state"] for row in unmapped["items"]} == {"unmapped"}
     assert unmapped["totalCount"] == sum(row["state"] == "unmapped" for row in every)
-    assert {row["state"] for row in every} == {"unmapped", "mapped", "ambiguous"}
+    # The binding lets a source hold many records, so several are mapped, never ambiguous.
+    assert {row["state"] for row in every} == {"unmapped", "mapped"}
+    assert any(row["targetCount"] > 1 for row in every)
 
     wanted, pages, cursor = world.ids["k12"], 0, None
     while True:
@@ -198,13 +200,13 @@ def test_an_independent_relationship_with_its_own_names_and_values(world):
 @pytest.mark.journey("J10.3")
 @pytest.mark.structures("H", "K", "Bnn", "Vnn")
 def test_a_large_set_is_previewed_and_continued(world):
-    """Given an H record with 25 related records. When its ambiguous row is read, then continued.
+    """Given an H record with 25 related records. When its many-target row is read, then continued.
     Then the row counts 25 and shows 20 with a continuation that returns the other 5; a stale version
     is refused with the current one, and a continuation from an older version is refused."""
     h = world.made("H", "Many links")
     for index in range(1, 26):
         ok(world.relate("Bnn", h["id"], world.ids[f"k{index:02d}"], {"Bnn.weight": 1}), 201)
-    row = _row(world, "Vnn", h, state="ambiguous")
+    row = _row(world, "Vnn", h, state="mapped")
     assert row["targetCount"] == 25 and len(row["targets"]) == 20 and row["targetsNextCursor"]
 
     params = {**_identity(world, "Vnn"), "sourceObjectId": h["id"]}
@@ -682,7 +684,9 @@ def test_a_view_offers_only_the_candidates_its_relationship_allows(world):
         g = world.made("G", f"{tag} {region}")
         owner = world.made("R", f"{tag} owner in {region}")
         world.made(
-            "D", f"{tag} permit in {region}", parent=world.dependant_parent(g["id"]),
+            "D",
+            f"{tag} permit in {region}",
+            parent=world.dependant_parent(g["id"]),
             relations=[world.owner("Bown", owner["id"])],
         )
         found = ok(

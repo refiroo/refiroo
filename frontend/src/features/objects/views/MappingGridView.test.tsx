@@ -6,7 +6,7 @@ import type {
   MappingReplacementResponse,
   MappingTargetPage,
 } from "@/types";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
@@ -194,6 +194,22 @@ describe("MappingGridView", () => {
     expect(within(grid).getByText("Admin")).toBeInTheDocument();
     expect(within(grid).getByText(/Ambiguous/)).toBeInTheDocument();
     expect(within(grid).getByText(/\(4\)/)).toBeInTheDocument();
+  });
+
+  it("offers the Ambiguous filter only where a source holds at most one target", async () => {
+    renderGrid();
+    await screen.findByRole("region", { name: /mapping grid/ });
+    const filters = screen.getByRole("group", { name: "Mapping status" });
+    // The binding is many-to-many: several targets are normal, so the filter is not offered.
+    expect(within(filters).queryByRole("button", { name: /Ambiguous/ })).toBeNull();
+    expect(within(filters).getByRole("button", { name: /Mapped/ })).toBeInTheDocument();
+    cleanup();
+
+    const oneModel = structuredClone(mappingModel);
+    oneModel.objectTypeRelations.find((binding) => binding.relationTypeKey === "maps-to")!.cardinality = "one-to-one";
+    renderGrid({ model: oneModel, application: oneModel.applications[0] });
+    const oneFilters = await screen.findByRole("group", { name: "Mapping status" });
+    expect(within(oneFilters).getByRole("button", { name: /Ambiguous/ })).toBeInTheDocument();
   });
 
   it("passes the correct binding parameters to the coverage API", async () => {

@@ -430,7 +430,7 @@ replacement. Configuration:
 | `pageSize` | 1–100 |
 
 The mapping coverage query may additionally apply a browser-selected direct-parent scope and one of
-the semantic coverage states (`mapped`, `unmapped`, `ambiguous`). These are runtime query values, not
+the semantic coverage states (`mapped`, `unmapped`, `ambiguous`; `ambiguous` — two or more targets — exists only where the binding's cardinality lets a source hold at most one, otherwise several targets are `mapped`). These are runtime query values, not
 model configuration. They are valid only for a configured mapping view and are included in cursor
 binding.
 
