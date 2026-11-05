@@ -1,7 +1,8 @@
 # Base 0.17 implementation plan
 
 **Status:** Planned 2026-10-31 at the user's request. The plan and the canvas mock-up were approved by the user
-on 2026-10-31; PP-D1 was decided on 2026-11-03. Nothing is built yet, and no decision is open.
+on 2026-10-31; PP-D1 was decided on 2026-11-03. Nothing is built yet. NG1 was added by the user on 2026-11-05;
+its decisions PP-D11–PP-D13 are open.
 
 **Target:** Product 0.17.0, [the plain path](ROADMAP.md#product-release-017--the-plain-path).
 
@@ -41,10 +42,12 @@ corrects that result, and the way to import when no provider is configured.
 | [PL4](PLAIN_PATH_PLAN.md#pl4-new-workspace-from-a-workbook) | PL3, PL3b | The file and a name, what refiroo found, Create workspace |
 | [PL5](PLAIN_PATH_PLAN.md#pl5-plain-words-and-identifiers) | PL0 | One list of replacements; Settings index; Back to the workspace |
 | [PL6](PLAIN_PATH_PLAN.md#pl6-collection-import-and-export-and-your-changes) | PL0 | Import file-first; Export for people; draft steps grouped |
+| [NG1](#ng1-views-in-navigation-groups) | — | A navigation group places a view of its own, such as a relation matrix, not only a whole collection |
 | [SM1](#sm1-account-security-messages) | — | Mail when a person's sign-in changes: password, second factor, passkey |
 | [R](#r-build-acceptance-and-release) | all | Full review since 0.16, the gates, the release |
 
-**Order.** PL0, PL1, PL2, PL3, PL3b, PL4, PL5, PL6, SM1, R. PL1 and PL2 are the cheapest fixes on the most frequent
+**Order.** PL0, PL1, PL2, PL3, NG1, PL3b, PL4, PL5, PL6, SM1, R. NG1 comes before PL3b so the canvas's group drops
+place views from the start. PL1 and PL2 are the cheapest fixes on the most frequent
 paths. PL3 gives PL4 its place, and PL3b is where PL4's Adjust leads. Each UI package shows its mock-up with its
 plan for one approval and is then delivered whole.
 
@@ -62,6 +65,9 @@ plan for one approval and is then delivered whole.
 | PP-D8 | **The join is found over every row.** A list dropped on a field compares the two columns in PostgreSQL over the whole set. The stored overlaps of the profile (first 1,000 distinct values, best five) stay a hint only. When two candidates tie, the panel asks; nothing is guessed silently. | Rule: checks cover the whole set |
 | PP-D9 | **The canvas never waits for a check.** The existing dry-run job runs after each step and a newer run cancels the older; the count reads "Checking…" until it answers, and the person may keep dropping. | Planning default |
 | PP-D10 | **Phone:** the canvas works by the ⋯ menu at 390px; dragging is a desktop and tablet fast path. | Planning default |
+| PP-D11 | **A view placed in a group leaves its collection** (recommended: it shows once, in the group; otherwise the sidebar shows it twice) or also stays as one of its collection's views. | Open |
+| PP-D12 | **One ordered member list per group,** each member a collection or a view (recommended: the sidebar order is the declared order, mixing both), or `views` beside `collections` with collections first. The first changes the shape of `collections`; pre-1.0 allows it. | Open |
+| PP-D13 | **Schema version:** the new member in schema 0.10 (recommended: additive, refused nowhere today) or a new schema version. | Open |
 
 ## PL3b: The workbook canvas
 
@@ -145,6 +151,29 @@ text goes in with PL3b as the seed in `MODEL_AUTHORING.md` and `PRODUCT.md`, and
 
 **Said plainly:** the canvas builds a new model, or a new version of a draft's. Reshaping records already in a
 workspace stays with restructuring and WM1. Consumer APIs and security stay in their own pages.
+
+## NG1: Views in navigation groups
+
+_Added by the user on 2026-11-05._ Today a navigation group names only collections
+(`NavigationGroupDefinition.collections`, `models/schema.py`): a view appears in the sidebar under its source
+collection, a relation matrix under its row type (`viewSourceObjectTypeKey`, `frontend/src/model/collections.ts`).
+A matrix therefore enters a group only with every other view of its row type. NG1 lets a group place a view itself,
+for any view kind, in the model, the API, the sidebar and the editor.
+
+- **Model and validation:** a group member may name a view of the application (shape by PP-D12, version by
+  PP-D13). `_check_navigation` (`validation/application_rules.py`) refuses a view the application does not
+  declare (`INVALID_REFERENCE`) and a view in a second group (`INVALID_MODEL`), at the member's pointer, as for
+  collections.
+- **Authoring:** an operation places a view in a group or takes it out, as `placeCollection` does for a
+  collection; renaming or removing a view updates or drops its group member (`authoring/references.py`,
+  `authoring/cascade.py`). Workbook inference keeps producing collection members.
+- **Sidebar:** `navigationSections` places grouped views as their own entries and, by PP-D11, leaves them out of
+  their collection's views; the group page (`NavigationGroupPage.tsx`) lists them. A record page's child
+  collections and the application's default view keep working when they involve a grouped view.
+- **Editor:** **Move to group…** on a view's row in **Views**, and the group's members list shows views
+  (`operations.ts`, `ElementPanel.tsx`). PL3b's group drop accepts a view the same way.
+- **Tests and docs:** journey tests through the API for the refusals, the cascade on view removal and the
+  move; the guide pages on navigation groups and relation matrices updated with their screens.
 
 ## SM1: Account security messages
 
