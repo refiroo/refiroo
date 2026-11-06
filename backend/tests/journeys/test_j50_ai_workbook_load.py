@@ -1887,6 +1887,46 @@ def test_a_release_the_session_installed_and_nothing_uses_is_retired_when_its_se
     assert status[f"{version}-unused"] == "retired"
 
 
+@pytest.mark.journey("J50.41")
+@pytest.mark.structures(*STRUCTURES)
+def test_a_load_that_only_adds_relationships_is_a_load_and_an_empty_one_says_why(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given a session whose change set only links records that already exist, when the task is
+    accepted, then it is loaded and the result counts the new relationships; given a session whose
+    change set holds nothing, then the task fails with a note that says so."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    ledgers = Ledgers(world)
+    token = world.made(
+        "K", f"Token {ledgers.tag}", workspace=ledgers.workspace, values={"K.code": ledgers.tag}
+    )
+    ledger = ledgers.records[f"{ledgers.tag}-00"]
+    batch = [
+        {
+            "op": "createRelation",
+            "relationTypeKey": world.key("B1n"),
+            "from": {"id": ledger["id"]},
+            "to": {"id": token["id"]},
+        }
+    ]
+    _assistant(world, tmp_path, monkeypatch, ledgers.workspace, api=True, batch=batch)
+    task = _accept(world, _read(world, ledgers, accept=False))
+    assert task["state"] == "loaded", task["notes"]
+    counts = task["result"]["counts"]
+    assert (counts["created"], counts["updated"], counts["relationsCreated"]) == (0, 0, 1), counts
+
+    # A change set holding nothing is no load, and the person is told.
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    _assistant(world, empty, monkeypatch, ledgers.workspace, api=True)
+    task = _accept(world, _read(world, ledgers, accept=False))
+    assert task["state"] == "failed" and task["result"] is None
+    assert any("nothing was loaded" in note["text"] for note in task["notes"]), task["notes"]
+
+
 # --- AP11: a session's log lies beside its folder ---------------------------------------------------
 
 

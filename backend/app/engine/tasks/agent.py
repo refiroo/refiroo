@@ -1853,8 +1853,30 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
     change_set_id = _last_line(words, LAST_LINE)
     change_set = _change_set_of(session, task, change_set_id)
     counts = _counts(session, change_set.id) if change_set is not None else None
-    # An empty change set is no load, whatever the session's last line says.
-    if change_set is None or change_set.workspace_key != workspace or not counts["applied"]:
+    # An empty change set is no load, whatever the session's last line says; a change set that holds
+    # only relationships is one. A task never fails without saying why.
+    if change_set is None:
+        note(
+            task,
+            "warning",
+            "The session named no change set of this task's own, so nothing was loaded"
+            if change_set_id
+            else "The session ended without naming the change set it loaded into, so nothing was loaded",
+        )
+        finish(task, "failed", _retention(ctx))
+    elif change_set.workspace_key != workspace:
+        note(
+            task,
+            "warning",
+            "The session's change set is in another workspace, so nothing was loaded",
+        )
+        finish(task, "failed", _retention(ctx))
+    elif not _holds_changes(counts):
+        note(
+            task,
+            "warning",
+            "The session's change set holds no record or relationship to add, change or remove, so nothing was loaded",
+        )
         finish(task, "failed", _retention(ctx))
     elif unchanged and change_set.model_release_id != load_assignment(session, workspace)[1].id:
         # The model does not change: the change set is on the release the workspace runs, or it is not
@@ -2038,12 +2060,25 @@ def retire_unused_releases(session: Session, task: AiTask) -> None:
 
 
 def _counts(session: Session, change_set_id: str) -> dict[str, int]:
-    """What the change set holds, as a load's counts: new records and changed ones."""
-    created, updated = session.execute(
+    """What the change set holds, as a load's counts: new, changed and removed records, and new,
+    changed and removed relationships (a load that only links records is a load)."""
+    created, updated, deleted = session.execute(
         text(
-            "SELECT count(*) FILTER (WHERE o.id IS NULL), count(*) FILTER (WHERE o.id IS NOT NULL)"
+            "SELECT count(*) FILTER (WHERE NOT c.is_deleted AND o.id IS NULL),"
+            " count(*) FILTER (WHERE NOT c.is_deleted AND o.id IS NOT NULL),"
+            " count(*) FILTER (WHERE c.is_deleted)"
             " FROM change_set_objects c LEFT JOIN objects o ON o.id = c.object_id"
-            " WHERE c.change_set_id = :id AND NOT c.is_deleted"
+            " WHERE c.change_set_id = :id"
+        ),
+        {"id": change_set_id},
+    ).one()
+    linked, relinked, unlinked = session.execute(
+        text(
+            "SELECT count(*) FILTER (WHERE NOT c.is_deleted AND r.id IS NULL),"
+            " count(*) FILTER (WHERE NOT c.is_deleted AND r.id IS NOT NULL),"
+            " count(*) FILTER (WHERE c.is_deleted)"
+            " FROM change_set_relations c LEFT JOIN object_relations r ON r.id = c.relation_id"
+            " WHERE c.change_set_id = :id"
         ),
         {"id": change_set_id},
     ).one()
@@ -2051,6 +2086,23 @@ def _counts(session: Session, change_set_id: str) -> dict[str, int]:
         "applied": created + updated,
         "created": created,
         "updated": updated,
+        "deleted": deleted,
+        "relationsCreated": linked,
+        "relationsUpdated": relinked,
+        "relationsRemoved": unlinked,
         "unchanged": 0,
         "rejected": 0,
     }
+
+
+def _holds_changes(counts: dict[str, int]) -> bool:
+    """Whether the change set holds a change of any kind, records or relationships."""
+    keys = (
+        "created",
+        "updated",
+        "deleted",
+        "relationsCreated",
+        "relationsUpdated",
+        "relationsRemoved",
+    )
+    return any(counts[key] for key in keys)

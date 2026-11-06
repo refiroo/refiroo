@@ -857,6 +857,13 @@ that is a model-language change outside RL.
 
 **Tests.** J50.30: a proposal on a person's draft goes back to the session twice and then fails with the new note, the draft untouched; a session that makes its own draft on the second turn lands at `checked`.
 
+**A second point (found 2026-11-06 on the same task, after the person accepted it).** The session loaded the workbook into its change set and named it, and the task still ended `failed` with no note. `accepted()` judged a load by its records only (`_counts` read `change_set_objects`); a load that only adds relationships holds no record, so it read as empty. Two changes:
+
+1. **`_counts` counts the change set's relationships too**, in SQL: new, changed and removed relationships (`relationsCreated`, `relationsUpdated`, `relationsRemoved`) and removed records (`deleted`) beside the existing figures. `applied` keeps its meaning (new and changed records). A change set that holds any of them is a load. The task page's sentence names the relationships ("231 relationships new").
+2. **A task never fails without a reason.** Every failure in `accepted()` that had none now has a note in the person's terms: no change set of the task's own named, another workspace, or nothing in it to add, change or remove.
+
+**Test.** J50.41: a session that only links existing records lands `loaded` with `relationsCreated` counted; one whose change set holds nothing fails with the note.
+
 ## The writing rules
 
 These go into `guide/AGENTS.md` in DOC1; they are the contract between the briefs and the writer.

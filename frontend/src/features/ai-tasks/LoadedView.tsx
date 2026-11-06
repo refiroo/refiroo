@@ -20,10 +20,16 @@ export function loadedSentence(task: AiTask): { done: string; rest: string } {
   const changed = counts?.updated ?? 0;
   const removed = counts?.deleted ?? 0;
   const unchanged = counts?.unchanged ?? 0;
+  const linked = counts?.relationsCreated ?? 0;
+  const relinked = counts?.relationsUpdated ?? 0;
+  const unlinked = counts?.relationsRemoved ?? 0;
   const said = [
     created > 0 && `${plural(created, "record")} new`,
     changed > 0 && `${plural(changed, "record")} changed`,
     removed > 0 && `${plural(removed, "record")} removed`,
+    linked > 0 && `${plural(linked, "relationship")} new`,
+    relinked > 0 && `${plural(relinked, "relationship")} changed`,
+    unlinked > 0 && `${plural(unlinked, "relationship")} removed`,
   ].filter((part): part is string => !!part);
   const joined = said.length > 1 ? `${said.slice(0, -1).join(", ")} and ${said[said.length - 1]}` : said[0];
   return {

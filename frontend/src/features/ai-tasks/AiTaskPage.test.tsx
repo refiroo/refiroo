@@ -188,6 +188,24 @@ describe("The assistant task page (0.16 AP6a, AP10)", () => {
     );
   });
 
+  it("counts the relationships a load added when it added no record", async () => {
+    vi.mocked(ai.task).mockResolvedValue(
+      task({
+        state: "loaded",
+        version: 7,
+        result: {
+          changeSetId: "cs-1",
+          changeSetName: "Links only",
+          counts: { created: 0, updated: 0, unchanged: 0, relationsCreated: 231 },
+        },
+      }),
+    );
+    open();
+    await screen.findByRole("heading", { name: "Loaded into the change set “Links only”" });
+    expect(screen.getByText(/231 relationships new/)).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing changed/)).not.toBeInTheDocument();
+  });
+
   it("says why no profile was saved, as a plain line", async () => {
     vi.mocked(ai.task).mockResolvedValue(
       task({

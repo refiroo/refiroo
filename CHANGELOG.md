@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file. The format foll
 ### Fixed (an assistant task makes its own model draft, 0.13 AD)
 
 - **A task whose session opened the workspace's own draft no longer fails at once.** The session is told how to get a draft (`agent/10`): make its own with `POST /model-drafts`, never open the workspace's draft or use one it did not make, and keep its own on later turns. A proposal that still names a draft the task did not create goes back to the session, as a finding does, for up to two rounds; only then the task fails, saying the session must make its own draft, no longer "try again", which could not help. A person's draft is never touched.
+- **A load that only adds relationships is a load.** After acceptance the task judged the change set by its records alone, so a session that only linked records ended `failed` with no note. The load's counts now include new, changed and removed relationships (`relationsCreated`, `relationsUpdated`, `relationsRemoved`) and removed records (`deleted`), and the task page names them. A task that fails after acceptance now always says why: no change set of its own named, another workspace, or nothing in it to load.
 
 ### Fixed (jobs, client webhooks, the assistant's note)
 
