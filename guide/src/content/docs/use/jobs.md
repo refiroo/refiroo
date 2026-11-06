@@ -87,7 +87,7 @@ For an export, **The file** also records **Sheets**, its Live/change-set/publica
 **Change feed position**, **Valid on** when chosen and **Checksum (SHA-256)**. Use those facts
 to distinguish similar retained files; the checksum identifies the completed file's contents.
 
-**Cancel this job?** offers **Cancel job** or **Keep the job**. If it finished first, read the
+**Cancel this job?** offers **Stop the job** or **Keep the job**. If it finished first, read the
 refusal and refreshed state rather than assuming it was cancelled. **The change was not applied**
 after confirmation leaves the preview waiting: cancel it and create a fresh preview against
 current data. The old result remains readable until retention ends.

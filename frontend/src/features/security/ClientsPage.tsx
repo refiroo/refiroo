@@ -37,6 +37,7 @@ import { StatusPill } from "@/ui/StatusPill";
 import { useToast } from "@/ui/Toast";
 import { readsChanges } from "@/features/changes/changeText";
 import { GrantsSection, useWorkspaceLabels } from "./GrantsSection";
+import { useCapabilities } from "@/features/settings/useSystem";
 import { useHeldAnywhere } from "./permissions";
 import { RecentActivity } from "./RecentActivity";
 import { clientAccessLine, clientUseLine } from "./securityText";
@@ -366,12 +367,15 @@ function ClientDetail({
     }
   }
 
+  const { capabilities } = useCapabilities();
+
   if (loadError) return <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />;
   if (!client) return <div className="panel-state">Loading client…</div>;
 
   // What it changed in the workspaces this administrator reads (0.12 Z6, D345).
   const changes: RouteState = { kind: "changes", actorId: client.id, actorName: client.name };
-  const webhooks = held?.some((group) => group.key === "integration-admin");
+  const webhooks =
+    held?.some((group) => group.key === "integration-admin") && capabilities?.consumerSubscriptions.manageSubscriptions;
 
   return (
     <div className="model-editor-stack security-detail">

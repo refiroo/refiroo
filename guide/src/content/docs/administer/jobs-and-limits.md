@@ -20,7 +20,7 @@ Jobs keep their requester’s permissions. Deactivating the requester or removin
 
 Use **Refresh** for current progress and **Load more jobs** for older entries. **Items** distinguishes processed, applied, rejected and unprocessed items. Completion alone does not mean every item was applied; read the result and rejected-item details.
 
-For a queued or running job, **Cancel** asks **Cancel this job?** Choose **Cancel job**, or **Keep the job** to leave it running. Cancellation is taken at the next chunk. Already committed chunks stay applied; an atomic job rolls back completely. Items not yet reached remain unprocessed. If the job finished before cancellation arrived, the page refreshes and explains its final state.
+For a queued or running job, **Cancel** asks **Cancel this job?** Choose **Stop the job**, or **Keep the job** to leave it running. Cancellation is taken at the next chunk. Already committed chunks stay applied; an atomic job rolls back completely. Items not yet reached remain unprocessed. If the job finished before cancellation arrived, the page refreshes and explains its final state.
 
 ![Jobs list showing states, progress counts, requesters and available cancellation](/docs/screens/jobs-list.png)
 

@@ -32,6 +32,7 @@ import { principalName } from "@/ui/ActorName";
 import { StatusPill } from "@/ui/StatusPill";
 import { RESULT, STATE, cancellable, kindOf } from "@/features/jobs/jobText";
 import { count, jobLimitItems } from "./limits";
+import { useWorkspaceLabels } from "@/features/security/GrantsSection";
 import { useCapabilities } from "./useSystem";
 import { useHoldsGroup } from "@/app/useMe";
 
@@ -74,6 +75,7 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
   const [cancelError, setCancelError] = useState("");
   const [notice, setNotice] = useState("");
   const canCancel = capabilities?.integrationJobs.createJobs ?? false;
+  const labels = useWorkspaceLabels();
   const open = (job: Job) => {
     const next: RouteState = { ...JOBS, jobId: job.id };
     return { href: routePath(next), onNavigate: () => onNavigate(next) };
@@ -160,6 +162,7 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
               <JobRow
                 key={job.id}
                 job={job}
+                workspace={labels.get(job.workspaceKey) ?? job.workspaceKey}
                 link={open(job)}
                 onCancel={canCancel && cancellable(job) ? () => setCancelling(job) : undefined}
               />
@@ -231,10 +234,12 @@ function JobList({ model, onNavigate }: { model: EngineModel; onNavigate: (route
 
 function JobRow({
   job,
+  workspace,
   link,
   onCancel,
 }: {
   job: Job;
+  workspace: string;
   link: { href: string; onNavigate: () => void };
   onCancel?: () => void;
 }) {
@@ -250,7 +255,7 @@ function JobRow({
         </RouteLink>
       </th>
       <td data-label="Workspace">
-        <code>{job.workspaceKey}</code>
+        {workspace}
         {job.changeSetId && " (change set)"}
       </td>
       <td data-label="State">

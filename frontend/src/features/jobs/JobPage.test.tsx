@@ -14,7 +14,15 @@ vi.mock("@/api/eventStream", () => ({ openEventStream: vi.fn() }));
 
 vi.mock("@/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/client")>()),
-  api: { model: vi.fn(), job: vi.fn(), jobRows: vi.fn(), jobItems: vi.fn(), confirmJob: vi.fn(), cancelJob: vi.fn() },
+  api: {
+    model: vi.fn(),
+    job: vi.fn(),
+    jobRows: vi.fn(),
+    jobItems: vi.fn(),
+    confirmJob: vi.fn(),
+    cancelJob: vi.fn(),
+    workspaces: vi.fn(async () => ({ items: [{ key: "west", label: "West office" }], nextCursor: null })),
+  },
 }));
 
 class SilentEventSource {
@@ -197,6 +205,8 @@ describe("JobPage of an import (0.9 J4)", () => {
     expect(api.jobRows).toHaveBeenCalledWith("j7", expect.objectContaining({ status: "rejected" }));
     expect(screen.getByRole("button", { name: "Load the file" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel import" })).toBeInTheDocument();
+    // The workspace is named by its label, not its key.
+    expect(await screen.findByText("West office")).toBeInTheDocument();
   });
 
   it("cancels a waiting import in two steps: the button asks, the dialog's button cancels", async () => {
@@ -206,7 +216,7 @@ describe("JobPage of an import (0.9 J4)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Cancel import" }));
     expect(api.cancelJob).not.toHaveBeenCalled();
     const dialog = await screen.findByRole("alertdialog", { name: "Cancel this import?" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel import" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Discard the import" }));
     await waitFor(() => expect(api.cancelJob).toHaveBeenCalledWith("j7"));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
   });

@@ -74,7 +74,7 @@ from .store import finish, held_by_another, held_counts, load_task, note
 log = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 1800
-PROMPT_VERSION = "agent/8"
+PROMPT_VERSION = "agent/9"
 LAST_LINE = "CHANGE_SET:"
 THEN_LINE = "THEN_RELEASE:"
 RELEASE_LINE = "RELEASE:"
@@ -875,6 +875,14 @@ def _run_turn(
         raise
 
 
+_VOICE = (
+    "Your messages are shown to the person in the app. Write them in the person's terms: the model, "
+    "its types and fields, the records and the change. Never name files (such as proposal.json), JSON "
+    "keys (such as draftId), ids, endpoints or commands, except the closing lines the instructions "
+    f"ask for ({LAST_LINE} and {THEN_LINE})."
+)
+
+
 def _command(folder: Path, prompt: str, session_id: str, first: bool) -> list[str]:
     """The session's command. The person's words are the last argument, after ``--``, so no word
     of them is read as an option (R-F9)."""
@@ -885,6 +893,8 @@ def _command(folder: Path, prompt: str, session_id: str, first: bool) -> list[st
         "--output-format",
         "stream-json",
         "--verbose",
+        "--append-system-prompt",
+        _VOICE,
         *(["--session-id", session_id] if first else ["--resume", session_id]),
         "--",
         prompt,
@@ -1070,7 +1080,12 @@ def _said(progress: _Progress) -> str:
     result = progress.result
     cost = result.get("total_cost_usd")
     seconds = round((result.get("duration_ms") or 0) / 1000)
-    words = str(result.get("result") or "")
+    # The closing lines carry ids for the engine; the person reads the rest.
+    words = "\n".join(
+        line
+        for line in str(result.get("result") or "").splitlines()
+        if LAST_LINE not in line and THEN_LINE not in line
+    ).strip()
     return f"{words[:6000]} ({seconds} s" + (f", ${cost:.2f})" if cost else ")")
 
 

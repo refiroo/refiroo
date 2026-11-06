@@ -180,6 +180,9 @@ def test_the_persons_words_are_the_last_argument_after_the_end_of_the_options(
     assert command[-2:] == ["--", "--dangerously-skip-permissions please"]
     assert command.count("--dangerously-skip-permissions") == 0
     assert command[command.index("--session-id") + 1] == "s-1"
+    # The session writes for the person, in their terms; the closing lines stay allowed.
+    voice = command[command.index("--append-system-prompt") + 1]
+    assert "proposal.json" in voice and "CHANGE_SET:" in voice
 
 
 def test_in_a_container_the_session_runs_as_the_assistant_user_through_sudo(monkeypatch, tmp_path):

@@ -36,6 +36,7 @@ import { SettingsTable } from "@/ui/SettingsTable";
 import { Skeleton } from "@/ui/Skeleton";
 import { principalName } from "@/ui/ActorName";
 import { StatusPill } from "@/ui/StatusPill";
+import { useWorkspaceLabels } from "@/features/security/GrantsSection";
 import { count } from "@/features/settings/limits";
 import { jobTitle, useJobNotifications } from "./JobNotifications";
 import {
@@ -88,6 +89,7 @@ export function JobPage({
   const [cancelError, setCancelError] = useState("");
   const [confirmError, setConfirmError] = useState("");
   const notifications = useJobNotifications();
+  const labels = useWorkspaceLabels();
 
   useEffect(() => {
     let current = true;
@@ -232,7 +234,7 @@ export function JobPage({
               : "The preview keeps waiting: cancel it and make the change again to preview the data as it is now."}
           </Notice>
         )}
-        {!imported && <DescriptionList className="compact" items={times(job)} />}
+        {!imported && <DescriptionList className="compact" items={times(job, labels)} />}
         {imported && <ImportNotices job={job} />}
       </Section>
       {/* A job with neither items nor rows says what it belongs to, where the caller can open it. */}
@@ -252,7 +254,7 @@ export function JobPage({
           <BindingReportSection model={model} job={job} />
           <Section title="This import">
             <ImportFacts job={job} />
-            <DescriptionList className="compact" items={times(job)} />
+            <DescriptionList className="compact" items={times(job, labels)} />
           </Section>
         </>
       )}
@@ -321,7 +323,7 @@ export function JobPage({
       {confirming && (
         <ConfirmDialog
           title={waiting ? `Cancel this ${waitingName}?` : "Cancel this job?"}
-          confirmLabel={waiting ? `Cancel ${waitingName}` : "Cancel job"}
+          confirmLabel={waiting ? `Discard the ${waitingName}` : "Stop the job"}
           dismissLabel={waiting ? `Keep the ${waitingName}` : "Keep the job"}
           pending={pending}
           error={cancelError}
@@ -437,9 +439,9 @@ function ProgressLine({
   );
 }
 
-function times(job: Job): DescriptionItem[] {
+function times(job: Job, labels: ReadonlyMap<string, string>): DescriptionItem[] {
   return [
-    { term: "Workspace", value: <code>{job.workspaceKey}</code> },
+    { term: "Workspace", value: labels.get(job.workspaceKey) ?? job.workspaceKey },
     ...(job.requestedBy ? [{ term: "Requested by", value: principalName(job.requestedBy) }] : []),
     { term: "Created", value: formatServerTime(job.createdAt) },
     ...(job.startedAt ? [{ term: "Started", value: formatServerTime(job.startedAt) }] : []),
