@@ -10,9 +10,13 @@ and setup steps are in the linked pages; record your outcomes and recovery conta
 1. **Use the reference installation.** Build the intended source version with
    [Docker Compose](/docs/run/install-with-compose/). Keep only the entry web service public.
    PostgreSQL 17 must use ICU root `und` and the required extensions.
-2. **Fix the public address.** Set the permanent HTTPS `PUBLIC_URL`, matching browser origins and
-   provider callbacks. Check certificate trust, HTTP redirection and renewal. If behind a balancer,
-   check its trusted address range and forwarded headers: [HTTPS](/docs/run/https/).
+2. **Fix the public address and choose HTTPS.** Set the permanent HTTPS `PUBLIC_URL`, matching
+   browser origins and provider callbacks. For a public name, choose [automatic HTTPS](/docs/run/https/)
+   with `compose.acme.yml`: Caddy obtains and renews the certificate. Confirm DNS points here,
+   ports 80 and 443 are reachable from the internet and the `caddy-data` volume is preserved.
+   Alternatively, supply your organisation's certificates or use its HTTPS balancer. Check
+   certificate trust, HTTP redirection and renewal. If behind a balancer, check its trusted address
+   range and forwarded headers.
 3. **Protect secrets.** Store the database password, sealing key and stable cursor key outside
    version control and images. Keep the same keys across processes. Associate each backup with
    its sealing key: [Secrets and keys](/docs/run/secrets-and-keys/).

@@ -46,6 +46,8 @@ protection. A password reset alone does not bypass a second factor. See
 *Above: Guide Admin has a password but no authenticator app or passkey configured in this
 capture, so the removal buttons described above are absent.*
 
+![Fictional person’s Sign-in section with an authenticator, named passkey and removal controls](/docs/screens/admin-person-second-factor.png)
+
 ## Reset a forgotten password and end sessions
 
 1. With the intended person still selected, choose **Reset password** if they need a new

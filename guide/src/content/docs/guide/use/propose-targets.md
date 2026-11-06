@@ -22,15 +22,17 @@ See [AI and your data](/docs/use/ai-and-your-data/) for details.
 4. Read the result counts and warnings. **Left unmapped: no likely target** needs your own
    investigation. **Changed meanwhile, not touched** means someone changed the source while the
    answer was being prepared. A failed or unanswered batch is not a decision that no target exists.
-5. Choose **Show proposed** to open the change set's grid with **Proposed** selected. Inspect
+5. When at least one target was proposed, choose **Show proposed** to open the change set's grid with **Proposed** selected. Inspect
    each target, its displayed fields, confidence and reason. On a phone, expand **Why?**.
    Use **Change** and **Save mapping** to replace a wrong target. Its AI mark disappears.
+   If no target was proposed, **Show proposed** is absent. Choose **Close** and investigate
+   the unmapped sources manually.
 6. Review the whole change set, including any earlier work in it. Follow
    [Prepare and publish a change set](/docs/guide/use/prepare-and-publish-a-change-set/) to validate,
    obtain any required approval and publish. The published history says which mappings were
    proposed by AI and who published them.
 
-![The proposal job result with counts, warnings and Show proposed](/docs/screens/use-mapping-proposal-result.png)
+![A finished proposal job with no proposed targets, one source left unmapped and Close](/docs/screens/use-mapping-proposal-result.png)
 
 If the provider fails, read the warning and review any proposals already saved. You can prepare
 mappings manually through [Map codes between systems](/docs/guide/use/map-codes-between-systems/).

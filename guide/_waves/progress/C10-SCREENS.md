@@ -118,3 +118,39 @@ Applied fourth-round steering: appended six AI/Agent access recipes and correcte
 ## 2026-11-03T23:13:30+01:00 — provider capture recipes
 
 Applied fourth-round steering: added eleven recipes for real questions, mapping proposals, history accounts, model-change explanation and a single reused provider test. Corrected model-account captions to the activation dialog. AI answers and mapped candidates await external verification; no request ran here.
+
+## 2026-11-04T02:41:34+01:00 — single workbook task recipes
+
+Applied fourth-round steering in `_waves/C10.screens.json`: added two cancelled dialogs and one real workbook-task pair, with explicit proposal-only cleanup. `_waves/C10.data-changes.md` records planned calls and retained artifacts; provider output, task duration and row-check availability await external capture.
+
+## 2026-11-04T02:42:01+01:00 — mail and agent-call recipes
+
+Applied fourth-round steering: restored `use/notifications-settings.md` with a caption for the actual saved choices and appended read-only mail/MCP-call recipes. No mail is sent or preference changed; account email, saved digest state and existing MCP rows remain external-capture prerequisites. C10-LATER removals are handed off because that file is outside this wave’s allowed files.
+
+## 2026-11-04T02:43:16+01:00 — loaded-task and reload recipes
+
+Applied fourth-round steering after checking `engine/tasks/agent.py`: the same Claude Code task can load an unpublished change set without activation. Added three captures and retained its state after cancelling reload; corrected the earlier planned discard in `_waves/C10.data-changes.md`. No live request ran; actual task success and provider remain capture prerequisites.
+
+## 2026-11-04T02:43:54+01:00 — stopped-task state
+
+Applied fourth-round steering within the same task budget: capture Stop during initial reading, then resume that task for the proposal/load chain. Updated `guide/use/continue-an-assistant-task.md` to describe a requester-stopped task, not an invented failure. The Stop race and provider continuation remain external-capture checks.
+
+## 2026-11-04T02:44:52+01:00 — capture coverage and handoff
+
+Applied fourth-round steering; `_coverage/notes/C10-SCREENS/fourth-round-report.md` lists all 34 missing images: 27 have recipes and seven require unavailable fixtures, extra tasks or prohibited publication/activation. All 60 manifest entries pass action/upload/name checks; deferred webhook and C10-LATER housekeeping are handed off within the permitted notes folder.
+
+## 2026-11-04T02:45:05+01:00 — fourth-round validation complete
+
+Steering reread; no new correction. `GUIDE_OUT=_build/C10-SCREENS npm run build` passed (247 pages, 3.88 seconds), with no warning lines found in its saved log. All 60 recipes passed structural checks; the handoff records 27 planned and seven deferred missing images. No external capture, image acceptance, instance mutation or commit ran in this preparation turn.
+
+## 2026-11-04T02:59:36+01:00 — fourth-capture image review
+
+Reviewed all ten attached images against their pages; corrected `administer/ai.md` and `run/ai.md` captions to status rows and answered calls with unreported cost. Saved per-image evidence in `fourth-capture-image-review.md`; steering reread, and the latest user instruction supplies the new wait timeout.
+
+## 2026-11-04T03:01:14+01:00 — failed recipe corrections
+
+Applied the latest capture feedback and reread steering: corrected Ask label hit targets, Activity path, Mail state assumptions and sidebar navigation; added 300000 ms provider/task waits. Reused the existing task via Jobs, made its six captures contiguous and preserved the zero-proposal mapping result; updated the three related Use captions plus notification settings. MCP-enabled controls remain conditional on deployment state, not renamed.
+
+## 2026-11-04T03:03:47+01:00 — fourth-capture correction handoff complete
+
+Steering reread; the latest user request governs this retake. Eleven images reviewed, 17 failed entries corrected for retake, all 60 recipes structurally checked, and `GUIDE_OUT=_build/C10-SCREENS npm run build` passed (247 pages, 7.26 seconds). `fourth-capture-corrections.md` gives the exact retake list; MCP-enabled state and existing task recovery remain externally verifiable prerequisites. No instance request, capture or commit ran here.

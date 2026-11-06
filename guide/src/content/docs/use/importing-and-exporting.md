@@ -123,6 +123,12 @@ workbook using its saved import information. **This import** records the chosen 
 and load policy. After confirmation, **The result** reports **Applied items**, **Refused items**
 and **Not loaded**. Read that result even when the preview looked right.
 
+![Import preview with one refused Height cell, 115 unchanged rows and per-column reading counts](/docs/screens/import-preview-columns.png)
+
+*Above: one row in the reference Stops workbook is refused because Height (m) contains
+“not a number”. The column counts show 115 height values read and one refused; the preview
+has written nothing.*
+
 ## Profiles and recurring keys
 
 In **Settings › Data operations › Import profiles**, **Valid** means the profile fits its

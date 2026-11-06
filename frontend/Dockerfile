@@ -5,6 +5,8 @@ FROM node:22-alpine AS build
 # The repository's layout: the type check reads the starter model from beside the frontend folder.
 WORKDIR /repo/frontend
 COPY model/rdm-starter.json /repo/model/rdm-starter.json
+# Two model tests read the example model from the guide's samples.
+COPY guide/samples/model.json /repo/guide/samples/model.json
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/index.html frontend/tsconfig.json frontend/vite.config.ts ./

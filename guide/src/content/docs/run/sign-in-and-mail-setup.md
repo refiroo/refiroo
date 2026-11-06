@@ -163,7 +163,7 @@ Removing mail settings stops sending; waiting messages fail once their retry win
 
 ## Inbox mail and digests
 
-The same sender delivers inbox notices and digests. People choose them in Settings › Notifications;
+The same sender delivers inbox notices and digests. People choose them in **Settings › General › Notification email**;
 clients receive no mail. These choices do not need AI or another server setting. Immediate notices
 are mailed only after a person opts in and while the notice is less than 24 hours old, preventing
 an old backlog after a long outage. The inbox retains notices even when their mail is off.
@@ -252,4 +252,7 @@ For password reset, use a test person and complete the single-use reset, then si
 link address and expiry as well as delivery. For digests, inspect the person's saved time zone and
 notification choices before changing the server clock: delivery is due at that person's 07:00.
 
-![Mail settings and test message for the configured SMTP server](/docs/screens/admin-mail-settings.png)
+![Mail settings before setup, with blank server fields and Send test message unavailable](/docs/screens/admin-mail-settings.png)
+
+*Above: mail is not set up on the reference instance. The test becomes available after
+server settings are saved; this picture does not show a successful test or delivered digest.*

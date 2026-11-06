@@ -131,7 +131,7 @@ change set. **Proposed by the AI** shows the confidence and reason; on a phone, 
 to read the reason. Confidence is the provider's estimate, not a guarantee. The operator sets
 a minimum confidence; lower answers and invented or missing targets are left unmapped.
 
-![A change-set mapping grid narrowed to Proposed with AI confidence and reasons](/docs/screens/use-mapping-proposed.png)
+![Proposed mappings in a change set, with suggested target stops and their confidence and reasons](/docs/screens/use-mapping-proposed.png)
 
 Correct a wrong target through **Change** and **Save mapping**, or remove the mapping if allowed.
 Changing the target removes its AI mark because the replacement is your choice. Publishing

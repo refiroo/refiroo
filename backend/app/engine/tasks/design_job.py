@@ -685,6 +685,12 @@ def install_and_activate(session: Session, task: AiTask, draft: ModelDraft, max_
             422, "INVALID_MODEL", "The assistant's model draft is invalid and cannot be installed"
         )
     installed, _ = install_model_release(session, compiled.model)
+    # The page keeps showing what the draft changed, against the model it was drafted on.
+    task.design = {
+        **(task.design or {}),
+        "modelBaseReleaseId": (task.design or {}).get("modelBaseReleaseId")
+        or draft.base_model_release_id,
+    }
     draft.base_model_release_id = installed.id
     assignment, current = load_assignment(session, task.workspace_key, for_update=True)
     activate_model_release(

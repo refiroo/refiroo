@@ -1,0 +1,277 @@
+[
+  {
+    "image": "admin-agent-access-enabled.png",
+    "pages": [
+      "administer/agent-access.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "admin-agent-calls.png",
+    "pages": [
+      "administer/agent-access.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "admin-ai-settings.png",
+    "pages": [
+      "administer/ai.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "admin-ai-calls.png",
+    "pages": [
+      "administer/ai.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "admin-ai-test-answered.png",
+    "pages": [
+      "guide/administer/check-the-ai-provider.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "admin-ai-test-failed.png",
+    "pages": [
+      "guide/administer/check-the-ai-provider.md"
+    ],
+    "status": "deferred",
+    "reason": "No controlled failure exists. Do not alter provider/security configuration or deliberately cause an outage for a picture."
+  },
+  {
+    "image": "admin-agent-new-client.png",
+    "pages": [
+      "guide/administer/manage-agent-access.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "admin-agent-register.png",
+    "pages": [
+      "guide/administer/manage-agent-access.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "admin-agent-block.png",
+    "pages": [
+      "guide/administer/manage-agent-access.md"
+    ],
+    "status": "deferred",
+    "reason": "No saved fictional reference assistant is identified. Registration/access changes are prohibited; do not block a real assistant or invent its affected-session count."
+  },
+  {
+    "image": "integrate-agent-access-connect.png",
+    "pages": [
+      "guide/integrate/connect-an-assistant.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "model-assistant-change-dialog.png",
+    "pages": [
+      "guide/model/change-a-model-with-the-assistant.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "model-assistant-whole-type-move.png",
+    "pages": [
+      "guide/model/change-a-model-with-the-assistant.md"
+    ],
+    "status": "deferred",
+    "reason": "Needs an additional whole-type model-change task/accepted model. The single task is used for workbook loading; no pre-existing accepted move is identified."
+  },
+  {
+    "image": "model-assistant-partial-move.png",
+    "pages": [
+      "guide/model/change-a-model-with-the-assistant.md"
+    ],
+    "status": "deferred",
+    "reason": "Needs another model-change task and the first release already activated. Only one workbook task is requested; release activation is prohibited."
+  },
+  {
+    "image": "model-account-before-request.png",
+    "pages": [
+      "guide/model/explain-a-model-change.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "model-account-facts.png",
+    "pages": [
+      "guide/model/explain-a-model-change.md",
+      "journeys/shape-a-model.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "model-account-provider-failure.png",
+    "pages": [
+      "guide/model/explain-a-model-change.md"
+    ],
+    "status": "deferred",
+    "reason": "No naturally failed account request exists. Do not invent the provider result or create an outage."
+  },
+  {
+    "image": "model-assistant-workbook-proposal.png",
+    "pages": [
+      "guide/model/review-an-assistants-workbook-design.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "model-assistant-workbook-loaded.png",
+    "pages": [
+      "guide/model/review-an-assistants-workbook-design.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-ask-filters.png",
+    "pages": [
+      "guide/use/ask-a-list-in-words.md",
+      "journeys/work-with-an-assistant.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-assistant-words.png",
+    "pages": [
+      "guide/use/change-records-with-the-assistant.md"
+    ],
+    "status": "deferred",
+    "reason": "Needs a separate words-only task. The one allowed task uses a workbook; a file-backed proposal cannot honestly illustrate this state."
+  },
+  {
+    "image": "use-assistant-stopped.png",
+    "pages": [
+      "guide/use/continue-an-assistant-task.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-assistant-reload.png",
+    "pages": [
+      "guide/use/continue-an-assistant-task.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-record-history-explained.png",
+    "pages": [
+      "guide/use/explain-a-period-in-history.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-assistant-workbook.png",
+    "pages": [
+      "guide/use/load-a-workbook-with-the-assistant.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-assistant-loaded.png",
+    "pages": [
+      "guide/use/load-a-workbook-with-the-assistant.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-mapping-proposal-result.png",
+    "pages": [
+      "guide/use/propose-targets.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-assistant-proposal.png",
+    "pages": [
+      "journeys/work-with-an-assistant.md",
+      "use/loading-with-the-assistant.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "run-ai-settings.png",
+    "pages": [
+      "run/ai.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "run-ai-provider-calls.png",
+    "pages": [
+      "run/ai.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-ask-partial.png",
+    "pages": [
+      "use/ask-in-words.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-history-explained.png",
+    "pages": [
+      "use/history.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "use-history-assistant.png",
+    "pages": [
+      "use/history.md"
+    ],
+    "status": "deferred",
+    "reason": "Needs an existing published AI-authored change and distinct publisher. No such fixture is identified; publication is prohibited for screenshots."
+  },
+  {
+    "image": "use-mapping-proposed.png",
+    "pages": [
+      "use/mapping-grids.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  },
+  {
+    "image": "notification-email-digest.png",
+    "pages": [
+      "use/notifications-settings.md"
+    ],
+    "status": "recipe",
+    "reason": null
+  }
+]

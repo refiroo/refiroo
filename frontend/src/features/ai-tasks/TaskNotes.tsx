@@ -1,6 +1,7 @@
 /** What the assistant said, a provider failure or an operation the engine refused (0.16 AP6a), above the tables: the newest three, the earlier ones folded (0.16 AP13: what the person just did is the newest). */
 
 import type { AiTaskNote } from "@/types";
+import { AssistantText } from "@/ui/AssistantText";
 import { Disclosure } from "@/ui/Disclosure";
 import { Notice } from "@/ui/Notice";
 import { plural } from "./aiTaskText";
@@ -13,7 +14,7 @@ function One({ note }: { note: AiTaskNote }) {
       tone={note.kind === "note" ? "info" : "warning"}
       title={note.kind === "refused" ? "The engine refused an operation" : undefined}
     >
-      {note.text}
+      <AssistantText text={note.text} />
     </Notice>
   );
 }

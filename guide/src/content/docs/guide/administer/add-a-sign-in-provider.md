@@ -23,6 +23,8 @@ You need **Security administration** and help from the organisation’s sign-in 
 3. A first sign-in creates a person but grants no access automatically. Grant their direct or group roles, or [link the provider sign-in to an existing person](/docs/guide/administer/link-a-provider-person/) when they already have an account. An e-mail match alone does not link accounts.
 4. Confirm a complete successful provider sign-in before considering [Turn off local sign-in](/docs/guide/administer/turn-off-local-sign-in/).
 
+![Saved fictional OpenID Connect provider with redirect address, settings and signing-out choices](/docs/screens/admin-signin-provider.png)
+
 ## Maintain the provider
 
 The **Settings** form edits its button name, issuer, registration and groups claim. **Key** is fixed. Leave **Client secret** blank to keep it for an unchanged issuer; enter it again if changing an unused issuer. Once anyone has signed in through the provider, its issuer cannot change. Add another provider and link people instead. Choose **Save** to apply form edits; **Cancel** discards them.

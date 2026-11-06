@@ -20,6 +20,8 @@ You need **Integration administration** in the source workspace. Work with the r
 2. Choose **Resume**. refiroo checks the subscription against the active model and workspace again. If it refuses, read the findings under **The webhook was not resumed**, correct them and repeat.
 3. Check **Deliveries** for a fresh attempt and ask the receiver owner to verify the result. A request can arrive again; the receiver must cope with repeated events.
 
+![Resume dialog for the fictional webhook suspended by an administrator, with continuation choices](/docs/screens/admin-webhook-resume.png)
+
 ## Recover after events expired
 
 1. If **Events expired** is shown, record the publication named in the details and arrange a fresh synchronisation with the receiver owner. Continuing from the old position is no longer possible.

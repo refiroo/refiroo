@@ -35,6 +35,8 @@ in the workspace, with model administration and jobs enabled. See [Migrations](/
 
 ![Removed items in a blocked migration preview, with three items to fix and the migration button disabled](/docs/screens/model-migration-loss-confirm.png)
 
+![Stale migration review asking for another preview after the workspace changed](/docs/screens/model-migration-stale.png)
+
 A failed execution leaves data and the release switch unapplied together. Read **Not migrated**
 or **Not moved**, correct its cause and preview again. History retains removed content, but
 migration has no automatic reverse button.

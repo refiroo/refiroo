@@ -22,6 +22,8 @@ You need **Security administration** and an enabled provider that has already si
 
 While local sign-in is off, refiroo refuses to deactivate the last active person keeping it or remove their retained route. Keep more than one prepared recovery person if your organisation requires that resilience. Turning local sign-in off does not remove people, passwords, roles or the second-factor requirement.
 
+![Local accounts after turning ordinary password sign-in off, with Turn on available](/docs/screens/admin-local-signin-off.png)
+
 ## Restore local sign-in
 
 Open **Local accounts** and choose **Turn on**. This acts immediately, without a confirmation. Check **People sign in with a password again.** If no administrator can reach refiroo, the operator must use the server recovery procedure; see [Configure sign-in](/docs/run/sign-in-and-mail-setup/).

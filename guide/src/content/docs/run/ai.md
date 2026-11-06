@@ -86,8 +86,10 @@ session. It does pass the environment names Claude Code needs, including `ANTHRO
 `CLAUDE_*`, `AWS_*` and `NODE_*` names; treat credentials placed there as available to the session. The assistant user
 cannot read the engine's job-file directory or its process environment.
 
-With `AI_AGENT_SANDBOX=container`, the container provides the boundary because Claude Code's own
-operating-system sandbox cannot run there. **The container does not restrict the session's network
+With `AI_AGENT_SANDBOX=container`, Claude Code's own operating-system sandbox is off because it
+cannot run there. The session runs with Claude Code's permission prompts off so it can execute
+shell commands. The separate `assistant` user, which cannot read the engine's secrets or job files,
+is its boundary inside the container. **The container does not restrict the session's network
 access.** Apply any required outbound network restrictions in your deployment. Outside a container,
 refiroo requires the operating-system sandbox; an unavailable sandbox refuses the session.
 
@@ -132,9 +134,12 @@ provider, appears in the call log and may incur usage. It does not test the assi
 Enable call-content logging only while needed: it can contain reference data. These settings do not
 control the provider's own retention.
 
-The shipped Compose file persists job files but does not mount the assistant's working folders or
-Claude Code directory as volumes. Replacing the container can therefore remove session files before
-their normal cleanup date. Keep this in mind before recreating a container with unfinished tasks.
+The shipped Compose file persists the assistant’s working folders in the `assistant` volume at
+`/opt/refiroo/rdm-engine/data/assistant`, and Claude Code configuration and session logs in
+`assistant-claude` at `/opt/refiroo/rdm-engine/data/assistant-claude`. Container replacement and
+upgrades keep these volumes, so open tasks retain the files they need to continue. A backup need
+not include these two volumes: losing them loses open tasks’ folders and session logs, not records.
+Normal task cleanup still applies.
 
 ## Provider and assistant settings
 
@@ -158,7 +163,7 @@ service. **Settings › Administration › AI** displays them; it does not edit 
 | `AI_TASK_RETENTION_DAYS` | `90` | Positive number of days to retain tasks after completion or last change; see retention above. |
 | `AI_AGENT_COMMAND` | Empty | Claude Code command, for example `claude --model sonnet`. Empty disables the assistant. refiroo enforces its own tools and permission mode even if the command supplies another. |
 | `AI_AGENT_SANDBOX` | Empty | `container` in the shipped image; otherwise the operating-system sandbox. Do not use `container` on a host to bypass sandbox requirements. |
-| `AI_AGENT_API_URL` | Empty | Reachable API address for the session. Empty uses `PUBLIC_URL`. It must reach this instance, not an AI endpoint. |
+| `AI_AGENT_API_URL` | `http://127.0.0.1:8000` in Compose; otherwise `PUBLIC_URL` | Address the session uses to reach this engine's API. Compose supplies the address inside the engine container unless overridden. Outside Compose, unset or empty uses `PUBLIC_URL`; override it if the engine's machine cannot reach that address. See [Set up AI](/docs/run/set-up-ai/). |
 
 The Claude API needs outbound HTTPS to `api.anthropic.com`, or the configured gateway. Compatible
 endpoints need JSON-schema answers. For Ollama, use its reachable `/v1` address and set
@@ -276,6 +281,6 @@ facts; a failed question applies no filters; a mapping request reports a warning
 call. **Neither the assistant nor an AI provider is set up** is the AI page's notice when both are
 unset. For command, credential, sandbox and startup failures, follow [Set up AI](/docs/run/set-up-ai/#if-startup-or-a-request-fails).
 
-![AI settings showing both switches and the permitted send level](/docs/screens/run-ai-settings.png)
+![AI settings showing the assistant and provider on and the permitted send level](/docs/screens/run-ai-settings.png)
 
 ![AI provider test result and recorded calls](/docs/screens/run-ai-provider-calls.png)

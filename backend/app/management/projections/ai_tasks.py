@@ -9,7 +9,8 @@ from ...common.pagination import Page
 from ...common.time import as_utc
 from ...engine.identity.principals import named, ref
 from ...engine.tasks import agent
-from ...models.database import AiTask, Job, ModelDraft, ModelDraftOperation, SourceFile
+from ...engine.tasks.model_changes import model_changes
+from ...models.database import AiTask, Job, ModelDraft, ModelRelease, SourceFile
 from ..schemas.ai_tasks import AiTaskPage, AiTaskResponse, TaskChange, TaskChangePage
 
 _JOB_PHASES = {"profiling", "reading", "designing", "checking"}
@@ -28,23 +29,17 @@ def _phase(session: Session, task: AiTask) -> str | None:
 
 
 def _design(session: Session, task: AiTask) -> dict[str, Any] | None:
-    """The design with its model changes as the draft's history holds them now: what the assistant
-    applied and what the person changed since in the model editor, without what was undone."""
+    """The design with its model changes as the draft holds them now, against the model it was drafted
+    on: what the assistant did, by whatever steps, and what the person changed since in the editor."""
     if task.design is None or task.draft_id is None:
         return task.design
-    applied = [
-        {"kind": kind, **parameters}
-        for kind, parameters in session.execute(
-            select(ModelDraftOperation.kind, ModelDraftOperation.parameters)
-            .where(
-                ModelDraftOperation.draft_id == task.draft_id,
-                ModelDraftOperation.undone_by_step.is_(None),
-                ModelDraftOperation.origin["type"].as_string() != "undo",
-            )
-            .order_by(ModelDraftOperation.sequence)
-        )
-    ]
-    return {**task.design, "operations": applied}
+    draft = session.get(ModelDraft, task.draft_id)
+    if draft is None:
+        return task.design
+    base_id = task.design.get("modelBaseReleaseId") or draft.base_model_release_id
+    release = session.get(ModelRelease, base_id) if base_id else None
+    base = release.model_json if release else {}
+    return {**task.design, "operations": model_changes(base, draft.model_json)}
 
 
 def _can_tell(task: AiTask) -> bool:

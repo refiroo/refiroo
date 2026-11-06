@@ -5,6 +5,7 @@
  */
 
 import type { AiTask, EngineModel } from "@/types";
+import { AssistantText } from "@/ui/AssistantText";
 import { Card } from "@/ui/Card";
 import { Disclosure } from "@/ui/Disclosure";
 import { Notice } from "@/ui/Notice";
@@ -52,6 +53,8 @@ export function ModelProposal({
   if (!design) return null;
   const names = modelNames(model, design.operations);
   const draftId = task.draftId;
+  // A words task whose model does not change has no draft: the proposal is the change it will make.
+  const unchanged = !draftId && !!design.modelUnchanged;
   const outline = design.outline ?? [];
   const checks = design.checks ?? [];
   const corrections = design.corrections ?? [];
@@ -73,7 +76,7 @@ export function ModelProposal({
               )}{" "}
               {canLoad && (
                 <button type="button" className="primary" disabled={pending} onClick={onAccept}>
-                  Accept the model
+                  {unchanged ? "Accept" : "Accept the model"}
                 </button>
               )}
             </span>
@@ -86,7 +89,7 @@ export function ModelProposal({
           </Notice>
         )}
         {!canLoad && !refusal && <CannotLoad workspaceLabel={workspaceLabel ?? task.workspaceKey} />}
-        <p>{design.summary}</p>
+        <AssistantText text={design.summary} />
         {outline.length > 0 && (
           <ul className="task-sheet-list" aria-label="The types it proposes">
             {outline.map((item) => (
@@ -96,10 +99,13 @@ export function ModelProposal({
             ))}
           </ul>
         )}
+        {unchanged && <p>No change to the model.</p>}
         <p className="task-reason">
-          {design.moves?.length
-            ? "Nothing is installed before you accept the model, and no record moves before you confirm the migration."
-            : "Nothing is installed or loaded before you accept the model."}
+          {unchanged
+            ? "Nothing is loaded before you accept. Accepting prepares the change in a change set for your review; nothing is published."
+            : design.moves?.length
+              ? "Nothing is installed before you accept the model, and no record moves before you confirm the migration."
+              : "Nothing is installed or loaded before you accept the model."}
         </p>
         {check && (
           <Notice
@@ -126,13 +132,15 @@ export function ModelProposal({
         )}
       </Section>
       <ProposalMoves task={task} />
-      <Disclosure variant="button" label="Show the model change" openLabel="Hide the model change">
-        <DesignModel
-          design={design}
-          names={names}
-          onOpenEditor={draftId && onOpenEditor ? () => onOpenEditor(draftId) : undefined}
-        />
-      </Disclosure>
+      {!unchanged && (
+        <Disclosure variant="button" label="Show the model change" openLabel="Hide the model change">
+          <DesignModel
+            design={design}
+            names={names}
+            onOpenEditor={draftId && onOpenEditor ? () => onOpenEditor(draftId) : undefined}
+          />
+        </Disclosure>
+      )}
       {checks.length > 0 && (
         <Section title="Checks" headingLevel={3}>
           <ul className="task-sheet-list" aria-label="The assistant’s checks">
@@ -169,7 +177,7 @@ export function ModelProposal({
         </Card>
       )}
       {task.canTell !== false && (
-        <Section title="Correct the model" headingLevel={3}>
+        <Section title={unchanged ? "Correct the proposal" : "Correct the model"} headingLevel={3}>
           {corrections.length > 0 && (
             <ul className="task-sheet-list" aria-label="What you asked">
               {corrections.map((correction, index) => (

@@ -1612,7 +1612,7 @@
     },
     {
       "name": "admin-mail-messages",
-      "shows": "Mail Messages section filtered to Waiting with its actual empty state and state counts. Select the first option after All with the keyboard; do not hardcode its count or match a label containing all the options. No messages generated, sent or stopped.",
+      "shows": "Mail Messages filtered to Waiting, whether rows exist or not. No dependency on the former unconfigured state or an empty outbox. No message is sent or stopped.",
       "height": 1000,
       "actions": [
         {
@@ -1620,7 +1620,8 @@
         },
         {
           "waitFor": {
-            "text": "Mail is not set up",
+            "role": "heading",
+            "name": "Mail",
             "exact": true
           }
         },
@@ -1645,17 +1646,12 @@
         },
         {
           "press": "Enter"
-        },
-        {
-          "waitFor": {
-            "text": "No message is in this state.",
-            "exact": true
-          }
         }
       ],
       "expect": [
         "Messages",
-        "No message is in this state."
+        "State",
+        "Refresh"
       ]
     },
     {
@@ -1780,10 +1776,38 @@
     },
     {
       "name": "admin-agent-access-enabled",
-      "shows": "Agent access connection and catalogues, if MCP is enabled. AI being on does not imply MCP is on; do not enable it to obtain this screen.",
+      "shows": "Enabled Agent access: connection address, limit and the client/assistant sections. Accepted image shows empty sections before the fictional fixtures were created; no populated catalogue is claimed.",
       "actions": [
         {
-          "goto": "/settings/agent-access"
+          "goto": "/settings/ai"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "AI",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "link",
+            "name": "Agent access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Agent access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "How to connect",
+            "exact": false
+          },
+          "timeout": 15000
         },
         {
           "waitFor": {
@@ -1803,10 +1827,38 @@
     },
     {
       "name": "integrate-agent-access-connect",
-      "shows": "MCP connection address and Claude Code command; read only, requires MCP enabled.",
+      "shows": "Enabled Agent access with MCP address and Claude Code command. Accepted image shows empty client and assistant sections.",
       "actions": [
         {
-          "goto": "/settings/agent-access"
+          "goto": "/settings/ai"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "AI",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "link",
+            "name": "Agent access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Agent access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "How to connect",
+            "exact": false
+          },
+          "timeout": 15000
         },
         {
           "waitFor": {
@@ -1825,10 +1877,38 @@
     },
     {
       "name": "admin-agent-new-client",
-      "shows": "Unsaved New agent client dialog; never create a client or show its secret.",
+      "shows": "Unsaved New agent client dialog: empty Name, explanation that access starts empty, disabled Create and show its secret. Cancel without creating a secret.",
       "actions": [
         {
-          "goto": "/settings/agent-access"
+          "goto": "/settings/ai"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "AI",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "link",
+            "name": "Agent access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Agent access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "How to connect",
+            "exact": false
+          },
+          "timeout": 15000
         },
         {
           "click": {
@@ -1862,10 +1942,38 @@
     },
     {
       "name": "admin-agent-register",
-      "shows": "Unsaved assistant registration with a loopback return address. No assistant or access is registered.",
+      "shows": "Unsaved Register an assistant dialog with Guide screenshot assistant and fictional loopback return address. Cancel without registering.",
       "actions": [
         {
-          "goto": "/settings/agent-access"
+          "goto": "/settings/ai"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "AI",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "link",
+            "name": "Agent access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Agent access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "How to connect",
+            "exact": false
+          },
+          "timeout": 15000
         },
         {
           "click": {
@@ -1928,9 +2036,7 @@
         },
         {
           "click": {
-            "role": "radio",
-            "name": "Ask",
-            "exact": true
+            "css": ".ask-switch label:has-text(\"Ask\")"
           }
         },
         {
@@ -1944,13 +2050,11 @@
           "press": "Enter"
         },
         {
-          "wait": 90000
-        },
-        {
           "waitFor": {
             "text": "Your question became these filters.",
             "exact": false
-          }
+          },
+          "timeout": 300000
         }
       ],
       "expect": [
@@ -1969,9 +2073,7 @@
         },
         {
           "click": {
-            "role": "radio",
-            "name": "Ask",
-            "exact": true
+            "css": ".ask-switch label:has-text(\"Ask\")"
           }
         },
         {
@@ -1985,13 +2087,11 @@
           "press": "Enter"
         },
         {
-          "wait": 90000
-        },
-        {
           "waitFor": {
             "text": "Not possible here:",
             "exact": false
-          }
+          },
+          "timeout": 300000
         }
       ],
       "expect": [
@@ -2005,13 +2105,14 @@
       "shows": "Workspace Activity account for the last 30 days: real facts and provider statements, no changes made. If no facts or no cited statements exist, report that prerequisite.",
       "actions": [
         {
-          "goto": "/settings/workspaces/graubuenden?tab=activity"
+          "goto": "/settings/workspaces/graubuenden/activity"
         },
         {
           "waitFor": {
             "text": "What changed",
             "exact": false
-          }
+          },
+          "timeout": 300000
         },
         {
           "select": {
@@ -2028,13 +2129,11 @@
           }
         },
         {
-          "wait": 90000
-        },
-        {
           "waitFor": {
             "text": "The facts (",
             "exact": false
-          }
+          },
+          "timeout": 300000
         }
       ],
       "expect": [
@@ -2062,7 +2161,8 @@
             "role": "heading",
             "name": "Chur Wiesental",
             "exact": true
-          }
+          },
+          "timeout": 300000
         },
         {
           "scrollTo": {
@@ -2075,7 +2175,8 @@
           "waitFor": {
             "text": "What changed",
             "exact": false
-          }
+          },
+          "timeout": 300000
         },
         {
           "select": {
@@ -2106,13 +2207,11 @@
           }
         },
         {
-          "wait": 90000
-        },
-        {
           "waitFor": {
             "text": "The facts (",
             "exact": false
-          }
+          },
+          "timeout": 300000
         }
       ],
       "expect": [
@@ -2198,7 +2297,8 @@
           "waitFor": {
             "text": "Explain this change",
             "exact": false
-          }
+          },
+          "timeout": 300000
         },
         {
           "click": {
@@ -2208,13 +2308,11 @@
           }
         },
         {
-          "wait": 90000
-        },
-        {
           "waitFor": {
             "text": "The facts (",
             "exact": false
-          }
+          },
+          "timeout": 300000
         }
       ],
       "expect": [
@@ -2236,7 +2334,7 @@
     },
     {
       "name": "use-mapping-proposal-result",
-      "shows": "One mapping-target proposal job, narrowed to the FICTIONAL demonstration codes, in a new unpublished change set C10 AI mapping proposals. Only unmapped codes are considered. No live mapping or publication is confirmed.",
+      "shows": "One mapping-target proposal job, narrowed to the FICTIONAL demonstration codes, in a new unpublished change set C10 AI mapping proposals. Only unmapped codes are considered. No live mapping or publication is confirmed. Fourth capture already completed: 0 proposed, 1 no likely target, 0 changed meanwhile. Keep the existing image; do NOT rerun this charged setup for the retake.",
       "actions": [
         {
           "goto": "/apps/systems/views/codes-to-stops?workspaceKey=graubuenden"
@@ -2278,27 +2376,91 @@
           }
         },
         {
-          "wait": 180000
-        },
-        {
           "waitFor": {
             "text": "Targets proposed",
             "exact": false
-          }
+          },
+          "timeout": 300000
         }
       ],
       "expect": [
         "Targets proposed",
         "Proposed",
         "Left unmapped: no likely target",
-        "Changed meanwhile, not touched",
-        "Show proposed"
+        "Changed meanwhile, not touched"
       ],
-      "height": 1100
+      "height": 1100,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Close",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "c10-setup-matching-proposals",
+      "height": 1100,
+      "shows": "Fixture 2: two fictional C10-MATCH codes that name real Chur stops in isolated c10-mapping-pictures. One real charged request, a new unpublished change set C10 matching targets; no mapping publication. Keep recorded job/change-set address for retakes. Provider must actually offer targets; do not fake rows or silently widen the request.",
+      "actions": [
+        {
+          "goto": "/apps/systems/views/codes-to-stops?workspaceKey=c10-mapping-pictures"
+        },
+        {
+          "fill": {
+            "placeholder": "Search system codes"
+          },
+          "value": "C10-MATCH"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Propose targets",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Name of the new change set",
+            "exact": true
+          },
+          "value": "C10 matching targets"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Propose",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Targets proposed"
+          },
+          "timeout": 300000
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Show proposed",
+            "exact": true
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Targets proposed",
+        "Show proposed"
+      ]
     },
     {
       "name": "use-mapping-proposed",
-      "shows": "Continue the preceding result: Show proposed opens the retained unpublished change set. Verify actual confidence and reason. This requires at least one offered proposal; zero proposals is an honest unmet prerequisite.",
+      "shows": "Same successful nonzero proposal result as c10-setup-matching-proposals. Show proposed opens its unpublished mapping grid. Must visibly contain C10-MATCH source rows, target stops, confidence and reason; no Save mapping or publication. Inspect actual output after capture.",
       "actions": [
         {
           "click": {
@@ -2309,14 +2471,29 @@
         },
         {
           "waitFor": {
-            "text": "Proposed",
-            "exact": false
-          }
+            "text": "Proposed"
+          },
+          "timeout": 300000
+        },
+        {
+          "waitFor": {
+            "text": "Chur Wiesental"
+          },
+          "timeout": 300000
+        },
+        {
+          "waitFor": {
+            "text": "Proposed by the AI"
+          },
+          "timeout": 300000
         }
       ],
       "expect": [
+        "Codes to stops",
         "Proposed",
-        "FICTIONAL"
+        "C10-MATCH",
+        "Chur Wiesental",
+        "Proposed by the AI"
       ],
       "height": 1100
     },
@@ -2331,7 +2508,8 @@
           "waitFor": {
             "text": "Send a test request",
             "exact": false
-          }
+          },
+          "timeout": 300000
         },
         {
           "click": {
@@ -2341,13 +2519,11 @@
           }
         },
         {
-          "wait": 90000
-        },
-        {
           "waitFor": {
             "text": "The AI provider answered",
             "exact": false
-          }
+          },
+          "timeout": 300000
         },
         {
           "scrollTo": {
@@ -2374,7 +2550,8 @@
           "waitFor": {
             "text": "The AI provider answered",
             "exact": false
-          }
+          },
+          "timeout": 300000
         }
       ],
       "expect": [
@@ -2419,7 +2596,2024 @@
         "Test request"
       ],
       "height": 1300
+    },
+    {
+      "name": "model-assistant-change-dialog",
+      "shows": "Unsaved Change this model dialog in Graubünden. No second assistant task: only inspect its instruction, optional workbook and sending disclosure, then cancel.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Workspace actions",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Change this model…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "Change this model",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "Change this model",
+        "Graubünden",
+        "What should change?",
+        "A workbook (optional)",
+        "Sent to Claude Code:",
+        "Ask the assistant"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ],
+      "height": 1100
+    },
+    {
+      "name": "use-assistant-workbook",
+      "shows": "Load a workbook dialog with the guide demonstration workbook selected. This is an unsent dialog; the following recipe deliberately reopens it to start the single task.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=graubuenden"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Workspace actions",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Import…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "dialog",
+            "name": "Load a workbook",
+            "exact": true
+          }
+        },
+        {
+          "upload": {
+            "css": "input[type=file]"
+          },
+          "value": "guide/samples/Haltestellen_Busbetrieb_Nord.xlsx"
+        }
+      ],
+      "expect": [
+        "Load a workbook",
+        "Workbook",
+        "Into",
+        "Tell the assistant about this file (optional)",
+        "Sent to Claude Code:",
+        "Read the workbook",
+        "Import without the assistant…"
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ],
+      "height": 1500
+    },
+    {
+      "name": "c10-setup-assistant-ready",
+      "shows": "Fixture 1 prerequisite check: isolated workbook workspace with enabled working assistant; no mutation. This check deliberately precedes the new task. Keep all workbook-chain entries at 1440×1500.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=c10-workbook-pictures"
+        },
+        {
+          "waitFor": {
+            "text": "Stops"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Stops",
+        "C10 workbook pictures"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "c10-setup-workbook-retake",
+      "shows": "Sixth capture: one new workbook task in the fresh isolated workspace c10-workbook-retake-pictures (the first workspace already holds the installed workbook model), waits up to 25 minutes for a checked proposal. Not a picture.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=c10-workbook-retake-pictures"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Workspace actions",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Import…",
+            "exact": true
+          }
+        },
+        {
+          "upload": {
+            "css": "input[type=file]"
+          },
+          "value": "guide/samples/Haltestellen_Busbetrieb_Nord.xlsx"
+        },
+        {
+          "fill": {
+            "label": "Tell the assistant about this file (optional)",
+            "exact": true
+          },
+          "value": "Reuse the existing model where it fits. Read every sheet, check every row and propose the load. Wait for my acceptance before installing or loading anything."
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Read the workbook",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "The check of every row"
+          },
+          "timeout": 1500000
+        }
+      ],
+      "expect": [
+        "The assistant’s proposal",
+        "The check of every row"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "use-assistant-stopped",
+      "shows": "Start one new workbook task in isolated C10 workbook pictures (fixture 1), then Stop while running. Wait up to 300000 ms for the genuine stopped state. Do not reuse failed job 67d62b49-304d-489c-9d35-87cd714446ed or photograph it as stopped. Run through use-assistant-reload together, same viewport/session; record task/job URLs before retakes.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=c10-workbook-pictures"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Workspace actions",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Import…",
+            "exact": true
+          }
+        },
+        {
+          "upload": {
+            "css": "input[type=file]"
+          },
+          "value": "guide/samples/Haltestellen_Busbetrieb_Nord.xlsx"
+        },
+        {
+          "fill": {
+            "label": "Tell the assistant about this file (optional)",
+            "exact": true
+          },
+          "value": "Reuse the existing model where it fits. Read every sheet, check every row and propose the load. Wait for my acceptance before installing or loading anything."
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Read the workbook",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Stop",
+            "exact": true
+          },
+          "timeout": 1800000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Stop",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "You stopped the assistant"
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "You stopped the assistant",
+        "Nothing was installed or loaded",
+        "Tell the assistant how to go on",
+        "Go on as it was"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "use-assistant-proposal",
+      "shows": "The checked proposal of the new workbook task (c10-workbook-retake-pictures, task 5af26232): actual row counts, no second upload.",
+      "actions": [
+        {
+          "goto": "/settings/ai-tasks/5af26232-a6a7-42aa-85d3-7567cc2b449d"
+        },
+        {
+          "waitFor": {
+            "text": "The assistant’s proposal"
+          },
+          "timeout": 300000
+        },
+        {
+          "waitFor": {
+            "text": "The check of every row"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "The assistant’s proposal",
+        "The check of every row",
+        "Accept the model",
+        "Show the model change"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "model-assistant-workbook-proposal",
+      "shows": "The SAME workbook proposal at 1440x1500, with its proposed model expanded. No second task/request. The following loaded-state recipe accepts it into an unpublished change set; retain the installed release without activating it. Checks, questions and omissions depend on actual provider output and need image review.",
+      "actions": [
+        {
+          "goto": "/settings/ai-tasks/5af26232-a6a7-42aa-85d3-7567cc2b449d"
+        },
+        {
+          "waitFor": {
+            "text": "The assistant’s proposal",
+            "exact": false
+          },
+          "timeout": 1800000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Show the model change",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "The assistant’s proposal",
+        "Hide the model change",
+        "The check of every row",
+        "Accept the model"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "use-assistant-loaded",
+      "shows": "Continue the same Claude Code task after both proposal captures. Accept the model once; engine/tasks/agent.py installs without activation and loads only an unpublished change set. Do not use a saved-profile Load button (it may activate). Wait for the loaded result; no correction is sent, activation or publication confirmed. Retain the task/change set for the next two captures.",
+      "actions": [
+        {
+          "goto": "/settings/ai-tasks/1ffb2cd3-99d7-444a-ad2d-4aab26286396"
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Review the change set",
+            "exact": true
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "Loaded into the change set",
+        "Review the change set",
+        "Discard the change set"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "model-assistant-workbook-loaded",
+      "shows": "Same loaded task, model-administrator view, no additional request. Counts and profile status must be read from the actual result. Exclusions may be absent; do not invent Not loaded details.",
+      "actions": [
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Review the change set",
+            "exact": true
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "Loaded into the change set",
+        "Review the change set",
+        "Discard the change set"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "use-assistant-reload",
+      "shows": "Same loaded task. Type an unsent correction to open the destructive reload confirmation, capture its warning and Cancel. No reload, deletion or extra provider turn occurs. The unpublished change set, unactivated release and task remain: cancel this dialog because this picture needs only the warning.",
+      "actions": [
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Review the change set",
+            "exact": true
+          },
+          "timeout": 1800000
+        },
+        {
+          "fill": {
+            "label": "Not what you wanted? Tell the assistant",
+            "exact": true
+          },
+          "value": "Keep the proposal as it is; this text only opens the reload warning for documentation."
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Discard and load again",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "alertdialog",
+            "name": "Discard this change set and load again?",
+            "exact": true
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "Discard this change set and load again?",
+        "Everything loaded into",
+        "with any edits you made in it",
+        "Live data was never changed."
+      ],
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ],
+      "height": 1500
+    },
+    {
+      "name": "notification-email-digest",
+      "shows": "Accepted image: Notification email for an account with no email address and no followed workspace. It does not show digest preferences or a sent message. Read only; no mail fixture needed for this existing image.",
+      "actions": [
+        {
+          "goto": "/settings/ai"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "AI",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "link",
+            "name": "Notification email",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Notification email",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "css": ".account-page, .account-muted, .inline-error"
+          }
+        }
+      ],
+      "expect": [
+        "Notification email",
+        "Workspaces I follow"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "admin-agent-calls",
+      "shows": "Existing real MCP call log for Stops checker (guide), with Answered and Refused outcomes and argument names only. Reads only; accepted image also shows Guide example assistant, not blocked.",
+      "actions": [
+        {
+          "goto": "/settings/ai"
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "AI",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "link",
+            "name": "Agent access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Agent access",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "How to connect",
+            "exact": false
+          },
+          "timeout": 15000
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "Calls",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Arguments",
+            "exact": false
+          }
+        }
+      ],
+      "expect": [
+        "Calls",
+        "When",
+        "Who",
+        "Through",
+        "Tool",
+        "Arguments",
+        "Outcome"
+      ],
+      "height": 1100
+    },
+    {
+      "name": "c10-setup-assistant-words",
+      "shows": "Start one words-only task in fixture 1 isolated C10 words pictures. Retain checked proposal, task and draft; never publish.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=c10-words-pictures"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Workspace actions",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Import…",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Tell the assistant about this file (optional)",
+            "exact": true
+          },
+          "value": "Set the Abbreviation of the stop Chur Wiesental to C10-REVIEW. Reuse the existing model and record and change nothing else. Prepare a proposal for my review; do not load or publish yet."
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Ask the assistant",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "The assistant’s proposal"
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "The assistant’s proposal",
+        "Accept"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "use-assistant-words",
+      "shows": "Same words-only proposal, before acceptance. Review that it changes only Chur Wiesental Abbreviation; actual provider text/counts require capture review.",
+      "actions": [
+        {
+          "waitFor": {
+            "text": "The assistant’s proposal"
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "The assistant’s proposal",
+        "Accept",
+        "Tell the assistant what to change"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "c10-setup-assistant-whole-type-move",
+      "shows": "Fixture 1 workspace; start a model task, check the proposal then accept to prepare the move. Installs releases and, for partial moves, an unpublished change set. No Graubünden change. Provider outcomes must be reviewed before retakes.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=c10-stale-retake-pictures"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Workspace actions",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Change this model…",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "What should change?",
+            "exact": true
+          },
+          "value": "Move every Stop record to a new type called Guide stop (plural Guide stops), keeping IDs, parents, all field values, relationships and history. Remove the old Stop type. Update every view, relationship rule, placement and consumer API reference to the new type; raise any changed consumer contract version. This is a whole-type move using a migration, not delete and recreate. Propose first."
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Ask the assistant",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "The assistant’s proposal"
+          },
+          "timeout": 1800000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Accept the model",
+            "exact": true,
+            "nth": 1
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Move the records to the new model"
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "Move the records to the new model",
+        "Preview the migration"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "model-assistant-whole-type-move",
+      "shows": "Accepted move in its isolated picture workspace. Shows whole-type counts and migration preview action before any migration.",
+      "actions": [
+        {
+          "waitFor": {
+            "text": "Move the records to the new model"
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "Move the records to the new model",
+        "Preview the migration"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "c10-setup-stale-migration",
+      "height": 1500,
+      "shows": "Browser-only stale review setup. From the accepted whole-type task, preview migration; wait for its enabled confirmation before changing the source in a separate administrator session. Saves only a fictional abbreviation in the isolated workspace. Does not confirm the migration.",
+      "actions": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Preview the migration",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "css": ".migration-bar button.primary:enabled"
+          },
+          "timeout": 1800000
+        },
+        {
+          "session": "b",
+          "goto": "/apps/network/views/stops?workspaceKey=c10-stale-retake-pictures&search=Chur+Wiesental"
+        },
+        {
+          "session": "b",
+          "click": {
+            "text": "Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "session": "b",
+          "click": {
+            "role": "button",
+            "name": "Record actions",
+            "exact": true
+          }
+        },
+        {
+          "session": "b",
+          "click": {
+            "role": "menuitem",
+            "name": "Edit record",
+            "exact": true
+          }
+        },
+        {
+          "session": "b",
+          "fill": {
+            "label": "Abbreviation",
+            "exact": true
+          },
+          "value": "C10-STALE"
+        },
+        {
+          "session": "b",
+          "click": {
+            "role": "button",
+            "name": "Save changes",
+            "exact": true
+          }
+        },
+        {
+          "session": "b",
+          "wait": 3000
+        }
+      ],
+      "expect": [
+        "Nothing has changed yet"
+      ]
+    },
+    {
+      "name": "model-migration-stale",
+      "shows": "Same whole-type task as model-assistant-whole-type-move: preview its migration, make a genuine live edit in browser session b in this isolated workspace, then attempt confirmation in session a. Stale refusal must leave the migration unapplied. No Graubünden change. Run setup and picture contiguously after the whole-type picture.",
+      "actions": [
+        {
+          "click": {
+            "css": ".migration-bar button.primary:enabled"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "C10 whole move pictures changed after this preview"
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "C10 whole move pictures changed after this preview",
+        "Nothing was migrated.",
+        "Preview again",
+        "Close"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Close",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "c10-setup-assistant-partial-move",
+      "shows": "Fixture 1 workspace; start a model task, check the proposal then accept to prepare the move. Installs releases and, for partial moves, an unpublished change set. No Graubünden change. Provider outcomes must be reviewed before retakes.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=c10-partial-move-pictures"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Workspace actions",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "menuitem",
+            "name": "Change this model…",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "What should change?",
+            "exact": true
+          },
+          "value": "Split all Stop records between two new types: Chur Wiesental becomes Review stop (plural Review stops); every other Stop becomes Other stop (plural Other stops). Keep IDs, parents, values, relationships and history. Remove Stop from the final model. This is a per-record partial move in a change set, not a whole-type migration or delete and recreate. Update affected views, placements, relationships and consumer APIs and raise changed consumer contract versions. Propose first."
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Ask the assistant",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "The assistant’s proposal"
+          },
+          "timeout": 1800000
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Accept the model",
+            "exact": true,
+            "nth": 1
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Three steps are yours"
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "Three steps are yours",
+        "Open the release"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "c10-setup-partial-activate",
+      "shows": "Activate only the bridge release in isolated C10 partial move pictures, then return to the SAME task with Alt+Left. First step becomes Done and second Next. Record task/release/change-set URLs. Requires proposal/result review: the release must hold both old and new shapes, with no blocking compatibility findings.",
+      "actions": [
+        {
+          "goto": "/settings/ai-tasks/bc646dc2-885e-4ba8-875f-516d6137bb1a"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Open the release",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Activate in a workspace…",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"dialog\"] .selection-trigger"
+          }
+        },
+        {
+          "click": {
+            "role": "option",
+            "name": "C10 partial move pictures",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "css": "[role=\"dialog\"] button.primary:enabled"
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"dialog\"] button.primary:enabled"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "C10 partial move pictures now runs"
+          },
+          "timeout": 1800000
+        },
+        {
+          "press": "Alt+ArrowLeft"
+        },
+        {
+          "waitFor": {
+            "text": "Three steps are yours"
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "Three steps are yours",
+        "Done",
+        "Next",
+        "Review the change set"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "model-assistant-partial-move",
+      "shows": "Accepted move in its isolated picture workspace. Shows three stages after bridge activation: first Done, review/publish Next. Do not publish or activate final release.",
+      "actions": [
+        {
+          "goto": "/settings/ai-tasks/bc646dc2-885e-4ba8-875f-516d6137bb1a"
+        },
+        {
+          "waitFor": {
+            "text": "Three steps are yours"
+          },
+          "timeout": 1800000
+        }
+      ],
+      "expect": [
+        "Three steps are yours",
+        "Done",
+        "Next",
+        "Review the change set",
+        "3. Remove the emptied types"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "c10-setup-publish-assistant-history",
+      "height": 1500,
+      "shows": "After fixture 3 submits C10 assistant history through MCP, Guide Admin reviews and approves/publishes it through the browser in the isolated workspace. Irreversible publication affects only copied public data. Run once; after publication skip this setup and reuse the resulting history.",
+      "actions": [
+        {
+          "goto": "/apps/network/change-sets?workspaceKey=c10-history-pictures"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Open change set",
+            "exact": true,
+            "in": {
+              "css": ".change-set-card:has-text(\"C10 assistant history\")"
+            }
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Review and decide",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Approve and publish",
+            "exact": true
+          },
+          "timeout": 300000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Approve and publish",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Reviewed changes are now live."
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Reviewed changes are now live."
+      ]
+    },
+    {
+      "name": "use-history-assistant",
+      "shows": "Fixture 3: record history after Stops checker (guide) prepared and submitted a real MCP change set and a person published it. Read Chur Wiesental in its isolated workspace; expand the actual assistant-origin timeline entry, not an unrelated first event.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=c10-history-pictures&search=Chur+Wiesental"
+        },
+        {
+          "click": {
+            "text": "Chur Wiesental",
+            "exact": true
+          }
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "History",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "prepared by an assistant"
+          },
+          "timeout": 300000
+        },
+        {
+          "click": {
+            "css": "button.history-line:has-text(\"prepared by an assistant\")"
+          }
+        }
+      ],
+      "expect": [
+        "History",
+        "Prepared by an assistant",
+        "Stops checker (guide)"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "admin-agent-block",
+      "shows": "Existing Guide example assistant (f304e5b4-f58b-4fd6-9fe4-5a6afdba47db): confirmation with actual session count. After capture confirm Block for this fictional registration only. On a retake Restore it first using its row, then reopen Block; never select another assistant.",
+      "actions": [
+        {
+          "goto": "/settings/agent-access"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Block Guide example assistant",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Block Guide example assistant?"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Block Guide example assistant?",
+        "sessions end",
+        "Block",
+        "Cancel"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Block",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Blocked"
+          },
+          "timeout": 300000
+        }
+      ]
+    },
+    {
+      "name": "workspace-cannot-open",
+      "shows": "Fixture 6: older-language stored release in isolated c10-language-pictures. Administrator view includes the actual reason, Bring it up to date and alternatives. Does not change the release.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=c10-language-pictures"
+        },
+        {
+          "waitFor": {
+            "text": "C10 language pictures cannot be opened"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "C10 language pictures cannot be opened",
+        "Nothing was lost and nothing was changed.",
+        "Bring it up to date",
+        "Review the change…",
+        "Or continue elsewhere"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "model-language-raise-review",
+      "shows": "Same isolated older-language workspace; actual recovery preview with language transition, affected workspace and unchanged data. Cancel without raising so unavailable image remains reproducible.",
+      "actions": [
+        {
+          "goto": "/apps/network/views/stops?workspaceKey=c10-language-pictures"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Review the change…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Workspaces that return"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Schema language",
+        "Consumer APIs rewritten",
+        "Workspaces that return",
+        "C10 language pictures",
+        "Records, change sets, publications",
+        "unchanged",
+        "Raise and reopen"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "run-jobs",
+      "shows": "Fixture 7 controls a real running job and queued follower at the same time as retained finished work. Refresh and require all three states. No forged jobs. Capture during the fixture lock window and release the lock immediately afterwards.",
+      "actions": [
+        {
+          "goto": "/settings/jobs"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Refresh",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Running"
+          },
+          "timeout": 300000
+        },
+        {
+          "waitFor": {
+            "text": "Queued"
+          },
+          "timeout": 300000
+        },
+        {
+          "waitFor": {
+            "text": "Completed"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Jobs",
+        "Running",
+        "Queued",
+        "Completed",
+        "Workspace"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "c10-setup-import-preview",
+      "shows": "Fixture 8 supplies a For people XLSX retaining its export metadata with one invalid Height cell. Upload through New import to c10-import-pictures, choose independent loading and preview only. Retain waiting job and record its URL; no Load the file confirmation.",
+      "actions": [
+        {
+          "goto": "/settings/jobs"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New import",
+            "exact": true
+          }
+        },
+        {
+          "select": {
+            "label": "Workspace",
+            "exact": true
+          },
+          "value": "C10 import pictures"
+        },
+        {
+          "upload": {
+            "css": "[role=\"dialog\"] input[type=file]"
+          },
+          "value": "guide/_coverage/notes/C10-SCREENS-5/import-invalid-height.xlsx"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Preview",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Read as exported"
+          },
+          "timeout": 300000
+        },
+        {
+          "waitFor": {
+            "text": "Load the file"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Read as exported",
+        "Load the file",
+        "Cancel import"
+      ],
+      "height": 2400
+    },
+    {
+      "name": "import-preview-columns",
+      "shows": "Same awaiting-confirmation import as setup: export interpretation, counts, binding report, refused row and failing cells. Tall capture includes the lower evidence; scroll only enough to keep Load the file and Cancel import visible. Cancel afterwards, never load.",
+      "actions": [
+        {
+          "waitFor": {
+            "text": "Read as exported"
+          },
+          "timeout": 300000
+        },
+        {
+          "waitFor": {
+            "text": "How the file was read"
+          },
+          "timeout": 300000
+        },
+        {
+          "waitFor": {
+            "text": "Rows in the preview"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Read as exported",
+        "How the file was read",
+        "Column",
+        "Height (m)",
+        "refused",
+        "Load the file",
+        "Cancel import"
+      ],
+      "height": 2400,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel import",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"alertdialog\"] button:has-text(\"Cancel import\")"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-webhook-deliveries",
+      "shows": "Fixture 9: saved C10 retrying receiver has real retained succeeded and retrying deliveries. Open retrying event details to show attempts, response code and response body; no signature or secret is shown.",
+      "actions": [
+        {
+          "goto": "/settings/webhooks"
+        },
+        {
+          "click": {
+            "css": "nav button:has-text(\"C10 retrying receiver\")"
+          }
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Deliveries",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Refresh",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Retrying"
+          },
+          "timeout": 300000
+        },
+        {
+          "click": {
+            "css": "tr:has(td[data-label=\"Status\"]:has-text(\"Retrying\")) th a"
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Response body"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Attempts",
+        "Response body",
+        "Retrying",
+        "503"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "press": "Escape"
+        }
+      ]
+    },
+    {
+      "name": "admin-webhook-rotate",
+      "shows": "Existing C10 retrying receiver: overlap-choice dialog before generating a key. Cancel; one-time keys never appear in screenshots.",
+      "actions": [
+        {
+          "goto": "/settings/webhooks"
+        },
+        {
+          "click": {
+            "css": "nav button:has-text(\"C10 retrying receiver\")"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Rotate key…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Rotate the signing key of C10 retrying receiver"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Rotate the signing key of C10 retrying receiver",
+        "1 hour",
+        "24 hours",
+        "7 days",
+        "Stop it now",
+        "Make a new key"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "c10-setup-webhook-suspend",
+      "shows": "Suspend the fictional C10 retrying receiver with the actual Suspend control. This is a user-requested suspension, not a fabricated 24-hour delivery failure. Fixture 9 supplies real failed attempts; their cause and the suspension are distinct.",
+      "actions": [
+        {
+          "goto": "/settings/webhooks"
+        },
+        {
+          "click": {
+            "css": "nav button:has-text(\"C10 retrying receiver\")"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Suspend",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Suspended"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Suspended",
+        "Resume…"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "admin-webhook-resume",
+      "shows": "Same suspended subscription with its actual user-requested suspension reason and Resume dialog. No claim of automatic suspension. Cancel; restore receiver and resume after the capture as fixture 9 specifies.",
+      "actions": [
+        {
+          "goto": "/settings/webhooks"
+        },
+        {
+          "click": {
+            "css": "nav button:has-text(\"C10 retrying receiver\")"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Resume…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Resume this webhook?"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Resume this webhook?",
+        "Continue from",
+        "The first event not acknowledged",
+        "Now, with reset",
+        "Resume",
+        "Cancel"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "c10-setup-person-device-person",
+      "height": 1500,
+      "shows": "Create this fictional person ONCE before provider-link/group pictures and external factor enrolment. If already present, skip and reuse by username. The UI makes a password link; dismiss it before the setup screenshot, never photograph or print it. This is a prerequisite pass, not something to replay in a full-file retake.",
+      "actions": [
+        {
+          "goto": "/settings/people"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New person",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Username",
+            "exact": true
+          },
+          "value": "c10-device-person"
+        },
+        {
+          "fill": {
+            "label": "Name",
+            "exact": true
+          },
+          "value": "Guide device person"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Create and make a password link",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Pass on the password link"
+          },
+          "timeout": 300000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "I have copied it",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Guide device person",
+            "exact": true
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Guide device person",
+        "Sign-in"
+      ]
+    },
+    {
+      "name": "c10-setup-person-local-target",
+      "height": 1500,
+      "shows": "Create this fictional person ONCE before provider-link/group pictures and external factor enrolment. If already present, skip and reuse by username. The UI makes a password link; dismiss it before the setup screenshot, never photograph or print it. This is a prerequisite pass, not something to replay in a full-file retake.",
+      "actions": [
+        {
+          "goto": "/settings/people"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New person",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Username",
+            "exact": true
+          },
+          "value": "c10-local-target"
+        },
+        {
+          "fill": {
+            "label": "Name",
+            "exact": true
+          },
+          "value": "Guide local target"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Create and make a password link",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Pass on the password link"
+          },
+          "timeout": 300000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "I have copied it",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "role": "heading",
+            "name": "Guide local target",
+            "exact": true
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Guide local target",
+        "Sign-in"
+      ]
+    },
+    {
+      "name": "admin-person-link-provider",
+      "shows": "Fixture 10: unprivileged fictional provider-only Guide provider newcomer and separate active Guide local target. Select target but Cancel so both identities remain. No password, direct role or local group on newcomer.",
+      "actions": [
+        {
+          "goto": "/settings/people"
+        },
+        {
+          "fill": {
+            "label": "Search people",
+            "exact": true
+          },
+          "value": "Guide provider newcomer"
+        },
+        {
+          "click": {
+            "css": "nav[aria-label=\"People\"] button:has-text(\"Guide provider newcomer\")"
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Link to an existing person…",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Person",
+            "exact": true
+          },
+          "value": "Guide local target"
+        },
+        {
+          "click": {
+            "role": "option",
+            "name": "Guide local target",
+            "exact": false
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Link to Guide local target"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Link this sign-in to an existing person",
+        "Guide local target",
+        "Cancel"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "c10-setup-local-group",
+      "shows": "Create local C10 guide reviewers once, then add fixture 10 fictional local people by username. No role grants. If already present, skip creation and reuse after checking membership; do not blindly rerun.",
+      "actions": [
+        {
+          "goto": "/settings/groups"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "New group",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Name",
+            "exact": true
+          },
+          "value": "C10 guide reviewers"
+        },
+        {
+          "fill": {
+            "label": "Description (optional)",
+            "exact": true
+          },
+          "value": "Fictional people for guide screenshots"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Create group",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Add members",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "role": "tab",
+            "name": "Paste a list",
+            "exact": true
+          }
+        },
+        {
+          "fill": {
+            "label": "Usernames or e-mail addresses",
+            "exact": true
+          },
+          "value": "c10-local-target\nc10-device-person"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Check 2 lines",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "2"
+          },
+          "timeout": 300000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Add 2 members",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Guide local target"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "C10 guide reviewers",
+        "Guide local target",
+        "Guide device person"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "admin-group-members",
+      "shows": "Local C10 guide reviewers with two selected fictional members, Add members and Remove 2 from the group. Selection only; Clear afterwards.",
+      "actions": [
+        {
+          "goto": "/settings/groups"
+        },
+        {
+          "fill": {
+            "label": "Search groups",
+            "exact": true
+          },
+          "value": "C10 guide reviewers"
+        },
+        {
+          "click": {
+            "css": "nav[aria-label=\"Groups\"] button:has-text(\"C10 guide reviewers\")"
+          }
+        },
+        {
+          "check": {
+            "label": "Select Guide local target",
+            "exact": true
+          }
+        },
+        {
+          "check": {
+            "label": "Select Guide device person",
+            "exact": true
+          }
+        }
+      ],
+      "expect": [
+        "C10 guide reviewers",
+        "2 members selected",
+        "Add members",
+        "Remove 2 from the group"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Clear",
+            "exact": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-person-second-factor",
+      "shows": "Fixture 11: fictional Guide device person with a genuinely enrolled authenticator and passkey Guide spare key. Person Sign-in shows removal controls only, with no enrolment key, recovery code or password link.",
+      "actions": [
+        {
+          "goto": "/settings/people"
+        },
+        {
+          "fill": {
+            "label": "Search people",
+            "exact": true
+          },
+          "value": "Guide device person"
+        },
+        {
+          "click": {
+            "css": "nav[aria-label=\"People\"] button:has-text(\"Guide device person\")"
+          }
+        },
+        {
+          "scrollTo": {
+            "role": "heading",
+            "name": "Sign-in",
+            "exact": true
+          },
+          "offset": 300
+        },
+        {
+          "waitFor": {
+            "text": "Passkey: Guide spare key"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Sign-in",
+        "Second factor: authenticator app",
+        "Remove second factor…",
+        "Passkey: Guide spare key",
+        "Remove passkey…"
+      ],
+      "height": 1000
+    },
+    {
+      "name": "admin-signin-provider",
+      "shows": "Fixture 10: saved Guide identity provider, real reachable OpenID Connect registration. Blank sealed-secret input, redirect address, settings and signing-out choices visible.",
+      "actions": [
+        {
+          "goto": "/settings/sign-in/guide-oidc"
+        },
+        {
+          "waitFor": {
+            "text": "Address to register with the provider"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Guide identity provider",
+        "Redirect address",
+        "Signing out",
+        "Settings",
+        "Issuer",
+        "Client ID"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "c10-setup-local-signin-off",
+      "shows": "After fixture 10 proves provider login and retained administrator recovery, turn off ordinary local sign-in in the existing administrator session. Next screenshot restores it immediately. Run this pair contiguously; no new runner login while off.",
+      "actions": [
+        {
+          "goto": "/settings/sign-in/local"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Turn off…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Turn local sign-in off?"
+          },
+          "timeout": 300000
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Turn off",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Local sign-in is off."
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Local accounts",
+        "Off",
+        "Turn on"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "admin-local-signin-off",
+      "shows": "Same existing administrator session after setup: Local accounts Off and Turn on. Restore ordinary local sign-in after the picture, then verify On. This setup must follow all other sessions needing local sign-in.",
+      "actions": [
+        {
+          "waitFor": {
+            "text": "Turn on"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "Local accounts",
+        "Off",
+        "Turn on"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Turn on",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "People sign in with a password again."
+          },
+          "timeout": 300000
+        }
+      ]
+    },
+    {
+      "name": "admin-ai-test-failed",
+      "shows": "Fixture 4 deliberately unreachable provider, still configured. Send one test; show normal error and failed Calls row, never traceback or credentials. Run paired failure entries only inside the documented failure window, after all normal provider work.",
+      "actions": [
+        {
+          "goto": "/settings/ai"
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Send a test request",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "The test request failed"
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "The test request failed",
+        "Calls",
+        "Failed"
+      ],
+      "height": 1500
+    },
+    {
+      "name": "model-account-provider-failure",
+      "shows": "Same controlled failure window, real model-change account request. Engine facts survive provider failure. Existing starter-versus-Graubünden activation review is read only and cancelled; no activation/migration. Fixture 4 restores original provider configuration immediately after these two captures.",
+      "actions": [
+        {
+          "goto": "/settings/model/models/rdm-starter?tab=releases"
+        },
+        {
+          "click": {
+            "css": "[role=\"tab\"]:has-text(\"Releases\")"
+          }
+        },
+        {
+          "click": {
+            "role": "link",
+            "name": "RDM Starter Model 0.10.0",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "Immutable release",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Activate in a workspace…",
+            "exact": true
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"dialog\"] .selection-trigger"
+          }
+        },
+        {
+          "click": {
+            "css": "[role=\"option\"]:has(strong:text-is(\"Graubünden\"))"
+          }
+        },
+        {
+          "waitFor": {
+            "role": "button",
+            "name": "Preview the migration…",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "What this change does",
+            "exact": false
+          }
+        },
+        {
+          "click": {
+            "role": "button",
+            "name": "Explain this change",
+            "exact": true
+          }
+        },
+        {
+          "waitFor": {
+            "text": "The account could not be written"
+          },
+          "timeout": 300000
+        },
+        {
+          "waitFor": {
+            "text": "The facts ("
+          },
+          "timeout": 300000
+        }
+      ],
+      "expect": [
+        "The account could not be written",
+        "The facts below do not depend on it.",
+        "The facts (",
+        "Try again"
+      ],
+      "height": 1500,
+      "after": [
+        {
+          "click": {
+            "role": "button",
+            "name": "Cancel",
+            "exact": true
+          }
+        }
+      ]
     }
   ],
-  "note": "Missing page images only. Source-verified capture recipes, not executed or visually accepted. Run with guide/tools/screens.mjs --file C10.screens.json against localhost:8480. Preserve earlier entries. Preconditions, persistent job/draft changes and deferred states are in C10.data-changes.md and _coverage/notes/C10-SCREENS/. Dialogs are cancelled; no delete, release activation/rollback or access/security change is confirmed."
+  "note": "Fifth-round recipes for the reference instance only. Owner authorises fictional fixture states, security changes, isolated release activation/migration and deliberate provider failure. Earlier prohibitions are superseded by C10-SCREENS-5.md. No real personal data or visible secrets. Browser recipes only; external prerequisites and restoration are in _coverage/notes/C10-SCREENS/fifth-round-fixtures.md. Run dependent chains together in manifest order. Not executed in this writing turn."
 }

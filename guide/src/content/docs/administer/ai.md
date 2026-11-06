@@ -8,7 +8,7 @@ Use **Settings › Administration › AI** to check the AI features available in
 
 The page displays settings. Ask your operator to change them and restart the server; there is no Save button. For that task, see [Set up AI](/docs/run/set-up-ai/). To check a connection, follow [Check the AI provider](/docs/guide/administer/check-the-ai-provider/).
 
-![AI settings showing both switches, the send level and available features](/docs/screens/admin-ai-settings.png)
+![AI settings showing the assistant and provider on, the send level and available features](/docs/screens/admin-ai-settings.png)
 
 ## Two separate features
 
@@ -72,7 +72,7 @@ With a provider configured, **Model** and **Endpoint** identify where requests g
 
 **Calls** lists provider requests and each built-in assistant turn, newest first. Its columns show **When**, **What for**, **Asked by**, **Model**, **Outcome**, **Tokens in / out**, **Cost** and **Duration**. **Answered** means a response arrived, not that its suggestion is correct. **Failed** includes the reason. Use **Load more calls** to read older entries.
 
-![AI calls with outcomes, token counts, costs and a failure reason](/docs/screens/admin-ai-calls.png)
+![Answered AI provider calls with token counts, duration and unreported costs](/docs/screens/admin-ai-calls.png)
 
 The totals cover the last 30 days. An assistant turn is one call; its tokens include cache reads and writes. Cost appears only when reported. A dash does not mean the call was free, and this list is not a billing statement. Provider requests use the organisation's provider account; built-in assistant usage follows its Claude Code authentication and billing. A test request can incur usage too. Ask the operator to check charges and limits with the provider.
 

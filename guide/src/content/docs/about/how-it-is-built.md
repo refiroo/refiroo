@@ -12,7 +12,7 @@ The service validates the model and uses it to interpret records, fields, relati
 
 The backend uses Python 3.14 and FastAPI, served by Uvicorn, with Pydantic 2 for typed inputs, SQLAlchemy 2 for database access and Alembic for database migrations. PostgreSQL holds model releases, reference data, history and operational state; the reference installation uses PostgreSQL 17 with ICU text collation. The web front end uses React and TypeScript, built with Vite.
 
-Docker Compose runs the reference installation. Its nginx 1.28 web server serves the interface and forwards API requests to the engine. For automatic HTTPS, an optional Caddy 2 service obtains and renews certificates through ACME, using Let's Encrypt or ZeroSSL. An organisation can instead supply its own certificates or use its existing HTTPS proxy. The [operator overview](/docs/run/overview/) explains what to deploy.
+Docker Compose runs the reference installation. Its nginx 1.28 web server serves the interface and forwards API requests to the engine. For [automatic HTTPS](/docs/run/https/), an optional Caddy 2 service obtains and renews certificates through ACME, using Let's Encrypt or ZeroSSL. An organisation can instead supply its own certificates or use its existing HTTPS proxy. The [operator overview](/docs/run/overview/) explains what to deploy.
 
 ## Standards and formats
 

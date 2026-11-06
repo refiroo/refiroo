@@ -42,6 +42,8 @@ See [People and groups](/docs/administer/people-and-groups/) for how local and p
 5. Open a member's People page to check that the role appears as coming through this group.
    The access applies on their next request; they do not need a new account.
 
+![Local group with two fictional members selected and controls to add or remove members](/docs/screens/admin-group-members.png)
+
 ## Change or remove membership
 
 1. Find the group by name and select it. Choose **Rename…** to change its name or description,

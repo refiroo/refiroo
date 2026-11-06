@@ -1,0 +1,35 @@
+
+> refiroo-guide@0.0.0 check:links
+> node tools/check.mjs links
+
+links: 69608 local links and sources in 247 built pages
+links: administer/webhooks/index.html: src "/docs/screens/admin-webhook-deliveries.png" points to nothing
+links: guide/administer/add-a-sign-in-provider/index.html: src "/docs/screens/admin-signin-provider.png" points to nothing
+links: guide/administer/check-the-ai-provider/index.html: src "/docs/screens/admin-ai-test-failed.png" points to nothing
+links: guide/administer/find-out-why-a-webhook-paused/index.html: src "/docs/screens/admin-webhook-resume.png" points to nothing
+links: guide/administer/help-someone-who-lost-a-device/index.html: src "/docs/screens/admin-person-second-factor.png" points to nothing
+links: guide/administer/link-a-provider-person/index.html: src "/docs/screens/admin-person-link-provider.png" points to nothing
+links: guide/administer/manage-a-group/index.html: src "/docs/screens/admin-group-members.png" points to nothing
+links: guide/administer/manage-agent-access/index.html: src "/docs/screens/admin-agent-block.png" points to nothing
+links: guide/administer/rotate-a-webhook-key/index.html: src "/docs/screens/admin-webhook-rotate.png" points to nothing
+links: guide/administer/turn-off-local-sign-in/index.html: src "/docs/screens/admin-local-signin-off.png" points to nothing
+links: guide/model/change-a-model-with-the-assistant/index.html: src "/docs/screens/model-assistant-whole-type-move.png" points to nothing
+links: guide/model/change-a-model-with-the-assistant/index.html: src "/docs/screens/model-assistant-partial-move.png" points to nothing
+links: guide/model/explain-a-model-change/index.html: src "/docs/screens/model-account-provider-failure.png" points to nothing
+links: guide/model/migrate-a-workspace/index.html: src "/docs/screens/model-migration-stale.png" points to nothing
+links: guide/model/raise-a-model-language-version/index.html: src "/docs/screens/model-language-raise-review.png" points to nothing
+links: guide/model/review-an-assistants-workbook-design/index.html: src "/docs/screens/model-assistant-workbook-proposal.png" points to nothing
+links: guide/model/review-an-assistants-workbook-design/index.html: src "/docs/screens/model-assistant-workbook-loaded.png" points to nothing
+links: guide/use/change-records-with-the-assistant/index.html: src "/docs/screens/use-assistant-words.png" points to nothing
+links: guide/use/continue-an-assistant-task/index.html: src "/docs/screens/use-assistant-stopped.png" points to nothing
+links: guide/use/continue-an-assistant-task/index.html: src "/docs/screens/use-assistant-reload.png" points to nothing
+links: guide/use/load-a-workbook-with-the-assistant/index.html: src "/docs/screens/use-assistant-loaded.png" points to nothing
+links: guide/use/open-a-retired-or-unavailable-workspace/index.html: src "/docs/screens/workspace-cannot-open.png" points to nothing
+links: journeys/work-with-an-assistant/index.html: src "/docs/screens/use-assistant-proposal.png" points to nothing
+links: run/background-jobs/index.html: src "/docs/screens/run-jobs.png" points to nothing
+links: use/history/index.html: src "/docs/screens/use-history-assistant.png" points to nothing
+links: use/importing-and-exporting/index.html: src "/docs/screens/import-preview-columns.png" points to nothing
+links: use/loading-with-the-assistant/index.html: src "/docs/screens/use-assistant-proposal.png" points to nothing
+links: use/mapping-grids/index.html: src "/docs/screens/use-mapping-proposed.png" points to nothing
+
+28 problem(s) in links.

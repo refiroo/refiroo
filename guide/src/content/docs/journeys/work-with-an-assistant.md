@@ -57,17 +57,21 @@ or [Change records with the assistant](/docs/guide/use/change-records-with-the-a
 Give a file and a few words, or words alone. Review the proposed types, fields, relationships,
 questions and **Checks**, including every sheet's counts. New records beside existing records
 can mean an intended update failed to match them. Answer questions, tell the assistant what to
-change or edit its draft in the model editor. A stale check does not cover your latest edits.
+change or, if it has a draft, edit it in the model editor. A stale check does not cover your
+latest edits.
 [Review the assistant's workbook design](/docs/guide/model/review-an-assistants-workbook-design/)
 explains this review.
 
-![The assistant proposal with types, row counts, Checks and questions](/docs/screens/use-assistant-proposal.png)
+![Workbook proposal with formatted notes, assumed answers and the start of the type summary](/docs/screens/use-assistant-proposal.png)
 
-*Above: a proposal for the Graubünden reference data, before accepting the model or loading its records.*
+*Above: the workbook proposal for the Graubünden reference data. The notes describe new stops,
+related records and assumed answers; the type summary begins below. Nothing is loaded yet.*
 
-**Accept the model** lets the assistant install a needed release without activating it and load
-into a change set. Review and publish the result; accepting does not publish. A saved import
-profile lets a later matching workbook use the engine without another assistant session. If no
+A words-only proposal that says **No change to the model.** uses **Accept**. It has no model
+draft and prepares a change set on the workspace’s current release, installing and activating
+nothing. A proposal with a model draft uses **Accept the model**, letting the assistant install
+a needed release without activating it and load into a change set. Review and publish the
+result; accepting does not publish. A saved import profile lets a later matching workbook use the engine without another assistant session. If no
 repeatable key exists, the page explains why no profile was saved; the current load still stands.
 
 **Stop** ends the turn, not the task. A stopped load discards the change set being loaded and

@@ -214,6 +214,51 @@ def test_a_failed_turn_shows_its_reason_and_the_persons_words_go_on_in_the_same_
     assert "workbook.xlsx" in last["files"]
 
 
+@pytest.mark.journey("J50.53")
+@pytest.mark.structures(*STRUCTURES)
+def test_words_that_need_no_model_change_are_a_proposal_without_a_draft_and_load_on_the_live_release(
+    world,
+    tmp_path,
+    monkeypatch,
+    served,  # noqa: F811
+):
+    """Given an instruction in words about the stored records, when the session names no draft because
+    the model does not change, then the task waits with its summary and no draft; when the person
+    accepts, the change set is made on the release the workspace runs, with no new release; a
+    workbook task whose session names no draft still fails."""
+    monkeypatch.setenv("AI_AGENT_API_URL", served)
+    ledgers = Ledgers(world)
+    way = Way(world, tmp_path, monkeypatch, ledgers)
+    way.set(draft=None, name="Its change")
+    live = ok(world.api.get(f"/workspaces/{ledgers.workspace}/model"))["releaseId"]
+    releases = ok(world.api.get("/model-releases"))["items"]
+
+    asked = ok(
+        world.api.upload(
+            "/ai/tasks",
+            {},
+            {"request": json.dumps({"workspaceKey": ledgers.workspace, "words": "Rename it"})},
+        ),
+        202,
+    )
+    _run(world)
+    task = _task(world, asked)
+    assert task["state"] == "checked", task["notes"]
+    assert task["draftId"] is None and task["design"]["stage"] == "model"
+    assert task["design"]["modelUnchanged"] is True and task["design"]["summary"] == "A plan."
+
+    task = _accept(world, task)
+    assert task["state"] == "loaded", task["notes"]
+    assert "install no release" in way.log()[-1]["prompt"]
+    change_set = ok(world.api.get(f"/change-sets/{task['result']['changeSetId']}"))
+    assert change_set["modelReleaseId"] == live and change_set["source"] == "currentLive"
+    assert ok(world.api.get("/model-releases"))["items"] == releases
+
+    way.draft(draft=None)
+    failed = _read(world, ledgers, accept=False)
+    assert failed["state"] == "failed" and failed["draftId"] is None
+
+
 @pytest.mark.journey("J50.54")
 @pytest.mark.structures(*STRUCTURES)
 def test_stopping_returns_to_the_last_proposal_and_before_any_proposal_gives_stopped(

@@ -24,6 +24,8 @@ See [Workspaces](/docs/use/workspaces/) for choosing a dataset.
    application or type **is not in this workspace's model**, use **Workspaces whose model has …**
    to select a suitable destination, or **Go back**. If none exists, the page says **No other workspace's model has it.**
 
+![Unavailable example workspace with its model-language reason, recovery review and other workspaces](/docs/screens/workspace-cannot-open.png)
+
 An unavailable model is different from missing Browse access. Ask about the displayed reason;
 repeatedly retrying a record save does not repair it.
 

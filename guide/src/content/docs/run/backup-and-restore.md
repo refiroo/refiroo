@@ -13,6 +13,13 @@ Keep the application version, `DATABASE_URL`, `RDM_MODEL_PATH`, capability setti
 `RDM_CURSOR_SIGNING_KEY` and `SECRETS_ENCRYPTION_KEY` with each recovery record. Losing the sealing
 key makes stored secrets unreadable. Backups made before a key change need the old key.
 
+The Compose installation also has an `assistant` volume for task working folders and an
+`assistant-claude` volume for Claude Code configuration and session logs. They mount at
+`/opt/refiroo/rdm-engine/data/assistant` and `/opt/refiroo/rdm-engine/data/assistant-claude`.
+A backup need not include these two volumes: losing them loses open tasks’ folders and session
+logs, not records. The database and job-file backup below does not copy them; after restoring
+without them, open tasks may lack the files they need to continue.
+
 ## Take a database backup
 
 From the repository root of the reference installation:
@@ -209,6 +216,13 @@ writers, while a replacement is checked. On that host, obtain the matching sourc
 Compose files, private configuration and backup pair. Use the same project and environment-file
 selection as the original; then:
 
+:::caution[Automatic HTTPS needs both Compose files]
+If the original used [automatic HTTPS](/docs/run/install-with-compose/#5-start-with-automatic-https),
+set `COMPOSE_FILE=compose.yml:compose.acme.yml` in the replacement host's shell before these steps,
+and restore the `caddy-data` volume too if you have it. Without `compose.acme.yml`, web starts
+without Caddy in front and the site does not answer.
+:::
+
 1. Restore the protected configuration to `.env`, restore certificate files if using file mode,
    and make sure DNS/traffic still cannot send production users to the replacement.
 2. Start only PostgreSQL: `docker compose up -d database`. Wait for its health check.
@@ -229,7 +243,8 @@ selection as the original; then:
 
    Use only your trusted backup archive. The command runs as the engine user and must exit 0.
    The archive is extracted into a new job-file volume; do not overlay it on unrelated newer files.
-5. Start the matching images with `docker compose up -d --build`, inspect bounded engine logs,
+5. Start the matching images with `docker compose up -d --build` (with automatic HTTPS, with both
+   Compose files, as in [Upgrades](/docs/run/upgrades/#upgrade-the-compose-installation)), inspect bounded engine logs,
    readiness, every workspace, sign-in and important files. Review integrations before reconnecting
    them: external receivers can already hold events sent after the backup, so reconcile them rather
    than assuming their state rolled back too.

@@ -14,4 +14,6 @@ You need **Integration administration** in the webhook’s workspace. Arrange th
 6. Have the receiver owner switch to the new key and verify a fresh delivery. Check **Deliveries**, its attempts and response. A successful delivery during overlap alone does not prove the receiver uses the replacement; ask its owner to confirm which key verified it.
 7. Check that delivery continues after the overlap. If it fails, have the receiver owner check its configured key, then follow [Find out why a webhook paused](/docs/guide/administer/find-out-why-a-webhook-paused/).
 
+![Webhook key rotation dialog with overlap choices, before making a key](/docs/screens/admin-webhook-rotate.png)
+
 If the replacement was lost, make another rotation and arrange the handover again. Do not expect the old one-time dialog to reopen with the key.

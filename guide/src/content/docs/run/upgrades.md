@@ -11,6 +11,13 @@ model can be served.
 
 ## Upgrade the Compose installation
 
+:::caution[Automatic HTTPS needs both Compose files]
+With [automatic HTTPS](/docs/run/install-with-compose/#5-start-with-automatic-https), run every command in these steps with
+`compose.acme.yml` too: keep `COMPOSE_FILE=compose.yml:compose.acme.yml` set in the shell, or add
+`-f compose.yml -f compose.acme.yml` to each command. Without it, web is recreated without Caddy
+in front and the site stops answering until you run the command again with both files.
+:::
+
 1. Stop or quiesce writers, including integrations. Preserve the current application version,
    environment file, model input and file volume, and [back up and rehearse a restore](/docs/run/backup-and-restore/).
    Keep the encryption and cursor keys associated with that backup.
@@ -40,7 +47,6 @@ model can be served.
 
 Startup also migrates automatically. The explicit command exposes failure before cutover; a failed
 startup migration instead leaves the engine in maintenance mode with readiness 503.
-For automatic HTTPS, retain `-f compose.yml -f compose.acme.yml` on these commands.
 
 Changing record types or a workspace's selected model is a separate model operation, not an
 application upgrade. Its preview can hold locks that delay writes while it checks converted rows.
@@ -97,6 +103,14 @@ the original checkout, preserve the same Compose project identity and volume sel
 a copied source directory under another project name can silently create empty volumes. The
 checked-in Compose project name is `refiroo`; preserve any explicit project override you use.
 Do not improvise a switch to a differently named project during cutover.
+
+With the same project and mounts, upgrading keeps `database`, `job-files`, `assistant` and
+`assistant-claude`, plus `caddy-data` when using automatic HTTPS. The `assistant` volume holds
+open tasks’ working folders at `/opt/refiroo/rdm-engine/data/assistant`; `assistant-claude` holds
+Claude Code configuration and session logs at `/opt/refiroo/rdm-engine/data/assistant-claude`.
+Keeping them lets open tasks retain the files they need to continue after container replacement.
+A backup need not include these two assistant volumes: losing them loses open tasks’ folders and
+session logs, not records. Do not run `docker compose down -v`: it removes the named volumes.
 
 After the explicit migration command, expect:
 

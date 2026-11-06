@@ -9,6 +9,21 @@ application or new fields and types. See [Workbook onboarding](/docs/model/workb
 for what the draft, source and dry run keep. You need the permissions to administer the model,
 activate it in the target workspace and load records there.
 
+## Get the example workbook
+
+You can use your own file. To follow the illustrated example, <a download="Haltestellen_Busbetrieb_Nord.xlsx" href="/docs/downloads/Haltestellen_Busbetrieb_Nord.xlsx">download Haltestellen_Busbetrieb_Nord.xlsx</a>.
+Save the file, then select it in **Workbook** in step 2 below. It has three sheets:
+**Haltestellen** (stops), **Namen** (names) and **Lokale Codes** (local codes).
+
+This is a deliberately messy workbook from a fictional bus company. Stop names and
+numbers come from the guide's [example data](/docs/examples/the-example-data/);
+lines, local codes and fare zones are invented. Review its proposals rather than treating
+them as an approved model. Dry-run counts and refused rows depend on your mappings and
+comparison workspace; they may differ from the pictures.
+
+For the next-upload exercise, a second file is available in
+[Propose again with a newer workbook](/docs/guide/model/propose-again-with-a-newer-workbook/#get-the-example-update).
+
 ## Start the draft
 
 1. Open **Settings**, **Model**. Choose **New from a workbook**. **New draft** starts model

@@ -22,7 +22,7 @@ A **person's assistant** opens this instance's own sign-in page. The page names 
 
 A **system's assistant** uses an **agent client**, created here with its own access grants. It does not sign in as a person. The connection credentials for agent access are separate from those used by ordinary integrations; they cannot be used to reach the other APIs. An ordinary integration's credentials cannot be used for agent access either. Ask the integrator to use the correct connection type rather than widening roles to solve a sign-in failure.
 
-![Enabled Agent access with connection information, clients and registered assistants](/docs/screens/admin-agent-access-enabled.png)
+![Enabled Agent access with connection information and empty client and assistant sections](/docs/screens/admin-agent-access-enabled.png)
 
 ## What an assistant can read
 
@@ -62,7 +62,7 @@ The operator can allow assistants to register themselves. Self-registration perm
 
 **Calls** shows **When**, **Who**, **Through**, **Tool**, **Arguments** and **Outcome**, newest first. **Arguments** contains names only, never the supplied values. Outcomes are **Answered**, **Refused**, **Limit reached** and **Failed**. **Load more** reads older calls. The client list also shows **Last used** and **Calls, 30 days**.
 
-![Agent tool calls showing who asked, through which assistant, argument names and outcomes](/docs/screens/admin-agent-calls.png)
+![Calls by Stops checker (guide), with answered and refused outcomes and argument names only](/docs/screens/admin-agent-calls.png)
 
 Tool-call records are normally kept for 90 days; the operator controls this retention. Reads do not add separate data-change audit entries. Writes still appear in the normal history and audit. A rate limit refusal tells the assistant how long to wait; investigate repeated refusals before increasing a limit.
 

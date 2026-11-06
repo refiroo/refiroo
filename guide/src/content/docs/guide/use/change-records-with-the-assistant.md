@@ -20,20 +20,25 @@ retained. See [AI and your data](/docs/use/ai-and-your-data/) and
    model. Instructions are limited to 4,000 characters.
 3. Read the sending note and choose **Ask the assistant**. This starts a saved task; it is
    different from **Ask** on a table list, which only chooses filters.
-4. Read the proposal and its counts. Check that it affects the intended records and reuses
-   existing types and records where appropriate. Answer any **Questions** with **Answer and
+4. Read the proposal and any counts or checks shown. Check that it affects the intended
+   records and reuses existing types and records where appropriate. Answer any **Questions** with **Answer and
    design again**, or use **Tell the assistant what to change** and **Send to the assistant**.
    If the task proposes a model change, inspect **Show the model change** and involve a model
-   administrator before accepting it.
-5. When the proposal and checks match your request, choose **Accept the model**. An ordinary
-   record update loads a new change set without a new model release. It changes no Live record.
+   administrator before accepting it. When the page says **No change to the model.**, there
+   is no model draft, model-change detail or model editor button.
+5. When the proposal and any checks match your request, choose **Accept** for a task with no
+   model change, or **Accept the model** for one with a model draft. With no model change,
+   acceptance prepares a new change set on the workspace’s current release; it installs and
+   activates nothing. It changes no Live record.
    If the assistant cannot do the task, read its reason and correct the instructions rather
    than assuming a partial or empty load completed the request.
 6. Choose **Review the change set**. Review the actual differences, validate and follow the
    [approval and publication steps](/docs/guide/use/prepare-and-publish-a-change-set/).
    The workspace's normal approval rules apply, including a second person where required.
 
-![A words-only task proposal before acceptance](/docs/screens/use-assistant-words.png)
+![Record-change proposal showing No change to the model, Accept and the correction box](/docs/screens/use-assistant-words.png)
+
+*Above: the proposal changes the Abbreviation of Chur Wiesental in the reference data. Accepting prepares a change set for review; nothing is published.*
 
 For a wrong result, [continue or correct the same task](/docs/guide/use/continue-an-assistant-task/)
 while its session is available. Instructions alone do not necessarily produce a saved import

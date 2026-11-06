@@ -57,7 +57,7 @@ export function modelNames(model: EngineModel | undefined, operations: AiTaskOpe
 }
 
 export interface ModelChange {
-  /** "New application", "New type", "New relationship", "Other change". */
+  /** "New application", "New type", "New relationship", "Other change", "Removed". */
   change: string;
   /** The subject of the change. */
   name: string;
@@ -104,6 +104,33 @@ export function modelChanges(operations: AiTaskOperation[], names?: ModelNames):
         name: relationName(op.relationType),
         detail: `A rule of the relationship “${relationName(op.relationType)}” is set.`,
       });
+    } else if (op.kind === "changeObjectType") {
+      const fields = Array.isArray(op.fields) ? op.fields.map(text).join(", ") : "";
+      other.push({
+        change: "Other change",
+        name: typeName(op.objectType),
+        detail: `Changes ${fields || "its details"}.`,
+      });
+    } else if (op.kind === "changeAttachment") {
+      other.push({
+        change: "Other change",
+        name: typeName(op.objectType),
+        detail: `${attributeName(op.attributeType)} becomes ${op.required ? "required" : "optional"}.`,
+      });
+    } else if (op.kind === "detachAttribute") {
+      other.push({
+        change: "Other change",
+        name: typeName(op.objectType),
+        detail: `Loses the attribute ${attributeName(op.attributeType)}.`,
+      });
+    } else if (op.kind === "removeObjectType") {
+      other.push({ change: "Removed", name: typeName(op.objectType), detail: "The type is removed." });
+    } else if (op.kind === "removeAttributeType") {
+      other.push({ change: "Removed", name: attributeName(op.attributeType), detail: "The attribute is removed." });
+    } else if (op.kind === "removeRelationType") {
+      other.push({ change: "Removed", name: relationName(op.relationType), detail: "The relationship is removed." });
+    } else if (op.kind === "removeApplication") {
+      other.push({ change: "Removed", name: text(op.applicationKey), detail: "The application is removed." });
     } else if (op.kind === "setLabel") {
       other.push({ change: "Other change", name: text(op.label) || "A label", detail: "A label is set." });
     }

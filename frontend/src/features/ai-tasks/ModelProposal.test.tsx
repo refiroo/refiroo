@@ -147,6 +147,35 @@ describe("ModelProposal", () => {
   });
 });
 
+describe("a proposal of a words task whose model does not change", () => {
+  const unchanged = (): AiTask => {
+    const task = proposal();
+    task.draftId = null;
+    task.check = null;
+    task.design = {
+      ...task.design!,
+      summary: "Set the Abbreviation of the stop Chur Wiesental to C10-REVIEW.",
+      operations: [],
+      outline: [],
+      checks: [],
+      corrections: [],
+      modelUnchanged: true,
+    };
+    return task;
+  };
+
+  it("shows the summary, says the model does not change and offers Accept, with no model editor", () => {
+    const { onAccept } = render_(unchanged());
+    expect(screen.getByText(/Chur Wiesental to C10-REVIEW/)).toBeInTheDocument();
+    expect(screen.getByText("No change to the model.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open in the model editor" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show the model change" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    expect(onAccept).toHaveBeenCalledTimes(1);
+    expect(taskJourney(unchanged()).primary).toEqual({ label: "Accept", action: "acceptModel" });
+  });
+});
+
 describe("the journey while the model is proposed", () => {
   it("makes the proposal current, the later steps todo, and done once the load stage starts", () => {
     const task = proposal();

@@ -1,0 +1,152 @@
+{
+  "events": {
+    "custom": [{
+      "key": "stops-changed",
+      "objectTypes": ["stop"],
+      "changes": ["created", "updated", "deleted"],
+      "watch": {"fields": ["code", "name", "validFrom", "validTo"]}
+    }]
+  }
+}
+
+GET /api/consumer/stops/v1/events?workspace=graubuenden&after=63&event=stops-changed&pageSize=1&payload=full HTTP/1.1
+Host: <instance>
+Authorization: Bearer <consumer-token>
+Accept: application/json
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+RDM-Workspace: graubuenden
+
+{
+  "items": [
+    {
+      "eventId": "4b4f3604-a821-7aff-1852-ae2b6cd1e8d2",
+      "position": 207,
+      "occurredAt": "2026-11-02T17:06:00.982769+00:00",
+      "event": "stops-changed",
+      "change": "created",
+      "contractVersion": 1,
+      "objectType": "Stop",
+      "id": "6583e8c9-582c-4bc5-b113-dbdbcc31a44a",
+      "code": "ch:1:sloid:4",
+      "name": "Selva, via Alpsu spv.",
+      "changed": [],
+      "cause": {
+        "kind": "job",
+        "id": "99f69475-71d1-47ce-abde-559e238691f4"
+      },
+      "stateAt": 8950,
+      "object": {
+        "objectType": "Stop",
+        "id": "6583e8c9-582c-4bc5-b113-dbdbcc31a44a",
+        "code": "ch:1:sloid:4",
+        "name": "Selva, via Alpsu spv.",
+        "validFrom": "2022-11-14",
+        "validTo": null,
+        "stopNumber": 8500004,
+        "abbreviation": "SAXX",
+        "fsoNumber": null,
+        "latitude": "46.662107304536484",
+        "longitude": "8.723794590415595",
+        "height": "1553.9",
+        "sboid": null,
+        "parent": {
+          "objectType": "Municipality",
+          "id": "06073bf3-cb29-475e-a87a-8fc6dbb8b8cc",
+          "code": null,
+          "name": "Tujetsch"
+        },
+        "path": "Graubünden/Surselva/Tujetsch",
+        "operator": {
+          "id": "69907d18-f444-400a-b8a2-359bfbd405fc",
+          "code": "MGB/Autofo",
+          "name": "Automobildienst Matterhorn Gotthard Bahn (fo auto)"
+        },
+        "modes": [
+          {
+            "id": "ef9e4eea-74a4-4380-a426-b9faae4a298f",
+            "code": "BUS",
+            "name": "Bus"
+          }
+        ],
+        "systemCodes": [],
+        "translations": []
+      }
+    }
+  ],
+  "workspace": "graubuenden",
+  "pageSize": 1,
+  "cursor": "eyJmaWx0ZXJzIjoiYWVhNmJjYzI4YmQxNTAzZWMwYWNiMjQ2NjVkNzUxMzFjNjhjYTJmMjA4ZTEwMTM2NzQ4MmNmOWUxODY5MTcwYyIsInBvc2l0aW9uIjpbIjIwNyIsIjEiXSwic2NvcGUiOiJjb25zdW1lci1ldmVudHM6c3RvcHM6Z3JhdWJ1ZW5kZW4iLCJzb3J0IjpbInBvc2l0aW9uIiwib3JkaW5hbCJdLCJ2ZXJzaW9uIjoxfQ.jE5ueunEtvaETHuI__-kBACi5xvxqymz6-tzSB9_x-w",
+  "caughtUp": false,
+  "headPosition": 8950,
+  "earliestPosition": 1
+}
+
+POST /refiroo-events HTTP/1.1
+Host: receiver.example
+Content-Type: application/json
+User-Agent: rdm-engine
+RDM-Delivery-Id: 85c0fa4d-c85c-4e2d-b788-24c8f3800fd8
+RDM-Timestamp: 1793606400
+RDM-Signature: sha256=fd32dc6d2633f1ac0cad65c9fbe0d61353a581e66655509d391d9708d3fe15a6
+Content-Length: 516
+
+{"deliveryId":"85c0fa4d-c85c-4e2d-b788-24c8f3800fd8","subscriptionId":"a7447804-c8c0-4e13-9a7f-117e7ec6ba15","consumerApi":"stops","contractVersion":1,"workspaceKey":"graubuenden","events":[{"eventId":"8b6b294b-ff1a-4bb8-898c-a2e412e64f71","position":64,"occurredAt":"2026-11-02T08:00:00+00:00","event":"stops-changed","change":"updated","contractVersion":1,"objectType":"Stop","id":"8d90eede-23cf-47c1-8dac-cb37956f5fd5","code":"ch:1:sloid:5173","name":"Tschamut-Selva","changed":["name"],"cause":{"kind":"user"}}]}
+
+import hashlib
+import hmac
+from collections.abc import Mapping
+
+
+def verify_webhook(
+    secret: str, headers: Mapping[str, str], raw_body: bytes, now: int
+) -> bool:
+    try:
+        timestamp_text = headers["RDM-Timestamp"]
+        timestamp = int(timestamp_text)
+        supplied = headers["RDM-Signature"]
+    except (KeyError, ValueError):
+        return False
+    if not timestamp_text.isascii() or abs(now - timestamp) > 300:
+        return False
+    digest = hmac.new(
+        secret.encode("utf-8"),
+        timestamp_text.encode("ascii") + b"." + raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+    expected = "sha256=" + digest
+    return any(
+        hmac.compare_digest(expected, candidate.strip())
+        for candidate in supplied.split(",")
+        if candidate.strip().isascii() and candidate.strip().startswith("sha256=")
+    )
+
+{
+  "specversion": "1.0",
+  "id": "8b6b294b-ff1a-4bb8-898c-a2e412e64f71",
+  "source": "/api/consumer/stops/v1/events?workspace=graubuenden",
+  "type": "rdm.stops-changed.updated",
+  "subject": "Stop/8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+  "time": "2026-11-02T08:00:00+00:00",
+  "datacontenttype": "application/json",
+  "rdmsubscription": "a7447804-c8c0-4e13-9a7f-117e7ec6ba15",
+  "data": {
+    "eventId": "8b6b294b-ff1a-4bb8-898c-a2e412e64f71",
+    "position": 64,
+    "occurredAt": "2026-11-02T08:00:00+00:00",
+    "event": "stops-changed",
+    "change": "updated",
+    "contractVersion": 1,
+    "objectType": "Stop",
+    "id": "8d90eede-23cf-47c1-8dac-cb37956f5fd5",
+    "code": "ch:1:sloid:5173",
+    "name": "Tschamut-Selva",
+    "changed": [
+      "name"
+    ],
+    "cause": {
+      "kind": "user"
+    }
+  }
+}

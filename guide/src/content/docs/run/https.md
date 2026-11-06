@@ -4,6 +4,11 @@ description: Choose certificate files, automatic certificates, or a trusted HTTP
 reader: operator
 ---
 
+For a public DNS name, refiroo can automatically obtain a trusted HTTPS certificate and renew it
+before it expires. Set `PUBLIC_URL` to the name's HTTPS origin and start with
+`compose.acme.yml`: Caddy obtains a Let's Encrypt or ZeroSSL certificate through ACME, with no
+certificate files to install or renew by hand.
+
 Serve the browser application and engine paths through one public HTTPS origin. Set `PUBLIC_URL`
 to that origin before the first sign-in. The Compose reference installation keeps the engine and
 database private; only the entry service publishes ports.

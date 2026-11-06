@@ -4,7 +4,7 @@ description: Save a correction, handle a refused save, and check who changed wha
 reader: steward
 ---
 
-Correct one value or several fields and check the result in history. See
+Correct one value or several fields and check the saved result. See
 [Records](/docs/use/records/) for field rules, versions and editing permissions.
 
 To change connections, follow [Relate records](/docs/guide/use/relate-records/). For a move, follow
@@ -74,7 +74,16 @@ For the reason a change to another field can refuse your save, see
 form reports a conflict, review the latest record and reapply only the corrections still needed;
 do not assume the form's older values are current.
 
-## See who changed what
+## Check the correction in its context
+
+If you saved in a change set, choose **Review changes** in its orange banner. Under
+**Records**, find the record and open its row to check the before and after values.
+This shows the correction prepared for publication; it has not changed Live yet.
+Follow [Review what a change set changes](/docs/guide/use/review-what-a-change-set-changes/)
+for the full review. Record History is absent inside change sets and publications.
+
+For a correction saved directly in **Live**, or after the change set has been published,
+open the record in **Live** and check its History:
 
 1. Scroll to **History** on the record's page. Each line identifies a change, the person who
    made it and the time. The newest changes appear first.

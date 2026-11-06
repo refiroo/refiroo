@@ -74,7 +74,7 @@ from .store import finish, held_by_another, held_counts, load_task, note
 log = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 1800
-PROMPT_VERSION = "agent/7"
+PROMPT_VERSION = "agent/8"
 LAST_LINE = "CHANGE_SET:"
 THEN_LINE = "THEN_RELEASE:"
 RELEASE_LINE = "RELEASE:"
@@ -170,15 +170,16 @@ def _propose_prompt(
     check = (
         "Build the model in a model draft and check every row with the draft's dry run"
         if workbook
-        else "Put any model change in a model draft, with the workspace's model unchanged if none is "
-        "needed, and work out every record the words touch"
+        else "Put any model change the words need in a model draft; if the model does not change, "
+        "make no draft and write draftId null. Work out every record the words touch, and write "
+        "in the summary the change as what to do, in terms of the records; stage no change set"
     )
     return (
         f"{(words or '').strip() or DEFAULT_WORDS}\n\n"
         f"{_connection(workspace, url, workbook=workbook)} {_starting_point(held)} "
         f"{_WORDS} {_RECORDS} {_SHAPE + ' ' + _KEYS + ' ' if workbook else ''}{check}; install, "
         "activate, load and publish nothing yet: the person reviews first. Then write "
-        f'{PROPOSAL}: {{"draftId": ..., "summary": two sentences a person reads, "questions": '
+        f'{PROPOSAL}: {{"draftId": {"..." if workbook else "... (null when the model does not change)"}, "summary": two sentences a person reads, "questions": '
         '[{"text", "options", "assumed"}] for what only a person can decide, "moves": '
         '[{"from": a type key, "to": its type key in the draft, "attributes": [{"attributeTypeKey", '
         '"from"}]}] only for a whole type that becomes another, kept in order}.'
@@ -199,6 +200,14 @@ _ACCEPTED = (
     "it as exactly one new release and do not activate it, make the change (a workbook's rows, or "
     "what the words ask of the stored records) in a new change set "
     f"on that release, do not publish it, and end with the line {LAST_LINE} <its id>.{_PART}"
+)
+
+
+_ACCEPTED_UNCHANGED = (
+    "The person accepted. The model does not change: install no release and activate none. Make the "
+    "change the words ask of the stored records in a new change set on the workspace's current live "
+    "release (source currentLive), do not publish it, and end with the line "
+    f"{LAST_LINE} <its id>."
 )
 
 
@@ -224,7 +233,8 @@ def _again(prompt: str, words: str | None) -> str:
 def _said_prompt(said: str) -> str:
     return (
         f"The person says:\n{said}\n\nThey may have edited the draft in the model editor: read it "
-        f"again. Change the draft as they say, check every row again and write {PROPOSAL} again."
+        f"again. Change the draft as they say (if the model does not change, there is none: change the "
+        f"proposal as they say), check every row again and write {PROPOSAL} again."
     )
 
 
@@ -389,10 +399,26 @@ def _safeguards(url: str, folder: Path) -> list[str]:
             "filesystem": {"denyRead": ["~/"], "allowRead": [str(folder), sys.prefix]},
             "network": {"allowedDomains": [host, f"{host}{port}"]},
         },
-        "permissions": {"blockReadsOutsideWorkingDirectories": True},
     }
+    # Claude Code's read block refuses any command that expands a variable inside a compound command
+    # (a loop, `&&`, a pipe), `$REFIROO_TOKEN` in the Authorization header among them. Outside a
+    # container the operating system's sandbox is the boundary for reads and the block stays; in a
+    # container the `assistant` user is, and the block only ended sessions early.
+    if not contained:
+        settings["permissions"] = {"blockReadsOutsideWorkingDirectories": True}
+    # Outside a container the operating system's sandbox auto-approves Bash, so Claude Code runs
+    # restricted and in don't-ask mode. In a container the sandbox is off, and don't-ask mode then
+    # refuses every compound or multi-line command even though Bash is allowed. There the
+    # session runs with Claude Code's permission prompts off (bypassPermissions, which --restricted
+    # refuses) and the separate `assistant` user is the boundary (0.16 R-F45). User, project and
+    # local settings files stay ignored, as --restricted did, by loading no setting sources.
+    mode = (
+        ["--setting-sources", "", "--permission-mode", "bypassPermissions"]
+        if contained
+        else ["--restricted", "--permission-mode", "dontAsk"]
+    )
     return [
-        "--restricted",
+        *mode,
         "--tools",
         TOOLS,
         "--allowedTools",
@@ -403,8 +429,6 @@ def _safeguards(url: str, folder: Path) -> list[str]:
         "WebSearch",
         "mcp__*",
         "--strict-mcp-config",
-        "--permission-mode",
-        "dontAsk",
         "--settings",
         json.dumps(settings),
     ]
@@ -1058,24 +1082,59 @@ def _plural(number: int, word: str) -> str:
     return f"{number:,} {word}{'' if number == 1 else 's'}"
 
 
+def _binding(found: dict[str, Any]) -> tuple[bool, bool, str]:
+    """What of an attribute binding is meaning, not form: required, read-only and the screen hints
+    (a missing value reads as the default; the order of the list is not a change)."""
+    return (
+        bool(found.get("required")),
+        bool(found.get("readOnly")),
+        json.dumps(found.get("ui") or {}, sort_keys=True),
+    )
+
+
+def _attribute_changes(
+    names: dict[str, Any], attributes: list[dict[str, Any]], earlier: dict[str, Any]
+) -> tuple[list[str], list[str], list[str]]:
+    """The attributes a type gains, loses and has changed (named), comparing meaning only."""
+    now = {b.get("attributeTypeKey"): _binding(b) for b in attributes}
+    was = {b.get("attributeTypeKey"): _binding(b) for b in earlier.get("attributes") or []}
+
+    def label(keys: list[Any]) -> list[str]:
+        return [str(names.get(k) or k) for k in keys]
+
+    return (
+        label([k for k in now if k not in was]),
+        label([k for k in was if k not in now]),
+        label([k for k in now if k in was and now[k] != was[k]]),
+    )
+
+
 def _shape(
     model: dict[str, Any], base: dict[str, Any], records: dict[str, int]
 ) -> list[dict[str, Any]]:
     """The proposal's shape from the draft and its dry run, not from the session's account: each type
-    it adds, changes or loads, with its attributes and the records the check would write."""
+    it adds, changes or loads, with its attributes and the records the check would write. A type is
+    changed only when its attributes differ in meaning (added, removed, required or read-only), and
+    the entry says which."""
     before = {found.get("key"): found for found in base.get("objectTypes") or []}
+    names = {a.get("key"): a.get("name") or a.get("key") for a in model.get("attributeTypes") or []}
     shape = []
     for found in model.get("objectTypes") or []:
         key = found.get("key")
         attributes = found.get("attributes") or []
         earlier = before.get(key)
-        change = (
-            "New type"
-            if earlier is None
-            else None
-            if (earlier.get("attributes") or []) == attributes
-            else "Changed type"
-        )
+        change: str | None = None
+        if earlier is None:
+            change = "New type"
+        else:
+            added, removed, altered = _attribute_changes(names, attributes, earlier)
+            said = [
+                *([f"adds {', '.join(added)}"] if added else []),
+                *([f"drops {', '.join(removed)}"] if removed else []),
+                *([f"changes how {', '.join(altered)} is filled in"] if altered else []),
+            ]
+            if said:
+                change = f"Changed type ({'; '.join(said)})"
         written = records.get(key, 0)
         if change is None and not written:
             continue
@@ -1342,6 +1401,66 @@ def _drafted_by(session: Session, task: AiTask, draft: ModelDraft) -> bool:
     )
 
 
+def _questions(proposal: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "text": str(q.get("text"))[:500],
+            "options": [str(o) for o in q.get("options") or []],
+            "assumed": q.get("assumed"),
+        }
+        for q in proposal.get("questions") or []
+        if isinstance(q, dict) and q.get("text")
+    ]
+
+
+def _origin() -> dict[str, Any]:
+    return {
+        "kind": "ai",
+        "provider": "claude-code",
+        "model": None,
+        "promptVersion": PROMPT_VERSION,
+    }
+
+
+def _without_model_change(session: Session, task: AiTask, proposal: Any) -> bool:
+    """Whether the proposal is a words task's with an empty model part: the instruction is about the
+    stored records, the session named no draft because none is needed, and it moves no type. A
+    workbook task always needs a draft, for the types its rows go into."""
+    if not isinstance(proposal, dict) or proposal.get("draftId") is not None:
+        return False
+    if proposal.get("moves") or not str(proposal.get("summary") or "").strip():
+        return False
+    return session.scalar(select(SourceFile.id).where(SourceFile.task_id == task.id)) is None
+
+
+def _unchanged_landed(
+    session: Session, ctx: Any, task: AiTask, proposal: dict[str, Any], progress: _Progress
+) -> None:
+    """A proposal without a draft: the task shows the summary and the questions, the model as it is,
+    and waits for the person. Accepting makes the change set on the live release."""
+    design = dict(task.design or {})
+    design.pop("progress", None)
+    task.draft_id = None
+    task.design = {
+        **design,
+        "stage": "model",
+        "summary": str(proposal.get("summary") or ""),
+        "modelUnchanged": True,
+        "moves": [],
+        "consumerChanges": [],
+        "questions": _questions(proposal),
+        "outline": [],
+        "checks": [],
+        "origin": _origin(),
+        "outcome": {},
+    }
+    task.check = None
+    note(task, "note", _said(progress))
+    finish(task, "checked", _retention(ctx))
+    task.finished_at = None
+    session.commit()
+
+
 def _proposal_landed(
     session: Session,
     ctx: Any,
@@ -1363,7 +1482,7 @@ def _proposal_landed(
         session.scalar(
             select(ModelDraft).where(ModelDraft.public_id == str(proposal.get("draftId")))
         )
-        if isinstance(proposal, dict)
+        if isinstance(proposal, dict) and proposal.get("draftId") is not None
         else None
     )
     if draft is not None and not _drafted_by(session, task, draft):
@@ -1379,21 +1498,17 @@ def _proposal_landed(
         session.commit()
         return
     if draft is None:
+        if _without_model_change(session, task, proposal):
+            _unchanged_landed(session, ctx, task, proposal, progress)
+            return
         note(task, "warning", _said(progress) or "The session ended without a proposal")
         finish(task, "failed", _retention(ctx))
         session.commit()
         return
     design = dict(task.design or {})
     design.pop("progress", None)
-    questions = [
-        {
-            "text": str(q.get("text"))[:500],
-            "options": [str(o) for o in q.get("options") or []],
-            "assumed": q.get("assumed"),
-        }
-        for q in proposal.get("questions") or []
-        if isinstance(q, dict) and q.get("text")
-    ]
+    design.pop("modelUnchanged", None)
+    questions = _questions(proposal)
     base = session.get(ModelRelease, load_assignment(session, task.workspace_key)[1].id).model_json
     errors: list[Any] = []
     # A draft on no release is a new model, compared with the workspace's only if it moves types.
@@ -1478,12 +1593,7 @@ def _proposal_landed(
             *_beside_held(session, (check or {}).get("dryRunJobId"), draft.model_json, held),
             *_cells_left_out(session, task, (check or {}).get("dryRunJobId")),
         ],
-        "origin": {
-            "kind": "ai",
-            "provider": "claude-code",
-            "model": None,
-            "promptVersion": PROMPT_VERSION,
-        },
+        "origin": _origin(),
         "outcome": {},
     }
     task.check = check
@@ -1664,13 +1774,14 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
     workspace = task.workspace_key
     folder = folder_of(ctx.files, task)
     moves = (task.design or {}).get("moves")
+    unchanged = bool((task.design or {}).get("modelUnchanged"))
     progress = _run_turn(
         session,
         job,
         ctx,
         task_id,
         folder,
-        _again(_MOVED if moves else _ACCEPTED, words),
+        _again(_MOVED if moves else _ACCEPTED_UNCHANGED if unchanged else _ACCEPTED, words),
         (task.design or {})["agentSession"],
         first=False,
         load=True,
@@ -1699,6 +1810,11 @@ def accepted(session: Session, job: Job, ctx: Any, task_id: str, words: str | No
     counts = _counts(session, change_set.id) if change_set is not None else None
     # An empty change set is no load, whatever the session's last line says.
     if change_set is None or change_set.workspace_key != workspace or not counts["applied"]:
+        finish(task, "failed", _retention(ctx))
+    elif unchanged and change_set.model_release_id != load_assignment(session, workspace)[1].id:
+        # The model does not change: the change set is on the release the workspace runs, or it is not
+        # the change the person accepted.
+        note(task, "warning", "The change set is not on the model the workspace runs")
         finish(task, "failed", _retention(ctx))
     else:
         then = _then_release(session, task, words)

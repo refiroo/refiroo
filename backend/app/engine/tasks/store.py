@@ -185,7 +185,9 @@ def has_proposal(task: AiTask) -> bool:
     """Whether a proposal the person can go back to stands: the draft, and what the session or the
     rules said about it."""
     design = task.design or {}
-    return task.draft_id is not None and bool(design.get("origin") or design.get("match"))
+    # A words task whose model does not change has no draft: its proposal is only the design.
+    drafted = task.draft_id is not None or bool(design.get("modelUnchanged"))
+    return drafted and bool(design.get("origin") or design.get("match"))
 
 
 def stopped(session: Session, task: AiTask, retention_days: int) -> None:

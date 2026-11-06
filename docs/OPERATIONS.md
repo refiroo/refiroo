@@ -70,8 +70,8 @@ to the engine.
 | `RDM_MODEL_PATH` | `model/rdm-starter.json` | Bootstrap model file. Not the active-model setting; see [Model releases](#model-releases-and-rollback) |
 | `RDM_CURSOR_SIGNING_KEY` | ephemeral | Secret that signs pagination cursors. Without it each process generates its own key, so cursors stop working after a restart and between instances |
 | `AI_AGENT_COMMAND` | none | The command of the AI assistant's session, such as `claude --model sonnet --permission-mode bypassPermissions`; the provider's key and base URL come from the environment. It runs as a process of the worker. The engine adds its guards to every session: its own folder, its tools, this engine on the network, a client that cannot publish or activate, and none of the server's secrets in its environment. **This setting alone turns the assistant on**: it needs no `AI_PROVIDER`, and Settings › AI and `POST /ai/tasks` treat an empty value as "no assistant" (`409 AI_NOT_CONFIGURED`). Empty: no assistant action is offered. |
-| `AI_AGENT_SANDBOX` | operating system sandbox | `container` when the engine runs in a container, where Claude Code's own sandbox cannot run. The engine image then runs the session as `assistant`, a separate user (started through `sudo`, which may run the Claude Code binary and nothing else): it cannot read the engine's environment (the database address, the encryption key) or the job files, and its folders and transcripts lie in `AI_AGENT_FOLDERS` (default `/opt/refiroo/rdm-engine/data/assistant`) and `CLAUDE_CONFIG_DIR`, shared by the two users' group. **The container does not limit the session's network**: give it only what it needs. The records the session can reach are only those its grants allow. |
-| `AI_AGENT_API_URL` | `PUBLIC_URL` | The address the session reaches this engine's API at. |
+| `AI_AGENT_SANDBOX` | operating system sandbox | `container` when the engine runs in a container, where Claude Code's own sandbox cannot run. The engine image then runs the session as `assistant`, a separate user (started through `sudo`, which may run the Claude Code binary and nothing else): it cannot read the engine's environment (the database address, the encryption key) or the job files, and its folders and transcripts lie in `AI_AGENT_FOLDERS` (default `/opt/refiroo/rdm-engine/data/assistant`) and `CLAUDE_CONFIG_DIR`, shared by the two users' group. In a container the session runs with Claude Code's permission prompts off (`bypassPermissions`), because without the sandbox Claude Code refuses compound shell commands otherwise; the `assistant` user is the boundary. **The container does not limit the session's network**: give it only what it needs. The records the session can reach are only those its grants allow. |
+| `AI_AGENT_API_URL` | `PUBLIC_URL` | The address the session reaches this engine's API at. Compose sets it to `http://127.0.0.1:8000`: the session runs inside the engine's container, where `PUBLIC_URL` may not be reachable (`http://localhost:…` names the container itself). |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to call the API. They are also where a person's sign-in may return: `<origin>/signed-in` for each (0.12 D267), so the browser application is served at the root of one of them. **The API reference at `/docs` is a browser page too:** when it calls the engine from an origin not listed here (for example `Try it` on `/oauth/token`), the browser's preflight answers `400 Disallowed CORS origin` before the request is sent. List the origin the reference is opened at; `scripts/dev.sh engine` lists the engine's own addresses |
 | `PUBLIC_URL` | `http://localhost:8000` | The engine's address as callers reach it, behind any proxy: the issuer (`iss`) of its tokens and the base of the addresses in `/.well-known/oauth-authorization-server` (0.12 D259). An absolute `http` or `https` URL; anything else stops startup. Set it on every production installation, the same on every process. See [Authentication](#authentication) |
 | `SOURCE_CODE_URL` | `https://github.com/refiroo/refiroo/tree/v<version>` | Where the source of the running version is offered to its users: `GET /system` (`engine.sourceCode`), Settings › About and the account menu show it (0.12 L1, D219; AGPL section 13). **An operator who runs a modified version sets it to the address of their own corresponding source**, including the modifications and the scripts and configuration that are part of the work; an absolute `http` or `https` address, anything else stops startup |
@@ -1049,10 +1049,10 @@ runner for the deployment gives it).
 | Container | Image | What it does |
 | --- | --- | --- |
 | `database` | `postgres:17-alpine` | PostgreSQL with the ICU root collation, its data in the `database` volume |
-| `engine` | built from `backend/Dockerfile` | The engine under Uvicorn as an unprivileged user, one process, `--proxy-headers`, export files in the `job-files` volume; its health check is `/health/live` |
+| `engine` | built from `backend/Dockerfile` | The engine under Uvicorn as an unprivileged user, one process, `--proxy-headers`, export files in the `job-files` volume and the assistant's folders in the `assistant` and `assistant-claude` volumes; its health check is `/health/live` |
 | `web` | built from `frontend/Dockerfile` | nginx (unprivileged, 8080 and 8443, published as 80 and 443) serving the application built once for every installation and forwarding the engine's public paths to the engine |
 
-Both images keep the application under `/opt/refiroo/rdm-engine`, laid out as the repository is, and add nothing at `/`. In the engine image: `backend/` (the working directory), `guide/dist`, `model/rdm-starter.json` and `data/` (`job-files`, the volume; `assistant`, `assistant-claude` and `assistant-home`). In the web image: `frontend/dist` (the application), `frontend/certs` (where `fullchain.pem` and `privkey.pem` are mounted) and `frontend/nginx`. `compose.yml` mounts the `job-files` volume and the certificate folder there; a deployment of its own mounts them at `/opt/refiroo/rdm-engine/data/job-files` and `/opt/refiroo/rdm-engine/frontend/certs`.
+Both images keep the application under `/opt/refiroo/rdm-engine`, laid out as the repository is, and add nothing at `/`. In the engine image: `backend/` (the working directory), `guide/dist`, `model/rdm-starter.json` and `data/` (`job-files`, the volume; `assistant`, `assistant-claude` and `assistant-home`). In the web image: `frontend/dist` (the application), `frontend/certs` (where `fullchain.pem` and `privkey.pem` are mounted) and `frontend/nginx`. `compose.yml` mounts the `job-files`, `assistant` and `assistant-claude` volumes (`data/assistant` and `data/assistant-claude`) and the certificate folder there; a deployment of its own mounts them at `/opt/refiroo/rdm-engine/data/job-files` and `/opt/refiroo/rdm-engine/frontend/certs`.
 
 1. **Choose the address people open** and make its DNS name reach the host. It is `PUBLIC_URL`: the
    issuer of the engine's tokens, the address a sign-in provider returns to and the host passkeys are
@@ -1102,7 +1102,7 @@ address (D271).
 and the engine migrates the database at start. **Backups** are [Backup and restore](#backup-and-restore)
 of the `database` volume (`pg_dump` from the `database` container) together with `.env`; the
 `job-files` volume holds export and import files only for as long as their jobs do, and model authoring's
-source files for as long as their draft or import profile exists: back it up with the database.
+source files for as long as their draft or import profile exists: back it up with the database. The `assistant` volume holds the assistant tasks' working folders and `assistant-claude` Claude Code's session logs, kept for `AI_TASK_RETENTION_DAYS`; they keep open tasks continuable across upgrades. A backup need not include them: losing them loses open tasks' folders and session logs, not records.
 
 **Checking an installation.** `npm run test:deployment` in `frontend/` builds the images, starts the
 installation from empty at this computer's network address with a throwaway certificate, creates the
@@ -1123,6 +1123,13 @@ set `PUBLIC_URL`, and start with both files:
 ```bash
 docker compose -f compose.yml -f compose.acme.yml up -d --build
 ```
+
+**Every later Compose command needs both files too** — upgrades, restores, settings changes,
+backups, scheduled jobs — or `COMPOSE_FILE=compose.yml:compose.acme.yml` set in the shell (not in
+`.env`, which reaches the engine). A command without the overlay recreates `web` in its
+own-certificate mode: it collides with the running Caddy on ports 80/443 or refuses to start without
+`./certs`, and the site is down until the command is rerun with both files. Renewal also needs Caddy
+running; `caddy-data` is untouched.
 
 No certificate files and no `./certs` folder are needed; the overlay sets `WEB_TLS=proxy` and stops
 publishing `web`, so Caddy is the only way in. Caddy's configuration is `caddy/Caddyfile` (add

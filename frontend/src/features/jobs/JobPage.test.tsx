@@ -199,6 +199,18 @@ describe("JobPage of an import (0.9 J4)", () => {
     expect(screen.getByRole("button", { name: "Cancel import" })).toBeInTheDocument();
   });
 
+  it("cancels a waiting import in two steps: the button asks, the dialog's button cancels", async () => {
+    vi.mocked(api.job).mockResolvedValue({ ...waiting });
+    vi.mocked(api.cancelJob).mockResolvedValue({ ...waiting, state: "cancelled" });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel import" }));
+    expect(api.cancelJob).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("alertdialog", { name: "Cancel this import?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel import" }));
+    await waitFor(() => expect(api.cancelJob).toHaveBeenCalledWith("j7"));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+  });
+
   it("says why rows cannot load when the file's records belong to another workspace (0.9 J4a)", async () => {
     const message =
       "12 rows name their records by IDs of workspace 'default', so they cannot load here. Record IDs are unique across the instance: a file with record IDs, such as an export, loads only into the workspace it came from.";

@@ -1,0 +1,29 @@
+{
+  "pages": 4,
+  "static_links_and_images_checked": 1034,
+  "errors": [],
+  "downloads": [
+    {
+      "page": "guide/model/start-a-draft-from-a-workbook",
+      "file": "Haltestellen_Busbetrieb_Nord.xlsx",
+      "bytes": 10322,
+      "matches_source": true,
+      "sheets": [
+        "Haltestellen",
+        "Namen",
+        "Lokale Codes"
+      ]
+    },
+    {
+      "page": "guide/model/propose-again-with-a-newer-workbook",
+      "file": "Haltestellen_Busbetrieb_Nord_next.xlsx",
+      "bytes": 10508,
+      "matches_source": true,
+      "sheets": [
+        "Haltestellen",
+        "Namen",
+        "Lokale Codes"
+      ]
+    }
+  ]
+}

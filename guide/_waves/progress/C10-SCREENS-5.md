@@ -1,0 +1,15 @@
+# C10-SCREENS-5 progress
+
+2026-11-05T20:14+01:00 — Finished accepted-image review: `administer/agent-access.md`, `use/notifications-settings.md`, and the five accepted Agent access recipes plus Notification email. Inspected all six local images; corrected the empty-catalogue and no-email captions, retained matching dialog/connect captions. No steering file exists; no instance changes made.
+
+2026-11-05T20:16+01:00 — Finished assistant recipe unit in `C10.screens.json`: new stopped workbook task, same-task proposal/load/reload chain, words-only proposal, whole-type move and staged partial move. Added browser setup entries; isolated workspace prerequisites go in fixture item 1. No steering file; provider-generated results and bridge activation still need external capture review.
+
+2026-11-05T20:17+01:00 — Finished mapping/history/failure recipes in `C10.screens.json` and corrected the `use/mapping-grids.md` image caption. Nonzero mappings use matching fictional codes; history requires real MCP preparation and human publication; Block confirms only the fictional assistant after its picture. Failure recipes run last in a controlled provider outage and require restoration (fixture items 2–4). No steering file.
+
+2026-11-05T20:19+01:00 — Finished deferred-reference unit: restored 14 image references on their original pages; kept the inspected Notification email image as the fifteenth. Added recipes for migration/language recovery, jobs/import evidence, webhooks, provider linking, populated local group, device factors, saved provider and local sign-in Off. Corrected `use/history.md` caption; provider/container and genuine factor prerequisites remain external fixtures. No steering file.
+
+2026-11-05T20:23+01:00 — Saved fixture items 1–5 in `_coverage/notes/C10-SCREENS/fifth-round-fixtures.md`: isolated public-data copies, matching codes, real MCP preparation/publication, provider failure/restoration, and browser-created stale migration. Added an offline UUID-remapping helper and generated its nine small data copies under this wave’s notes. No network calls or reference changes; no steering file.
+
+2026-11-05T20:28+01:00 — Saved fixture items 6–11: isolated older-language release, briefly locked real jobs, metadata-preserving invalid workbook, Docker receiver, Docker OpenID Connect provider and real TOTP/WebAuthn enrolments. Moved fictional-person creation and human publication into browser setup entries; corrected import Workspace selection to the actual native select and export download to `/output`. No steering file; all external fixtures remain planned, not executed.
+
+2026-11-05T20:31+01:00 — Finished validation and handoff: `_coverage/notes/C10-SCREENS-5/report.md` lists all 47 changed/added recipes in manifest order and all 11 fixture items; `C10.data-changes.md` records planned effects and restoration. Isolated build passed (247 pages, 3.40 s), terms/brand passed, 94 recipes parse, all 15 references restored. Link check has only 28 references to 27 uncaptured PNGs; capture execution and visual review remain external. No steering file appeared.

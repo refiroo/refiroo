@@ -261,6 +261,8 @@ export interface AiTaskDesign {
   corrections?: string[];
   /** The session this design belongs to, when Claude Code works on it. */
   agentSession?: string;
+  /** A words task whose model does not change: the proposal has no draft ("No change to the model"). */
+  modelUnchanged?: boolean;
   /** While a session works: what it does now and what the engine recorded of it. */
   progress?: {
     now: string;

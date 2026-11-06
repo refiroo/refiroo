@@ -47,7 +47,7 @@ async function newSession(browser, width, height, who = 'ADMIN') {
   await page.goto(BASE + '/');
   await page.getByLabel('Username').fill(env[`GUIDE_${who}_USERNAME`]);
   await page.getByLabel('Password').fill(env[`GUIDE_${who}_PASSWORD`]);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   // Signed in once the form is gone: a person with one workspace may land elsewhere than the workspace list.
   await page.getByLabel('Password').waitFor({ state: 'detached' });
   await page.waitForTimeout(1500);
@@ -66,7 +66,7 @@ async function act(page, a) {
   else if (a.select) await locate(page, a.select).selectOption({ label: a.value });
   else if (a.upload) await locate(page, a.upload).setInputFiles(path.resolve(REPO, a.value)); // a file chooser; value is a path from the repo root
   else if (a.press) await page.keyboard.press(a.press);
-  else if (a.waitFor) await locate(page, a.waitFor).waitFor();
+  else if (a.waitFor) await locate(page, a.waitFor).waitFor(a.timeout ? { timeout: a.timeout } : {}); // "timeout": ms, for slow work such as an AI request
   else if (a.scrollTo) {
     await locate(page, a.scrollTo).evaluate((e, off) => { e.scrollIntoView({ block: 'start' }); window.scrollBy(0, -(off ?? 0)); }, a.offset ?? 90);
   } else if (a.scrollEnd) await locate(page, a.scrollEnd).evaluate((e) => e.scrollIntoView({ block: 'end' }));

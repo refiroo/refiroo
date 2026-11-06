@@ -19,5 +19,7 @@
 !guide/src
 !guide/public
 !guide/tools
+# The example model the frontend's type check reads (0.13 RL tests).
+!guide/samples/model.json
 **/__pycache__
 **/*.pyc

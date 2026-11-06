@@ -25,5 +25,7 @@ You need permission to install models at the instance level. See
 6. After success, reopen the workspace and check its applications. Its records, history, change
    sets and publications stay as they were. This did not migrate or publish its data.
 
+![Model language recovery preview with affected workspaces and unchanged records, change sets and publications](/docs/screens/model-language-raise-review.png)
+
 If no workspace is available, the operator may need the offline procedure in
 [Model releases and rollback](/docs/run/model-releases-and-rollback/).

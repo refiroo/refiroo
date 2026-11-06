@@ -39,6 +39,9 @@ directory, then in `guide/public/screens/`). `reply --images ...` attaches image
 (`codex exec resume` accepts `-i`). The images sent are in `run.json` (per turn: path and sha1) and in
 `turn-N.images.txt`; `run --dry-run` lists them.
 
+A `waitFor` step may carry `"timeout"` in milliseconds (default 15000), for slow work such as an AI
+proposal or an assistant task (use minutes: 300000).
+
 ## Live requests
 
 `node guide/tools/live-requests.mjs [--file C12.requests.json] [--only a,b] [--list] [--allow-writes]` runs the

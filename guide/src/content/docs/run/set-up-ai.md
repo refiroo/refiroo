@@ -56,9 +56,18 @@ AI_SEND_LEVEL=values
 
 The command selects Claude Code and its model. refiroo adds its own session restrictions and
 replaces the command's permission-mode option with the mode it enforces. The example does not
-remove those guards. `container` selects the shipped image's separate assistant user; do not leave
-it unset in this installation. `values` allows the assistant to read the workbook and records
-needed by the task. Lower levels make the assistant unavailable.
+remove those guards. `AI_AGENT_SANDBOX=container` runs the session without Claude Code's permission
+prompts so it can execute the shell commands needed for a task. The shipped image's separate
+`assistant` user is its boundary: it cannot read the engine's secrets or job files. Do not leave
+this setting unset in this installation. The container does not restrict outbound network access;
+apply any required restrictions in your deployment. `values` allows the assistant to read the
+workbook and records needed by the task. Lower levels make the assistant unavailable.
+
+`AI_AGENT_API_URL` is the address the assistant's session uses to reach this engine's API.
+Compose sets it to `http://127.0.0.1:8000` unless you override it in the environment file, so no
+extra setting is needed for the shipped installation. The session runs inside the engine container:
+`localhost` there names that container, so a public address such as `http://localhost:8480` would
+send it to the wrong port. Keep `PUBLIC_URL` as the address people open in their browsers.
 
 Choose **one** of the following credential methods for Claude Code.
 
@@ -164,6 +173,13 @@ manage assistants and agent clients. Their grants determine the data they can re
 
 ## 5. Apply the settings
 
+:::caution[Automatic HTTPS needs both Compose files]
+With [automatic HTTPS](/docs/run/install-with-compose/#5-start-with-automatic-https), run `docker compose up -d` with
+`compose.acme.yml` too: keep `COMPOSE_FILE=compose.yml:compose.acme.yml` set in the shell, or add
+`-f compose.yml -f compose.acme.yml` to each command. Without it, web is recreated without Caddy
+in front and the site stops answering until you run the command again with both files.
+:::
+
 For the normal Compose installation, run:
 
 ```bash
@@ -183,9 +199,10 @@ rebuilding the images or rerunning the data loader. Use `up` for the initial bui
 `http://localhost:8480` and sign in with the reference administrator's credentials from that file.
 
 Changing the environment requires the engine container to be recreated; `up -d` applies those
-changes without rebuilding the image. A plain `docker compose restart` does not load an edited environment file. Applying
-changes can remove unfinished assistant sessions' files because the shipped Compose file does not
-persist their working directories. Finish or discard active tasks first.
+changes without rebuilding the image. A plain `docker compose restart` does not load an edited environment file.
+The shipped Compose file keeps task folders in `assistant` and Claude Code configuration and
+session logs in `assistant-claude`. Recreating the container, including during upgrades, keeps
+these named volumes, so open tasks retain the files they need to continue.
 
 ## 6. Check the provider and assistant separately
 
@@ -199,8 +216,10 @@ persist their working directories. Finish or discard active tasks first.
    **Work in change sets**, **Bulk and import**, and permission to create jobs there. The model-change
    test also needs **Model authoring** and **Model release** access. Open the workspace's
    **⋯** menu and choose **Change this model…**. Enter a small proposed change in **What should
-   change?**, then select **Ask the assistant**. Read the proposed result without applying it.
-   This exercises a real session and sends the instructions, model and any records it needs.
+   change?**, then select **Ask the assistant**. Wait until the task presents its proposal, then
+   read it without applying it. Reaching the proposal checks that the assistant can reach the
+   engine's API as well as authenticate with Claude Code. This exercises a real session and sends
+   the instructions, model and any records it needs.
 4. Return to **Settings › Administration › AI**. The session's turn should appear in **Calls** with
    its outcome, tokens and any reported cost. Review or discard the test task when finished.
 
@@ -215,6 +234,7 @@ persist their working directories. Finish or discard active tasks first.
 | The provider cannot be reached or returns an answer in the wrong shape. | Check the displayed endpoint, outbound connectivity and gateway settings. A compatible endpoint must support JSON-schema answers. The failed call remains visible; ordinary work can continue without the proposal. |
 | The assistant action is missing. | Check `AI_AGENT_COMMAND`, `AI_SEND_LEVEL=values` and the person's grants. The provider switch and MCP switch do not make it appear. |
 | A task reports `AI_AGENT_COMMAND could not start`. | Check the command and the image being used. With the shipped image, use `claude` and `AI_AGENT_SANDBOX=container`; its executable and separate user are already installed. |
+| A task stops at once with an internal error. | Check `AI_AGENT_API_URL`: an unreachable engine API address can cause this failure. With the shipped Compose installation, remove an incorrect override so Compose supplies `http://127.0.0.1:8000`. On a host installation, use an address reachable from the engine's machine. Apply the settings, start another task and check that it reaches its proposal. |
 | A turn fails or says `The session ended without an answer.` | Check the task's warnings and its failed call. Verify the assistant's credential variable, token validity, network access and container sandbox setting. Inspect the task's session log if the message is insufficient; it is beside its folder under `/opt/refiroo/rdm-engine/data/assistant`. Treat logs as sensitive. Correct the configuration, apply it, then continue or start the task again. |
 | A turn says `The session took too long.` | It exceeded the 30-minute session limit. Check service availability and reduce the task before trying again. `AI_TIMEOUT_SECONDS` controls provider calls, not this session limit. |
 | The task reports `AI_ASSISTANT_ROLE_CHANGED`. | An assistant role no longer has the required action groups. Follow the message to restore them or have an administrator delete that role so refiroo can recreate it, then try again. |
@@ -241,6 +261,8 @@ and restart the engine and worker through your service manager. The session refu
 sandbox is unavailable. For the repository's developer installation, settings live in
 `.dev/settings.env` rather than Compose's `.env`.
 
-`AI_AGENT_API_URL` defaults to `PUBLIC_URL`. Set it only when the assistant must use a different,
-reachable address for this engine's API. Provider credentials still use their own settings; an
+Outside Compose, an unset or empty `AI_AGENT_API_URL` uses `PUBLIC_URL`. Set it yourself when the
+engine's machine cannot reach that public address, for example behind a proxy that only answers
+outside callers. Use an address for this engine's API that the session can reach from that machine,
+then run the assistant check in step 6. Provider credentials still use their own settings; an
 internal API address does not change the AI provider's endpoint.

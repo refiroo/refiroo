@@ -47,7 +47,10 @@ and can be continued after the cause is addressed.
 ## Review the proposal
 
 **The assistant’s proposal** says what it understood and lists the types it adds, changes or
-loads, with attributes and record counts. **Show the model change** expands the detail.
+loads, with attributes and record counts. For a proposal with a model draft, **Show the model
+change** expands **The model: what changes**, including changes such as a field becoming optional.
+A words-only task that needs no model change says **No change to the model.** It has no model
+draft, model-change detail or model editor button.
 **The check of every row** distinguishes new, changed, unchanged, refused and skipped rows;
 relationships have their own count. Skipped for an empty key differs from refused by a rule.
 An empty cell that loses no value is not itself a skipped record.
@@ -58,12 +61,12 @@ records already held. The last can mean an intended update failed to match its r
 would create duplicates. It is a warning, not an automatic block: resolve it before accepting.
 **Columns left out** tells you what is deliberately omitted.
 
-![The assistant proposal with types, row counts, Checks and questions](/docs/screens/use-assistant-proposal.png)
+![Workbook proposal with formatted notes, assumed answers and the start of the type summary](/docs/screens/use-assistant-proposal.png)
 
 **Questions** shows the answers the assistant assumed. Change a choice and use **Answer and
 design again**. **Tell the assistant what to change** followed by **Send to the assistant**
-continues the same session with your correction. **Open in the model editor** lets you edit
-the draft directly; the session reads it again before continuing. It cannot change a draft
+continues the same session with your correction. When there is a draft, **Open in the model
+editor** lets you edit it directly; the session reads it again before continuing. It cannot change a draft
 held by another assistant task and must use its own. Close in the editor returns to the task. The draft’s history records who asked for the
 assistant’s model steps; it does not mark every model element as Proposed.
 
@@ -74,10 +77,11 @@ latest state and ask you to check before trying again.
 
 ## Accepting, loading and publishing
 
-**Accept the model** accepts the proposal for the session to install the necessary release
-without activating it and prepare the load in a new change set. It does not publish records.
-An ordinary update needs no new release. A task with nothing to load reports why and can be
-corrected; an empty change set is not reported as a successful load.
+For a words-only task with no model change, **Accept** prepares a new change set on the
+workspace’s current release. It installs and activates nothing. A proposal with a model draft
+uses **Accept the model**: the session installs the necessary release without activating it
+and prepares the load in a new change set. Neither action publishes records. A task with nothing
+to load reports why and can be corrected; an empty change set is not reported as a successful load.
 
 The result names the change set and its counts. **Review the change set** opens its normal
 review. Check the actual rows and relationships, validate, then submit for approval or publish

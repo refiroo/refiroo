@@ -28,3 +28,15 @@ Use a saved workbook draft when a corrected file needs the same modelling work. 
 For routine uploads through an already installed profile, use **Settings › Import profiles**,
 **Upload the next version…** and its comparison instead. Review changed or missing columns,
 unknown values and missing-record choices before accepting the next file.
+
+## Get the example update
+
+If you started with the [example workbook](/docs/guide/model/start-a-draft-from-a-workbook/#get-the-example-workbook),
+<a download="Haltestellen_Busbetrieb_Nord_next.xlsx" href="/docs/downloads/Haltestellen_Busbetrieb_Nord_next.xlsx">download Haltestellen_Busbetrieb_Nord_next.xlsx</a>
+and select it in **Workbook** in step 2. This fictional update renames **UIC-Nr** to
+**UIC number** on **Haltestellen** and adds **Capture note**, filled with **Preview only**
+on the first five data rows. The other two sheets are unchanged.
+
+Use it to practise reviewing a renamed column and an extra column. It does not correct
+the workbook's unresolved references. Check the key and mappings again, decide whether
+to ignore **Capture note**, and run a new dry run before loading anything.

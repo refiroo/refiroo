@@ -22,6 +22,11 @@ email choice is offered. Ask an administrator about the missing setup or address
 already on, the switch can remain visible so you can turn it off after mail becomes unavailable.
 Email is for people's accounts, not clients used by other systems.
 
+![Notification email for an account without an email address or followed workspaces](/docs/screens/notification-email-digest.png)
+
+*Above: the reference account has no email address, so no email delivery choices are offered.
+Its followed-workspaces list is also empty.*
+
 **At once** sends an eligible unread notice once, provided it arrived since enabling email
 and is less than 24 hours old. Previously read notices and notices from before enabling email
 are not sent. Turning email off leaves inbox notices intact.
@@ -56,6 +61,9 @@ Losing Browse or deactivation stops notices while retaining your follow choice. 
 resume when access returns. Stop following to remove that choice deliberately. Following is
 independent of whether email is available; its notices still appear in the inbox.
 See [Follow a workspace](/docs/guide/use/follow-a-workspace/).
+
+There is no browser view of a sent digest. Read the message in the receiving mailbox;
+use **Notification email** to check its saved delivery choices and schedule.
 
 ## When email does not arrive
 

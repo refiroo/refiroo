@@ -12,12 +12,13 @@ Further turns can incur costs and read the task's workbook and permitted records
 
 ## Correct a proposal
 
-1. Read the latest notes, **Checks**, row counts and any engine refusal. If you stopped a turn
+1. Read the latest notes, any **Checks** or row counts, and any engine refusal. If you stopped a turn
    after it changed the draft, open the draft to inspect it: Stop does not undo those edits.
 2. Under **Tell the assistant what to change**, describe the correction and choose **Send to
-   the assistant**. The same session reads the current draft and proposes again.
-3. Review the new proposal and current row check before **Accept the model**. If the page says
-   the task changed while you worked, inspect its latest state and try again; your old view
+   the assistant**. The same session reads the current draft, if there is one, and proposes again.
+3. Review the new proposal and any current row check. Choose **Accept** when the page says
+   **No change to the model.**, or **Accept the model** when there is a model draft. If the
+   page says the task changed while you worked, inspect its latest state and try again; your old view
    is not permission to overwrite the newer work.
 
 ## Continue after a failure or Stop
@@ -37,7 +38,7 @@ accepted proposal. Stop before any proposal leaves a stopped task that takes ins
 Stopping a correction can return an earlier proposal whose draft already has newer edits;
 read the warning before accepting anything.
 
-![A failed assistant task showing its reason, words box and continuation actions](/docs/screens/use-assistant-stopped.png)
+![Task stopped before a proposal, with a words box, Go on as it was and Discard this task](/docs/screens/use-assistant-stopped.png)
 
 ## Correct a load before publication
 

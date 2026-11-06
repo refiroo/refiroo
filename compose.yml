@@ -42,10 +42,17 @@ services:
       # the host passkeys are bound to.
       PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env (see .env.example)}
       CORS_ORIGINS: ${PUBLIC_URL}
+      # The assistant's session runs inside this container, where PUBLIC_URL may not be reachable (http://localhost:... names the container itself); the engine listens on 8000 here.
+      AI_AGENT_API_URL: ${AI_AGENT_API_URL:-http://127.0.0.1:8000}
       # `web` is the only caller (the engine is not published), and it replaces what callers send.
       FORWARDED_ALLOW_IPS: "*"
     volumes:
       - job-files:/opt/refiroo/rdm-engine/data/job-files
+      # The assistant's task folders and Claude Code's session logs: they must outlive a recreated
+      # container (each upgrade), or open assistant tasks cannot continue. A named volume starts as
+      # a copy of the image's folder, with its owner, group and setgid mode.
+      - assistant:/opt/refiroo/rdm-engine/data/assistant
+      - assistant-claude:/opt/refiroo/rdm-engine/data/assistant-claude
     depends_on:
       database:
         condition: service_healthy
@@ -77,3 +84,5 @@ services:
 volumes:
   database:
   job-files:
+  assistant:
+  assistant-claude:

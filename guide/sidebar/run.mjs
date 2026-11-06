@@ -5,7 +5,7 @@ export default [
   [
     "Install",
     [
-      ["run/install-with-compose", "Install with Compose"],
+      ["run/install-with-compose", "Deploy to production with Docker"],
       ["run/developer-instance", "A developer instance"],
       ["run/database", "The database"],
       ["run/https", "Serve over HTTPS"],

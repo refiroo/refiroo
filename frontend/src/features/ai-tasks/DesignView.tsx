@@ -6,6 +6,7 @@
  */
 
 import type { AiTask, EngineModel } from "@/types";
+import { AssistantText } from "@/ui/AssistantText";
 import { Card } from "@/ui/Card";
 import { Notice } from "@/ui/Notice";
 import { DesignModel } from "./DesignModel";
@@ -54,7 +55,7 @@ export function DesignView({
     <div className="task-check">
       <TaskNotes notes={task.notes} />
       <Card as="section" className="task-summary" aria-label="What the assistant understood">
-        <p>{design.summary}</p>
+        <AssistantText text={design.summary} />
         <p className="task-reason">
           {task.words && <>You said: “{task.words}”. </>}
           {design.questions.length > 0 && <>{plural(design.questions.length, "question")} below. </>}

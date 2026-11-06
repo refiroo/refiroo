@@ -34,6 +34,7 @@ a healthy process repeatedly does not restore its database. With Operations acce
 | `401 AUTHENTICATION_REQUIRED` or `TOKEN_INVALID` | Obtain a valid token or sign in again. Check expiry, API scope, deactivation and shared `PUBLIC_URL` if repeated across processes. |
 | `403 FORBIDDEN` | Authentication succeeded but the caller lacks the named action. Ask a security administrator to check grants in the named workspace. |
 | Unknown migration revision or failed migration | Keep traffic closed and follow [Upgrades](/docs/run/upgrades/). Never edit revision rows to suppress the check. |
+| After an upgrade or a settings change with automatic HTTPS, the site does not answer; web's log says port 80 or 443 is already allocated, or names missing certificate files | The command ran without `compose.acme.yml`, so web was recreated without Caddy in front. Run `docker compose -f compose.yml -f compose.acme.yml up -d`, or set `COMPOSE_FILE=compose.yml:compose.acme.yml` as in [Install](/docs/run/install-with-compose/#5-start-with-automatic-https) and rerun the command. |
 | Named invalid or retired environment setting | Correct that setting, then recreate the container. Use [startup checks](/docs/run/health-and-startup-checks/). |
 
 If a workspace schema is older than supported, use the reviewed raising procedure. If newer, run

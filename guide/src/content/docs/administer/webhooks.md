@@ -68,6 +68,8 @@ This key is separate from [client secrets](/docs/administer/clients/) and the in
 
 The **Deliveries** tab filters **Status** to **Queued**, **Sending**, **Retrying**, **Succeeded**, **Failed** or **Dropped**. Choose **Refresh** for the current state. Each row identifies the event and record, status, attempts, response and sent time. Open the event to inspect **Attempts** and the saved request and response; select an attempt to inspect its answer. These details can contain record data, so share them only with authorised people.
 
+![Retrying webhook delivery with its attempts and receiver response](/docs/screens/admin-webhook-deliveries.png)
+
 Deliveries are normally kept for seven days; the page states the configured retention. A request still being retried or awaiting resume is kept longer. The list is a delivery log, not permanent data history.
 
 **Resend** asks **Resend a delivered event?** Confirm **Resend event** only with the receiver owner’s agreement, or choose **Don’t resend**. It sends the saved request again and can repeat an action in the receiving system. It is unavailable when the saved request is no longer held. It does not replace repairing and resuming a suspended webhook.

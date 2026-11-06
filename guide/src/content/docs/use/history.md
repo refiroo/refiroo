@@ -170,7 +170,11 @@ it is not proof of identity. The entry still names the person who published. The
 Changes page has no separate assistant filter or mark, so inspect a record's History for this
 detail. refiroo never turns an assistant's proposal into publication on its own.
 
-![Published record history distinguishing assistant preparation, requester, editor and publisher](/docs/screens/use-history-assistant.png)
+![Live record history with an expanded update prepared by an assistant and attributed to a person](/docs/screens/use-history-assistant.png)
+
+*Above: Chur Wiesental’s History attributes an Abbreviation update to Guide Admin and marks
+it as prepared by Stops checker (guide). A separate entry below names changes made by that
+assistant’s client.*
 
 An external assistant can prepare and submit only change sets created by its own person or
 client, not a colleague's. It can add or change records and relationships and set fields,

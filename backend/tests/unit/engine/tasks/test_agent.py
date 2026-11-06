@@ -73,7 +73,11 @@ def test_a_session_left_by_a_stopped_worker_is_ended_and_another_process_is_not(
 
 
 def _type(key, *attributes):
-    return {"key": key, "name": key.title(), "attributes": [{"key": a} for a in attributes]}
+    return {
+        "key": key,
+        "name": key.title(),
+        "attributes": [{"attributeTypeKey": a} for a in attributes],
+    }
 
 
 def test_the_shape_names_what_a_proposal_adds_changes_or_loads_and_leaves_the_rest_out():
@@ -88,9 +92,64 @@ def test_the_shape_names_what_a_proposal_adds_changes_or_loads_and_leaves_the_re
     }
     shape = _shape(model, base, {"loaded": 1, "fresh": 1200})
     assert [(item["name"], item["text"]) for item in shape] == [
-        ("Grown", "Changed type, 2 attributes"),
+        ("Grown", "Changed type (adds b), 2 attributes"),
         ("Loaded", "1 attribute, 1 record"),
         ("Fresh", "New type, 3 attributes, 1,200 records"),
+    ]
+
+
+def test_a_type_that_differs_only_in_form_is_not_changed_and_a_real_difference_is_named():
+    base = {
+        "attributeTypes": [{"key": "a", "name": "Alpha"}, {"key": "b", "name": "Beta"}],
+        "objectTypes": [
+            {
+                "key": "same",
+                "name": "Same",
+                "attributes": [
+                    {"attributeTypeKey": "a", "required": True, "order": 10, "ui": {}},
+                    {"attributeTypeKey": "b", "order": 20},
+                ],
+            },
+            {
+                "key": "loosened",
+                "name": "Loosened",
+                "attributes": [{"attributeTypeKey": "a", "required": True}],
+            },
+        ],
+    }
+    model = {
+        "attributeTypes": base["attributeTypes"],
+        "objectTypes": [
+            {
+                "key": "same",
+                "name": "Same",
+                # Listed the other way round, defaults spelled out, another order number.
+                "attributes": [
+                    {
+                        "attributeTypeKey": "b",
+                        "required": False,
+                        "readOnly": False,
+                        "order": 5,
+                        "ui": None,
+                    },
+                    {
+                        "attributeTypeKey": "a",
+                        "required": True,
+                        "readOnly": False,
+                        "order": 6,
+                        "ui": {},
+                    },
+                ],
+            },
+            {
+                "key": "loosened",
+                "name": "Loosened",
+                "attributes": [{"attributeTypeKey": "a", "required": False}],
+            },
+        ],
+    }
+    assert [(i["name"], i["text"]) for i in _shape(model, base, {})] == [
+        ("Loosened", "Changed type (changes how Alpha is filled in), 1 attribute")
     ]
 
 
@@ -150,3 +209,86 @@ def test_the_session_is_verified_by_tls_unless_the_api_is_on_this_machine():
     assert not _loopback("https://192.168.0.36:8000") and not _loopback("https://rdm.example.org")
     assert "curl -k" in _connection("w", "https://localhost:8000")
     assert "curl -k" not in _connection("w", "https://rdm.example.org")
+
+
+def test_the_session_runs_restricted_outside_a_container_and_unprompted_inside_one(
+    monkeypatch, tmp_path
+):
+    """Container: no --restricted, permission prompts off, no setting sources; host: unchanged."""
+    from app.engine.tasks.agent import _safeguards
+
+    monkeypatch.setenv("AI_AGENT_SANDBOX", "container")
+    inside = _safeguards("http://127.0.0.1:8000", tmp_path)
+    assert "--restricted" not in inside and "dontAsk" not in inside
+    assert inside[inside.index("--permission-mode") + 1] == "bypassPermissions"
+    assert inside[inside.index("--setting-sources") + 1] == ""
+    assert "--strict-mcp-config" in inside and "--disallowedTools" in inside
+    # The read block refuses `$REFIROO_TOKEN` in compound commands; the assistant user is the boundary.
+    assert "permissions" not in json.loads(inside[inside.index("--settings") + 1])
+
+    monkeypatch.delenv("AI_AGENT_SANDBOX", raising=False)
+    outside = _safeguards("http://127.0.0.1:8000", tmp_path)
+    assert "--restricted" in outside and "bypassPermissions" not in outside
+    assert outside[outside.index("--permission-mode") + 1] == "dontAsk"
+    assert "--setting-sources" not in outside
+    host = json.loads(outside[outside.index("--settings") + 1])
+    assert host["permissions"] == {"blockReadsOutsideWorkingDirectories": True}
+
+
+def _landing(monkeypatch, tmp_path, proposal, *, workbook):
+    """``_proposal_landed`` for a task whose session wrote ``proposal`` (``workbook``: the task has a file)."""
+    from unittest.mock import MagicMock
+
+    from app.engine.tasks import agent
+
+    task = SimpleNamespace(
+        id=1, state="reading", notes=[], design={"stage": "model"}, draft_id=None, check="old"
+    )
+    monkeypatch.setattr(agent, "load_task", lambda *args, **kwargs: task)
+    monkeypatch.setattr(agent, "touch", lambda *args, **kwargs: None, raising=False)
+    monkeypatch.setattr("app.engine.tasks.store.touch", lambda *args, **kwargs: None)
+    (tmp_path / agent.PROPOSAL).write_text(json.dumps(proposal))
+    session = MagicMock()
+    session.scalar.return_value = 7 if workbook else None
+    progress = SimpleNamespace(result={"result": "Done."})
+    agent._proposal_landed(session, None, "t", tmp_path, progress, None, None)
+    return task
+
+
+def test_a_words_proposal_without_a_draft_is_a_proposal_with_no_model_change(monkeypatch, tmp_path):
+    task = _landing(
+        monkeypatch,
+        tmp_path,
+        {"draftId": None, "summary": "Set the abbreviation.", "questions": [{"text": "Sure?"}]},
+        workbook=False,
+    )
+    assert task.state == "checked" and task.draft_id is None and task.check is None
+    assert task.design["modelUnchanged"] is True and task.design["stage"] == "model"
+    assert task.design["summary"] == "Set the abbreviation."
+    assert task.design["questions"][0]["text"] == "Sure?"
+    assert task.design["moves"] == [] and task.design["outline"] == []
+
+
+def test_a_workbook_proposal_without_a_draft_still_fails(monkeypatch, tmp_path):
+    task = _landing(monkeypatch, tmp_path, {"draftId": None, "summary": "A plan."}, workbook=True)
+    assert task.state == "failed" and "modelUnchanged" not in task.design
+
+
+def test_a_words_proposal_without_a_summary_or_with_moves_or_a_missing_draft_still_fails(
+    monkeypatch, tmp_path
+):
+    for proposal in (
+        {"draftId": None, "summary": " "},
+        {"draftId": None, "summary": "Merge.", "moves": [{"from": "a", "to": "b"}]},
+    ):
+        assert _landing(monkeypatch, tmp_path, proposal, workbook=False).state == "failed"
+
+
+def test_accepting_a_proposal_without_a_draft_asks_for_the_change_set_on_the_live_release():
+    from app.engine.tasks import agent
+
+    assert "install no release" in agent._ACCEPTED_UNCHANGED
+    assert "source currentLive" in agent._ACCEPTED_UNCHANGED and agent.LAST_LINE in (
+        agent._ACCEPTED_UNCHANGED
+    )
+    assert "Install" in agent._ACCEPTED

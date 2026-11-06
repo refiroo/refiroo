@@ -45,6 +45,13 @@ installation; its older container paths differ from the current image paths list
 
 ## Apply a change
 
+:::caution[Automatic HTTPS needs both Compose files]
+With [automatic HTTPS](/docs/run/install-with-compose/#5-start-with-automatic-https), run `docker compose up -d` with
+`compose.acme.yml` too: keep `COMPOSE_FILE=compose.yml:compose.acme.yml` set in the shell, or add
+`-f compose.yml -f compose.acme.yml` to each command. Without it, web is recreated without Caddy
+in front and the site stops answering until you run the command again with both files.
+:::
+
 1. Edit the installation's private environment file. Keep secret values out of version control.
 2. Recreate the affected container with its new environment:
 
@@ -62,7 +69,9 @@ must be positive integers, except the overflow and idle-transaction settings whi
 `PASSWORD_MIN_LENGTH` must be between 1 and 128.
 
 Compose's explicit environment entries override the file: it constructs `DATABASE_URL` and sets
-`CORS_ORIGINS` from `PUBLIC_URL`. The image supplies the default model and job-file paths.
+`CORS_ORIGINS` from `PUBLIC_URL`. It also supplies `AI_AGENT_API_URL=http://127.0.0.1:8000` unless
+you override that setting, so the assistant reaches the API inside the engine container. The image
+supplies the default model and job-file paths.
 Custom model input must also be mounted where the engine can read it; naming a host path in the
 container's environment does not mount that file. [Troubleshooting](/docs/run/troubleshooting/) covers service failures.
 
@@ -165,6 +174,10 @@ links for the complete procedures.
 The template's AI group, plus the runtime settings `AI_AGENT_COMMAND`, `AI_AGENT_SANDBOX` and
 `AI_AGENT_API_URL`, are owned by [About AI](/docs/run/ai/) and [Set up AI](/docs/run/set-up-ai/).
 Use those pages for their defaults, data policy and deployment requirements.
+
+Compose defaults `AI_AGENT_API_URL` to `http://127.0.0.1:8000`. Outside Compose, an unset or empty
+value uses `PUBLIC_URL`; supply a reachable engine API address if the engine's machine cannot
+reach that public address. See [Set up AI](/docs/run/set-up-ai/) for the assistant check.
 
 ### Path defaults and container overrides
 

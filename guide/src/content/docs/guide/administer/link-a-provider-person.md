@@ -13,4 +13,6 @@ Use this task when someone already has an account and their first organisation-p
 5. Check the existing person’s **Sign-in** section and groups. The provider identities and provider memberships move to this person. Their original roles and history continue. The newly created person is deactivated and their sessions end; it is not deleted.
 6. Ask the person to sign in again through **Continue with …** and check they reach the existing account and intended workspace. Provider group roles apply alongside direct and local-group roles.
 
+![Provider sign-in linking dialog with the fictional existing target person selected](/docs/screens/admin-person-link-provider.png)
+
 To undo a mistaken provider link, open the remaining person’s **Sign-in** section and choose **Unlink…** beside that provider. Read **Unlink …?** and confirm **Unlink** only after checking their remaining sign-in route. A later sign-in through that provider creates a separate person again; unlinking does not merge or rewrite history.

@@ -57,7 +57,11 @@ language column is accounted for.*
    The same session revises the design and rereads your editor changes. Check the new proposal
    and its row counts again.
 
-![Assistant proposal with types, workbook checks, questions and columns left out](/docs/screens/model-assistant-workbook-proposal.png)
+![Workbook proposal with type counts, the row check and an expanded table of model changes](/docs/screens/model-assistant-workbook-proposal.png)
+
+*Above: the reference workbook proposal adds types and relationships, adds Step-free access
+and Remark to Stop, and makes FSO number and System key optional. The expanded table shows
+these changes.*
 
 A wide sheet with repeated groups of columns may need rows arranged differently for loading.
 The assistant can prepare a working copy in the shape its import needs. Review the resulting
@@ -104,7 +108,10 @@ reusable profile. The page says why it was not saved; that does not undo the loa
 layout no longer fits, **Read it with the assistant** starts its reading. Before loading a
 saved layout, **Back to the proposal** and the words box let you reconsider it.
 
-![Loaded task showing counts, saved profile, review action and excluded sheets or columns](/docs/screens/model-assistant-workbook-loaded.png)
+![Loaded task with 86 new records, a saved profile, change-set review and correction actions](/docs/screens/model-assistant-workbook-loaded.png)
+
+*Above: the reference workbook task has prepared 86 new records in a change set and saved a
+profile. Live data is unchanged until publication.*
 
 For a wrong load that is not published, enter a correction and choose **Discard and load again**.
 Confirm only after reading that this removes the entire change set, including manual edits

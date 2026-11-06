@@ -10,12 +10,17 @@ source and runs three containers:
 | Container | Responsibility | Persistent storage |
 | --- | --- | --- |
 | `web` | Serves the browser application and forwards requests to the engine. Ends HTTPS when using your certificates. | Certificate files supplied by you. |
-| `engine` | Serves the API and documentation, checks the database at startup, and runs background work. | `job-files` volume. |
+| `engine` | Serves the API and documentation, checks the database at startup, and runs background work. | `job-files`, `assistant` and `assistant-claude` volumes. |
 | `database` | PostgreSQL 17, the only supported database. | `database` volume. |
 
 Only the web service publishes host ports. The engine runs as an unprivileged user. Jobs run in
 threads inside the engine process; there is no separate worker service to install. The optional
-automatic HTTPS overlay adds Caddy and makes it the only public container.
+[automatic HTTPS overlay](/docs/run/https/#get-and-renew-public-certificates-automatically)
+adds Caddy and makes it the only public container. For a public DNS name, it obtains a Let's Encrypt
+or ZeroSSL certificate and renews it automatically. Set `PUBLIC_URL` to that name's HTTPS origin
+and start with `compose.acme.yml` alongside the base Compose file. You can instead supply your
+organisation's certificates or use its existing HTTPS proxy; [Serve over HTTPS](/docs/run/https/)
+explains all three choices.
 
 ## Start here
 
@@ -67,17 +72,24 @@ access is enabled; see [AI and agent settings](/docs/run/ai/).
 | --- | --- | --- |
 | Database volume | `database` service, `/var/lib/postgresql/data` | Back up as PostgreSQL state. It holds records, models, identities, jobs, feeds and delivery logs. |
 | Job-file volume | Engine, `/opt/refiroo/rdm-engine/data/job-files` | Back up with the database. Some files are temporary; draft/profile source workbooks are long lived. |
+| Assistant task folders (`assistant`) | Engine, `/opt/refiroo/rdm-engine/data/assistant` | Keeps task working folders across container replacement and upgrades. Optional in backups; losing it loses open tasks’ folders, not records. |
+| Claude Code configuration and session logs (`assistant-claude`) | Engine, `/opt/refiroo/rdm-engine/data/assistant-claude` | Keeps Claude Code configuration and session logs across container replacement and upgrades. Optional in backups; losing it loses session logs, not records. |
 | Private environment | Host `.env`, or your selected file | Keep securely outside database backups, associated with each backup. Losing its sealing key loses access to stored secrets. |
 | Certificate directory | Host `./certs`, mounted read only at `/opt/refiroo/rdm-engine/frontend/certs` | Protect private keys; preserve or replace through your certificate issuer. Not needed with automatic HTTPS. |
 | Certificate account and certificates | Overlay `caddy-data`, mounted at `/data` | Preserve and back up to avoid unnecessary reissuance and authority limits. |
 | Built application and guide | Images, under `/opt/refiroo/rdm-engine` | Rebuild from the matching source and dependencies; not mutable business data. |
 | Container logs | Docker's configured logging storage | Export/rotate according to your retention policy; replacing a container is not log archiving. |
 
-The reference file does not persist optional assistant folders separately. Before enabling that
-feature, review its [storage and security requirements](/docs/run/ai/). Temporary exports may be
-regenerated, but deleting the entire job-file volume also loses input files. A database backup alone
+The reference file persists the assistant’s folders and Claude Code configuration and session logs
+in named volumes. Review their [storage and security requirements](/docs/run/ai/) before enabling
+the assistant. Temporary exports may be regenerated, but deleting the entire job-file volume also loses input files. A database backup alone
 cannot reconstruct those workbooks. See [Background jobs](/docs/run/background-jobs/) for each
 file's lifetime and [Back up and restore](/docs/run/backup-and-restore/) for a consistent pair.
+
+`docker compose down` keeps named volumes. `docker compose down -v` removes `database`,
+`job-files`, `assistant` and `assistant-claude`, and `caddy-data` when using the HTTPS overlay.
+This loses the database records, job files, assistant task folders and session logs, and any
+certificates and account held by Caddy. Do not use it to repair a startup problem.
 
 ## Know the boundary of support
 

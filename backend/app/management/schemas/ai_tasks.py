@@ -271,6 +271,9 @@ class TaskDesign(BaseModel):
     progress: dict[str, Any] | None = None
     # The Claude Code session working on this design.
     agentSession: str | None = None
+    # A words task whose model does not change: the proposal has no draft, and accepting makes the
+    # change set on the workspace's live release.
+    modelUnchanged: bool = False
 
 
 class DesignSheet(BaseModel):

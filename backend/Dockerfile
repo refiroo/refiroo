@@ -69,7 +69,7 @@ ENV RDM_MODEL_PATH=/opt/refiroo/rdm-engine/model/rdm-starter.json \
     CLAUDE_CONFIG_DIR=/opt/refiroo/rdm-engine/data/assistant-claude \
     PYTHONUNBUFFERED=1
 # Export and import files wait here; mount a volume to keep them across a new container.
-VOLUME /opt/refiroo/rdm-engine/data/job-files
+VOLUME /opt/refiroo/rdm-engine/data/job-files /opt/refiroo/rdm-engine/data/assistant /opt/refiroo/rdm-engine/data/assistant-claude
 USER rdm
 EXPOSE 8000
 

@@ -18,7 +18,9 @@ Local accounts support TOTP authenticator codes and WebAuthn passkeys. An organi
 
 Passwords are stored as hashes. Secrets that refiroo must use again, such as provider credentials and webhook signing keys, are encrypted in storage with an operator-managed key. Secrets are not ordinary reference-data fields and are not included in activity records. Protecting the encryption key and backups remains an operator responsibility; changing a key requires the documented recovery procedure.
 
-Production installations need HTTPS, protected database access and controlled operator credentials. These are deployment responsibilities, not guarantees made merely by installing the software. See [Secrets and keys](/docs/run/secrets-and-keys/) and the [Security checklist](/docs/run/security-checklist/).
+For a public installation, refiroo provides [automatic HTTPS](/docs/run/https/): Caddy obtains a Let's Encrypt or ZeroSSL certificate and renews it before it expires. You do not need to buy a certificate, install certificate files or renew it by hand. The operator points the public name's DNS at the host, keeps ports 80 and 443 reachable from the internet and preserves the certificate storage volume. An organisation can instead use its own certificates or an existing HTTPS proxy.
+
+Production installations also need protected database access and controlled operator credentials. See [Secrets and keys](/docs/run/secrets-and-keys/) and the [Security checklist](/docs/run/security-checklist/).
 
 ## Know who changed what
 
