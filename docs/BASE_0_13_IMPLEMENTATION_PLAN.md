@@ -642,6 +642,8 @@ change), made in W4:
 
 The release step R runs the website's script at the release tag; the tag is the guide's version.
 
+Open (website W8, 2026-11-06): the guide home's title reads "refiroo documentation | refiroo documentation" (Starlight joins the page title and the site title); the home page's title in `guide/` should be set so it does not repeat.
+
 Also in DOC12, for the website's Community page (website W3-D7, approved 2026-11-04): `CODE_OF_CONDUCT.md` at the
 repository root, the Contributor Covenant 2.1 (CC BY 4.0) with krisztian.toth@refiroo.org as its reporting contact, and CONTRIBUTING.md's last sentence ("A separate code of conduct
 will be added when contributions open") replaced by a link to it. The README's Status section is brought up to Base
