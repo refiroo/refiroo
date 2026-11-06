@@ -384,6 +384,7 @@ when both are empty but for reasoned exclusions.
 | [HD](#hd-one-header-for-the-app-the-documentation-and-the-api-reference) | DOC1 | One header style for the app, the guide and the API reference; logo to the app; Documentation \| API reference switch; "?" help; one theme choice | Primary agent. **Approved 2026-11-03; delivered 2026-11-03** |
 | [TH](#th-a-theme-choice-normal-or-website-purple) | HD | A theme choice, Normal or Website purple, beside the light and dark choice, in the app, the guide and the API reference | Primary agent. **Approved 2026-11-05** |
 | [RL](#rl-record-pages-and-related-columns-in-the-model-editor) | DOC1 | Record pages with one panel per relationship by default; Add panel… on a record page; columns showing a field of the related records or where they sit, chosen in the editor | Primary agent. **Approved 2026-11-05** |
+| [AD](#ad-an-assistant-task-makes-its-own-model-draft) | - | A workbook task's session makes its own model draft; a proposal on a draft it did not make goes back to the session instead of failing the task | Primary agent. **Delivered 2026-11-06** |
 | R | all | Full review of every change since 0.12, the exit gate, the release | Primary agent |
 
 The waves are ordered by dependence, not by importance: concepts first (the how-tos and tutorials link
@@ -837,6 +838,24 @@ build passes.
 **Said plainly:** pages already declared stay as they are; a model that wants the new panels on an existing page
 adds them with **Add panel…**. A relationship's own attributes (stored on the link) still cannot be columns;
 that is a model-language change outside RL.
+
+## AD: An assistant task makes its own model draft
+
+**Status:** Found 2026-11-06 from a failed task (a workbook task whose words asked to update one mapping and change no model); placed in 0.13 by the user the same day; **delivered 2026-11-06**.
+
+**Why.** The session needs a draft (a workbook task always does) and the prompt said only "build the model in a model draft", not how. The session opened the workspace's own draft (`POST /workspaces/{key}/model/draft`, 0.16 WM1), which answers with the draft the workspace remembers: one a person had been editing. It checked it, proposed it, and the engine failed the task with "proposed a draft it did not create; try again". The ownership rule is right (R-F3: a task names only drafts its own client made, so discarding a task never deletes a person's draft), but the failure ended the task, and "try again" could not help: every retry got the same draft.
+
+**What changes.**
+
+1. **The prompt (`agent/10`)** tells the session to make its own draft with `POST /model-drafts` (the release the workspace runs as base, from `GET /workspaces/{key}/model`), never to open the workspace's draft, never to use or change a draft it did not make, and to keep using its own on a later turn.
+2. **A proposal naming a draft the task's client did not create goes back to the session** with a plain finding (make your own draft and write the proposal again), through the same rounds as the consumer-contract and records findings (`LANDING_ROUNDS`). Only when the rounds are spent does the task fail, with a note in the person's terms that says trying again with the same draft cannot help.
+
+**Decisions (recommended, recorded).**
+
+- **A draft another task holds** keeps failing at once. Clients are one per task, so a draft its own client made cannot be held by another task except by a defect; sending it back would hide one.
+- **Refusing a task session's token on `POST /workspaces/{key}/model/draft`** is not done: a refusal by client kind would be a second rule beside the ownership check, which already catches the effect, and it would reach into the model-draft API for one client kind. The prompt and the send-back carry the fix. If a session still opens the workspace's draft, the draft is remembered by the workspace as a side effect; that stays open.
+
+**Tests.** J50.30: a proposal on a person's draft goes back to the session twice and then fails with the new note, the draft untouched; a session that makes its own draft on the second turn lands at `checked`.
 
 ## The writing rules
 

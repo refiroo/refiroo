@@ -74,7 +74,7 @@ from .store import finish, held_by_another, held_counts, load_task, note
 log = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 1800
-PROMPT_VERSION = "agent/9"
+PROMPT_VERSION = "agent/10"
 LAST_LINE = "CHANGE_SET:"
 THEN_LINE = "THEN_RELEASE:"
 RELEASE_LINE = "RELEASE:"
@@ -164,14 +164,23 @@ _WORDS = (
 )
 
 
+_OWN_DRAFT = (
+    "made with POST /model-drafts (name, model, and baseReleaseId the releaseId that "
+    "GET /workspaces/{key}/model answers); never open the workspace's own draft (POST /workspaces/{key}/model/draft) and never "
+    "use or change a draft you did not make, since it is a person's; on a later turn keep using "
+    "the draft you made"
+)
+
+
 def _propose_prompt(
     words: str | None, workspace: str, url: str, held: dict[str, int], *, workbook: bool = True
 ) -> str:
     check = (
-        "Build the model in a model draft and check every row with the draft's dry run"
+        f"Build the model in a model draft of your own, {_OWN_DRAFT}, and check every row with the "
+        "draft's dry run"
         if workbook
-        else "Put any model change the words need in a model draft; if the model does not change, "
-        "make no draft and write draftId null. Work out every record the words touch, and write "
+        else f"Put any model change the words need in a model draft of your own, {_OWN_DRAFT}; if "
+        "the model does not change, make no draft and write draftId null. Work out every record the words touch, and write "
         "in the summary the change as what to do, in terms of the records; stage no change set"
     )
     return (
@@ -1322,6 +1331,16 @@ def _contract_prompt(errors: list[Any]) -> str:
     )
 
 
+def _not_its_draft_prompt() -> str:
+    return (
+        "The draft in your proposal is not one you made, so it is a person's and you may not "
+        "propose, use or change it. Make your own model draft with POST /model-drafts (name, model, "
+        "and baseReleaseId the releaseId that GET "
+        "/workspaces/{key}/model answers), build the model in it, check it "
+        f"with the draft's dry run, and write {PROPOSAL} again naming that draft."
+    )
+
+
 def _refusal_words(refusals: tuple[LandingRefusal, ...], names: dict[str, str]) -> str:
     """The engine's refusals with their counts per type and a few example records."""
     return "; ".join(
@@ -1502,7 +1521,18 @@ def _proposal_landed(
     )
     if draft is not None and not _drafted_by(session, task, draft):
         # The ID is the session's word: a draft it did not create is a person's, not its to name (R-F3).
-        note(task, "warning", "The session proposed a draft it did not create; try again")
+        # Trying again with the same draft cannot help: the session is told to make its own.
+        if round_ < LANDING_ROUNDS:
+            _send_back(
+                session, job, ctx, task_id, folder, check_of, _not_its_draft_prompt(), round_
+            )
+            return
+        note(
+            task,
+            "warning",
+            "The session kept proposing a draft that is not its own, which it may not use: it "
+            "must make its own model draft. Leave the task out and start a new one",
+        )
         finish(task, "failed", _retention(ctx))
         session.commit()
         return

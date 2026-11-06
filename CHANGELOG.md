@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed (an assistant task makes its own model draft, 0.13 AD)
+
+- **A task whose session opened the workspace's own draft no longer fails at once.** The session is told how to get a draft (`agent/10`): make its own with `POST /model-drafts`, never open the workspace's draft or use one it did not make, and keep its own on later turns. A proposal that still names a draft the task did not create goes back to the session, as a finding does, for up to two rounds; only then the task fails, saying the session must make its own draft, no longer "try again", which could not help. A person's draft is never touched.
+
 ### Fixed (jobs, client webhooks, the assistant's note)
 
 - **Jobs name the workspace by its label** in the list and on the job page, not by its key.

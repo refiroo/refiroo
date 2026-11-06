@@ -614,7 +614,9 @@ else:
             "profile": config["profile"]})
         until("/model-drafts/" + config["draft"] + "/dry-run", lambda f: f["state"] == "completed")
     draft_id = config["draft"]
-    if config.get("api") and config.get("ownDraft"):
+    turned = os.path.exists("turned")
+    open("turned", "w").close()
+    if config.get("api") and (config.get("ownDraft") or (config.get("ownOnSecond") and turned)):
         draft_id = api("POST", "/model-drafts", json={"name": "Its own", "model": {}})["id"]
     json.dump({"draftId": draft_id, "summary": "A plan.",
                "questions": [{"text": "Which?", "options": ["A", "B"], "assumed": "A"}]},
@@ -858,11 +860,12 @@ def test_a_session_is_taken_at_its_word_for_neither_a_draft_nor_a_change_set_it_
     _run(world)
     task = _task(world, task)
     assert task["state"] == "failed" and task["draftId"] is None
-    assert any("did not create" in note["text"] for note in task["notes"]), task["notes"]
+    assert any("not its own" in note["text"] for note in task["notes"]), task["notes"]
     assert ok(world.api.get(f"/model-drafts/{settings['draft']}"))["id"] == settings["draft"]
 
-    config.write_text(json.dumps({**settings, "ownDraft": True}))
-    ok(world.api.post(f"/ai/tasks/{task['id']}/retry", {"expectedVersion": task["version"]}), 202)
+    # A proposal on a person's draft goes back to the session, which makes its own and lands.
+    config.write_text(json.dumps({**settings, "ownOnSecond": True}))
+    task = ok(_create(world, ledgers.workspace, ledgers.book(), words="Make it so"), 202)
     _run(world)
     task = _task(world, task)
     assert task["state"] == "checked" and task["draftId"] != settings["draft"], task["notes"]
