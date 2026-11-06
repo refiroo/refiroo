@@ -594,6 +594,13 @@ standard width and at 390 px where a page speaks of a narrow screen. The guide r
 a command regenerates them, so 0.14 (palettes) and 0.15 (interface language) refresh them cheaply.
 Pages carry text alternatives written by the writer; the check refuses a screenshot without one.
 
+The website's feature pages show eight of the guide's screens in light and dark (website W5, approved by the user
+2026-11-05), so the tool has one more option: `guide/tools/screens.mjs --scheme dark` sets the browser's colour scheme and
+the application's own Appearance setting (`rdm:theme:v1`) to dark and writes `<name>-dark.png` beside the light file; without
+the flag nothing changes. The dark files exist for `model-editor-overview`, `change-set-review`, `mapping-grid-codes-to-stops`,
+`names-matrix`, `admin-api-reference`, `list-display-panel`, `use-assistant-workbook` and `model-assistant-change-dialog`;
+`list-display-panel` has a spec (PILOT) now. The website's `tools/engine.mjs` copies them into its build.
+
 ### DOC11: Fresh-reader check
 
 A person who has not used refiroo completes each tutorial and tries the quick start and the production

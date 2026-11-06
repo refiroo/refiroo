@@ -230,6 +230,18 @@
       ],
       "after": [{ "click": { "role": "button", "name": "Cancel" } }],
       "expect": ["New Name translation", "Parent", "Translates", "Translated name", "Active", "Create"]
+    },
+    {
+      "name": "list-display-panel",
+      "shows": "The Stops list with its Display panel open: Columns, Density, Per page and Column width. Opened and closed; no preference changed.",
+      "actions": [
+        { "goto": "/apps/network/views/stops?workspaceKey=graubuenden" },
+        { "waitFor": { "label": "Page" } },
+        { "click": { "role": "button", "name": "Display" } },
+        { "waitFor": { "text": "Column width", "exact": true } }
+      ],
+      "after": [{ "click": { "role": "button", "name": "Done" } }],
+      "expect": ["Stops", "Display", "Columns", "Density", "Per page", "Column width"]
     }
   ]
 }

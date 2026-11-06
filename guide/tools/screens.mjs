@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // Captures the guide's screenshots from the reference instance (guide/reference). See _waves/*.screens.json.
-// Usage: node guide/tools/screens.mjs [--file PILOT.screens.json] [--only a,b] [--list]
+// Usage: node guide/tools/screens.mjs [--file PILOT.screens.json] [--only a,b] [--scheme dark] [--list]
 // Reuses the Playwright installed in frontend/ (no second framework). Signs in through the engine's own
 // sign-in form as the reference administrator (GUIDE_ADMIN_USERNAME / GUIDE_ADMIN_PASSWORD in
 // guide/reference/.env). A screen with "as": "<role>" signs in with GUIDE_<ROLE>_USERNAME / GUIDE_<ROLE>_PASSWORD
 // instead ("approver", "contributor", ...); one session per role is reused. Light theme; 1440 px wide unless a screen names another width.
+// --scheme dark: the browser's colour scheme and the app's own Appearance setting (localStorage rdm:theme:v1) are dark, and the file is
+// written as <name>-dark.png beside the light one (the website's dark screenshots, W5). Without the flag nothing changes.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -18,6 +20,8 @@ const { chromium } = createRequire(path.join(REPO, 'frontend', 'package.json'))(
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf(`--${k}`); return i < 0 ? null : args[i + 1] ?? true; };
 const file = path.resolve(path.join(GUIDE, '_waves'), opt('file') || 'PILOT.screens.json');
+const scheme = opt('scheme') || 'light';
+if (!['light', 'dark'].includes(scheme)) { console.error(`--scheme takes light or dark, not ${scheme}`); process.exit(1); }
 const only = opt('only') ? String(opt('only')).split(',') : null;
 const spec = JSON.parse(fs.readFileSync(file, 'utf8'));
 const screens = spec.screens.filter((s) => !only || only.includes(s.name));
@@ -41,7 +45,8 @@ function locate(page, s) {
 }
 
 async function newSession(browser, width, height, who = 'ADMIN') {
-  const context = await browser.newContext({ viewport: { width, height: height ?? (width < 600 ? 844 : 900) }, colorScheme: 'light', locale: 'en-US' });
+  const context = await browser.newContext({ viewport: { width, height: height ?? (width < 600 ? 844 : 900) }, colorScheme: scheme, locale: 'en-US' });
+  if (scheme === 'dark') await context.addInitScript(() => { try { localStorage.setItem('rdm:theme:v1', '"dark"'); } catch { /* storage blocked */ } });
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   await page.goto(BASE + '/');
@@ -97,7 +102,7 @@ try {
         const l = a.page.getByText(t, { exact: false }).filter({ visible: true });
         if (!(await l.count().catch(() => 0))) missing.push(t);
       }
-      await a.page.screenshot({ path: path.join(OUT, `${s.name}.png`) });
+      await a.page.screenshot({ path: path.join(OUT, `${s.name}${scheme === 'dark' ? '-dark' : ''}.png`) });
       for (const step of s.after ?? []) { const who = await get(step.session ?? 'a'); await act(who.page, step); await who.page.waitForTimeout(step.settle ?? 400); }
       results.push({ name: s.name, ok: !missing.length, note: missing.length ? `not visible: ${missing.join(' | ')}` : '' });
     } catch (e) {

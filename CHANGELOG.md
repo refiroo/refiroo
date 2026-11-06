@@ -12,6 +12,10 @@ All notable changes to this project are documented in this file. The format foll
 - **A client's page shows its webhooks only where the deployment manages webhook subscriptions**; with them off it no longer shows "Not Found".
 - **Cancelling a job asks with its own words.** The confirmation reads **Discard the import** (nothing was written) or **Stop the job**, no longer repeating the button that opened it.
 - **The assistant's closing note speaks in the person's terms.** The session is told to name no files, keys, ids, endpoints or commands (`agent/9`), and the engine's closing `CHANGE_SET:` and `THEN_RELEASE:` lines are left out of the note.
+### Added (dark screenshots for the website, 0.13 DOC10)
+
+- **`guide/tools/screens.mjs --scheme dark` takes a screen in dark.** It sets the browser's colour scheme and the application's own Appearance setting to dark and writes `<name>-dark.png` beside the light file. Without the flag nothing changes. Eight screens the refiroo website shows are captured in dark; the Stops list's Display panel (`list-display-panel`) now has a screen spec in `_waves/PILOT.screens.json`.
+
 ### Added (record pages and related columns in the model editor, 0.13 RL)
 
 - **A type's page has one panel per relationship, in each direction.** The page a new type gets, **Declare its page**, a newly allowed relationship and the page shown where an application declares none follow one rule: Details and the hierarchy at the side; in the main region the contained types, then a panel for each relationship the type holds (containment aside), titled as the relationship reads from the type, with the name, the parent type the records sit under, up to four of their attributes and, for several types, their type. A newly allowed relationship also gets a `related:` column and filter on both types' tables, and removing it takes them away; pages written by hand are not rewritten. The frontend's copy is checked against the server's on the guide's example model.
