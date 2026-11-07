@@ -85,6 +85,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.system).mockResolvedValue(system);
   vi.mocked(api.capabilities).mockResolvedValue(capabilitiesFixture());
+  // The Jobs page names each workspace by its label.
+  vi.mocked(api.workspaces).mockResolvedValue({ items: [], nextCursor: null });
   // Each definition's document names its routes, as the engine writes them (C6b).
   vi.mocked(api.consumerApiDocument).mockImplementation(async (url): Promise<ConsumerApiDocument> => {
     const base = new URL(url).pathname.replace(/\/openapi\.json$/, "");
