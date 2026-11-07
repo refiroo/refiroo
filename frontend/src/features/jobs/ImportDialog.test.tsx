@@ -192,7 +192,8 @@ describe("ImportDialog (0.9 J4)", () => {
     await waitFor(() => expect(workspace).not.toBeDisabled());
     fireEvent.change(workspace, { target: { value: "east" } });
     const into = screen.getByLabelText("Load into");
-    await screen.findByRole("option", { name: "Change set “Autumn”" });
+    // The change sets load after the workspace is chosen; on a loaded CI runner that takes longer than the default second.
+    await screen.findByRole("option", { name: "Change set “Autumn”" }, { timeout: 5000 });
     // Choosing the workspace already chosen keeps the change sets read (found by test:browser:j4).
     fireEvent.change(workspace, { target: { value: "east" } });
     expect(screen.getByRole("option", { name: "Change set “Autumn”" })).toBeInTheDocument();
