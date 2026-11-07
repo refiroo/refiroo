@@ -1,0 +1,17 @@
+# The smoke start of .github/workflows/images.yml (CL1-D5): the reference compose.yml, run on a CI
+# runner with the two images that were just pushed (named by digest in SMOKE_ENGINE_IMAGE and
+# SMOKE_WEB_IMAGE) instead of building them, the way a host will run them. Nothing binds ports 80
+# or 443; web is published on 127.0.0.1:8080 only, for the checks. Used on top of compose.yml:
+#   docker compose -f compose.yml -f .github/images/compose.smoke.yml up -d --wait
+services:
+  engine:
+    image: ${SMOKE_ENGINE_IMAGE:?Set SMOKE_ENGINE_IMAGE}
+    build: !reset null
+
+  web:
+    image: ${SMOKE_WEB_IMAGE:?Set SMOKE_WEB_IMAGE}
+    build: !reset null
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    # No certificates are needed with WEB_TLS=proxy.
+    volumes: !reset []

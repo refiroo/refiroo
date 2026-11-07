@@ -1,0 +1,271 @@
+# Builds the engine and web images once, for linux/amd64 and linux/arm64, starts them, and only then
+# tags them in ghcr.io/refiroo (CL1, website/docs/CL1_PLAN.md).
+#   - a stable tag v<X.Y.Z> (no hyphen)      -> :v<X.Y.Z>; needs a green CI run and pyproject's version
+#   - a successful CI run on main            -> :main-<first 12 characters of the commit> and :main
+#   - a manual run (ref, label)              -> :test-<label>; tag_mode runs the stable-tag checks on ref
+# Native runners, no emulation. Each architecture pushes untagged digests, starts them with
+# compose.yml, and only a passing start uploads its digests; the last job joins them into the tags.
+name: Images
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to build
+        default: main
+        required: true
+        type: string
+      label:
+        description: Writes the tag test-<label>
+        required: true
+        type: string
+      tag_mode:
+        description: Run the stable-tag checks (green CI, tag equals version) against ref
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+  actions: read
+
+concurrency:
+  group: images-${{ github.event_name }}-${{ github.event.workflow_run.head_sha || github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: refiroo
+  SOURCE_URL: https://github.com/refiroo/refiroo
+
+jobs:
+  prepare:
+    name: Decide what to build
+    runs-on: ubuntu-24.04
+    # No pre-release tags; for a CI run, only a successful one.
+    if: >-
+      (github.event_name == 'push' && !contains(github.ref_name, '-'))
+      || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      || github.event_name == 'workflow_dispatch'
+    outputs:
+      sha: ${{ steps.what.outputs.sha }}
+      version: ${{ steps.what.outputs.version }}
+      tags: ${{ steps.what.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || (github.event_name == 'workflow_dispatch' && inputs.ref) || github.sha }}
+
+      - name: Work out the commit and the tags
+        id: what
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_REF: ${{ inputs.ref }}
+          INPUT_LABEL: ${{ inputs.label }}
+          TAG_MODE: ${{ inputs.tag_mode }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' backend/pyproject.toml | head -n 1)
+          [ -n "$version" ] || { echo "::error::No version in backend/pyproject.toml"; exit 1; }
+
+          check_tag=false
+          case "$EVENT" in
+            push)
+              tag="$REF_NAME"; tags="$tag"; check_tag=true ;;
+            workflow_run)
+              tags="main-${sha:0:12}"$'\n'"main" ;;
+            workflow_dispatch)
+              if ! [[ "$INPUT_LABEL" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$ ]]; then
+                echo "::error::The label must be letters, digits, dot, dash or underscore"; exit 1
+              fi
+              tags="test-$INPUT_LABEL"
+              if [ "$TAG_MODE" = "true" ]; then tag="$INPUT_REF"; check_tag=true; fi ;;
+          esac
+
+          if [ "$check_tag" = true ]; then
+            # CL1-D3: a stable tag is built only from a green commit, and says what the code says.
+            if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::$tag is not a stable tag (vX.Y.Z)"; exit 1
+            fi
+            if [ "${tag#v}" != "$version" ]; then
+              echo "::error::Tag $tag and backend/pyproject.toml version $version disagree"; exit 1
+            fi
+            ok=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$sha&status=success&per_page=1" --jq '.total_count')
+            if [ "$ok" -lt 1 ]; then
+              echo "::error::No successful CI run for commit $sha"; exit 1
+            fi
+          fi
+
+          {
+            echo "sha=$sha"
+            echo "version=$version"
+            echo "tags<<EOF"
+            echo "$tags"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Building $sha (version $version) as:"; echo "$tags"
+
+  build:
+    name: Build and start (${{ matrix.arch }})
+    needs: prepare
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the engine image by digest
+        id: engine
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          provenance: false
+          labels: |
+            org.opencontainers.image.source=${{ env.SOURCE_URL }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+          cache-from: type=gha,scope=engine-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=engine-${{ matrix.arch }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.OWNER }}/refiroo-engine,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Build and push the web image by digest
+        id: web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          provenance: false
+          labels: |
+            org.opencontainers.image.source=${{ env.SOURCE_URL }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+          cache-from: type=gha,scope=web-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=web-${{ matrix.arch }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.OWNER }}/refiroo-web,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Start both images with compose.yml (CL1-D5)
+        env:
+          ENGINE_DIGEST: ${{ steps.engine.outputs.digest }}
+          WEB_DIGEST: ${{ steps.web.outputs.digest }}
+        run: |
+          set -euo pipefail
+          envfile="$RUNNER_TEMP/smoke.env"
+          {
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "SECRETS_ENCRYPTION_KEY=$(openssl rand -base64 32 | tr '+/' '-_')"
+            echo "RDM_CURSOR_SIGNING_KEY=$(openssl rand -base64 32)"
+            echo "PUBLIC_URL=http://localhost:8080"
+            echo "WEB_TLS=proxy"
+            echo "RDM_ENV_FILE=$envfile"
+            echo "SMOKE_ENGINE_IMAGE=$REGISTRY/$OWNER/refiroo-engine@$ENGINE_DIGEST"
+            echo "SMOKE_WEB_IMAGE=$REGISTRY/$OWNER/refiroo-web@$WEB_DIGEST"
+          } > "$envfile"
+          compose() {
+            docker compose -p smoke --env-file "$envfile" -f compose.yml -f .github/images/compose.smoke.yml "$@"
+          }
+          cleanup() { compose down -v --remove-orphans || true; rm -f "$envfile"; }
+          trap cleanup EXIT
+
+          fail() {
+            echo "::error::$1"
+            compose ps -a || true
+            compose logs --tail 80 --no-color || true
+            exit 1
+          }
+
+          compose pull engine web
+          compose up -d --wait --wait-timeout 300 || fail "The images did not become healthy"
+
+          code=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health) || fail "GET /health did not answer"
+          echo "GET /health -> $code"
+          [ "$code" = 200 ] || fail "GET /health answered $code"
+
+          curl -sS -o "$RUNNER_TEMP/index.html" -w 'GET / -> %{http_code}\n' http://127.0.0.1:8080/ || fail "GET / did not answer"
+          grep -qi '<div id="root"' "$RUNNER_TEMP/index.html" || fail "GET / did not serve the application"
+          echo "Both images started and answered."
+
+      - name: Keep the digests
+        env:
+          ENGINE_DIGEST: ${{ steps.engine.outputs.digest }}
+          WEB_DIGEST: ${{ steps.web.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          echo "$ENGINE_DIGEST" > "$RUNNER_TEMP/digests/engine"
+          echo "$WEB_DIGEST" > "$RUNNER_TEMP/digests/web"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: digests-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Write the tags
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Join the architectures under the tags
+        env:
+          TAGS: ${{ needs.prepare.outputs.tags }}
+        run: |
+          set -euo pipefail
+          for image in engine web; do
+            repo="$REGISTRY/$OWNER/refiroo-$image"
+            args=()
+            while IFS= read -r tag; do
+              [ -n "$tag" ] && args+=(-t "$repo:$tag")
+            done <<< "$TAGS"
+            sources=()
+            for arch in amd64 arm64; do
+              sources+=("$repo@$(cat "$RUNNER_TEMP/digests/digests-$arch/$image")")
+            done
+            docker buildx imagetools create "${args[@]}" "${sources[@]}"
+            first=$(head -n 1 <<< "$TAGS")
+            docker buildx imagetools inspect "$repo:$first"
+          done

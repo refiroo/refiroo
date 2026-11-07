@@ -1,0 +1,76 @@
+# Weekly clean-up of ghcr.io/refiroo/refiroo-engine and -web (CL1-D6). Deletes untagged versions
+# (older than a day, and not a child of a kept multi-architecture tag), and versions whose tags are
+# all main-* or test-* and older than 30 days. Stable v* tags and the moving main tag stay.
+# A manual run only lists what it would delete unless dry_run is turned off.
+name: Images clean-up
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only list what would be deleted
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete old versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+          now=$(date -u +%s)
+          week_cutoff=$((now - 30 * 86400))
+          day_cutoff=$((now - 86400))
+          [ "$DRY_RUN" = true ] && echo "Dry run: nothing is deleted."
+
+          for pkg in refiroo-engine refiroo-web; do
+            api="/orgs/refiroo/packages/container/$pkg/versions"
+            if ! versions=$(gh api --paginate "$api?per_page=100" 2>"$RUNNER_TEMP/err"); then
+              if grep -q "404" "$RUNNER_TEMP/err"; then echo "$pkg: no package yet."; continue; fi
+              cat "$RUNNER_TEMP/err"; exit 1
+            fi
+            versions=$(jq -s 'add // []' <<< "$versions")
+
+            # Children (per-architecture images) of every version that has a tag: never deleted.
+            protected=$(jq -r '.[] | select((.metadata.container.tags | length) > 0) | .name' <<< "$versions" |
+              while read -r digest; do
+                docker buildx imagetools inspect --raw "ghcr.io/refiroo/$pkg@$digest" 2>/dev/null |
+                  jq -r '.manifests[]?.digest' || true
+              done | sort -u)
+
+            jq -c '.[]' <<< "$versions" | while read -r v; do
+              id=$(jq -r .id <<< "$v"); name=$(jq -r .name <<< "$v")
+              updated=$(date -u -d "$(jq -r .updated_at <<< "$v")" +%s)
+              tags=$(jq -r '.metadata.container.tags | join(",")' <<< "$v")
+              reason=""
+              if [ -z "$tags" ]; then
+                if [ "$updated" -lt "$day_cutoff" ] && ! grep -qx "$name" <<< "$protected"; then
+                  reason="untagged"
+                fi
+              elif [ "$updated" -lt "$week_cutoff" ] &&
+                   jq -e '.metadata.container.tags | all(test("^(main|test)-"))' <<< "$v" > /dev/null; then
+                reason="old main-/test- tags"
+              fi
+              [ -n "$reason" ] || continue
+              echo "$pkg: delete $id ($name, tags: ${tags:-none}, $reason)"
+              [ "$DRY_RUN" = true ] || gh api -X DELETE "$api/$id"
+            done
+          done
