@@ -1,12 +1,15 @@
 name: CI
 
 on:
+  # Branches only: a tag pushed with its commit would run the same checks a second time.
   push:
+    branches: ["**"]
   pull_request:
 
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     services:
       postgres:
         image: postgres:17
@@ -30,7 +33,9 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e 'backend[dev]'
       - run: python -m ruff check backend
-      - run: python -m pytest backend/tests -q
+      # Parallel part, then the timing-based `serial` tests in one process (docs/testing/EXECUTION_GUIDE.md).
+      - run: python -m pytest backend/tests -n auto -q
+      - run: python -m pytest backend/tests -m serial -q
 
   frontend:
     runs-on: ubuntu-latest
@@ -44,6 +49,9 @@ jobs:
       - run: npm ci
         working-directory: frontend
       - run: npm test
+        working-directory: frontend
+      # The harness helper test launches a headless Chromium.
+      - run: npx playwright install --with-deps chromium
         working-directory: frontend
       - run: npm run test:gate-helpers
         working-directory: frontend
