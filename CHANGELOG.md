@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed (a draft's dry run reads its own profile, 0.13 AT)
+
+- **A draft's dry run reads the draft's own profile.** `profile` in `POST /model-drafts/{id}/dry-run` is optional: without it the file is read with the profile the draft holds. The profile `GET /model-drafts/{id}/profile` answers is accepted unchanged: its read-only `key`, `unmapped`, `ignoredSheets` and each source's `id` are ignored, where they were refused with `422`.
+
+### Fixed (setting name on the Webhooks screen, password in a restore check refusal)
+
+- **The Webhooks screen names the setting that is read.** With webhooks off it said they also need `CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY`, a setting startup refuses since `SECRETS_ENCRYPTION_KEY` replaced it; it now names `SECRETS_ENCRYPTION_KEY`.
+- **A refused `--restored` URL no longer shows its password.** `python -m app.cli.restore_check` printed the value as given when it refused it. A URL that is not PostgreSQL is shown with its password hidden; a value that is not a URL at all is not repeated.
+
 ### Added (images built in CI, CL1)
 
 - **`.github/workflows/images.yml` builds the engine and web images once** for `linux/amd64` and `linux/arm64` on native runners, starts them with `compose.yml` (`.github/images/compose.smoke.yml`) and checks `/health` and the application, and only then writes the tags in `ghcr.io/refiroo/refiroo-engine` and `-web`: `v<X.Y.Z>` for a stable tag (built only from a commit with a green CI run, and only if the tag equals the version in `backend/pyproject.toml`), `main-<12-character commit>` and `main` for a successful CI run on `main`, and `test-<label>` for a manual run. Pre-release tags are not built.

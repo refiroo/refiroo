@@ -4478,7 +4478,11 @@ release) in a workspace, writing nothing:
 ```
 
 The `profile` is an inline import profile (D65), checked against the draft's model; from A5 the
-editor uses the draft's own profile. It answers `202` with the dry run `checking`; the worker binds
+editor uses the draft's own profile. Since 0.13 AT it is optional: without it the file is read with
+the profile the draft holds (the `definition` of `GET …/profile`), and `422 INVALID_IMPORT_PROFILE`
+says so when the draft's profile loads no column. The profile that `GET …/profile` answers (`profile`)
+may be sent back unchanged: its read-only `key`, `unmapped` and `ignoredSheets` and each source's
+`id` are ignored, so a client changes a profile by editing what it read. It answers `202` with the dry run `checking`; the worker binds
 the file's staged cells through the import binding (D66) and previews **every** item the import
 would run in a transaction it rolls back (D67). A dry run still running for the draft is cancelled,
 and a dry run whose draft has since taken a step that can change the load (one that queues a dry run

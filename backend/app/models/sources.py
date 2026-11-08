@@ -6,9 +6,9 @@ file and the import profile to bind it with (D65), and runs the import against t
 a workspace, writing nothing (D67).
 """
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .imports import Block, CsvOptions, InlineProfile
 
@@ -43,14 +43,33 @@ class SourceFileRequest(BaseModel):
 
 class DryRunRequest(BaseModel):
     """``POST /model-drafts/{id}/dry-run``: the draft's source file, the workspace the import would
-    write in, and the profile that binds the file (D65), checked against the draft's model."""
+    write in, and the profile that binds the file (D65), checked against the draft's model.
+    Without ``profile`` the file is read with the profile the draft holds (0.13 AT); one sent may be
+    the profile ``GET /model-drafts/{id}/profile`` answered, whose read-only ``key``, ``unmapped``,
+    ``ignoredSheets`` and source ``id`` are ignored."""
 
     model_config = ConfigDict(extra="forbid")
 
     sourceFileId: str
     workspaceKey: str = Field(min_length=1)
-    profile: InlineProfile
+    profile: InlineProfile | None = None
     onExisting: Literal["reject", "overwrite"] = "reject"
+
+    @field_validator("profile", mode="before")
+    @classmethod
+    def without_read_only_members(cls, value: Any) -> Any:
+        """What the draft's profile read adds to an import profile is not an input."""
+        if not isinstance(value, dict):
+            return value
+        kept = {n: m for n, m in value.items() if n not in ("key", "unmapped", "ignoredSheets")}
+        if isinstance(kept.get("sources"), list):
+            kept["sources"] = [
+                {n: m for n, m in source.items() if n != "id"}
+                if isinstance(source, dict)
+                else source
+                for source in kept["sources"]
+            ]
+        return kept
 
 
 class InferenceRequest(BaseModel):

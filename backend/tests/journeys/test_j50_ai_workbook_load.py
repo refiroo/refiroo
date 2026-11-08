@@ -2013,3 +2013,51 @@ def test_a_turn_a_worker_stopped_in_is_recorded_from_its_log_in_the_new_place(
         if c.get("taskId") == task["id"] and c["failureKind"] == "interrupted"
     ]
     assert died["outcome"] == "failed" and (died["tokensIn"], died["tokensOut"]) == (7, 3)
+
+
+# --- AT: a draft's dry run reads its own profile -----------------------------------------------------
+
+
+@pytest.mark.journey("J50.62")
+@pytest.mark.structures("K")
+def test_a_drafts_dry_run_reads_the_profile_the_draft_holds(world):
+    """Given a draft whose profile the inference built from W1, when its dry run is sent without a
+    profile, then every row is read with the draft's own; and the profile the draft's profile read
+    answered, sent back unchanged, gives the same figures."""
+    import workbooks
+    from test_j34_onboard import (
+        _application,
+        _draft_profile,
+        _empty_draft,
+        _infer,
+        _profiled,
+        _run,
+    )
+    from test_j34_onboard import _workspace as _onboarding
+
+    workspace = _onboarding(world)
+    draft = _empty_draft(world)
+    book = workbooks.w1(rows=50)
+    source = _profiled(
+        world, {"draftId": draft["id"]}, "catalogue.xlsx", book.content, workspaceKey=workspace
+    )
+    _infer(world, draft)
+    assert ok(_application(world, draft))["valid"] is True
+
+    def dry_run(**profile):
+        body = {"sourceFileId": source["id"], "workspaceKey": workspace, **profile}
+        ok(world.api.post(f"/model-drafts/{draft['id']}/dry-run", body), 202)
+        _run(world)
+        done = ok(world.api.get(f"/model-drafts/{draft['id']}/dry-run"))
+        assert done["state"] == "completed", done["error"]
+        return done["summary"]["rows"], [
+            (s["sheet"], s["rows"], s["records"], s["rejections"])
+            for s in done["summary"]["sources"]
+        ]
+
+    own = dry_run()
+    assert own[0]["total"] >= 50 and own[0]["run"] == own[0]["total"]
+    read = _draft_profile(world, draft)["profile"]
+    # The read carries the editor's key, name and each source's id: sent back, they are ignored.
+    assert read["key"] and read["sources"][0]["id"]
+    assert dry_run(profile=read) == own

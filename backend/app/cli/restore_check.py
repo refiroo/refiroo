@@ -25,10 +25,14 @@ def _restored(raw: str) -> URL:
     try:
         url = make_url(raw)
     except ArgumentError:
-        raise SystemExit(_refusal(f"--restored is not a database URL: '{raw}'.")) from None
+        # Not echoed: a value that does not parse cannot have its password hidden.
+        raise SystemExit(_refusal("--restored is not a database URL.")) from None
     if url.get_backend_name() != "postgresql" or url.drivername not in ("postgresql", DRIVER):
+        shown = url.render_as_string(hide_password=True)
         raise SystemExit(
-            _refusal(f"--restored must be a PostgreSQL URL (postgresql+psycopg://…), not '{raw}'.")
+            _refusal(
+                f"--restored must be a PostgreSQL URL (postgresql+psycopg://…), not '{shown}'."
+            )
         )
     return url.set(drivername=DRIVER)
 

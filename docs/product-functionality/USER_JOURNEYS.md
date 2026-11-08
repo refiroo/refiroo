@@ -2652,6 +2652,10 @@ API; it calls no AI provider.
   does; the refusal names the group and the proposal stays, taking words.
 - **J50.60 A migration that waits**: while the migration of a proposal that moves whole types waits, the task takes
   words; the confirmed migration ends the session.
+- **J50.61** removed 2026-11-08 (the engine's start of an assistant task); the number stays unused.
+- **J50.62 A draft's dry run reads its own profile (0.13 AT)**: a dry run of a draft without `profile` reads every row
+  with the profile the draft holds; the profile `GET /model-drafts/{id}/profile` answered, sent back unchanged, gives
+  the same figures.
 
 **Refusals:** `403 FORBIDDEN`, `409 AI_NOT_CONFIGURED`, `409 AI_SEND_LEVEL_TOO_LOW`, `404
 AI_TASK_NOT_FOUND`, `409 AI_TASK_VERSION_CONFLICT`, `409 AI_TASK_STATE`, `409

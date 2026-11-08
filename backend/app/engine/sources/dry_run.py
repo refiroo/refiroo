@@ -38,6 +38,7 @@ from ..model.compiler import compile_model
 from ..model.drafts import load_draft
 from ..model.registry import resolve_model_snapshot
 from ..workspaces.catalogue import resolve_workspace
+from .profile_export import definition as exported_profile
 from .staged import StagedFile
 from .store import load_source_file, require_profile
 
@@ -62,9 +63,21 @@ def submit_dry_run(
     require_profile(session, source)
     model = _compiled(draft)
     workspace = resolve_workspace(session, request.workspaceKey, require_active=True)
-    definition = ImportProfileDefinition.model_validate(
-        request.profile.model_dump(include={"csv", "sources", "valueMaps"}, exclude_none=True)
-    )
+    if request.profile is not None:
+        sent = request.profile.model_dump(
+            include={"csv", "sources", "valueMaps"}, exclude_none=True
+        )
+    else:
+        # The draft's own profile, as GET /model-drafts/{id}/profile exports it (0.13 AT).
+        sent, _ = exported_profile(draft.profile_json)
+        if sent is None:
+            raise api_error(
+                422,
+                "INVALID_IMPORT_PROFILE",
+                f"Model draft '{draft_id}' has no profile that loads a column; send a profile",
+                {"pointer": "/profile"},
+            )
+    definition = ImportProfileDefinition.model_validate(sent)
     problems = check_profile(model, definition)
     if problems:
         raise invalid_profile(problems)

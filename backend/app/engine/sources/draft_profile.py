@@ -40,6 +40,7 @@ from ..model.compiler import compile_model
 from ..model.diagnostics import ModelDiagnostic
 from ..workspaces.catalogue import resolve_workspace
 from .dry_run import runs_dry_run, submit_dry_run
+from .profile_export import definition
 from .store import profile_state
 
 
@@ -100,22 +101,6 @@ def sheets(session: Session, draft: ModelDraft) -> tuple[dict[str, Sheet] | None
             _row_reader(session, source.id, row.sheet_index),
         )
     return found, source.name
-
-
-def definition(profile: dict[str, Any] | None) -> tuple[dict[str, Any] | None, list[int]]:
-    """The import profile the draft's profile stands for, and, per source in it, its position in
-    the draft's profile: no ``id``, no editor members, and no source without columns."""
-    if not profile or not profile.get("sources"):
-        return None, []
-    sources, positions = [], []
-    for position, source in enumerate(profile["sources"]):
-        if not source.get("columns"):
-            continue
-        sources.append({name: value for name, value in source.items() if name != "id"})
-        positions.append(position)
-    if not sources:
-        return None, []
-    return {"sources": sources, "valueMaps": profile.get("valueMaps") or {}}, positions
 
 
 def diagnostics(profile: dict[str, Any] | None, model: EngineModel | None) -> list[ModelDiagnostic]:

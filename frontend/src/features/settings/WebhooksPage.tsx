@@ -109,7 +109,7 @@ export function WebhooksPage({
           }
         >
           Webhooks are off in this deployment. The operator turns them on with <code>{subscriptions.setting}=true</code>
-          , which also needs <code>CONSUMER_WEBHOOK_KEY_ENCRYPTION_KEY</code>, and restarts the engine.
+          , which also needs <code>SECRETS_ENCRYPTION_KEY</code>, and restarts the engine.
         </EmptyState>
       ) : (
         <Subscriptions

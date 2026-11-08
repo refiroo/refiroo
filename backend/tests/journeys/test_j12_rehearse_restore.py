@@ -214,3 +214,20 @@ def test_a_rehearsal_that_fails_is_recorded(configuration):
         assert refused.returncode == 2
         assert "the instance's own database" in refused.stderr
         assert len(_rehearsals(configuration, url)) == len(rehearsals) == 2
+
+
+@pytest.mark.journey("J12.16")
+@pytest.mark.parametrize(
+    "restored",
+    ["mysql://operator:s3cret-pass@db.example/copy", "not a url s3cret-pass"],
+)
+def test_a_refused_restored_url_hides_its_password(restored, capsys):
+    """An operator who mistypes ``--restored`` sees why it was refused, never the password."""
+    from app.cli.restore_check import main
+
+    with pytest.raises(SystemExit) as refused:
+        main(["--restored", restored])
+    assert refused.value.code == 2
+    message = capsys.readouterr().err
+    assert "Nothing was checked or recorded." in message
+    assert "s3cret-pass" not in message
