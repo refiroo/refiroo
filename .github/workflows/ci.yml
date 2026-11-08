@@ -8,8 +8,10 @@ on:
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # Ubuntu 24.04, not ubuntu-latest (26.04): Playwright's Chromium does not install on 26.04 yet.
+    runs-on: ubuntu-24.04
+    # 90 until the suite's CI time is known (it passed 79% in 40 minutes on 2026-11-07); then lowered again.
+    timeout-minutes: 90
     services:
       postgres:
         image: postgres:17
@@ -34,11 +36,11 @@ jobs:
       - run: pip install -e 'backend[dev]'
       - run: python -m ruff check backend
       # Parallel part, then the timing-based `serial` tests in one process (docs/testing/EXECUTION_GUIDE.md).
-      - run: python -m pytest backend/tests -n auto -q
+      - run: python -m pytest backend/tests -n auto -q -rfE --durations=30
       - run: python -m pytest backend/tests -m serial -q
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
