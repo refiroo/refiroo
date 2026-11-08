@@ -266,6 +266,8 @@ BUDGET_MODULES = (
     "test_background_volume.py",
     "test_import_budget.py",
     "test_migration_budget.py",
+    # Seconds per dry run, a budget measured on a developer's machine (CI's runner is slower).
+    "test_move_step_time.py",
 )
 BUDGET_DESCRIPTION = "full-size budget: left out unless `-m` names `budget`; a release's acceptance only"
 SLOW_SECONDS = 10.0

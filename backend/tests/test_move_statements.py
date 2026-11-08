@@ -23,8 +23,9 @@ from app.db import get_engine
 
 SIZES = (50, 500)
 # Statements per dry run (binding, preview and record), measured 2026-10-18 at 124 for both sizes
-# (X2): the two walks of the hierarchy ran once each, the tokens standing at its top.
-BUDGET = 130
+# (X2): the two walks of the hierarchy ran once each, the tokens standing at its top. Two more in
+# 0.16 (ag1, ap9): a client token's request reads the client's kind and its assistant task.
+BUDGET = 132
 # How far apart the two counts may be: an IN list for every 500 values the items name.
 ALLOWANCE = 6
 

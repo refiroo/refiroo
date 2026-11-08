@@ -26,6 +26,7 @@ from app.main import create_app
 
 HEAD = "20261123_01"
 LIMITED_ROLE = "rdm_startup_limited"
+LIMITED_PASSWORD = "limited-role-pass"
 
 
 @pytest.fixture
@@ -167,12 +168,14 @@ def test_missing_extensions_the_role_cannot_create_are_refused(monkeypatch, data
     with seeds.admin() as server:
         if not server.scalar(text(f"SELECT 1 FROM pg_roles WHERE rolname = '{LIMITED_ROLE}'")):
             server.execute(text(f"CREATE ROLE {LIMITED_ROLE} LOGIN"))
+        # A server that asks for a password (CI's) needs one for the role too.
+        server.execute(text(f"ALTER ROLE {LIMITED_ROLE} PASSWORD '{LIMITED_PASSWORD}'"))
     # The role may create tables, but not extensions (which needs CREATE on the database).
     engine = create_engine(url, isolation_level="AUTOCOMMIT")
     with engine.connect() as connection:
         connection.execute(text(f"GRANT CREATE ON SCHEMA public TO {LIMITED_ROLE}"))
     engine.dispose()
-    limited = url.set(username=LIMITED_ROLE)
+    limited = url.set(username=LIMITED_ROLE, password=LIMITED_PASSWORD)
     with serve(monkeypatch, _render(limited)) as (client, errors):
         _assert_refused(
             client,

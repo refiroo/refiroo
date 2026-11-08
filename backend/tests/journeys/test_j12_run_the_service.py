@@ -24,6 +24,7 @@ from app.db import migration_config
 
 HEAD = ScriptDirectory.from_config(migration_config()).get_current_head()
 LIMITED_ROLE = "rdm_journey_limited"
+LIMITED_PASSWORD = "limited-role-pass"
 SECRET = "s3cret-pass"
 
 
@@ -157,8 +158,10 @@ def test_missing_extensions_are_refused_until_they_are_installed(configuration, 
             f"DO $$ BEGIN CREATE ROLE {LIMITED_ROLE} LOGIN; "
             "EXCEPTION WHEN duplicate_object THEN NULL; END $$"
         )
+        # A server that asks for a password (CI's) needs one for the role too.
+        server.exec_driver_sql(f"ALTER ROLE {LIMITED_ROLE} PASSWORD '{LIMITED_PASSWORD}'")
     execute(url, f"GRANT CREATE ON SCHEMA public TO {LIMITED_ROLE}")
-    limited = url.set(username=LIMITED_ROLE)
+    limited = url.set(username=LIMITED_ROLE, password=LIMITED_PASSWORD)
     try:
         with serve(configuration, limited) as service:
             _refusal(

@@ -285,19 +285,35 @@ def place_relation(document: Document, relation_key: str, from_key: str, to_key:
         relation = document.find(["relationTypes", {"key": relation_key}]) or {}
         if direction == "incoming" and not relation.get("reverseKey"):
             continue
+        several = len(related_type_keys(document, type_key, relation_key, direction)) > 1
         for path in detail_paths(document, type_key):
             panels = document.at(path).get("panels") or []
-            if not any(_lists_relation(p, relation_key, direction) for p in panels):
+            listing = [p for p in panels if _lists_relation(p, relation_key, direction)]
+            if not listing:
                 add_panel(
                     document,
                     path,
                     relations_panel(document, type_key, relation_key, direction, panels),
                 )
+            elif several:
+                # The panel now lists several types; an ancestor sort needs one, so only it goes.
+                for panel in listing:
+                    _drop_ancestor_sort(document, path + ["panels", {"key": panel["key"]}])
         field = "related:" + (relation_key if direction == "outgoing" else relation["reverseKey"])
         for path in table_view_paths(document, type_key):
             config = path + ["config"]
             _append_new(document, config + ["columns"], field)
             _append_new(document, config + ["filterFields"], field)
+
+
+def _drop_ancestor_sort(document: Document, panel: Path) -> None:
+    config = document.at(panel).get("config") or {}
+    sorts = config.get("sortFields") or []
+    kept = [field for field in sorts if not str(field).startswith("ancestor:")]
+    if kept != sorts:
+        document.set(panel + ["config"], "sortFields", kept)
+    if str(config.get("defaultSort") or "").startswith("ancestor:"):
+        document.set(panel + ["config"], "defaultSort", "name")
 
 
 def _lists_relation(panel: dict[str, Any], relation_key: str, direction: str) -> bool:

@@ -98,6 +98,7 @@ describe("Inbox (0.12 A2)", () => {
   it("counts a notice that arrives on the stream and closes the stream with the bell", async () => {
     const { unmount } = renderBell();
     await bell();
+    await waitFor(() => expect(FakeStream.opened).toHaveLength(1));
     FakeStream.opened[0].push("unread", { unreadCount: 1 });
     FakeStream.opened[0].push("notification", failed);
     FakeStream.opened[0].push("notification", submitted);
@@ -177,6 +178,7 @@ describe("Inbox (0.12 A2)", () => {
     vi.mocked(api.markNotificationsRead).mockResolvedValue({ marked: 3, unreadCount: 0 });
     renderBell();
     await bell();
+    await waitFor(() => expect(FakeStream.opened).toHaveLength(1));
     FakeStream.opened[0].push("unread", { unreadCount: 3 });
     fireEvent.click(await screen.findByRole("button", { name: "Inbox, 3 unread" }));
     fireEvent.click(await screen.findByRole("button", { name: "Mark all read" }));
